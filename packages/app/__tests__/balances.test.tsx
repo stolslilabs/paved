@@ -99,21 +99,31 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(screen.getByRole("button", { name: "48.50 USDC: Minting…" })).toBeDisabled();
   });
 
-  // #925 (the owner's ruling, 2026-10-30): no "+" on a phone's plate, so #860's one width needs no room for one. From `desktop`
-  // the rail keeps its "+" until #925 removes it everywhere.
-  it("pill: no \"+\" on a phone's plate, in a row of two or alone; the rail's at every width", () => {
-    const plusesOf = (container: HTMLElement) => container.querySelectorAll("[data-slot=resource-plus]");
-    const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(plusesOf(vault.container)).toHaveLength(0);
-    vault.unmount();
+  // #925 (the owner's ruling, 2026-10-30): no "+" on any balance plate, on a phone or from `desktop`, in a row or a column.
+  it("no \"+\" on any plate, pill or rail, in a row of two, alone or in a column; the open end a bare end's padding", () => {
+    for (const layout of ["pill", "rail"] as const) {
+      for (const props of [{ kinds: ["paved", "vpaved"] as const, here: ["vpaved"] as const }, { kinds: ["cobbles"] as const }, { direction: "column" as const }]) {
+        const { container, unmount } = render(wrap(<Balances layout={layout} {...props} state={{ ...READY, vpaved: 1n }} faucet />));
+        expect(container.querySelectorAll("[data-slot=resource-plate]").length).toBeGreaterThan(0);
+        expect(container.querySelector("[data-slot=resource-plus], [data-icon=plus]")).toBeNull();
+        unmount();
+      }
+    }
+    // The figure 4 px clear of the icon's half and of the open end on a phone (#860's 112 px); from `desktop`, a bare end's 12 px.
     const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
-    expect(plusesOf(lone.container)).toHaveLength(0);
-    // The figure 4 px clear of the icon's half and of the open end (#860's 112 px).
     expect(lone.container.querySelector(".h-8")).toHaveClass("pr-7", "pl-1");
     lone.unmount();
-    const rail = render(wrap(<Balances layout="rail" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(plusesOf(rail.container)).toHaveLength(1);
-    expect(plusesOf(rail.container)[0]).not.toHaveClass("hidden");
+    const rail = render(wrap(<Balances layout="rail" kinds={["cobbles"]} state={READY} />));
+    expect(rail.container.querySelector(".h-9")).toHaveClass("pr-8.5", "pl-3");
+  });
+
+  it("each plate still leads to its page, with no \"+\"; on its own page it leads nowhere (#925)", async () => {
+    const onAction = vi.fn();
+    render(wrap(<Balances layout="pill" kinds={["paved", "vpaved", "cobbles"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} onAction={onAction} />));
+    await userEvent.click(screen.getByRole("button", { name: /PAVED: Play a Challenge/ }));
+    await userEvent.click(screen.getByRole("button", { name: "240 Cobbles: Buy packs" }));
+    expect(onAction.mock.calls).toEqual([["paved"], ["cobbles"]]);
+    expect(screen.getByRole("button", { name: /vPAVED$/ })).toBeDisabled();
   });
 
   it("a balance with no source is a dash", () => {
@@ -174,33 +184,22 @@ describe("Balances (#538), the resource bar (#620)", () => {
 });
 
 describe("the plates (#828)", () => {
-  it("a '+' on the balances that lead to a page (PAVED, vPAVED, Cobbles), none on USDC; the icon after the figure", () => {
+  it("every balance's plate, the icon after the figure and the box first: nothing over the other end (#925)", () => {
     const { container } = render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 1n }} />));
     const plates = [...container.querySelectorAll<HTMLElement>("[data-slot=resource-plate]")];
-    expect(plates.map((p) => [p.dataset.token, !!p.querySelector("[data-slot=resource-plus]")])).toEqual([
-      ["usdc", false],
-      ["paved", true],
-      ["vpaved", true],
-      ["cobbles", true],
-    ]);
+    expect(plates.map((p) => p.dataset.token)).toEqual(["usdc", "paved", "vpaved", "cobbles"]);
     for (const plate of plates) {
       expect(plate.dataset.side).toBe("right");
-      // The icon is the plate's last part (over the right end), the "+" its first (over the left end).
+      // The icon is the plate's last part (over the right end), the box its first: no "+" over the left end.
       expect(plate.lastElementChild!.querySelector("[data-slot=token-icon]")).not.toBeNull();
+      expect(plate.firstElementChild).toHaveClass("bg-resource-plate");
     }
-    expect(plates[3]!.firstElementChild).toHaveAttribute("data-slot", "resource-plus");
   });
 
-  it("the '+' is an icon, not a character (#845)", () => {
-    const { container } = render(wrap(<Balances layout="rail" state={READY} />));
-    const pluses = [...container.querySelectorAll("[data-slot=resource-plus]")];
-    expect(pluses.length).toBeGreaterThan(0);
-    for (const plus of pluses) {
-      // A light plus on its green relief button, both drawn by the game icon (#844).
-      const icon = plus.querySelector("[data-slot=game-icon][data-icon=plus]")!;
-      expect([...icon.querySelectorAll("linearGradient")].map((g) => g.id.replace(/^.*?(green|light)$/, "$1"))).toEqual(["green", "light"]);
-      expect(plus).toHaveTextContent("");
-    }
+  it("the Cobbles' plate keeps its gold edge and its shine without the \"+\" (#925, open point 1)", () => {
+    const { container } = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
+    expect(container.querySelector("[data-slot=resource-plate] .h-8")).toHaveClass("border-primary/60");
+    expect(container.querySelector(".plate-shine")).not.toBeNull();
   });
 
   it("the plates are larger from desktop (`rail`) than on a phone (`pill`), the icon taller than the box (#213)", () => {
@@ -218,8 +217,8 @@ describe("the plates (#828)", () => {
     for (const plate of container.querySelectorAll("[data-slot=resource-plate]")) expect(plate.querySelector(".rounded-full")).toBeNull();
   });
 
-  it("the mirrored plate puts the icon at the left end and the '+' at the right", () => {
-    const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} plus side="left" />));
+  it("the mirrored plate puts the icon at the left end", () => {
+    const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} side="left" />));
     const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
     expect(plate.dataset.side).toBe("left");
     expect(plate.className).toContain("flex-row-reverse");

@@ -56,7 +56,7 @@ export interface BalancesProps {
   direction?: "row" | "column";
   state: BalancesState;
   /**
-   * The balances whose page is the one open (#855, #871: vPAVED on the Vault, the Cobbles on the packs): no "+", no action.
+   * The balances whose page is the one open (#855, #871: vPAVED on the Vault, the Cobbles on the packs): no action.
    * Omitted, the page's (`page`).
    */
   here?: readonly BalanceKind[];
@@ -76,12 +76,12 @@ export interface BalancesProps {
   className?: string;
 }
 
-/** `page`: the balance leads to a page (the Challenge, the Vault, the packs), so its plate carries a "+" (#828); USDC's faucet is an action, not a page. */
-const PLATES: Record<BalanceKind, { label: string; action: string; decimals: number; fraction: number; page: boolean }> = {
-  usdc: { label: "USDC", action: "Get USDC", decimals: 6, fraction: 2, page: false },
-  paved: { label: "PAVED", action: "Play a Challenge", decimals: 18, fraction: 2, page: true },
-  vpaved: { label: "vPAVED", action: "Vault", decimals: 18, fraction: 2, page: true },
-  cobbles: { label: "Cobbles", action: "Buy packs", decimals: 0, fraction: 0, page: true },
+/** Each balance's name, its action (the page it leads to; USDC's faucet), and its digits. No plate carries a "+" (#925). */
+const PLATES: Record<BalanceKind, { label: string; action: string; decimals: number; fraction: number }> = {
+  usdc: { label: "USDC", action: "Get USDC", decimals: 6, fraction: 2 },
+  paved: { label: "PAVED", action: "Play a Challenge", decimals: 18, fraction: 2 },
+  vpaved: { label: "vPAVED", action: "Vault", decimals: 18, fraction: 2 },
+  cobbles: { label: "Cobbles", action: "Buy packs", decimals: 0, fraction: 0 },
 };
 const EVERY: readonly ShownBalance[] = ["usdc", "paved", "vpaved-held", "cobbles"];
 const kindOf = (shown: ShownBalance): BalanceKind => (shown === "vpaved-held" ? "vpaved" : shown);
@@ -190,8 +190,6 @@ interface PlateTapProps {
   faucet?: boolean;
   minting?: boolean;
   size: PlateSize;
-  /** The plate shares a phone's row with another (the Vault's PAVED and vPAVED): its "+" from `mobile` only, so both fit 320 px (#871). */
-  crowdedRow?: boolean;
 }
 
 /** A plate's action, and whether it has none: none on its own page; USDC mints only where there is a faucet, and not twice at once. */
@@ -217,13 +215,13 @@ function nameOf(kind: BalanceKind, amount: bigint | null, action: string) {
 const compactOf = (kind: BalanceKind, amount: bigint | null, compactFrom: number) => amount !== null && amount >= BigInt(compactFrom) * 10n ** BigInt(PLATES[kind].decimals);
 
 /** One balance in the bar: a plate (at least 44 px of tap with the icon's overhang) that leads to its place, the whole plate a tap. */
-function PlateTap({ kind, from, state, here, onAction, faucet, minting, size, crowdedRow }: PlateTapProps) {
+function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: PlateTapProps) {
   const amount = amountOf(state, kind);
   // The figure compact from 10,000, so "9,999.99" whole at every width (#860, the plates' one width at each size).
   const compactFrom = PLATE_COMPACT[size];
   if (amount === undefined) return holdOf(size);
   const { action, inert } = actionOf(kind, here, faucet, minting);
-  const { decimals, fraction, page } = PLATES[kind];
+  const { decimals, fraction } = PLATES[kind];
   return (
     <m.button
       type="button"
@@ -236,7 +234,7 @@ function PlateTap({ kind, from, state, here, onAction, faucet, minting, size, cr
       whileTap={inert ? undefined : { scale: 0.94 }}
       className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
     >
-      <ResourcePlate fixed compactFrom={compactFrom} kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} plus={page && !here} plusFrom={crowdedRow ? "mobile" : undefined} tone={kind === "cobbles" ? "invite" : "default"} />
+      <ResourcePlate fixed compactFrom={compactFrom} kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} tone={kind === "cobbles" ? "invite" : "default"} />
     </m.button>
   );
 }
@@ -303,8 +301,8 @@ function BalancesError({ size, message, retrying, onRetry }: { size: PlateSize; 
 /**
  * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate (#828), its icon over the plate's
  * right end, the figure chunky, counting to each new value, every plate of one width at its size whatever its figure and wherever it
- * stands (#860, compact from 10,000, the full amount in its name and tooltip); from `desktop`, a "+" over the left end where the balance leads to a page (the
- * Challenge, the Vault, the packs; none on a phone, #925), none on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
+ * stands (#860, compact from 10,000, the full amount in its name and tooltip). No plate draws a "+" (#925): the whole plate is
+ * the tap to its page (the Challenge, the Vault, the packs), inert on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
  * joins when held where the page shows it so (`vpaved-held`). Only the page's balances (`kinds`, #855), the same on a phone
  * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
  * skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
@@ -321,8 +319,6 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
   // The mount's count up serves the plate that joins with a first deposit; an always-shown plate counts as any other.
   const fromOf = (kind: BalanceKind) => (kind === "vpaved" && held ? vpaved.from : undefined);
   const shown = kinds.filter((kind) => kind !== "vpaved-held" || vpaved.shown).map(kindOf);
-  // A phone's header row of two plates or more: their "+" from `mobile` (#871), the 320 px screen keeps both whole.
-  const crowdedRow = size === "sm" && direction === "row" && shown.length > 1;
   return (
     <section
       ref={crowded}
@@ -345,7 +341,7 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
           ))
       ) : (
         shown.map((kind) => (
-          <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} here={here?.includes(kind)} onAction={onAction} faucet={faucet} minting={minting} size={size} crowdedRow={crowdedRow} />
+          <PlateTap key={kind} kind={kind} from={fromOf(kind)} state={state} here={here?.includes(kind)} onAction={onAction} faucet={faucet} minting={minting} size={size} />
         ))
       )}
     </section>

@@ -12,13 +12,9 @@ export interface ResourcePlateProps extends PlateVariants {
   decimals: number;
   /** The digits shown after the point. */
   fraction: number;
-  /** A "+" at the end opposite the icon, as a game's currency bar invites a purchase (a balance that leads to a page). */
-  plus?: boolean;
-  /** `mobile`: the "+" only from `mobile` (360 px) up (`Plate`'s `leadFrom`, issue 871). */
-  plusFrom?: "mobile";
   /**
-   * The icon's end (issue 828): `right` for the plates on the right of the screen (the balances), the "+" at the left; `left`, the
-   * same plate mirrored for the left of the screen (issue 829), the "+" at the right.
+   * The icon's end (issue 828): `right` for the plates on the right of the screen (the balances); `left`, the same plate mirrored
+   * for the left of the screen (issue 829).
    */
   side?: "right" | "left";
   /** The amount shown before this plate mounted (a balance that just appeared): the first render animates from it. */
@@ -37,12 +33,12 @@ export interface ResourcePlateProps extends PlateVariants {
 
 /**
  * A balance as a game's resource bar shows it (issues 620, 828): a `Plate` with the figure in chunky mono, the token's icon
- * standing over one end, bare (issue 213: no disc behind it) and taller than the plate, and for a balance with a page to go to
- * a "+" over the other end, a little smaller. On each change of the amount, never on the first one nor from a missing value, the figure counts to the new value (`NumberTicker`) and briefly takes
+ * standing over one end, bare (issue 213: no disc behind it) and taller than the plate; the other end is bare too, no "+" (the
+ * owner's ruling of issue 925: a balance's tap is its container's). On each change of the amount, never on the first one nor from a missing value, the figure counts to the new value (`NumberTicker`) and briefly takes
  * the change's colour; up, a "+N" rises and fades and the icon pops; down, a "−N" drops and fades and the icon dips. Under reduced
  * motion only the colour flashes: nothing moves. The accessible name is the container's.
  */
-export function ResourcePlate({ kind, amount, decimals, fraction, plus, plusFrom, side = "right", from, fixed, compactFrom, size, tone, children, className }: ResourcePlateProps) {
+export function ResourcePlate({ kind, amount, decimals, fraction, side = "right", from, fixed, compactFrom, size, tone, children, className }: ResourcePlateProps) {
   const { text, start, target, format, change, flash, moving } = useAmountChange({ amount, decimals, fraction, from, compactFrom });
   return (
     <Plate
@@ -51,8 +47,6 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, plusFrom
       side={side}
       size={size}
       tone={tone}
-      lead={plus ? "plus" : undefined}
-      leadFrom={plusFrom}
       fixed={fixed}
       className={className}
       endFit="bare"
