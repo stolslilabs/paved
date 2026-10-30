@@ -113,12 +113,11 @@ shape in relief (outline, lit fill, highlight, shadow), each part in its own ton
 add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in `PARTS`, run `bun run game-icons`, and
 record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
 
-League standards (#917, the owner's design in `docs/design/league-standards.webp`, which supersedes #854's studies): ten tiers
-(`LEAGUE_TIERS`, Unranked to Grand Master, `tierOf`, `pipsOf`), each drawn in `elements/league-standards.ts` as toned parts that
-`ArtSvg` (`elements/league-art.tsx`) renders in the relief: `LeagueCrestArt` (full, from 64 px), `LeagueCrestIcon` (16 to 40 px, the
-division as pips), `LeaguePlate` (the name in `font-display`), `LeagueBanner`, and `LeagueStandard` (the three stacked). Their tones are
-derived from the `--game-*` tones (`color-mix`, relative `oklch(from ...)`), and their stories use inline styles where a class would
-be new: the stylesheet's budget has no room.
+League crests (#854): the third study, `<ShieldCrest league="knight" />` from `elements/crest-shield.tsx` (story
+`Elements/ShieldCrest`), a shield and swords climbing by `SHIELD_RANKS`, on the crest parts of `elements/crest-art.tsx`. The first
+study's `CrestArt` (one drawing per group, the division as studs) keeps its file and its test but no story. Their Font Awesome
+shapes are generated like the game icons': `CREST_SHAPE_NAMES` in `scripts/league-crests.ts`, `bun run league-crests`, and a line
+in the notices.
 
 Chests (#874, the owner's direction A, wooden chests with metal bands): `<ChestIcon rank="epic" />` (`elements/chest-icon.tsx`),
 the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), drawn by `ChestBadge` and the battle logs;
