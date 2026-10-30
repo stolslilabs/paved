@@ -57,8 +57,9 @@ const LEVEL_UPS = Array.from({ length: 6 }, (_, k) => {
 /**
  * The profile at the home's top left (#787, reshaped by #830 and #928): the avatar with the level's path round it, an opaque bar
  * from its right clockwise to its top that runs on as a line to the right and ends square in the level tag, "Lv i", of one width
- * for every level from 1 to 99; the whole at most 1.5 times the avatar's width. The name, after the User icon, on a band that
- * starts behind the avatar and fades out to the badge's end, shrunk to fit then cut with an ellipsis. It opens the profile sheet,
+ * for every level from 1 to 99; the whole at most 1.5 times the avatar's width. The name, after the User icon, on a row under the
+ * bar and the tag, shrunk to fit then cut with an ellipsis at the badge's end, on a band that starts behind the avatar and fades
+ * out to transparent at the tag's left edge. It opens the profile sheet,
  * which has the XP made and left. The share of the level is laid on the whole path: the arc fills first, then the line. The
  * league, its crowns and the shield left it for the League control and the shield's plate under it (#829,
  * `Containers/LeagueControl`, `Elements/ShieldPlate`). One story per state; the widths (320, 375, 1440 px) are the home's
@@ -84,7 +85,7 @@ export const Level9: Story = { parameters: profile(PROFILE.connected, { level: 9
 export const Level10: Story = { parameters: profile(PROFILE.connected, { level: 10, xp: 60, xpForNext: 450 }) };
 /** Level 99: the widest the tag holds, the same width. */
 export const Level99: Story = { parameters: profile(PROFILE.connected, { level: 99, xp: 900, xpForNext: 1_000 }) };
-/** A name of 20 characters: shrunk to 12 px, then cut with an ellipsis before the badge's end (its whole text in the title). */
+/** A name of 20 characters: shrunk to 12 px, then cut with an ellipsis at the badge's end (its whole text in the title). */
 export const LongName: Story = { parameters: profile({ status: "connected", data: { ...PROFILE.connected.data, player: { ...PROFILE.connected.data.player, name: "Cobblestone_Builder7" } } }, PROGRESS.partWay) };
 /** 30 %: part of the arc. */
 export const ThirtyPercent: Story = { parameters: profile(PROFILE.connected, PROGRESS.thirty) };

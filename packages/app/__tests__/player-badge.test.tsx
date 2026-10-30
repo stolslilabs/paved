@@ -163,12 +163,21 @@ describe("PlayerBadge (#787, the league out of it since #829, the level's path s
     expect(name.closest("[data-slot=name-row]")).toHaveClass("font-display");
     expect(name).toHaveAttribute("title", "bal7hazar");
     expect(name).toHaveClass("truncate");
-    // The User icon before it, a game icon; the band starts behind the avatar (its middle) and fades out to the badge's end.
+    // The User icon before it, a game icon. The row under the bar and the tag, from the avatar's right edge to the badge's end
+    // (the button's right); the band from the avatar's middle (48) to transparent at the tag's left edge (144 - 52 = 92).
     expect(name.previousElementSibling).toHaveAttribute("data-icon", "user");
+    const row = profile.querySelector<HTMLElement>("[data-slot=name-row]")!;
+    expect(row.style.left).toBe("96px");
+    expect(row.style.top).toBe("48px");
+    expect(row).toHaveClass("right-0");
     const band = profile.querySelector<HTMLElement>("[data-slot=name-band]")!;
-    expect(band.style.left).toBe("-48px");
+    const bandLeft = 96 + parseFloat(band.style.left);
+    const bandRight = badgeWidth(96) - parseFloat(band.style.right);
+    expect(bandLeft).toBe(48);
+    expect(bandRight).toBe(levelPath(96).tag);
+    expect(band.className).not.toMatch(/(^|\s)right-0(\s|$)/);
+    // Linear, from the band's start to fully transparent at its end, the tag's left edge.
     expect(band.className).toContain("[mask-image:linear-gradient(to_right,black,transparent)]");
-    expect(profile.querySelector<HTMLElement>("[data-slot=name-row]")!.style.left).toBe("96px");
     await waitFor(() => expect(profile.querySelector("[data-slot=xp-path]")).not.toBeNull());
     expect(profile.querySelector("[data-slot=level]")).toHaveTextContent("Lv 3");
     expect(profile).not.toHaveTextContent("XP to Lv");
