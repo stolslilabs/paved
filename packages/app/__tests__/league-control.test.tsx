@@ -49,6 +49,15 @@ describe("LeagueControl (#829)", () => {
     expect(screen.getByRole("button", { name: `League: ${leagueOf(1).name}, 1 crown` })).toBeInTheDocument();
   });
 
+  it("the home's read: Unranked with no crowns and no attack, Wood after an attack, Wood when not read", () => {
+    const { rerender } = render(wrap(<LeagueControl crowns={0} attacks={0} />));
+    expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked");
+    rerender(wrap(<LeagueControl crowns={0} attacks={2} />));
+    expect(screen.getByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
+    rerender(wrap(<LeagueControl />));
+    expect(screen.getByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
+  });
+
   it("Unranked (no crowns, no attack): Unranked's crest, named so", () => {
     const { container } = render(wrap(<LeagueControl crowns={0} unranked />));
     expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked");

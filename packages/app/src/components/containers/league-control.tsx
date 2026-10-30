@@ -24,12 +24,14 @@ const RING: Record<LeagueId, string> = {
 };
 
 export interface LeagueControlProps {
-  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wood). */
-  crowns: number;
+  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wood), and when left out (not read). */
+  crowns?: number;
   /** The league on chain, when it is not that of `crowns` (the League page's, #859); left out, the league of `crowns`. */
   league?: League;
-  /** The player has not entered the leagues (no crowns, no attack): Unranked's crest (issue 917), its name in the label. */
+  /** The player has not entered the leagues: Unranked's crest (issue 917), its name in the label. Left out, no crowns and no attack. */
   unranked?: boolean;
+  /** The attacks settled this season (`Matchmaker.league`, the home's read): with no crowns and none, Unranked. */
+  attacks?: number;
   /** Opens the League page: a tap anywhere on the control. */
   onLeague?: () => void;
   /** The balances' sizes (issue 828); `auto` (the home's), `sm` on a phone and `md` from `desktop`. */
@@ -51,7 +53,7 @@ export interface LeagueControlProps {
  * ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
  * motion.
  */
-export function LeagueControl({ crowns, league: shownLeague, unranked, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
+export function LeagueControl({ crowns = 0, league: shownLeague, attacks, unranked = crowns === 0 && attacks === 0, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
   const league = shownLeague ?? leagueOf(crowns);
   const tier = unranked ? "unranked" : tierOf(league);
   const reduced = useReducedMotionConfig();

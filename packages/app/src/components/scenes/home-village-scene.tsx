@@ -417,7 +417,7 @@ function ViewOverlays({
     <>
       {/* The League control (the crowns and the crest, no name) and the shield's plate (#829). */}
       <Suspense fallback={LEAGUE_STAND_IN}>
-        <LazyLeagueControl crowns={props.league?.crowns ?? 0} unranked={props.league?.attacks === 0 && !props.league.crowns} onLeague={props.onLeague} />
+        <LazyLeagueControl crowns={props.league?.crowns} attacks={props.league?.attacks} onLeague={props.onLeague} />
       </Suspense>
       {props.shieldEndsAt != null && props.shieldEndsAt > now && (
         <Suspense fallback={null}>
