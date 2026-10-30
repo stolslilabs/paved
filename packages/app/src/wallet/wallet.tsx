@@ -3,7 +3,8 @@ import type { WriteAccount } from "@paved/chain";
 import { DataProvider, type DataSources, type GameSigner } from "../data/sources";
 
 /**
- * Who connects (#918, phase A): the device's local key (`connector.ts`), whose account deploys itself on its first write.
+ * Who connects (#918, phase A): the device's local key (`connector.ts`), whose account deploys itself on its first write; on
+ * the mock, the same key with the ledger's account, deployed nowhere (`mock-key.ts`, #927).
  * `signer` builds the account's writes (`PavedClient.writer`). A test gives a fake one. The pages see this interface only,
  * so the account's connector of the later phases (the logins, the key service of #918) takes the local key's place behind it.
  */
