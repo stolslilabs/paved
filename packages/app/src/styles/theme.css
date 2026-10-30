@@ -297,7 +297,7 @@
   --league-bronze: var(--color-charcoal-300);
   --league-silver: var(--color-gold-400);
   --league-gold: var(--color-river-300);
-  --league-platinum: var(--color-ember-400);
+  --league-emerald: var(--color-meadow-600);
   --league-diamond: var(--color-meadow-400);
   --league-master: var(--color-charcoal-500);
   --league-grandmaster: var(--color-gold-100);
@@ -366,7 +366,7 @@
   --color-league-bronze: var(--league-bronze);
   --color-league-silver: var(--league-silver);
   --color-league-gold: var(--league-gold);
-  --color-league-platinum: var(--league-platinum);
+  --color-league-emerald: var(--league-emerald);
   --color-league-diamond: var(--league-diamond);
   --color-league-master: var(--league-master);
   --color-league-grandmaster: var(--league-grandmaster);
@@ -527,6 +527,27 @@
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+}
+
+/*
+ * CAMERA-MODE (#875): the home's overlays the Camera mode hides (`data-fade`) fade out of its box (`data-camera`), then hide, out
+ * of reach (no tap, no focus, nothing read); back at once as it leaves. A cut under reduced motion. Edit, Settings and Play leave
+ * the row (`data-collapse`), so Exit camera takes the corner: over the utilities (`desktop:flex`), out of any layer.
+ */
+[data-camera] [data-collapse] {
+  display: none;
+}
+@layer base {
+  [data-fade] {
+    transition: opacity 300ms, visibility 300ms;
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+  [data-camera] [data-fade] {
+    opacity: 0;
+    visibility: hidden;
   }
 }
 

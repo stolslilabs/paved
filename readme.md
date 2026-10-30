@@ -25,6 +25,7 @@ contracts (P2). The client (`packages/app`) reads `contracts/deployments/<networ
 (`VITE_NETWORK`, default `devnet`), written by CORE's deploy script; each `VITE_*` variable set
 overrides it: `VITE_RPC_URL`, `VITE_DEPLOYED_BLOCK`, `VITE_CHALLENGE_ADDRESS`, `VITE_SETUP_ADDRESS`
 (`VITE_TOKEN_ADDRESS` is gone: the entry token is the Faucet, read from `Challenge.entry_price`, and the faucet is `contracts.Faucet` of the file, with no env override; no `Account` since D-25 E: a player is the wallet address, with no registration, and the
-name comes from the Controller). The playing account is `VITE_PLAYER_ADDRESS` and
-`VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); without it the client is read-only, and
-without a full deployment it shows "not connected". The indexer is `VITE_INDEXER_URL`. Design: `docs/architecture/client-data-layer.md`.
+name is the address). The playing account is the device's own (#918, `docs/architecture/accounts.md`): a key made at the
+first Connect and kept in `localStorage`, whose account is deployed on its first write; on devnet by the deployer
+`VITE_DEPLOYER_ADDRESS` and `VITE_DEPLOYER_PRIVATE_KEY` (the node's first predeployed account), elsewhere by itself.
+Without a full deployment the client shows "not connected". The indexer is `VITE_INDEXER_URL`. Design: `docs/architecture/client-data-layer.md`.

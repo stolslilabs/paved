@@ -132,7 +132,7 @@ describe("/settings", () => {
     expect(localStorage.getItem(THEME_KEY)).toBe("forest");
   }, slow(30_000));
 
-  it("shows the controller username, and Disconnect goes Home keeping ?ref=", async () => {
+  it("shows the username, and Disconnect goes Home keeping ?ref=", async () => {
     const wallet = fakeWallet({ restored: true });
     wallet.connector.username = async () => "bal7hazar";
     const { router } = open("/settings?ref=abc", wallet);
@@ -149,6 +149,18 @@ describe("/settings", () => {
     const account = await screen.findByRole("region", { name: "Account" });
     await within(account).findByRole("button", { name: "Disconnect" });
     expect(account).toHaveTextContent("0x5f1");
+  });
+
+  it("Reset connects a new account in place of the old one (#918, for testing)", async () => {
+    const wallet = fakeWallet({ restored: true, addresses: ["0xbee"] });
+    open("/settings", wallet);
+    const account = await screen.findByRole("region", { name: "Account" });
+    await within(account).findByRole("button", { name: "Disconnect" });
+    expect(account).toHaveTextContent("0x5f1");
+    await userEvent.click(within(account).getByRole("button", { name: "Reset" }));
+    await waitFor(() => expect(account).toHaveTextContent("0xbee"));
+    expect(wallet.calls).toContain("reset");
+    expect(account).not.toHaveTextContent("0x5f1");
   });
 
   it("asks a guest to Connect, and Connect opens the wallet", async () => {

@@ -61,7 +61,11 @@ export interface LayoutBoardProps {
  * bubble the 3D scene stands by the tile (#756; the plan view's stands still in the editor's panel).
  */
 export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing" | "plates" | "pending" | "shaking">> &
-  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending" | "lit" | "press"> & { bubble?: BoardBubble | null };
+  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending" | "lit" | "press"> & {
+    bubble?: BoardBubble | null;
+    /** The home's Camera mode (#875): the 3D village's camera free (the plan view has none). */
+    camera?: boolean;
+  };
 
 /** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */
 const MIN_CELL = 46;

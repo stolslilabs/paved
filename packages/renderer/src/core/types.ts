@@ -5,7 +5,11 @@ import type { AssetManifest } from "./AssetLoader";
 /** World units per grid cell — single source of truth */
 export const TILE_SIZE = 3;
 
-export type CameraMode = "play" | "showcase";
+/**
+ * The camera's modes: `play` (the boards' and the home's: the tilt and the turn locked, #719), `free` (the home's Camera mode,
+ * #875: the tilt between 15 and 85 degrees, the turn free) and `showcase` (the stack view's).
+ */
+export type CameraMode = "play" | "free" | "showcase";
 export type RenderProfile = "play" | "showcase" | "showcaseCinematic";
 
 export interface BoardBounds {

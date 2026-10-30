@@ -54,7 +54,7 @@ export class NativeCameraController {
     this.target.x += dx;
     this.target.z += dy;
 
-    if (this.mode !== "play" || !this.boardBounds) {
+    if (this.mode === "showcase" || !this.boardBounds) {
       return;
     }
 

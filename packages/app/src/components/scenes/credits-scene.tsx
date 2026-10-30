@@ -29,16 +29,16 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /**
- * Credits (`/settings/credits`): the third-party notices the client owes, one column on every viewport. Cartridge's licence
- * asks for its notice and a link to the full text (D-15, moved here from the footer by #536); the fonts, icons, music and
- * sounds are named with their licences, and the token icons with their sources (#620).
+ * Credits (`/settings/credits`): the third-party notices the client owes, one column on every viewport, with a link to their
+ * full texts (D-15, moved here from the footer by #536; Cartridge's notice left with its controller, #918); the fonts, icons,
+ * music and sounds are named with their licences, and the token icons with their sources (#620).
  */
 export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_URL, onBack, onNavigate }: CreditsSceneProps) {
   return (
     <TabPage tab="settings" title="Credits" onBack={onBack} onNavigate={onNavigate}>
       <p className="text-sm text-muted-foreground">Who made what Paved uses.</p>
-      <Section title="Cartridge Controller">
-        <p className="wrap-anywhere">Uses Cartridge Controller, © Cartridge Gaming Company.</p>
+      <Section title="Licences">
+        <p className="wrap-anywhere">The full texts of the licences named on this page.</p>
         <p>
           <a href={`${base}${NOTICES_PATH}`} target="_blank" rel="noreferrer" className="text-foreground underline underline-offset-2">
             Third-party notices

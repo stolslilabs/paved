@@ -239,18 +239,18 @@ jobs:
         run: bun run build
       - name: Test
         run: bun run test
-      # The burner key never ships outside devnet (BUILD_BURNER, packages/app/src/wallet/connector.ts): a Sepolia build with
-      # a sentinel in VITE_PLAYER_PRIVATE_KEY, then no file of dist/, source maps included, may hold it. Last, as it rebuilds
-      # dist/. A devnet build with the same sentinel holds it (in the connector's chunk): the check can fail.
-      - name: Burner key check (Sepolia build)
+      # The devnet deployer's key never ships outside devnet (BUILD_DEPLOYER, packages/app/src/wallet/connector.ts, #918): a
+      # Sepolia build with a sentinel in VITE_DEPLOYER_PRIVATE_KEY, then no file of dist/, source maps included, may hold it.
+      # Last, as it rebuilds dist/. A devnet build with the same sentinel holds it (in the connector's chunk): the check can fail.
+      - name: Deployer key check (Sepolia build)
         env:
           VITE_NETWORK: sepolia
-          VITE_PLAYER_ADDRESS: "0x1"
-          VITE_PLAYER_PRIVATE_KEY: paved-burner-sentinel-7c41e9
+          VITE_DEPLOYER_ADDRESS: "0x1"
+          VITE_DEPLOYER_PRIVATE_KEY: paved-deployer-sentinel-7c41e9
         run: |
           bun run --filter @paved/app build
           if [ -z "$(find packages/app/dist -name '*.map' -print -quit)" ]; then echo "No source map in dist/: the check would miss them"; exit 1; fi
-          if grep -rlF "$VITE_PLAYER_PRIVATE_KEY" packages/app/dist; then echo "The burner key is in the Sepolia build"; exit 1; fi
+          if grep -rlF "$VITE_DEPLOYER_PRIVATE_KEY" packages/app/dist; then echo "The deployer key is in the Sepolia build"; exit 1; fi
         shell: bash
 
   client-storybook:

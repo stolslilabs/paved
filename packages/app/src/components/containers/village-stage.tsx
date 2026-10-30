@@ -16,6 +16,8 @@ import { PointsFold } from "./points-breakdown";
 
 /** The home's left column takes its edge hint from this chunk, which carries it already (HOME-OVERLAYS, #856). */
 export { scrollHintRef } from "../../lib/scroll-hint";
+/** The home's Camera button (#875) comes with this chunk, which draws the 3D village it frees. */
+export { CameraControl } from "./camera-control";
 
 export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
   /** The village shown; undefined: not read yet (a placeholder sky). */
@@ -49,6 +51,13 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
    * first frame is drawn with every tile's model and every tile image in (`VillageLayoutCanvas`'s `onReady`).
    */
   renderCanvas?: (view: LayoutBoardView, onDrawn: () => void) => ReactNode;
+  /** The home's Camera mode (#875): in view, the 3D village's camera turns and tilts free. */
+  camera?: boolean;
+  /**
+   * The stage draws the 3D village (true) or not (false: the plan view, or no village read yet), told as it mounts and on each
+   * change: the Camera mode's button.
+   */
+  onCanvasChange?: (canvas: boolean) => void;
   /**
    * How the 3D village arrives (#761): under a fog that clears once the canvas says it is drawn, or a short fade. Unset, or
    * the plan view: neither.
@@ -114,6 +123,10 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   const [drawn, setDrawn] = useState(false);
   const onDrawn = useCallback(() => setDrawn(true), []);
   const scene = !!props.renderCanvas;
+  const { onCanvasChange } = props;
+  const canvas = scene && !!village;
+  useEffect(() => onCanvasChange?.(canvas), [canvas, onCanvasChange]);
+  const camera = canvas && !editing && !!props.camera;
   // The points by structure (#758), edit mode's alone (the home's view has its kinds' sums, #831): the draft's live, the tile
   // under the bubble included.
   const points = useMemo(() => (editing ? layoutPoints(editor.shown) : NO_POINTS), [editing, editor.shown]);
@@ -143,7 +156,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", icon: EDIT_ICON, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
   const lit = litLine?.lit ?? null;
   const bubble = scene ? editor.bubble : null;
-  const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press }), [editor.view, bubble, lit, press]);
+  const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press, camera }), [editor.view, bubble, lit, press, camera]);
   return (
     <>
       {/* The scene's box: the whole screen in view, what the editor's panel leaves in edit mode. Its place in the tree never changes, so the canvas stays up across the modes. */}

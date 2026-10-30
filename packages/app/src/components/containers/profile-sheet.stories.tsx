@@ -16,6 +16,12 @@ type Story = StoryObj<typeof meta>;
 
 /** The avatar larger in its XP ring, the name, the address with Copy, the level (#625) with the XP made, the XP left to the next and the whole XP (#830), the figures, Edit avatar (#626), Disconnect. */
 export const Connected: Story = {};
+/** The player's league under their name (#917): Bronze II's crest, its pips, and its name. */
+export const League: Story = { args: { league: { crowns: 1_172, league: 5, unranked: false } } };
+/** Before any crown and any attack: Unranked's crest. */
+export const LeagueUnranked: Story = { args: { league: { crowns: 0, league: 0, unranked: true } } };
+/** The top league beside the longest name. */
+export const LeagueGrandMaster: Story = { args: { league: { crowns: 5_320, league: 22, unranked: false }, state: PROFILE.stress } };
 /** The avatar the player saved (#626), its still in the ring. */
 export const SavedAvatar: Story = { args: { look: SAVED_LOOK } };
 /** The ring part way: 120 XP made, 180 to level 4, 420 in all. */

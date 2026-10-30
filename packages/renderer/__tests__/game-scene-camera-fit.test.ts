@@ -103,6 +103,21 @@ describe("GameScene camera fit (CAMERA-FIT, #678)", () => {
     expectFrame(h.view(), opening);
   });
 
+  it("frames the first tiles in the Camera mode too, entered before they came (#875); turned, a resize keeps the view", async () => {
+    const h = harness();
+    await h.scene.init({ surface: h.surface, shadows: false });
+    h.scene.setCameraMode("free");
+    h.scene.updateTiles([tile(0, 0), tile(1, 0), tile(2, 0), tile(3, 0)]);
+    expectFrame(h.view(), computeCameraFit({ cells: { minX: 0, maxX: 3, minZ: 0, maxZ: 0 }, width: 375, height: 812 }));
+    h.scene.setCameraAngles(Math.PI / 4, Math.PI);
+    const turned = h.view();
+    h.size.width = 812;
+    h.size.height = 375;
+    h.resize();
+    expect(h.view()).toEqual(turned);
+    expect(h.scene.controls.getAngles().polar).toBeCloseTo(Math.PI / 4, 9);
+  });
+
   it("follows the board after each move only with `followBoard`, and only while the player has not moved", async () => {
     const h = harness();
     h.scene.updateTiles([tile(0, 0)]);

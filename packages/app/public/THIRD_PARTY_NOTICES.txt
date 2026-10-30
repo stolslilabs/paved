@@ -350,18 +350,8 @@ src/components/elements/game-icon.tsx. The source icons: `gear`,
 `swords`, `trophy`; and (#870) the village's `house-tree`, the categories'
 `tree`, `road`, `castle`, `landmark-dome`, and the season wheel's `sun`,
 `leaf`, `snowflake`, `seedling`, `cloud-sun`, `moon`; and (#873) the Chests'
-`treasure-chest`. The "+"'s button and the relief style itself are
+`treasure-chest`; and (#875) the Camera mode's `video`. The "+"'s button and the relief style itself are
 written for Paved (Apache 2.0).
-
-League crests (src/components/elements/league-crest-shapes.ts, #854). One
-crest per league group, drawn by the app as SVG in the game icons' relief
-(src/components/elements/crest-art.tsx). Their motifs compose Font Awesome Pro
-6.6.0 solid icons, under the owner's Font Awesome Commercial License (above),
-placed, toned, outlined, lit and shadowed: `bow-arrow`, `crown`,
-`flag-swallowtail`, `helmet-battle`, `sack`, `shield`, `staff`, `sword`,
-`wheat`, and `swords` (the game icons' shape, above). The discs, rims, burst,
-round shield, plume, coronets, gem, sheaf's tie and the divisions' plates and
-studs are written for Paved (Apache 2.0).
 
 Chests (src/components/elements/chest-art-shapes.ts, #874). The chests' simple
 icons, drawn by the app as SVG in the game icons' relief

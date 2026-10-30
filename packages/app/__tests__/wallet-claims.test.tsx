@@ -34,6 +34,7 @@ function setup() {
     probe: async () => account,
     connect: async () => account,
     disconnect: async () => {},
+    reset: async () => account,
     username: async () => null,
     signer: () => claimer as unknown as GameSigner,
   };

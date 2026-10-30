@@ -4,11 +4,11 @@ import { SETTINGS } from "../../mocks/scenes";
 import { SettingsScene } from "./settings-scene";
 
 /** Settings (`/settings`): graphics, sound, music, tile preview, placement highlight, the account, theme and referral. One story per state; the viewport is the toolbar's (VP). */
-const meta = { title: "Scenes/Settings", component: SettingsScene, args: { onChange: fn(), onConnect: fn(), onDisconnect: fn(), onOpenTheme: fn(), onOpenReferral: fn(), onOpenCredits: fn(), onNavigate: fn() } } satisfies Meta<typeof SettingsScene>;
+const meta = { title: "Scenes/Settings", component: SettingsScene, args: { onChange: fn(), onConnect: fn(), onDisconnect: fn(), onReset: fn(), onOpenTheme: fn(), onOpenReferral: fn(), onOpenCredits: fn(), onNavigate: fn() } } satisfies Meta<typeof SettingsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A connected controller account. */
+/** A connected account: the device's key's (#918), with Reset. */
 export const Connected: Story = { args: SETTINGS.connected };
 
 /** No wallet: Connect. */

@@ -3,8 +3,8 @@ import type { GameSigner } from "../src/data";
 import type { LoadConnector, WalletConnector } from "../src/wallet/wallet";
 
 /**
- * A wallet connector in memory, for the tests. The real one (`src/wallet/connector.ts`) opens Cartridge's keychain (an
- * iframe on Cartridge's service), which jsdom cannot run: what is faked is the controller's window and its account;
+ * A wallet connector in memory, for the tests. The real one (`src/wallet/connector.ts`, its own tests in
+ * `wallet-connector.test.ts`) keeps a key and deploys its account on a node: what is faked is the key and its account;
  * the provider's state, the signer slot and the pages' use of them are real.
  */
 export function fakeWallet(
@@ -33,6 +33,11 @@ export function fakeWallet(
       return next ? accountOf(next) : account;
     },
     disconnect: async () => void calls.push("disconnect"),
+    reset: async () => {
+      calls.push("reset");
+      const next = options.addresses?.[connects++];
+      return next ? accountOf(next) : account;
+    },
     username: async () => null,
     signer,
   };
