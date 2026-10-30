@@ -64,7 +64,7 @@ export function crownsFor(stakes: CrownStakes, stars: number): number {
 }
 
 /** A league's group: its crest's colour. Wood is under 400 crowns; Iron to Master have three divisions; Grand Master one. */
-export type LeagueId = "wood" | "iron" | "bronze" | "silver" | "gold" | "platinum" | "diamond" | "master" | "grandmaster";
+export type LeagueId = "wood" | "iron" | "bronze" | "silver" | "gold" | "emerald" | "diamond" | "master" | "grandmaster";
 
 export interface League {
   /** The league's number on chain (`league_of`): 0 Wood, 1 to 21 Iron III to Master I, 22 Grand Master. */
@@ -87,7 +87,7 @@ const GROUPS: readonly { id: LeagueId; name: string; bonus: number; reward: numb
   { id: "bronze", name: "Bronze", bonus: 10, reward: 20 },
   { id: "silver", name: "Silver", bonus: 15, reward: 35 },
   { id: "gold", name: "Gold", bonus: 20, reward: 50 },
-  { id: "platinum", name: "Platinum", bonus: 25, reward: 75 },
+  { id: "emerald", name: "Emerald", bonus: 25, reward: 75 },
   { id: "diamond", name: "Diamond", bonus: 30, reward: 100 },
   { id: "master", name: "Master", bonus: 40, reward: 150 },
   { id: "grandmaster", name: "Grand Master", bonus: 50, reward: 250 },

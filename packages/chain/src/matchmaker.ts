@@ -122,7 +122,7 @@ export const LEAGUE_COUNT = 23;
 /** The floor of leagues 1 to 22, in crowns (`LEAGUE_FLOORS`). */
 export const LEAGUE_FLOORS = [400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3500, 3800, 4100, 4400, 4700, 5000] as const;
 /** The groups of three leagues, then Grand Master's (one league). */
-export const LEAGUE_GROUPS = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Grand Master"] as const;
+export const LEAGUE_GROUPS = ["Iron", "Bronze", "Silver", "Gold", "Emerald", "Diamond", "Master", "Grand Master"] as const;
 /** The bonus of reaching a league of each group the first time in a season, then Grand Master's (`GROUP_BONUSES`). */
 export const LEAGUE_BONUSES = [5, 10, 15, 20, 25, 30, 40, 50] as const;
 /** The season reward of a group, then Grand Master's (`GROUP_REWARDS`); Wood earns nothing. */

@@ -64,7 +64,7 @@ export function star(n: number, out: number, inner: number, x = 256, y = 240): s
   });
   return `M${pts.join("L")}z`;
 }
-/** A small coronet, `w` wide with its foot at (x, y): a band, three points, a pearl on each (Platinum's, Diamond's). */
+/** A small coronet, `w` wide with its foot at (x, y): a band, three points, a pearl on each (Emerald's, Diamond's). */
 export function coronet(x: number, y: number, w: number): string {
   const h = w / 4;
   const l = x - w / 2;
@@ -83,7 +83,7 @@ const RIM_DISC = circle(256, 240, 240);
 const commoner = (): Part[] => [{ d: DISC, tones: ["league"] }];
 /** Silver and Gold: a steel rim. */
 const armed = (): Part[] => [{ d: RIM_DISC, tones: ["steel"] }, ...commoner()];
-/** Platinum, Diamond, Master: a gold rim. */
+/** Emerald, Diamond, Master: a gold rim. */
 const noble = (): Part[] => [{ d: RIM_DISC, tones: ["gold"] }, ...commoner()];
 
 /**
@@ -118,7 +118,7 @@ export const CRESTS: Record<LeagueId, readonly Part[]> = {
     { shape: "helmet-battle", at: { x: 256, y: 262, s: 0.6 }, tones: ["steel"] },
   ],
   // A shield under a small coronet.
-  platinum: [...noble(), { shape: "shield", at: { x: 256, y: 284, s: 0.5 }, tones: ["blue"] }, { d: coronet(256, 158, 170), tones: ["gold"] }],
+  emerald: [...noble(), { shape: "shield", at: { x: 256, y: 284, s: 0.5 }, tones: ["blue"] }, { d: coronet(256, 158, 170), tones: ["gold"] }],
   // A banner under a coronet.
   diamond: [...noble(), { shape: "flag-swallowtail", at: { x: 270, y: 284, s: 0.52 }, tones: ["red"] }, { d: coronet(256, 158, 170), tones: ["gold"] }],
   // Crossed swords under a ducal crown.
@@ -146,7 +146,7 @@ const PLATE_TONE: Record<LeagueId, CrestTone> = {
   bronze: "wood",
   silver: "steel",
   gold: "steel",
-  platinum: "gold",
+  emerald: "gold",
   diamond: "gold",
   master: "gold",
   grandmaster: "gold",

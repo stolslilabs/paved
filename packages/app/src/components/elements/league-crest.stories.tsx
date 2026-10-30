@@ -21,4 +21,14 @@ export const All: Story = {
     </div>
   ),
 };
+/** Emerald (#917, Platinum renamed), in green, beside Gold below it and Diamond above it. */
+export const Emerald: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-4">
+      {LEAGUES.filter((l) => l.index >= 12 && l.index <= 16).map((league) => (
+        <LeagueCrest key={league.index} league={league} size="lg" />
+      ))}
+    </div>
+  ),
+};
 export const IconOnly: Story = { args: { iconOnly: true, size: "lg" } };

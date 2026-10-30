@@ -6,7 +6,7 @@ import { DROP } from "./game-icon";
 
 /**
  * The third crest study (issue 854, after the owner turned down the second's Shield, Helm and Medal): a shield and swords for every
- * league. Wood and Iron a bare shield, Bronze one sword upright before it, Silver two crossed behind it, Gold both; from Platinum the
+ * league. Wood and Iron a bare shield, Bronze one sword upright before it, Silver two crossed behind it, Gold both; from Emerald the
  * four pieces stay and the look climbs: the material, the shield's top (crenellated, then crowned), the pommels (cut gems), the guards.
  */
 export interface ShieldRank {
@@ -36,8 +36,8 @@ export const SHIELD_RANKS: Record<LeagueId, ShieldRank> = {
   silver: { metal: "silver", face: "silver", swords: 2, top: "plain" },
   // Gold, the three swords.
   gold: { metal: "gold", face: "gold", swords: 3, top: "plain" },
-  // Platinum, the shield crenellated.
-  platinum: { metal: "platinum", face: "platinum", swords: 3, top: "crenellated" },
+  // Emerald, platinum, the shield crenellated.
+  emerald: { metal: "platinum", face: "platinum", swords: 3, top: "crenellated" },
   // A blue face in an ice rim, ice swords, diamonds for pommels.
   diamond: { metal: "ice", face: "blue", swords: 3, top: "crenellated", gem: "ice" },
   // Obsidian in gold, rubies for pommels, knobbed guards.

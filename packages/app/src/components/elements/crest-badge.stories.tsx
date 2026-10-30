@@ -80,7 +80,7 @@ const GAINS: Record<LeagueId, string> = {
   bronze: "a bronze heater shield: green enamel, an amber stone, gold studs",
   silver: "a silver shield pointed at its top, small wings, blue enamel, a cut sapphire",
   gold: "a gold shield with a crested top, a laurel round it, red enamel, a ruby, a star",
-  platinum: "a platinum hexagon in a fuller laurel, teal enamel, a ruby, a red banner",
+  emerald: "a platinum hexagon in a fuller laurel, teal enamel, a ruby, a red banner",
   diamond: "a cut crystal set in platinum, its facets lit, wider wings, a blue banner",
   master: "a horned gold shield, obsidian, great gold wings, a ruby, a crown, a red banner",
   grandmaster: "the same red-enamelled on a golden burst, wider wings, a diamond, sapphires on its horns, a taller jewelled crown",
@@ -155,7 +155,7 @@ export const Iron: Story = { args: { league: "iron" } };
 export const Bronze: Story = { args: { league: "bronze" } };
 export const Silver: Story = { args: { league: "silver" } };
 export const Gold: Story = { args: { league: "gold" } };
-export const Platinum: Story = { args: { league: "platinum" } };
+export const Emerald: Story = { args: { league: "emerald" } };
 export const Diamond: Story = { args: { league: "diamond" } };
 export const Master: Story = { args: { league: "master" } };
 export const GrandMaster: Story = { args: { league: "grandmaster" } };

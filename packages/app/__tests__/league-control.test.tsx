@@ -37,6 +37,8 @@ describe("LeagueControl (#829)", () => {
     expect(crest(container)).toHaveClass("text-league-wood");
     rerender(control(1_240));
     expect(crest(container)).toHaveClass(`text-league-${leagueOf(1_240).id}`);
+    rerender(control(2_800));
+    expect(crest(container)).toHaveClass("text-league-emerald");
     rerender(control(5_320));
     expect(crest(container)).toHaveClass("text-league-grandmaster");
     rerender(control(1));
@@ -69,6 +71,9 @@ describe("LeagueControl (#829)", () => {
     expect(container.querySelector("[data-slot=league-promotion]")).toBeNull();
     rerender(control(1_400));
     await waitFor(() => expect(container.querySelector("[data-slot=league-promotion]")).not.toBeNull());
+    // Gold I to Emerald III (#917): the ring in Emerald's green.
+    rerender(control(2_600));
+    await waitFor(() => expect(container.querySelector("[data-slot=league-promotion]")).toHaveClass("border-league-emerald"));
 
     const reduced = render(control(1_240, vi.fn(), "always"));
     reduced.rerender(control(1_400, vi.fn(), "always"));
