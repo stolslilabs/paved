@@ -155,6 +155,9 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * header: the column of four (Missions, Chests, Shop, Vault; no League since #856, the League control is the way), Settings and Play. Each
  * opens its page in a side panel on the right, over the village, which stays in view (`routes/home-layout.tsx`); the profile
  * opens on the left.
+ * CAMERA-MODE (#875, the owner's decisions of 2026-10-28): on the 3D village in view, a Camera button at Edit's left frees the
+ * camera (the tilt from 15 to 85 degrees, the turn all the way round, gliding); the overlays fade to the profile, the balances and
+ * Exit camera, which eases the camera back to the play view.
  */
 export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProps) {
   const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
