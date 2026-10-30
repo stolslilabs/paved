@@ -19,6 +19,10 @@ export type { FeatureName } from "./core/feature-codes";
 export {
   CameraController,
   CLOSEST_DISTANCE,
+  closestDistanceAt,
+  FREE_MAX_POLAR_ANGLE,
+  FREE_MIN_POLAR_ANGLE,
+  FREE_RETURN_MS,
   OPENING_DISTANCE_FACTOR,
   PLAY_DEFAULT_POLAR_ANGLE,
 } from "./core/CameraController";

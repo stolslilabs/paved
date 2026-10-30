@@ -76,6 +76,34 @@ export const PLAY_DEFAULT_POLAR_ANGLE = Math.PI * 0.15;
  */
 export const CLOSEST_DISTANCE = 10;
 
+/** The Camera mode's tilt (#875, owner 2026-10-28): from 15 degrees off straight down... */
+export const FREE_MIN_POLAR_ANGLE = Math.PI / 12;
+/** ...to 85 degrees, the camera looking almost along the ground. */
+export const FREE_MAX_POLAR_ANGLE = (Math.PI * 17) / 36;
+
+/** Leaving the Camera mode, the tilt and the turn ease back to the play view's over this long, ms (#875's proposal). */
+export const FREE_RETURN_MS = 600;
+
+/**
+ * The closest the camera may come to its target at a tilt of `polar` from straight down (#875's low angles), for a frustum of
+ * half vertical angle `halfFov`: the nearest point of the tallest tiles' tops the frustum shows (along its lower edge) stays
+ * beyond the near plane. The camera's height must pass the tops by `CAMERA_NEAR` times the sine of the lower edge's angle
+ * below the horizon (over the cosine of `halfFov`, a depth along the view): 8.2 at the play tilt, under `CLOSEST_DISTANCE`, and
+ * about 40 at 85 degrees with the default camera.
+ */
+export function closestDistanceAt(polar: number, halfFov: number): number {
+  const below = Math.PI / 2 - polar;
+  const height = TALLEST_TILE_HEIGHT + (CAMERA_NEAR * Math.sin(Math.min(below + halfFov, Math.PI / 2))) / Math.cos(halfFov);
+  return height / Math.max(Math.sin(below), 1e-3);
+}
+
+/** Scratch values of the per-tick steps (`keepClear`, `getAngles`): nothing allocated while the camera is still. */
+const OFFSET = new THREE.Vector3();
+const SPHERICAL = new THREE.Spherical();
+
+/** Ease in and out (cubic): the return's curve, 0 to 1. */
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+
 const DEFAULT_CONFIG: Required<CameraConfig> = {
   position: [0, 0, 0],
   zoom: 5,
@@ -133,6 +161,8 @@ export class CameraController {
   private framed: { target: THREE.Vector3; distance: number } | null = null;
   /** The frame for the viewport of now (`setFrameSource`): `reset()` asks it first, so a resize since the last frame counts. */
   private frameSource: (() => { target: { x: number; z: number }; distance: number } | null) | null = null;
+  /** The return from the Camera mode under way (`setMode("play")` after `"free"`): its start, ms, and the angles it left from. */
+  private returning: { start: number | null; polar: number; azimuth: number } | null = null;
   /** A drag, pinch or wheel under way (`start` to `end` of the controls). */
   private interacting = false;
   private moved = false;
@@ -197,6 +227,8 @@ export class CameraController {
     this.controls.enableDamping = false;
     this.controls.update();
     this.controls.enableDamping = damping;
+    // A frame is the play view: a return from the Camera mode under way ends there.
+    this.endReturn();
     const center = new THREE.Vector3(target.x, 0, target.z);
     this.framed = { target: center.clone(), distance };
     this.moved = false;
@@ -213,9 +245,15 @@ export class CameraController {
     this.frameSource = source;
   }
 
-  update(): boolean {
-    const changed = this.controls.update();
-    if (this.mode !== "play" || !this.boardBounds) {
+  /** One step of the controls (the damping's glide), the Camera mode's return and closest zoom, and the board's bounds. */
+  update(now: number = performance.now()): boolean {
+    let changed = this.controls.update();
+    if (this.returning) {
+      this.stepReturn(now);
+      changed = true;
+    }
+    if (this.mode === "free" && this.keepClear()) changed = true;
+    if (this.mode === "showcase" || !this.boardBounds) {
       return changed;
     }
 
@@ -236,6 +274,59 @@ export class CameraController {
     return changed || clamped;
   }
 
+  /** The camera's tilt from straight down and its turn about the vertical (OrbitControls' azimuth: 0 looks towards -z). */
+  getAngles(): { polar: number; azimuth: number } {
+    const s = SPHERICAL.setFromVector3(OFFSET.subVectors(this.camera.position, this.controls.target));
+    return { polar: s.phi, azimuth: s.theta };
+  }
+
+  /**
+   * The Camera mode's closest zoom for the tilt of now (`closestDistanceAt`, at least the controls' own): a camera closer than it
+   * moves out along its view at once, after the controls' step. True when it moved.
+   */
+  private keepClear(): boolean {
+    const halfFov = Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2) / this.camera.zoom);
+    const min = Math.min(Math.max(this.controls.minDistance, closestDistanceAt(this.getAngles().polar, halfFov)), this.controls.maxDistance);
+    const offset = OFFSET.subVectors(this.camera.position, this.controls.target);
+    if (offset.length() >= min - 1e-6) return false;
+    this.camera.position.copy(this.controls.target).add(offset.setLength(min));
+    return true;
+  }
+
+  /** The return's step at `now`: the tilt and the turn eased from where they were to the play view's, the target and distance kept. */
+  private stepReturn(now: number): void {
+    const back = this.returning!;
+    back.start ??= now;
+    const t = Math.min(1, Math.max(0, (now - back.start) / FREE_RETURN_MS));
+    const e = easeInOut(t);
+    // The shorter way round to the play view's turn (0).
+    const turn = Math.atan2(Math.sin(-back.azimuth), Math.cos(-back.azimuth));
+    this.placeAt(THREE.MathUtils.lerp(back.polar, PLAY_DEFAULT_POLAR_ANGLE, e), back.azimuth + turn * e);
+    if (t >= 1) this.endReturn();
+  }
+
+  /** The camera at `polar` and `azimuth` around its target, at its distance of now. */
+  private placeAt(polar: number, azimuth: number): void {
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    const offset = new THREE.Vector3().setFromSpherical(new THREE.Spherical(distance, polar, azimuth));
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.camera.lookAt(this.controls.target);
+  }
+
+  /** The return done (or cut): the play view's locks. */
+  private endReturn(): void {
+    if (!this.returning) return;
+    this.returning = null;
+    this.lockPlayAngles();
+  }
+
+  private lockPlayAngles(): void {
+    this.controls.minAzimuthAngle = 0;
+    this.controls.maxAzimuthAngle = 0;
+    this.controls.minPolarAngle = PLAY_DEFAULT_POLAR_ANGLE;
+    this.controls.maxPolarAngle = PLAY_DEFAULT_POLAR_ANGLE;
+  }
+
   resize(width: number, height: number): void {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -249,16 +340,19 @@ export class CameraController {
     return this.compassRotation;
   }
 
-  setMode(mode: CameraMode): void {
+  /**
+   * The camera's mode. `play` locks the tilt and the turn (#719); coming from `free` (the Camera mode, #875), they ease back to
+   * the play view's over `FREE_RETURN_MS` first (the target and the distance kept), or at once with `animate` false (reduced
+   * motion). `free` frees the turn and the tilt between `FREE_MIN_POLAR_ANGLE` and `FREE_MAX_POLAR_ANGLE`, from where the camera
+   * is: entering moves nothing, each drag glides out with the damping.
+   */
+  setMode(mode: CameraMode, { animate = true }: { animate?: boolean } = {}): void {
+    const from = this.mode;
     this.mode = mode;
     if (mode === "play") {
       this.controls.panSpeed = 0.8;
       // The tilt and the azimuth are locked (#719): the camera only pans and zooms.
       this.controls.enableRotate = false;
-      this.controls.minAzimuthAngle = 0;
-      this.controls.maxAzimuthAngle = 0;
-      this.controls.minPolarAngle = PLAY_DEFAULT_POLAR_ANGLE;
-      this.controls.maxPolarAngle = PLAY_DEFAULT_POLAR_ANGLE;
       // The left and the right button pan, the middle one (and the wheel) zooms.
       this.controls.mouseButtons = {
         LEFT: THREE.MOUSE.PAN,
@@ -270,25 +364,50 @@ export class CameraController {
         ONE: THREE.TOUCH.PAN,
         TWO: THREE.TOUCH.DOLLY_PAN,
       };
+      if (from === "free") {
+        const { polar, azimuth } = this.getAngles();
+        // Open while it eases (the controls would clamp the camera to the locks at once); the next update starts the clock.
+        this.controls.minAzimuthAngle = -Infinity;
+        this.controls.maxAzimuthAngle = Infinity;
+        this.controls.minPolarAngle = 0;
+        this.controls.maxPolarAngle = Math.PI / 2;
+        this.returning = { start: null, polar, azimuth };
+        if (!animate) {
+          this.placeAt(PLAY_DEFAULT_POLAR_ANGLE, 0);
+          this.endReturn();
+        }
+        return;
+      }
+      if (!this.returning) this.lockPlayAngles();
       return;
     }
 
+    // Leaving play mid-return: the camera stays where the return had it, and the new mode's bounds hold from there.
+    this.returning = null;
     this.controls.enableRotate = true;
-    this.controls.panSpeed = 1;
-    this.controls.rotateSpeed = 0.35;
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
-    this.controls.minPolarAngle = 0;
-    this.controls.maxPolarAngle = Math.PI * 0.42;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT: THREE.MOUSE.ROTATE,
     };
+    // One finger turns and tilts; two fingers pinch to zoom and their midpoint pans.
     this.controls.touches = {
       ONE: THREE.TOUCH.ROTATE,
       TWO: THREE.TOUCH.DOLLY_PAN,
     };
+    if (mode === "free") {
+      this.controls.panSpeed = 0.8;
+      this.controls.rotateSpeed = 0.5;
+      this.controls.minPolarAngle = FREE_MIN_POLAR_ANGLE;
+      this.controls.maxPolarAngle = FREE_MAX_POLAR_ANGLE;
+      return;
+    }
+    this.controls.panSpeed = 1;
+    this.controls.rotateSpeed = 0.35;
+    this.controls.minPolarAngle = 0;
+    this.controls.maxPolarAngle = Math.PI * 0.42;
   }
 
   getMode(): CameraMode {

@@ -81,7 +81,8 @@ const EFFECTS_PROFILES: Record<RenderProfile, EffectsProfile> = {
 };
 
 export function getRenderProfileForCameraMode(mode: CameraMode): RenderProfile {
-  return mode === "play" ? "play" : "showcase";
+  // The Camera mode (#875) is the village as it plays, from another angle: the play look.
+  return mode === "showcase" ? "showcase" : "play";
 }
 
 export function getLightingProfile(profile: RenderProfile): LightingProfile {

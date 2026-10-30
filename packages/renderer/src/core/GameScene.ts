@@ -1318,10 +1318,14 @@ export class GameScene {
     this.requestRender();
   }
 
-  /** Set camera mode profile (play/showcase) */
+  /**
+   * The camera's mode and its render profile: `play`, `free` (the home's Camera mode, #875: leaving it eases the camera back to
+   * the play view, at once under reduced motion) or `showcase`.
+   */
   setCameraMode(mode: CameraMode): void {
     if (!this.controls) return;
-    this.controls.setMode(mode);
+    const { reducedMotion } = this.settings.placement.motion;
+    this.controls.setMode(mode, { animate: !(reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion) });
     this.setRenderProfile(getRenderProfileForCameraMode(mode));
     this.requestRender();
   }
