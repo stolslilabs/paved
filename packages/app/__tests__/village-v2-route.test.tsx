@@ -204,9 +204,11 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     }, WAIT);
     await s.router.navigate(-1);
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
-    // The home is back, not the page left behind (the chests' page has a Shop of its own).
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT)).toBeInTheDocument();
-  }, slow(45_000));
+    // The home is back, not the page left behind (the chests' page has a Shop of its own). Under a check's load the page left
+    // behind stayed in place past 48 s after the League control's trip: the home's return has a wait of its own, as Settings'
+    // Back below.
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(20_000) })).toBeInTheDocument();
+  }, slow(60_000));
 
   // One test per page, each with its own ceiling: the seven trips in one test outlasted a single ceiling on a loaded machine.
   it.each([
