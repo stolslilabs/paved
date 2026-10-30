@@ -50,6 +50,9 @@ export const MidLeague: Story = {};
 export const GrandMaster: Story = { args: { crowns: 5_320 } };
 /** WRAP360: a five-digit crown count. */
 export const Stress: Story = { args: { crowns: 12_345 } };
+/** The League page's header (#859): the crowns and the crest alone, no trophy; a tap brings the carousel back to the player's league. */
+export const Page: Story = { args: { variant: "page", label: "Your league: Bronze I, 1,240 crowns. Show it" } };
+export const PageStress: Story = { args: { variant: "page", crowns: 12_345, label: "Your league: Grand Master, 12,345 crowns. Show it" } };
 /** Both fixed sizes, one under the other: the phone's (a 32 px box, 40 px ends) and `desktop`'s (36, 44). */
 export const Sizes: Story = {
   render: (args) => (

@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { formatRelative } from "@paved/game-core";
+import { useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useReducedMotionConfig } from "motion/react";
+import { formatInteger, formatRelative } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { LEAGUES, leagueOf, type League } from "../../lib/pvp-rules";
 import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
-import { Crowns } from "../elements/crowns";
 import type { LeagueBonusState } from "../elements/league-bonus";
+import { crestClass } from "../elements/league-crest";
+import { Icon } from "../ui/icon";
 import { LeagueCard } from "../containers/league-card";
 import { LeagueCarousel } from "../containers/league-carousel";
+import { LeagueControl } from "../containers/league-control";
 import { MatchList, type MatchListProps } from "../containers/match-list";
 import { TabFrame } from "../containers/tab-frame";
 import { TopBar } from "../containers/top-bar";
@@ -50,7 +53,7 @@ export interface PvpLeagueSceneProps {
   /** A bonus's moment started (a tap on its icon): it is seen, and never plays again. */
   onBonusSeen?: (league: number) => void;
   /**
-   * The latest attacks and defences as cards (#786, in place of the defence log), with the shield; none when omitted. A section
+   * The latest attacks and defences as cards (#786, in place of the defence log; no shield since #859); none when omitted. A section
    * of the page (BACK-RULE #783: no page opens another page).
    */
   matches?: Omit<MatchListProps, "now" | "onOpen" | "onRetry">;
@@ -67,10 +70,12 @@ const MIN_SEASON_ATTACKS = 5;
 const LAST_DAY_S = 86_400;
 
 /**
- * The league (#647): a carousel of the 23 leagues opening on the player's (#785), one card size for every league (#833: its range
- * of crowns, its season Cobbles, its first-time bonus's icon, the back icon; for the player's own, the way to the next), the dots,
- * the player's crowns, then the season's end and what it gives (#644's rewards), and the latest attacks and defences as cards
- * (#786), each opening its match. No Attack button (#833): it is in the phone's bar, and the panel closes on desktop.
+ * The league (#647): the League control in the header (#859, in the balances' place: the crowns and the crest; a tap brings the
+ * carousel back to the player's league), a carousel of the 23 leagues opening on the player's (#785), its card standing alone
+ * between the arrows and over the dots (#833, #859: the range of crowns, the season's Cobbles, the first-time bonus's icon), then
+ * the season's end and, in one line, what the player's league gives at it (#644's rewards, #859), and the latest attacks and
+ * defences as cards (#786), each opening its match. No Attack button (#833): it is in the phone's bar, and the panel closes on
+ * desktop.
  */
 export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   const { crowns, best, bonusesToSee, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onBonusSeen, matches, onOpenMatch, onRetryMatches } = props;
@@ -82,30 +87,22 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   const peak = Math.max(mine.index, best != null ? leagueOf(best).index : 0);
   const left = season ? season.endsAt - now : 0;
   const ended = season !== null && left <= 0;
+  const browser = useRef<LeagueBrowserHandle>(null);
+  const control = (
+    <LeagueControl
+      crowns={crowns}
+      league={mine}
+      variant="page"
+      onLeague={() => browser.current?.showMine()}
+      label={`Your league: ${mine.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}. Show it`}
+    />
+  );
   return (
     <TabFrame tab="league" onNavigate={onNavigate}>
-      <TopBar title="League" onBack={onBack} />
+      <TopBar title="League" onBack={onBack} end={control} />
       <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card px-2 pt-2 pb-4">
-            <LeagueBrowser mine={mine} crowns={crowns} peak={peak} opensOn={opensOn} bonusesToSee={bonusesToSee} onBonusSeen={onBonusSeen} />
-            <p data-testid="league-player" className="flex min-h-5 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 text-center text-sm text-muted-foreground">
-              {unranked ? (
-                "Attack a village to enter the leagues. Every star wins crowns."
-              ) : (
-                <>
-                  <span className="flex items-center gap-1">
-                    Your crowns <Crowns value={crowns} size="sm" />
-                  </span>
-                  {best != null && best > crowns && (
-                    <span className="flex items-center gap-1">
-                      Season best <Crowns value={best} size="sm" />
-                    </span>
-                  )}
-                </>
-              )}
-            </p>
-          </div>
+          <LeagueBrowser ref={browser} mine={mine} peak={peak} opensOn={opensOn} bonusesToSee={bonusesToSee} onBonusSeen={onBonusSeen} />
 
           {season === null ? (
             <section aria-label="Season" className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
@@ -124,21 +121,7 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
                   <span className="text-xs text-muted-foreground">Ends {formatRelative(left)}</span>
                 )}
               </div>
-              <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                {ended ? "Its rewards are on their way." : "At its end, your league gives"}
-                {!ended && <Cobbles value={outside ? 0 : league.seasonCobbles} sign="+" />}
-                {!ended && attacks !== undefined && (
-                  <span className="w-full text-xs">
-                    {attacks >= MIN_SEASON_ATTACKS ? (
-                      "Earned: you attacked enough this season."
-                    ) : (
-                      <>
-                        once you attack <span className="numeric font-semibold text-foreground">{MIN_SEASON_ATTACKS - attacks}</span> more {MIN_SEASON_ATTACKS - attacks === 1 ? "time" : "times"} this season.
-                      </>
-                    )}
-                  </span>
-                )}
-              </p>
+              {ended ? <p className="text-sm text-muted-foreground">Its rewards are on their way.</p> : <SeasonReward league={mine} outside={outside} attacks={attacks} />}
             </section>
           )}
 
@@ -149,7 +132,43 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
   );
 }
 
-interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "crowns" | "opensOn" | "bonusesToSee" | "onBonusSeen"> {
+/**
+ * What the player's league gives at the season's end, in one line (#859): "Bronze II: +20 Cobbles at the season's end", the crest
+ * before it; the attacks still needed under it, below `MIN_SEASON_ATTACKS`. Wood gives nothing: the way to the first league that
+ * does. Paid at the season's roll, with no claim (#859, open point 2).
+ */
+function SeasonReward({ league, outside, attacks }: { league: League; outside: boolean; attacks?: number }) {
+  if (outside)
+    return (
+      <p data-testid="season-reward" className="text-sm text-muted-foreground">
+        Reach <span className="font-semibold text-foreground">{LEAGUES[1]!.name}</span> to earn Cobbles at the season's end
+      </p>
+    );
+  const missing = attacks === undefined ? 0 : Math.max(0, MIN_SEASON_ATTACKS - attacks);
+  return (
+    <>
+      {/* Inline, so a narrow card wraps it as text, after a word. */}
+      <p data-testid="season-reward" className="text-sm text-muted-foreground">
+        <Icon name="shield-halved" size="sm" className={cn("mr-1.5 align-[-0.125em]", crestClass(league.id))} />
+        <span className="font-semibold whitespace-nowrap text-foreground">{league.name}</span>:{" "}
+        <Cobbles value={league.seasonCobbles} sign="+" className="align-[-0.125em]" /> Cobbles at the season's end
+      </p>
+      {missing > 0 && (
+        <p data-testid="season-attacks" className="text-xs text-muted-foreground">
+          Attack <span className="numeric font-semibold text-foreground">{missing}</span> more {missing === 1 ? "time" : "times"} this season to earn it
+        </p>
+      )}
+    </>
+  );
+}
+
+/** The carousel's own call from the page: back to the player's league (the header's League control, #859). */
+interface LeagueBrowserHandle {
+  showMine: () => void;
+}
+
+interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "opensOn" | "bonusesToSee" | "onBonusSeen"> {
+  ref?: Ref<LeagueBrowserHandle>;
   /** The player's league. */
   mine: League;
   /** The highest league reached this season (`LEAGUES`' index). */
@@ -158,9 +177,9 @@ interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "crowns" | "opens
 
 /**
  * The carousel and its cards, with the league in view and the bonus's moment as their own state: moving through the leagues
- * redraws the carousel alone, never the season or the matches below.
+ * redraws the carousel alone, never the season or the matches below, nor the header (its League control calls `showMine`).
  */
-function LeagueBrowser({ mine, crowns, peak, opensOn, bonusesToSee, onBonusSeen }: LeagueBrowserProps) {
+function LeagueBrowser({ ref, mine, peak, opensOn, bonusesToSee, onBonusSeen }: LeagueBrowserProps) {
   const [selected, setSelected] = useState(opensOn ?? mine.index);
   const [seen, setSeen] = useState<readonly number[]>([]);
   // The league whose bonus's moment is playing. A tap marks the bonus seen at once: leaving the league ends the moment, and a
@@ -170,14 +189,22 @@ function LeagueBrowser({ mine, crowns, peak, opensOn, bonusesToSee, onBonusSeen 
     if (index !== selected) setCelebrating(null);
     setSelected(index);
   };
+  const root = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotionConfig();
+  // The header's League control: the carousel glides back to the player's league (a cut under reduced motion, the carousel's
+  // rule), brought into view when the page was scrolled past it.
+  useImperativeHandle(ref, () => ({
+    showMine: () => {
+      select(mine.index);
+      root.current?.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
+    },
+  }));
   const bonusOf = (l: League): LeagueBonusState => (l.index > peak ? "locked" : bonusesToSee?.includes(l.index) && !seen.includes(l.index) ? "ready" : "had");
   return (
-    <LeagueCarousel selected={selected} onSelect={select} mine={mine.index}>
+    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={mine.index}>
       {(l, current) => (
         <LeagueCard
           league={l}
-          mine={mine}
-          crowns={crowns}
           bonus={bonusOf(l)}
           celebrating={current && celebrating === l.index}
           onCelebrate={() => {
@@ -186,7 +213,6 @@ function LeagueBrowser({ mine, crowns, peak, opensOn, bonusesToSee, onBonusSeen 
             onBonusSeen?.(l.index);
           }}
           onCelebrated={() => setCelebrating(null)}
-          onBack={() => select(mine.index)}
         />
       )}
     </LeagueCarousel>

@@ -20,7 +20,7 @@ import { useAppNavigate, useBack, useTabNavigate } from "../ref";
  * `/pvp/league` (#647 PR 2): the player's crowns, league and season from `Matchmaker.league` (#644), the season's end from
  * `season_start(season + 1)`; no Attack on the page (#833: the phone's bar has it). The latest attacks and defences are cards in the page (#786, in
  * place of the defence log; its old link, `/pvp/defence`, lands here), each opening its match (`/pvp/match/:id`, v2) or its
- * replay (`/pvp/replay/:attacker/:id`, v1), whose Back comes up here, with the village's shield from `Matchmaker.shield`.
+ * replay (`/pvp/replay/:attacker/:id`, v1), whose Back comes up here. No shield on the page (#859): the home's overlay shows it.
  */
 export default function Page() {
   const onNavigate = useTabNavigate();
@@ -69,7 +69,7 @@ export default function Page() {
 const playerOf = (address: string, name: string | null = null, level = 0, look: string | null = null): PvpPlayer => ({ name, address, level, crowns: 0, look: look ? BigInt(look) : null });
 
 /**
- * The league's matches (#786): the latest attacks and defences as cards, with the shield. Where the sources serve PvP v2's matches
+ * The league's matches (#786): the latest attacks and defences as cards. Where the sources serve PvP v2's matches
  * (the mock; the chain from step 3), each with its snapshot, opening its match (`/pvp/match/:id`). Else v1's indexer rows, the
  * attacks on the village and those the player made mixed, with no snapshot (no village behind the card), opening their replay.
  */
@@ -80,8 +80,6 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
   const v1 = v2.data === null;
   const defences = useDefenceLog(v1 ? me : null);
   const attacks = useAttackLog(v1 ? me : null);
-  const status = usePvpStatus(me);
-  const shield = status.data?.shield;
   // The cards' backgrounds (#857): the build's renders, as the Story campaigns'.
   const renders = useTileRenders(RENDERER_ASSETS);
   const shown = useMemo<{ cards: MatchCardData[]; paths: Map<string, string> } | null>(() => {
@@ -129,8 +127,6 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
   return {
     matches: {
       matches: shown?.cards ?? null,
-      shieldEndsAt: shield?.up ? shield.until : null,
-      shieldUnknown: status.data == null,
       error: error?.message ?? null,
       errorDetail: error ? errorDetail(error) : undefined,
       renders,
