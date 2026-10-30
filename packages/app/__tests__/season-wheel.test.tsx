@@ -209,9 +209,26 @@ describe("the season dial's colours and room (#607)", () => {
       unmount();
       // Under reduced motion, nothing drifts.
       animate.mockClear();
-      const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
-      render(<SeasonWheel state="auto" />);
+      const listeners = new Set<() => void>();
+      const query = {
+        matches: true,
+        addEventListener: (_: string, l: () => void) => listeners.add(l),
+        removeEventListener: (_: string, l: () => void) => listeners.delete(l),
+      };
+      const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue(query as unknown as MediaQueryList);
+      const reduced = render(<SeasonWheel state="auto" />);
       expect(animate).not.toHaveBeenCalled();
+      // The setting turned off while the wheel is up: the drift starts; turned on again: every drift stops.
+      query.matches = false;
+      listeners.forEach((l) => l());
+      expect(animate).toHaveBeenCalledTimes(2);
+      const started = animate.mock.results.map((r) => r.value as { cancel: ReturnType<typeof vi.fn> });
+      query.matches = true;
+      listeners.forEach((l) => l());
+      for (const run of started) expect(run.cancel).toHaveBeenCalledOnce();
+      expect(animate).toHaveBeenCalledTimes(2);
+      reduced.unmount();
+      expect(listeners.size).toBe(0);
       matchMedia.mockRestore();
     } finally {
       delete (Element.prototype as Partial<Element>).animate;

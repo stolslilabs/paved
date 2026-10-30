@@ -254,11 +254,26 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
   const timeDisc = useRef<HTMLSpanElement>(null);
   // The clouds drift and the birds glide; all still under reduced motion.
   useEffect(() => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const runs = [...(timeDisc.current?.querySelectorAll<SVGElement>("[data-drift]") ?? [])].map((el) =>
-      el.animate?.(DRIFT_KEYFRAMES, { duration: DRIFT_MS[el.dataset.drift as "cloud" | "bird"], iterations: Infinity, direction: "alternate", easing: "ease" }),
-    );
-    return () => runs.forEach((run) => run?.cancel());
+    // Started and stopped as the setting changes, not only read at mount.
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    let runs: (Animation | undefined)[] = [];
+    const stop = () => {
+      runs.forEach((run) => run?.cancel());
+      runs = [];
+    };
+    const sync = () => {
+      stop();
+      if (reduced.matches) return;
+      runs = [...(timeDisc.current?.querySelectorAll<SVGElement>("[data-drift]") ?? [])].map((el) =>
+        el.animate?.(DRIFT_KEYFRAMES, { duration: DRIFT_MS[el.dataset.drift as "cloud" | "bird"], iterations: Infinity, direction: "alternate", easing: "ease" }),
+      );
+    };
+    sync();
+    reduced.addEventListener("change", sync);
+    return () => {
+      reduced.removeEventListener("change", sync);
+      stop();
+    };
   }, []);
   const goal = -cyclePoint(state, point) * 90;
   // The discs only ever turn one way, counterclockwise (the next season comes up the right side to the top): a reading
