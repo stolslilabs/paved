@@ -134,6 +134,12 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(onRetry).toHaveBeenCalledTimes(2);
   });
 
+  it("the browser's \"Failed to fetch\" reads as the network's, short (#918)", () => {
+    render(wrap(<Balances layout="rail" state={{ status: "error", message: "Failed to fetch" }} />));
+    expect(screen.getByRole("alert")).toHaveTextContent("Balances: Can't reach the network.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Failed to fetch");
+  });
+
   it("while it retries, the mark waits", () => {
     render(wrap(<Balances layout="pill" state={{ status: "error", message: "Can't reach the network.", retrying: true }} onRetry={vi.fn()} />));
     expect(screen.getByRole("button", { name: "Balances unavailable: Can't reach the network. Retrying…" })).toBeDisabled();

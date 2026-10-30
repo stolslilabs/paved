@@ -187,10 +187,10 @@ export const NewAccountVault: Story = { ...page(NEW_ACCOUNT), globals: MOBILE };
 
 /**
  * The node cannot be reached (#918: Cartridge's Sepolia RPC answered 410 to every request, which the browser reads as "Failed
- * to fetch"): a short message, never the browser's text. On a phone the mark, which retries when pressed; from `desktop`, the
+ * to fetch"): the browser's text in, "Can't reach the network." shown. On a phone the mark, which retries when pressed; from `desktop`, the
  * message and Retry. `Retrying`: the read is on its way again.
  */
-const OFFLINE: BalancesState = { status: "error", message: "Can't reach the network." };
+const OFFLINE: BalancesState = { status: "error", message: "Failed to fetch" };
 export const NetworkErrorHome320: Story = { ...corner(OFFLINE), ...PHONE_320, parameters: { ...PHONE_320.parameters, layout: "fullscreen" } };
 export const NetworkErrorPacks320: Story = { ...pageOf("cobbles", OFFLINE), ...PHONE_320 };
 export const NetworkErrorVault: Story = { ...page(OFFLINE), globals: MOBILE };

@@ -13,7 +13,7 @@ import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 export type BalancesState =
   | { status: "disconnected"; connecting?: boolean }
   | { status: "loading" }
-  /** A failed read: a short message (the network's failures read "Can't reach the network.", #918); `retrying` while Retry reads again. */
+  /** A failed read: its text (shown through `balancesMessage`, #918); `retrying` while Retry reads again. */
   | { status: "error"; message: string; retrying?: boolean }
   | {
       status: "ready";
@@ -239,6 +239,19 @@ function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConne
   );
 }
 
+/** What the balances show when the node or the network cannot be reached: short, and the bar offers Retry (#918). */
+export const BALANCES_OFFLINE = "Can't reach the network.";
+
+/**
+ * A browser's text for a request that never got an answer (Chromium "Failed to fetch", Firefox "NetworkError when attempting to
+ * fetch resource.", Safari "Load failed", Node "fetch failed"; a failed CORS preflight reads the same), or a node that answered
+ * something other than JSON-RPC (an HTML or plain-text error page: "Unexpected token", "JSON Parse error").
+ */
+const UNREACHABLE = /failed to fetch|networkerror|load failed|network request failed|fetch failed|json parse error|unexpected token|not valid json/i;
+
+/** The message a failed balance read shows: `BALANCES_OFFLINE` for the network's failures, the read's own text otherwise. */
+export const balancesMessage = (text: string): string => (UNREACHABLE.test(text) ? BALANCES_OFFLINE : text);
+
 /**
  * A failed read (#918): from `desktop` the message and Retry; on a phone a mark, its message in its name, which retries when
  * pressed (one 44 px box, so the header's row keeps its width at 320 px). Without `onRetry` (a story's), no action.
@@ -306,7 +319,7 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
       {state.status === "disconnected" ? (
         <Guest connecting={state.connecting} onConnect={onConnect} names={size === "md" ? namesOf(kinds) : undefined} />
       ) : state.status === "error" ? (
-        <BalancesError size={size} message={state.message} retrying={state.retrying} onRetry={onRetry} />
+        <BalancesError size={size} message={balancesMessage(state.message)} retrying={state.retrying} onRetry={onRetry} />
       ) : state.status === "loading" ? (
         // The plates' rows: a skeleton in each plate's place, nothing moves when they arrive.
         kinds
