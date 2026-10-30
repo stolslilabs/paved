@@ -13,7 +13,8 @@ import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 export type BalancesState =
   | { status: "disconnected"; connecting?: boolean }
   | { status: "loading" }
-  | { status: "error"; message: string }
+  /** A failed read: a short message (the network's failures read "Can't reach the network.", #918); `retrying` while Retry reads again. */
+  | { status: "error"; message: string; retrying?: boolean }
   | {
       status: "ready";
       /** Null: no source on this network, shown as a dash; undefined: the read is still out, a skeleton. */
@@ -60,6 +61,8 @@ export interface BalancesProps {
   here?: readonly BalanceKind[];
   onAction?: (kind: BalanceKind) => void;
   onConnect?: () => void;
+  /** Reads the balances again after a failed read (`error`): Retry, beside the message from `desktop`, the mark itself on a phone. */
+  onRetry?: () => void;
   /** The network has a test-USDC faucet (devnet, Sepolia): USDC's action mints; without it USDC has no action here. */
   faucet?: boolean;
   /** The faucet mint is on its way. */
@@ -237,6 +240,41 @@ function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConne
 }
 
 /**
+ * A failed read (#918): from `desktop` the message and Retry; on a phone a mark, its message in its name, which retries when
+ * pressed (one 44 px box, so the header's row keeps its width at 320 px). Without `onRetry` (a story's), no action.
+ */
+function BalancesError({ size, message, retrying, onRetry }: { size: PlateSize; message: string; retrying?: boolean; onRetry?: () => void }) {
+  if (size === "md") {
+    const action = onRetry ? (
+      <Button size="sm" variant="outline" loading={retrying} onClick={onRetry}>
+        Retry
+      </Button>
+    ) : undefined;
+    return <InlineError message={message} title="Balances" action={action} />;
+  }
+  const mark = <Icon name="triangle-exclamation" size="sm" className={cn("text-muted-foreground", retrying && "animate-pulse")} />;
+  if (!onRetry) {
+    return (
+      <span role="img" aria-label={`Balances unavailable: ${message}`} title={message} className="grid size-11 place-items-center">
+        {mark}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      aria-label={`Balances unavailable: ${message} ${retrying ? "Retrying…" : "Retry"}`}
+      title={`${message} Tap to retry.`}
+      disabled={retrying}
+      onClick={onRetry}
+      className="grid size-11 place-items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {mark}
+    </button>
+  );
+}
+
+/**
  * The balances at hand (#538), as a game's resource bar (#620): each currency on its own plate (#828), its icon over the plate's
  * right end, the figure chunky, counting to each new value; a "+" over the left end where the balance leads to a page (the
  * Challenge, the Vault, the packs), none on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
@@ -244,7 +282,7 @@ function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConne
  * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
  * skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
  */
-export function Balances({ layout, page, direction = "row", state, onAction, onConnect, faucet, minting, beside, className, ...props }: BalancesProps) {
+export function Balances({ layout, page, direction = "row", state, onAction, onConnect, onRetry, faucet, minting, beside, className, ...props }: BalancesProps) {
   // No page (a story's, a test's), every balance; a page that shows none (`null`, or a route the rule does not name), none.
   const kinds = props.kinds ?? (page === undefined ? EVERY : (HEADER_BALANCES[page as keyof typeof HEADER_BALANCES] ?? []));
   const here = props.here ?? (page == null ? undefined : hereOf(`/${page}`));
@@ -268,13 +306,7 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
       {state.status === "disconnected" ? (
         <Guest connecting={state.connecting} onConnect={onConnect} names={size === "md" ? namesOf(kinds) : undefined} />
       ) : state.status === "error" ? (
-        size === "md" ? (
-          <InlineError message={state.message} title="Balances" />
-        ) : (
-          <span role="img" aria-label={`Balances unavailable: ${state.message}`} title={state.message} className="grid size-11 place-items-center">
-            <Icon name="triangle-exclamation" size="sm" className="text-muted-foreground" />
-          </span>
-        )
+        <BalancesError size={size} message={state.message} retrying={state.retrying} onRetry={onRetry} />
       ) : state.status === "loading" ? (
         // The plates' rows: a skeleton in each plate's place, nothing moves when they arrive.
         kinds
