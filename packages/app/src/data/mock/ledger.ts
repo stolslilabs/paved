@@ -835,7 +835,7 @@ export class MockLedger {
     const rivalOf = (address: string) => {
       const rival = mockRivalV2(address);
       // A rival lives on no device and saved no avatar: a face seeded by its address (#834), not an initial.
-      return { address, name: rival?.name ?? null, level: rival?.level ?? 0, look: String(generatedLook(address)), ...(rival && { league: leagueIndex(rival.crowns) }) };
+      return { address, name: rival?.name ?? null, level: rival?.level ?? 0, look: String(generatedLook(address)) };
     };
     const attacks: MatchRecord[] = v2.attacks
       .filter((a) => a.status !== "open")
