@@ -190,16 +190,22 @@ describe("the season dial's colours and room (#607)", () => {
       for (const star of of("star")) expect(star).toHaveClass("dial-twinkle");
       expect(of("cloud").length).toBeGreaterThanOrEqual(2);
       expect(of("bird").length).toBeGreaterThanOrEqual(2);
-      // Each drifts in its own box, the centre disc's: the translate of an HTML box, which the compositor runs.
-      const drifting = [...of("cloud"), ...of("bird")];
-      for (const p of drifting) expect((p.parentElement!.parentElement as HTMLElement).style.inset).toBe(`${50 - TIME_DISC}%`);
-      expect(animate).toHaveBeenCalledTimes(drifting.length);
+      // The clouds drift as one and the birds as one, each group in the centre disc's box: two animations of an HTML box's
+      // translate, which the compositor runs. The stars twinkle in a layer of their own.
+      for (const kind of ["cloud", "bird"]) {
+        const group = of(kind).map((p) => p.parentElement);
+        expect(new Set(group).size, kind).toBe(1);
+        expect(group[0]).toHaveAttribute("data-drift", kind);
+        expect((group[0]!.parentElement as HTMLElement).style.inset).toBe(`${50 - TIME_DISC}%`);
+      }
+      expect((of("star")[0]!.parentElement!.parentElement as HTMLElement).style.willChange).toBe("transform");
+      expect(animate).toHaveBeenCalledTimes(2);
       const calls = animate.mock.calls as unknown as [Keyframe[], KeyframeAnimationOptions][];
       for (const [frames, options] of calls) {
         expect(frames).toBe(DRIFT_KEYFRAMES);
         expect(options).toMatchObject({ iterations: Infinity, direction: "alternate" });
       }
-      expect(calls.map(([, o]) => o.duration).sort()).toEqual([...of("bird").map(() => DRIFT_MS.bird), ...of("cloud").map(() => DRIFT_MS.cloud)].sort());
+      expect(calls.map(([, o]) => o.duration)).toEqual([DRIFT_MS.cloud, DRIFT_MS.bird]);
       unmount();
       // Under reduced motion, nothing drifts.
       animate.mockClear();
@@ -284,19 +290,25 @@ describe("the season dial's colours and room (#607)", () => {
       const out = (u: number, v: number) => [d.x + u * Math.cos(rad) - v * Math.sin(rad), d.y + u * Math.sin(rad) + v * Math.cos(rad)] as const;
       const back = (x: number, y: number) => [(x - d.x) * Math.cos(rad) + (y - d.y) * Math.sin(rad), -(x - d.x) * Math.sin(rad) + (y - d.y) * Math.cos(rad)] as const;
       const { x0, x1, y0, y1 } = d.box;
-      for (const [u, v] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]] as const) {
-        const [x, y] = out(u, v);
-        expect(Math.hypot(x - 50, y - 50), `${d.kind} at ${d.d}`).toBeLessThan(TIME_DISC - 0.2);
-        // By day before dusk (225°), by night after it.
-        const deg = bearing(x, y);
-        expect(d.kind === "star" ? deg > 225 : deg < 225, `${d.kind} at ${d.d}: ${deg}°`).toBe(true);
-      }
-      // The icons turn upright on the turning disc: each is taken as a round of its half, outline included, at the largest
-      // share of the dial (96 px). The "against" layout is the mirror of this one, so the same test holds for it.
-      for (const t of ["day", "night"] as const) {
-        const [u, v] = back(TIME_ICON_AT.with[t].x, TIME_ICON_AT.with[t].y);
-        const gap = Math.hypot(Math.max(x0 - u, 0, u - x1), Math.max(y0 - v, 0, v - y1));
-        for (const dial of DIAL_PX) expect(gap, `${d.kind} at ${d.d}, the ${t} icon at ${dial}`).toBeGreaterThan(half(TIME_ICON_PX[dial], dial));
+      // The clouds and the birds drift on the disc by `DRIFT` and back: swept in tenths.
+      const steps = d.kind === "star" ? [0] : Array.from({ length: 11 }, (_, i) => i / 10);
+      for (const t of steps) {
+        for (const [u, v] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]] as const) {
+          const [ox, oy] = out(u, v);
+          const [x, y] = [ox + t * DRIFT.x, oy + t * DRIFT.y];
+          expect(Math.hypot(x - 50, y - 50), `${d.kind} at ${d.d}`).toBeLessThan(TIME_DISC - 0.2);
+          // By day before dusk (225°), by night after it.
+          const deg = bearing(x, y);
+          expect(d.kind === "star" ? deg > 225 : deg < 225, `${d.kind} at ${d.d}: ${deg}°`).toBe(true);
+        }
+        // The icons turn upright on the turning disc: each is taken as a round of its half, outline included, at the largest
+        // share of the dial (96 px). The "against" layout is the mirror of this one, so the same test holds for it.
+        for (const icon of ["day", "night"] as const) {
+          // The decoration drifted by t is the icon moved back by t.
+          const [u, v] = back(TIME_ICON_AT.with[icon].x - t * DRIFT.x, TIME_ICON_AT.with[icon].y - t * DRIFT.y);
+          const gap = Math.hypot(Math.max(x0 - u, 0, u - x1), Math.max(y0 - v, 0, v - y1));
+          for (const dial of DIAL_PX) expect(gap, `${d.kind} at ${d.d} drifted ${t}, the ${icon} icon at ${dial}`).toBeGreaterThan(half(TIME_ICON_PX[dial], dial));
+        }
       }
     }
     expect(TIME_ICON_AT.against.day).toEqual({ x: 100 - TIME_ICON_AT.with.day.x, y: TIME_ICON_AT.with.day.y });

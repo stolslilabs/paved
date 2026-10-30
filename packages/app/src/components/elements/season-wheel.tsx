@@ -40,7 +40,7 @@ export const DIAL_PX = [96, 108, 144] as const;
 export const ICON_PX = { 96: 14, 108: 16, 144: 20 } as const;
 export const TIME_ICON_PX = { 96: 12, 108: 12, 144: 16 } as const;
 /** The season icons: 14 px on the narrowest phones, 16 px on other phones, 20 px from tablet up (issue 930: room from the borders). */
-const ICON_SIZE = "text-sm min-[24.375rem]:text-base tablet:text-xl";
+const ICON_SIZE = "text-sm min-[24.375rem]:text-[1rem] tablet:text-xl";
 /** The centre disc's icons: 12 px on a phone (the text floor), 16 px from tablet up. */
 const TIME_ICON_SIZE = "text-[0.75rem] tablet:text-[1rem]";
 
@@ -139,27 +139,28 @@ function bird(x: number, y: number, s: number): string {
 }
 
 /**
- * How a cloud drifts and a bird glides, back and forth along its own frame: a translate of its box (the centre disc's), so the
- * compositor runs it, by the Web Animations API, so the stylesheet's budget pays nothing. `DRIFT` is how far, in dial units:
- * 4.4% and -1.5% of the box, `TIME_DISC` twice. The geometry test allows for it.
+ * How the clouds drift and the birds glide, back and forth, all the clouds as one and all the birds as one: a translate of their
+ * box (the centre disc's), so the compositor runs it, by the Web Animations API, so the stylesheet's budget pays nothing. Two
+ * animations in all: each one costs the main thread a little at every frame. `DRIFT` is how far, in dial units, on the disc:
+ * 4.4% and -1.5% of the box, `TIME_DISC` twice. The geometry test sweeps it.
  */
 export const DRIFT_KEYFRAMES = [{ translate: "0 0" }, { translate: "4.4% -1.5%" }];
 export const DRIFT = { x: 0.044 * 2 * TIME_DISC, y: -0.015 * 2 * TIME_DISC } as const;
-/** A cloud's drift and a bird's glide, one way, in ms. */
+/** The clouds' drift and the birds' glide, one way, in ms. */
 export const DRIFT_MS = { cloud: 7000, bird: 3000 } as const;
 
-/** A decoration's box about its anchor, in its own frame (up is out, towards the rim), drift included. */
+/** A decoration's box about its anchor, in its own frame (up is out, towards the rim). */
 const BOX = {
   star: (s: number) => ({ x0: -s, x1: s, y0: -s, y1: s }),
-  cloud: (s: number) => ({ x0: -2.2 * s, x1: 2.2 * s + DRIFT.x, y0: -1.5 * s + DRIFT.y, y1: 0.3 }),
-  bird: (s: number) => ({ x0: -s - 0.3, x1: s + 0.3 + DRIFT.x, y0: -0.6 * s - 0.3 + DRIFT.y, y1: 0.3 }),
+  cloud: (s: number) => ({ x0: -2.2 * s, x1: 2.2 * s, y0: -1.5 * s, y1: 0.3 }),
+  bird: (s: number) => ({ x0: -s - 0.3, x1: s + 0.3, y0: -0.6 * s - 0.3, y1: 0.3 }),
 };
 const SHAPE = { star: sparkle, cloud, bird };
 
 /**
  * The centre disc's decorations, about its icons (issue 930): the night's stars twinkle, the day's clouds drift slowly and its
  * birds glide. The disc is a sky seen from its centre, the horizon there and the sky's top at the rim (issue 607), so each cloud
- * and bird stands on its own line from the centre (`rot`), its base towards the horizon, and drifts across it.
+ * and bird stands on its own line from the centre (`rot`), its base towards the horizon.
  */
 export const DECOR = (
   [
@@ -168,17 +169,37 @@ export const DECOR = (
     { kind: "star", r: 15.8, deg: 275, s: 0.8, delay: 1.2 },
     { kind: "star", r: 15.5, deg: 320, s: 0.9, delay: 0.4 },
     { kind: "cloud", r: 12, deg: 35, s: 1.3, delay: 0 },
-    { kind: "cloud", r: 12.5, deg: 180, s: 1.1, delay: 2.5 },
-    { kind: "cloud", r: 14.5, deg: 62, s: 0.8, delay: 1.2 },
-    { kind: "bird", r: 15, deg: 12, s: 1.2, delay: 0.3 },
-    { kind: "bird", r: 14.5, deg: 155, s: 1.1, delay: 1.4 },
-    { kind: "bird", r: 12, deg: 205, s: 1, delay: 0.8 },
+    { kind: "cloud", r: 12.5, deg: 180, s: 1.1, delay: 0 },
+    { kind: "cloud", r: 13.5, deg: 62, s: 0.8, delay: 0 },
+    { kind: "bird", r: 14, deg: 12, s: 1.2, delay: 0 },
+    { kind: "bird", r: 14.5, deg: 155, s: 1.1, delay: 0 },
+    { kind: "bird", r: 12, deg: 205, s: 1, delay: 0 },
   ] as const
 ).map(({ kind, r, deg, s, delay }) => {
   const [x, y] = at(r, deg);
   return { kind, x, y, rot: kind === "star" ? 0 : deg, d: SHAPE[kind](x, y, s), delay, box: BOX[kind](s) };
 });
-const DRIFTING = DECOR.filter((p) => p.kind !== "star");
+/** The centre disc's box, in % of the dial, and its view box in dial units: each group of decorations is drawn in one. */
+const TIME_BOX = { inset: `${50 - TIME_DISC}%` };
+const TIME_VIEW = `${50 - TIME_DISC} ${50 - TIME_DISC} ${2 * TIME_DISC} ${2 * TIME_DISC}`;
+
+/** A group of the centre disc's decorations, each turned to its line from the centre. */
+function Decor({ kind }: { kind: "star" | "cloud" | "bird" }) {
+  return DECOR.filter((p) => p.kind === kind).map((p, i) => (
+    <path
+      key={i}
+      data-decor={kind}
+      d={p.d}
+      transform={p.rot ? `rotate(${p.rot} ${f(p.x)} ${f(p.y)})` : undefined}
+      fill={kind === "bird" ? "none" : kind === "star" ? "var(--dial-star)" : "var(--foreground)"}
+      stroke={kind === "bird" ? "var(--dial-ring)" : undefined}
+      strokeWidth={0.6}
+      strokeLinecap="round"
+      className={kind === "star" ? "dial-twinkle" : undefined}
+      style={kind === "star" ? { animationDelay: `${p.delay}s` } : undefined}
+    />
+  ));
+}
 
 /** The stones' two tones, in an uneven order, as laid paving. */
 const STONE_TONES = [0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1];
@@ -234,8 +255,8 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
   // The clouds drift and the birds glide; all still under reduced motion.
   useEffect(() => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const runs = [...(timeDisc.current?.querySelectorAll("[data-drift]") ?? [])].map((el, i) =>
-      el.animate?.(DRIFT_KEYFRAMES, { duration: DRIFT_MS[DRIFTING[i]!.kind as "cloud" | "bird"], delay: DRIFTING[i]!.delay * 1000, iterations: Infinity, direction: "alternate", easing: "ease-in-out" }),
+    const runs = [...(timeDisc.current?.querySelectorAll<SVGElement>("[data-drift]") ?? [])].map((el) =>
+      el.animate?.(DRIFT_KEYFRAMES, { duration: DRIFT_MS[el.dataset.drift as "cloud" | "bird"], iterations: Infinity, direction: "alternate", easing: "ease" }),
     );
     return () => runs.forEach((run) => run?.cancel());
   }, []);
@@ -285,28 +306,16 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
         <span ref={timeDisc} data-time-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
           <span className="absolute inset-0" style={against ? { transform: "scaleX(-1)" } : undefined}>
             <Sky name="time" sky={timeSky} r={TIME_DISC} />
-            <svg viewBox="0 0 100 100" className="absolute inset-0 size-full">
-              {DECOR.filter((p) => p.kind === "star").map((p, i) => (
-                <path key={i} data-decor="star" d={p.d} fill="var(--dial-star)" className="dial-twinkle" style={{ animationDelay: `${p.delay}s` }} />
-              ))}
-            </svg>
-            {/* Each cloud and bird in a box of its own, the centre disc's, turned to its line from the centre: its drift is a
-                translate of that box, which the compositor runs (a drift drawn in the SVG lays the dial out again at each frame). */}
-            {DRIFTING.map((p, i) => (
-              <span
-                key={i}
-                className="absolute"
-                style={{ inset: `${50 - TIME_DISC}%`, transform: `rotate(${p.rot}deg)`, transformOrigin: `${f(((p.x - 50) / TIME_DISC + 1) * 50)}% ${f(((p.y - 50) / TIME_DISC + 1) * 50)}%` }}
-              >
-                <svg data-drift viewBox={`${50 - TIME_DISC} ${50 - TIME_DISC} ${2 * TIME_DISC} ${2 * TIME_DISC}`} className="absolute inset-0 size-full">
-                  <path
-                    data-decor={p.kind}
-                    d={p.d}
-                    fill={p.kind === "bird" ? "none" : "var(--foreground)"}
-                    stroke={p.kind === "bird" ? "var(--dial-ring)" : undefined}
-                    strokeWidth={0.6}
-                    strokeLinecap="round"
-                  />
+            {/* The stars twinkle in a layer of their own, so a twinkle does not paint the skies again. */}
+            <span className="absolute" style={{ ...TIME_BOX, willChange: "transform" }}>
+              <svg viewBox={TIME_VIEW} className="absolute inset-0 size-full">
+                <Decor kind="star" />
+              </svg>
+            </span>
+            {(["cloud", "bird"] as const).map((kind) => (
+              <span key={kind} className="absolute" style={TIME_BOX}>
+                <svg data-drift={kind} viewBox={TIME_VIEW} className="absolute inset-0 size-full">
+                  <Decor kind={kind} />
                 </svg>
               </span>
             ))}
