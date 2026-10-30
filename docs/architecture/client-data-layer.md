@@ -51,7 +51,7 @@ amount and offers no Challenge confirm, rather than assume 18).
 
 ### Sepolia (D-16, P-39)
 
-A build with `VITE_NETWORK=sepolia`, `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` and
+A build with `VITE_NETWORK=sepolia`, `VITE_RPC_URL=https://starknet-sepolia-rpc.publicnode.com` and
 `VITE_INDEXER_URL=https://api.paved.bal7hazar.com` plays on CORE's deployment (`contracts/deployments/sepolia.json`, S-1). What
 differs from devnet:
 

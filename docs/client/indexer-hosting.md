@@ -392,7 +392,7 @@ The Sepolia build env, from what `packages/app-web` read until 2026-10-17 (`src/
 |---|---|---|
 | `VITE_NETWORK` | `sepolia` | Picks `contracts/deployments/sepolia.json`, read at build time by `import.meta.glob` (addresses, `chain_id`, `deployed_block`, `contracts.Collection`, the economy's addresses). Without that file the build is "not connected" (`missing` lists it in the console). |
 | `VITE_INDEXER_URL` | `https://api.paved.bal7hazar.com` | Above. |
-| `VITE_RPC_URL` | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` | Overrides the file's `rpc_url`, which on Sepolia is the placeholder `$STARKNET_RPC_URL` and is never called: **without this variable the build is "not connected"**. Same value the indexer uses. No key, so it may sit in a public bundle. |
+| `VITE_RPC_URL` | `https://starknet-sepolia-rpc.publicnode.com` | Overrides the file's `rpc_url`, which on Sepolia is the placeholder `$STARKNET_RPC_URL` and is never called: **without this variable the build is "not connected"**. Cartridge's Sepolia RPC, the earlier value, answers 410 to every request since 2026-10-30 (a failed CORS preflight: "Failed to fetch" in the browser, #918). No key, so it may sit in a public bundle. |
 | not set | `VITE_PLAYER_*` | Devnet only (a key in a bundle is public); other networks ignore them. |
 | not set | `VITE_*_ADDRESS` | The file supplies them; an override is for an operator patch only. |
 | not set | `VITE_SUPPORTS_TOKEN_MINT` | Unset means the faucet is offered on devnet and Sepolia (the test-USDC faucet, D-16, P-39), and `resolveDeployment` resolves a Faucet for those two networks only, never mainnet. The controller's session holds `Faucet.mint` on Sepolia. |

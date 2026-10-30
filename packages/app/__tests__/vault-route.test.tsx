@@ -122,9 +122,11 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     open(s);
     // The balances' own inline error (the rail's) comes with the page's.
     const alerts = await screen.findAllByRole("alert", {}, { timeout: slow(8000) });
-    expect(alerts.some((a) => /The Vault cannot be read/.test(a.textContent ?? ""))).toBe(true);
+    const vault = alerts.find((a) => /The Vault cannot be read/.test(a.textContent ?? ""));
+    expect(vault).toBeDefined();
     s.economy.fail = null;
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    // The page's Retry (the balances' error has its own, #918).
+    await userEvent.click(within(vault!).getByRole("button", { name: "Retry" }));
     expect(await position()).toHaveTextContent("1.00vPAVED");
   });
 

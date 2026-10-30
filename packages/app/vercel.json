@@ -15,7 +15,7 @@
     "env": {
       "VITE_NETWORK": "sepolia",
       "VITE_INDEXER_URL": "https://api.paved.bal7hazar.com",
-      "VITE_RPC_URL": "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10"
+      "VITE_RPC_URL": "https://starknet-sepolia-rpc.publicnode.com"
     }
   },
   "rewrites": [

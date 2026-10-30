@@ -30,7 +30,7 @@ const FAUCET = FAUCET_NETWORKS.includes(import.meta.env.VITE_NETWORK || (import.
  * shows some or the home is mounted under it. A plate on its own page leads nowhere, and is not pressed (`here`).
  */
 export function BalancesHost({ page, children }: { page: string | null; children: ReactNode }) {
-  const state = useBalances();
+  const { state, retry } = useBalances();
   const wallet = useAccount();
   const { signer } = useDataSources();
   const queryClient = useQueryClient();
@@ -55,8 +55,8 @@ export function BalancesHost({ page, children }: { page: string | null; children
   );
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);
   const value = useMemo(
-    () => ({ state, page, onAction, onConnect, faucet: FAUCET && Boolean(signer), minting }),
-    [state, page, onAction, onConnect, signer, minting],
+    () => ({ state, page, onAction, onConnect, onRetry: retry, faucet: FAUCET && Boolean(signer), minting }),
+    [state, page, onAction, onConnect, retry, signer, minting],
   );
   return (
     <BalancesProvider value={value}>
