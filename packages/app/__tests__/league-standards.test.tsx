@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LeagueBanner } from "../src/components/elements/league-banner";
 import { LeagueCrestArt, LeagueCrestIcon } from "../src/components/elements/league-crest-art";
 import { LeaguePlate } from "../src/components/elements/league-plate";
@@ -59,9 +59,38 @@ describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
     expect(container.innerHTML).not.toMatch(/https?:|rgb\(/);
   });
 
-  it("squeezes a name too long for the plate's face rather than letting it pass", () => {
-    render(<LeaguePlate tier="emerald" name="Emerald III Champion" />);
-    expect(screen.getByRole("img", { name: "Emerald III Champion" }).querySelector("text")).toHaveAttribute("textLength", "404");
+  describe("fits the name to the plate's face by its rendered width, not its letters (jsdom has no layout: the width is stubbed)", () => {
+    const proto = SVGElement.prototype as SVGElement & { getComputedTextLength?: () => number };
+    const stub = (width: (text: string) => number) => {
+      proto.getComputedTextLength = function (this: SVGElement) {
+        return this.hasAttribute("textLength") ? 404 : width(this.textContent ?? "");
+      };
+    };
+    afterEach(() => {
+      delete proto.getComputedTextLength;
+    });
+    const textOf = (name: string) => screen.getByRole("img", { name }).querySelector("text")!;
+
+    it("squeezes a short name of wide letters that passes the face", () => {
+      stub(() => 641);
+      render(<LeaguePlate tier="iron" name="WWWWWWWWWWWWW" />);
+      expect(textOf("WWWWWWWWWWWWW")).toHaveAttribute("textLength", "404");
+      expect(textOf("WWWWWWWWWWWWW")).toHaveAttribute("lengthAdjust", "spacingAndGlyphs");
+    });
+
+    it("leaves a long name of narrow letters that fits as set", () => {
+      stub(() => 300);
+      render(<LeaguePlate tier="iron" name="iiiiiiiiiiiiiiiiiiiiii" />);
+      expect(textOf("iiiiiiiiiiiiiiiiiiiiii")).not.toHaveAttribute("textLength");
+    });
+
+    it("measures again for a new name, dropping a squeeze it no longer needs", () => {
+      stub((text) => (text.startsWith("W") ? 641 : 200));
+      const { rerender } = render(<LeaguePlate tier="iron" name="WWWWWWWWWWWWW" />);
+      expect(textOf("WWWWWWWWWWWWW")).toHaveAttribute("textLength", "404");
+      rerender(<LeaguePlate tier="iron" name="Iron II" />);
+      expect(textOf("Iron II")).not.toHaveAttribute("textLength");
+    });
   });
 
   it("stacks the standard: the crest over the plate over the banner, named by its plate", () => {

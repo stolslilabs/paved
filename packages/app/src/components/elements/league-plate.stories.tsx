@@ -51,6 +51,8 @@ export const Sizes: Story = {
 
 /** A long name, squeezed to the plate's face rather than past it. */
 export const LongName: Story = { args: { tier: "emerald", name: "Emerald III Champion" } };
+/** A short name of wide letters: squeezed by its rendered width, which a count of letters would miss. */
+export const WideLetters: Story = { args: { tier: "gold", name: "WWWWWWWWWWWWW" } };
 
 export const OnGrounds: Story = {
   render: () => (
