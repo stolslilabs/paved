@@ -183,7 +183,7 @@ const indexerId = (playerId: string | bigint) => `0x${BigInt(playerId).toString(
 
 /**
  * The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no
- * route), and the fifth daily of #869 in the definitions and each day's progress (`dailies.ts`). The ledger counts a day's
+ * route), the ledger's name for a player the indexer names not (#926), and the fifth daily of #869 in the definitions and each day's progress (`dailies.ts`). The ledger counts a day's
  * dailies done through it for the milestones' claims.
  */
 export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerClient {
