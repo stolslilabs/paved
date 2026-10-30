@@ -101,6 +101,7 @@ function environment(seed: Seed) {
     probe: async () => account,
     connect: async () => account,
     disconnect: async () => undefined,
+    reset: async () => account,
     username: async () => "bal7hazar",
     signer: (from) => mockSigner({ address: from.address } as unknown as GameSigner, ledger),
   });

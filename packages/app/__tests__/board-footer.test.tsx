@@ -60,10 +60,10 @@ describe("no footer, no Cartridge notice outside the Credits page (#536)", () =>
     expect(screen.queryByText(/Cartridge/)).toBeNull();
   });
 
-  it("/settings/credits: the Cartridge notice and the notices link", async () => {
+  it("/settings/credits: the notices link, and no Cartridge Controller notice since it left the client (#918)", async () => {
     open("/settings/credits");
     expect(await screen.findByRole("heading", { level: 1, name: "Credits" }, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.getByText(/Uses Cartridge Controller, © Cartridge Gaming Company/)).toBeInTheDocument();
+    expect(screen.queryByText(/Cartridge Controller/)).toBeNull();
     expect(screen.getByRole("link", { name: "Third-party notices" })).toHaveAttribute("href", "/THIRD_PARTY_NOTICES.txt");
   });
 });

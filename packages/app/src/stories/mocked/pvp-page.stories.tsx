@@ -131,6 +131,7 @@ function useEnvironment({ cobbles = 12, pvp, prepare, latencyMs = 600 }: Setup) 
         probe: async () => account,
         connect: async () => account,
         disconnect: async () => undefined,
+        reset: async () => account,
         username: async () => "bal7hazar",
         signer: (from) => mockSigner({ address: from.address } as unknown as GameSigner, ledger),
       });

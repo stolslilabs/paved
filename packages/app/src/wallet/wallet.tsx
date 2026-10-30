@@ -3,18 +3,19 @@ import type { WriteAccount } from "@paved/chain";
 import { DataProvider, type DataSources, type GameSigner } from "../data/sources";
 
 /**
- * Who connects (P6): the Cartridge controller outside devnet, the env's burner on devnet (`connector.ts`). The
- * controller's `ControllerConnector` of `@paved/chain` has this shape; `signer` builds the account's writes
- * (`PavedClient.writer`). A test gives a fake one: the real controller opens Cartridge's keychain, which needs a browser
- * and Cartridge's service.
+ * Who connects (#918, phase A): the device's local key (`connector.ts`), whose account deploys itself on its first write.
+ * `signer` builds the account's writes (`PavedClient.writer`). A test gives a fake one. The pages see this interface only,
+ * so the account's connector of the later phases (a guardian, the logins) takes the local key's place behind it.
  */
 export interface WalletConnector {
-  /** The account of a session approved earlier in this browser, without a prompt; null when there is none. */
+  /** The account of the key kept on this device, unless the player disconnected; null when there is none. No prompt. */
   probe(): Promise<WriteAccount | null>;
-  /** Opens the wallet; rejects when the player closes it without connecting. */
+  /** Connects the device's account (a new key on the first connect); rejects when it cannot. */
   connect(): Promise<WriteAccount>;
   disconnect(): Promise<void>;
-  /** The connected player's username (the controller's); null when there is none. */
+  /** Forgets the device's key and connects a new one: a new account (Settings' Reset, for testing). */
+  reset(): Promise<WriteAccount>;
+  /** The connected player's username; null when there is none (no identity before phase C). */
   username(): Promise<string | null>;
   /** The writes of `account` (`PavedClient.writer(account)`). */
   signer(account: WriteAccount): GameSigner;
@@ -35,7 +36,9 @@ export interface WalletState {
   connect(): Promise<boolean>;
   /** Back to read only at once: no write starts with an account the player is leaving. */
   disconnect(): void;
-  /** Looks once for a session approved earlier (no prompt). The pages that read the account call it (`useAccount`). */
+  /** A new key and a new account, connected (for testing); resolves true once connected, false when it failed. */
+  reset(): Promise<boolean>;
+  /** Looks once for the device's account (no prompt). The pages that read the account call it (`useAccount`). */
   restore(): void;
 }
 
@@ -43,7 +46,7 @@ const WalletContext = createContext<WalletState | null>(null);
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** The real connector, in its own chunk: starknet.js and the controller are fetched when a page first needs the account. */
+/** The real connector, in its own chunk: starknet.js and the key's account are fetched when a page first needs the account. */
 const loadAppConnector: LoadConnector = () => import("./connector").then((m) => m.appConnector());
 
 /**
@@ -91,24 +94,34 @@ export function WalletProvider({ sources, load = loadAppConnector, children }: {
       .catch(() => at === generation.current && setStatus("disconnected"));
   }, [connector, accept]);
 
-  const connect = useCallback(async () => {
-    const at = ++generation.current;
-    setStatus("connecting");
-    setError(null);
-    try {
-      const c = await connector();
-      const connected = await c.connect();
-      if (at !== generation.current) return false;
-      accept(c, connected);
-      return true;
-    } catch (cause) {
-      if (at === generation.current) {
-        setError(`Not connected: ${message(cause)}`);
-        setStatus("disconnected");
+  const open = useCallback(
+    async (how: (c: WalletConnector) => Promise<WriteAccount>) => {
+      const at = ++generation.current;
+      setStatus("connecting");
+      setError(null);
+      try {
+        const c = await connector();
+        const connected = await how(c);
+        if (at !== generation.current) return false;
+        accept(c, connected);
+        return true;
+      } catch (cause) {
+        if (at === generation.current) {
+          setError(`Not connected: ${message(cause)}`);
+          setStatus("disconnected");
+        }
+        return false;
       }
-      return false;
-    }
-  }, [connector, accept]);
+    },
+    [connector, accept],
+  );
+  const connect = useCallback(() => open((c) => c.connect()), [open]);
+  // The account being left gets no write: its signer goes before the new key is made.
+  const reset = useCallback(() => {
+    setAccount(null);
+    setUsername(null);
+    return open((c) => c.reset());
+  }, [open]);
 
   const disconnect = useCallback(() => {
     generation.current += 1;
@@ -121,8 +134,8 @@ export function WalletProvider({ sources, load = loadAppConnector, children }: {
   }, []);
 
   const wallet = useMemo<WalletState>(
-    () => ({ status, address: account?.address ?? null, username, error, connect, disconnect, restore }),
-    [status, account, username, error, connect, disconnect, restore],
+    () => ({ status, address: account?.address ?? null, username, error, connect, disconnect, reset, restore }),
+    [status, account, username, error, connect, disconnect, reset, restore],
   );
   // One signer per account: a new one would be a new writer, and the writer serialises the account's writes.
   const withSigner = useMemo<DataSources>(() => ({ ...sources, signer: account?.signer ?? sources.signer ?? null }), [sources, account]);

@@ -4,7 +4,7 @@ import { titleOf } from "../../lib/music/track-info";
 import { TRACKS } from "../../lib/music/tracks";
 import { CreditsScene } from "./credits-scene";
 
-/** Credits (`/settings/credits`): the Cartridge notice, the fonts, the icons, the music and the sound effects. The viewport is the toolbar's (VP). */
+/** Credits (`/settings/credits`): the notices link, the fonts, the icons, the music and the sound effects. The viewport is the toolbar's (VP). */
 const meta = { title: "Scenes/Credits", component: CreditsScene, args: { tracks: TRACKS.map(titleOf), onBack: fn(), onNavigate: fn() } } satisfies Meta<typeof CreditsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

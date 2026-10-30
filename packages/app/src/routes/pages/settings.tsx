@@ -10,7 +10,7 @@ import { useAppNavigate, useBack, useTabNavigate } from "../ref";
  * `/settings` (P11a, sections 6.1 and 6.4). The device settings (`useDeviceSettings`: graphics quality, sound, music, tile
  * preview, placement highlight) and the viewer's switch for the other players' skins (`useShowSkins`) are kept on this device;
  * the board reads the same stores, so a change applies to an open board. The account is the wallet's (`useWallet`): the
- * controller username, or the short address, with Disconnect (then Home, `?ref=` kept) or Connect for a guest. The two volume sliders (music, sound effects) keep the volume and the level before a mute (`withVolume`). The data layer's types are the chain-free ones (no value import of
+ * username, or the short address, with Disconnect (then Home, `?ref=` kept) or Connect for a guest, and Reset (a new key and account on this device, for testing: #918). The two volume sliders (music, sound effects) keep the volume and the level before a mute (`withVolume`). The data layer's types are the chain-free ones (no value import of
  * `@paved/chain` in this chunk).
  */
 export default function Page() {
@@ -39,6 +39,7 @@ export default function Page() {
         wallet.disconnect();
         go("/", { replace: true });
       }}
+      onReset={() => void wallet.reset()}
       onOpenTheme={() => go("/settings/theme")}
       onOpenReferral={() => go("/referral")}
       onOpenCredits={() => go("/settings/credits")}

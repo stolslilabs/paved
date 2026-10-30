@@ -1,96 +1,135 @@
 import { describe, expect, it, vi } from "vitest";
-import { PavedClient, resolveDeployment, type ControllerConfig, type PavedRpc, type WriteAccount } from "@paved/chain";
+import { DEVICE_KEY, PavedClient, localKey, resolveDeployment, type DeployLocalAccount, type KeyStorage, type LocalKey, type PavedRpc, type WriteAccount } from "@paved/chain";
+import type { Deployer } from "../src/wallet/connector";
 
-// starknet.js's `Account` counted: the burner is the only code that builds one.
-const accounts = vi.hoisted(() => ({ built: 0 }));
+type Call = Parameters<WriteAccount["execute"]>[0][number];
+
+// starknet.js's `Account` counted (the devnet deployer is the only one built here), and the node's `getClassHashAt`: no
+// account is deployed on this fake node until `deployed` holds its address.
+const node = vi.hoisted(() => ({ accounts: [] as string[], deployed: new Set<string>() }));
 vi.mock("starknet", async (original) => {
   const actual = await original<typeof import("starknet")>();
   class Account {
     readonly address: string;
     constructor(options: { address: string }) {
-      accounts.built += 1;
+      node.accounts.push(options.address);
       this.address = options.address;
     }
+    execute = async () => ({ transaction_hash: "0xd" });
   }
-  return { ...actual, Account };
+  class RpcProvider {
+    getClassHashAt = async (address: string) => {
+      if (node.deployed.has(BigInt(address).toString(16))) return "0x1";
+      throw Object.assign(new Error("Contract not found"), { code: 20 });
+    };
+    waitForTransaction = async () => ({ execution_status: "SUCCEEDED" });
+  }
+  return { ...actual, Account, RpcProvider };
 });
 
 const { connectorFor } = await import("../src/wallet/connector");
 
 const CHALLENGE = "0x0123";
-const BURNER = { address: "0xdeadbeefcafe0001", key: "0xfeedfacedummykey1234" };
+const DEPLOYER: Deployer = { address: "0xdeadbeefcafe0001", key: "0xfeedfacedummykey1234" };
 
-function client(network: string): PavedClient {
-  const deployment = resolveDeployment({ network, env: { rpcUrl: "http://rpc.test", addresses: { Challenge: CHALLENGE } } });
+function client(network: string, configured = true): PavedClient {
+  const deployment = resolveDeployment({ network, env: { rpcUrl: "http://rpc.test", addresses: configured ? { Challenge: CHALLENGE } : {} } });
   return new PavedClient(deployment, {} as PavedRpc);
 }
 
-/** A controller in memory: the account it connects is its own. */
-function fakeController() {
-  const account: WriteAccount = { address: "0xc0ffee", execute: async () => ({ transaction_hash: "0x1" }) };
-  const configs: ControllerConfig[] = [];
-  const create = (config: ControllerConfig) => {
-    configs.push(config);
-    return {
-      id: "controller" as const,
-      name: "Cartridge Controller",
-      config,
-      probe: async () => null,
-      connect: async () => account,
-      disconnect: async () => {},
-      username: async () => "ada",
-    };
-  };
-  return { create, configs, account };
+function memoryStorage(): KeyStorage & { items: Map<string, string> } {
+  const items = new Map<string, string>();
+  return { items, getItem: (k) => items.get(k) ?? null, setItem: (k, v) => void items.set(k, v), removeItem: (k) => void items.delete(k) };
 }
 
-describe("the app's connector (P6)", () => {
-  it("on Sepolia, with a key given, builds no Account: the controller connects", async () => {
-    accounts.built = 0;
-    const controller = fakeController();
-    const connector = connectorFor(client("sepolia"), BURNER, controller.create);
-    expect(controller.configs).toHaveLength(1);
-    expect(await connector.connect()).toBe(controller.account);
-    expect(accounts.built).toBe(0);
+/** The key's signer and the deployments, recorded. */
+function fakes() {
+  const sent: Array<{ by: string; calls: Call[]; details?: { tip?: bigint } }> = [];
+  const deployed: string[] = [];
+  const account = () => (key: LocalKey): WriteAccount => ({ address: key.address, execute: async (calls, details) => (sent.push({ by: key.address, calls, details }), { transaction_hash: "0x1" }) });
+  const deploy = vi.fn(
+    (_provider: unknown, deployer: Deployer | null): DeployLocalAccount =>
+      async (key) => {
+        deployed.push(`${deployer?.address ?? "self"}:${key.address}`);
+        node.deployed.add(BigInt(key.address).toString(16));
+      },
+  );
+  return { sent, deployed, deps: { account, deploy }, deploy };
+}
+
+const CALL: Call = { contractAddress: CHALLENGE, entrypoint: "build", calldata: [] };
+
+describe("the app's connector: the device's local key (#918, phase A)", () => {
+  it("a new browser: no account until Connect, which makes a key in the storage; its account is the key's", async () => {
+    const storage = memoryStorage();
+    const connector = connectorFor(client("devnet"), DEPLOYER, storage, fakes().deps);
+    expect(await connector.probe()).toBeNull();
+    const account = await connector.connect();
+    expect(account.address).toBe(localKey(storage.items.get(DEVICE_KEY)!).address);
+    expect(await connector.username()).toBeNull();
   });
 
-  it("on devnet, the burner's account; refused without one", async () => {
-    accounts.built = 0;
-    const controller = fakeController();
-    const connector = connectorFor(client("devnet"), BURNER, controller.create);
-    expect((await connector.connect()).address).toBe(BURNER.address);
-    expect(accounts.built).toBe(1);
-    expect(controller.configs).toHaveLength(0);
-    expect(() => connectorFor(client("devnet"), null, controller.create)).toThrow(/no devnet account/);
+  it("a reload keeps the same account: a new connector on the same storage finds it without a prompt", async () => {
+    const storage = memoryStorage();
+    const address = (await connectorFor(client("devnet"), DEPLOYER, storage, fakes().deps).connect()).address;
+    expect((await connectorFor(client("devnet"), DEPLOYER, storage, fakes().deps).probe())?.address).toBe(address);
   });
 
-  it("the session holds Economy.settle (P7a) when the build has an economy, and no other Economy entry point", async () => {
-    const policiesOf = async (economy: string | null) => {
-      const controller = fakeController();
-      connectorFor(client("sepolia"), null, controller.create, economy);
-      const policies = controller.configs[0]!.policies;
-      return typeof policies === "function" ? await policies() : (policies ?? []);
-    };
-    const economy = "0x10";
-    const withEconomy = await policiesOf(economy);
-    expect(withEconomy.filter((p) => BigInt(p.target) === BigInt(economy))).toEqual([{ target: economy, method: "settle" }]);
-    // Settle takes no approve, and no approve is in the session at all (P-65).
-    expect(withEconomy.filter((p) => p.method === "approve")).toEqual([]);
-    // Without an economy there is no policy on it.
-    expect((await policiesOf(null)).some((p) => p.method === "settle")).toBe(false);
+  it("on devnet the deployer deploys the account on its first write, never again; the writes tip nothing", async () => {
+    const f = fakes();
+    const connector = connectorFor(client("devnet"), DEPLOYER, memoryStorage(), f.deps);
+    const account = await connector.connect();
+    expect(f.deployed).toEqual([]);
+    await account.execute([CALL], { tip: 0n });
+    await account.execute([CALL], { tip: 0n });
+    expect(f.deployed).toEqual([`${DEPLOYER.address}:${account.address}`]);
+    expect(f.sent.map((s) => s.by)).toEqual([account.address, account.address]);
+    // The writer of the account: devnet's tip 0.
+    const writer = connector.signer(account) as unknown as { options: { tip?: bigint; account: WriteAccount } };
+    expect(writer.options.tip).toBe(0n);
+    expect(writer.options.account).toBe(account);
   });
 
-  it("P-65: the session holds no approve even when the entry price reads, and never asks for it", async () => {
-    const c = client("sepolia");
-    const entryPrice = vi.fn(async () => ({ token: "0x14", amount: 2_000_000n }));
-    Object.assign(c.views, { entryPrice });
-    const controller = fakeController();
-    connectorFor(c, null, controller.create, "0x10");
-    const policies = controller.configs[0]!.policies;
-    const built = typeof policies === "function" ? await policies() : (policies ?? []);
-    expect(built.filter((p) => /approve|allowance/i.test(p.method))).toEqual([]);
-    expect(built.some((p) => BigInt(p.target) === BigInt("0x14"))).toBe(false);
-    // The cap was read only to build an approve: nothing reads it now.
-    expect(entryPrice).not.toHaveBeenCalled();
+  it("outside devnet the account deploys itself, and the deployer is never used even when given", async () => {
+    const f = fakes();
+    const connector = connectorFor(client("sepolia"), DEPLOYER, memoryStorage(), f.deps);
+    const account = await connector.connect();
+    await account.execute([CALL]);
+    expect(f.deployed).toEqual([`self:${account.address}`]);
+    expect((connector.signer(account) as unknown as { options: { tip?: bigint } }).options.tip).toBeUndefined();
+  });
+
+  it("the real deployments: on devnet the deployer's Account; without a deployer the first write is refused", async () => {
+    node.accounts.length = 0;
+    const storage = memoryStorage();
+    const sent: string[] = [];
+    const account = () => (key: LocalKey): WriteAccount => ({ address: key.address, execute: async () => (sent.push(key.address), { transaction_hash: "0x1" }) });
+    const withDeployer = await connectorFor(client("devnet"), DEPLOYER, storage, { account }).connect();
+    expect(node.accounts).toEqual([DEPLOYER.address]);
+    node.deployed.add(BigInt(withDeployer.address).toString(16)); // the deployer's multicall, as the node would show it
+    await withDeployer.execute([CALL]);
+    expect(sent).toEqual([withDeployer.address]);
+
+    const none = await connectorFor(client("devnet"), null, memoryStorage(), { account }).connect();
+    await expect(none.execute([CALL])).rejects.toThrow(/no devnet deployer: set VITE_DEPLOYER_ADDRESS and VITE_DEPLOYER_PRIVATE_KEY/);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("Disconnect keeps the key and stops the reconnect; Reset makes a new key and account", async () => {
+    const storage = memoryStorage();
+    const connector = connectorFor(client("devnet"), DEPLOYER, storage, fakes().deps);
+    const first = await connector.connect();
+    await connector.disconnect();
+    expect(await connector.probe()).toBeNull();
+    expect((await connector.connect()).address).toBe(first.address);
+    const key = storage.items.get(DEVICE_KEY);
+    const next = await connector.reset();
+    expect(next.address).not.toBe(first.address);
+    expect(storage.items.get(DEVICE_KEY)).not.toBe(key);
+    expect((await connector.probe())?.address).toBe(next.address);
+  });
+
+  it("refused on an incomplete deployment outside devnet", () => {
+    expect(() => connectorFor(client("sepolia", false), null, memoryStorage(), fakes().deps)).toThrow(/Not connected: .* missing/);
   });
 });
