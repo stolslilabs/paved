@@ -293,6 +293,18 @@ export class CameraController {
     return true;
   }
 
+  /**
+   * Turn the camera to `polar` from straight down and `azimuth` around its target, at its distance, within its mode's bounds (the
+   * play view's locks, the Camera mode's 15 to 85 degrees). A return under way ends. It counts as a move (`userMoved`): a resize
+   * does not frame the board again over it.
+   */
+  setAngles(polar: number, azimuth: number): void {
+    this.endReturn();
+    this.moved = true;
+    const c = this.controls;
+    this.placeAt(THREE.MathUtils.clamp(polar, c.minPolarAngle, c.maxPolarAngle), THREE.MathUtils.clamp(azimuth, c.minAzimuthAngle, c.maxAzimuthAngle));
+  }
+
   /** The return's step at `now`: the tilt and the turn eased from where they were to the play view's, the target and distance kept. */
   private stepReturn(now: number): void {
     const back = this.returning!;

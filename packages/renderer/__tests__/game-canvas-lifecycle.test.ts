@@ -68,6 +68,27 @@ describe("GameCanvas lifecycle", () => {
     expect(scene.dispose).not.toHaveBeenCalled();
   });
 
+  it("applies a camera mode asked before the scene started, as it starts (#875)", async () => {
+    const { scene } = mount({ cameraMode: "free" });
+    scene.setCameraMode.mockClear();
+
+    scene.resolveInit();
+    await flush();
+
+    expect(scene.setCameraMode).toHaveBeenCalledWith("free");
+    expect(scene.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the play camera alone as it starts", async () => {
+    const { scene } = mount();
+    scene.setCameraMode.mockClear();
+
+    scene.resolveInit();
+    await flush();
+
+    expect(scene.setCameraMode).not.toHaveBeenCalled();
+  });
+
   it("unmount before init resolves: scene disposed at once, no start, no onReady", async () => {
     const onReady = vi.fn();
     const { scene, unmount } = mount({ onReady });

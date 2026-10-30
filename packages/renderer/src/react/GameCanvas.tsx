@@ -110,6 +110,9 @@ export function GameCanvas({
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   const coveredRef = useRef(covered);
   useEffect(() => { coveredRef.current = covered; }, [covered]);
+  // The camera's mode asked while the scene started (it has no camera before `init`), applied as it starts.
+  const cameraModeRef = useRef(cameraMode);
+  useEffect(() => { cameraModeRef.current = cameraMode; }, [cameraMode]);
   const fogRevealRef = useRef(fogReveal);
   useEffect(() => { fogRevealRef.current = fogReveal; }, [fogReveal]);
   const manifestRef = useRef(manifest);
@@ -142,6 +145,7 @@ export function GameCanvas({
         gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
         gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
         gameScene.setCovered(coveredRef.current);
+        if (cameraModeRef.current !== "play") gameScene.setCameraMode(cameraModeRef.current);
         gameScene.setFogReveal(fogRevealRef.current?.cells ?? null, fogRevealRef.current?.origin);
         // The first frame is drawn inside `start()`: the load trace times it (shader compiles and uploads included).
         const firstFrame = traceStart();

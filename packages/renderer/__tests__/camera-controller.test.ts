@@ -317,6 +317,30 @@ describe("CameraController Camera mode (#875)", () => {
     expect(controller.update(FREE_RETURN_MS)).toBe(false);
   });
 
+  it("turns to given angles within the mode's bounds, the target and the distance kept", () => {
+    const controller = new CameraController(canvas);
+    controller.setMode("free");
+    const target = new THREE.Vector3(1, 0, 2);
+    place(controller, deg(27), 0, 150, target);
+
+    controller.setAngles(deg(45), Math.PI);
+    expect(controller.getAngles().polar).toBeCloseTo(deg(45), 9);
+    expect(Math.cos(controller.getAngles().azimuth)).toBeCloseTo(-1, 9);
+    expect(controller.camera.position.distanceTo(target)).toBeCloseTo(150, 9);
+    expect(controller.userMoved).toBe(true);
+
+    controller.setAngles(deg(5), 0);
+    expect(controller.getAngles().polar).toBeCloseTo(FREE_MIN_POLAR_ANGLE, 9);
+    controller.setAngles(deg(89), 0);
+    expect(controller.getAngles().polar).toBeCloseTo(FREE_MAX_POLAR_ANGLE, 9);
+
+    // The play view's locks hold.
+    controller.setMode("play", { animate: false });
+    controller.setAngles(deg(60), 1);
+    expect(controller.getAngles().polar).toBeCloseTo(PLAY_DEFAULT_POLAR_ANGLE, 9);
+    expect(controller.getAngles().azimuth).toBeCloseTo(0, 9);
+  });
+
   it("clamps the target to the board in the Camera mode too", () => {
     const controller = new CameraController(canvas);
     controller.setMode("free");
