@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
+import { cn } from "../../lib/utils";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
@@ -174,3 +175,63 @@ export const StackStress1440: Story = { ...corner({ status: "ready", usdc: BIG_A
 export const StackAllAtPhone: Story = { render: (args) => <Balances layout="rail" kinds={["usdc", "paved", "vpaved", "cobbles"]} direction="column" state={HOLDER} onAction={args.onAction} faucet />, globals: MOBILE };
 /** The stack changing: each plate counts, pops up or dips down. */
 export const StackLiveChanges: Story = { render: (args) => <Live layout="rail" direction="column" onAction={args.onAction} />, ...WIDE_1440 };
+
+/** PLATE-WIDTH (#860): no balance, small ones, and the widest below the compact form ("9,999.99", "9,999"). */
+const ZERO: Ready = { status: "ready", usdc: 0n, paved: 0n, vpaved: 0n, cobbles: 0 };
+const SMALL: Ready = { status: "ready", usdc: 1_500_000n, paved: 7_250_000_000_000_000_000n, vpaved: 500_000_000_000_000_000n, cobbles: 12 };
+const WIDEST: Ready = { status: "ready", usdc: 9_999_999_999n, paved: 9_999_999_999_999_999_999_999n, vpaved: 9_999_999_999_999_999_999_999n, cobbles: 9_999 };
+/** Past it, compact ("1.2M", "123.5M"), the full amount in each plate's name and tooltip. */
+const HUGE: Ready = { status: "ready", usdc: 1_234_567_000_000n, paved: BIG_AMOUNT_18, vpaved: BIG_AMOUNT_18, cobbles: 1_234_567 };
+const FOUR: readonly ShownBalance[] = ["usdc", "paved", "vpaved", "cobbles"];
+
+/** The four currencies, stacked and in rows, at each figure: every plate of one width at its size (the phone's below `desktop`). */
+function Widths({ onAction }: Pick<BalancesProps, "onAction">) {
+  const states = [ZERO, SMALL, WIDEST, HUGE];
+  return (
+    <div className="flex flex-col gap-6 p-4 text-foreground">
+      {(["pill", "rail"] as const).map((layout) => (
+        <div key={layout} className={cn("flex flex-col gap-6", layout === "pill" ? "desktop:hidden" : "hidden desktop:flex")}>
+          <div className="flex flex-wrap justify-end gap-3">
+            {states.map((state, i) => (
+              <Balances key={i} layout={layout} kinds={FOUR} direction="column" state={state} onAction={onAction} faucet />
+            ))}
+          </div>
+          {states.map((state, i) => (
+            <Balances key={i} layout={layout} kinds={FOUR} direction="row" state={state} onAction={onAction} faucet className="flex-wrap justify-end" />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+const widths: Story = { render: (args) => <Widths onAction={args.onAction} /> };
+/** PLATE-WIDTH (#860) at 320 px. On a phone, a row of two plates or more is narrower (a header's), its plates of one width, compact from 1,000. */
+export const Widths320: Story = { ...widths, ...PHONE_320 };
+export const Widths375: Story = { ...widths, ...PHONE_375 };
+export const Widths1440: Story = { ...widths, ...WIDE_1440 };
+
+/** The balances jump between nothing and a huge amount every 3 s: each plate counts inside its own width, nothing around it moves. */
+function Counting({ onAction }: Pick<BalancesProps, "onAction">) {
+  const [huge, setHuge] = useState(false);
+  useEffect(() => {
+    const timer = setInterval(() => setHuge((h) => !h), 3000);
+    return () => clearInterval(timer);
+  }, []);
+  const state = huge ? { ...WIDEST, cobbles: 1_234_567 } : SMALL;
+  return (
+    <div className="flex flex-col items-end gap-6 p-4 text-foreground">
+      {(["pill", "rail"] as const).map((layout) => (
+        <div key={layout} className={cn("flex flex-col items-end gap-6", layout === "pill" ? "desktop:hidden" : "hidden desktop:flex")}>
+          <Balances layout={layout} kinds={FOUR} direction="column" state={state} onAction={onAction} faucet />
+          <Balances layout={layout} kinds={FOUR} direction="row" state={state} onAction={onAction} faucet className="flex-wrap justify-end" />
+        </div>
+      ))}
+    </div>
+  );
+}
+const counting: Story = { render: (args) => <Counting onAction={args.onAction} /> };
+export const Counting320: Story = { ...counting, ...PHONE_320 };
+export const Counting375: Story = { ...counting, ...PHONE_375 };
+export const Counting1440: Story = { ...counting, ...WIDE_1440 };
+/** Reduced motion: the figure is written at once, a colour flash, the same width. */
+export const CountingReducedMotion375: Story = { ...Counting375, parameters: { ...PHONE_375.parameters, reducedMotion: "always" } };

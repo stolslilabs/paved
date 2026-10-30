@@ -104,3 +104,26 @@ export const Changes: Story = {
 };
 /** Reduced motion: the figure changes with a brief colour flash; nothing moves. */
 export const ChangesReducedMotion: Story = { ...Changes, parameters: { reducedMotion: "always" } };
+
+/**
+ * PLATE-WIDTH (#860): a currency's plate has one width at each size (`fixed`), with or without its "+", whatever its figure; the
+ * figure at the side away from the icon, compact from 10,000 (`compactFrom`). 0, "9,999.99" and 1,234,567 for each currency.
+ */
+export const Fixed: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      {(["sm", "md"] as const).map((size) => (
+        <div key={size} className="flex flex-col items-end gap-1">
+          {(Object.keys(UNIT) as TokenKind[]).flatMap((kind) =>
+            // In hundredths: 0, 9,999.99 and 1,234,567 (the Cobbles whole: 0, 9,999 and 1,234,567).
+            [0n, 999_999n, 123_456_700n].map((hundredths) => {
+              const { decimals, fraction } = UNIT[kind];
+              const amount = decimals === 0 ? hundredths / 100n : hundredths * 10n ** BigInt(decimals - 2);
+              return <ResourcePlate key={`${kind}-${hundredths}`} fixed compactFrom={10_000} kind={kind} amount={amount} decimals={decimals} fraction={fraction} size={size} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
+            }),
+          )}
+        </div>
+      ))}
+    </div>
+  ),
+};

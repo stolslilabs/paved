@@ -24,8 +24,11 @@ export type PlateSize = NonNullable<VariantProps<typeof boxVariants>["size"]>;
  */
 type Ends = Record<"right" | "left", string>;
 type EndParts = { box: string; over: Ends; pad: Ends };
-const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
+const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEnd: EndParts; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
   sm: {
+    // A currency's one width (issue 860): the longest figure below the compact form ("9,999.99", 8 mono characters of 14 px, 69 px)
+    // with the "+"'s and the icon's overlaps and gaps (14 + 20 and 32 + 24), the same with or without the "+".
+    width: "w-40",
     coin: "size-10",
     over: { right: "-ml-5", left: "-mr-5" },
     // A bare icon (issue 213, no disc): 48 px over the 32 px box, its half (24) over the end and a gap (8) inside. It gives back
@@ -39,6 +42,8 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; le
     pad: { icon: { right: "pr-7", left: "pl-7" }, plus: { right: "pl-5", left: "pr-5" }, disc: { right: "pl-7", left: "pr-7" }, bare: { right: "pl-2.5", left: "pr-2.5" } },
   },
   md: {
+    // "9,999.99" at 18 px (85 px), 16 + 24 and 34 + 26.
+    width: "w-47",
     coin: "size-11",
     over: { right: "-ml-5.5", left: "-mr-5.5" },
     // 52 px over the 36 px box.
@@ -51,6 +56,8 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; le
   },
   // `auto` has no "+" (the balances keep their fixed sizes): its "+" parts are the phone's, so no class is built for nothing.
   auto: {
+    // No currency uses `auto`: the phone's width, so no class is built for nothing.
+    width: "w-40",
     coin: "size-10 desktop:size-11",
     over: { right: "-ml-5 desktop:-ml-5.5", left: "-mr-5 desktop:-mr-5.5" },
     // No balance uses `auto`: its bare icon is the phone's, so no class is built for nothing (the bundle's CSS budget).
@@ -67,6 +74,19 @@ const PARTS: Record<PlateSize, { coin: string; over: Ends; bareEnd: EndParts; le
     },
   },
 };
+
+/**
+ * A currency's phone plate (`sm`, issue 860) where a phone's width is short. Sharing a row (a header's two, `leadFrom`), 136 px from
+ * `mobile` with the "+" (280 px left at 360 beside Back), the figure at 12 px. Below `mobile` every one, 116 px with no "+" (two fit
+ * the 240 px of a 320 px header; the home's stack leaves the profile its line), the figure at 12 px. The longest figure below the
+ * compact form is then "999.99" (`PLATE_NARROW_COMPACT`, 6 mono characters, 40 px).
+ */
+const NARROW = { shared: { width: "w-34", text: "text-xs" }, below: { width: "max-mobile:w-29", text: "max-mobile:text-xs" } };
+
+/** Where a narrow plate's figure turns compact (`NARROW`): 1,000 tokens, or Cobbles. A plate's own, 10,000 (`PLATE_COMPACT`). */
+export const PLATE_NARROW_COMPACT = 1_000;
+/** Where a fixed plate's figure turns compact (issue 860, `amountFigure`'s rule): 10,000 tokens, or Cobbles. */
+export const PLATE_COMPACT = 10_000;
 
 export interface PlateProps extends VariantProps<typeof boxVariants> {
   /** The icon's end (issue 828): `right` on the right of the screen, `left` mirrored for its left (issue 829). */
@@ -85,10 +105,16 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
   lead?: "plus" | "disc";
   /**
    * `mobile`: the "+" only from `mobile` (360 px) up, the phone's right-side plate (`sm`) bare below it (issue 871: two plates of a phone's header,
-   * the Vault's PAVED leading to the Challenge beside vPAVED, fit a 320 px screen).
+   * the Vault's PAVED leading to the Challenge beside vPAVED, fit a 320 px screen). A `fixed` plate is bare below it anyway, and
+   * with `mobile` shares a phone's row: narrower at every width, its figure smaller (issue 860, `NARROW`), with or without a "+".
    */
   leadFrom?: "mobile";
   leadContent?: ReactNode;
+  /**
+   * A currency's plate (issue 860): one width at each size whatever its figure and its "+", the box filling what the ends leave and
+   * the figure at the side away from the icon. Omitted, the box fits its content (the League's and the shield's plates).
+   */
+  fixed?: boolean;
   /** Past the plate, out of its flow (the change's float). */
   after?: ReactNode;
   /** The box's content: the figure, and a hint of what a tap does. */
@@ -103,14 +129,19 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
  * border, and over the other end, if any, the "+" or a round disc. The box keeps the overlaps plus a gap clear inside, so its
  * content never runs under either end. The balances' plate (`ResourcePlate`), the League's and the shield's (issue 829).
  */
-export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, leadContent, after, size, tone, children, className, ...data }: PlateProps) {
+export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, leadContent, fixed, after, size, tone, children, className, ...data }: PlateProps) {
   const parts = PARTS[size ?? "sm"];
   const bare = endFit === "bare";
   // Below `mobile`, the phone's "+" is not drawn and the box keeps a bare end's padding (`pad.bare` of `sm`). The balances' side
-  // only (`right`): the mirrored plates have no balance, so no class is built for nothing (the bundle's CSS budget).
-  const fromMobile = leadFrom === "mobile" && lead === "plus" && (size ?? "sm") === "sm" && side === "right";
+  // only (`right`): the mirrored plates have no balance, so no class is built for nothing (the bundle's CSS budget). A currency's
+  // phone plate (issue 860) is bare and narrower there, and narrower in a shared row (`NARROW`).
+  const phone = (size ?? "sm") === "sm" && side === "right";
+  const fromMobile = phone && lead === "plus" && (leadFrom === "mobile" || Boolean(fixed));
+  const narrow = fixed && phone ? (leadFrom === "mobile" ? [NARROW.shared, NARROW.below] : [NARROW.below]) : [];
+  // A fixed plate's box takes what the ends leave, its figure at the side away from the icon.
+  const fill = fixed && ["min-w-0 flex-1", side === "left" && "justify-end"];
   return (
-    <span {...data} data-side={side} className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", className)}>
+    <span {...data} data-side={side} className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", fixed && parts.width, narrow.map((n) => n.width), className)}>
       {lead === "plus" && (
         <span
           aria-hidden
@@ -131,7 +162,7 @@ export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, le
           {leadContent}
         </span>
       )}
-      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fromMobile && "max-mobile:pl-2.5")}>
+      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fromMobile && "max-mobile:pl-2.5", fill, narrow.map((n) => n.text))}>
         {/* The shine in its own clipped layer: the floating change goes past the plate's edge. */}
         {tone === "invite" && (
           <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
@@ -183,6 +214,10 @@ export const plateIconClass = (size: PlateSize | null | undefined): string =>
 
 /** A plate's figure in chunky mono, its digits of one width (`numeric`). */
 export const PLATE_FIGURE = "relative numeric font-bold tracking-tight";
+
+/** A currency's plate's one width at each size (`fixed`, issue 860): its skeleton takes it, so nothing moves when the figure arrives. */
+export const plateWidthClass = (size: PlateSize | null | undefined, shared?: boolean): string =>
+  cn(PARTS[size ?? "sm"].width, (size ?? "sm") === "sm" && [shared && NARROW.shared.width, NARROW.below.width]);
 
 /** The icon's box at each size, for an image over a plate's end on a `PlateDisc`. */
 export const plateCoinClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].coin;
