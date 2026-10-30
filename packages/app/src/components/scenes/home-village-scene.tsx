@@ -90,9 +90,10 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   activeGame?: GameView | null;
   /**
    * The player's PvP standing (`Matchmaker.league`): the crowns and their league's crest in the League control under the profile
-   * (#829), a tap to the League page (the home's only way there, #755). None (no PvP played yet, or not read): Wood with 0 crowns.
+   * (#829), a tap to the League page (the home's only way there, #755): Unranked's crest (#917) before any crown and any attack
+   * settled. None (not read, or no PvP on the network): Wood with 0 crowns.
    */
-  league?: { crowns: number } | null;
+  league?: { crowns: number; attacks?: number } | null;
   /**
    * The village's shield's end (`Matchmaker.shield`: `until` while `up`, seconds since the epoch), the League page's read: the
    * shield's mirrored plate and its `HHhMMm` under the League control while it lasts (#806, #829). Null without a shield, for a
@@ -416,7 +417,7 @@ function ViewOverlays({
     <>
       {/* The League control (the crowns and the crest, no name) and the shield's plate (#829). */}
       <Suspense fallback={LEAGUE_STAND_IN}>
-        <LazyLeagueControl crowns={props.league?.crowns ?? 0} onLeague={props.onLeague} />
+        <LazyLeagueControl crowns={props.league?.crowns ?? 0} unranked={props.league?.attacks === 0 && !props.league.crowns} onLeague={props.onLeague} />
       </Suspense>
       {props.shieldEndsAt != null && props.shieldEndsAt > now && (
         <Suspense fallback={null}>

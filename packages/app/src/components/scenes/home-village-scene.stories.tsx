@@ -144,11 +144,12 @@ export const ShieldLastMinute: Story = { args: HOME_VILLAGE.shieldLastMinute };
 /**
  * The left column (#829, the owner's decisions of 2026-10-27): the profile, under it the League control (the League button, the
  * crowns on the plate, the league's crest closing it, no name), the shield's mirrored plate while shielded, then the village score.
- * Unranked, a mid league and shielded, at 320, 375 and 1440 px: nothing under the balances or the right column.
+ * Unranked (#917's crest: no crown, no attack), a mid league and shielded, at 320, 375 and 1440 px: nothing under the balances or the
+ * right column.
  */
-export const LeftColumnUnrankedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.start };
-export const LeftColumnUnrankedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.start };
-export const LeftColumnUnrankedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.start };
+export const LeftColumnUnrankedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.unranked };
+export const LeftColumnUnrankedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.unranked };
+export const LeftColumnUnrankedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.unranked };
 export const LeftColumnMidLeaguePhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view };
 export const LeftColumnMidLeaguePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view };
 export const LeftColumnMidLeagueWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view };

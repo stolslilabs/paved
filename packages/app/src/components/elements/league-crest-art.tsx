@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { ArtSvg, type Relief } from "./league-art";
 import { circle, crestParts, type LeagueTier, type Part } from "./league-standards";
 
@@ -61,13 +62,15 @@ export interface LeagueCrestIconProps {
   size?: LeagueCrestIconSize;
   label?: string;
   className?: string;
+  /** Inline styles over the size's (a font size of the caller's own, where a class would be new). */
+  style?: CSSProperties;
 }
 
 /**
  * A crest's icon form (issue 917), for 16 to 40 px: the same silhouette, colours and motif with fewer ornaments and a thicker outline,
  * fitted to a 1em square, and the division as pips at its foot.
  */
-export function LeagueCrestIcon({ tier, pips = 0, size = "md", label, className }: LeagueCrestIconProps) {
+export function LeagueCrestIcon({ tier, pips = 0, size = "md", label, className, style }: LeagueCrestIconProps) {
   return (
     <ArtSvg
       parts={[...crestParts(tier, "icon"), ...pipParts(pips)]}
@@ -80,7 +83,7 @@ export function LeagueCrestIcon({ tier, pips = 0, size = "md", label, className 
       slot="league-crest-icon"
       data={{ "data-tier": tier, "data-pips": pips || undefined }}
       className={className}
-      style={fontSize(ICON_REM[size])}
+      style={{ ...fontSize(ICON_REM[size]), ...style }}
     />
   );
 }

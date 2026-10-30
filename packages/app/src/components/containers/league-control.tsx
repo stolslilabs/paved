@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { GameIcon } from "../elements/game-icon";
-import { crestClass } from "../elements/league-crest";
+import { LeagueCrestIcon } from "../elements/league-crest-art";
+import { pipsOf, tierOf } from "../elements/league-standards";
 import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
 import { Icon } from "../ui/icon";
 
@@ -27,6 +28,8 @@ export interface LeagueControlProps {
   crowns: number;
   /** The league on chain, when it is not that of `crowns` (the League page's, #859); left out, the league of `crowns`. */
   league?: League;
+  /** The player has not entered the leagues (no crowns, no attack): Unranked's crest (issue 917), its name in the label. */
+  unranked?: boolean;
   /** Opens the League page: a tap anywhere on the control. */
   onLeague?: () => void;
   /** The balances' sizes (issue 828); `auto` (the home's), `sm` on a phone and `md` from `desktop`. */
@@ -48,8 +51,9 @@ export interface LeagueControlProps {
  * ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
  * motion.
  */
-export function LeagueControl({ crowns, league: shownLeague, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
+export function LeagueControl({ crowns, league: shownLeague, unranked, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
   const league = shownLeague ?? leagueOf(crowns);
+  const tier = unranked ? "unranked" : tierOf(league);
   const reduced = useReducedMotionConfig();
   const [promoted, setPromoted] = useState<number | null>(null);
   const shown = useRef(league.index);
@@ -64,9 +68,10 @@ export function LeagueControl({ crowns, league: shownLeague, onLeague, size = "a
       type="button"
       data-slot="league-control"
       data-league={league.id}
+      data-tier={tier}
       onClick={onLeague}
       whileTap={{ scale: 0.95 }}
-      aria-label={label ?? `League: ${league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
+      aria-label={label ?? `League: ${unranked ? "Unranked" : league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
       className={cn("group flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <Plate
@@ -81,7 +86,10 @@ export function LeagueControl({ crowns, league: shownLeague, onLeague, size = "a
         }
         end={
           <PlateDisc size={size}>
-            <GameIcon name="shield-halved" tone="current" size="inherit" className={cn("relative", crestClass(league.id), plateIconClass(size))} />
+            {/* The tier's crest in its icon form (issue 917), a size up from the plate's icons so its pips read: 28 px, 34 px from `desktop`. */}
+            <span className={cn("relative leading-none", plateIconClass(size))}>
+              <LeagueCrestIcon tier={tier} pips={unranked ? 0 : pipsOf(league)} size="inherit" style={{ fontSize: "1.4em" }} />
+            </span>
             {promoted !== null && (
               <m.span
                 key={promoted}
