@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { BoardTile } from "@paved/chain";
+import type { GameScene } from "@paved/renderer";
 import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
@@ -376,8 +377,18 @@ export const SlotsLivePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.editi
 export const SlotsLiveWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.editing, render: (args) => <SlotsLive {...args} /> };
 
 /** The village on the board's canvas as the board module draws it (`home-canvas.tsx`), on Storybook's assets. */
-function StoryVillageCanvas({ view, board, onReady }: { view: LayoutBoardView; board: ReturnType<typeof useBoardSettings>; onReady?: () => void }) {
-  return <BoardViewport {...useLayoutCanvas(view, { onScene: board.onScene, onReady })} basePath={APP_ASSETS} settings={board.renderer} />;
+function StoryVillageCanvas({
+  view,
+  board,
+  onReady,
+  onScene = board.onScene,
+}: {
+  view: LayoutBoardView;
+  board: ReturnType<typeof useBoardSettings>;
+  onReady?: () => void;
+  onScene?: (scene: GameScene | null) => void;
+}) {
+  return <BoardViewport {...useLayoutCanvas(view, { onScene, onReady })} basePath={APP_ASSETS} settings={board.renderer} />;
 }
 
 /**
@@ -438,6 +449,98 @@ export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_
 export const SceneEditingPointsWide: Story = { ...SceneEditingPoints, ...WIDE_1440 };
 export const SceneEditingPointsLiftedPhone: Story = { ...SceneEditingPointsLifted, ...PHONE_375 };
 export const SceneEditingPointsLiftedWide: Story = { ...SceneEditingPointsLifted, ...WIDE_1440 };
+
+const degrees = (d: number) => (d * Math.PI) / 180;
+
+/**
+ * The scene in the Camera mode (#875): the camera turned to `tilt` degrees from straight down and `turn` degrees round once the
+ * village and its images are drawn (the board framed first); unset, the play view's angles, from which the mode starts.
+ */
+function InCamera({ tilt, turn = 0, ...args }: HomeVillageSceneProps & { tilt?: number; turn?: number }) {
+  const board = useBoardSettings();
+  const onScene = (scene: GameScene | null) => {
+    board.onScene(scene);
+    if (!scene || tilt === undefined) return;
+    void scene.tileImagesReady().then(
+      () => requestAnimationFrame(() => scene.setCameraAngles(degrees(tilt), degrees(turn))),
+      () => undefined,
+    );
+  };
+  return (
+    <HomeVillageScene
+      {...args}
+      initialCamera
+      seasonWheel={board.wheel}
+      renderCanvas={(view, onDrawn) => <StoryVillageCanvas view={view} board={board} onReady={onDrawn} onScene={onScene} />}
+    />
+  );
+}
+
+/**
+ * CAMERA-MODE (#875, the owner's decisions of 2026-10-28): the Camera button beside Edit frees the village's camera, the tilt
+ * from 15 to 85 degrees and the turn all the way round, each drag gliding out (the right drag or one finger turns and tilts). The
+ * overlays fade to the profile, the balances and Exit camera, in Edit's corner over a hint of the controls (open point 2). Entered, the camera is
+ * where the play view had it (27 degrees); then at the bounds, halfway and turned round. At 375 and 1440 px.
+ */
+export const CameraPhone: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} />, ...PHONE_375 };
+export const CameraWide: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} />, ...WIDE_1440 };
+/** The steepest tilt, 15 degrees from straight down. */
+export const CameraTilt15Phone: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={15} />, ...PHONE_375 };
+export const CameraTilt15Wide: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={15} />, ...WIDE_1440 };
+export const CameraTilt45Phone: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={45} />, ...PHONE_375 };
+export const CameraTilt45Wide: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={45} />, ...WIDE_1440 };
+/**
+ * The lowest, 85 degrees, the camera almost along the ground: the closest zoom grows with the tilt, so no tile crosses the near
+ * plane; the void, the fog and the sky beyond the village.
+ */
+export const CameraTilt85Phone: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={85} />, ...PHONE_375 };
+export const CameraTilt85Wide: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={85} />, ...WIDE_1440 };
+/** The village turned 180 degrees, seen from the other side, at 45 degrees. */
+export const CameraTurned180Phone: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={45} turn={180} />, ...PHONE_375 };
+export const CameraTurned180Wide: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={45} turn={180} />, ...WIDE_1440 };
+/** The narrowest phone: Exit camera and its hint at the corner, clear of the profile and the balances. */
+export const CameraPhone320: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={60} turn={90} />, ...PHONE_320 };
+
+/**
+ * Entering and leaving (the GIF of #875 plays this one): Camera fades the overlays and frees the camera; turn and tilt the
+ * village, then Exit camera (or Escape) eases it back to the play view (27 degrees, the default turn) over 600 ms and the overlays
+ * come back. Under reduced motion the return is a cut and the overlays come back at once.
+ */
+const enterAndLeave: Story["play"] = async ({ canvasElement }) => {
+  const scene = within(canvasElement);
+  const camera = await scene.findByRole("button", { name: "Camera" }, { timeout: 15_000 });
+  await userEvent.click(camera);
+  const exit = await scene.findByRole("button", { name: "Exit camera" });
+  // The overlays faded and out of reach: Edit out of the row, the village's column hidden once faded; the profile stays.
+  await expect(scene.getByRole("button", { name: "Edit village", hidden: true })).not.toBeVisible();
+  await waitFor(() => expect(scene.getByRole("navigation", { name: "Village", hidden: true })).not.toBeVisible());
+  await expect(scene.getByRole("button", { name: /^Profile/ })).toBeVisible();
+  await userEvent.click(exit);
+  await expect(scene.getByRole("button", { name: "Edit village" })).toBeVisible();
+  await waitFor(() => expect(scene.getByRole("navigation", { name: "Village" })).toBeVisible());
+  await expect(scene.getByRole("button", { name: "Camera" })).toHaveFocus();
+};
+export const CameraEnterLeavePhone: Story = {
+  args: HOME_VILLAGE.view,
+  render: (args) => <InScene {...args} />,
+  play: enterAndLeave,
+  ...PHONE_375,
+  parameters: { ...PHONE_375.parameters, reducedMotion: "never" },
+};
+export const CameraEnterLeaveWide: Story = {
+  args: HOME_VILLAGE.view,
+  render: (args) => <InScene {...args} />,
+  play: enterAndLeave,
+  ...WIDE_1440,
+  parameters: { reducedMotion: "never" },
+};
+export const CameraEnterLeaveReducedMotion: Story = {
+  args: HOME_VILLAGE.view,
+  render: (args) => <InScene {...args} />,
+  play: enterAndLeave,
+  ...PHONE_375,
+  parameters: { ...PHONE_375.parameters, reducedMotion: "always" },
+};
 
 /**
  * PHONE-NAV (#763): the app's bar on the home below `desktop` (Shop, Chests with the chests waiting, Play, League, Settings; no

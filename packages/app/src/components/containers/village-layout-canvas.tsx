@@ -25,7 +25,8 @@ export interface LayoutCanvasSignals {
 }
 
 /** What the village's editor gives the board's canvas. */
-export type LayoutCanvas = Required<Pick<BoardViewportProps, "tiles" | "otherPlates" | "onCellClick" | "onScene">> & Pick<BoardViewportProps, "slots" | "ghost" | "bubble" | "press" | "onError">;
+export type LayoutCanvas = Required<Pick<BoardViewportProps, "tiles" | "otherPlates" | "onCellClick" | "onScene" | "cameraMode">> &
+  Pick<BoardViewportProps, "slots" | "ghost" | "bubble" | "press" | "onError">;
 
 /**
  * What the scene draws of the editor's state (#758): the layout's tiles, and the tile under the bubble as the ghost, or as a placed
@@ -63,7 +64,8 @@ export function sceneTilesOf({ tiles, pending, lit }: Pick<LayoutBoardView, "til
  * bubble's) with the bubble by it, following pans, zooms and the compass (#756); a tap on a plate places or moves the tile
  * there, a tap on a placed tile (never the starter) lifts it, a tap on the tile under the bubble lets it go. The ready signal
  * once the village is drawn (#761). A line of the points chosen (#758, `view.lit`) lights its structure's areas and dims the
- * rest (`setLitAreas`). In view, a long press on a tile opens edit mode through its bubble (#799, `view.press`).
+ * rest (`setLitAreas`). In view, a long press on a tile opens edit mode through its bubble (#799, `view.press`), except in the
+ * Camera mode (#875, `view.camera`), where the camera turns and tilts free and a press is the drag's start.
  */
 export function useLayoutCanvas(view: LayoutBoardView, { onScene, onReady, onError }: LayoutCanvasSignals = {}): LayoutCanvas {
   const { tiles: layout, plates, pending, editing, onTile, onPlate, onPending } = view;
@@ -111,5 +113,17 @@ export function useLayoutCanvas(view: LayoutBoardView, { onScene, onReady, onErr
     const tile = layout.find((t) => cellKey(t) === key);
     if (tile && !isStarter(tile)) onTile?.(tile);
   };
-  return { tiles, slots, otherPlates: false, ghost, bubble, press: editing ? null : view.press, onScene: handleScene, onCellClick, onError };
+  const camera = !!view.camera && !editing;
+  return {
+    tiles,
+    slots,
+    otherPlates: false,
+    ghost,
+    bubble,
+    press: editing || camera ? null : view.press,
+    cameraMode: camera ? "free" : "play",
+    onScene: handleScene,
+    onCellClick,
+    onError,
+  };
 }
