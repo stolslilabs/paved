@@ -107,8 +107,9 @@ export const Changes: Story = {
 export const ChangesReducedMotion: Story = { ...Changes, parameters: { reducedMotion: "always" } };
 
 /**
- * PLATE-WIDTH (#860): a currency's plate has one width at each size (`fixed`), with or without its "+", whatever its figure; the
- * figure at the side away from the icon, compact from 1,000 on a phone and 10,000 from `desktop` (`PLATE_COMPACT`). 0, "9,999.99" and 1,234,567 for each currency.
+ * PLATE-WIDTH (#860): a currency's plate has one width at each size (`fixed`), with or without its "+" (none on a phone, #925),
+ * whatever its figure; the figure at the side away from the icon, compact from 10,000 (`PLATE_COMPACT`). 0, "9,999.99" and
+ * 1,234,567 for each currency.
  */
 export const Fixed: Story = {
   render: () => (

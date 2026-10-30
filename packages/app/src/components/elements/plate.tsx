@@ -26,8 +26,9 @@ type Ends = Record<"right" | "left", string>;
 type EndParts = { box: string; over: Ends; pad: Ends };
 const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEnd: EndParts; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
   sm: {
-    // A currency's one width (issue 860), in a column or a row: 136 px, two fit a phone's header beside Back (280 px left at
-    // 360); below `mobile` 116, with no "+" (two fit the 240 px left at 320, the home's stack leaves the profile its line).
+    // A currency's one width (issue 860), in a column or a row, with no "+" (issue 925): 136 px, "9,999.99" at 14 px (69 px), the
+    // icon's 24 + 8 and a bare end's 10; two fit a phone's header beside Back (280 px left at 360). Below `mobile` 116 (two fit
+    // the 240 px left at 320, the home's stack leaves the profile its line), the figure at 12 px and compact from 1,000.
     width: "w-34 max-mobile:w-29",
     coin: "size-10",
     over: { right: "-ml-5", left: "-mr-5" },
@@ -76,13 +77,20 @@ const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEn
 };
 
 /**
- * A currency's figure at each size (issue 860): on a phone at 12 px, so that with the "+" its longest below the compact form,
- * "999.99" (6 mono characters, 40 px), fits the 46 px the 136 px plate leaves; from `desktop` the box's 18 px, "9,999.99" (85 px).
+ * A currency's figure at each size (issue 860): the box's own, 14 px on a phone ("9,999.99", 69 px of the 70 the 136 px plate
+ * leaves) and 18 px from `desktop` (85 px); below `mobile` 12 px, so that its longest below the compact form there, "999.99"
+ * (6 mono characters, 45 px), fits the 50 px the 116 px plate leaves.
  */
-const FIGURE: Record<PlateSize, string> = { sm: "text-xs", md: "", auto: "" };
+const FIGURE: Record<PlateSize, string> = { sm: "max-mobile:text-xs", md: "", auto: "" };
 
-/** Where a fixed plate's figure turns compact (issue 860), at each size: 1,000 on a phone, 10,000 from `desktop` (`amountFigure`'s rule). */
-export const PLATE_COMPACT: Record<"sm" | "md", number> = { sm: 1_000, md: 10_000 };
+/**
+ * Where a fixed plate's figure turns compact (issue 860): from 10,000 (`amountFigure`'s rule) at each size, so the longest figure
+ * below it is "9,999.99"; from 1,000 on a phone below `mobile` (`narrow`), whose 116 px plate cannot hold "9,999.99" at 12 px.
+ */
+export const PLATE_COMPACT = { sm: 10_000, md: 10_000, narrow: 1_000 } as const;
+
+/** Below `mobile` (360 px, `max-mobile`), where a phone's fixed plate is 116 px and its figure compact from 1,000 (`PLATE_COMPACT.narrow`). */
+export const PLATE_NARROW_QUERY = "(width < 22.5rem)";
 
 export interface PlateProps extends VariantProps<typeof boxVariants> {
   /** The icon's end (issue 828): `right` on the right of the screen, `left` mirrored for its left (issue 829). */
@@ -101,13 +109,14 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
   lead?: "plus" | "disc";
   /**
    * `mobile`: the "+" only from `mobile` (360 px) up, the phone's right-side plate (`sm`) bare below it (issue 871: two plates of a phone's header,
-   * the Vault's PAVED leading to the Challenge beside vPAVED, fit a 320 px screen). A `fixed` phone plate is bare below it anyway (issue 860).
+   * the Vault's PAVED leading to the Challenge beside vPAVED, fit a 320 px screen).
    */
   leadFrom?: "mobile";
   leadContent?: ReactNode;
   /**
    * A currency's plate (issue 860): one width at each size whatever its figure and its "+", the box filling what the ends leave and
-   * the figure at the side away from the icon. Omitted, the box fits its content (the League's and the shield's plates).
+   * the figure at the side away from the icon. A phone's (`sm`) has no "+" (the owner's ruling of issue 925): its width leaves no
+   * room for one. Omitted, the box fits its content (the League's and the shield's plates).
    */
   fixed?: boolean;
   /** Past the plate, out of its flow (the change's float). */
@@ -124,13 +133,14 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
  * border, and over the other end, if any, the "+" or a round disc. The box keeps the overlaps plus a gap clear inside, so its
  * content never runs under either end. The balances' plate (`ResourcePlate`), the League's and the shield's (issue 829).
  */
-export function Plate({ side = "right", end, endFit = "disc", lead, leadFrom, leadContent, fixed, after, size, tone, children, className, ...data }: PlateProps) {
+export function Plate({ side = "right", end, endFit = "disc", lead: asked, leadFrom, leadContent, fixed, after, size, tone, children, className, ...data }: PlateProps) {
   const parts = PARTS[size ?? "sm"];
   const bare = endFit === "bare";
+  // A currency's phone plate draws no "+" (issues 860, 925).
+  const lead = fixed && (size ?? "sm") === "sm" && asked === "plus" ? undefined : asked;
   // Below `mobile`, the phone's "+" is not drawn and the box keeps a bare end's padding (`pad.bare` of `sm`). The balances' side
-  // only (`right`): the mirrored plates have no balance, so no class is built for nothing (the bundle's CSS budget). A currency's
-  // phone plate (`fixed`, issue 860) is bare there, wherever it stands: its width leaves no room for the "+".
-  const fromMobile = (size ?? "sm") === "sm" && side === "right" && lead === "plus" && (leadFrom === "mobile" || Boolean(fixed));
+  // only (`right`): the mirrored plates have no balance, so no class is built for nothing (the bundle's CSS budget).
+  const fromMobile = leadFrom === "mobile" && lead === "plus" && (size ?? "sm") === "sm" && side === "right";
   // A fixed plate's box takes what the ends leave, its figure at the side away from the icon.
   const fill = fixed && ["min-w-0 flex-1", side === "left" && "justify-end", FIGURE[size ?? "sm"]];
   return (

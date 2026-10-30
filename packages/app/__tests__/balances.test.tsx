@@ -10,6 +10,7 @@ import { Balances, type BalancesState } from "../src/components/containers/balan
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { TopBar } from "../src/components/containers/top-bar";
 import { ResourcePlate } from "../src/components/elements/resource-plate";
+import { PLATE_NARROW_QUERY } from "../src/components/elements/plate";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 
@@ -99,20 +100,21 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(screen.getByRole("button", { name: "48.50 USDC: Minting…" })).toBeDisabled();
   });
 
-  // #871: the Vault's two plates, PAVED leading to the Challenge: on a phone its "+" only from `mobile` (360 px), so both fit 320 px.
-  // #860: every phone plate is bare below 360 px too (`Plate`'s `NARROW`), so the home's stack leaves the profile its line at 320 px.
-  it("pill: the \"+\" from 360 px only, in a row of two and alone; the rail's at every width", () => {
-    const plusOf = (container: HTMLElement) => container.querySelector("[data-slot=resource-plus]")!;
+  // #925 (the owner's ruling, 2026-10-30): no "+" on a phone's plate, so #860's one width needs no room for one. From `desktop`
+  // the rail keeps its "+" until #925 removes it everywhere.
+  it("pill: no \"+\" on a phone's plate, in a row of two or alone; the rail's at every width", () => {
+    const plusesOf = (container: HTMLElement) => container.querySelectorAll("[data-slot=resource-plus]");
     const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(vault.container.querySelectorAll("[data-slot=resource-plus]")).toHaveLength(1);
-    expect(plusOf(vault.container)).toHaveClass("hidden", "mobile:grid");
-    expect(plusOf(vault.container).nextElementSibling).toHaveClass("pl-5", "max-mobile:pl-2.5");
+    expect(plusesOf(vault.container)).toHaveLength(0);
     vault.unmount();
     const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
-    expect(plusOf(lone.container)).toHaveClass("hidden", "mobile:grid");
+    expect(plusesOf(lone.container)).toHaveLength(0);
+    // The end where the "+" stood takes a bare end's padding.
+    expect(lone.container.querySelector(".h-8")).toHaveClass("pl-2.5");
     lone.unmount();
     const rail = render(wrap(<Balances layout="rail" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(plusOf(rail.container)).not.toHaveClass("hidden");
+    expect(plusesOf(rail.container)).toHaveLength(1);
+    expect(plusesOf(rail.container)[0]).not.toHaveClass("hidden");
   });
 
   it("a balance with no source is a dash", () => {
@@ -386,18 +388,34 @@ describe("one width for every currency's plate (#860)", () => {
     const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
     for (const plate of platesOf(vault.container)) {
       expect(widthOf(plate)).toBe(loneWidth);
-      expect(boxOf(plate)).toHaveClass("text-xs");
+      expect(boxOf(plate)).toHaveClass("text-sm", "max-mobile:text-xs");
     }
-    expect(loneBox).toContain("text-xs");
+    expect(loneBox).toContain("max-mobile:text-xs");
   });
 
-  it("on a phone the figure is compact from 1,000, its full amount in the plate's name and tooltip", () => {
-    render(wrap(<Balances layout="pill" kinds={["paved", "cobbles"]} direction="column" state={{ ...READY, paved: 1_234_560_000_000_000_000_000n }} />));
-    const name = "1,234.56 PAVED: Play a Challenge";
-    expect(screen.getByRole("button", { name })).toHaveAttribute("title", "1,234.56 PAVED");
-    expect(tickerOf(name)).toHaveTextContent(/^1\.2K$/);
-    expect(tickerOf("240 Cobbles: Buy packs")).toHaveTextContent(/^240$/);
-    expect(screen.getByRole("button", { name: "240 Cobbles: Buy packs" })).not.toHaveAttribute("title");
+  it("on a phone from 360 px the figure is whole below 10,000 (\"9,999.99\") and compact from it", () => {
+    const widest: BalancesState = { status: "ready", usdc: 9_999_999_999n, paved: 0n, cobbles: 12_345 };
+    render(wrap(<Balances layout="pill" kinds={["usdc", "cobbles"]} direction="column" state={widest} faucet />));
+    expect(tickerOf("9,999.99 USDC: Get test USDC")).toHaveTextContent(/^9,999\.99$/);
+    expect(screen.getByRole("button", { name: "9,999.99 USDC: Get test USDC" })).not.toHaveAttribute("title");
+    expect(tickerOf("12,345 Cobbles: Buy packs")).toHaveTextContent(/^12\.3K$/);
+    expect(screen.getByRole("button", { name: "12,345 Cobbles: Buy packs" })).toHaveAttribute("title", "12,345 Cobbles");
+  });
+
+  it("below 360 px, the 116 px plate's figure is compact from 1,000, its full amount in the plate's name and tooltip", () => {
+    const real = window.matchMedia;
+    window.matchMedia = ((query: string) =>
+      ({ matches: query === PLATE_NARROW_QUERY, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    try {
+      render(wrap(<Balances layout="pill" kinds={["paved", "cobbles"]} direction="column" state={{ ...READY, paved: 1_234_560_000_000_000_000_000n }} />));
+      const name = "1,234.56 PAVED: Play a Challenge";
+      expect(screen.getByRole("button", { name })).toHaveAttribute("title", "1,234.56 PAVED");
+      expect(tickerOf(name)).toHaveTextContent(/^1\.2K$/);
+      expect(tickerOf("240 Cobbles: Buy packs")).toHaveTextContent(/^240$/);
+      expect(screen.getByRole("button", { name: "240 Cobbles: Buy packs" })).not.toHaveAttribute("title");
+    } finally {
+      window.matchMedia = real;
+    }
   });
 
   it("from desktop the figure is whole below 10,000 and compact from it", () => {
