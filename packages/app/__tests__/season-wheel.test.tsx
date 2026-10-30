@@ -9,6 +9,7 @@ import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheel
 import {
   CENTRE_TURNS,
   DECOR,
+  DRIFT,
   DIAL_PX,
   DISC,
   DUSK_BLEND,
@@ -175,14 +176,19 @@ describe("the season dial's colours and room (#607)", () => {
     for (const name of ["dial-twinkle", "dial-drift"])
       expect(theme).toMatch(new RegExp(`@utility ${name} \\{\\s*animation: ${name} [^;]+;\\s*@media \\(prefers-reduced-motion: reduce\\) \\{\\s*animation: none;`));
     // The drift the geometry test allows for is the keyframe's.
-    expect(theme).toMatch(/@keyframes dial-drift \{\s*to \{ translate: 1\.5px -0\.5px; \}/);
+    expect(theme).toMatch(/@keyframes dial-drift \{\s*to \{ translate: 4\.4% -1\.5%; \}/);
+    expect(DRIFT.x).toBeCloseTo(1.5, 1);
     const { container } = render(<SeasonWheel state="auto" />);
     const of = (kind: string) => [...container.querySelectorAll(`[data-time-disc] [data-decor=${kind}]`)];
     expect(of("star").length).toBeGreaterThan(2);
     for (const star of of("star")) expect(star).toHaveClass("dial-twinkle");
     expect(of("cloud").length).toBeGreaterThanOrEqual(2);
     expect(of("bird").length).toBeGreaterThanOrEqual(2);
-    for (const p of [...of("cloud"), ...of("bird")]) expect(p).toHaveClass("dial-drift");
+    // Each drifts in its own box, the centre disc's, an HTML box whose translate the compositor runs.
+    for (const p of [...of("cloud"), ...of("bird")]) {
+      expect(p.parentElement).toHaveClass("dial-drift");
+      expect((p.parentElement!.parentElement as HTMLElement).style.inset).toBe(`${50 - TIME_DISC}%`);
+    }
   });
 
   it("draws each season's icon and the centre's day and night as game icons, in their own tones (#870)", () => {

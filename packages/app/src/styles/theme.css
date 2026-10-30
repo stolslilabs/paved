@@ -581,9 +581,10 @@
     animation: none;
   }
 }
-/* Its day (#930): the clouds drift slowly, the birds glide (a shorter duration), by `DRIFT` of `season-wheel.tsx`; still under reduced motion. */
+/* Its day (#930): the clouds drift slowly, the birds glide (a shorter duration), each its own box (`DRIFT` of `season-wheel.tsx`),
+   on the compositor; still under reduced motion. */
 @keyframes dial-drift {
-  to { translate: 1.5px -0.5px; }
+  to { translate: 4.4% -1.5%; }
 }
 @utility dial-drift {
   animation: dial-drift 7s ease-in-out infinite alternate;

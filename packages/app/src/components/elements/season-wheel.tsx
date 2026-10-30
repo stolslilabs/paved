@@ -132,8 +132,11 @@ function bird(x: number, y: number, s: number): string {
   return `M${f(x - s)} ${f(y - 0.3 * s)}Q${f(x - s / 2)} ${f(y - 0.6 * s)} ${f(x)} ${f(y)}Q${f(x + s / 2)} ${f(y - 0.6 * s)} ${f(x + s)} ${f(y - 0.3 * s)}`;
 }
 
-/** How far a cloud drifts and a bird glides (`dial-drift`, in dial units, along its own frame): the geometry test allows for it. */
-export const DRIFT = { x: 1.5, y: -0.5 } as const;
+/**
+ * How far a cloud drifts and a bird glides, in dial units, along its own frame: `dial-drift`'s translate (4.4% and -1.5% of the
+ * centre disc's box) of `TIME_DISC` twice. The geometry test allows for it.
+ */
+export const DRIFT = { x: 0.044 * 2 * TIME_DISC, y: -0.015 * 2 * TIME_DISC } as const;
 
 /** A decoration's box about its anchor, in its own frame (up is out, towards the rim), drift included. */
 const BOX = {
@@ -150,18 +153,18 @@ const SHAPE = { star: sparkle, cloud, bird };
  */
 export const DECOR = (
   [
-    ["star", 14, 245, 1.4, 0],
-    ["star", 14.5, 340, 1.2, 0.7],
-    ["star", 15.8, 275, 0.8, 1.2],
-    ["star", 15.5, 320, 0.9, 0.4],
-    ["cloud", 12, 35, 1.3, 0],
-    ["cloud", 12.5, 180, 1.1, 2.5],
-    ["cloud", 14.5, 62, 0.8, 1.2],
-    ["bird", 15, 12, 1.2, 0.3],
-    ["bird", 14.5, 155, 1.1, 1.4],
-    ["bird", 12, 205, 1, 0.8],
+    { kind: "star", r: 14, deg: 245, s: 1.4, delay: 0 },
+    { kind: "star", r: 14.5, deg: 340, s: 1.2, delay: 0.7 },
+    { kind: "star", r: 15.8, deg: 275, s: 0.8, delay: 1.2 },
+    { kind: "star", r: 15.5, deg: 320, s: 0.9, delay: 0.4 },
+    { kind: "cloud", r: 12, deg: 35, s: 1.3, delay: 0 },
+    { kind: "cloud", r: 12.5, deg: 180, s: 1.1, delay: 2.5 },
+    { kind: "cloud", r: 14.5, deg: 62, s: 0.8, delay: 1.2 },
+    { kind: "bird", r: 15, deg: 12, s: 1.2, delay: 0.3 },
+    { kind: "bird", r: 14.5, deg: 155, s: 1.1, delay: 1.4 },
+    { kind: "bird", r: 12, deg: 205, s: 1, delay: 0.8 },
   ] as const
-).map(([kind, r, deg, s, delay]) => {
+).map(({ kind, r, deg, s, delay }) => {
   const [x, y] = at(r, deg);
   return { kind, x, y, rot: kind === "star" ? 0 : deg, d: SHAPE[kind](x, y, s), delay, box: BOX[kind](s) };
 });
@@ -263,21 +266,34 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
           <span className="absolute inset-0" style={against ? { transform: "scaleX(-1)" } : undefined}>
             <Sky name="time" sky={timeSky} r={TIME_DISC} />
             <svg viewBox="0 0 100 100" className="absolute inset-0 size-full">
-              {DECOR.map((p, i) => (
-                <g key={i} transform={p.rot ? `rotate(${p.rot} ${f(p.x)} ${f(p.y)})` : undefined}>
+              {DECOR.filter((p) => p.kind === "star").map((p, i) => (
+                <path key={i} data-decor="star" d={p.d} fill="var(--dial-star)" className="dial-twinkle" style={{ animationDelay: `${p.delay}s` }} />
+              ))}
+            </svg>
+            {/* Each cloud and bird in a box of its own, the centre disc's, turned to its line from the centre: its drift is a
+                translate of that box, which the compositor runs (a drift drawn in the SVG lays the dial out again at each frame). */}
+            {DECOR.filter((p) => p.kind !== "star").map((p, i) => (
+              <span
+                key={i}
+                className="absolute"
+                style={{ inset: `${50 - TIME_DISC}%`, transform: `rotate(${p.rot}deg)`, transformOrigin: `${f(((p.x - 50) / TIME_DISC + 1) * 50)}% ${f(((p.y - 50) / TIME_DISC + 1) * 50)}%` }}
+              >
+                <svg
+                  viewBox={`${50 - TIME_DISC} ${50 - TIME_DISC} ${2 * TIME_DISC} ${2 * TIME_DISC}`}
+                  className="dial-drift absolute inset-0 size-full"
+                  style={{ animationDelay: `${p.delay}s`, animationDuration: p.kind === "bird" ? "3s" : undefined }}
+                >
                   <path
                     data-decor={p.kind}
                     d={p.d}
-                    fill={p.kind === "bird" ? "none" : `var(--dial-${p.kind})`}
+                    fill={p.kind === "bird" ? "none" : "var(--dial-cloud)"}
                     stroke={p.kind === "bird" ? "var(--dial-bird)" : undefined}
                     strokeWidth={0.6}
                     strokeLinecap="round"
-                    className={p.kind === "star" ? "dial-twinkle" : "dial-drift"}
-                    style={{ animationDelay: `${p.delay}s`, animationDuration: p.kind === "bird" ? "3s" : undefined }}
                   />
-                </g>
-              ))}
-            </svg>
+                </svg>
+              </span>
+            ))}
           </span>
         </span>
         {/* Fixed: the two rings, black, and the red needle at the top, down across both discs to the centre. */}
