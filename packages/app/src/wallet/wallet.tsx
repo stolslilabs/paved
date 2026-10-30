@@ -5,7 +5,7 @@ import { DataProvider, type DataSources, type GameSigner } from "../data/sources
 /**
  * Who connects (#918, phase A): the device's local key (`connector.ts`), whose account deploys itself on its first write.
  * `signer` builds the account's writes (`PavedClient.writer`). A test gives a fake one. The pages see this interface only,
- * so the account's connector of the later phases (a guardian, the logins) takes the local key's place behind it.
+ * so the account's connector of the later phases (the logins, the key service of #918) takes the local key's place behind it.
  */
 export interface WalletConnector {
   /** The account of the key kept on this device, unless the player disconnected; null when there is none. No prompt. */

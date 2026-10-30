@@ -1,4 +1,4 @@
-# Paved's own accounts: identities, accounts and device keys (#918, design)
+# Paved's own accounts: identities, OpenZeppelin accounts and login keys (#918, design)
 
 The client's connection leaves Cartridge's controller, which is no longer maintained. The owner's decisions of 2026-10-30
 bind:
@@ -9,80 +9,104 @@ bind:
 - Development first: a key pair in `localStorage`.
 - Randomness on the L3 comes from a Katana TEE, its secret in a secret environment variable, in place of Cartridge's VRF
   provider. Its implementation is its own issue; this note does not cover it.
+- **The account class is OpenZeppelin's classic account**: one public key per account, rotatable with `set_public_key`. No
+  custom account class. This rules out Eternum's several device keys and a guardian on the account itself.
 
-The issue's open points keep their defaults until the owner answers them (section 8). Section 6, phase A, is as built.
+The issue's open points keep their defaults until the owner answers them (section 9). Section 7, phase A, is as built.
 
 Sources: #918 and its reading of Eternum's `next` branch on 2026-10-30 (`apps/realms`, an identity service on better-auth
-1.5.3; `packages/core/src/account/realms-account.ts`, a random Stark key per browser; the account's address from the
-identity's id, the class and a guardian's key; a new device joins with the guardian's approval).
+1.5.3; `packages/core/src/account/realms-account.ts`, a random Stark key per browser). The account's interface is
+OpenZeppelin's `openzeppelin_account::interface::AccountABI` (`get_public_key`, `set_public_key`, `__validate_deploy__`),
+read from the class that starknet-devnet 0.10.0 predeploys (`0x05b4b537…3564`).
 
 ## 1. Summary
 
-- **Three things, kept apart**: an **identity** (who the player is: a login, or an anonymous guest), an **account** (one per
-  identity, on chain), and **device keys** (one random key per device, held by that device only).
-- **No key is derived from the login.** A device makes a random key; the account holds several device keys; a guardian
-  approves each new one after a login. Nothing secret is computed from an OAuth id or a password.
-- **A guest is an anonymous identity**, with its own account and device key from the first launch. Adding a login links the
-  login to that same identity: the identity's id does not change, so neither does the account nor the key. Nothing moves
-  on chain.
-- **Phase A (now)**: no identity and no guardian yet. A device's key in `localStorage` and the account of that key, deployed
-  on its first write. The pages see the same `WalletConnector` as before.
+- **An identity per player, one account per identity, one key per account.** The account is OpenZeppelin's: it holds one
+  public key, and only `set_public_key` changes it.
+- **A guest** makes a random key on its device at first launch; its account's address comes from that key. The key never
+  leaves the device.
+- **A login key per identity**, held by the key service in the Katana TEE, with its secret in the TEE's secret environment
+  (as the VRF's). It is never computable from public data.
+- **A guest who adds a login keeps its account**: the account calls `set_public_key` to the login's key. The address, and
+  so the progress, do not change. The service records the identity's account address.
+- **Another device** gets the login key from the service over TLS, right after a login, and signs for the same account.
+- **A lost device** is handled by rotating the account's key (`set_public_key`, by the service): every other device logs in
+  again for the new key. There is no per-device revocation with one key.
+- **The trade-off**: the key service holds every login key (in the TEE). That is what a one-key account needs to serve
+  several devices. A per-device model would need a custom account class (open point 1).
+- **Phase A (now)**: no identity and no service yet. Every player is what a guest will be: a device's key in
+  `localStorage` and the OpenZeppelin account of that key, deployed on its first write. The pages see the same
+  `WalletConnector` as before.
 
 ## 2. Identity
 
-One per player, from a login (Discord, Google, Apple, an emailed code; a password later if wanted) or **anonymous for a
-guest**. The identity service gives it its id. Better-auth, as Eternum's, has an anonymous plugin that links a guest's
-session to a later login, which is the guest's path of section 5.
+One per player, from a login (Discord, Google, Apple, an emailed code; a password later if wanted: open point 5). The
+identity service (better-auth, as Eternum's) gives it its id. The service records, per identity, its account's address:
+after a guest's rotation (section 5) that address cannot be computed from the login key, since it came from the guest's.
 
-The identity's id is not secret: it is the salt of the account's address (section 3). Knowing it gives nothing to sign
-with.
+## 3. The account: OpenZeppelin's
 
-## 3. Account
+- **The class**: OpenZeppelin's classic account, one Stark public key, constructor `(public_key)`. No custom class. Phase A
+  uses the class starknet-devnet 0.10.0 predeploys (`LOCAL_ACCOUNT_CLASS_HASH`, OpenZeppelin's `AccountMixinImpl` with
+  SRC-9 and `upgrade`); phase B declares the chosen OpenZeppelin class on the L3 and the devnet and puts its hash in the
+  deployments.
+- **Its address is counterfactual**: computed from the class, the public key of its first key (as the salt and the
+  constructor argument) and the zero deployer. The client knows it before anything is deployed.
+- **Deployed on the player's first write**: by itself (a DEPLOY_ACCOUNT, fee-free on the L3), or by a deployer that pays.
+- **Its key changes only by `set_public_key(new_public_key, signature)`**: called by the account itself, so signed by its
+  current key, with the new key's signature over the change, which OpenZeppelin requires. A rotation keeps the address,
+  the account's state and every contract's record of the player.
 
-- **One per identity.** Its address is counterfactual: computed from the identity's id (as the salt), the account class,
-  and the guardian's public key (a constructor argument). The client knows it before anything is deployed.
-- **Deployed on the player's first write**: fee-free on the L3, or by a deployer that pays.
-- **Its class (phase B)**: several device keys and a guardian. A device key signs the player's writes; the guardian's
-  signature is needed to add a device key, never to play. A limit of devices (Eternum: 8). A revoked key cannot rejoin.
-  Default: a small Paved class modelled on Eternum's `realms-account`, reviewed and tested, its gas measured; an audited
-  class with a guardian if one fits several device keys (open point 3).
+## 4. Keys
 
-## 4. Device keys
+| Key | Made by | Kept where | Leaves its place |
+|---|---|---|---|
+| A guest's key | the device, from `crypto.getRandomValues` | that device: `localStorage` in phase A, then IndexedDB (open point 7) | never |
+| An identity's login key | the key service, in the Katana TEE: derived there from the identity's id and the TEE's secret, or generated once and sealed (open point 2) | the TEE; and each device the player has logged in on | only to a device that has just logged in, over TLS, never logged |
 
-- **One random Stark key per device**, made by the device from the platform's cryptographic random
-  (`crypto.getRandomValues`), and kept there: `localStorage` in phase A, then IndexedDB (open point 7). It never leaves
-  the device. Only its public key goes on chain.
-- **Another device**: the player logs in on it; the new device makes its key; the service checks the login and the
-  guardian signs the key's addition; from then the device writes for the same account.
-- **Revocation**: from the account page (phase D), signed by a device of the account or by the guardian after a login. A
-  revoked key can no longer write. Because a key is revocable, a stolen one is bounded in time.
+No key is derived from public data. A key derived from the login outside a TEE would be a brain wallet (from a password) or
+would need a server secret anyway (from a provider's user id): the TEE is where that secret lives.
 
-Why not a key derived from the login (open point 1): a key derived from a provider's user id needs a server secret, so the
-service would hold, in effect, every player's key (custodial); a key derived from a password is a brain wallet that a weak
-password exposes. And a derived key is what makes a guest's link to a later login hard: the guest's key would have to be
-replaced by the login's.
+## 5. The guest, then a login (the owner's question)
 
-## 5. The guest, then a login
+1. At first launch the guest makes its key; its account's address comes from that key. The account is deployed on its first
+   write.
+2. The guest logs in. The service makes (or derives) the identity's login key.
+3. The guest's account calls `set_public_key(login_public_key, signature)`: the transaction is signed by the guest's key,
+   and `signature` is the login key's, given by the service for that one change. The account's key is now the login key.
+4. The service records the identity's account address; the device replaces its guest key with the login key.
+5. The address does not change: the player keeps their progress.
 
-- At first launch the guest gets an anonymous identity and a device key, so an account, deployed on its first write.
-- Adding a login **links the login to that same identity**: same id, same account, same key. Nothing moves on chain.
-- **The login already has an account** (the player signed in elsewhere first). Default (open point 4): the login's account
-  wins; the guest's progress stays on the guest's account, and the player is told before linking.
+**The login already has an account** (the player signed in elsewhere first). Default (open point 3): the login's account is
+kept; the guest's progress stays on the guest's account, and the player is told before linking. No rotation is made.
 
-## 6. Phases
+**A login without a guest** (a new player who signs in first): the service makes the identity's login key, and the account's
+address comes from it. It is deployed on its first write.
+
+## 6. Devices
+
+- **Another device**: the player logs in; the service hands the identity's login key to the device over TLS after the
+  login; the device keeps it as a guest's key is kept, and signs for the account the service records.
+- **Losing a device, or "Sign out everywhere"** (phase D): the service rotates the account's key (`set_public_key`, signed
+  with the current login key held in the TEE, with the new key's signature). The old key can no longer write. Every other
+  device logs in again to get the new key.
+- **No per-device revocation**: with one key per account, every device of the player holds the same key, so a rotation
+  signs every device out at once.
+
+## 7. Phases
 
 ### A. Now: the local key (as built)
 
 - **Cartridge's controller is gone from the client.** `@cartridge/controller` left `packages/chain`'s dependencies, and
   `createControllerConnector` with it; no chunk of the client's build holds it. The session's record
   (`controllerPolicies`, `CONTROLLER_ENTRY_POINTS`, the P-65 guard) stays in `chain/src/auth/controller.ts`, unused by the
-  client, with the tests that check it against the writers' calls: the account of phase B may take a session again.
+  client, with the tests that check it against the writers' calls.
 - **The local-key connector** (`chain/src/auth/local-key.ts`, `createLocalKeyConnector`; the app's
-  `src/wallet/connector.ts`) behind the unchanged `WalletConnector` of `src/wallet/wallet.tsx`:
-  - **Connect** makes a key on the first connect (`newPrivateKey`) and keeps it under `paved:device-key`. Its account's
-    address is computed (`localKey`): the OpenZeppelin account class that starknet-devnet 0.10.0 predeploys
-    (`LOCAL_ACCOUNT_CLASS_HASH`, constructor `(public_key)`), the public key as the salt and the constructor argument, the
-    zero deployer. So the address is the same whether the account deploys itself or a deployer deploys it.
+  `src/wallet/connector.ts`) behind the unchanged `WalletConnector` of `src/wallet/wallet.tsx`. It is the guest of
+  section 5, step 1:
+  - **Connect** makes a key on the first connect (`newPrivateKey`) and keeps it under `paved:device-key`. Its OpenZeppelin
+    account's address is computed (`localKey`): `LOCAL_ACCOUNT_CLASS_HASH`, the public key as the salt and the constructor
+    argument, the zero deployer. So the address is the same whether the account deploys itself or a deployer deploys it.
   - **A reload keeps the account**: the key is found without a prompt (`probe`). **Disconnect** keeps the key and marks it
     signed out (`paved:device-key:signed-out`), so no reload reconnects it until Connect, which finds the same account.
   - **The first write deploys the account**, once per key, when the node finds no contract at its address
@@ -93,7 +117,8 @@ replaced by the login's.
       The client takes the deployer from `VITE_DEPLOYER_ADDRESS` and `VITE_DEPLOYER_PRIVATE_KEY`, read only in a devnet
       build (static accesses behind a build-time test, as the burner was): in any other build they fold away.
     - **Elsewhere** the account deploys itself (a DEPLOY_ACCOUNT, `deployedBySelf`): fee-free on the L3, or from a funded
-      address. The class must be declared on that network; the L3's test network is to be checked when it exists.
+      address. The class must be declared on that network (phase B); the L3's test network is to be checked when it
+      exists.
   - **Writes are signed by the key** (starknet.js's `Account`), with no session policies and no prompt. There is no
     username before the identities: the address names the player.
   - **Settings' Reset** (Account group): forgets the key and connects a new one, so a new account. For testing: the old
@@ -105,43 +130,48 @@ replaced by the login's.
   starknet-devnet; `PAVED_DEVNET=1`, CI has none), `app/__tests__/wallet-connector.test.ts` (the app's connector per network),
   `app/__tests__/settings-route.test.tsx` (Reset).
 
-### B. The account contract
+### B. OpenZeppelin's account class
 
-Several device keys and a guardian, a limit of devices and revocation (section 3), with its tests and its gas measured.
+Declared on the L3 and the devnet, its class hash in the deployments (in place of `LOCAL_ACCOUNT_CLASS_HASH`), and the key
+rotation (`set_public_key`) tested from the client.
 
-### C. The identity and guardian service
+### C. The identity and key service
 
-The logins, the anonymous guest and its link to a login, the guardian's approvals, the devices' limit and revocation.
-Default (open point 5): a small serverless service, as Eternum's worker, its secrets in the host's secret store, owned by
-the project. The guardian's key is a server secret, never in a bundle.
+The logins; the login keys in the TEE (sealed or derived, open point 2); the guest's rotation to a login; the identity's
+account address; the hand-over of the login key to a new device; the rotation after a lost device. Hosted with its secrets
+(open point 4): beside the Katana TEE, with the VRF's secret handling; the logins' part (better-auth) may run as a small
+serverless service, its secrets in the host's secret store.
 
 ### D. The connect flow
 
 - The "Connect" sheet with the methods (social buttons, email).
 - The guest's prompt to save the account by adding a login.
-- The account page: the linked logins and the devices, with revoke.
+- The account page: the linked logins, and "Sign out everywhere" (a rotation).
 
 The account's connector takes the local key's place behind `WalletConnector`, so the pages that write do not change.
 
-## 7. Threats
+## 8. Threats
 
 | Threat | What bounds it |
 |---|---|
-| A device key is read from the device (malware, a shared browser, an extension with page access) | The key signs for that account only. From phase B it is revocable from another device or after a login; in phase A Reset makes a new key, and the account of a stolen key is a test account. Phase A keeps the key in `localStorage` (open point 7: IndexedDB with a non-extractable key later) |
-| A key in a bundle or the repository | None is: a device key is made on the device. The devnet deployer's key is the devnet's public one and is read only in a devnet build; the guardian's key (phase C) is a server secret |
-| A key derived from public data | None is derived: device keys are random (section 4) |
-| The service's guardian key is stolen (phase C) | It can add a key to an account, not sign its writes; its approvals are logged and the devices are listed on the account page, where a device can revoke the added key. The key lives in the host's secret store |
-| A login account is taken over (phase C) | The attacker can approve a new device for that account, as a player can; the account page shows the devices and revokes them. The login's own protections (the provider's 2FA) apply |
-| A guest loses its device before adding a login | Its account cannot be recovered: there is no other key and no login. The guest's prompt (phase D) asks to add a login |
-| The identity's id leaks | It is the account's salt, public by design: it gives nothing to sign with |
+| A guest's key is read from its device (malware, a shared browser, an extension with page access) | It signs for that account only. Adding a login rotates it away; in phase A, Reset makes a new key, and the account of a stolen key is a test account. Phase A keeps the key in `localStorage` (open point 7: IndexedDB later) |
+| A login key is read from one of the player's devices | Every device holds the same key: "Sign out everywhere" rotates it (`set_public_key`), after which the old key cannot write; the other devices log in again |
+| The key service is compromised (the TEE or its secret) | It holds every login key: this is the trade-off of a one-key account (section 1, open point 1). The keys live only in the TEE; the secret is in the TEE's secret environment, never in a bundle or the repository. A guest's key is not there |
+| A login key is intercepted on its way to a device | It is sent only to a device that has just logged in, over TLS, and never logged; a rotation ends its use |
+| A login account is taken over (the provider's account) | The attacker can get the login key, as the player can. The player rotates the key after recovering the login; the provider's own protections (2FA) apply |
+| A key in a bundle or the repository | None is: a guest's key is made on the device, a login key in the TEE. The devnet deployer's key is the devnet's public one and is read only in a devnet build |
+| A key derived from public data | None is: a guest's key is random, a login key is derived only with the TEE's secret (or generated and sealed) |
+| A guest loses its device before adding a login | Its account cannot be recovered: there is no other copy of the key. The guest's prompt (phase D) asks to add a login |
 | Phishing for the key | No flow asks for the key or shows it; nothing exports it in phase A |
 
-## 8. Open points (defaults until the owner answers on #918)
+## 9. Open points (defaults until the owner answers on #918)
 
-1. Derived keys or device keys: device keys approved by a guardian.
-2. The first logins: Discord, Google, Apple and an emailed code; a password later if wanted.
-3. The account class: a small Paved class, reviewed and tested, modelled on Eternum's.
-4. A guest whose login already has an account: the login's account is kept; the player is told before linking.
-5. Where the service runs: a small serverless service, its secrets in the host's secret store.
-6. External wallets (Braavos, Argent, Ready): later, linked to an account by a signature.
-7. Key storage on the device: `localStorage` in phase A, then IndexedDB.
+1. One key per account, or one per device: one key per account, the login keys held by the key service in the TEE, as
+   decided with the OpenZeppelin account. The alternative (device keys approved by a guardian, as Eternum) needs a custom
+   class.
+2. The login key, sealed or derived: derived in the TEE from the identity's id and the TEE's secret.
+3. A guest whose login already has an account: the login's account is kept; the player is told before linking.
+4. Where the service runs: beside the Katana TEE; the logins' part may run as a small serverless service.
+5. The first logins: Discord, Google, Apple and an emailed code; a password later if wanted.
+6. External wallets (Braavos, Argent, Ready): later, linked to an identity by a signature, as Eternum's.
+7. Key storage on the device: `localStorage` in phase A, then IndexedDB; "Sign out everywhere" rotates the key.

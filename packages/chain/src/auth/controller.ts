@@ -3,7 +3,7 @@ import type { Deployment } from "../deployment";
 
 // Cartridge's controller left the client (#918, phase A): the local key (`./local-key`) signs every write itself, with no
 // session. What stays here is the session's record, kept with its P-65 guard: the calls a session key would sign without a
-// prompt, which the writers' tests still check against what they send. The account of phase B may take a session again.
+// prompt, which the writers' tests still check against what they send. Nothing signs a session today.
 
 /** One session policy: a call the controller signs without a prompt. Never an `approve` (P-65). */
 export interface ControllerPolicy {
