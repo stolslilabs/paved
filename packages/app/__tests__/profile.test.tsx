@@ -7,7 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
 import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-avatar";
 import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
+import { DataProvider, type DataSources } from "../src/data/sources";
 import { TabPage } from "../src/components/containers/tab-page";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
@@ -60,6 +62,45 @@ describe("ProfileSheet (#624)", () => {
     expect(await within(sheet).findByRole("button", { name: /Copied/ })).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
     expect(onDisconnect).toHaveBeenCalledOnce();
+  });
+
+  it("the player's league under their name (#917): its crest and name, Unranked, or none when not read", async () => {
+    const { rerender } = render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} league={{ crowns: 1_172, league: 5, unranked: false }} />));
+    const sheet = await screen.findByRole("dialog");
+    const crest = () => sheet.querySelector<HTMLElement>("[data-slot=league-crest-icon]");
+    expect(within(sheet).getByText("Bronze II")).toBeInTheDocument();
+    expect(crest()).toHaveAttribute("data-tier", "bronze");
+    expect(crest()).toHaveAttribute("data-pips", "2");
+    rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} league={{ crowns: 0, league: 0, unranked: true }} />));
+    expect(within(sheet).getByText("Unranked")).toBeInTheDocument();
+    expect(crest()).toHaveAttribute("data-tier", "unranked");
+    // Not read, and no sources to read it from (a story, a test): no league.
+    rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} league={null} />));
+    expect(crest()).toBeNull();
+    rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} />));
+    expect(crest()).toBeNull();
+  });
+
+  it("reads the league itself where the app's sources are: the crowns' league, Unranked only if never attacked", async () => {
+    const sheetWith = (league: number, crowns: number, attack: number) => {
+      const views = { pvpLeague: async () => ({ season: 1, crowns, league, peak: league, attacks: 0, pending: 0 }), pvpAttack: async () => ({ id: attack }) };
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return wrap(
+        <QueryClientProvider client={client}>
+          <DataProvider sources={{ views } as unknown as DataSources}>
+            <ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} />
+          </DataProvider>
+        </QueryClientProvider>,
+      );
+    };
+    const { unmount } = render(sheetWith(16, 3_250, 4));
+    expect(await within(await screen.findByRole("dialog")).findByText("Diamond III")).toBeInTheDocument();
+    unmount();
+    const second = render(sheetWith(0, 0, 0));
+    expect(await within(await screen.findByRole("dialog")).findByText("Unranked")).toBeInTheDocument();
+    second.unmount();
+    render(sheetWith(0, 0, 3));
+    expect(await within(await screen.findByRole("dialog")).findByText("Wood")).toBeInTheDocument();
   });
 
   it("a guest: the Training line and Connect, nothing to copy", async () => {

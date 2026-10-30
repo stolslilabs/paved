@@ -15,6 +15,8 @@ export interface LeagueStandardProps {
   name: string;
   /** 14 px names (`md`) by default. */
   size?: LeagueStandardSize;
+  /** The plate as a heading of this level, named by the plate (the League page's card); none, a plain figure. */
+  heading?: "h2" | "h3";
   className?: string;
   style?: CSSProperties;
 }
@@ -24,7 +26,8 @@ export interface LeagueStandardProps {
  * card and a later promotion overlay. In em of the plate's name: the crest 15.7 high (its frame as wide as the plate), the plate 2.15,
  * the banner 11.7, each tucked under the one above. The plate names it; the crest and the banner are decorative.
  */
-export function LeagueStandard({ tier, name, size = "md", className, style }: LeagueStandardProps) {
+export function LeagueStandard({ tier, name, size = "md", heading, className, style }: LeagueStandardProps) {
+  const Plate = heading ?? "span";
   // Inline sizes and offsets, in the plate's em: the stylesheet's budget has no room for classes of their own.
   return (
     <figure
@@ -36,9 +39,9 @@ export function LeagueStandard({ tier, name, size = "md", className, style }: Le
       <span style={{ fontSize: "15.7em" }}>
         <LeagueCrestArt tier={tier} size="inherit" />
       </span>
-      <span className="relative z-10" style={{ marginTop: "-2em" }}>
+      <Plate className="relative z-10 m-0" style={{ marginTop: "-2em" }}>
         <LeaguePlate tier={tier} name={name} size="inherit" />
-      </span>
+      </Plate>
       <span style={{ fontSize: "11.7em", marginTop: "-0.034em" }}>
         <LeagueBanner tier={tier} size="inherit" />
       </span>

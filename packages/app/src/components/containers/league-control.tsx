@@ -1,11 +1,14 @@
 import { formatInteger } from "@paved/game-core";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { DataContext, type DataSources } from "../../data/sources";
+import { isUnranked, usePvpLastAttack } from "../../data/pvp-standing";
 import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { GameIcon } from "../elements/game-icon";
-import { crestClass } from "../elements/league-crest";
+import { LeagueCrestIcon } from "../elements/league-crest-art";
+import { pipsOf, tierOf } from "../elements/league-standards";
 import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
 import { Icon } from "../ui/icon";
 
@@ -23,10 +26,18 @@ const RING: Record<LeagueId, string> = {
 };
 
 export interface LeagueControlProps {
-  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wood). */
-  crowns: number;
+  /** The player's crowns (`Matchmaker.league`); 0 before PvP (Wood), and when left out (not read). */
+  crowns?: number;
   /** The league on chain, when it is not that of `crowns` (the League page's, #859); left out, the league of `crowns`. */
   league?: League;
+  /**
+   * The player has not entered the leagues (`isUnranked`): Unranked's crest (issue 917), its name in the label. Left out, decided from
+   * `attacks`: with no crowns and no attack settled, the control reads whether the player ever attacked (`Arena.attack`, where the
+   * app's sources are; without them, as never).
+   */
+  unranked?: boolean;
+  /** The attacks settled this season (`Matchmaker.league`, the home's read). */
+  attacks?: number;
   /** Opens the League page: a tap anywhere on the control. */
   onLeague?: () => void;
   /** The balances' sizes (issue 828); `auto` (the home's), `sm` on a phone and `md` from `desktop`. */
@@ -48,8 +59,24 @@ export interface LeagueControlProps {
  * ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
  * motion.
  */
-export function LeagueControl({ crowns, league: shownLeague, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
+export function LeagueControl(props: LeagueControlProps) {
+  const sources = useContext(DataContext);
+  const crowns = props.crowns ?? 0;
+  const maybe = props.unranked === undefined && crowns === 0 && props.attacks === 0;
+  if (maybe && sources?.signer) return <ReadUnranked {...props} sources={sources} playerId={sources.signer.address} />;
+  return <ControlView {...props} unranked={props.unranked ?? maybe} />;
+}
+
+/** No crowns and no attack settled: Unranked unless the player ever attacked (an attack open, or one before the season). */
+function ReadUnranked({ sources, playerId, ...props }: LeagueControlProps & { sources: DataSources; playerId: string }) {
+  const attack = usePvpLastAttack(sources, playerId);
+  // While read, Unranked: a player with no crowns and no attack settled has most likely never attacked.
+  return <ControlView {...props} unranked={attack === undefined || (attack !== null && isUnranked({ crowns: 0, attacks: 0 }, attack))} />;
+}
+
+function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
   const league = shownLeague ?? leagueOf(crowns);
+  const tier = unranked ? "unranked" : tierOf(league);
   const reduced = useReducedMotionConfig();
   const [promoted, setPromoted] = useState<number | null>(null);
   const shown = useRef(league.index);
@@ -64,9 +91,10 @@ export function LeagueControl({ crowns, league: shownLeague, onLeague, size = "a
       type="button"
       data-slot="league-control"
       data-league={league.id}
+      data-tier={tier}
       onClick={onLeague}
       whileTap={{ scale: 0.95 }}
-      aria-label={label ?? `League: ${league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
+      aria-label={label ?? `League: ${unranked ? "Unranked" : league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
       className={cn("group flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <Plate
@@ -81,7 +109,10 @@ export function LeagueControl({ crowns, league: shownLeague, onLeague, size = "a
         }
         end={
           <PlateDisc size={size}>
-            <GameIcon name="shield-halved" tone="current" size="inherit" className={cn("relative", crestClass(league.id), plateIconClass(size))} />
+            {/* The tier's crest in its icon form (issue 917), a size up from the plate's icons so its pips read: 28 px, 34 px from `desktop`. */}
+            <span className={cn("relative leading-none", plateIconClass(size))}>
+              <LeagueCrestIcon tier={tier} pips={unranked ? 0 : pipsOf(league)} size="inherit" style={{ fontSize: "1.4em" }} />
+            </span>
             {promoted !== null && (
               <m.span
                 key={promoted}

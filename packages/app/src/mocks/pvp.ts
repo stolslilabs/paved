@@ -3,7 +3,7 @@ import { sideSettings } from "../data/board-side";
 import { BOARD_FOG, squareGridSettings } from "../data/settings";
 import { APP_ASSETS, appRenders } from "./assets";
 import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
-import { NEXT_PRICE, crownsFor, stakesOf, starsFor } from "../lib/pvp-rules";
+import { NEXT_PRICE, crownsFor, leagueOf, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { PvpEndSceneProps } from "../components/scenes/pvp-end-scene";
 import type { MatchCardData, MatchListProps } from "../components/containers/match-list";
@@ -229,7 +229,7 @@ const defence = (i: number, seed: keyof typeof ATTACK_SCORES.mine, at: number): 
   const score = ATTACK_SCORES.mine[seed];
   const stars = starsFor(score, MY_VILLAGE.score);
   // What the attacker wins the defender loses; a defence held (no star) wins the defender a few crowns.
-  return { id: `d${40 + i}`, side: "defence", rival: faced(ATTACKERS[i]!), village: MY_VILLAGE.tiles, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at };
+  return { id: `d${40 + i}`, side: "defence", rival: faced(ATTACKERS[i]!), league: leagueOf(ATTACKERS[i]!.crowns), village: MY_VILLAGE.tiles, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at };
 };
 
 /** An attack of the player's, of `seed`, on the rival's village (its snapshot, `RIVAL_VILLAGE`): its rewards too. */
@@ -237,7 +237,7 @@ const attackMade = (id: number, seed: keyof typeof ATTACK_SCORES.rival, at: numb
   const score = ATTACK_SCORES.rival[seed];
   const stars = starsFor(score, RIVAL_VILLAGE.score);
   const chest = ([null, "basic", "rare", "epic"] as const)[stars]!;
-  return { id: `a${id}`, side: "attack", village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra, rival: faced(extra.rival ?? RIVAL) };
+  return { id: `a${id}`, side: "attack", village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra, rival: faced(extra.rival ?? RIVAL), league: leagueOf((extra.rival ?? RIVAL).crowns) };
 };
 
 /** Newest first, attacks and defences mixed: the latest attack on the village 2 h 48 ago, which put the shield up. */
@@ -281,8 +281,8 @@ const MANY: MatchCardData[] = Array.from({ length: 26 }, (_, i) => {
 export const PVP_MATCHES = {
   latest: { matches: MATCHES, renders: appRenders },
   many: { matches: MANY, renders: appRenders },
-  /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards known. */
-  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, ...m }) => ({ ...m, village: null })), renders: appRenders },
+  /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards nor rival's league known. */
+  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, league: _league, ...m }) => ({ ...m, village: null })), renders: appRenders },
   empty: { matches: [] },
   loading: { matches: null },
   error: { matches: null, error: "The matches could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
