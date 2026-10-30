@@ -23,6 +23,13 @@ export interface ResourcePlateProps extends PlateVariants {
   side?: "right" | "left";
   /** The amount shown before this plate mounted (a balance that just appeared): the first render animates from it. */
   from?: bigint;
+  /** One width at each size, whatever the figure (issue 860, `Plate`'s `fixed`); with `compactFrom`, the figure never overflows it. */
+  fixed?: boolean;
+  /**
+   * From this figure on (tokens, or Cobbles: `PLATE_COMPACT` on a fixed plate) the figure is compact ("12.3K"), the counter's too; the full
+   * amount is the container's (its accessible name and tooltip). Omitted, never.
+   */
+  compactFrom?: number;
   /** After the figure: a hint of what a tap does (a chevron). */
   children?: ReactNode;
   className?: string;
@@ -35,8 +42,8 @@ export interface ResourcePlateProps extends PlateVariants {
  * the change's colour; up, a "+N" rises and fades and the icon pops; down, a "−N" drops and fades and the icon dips. Under reduced
  * motion only the colour flashes: nothing moves. The accessible name is the container's.
  */
-export function ResourcePlate({ kind, amount, decimals, fraction, plus, plusFrom, side = "right", from, size, tone, children, className }: ResourcePlateProps) {
-  const { text, start, target, format, change, flash, moving } = useAmountChange({ amount, decimals, fraction, from });
+export function ResourcePlate({ kind, amount, decimals, fraction, plus, plusFrom, side = "right", from, fixed, compactFrom, size, tone, children, className }: ResourcePlateProps) {
+  const { text, start, target, format, change, flash, moving } = useAmountChange({ amount, decimals, fraction, from, compactFrom });
   return (
     <Plate
       data-slot="resource-plate"
@@ -46,6 +53,7 @@ export function ResourcePlate({ kind, amount, decimals, fraction, plus, plusFrom
       tone={tone}
       lead={plus ? "plus" : undefined}
       leadFrom={plusFrom}
+      fixed={fixed}
       className={className}
       endFit="bare"
       end={
