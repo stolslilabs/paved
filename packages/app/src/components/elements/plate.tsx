@@ -39,7 +39,7 @@ const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEn
   },
   md: {
     // "9,999.99" at 18 px (85 px) in 120 px: the bare icon's 26 + 34 and a bare end's 12 (no "+", issue 925) leave it in 192 px,
-    // #860's width, kept (a class the bundle already has).
+    // issue 860's width, kept (a class the bundle already has).
     width: "w-48",
     coin: "size-11",
     over: { right: "-ml-5.5", left: "-mr-5.5" },
