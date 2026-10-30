@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { PROGRESS } from "../../mocks/players";
+import { NEW_PLAYER, NEW_PLAYER_PROFILE } from "../../mocks/new-player";
 import { PROFILE } from "../../mocks/scenes";
 import type { PlayerProgress } from "../elements/xp-ring";
 import { PlayerBadge } from "./player-badge";
@@ -91,6 +92,8 @@ export const MaxLevel: Story = { parameters: profile(PROFILE.connected, PROGRESS
 /** The avatar the player saved (#626). */
 export const SavedAvatar: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay, SAVED_LOOK) };
 /** The XP still read: the empty track, "Lv" alone. */
+/** A new player on the mock (#926): their drawn name beside the drawn look, level 1. */
+export const NewPlayer: Story = { parameters: profile(NEW_PLAYER_PROFILE, PROGRESS.start, NEW_PLAYER.look) };
 export const ReadingXp: Story = { parameters: profile(PROFILE.connected, undefined) };
 /** WRAP360: a four-digit level and a long name, cut with an ellipsis (its whole text in the title). */
 export const Stress: Story = { parameters: profile(PROFILE.stress, PROGRESS.stress) };

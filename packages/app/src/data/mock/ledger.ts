@@ -127,6 +127,7 @@ import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, generatedLook }
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
+import type { AvatarCatalogue } from "../avatar-catalogue";
 
 // The mock ledger (#549, MOCK-FIRST): the reads and writes the deployed classes lack, served on the device, behind the same
 // interfaces as the chain path (`MockedReads`: `@paved/chain`'s `CobbleViews`, `PackViews`, `SkinViews`, `VaultViews` and
@@ -213,6 +214,8 @@ export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" |
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
+  /** The player's name (#926): the mock's alone until the integration decides where it lives (on chain, or #918's identities). */
+  setName(name: string): Promise<WriteResult>;
   foundVillage(): Promise<WriteResult>;
   buyParcel(request: BuyParcelRequest): Promise<WriteResult>;
   openReward(): Promise<WriteResult>;
@@ -265,6 +268,8 @@ interface StoredPlayer {
   surrenders?: Record<string, number>;
   /** `avatar(player_id)`, a decimal string; absent: none set (a state stored before the avatar reads it so). */
   avatar?: string;
+  /** The player's name (#926), drawn at their first connection (`nameAtConnection`); absent: none (an account before it). */
+  name?: string;
   /** `owned(player_id, part)` by part, decimal strings; absent: nothing bought. */
   avatarOwned?: Record<string, string>;
   /** The village (#640): the parcels in purchase order, the tiles placed after the starter in order; absent: not founded. */
@@ -366,6 +371,12 @@ interface StoredState {
 }
 
 const fresh = (): StoredState => ({ version: 1, players: {}, vault: { assets: MOCK_VAULT.assets.toString(), supply: MOCK_VAULT.supply.toString() }, transactions: 0 });
+
+/** What a new player's draw reads of the catalogue (#926): the parts in use, their items, what the player owns. */
+export type NewPlayerCatalogue = Pick<AvatarCatalogue, "parts" | "items" | "owned">;
+
+/** A name `setName` takes (#926): letters and digits, 3 to 20 characters. */
+const MOCK_NAME = /^[A-Za-z0-9]{3,20}$/;
 
 const newPlayer = (): StoredPlayer => ({
   cobbles: 0,
@@ -605,6 +616,12 @@ export class MockLedger {
   async avatar(playerId: string): Promise<bigint> {
     this.sync();
     return BigInt(this.peek(playerId).avatar ?? "0");
+  }
+
+  /** The player's name (#926), null when they have none: a rival's is its own (`rivalName`). */
+  async name(playerId: string): Promise<string | null> {
+    this.sync();
+    return this.peek(playerId).name ?? null;
   }
 
   /** `Village.village(player_id)`, as the contract computes it: the score is the engine's replay of the tiles (game-core). */
@@ -979,6 +996,7 @@ export class MockLedger {
       setSkins: (changes) => this.setSkins(account, changes),
       buyAvatarItem: (request) => this.buyAvatarItem(account, request),
       setAvatar: (look) => this.setAvatar(account, look),
+      setName: (name) => this.setName(account, name),
       foundVillage: () => this.foundVillage(account),
       buyParcel: (request) => this.buyParcel(account, request),
       openReward: () => this.openReward(account),
@@ -1122,18 +1140,51 @@ export class MockLedger {
   async setAvatar(account: string, look: bigint): Promise<WriteResult> {
     if (look < 0n || look >= 2n ** 128n) throw new AvatarRefusedError("invalid-look");
     await sleep(this.latency);
-    return this.write(account, (p, hash) => {
-      if (look !== 0n) {
-        if ((look & 0xffn) !== 1n || look >> BigInt(8 * (AVATAR_PARTS_IN_USE + 1)) !== 0n) throw new AvatarRefusedError("invalid-look", hash);
-        for (let part = 0; part < AVATAR_PARTS_IN_USE; part++) {
-          const id = Number((look >> BigInt(8 * (part + 1))) & 0xffn);
-          const item = AVATAR_ITEMS[part]?.[id];
-          const free = item !== undefined && item.state === 1 && item.cobbles === 0;
-          if (!free && !(BigInt(p.avatarOwned?.[part] ?? "0") & bit(id))) throw new AvatarRefusedError("not-owned", hash);
-        }
+    return this.write(account, (p, hash) => [this.lookSet(account, p, look, hash)]);
+  }
+
+  /** `set_avatar`'s checks, then the look stored: its event. */
+  private lookSet(account: string, p: StoredPlayer, look: bigint, hash: string): DecodedEvent {
+    if (look !== 0n) {
+      if ((look & 0xffn) !== 1n || look >> BigInt(8 * (AVATAR_PARTS_IN_USE + 1)) !== 0n) throw new AvatarRefusedError("invalid-look", hash);
+      for (let part = 0; part < AVATAR_PARTS_IN_USE; part++) {
+        const id = Number((look >> BigInt(8 * (part + 1))) & 0xffn);
+        const item = AVATAR_ITEMS[part]?.[id];
+        const free = item !== undefined && item.state === 1 && item.cobbles === 0;
+        if (!free && !(BigInt(p.avatarOwned?.[part] ?? "0") & bit(id))) throw new AvatarRefusedError("not-owned", hash);
       }
-      p.avatar = look.toString();
-      return [this.event("AvatarSet", { playerId: account, look })];
+    }
+    p.avatar = look.toString();
+    return this.event("AvatarSet", { playerId: account, look });
+  }
+
+  /** The player's name (#926): letters and digits, 3 to 20 characters (a short string, if it goes on chain). */
+  async setName(account: string, name: string): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p) => [this.nameSet(account, p, name)]);
+  }
+
+  private nameSet(account: string, p: StoredPlayer, name: string): DecodedEvent {
+    if (!MOCK_NAME.test(name)) throw new WriteError(`Not a name: ${JSON.stringify(name)} (letters and digits, 3 to 20)`);
+    p.name = name;
+    return this.event("NameSet", { playerId: account, name });
+  }
+
+  /**
+   * A new player's name and look at their first connection (#926): `draw` gives them, the look over the catalogue's offers
+   * (`avatarOffers`), and both are stored as `setName` and `setAvatar` store them, with their checks, in one step under the
+   * lock. Only for an account with no name; a look saved already stays. No latency, as `foundAtConnection`. Resolves true
+   * when it named the player.
+   */
+  async nameAtConnection(account: string, draw: (catalogue: NewPlayerCatalogue) => { name: string; look: bigint }): Promise<boolean> {
+    return this.lock(() => {
+      this.sync();
+      const p = this.peek(account);
+      if (p.name !== undefined) return false;
+      const owned = AVATAR_ITEMS.map((_, part) => BigInt(p.avatarOwned?.[part] ?? "0"));
+      const { name, look } = draw({ parts: AVATAR_PARTS_IN_USE, items: AVATAR_ITEMS, owned });
+      this.commit(account, (q, hash) => [this.nameSet(account, q, name), ...(BigInt(q.avatar ?? "0") === 0n ? [this.lookSet(account, q, look, hash)] : [])]);
+      return true;
     });
   }
 

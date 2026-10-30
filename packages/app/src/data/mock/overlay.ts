@@ -178,6 +178,9 @@ export function mockEconomyViews(chain: EconomyViews, ledger: MockLedger): Econo
   });
 }
 
+/** A player's id as the indexer writes it: 64 hex digits. */
+const indexerId = (playerId: string | bigint) => `0x${BigInt(playerId).toString(16).padStart(64, "0")}`;
+
 /**
  * The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no
  * route), and the fifth daily of #869 in the definitions and each day's progress (`dailies.ts`). The ledger counts a day's
@@ -219,9 +222,15 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
     // A rival village of the mock (`mock/pvp.ts`) is on no indexer: its name is the mock's.
     player: async (playerId: string | bigint) => {
       const rival = ledger.rivalName(String(playerId));
-      if (rival === null) return chain.player(playerId);
+      if (rival === null) {
+        // The mock's player is named by the ledger (#926): the indexer has no name for an account made since #920.
+        const [answer, name] = await Promise.all([chain.player(playerId), ledger.name(String(playerId))]);
+        const known = answer.data.player;
+        if (name === null || known?.name) return answer;
+        return { ...answer, data: { ...answer.data, player: { playerId: known?.playerId ?? indexerId(playerId), name, created: known?.created ?? null } } };
+      }
       const head = await chain.head();
-      return { ...head, data: { player: { playerId: `0x${BigInt(playerId).toString(16).padStart(64, "0")}`, name: rival, created: null }, stats: null } };
+      return { ...head, data: { player: { playerId: indexerId(playerId), name: rival, created: null }, stats: null } };
     },
     playerAttacks: async (playerId: string | bigint, side: "attacker" | "defender", params: { limit?: number } = {}) => {
       const head = await chain.head();
@@ -291,20 +300,32 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
 }
 
 /**
- * The wallet's connector on the mock (#927): each account it connects (a connect, a restore, a Reset's new key) has its free
+ * The wallet's connector on the mock (#927, #926): each account it connects (a connect, a restore, a Reset's new key) has its free
  * village founded by the ledger before the connection resolves (`foundAtConnection`, once per account), so the home's first read
- * is the starter village with its 8 tiles and Edit opens (#753); the signer is `mockSigner`'s. Found stays for the `chain` source.
+ * is the starter village with its 8 tiles and Edit opens (#753); an account with no name is given one and a look of free items
+ * (`welcomeNewPlayer`, its own chunk), so no screen names it by its address. Its username is that name, else the connector's.
+ * The signer is `mockSigner`'s. Found stays for the `chain` source. `random`: the draw's (the device's cryptographic one by default).
  */
-export function mockConnector(connector: WalletConnector, ledger: MockLedger): WalletConnector {
-  const founded = async <T extends { address: string } | null>(account: T): Promise<T> => {
-    if (account) await ledger.foundAtConnection(account.address);
+export function mockConnector(connector: WalletConnector, ledger: MockLedger, options: { random?: () => number } = {}): WalletConnector {
+  let current: string | null = null;
+  const welcomed = async <T extends { address: string } | null>(account: T): Promise<T> => {
+    current = account?.address ?? null;
+    if (account) {
+      await ledger.foundAtConnection(account.address);
+      if ((await ledger.name(account.address)) === null) await (await import("./new-player")).welcomeNewPlayer(ledger, account.address, options.random);
+    }
     return account;
   };
   return {
     ...connector,
-    probe: async () => founded(await connector.probe()),
-    connect: async () => founded(await connector.connect()),
-    reset: async () => founded(await connector.reset()),
+    probe: async () => welcomed(await connector.probe()),
+    connect: async () => welcomed(await connector.connect()),
+    reset: async () => welcomed(await connector.reset()),
+    disconnect: async () => {
+      current = null;
+      await connector.disconnect();
+    },
+    username: async () => (current && (await ledger.name(current))) ?? connector.username(),
     signer: (account) => mockSigner(connector.signer(account), ledger),
   };
 }
