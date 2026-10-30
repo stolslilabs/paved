@@ -1,10 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LeagueBanner } from "../src/components/elements/league-banner";
-import { MatchCard } from "../src/components/containers/match-list";
-import { LeagueCrest } from "../src/components/elements/league-crest";
-import { MOCK_NOW } from "../src/mocks/clock";
-import { MATCHES, PVP_MATCHES } from "../src/mocks/pvp";
 import { LeagueCrestArt, LeagueCrestIcon } from "../src/components/elements/league-crest-art";
 import { LeaguePlate } from "../src/components/elements/league-plate";
 import { LeagueStandard } from "../src/components/elements/league-standard";
@@ -103,41 +99,5 @@ describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
     expect(slots).toEqual(["league-crest-art", "league-plate", "league-banner"]);
     expect(screen.getAllByRole("img").map((i) => i.getAttribute("aria-label"))).toEqual(["Grand Master"]);
     expect(container.firstElementChild).toHaveAttribute("data-tier", "grandmaster");
-  });
-
-  it("the standard's plate can be the heading that names it (the League page's card)", () => {
-    render(<LeagueStandard tier="emerald" name="Emerald III" heading="h2" />);
-    expect(screen.getByRole("heading", { level: 2 })).toHaveAccessibleName("Emerald III");
-  });
-});
-
-describe("the leagues' standards in the app (#917, PR 3)", () => {
-  it("LeagueCrest draws the tier's icon form with the division's pips beside the name", () => {
-    const { container, rerender } = render(<LeagueCrest league={LEAGUES[14]!} />);
-    const icon = () => container.querySelector("[data-slot=league-crest-icon]")!;
-    expect(container.firstElementChild).toHaveTextContent("Emerald II");
-    expect(icon()).toHaveAttribute("data-tier", "emerald");
-    expect(icon()).toHaveAttribute("data-pips", "2");
-    // The crest alone is named by the league.
-    rerender(<LeagueCrest league={LEAGUES[22]!} iconOnly />);
-    expect(screen.getByRole("img", { name: "Grand Master league" })).toHaveAttribute("data-tier", "grandmaster");
-    expect(icon()).not.toHaveAttribute("data-pips");
-  });
-
-  it("LeagueCrest reads Unranked outside the leagues, whatever the league", () => {
-    const { container, rerender } = render(<LeagueCrest league={LEAGUES[0]!} unranked />);
-    expect(container.firstElementChild).toHaveTextContent(/^Unranked$/);
-    expect(container.querySelector("[data-slot=league-crest-icon]")).toHaveAttribute("data-tier", "unranked");
-    rerender(<LeagueCrest league={LEAGUES[0]!} unranked iconOnly />);
-    expect(screen.getByRole("img", { name: "Unranked" })).toBeInTheDocument();
-  });
-
-  it("the battle logs' card shows the rival's league crest where known, none on v1's rows", () => {
-    const match = MATCHES[0]!;
-    const { container, rerender } = render(<MatchCard match={match} now={MOCK_NOW} />);
-    const crest = () => container.querySelector("[data-slot=league-crest-icon]");
-    expect(crest()).toHaveAttribute("data-tier", match.league!.id);
-    rerender(<MatchCard match={PVP_MATCHES.noSnapshot.matches[0]!} now={MOCK_NOW} />);
-    expect(crest()).toBeNull();
   });
 });

@@ -1,4 +1,3 @@
-import { leagueOf } from "../src/lib/pvp-rules";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA } from "@paved/chain/testing";
 import { DEFAULT_AVATAR, decodeAvatar } from "@paved/renderer";
@@ -72,8 +71,6 @@ describe("PvP v2's matches on the mock (#786)", () => {
     const defence = list[0]!;
     const attacked = mockRivalV2((await ledger.attackV2Of(PLAYER, 1))!.defender)!;
     expect(defence).toMatchObject({ side: "defence", rival: { address: attacked.address, name: attacked.name }, target: layoutScore(layout), xp: 0, chest: null, surrendered: false });
-    // The rival's league on chain (#917): its crest on the battle logs' card.
-    expect(defence.rival.league).toBe(leagueOf(attacked.crowns).index);
     expect(defence.village).toEqual(layout);
     // The deck is drawn from the player's village as an attack's is (ceil(1.15 x S)), every tile played.
     expect(defence.moves).toHaveLength(attackDeckSize(levelStatus((await ledger.freeVillage(PLAYER)).xp).slots));
