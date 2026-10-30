@@ -5,7 +5,9 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LeagueControl } from "../src/components/containers/league-control";
+import { lastAttack } from "../src/data/pvp-standing";
 import { DataProvider, type DataSources } from "../src/data/sources";
+import { mockImplementation } from "./mock-fakes";
 import { LEAGUES, leagueOf } from "../src/lib/pvp-rules";
 
 const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
@@ -60,24 +62,52 @@ describe("LeagueControl (#829)", () => {
     expect(screen.getByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
   });
 
-  it("the home's read in the app: with no crowns and no attack settled, Unranked only if the player never attacked", async () => {
-    const withAttack = (id: number) => {
-      const sources = { views: { pvpAttack: async () => ({ id }) }, signer: { address: "0x0abc" } } as unknown as DataSources;
-      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      return wrap(
-        <QueryClientProvider client={client}>
+  it("the home's read on the mock ledger: Unranked before any attack, Wood once a first v2 attack is open (#917)", async () => {
+    const s = mockImplementation();
+    const me = s.sources.signer!.address;
+    const writes = s.ledger.writesFor(me);
+    await writes.foundFreeVillage();
+    const control = (sources: DataSources) =>
+      wrap(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <DataProvider sources={sources}>
             <LeagueControl crowns={0} attacks={0} />
           </DataProvider>
         </QueryClientProvider>,
       );
-    };
-    // A first attack open (or one made before the season): Wood, as the League page says.
-    const { unmount } = render(withAttack(1));
-    expect(await screen.findByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
-    unmount();
-    render(withAttack(0));
+    const { unmount } = render(control(s.sources));
     await waitFor(() => expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked"));
+    unmount();
+    // The first attack open: no crowns and none settled, yet in the leagues (as the League page says).
+    await writes.drawOpponentV2("search");
+    await writes.startAttackV2();
+    expect(await s.ledger.pvpLeague(me)).toMatchObject({ crowns: 0, attacks: 0 });
+    render(control(s.sources));
+    expect(await screen.findByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
+  });
+
+  it("an attack in PvP v1's store counts too", async () => {
+    const sources = { views: { pvpAttack: async () => ({ id: 3 }) }, signer: { address: "0x0abc" } } as unknown as DataSources;
+    render(
+      wrap(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <DataProvider sources={sources}>
+            <LeagueControl crowns={0} attacks={0} />
+          </DataProvider>
+        </QueryClientProvider>,
+      ),
+    );
+    expect(await screen.findByRole("button", { name: "League: Wood, 0 crowns" })).toHaveAttribute("data-tier", "wood");
+  });
+
+  it("lastAttack: v1's id, else v2's, 0 for none; null where neither is served, undefined while read", () => {
+    expect(lastAttack({ id: 0 }, { attack: null })).toEqual({ id: 0 });
+    expect(lastAttack({ id: 0 }, { attack: { id: 1 } as never })).toEqual({ id: 1 });
+    expect(lastAttack({ id: 2 }, null)).toEqual({ id: 2 });
+    expect(lastAttack(null, { attack: { id: 1 } as never })).toEqual({ id: 1 });
+    expect(lastAttack(null, null)).toBeNull();
+    expect(lastAttack(undefined, null)).toBeUndefined();
+    expect(lastAttack({ id: 0 }, undefined)).toBeUndefined();
   });
 
   it("Unranked (no crowns, no attack): Unranked's crest, named so", () => {
