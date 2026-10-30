@@ -10,6 +10,8 @@ import {
   CENTRE_TURNS,
   DECOR,
   DRIFT,
+  DRIFT_KEYFRAMES,
+  DRIFT_MS,
   DIAL_PX,
   DISC,
   DUSK_BLEND,
@@ -150,14 +152,15 @@ describe("the season dial's colours and room (#607)", () => {
   it("blends the centre's day and night over 30° at dusk and at dawn, through the dusk tones (#930)", () => {
     expect(DUSK_BLEND).toBe(30);
     // Dawn at the top, dusk at `DAY_SHARE` of a turn (225°).
+    const mid = "color-mix(in oklab, var(--dial-day-top), var(--dial-night-top))";
     expect(timeSky("bottom")).toBe(
-      "conic-gradient(var(--dial-dusk-bottom), var(--dial-day-bottom) 15deg 210deg, var(--dial-dusk-bottom) 225deg, var(--dial-night-bottom) 240deg 345deg, var(--dial-dusk-bottom))",
+      "conic-gradient(var(--sky-autumn-day-bottom), var(--dial-day-bottom) 15deg 210deg, var(--sky-autumn-day-bottom) 225deg, var(--dial-night-bottom) 240deg 345deg, var(--sky-autumn-day-bottom))",
     );
-    expect(timeSky("top")).toContain("var(--dial-day-top) 15deg 210deg, var(--dial-dusk-top) 225deg, var(--dial-night-top) 240deg 345deg");
+    expect(timeSky("top")).toContain(`var(--dial-day-top) 15deg 210deg, ${mid} 225deg, var(--dial-night-top) 240deg 345deg`);
     const { container } = render(<SeasonWheel state="auto" />);
     expect(container.querySelector<HTMLElement>("[data-time-disc] [data-sky=time]")!.style.inset).toBe(`${50 - TIME_DISC}%`);
-    for (const name of ["dial-day-top", "dial-day-bottom", "dial-night-top", "dial-night-bottom", "dial-dusk-top", "dial-dusk-bottom", "dial-star", "dial-cloud", "dial-bird"])
-      expect(token(name), name).toBeTruthy();
+    // The dusk tones from the dial's own tokens: none of their own (the stylesheet's budget).
+    for (const name of ["dial-day-top", "dial-day-bottom", "dial-night-top", "dial-night-bottom", "sky-autumn-day-bottom", "dial-star"]) expect(token(name), name).toBeTruthy();
     // The needle in the theme's red (#909's open point 2).
     expect(token("dial-needle")).toBe("var(--destructive)");
   });
@@ -173,21 +176,39 @@ describe("the season dial's colours and room (#607)", () => {
   });
 
   it("twinkles the stars, drifts the clouds and glides the birds, all still under reduced motion (#930)", () => {
-    for (const name of ["dial-twinkle", "dial-drift"])
-      expect(theme).toMatch(new RegExp(`@utility ${name} \\{\\s*animation: ${name} [^;]+;\\s*@media \\(prefers-reduced-motion: reduce\\) \\{\\s*animation: none;`));
-    // The drift the geometry test allows for is the keyframe's.
-    expect(theme).toMatch(/@keyframes dial-drift \{\s*to \{ translate: 4\.4% -1\.5%; \}/);
+    expect(theme).toMatch(/@utility dial-twinkle \{\s*animation: dial-twinkle [^;]+;\s*@media \(prefers-reduced-motion: reduce\) \{\s*animation: none;/);
+    // The drift the geometry test allows for is the keyframes'.
+    expect(DRIFT_KEYFRAMES).toEqual([{ translate: "0 0" }, { translate: "4.4% -1.5%" }]);
     expect(DRIFT.x).toBeCloseTo(1.5, 1);
-    const { container } = render(<SeasonWheel state="auto" />);
-    const of = (kind: string) => [...container.querySelectorAll(`[data-time-disc] [data-decor=${kind}]`)];
-    expect(of("star").length).toBeGreaterThan(2);
-    for (const star of of("star")) expect(star).toHaveClass("dial-twinkle");
-    expect(of("cloud").length).toBeGreaterThanOrEqual(2);
-    expect(of("bird").length).toBeGreaterThanOrEqual(2);
-    // Each drifts in its own box, the centre disc's, an HTML box whose translate the compositor runs.
-    for (const p of [...of("cloud"), ...of("bird")]) {
-      expect(p.parentElement).toHaveClass("dial-drift");
-      expect((p.parentElement!.parentElement as HTMLElement).style.inset).toBe(`${50 - TIME_DISC}%`);
+    expect(DRIFT_MS.cloud).toBeGreaterThan(DRIFT_MS.bird);
+    const animate = vi.fn(() => ({ cancel: vi.fn() }));
+    Element.prototype.animate = animate as unknown as Element["animate"];
+    try {
+      const { container, unmount } = render(<SeasonWheel state="auto" />);
+      const of = (kind: string) => [...container.querySelectorAll(`[data-time-disc] [data-decor=${kind}]`)];
+      expect(of("star").length).toBeGreaterThan(2);
+      for (const star of of("star")) expect(star).toHaveClass("dial-twinkle");
+      expect(of("cloud").length).toBeGreaterThanOrEqual(2);
+      expect(of("bird").length).toBeGreaterThanOrEqual(2);
+      // Each drifts in its own box, the centre disc's: the translate of an HTML box, which the compositor runs.
+      const drifting = [...of("cloud"), ...of("bird")];
+      for (const p of drifting) expect((p.parentElement!.parentElement as HTMLElement).style.inset).toBe(`${50 - TIME_DISC}%`);
+      expect(animate).toHaveBeenCalledTimes(drifting.length);
+      const calls = animate.mock.calls as unknown as [Keyframe[], KeyframeAnimationOptions][];
+      for (const [frames, options] of calls) {
+        expect(frames).toBe(DRIFT_KEYFRAMES);
+        expect(options).toMatchObject({ iterations: Infinity, direction: "alternate" });
+      }
+      expect(calls.map(([, o]) => o.duration).sort()).toEqual([...of("bird").map(() => DRIFT_MS.bird), ...of("cloud").map(() => DRIFT_MS.cloud)].sort());
+      unmount();
+      // Under reduced motion, nothing drifts.
+      animate.mockClear();
+      const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+      render(<SeasonWheel state="auto" />);
+      expect(animate).not.toHaveBeenCalled();
+      matchMedia.mockRestore();
+    } finally {
+      delete (Element.prototype as Partial<Element>).animate;
     }
   });
 

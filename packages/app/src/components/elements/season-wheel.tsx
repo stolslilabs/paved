@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "../../lib/utils";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, isNight, type WheelPoint, type WheelState } from "../../data/season-wheel";
 import { WorldIcon, type WorldIconName as Glyph } from "./world-icon";
@@ -83,9 +83,15 @@ export const seasonsSky = (part: "top" | "bottom") =>
 /** The centre disc: its day (`DAY_SHARE` of a turn, from its dawn at the top) then its night, clockwise. */
 const DUSK = DAY_SHARE * 360;
 
+/**
+ * The dusk tones (issue 930), from the dial's own: at the horizon autumn's warm sky, above it the day's and the night's skies
+ * mixed. No token of their own: the stylesheet's budget has no room.
+ */
+export const DUSK_TONE = { top: "color-mix(in oklab, var(--dial-day-top), var(--dial-night-top))", bottom: "var(--sky-autumn-day-bottom)" } as const;
+
 /** The centre disc's sky: its day, then its night, through the dusk tones at dusk and at dawn, over `DUSK_BLEND` each. */
 export const timeSky = (part: "top" | "bottom") => {
-  const dusk = `var(--dial-dusk-${part})`;
+  const dusk = DUSK_TONE[part];
   const b = DUSK_BLEND / 2;
   return `conic-gradient(${dusk}, var(--dial-day-${part}) ${b}deg ${DUSK - b}deg, ${dusk} ${DUSK}deg, var(--dial-night-${part}) ${DUSK + b}deg ${360 - b}deg, ${dusk})`;
 };
@@ -133,10 +139,14 @@ function bird(x: number, y: number, s: number): string {
 }
 
 /**
- * How far a cloud drifts and a bird glides, in dial units, along its own frame: `dial-drift`'s translate (4.4% and -1.5% of the
- * centre disc's box) of `TIME_DISC` twice. The geometry test allows for it.
+ * How a cloud drifts and a bird glides, back and forth along its own frame: a translate of its box (the centre disc's), so the
+ * compositor runs it, by the Web Animations API, so the stylesheet's budget pays nothing. `DRIFT` is how far, in dial units:
+ * 4.4% and -1.5% of the box, `TIME_DISC` twice. The geometry test allows for it.
  */
+export const DRIFT_KEYFRAMES = [{ translate: "0 0" }, { translate: "4.4% -1.5%" }];
 export const DRIFT = { x: 0.044 * 2 * TIME_DISC, y: -0.015 * 2 * TIME_DISC } as const;
+/** A cloud's drift and a bird's glide, one way, in ms. */
+export const DRIFT_MS = { cloud: 7000, bird: 3000 } as const;
 
 /** A decoration's box about its anchor, in its own frame (up is out, towards the rim), drift included. */
 const BOX = {
@@ -168,6 +178,7 @@ export const DECOR = (
   const [x, y] = at(r, deg);
   return { kind, x, y, rot: kind === "star" ? 0 : deg, d: SHAPE[kind](x, y, s), delay, box: BOX[kind](s) };
 });
+const DRIFTING = DECOR.filter((p) => p.kind !== "star");
 
 /** The stones' two tones, in an uneven order, as laid paving. */
 const STONE_TONES = [0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1];
@@ -219,6 +230,15 @@ export const TIME_TURNS_PER_YEAR = WHEEL_SEASONS.length;
  */
 export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = "with", className }: SeasonWheelProps) {
   const angle = useRef<number | null>(null);
+  const timeDisc = useRef<HTMLSpanElement>(null);
+  // The clouds drift and the birds glide; all still under reduced motion.
+  useEffect(() => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const runs = [...(timeDisc.current?.querySelectorAll("[data-drift]") ?? [])].map((el, i) =>
+      el.animate?.(DRIFT_KEYFRAMES, { duration: DRIFT_MS[DRIFTING[i]!.kind as "cloud" | "bird"], delay: DRIFTING[i]!.delay * 1000, iterations: Infinity, direction: "alternate", easing: "ease-in-out" }),
+    );
+    return () => runs.forEach((run) => run?.cancel());
+  }, []);
   const goal = -cyclePoint(state, point) * 90;
   // The discs only ever turn one way, counterclockwise (the next season comes up the right side to the top): a reading
   // behind the last angle (the cycle wrapped, spring round to summer) is taken a full turn on, never back.
@@ -262,7 +282,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
           </svg>
         </span>
         {/* The day and night disc at the centre, turning four times as fast, mirrored when it turns against the seasons. */}
-        <span data-time-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
+        <span ref={timeDisc} data-time-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
           <span className="absolute inset-0" style={against ? { transform: "scaleX(-1)" } : undefined}>
             <Sky name="time" sky={timeSky} r={TIME_DISC} />
             <svg viewBox="0 0 100 100" className="absolute inset-0 size-full">
@@ -272,22 +292,18 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
             </svg>
             {/* Each cloud and bird in a box of its own, the centre disc's, turned to its line from the centre: its drift is a
                 translate of that box, which the compositor runs (a drift drawn in the SVG lays the dial out again at each frame). */}
-            {DECOR.filter((p) => p.kind !== "star").map((p, i) => (
+            {DRIFTING.map((p, i) => (
               <span
                 key={i}
                 className="absolute"
                 style={{ inset: `${50 - TIME_DISC}%`, transform: `rotate(${p.rot}deg)`, transformOrigin: `${f(((p.x - 50) / TIME_DISC + 1) * 50)}% ${f(((p.y - 50) / TIME_DISC + 1) * 50)}%` }}
               >
-                <svg
-                  viewBox={`${50 - TIME_DISC} ${50 - TIME_DISC} ${2 * TIME_DISC} ${2 * TIME_DISC}`}
-                  className="dial-drift absolute inset-0 size-full"
-                  style={{ animationDelay: `${p.delay}s`, animationDuration: p.kind === "bird" ? "3s" : undefined }}
-                >
+                <svg data-drift viewBox={`${50 - TIME_DISC} ${50 - TIME_DISC} ${2 * TIME_DISC} ${2 * TIME_DISC}`} className="absolute inset-0 size-full">
                   <path
                     data-decor={p.kind}
                     d={p.d}
-                    fill={p.kind === "bird" ? "none" : "var(--dial-cloud)"}
-                    stroke={p.kind === "bird" ? "var(--dial-bird)" : undefined}
+                    fill={p.kind === "bird" ? "none" : "var(--foreground)"}
+                    stroke={p.kind === "bird" ? "var(--dial-ring)" : undefined}
                     strokeWidth={0.6}
                     strokeLinecap="round"
                   />
