@@ -362,8 +362,8 @@ describe("one width for every currency's plate (#860)", () => {
   const tickerOf = (name: string) => screen.getByRole("button", { name }).querySelector("[data-slot=number-ticker]");
 
   it.each([
-    ["pill", "w-34 max-mobile:w-29"],
-    ["rail", "w-47"],
+    ["pill", "w-28 mobile:w-32"],
+    ["rail", "w-48"],
   ] as const)("%s: 0 and 1,234,567 of each currency, in a column and in a row, with or without a \"+\", have one width (%s)", (layout, width) => {
     for (const direction of ["column", "row"] as const)
       for (const state of [ZERO, HUGE]) {
@@ -388,9 +388,9 @@ describe("one width for every currency's plate (#860)", () => {
     const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
     for (const plate of platesOf(vault.container)) {
       expect(widthOf(plate)).toBe(loneWidth);
-      expect(boxOf(plate)).toHaveClass("text-sm", "max-mobile:text-xs");
+      expect(boxOf(plate)).toHaveClass("text-xs");
     }
-    expect(loneBox).toContain("max-mobile:text-xs");
+    expect(loneBox).toContain("text-xs");
   });
 
   it("on a phone from 360 px the figure is whole below 10,000 (\"9,999.99\") and compact from it", () => {
@@ -402,7 +402,7 @@ describe("one width for every currency's plate (#860)", () => {
     expect(screen.getByRole("button", { name: "12,345 Cobbles: Buy packs" })).toHaveAttribute("title", "12,345 Cobbles");
   });
 
-  it("below 360 px, the 116 px plate's figure is compact from 1,000, its full amount in the plate's name and tooltip", () => {
+  it("below 360 px, the 112 px plate's figure is compact from 1,000, its full amount in the plate's name and tooltip", () => {
     const real = window.matchMedia;
     window.matchMedia = ((query: string) =>
       ({ matches: query === PLATE_NARROW_QUERY, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }) as unknown as MediaQueryList) as typeof window.matchMedia;
@@ -436,7 +436,7 @@ describe("one width for every currency's plate (#860)", () => {
   });
 
   it("loading: each skeleton takes its plate's width, nothing moves when the figures arrive", () => {
-    for (const [layout, width] of [["pill", "w-34"], ["rail", "w-47"]] as const) {
+    for (const [layout, width] of [["pill", "w-28"], ["rail", "w-48"]] as const) {
       const { container, unmount } = render(wrap(<Balances layout={layout} kinds={["usdc", "cobbles"]} state={{ status: "loading" }} />));
       const holds = container.querySelectorAll("[data-slot=skeleton]");
       expect(holds).toHaveLength(2);

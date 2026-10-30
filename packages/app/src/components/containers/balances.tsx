@@ -216,7 +216,7 @@ function nameOf(kind: BalanceKind, amount: bigint | null, action: string) {
 /** Whether a plate's figure is compact (#860, from `compactFrom` tokens or Cobbles): its full amount is then the tooltip too. */
 const compactOf = (kind: BalanceKind, amount: bigint | null, compactFrom: number) => amount !== null && amount >= BigInt(compactFrom) * 10n ** BigInt(PLATES[kind].decimals);
 
-/** Whether the screen is below `mobile` (`PLATE_NARROW_QUERY`), where a phone's plate is 116 px; never without `matchMedia`. */
+/** Whether the screen is below `mobile` (`PLATE_NARROW_QUERY`), where a phone's plate is 112 px; never without `matchMedia`. */
 function subscribeNarrow(on: () => void) {
   if (typeof matchMedia !== "function") return () => {};
   const list = matchMedia(PLATE_NARROW_QUERY);
@@ -229,7 +229,7 @@ const useNarrow = () => useSyncExternalStore(subscribeNarrow, narrowNow, () => f
 /** One balance in the bar: a plate (at least 44 px of tap with the icon's overhang) that leads to its place, the whole plate a tap. */
 function PlateTap({ kind, from, state, here, onAction, faucet, minting, size, crowdedRow }: PlateTapProps) {
   const amount = amountOf(state, kind);
-  // The figure compact from 10,000, so "9,999.99" whole; from 1,000 on a phone below `mobile`, its 116 px plate (#860).
+  // The figure compact from 10,000, so "9,999.99" whole; from 1,000 on a phone below `mobile`, its 112 px plate (#860).
   const narrow = useNarrow();
   const compactFrom = size === "sm" && narrow ? PLATE_COMPACT.narrow : PLATE_COMPACT[size];
   if (amount === undefined) return holdOf(size);

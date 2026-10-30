@@ -205,7 +205,7 @@ function Widths({ onAction }: Pick<BalancesProps, "onAction">) {
   );
 }
 const widths: Story = { render: (args) => <Widths onAction={args.onAction} /> };
-/** PLATE-WIDTH (#860) at 320 px: every phone plate 116 px, in a column or a row, compact from 1,000; 136 px from 360 px (375), "9,999.99" whole. No "+" on a phone (#925). */
+/** PLATE-WIDTH (#860) at 320 px: every phone plate 112 px, in a column or a row, compact from 1,000; 128 px from 360 px (375), "9,999.99" whole. No "+" on a phone (#925). */
 export const Widths320: Story = { ...widths, ...PHONE_320 };
 export const Widths375: Story = { ...widths, ...PHONE_375 };
 export const Widths1440: Story = { ...widths, ...WIDE_1440 };

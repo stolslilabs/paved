@@ -26,10 +26,11 @@ type Ends = Record<"right" | "left", string>;
 type EndParts = { box: string; over: Ends; pad: Ends };
 const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEnd: EndParts; leadOver: Ends; plus: string; plusIcon: GameIconSize; plusOver: Ends; pad: { icon: Ends; plus: Ends; disc: Ends; bare: Ends } }> = {
   sm: {
-    // A currency's one width (issue 860), in a column or a row, with no "+" (issue 925): 136 px, "9,999.99" at 14 px (69 px), the
-    // icon's 24 + 8 and a bare end's 10; two fit a phone's header beside Back (280 px left at 360). Below `mobile` 116 (two fit
-    // the 240 px left at 320, the home's stack leaves the profile its line), the figure at 12 px and compact from 1,000.
-    width: "w-34 max-mobile:w-29",
+    // A currency's one width (issue 860), in a column or a row, with no "+" (issue 925): from `mobile` 128 px, "9,999.99" at 12 px
+    // (60 px), the icon's 24 + 8 and a bare end's 10; two fit a phone's header beside Back (280 px left at 360). Below it 112 (two
+    // fit the 240 px left at 320, the home's stack leaves the profile its line), the figure compact from 1,000. Classes the bundle
+    // already has (its CSS budget).
+    width: "w-28 mobile:w-32",
     coin: "size-10",
     over: { right: "-ml-5", left: "-mr-5" },
     // A bare icon (issue 213, no disc): 48 px over the 32 px box, its half (24) over the end and a gap (8) inside. It gives back
@@ -43,8 +44,8 @@ const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEn
     pad: { icon: { right: "pr-7", left: "pl-7" }, plus: { right: "pl-5", left: "pr-5" }, disc: { right: "pl-7", left: "pr-7" }, bare: { right: "pl-2.5", left: "pr-2.5" } },
   },
   md: {
-    // "9,999.99" at 18 px (85 px), 16 + 24 and 34 + 26.
-    width: "w-47",
+    // "9,999.99" at 18 px (85 px), 16 + 24 and 34 + 26: 192 px, a class the bundle already has.
+    width: "w-48",
     coin: "size-11",
     over: { right: "-ml-5.5", left: "-mr-5.5" },
     // 52 px over the 36 px box.
@@ -58,7 +59,7 @@ const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEn
   // `auto` has no "+" (the balances keep their fixed sizes): its "+" parts are the phone's, so no class is built for nothing.
   auto: {
     // No currency uses `auto`: the phone's width, so no class is built for nothing.
-    width: "w-34 max-mobile:w-29",
+    width: "w-28 mobile:w-32",
     coin: "size-10 desktop:size-11",
     over: { right: "-ml-5 desktop:-ml-5.5", left: "-mr-5 desktop:-mr-5.5" },
     // No balance uses `auto`: its bare icon is the phone's, so no class is built for nothing (the bundle's CSS budget).
@@ -77,19 +78,18 @@ const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEn
 };
 
 /**
- * A currency's figure at each size (issue 860): the box's own, 14 px on a phone ("9,999.99", 69 px of the 70 the 136 px plate
- * leaves) and 18 px from `desktop` (85 px); below `mobile` 12 px, so that its longest below the compact form there, "999.99"
- * (6 mono characters, 45 px), fits the 50 px the 116 px plate leaves.
+ * A currency's figure at each size (issue 860): 12 px on a phone ("9,999.99", 60 px of the 62 the 128 px plate leaves; below
+ * `mobile`, "999.99", 45 px of the 46 the 112 px plate leaves), the box's 18 px from `desktop` (85 px of 92).
  */
-const FIGURE: Record<PlateSize, string> = { sm: "max-mobile:text-xs", md: "", auto: "" };
+const FIGURE: Record<PlateSize, string> = { sm: "text-xs", md: "", auto: "" };
 
 /**
  * Where a fixed plate's figure turns compact (issue 860): from 10,000 (`amountFigure`'s rule) at each size, so the longest figure
- * below it is "9,999.99"; from 1,000 on a phone below `mobile` (`narrow`), whose 116 px plate cannot hold "9,999.99" at 12 px.
+ * below it is "9,999.99"; from 1,000 on a phone below `mobile` (`narrow`), whose 112 px plate cannot hold "9,999.99" at 12 px.
  */
 export const PLATE_COMPACT = { sm: 10_000, md: 10_000, narrow: 1_000 } as const;
 
-/** Below `mobile` (360 px, `max-mobile`), where a phone's fixed plate is 116 px and its figure compact from 1,000 (`PLATE_COMPACT.narrow`). */
+/** Below `mobile` (360 px, `max-mobile`), where a phone's fixed plate is 112 px and its figure compact from 1,000 (`PLATE_COMPACT.narrow`). */
 export const PLATE_NARROW_QUERY = "(width < 22.5rem)";
 
 export interface PlateProps extends VariantProps<typeof boxVariants> {
