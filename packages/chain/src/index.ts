@@ -267,8 +267,23 @@ export type { ConnectionStatus, PavedContextValue, ReadState } from "./react";
 export { IndexerProvider, useIndexer, useIndexerRead } from "./indexer-react";
 
 // Auth
-export { CONTROLLER_ENTRY_POINTS, controllerPolicies, createControllerConnector } from "./auth/controller";
-export type { ControllerConfig } from "./auth/controller";
+export { CONTROLLER_ENTRY_POINTS, controllerPolicies } from "./auth/controller";
+export {
+  AccountDeployError,
+  DEVICE_KEY,
+  DEVICE_KEY_SIGNED_OUT,
+  DEVNET_FUNDING,
+  LOCAL_ACCOUNT_CLASS_HASH,
+  STRK_ADDRESS,
+  createLocalKeyConnector,
+  deployedBy,
+  deployedBySelf,
+  isDeployed,
+  localKey,
+  newPrivateKey,
+  starknetAccount,
+} from "./auth/local-key";
+export type { AccountProvider, DeployLocalAccount, KeyStorage, LocalKey, LocalKeyConnector, LocalKeyConnectorOptions } from "./auth/local-key";
 
 // Cartridge's VRF per draw (#638)
 export {

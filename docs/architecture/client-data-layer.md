@@ -12,7 +12,7 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 |---|---|---|
 | ABIs of `Challenge` and `Setup` (the entry token reads with `Faucet.json`; the `Tutorial` and `Lobby` ABIs left with D-21 and D-24, `Account` with D-25 (E)) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
 | RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
-| The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
+| The playing account | the device's local key (#918, phase A; [accounts.md](accounts.md)), kept in `localStorage`. Its account's deployer, **devnet only**: `VITE_DEPLOYER_ADDRESS` and `VITE_DEPLOYER_PRIVATE_KEY` (the node's first predeployed account); ignored on any other network, since a key in a built bundle is public | none; without them a devnet account's first write is refused |
 
 The env variables of `packages/app-web` (`src/utils/network.ts`), each one set overriding the file:
 
@@ -388,6 +388,11 @@ optional and a deployment without it stays `configured`. With no address known t
 - **Not done**: no screen prints the owner (`owner_of` is only the game page's existence check).
 
 ## Signing
+
+**Since #918 (phase A)** Cartridge's controller and the devnet burner are gone: every network signs with the device's
+local key, whose account is deployed on its first write, with no session (`chain/src/auth/local-key.ts`,
+`app/src/wallet/connector.ts`; the design is [accounts.md](accounts.md)). The text below records the signing as it was
+before; the session policies (`controllerPolicies`) are kept as the record of the session's calls.
 
 Who signs depends on the network (`signerOf`, `app-web/src/utils/network.ts`), and
 `resolvePlayerAccount` returns that account:

@@ -15,10 +15,10 @@ export interface Preferences extends DevicePreferences {
   showSkins: boolean;
 }
 
-/** The connected controller account. */
+/** The connected account: the device's key's (#918). */
 export interface Account {
   address: string;
-  /** The controller username, when it has one. */
+  /** The player's username, when there is one. */
   name: string | null;
 }
 
@@ -35,6 +35,8 @@ export interface SettingsSceneProps {
   onVolumeChange?: (channel: VolumeChannel, volume: number) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
+  /** Reset: a new key and a new account on this device (testing, #918). Omitted: no Reset row. */
+  onReset?: () => void;
   onOpenTheme?: () => void;
   onOpenReferral?: () => void;
   onOpenCredits?: () => void;
@@ -89,6 +91,18 @@ export function SettingsScene(props: SettingsSceneProps) {
                 </span>
                 <Button size="sm" onClick={props.onConnect} loading={props.connecting}>
                   Connect
+                </Button>
+              </div>
+            )}
+            {props.onReset && (
+              <div className="flex items-center gap-3 py-2.5">
+                <Icon name="arrows-rotate" className="text-muted-foreground" size="md" fixedWidth />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-semibold">Reset account</span>
+                  <span className="text-xs wrap-anywhere text-muted-foreground">A new key and a new account on this device. For testing: the old account cannot be recovered.</span>
+                </span>
+                <Button size="sm" variant="outline" onClick={props.onReset} disabled={props.connecting}>
+                  Reset
                 </Button>
               </div>
             )}

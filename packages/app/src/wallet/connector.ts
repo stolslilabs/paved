@@ -1,20 +1,17 @@
 import { Account, RpcProvider } from "starknet";
-import { controllerPolicies, createControllerConnector, type ControllerConfig, type PavedClient, type WriteAccount } from "@paved/chain";
+import { createLocalKeyConnector, deployedBy, deployedBySelf, starknetAccount, type DeployLocalAccount, type KeyStorage, type LocalKey, type PavedClient, type WriteAccount } from "@paved/chain";
 import { chainClient, mockLedger } from "../data/chain-client";
 import { DATA_SOURCE } from "../data/data-source";
-import { economyClient } from "../data/economy-client";
 import { mockSigner } from "../data/mock/overlay";
 import type { WalletConnector } from "./wallet";
 
-// The app's connector (P6), loaded with its own chunk by `WalletProvider`: the legacy client's `WalletProvider.tsx` and
-// `utils/network.ts` brought over. Outside devnet the Cartridge controller with the game's session policies; on devnet
-// the env's burner (a predeployed account), which no other network takes: a key in a built bundle is public.
+// The app's connector, loaded with its own chunk by `WalletProvider` (#918, phase A; docs/architecture/accounts.md): a Stark
+// key made on this device and kept in its `localStorage`, and the account of that key, deployed on its first write. On
+// devnet the deployer account the deployments use deploys it and pays its fees; elsewhere the account deploys itself. Every
+// write is signed by the key, with no session and no prompt. The key never leaves the device.
 
-/** `@paved/chain`'s controller connector (its type is not exported from the chain's entry). */
-type ControllerConnector = ReturnType<typeof createControllerConnector>;
-
-/** A devnet burner: a predeployed account and its key. */
-export interface Burner {
+/** A devnet account and its key: the deployer of the local accounts. */
+export interface Deployer {
   address: string;
   key: string;
 }
@@ -26,70 +23,60 @@ export interface Burner {
 const DEVNET_BUILD = import.meta.env.VITE_NETWORK === "devnet" || (import.meta.env.DEV && !import.meta.env.VITE_NETWORK);
 
 /**
- * The burner of this build: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, read by static accesses behind
- * `DEVNET_BUILD`. Outside a devnet build the branch folds away at build time and neither value is in the bundle, whatever
- * the build's environment holds (checked on a Sepolia build: the PR's "build check").
+ * The devnet deployer of this build: `VITE_DEPLOYER_ADDRESS` and `VITE_DEPLOYER_PRIVATE_KEY` (the node's first predeployed
+ * account, whose key is the devnet's public one), read by static accesses behind `DEVNET_BUILD`. Outside a devnet build the
+ * branch folds away at build time and neither value is in the bundle, whatever the build's environment holds.
  */
-export const BUILD_BURNER: Burner | null = DEVNET_BUILD
-  ? import.meta.env.VITE_PLAYER_ADDRESS && import.meta.env.VITE_PLAYER_PRIVATE_KEY
-    ? { address: import.meta.env.VITE_PLAYER_ADDRESS, key: import.meta.env.VITE_PLAYER_PRIVATE_KEY }
+export const BUILD_DEPLOYER: Deployer | null = DEVNET_BUILD
+  ? import.meta.env.VITE_DEPLOYER_ADDRESS && import.meta.env.VITE_DEPLOYER_PRIVATE_KEY
+    ? { address: import.meta.env.VITE_DEPLOYER_ADDRESS, key: import.meta.env.VITE_DEPLOYER_PRIVATE_KEY }
     : null
   : null;
 
-/** The connector of this build's deployment (`chainClient`, `BUILD_BURNER`). Rejects when the deployment is not configured. */
+/** The connector of this build's deployment (`chainClient`, `BUILD_DEPLOYER`). Rejects when the deployment is not configured. */
 export async function appConnector(): Promise<WalletConnector> {
-  const connector = connectorFor(chainClient(), BUILD_BURNER, createControllerConnector, economyAddress());
+  const connector = connectorFor(chainClient(), BUILD_DEPLOYER, window.localStorage);
   // The data source `mock` (#549): the claims and the skin writes go to the device's ledger, the rest to the chain.
   return DATA_SOURCE === "mock" ? { ...connector, signer: (account) => mockSigner(connector.signer(account), mockLedger()) } : connector;
 }
 
-/** The Economy's address in this build's deployment, or null without one: `Economy.settle` is a session policy only with it (P7a). */
-function economyAddress(): string | null {
-  try {
-    return economyClient()?.deployment.addresses.Economy ?? null;
-  } catch {
-    return null;
-  }
+/** What the connector builds on the node; tests give fakes. */
+export interface ConnectorDeps {
+  /** The signing account of a key. */
+  account?: (provider: RpcProvider) => (key: LocalKey) => WriteAccount;
+  /** How a new account is deployed: by the devnet's deployer, or by itself. */
+  deploy?: (provider: RpcProvider, deployer: Deployer | null) => DeployLocalAccount;
 }
 
 /**
- * The connector of `client`'s deployment: on devnet the burner (refused without one), elsewhere the controller. The
- * burner is never used outside devnet, even when given. `controller` builds the controller's connector (tests give a
- * fake one).
+ * The connector of `client`'s deployment: the device's key in `storage`. On devnet the deployer deploys and funds each new
+ * account (a first write without one is refused), and no write tips (starknet.js's tip estimate stalls on devnet, as the
+ * legacy client found). The deployer is never used outside devnet, even when given.
  */
-export function connectorFor(
-  client: PavedClient,
-  burner: Burner | null,
-  controller: (config: ControllerConfig) => ControllerConnector = createControllerConnector,
-  economy: string | null = null,
-): WalletConnector {
+export function connectorFor(client: PavedClient, deployer: Deployer | null, storage: KeyStorage, deps: ConnectorDeps = {}): WalletConnector {
   const { deployment } = client;
-  if (deployment.network === "devnet") {
-    // starknet.js's tip estimate stalls on devnet: no tip there (as the legacy client did).
-    const signer = (account: WriteAccount) => client.writer(account, { tip: 0n });
-    if (!burner) throw new Error("no devnet account: set VITE_PLAYER_ADDRESS and VITE_PLAYER_PRIVATE_KEY");
-    let account: WriteAccount | null = null;
-    return {
-      probe: async () => null,
-      connect: async () => (account ??= new Account({ provider: new RpcProvider({ nodeUrl: deployment.rpcUrl }), address: burner.address, signer: burner.key })),
-      disconnect: async () => {},
-      username: async () => null,
-      signer,
-    };
-  }
-  // Checked now: no controller on an incomplete deployment.
-  controllerPolicies(deployment);
-  const connector = controller({
-    rpc: deployment.rpcUrl,
-    chainId: deployment.chainId,
-    // No token approve (P-65): a paid entry's approve and spawn are one multicall, which prompts once.
-    policies: async () => controllerPolicies(deployment, { economy }),
-  });
+  const devnet = deployment.network === "devnet";
+  // Checked now: no account on an incomplete deployment (devnet's own file is complete).
+  if (!devnet && !deployment.configured) throw new Error(`Not connected: ${deployment.missing.join(", ")} missing`);
+  const tip = devnet ? 0n : undefined;
+  const provider = new RpcProvider({ nodeUrl: deployment.rpcUrl });
+  const deploy = (deps.deploy ?? defaultDeploy(devnet, tip))(provider, devnet ? deployer : null);
+  const local = createLocalKeyConnector({ storage, provider, deploy, account: (deps.account ?? starknetAccount)(provider) });
   return {
-    probe: () => connector.probe(),
-    connect: () => connector.connect(),
-    disconnect: () => connector.disconnect(),
-    username: () => connector.username(),
-    signer: (account) => client.writer(account),
+    probe: () => local.probe(),
+    connect: () => local.connect(),
+    disconnect: () => local.disconnect(),
+    reset: () => local.reset(),
+    // No username before the identities (phase C): the address names the player.
+    username: async () => null,
+    signer: (account) => client.writer(account, tip === undefined ? {} : { tip }),
+  };
+}
+
+function defaultDeploy(devnet: boolean, tip: bigint | undefined) {
+  return (provider: RpcProvider, deployer: Deployer | null): DeployLocalAccount => {
+    if (!devnet) return deployedBySelf({ provider, tip });
+    if (!deployer) return async () => Promise.reject(new Error("no devnet deployer: set VITE_DEPLOYER_ADDRESS and VITE_DEPLOYER_PRIVATE_KEY"));
+    return deployedBy({ deployer: new Account({ provider, address: deployer.address, signer: deployer.key }), provider, tip });
   };
 }

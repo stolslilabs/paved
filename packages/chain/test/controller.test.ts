@@ -1,14 +1,12 @@
 import { getChecksumAddress, type Call } from "starknet";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { createCodecs } from "../src/abis";
 import {
   CONTROLLER_ENTRY_POINTS,
   ECONOMY_ENTRY_POINT,
   controllerPolicies,
-  createControllerConnector,
   isTokenMethod,
   toControllerSessionPolicies,
-  type ControllerModule,
   type ControllerPolicy,
 } from "../src/auth/controller";
 import { resolveDeployment } from "../src/deployment";
@@ -428,119 +426,5 @@ describe("toControllerSessionPolicies", () => {
       "claim_tutorial", "claim_quest", "claim_achievement", "claim_daily_credit", "claim_weekly_credit", "buy_skin", "set_skins",
     ]);
     expect(session.contracts[getChecksumAddress("0x14")].methods).toEqual([{ entrypoint: "mint", description: "Test USDC faucet" }]);
-  });
-});
-
-function fakeModule(options: { connects?: boolean; username?: () => Promise<string> | undefined } = {}) {
-  const account = options.connects === false ? undefined : { address: "0xc" };
-  const built: Array<Record<string, unknown>> = [];
-  const disconnect = vi.fn(async () => {});
-  const module = {
-    default: class {
-      constructor(options: Record<string, unknown>) {
-        built.push(options);
-      }
-      probe = async () => undefined;
-      connect = async () => account;
-      disconnect = disconnect;
-      username = options.username ?? (() => (account ? Promise.resolve("ada") : undefined));
-    },
-  } as unknown as ControllerModule;
-  return { module, built, disconnect };
-}
-
-const SEPOLIA = "0x534e5f5345504f4c4941";
-
-describe("createControllerConnector", () => {
-  test("refuses without an RPC URL or session policies", () => {
-    expect(() => createControllerConnector({ rpc: "", policies })).toThrow(/No RPC URL/);
-    expect(() => createControllerConnector({ rpc: "http://s/rpc" })).toThrow(/No session policies/);
-    expect(() => createControllerConnector({ rpc: "http://s/rpc", policies: [] })).toThrow(/No session policies/);
-  });
-
-  test("loads the package only when used, and hands it the converted policies", async () => {
-    const { module, built } = fakeModule();
-    const load = vi.fn(async () => module);
-    const connector = createControllerConnector({ rpc: "http://s/rpc", chainId: SEPOLIA, policies }, { load, chainId: async () => SEPOLIA });
-    expect(load).not.toHaveBeenCalled();
-    await connector.disconnect();
-    expect(load).not.toHaveBeenCalled();
-    await expect(connector.connect()).resolves.toEqual({ address: "0xc" });
-    await connector.probe();
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(built).toEqual([{ chains: [{ rpcUrl: "http://s/rpc" }], defaultChainId: SEPOLIA, policies: toControllerSessionPolicies(policies), lazyload: true }]);
-  });
-
-  test("policies built at first use (the Economy resolved then)", async () => {
-    const { module, built } = fakeModule();
-    const read = vi.fn(async () => controllerPolicies(deployment, { economy: ECON.economy }));
-    const connector = createControllerConnector({ rpc: "http://s/rpc", policies: read }, { load: async () => module, chainId: async () => SEPOLIA });
-    expect(read).not.toHaveBeenCalled();
-    await connector.connect();
-    expect(built[0].policies).toEqual(toControllerSessionPolicies(controllerPolicies(deployment, { economy: ECON.economy })));
-  });
-
-  test("an unknown chain id is read from the RPC, never left to the controller's mainnet default", async () => {
-    const { module, built } = fakeModule();
-    const chainId = vi.fn(async () => SEPOLIA);
-    await createControllerConnector({ rpc: "http://s/rpc", chainId: "", policies }, { load: async () => module, chainId }).probe();
-    expect(chainId).toHaveBeenCalledWith("http://s/rpc");
-    expect(built[0].defaultChainId).toBe(SEPOLIA);
-  });
-
-  test("the deployment's chain id and the RPC's must agree", async () => {
-    const { module, built } = fakeModule();
-    const mainnet = "0x534e5f4d41494e";
-    const connector = createControllerConnector({ rpc: "http://s/rpc", chainId: SEPOLIA, policies }, { load: async () => module, chainId: async () => mainnet });
-    await expect(connector.connect()).rejects.toThrow(`Chain id mismatch: the deployment says ${SEPOLIA}, the RPC says ${mainnet}`);
-    expect(built).toEqual([]);
-    // Same chain in another spelling: accepted.
-    const padded = `0x00${SEPOLIA.slice(2)}`;
-    await createControllerConnector({ rpc: "http://s/rpc", chainId: padded, policies }, { load: async () => module, chainId: async () => SEPOLIA }).connect();
-    expect(built[0].defaultChainId).toBe(padded);
-  });
-
-  test("an RPC that cannot say its chain: the deployment's id is used, and with none the connect is refused", async () => {
-    const { module, built } = fakeModule();
-    const down = async () => {
-      throw new Error("down");
-    };
-    await createControllerConnector({ rpc: "http://s/rpc", chainId: SEPOLIA, policies }, { load: async () => module, chainId: down }).connect();
-    expect(built[0].defaultChainId).toBe(SEPOLIA);
-    const none = createControllerConnector({ rpc: "http://s/rpc", policies }, { load: async () => module, chainId: down });
-    await expect(none.connect()).rejects.toThrow(/Cannot read the chain id/);
-  });
-
-  test("a connect without an account rejects; a failed load is tried again", async () => {
-    const { module } = fakeModule({ connects: false });
-    const load = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(module);
-    const connector = createControllerConnector({ rpc: "http://s/rpc", chainId: SEPOLIA, policies }, { load, chainId: async () => SEPOLIA });
-    await expect(connector.connect()).rejects.toThrow("offline");
-    await expect(connector.connect()).rejects.toThrow("The controller did not connect");
-    await expect(connector.probe()).resolves.toBeNull();
-    expect(load).toHaveBeenCalledTimes(2);
-  });
-
-  test("disconnect reaches the controller once it is loaded", async () => {
-    const { module, disconnect } = fakeModule();
-    const connector = createControllerConnector({ rpc: "http://s/rpc", chainId: SEPOLIA, policies }, { load: async () => module, chainId: async () => SEPOLIA });
-    await connector.connect();
-    await connector.disconnect();
-    expect(disconnect).toHaveBeenCalledTimes(1);
-  });
-
-  // D-25 (E): the name is the Controller's username, off chain; no registration.
-  test("username: the connected player's Controller username, or null before a connect, when none, or when it fails", async () => {
-    const make = (username?: () => Promise<string> | undefined) =>
-      createControllerConnector({ rpc: "http://s/rpc", chainId: SEPOLIA, policies }, { load: async () => fakeModule({ username }).module, chainId: async () => SEPOLIA });
-    const connector = make();
-    expect(await connector.username()).toBeNull(); // nothing loaded yet: no controller is asked
-    await connector.connect();
-    expect(await connector.username()).toBe("ada");
-    for (const username of [() => undefined, () => Promise.resolve(""), () => Promise.reject(new Error("keychain down"))]) {
-      const other = make(username);
-      await other.connect();
-      expect(await other.username()).toBeNull();
-    }
   });
 });

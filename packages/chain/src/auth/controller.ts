@@ -1,20 +1,15 @@
 import { getChecksumAddress } from "starknet";
 import type { Deployment } from "../deployment";
-import type { WriteAccount } from "../writer";
+
+// Cartridge's controller left the client (#918, phase A): the local key (`./local-key`) signs every write itself, with no
+// session. What stays here is the session's record, kept with its P-65 guard: the calls a session key would sign without a
+// prompt, which the writers' tests still check against what they send. Nothing signs a session today.
 
 /** One session policy: a call the controller signs without a prompt. Never an `approve` (P-65). */
 export interface ControllerPolicy {
   target: string;
   method: string;
   description?: string;
-}
-
-export interface ControllerConfig {
-  rpc: string;
-  /** The deployment's chain id; read from the RPC when unknown (the controller would default to mainnet). */
-  chainId?: string;
-  /** The session policies, or how to build them when the controller is first used (a cap read from the chain). */
-  policies?: ControllerPolicy[] | (() => Promise<ControllerPolicy[]>);
 }
 
 /**
@@ -146,127 +141,4 @@ export function toControllerSessionPolicies(policies: ControllerPolicy[]) {
     (contracts[target] ??= { methods: [] }).methods.push(method);
   }
   return { contracts };
-}
-
-/** The part of `@cartridge/controller` the connector uses; tests give a fake one. */
-export interface ControllerModule {
-  default: new (options: {
-    chains: Array<{ rpcUrl: string }>;
-    defaultChainId: string;
-    policies: unknown;
-    lazyload?: boolean;
-  }) => {
-    probe(): Promise<WriteAccount | undefined>;
-    connect(): Promise<WriteAccount | undefined>;
-    disconnect(): Promise<void>;
-    /** The connected account's Cartridge username; undefined when none is connected. */
-    username(): Promise<string> | undefined;
-  };
-}
-
-export interface ControllerConnector {
-  id: "controller";
-  name: string;
-  config: ControllerConfig;
-  /** The account of a session already approved in this browser, without a prompt; null when there is none. */
-  probe(): Promise<WriteAccount | null>;
-  /** Opens the controller; rejects when the player closes it without connecting. */
-  connect(): Promise<WriteAccount>;
-  disconnect(): Promise<void>;
-  /**
-   * The connected player's Controller username (D-25 (E): names are off chain), or null when none is connected or it cannot
-   * be read. Only the connected player's: other players' names are not looked up (that would be a new external service).
-   */
-  username(): Promise<string | null>;
-}
-
-async function rpcChainId(rpc: string): Promise<string> {
-  const { RpcProvider } = await import("starknet");
-  return new RpcProvider({ nodeUrl: rpc }).getChainId();
-}
-
-const sameChain = (a: string, b: string) => {
-  try {
-    return BigInt(a) === BigInt(b);
-  } catch {
-    return a === b;
-  }
-};
-
-/**
- * The chain the controller signs on: the deployment's and the RPC's must agree when both are known;
- * either alone is taken. Neither: refused, rather than the controller's mainnet default.
- */
-async function resolveChainId(config: ControllerConfig, read: (rpc: string) => Promise<string>): Promise<string> {
-  let fromRpc: string | null = null;
-  try {
-    fromRpc = await read(config.rpc);
-  } catch (error) {
-    if (!config.chainId) throw new Error(`Cannot read the chain id from the RPC: ${error instanceof Error ? error.message : String(error)}`);
-  }
-  if (config.chainId && fromRpc && !sameChain(config.chainId, fromRpc)) {
-    throw new Error(`Chain id mismatch: the deployment says ${config.chainId}, the RPC says ${fromRpc}`);
-  }
-  return config.chainId || fromRpc!;
-}
-
-/**
- * The Cartridge controller on the deployment's RPC, with the session policies of `config`. The
- * package is loaded on first use, so a devnet build never fetches it. Without policies it refuses:
- * the controller would then ask for each call instead of the game's session.
- */
-export function createControllerConnector(
-  config: ControllerConfig,
-  deps: { load?: () => Promise<ControllerModule>; chainId?: (rpc: string) => Promise<string> } = {},
-): ControllerConnector {
-  if (!config.rpc) throw new Error("No RPC URL: the controller cannot connect");
-  const given = config.policies;
-  if (!given || (Array.isArray(given) && !given.length)) throw new Error("No session policies: the controller cannot connect");
-  const load = deps.load ?? (() => import("@cartridge/controller") as unknown as Promise<ControllerModule>);
-  const chainId = deps.chainId ?? rpcChainId;
-
-  let controller: Promise<InstanceType<ControllerModule["default"]>> | null = null;
-  const instance = () => {
-    controller ??= (async () => {
-      const defaultChainId = await resolveChainId(config, chainId);
-      const policies = typeof given === "function" ? await given() : given;
-      if (!policies.length) throw new Error("No session policies: the controller cannot connect");
-      const module = await load();
-      return new module.default({
-        chains: [{ rpcUrl: config.rpc }],
-        defaultChainId,
-        policies: toControllerSessionPolicies(policies),
-        lazyload: true,
-      });
-    })();
-    // A failed load is tried again at the next call.
-    controller.catch(() => (controller = null));
-    return controller;
-  };
-
-  return {
-    id: "controller",
-    name: "Cartridge Controller",
-    config,
-    async probe() {
-      return (await (await instance()).probe()) ?? null;
-    },
-    async connect() {
-      const account = await (await instance()).connect();
-      if (!account) throw new Error("The controller did not connect");
-      return account;
-    },
-    async disconnect() {
-      if (controller) await (await controller).disconnect();
-    },
-    async username() {
-      if (!controller) return null;
-      try {
-        const name = await (await controller).username();
-        return name ? name : null;
-      } catch {
-        return null;
-      }
-    },
-  };
 }
