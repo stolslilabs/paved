@@ -9,7 +9,7 @@ function Corner({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-32 flex-col items-start gap-3 bg-gradient-to-b from-background/40 to-board p-2 tablet:p-4">{children}</div>;
 }
 
-/** Wood, then each group's floor up to Grand Master, on a loop: the crest turns to each new tier's with a ring's pulse. */
+/** Wood, then each group's floor up to Grand Master, on a loop: the crest turns to each new colour with a ring's pulse. */
 const PROMOTIONS = [0, ...[0, 3, 6, 9, 12, 15, 18, 21].map((i) => LEAGUE_FLOORS[i]!)];
 function Promoting() {
   const [i, setI] = useState(0);
@@ -26,8 +26,7 @@ function Promoting() {
 
 /**
  * The League control (#829, the owner's decisions of 2026-10-27): the round League button over the left end of the balances'
- * plate (#828), the crowns at its centre, the league's crest closing its right end (#917: the tier's icon form, the division as
- * pips); no league name. A tap anywhere opens the
+ * plate (#828), the crowns at its centre, the league's crest closing its right end; no league name. A tap anywhere opens the
  * League page. `auto` (the home's) is the phone's size below `desktop` and the larger from it: the Viewport toolbar shows both.
  */
 const meta = {
@@ -43,13 +42,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Before PvP (no crown, no attack, #917): Unranked's broken planks. */
-export const Unranked: Story = { args: { crowns: 0, unranked: true } };
-/** Wood (0 crowns after an attack): the wooden hexagon and its leaves, no pips. */
-export const Wood: Story = { args: { crowns: 0 } };
-/** A mid league (1,240 crowns, Bronze I): the copper crest and its three pips. */
+/** Before PvP: 0 crowns, Wood's grey crest. */
+export const Unranked: Story = { args: { crowns: 0 } };
+/** A mid league (1,240 crowns): the crest in its group's colour. */
 export const MidLeague: Story = {};
-/** Emerald II (2,800 crowns), Platinum's old place (#917): its crest in green, two pips. */
+/** Emerald II (2,800 crowns), Platinum's old place (#917): its crest in green. */
 export const Emerald: Story = { args: { crowns: 2_800 } };
 /** The top league: Grand Master's crest. */
 export const GrandMaster: Story = { args: { crowns: 5_320 } };
@@ -57,19 +54,6 @@ export const GrandMaster: Story = { args: { crowns: 5_320 } };
 export const Stress: Story = { args: { crowns: 12_345 } };
 /** The League page's header (#859): the crowns and the crest alone, no trophy; a tap brings the carousel back to the player's league. */
 export const Page: Story = { args: { variant: "page", label: "Your league: Bronze I, 1,240 crowns. Show it" } };
-/** The League page's header before PvP: Unranked's crest. */
-export const PageUnranked: Story = { args: { variant: "page", crowns: 0, unranked: true, label: "Your league: Unranked, 0 crowns. Show it" } };
-/** Every tier's crest closing the plate (#917), Unranked to Grand Master, a division of each group with its pips. */
-export const Tiers: Story = {
-  render: (args) => (
-    <Corner>
-      <LeagueControl {...args} crowns={0} unranked />
-      {[0, 400, 900, 1_400, 2_000, 2_800, 3_500, 4_400, 5_320].map((crowns) => (
-        <LeagueControl key={crowns} {...args} crowns={crowns} />
-      ))}
-    </Corner>
-  ),
-};
 export const PageStress: Story = { args: { variant: "page", crowns: 12_345, label: "Your league: Grand Master, 12,345 crowns. Show it" } };
 /** Both fixed sizes, one under the other: the phone's (a 32 px box, 40 px ends) and `desktop`'s (36, 44). */
 export const Sizes: Story = {
@@ -80,7 +64,7 @@ export const Sizes: Story = {
     </Corner>
   ),
 };
-/** A promotion: the crest turns to the new tier's with a ring's pulse, each group in turn. */
+/** A promotion: the crest turns to the new league's colour with a ring's pulse, each group in turn. */
 export const Promotion: Story = { render: () => <Promoting />, parameters: { reducedMotion: "never" } };
-/** Reduced motion: the crest changes at once, no pulse. */
+/** Reduced motion: the crest changes colour at once, no pulse. */
 export const PromotionReducedMotion: Story = { render: () => <Promoting />, parameters: { reducedMotion: "always" } };
