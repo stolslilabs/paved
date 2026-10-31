@@ -16,7 +16,7 @@ export const tagText = (level: number | undefined): string => (level === undefin
 /**
  * The level's path (issue 830, reshaped by issue 928) round an avatar `box` px wide, in px: an arc round the avatar from its right
  * (3 o'clock) clockwise to its top (12 o'clock), inside its box with the outline, then a straight line to the right that ends
- * square where the level tag starts. Its start, the end that hugs the avatar, is round (the owner on #928, 2026-10-31): `StartCap`.
+ * square where the level tag starts. Its start, the end that hugs the avatar, is round (the owner on issue 928, 2026-10-31): `StartCap`.
  */
 export function levelPath(box: number) {
   const thick = barHeight(box);

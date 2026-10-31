@@ -44,7 +44,7 @@ export const barHeight = (box: number): number => (box >= LARGE ? 18 : 14);
 export const BAR_OUTLINE = 2;
 
 /**
- * The name's corner beside an avatar `box` px wide, in px (the owner on #928, 2026-10-31): between the bar's wrapping end (its round
+ * The name's corner beside an avatar `box` px wide, in px (the owner on issue 928, 2026-10-31): between the bar's wrapping end (its round
  * cap at 3 o'clock, outline included) and its horizontal run, from the cap's left edge to the badge's end, under the tag. 78 to 144
  * and 21 px high beside the 96 px avatar, 90 to 162 and 27 beside the 108, 122 to 216 and 39 beside the 144.
  */
