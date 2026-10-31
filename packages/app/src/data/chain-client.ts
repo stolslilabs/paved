@@ -1,8 +1,8 @@
-import { PavedClient, ViewError, createPavedClient, resolveDeployment, toViewError, type DeploymentFile, type GameView } from "@paved/chain";
+import { PavedClient, ViewError, createPavedClient, resolveDeployment, type DeploymentFile } from "@paved/chain";
 import { browserStore } from "@paved/game-core";
 import { DATA_SOURCE } from "./data-source";
 import { MockLedger } from "./mock/ledger";
-import { mockGameViews, type ChallengeAccess } from "./mock/overlay";
+import { mockEvents, mockGameViews } from "./mock/overlay";
 
 // The chain client of the app (P5): `PavedClient` on the deployment the build names. Imported only through a dynamic
 // `import()` (`routes/sources.ts`), so starknet.js is fetched with the first page that reads the chain, never in the
@@ -38,29 +38,6 @@ export function mockLedger(): MockLedger {
   return ledgerOf(chainClient());
 }
 
-/** The Challenge of a client, for the game reads an older class answers differently (`mockGameViews`). */
-function challengeAccess(real: PavedClient): ChallengeAccess {
-  const challenge = real.deployment.addresses.Challenge;
-  const codec = real.codecs.Challenge;
-  return {
-    challenge,
-    gameFelts: async (gameId) => {
-      try {
-        return await real.provider.callContract({ contractAddress: challenge, entrypoint: "game", calldata: codec.encodeCall("game", [gameId]) });
-      } catch (error) {
-        throw toViewError(error);
-      }
-    },
-    decodeGame: (felts) => {
-      try {
-        return codec.decodeResult("game", felts) as unknown as GameView;
-      } catch (error) {
-        throw toViewError(error);
-      }
-    },
-  };
-}
-
 function ledgerOf({ deployment }: Pick<PavedClient, "deployment">): MockLedger {
   ledger ??= new MockLedger({ store: browserStore, seller: deployment.addresses.Setup || "0x0" });
   return ledger;
@@ -88,8 +65,12 @@ export function chainClient(): PavedClient {
     },
   });
   const real = createPavedClient(deployment);
-  // The data source `mock` (`data-source.ts`): the views the deployed classes lack come from the device's ledger, the games
-  // and every write stay the chain's.
-  client = DATA_SOURCE === "mock" ? new PavedClient(real.deployment, real.provider, real.codecs, mockGameViews(real.views, ledgerOf(real), challengeAccess(real))) : real;
+  // The data source `mock` (`data-source.ts`): the views the deployed classes lack and the Challenge's games (#927) come from
+  // the device's ledger, and so do the player's games of the events.
+  if (DATA_SOURCE !== "mock") return (client = real);
+  const mocked = new PavedClient(real.deployment, real.provider, real.codecs, mockGameViews(real.views, ledgerOf(real)));
+  // `events` is the client's own reader, built in its constructor: replaced by the ledger's overlay of it.
+  Object.defineProperty(mocked, "events", { value: mockEvents(mocked.events, ledgerOf(real)) });
+  client = mocked;
   return client;
 }

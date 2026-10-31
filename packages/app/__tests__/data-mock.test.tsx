@@ -20,8 +20,8 @@ import { usePavedBalance, useUsdcBalance, useVaultPosition } from "../src/data/c
 import { dataSourceOf, MOCKED_PAGES } from "../src/data/data-source";
 import { MOCK_KEY, MOCK_SPLIT, MOCK_VAULT, MockLedger, mockLock, type TokenBalances } from "../src/data/mock/ledger";
 import { usePlayerProgress } from "../src/data/player-progress";
-import { FREE_SPAWN_MOCKED, GAME_FELTS_BEFORE_EXPIRY, initialSeedOf, mockGameViews, mockSigner } from "../src/data/mock/overlay";
-import { DAILY_MILESTONES, DAILY_QUESTS, poseidon } from "@paved/game-core";
+import { mockSigner } from "../src/data/mock/overlay";
+import { DAILY_MILESTONES, DAILY_QUESTS } from "@paved/game-core";
 import { usePlayerQuests } from "../src/data/indexer";
 import { DailyMilestoneRefusedError, type DailyMilestoneViews, type DailyMilestoneWrites } from "../src/data/daily-milestones";
 import { questPeriod, weekOfDay } from "../src/lib/quest-window";
@@ -34,7 +34,7 @@ import type { Purchases, VaultWrites } from "../src/data/sources";
 import { PACKS, SKIN_PRICES } from "../src/mocks/cobbles";
 import { PAGES } from "../src/routes/pages";
 import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
-import { mockImplementation, playDailies, surrenderGame } from "./mock-fakes";
+import { buyGame, mockImplementation, playDailies, surrenderGame } from "./mock-fakes";
 import { FakeSkinWriter } from "./skin-fakes";
 import { FakeAvatarWriter } from "./avatar-fakes";
 import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
@@ -400,17 +400,19 @@ describe("the mock", () => {
     expect((refused as DailyMilestoneRefusedError).reason).toBe("not-reached");
   });
 
-  it("records a Challenge game's surrender through the mock's signer, once the chain took it", async () => {
+  it("records a Challenge game's surrender through the mock's signer, on the ledger's game (#927); the chain's is never sent", async () => {
     const { ledger } = mockImplementation(undefined, WINNER);
     const surrender = vi.fn(async () => ({ transactionHash: "0x5", events: [] }));
     const signer = mockSigner({ address: PLAYER, surrender } as unknown as GameSigner, ledger);
+    const { gameId } = await buyGame(ledger, PLAYER);
     const before = Math.floor(Date.now() / 1000);
-    expect(await signer.surrender({ mode: "challenge", gameId: 6_200 })).toEqual({ transactionHash: "0x5", events: [] });
-    expect(surrender).toHaveBeenCalledWith({ mode: "challenge", gameId: 6_200 });
-    expect(ledger.surrenders(PLAYER)[6_200]).toBeGreaterThanOrEqual(before);
-    // A refused surrender records nothing.
-    surrender.mockRejectedValueOnce(new Error("refused"));
-    await expect(signer.surrender({ mode: "challenge", gameId: 6_201 })).rejects.toThrow("refused");
+    const result = await signer.surrender({ mode: "challenge", gameId });
+    expect(result.events.map((e) => e.name)).toEqual(["GameOver", "Recorded"]);
+    expect(surrender).not.toHaveBeenCalled();
+    expect(ledger.surrenders(PLAYER)[gameId]).toBeGreaterThanOrEqual(before);
+    // A refused surrender (the game is over) records nothing more.
+    await expect(signer.surrender({ mode: "challenge", gameId })).rejects.toThrow("Game: is over");
+    await expect(signer.surrender({ mode: "challenge", gameId: 6_201 })).rejects.toThrow("Game: does not exist");
     expect(ledger.surrenders(PLAYER)[6_201]).toBeUndefined();
   });
 
@@ -581,40 +583,6 @@ describe("the mock", () => {
     expect((await ledger.vault(PLAYER)).shares).toBe(0n);
   });
 
-  it("serves Challenge.initial_seed where the class has none: the contract's own Poseidon of 0, the Challenge and the id", async () => {
-    const { chain, ledger } = mockImplementation(undefined, WINNER);
-    const challenge = "0x0619ce35ba96eb0a64af2a01a61a6aa5e18f0650246206c6dd39b4c882eed923";
-    chain.views.initialSeed = async () => {
-      throw new ViewError("not-available", "Not available on this network yet.");
-    };
-    const access = { challenge, gameFelts: async () => [] as string[], decodeGame: () => GAME_PLAYING };
-    const views = mockGameViews(chain.views, ledger, access);
-    const key = { mode: "challenge" as const, gameId: GAME_PLAYING.id };
-    expect(await views.initialSeed(key)).toBe(`0x${poseidon(0n, BigInt(challenge), GAME_PLAYING.id).toString(16)}`);
-    expect(initialSeedOf(challenge, 1)).toBe(`0x${poseidon(0n, BigInt(challenge), 1).toString(16)}`);
-    // An id with no game is refused, as the view refuses it.
-    await expect(views.initialSeed({ mode: "challenge", gameId: 9_999 })).rejects.toMatchObject({ kind: "game-not-found" });
-    // Where the class has the view, the chain answers.
-    const served = mockGameViews(mockImplementation(undefined, WINNER).chain.views, ledger, access);
-    chain.views.calls.length = 0;
-    expect(await served.initialSeed(key)).toBe(GAME_PLAYING.seed);
-  });
-
-  it("reads a game from a class whose GameView predates expires_at: its felts, expires_at = start + 24 h", async () => {
-    const { chain, ledger } = mockImplementation(undefined, WINNER);
-    chain.views.game = async () => {
-      throw new ViewError("abi-mismatch", "game: Not enough felts to decode core::integer::u64");
-    };
-    const felts = Array.from({ length: GAME_FELTS_BEFORE_EXPIRY }, (_, i) => (i === 13 ? "0x6acf1092" : "0x1"));
-    let decoded: string[] = [];
-    const access = { challenge: "0x2", gameFelts: async () => felts, decodeGame: (f: string[]) => ((decoded = f), GAME_PLAYING) };
-    const views = mockGameViews(chain.views, ledger, access);
-    await views.game({ mode: "challenge", gameId: 1 });
-    expect(decoded).toHaveLength(GAME_FELTS_BEFORE_EXPIRY + 1);
-    expect(BigInt(decoded.at(-1)!)).toBe(0x6acf1092n + 86_400n);
-    await expect(mockGameViews(chain.views, ledger, { ...access, gameFelts: async () => felts.slice(1) }).game({ mode: "challenge", gameId: 1 })).rejects.toMatchObject({ kind: "abi-mismatch" });
-  });
-
   it("is deterministic: two fresh ledgers answer the same figures", async () => {
     const [a, b] = [mockImplementation(undefined, WINNER).ledger, mockImplementation(undefined, WINNER).ledger];
     for (const read of [(l: MockLedger) => l.vault(PLAYER), (l: MockLedger) => l.skinPrices(1), (l: MockLedger) => l.pack(4), (l: MockLedger) => l.account(PLAYER), (l: MockLedger) => l.split()]) {
@@ -656,33 +624,39 @@ describe("the mock", () => {
     expect(referralKey(PLAYER)[0]).toBe("indexer");
   });
 
-  it("leaves the games, the entry price and the economy's quote to the chain", async () => {
-    const { sources, chain } = mockImplementation(undefined, WINNER);
-    await sources.views.game({ mode: "challenge", gameId: 1_042 });
+  it("answers the games, the entry price and the economy's quote from the ledger (#927): the chain is never asked", async () => {
+    const { sources, chain, ledger } = mockImplementation(undefined, WINNER);
+    const { gameId } = await buyGame(ledger, PLAYER);
+    await sources.views.game({ mode: "challenge", gameId });
+    await sources.views.tiles({ mode: "challenge", gameId });
     await sources.views.entryPrice();
     await sources.economy!.quote(1);
-    expect(chain.views.calls).toEqual(["game challenge:1042", "entry_price"]);
-    expect(chain.economy.calls).toEqual(["quote 1"]);
+    await sources.economy!.terms(gameId);
+    await sources.events.playerGames(PLAYER, ["challenge"]);
+    expect(chain.views.calls).toEqual([]);
+    expect(chain.economy.calls).toEqual([]);
+    await expect(sources.views.game({ mode: "challenge", gameId: 1_042 })).rejects.toMatchObject({ kind: "game-not-found" });
     await sources.views.spawnPaused();
     await sources.economy!.split();
     expect(chain.views.calls).not.toContain("spawn_paused");
     expect(chain.economy.calls).not.toContain("split");
   });
 
-  it("keeps the writer a PavedWriter, its other writes the chain's, the faucet the ledger's, and refuses the free spawn in plain words", async () => {
+  it("keeps the writer a PavedWriter, its other writes the chain's, the faucet and the free spawn the ledger's", async () => {
     const { ledger } = mockImplementation(undefined, WINNER);
-    const writer = Object.create(PavedWriter.prototype) as PavedWriter & { build: () => Promise<string> };
+    const writer = Object.create(PavedWriter.prototype) as PavedWriter & { claimTutorial: () => Promise<string> };
     Object.defineProperty(writer, "address", { value: PLAYER });
-    writer.build = async function (this: unknown) {
+    writer.claimTutorial = async function (this: unknown) {
       return this === writer ? "chain" : "wrong this";
     };
     const signer = mockSigner(writer as unknown as GameSigner, ledger);
     expect(signer instanceof PavedWriter).toBe(true);
-    expect(await (signer as unknown as { build: () => Promise<string> }).build()).toBe("chain");
+    expect(await (signer as unknown as { claimTutorial: () => Promise<string> }).claimTutorial()).toBe("chain");
     // The faucet (#927): the ledger's mint, never the writer's.
     await signer.mint();
     expect(await ledger.usdcBalance(PLAYER)).toBe(200n * USDC);
-    await expect(signer.spawnFree()).rejects.toThrow(FREE_SPAWN_MOCKED);
+    // The free spawn (#927): the ledger's, refused without a credit.
+    await expect(signer.spawnFree()).rejects.toMatchObject({ name: "NoCreditError" });
   });
 });
 
@@ -700,6 +674,6 @@ describe("the switch", () => {
   it("marks only pages of the route map", () => {
     const paths = new Set(PAGES.map((p) => p.path));
     for (const path of MOCKED_PAGES) expect(paths.has(path), path).toBe(true);
-    expect(MOCKED_PAGES.has("game/:gameId")).toBe(false);
+    expect(MOCKED_PAGES.has("game/:gameId")).toBe(true);
   });
 });

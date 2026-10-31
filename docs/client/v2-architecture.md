@@ -635,16 +635,18 @@ route.
 | Module | What it holds |
 |---|---|
 | `data/mock/ledger.ts` | `MockLedger`: `MockedReads` (`CobbleViews`, `PackViews`, `SkinViews`, `VaultViews`, `spawnPaused`, `guardian`, `split`, `seller`, the USDC and PAVED balances) and `MockedWrites` (the claims, `buySkin`, `setSkins`, a pack's purchase, the faucet's `mint`, deposit, withdraw, withdraw all), with the contracts' checks, their typed refusals and their receipts' events; kept in `localStorage` (`paved.mock.v1`) |
-| `data/mock/overlay.ts` | the overlays: each wraps a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the account's `PavedWriter`, its purchases and Vault writes) and answers only the missing entry points from the ledger |
+| `data/mock/challenge.ts` | the Challenge's games and the Economy's days on the device (#927): a game's purchase (paid from the ledger's USDC), free spawn, moves, end and settlement, played by game-core's rules (`SeededChallenge`: the VRF's queue, each draw from a seed kept with the game, so a game replays the same after a reload; the mean of `mean.cairo`, the curve of `curve.cairo`), read as `game`, `tiles`, `draw`, `initialSeed`, `terms`, `day`, `quote` and the player's games of the events |
+| `data/mock/overlay.ts` | the overlays: each wraps a chain path (`RpcGameViews`, `RpcEconomyViews`, the events, the pool, the indexer client, the account's `PavedWriter`, its purchases, settlement and Vault writes) and answers only the missing entry points from the ledger |
 | `wallet/mock-key.ts` | the mock's wallet (#927): the device's key in `localStorage`, as the chain's connector keeps it (the same address for the same key), and its account the ledger's: no node is read and nothing is deployed. A write the mock does not answer yet is refused before sending (`MOCK_ACCOUNT_UNSENT`). Reset forgets the key and the ledger's account (`MockLedger.forget`) |
 
-Applied where the chain path is built: `chain-client.ts` (the game views), `economy-client.ts` (the economy's views and a
-pack's purchase), `vault-client.ts` (the Vault's writes), `wallet/connector.ts` (the mock's wallet, `mockKeyConnector`, and over it the claims and the skin writes) and
-`routes/sources.ts` (the indexer). The games, their tiles, the moves, a game's purchase and the settlement stay the
-chain's. The tokens are the ledger's (#927): USDC, PAVED and the Vault's vPAVED, read from no node. A new account holds the
+Applied where the chain path is built: `chain-client.ts` (the game views and the events), `economy-client.ts` (the economy's
+views, the pool's quote, a pack's and a game's purchase), `settle-client.ts` (the settlement), `vault-client.ts` (the Vault's
+writes), `wallet/connector.ts` (the mock's wallet, `mockKeyConnector`, and over it the claims, the skin writes and a game's
+moves) and `routes/sources.ts` (the indexer). The games are the ledger's (#927): a Challenge game is bought or spawned free,
+played, ended and settled on the device by the contracts' rules and checks (a day settles from the end of the next day, as
+on chain), its reward minted in the ledger's PAVED. The tokens are the ledger's (#927): USDC, PAVED and the Vault's vPAVED, read from no node. A new account holds the
 faucet's USDC (100) and no PAVED (`MOCK_STARTING_BALANCES`); "Get test USDC" is always there on the mock and mints 100 more,
-with no cap. The claims trust the indexer's progress, which the page shows. The free spawn is refused in plain
-words (no game can be mocked). The pages that read mocked data show a "Mock data" mark beside their title
+with no cap. The claims trust the indexer's progress, which the page shows. The free spawn spends a credit of the ledger. The pages that read mocked data show a "Mock data" mark beside their title
 (`MOCKED_PAGES`). When the fresh deployment lands, `VITE_DATA_SOURCE=chain` in the host's environment restores the chain
 path with no code change; `__tests__/data-mock.test.tsx` runs the same hook flows on both.
 

@@ -89,3 +89,74 @@ export function capScore(threshold: number, slopeBps: number, cap: number): numb
   const score = Number((needed + step - 1n) / step);
   return Math.max(score, winningScore(threshold));
 }
+
+// The mean a paid game is settled against (economy.md section 2, option B), as `contracts/src/economy/mean.cairo` computes it:
+// the same integer steps, so the mock's settlement (#927) pays what the chain would. Means and scores are points x 1,000.
+
+/** `mean::SCALE`: a mean is points x 1,000. */
+export const MEAN_SCALE = 1_000;
+/** `mean::MIN_SCORE`: a score under 100 points enters no mean. */
+export const MEAN_MIN_SCORE = 100;
+/** `mean::INITIAL_WEIGHT` and `mean::MAX_WEIGHT`: the EMA's start and the weight past which it steps. */
+const INITIAL_WEIGHT = 100;
+const MAX_WEIGHT = 1_000;
+/** `mean::CLAMP`: a score enters at most as 4 x the mean. */
+const CLAMP = 4n;
+/** `mean::PRIOR_WEIGHT`: the weight of a day's prior in its mean. */
+const PRIOR_WEIGHT = 100n;
+/** The calibration mean set at deploy (`MEAN0`, economy.md section 3): 3,980 points. */
+export const INITIAL_MEAN = 3_980_000;
+
+/** `mean::Ema`: the weighted sum (points x 1,000 x weight) and the weight. */
+export interface Ema {
+  sum: bigint;
+  weight: number;
+}
+
+/** `EmaTrait::new`: the EMA of a starting mean at the initial weight. */
+export const newEma = (mean: number = INITIAL_MEAN): Ema => ({ sum: BigInt(mean) * BigInt(INITIAL_WEIGHT), weight: INITIAL_WEIGHT });
+
+/** `EmaTrait::mean`, rounded down. */
+export const emaMean = (ema: Ema): number => Number(ema.sum / BigInt(ema.weight));
+
+/** `EmaTrait::push`: a score (points x 1,000) of `weight`, cumulative up to the max weight, then a step; a new EMA. */
+export function emaPush(ema: Ema, score: number, weight: number): Ema {
+  if (score < MEAN_MIN_SCORE * MEAN_SCALE || weight === 0) return ema;
+  let left = Math.min(weight, MAX_WEIGHT);
+  const s = BigInt(Math.min(score, Number(CLAMP * BigInt(emaMean(ema)))));
+  let { sum, weight: total } = ema;
+  if (total < MAX_WEIGHT) {
+    const step = Math.min(left, MAX_WEIGHT - total);
+    sum += s * BigInt(step);
+    total += step;
+    left -= step;
+  }
+  if (left > 0) {
+    const average = sum / BigInt(total);
+    sum = sum + s * BigInt(left) - average * BigInt(left);
+  }
+  return { sum, weight: total };
+}
+
+/** `mean::Day`: the EMA at the day's first purchase, and the stakes and scores of its games recorded in time. */
+export interface MeanDay {
+  prior: number;
+  sum: bigint;
+  weight: number;
+}
+
+/** `DayTrait::add`: a game's score (points) of stake `stake`, clamped at 4 x the prior; under 100 points it is left out. */
+export function dayAdd(day: MeanDay, score: number, stake: number): MeanDay {
+  if (score < MEAN_MIN_SCORE) return day;
+  const s = BigInt(Math.min(score * MEAN_SCALE, Number(CLAMP * BigInt(day.prior))));
+  return { prior: day.prior, sum: day.sum + BigInt(stake) * s, weight: day.weight + stake };
+}
+
+/** `DayTrait::mean`: the day's scores blended with its prior at weight 100. */
+export const dayMean = (day: MeanDay): number => Number((PRIOR_WEIGHT * BigInt(day.prior) + day.sum) / (PRIOR_WEIGHT + BigInt(day.weight)));
+
+/** `DayTrait::average`: the day's own mean, what the close pushes into the EMA; 0 for a day with no game in it. */
+export const dayAverage = (day: MeanDay): number => (day.weight === 0 ? 0 : Number(day.sum / BigInt(day.weight)));
+
+/** `curve::threshold`: the cliff of a mean shifted by `sigmaBps`, points x 1,000. */
+export const thresholdOfMean = (mean: number, sigmaBps: number): number => Math.floor((mean * (10_000 + sigmaBps)) / 10_000);

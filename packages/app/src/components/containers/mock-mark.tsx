@@ -3,11 +3,11 @@ import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 
 /** What the mark says on hover and to a screen reader. */
-export const MOCK_MARK_TEXT = "This network's contracts are not up to date yet: the Vault, the Cobbles, the missions' rewards, the packs and the skins are mocked on this device.";
+export const MOCK_MARK_TEXT = "This network's contracts are not up to date yet: the Challenge's games, the tokens, the Vault, the Cobbles, the missions' rewards, the packs and the skins are mocked on this device.";
 
 /**
- * The small mark that part of the data is mocked (#549, MOCK-FIRST): a pill on the line of a page's title, reading "Mock" (#622). The games, their moves
- * and their purchase are never mocked.
+ * The small mark that part of the data is mocked (#549, MOCK-FIRST): a pill on the line of a page's title, reading "Mock" (#622), or
+ * of a board's HUD (`GameHud`): since #927 the Challenge's games, their moves, purchase and settlement are the mock's too.
  */
 export function MockMark({ className }: { className?: string }) {
   return (

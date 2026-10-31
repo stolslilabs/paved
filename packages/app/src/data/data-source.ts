@@ -4,12 +4,13 @@
 /**
  * `chain`: every read and write goes to the chain and the indexer (`@paved/chain`'s views and writers). `mock`: the reads
  * and writes the network's classes do not have yet (the Vault, the Cobbles ledger and its claims, the packs, the skins, the avatar, the village, the PvP,
- * Challenge's pause views, Economy's split and seller, the indexer's Cobbles and referrals) and the tokens' balances (USDC,
- * PAVED, vPAVED; a new account holds the faucet's USDC and no PAVED, and the faucet's `mint` is the ledger's, #927) come from
- * the device's mock ledger (`data/mock/ledger.ts`); everything else (the games, their moves, the purchase of a game, the
- * settlement) stays on the chain. On `mock`, the wallet is the device's key with the ledger's account, deployed nowhere
- * and read from no node (`wallet/mock-key.ts`, #927), and an account's village is founded with it at its first connection
- * (`mockConnector`); Found stays for `chain`.
+ * Challenge's pause views, Economy's split and seller, the indexer's Cobbles and referrals), the tokens' balances (USDC,
+ * PAVED, vPAVED; a new account holds the faucet's USDC and no PAVED, and the faucet's `mint` is the ledger's, #927) and the
+ * Challenge's games (their purchase, free spawn, moves, end and settlement, played by game-core's rules with a seeded random
+ * in place of the VRF's, #927) come from the device's mock ledger (`data/mock/ledger.ts`, `data/mock/challenge.ts`); the
+ * indexer's other pages stay the indexer's. On `mock`, the wallet is the device's key with the ledger's account, deployed
+ * nowhere and read from no node (`wallet/mock-key.ts`, #927), and an account's village is founded with it at its first
+ * connection (`mockConnector`); Found stays for `chain`.
  */
 export type DataSourceName = "chain" | "mock";
 
@@ -40,11 +41,11 @@ export const MOCKED = DATA_SOURCE === "mock";
 
 /**
  * The pages that read mocked data when the source is `mock` (their header shows the mark): Home and Play (the free games'
- * credits and the pause), the Challenge's purchase (the split, the pause), the Cobble packs (the packs, the Cobbles), the
+ * credits, the pause and the game in play), the Challenge's purchase (its quote, the split, the pause), its board and its
+ * game-over page (the game, its terms, its day and the settlement, #927), the Cobble packs (the packs, the Cobbles), the
  * missions (their Cobbles and claims), the Vault, the referral (its earnings and split), the theme (the skins), the avatar
  * creator (its catalogue, items and look, #626), the village (its territory, rewards and tiers, #646) and the PvP flow (the
- * matchmaker, the attacks, the leagues and the defence log, #647). The
- * boards, the game-over pages, the leaderboard, the player pages, Training, the tutorial and Settings read only the chain and
- * the indexer.
+ * matchmaker, the attacks, the leagues and the defence log, #647). The leaderboard, the player pages, Training, the tutorial
+ * and Settings read only the chain and the indexer.
  */
-export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "cobbles", "missions", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "avatar", "village/:player", "village/chests", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/league"]);
+export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "game/:gameId", "game/:gameId/over", "cobbles", "missions", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "avatar", "village/:player", "village/chests", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/league"]);

@@ -13,6 +13,20 @@ import {
   VaultExitFeeChangedError,
   VaultOverMaxWithdrawError,
   VaultZeroSharesError,
+  GameExpiredError,
+  NoCreditError,
+  PoolPriceMovedError,
+  PurchasePriceChangedError,
+  SettleNotRecordedError,
+  SettleTooEarlyError,
+  SettleUnknownGameError,
+  SpawnPausedError,
+  ViewError,
+  DEFAULT_SLIPPAGE_BPS,
+  MAX_SLIPPAGE_BPS,
+  isStake,
+  minOutFor,
+  settlesAfter,
   REWARD_COBBLES,
   VillageRefusedError,
   PvpRefusedError,
@@ -23,6 +37,20 @@ import {
   tierOf,
   withdrawFee,
   type AchievementCobbles,
+  type BuilderView,
+  type BuildMove,
+  type DayView,
+  type DrawView,
+  type DrawViews,
+  type GameKey,
+  type GameView,
+  type PlayerGame,
+  type PoolQuoter,
+  type PriceView,
+  type PurchaseRequest,
+  type QuoteView,
+  type TermsView,
+  type TileView,
   type AvatarItem,
   type AvatarViews,
   type BuyAvatarItemRequest,
@@ -114,6 +142,7 @@ import {
   withSlotSaved,
   type KeyValueStore,
   type LayoutTile,
+  type SeededMove,
   type QueuedMove,
 } from "@paved/game-core";
 import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
@@ -129,11 +158,36 @@ import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mo
 import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
+import {
+  SPAWN_DRAW,
+  builderOf,
+  dayOfTime,
+  dayView,
+  drawOf,
+  entryPrice,
+  expiryOf,
+  freshChallenge,
+  gameView,
+  guardRate,
+  playMove,
+  playerGamesOf,
+  purchaseFigures,
+  quoteOf,
+  quoteSwap,
+  router,
+  settleGame,
+  spawn,
+  termsOf,
+  tilesOf,
+  type StoredChallenge,
+  type StoredGame,
+} from "./challenge";
 
 // The mock ledger (#549, MOCK-FIRST): the reads and writes the deployed classes lack, served on the device, behind the same
 // interfaces as the chain path (`MockedReads`: `@paved/chain`'s `CobbleViews`, `PackViews`, `SkinViews`, `VaultViews` and
 // the parts of `GameViews` and `EconomyViews` that are missing; `MockedWrites`: the writer's claims, skin writes, the pack
-// purchase, the Vault's writes and the faucet). It holds state and the contracts' rules only: it reads nothing from the chain,
+// purchase, the Vault's writes and the faucet), and the Challenge's games with the Economy's purchase and settlement (#927,
+// `challenge.ts`: game-core's rules, a seeded random in place of the VRF's). It holds state and the contracts' rules only: it reads nothing from the chain,
 // the tokens' balances included (USDC, PAVED and the Vault's vPAVED are the ledger's, #927). The overlays (`overlay.ts`) wire
 // it in place of the chain's entry points. Its figures are the specs' (cobbles-v1.md, quests-v2.md, vault-share.md); its state is kept on the
 // device (`MOCK_KEY`), so a flow (claim, buy, set, deposit, withdraw) completes and survives a reload.
@@ -169,8 +223,8 @@ export const MOCK_SKIN_THEMES: ReadonlyMap<number, readonly number[]> = new Map(
 export const MOCK_MAX_CELLS = 38;
 
 /**
- * The village rewards a player finds waiting in the mock (#646): the mock hears no game over (its games are the chain's), so a
- * new player starts with these to open. Like the starting PAVED, they never reach the chain.
+ * The village rewards a player finds waiting in the mock (#646): the mock's game over grants none, so a new player starts with
+ * these to open. They never reach the chain.
  */
 export const MOCK_STARTING_REWARDS = 3;
 
@@ -206,9 +260,11 @@ export interface MockedReads
     AttackV2Views,
     MatchRecordViews,
     DailyMilestoneViews,
-    Pick<GameViews, "spawnPaused" | "guardian">,
+    Pick<GameViews, "spawnPaused" | "guardian" | "game" | "tiles" | "builder" | "initialSeed" | "draw" | "currentDay" | "entryPrice">,
+    Pick<DrawViews, "spawnSalt">,
     VaultViews,
-    Pick<EconomyViews, "split" | "seller" | "usdcBalance" | "pavedBalance"> {}
+    PoolQuoter,
+    Pick<EconomyViews, "split" | "seller" | "usdcBalance" | "pavedBalance" | "quote" | "guardRate" | "router" | "day" | "terms"> {}
 
 /** The receipt of a pack bought: the writer's `buyPack` answer. */
 export type PackReceipt = WriteResult & { bought: PackBought };
@@ -234,6 +290,16 @@ export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" |
   buyPack(request: PackPurchaseRequest): Promise<PackReceipt>;
   /** The faucet (`Faucet.mint(self, FAUCET_USDC_AMOUNT)`): always there on the mock, with no cap (#927). */
   mint(): Promise<WriteResult>;
+  /** A Challenge game bought (`EconomyWriter.purchase`: the USDC paid, `Challenge.spawn`), paid from the ledger's USDC (#927). */
+  purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }>;
+  /** `Challenge.spawn_free`: a free-game credit spent for a game (#927). */
+  spawnFree(): Promise<WriteResult & { gameId: number }>;
+  /** A game's moves (`PavedWriter.build`, `discard`, `surrender`), by the engine's rules (#927). */
+  build(key: GameKey, move: BuildMove): Promise<WriteResult>;
+  discard(key: GameKey): Promise<WriteResult>;
+  surrender(key: GameKey): Promise<WriteResult>;
+  /** `EconomyWriter.settle`: bought games settled once their day may close, the reward minted in PAVED (#927). */
+  settle(gameIds: number[]): Promise<WriteResult & { noReward: number[] }>;
   deposit(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult>;
   withdraw(amount: bigint, options: { confirmedAmount: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
   withdrawAll(options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
@@ -380,6 +446,8 @@ interface StoredState {
   rivalShields?: Record<string, number>;
   vault: { assets: string; supply: string };
   transactions: number;
+  /** The Challenge's games and the Economy's days (#927, `challenge.ts`); absent: none yet (a state stored before them). */
+  challenge?: StoredChallenge;
 }
 
 const fresh = (): StoredState => ({ version: 1, players: {}, vault: { assets: MOCK_VAULT.assets.toString(), supply: MOCK_VAULT.supply.toString() }, transactions: 0 });
@@ -444,6 +512,8 @@ export interface MockLedgerOptions {
   lock?: MockLock;
   /** What a new account holds: `MOCK_STARTING_BALANCES` by default. A test or a story gives its own. */
   starting?: Readonly<TokenBalances>;
+  /** The time, in seconds (the games' starts, ends and the days' settlement): the device's clock by default. A test gives its own. */
+  now?: () => number;
 }
 
 /** Runs `section` while no other holder of the lock runs one; resolves with its result. */
@@ -554,7 +624,7 @@ export class MockLedger {
 
   /**
    * `Setup.player_level` (#641) with PvP v2's XP (#741): the XP of the mock's attacks and Story reports, its level capped at 20
-   * (game-core's `levelStatus`; at the cap `next` is the level's floor). The Challenge's games are the chain's: no XP here.
+   * (game-core's `levelStatus`; at the cap `next` is the level's floor). The Challenge's games give no XP.
    */
   async playerLevel(playerId: string): Promise<PlayerLevel> {
     this.sync();
@@ -1003,6 +1073,76 @@ export class MockLedger {
     return BigInt(this.peek(account).usdc);
   }
 
+  // --- The Challenge and the Economy's games (#927) ---------------------------------------------------------------------
+
+  /** `Challenge.game(id)`: the stored game replayed on the engine (`challenge.ts`); an unknown id is `game-not-found`. */
+  async game(key: GameKey): Promise<GameView> {
+    return gameView(this.gameOf(this.challenge(), key.gameId));
+  }
+
+  async tiles(key: GameKey): Promise<TileView[]> {
+    return tilesOf(this.gameOf(this.challenge(), key.gameId));
+  }
+
+  async builder(key: GameKey, playerId: string): Promise<BuilderView> {
+    return builderOf(this.gameOf(this.challenge(), key.gameId), playerId);
+  }
+
+  /** The random the game spawned with: a VRF game's seed never moves, so it is `game().seed` too. */
+  async initialSeed(key: GameKey): Promise<string> {
+    return this.gameOf(this.challenge(), key.gameId).seed;
+  }
+
+  /** `Challenge.draw(id)`: the game's queue, on the VRF's draws (seeded, open point 3). */
+  async draw(key: GameKey): Promise<DrawView> {
+    return drawOf(this.gameOf(this.challenge(), key.gameId));
+  }
+
+  /** `Challenge.spawn_salt`: the mock draws a spawn from no salt. */
+  async spawnSalt(): Promise<string> {
+    return "0x0";
+  }
+
+  async currentDay(): Promise<number> {
+    return dayOfTime(this.second());
+  }
+
+  async entryPrice(): Promise<PriceView> {
+    return entryPrice();
+  }
+
+  /** The player's games, newest first, as the chain's `GameSpawned` and `GameOver` events list them. */
+  async playerGames(playerId: string): Promise<PlayerGame[]> {
+    return playerGamesOf(this.challenge(), addressKey(playerId));
+  }
+
+  /** `Economy.quote(stake)`: 2 USDC a stake, the split of the mocks, the mean of today (its prior, else the EMA). */
+  async quote(stake: number): Promise<QuoteView> {
+    if (!isStake(stake)) throw new ViewError("rpc", "Economy: bad stake");
+    return quoteOf(this.challenge(), stake, this.second());
+  }
+
+  async guardRate(): Promise<bigint> {
+    return guardRate();
+  }
+
+  async router(): Promise<string> {
+    return router();
+  }
+
+  /** The pool's `quote_swap` of the mocks (`mocks/economy.ts`): no pool is read. */
+  async quoteSwap(usdcIn: bigint): Promise<bigint> {
+    return quoteSwap(usdcIn);
+  }
+
+  async day(day: number): Promise<DayView> {
+    return dayView(this.challenge(), day);
+  }
+
+  async terms(gameId: number): Promise<TermsView> {
+    return termsOf(this.challenge().games[gameId]);
+  }
+
   // --- MockedWrites ------------------------------------------------------------------------------------------------
 
   /** The writes of `account`: a deposit or a pack is refused for a balance the account does not hold in the ledger. */
@@ -1042,6 +1182,12 @@ export class MockLedger {
       surrenderAttackV2: () => this.surrenderAttackV2(account),
       buyPack: (request) => this.buyPack(account, request),
       mint: () => this.mint(account),
+      purchase: (request) => this.purchase(account, request),
+      spawnFree: () => this.spawnFree(account),
+      build: (key, move) => this.playOn(account, key, { kind: "build", orientation: move.orientation, x: move.x, y: move.y }),
+      discard: (key) => this.playOn(account, key, { kind: "discard" }),
+      surrender: (key) => this.playOn(account, key, { kind: "surrender" }),
+      settle: (gameIds) => this.settleGames(account, gameIds),
       deposit: (amount, options) => this.deposit(account, amount, options),
       withdraw: (amount, options) => this.withdraw(account, amount, options),
       withdrawAll: (options) => this.withdrawAll(account, options),
@@ -1768,6 +1914,122 @@ export class MockLedger {
   }
 
   /**
+   * A Challenge game bought (`EconomyWriter.purchase`'s checks, then `Economy.purchase` and `Challenge.spawn`): the stake, the
+   * price the player confirmed and a `min_out` the pool's quote still gives at the slippage, refused with the writer's typed
+   * errors and nothing paid. The price leaves the ledger's USDC; the swap's PAVED is burned but the Vault's part, which joins
+   * the Vault (its rate rises, as on chain). The mock pays no referrer, as for its packs. The receipt holds `GameSpawned` and
+   * `Purchased`; the game's random is drawn from its spawn (`SPAWN_DRAW`).
+   */
+  async purchase(account: string, request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
+    if (!isStake(request.stake)) throw new WriteError(`A stake is 1 to 10, got ${String(request.stake)}`);
+    if (await this.spawnPaused()) throw new SpawnPausedError();
+    const figures = purchaseFigures(this.challenge(), request.stake, this.second());
+    if (request.confirmedPrice !== figures.price) throw new PurchasePriceChangedError(request.confirmedPrice, figures.price);
+    if (typeof request.confirmedMinOut !== "bigint" || request.confirmedMinOut <= 0n) throw new WriteError("No confirmed minimum PAVED: confirm again");
+    const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
+    if (slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
+    const minOut = minOutFor(figures.poolOut, slippage);
+    if (minOut < request.confirmedMinOut) throw new PoolPriceMovedError(request.confirmedMinOut, minOut);
+    const short = () => new WriteError("Not enough USDC for this game: get test USDC first. Nothing was sent.");
+    if ((await this.usdcBalance(account)) < figures.price) throw short();
+    await sleep(this.latency);
+    let gameId = 0;
+    const result = await this.writeGame(account, (p, c) => {
+      // Checked again at commit: another purchase may have spent the USDC during the wait.
+      if (BigInt(p.usdc) < figures.price) throw short();
+      const now = this.second();
+      const player = addressKey(account);
+      const bought = purchaseFigures(c, request.stake, now);
+      const game = spawn(c, player, now, { stake: request.stake, figures: bought }, poseidon(SPAWN_DRAW, BigInt(player), c.next, now));
+      gameId = game.id;
+      p.usdc = (BigInt(p.usdc) - bought.price).toString();
+      const t = this.totals();
+      this.state.vault = { assets: (t.assets + bought.vaultPaved).toString(), supply: t.supply.toString() };
+      const day = dayOfTime(now);
+      return [
+        this.event("GameSpawned", { gameId, playerId: player, mode: 1, dayId: day, startTime: now, price: bought.price }),
+        this.event("Purchased", {
+          gameId,
+          playerId: player,
+          day,
+          stake: request.stake,
+          price: bought.price,
+          referrer: "0x0",
+          referral: 0n,
+          burnedQuote: bought.burnQuote,
+          burned: bought.burned,
+          margin: bought.price - bought.burnQuote,
+          supply: 0n,
+          factor: 10_000,
+          reference: bought.reference,
+          vaultPaved: bought.vaultPaved,
+        }),
+      ];
+    });
+    return { ...result, gameId };
+  }
+
+  /** `Challenge.spawn_free`: one free-game credit spent (`NoCreditError` without one) for a game of no stake and no terms. */
+  async spawnFree(account: string): Promise<WriteResult & { gameId: number }> {
+    if (await this.spawnPaused()) throw new SpawnPausedError();
+    if ((await this.account(account)).credits < 1) throw new NoCreditError();
+    await sleep(this.latency);
+    let gameId = 0;
+    const result = await this.writeGame(account, (p, c) => {
+      if (p.credits < 1) throw new NoCreditError();
+      p.credits -= 1;
+      const now = this.second();
+      const player = addressKey(account);
+      gameId = spawn(c, player, now, null, poseidon(SPAWN_DRAW, BigInt(player), c.next, now)).id;
+      return [this.event("GameSpawned", { gameId, playerId: player, mode: 1, dayId: dayOfTime(now), startTime: now, price: 0n })];
+    });
+    return { ...result, gameId };
+  }
+
+  /**
+   * `EconomyWriter.settle` then `Economy.settle(game_ids)`: each game bought, recorded, not settled, and its day closable (from
+   * the end of the next day, P-34), else the writer's typed refusal and nothing moves. Anyone may settle; the reward is minted
+   * to the game's player. A recorded expired game settles for 0 (`noReward`). The receipt holds one `Settled` per game.
+   */
+  async settleGames(account: string, gameIds: number[]): Promise<WriteResult & { noReward: number[] }> {
+    const ids = [...new Set(gameIds)];
+    if (ids.length === 0) throw new WriteError("No game to settle");
+    const check = (c: StoredChallenge): number[] => {
+      const now = this.second();
+      const noReward: number[] = [];
+      for (const id of ids) {
+        const game = c.games[id];
+        if (!game || game.stake === 0) throw new SettleUnknownGameError(id);
+        if (game.settled) throw new WriteError(`Game ${id} is already settled`);
+        if (!game.recorded && now >= expiryOf(game)) throw new SettleNotRecordedError(id, true);
+        if (!game.recorded) throw new SettleNotRecordedError(id);
+        const after = settlesAfter(dayOfTime(game.start));
+        if (now < after) throw new SettleTooEarlyError(undefined, `Game ${id} settles after ${new Date(after * 1000).toISOString()}`);
+        if (game.expired) noReward.push(id);
+      }
+      return noReward;
+    };
+    check(this.challenge());
+    await sleep(this.latency);
+    let noReward: number[] = [];
+    const result = await this.writeGame(account, (p, c) => {
+      noReward = check(c);
+      const self = addressKey(account);
+      return ids.map((id) => {
+        const game = c.games[id]!;
+        const settled = settleGame(c, game);
+        if (settled.reward > 0n) {
+          // The mint goes to the game's player: the settler's own copy, or another player's record.
+          const owner = game.player === self ? p : (this.state.players[game.player] ??= newPlayer(this.starting));
+          owner.paved = (BigInt(owner.paved) + settled.reward).toString();
+        }
+        return this.event("Settled", { gameId: id, playerId: game.player, day: settled.day, score: settled.score, threshold: settled.threshold, reward: settled.reward });
+      });
+    });
+    return { ...result, noReward };
+  }
+
+  /**
    * Forgets an account (#927, Settings' Reset on the mock): its record goes, with everything it held, and its Vault shares
    * leave the Vault with their value, so the share's price stays as it was for the others. No latency: the wallet's own step,
    * not a write the player sends. Resolves true when the ledger held the account.
@@ -1785,7 +2047,9 @@ export class MockLedger {
       }
       const players = { ...this.state.players };
       delete players[key];
-      this.state = { ...this.state, players };
+      // Its games go too: the next account of the key has none in play.
+      const challenge = this.state.challenge && { ...this.state.challenge, games: Object.fromEntries(Object.entries(this.state.challenge.games).filter(([, g]) => g.player !== key)) };
+      this.state = { ...this.state, players, ...(challenge ? { challenge } : {}) };
       this.save();
       return true;
     });
@@ -1850,12 +2114,14 @@ export class MockLedger {
     const key = addressKey(account);
     const player: StoredPlayer = structuredClone(this.state.players[key] ?? newPlayer(this.starting));
     const vault = { ...this.state.vault };
+    const challenge = this.state.challenge && structuredClone(this.state.challenge);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
     try {
       events = change(player, hash);
     } catch (error) {
       this.state.vault = vault;
+      this.state.challenge = challenge;
       throw error;
     }
     this.state = { ...this.state, players: { ...this.state.players, [key]: player }, transactions: this.state.transactions + 1 };
@@ -1897,14 +2163,82 @@ export class MockLedger {
     return [this.event("FreeVillageFounded", { playerId: account, tiles: layout.length, score: layoutScore(layout) })];
   }
 
+  /**
+   * A Challenge write (#927): `change` works on the player's copy and on the stored games and days (created on the first
+   * write), which a throw puts back as they were (`commit`).
+   */
+  private writeGame(account: string, change: (player: StoredPlayer, challenge: StoredChallenge, hash: string) => DecodedEvent[]): Promise<WriteResult> {
+    return this.write(account, (p, hash) => change(p, (this.state.challenge ??= freshChallenge()), hash));
+  }
+
+  /** The stored games and days for a read (none stored yet: a fresh Challenge's). */
+  private challenge(): StoredChallenge {
+    this.sync();
+    return this.state.challenge ?? freshChallenge();
+  }
+
+  /** A stored game for a read or a move; an id with no game is the view's refusal (`Game: does not exist`). */
+  private gameOf(c: StoredChallenge, gameId: number): StoredGame {
+    const game = c.games[gameId];
+    if (!game) throw new ViewError("game-not-found", "Game: does not exist");
+    return game;
+  }
+
+  /**
+   * One move of `account` on its game (`Challenge.build`, `discard`, `surrender`): the player's game only, not over; a build
+   * or a discard past its 24 h is refused (`GameExpiredError`), a surrender is not. The engine's refusal is the writer's
+   * `WriteError` with the contract's text, and nothing moves. The receipt's events are the contract's: `Built` or
+   * `Discarded`, each `Scored`, and `GameOver` when the move ends the game.
+   */
+  private async playOn(account: string, key: GameKey, move: SeededMove): Promise<WriteResult> {
+    const check = (c: StoredChallenge): StoredGame => {
+      const game = c.games[key.gameId];
+      if (!game) throw new WriteError("Game: does not exist");
+      if (game.player !== addressKey(account)) throw new WriteError("Game: not the game player");
+      if (game.end !== 0) throw new WriteError("Game: is over");
+      if (move.kind !== "surrender" && this.second() >= expiryOf(game)) throw new GameExpiredError();
+      return game;
+    };
+    check(this.challenge());
+    await sleep(this.latency);
+    return this.writeGame(account, (p, c) => {
+      const game = check(c);
+      const now = this.second();
+      let outcome;
+      try {
+        outcome = playMove(c, game, move, now);
+      } catch (error) {
+        throw new WriteError(error instanceof Error ? error.message : String(error));
+      }
+      const player = game.player;
+      const events: DecodedEvent[] = [];
+      if (move.kind === "build") events.push(this.event("Built", { gameId: game.id, playerId: player, tileId: outcome.tileId, plan: outcome.plan, orientation: move.orientation, x: move.x, y: move.y }));
+      if (move.kind === "discard") events.push(this.event("Discarded", { gameId: game.id, playerId: player, tileId: outcome.tileId, plan: outcome.plan, points: outcome.taken }));
+      for (const s of outcome.scored) events.push(this.event("Scored", { gameId: game.id, playerId: player, category: s.category, size: s.size, points: s.points }));
+      if (outcome.over) {
+        const dayId = game.end !== 0 && dayOfTime(game.end) === dayOfTime(game.start) ? dayOfTime(game.start) : 0;
+        events.push(this.event("GameOver", { gameId: game.id, playerId: player, dayId, mode: 1, score: outcome.score, startTime: game.start, endTime: game.end }));
+        if (game.stake > 0) events.push(this.event("Recorded", { gameId: game.id, score: outcome.score, expired: game.expired }));
+        // The fifth daily counts a surrender on its own day (#869), as the chain's surrender recorded it.
+        if (move.kind === "surrender") p.surrenders = { ...(p.surrenders ?? {}), [String(game.id)]: now };
+      }
+      return events;
+    });
+  }
+
   /** A v2 write: `change` works on the player's copy and their v2 state (created on the first write). */
   private writeV2(account: string, change: (player: StoredPlayer, v2: StoredV2, hash: string) => DecodedEvent[]): Promise<WriteResult> {
     return this.write(account, (p, hash) => change(p, (p.v2 ??= freshV2()), hash));
   }
 
-  /** The device's clock, in seconds. */
+  /** The device's clock, in seconds (`options.now` when given). */
   private now(): number {
-    return Date.now() / 1000;
+    return this.options.now?.() ?? Date.now() / 1000;
+  }
+
+  /** The time a Challenge write stamps: whole seconds, as a block's. */
+  private second(): number {
+    return Math.floor(this.now());
   }
 
   /** A player's league, from their crowns. */
