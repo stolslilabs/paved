@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MutationObserver, onlineManager } from "@tanstack/react-query";
 import { ViewError, settlesAfter, type GameKey, type IndexerClient, type KeyStorage } from "@paved/chain";
 import { seededRandom } from "@paved/renderer";
-import { CENTER, OrientationType, replayVrfChallenge, starterLayout } from "@paved/game-core";
+import { CENTER, OrientationType, privateConversation, replayVrfChallenge, starterLayout } from "@paved/game-core";
 import type { GameSigner } from "../src/data";
 import { deploymentOf } from "../src/data/deployment";
 import { mockAppSources, offlineSigner } from "../src/data/mock/app";
 import { MockLedger } from "../src/data/mock/ledger";
-import { MOCKED_ECONOMY_READS, MOCKED_GAME_READS, MOCKED_GUILD_CALLS, MOCKED_WRITES, mockConnector } from "../src/data/mock/overlay";
+import { MOCKED_CHAT_CALLS, MOCKED_ECONOMY_READS, MOCKED_GAME_READS, MOCKED_GUILD_CALLS, MOCKED_WRITES, mockConnector } from "../src/data/mock/overlay";
 import { attackV2Board } from "../src/data/free-attack";
 import { MockAccountError, mockKeyConnector } from "../src/wallet/mock-key";
 import { createQueryClient } from "../src/lib/query-client";
@@ -254,6 +254,24 @@ describe("a mock build fetches nothing (#927)", () => {
     }
     // The guilds (#953), reads and writes, one at a time.
     for (const name of MOCKED_GUILD_CALLS) for (const p of call(sources.social, name)) await p.catch(() => undefined);
+    // The messages (#955), reads, writes and subscriptions, one at a time; then a private message and its answer, delivered on
+    // the device.
+    const chat = sources.social.chat!;
+    for (const name of MOCKED_CHAT_CALLS) {
+      for (const p of call(chat, name)) {
+        const stop = await p.catch(() => undefined);
+        if (typeof stop === "function") stop();
+      }
+    }
+    const dm = privateConversation(me, "0x7e3a0001");
+    const heard: unknown[] = [];
+    const stop = chat.subscribe(me, dm, (event) => heard.push(event));
+    await chat.visitChat(me);
+    await chat.send(me, dm, "hello https://example.com");
+    clock.now += 10;
+    expect((await chat.conversation(me, dm))!.messages.map((m) => m.mine)).toEqual([true, false]);
+    expect(heard).toHaveLength(1);
+    stop();
     // The writes one at a time: each is atomic on the ledger, a refusal leaves it as it was.
     for (const name of MOCKED_WRITES) for (const p of call(signer, name)) await p.catch(() => undefined);
     for (const p of [...call(sources.vault(signer as unknown as GameSigner), "deposit"), ...call(sources.settlements(signer as unknown as GameSigner), "settle")]) await p.catch(() => undefined);
@@ -286,6 +304,13 @@ describe("the app's sources on the mock (#927)", () => {
     // Its follows (#954): a follow kept on the device.
     await APP_SOURCES.social!.follows!.follow(account.address, "0x7e3a0001");
     expect((await APP_SOURCES.social!.follows!.lists(account.address)).following.map((r) => r.profile.address)).toEqual(["0x7e3a0001"]);
+    // Its messages (#955): a subscription answered at once, before the mock is loaded, and a message kept on the device.
+    const dm = privateConversation(account.address, "0x7e3a0001");
+    const stop = APP_SOURCES.social!.chat!.subscribe(account.address, dm, () => undefined);
+    expect(typeof stop).toBe("function");
+    await APP_SOURCES.social!.chat!.send(account.address, dm, "hello");
+    expect((await APP_SOURCES.social!.chat!.conversation(account.address, dm))!.messages.map((m) => m.text)).toEqual(["hello"]);
+    stop();
     await expect(APP_SOURCES.purchases!(connector.signer(account)).receipt("0x6d6f636b00000001")).resolves.toBe("succeeded");
     vi.doUnmock("../src/data/data-source");
     window.localStorage.clear();
