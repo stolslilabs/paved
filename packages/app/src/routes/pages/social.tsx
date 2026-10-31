@@ -12,15 +12,22 @@ import { useOpenPlayer } from "../open-player";
 import { useBack, useTabNavigate } from "../ref";
 import { socialTabStored, storeSocialTab } from "../social-tab";
 
-/** Each tab's content, its own chunk (#952): loaded when the tab is first shown. #953, #954 and #955 fill them. */
-const TABS: Record<SocialTab, ComponentType> = {
-  guild: lazy(() => import("../social/guild-tab")),
-  friends: lazy(() => import("../social/friends-tab")),
-  chat: lazy(() => import("../social/chat-tab")),
+/** Each tab's content, its own chunk (#952), filled by #953, #954 and #955. */
+const TAB_LOADERS: Record<SocialTab, () => Promise<{ default: ComponentType }>> = {
+  guild: () => import("../social/guild-tab"),
+  friends: () => import("../social/friends-tab"),
+  chat: () => import("../social/chat-tab"),
 };
+const TABS: Record<SocialTab, ComponentType> = { guild: lazy(TAB_LOADERS.guild), friends: lazy(TAB_LOADERS.friends), chat: lazy(TAB_LOADERS.chat) };
 
-/** The public profile's host (#952), loaded with the page below `desktop`: from it the home's host, under this panel, serves. */
-const PlayerProfileHost = lazy(() => import("../player-profile-host"));
+/** The public profile's host (#952), shown with the page below `desktop`: from it the home's host, under this panel, serves. */
+const loadHost = () => import("../player-profile-host");
+const PlayerProfileHost = lazy(loadHost);
+
+// With the page's code (its prefetch included), the tab it opens on and the host: fetched beside it, not one after the other
+// as the page renders.
+void TAB_LOADERS[socialTabStored()]().catch(() => {});
+void loadHost().catch(() => {});
 
 /**
  * `/social` (#952, PvP v2 step 1 on the mock): the player search (the sources' `social`, `usePlayerSearch`; the connected player
