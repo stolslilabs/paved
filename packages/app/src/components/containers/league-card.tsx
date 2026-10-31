@@ -37,7 +37,7 @@ export function LeagueCard({ league, bonus, celebrating, onCelebrate, onCelebrat
   const range = crownRange(league);
   const tier = tierOf(league);
   return (
-    <div data-slot="league-card" className={cn("relative flex flex-col items-center justify-center gap-1 px-3 py-3 text-center", className)}>
+    <div data-slot="league-card" className={cn("relative flex flex-col items-center justify-center gap-1 px-3 pb-3 text-center", className)}>
       {bonus && league.bonus > 0 && (
         <div className="absolute top-2 right-2">
           <LeagueBonus state={bonus} value={league.bonus} league={league.name} onCelebrate={onCelebrate} />
