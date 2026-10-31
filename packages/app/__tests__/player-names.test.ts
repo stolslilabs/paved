@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { seededRandom } from "@paved/renderer";
+import { PLAYER_NAME_MAX } from "../src/lib/name-limit";
 import { BLOCKED_NAME_PAIRS, NAME_ADJECTIVES, NAME_NOUNS, PLAYER_NAME, cryptoRandom, playerName } from "../src/lib/player-names";
 
 // A new player's name (#926): an adjective and a noun of Paved's world, then two digits, drawn from a seeded random here.
@@ -19,13 +20,13 @@ describe("playerName (#926)", () => {
     expect(NAME_ADJECTIVES.filter((w) => NAME_NOUNS.includes(w))).toEqual([]);
   });
 
-  it("gives every name its shape: two words in CamelCase and two digits, letters and digits only, 3 to 20 characters", () => {
+  it("gives every name its shape: two words in CamelCase and two digits, letters and digits only, 3 to 19 characters (#928)", () => {
     const random = seededRandom(926);
     for (let i = 0; i < NAMES; i++) {
       const name = playerName(random);
       expect(name).toMatch(PLAYER_NAME);
       expect(name.length).toBeGreaterThanOrEqual(3);
-      expect(name.length).toBeLessThanOrEqual(20);
+      expect(name.length).toBeLessThanOrEqual(PLAYER_NAME_MAX);
     }
   });
 

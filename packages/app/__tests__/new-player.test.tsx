@@ -101,11 +101,12 @@ describe("MockLedger's name (#926)", () => {
     expect(store.getItem(MOCK_KEY)).toBeNull();
   });
 
-  it("setName takes letters and digits, 3 to 20 characters, and refuses any other", async () => {
+  it("setName takes letters and digits, 3 to 19 characters (#928), and refuses any other", async () => {
     const ledger = ledgerOn();
+    await ledger.writesFor("0x5f1").setName("A".repeat(19));
     await ledger.writesFor("0x5f1").setName("AmberReeve61");
     expect(await ledger.name("0x5f1")).toBe("AmberReeve61");
-    for (const bad of ["ab", "A".repeat(21), "Amber Reeve", "Ambre_61", "Évêque12"]) await expect(ledger.writesFor("0x5f1").setName(bad)).rejects.toThrow(/Not a name/);
+    for (const bad of ["ab", "A".repeat(20), "Amber Reeve", "Ambre_61", "Évêque12"]) await expect(ledger.writesFor("0x5f1").setName(bad)).rejects.toThrow(/Not a name/);
     expect(await ledger.name("0x5f1")).toBe("AmberReeve61");
   });
 });

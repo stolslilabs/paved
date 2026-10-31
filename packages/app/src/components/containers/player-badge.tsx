@@ -2,10 +2,13 @@ import { lazy, Suspense, useCallback, useState } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { GameIcon } from "../elements/game-icon";
-import { badgeWidth, DEFAULT_BOX, levelLabel, tagWidth, XpPathStill } from "../elements/xp-level";
+import { badgeWidth, DEFAULT_BOX, levelLabel, tagWidth } from "../elements/xp-level";
 import { avatarPlayer, profileLabel, profileName, useProfileOpener } from "./profile-context";
 
-/** The path's motion in its own chunk, as the ring's was (#625): its still holds the same box meanwhile (FIRST-LOAD). */
+/**
+ * The path, its drawing and its motion in their own chunk, as the ring's were (#625): nothing stands in meanwhile, the badge's width
+ * being its classes' (FIRST-LOAD; the bar and the tag come with the chunk).
+ */
 const XpPath = lazy(() => import("../elements/xp-path").then((m) => ({ default: m.XpPath })));
 
 /** The avatar's width in px, watched: the season dial's size at each width (issue 856), which the path goes round. */
@@ -27,7 +30,7 @@ function useWidth() {
 const ICON_EMS = 1.5;
 /** The display font's mean advance, in ems a character (Almendra Bold, measured on names): what sizes the name before layout. */
 const CHAR_EMS = 0.5;
-/** The name's row's inner padding, each side, in px. */
+/** The name's row's inner padding, each side, in px (`px-0.5`). */
 const NAME_PAD = 2;
 
 /**
@@ -76,7 +79,7 @@ export function PlayerBadge({ className }: PlayerBadgeProps) {
           the tag, to the badge's end. The band starts behind the avatar (its middle) and fades out linearly, its blur with it, to
           transparent at the tag's left edge; the name after the User icon, sized to fit, its shadow keeping it legible past the band.
         */}
-        <span data-slot="name-row" aria-hidden className="absolute right-0 flex items-center py-1 font-display" style={{ top: box / 2, left: box, paddingLeft: NAME_PAD, paddingRight: NAME_PAD }}>
+        <span data-slot="name-row" aria-hidden className="absolute right-0 flex items-center px-0.5 py-1 font-display" style={{ top: box / 2, left: box }}>
           <span
             data-slot="name-band"
             className="absolute inset-y-0 bg-background/60 backdrop-blur [mask-image:linear-gradient(to_right,black,transparent)]"
@@ -94,7 +97,7 @@ export function PlayerBadge({ className }: PlayerBadgeProps) {
           <PlayerAvatar size="lg" className="p-4 min-[24.375rem]:size-27 tablet:size-36 tablet:p-5" player={avatarPlayer(value.state)} loading={value.state.status === "loading"} look={value.look} />
         </span>
         {connected && (
-          <Suspense fallback={<XpPathStill progress={progress} box={box} />}>
+          <Suspense fallback={null}>
             <XpPath progress={progress} box={box} />
           </Suspense>
         )}

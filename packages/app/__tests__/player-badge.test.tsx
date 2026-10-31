@@ -7,9 +7,11 @@ import { ProfileProvider, type ProfileValue } from "../src/components/containers
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PlayerBadge, nameSize } from "../src/components/containers/player-badge";
-import { badgeWidth, BAR_OUTLINE, barHeight, isMaxLevel, levelLabel, levelPath, pathPoint, tagFont, tagText, tagWidth, XpPathStill, xpLeftText } from "../src/components/elements/xp-level";
+import { badgeWidth, isMaxLevel, levelLabel, tagWidth, xpLeftText } from "../src/components/elements/xp-level";
+import { BAR_OUTLINE, barHeight, levelPath, pathPoint, tagFont, tagText, XpPathStill } from "../src/components/elements/xp-path-frame";
 import { XpPath } from "../src/components/elements/xp-path";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
+import { PLAYER_NAME_MAX } from "../src/lib/name-limit";
 import { PROGRESS } from "../src/mocks/players";
 import { PROFILE } from "../src/mocks/scenes";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
@@ -137,6 +139,8 @@ describe("the badge's shape (#928)", () => {
     for (const p of container.querySelectorAll("path")) expect(p.getAttribute("stroke-linecap")).toBe("butt");
     const tag = container.querySelector("[data-slot=level]")!;
     expect(tag.className).toMatch(/(^|\s)border-background(\s|$)/);
+    expect(tag.className).toMatch(/(^|\s)border-2 border-l-0(\s|$)/);
+    expect(BAR_OUTLINE).toBe(2);
     expect(tag.className).toMatch(/(^|\s)bg-resource-plate(\s|$)/);
     // The tokens, as theme.css defines them: no alpha, and the track mixed from two opaque tokens.
     const css = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
@@ -150,7 +154,7 @@ describe("the badge's shape (#928)", () => {
     expect(nameSize("Al", 96)).toBe(16);
     expect(nameSize("Al", 144)).toBe(20);
     expect(nameSize("bal7hazar", 144)).toBeLessThan(20);
-    for (const box of BOXES) expect(nameSize("A name of twenty chr", box)).toBe(12);
+    for (const box of BOXES) expect(nameSize("A".repeat(PLAYER_NAME_MAX), box)).toBe(12);
   });
 });
 
@@ -185,9 +189,9 @@ describe("PlayerBadge (#787, the league out of it since #829, the level's path s
     expect(container.querySelector("[data-slot=league-border]")).toBeNull();
   });
 
-  it("at the cap, max level in the name, Lv 20 at the line's end", () => {
+  it("at the cap, max level in the name, Lv 20 at the line's end (with the path's chunk)", async () => {
     render(badge(value({ progress: PROGRESS.maxLevel })));
-    expect(screen.getByRole("button", { name: "Profile: bal7hazar, level 20, max level" })).toHaveTextContent("Lv 20");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Profile: bal7hazar, level 20, max level" })).toHaveTextContent("Lv 20"));
   });
 
   it("the avatar opens the profile sheet", async () => {

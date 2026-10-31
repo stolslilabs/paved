@@ -2,7 +2,8 @@ import { formatInteger } from "@paved/game-core";
 import { useEffect } from "react";
 import { useMotionValue, useTransform } from "motion/react";
 import * as m from "motion/react-m";
-import { BAR_OUTLINE, DEFAULT_BOX, fillPath, isMaxLevel, LevelTag, levelPath, pathPoint, pathShare, tagText, XpPathFrame } from "./xp-level";
+import { DEFAULT_BOX, isMaxLevel, pathShare } from "./xp-level";
+import { BAR_OUTLINE, fillPath, LevelTag, levelPath, pathPoint, tagText, XpPathFrame } from "./xp-path-frame";
 import { useXpMotion, type PlayerProgress } from "./xp-ring";
 
 export interface XpPathProps {

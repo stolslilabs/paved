@@ -86,8 +86,8 @@ export const Level9: Story = { parameters: profile(PROFILE.connected, { level: 9
 export const Level10: Story = { parameters: profile(PROFILE.connected, { level: 10, xp: 60, xpForNext: 450 }) };
 /** Level 99: the widest the tag holds, the same width. */
 export const Level99: Story = { parameters: profile(PROFILE.connected, { level: 99, xp: 900, xpForNext: 1_000 }) };
-/** A name of 20 characters: shrunk to 12 px, then cut with an ellipsis at the badge's end (its whole text in the title). */
-export const LongName: Story = { parameters: profile({ status: "connected", data: { ...PROFILE.connected.data, player: { ...PROFILE.connected.data.player, name: "Cobblestone_Builder7" } } }, PROGRESS.partWay) };
+/** A name of 19 characters, the most a name has (owner, 2026-10-31): shrunk to 12 px, then cut with an ellipsis at the badge's end (its whole text in the title). */
+export const LongName: Story = { parameters: profile({ status: "connected", data: { ...PROFILE.connected.data, player: { ...PROFILE.connected.data.player, name: "CobblestoneBuilder7" } } }, PROGRESS.partWay) };
 /** 30 %: part of the arc. */
 export const ThirtyPercent: Story = { parameters: profile(PROFILE.connected, PROGRESS.thirty) };
 /** 40 %, level 3: the arc nearly full. */
