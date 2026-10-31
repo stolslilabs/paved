@@ -131,8 +131,8 @@ export const Purchase320: Story = { ...pageOf("play/challenge"), ...PHONE_320 };
 export const Purchase375: Story = { ...pageOf("play/challenge"), ...PHONE_375 };
 export const Purchase1440: Story = { ...pageOf("play/challenge"), ...WIDE_1440 };
 /**
- * The Vault: PAVED and vPAVED, never the Cobbles; PAVED's "+" leads to the Challenge (#871), vPAVED on its own page carries none.
- * Two plates in a phone's row: PAVED's "+" from 360 px (375, 1440), not at 320, where both plates keep their whole figure.
+ * The Vault: PAVED and vPAVED, never the Cobbles; PAVED leads to the Challenge (#871), vPAVED on its own page leads nowhere.
+ * No "+" on either (#925): two plates in a phone's row keep their whole figure at 320 px.
  */
 export const Vault320: Story = { ...pageOf("vault", HOLDER), ...PHONE_320 };
 export const Vault375: Story = { ...pageOf("vault", HOLDER), ...PHONE_375 };
@@ -205,7 +205,7 @@ function Widths({ onAction }: Pick<BalancesProps, "onAction">) {
   );
 }
 const widths: Story = { render: (args) => <Widths onAction={args.onAction} /> };
-/** PLATE-WIDTH (#860) at 320 px: every phone plate 112 px at every width, in a column or a row, "9,999.99" whole. No "+" on a phone (#925). */
+/** PLATE-WIDTH (#860) at 320 px: every phone plate 112 px at every width, in a column or a row, "9,999.99" whole. No "+" on any plate (#925). */
 export const Widths320: Story = { ...widths, ...PHONE_320 };
 export const Widths375: Story = { ...widths, ...PHONE_375 };
 export const Widths1440: Story = { ...widths, ...WIDE_1440 };
