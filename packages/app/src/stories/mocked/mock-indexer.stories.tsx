@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
-import { RouterProvider, createMemoryRouter } from "react-router";
+import { Outlet, RouterProvider, createMemoryRouter } from "react-router";
 import { Toaster } from "sonner";
 import { FakeGameViews, WriteError, type EconomyViews, type GameKey, type WriteAccount } from "@paved/chain";
 import { CENTER, OrientationType, replayVrfChallenge, type KeyValueStore } from "@paved/game-core";
@@ -122,16 +122,26 @@ function Restore() {
 /** The page of `path` in the app's route map: its route's `handle`, which the pages read. */
 const handle = (path: string) => ({ page: PAGES.find((p) => p.path === path)! });
 
-/** The pages on their routes, in a data router of their own at `route`, the profile the app's (`ProfileHost`). */
+/** The pages on their routes, in a data router of their own at `route`, under the app's profile (`ProfileHost`). */
 function IndexerPages({ store, route }: { store: KeyValueStore; route: string }) {
   const [env] = useState(() => environment(store));
   const [router] = useState(() =>
     createMemoryRouter(
       [
-        { path: "/", element: <HomePageRoute />, handle: handle("") },
-        { path: "/missions", element: <MissionsPageRoute />, handle: handle("missions") },
-        { path: "/game/:gameId/over", element: <OverPageRoute />, handle: handle("game/:gameId/over") },
-        { path: "/village/:player", element: <VillagePageRoute />, handle: handle("village/:player") },
+        {
+          // The profile reads the wallet and navigates: inside the router, as the app's shell holds it.
+          element: (
+            <ProfileHost>
+              <Outlet />
+            </ProfileHost>
+          ),
+          children: [
+            { path: "/", element: <HomePageRoute />, handle: handle("") },
+            { path: "/missions", element: <MissionsPageRoute />, handle: handle("missions") },
+            { path: "/game/:gameId/over", element: <OverPageRoute />, handle: handle("game/:gameId/over") },
+            { path: "/village/:player", element: <VillagePageRoute />, handle: handle("village/:player") },
+          ],
+        },
       ],
       { initialEntries: [route] },
     ),
@@ -141,10 +151,8 @@ function IndexerPages({ store, route }: { store: KeyValueStore; route: string })
       <WalletProvider sources={env.sources} load={env.load}>
         <MockMarkProvider value>
           <LazyMotion features={domMax}>
-            <ProfileHost>
-              <Restore />
-              <RouterProvider router={router} />
-            </ProfileHost>
+            <Restore />
+            <RouterProvider router={router} />
             <Toaster />
           </LazyMotion>
         </MockMarkProvider>

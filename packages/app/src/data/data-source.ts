@@ -1,5 +1,3 @@
-import { PAGES } from "../routes/pages";
-
 // Where the reads are served from (#549, MOCK-FIRST): the one switch of the mock layer (`data/mock/`). No chain code here: the
 // first bundle reads it (the shell's "Mock" mark).
 
@@ -43,7 +41,9 @@ export const DATA_SOURCE: DataSourceName = dataSourceOf({
 export const MOCKED = DATA_SOURCE === "mock";
 
 /**
- * The pages that read mocked data when the source is `mock` (their header shows the mark): every page of the route map since
- * #927, the leaderboard's, the players' and the game-over pages' indexer included. The mark's text says so (`MOCK_MARK_TEXT`).
+ * The pages that read mocked data when the source is `mock` (their header shows the mark): every page of the route map
+ * (`routes/pages.ts`) since #927, the leaderboard's, the players' and the game-over pages' indexer included. The mark's text
+ * says so (`MOCK_MARK_TEXT`). Listed here, not read from the route map: this module is the first bundle's, and the test checks
+ * the two agree.
  */
-export const MOCKED_PAGES: ReadonlySet<string> = new Set(PAGES.map((page) => page.path));
+export const MOCKED_PAGES: ReadonlySet<string> = new Set(["welcome", "", "play", "play/challenge", "cobbles", "avatar", "village/chests", "village/shop", "village/:player", "game/:gameId", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "training", "story", "story/:campaign/:level", "game/:gameId/over", "training/over", "missions", "vault", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits", "settings"]);
