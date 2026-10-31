@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { WriteAccount } from "@paved/chain";
+import { MOCKED } from "../data/data-source";
 import { DataProvider, type DataSources, type GameSigner } from "../data/sources";
 
 /**
@@ -47,8 +48,13 @@ const WalletContext = createContext<WalletState | null>(null);
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** The real connector, in its own chunk: starknet.js and the key's account are fetched when a page first needs the account. */
-const loadAppConnector: LoadConnector = () => import("./connector").then((m) => m.appConnector());
+/**
+ * The build's connector, in its own chunk: starknet.js and the key's account are fetched when a page first needs the account.
+ * On the mock (#927), the device's key with the ledger's account (`mock-connector.ts`): neither `connector.ts` nor starknet.js
+ * is fetched.
+ */
+const loadAppConnector: LoadConnector = () =>
+  MOCKED ? import("./mock-connector").then((m) => m.mockAppConnector()) : import("./connector").then((m) => m.appConnector());
 
 /**
  * Holds the wallet and gives the data hooks the connected account's writes: `sources` with `signer` filled while

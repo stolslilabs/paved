@@ -9,8 +9,7 @@ let indexerClient: IndexerClient | null = null;
 
 /**
  * The indexer client on `VITE_INDEXER_URL` (P6: home's top 3), built at the first read from `@paved/chain`'s chunk, so
- * starknet.js stays out of the first bundle. Without the variable every read is refused with `NO_INDEXER`. On the mock it is
- * the ledger's indexer (`data/mock/indexer.ts`, #927), whatever the variable says.
+ * starknet.js stays out of the first bundle. Without the variable every read is refused with `NO_INDEXER`.
  */
 function lazyIndexer(): IndexerClient {
   return new Proxy({} as IndexerClient, {
@@ -18,13 +17,7 @@ function lazyIndexer(): IndexerClient {
       key === "then"
         ? undefined
         : async (...args: unknown[]) => {
-            if (!indexerClient) {
-              // The data source `mock` (#927): every route is the device's ledger's, and no indexer client is built.
-              if (MOCKED) {
-                const [{ mockIndexer }, { mockLedger }] = await Promise.all([import("../data/mock/indexer"), import("../data/chain-client")]);
-                indexerClient ??= mockIndexer(mockLedger());
-              } else indexerClient = (await import("@paved/chain")).createIndexerClient(import.meta.env.VITE_INDEXER_URL);
-            }
+            indexerClient ??= (await import("@paved/chain")).createIndexerClient(import.meta.env.VITE_INDEXER_URL);
             if (!indexerClient) throw new Error(NO_INDEXER);
             const target = indexerClient as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
             return target[key]!(...args);
@@ -86,15 +79,56 @@ const lazyVault = (signer: Parameters<NonNullable<DataSources["vault"]>>[0]): Va
   withdrawAll: async (options) => (await import("../data/vault-client")).vaultWritesOf(signer).withdrawAll(options),
 });
 
+/** The mock's sources (`data/mock/app.ts`, its own chunk), loaded with the first read or write. */
+const mockApp = async () => (await import("../data/mock/app")).appMockSources();
+
+/** A part of the mock's sources whose reads load it on the first call, as `lazyChain` loads the chain's. */
+function lazyMock<T extends object>(part: "views" | "events" | "economy" | "pool" | "indexer"): T {
+  return new Proxy({} as T, {
+    get: (_target, key) =>
+      key === "then"
+        ? undefined
+        : async (...args: unknown[]) => {
+            const target = (await mockApp())[part] as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
+            return target[key]!(...args);
+          },
+  });
+}
+
 /**
- * The sources the app's `DataProvider` gives. Training needs only its save, `localStorage` (`store` left out:
+ * The data source `mock` (#549, #927): every read and write is the device's ledger's (`data/mock/app.ts`). No chain, economy
+ * or indexer client is built, and neither the chain's chunk nor starknet.js is fetched: nothing leaves the app's origin.
+ */
+const MOCK_SOURCES: DataSources = {
+  views: lazyMock("views"),
+  events: lazyMock("events"),
+  economy: lazyMock("economy"),
+  pool: lazyMock("pool"),
+  indexer: lazyMock("indexer"),
+  signer: null,
+  purchases: (signer) => ({
+    purchase: async (request) => (await mockApp()).purchases(signer).purchase(request),
+    buyPack: async (request) => (await mockApp()).purchases(signer).buyPack(request),
+    referrer: async (kind, referrer) => (await mockApp()).purchases(signer).referrer(kind, referrer),
+    receipt: async (hash) => (await mockApp()).purchases(signer).receipt(hash),
+  }),
+  settlements: (signer) => ({ settle: async (gameIds) => (await mockApp()).settlements(signer).settle(gameIds) }),
+  vault: (signer) => ({
+    deposit: async (amount, options) => (await mockApp()).vault(signer).deposit(amount, options),
+    withdraw: async (amount, options) => (await mockApp()).vault(signer).withdraw(amount, options),
+    withdrawAll: async (options) => (await mockApp()).vault(signer).withdrawAll(options),
+  }),
+};
+
+/**
+ * The sources of the data source `chain`. Training needs only its save, `localStorage` (`store` left out:
  * `trainingStore` falls back to it). The chain's views and events are `PavedClient`'s on the resolved deployment (P5),
  * loaded with the first read. The signer is `WalletProvider`'s (P6): null here, filled while a wallet is connected. The
  * indexer is the client on `VITE_INDEXER_URL` (P6). The economy's views, its pool quote and the purchases are
  * `EconomyClient`'s on the same deployment (P7b), loaded with the first read; the settlement (P7a) and the Vault's writes
  * (P10) are its writer's, loaded with the first write.
  */
-export const APP_SOURCES: DataSources = {
+const CHAIN_SOURCES: DataSources = {
   views: lazyChain((c) => c.views),
   events: lazyChain((c) => c.events),
   economy: lazyEconomy((c) => c.views),
@@ -105,3 +139,6 @@ export const APP_SOURCES: DataSources = {
   settlements: lazySettlements,
   vault: lazyVault,
 };
+
+/** The sources the app's `DataProvider` gives: the mock's on `mock`, the chain's else (`data/data-source.ts`). */
+export const APP_SOURCES: DataSources = MOCKED ? MOCK_SOURCES : CHAIN_SOURCES;

@@ -5,12 +5,12 @@
  *
  *   bun run budget [--dist <dir>]      (root script; run the client build first, e.g. `bun run check`)
  *
- * Exits 1 when a figure is over its limit or the output holds a forbidden file, 2 when there is no build to measure.
+ * Exits 1 when a figure is over its limit or the output holds a forbidden file (starknet.js in a mock build included), 2 when there is no build to measure.
  */
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { APP, METRICS, forbidden, measureDist, overBudget, readBudget } from "../../packages/app/scripts/bundle-budget.ts";
+import { APP, METRICS, forbidden, measureDist, overBudget, readBudget, starknetInMock } from "../../packages/app/scripts/bundle-budget.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const KiB = (n: number) => `${(n / 1024).toFixed(1)} KiB`;
@@ -39,7 +39,7 @@ for (const r of rows)
     `${r.name.padEnd(18)} ${String(r.limit).padStart(10)} ${String(r.size).padStart(10)} ${String(r.margin).padStart(10)}  (${KiB(r.margin)}, ${pct(r.margin, r.limit)})${r.margin < 0 ? "  OVER" : ""}`,
   );
 const tightest = rows.reduce((a, b) => (b.margin / b.limit < a.margin / a.limit ? b : a));
-const problems = [...forbidden(dist), ...overBudget(sizes, budget.limits)];
+const problems = [...forbidden(dist), ...starknetInMock(dist), ...overBudget(sizes, budget.limits)];
 if (problems.length > 0) {
   console.error(`\nBundle over budget:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
   process.exit(1);

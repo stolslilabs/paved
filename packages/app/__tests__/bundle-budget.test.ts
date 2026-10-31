@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { forbidden, dynamicImports, htmlAssets, measureDist, METRICS, overBudget, pageNames, readBudget, staticImports, type Sizes } from "../scripts/bundle-budget";
+import { forbidden, dynamicImports, htmlAssets, measureDist, METRICS, mockEnv, overBudget, pageNames, readBudget, SHIM_MARK, STARKNET_MARK, starknetInMock, staticImports, type Sizes } from "../scripts/bundle-budget";
 
 const size = (raw: number, gzip: number) => ({ raw, gzip });
 const sizes = (over: Partial<Sizes> = {}): Sizes => ({
@@ -122,5 +122,33 @@ describe("the owner's whole Font Awesome files in a static output", () => {
     const failed = guard();
     expect(failed.status).toBe(1);
     expect(failed.stderr).toContain("fontawesome/vendor");
+  });
+});
+
+describe("starknet.js in a mock build (#927)", () => {
+  /** A build whose chunks hold `chunks`' code. */
+  const build = (chunks: Record<string, string>) => {
+    const dir = mkdtempSync(join(tmpdir(), "dist-"));
+    mkdirSync(join(dir, "assets"));
+    for (const [name, code] of Object.entries(chunks)) writeFileSync(join(dir, "assets", name), code);
+    return dir;
+  };
+
+  it("fails, naming the chunk, when a mock build carries starknet.js; a chain build carries it freely", () => {
+    const dir = build({ "index-a.js": "x", "dist-b.js": `send("${STARKNET_MARK}")` });
+    expect(starknetInMock(dir, true)).toEqual(["assets/dist-b.js carries starknet.js in a mock build: the mock fetches nothing outside the app's origin (vite.config.ts)"]);
+    expect(starknetInMock(dir, false)).toEqual([]);
+  });
+
+  it("takes a build that carries the shim for a mock one, whatever the environment says", () => {
+    expect(starknetInMock(build({ "dist-a.js": `throw "${SHIM_MARK}"`, "late-b.js": STARKNET_MARK }), false)).toHaveLength(1);
+    expect(starknetInMock(build({ "dist-a.js": `throw "${SHIM_MARK}"` }), false)).toEqual([]);
+  });
+
+  it("reads the environment's source as the build does: Sepolia's default and VITE_DATA_SOURCE", () => {
+    expect(mockEnv({ VITE_NETWORK: "sepolia" })).toBe(true);
+    expect(mockEnv({ VITE_NETWORK: "sepolia", VITE_DATA_SOURCE: "chain" })).toBe(false);
+    expect(mockEnv({ VITE_NETWORK: "devnet", VITE_DATA_SOURCE: "mock" })).toBe(true);
+    expect(mockEnv({})).toBe(false);
   });
 });
