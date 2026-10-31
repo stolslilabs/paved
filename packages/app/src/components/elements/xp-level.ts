@@ -21,35 +21,9 @@ export function levelLabel(progress: PlayerProgress): string {
   return isMaxLevel(progress) ? `${level}, max level` : `${level}, ${formatInteger(xpLeft(progress))} XP to level ${formatInteger(progress.level + 1)}`;
 }
 
-/** The share the path draws, from 0 to 1: full at the cap. */
+/** The share of the level the badge's bar draws, from 0 to 1: full at the cap. */
 export const pathShare = (progress: PlayerProgress): number =>
   isMaxLevel(progress) ? 1 : Math.min(1, Math.max(0, progress.xp / progress.xpForNext));
 
 /** The avatar's box in px where nothing is laid out (the render tests): the phone's, the season dial's 96 px (issue 856). */
 export const DEFAULT_BOX = 96;
-/** The 144 px avatar's (from `tablet`): the thicker bar and the larger tag. */
-export const LARGE = 144;
-
-/** The badge's width for an avatar `box` px wide (issue 928): at most 1.5 times it, the level tag included. */
-export const badgeWidth = (box: number): number => 1.5 * box;
-/**
- * The level tag's fixed width in px, its outline included (issue 928): "Lv 99" in tabular figures (`numeric`, Space Mono's 0.6 em
- * advance: 5 ch), its padding and its outline, so every level from 1 to 99 takes the same tag.
- */
-export const tagWidth = (box: number): number => (box >= LARGE ? 64 : 52);
-
-/** The bar's thickness in px, the tag's height inside its outline (issue 928's open point 1: the whole path, arc and line). */
-export const barHeight = (box: number): number => (box >= LARGE ? 18 : 14);
-/** The bar's outline in px, the tag's border (`border-2`): opaque, the background's colour. */
-export const BAR_OUTLINE = 2;
-
-/**
- * The name's corner beside an avatar `box` px wide, in px (the owner on issue 928, 2026-10-31): between the bar's wrapping end (its round
- * cap at 3 o'clock, outline included) and its horizontal run, from the cap's left edge to the badge's end, under the tag. 78 to 144
- * and 21 px high beside the 96 px avatar, 90 to 162 and 27 beside the 108, 122 to 216 and 39 beside the 144.
- */
-export function nameCorner(box: number): { left: number; top: number; height: number } {
-  const edge = barHeight(box) + 2 * BAR_OUTLINE;
-  // The arc's middle runs `edge / 2` inside the box: the run's underside is `edge` from the top, the cap's top `edge / 2` above the middle.
-  return { left: box - edge, top: edge, height: box / 2 - 1.5 * edge };
-}

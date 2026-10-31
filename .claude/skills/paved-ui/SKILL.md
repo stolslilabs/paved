@@ -124,6 +124,19 @@ verifies them), and `artSources` gives an `<img>` its `srcSet` and `sizes`. A ne
 frame, then the script. Their stories use inline styles where a class would be new: the
 stylesheet's budget has no room.
 
+Player badge (the home's top left, the owner's direction of 2026-10-31 in `docs/design/player-badge.webp`, its states in
+`player-badge-states.webp`): `containers/player-badge.tsx` lays images over the avatar: a ring of paving stones set with gold
+(its centre a hole the portrait shows through, under it), the level's luminous bar in the ring's groove (`elements/level-ring.tsx`,
+its own chunk: the glowing ring's image seen through an SVG mask of the course, a whole turn clockwise from 12 o'clock under the
+shield, drawn to the share with
+`pathLength`), the gold shield with the level, and the name plate (a tile of bricks repeated leftward from a gold arrow cap, so the
+plate is as long as the name, at most 15 characters, `PLAYER_NAME_MAX`). The masters are `badge-sources/<part>.webp` on the frames of
+`BADGE_ART` (`elements/badge-art.ts`, with the measures, as shares of the ring's box, the client lays them by);
+`node scripts/compress-badge-art.ts` writes `public/badge-art/` (`--check` verifies it). They were generated with OpenAI's image
+model through the Codex CLI (`codex exec -c model_provider='"openai"'`: the image tool is the OpenAI provider's), each part alone on
+a transparent background or a key colour, then cut, centred and measured; a redrawn part is a new master on its frame, its measures
+taken again, then the script. The home sets `--profile-room` beside its balances: the plate's name ends there with an ellipsis.
+
 Chests (#874, the owner's direction A, wooden chests with metal bands): `<ChestIcon rank="epic" />` (`elements/chest-icon.tsx`),
 the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), drawn by `ChestBadge` and the battle logs;
 and `<LazyChestArt rank="epic" state="opening" />` (`elements/lazy-chest-art.tsx`, `ChestArt` of `elements/chest-art.tsx` in its own
