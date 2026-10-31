@@ -18,6 +18,7 @@ export const PAGE_HEADER_STORIES = {
   "story-campaigns": ["story"],
   missions: ["missions"],
   vault: ["vault"],
+  social: ["social"],
   referral: ["referral"],
   themes: ["settings/theme"],
   "theme-shop": ["settings/theme/:theme"],
