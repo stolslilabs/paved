@@ -290,3 +290,10 @@ export {
 export type { Avatar, AvatarPart } from "./core/avatar/avatar-format";
 export type { AvatarObject, AvatarPreview, AvatarPreviewOptions, AvatarStillOptions, AvatarStillStats, AvatarStills, AvatarStyle } from "./core/avatar/avatar-render";
 export const loadAvatarRender = (): Promise<typeof import("./core/avatar/avatar-render")> => import("./core/avatar/avatar-render");
+// AVATAR-LIVING (exploration): the living bust, its rig and clips; its own chunk, as the stills are.
+export type { Emote, LivingAvatar, LivingAvatarOptions } from "./core/avatar/avatar-rig";
+export const loadAvatarRig = (): Promise<typeof import("./core/avatar/avatar-rig")> => import("./core/avatar/avatar-rig");
+export type { BoxAvatar, BoxAvatarOptions } from "./core/avatar/avatar-boxes";
+export const loadAvatarBoxes = (): Promise<typeof import("./core/avatar/avatar-boxes")> => import("./core/avatar/avatar-boxes");
+export type { KingAvatar, KingAvatarOptions, Traits } from "./core/avatar/avatar-king";
+export const loadAvatarKing = (): Promise<typeof import("./core/avatar/avatar-king")> => import("./core/avatar/avatar-king");
