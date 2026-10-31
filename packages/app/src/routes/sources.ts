@@ -86,20 +86,31 @@ type MockApp = Awaited<ReturnType<typeof mockApp>>;
 
 /**
  * A part of the mock's sources whose reads load it on the first call, as `lazyChain` loads the chain's. `nested` names the
- * parts it holds as objects (the social source's `follows`, #954), each lazy the same way.
+ * parts it holds as objects (the social source's `follows`, #954, and `chat`, #955), each lazy the same way. A `subscribe`
+ * (the chat's, #955) answers its stop at once, as a socket's would: it subscribes once the mock is loaded, unless stopped before.
  */
 function lazyMock<T extends object>(part: (app: MockApp) => object, nested: Record<string, (app: MockApp) => object> = {}): T {
   const inner = Object.fromEntries(Object.entries(nested).map(([key, pick]) => [key, lazyMock(pick)]));
+  const target = async () => part(await mockApp()) as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
   return new Proxy({} as T, {
     get: (_target, key) =>
       key === "then"
         ? undefined
         : typeof key === "string" && key in inner
           ? inner[key]
-          : async (...args: unknown[]) => {
-              const target = part(await mockApp()) as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
-              return target[key]!(...args);
-            },
+          : key === "subscribe"
+            ? (...args: unknown[]) => {
+                let stop: (() => void) | null = null;
+                let stopped = false;
+                void target().then((t) => {
+                  if (!stopped) stop = t[key]!(...args) as () => void;
+                });
+                return () => {
+                  stopped = true;
+                  stop?.();
+                };
+              }
+            : async (...args: unknown[]) => (await target())[key]!(...args),
   });
 }
 
@@ -113,7 +124,7 @@ const MOCK_SOURCES: DataSources = {
   economy: lazyMock((app) => app.economy),
   pool: lazyMock((app) => app.pool),
   indexer: lazyMock((app) => app.indexer),
-  social: lazyMock((app) => app.social, { follows: (app) => app.social.follows! }),
+  social: lazyMock((app) => app.social, { follows: (app) => app.social.follows!, chat: (app) => app.social.chat! }),
   signer: null,
   purchases: (signer) => ({
     purchase: async (request) => (await mockApp()).purchases(signer).purchase(request),

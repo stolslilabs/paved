@@ -2,9 +2,23 @@ import type { FollowRefusal } from "@paved/game-core";
 
 // The social source (#952, #957): what the social features read and write, on one source that the mock answers today and the
 // chain and a service answer later (#956). The base (#952) gives the players' public profiles and the player search; the
-// follows (#954) add `follows`; the guilds (#953) and the messages (#955) each add their part.
+// follows (#954) add `follows`, the messages (#955) `chat`; the guilds (#953) add their part on the source itself.
 
-import type { GuildDraft, GuildEmblem, GuildFilters, GuildJoinType, GuildRank, GuildRefusal, GuildRequirements, GuildSettings } from "@paved/game-core";
+import type {
+  ChatKind,
+  ChatRefusal,
+  ChatReportReason,
+  ConversationId,
+  GuildDraft,
+  GuildEmblem,
+  GuildFilters,
+  GuildJoinType,
+  GuildRank,
+  GuildRefusal,
+  GuildRequirements,
+  GuildSettings,
+  PrivateStanding,
+} from "@paved/game-core";
 
 /** Another player as anyone may see them (#952): what their public profile and a search result show. */
 export interface PublicProfile {
@@ -288,6 +302,149 @@ export interface GuildSource {
   visitGuildTab(player: string): Promise<void>;
 }
 
+// --- The messages (#955), on the same source (`chat`) ------------------------------------------------------------------
+
+/** A message's author as the conversation shows them: avatar, name, level and, in the World, their guild's tag. */
+export interface ChatAuthor {
+  address: string;
+  /** Null: they have none (shown by their short address). */
+  name: string | null;
+  look: bigint | null;
+  level: number;
+  /** Their guild's tag (game-core's `guildTag`), or null: in no guild. */
+  guildTag: string | null;
+}
+
+/**
+ * One line of a conversation, as the connected player sees it: a player's message, or (in a guild's conversation) an event of
+ * its log (joined, left, kicked, promoted, new leader, #953). Its text is plain: links and addresses are never made clickable.
+ */
+export interface ChatMessage {
+  /** Unique within its conversation. */
+  id: string;
+  conversation: ConversationId;
+  kind: "message" | "event";
+  /** A message's author; null for an event. */
+  author: ChatAuthor | null;
+  /** The text, filtered (`filterWords`); "" once deleted (shown as "Message deleted") and for an event. */
+  text: string;
+  /** In seconds since the epoch. */
+  at: number;
+  deleted: boolean;
+  /** An event's log entry, else null. */
+  event: GuildLogEntry | null;
+  /** The connected player wrote it. */
+  mine: boolean;
+  /** The connected player may delete it: their own, or a guild member's they rank above (game-core's `deleteRefusal`). */
+  mayDelete: boolean;
+  /** The connected player may report it: another's message, not deleted, not reported by them yet. */
+  mayReport: boolean;
+}
+
+/** A conversation as the Chat tab lists it. */
+export interface ConversationSummary {
+  id: ConversationId;
+  kind: ChatKind;
+  /** A guild's conversation: its guild. */
+  guild: GuildBadge | null;
+  /** A private conversation: the other player. */
+  other: PublicProfile | null;
+  /** Its last message the player sees, or null. */
+  last: ChatMessage | null;
+  /** The messages of others the player has not read (the World's counted, never badged). */
+  unread: number;
+}
+
+/** The Chat tab: its conversations, the requests, the badge. */
+export interface ChatOverview {
+  /** The World, the guild's (none for a player in no guild), then the open private conversations by their last message. */
+  conversations: ConversationSummary[];
+  /** The private conversations from strangers waiting for the player (open point 2's default), the latest first. */
+  requests: ConversationSummary[];
+  /** The Chat tab's badge, and so the Social button's (#952): the guild's and the private unread messages, and the requests. */
+  badge: number;
+  /** The player saw the notice of their first private conversation: "Paved never asks for your key or your password." */
+  noticeSeen: boolean;
+}
+
+/** A page of one conversation, as the connected player sees it. */
+export interface ChatPage {
+  conversation: ConversationSummary;
+  /** Oldest first: the latest `CHAT_PAGE_SIZE` before the cursor asked for. */
+  messages: ChatMessage[];
+  /** The cursor of the older page (pass it as `before`), or null: none older. */
+  before: string | null;
+  /** A guild's conversation: its latest announcement, pinned at the top (#953); else null. */
+  pinned: GuildAnnouncement | null;
+  /** A private conversation: the player's standing (game-core's `PrivateStanding`); else null. */
+  standing: PrivateStanding | null;
+  /** A private conversation: the player's messages wait in the other's Requests until they reply or accept. */
+  awaitsReply: boolean;
+  /**
+   * Why the player may not write here at all, or null: `level-low` (the World), `not-in-guild`, `blocking`, `blocked` or
+   * `declined` (shown as not available, the block staying hidden, #954). The rate limits are `nextSendAt`'s.
+   */
+  writeRefusal: ChatWriteRefusal | null;
+  /** When the player may write next by the rate limits, in seconds (now: at once). */
+  nextSendAt: number;
+}
+
+/** What a conversation's subscriber hears: a new message, or one deleted. */
+export type ChatEvent = { type: "message"; message: ChatMessage } | { type: "deleted"; conversation: ConversationId; id: string };
+
+/** Why a chat write was refused: game-core's rule, or `unknown-player` for a private conversation with an ID no player has. */
+export type ChatWriteRefusal = ChatRefusal | "unknown-player";
+
+/**
+ * A chat write the rules refused (#955). `retryAt` (seconds) is when a rate limit lets the player write again (`too-fast`,
+ * `per-minute`), else null. A `blocked` or `declined` refusal is shown only as not available.
+ */
+export class ChatRefusedError extends Error {
+  constructor(
+    readonly reason: ChatWriteRefusal,
+    readonly retryAt: number | null = null,
+  ) {
+    super(`chat: ${reason}`);
+    this.name = "ChatRefusedError";
+  }
+}
+
+/**
+ * The messages (#955), by game-core's rules (`social/chat.ts`). `player` is the connected player: the mock trusts it, a
+ * service will authenticate it (#956). A conversation is read by subscribing to it, so that a socket can take over from the
+ * mock without changing the pages; a write resolves once kept, or rejects with a `ChatRefusedError`.
+ */
+export interface ChatSource {
+  overview(player: string): Promise<ChatOverview>;
+  /**
+   * A page of a conversation (`before`: an older page's cursor; null, the latest), or null when the player may not read it (a
+   * guild's they are not in, a private one not theirs, an ID that names none).
+   */
+  conversation(player: string, id: ConversationId, before?: string | null): Promise<ChatPage | null>;
+  /**
+   * Hears what comes to a conversation (`id`), or to every conversation of the player (null: what the overview and its badge
+   * follow), from now on; answers the function that stops it. Only what the player sees: a muted or blocked author is left out.
+   */
+  subscribe(player: string, id: ConversationId | null, listener: (event: ChatEvent) => void): () => void;
+  /** Sends a message; resolves with it as kept (filtered). In private, a first message to a stranger becomes their request. */
+  send(player: string, id: ConversationId, text: string): Promise<ChatMessage>;
+  deleteMessage(player: string, id: ConversationId, message: string): Promise<void>;
+  report(player: string, id: ConversationId, message: string, reason: ChatReportReason): Promise<void>;
+  /** Hides `target`'s messages from the player in the World and the guild's conversation; private, undone by `unmute`. */
+  mute(player: string, target: string): Promise<void>;
+  unmute(player: string, target: string): Promise<void>;
+  /** The players the player mutes, the latest first. */
+  mutes(player: string): Promise<PublicProfile[]>;
+  /** Accepts a request (the conversation opens) or declines it (it goes away, and its sender may not write again). */
+  answerRequest(player: string, id: ConversationId, accept: boolean): Promise<void>;
+  /** The player read the conversation up to now: its unread count goes. */
+  markRead(player: string, id: ConversationId): Promise<void>;
+  /** The player saw the notice of their first private conversation. */
+  seeNotice(player: string): Promise<void>;
+  /** The player opened the Chat tab: on the mock, a stranger's request comes `MOCK_REQUEST_S` after the first visit. */
+  visitChat(player: string): Promise<void>;
+}
+
 /** The social features' reads and writes. */
 export interface SocialSource {
   /** The public profile of `address`, or null when no player has that ID. */
@@ -299,6 +456,8 @@ export interface SocialSource {
   searchPlayers(query: string): Promise<PublicProfile[]>;
   /** The follows, friends and blocks (#954); left out, their hooks answer `unavailable`. */
   follows?: FollowSource;
+  /** The messages (#955); left out, their hooks answer `unavailable`. */
+  chat?: ChatSource;
 }
 
 /**
