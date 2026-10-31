@@ -349,7 +349,8 @@ src/components/elements/game-icon.tsx. The source icons: `gear`,
 `hammer`, `house`, `piggy-bank`, `plus`, `scroll`, `shield-halved`, `store`,
 `swords`, `trophy`; and (#870) the village's `house-tree`, the categories'
 `tree`, `road`, `castle`, `landmark-dome`, and the season wheel's `sun`,
-`leaf`, `snowflake`, `seedling`, `cloud-sun`, `moon`; and (#873) the Chests'
+`wheat-awn`, `fire-flame-curved`, `umbrella-beach`, `leaf`, `snowflake`,
+`seedling`, `moon`; and (#873) the Chests'
 `treasure-chest`; and (#875) the Camera mode's `video`; and (#928) the profile badge's `user`. The "+"'s button and the relief style itself are
 written for Paved (Apache 2.0).
 

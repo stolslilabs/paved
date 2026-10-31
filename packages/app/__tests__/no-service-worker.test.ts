@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { LEGACY_SW_KEY, clearLegacyServiceWorkers, type LegacySwDeps } from "../src/lib/legacy-sw";
 
-// The web client is not a PWA (#589): no service worker, no precache, no standalone display. vitest runs in the package.
+// The web client is not a PWA (#589): no PWA plugin, no workbox, no standalone display, and no service worker but one: a mock
+// build's offline worker (#927, `vite/offline-worker.ts`), registered by `lib/offline-worker.ts` on the mock alone, so that the
+// client runs with the network cut after the first load. vitest runs in the package.
 const ROOT = join(import.meta.dirname, "..");
 const WORKER_FILE = /^(sw|service-worker|registerSW)\.js$|^workbox-.*\.js$|\.webmanifest$/;
 
@@ -20,15 +22,17 @@ describe("no service worker", () => {
     expect(readFileSync(join(ROOT, "vite.config.ts"), "utf8")).not.toMatch(/pwa|workbox/i);
   });
 
-  it("ships no worker file, in public/ or in a build", () => {
+  it("ships no worker file in public/, and in a build only the mock's offline worker", () => {
     expect(files(join(ROOT, "public")).filter((f) => WORKER_FILE.test(f) && f !== "site.webmanifest")).toEqual([]);
-    expect(files(join(ROOT, "dist")).filter((f) => WORKER_FILE.test(f) && f !== "site.webmanifest")).toEqual([]);
+    const built = files(join(ROOT, "dist")).filter((f) => WORKER_FILE.test(f) && f !== "site.webmanifest");
+    expect(built.filter((f) => !(f === "sw.js" && readFileSync(join(ROOT, "dist", f), "utf8").startsWith("// Paved's offline worker, mock build")))).toEqual([]);
   });
 
-  it("registers no service worker in its code", () => {
+  it("registers no service worker in its code but the mock's offline worker, from main.tsx on the mock alone", () => {
     const sources = readdirSync(join(ROOT, "src"), { recursive: true, encoding: "utf8" }).filter((f) => /\.tsx?$/.test(f));
     const registering = sources.filter((f) => /serviceWorker\s*\.\s*register\s*\(|virtual:pwa/.test(readFileSync(join(ROOT, "src", f), "utf8")));
-    expect(registering).toEqual([]);
+    expect(registering.map((f) => f.split("\\").join("/"))).toEqual(["lib/offline-worker.ts"]);
+    expect(readFileSync(join(ROOT, "src/main.tsx"), "utf8")).toMatch(/if \(MOCKED && import\.meta\.env\.PROD\)\s+void import\("\.\/lib\/offline-worker"\)/);
   });
 
   it("keeps the manifest's name and icons, without the standalone display", () => {

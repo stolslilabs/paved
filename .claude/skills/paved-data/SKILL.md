@@ -81,12 +81,14 @@ Do not copy a query's data into `useState` or a session. The query cache is not 
 
 ## Mock data (MOCK-FIRST)
 
-- `VITE_DATA_SOURCE=mock|chain` (`src/data/data-source.ts`) is the one switch; unset, Sepolia is `mock`. `mock` serves only
-  the entry points the network's classes lack, from `MockLedger` (`src/data/mock/ledger.ts`) through the overlays of
-  `src/data/mock/overlay.ts`; everything else stays the chain's. Never add a second switch or a per-page mock.
-- A new read or write the deployed classes lack: add it to `MockedReads` or `MockedWrites`, implement it in `MockLedger`
-  with the contract's checks and receipt events, list it in the overlay, and add its flow to the parity tests of
-  `__tests__/data-mock.test.tsx` (the same hook on `chain` and `mock`).
+- `VITE_DATA_SOURCE=mock|chain` (`src/data/data-source.ts`, its rule in `src/data/source-of.ts`) is the one switch; unset,
+  Sepolia is `mock`. Since #927 `mock` serves every read and write from `MockLedger` (`src/data/mock/ledger.ts`) through the
+  overlays of `src/data/mock/overlay.ts`, over `offline` parts (`src/data/mock/app.ts`): nothing is sent to a node or an
+  indexer, and a mock build carries no starknet.js (`vite.config.ts`). Never add a second switch or a per-page mock.
+- A new read or write: add it to `MockedReads` or `MockedWrites`, implement it in `MockLedger` with the contract's checks and
+  receipt events, list it in the overlay (else the mock refuses it, `not-configured`), and add its flow to the parity tests of
+  `__tests__/data-mock.test.tsx` (the same hook on `chain` and `mock`). `__tests__/mock-no-fetch.test.ts` fails if a mock read
+  or write makes a request.
 
 ## Writes (not in the app yet)
 

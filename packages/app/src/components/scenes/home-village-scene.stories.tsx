@@ -171,6 +171,45 @@ export const PlayCentred: Story = {
 };
 export const PlayCentredPhone375: Story = { ...PlayCentred, ...PHONE_375 };
 export const PlayCentredWide1440: Story = { ...PlayCentred, ...WIDE_1440 };
+
+/**
+ * HOME-BUTTONS (#856): Play, Settings and Edit at the bottom right, and the season dial, take the pointer at every width. The play
+ * checks that the topmost element at each drawn button's centre is the button (not the village under the overlays' pass-through),
+ * then clicks it: from `desktop` the row's Settings and Play, below it the bar's.
+ */
+export const ButtonsReachable: Story = {
+  args: { ...HOME_VILLAGE.view, ...DIAL },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole("button", { name: /^Season/ }, { timeout: 10_000 });
+    await canvas.findByRole("navigation", { name: "Main" }, { timeout: 10_000 }).catch(() => null);
+    const drawn = (el: HTMLElement) => el.getClientRects().length > 0 && el.checkVisibility({ visibilityProperty: true });
+    const reach = async (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      const top = el.ownerDocument.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      await expect(top && el.contains(top)).toBe(true);
+      await userEvent.click(el);
+    };
+    for (const name of ["Play", "Settings"]) {
+      const [button] = canvas.getAllByRole("button", { name }).filter(drawn);
+      await reach(button!);
+    }
+    await reach(canvas.getByRole("button", { name: "Edit village" }));
+    await reach(canvas.getByRole("button", { name: /^Season/ }));
+    const desktop = canvasElement.ownerDocument.defaultView!.matchMedia("(min-width: 64rem)").matches;
+    if (desktop) {
+      await expect(args.onPlay).toHaveBeenCalled();
+      await expect(args.onSettings).toHaveBeenCalled();
+    } else {
+      await expect(args.onNavigate).toHaveBeenCalledWith("play");
+      await expect(args.onNavigate).toHaveBeenCalledWith("settings");
+    }
+    await expect(args.onEditingChange).toHaveBeenCalledWith(true);
+  },
+};
+export const ButtonsReachablePhone320: Story = { ...ButtonsReachable, ...PHONE_320 };
+export const ButtonsReachablePhone375: Story = { ...ButtonsReachable, ...PHONE_375 };
+export const ButtonsReachableWide1440: Story = { ...ButtonsReachable, ...WIDE_1440 };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };
 /** No wallet: a starter village to look at, Connect in the header, no Edit. */
