@@ -5,9 +5,8 @@ import { cn } from "../../lib/utils";
 import { LEAGUES, leagueOf, type League } from "../../lib/pvp-rules";
 import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
-import type { LeagueBonusState } from "../elements/league-bonus";
-import { crestClass } from "../elements/league-crest";
-import { Icon } from "../ui/icon";
+import { LeagueCrestIcon } from "../elements/league-crest-art";
+import { divisionOf, tierOf } from "../elements/league-standards";
 import { LeagueCard } from "../containers/league-card";
 import { LeagueCarousel } from "../containers/league-carousel";
 import { LeagueControl } from "../containers/league-control";
@@ -25,13 +24,6 @@ export interface PvpSeason {
 
 export interface PvpLeagueSceneProps {
   crowns: number;
-  /** The best crowns of the season so far: every league up to its league has paid its first-time bonus this season. */
-  best?: number;
-  /**
-   * The leagues (`LEAGUES`' indexes) whose first-time bonus was paid and is still to be celebrated (#833, open point 1: no claim
-   * on chain): their bonus's icon is active until its moment plays.
-   */
-  bonusesToSee?: readonly number[];
   /** The season now; null before the first (the owner has not set the season clock, #644). */
   season: PvpSeason | null;
   now: number;
@@ -50,8 +42,6 @@ export interface PvpLeagueSceneProps {
   onBack?: () => void;
   /** A pick in the phone's bar (#763): the page is the League tab's. */
   onNavigate?: (tab: Tab) => void;
-  /** A bonus's moment started (a tap on its icon): it is seen, and never plays again. */
-  onBonusSeen?: (league: number) => void;
   /**
    * The latest attacks and defences as cards (#786, in place of the defence log; no shield since #859); none when omitted. A section
    * of the page (BACK-RULE #783: no page opens another page).
@@ -78,13 +68,11 @@ const LAST_DAY_S = 86_400;
  * desktop.
  */
 export function PvpLeagueScene(props: PvpLeagueSceneProps) {
-  const { crowns, best, bonusesToSee, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, onBonusSeen, matches, onOpenMatch, onRetryMatches } = props;
+  const { crowns, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, matches, onOpenMatch, onRetryMatches } = props;
   const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
   // Below Iron III (400 crowns) a village is in Wood on chain, as one that never attacked.
   const outside = unranked || league.id === "wood";
   const mine = outside ? LEAGUES[0]! : league;
-  // The highest league reached this season: each league up to it has paid its first-time bonus, kept after a drop (to Wood too).
-  const peak = Math.max(mine.index, best != null ? leagueOf(best).index : 0);
   const left = season ? season.endsAt - now : 0;
   const ended = season !== null && left <= 0;
   const browser = useRef<LeagueBrowserHandle>(null);
@@ -92,9 +80,10 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
     <LeagueControl
       crowns={crowns}
       league={mine}
+      unranked={unranked}
       variant="page"
       onLeague={() => browser.current?.showMine()}
-      label={`Your league: ${mine.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}. Show it`}
+      label={`Your league: ${unranked ? "Unranked" : mine.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}. Show it`}
     />
   );
   return (
@@ -102,7 +91,7 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
       <TopBar title="League" onBack={onBack} end={control} />
       <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex min-w-0 flex-col gap-4">
-          <LeagueBrowser ref={browser} mine={mine} peak={peak} opensOn={opensOn} bonusesToSee={bonusesToSee} onBonusSeen={onBonusSeen} />
+          <LeagueBrowser ref={browser} mine={mine} opensOn={opensOn} />
 
           {season === null ? (
             <section aria-label="Season" className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
@@ -149,7 +138,7 @@ function SeasonReward({ league, outside, attacks }: { league: League; outside: b
     <>
       {/* Inline, so a narrow card wraps it as text, after a word. */}
       <p data-testid="season-reward" className="text-sm text-muted-foreground">
-        <Icon name="shield-halved" size="sm" className={cn("mr-1.5 align-[-0.125em]", crestClass(league.id))} />
+        <LeagueCrestIcon tier={tierOf(league)} division={divisionOf(league)} size="sm" className="mr-1.5" style={{ verticalAlign: "-0.3em" }} />
         <span className="font-semibold whitespace-nowrap text-foreground">{league.name}</span>:{" "}
         <Cobbles value={league.seasonCobbles} sign="+" className="align-[-0.125em]" /> Cobbles at the season's end
       </p>
@@ -167,28 +156,19 @@ interface LeagueBrowserHandle {
   showMine: () => void;
 }
 
-interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "opensOn" | "bonusesToSee" | "onBonusSeen"> {
+interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "opensOn"> {
   ref?: Ref<LeagueBrowserHandle>;
   /** The player's league. */
   mine: League;
-  /** The highest league reached this season (`LEAGUES`' index). */
-  peak: number;
 }
 
 /**
- * The carousel and its cards, with the league in view and the bonus's moment as their own state: moving through the leagues
- * redraws the carousel alone, never the season or the matches below, nor the header (its League control calls `showMine`).
+ * The carousel and its cards, with the league in view as their own state: moving through the leagues redraws the carousel alone,
+ * never the season or the matches below, nor the header (its League control calls `showMine`).
  */
-function LeagueBrowser({ ref, mine, peak, opensOn, bonusesToSee, onBonusSeen }: LeagueBrowserProps) {
+function LeagueBrowser({ ref, mine, opensOn }: LeagueBrowserProps) {
   const [selected, setSelected] = useState(opensOn ?? mine.index);
-  const [seen, setSeen] = useState<readonly number[]>([]);
-  // The league whose bonus's moment is playing. A tap marks the bonus seen at once: leaving the league ends the moment, and a
-  // return never replays it (only a tap starts one).
-  const [celebrating, setCelebrating] = useState<number | null>(null);
-  const select = (index: number) => {
-    if (index !== selected) setCelebrating(null);
-    setSelected(index);
-  };
+  const select = (index: number) => setSelected(index);
   const root = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotionConfig();
   // The header's League control: the carousel glides back to the player's league (a cut under reduced motion, the carousel's
@@ -199,22 +179,9 @@ function LeagueBrowser({ ref, mine, peak, opensOn, bonusesToSee, onBonusSeen }: 
       root.current?.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
     },
   }));
-  const bonusOf = (l: League): LeagueBonusState => (l.index > peak ? "locked" : bonusesToSee?.includes(l.index) && !seen.includes(l.index) ? "ready" : "had");
   return (
     <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={mine.index}>
-      {(l, current) => (
-        <LeagueCard
-          league={l}
-          bonus={bonusOf(l)}
-          celebrating={current && celebrating === l.index}
-          onCelebrate={() => {
-            setCelebrating(l.index);
-            setSeen((s) => [...s, l.index]);
-            onBonusSeen?.(l.index);
-          }}
-          onCelebrated={() => setCelebrating(null)}
-        />
-      )}
+      {(l) => <LeagueCard league={l} />}
     </LeagueCarousel>
   );
 }

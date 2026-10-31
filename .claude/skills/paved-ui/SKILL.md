@@ -113,11 +113,16 @@ shape in relief (outline, lit fill, highlight, shadow), each part in its own ton
 add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in `PARTS`, run `bun run game-icons`, and
 record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
 
-League crests (#854): the third study, `<ShieldCrest league="knight" />` from `elements/crest-shield.tsx` (story
-`Elements/ShieldCrest`), a shield and swords climbing by `SHIELD_RANKS`, on the crest parts of `elements/crest-art.tsx`. The first
-study's `CrestArt` (one drawing per group, the division as studs) keeps its file and its test but no story. Their Font Awesome
-shapes are generated like the game icons': `CREST_SHAPE_NAMES` in `scripts/league-crests.ts`, `bun run league-crests`, and a line
-in the notices.
+League standards (#917, the owner's design in `docs/design/league-standards.webp`, which supersedes #854's studies): ten tiers
+(`LEAGUE_TIERS`, Unranked to Grand Master, `tierOf`, `divisionOf`), each shown as images: `LeagueCrestArt` (full, from 64 px),
+`LeagueCrestIcon` (16 to 40 px, its own simplified art), `LeaguePlate` (the plate's image, the name over it in `font-display`),
+`LeagueBanner`, and `LeagueStandard` (the three stacked). The crest and the icon take a `division` ("I", "II", "III"): each has a
+version per division, the numeral on a ribbon drawn into the art, never laid over it. The masters are lossless WebP,
+`league-sources/<part>/<name>.webp` (`artName`: `bronze`, `bronze-ii`), one square frame per part but the plate's (`LEAGUE_ART`
+in `elements/league-standards.ts`); `node scripts/compress-league-art.ts` writes their copies to `public/league-art/` (`--check`
+verifies them), and `artSources` gives an `<img>` its `srcSet` and `sizes`. A new tier or a redrawn part is a new master on its
+frame, then the script. Their stories use inline styles where a class would be new: the
+stylesheet's budget has no room.
 
 Chests (#874, the owner's direction A, wooden chests with metal bands): `<ChestIcon rank="epic" />` (`elements/chest-icon.tsx`),
 the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), drawn by `ChestBadge` and the battle logs;

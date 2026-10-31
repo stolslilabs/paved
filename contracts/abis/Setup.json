@@ -809,6 +809,38 @@
       },
       {
         "type": "function",
+        "name": "report_league",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "league",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "league_groups",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u8"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
         "name": "pvp_progress",
         "inputs": [
           {

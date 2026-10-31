@@ -9,8 +9,8 @@
 //! pieces: `SeasonableComponent` (the season clock) and `LeagueableComponent` (each village's
 //! league record). Every call that moves a player's crowns first rolls it into the current season
 //! (its last season closed, its crowns reset); a settlement then records the leagues reached, pays
-//! the league bonuses and season rewards in Cobbles through `Setup` (a reporter), and reports the
-//! PvP missions' tasks to `Setup`'s quests.
+//! the season rewards in Cobbles through `Setup` (a reporter), and reports the PvP missions' tasks
+//! and the groups reached (the lifetime league missions, #917) to `Setup`.
 //!
 //! Callers:
 //! - the player: `search` (free) and `next` (`NEXT_PRICE` Cobbles, spent in `Setup`) draw an
@@ -118,8 +118,8 @@ pub trait IMatchmaker<TContractState> {
     /// `search` is free (#643: a drawn village that cannot be attacked). An operator only. Emits
     /// `MatchCancelled`.
     fn cancel_match(ref self: TContractState, attacker: ContractAddress);
-    /// Sets a village's crowns, after its season roll; the leagues it reaches pay no bonus. An
-    /// operator only.
+    /// Sets a village's crowns, after its season roll; the leagues it reaches count for no
+    /// league mission (only a settlement reports them). An operator only.
     fn set_crowns(ref self: TContractState, village: ContractAddress, crowns: u32);
     /// Rolls a player's `village` into the current season (nothing if it is there already): its
     /// last season closed and its reward paid to it, its crowns reset. Anyone. Emits
@@ -170,10 +170,10 @@ pub mod Matchmaker {
         ATTACK_SHIELD, INITIAL_SHIELD, QUEUE_ATTACK, QUEUE_INITIAL, ShieldableComponent,
     };
     use paved::matchmaker::crowns::{Settlement, cost_of, offer_of};
-    use paved::matchmaker::leagues::{MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, league_of};
+    use paved::matchmaker::leagues::{MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, groups_of, league_of};
     use paved::systems::setup::{
-        CLAIM_LEAGUE, CLAIM_SEASON, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
-        ISetupSpendDispatcher, ISetupSpendDispatcherTrait,
+        CLAIM_SEASON, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait, ISetupSpendDispatcher,
+        ISetupSpendDispatcherTrait,
     };
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
@@ -186,8 +186,8 @@ pub mod Matchmaker {
         Village,
     };
 
-    /// A credit to pay in `Setup` once a call's effects are done: `kind` `CLAIM_LEAGUE` or
-    /// `CLAIM_SEASON`, for `league` in `season`.
+    /// A credit to pay in `Setup` once a call's effects are done: `kind` `CLAIM_SEASON` (a season's
+    /// reward), for `league` in `season`.
     #[derive(Copy, Drop)]
     struct Credit {
         village: ContractAddress,
@@ -475,6 +475,7 @@ pub mod Matchmaker {
             let npc = is_npc_address(defender);
             let season = self.seasonable.season_now();
             let mut credits: Array<Credit> = array![];
+            let mut groups: Array<(ContractAddress, u8)> = array![];
             self.roll_village(attacker, season, ref credits);
             if !npc {
                 self.roll_village(defender, season, ref credits);
@@ -488,17 +489,19 @@ pub mod Matchmaker {
                 self.bucketable.follow(defender, pool_crowns(outcome.defender));
             }
             // [Effect] The attack counted, the leagues reached; the match ends
-            self.climb_village(attacker, outcome.attacker, true, ref credits);
+            self.climb_village(attacker, outcome.attacker, true, ref groups);
             if !npc {
-                self.climb_village(defender, outcome.defender, false, ref credits);
+                self.climb_village(defender, outcome.defender, false, ref groups);
             }
             self
                 .write_match(
                     attacker, Match { opponent: Zero::zero(), offer: 0, cost: 0, started: false },
                 );
-            // [Interaction] The Cobbles owed, then the PvP missions' tasks (an attack on an NPC
-            // only if `MISSIONS_COUNT_NPC`), in `Setup`
+            // [Interaction] The Cobbles owed, the groups reached for the first time this season,
+            // then the PvP missions' tasks (an attack on an NPC only if `MISSIONS_COUNT_NPC`), in
+            // `Setup`
             self.pay(credits);
+            self.report_groups(groups);
             if !npc || MISSIONS_COUNT_NPC {
                 ISetupLeagueDispatcher { contract_address: self.setup.read() }
                     .report_pvp(attacker.into(), stars);
@@ -524,7 +527,7 @@ pub mod Matchmaker {
             self.assert_operator();
             let status = self.villages.read(village).status;
             assert(status != STATUS_NONE, errors::NOT_JOINED);
-            // [Effect] A player rolled first; then the crowns, its bucket, its peak (no bonus)
+            // [Effect] A player rolled first; then the crowns, its bucket, its peak (no mission)
             let mut credits: Array<Credit> = array![];
             if status == STATUS_PLAYER {
                 self.roll_village(village, self.seasonable.season_now(), ref credits);
@@ -532,7 +535,7 @@ pub mod Matchmaker {
             self.crownable.set(village, crowns);
             self.bucketable.follow(village, pool_crowns(crowns));
             if status == STATUS_PLAYER {
-                self.leagueable.climb(village, crowns, false, false);
+                self.leagueable.climb(village, crowns, false);
             }
             // [Interaction] The reward of a season the roll closed
             self.pay(credits);
@@ -813,27 +816,35 @@ pub mod Matchmaker {
         }
 
         /// Records a settled `village` at `crowns` (#644): its attack counted if `attack`, the
-        /// leagues it reached, each bonus appended to `credits`.
+        /// leagues it reached. When they enter a group the season had not reached, the village and
+        /// its new peak are appended to `groups`, for `Setup`'s lifetime league missions (#917).
         fn climb_village(
             ref self: ContractState,
             village: ContractAddress,
             crowns: u32,
             attack: bool,
-            ref credits: Array<Credit>,
+            ref groups: Array<(ContractAddress, u8)>,
         ) {
-            for reach in self.leagueable.climb(village, crowns, attack, true) {
-                if reach.bonus != 0 {
-                    credits
-                        .append(
-                            Credit {
-                                village,
-                                kind: CLAIM_LEAGUE,
-                                league: reach.league,
-                                season: reach.season,
-                                cobbles: reach.bonus,
-                            },
-                        );
-                }
+            let reached = self.leagueable.climb(village, crowns, attack);
+            if reached.len() == 0 {
+                return;
+            }
+            let before = *reached.at(0).league - 1;
+            let peak = *reached.at(reached.len() - 1).league;
+            if groups_of(peak) > groups_of(before) {
+                groups.append((village, peak));
+            }
+        }
+
+        /// Reports each village's new peak in `groups` to `Setup` (`report_league`, `Matchmaker` a
+        /// reporter there), which counts the groups reached for the first time in a lifetime.
+        fn report_groups(ref self: ContractState, groups: Array<(ContractAddress, u8)>) {
+            if groups.len() == 0 {
+                return;
+            }
+            let setup = ISetupLeagueDispatcher { contract_address: self.setup.read() };
+            for (village, league) in groups {
+                setup.report_league(village.into(), league);
             }
         }
 

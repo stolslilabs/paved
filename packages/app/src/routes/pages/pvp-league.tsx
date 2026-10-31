@@ -4,9 +4,11 @@ import { TabFrame } from "../../components/containers/tab-frame";
 import type { MatchCardData } from "../../components/containers/match-list";
 import { PvpLeagueScene, type PvpLeagueSceneProps } from "../../components/scenes/pvp-league-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
-import type { PvpPlayer } from "../../lib/pvp-rules";
+import { LEAGUES, type PvpPlayer } from "../../lib/pvp-rules";
 import { addressKey, queryKeys } from "../../data/keys";
 import { layoutBoard, useMatchesV2 } from "../../data/matches";
+import { useAttackV2 } from "../../data/free-attack";
+import { isUnranked, lastAttack } from "../../data/pvp-standing";
 import { pvpKeys, useAttackLog, useDefenceLog, usePvpStatus, useSeasonSpan } from "../../data/pvp";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useTileRenders } from "../../data/tile-renders";
@@ -29,6 +31,8 @@ export default function Page() {
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? null;
   const status = usePvpStatus(me);
+  // The v2 attack (open or last), for the Unranked rule: a first attack open is not Unranked, on v1 or v2 (#917).
+  const v2 = useAttackV2(me);
   const league = status.data?.league ?? null;
   const span = useSeasonSpan(league?.season ?? null);
   const matches = useMatches(me);
@@ -50,13 +54,14 @@ export default function Page() {
   }
   // Season 0 is before the owner's clock (#644): no season, no end.
   const season = league.season > 0 && span.data && span.data.end > 0 ? { name: `Season ${league.season}`, endsAt: span.data.end } : null;
+  const last = lastAttack(status.data?.attack, v2.data);
   return (
     <PvpLeagueScene
       crowns={league.crowns}
       league={league.league}
       season={season}
       now={now}
-      unranked={league.crowns === 0 && league.attacks === 0 && status.data?.attack.id === 0}
+      unranked={last ? isUnranked(league, last) : false}
       attacks={season ? league.attacks : undefined}
       onBack={onBack}
       onNavigate={onNavigate}
@@ -89,6 +94,8 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
           id: m.id,
           side: m.side,
           rival: playerOf(m.rival.address, m.rival.name, m.rival.level, m.rival.look),
+          // The rival's league where the sources know it (#917): its crest on the card.
+          ...(m.rival.league !== undefined && { league: LEAGUES[m.rival.league] }),
           village: layoutBoard(m.village),
           stars: m.stars,
           crowns: m.crowns,

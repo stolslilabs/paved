@@ -281,6 +281,8 @@ export const HOME_VILLAGE = {
   shieldLastMinute: { ...home, shieldEndsAt: MOCK_NOW + 25 },
   /** The widest left column (#829): a five-digit crown count, shielded for 8 hours. */
   leagueStress: { ...home, league: { crowns: 12_345 }, shieldEndsAt: MOCK_NOW + 8 * HOUR },
+  /** A new player read by the chain: no crown and no attack yet, the League control's Unranked crest (#917). */
+  unranked: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: { crowns: 0, attacks: 0 }, now: MOCK_NOW },
   /** Not founded yet: the starter alone, Found in Edit's place. */
   unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, league: null, now: MOCK_NOW },
   /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */

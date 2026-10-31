@@ -61,6 +61,11 @@ pub const TASK_PVP_ATTACK: u32 = 19;
 pub const TASK_PVP_STARS: u32 = 20;
 pub const TASK_PVP_WIN: u32 = 21;
 pub const TASK_PVP_THREE_STARS: u32 = 22;
+/// The lifetime league missions (#917, the owner's ruling of 2026-10-30, in place of the league
+/// bonus): the groups a player has reached in a lifetime, 1 (the app's Iron) to 8 (Grand Master),
+/// reported by `Matchmaker` when a settlement enters a group (`Setup`'s `report_league`). An
+/// achievement on this task with total `g` is "reach group `g`".
+pub const TASK_LEAGUE_REACHED: u32 = 23;
 
 /// A road or a city of at least this many tiles is a big structure (to calibrate).
 pub const BIG_SIZE: u32 = 8;
