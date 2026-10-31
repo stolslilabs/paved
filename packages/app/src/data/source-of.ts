@@ -15,7 +15,8 @@
  * and twenty seeded players, `data/mock/indexer.ts`, `data/mock/players.ts`); a read it does not answer is refused as a
  * deployment without it (`not-configured`), never sent. On `mock`, the wallet is the device's key with the ledger's account,
  * deployed nowhere and read from no node (`wallet/mock-connector.ts`), and an account's village is founded with it at its
- * first connection (`mockConnector`); Found stays for `chain`.
+ * first connection (`mockConnector`); Found stays for `chain`. A mock build keeps its own files offline (its service worker,
+ * `vite/offline-worker.ts`), so it runs with the network cut after the first load.
  */
 export type DataSourceName = "chain" | "mock";
 
