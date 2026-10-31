@@ -7,6 +7,7 @@ import { TOKENS, amountFigure } from "../elements/amount";
 import { Score, formatPoints } from "../elements/score";
 import { TokenIcon } from "../elements/token-icon";
 import { COACH_RING, type CoachTarget } from "./coach";
+import { MockMarkSlot } from "./mock-mark";
 import type { RewardCurve } from "./reward-estimate";
 
 export interface GameHudProps {
@@ -49,7 +50,11 @@ export function GameHud({ title, score, delta, preview, expiresAt, reward, now, 
       {/* The countdown is the column's floor; the title, a name, is cut first and stays whole in its title (WRAP360):
           `w-0 min-w-full` keeps its length out of the column's width. */}
       <div className="flex flex-1 flex-col gap-1">
-        <h1 title={title} className="w-0 min-w-full truncate font-display text-sm font-semibold">{title}</h1>
+        {/* The mark on the title's line, after it (#622): a Challenge game is the mock's on a mock build (#927). */}
+        <div className="flex w-0 min-w-full items-center gap-1.5">
+          <h1 title={title} className="min-w-0 truncate font-display text-sm font-semibold">{title}</h1>
+          <MockMarkSlot className="shrink-0" />
+        </div>
         {/* The time left and the reward share a line where they fit; on a phone the reward goes under the time. */}
         {(expiresAt != null || reward) && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
