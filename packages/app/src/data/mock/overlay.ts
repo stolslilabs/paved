@@ -1,17 +1,26 @@
-import { IndexerError, ViewError, WriteError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type GameKey, type GameView, type GameViews, type IndexerClient } from "@paved/chain";
-import { poseidon } from "@paved/game-core";
+import { IndexerError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type EventReader, type GameViews, type IndexerClient, type PoolQuoter } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
-import type { GameSigner, Purchases, VaultWrites } from "../sources";
+import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import { dailiesDone, gamesUpTo, needsMockDailies, surrenderedOnDay, withMockDailies, withMockDailyProgress } from "./dailies";
 import type { MockLedger, MockedReads } from "./ledger";
 
-// The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the
-// account's `PavedWriter`, its purchases and Vault writes) and answers the entry points the deployed classes lack from the
-// mock ledger, every other one from the chain, unchanged. The app applies them when the data source is `mock`
-// (`data-source.ts`): `chain-client.ts`, `economy-client.ts`, `wallet/connector.ts`, `routes/sources.ts`.
+// The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the events, the pool, the indexer
+// client, the account's `PavedWriter`, its purchases, settlement and Vault writes) and answers the entry points the deployed
+// classes lack from the mock ledger, every other one from the chain, unchanged. Since #927 the Challenge's games, their
+// purchase, moves and settlement are the ledger's too. The app applies them when the data source is `mock` (`data-source.ts`):
+// `chain-client.ts`, `economy-client.ts`, `settle-client.ts`, `wallet/connector.ts`, `routes/sources.ts`.
 
 /** `GameViews`' reads (and the Cobbles', packs', skins', avatar's, village's and PvP's views beside them on `RpcGameViews`) the mock answers. */
 export const MOCKED_GAME_READS = [
+  // The Challenge's games (#927)
+  "game",
+  "tiles",
+  "builder",
+  "initialSeed",
+  "draw",
+  "spawnSalt",
+  "currentDay",
+  "entryPrice",
   "spawnPaused",
   "guardian",
   "account",
@@ -59,17 +68,11 @@ export const MOCKED_GAME_READS = [
   "dailyMilestones",
 ] as const satisfies readonly (keyof MockedReads)[];
 
-/** `EconomyViews`' reads the mock answers: the Vault's, the split, the seller and the tokens' balances (USDC, PAVED, #927). */
-export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance"] as const satisfies readonly (keyof MockedReads)[];
+/** `EconomyViews`' reads the mock answers: the Vault's, the split, the seller, the tokens' balances (USDC, PAVED) and the games' quote, days and terms (#927). */
+export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance", "quote", "guardRate", "router", "day", "terms"] as const satisfies readonly (keyof MockedReads)[];
 
-/** The signer's writes the mock answers (`mint`: the faucet, #927). */
-export const MOCKED_WRITES = ["mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
-
-/**
- * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
- * A refusal the page shows as it shows the chain's, never a raw RPC error.
- */
-export const FREE_SPAWN_MOCKED = "Free games are not on this network yet: your free game stays for later. Nothing was sent.";
+/** The signer's writes the mock answers (`mint`: the faucet; `build`, `discard`, `surrender`, `spawnFree`: the games, #927). */
+export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
 
 /** The hash prefix of the mock's receipts ("mock"): `receipt` answers them, never the node. */
 const MOCK_HASH = "0x6d6f636b";
@@ -90,83 +93,19 @@ function overlay<T extends object>(target: T, keys: readonly string[], own: Reco
 const bound = (ledger: MockLedger, keys: readonly string[]): Record<string, unknown> =>
   Object.fromEntries(keys.map((k) => [k, (ledger as unknown as Record<string, (...a: unknown[]) => unknown>)[k]!.bind(ledger)]));
 
-/**
- * What the game views' overlay reads of the chain beside its views, for the two game reads an older Challenge class answers
- * differently: its address (the seed's), and `game(id)`'s felts undecoded, with the decoder of the client's ABI.
- */
-export interface ChallengeAccess {
-  challenge: string;
-  gameFelts(gameId: number): Promise<string[]>;
-  decodeGame(felts: string[]): GameView;
+/** The game views with the ledger's Cobbles, packs, skins, village, PvP and the Challenge's games (#927); the rest stays the chain's. */
+export function mockGameViews<T extends GameViews>(chain: T, ledger: MockLedger): T & MockedReads {
+  return overlay(chain, MOCKED_GAME_READS, bound(ledger, MOCKED_GAME_READS)) as T & MockedReads;
 }
 
-/** The felts of `GameView` before `expires_at` was appended (S1): the layout of Sepolia's Challenge class. */
-export const GAME_FELTS_BEFORE_EXPIRY = 16;
-/** `start_time`'s felt in that layout. */
-const START_TIME_FELT = 13;
-/** A Challenge game expires 24 h after it starts (`views.cairo`, `expires_at`). */
-const GAME_VALIDITY_S = 86_400n;
-
-/**
- * `Challenge.initial_seed(game_id)` as the contract computes it (`views.cairo`, `TokenSeed` of `seed.cairo`): the Poseidon of
- * the new game's salt 0, the Challenge's address and the id. The same formula seeded every game of Sepolia's class, which
- * has no view for it: the value is the chain's, not a mock's.
- */
-export function initialSeedOf(challenge: string, gameId: number): string {
-  return `0x${poseidon(0n, BigInt(challenge), gameId).toString(16)}`;
+/** The chain's events with the player's games of the ledger (#927): the mock's games are on no node. */
+export function mockEvents<T extends Pick<EventReader, "playerGames">>(chain: T, ledger: MockLedger): T {
+  return overlay(chain, ["playerGames"], { playerGames: (playerId: string) => ledger.playerGames(playerId) });
 }
 
-/**
- * `game(id)` in the layout before `expires_at` (Sepolia's class): its felts with `expires_at` appended as the contract
- * derives it, `start_time` + 24 h, then decoded as the client's ABI reads it. Any other length is the chain's mismatch.
- */
-export function decodeGameBeforeExpiry(felts: readonly string[], decode: (felts: string[]) => GameView): GameView {
-  if (felts.length !== GAME_FELTS_BEFORE_EXPIRY) throw new ViewError("abi-mismatch", `game: ${felts.length} felts, neither layout of GameView`);
-  const expiresAt = BigInt(felts[START_TIME_FELT]!) + GAME_VALIDITY_S;
-  return decode([...felts, `0x${expiresAt.toString(16)}`]);
-}
-
-/** A `ViewError`'s kind, read by shape (as `over.ts`'s `isGameNotFound`): an error of another copy of the chain package counts too. */
-const kindOf = (error: unknown): unknown => (error as { kind?: unknown } | null)?.kind ?? null;
-
-/**
- * The game views with the Cobbles, packs, skins and pause views of the ledger; the games and their tiles stay the chain's.
- * With `access`, the two game reads an older Challenge class answers differently are read from the chain another way, each
- * only once the chain refused it: `initialSeed` (`not-available`) is computed (`initialSeedOf`), and `game` (`abi-mismatch`,
- * no `expires_at`) is decoded from its felts (`decodeGameBeforeExpiry`). After the first refusal the other way is taken at once.
- */
-export function mockGameViews<T extends GameViews>(chain: T, ledger: MockLedger, access?: ChallengeAccess): T & MockedReads {
-  if (!access) return overlay(chain, MOCKED_GAME_READS, bound(ledger, MOCKED_GAME_READS)) as T & MockedReads;
-  let seedView = true;
-  let gameLayout = true;
-  const game = async (key: GameKey): Promise<GameView> => {
-    if (key.mode !== "challenge" || gameLayout) {
-      try {
-        return await chain.game(key);
-      } catch (error) {
-        if (key.mode !== "challenge" || kindOf(error) !== "abi-mismatch") throw error;
-        gameLayout = false;
-      }
-    }
-    return decodeGameBeforeExpiry(await access.gameFelts(key.gameId), access.decodeGame);
-  };
-  return overlay(chain, [...MOCKED_GAME_READS, "initialSeed", "game"], {
-    ...bound(ledger, MOCKED_GAME_READS),
-    game,
-    initialSeed: async (key: GameKey) => {
-      if (key.mode !== "challenge" || seedView) {
-        try {
-          return await chain.initialSeed(key);
-        } catch (error) {
-          if (key.mode !== "challenge" || kindOf(error) !== "not-available") throw error;
-          seedView = false;
-        }
-      }
-      // The view refuses an id with no game (`existing_game`): so does the game's read.
-      await game(key);
-      return initialSeedOf(access.challenge, key.gameId);
-    },
-  }) as T & MockedReads;
+/** The pool's quote of the ledger (#927): the mock's rate, no pool read. */
+export function mockPool(ledger: MockLedger): PoolQuoter {
+  return { quoteSwap: (usdcIn) => ledger.quoteSwap(usdcIn) };
 }
 
 /** The economy's views with the Vault, the split, the seller and the tokens' balances of the ledger: no balance is the chain's. */
@@ -241,22 +180,18 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
 }
 
 /**
- * The account's writer with the ledger's faucet (#927), claims, skin, avatar and village writes, and the free spawn refused
- * (`FREE_SPAWN_MOCKED`). The board's moves and every other write are the writer's: it stays the `PavedWriter` the purchases and
- * the Vault check for.
+ * The account's writer with the ledger's faucet, a game's moves and the free spawn (#927), the claims, skin, avatar and village
+ * writes. Every other write is the writer's: it stays the `PavedWriter` the purchases and the Vault check for.
  */
 export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger): T {
   const writes = ledger.writesFor(writer.address);
-  return overlay(writer, [...MOCKED_WRITES, "surrender"], {
+  return overlay(writer, MOCKED_WRITES, {
     // The faucet (#927): the ledger's USDC, with no cap, so "Get test USDC" is always there.
     mint: writes.mint,
-    // The chain's surrender, its time recorded once taken (#869): the indexer has none for a game over on a later day than its
-    // start, and the fifth daily counts the game on it.
-    surrender: async (key: GameKey) => {
-      const result = await writer.surrender(key);
-      if (key.mode === "challenge") await ledger.recordSurrender(writer.address, key.gameId);
-      return result;
-    },
+    // A game's moves (#927), by game-core's rules on the ledger's game; a surrender keeps its time for the fifth daily (#869).
+    build: writes.build,
+    discard: writes.discard,
+    surrender: writes.surrender,
     claim: writes.claim,
     claimQuest: writes.claimQuest,
     claimAchievement: writes.claimAchievement,
@@ -294,7 +229,7 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     startAttackV2: writes.startAttackV2,
     playAttackV2: writes.playAttackV2,
     surrenderAttackV2: writes.surrenderAttackV2,
-    spawnFree: () => Promise.reject(new WriteError(FREE_SPAWN_MOCKED)),
+    spawnFree: writes.spawnFree,
   });
 }
 
@@ -329,14 +264,20 @@ export function mockConnector(connector: WalletConnector, ledger: MockLedger, op
   };
 }
 
-/** The purchases with the ledger's pack (`buy_pack` is not on the class), paid from the ledger's USDC; a game's purchase stays the chain's. */
+/** The purchases with the ledger's pack and Challenge game (#927), paid from the ledger's USDC; its receipts are the ledger's. */
 export function mockPurchases(chain: Purchases, ledger: MockLedger, account: string): Purchases {
   const writes = ledger.writesFor(account);
   return {
     ...chain,
+    purchase: writes.purchase,
     buyPack: writes.buyPack,
     receipt: (hash) => (hash.startsWith(MOCK_HASH) ? Promise.resolve("succeeded") : chain.receipt(hash)),
   };
+}
+
+/** The settlement of the ledger (#927): the reward minted in the ledger's PAVED. */
+export function mockSettlements(ledger: MockLedger, account: string): Settlements {
+  return { settle: ledger.writesFor(account).settle };
 }
 
 /** The Vault's writes of the ledger (the Vault's class has none of them), on the ledger's PAVED and vPAVED. */

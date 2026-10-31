@@ -2,7 +2,7 @@ import { WriteError } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import type { DataSources, GameSigner } from "../src/data";
 import { MOCK_STARTING_BALANCES, MockLedger, type TokenBalances } from "../src/data/mock/ledger";
-import { mockEconomyViews, mockGameViews, mockIndexer, mockPurchases, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
+import { mockEconomyViews, mockEvents, mockGameViews, mockIndexer, mockPool, mockPurchases, mockSettlements, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
 import type { Purchases } from "../src/data/sources";
 import { fakeSources, memoryStore } from "./data-fakes";
 
@@ -55,19 +55,28 @@ export async function surrenderGame(f: ReturnType<typeof sepoliaChain>, ledger: 
  * The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them.
  * `starting`: what a new account holds in the ledger (the app's, `MOCK_STARTING_BALANCES`, by default).
  */
-export function mockImplementation(store = memoryStore(), starting: TokenBalances = MOCK_STARTING_BALANCES) {
+export function mockImplementation(store = memoryStore(), starting: TokenBalances = MOCK_STARTING_BALANCES, now?: () => number) {
   const f = sepoliaChain();
-  const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, starting });
+  const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, starting, ...(now ? { now } : {}) });
   const chainPurchases: Purchases = { purchase: () => Promise.reject(new WriteError("not in this test")), buyPack: () => Promise.reject(new WriteError("no buy_pack on this class")), referrer: async () => null, receipt: async () => "unknown" };
   const sources: DataSources = {
     ...f.sources,
     views: mockGameViews(f.views, ledger),
+    events: mockEvents(f.sources.events, ledger),
     economy: mockEconomyViews(f.economy, ledger),
+    pool: mockPool(ledger),
     indexer: mockIndexer(f.indexer, ledger),
     signer: mockSigner({ address: PLAYER } as unknown as GameSigner, ledger),
     purchases: (signer) => mockPurchases(chainPurchases, ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),
+    settlements: (signer) => mockSettlements(ledger, signer.address),
   };
   return { sources, ledger, store, chain: f };
 }
 
+
+/** A Challenge game of `stake` bought by `account` on the ledger (#927), at the price and the pool's quote of the mock. */
+export async function buyGame(ledger: MockLedger, account: string, stake = 1) {
+  const quote = await ledger.quote(stake);
+  return ledger.writesFor(account).purchase({ stake, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+}

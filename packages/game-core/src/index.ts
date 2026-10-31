@@ -80,7 +80,18 @@ export {
   rewardOf,
   winningScore,
   capScore,
+  MEAN_SCALE,
+  MEAN_MIN_SCORE,
+  INITIAL_MEAN,
+  newEma,
+  emaMean,
+  emaPush,
+  dayAdd,
+  dayMean,
+  dayAverage,
+  thresholdOfMean,
 } from "./economy";
+export type { Ema, MeanDay } from "./economy";
 
 // Off-chain game engine (E1)
 export {
