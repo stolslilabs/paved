@@ -145,6 +145,7 @@ import {
   type SeededMove,
   type QueuedMove,
   areFriends,
+  blockBetween,
   blockPlayer,
   followCounts,
   followPlayer,
@@ -164,8 +165,10 @@ import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
 import { communityMember, communityProfile, community, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
-import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type PublicProfile } from "../social-source";
+import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PublicProfile } from "../social-source";
 import { forgetFollows, freshFollows, graphOf, listsOf, seededFollows, settleFollows, type StoredFollows } from "./follows";
+import type { GuildDraft, GuildSettings } from "@paved/game-core";
+import * as guilds from "./guilds";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
@@ -464,6 +467,8 @@ interface StoredState {
   challenge?: StoredChallenge;
   /** The players' follows and blocks (#954, `follows.ts`); absent: none yet. */
   follows?: StoredFollows;
+  /** The guilds (#953, `guilds.ts`); absent: the seeded world, before any guild write. */
+  guilds?: guilds.GuildWorld;
 }
 
 const fresh = (): StoredState => ({ version: 1, players: {}, vault: { assets: MOCK_VAULT.assets.toString(), supply: MOCK_VAULT.supply.toString() }, transactions: 0 });
@@ -1065,8 +1070,9 @@ export class MockLedger {
   }
 
   /**
-   * Whom `player` may follow (game-core's `suggestFollows`): the followers not followed back, the recent PvP opponents (newest
-   * first), then the community. The guild's members join once #953 lands. Only the community's members: the mock knows no other.
+   * Whom `player` may follow (game-core's `suggestFollows`): the followers not followed back, their guild's members (#953, by
+   * rank then crowns), the recent PvP opponents (newest first), then the community. Only the community's members: the mock
+   * shows no other player's profile.
    */
   async followSuggestions(player: string): Promise<PublicProfile[]> {
     this.sync();
@@ -1076,8 +1082,9 @@ export class MockLedger {
       .sort((x, y) => y.at - x.at)
       .map((o) => o.address)
       .filter((a) => communityMember(a) !== null);
+    const guildmates = this.guildRead((world, people, at) => guilds.playerGuildOf(world, people, at, player).guild?.roster.map((m) => m.profile.address) ?? []).filter((a) => communityMember(a) !== null);
     const members = community().map((m) => m.address);
-    return suggestFollows(graphOf(this.followsNow(now)), player, [opponents, members]).flatMap((address) => communityProfile(address, now) ?? []);
+    return suggestFollows(graphOf(this.followsNow(now)), player, [guildmates, opponents, members]).flatMap((address) => communityProfile(address, now) ?? []);
   }
 
   /**
@@ -1118,6 +1125,132 @@ export class MockLedger {
           (stored, now) => ({ ...stored, seen: { ...stored.seen, [playerKey(player)]: now } }),
         ),
     };
+  }
+
+  // --- The guilds (#953, `guilds.ts`) -----------------------------------------------------------------------------------
+
+  /**
+   * Anyone's public profile, as the guilds show their members: a community player's (`community.ts`), else a device's player's
+   * from the ledger (their name, avatar, level, crowns, village), last seen when they last wrote to the guilds.
+   */
+  private personOf(world: guilds.GuildWorld, now: number): guilds.GuildPeople {
+    const cache = new Map<string, PublicProfile>();
+    return (address) => {
+      const k = addressKey(address);
+      let found = cache.get(k);
+      if (found) return found;
+      found = communityProfile(k, now) ?? undefined;
+      if (!found) {
+        const p = this.peek(k);
+        const crowns = p.pvp?.crowns ?? 0;
+        const layout = p.v2?.layout ?? [];
+        found = { address: k, name: p.name ?? null, look: p.avatar ? BigInt(p.avatar) : null, level: levelStatus(p.v2?.xp ?? 0).level, crowns, league: leagueIndex(crowns), score: layoutScore(layout), lastSeen: world.players[k]?.seenAt ?? 0 };
+      }
+      cache.set(k, found);
+      return found;
+    };
+  }
+
+  /** The guilds' world as stored, settled at the ledger's clock for a read (not stored: the next write settles it again). */
+  private guildRead<T>(read: (world: guilds.GuildWorld, people: guilds.GuildPeople, now: number) => T): T {
+    this.sync();
+    const now = this.second();
+    const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
+    const people = this.personOf(world, now);
+    guilds.settle(world, people, now);
+    return read(world, people, now);
+  }
+
+  /** One guild write under the lock: the world settled, the change applied and stored, or, refused, left as it was. */
+  private async guildWrite<T>(player: string, change: (w: guilds.GuildWrite) => T): Promise<T> {
+    await sleep(this.latency);
+    return this.lock(() => {
+      this.sync();
+      const now = this.second();
+      const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
+      const people = this.personOf(world, now);
+      const graph = graphOf(this.followsNow(now));
+      const w: guilds.GuildWrite = { world, people, now, player: addressKey(player), blocked: (a, b) => blockBetween(graph, a, b) !== null };
+      guilds.settle(world, people, now);
+      const result = change(w);
+      guilds.seen(w);
+      this.state = { ...this.state, guilds: world };
+      this.save();
+      return result;
+    });
+  }
+
+  async playerGuild(player: string): Promise<PlayerGuild> {
+    return this.guildRead((world, people, now) => guilds.playerGuildOf(world, people, now, player));
+  }
+  async guild(id: number, viewer: string | null): Promise<GuildView | null> {
+    return this.guildRead((world, people, now) => guilds.guildViewOf(world, people, now, id, viewer));
+  }
+  async guildOf(address: string): Promise<GuildBadge | null> {
+    return this.guildRead((world) => guilds.guildBadgeOf(world, address));
+  }
+  async searchGuilds(query: GuildQuery): Promise<GuildSummary[]> {
+    return this.guildRead((world, people, now) => guilds.searchGuildsOf(world, people, now, query));
+  }
+  async suggestedGuilds(player: string): Promise<GuildSummary[]> {
+    return this.guildRead((world, people, now) => guilds.suggestedGuildsOf(world, people, now, player));
+  }
+  async guildRanking(): Promise<GuildSummary[]> {
+    return this.guildRead((world, people, now) => guilds.guildRankingOf(world, people, now));
+  }
+  createGuild(player: string, draft: GuildDraft): Promise<number> {
+    return this.guildWrite(player, (w) => guilds.createGuildIn(w, draft));
+  }
+  editGuild(player: string, settings: GuildSettings): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.editGuildIn(w, settings));
+  }
+  joinGuild(player: string, guild: number): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.joinGuildIn(w, guild));
+  }
+  requestToJoin(player: string, guild: number, message: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.requestToJoinIn(w, guild, message));
+  }
+  cancelRequest(player: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.cancelRequestIn(w));
+  }
+  answerRequest(player: string, applicant: string, accept: boolean): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.answerRequestIn(w, applicant, accept));
+  }
+  invite(player: string, target: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.inviteIn(w, target));
+  }
+  answerInvitation(player: string, guild: number, accept: boolean, leaving = false): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.answerInvitationIn(w, guild, accept, leaving));
+  }
+  kick(player: string, target: string, reason: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.kickIn(w, target, reason));
+  }
+  promote(player: string, target: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.promoteIn(w, target));
+  }
+  demote(player: string, target: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.demoteIn(w, target));
+  }
+  makeLeader(player: string, target: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.makeLeaderIn(w, target));
+  }
+  leaveGuild(player: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.leaveGuildIn(w));
+  }
+  postAnnouncement(player: string, text: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.postAnnouncementIn(w, text));
+  }
+  editAnnouncement(player: string, id: number, text: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.editAnnouncementIn(w, id, text));
+  }
+  deleteAnnouncement(player: string, id: number): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.editAnnouncementIn(w, id, null));
+  }
+  readAnnouncements(player: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.readAnnouncementsIn(w));
+  }
+  visitGuildTab(player: string): Promise<void> {
+    return this.guildWrite(player, (w) => guilds.visitGuildTabIn(w));
   }
 
   /** A rival village's name (the mock's opponents, PvP v1's and v2's) or a seeded player's (`players.ts`), or null for any other player. */

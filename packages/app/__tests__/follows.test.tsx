@@ -1,10 +1,12 @@
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FOLLOW_LIMIT, ONLINE_WINDOW_S, isOnline, playerKey } from "@paved/game-core";
+import type { GuildSource } from "../src/data/social-source";
 import { FollowRefusedError, useFollowActions, useFollowLists, useFollowStatus, useFollowSuggestions, type FollowSource, type SocialSource } from "../src/data/social";
 import { community } from "../src/data/mock/community";
 import { FOLLOW_BACK_MIN_S, followBackDelay, seededFollows } from "../src/data/mock/follows";
 import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
+import { seededGuildWorld } from "../src/data/mock/guilds";
 import { mockSocial } from "../src/data/mock/overlay";
 import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { freshV2, mockRivalsV2 } from "../src/data/mock/v2";
@@ -203,6 +205,22 @@ describe("the follow writes on the mock (#954)", () => {
     expect((await follows.suggestions(ME)).map((p) => playerKey(p.address))).not.toContain(playerKey(member.address));
   });
 
+  it("stop a guild's invitation across a block, either way (#953)", async () => {
+    const { follows, social, store } = mock();
+    const guilds = social as SocialSource & GuildSource;
+    await guilds.createGuild(ME, { name: "Stone Road", emblem: { icon: 1, primary: 2, secondary: 3 }, description: "We pave.", joinType: "open", requirements: { level: 0, crowns: 0 } });
+    const [blocked, blocker, free] = [SEEDED_PLAYERS[10]!, SEEDED_PLAYERS[11]!, SEEDED_PLAYERS[12]!].map((p) => p.address);
+    await follows.block(ME, blocked);
+    // A member's block of the player (the mock's members write nothing: added to the stored state).
+    const state = JSON.parse(store.getItem(MOCK_KEY)!);
+    state.follows.blocks.push({ blocker: playerKey(blocker), blocked: playerKey(ME), at: NOW });
+    store.setItem(MOCK_KEY, JSON.stringify(state));
+    for (const target of [blocked, blocker]) await expect(guilds.invite(ME, target)).rejects.toMatchObject({ name: "GuildRefusedError", reason: "blocked" });
+    await follows.unblock(ME, blocked);
+    await expect(guilds.invite(ME, blocked)).resolves.toBeUndefined();
+    await expect(guilds.invite(ME, free)).resolves.toBeUndefined();
+  });
+
   it("list the latest block first", async () => {
     const { clock, follows } = mock();
     await follows.block(ME, SEEDED_PLAYERS[0]!.address);
@@ -279,6 +297,19 @@ describe("the follow suggestions on the mock (#954)", () => {
     expect(suggested).not.toContain(playerKey(SEEDED_PLAYERS[0]!.address));
     expect(suggested).not.toContain(playerKey(ME));
     expect(suggested.length).toBe(10);
+  });
+
+  it("put the guild's members after the followers not followed back (#953)", async () => {
+    const { follows, social } = mock();
+    const guilds = social as SocialSource & GuildSource;
+    await guilds.createGuild(ME, { name: "Stone Road", emblem: { icon: 1, primary: 2, secondary: 3 }, description: "We pave.", joinType: "open", requirements: { level: 0, crowns: 0 } });
+    // A community player in no seeded guild.
+    const mate = community().find((m) => !seededGuildWorld().guilds.some((g) => g.members.some((x) => playerKey(x.address) === playerKey(m.address))))!.address;
+    // A community player joins: the guild's view lists them.
+    const view = await guilds.playerGuild(ME);
+    const id = view.guild!.id;
+    await expect(guilds.joinGuild(mate, id)).resolves.toBeUndefined();
+    expect((await follows.suggestions(ME)).map((p) => playerKey(p.address))[0]).toBe(playerKey(mate));
   });
 
   it("leave out a blocked player", async () => {

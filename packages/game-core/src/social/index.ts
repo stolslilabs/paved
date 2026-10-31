@@ -1,6 +1,6 @@
 // The social rules (#952, #957), pure: what the mock enforces today, so that a contract or a service can mirror them later
-// (#956). The base (#952): the player search and who shows as online. The follows, friends and blocks (#954). The guilds
-// (#953) and the messages (#955) add theirs here.
+// (#956). The base (#952): the player search and who shows as online. The guilds (#953), and the follows, friends and blocks
+// (#954). The messages (#955) add theirs here.
 
 export { ONLINE_WINDOW_S, byPresence, isOnline } from "./presence";
 export { SEARCH_LIMIT, nameMatches, normalQuery, parsePlayerId, searchPlayers, wordStarts } from "./search";
@@ -32,3 +32,67 @@ export {
   unfollowPlayer,
 } from "./follow";
 export type { Block, BlockRefusal, Check, Follow, FollowGraph, FollowRefusal, GraphWrite } from "./follow";
+export {
+  GUILD_ANNOUNCEMENTS_KEPT,
+  GUILD_ANNOUNCEMENT_MAX,
+  GUILD_DESCRIPTION_MAX,
+  GUILD_EMBLEM_COLOURS,
+  GUILD_EMBLEM_ICONS,
+  GUILD_INVITE_TTL_S,
+  GUILD_JOIN_TYPES,
+  GUILD_KICK_COOLDOWN_S,
+  GUILD_KICK_REASON_MAX,
+  GUILD_LEADER_IDLE_S,
+  GUILD_LIST_LIMIT,
+  GUILD_LOG_KEPT,
+  GUILD_MAX_CROWNS_REQUIRED,
+  GUILD_MAX_MEMBERS,
+  GUILD_NAME_MAX,
+  GUILD_NAME_MIN,
+  GUILD_RANK,
+  GUILD_REQUEST_MESSAGE_MAX,
+  acceptInvitationRefusal,
+  acceptRequestRefusal,
+  announcementTextRefusal,
+  cancelRequestRefusal,
+  createGuildRefusal,
+  declineRequestRefusal,
+  demoteRefusal,
+  editAnnouncementRefusal,
+  editSettingsRefusal,
+  filterGuilds,
+  guildFull,
+  guildNameKey,
+  guildNameRefusal,
+  guildScore,
+  guildSettingsInvalid,
+  guildTag,
+  invitationOpen,
+  inviteRefusal,
+  isGuildRank,
+  joinRefusal,
+  keepAnnouncements,
+  keepLog,
+  kickRefusal,
+  leaveDisbands,
+  leaveRefusal,
+  makeLeaderRefusal,
+  mayApply,
+  nextKickAt,
+  normalGuildName,
+  parseGuildTag,
+  postAnnouncementRefusal,
+  promoteRefusal,
+  rankGuilds,
+  ranksAbove,
+  requestRefusal,
+  requirementsUnmet,
+  rotatedLeader,
+  searchGuilds,
+  sortGuildMembers,
+  suggestGuilds,
+  unreadAnnouncements,
+  validEmblem,
+  validRequirements,
+} from "./guild";
+export type { GuildActor, GuildCandidate, GuildDraft, GuildEmblem, GuildFilters, GuildJoinType, GuildListing, GuildOpening, GuildRank, GuildRefusal, GuildRequirements, GuildRosterEntry, GuildSettings } from "./guild";
