@@ -352,6 +352,11 @@ describe("PvP scenes (#647)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wood} />));
     expect(screen.getByRole("heading", { name: "Wood" })).toBeInTheDocument();
     cleanup();
+    // No attack yet (#917): Unranked's card, before Wood's.
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.unranked} />));
+    expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Unranked");
+    cleanup();
     // An open attack holds 20 crowns: the chain says Iron III (the whole count, 400) while showing 380.
     render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.bronze.season} now={PVP_LEAGUE.bronze.now} />));
     expect(screen.queryByRole("heading", { name: "Wood" })).toBeNull();
@@ -374,7 +379,7 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II:\s*\+20\s*Cobbles at the season's end$/);
     expect(screen.queryByTestId("season-attacks")).toBeNull();
     cleanup();
-    for (const wood of [PVP_LEAGUE.wood, PVP_LEAGUE.demoted]) {
+    for (const wood of [PVP_LEAGUE.unranked, PVP_LEAGUE.wood, PVP_LEAGUE.demoted]) {
       render(wrap(<PvpLeagueScene {...wood} attacks={1} />));
       expect(screen.getByTestId("season-reward")).toHaveTextContent("Reach Iron III to earn Cobbles at the season's end");
       expect(screen.queryByTestId("season-attacks")).toBeNull();
