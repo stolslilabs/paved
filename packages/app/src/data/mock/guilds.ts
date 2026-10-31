@@ -51,7 +51,7 @@ import {
   type PlayerGuild,
   type PublicProfile,
 } from "../social-source";
-import { community, communityMember } from "./community";
+import { community, communityMember, lastSeenOf } from "./community";
 import { SEEDED_FROM_DAY } from "./players";
 
 // The mock's guilds (#953): the guild world of the device, kept in the ledger's state (`StoredState.guilds`), on game-core's
@@ -120,9 +120,13 @@ export interface StoredGuild {
   seedRequestAt: number | null;
 }
 
-/** A device's player, as the guilds keep them: when they last read the announcements, visited the Guild tab, and played. */
+/** A device's player, as the guilds keep them: when they last read each guild's announcements, visited the Guild tab, and played. */
 export interface StoredGuildPlayer {
-  readAt?: number;
+  /**
+   * When they last read the announcements, by guild ID: a guild's own, so reading one guild's says nothing of another's after
+   * a move (IDs are never reused, `nextId`).
+   */
+  reads?: Record<string, number>;
   firstVisit?: number;
   /** The mock's invitation came (or was skipped: they were in a guild then). */
   invited?: boolean;
@@ -363,18 +367,20 @@ function nextDue(world: GuildWorld, people: GuildPeople, now: number): Due | nul
   return ready[0] ?? null;
 }
 
-/** When a member last played: a community player by the community's clock, a device's player by the world (the `active` one now). */
-function lastSeen(world: GuildWorld, people: GuildPeople, address: string, now: number, active: string | null): number {
-  if (address === active) return now;
-  if (isCommunity(address)) return people(address).lastSeen;
+/**
+ * When a member last played, as of `at`: a community player by the community's clock, a device's player by their last guild write
+ * (`seen`), as stored. Never by who reads: every read at one time, and the next write, then see the same leader.
+ */
+function lastSeen(world: GuildWorld, address: string, at: number): number {
+  if (isCommunity(address)) return lastSeenOf(address, at);
   return world.players[address]?.seenAt ?? 0;
 }
 
 /**
  * Applies to `world`, in place, what the community does by `now` (in time order), lapses the old invitations, and the
- * leader's rotation. `active`: the player reading or writing, seen now.
+ * leader's rotation. A function of the stored world and `now` alone: a read settles a copy, a write settles before its check.
  */
-export function settle(world: GuildWorld, people: GuildPeople, now: number, active: string | null = null): GuildWorld {
+export function settle(world: GuildWorld, people: GuildPeople, now: number): GuildWorld {
   for (let n = 0; n < 1_000; n++) {
     const due = nextDue(world, people, now);
     if (!due) break;
@@ -382,12 +388,15 @@ export function settle(world: GuildWorld, people: GuildPeople, now: number, acti
   }
   for (const g of world.guilds) {
     g.invitations = g.invitations.filter((i) => invitationOpen(i.sentAt, now));
-    const roster = g.members.map((m) => ({ ...m, crowns: 0, lastSeen: lastSeen(world, people, m.address, now, active) }));
-    const next = rotatedLeader(roster, now);
-    if (next) {
+    // The rotation, judged when it came due (the leader's 35th idle day) and not when it is read: every read from then on, and
+    // the next write (which settles before its own check), see the same leader. A new leader idle too passes it on in turn.
+    for (let turn = 0; turn < g.members.length; turn++) {
       const old = leaderOf(g);
-      // Logged when it came due (the leader's 35th idle day), so a read and the next write agree.
-      const at = roster.find((m) => m.address === old.address)!.lastSeen + GUILD_LEADER_IDLE_S;
+      const at = lastSeen(world, old.address, now) + GUILD_LEADER_IDLE_S;
+      if (at > now) break;
+      const roster = g.members.map((m) => ({ ...m, crowns: 0, lastSeen: Math.min(lastSeen(world, m.address, at), at) }));
+      const next = rotatedLeader(roster, at);
+      if (!next) break;
       old.rank = GUILD_RANK.officer;
       memberOf(g, next)!.rank = GUILD_RANK.leader;
       addLog(g, "leader", at, next, next);
@@ -443,7 +452,7 @@ export function playerGuildOf(world: GuildWorld, people: GuildPeople, now: numbe
   const invitations: GuildInvitation[] = world.guilds
     .flatMap((other) => other.invitations.filter((i) => i.address === address).map((i) => ({ guild: summaryOf(other, people, now), inviter: i.inviter, inviterName: nameOf(people, i.inviter), sentAt: i.sentAt, expiresAt: i.sentAt + GUILD_INVITE_TTL_S })))
     .sort((a, b) => b.sentAt - a.sentAt);
-  const unread = g ? unreadAnnouncements(g.announcements, address, world.players[address]?.readAt ?? 0) : 0;
+  const unread = g ? unreadAnnouncements(g.announcements, address, world.players[address]?.reads?.[g.id] ?? 0) : 0;
   const requests = guild?.requests?.length ?? 0;
   return { guild, request, invitations, unread, badge: invitations.length + unread + requests };
 }
@@ -619,9 +628,8 @@ export function postAnnouncementIn(w: GuildWrite, text: string): void {
   const { g, me } = mine(w);
   check(postAnnouncementRefusal(me.rank, text));
   g.announcements = keepAnnouncements([{ id: g.nextAnnouncement++, author: w.player, text: text.trim(), at: w.now, editedAt: null }, ...g.announcements]);
+  // The author's own never counts as unread (`unreadAnnouncements`): their reads stay as they were.
   addLog(g, "announcement", w.now, w.player);
-  // The author has read their own.
-  playerOf(w.world, w.player).readAt = Math.max(playerOf(w.world, w.player).readAt ?? 0, w.now);
 }
 
 export function editAnnouncementIn(w: GuildWrite, id: number, text: string | null): void {
@@ -633,8 +641,9 @@ export function editAnnouncementIn(w: GuildWrite, id: number, text: string | nul
 }
 
 export function readAnnouncementsIn(w: GuildWrite): void {
-  mine(w);
-  playerOf(w.world, w.player).readAt = w.now;
+  const { g } = mine(w);
+  const p = playerOf(w.world, w.player);
+  p.reads = { ...p.reads, [g.id]: w.now };
 }
 
 export function visitGuildTabIn(w: GuildWrite): void {

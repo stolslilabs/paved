@@ -1047,12 +1047,12 @@ export class MockLedger {
   }
 
   /** The guilds' world as stored, settled at the ledger's clock for a read (not stored: the next write settles it again). */
-  private guildRead<T>(active: string | null, read: (world: guilds.GuildWorld, people: guilds.GuildPeople, now: number) => T): T {
+  private guildRead<T>(read: (world: guilds.GuildWorld, people: guilds.GuildPeople, now: number) => T): T {
     this.sync();
     const now = this.second();
     const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
     const people = this.personOf(world, now);
-    guilds.settle(world, people, now, active === null ? null : addressKey(active));
+    guilds.settle(world, people, now);
     return read(world, people, now);
   }
 
@@ -1065,7 +1065,7 @@ export class MockLedger {
       const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
       const people = this.personOf(world, now);
       const w = { world, people, now, player: addressKey(player) };
-      guilds.settle(world, people, now, w.player);
+      guilds.settle(world, people, now);
       const result = change(w);
       guilds.seen(w);
       this.state = { ...this.state, guilds: world };
@@ -1075,22 +1075,22 @@ export class MockLedger {
   }
 
   async playerGuild(player: string): Promise<PlayerGuild> {
-    return this.guildRead(player, (world, people, now) => guilds.playerGuildOf(world, people, now, player));
+    return this.guildRead((world, people, now) => guilds.playerGuildOf(world, people, now, player));
   }
   async guild(id: number, viewer: string | null): Promise<GuildView | null> {
-    return this.guildRead(viewer, (world, people, now) => guilds.guildViewOf(world, people, now, id, viewer));
+    return this.guildRead((world, people, now) => guilds.guildViewOf(world, people, now, id, viewer));
   }
   async guildOf(address: string): Promise<GuildBadge | null> {
-    return this.guildRead(null, (world) => guilds.guildBadgeOf(world, address));
+    return this.guildRead((world) => guilds.guildBadgeOf(world, address));
   }
   async searchGuilds(query: GuildQuery): Promise<GuildSummary[]> {
-    return this.guildRead(null, (world, people, now) => guilds.searchGuildsOf(world, people, now, query));
+    return this.guildRead((world, people, now) => guilds.searchGuildsOf(world, people, now, query));
   }
   async suggestedGuilds(player: string): Promise<GuildSummary[]> {
-    return this.guildRead(player, (world, people, now) => guilds.suggestedGuildsOf(world, people, now, player));
+    return this.guildRead((world, people, now) => guilds.suggestedGuildsOf(world, people, now, player));
   }
   async guildRanking(): Promise<GuildSummary[]> {
-    return this.guildRead(null, (world, people, now) => guilds.guildRankingOf(world, people, now));
+    return this.guildRead((world, people, now) => guilds.guildRankingOf(world, people, now));
   }
   createGuild(player: string, draft: GuildDraft): Promise<number> {
     return this.guildWrite(player, (w) => guilds.createGuildIn(w, draft));

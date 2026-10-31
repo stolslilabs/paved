@@ -359,6 +359,75 @@ describe("ranks and kicks on the mock (#953)", () => {
   });
 });
 
+describe("the leader's rotation, whoever reads (#953)", () => {
+  it("shows every reader the same leader at one time, and the old leader acts as an Officer", async () => {
+    const { guilds, clock } = world();
+    const id = await guilds.createGuild(ME, draft());
+    await guilds.joinGuild(OTHER, id);
+    await guilds.promote(ME, OTHER);
+    // OTHER plays on day 34; ME stays away until day 35.
+    clock.now = T0 + 34 * 86_400;
+    await guilds.readAnnouncements(OTHER);
+    clock.now = T0 + GUILD_LEADER_IDLE_S;
+    const reads = async () => [(await guilds.guildOf(ME))!.rank, (await guilds.playerGuild(ME)).guild!.rank, (await guilds.guild(id, OTHER))!.rank, (await guilds.guild(id, null))!.roster.find((m) => m.profile.address === OTHER)!.rank];
+    expect(await reads()).toEqual([GUILD_RANK.officer, GUILD_RANK.officer, GUILD_RANK.leader, GUILD_RANK.leader]);
+    // The old leader's write is checked on the rotated guild: an Officer does not kick the Leader.
+    await expect(guilds.kick(ME, OTHER, "")).rejects.toEqual(refused("rank-not-above"));
+    await expect(guilds.promote(ME, OTHER)).rejects.toEqual(refused("rank"));
+    expect(await reads()).toEqual([GUILD_RANK.officer, GUILD_RANK.officer, GUILD_RANK.leader, GUILD_RANK.leader]);
+    // Later reads agree, the rotation logged once, when it came due.
+    clock.now += 5 * 86_400;
+    expect(await reads()).toEqual([GUILD_RANK.officer, GUILD_RANK.officer, GUILD_RANK.leader, GUILD_RANK.leader]);
+    const log = (await guilds.playerGuild(OTHER)).guild!.log!.filter((e) => e.kind === "leader");
+    expect(log.map((e) => [e.actor, e.at])).toEqual([[OTHER, T0 + GUILD_LEADER_IDLE_S]]);
+  });
+
+  it("names no successor when the others are idle too, and a read by the leader counts for nothing", async () => {
+    const { guilds, clock } = world();
+    const id = await guilds.createGuild(ME, draft());
+    await guilds.joinGuild(OTHER, id);
+    clock.now = T0 + GUILD_LEADER_IDLE_S - 1;
+    expect((await guilds.playerGuild(ME)).guild!.rank).toBe(GUILD_RANK.leader);
+    clock.now += 1;
+    // OTHER last played when they joined, at T0: idle as long as ME, so no one takes over.
+    expect((await guilds.playerGuild(ME)).guild!.rank).toBe(GUILD_RANK.leader);
+    // OTHER plays now: the leader's reads above did not count as playing, so the rotation is due at once.
+    await guilds.readAnnouncements(OTHER);
+    expect([(await guilds.guildOf(ME))!.rank, (await guilds.guildOf(OTHER))!.rank]).toEqual([GUILD_RANK.officer, GUILD_RANK.leader]);
+  });
+});
+
+describe("unread announcements, guild by guild (#953)", () => {
+  it("counts another guild's announcements unread after a move, whatever was read in the first", async () => {
+    const { guilds, clock } = world();
+    const first = await guilds.createGuild(ME, draft({ name: "First Road" }));
+    const second = await guilds.createGuild(OTHER, draft({ name: "Second Road" }));
+    await guilds.joinGuild("0xabc003", first);
+    clock.now = T0 + 10;
+    await guilds.postAnnouncement(OTHER, "Welcome to the second road.");
+    clock.now = T0 + 20;
+    await guilds.readAnnouncements("0xabc003");
+    await guilds.leaveGuild("0xabc003");
+    await guilds.joinGuild("0xabc003", second);
+    const mine = await guilds.playerGuild("0xabc003");
+    expect(mine.guild!.announcements!.map((a) => a.text)).toEqual(["Welcome to the second road."]);
+    expect(mine.unread).toBe(1);
+    expect(mine.badge).toBe(1);
+    // Back to the first guild: its reads were its own.
+    await guilds.readAnnouncements("0xabc003");
+    expect((await guilds.playerGuild("0xabc003")).unread).toBe(0);
+  });
+
+  it("keeps a poster's earlier unread announcements unread", async () => {
+    const { guilds, clock } = await guildOfFour();
+    await guilds.promote(ME, OTHER);
+    await guilds.postAnnouncement(OTHER, "From the officer.");
+    clock.now += 60;
+    await guilds.postAnnouncement(ME, "From the leader.");
+    expect((await guilds.playerGuild(ME)).unread).toBe(1);
+  });
+});
+
 describe("leaving on the mock (#953)", () => {
   it("lets a member leave, and the leader only after a transfer", async () => {
     const { guilds } = await guildOfFour();
