@@ -27,9 +27,13 @@ function to(path: string, request: Request) {
   return replace(withRef(path, new URL(request.url).search));
 }
 
-/** `/` is the entry of a first visit: it sends the visitor to the welcome. The flag is read here, at navigation. */
+/**
+ * `/` is the entry of a first visit: it sends the visitor to the welcome. The flag is read here, at navigation. The query goes
+ * along: a player's link (`?player=`, #952) opens their profile once the welcome is done.
+ */
 function homeLoader({ request }: LoaderFunctionArgs) {
-  return hasWelcomed() ? null : to("/welcome", request);
+  // The whole query, its `?ref=` with it (what `to` keeps).
+  return hasWelcomed() ? null : replace("/welcome" + new URL(request.url).search);
 }
 
 /** The welcome shows once: a returning visitor who opens it goes Home. */
@@ -111,7 +115,9 @@ export const routes: RouteObject[] = [
       { path: "economy", loader: ({ request }) => to("/vault", request) },
       // The ranks left the UI (#623), to come back as leagues: their old links land on Home.
       { path: "leaderboard/:day?", loader: ({ request }) => to("/", request) },
-      { path: "player/:id", loader: ({ request }) => to("/", request) },
+      // A player's link (#952): the home, with that player's public profile open over it (`PLAYER_PARAM`, `player-param.ts`; the
+      // literal here, so that the module stays out of the first load).
+      { path: "player/:id", loader: ({ request, params }) => to(`/?player=${encodeURIComponent(params.id!)}`, request) },
       // The own village is the home (#753): its old link lands there; a visit (`village/:player`) stays.
       { path: "village", loader: ({ request }) => to("/", request) },
       // The scripted tutorial gave way to Story mode (#546), whose first campaign teaches the rules.
