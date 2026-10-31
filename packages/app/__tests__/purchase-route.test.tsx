@@ -1738,8 +1738,9 @@ describe("VALUE-POLISH: the purchase-flow notes of #487", () => {
     localStorage.setItem(unknownPurchaseStorageKey(PLAYER, "game"), JSON.stringify(young));
     s.state.balanceFail = "node down";
     open("/play/challenge", s);
-    // Two Retry: the balance's own, and the check's beside the notice.
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2), { timeout: slow(3000) });
+    // Two Retry in the page: the balance's own, and the check's beside the notice. The header's balances fail on the same read
+    // and add their own Retry when they get there, before or after the page's: only the page's are counted.
+    await waitFor(() => expect(within(screen.getByRole("main")).getAllByRole("button", { name: "Retry" })).toHaveLength(2), { timeout: slow(3000) });
     expect(screen.getByText(/A purchase is waiting in your wallet/)).toBeInTheDocument();
     expect(screen.getByText(/Dismiss is offered once your wallet's 5 minutes have passed/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
