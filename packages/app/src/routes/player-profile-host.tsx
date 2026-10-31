@@ -16,8 +16,11 @@ export default function PlayerProfileHost() {
   const navigate = useNavigate();
   const location = useLocation();
   const id = params.get(PLAYER_PARAM);
-  const [shown, setShown] = useState<string | null>(id);
-  if (id !== null && id !== shown) setShown(id);
+  // The player shown (kept while the sheet slides out), and which opening it is: each opening, of the same player too, mounts
+  // the profile afresh, so its read and its clock are those of the moment it opens.
+  const [shown, setShown] = useState<{ id: string; opening: number; open: boolean } | null>(id === null ? null : { id, opening: 0, open: true });
+  if (id !== null && (shown === null || id !== shown.id || !shown.open)) setShown({ id, opening: (shown?.opening ?? 0) + 1, open: true });
+  if (id === null && shown?.open) setShown({ ...shown, open: false });
   const close = useCallback(() => {
     if ((location.state as PlayerSheetState | null)?.playerSheet) return void navigate(-1);
     setParams(
@@ -31,7 +34,7 @@ export default function PlayerProfileHost() {
   }, [location.state, navigate, setParams]);
   return shown === null ? null : (
     <Suspense fallback={null}>
-      <PlayerProfile playerId={id ?? shown} open={id !== null} onClose={close} />
+      <PlayerProfile key={shown.opening} playerId={shown.id} open={id !== null} onClose={close} />
     </Suspense>
   );
 }

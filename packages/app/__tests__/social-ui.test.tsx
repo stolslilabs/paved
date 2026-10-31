@@ -161,7 +161,7 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
               </main>
             ),
             // The home page's host of the public profile (#952), without the village.
-            children: c.children?.map((h) => (h.index ? { index: true, element: <PlayerProfileHost /> } : h)),
+            children: c.children?.map((h) => (h.index ? { ...h, element: <PlayerProfileHost /> } : h)),
           }
         : c,
     ),
@@ -218,6 +218,40 @@ describe("/player/:id on the mock (#952)", { timeout: slow(20_000) }, () => {
     open(`/player/${me}`);
     const dialog = (await screen.findByText("Your profile", {}, { timeout: slow(8000) })).closest<HTMLElement>("[role=dialog]")!;
     expect(within(dialog).queryByRole("button", { name: "Copy player ID" })).toBeNull();
+  });
+
+  it("keeps a player's link through a first visit's welcome, and opens the profile after it (Back as a guest)", async () => {
+    resetWelcomedForTests();
+    localStorage.removeItem("welcomed");
+    const seeded = SEEDED_PLAYERS[6]!;
+    const { router } = open(`/player/${seeded.address}`);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/welcome"), { timeout: slow(8000) });
+    expect(new URLSearchParams(router.state.location.search).get("player")).toBe(seeded.address);
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }, { timeout: slow(8000) }));
+    expect(await screen.findByRole("dialog", { name: seeded.name }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/");
+    expect(new URLSearchParams(router.state.location.search).get("player")).toBe(seeded.address);
+  });
+
+  it("reads the profile again at each opening, of the same player too", async () => {
+    const s = mockImplementation();
+    const profile = vi.spyOn(s.sources.social!, "profile");
+    const me = s.sources.signer!.address;
+    const wallet = fakeWallet({ address: me, restored: true });
+    wallet.connector.signer = () => s.sources.signer as GameSigner;
+    const router = createTestRouter("/", plainHome);
+    render(<App router={router} sources={s.sources} connector={wallet.load} />);
+    await screen.findByRole("heading", { level: 1, name: "Home" });
+    const seeded = SEEDED_PLAYERS[0]!;
+    await act(() => router.navigate(`/?player=${seeded.address}`));
+    await screen.findByRole("dialog", { name: seeded.name }, { timeout: slow(8000) });
+    const reads = profile.mock.calls.length;
+    expect(reads).toBeGreaterThan(0);
+    await act(() => router.navigate("/"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await act(() => router.navigate(`/?player=${seeded.address}`));
+    await screen.findByRole("dialog", { name: seeded.name }, { timeout: slow(8000) });
+    await waitFor(() => expect(profile.mock.calls.length).toBeGreaterThan(reads));
   });
 
   it("an opening from the app is undone by Back", async () => {
