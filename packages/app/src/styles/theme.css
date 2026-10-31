@@ -277,6 +277,21 @@
   --league-wood: var(--color-charcoal-400);
 }
 
+/* 3d'. The guilds' emblems (#953, `elements/guild-emblem.tsx`): a shield in a pair of these eight colours, by index (game-core's
+   `GUILD_EMBLEM_COLOURS`). Its icon is drawn in `--emblem-charge`, over a dark rim, so any pair reads. */
+:root {
+  --emblem-0: var(--color-gold-500);
+  --emblem-1: var(--color-ember-600);
+  --emblem-2: var(--color-meadow-700);
+  --emblem-3: var(--color-river-700);
+  --emblem-4: var(--color-charcoal-500);
+  --emblem-5: var(--color-river-900);
+  --emblem-6: var(--color-amber-600);
+  --emblem-7: var(--color-gold-800);
+  --emblem-charge: var(--color-charcoal-50);
+  --emblem-rim: var(--color-charcoal-950);
+}
+
 /* 3e. The tile stack (after Dorfromantik's): a tile's base as the renders draw it, a stone rim over earth; the pile, one
    layer per tile left, a row of grass over a row of earth (a look, not the tiles' own), its east sides in shade. The edge
    is the board's outline colour (`core/outlines.ts`). */

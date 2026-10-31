@@ -54,6 +54,7 @@ const PARTS: Record<GameIconName, ReliefLook> = {
   "treasure-chest": { tones: ["gold", "gold", "wood", "gold", "gold", "wood", "gold"] },
   trophy: { tones: ["gold"] },
   user: { tones: ["gold"] },
+  users: { tones: ["blue", "blue", "blue", "blue", "gold", "gold"] },
 };
 
 /** The outline's width in the icons' units (512 to the em): about 1.4 px outside the shape at 20 px, 3.4 at 48. */

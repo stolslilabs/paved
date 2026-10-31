@@ -1,4 +1,5 @@
 import type { PlayerSearchProps } from "../components/containers/player-search";
+import type { SocialSceneProps } from "../components/scenes/social-scene";
 import type { PublicProfileState } from "../components/containers/public-profile-sheet";
 import { communityProfile, searchCommunity } from "../data/mock/community";
 import { SEEDED_PLAYERS } from "../data/mock/players";
@@ -54,3 +55,18 @@ export const SEARCH = {
   /** WRAP360: the longest name and the largest figures in a result. */
   stress: { query: "stonemaster", results: [PUBLIC_PROFILE.stress, PUBLIC_PROFILE.noName] },
 } satisfies Record<string, PlayerSearchProps>;
+
+/** The Social page's states (#952): its tabs empty (#953 to #955 fill them), with and without what waits there, and the search's. */
+export const SOCIAL = {
+  guild: { tab: "guild", search: SEARCH.idle },
+  friends: { tab: "friends", search: SEARCH.idle },
+  chat: { tab: "chat", search: SEARCH.idle },
+  /** Counts on the three tabs, as #953 to #955 will give them. */
+  badges: { tab: "guild", search: SEARCH.idle, badges: { guild: 2, friends: 5, chat: 12 } },
+  /** The search open over the tabs: players found by name. */
+  searching: { tab: "friends", search: SEARCH.results },
+  /** No social source on the network: the search disabled, the tabs empty. */
+  unavailable: { tab: "guild", search: SEARCH.unavailable },
+  /** WRAP360: three-digit counts on every tab, the longest name in the results. */
+  stress: { tab: "chat", search: SEARCH.stress, badges: { guild: 999, friends: 999, chat: 999 } },
+} satisfies Record<string, SocialSceneProps>;

@@ -3,6 +3,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { offlineWorker } from "./vite/offline-worker.ts";
+import { preloadTrim } from "./vite/preload-trim.ts";
 import { rendererAssets } from "./vite/renderer-assets.ts";
 import { dataSourceOf } from "./src/data/source-of.ts";
 
@@ -25,7 +26,7 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const mock = dataSourceOf({ source: env.VITE_DATA_SOURCE, network: env.VITE_NETWORK || (command === "serve" ? "devnet" : "") }) === "mock";
   return {
-    plugins: [react(), tailwindcss(), rendererAssets(), ...(mock ? [mockWithoutStarknet(), offlineWorker()] : [])],
+    plugins: [react(), tailwindcss(), rendererAssets(), preloadTrim(), ...(mock ? [mockWithoutStarknet(), offlineWorker()] : [])],
     server: {
       port: 5174,
     },

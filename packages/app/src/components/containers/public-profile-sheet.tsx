@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { PublicProfile } from "../../data/social-source";
+import type { FollowStatus, PublicProfile } from "../../data/social-source";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
 import { useSidePanel } from "../../lib/side-panel";
 import { Button } from "../ui/button";
@@ -13,6 +13,7 @@ import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { Presence } from "../elements/presence";
 import { formatPoints } from "../elements/score";
+import { FollowMark } from "../elements/follow-mark";
 import { ShortAddress } from "../elements/short-address";
 
 /** What the sheet shows: the profile read, still read, no player of that ID, a failed read, or no social source on this network. */
@@ -38,6 +39,11 @@ export interface PublicProfileSheetProps {
   guild?: ReactNode;
   /** The actions of the social features (#953 to #955: Follow, Message, Invite, the rank actions), above Copy player ID. */
   actions?: ReactNode;
+  /**
+   * The follows (#954): the Friend or Follows you mark under the presence, and the counts of followers and following beside the
+   * level. Left out (no follow source, or still read): none shown.
+   */
+  follow?: Pick<FollowStatus, "followers" | "followed" | "followsYou" | "friend">;
 }
 
 /** The side panel from `desktop`; the bottom sheet under it. */
@@ -81,7 +87,7 @@ const HEADS: Record<Exclude<PublicProfileState["status"], "ready">, { title: str
  * online or last seen, the league's crest and crowns, the level and the village score; the guild line (#953) and the actions
  * (#953 to #955) where their issues give them, and Copy player ID.
  */
-export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onRetry, errorDetail, guild, actions }: PublicProfileSheetProps) {
+export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onRetry, errorDetail, guild, actions, follow }: PublicProfileSheetProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);
   const profile = state.status === "ready" ? state.profile : null;
   const head = state.status === "ready" ? null : HEADS[state.status];
@@ -95,7 +101,16 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
             <Skeleton aria-hidden className="size-24 rounded-full" />
           ) : null}
           <SheetTitle className="flex w-full min-w-0 justify-center">{profile ? <PlayerName name={profile.name} address={profile.address} className="text-lg" /> : head!.title}</SheetTitle>
-          <SheetDescription asChild={!!profile}>{profile ? <div className="flex justify-center"><Presence lastSeen={profile.lastSeen} now={now} /></div> : head!.line}</SheetDescription>
+          <SheetDescription asChild={!!profile}>
+            {profile ? (
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                <Presence lastSeen={profile.lastSeen} now={now} />
+                {follow && <FollowMark status={follow} />}
+              </div>
+            ) : (
+              head!.line
+            )}
+          </SheetDescription>
           {profile && (
             <div data-slot="profile-league" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
               <LeagueCrest league={LEAGUES[profile.league] ?? leagueOf(profile.crowns)} />
@@ -126,10 +141,16 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
 
         {profile && (
           <>
-            {guild && <div data-slot="profile-guild">{guild}</div>}
+            {guild && <div data-slot="profile-guild" className="empty:hidden">{guild}</div>}
             <dl className="grid grid-cols-2 gap-3">
               <Figure term="Level">{formatPoints(profile.level)}</Figure>
               <Figure term="Village score">{formatPoints(profile.score)}</Figure>
+              {follow && (
+                <>
+                  <Figure term="Followers">{formatPoints(follow.followers)}</Figure>
+                  <Figure term="Following">{formatPoints(follow.followed)}</Figure>
+                </>
+              )}
             </dl>
             <div data-slot="profile-actions" className="flex flex-col gap-2">
               {actions}
