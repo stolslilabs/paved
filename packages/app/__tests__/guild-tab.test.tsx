@@ -194,6 +194,7 @@ describe("/social's Guild tab on the mock (#953)", { timeout: slow(40_000) }, ()
     await act(() => router.navigate(`/social?player=${target.address}`));
     const profile = await screen.findByRole("dialog", { name: target.name }, T(8_000));
     await userEvent.click(await within(profile).findByRole("button", { name: "Invite to Gate Ward" }, T(5_000)));
+    await confirm(`Invite ${target.name} to Gate Ward?`, "Invite");
     expect(await within(profile).findByRole("button", { name: "Invited to Gate Ward" }, T(5_000))).toBeDisabled();
     await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
     await later(MOCK_INVITE_ANSWER_S + 1);

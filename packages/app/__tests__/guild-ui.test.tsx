@@ -198,6 +198,21 @@ describe("GuildFinder and GuildCard (#953)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("takes any whole number of crowns as a requirement, not only multiples of 50", async () => {
+    const onAction = vi.fn(async () => {});
+    render(wrap(<GuildFinder {...GUILD_FINDER.guildless} onAction={onAction} />));
+    await userEvent.click(button("Create a guild")!);
+    const sheet = await screen.findByRole("dialog", { name: "Create a guild" });
+    await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "Review Guild");
+    const crowns = within(sheet).getByRole("spinbutton", { name: "Minimum crowns" }) as HTMLInputElement;
+    await userEvent.clear(crowns);
+    await userEvent.type(crowns, "125");
+    expect(crowns.validity.valid).toBe(true);
+    expect(crowns.closest("form")!.checkValidity()).toBe(true);
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create the guild" }));
+    expect(onAction).toHaveBeenCalledWith({ type: "create", draft: expect.objectContaining({ requirements: { level: 0, crowns: 125 } }) });
+  });
+
   it("shows the invitations and the request, with their answers", async () => {
     const onAction = vi.fn(async () => {});
     const { unmount } = render(wrap(<GuildFinder {...GUILD_FINDER.invited} onAction={onAction} />));
@@ -261,6 +276,17 @@ describe("the profile's guild parts (#953)", () => {
     unmount();
     render(wrap(<GuildMemberActions {...GUILD_ACTIONS.invited} />));
     expect(button("Invited to The Quarrymen")).toBeDisabled();
+  });
+
+  it("invites only after confirming", async () => {
+    const onAction = vi.fn(async () => {});
+    render(wrap(<GuildMemberActions {...GUILD_ACTIONS.invite} onAction={onAction} />));
+    await userEvent.click(button("Invite to The Quarrymen")!);
+    const dialog = await screen.findByRole("dialog", { name: /^Invite .* to The Quarrymen\?$/ });
+    expect(onAction).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Invite" }));
+    expect(onAction).toHaveBeenCalledWith({ type: "invite" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("kicks with a reason, after confirming", async () => {

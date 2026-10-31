@@ -162,7 +162,7 @@ export function GuildFormSheet({ open, onOpenChange, mode, initial, onSubmit, pe
               </Field>
               <Field label="Minimum crowns">
                 {(id) => (
-                  <input id={id} type="number" inputMode="numeric" min={0} max={GUILD_MAX_CROWNS_REQUIRED} step={50} className={cn(FIELD, "numeric")} value={draft.requirements.crowns} onChange={(e) => set({ requirements: { ...draft.requirements, crowns: count(e.target.value, GUILD_MAX_CROWNS_REQUIRED) } })} />
+                  <input id={id} type="number" inputMode="numeric" min={0} max={GUILD_MAX_CROWNS_REQUIRED} className={cn(FIELD, "numeric")} value={draft.requirements.crowns} onChange={(e) => set({ requirements: { ...draft.requirements, crowns: count(e.target.value, GUILD_MAX_CROWNS_REQUIRED) } })} />
                 )}
               </Field>
             </div>

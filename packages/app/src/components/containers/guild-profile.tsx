@@ -74,11 +74,11 @@ const minutes = (s: number) => `${Math.max(1, Math.ceil(s / 60))} min`;
 
 /**
  * The guild actions on another player's profile (#953), only those the viewer's rank allows: Invite, for a player in no guild or
- * in another; Promote, Demote, Kick (with an optional reason) and Make leader, for a member of the viewer's guild. Each one
- * asks to confirm. An officer's kick waits 20 minutes after the last one: the button says how long.
+ * in another; Promote, Demote, Kick (with an optional reason) and Make leader, for a member of the viewer's guild. Each one,
+ * Invite included, asks to confirm. An officer's kick waits 20 minutes after the last one: the button says how long.
  */
 export function GuildMemberActions({ viewer, target, now, onAction }: GuildMemberActionsProps) {
-  const { run, ask, dialog, pending, error } = useGuildActions(onAction);
+  const { ask, dialog, pending, error } = useGuildActions(onAction);
   const who = target.name ?? "this player";
   const actor = { address: viewer.address, rank: viewer.rank };
   const same = target.guild === viewer.guild.id && target.rank !== null;
@@ -87,7 +87,7 @@ export function GuildMemberActions({ viewer, target, now, onAction }: GuildMembe
     const refused = inviteRefusal(viewer.rank, { id: viewer.guild.id, members: viewer.guild.members }, { guild: target.guild, blockedInviter: false, invited: target.invited });
     if (refused !== "rank")
       buttons.push(
-        <Button key="invite" variant="outline" disabled={refused !== null || pending} onClick={() => void run({ type: "invite" })}>
+        <Button key="invite" variant="outline" disabled={refused !== null || pending} onClick={() => ask({ title: `Invite ${who} to ${viewer.guild.name}?`, text: "The invitation waives the guild's requirements and lapses after 7 days.", confirm: "Invite" }, () => ({ type: "invite" }))}>
           <Icon name={refused === "invited-already" ? "check" : "plus"} size="xs" />
           {refused === "invited-already" ? `Invited to ${viewer.guild.name}` : `Invite to ${viewer.guild.name}`}
         </Button>,
