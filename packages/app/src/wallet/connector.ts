@@ -1,16 +1,13 @@
 import { Account, RpcProvider } from "starknet";
 import { createLocalKeyConnector, deployedBy, deployedBySelf, starknetAccount, type DeployLocalAccount, type KeyStorage, type LocalKey, type PavedClient, type WriteAccount } from "@paved/chain";
-import { chainClient, mockLedger } from "../data/chain-client";
-import { DATA_SOURCE } from "../data/data-source";
-import { mockConnector } from "../data/mock/overlay";
-import { mockKeyConnector } from "./mock-key";
+import { chainClient } from "../data/chain-client";
 import type { WalletConnector } from "./wallet";
 
 // The app's connector, loaded with its own chunk by `WalletProvider` (#918, phase A; docs/architecture/accounts.md): a Stark
 // key made on this device and kept in its `localStorage`, and the account of that key, deployed on its first write. On
 // devnet the deployer account the deployments use deploys it and pays its fees; elsewhere the account deploys itself. Every
-// write is signed by the key, with no session and no prompt. The key never leaves the device. On the data source `mock`, the
-// same key's account is the mock ledger's instead (`mock-key.ts`, #927): nothing is deployed and no node is read.
+// write is signed by the key, with no session and no prompt. The key never leaves the device. The data source `chain` only: on
+// `mock`, `WalletProvider` loads `mock-connector.ts` instead (#927), and neither this module nor starknet.js is fetched.
 
 /** A devnet account and its key: the deployer of the local accounts. */
 export interface Deployer {
@@ -36,16 +33,10 @@ export const BUILD_DEPLOYER: Deployer | null = DEVNET_BUILD
   : null;
 
 /**
- * The connector of this build: on the mock, the device's key with the ledger's account; else the deployment's (`chainClient`,
- * `BUILD_DEPLOYER`), which rejects when the deployment is not configured.
+ * The connector of this build: the deployment's (`chainClient`, `BUILD_DEPLOYER`), which rejects when the deployment is not
+ * configured.
  */
 export async function appConnector(): Promise<WalletConnector> {
-  // The data source `mock` (#549, #927): the device's key and the ledger's account (`mockKeyConnector`), deployed nowhere, no node
-  // read; the ledger's writes over it, and each account connected has its village founded and its name drawn with it.
-  if (DATA_SOURCE === "mock") {
-    const ledger = mockLedger();
-    return mockConnector(mockKeyConnector({ storage: window.localStorage, ledger, signer: (account) => chainClient().writer(account) }), ledger);
-  }
   return connectorFor(chainClient(), BUILD_DEPLOYER, window.localStorage);
 }
 

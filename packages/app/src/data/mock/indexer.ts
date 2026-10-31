@@ -242,6 +242,8 @@ export function mockIndexer(ledger: MockLedger): IndexerClient {
         .map((g) => ({ time: g.endTime, counts: achievementCounts(tallyOf(g.stored)) })),
       // A podium is credited once its day closed.
       ...podiums(key).map((d) => ({ time: (d + 1) * DAY_S, counts: { [TASK.podium]: 1 } })),
+      // First Stone: the tutorial's claim reports its task (`claimTutorial`).
+      ...[ledger.tutorialAt(key)].filter((t) => t !== null).map((time) => ({ time, counts: { [TASK.tutorialFinished]: 1 } })),
     ].sort((a, b) => a.time - b.time);
     const achievements = definitions().achievements.map((d) => {
       const tasks = d.tasks.map((t) => ({ taskId: t.taskId, total: t.total, ...progressOf(t, reports) }));
