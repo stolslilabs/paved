@@ -9,9 +9,11 @@ export function useVisualViewportHeight(): number | null {
   useEffect(() => {
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     if (!vv) return;
-    const update = () => setHeight(vv.height);
-    vv.addEventListener("resize", update);
-    return () => vv.removeEventListener("resize", update);
+    // The handler property, not a listener by name: the only one this page sets on the visual viewport.
+    vv.onresize = () => setHeight(vv.height);
+    return () => {
+      vv.onresize = null;
+    };
   }, []);
   return height;
 }
