@@ -39,7 +39,17 @@ const PAGES = {
   board: () => import("../src/routes/pages/board"),
   story: () => import("../src/routes/pages/story"),
   "story-board": () => import("../src/routes/pages/story-board"),
-  home: () => import("../src/routes/pages/home"),
+  // The home and the chunks it draws on every visit: its stage (the editor, the engine, the village's stage and its Camera
+  // button), the phone's bar, the League control and the season wheel. A file whose test ends before they are in left their
+  // imports running past the environment's teardown, an unhandled error that failed the run (wallet-claims.test, 1 run in 4).
+  home: () =>
+    Promise.all([
+      import("../src/routes/pages/home"),
+      import("../src/routes/home-stage"),
+      import("../src/components/containers/app-nav"),
+      import("../src/components/containers/league-control"),
+      import("../src/components/containers/board-season-wheel"),
+    ]),
   over: () => import("../src/routes/pages/over"),
   play: () => import("../src/routes/pages/play"),
   purchase: () => import("../src/routes/pages/purchase"),
