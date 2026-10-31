@@ -9,21 +9,14 @@ import { useSearchParams } from "react-router";
 // load. Its closing (`player-profile-host.tsx`), then the sheet and its reads (`player-profile-sheet.tsx`), are their own
 // chunks, fetched when a profile is first asked for.
 
-/** The search parameter that holds the player whose profile is open. */
-export const PLAYER_PARAM = "player";
-
-/** What an opening leaves in the history entry: Close then goes Back, so the entry before is not left twice. */
-export interface PlayerSheetState {
-  playerSheet?: true;
-}
-
 const Host = lazy(() => import("./player-profile-host"));
 
 /** The public profile of the URL's `?player=`, mounted once a profile is first asked for, so its chunks load only then. */
 export function PlayerProfileHost() {
   const [params] = useSearchParams();
   const [asked, setAsked] = useState(false);
-  if (!asked && params.has(PLAYER_PARAM)) setAsked(true);
+  // `PLAYER_PARAM` (`player-param.ts`), as a literal: that module stays out of the home's first load.
+  if (!asked && params.has("player")) setAsked(true);
   return asked ? (
     <Suspense fallback={null}>
       <Host />

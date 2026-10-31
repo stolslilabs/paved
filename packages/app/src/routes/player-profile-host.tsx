@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { PLAYER_PARAM, type PlayerSheetState } from "./player-profile";
+import { PLAYER_PARAM, type PlayerSheetState } from "./player-param";
 
 // The public profile's host (#952): which player the URL names and how the sheet closes. Its own small chunk, so the first load
 // carries no list of the sheet's modules; the sheet and its reads are the next chunk (`player-profile-sheet.tsx`).

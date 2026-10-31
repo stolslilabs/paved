@@ -1,6 +1,6 @@
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { isOnline, ONLINE_WINDOW_S } from "@paved/game-core";
+import { isOnline, ONLINE_WINDOW_S, wordStarts } from "@paved/game-core";
 import { usePlayerSearch, usePublicProfile, type SocialSource } from "../src/data/social";
 import { community, communityProfile, lastSeenOf, SEEN_SLOT_S, searchCommunity } from "../src/data/mock/community";
 import { MockLedger } from "../src/data/mock/ledger";
@@ -81,9 +81,11 @@ describe("the mock community (#952)", () => {
 
 describe("the player search on the mock (#952)", () => {
   it("finds a seeded player and a rival by name, from the start of a word, whatever the case", () => {
-    const seeded = SEEDED_PLAYERS[1]!; // BreezyThatcher66
-    expect(searchCommunity("thatch", NOW).map((p) => p.address)).toContain(seeded.address);
-    expect(searchCommunity("BREEZY", NOW).map((p) => p.address)).toContain(seeded.address);
+    const seeded = SEEDED_PLAYERS[1]!;
+    // Its second word's start, in small letters, and its first word in capitals ("bel" and "READY" for ReadyBell92).
+    const [, second] = wordStarts(seeded.name);
+    expect(searchCommunity(seeded.name.slice(second, second! + 3).toLowerCase(), NOW).map((p) => p.address)).toContain(seeded.address);
+    expect(searchCommunity(seeded.name.slice(0, second).toUpperCase(), NOW).map((p) => p.address)).toContain(seeded.address);
     const rival = mockRivalsV2().find((r) => r.name === "Old Tom Cobble")!;
     expect(searchCommunity("tom", NOW).map((p) => p.address)).toContain(rival.address);
     expect(searchCommunity("om cob", NOW)).toEqual([]);
@@ -141,7 +143,8 @@ describe("the social hooks (#952)", () => {
       let query = "";
       const { result, rerender } = renderData(() => usePlayerSearch(query, me), fakeSources({ social: source }).sources);
       expect(result.current.data).toEqual([]);
-      for (const typed of ["b", "br", "bre"]) {
+      const typing = SEEDED_PLAYERS[1]!.name.slice(0, 3).toLowerCase();
+      for (const typed of [typing.slice(0, 1), typing.slice(0, 2), typing]) {
         query = typed;
         rerender();
       }
@@ -149,9 +152,9 @@ describe("the social hooks (#952)", () => {
       await act(async () => void vi.advanceTimersByTime(250));
       await waitFor(() => expect(result.current.data).toBeDefined());
       expect(source.searchPlayers).toHaveBeenCalledTimes(1);
-      expect(source.searchPlayers).toHaveBeenCalledWith("bre");
-      // BreezyThatcher66 is the connected player: not among the results; the source did answer them.
-      await expect(source.searchPlayers("bre")).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ address: me })]));
+      expect(source.searchPlayers).toHaveBeenCalledWith(typing);
+      // The second seeded player is the connected player: not among the results; the source did answer them.
+      await expect(source.searchPlayers(typing)).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ address: me })]));
       expect(result.current.data!.some((p) => p.address === me)).toBe(false);
     } finally {
       vi.useRealTimers();

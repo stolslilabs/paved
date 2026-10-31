@@ -273,7 +273,7 @@ describe("the app's sources on the mock (#927)", () => {
     expect((await APP_SOURCES.indexer.head()).data).toMatchObject({ state: "ok", chainId: "mock" });
     await expect(APP_SOURCES.views.tutorialClaimed(account.address)).resolves.toBe(false);
     // The social source (#952): the ledger's community.
-    expect((await APP_SOURCES.social!.searchPlayers("0x7e3a0001")).map((p) => p.name)).toEqual(["ChillyNewt46"]);
+    expect((await APP_SOURCES.social!.searchPlayers("0x7e3a0001")).map((p) => p.address)).toEqual(["0x7e3a0001"]);
     await expect(APP_SOURCES.purchases!(connector.signer(account)).receipt("0x6d6f636b00000001")).resolves.toBe("succeeded");
     vi.doUnmock("../src/data/data-source");
     window.localStorage.clear();

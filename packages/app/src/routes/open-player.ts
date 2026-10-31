@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { PLAYER_PARAM, type PlayerSheetState } from "./player-profile";
+import { PLAYER_PARAM, type PlayerSheetState } from "./player-param";
 
 /** Opens a player's public profile (#952) over the current page: `?player=<id>`, a new history entry. */
 export function useOpenPlayer(): (address: string) => void {

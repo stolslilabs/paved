@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { TabFrame } from "../../components/containers/tab-frame";
 import type { MatchCardData } from "../../components/containers/match-list";
@@ -18,7 +18,6 @@ import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
 import { useOpenPlayer } from "../open-player";
-import { PlayerProfileHost } from "../player-profile";
 import { useSidePanel } from "../../lib/side-panel";
 import { DESKTOP_QUERY } from "../home-layout";
 
@@ -74,10 +73,17 @@ export default function Page() {
         {...matches}
       />
       {/* The rivals' profiles (#952), from the battle logs' cards; from `desktop` the home's host, under this panel, serves. */}
-      {!desktop && <PlayerProfileHost />}
+      {!desktop && (
+        <Suspense fallback={null}>
+          <PlayerProfileHost />
+        </Suspense>
+      )}
     </>
   );
 }
+
+/** The public profile's host (#952), loaded with the first league below `desktop`: the home's first load keeps it alone. */
+const PlayerProfileHost = lazy(() => import("../player-profile-host"));
 
 /** A match card's player: its address, and its name, level and avatar (a decimal look) where known. */
 const playerOf = (address: string, name: string | null = null, level = 0, look: string | null = null): PvpPlayer => ({ name, address, level, crowns: 0, look: look ? BigInt(look) : null });
