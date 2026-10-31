@@ -1,4 +1,4 @@
-import type { Cuboid } from "./avatar-boxes";
+import type { Cuboid } from "./avatar-cuboids";
 
 /**
  * AVATAR-LIVING (exploration, v5): the king's head as the target builds it, measured on the target rectified straight on (an

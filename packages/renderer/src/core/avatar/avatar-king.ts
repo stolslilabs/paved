@@ -20,6 +20,7 @@ import {
   SRGBColorSpace,
   WebGLRenderer,
   WebGLRenderTarget,
+  type WebGLRendererParameters,
   Vector3,
   type Material,
 } from "three";
@@ -27,15 +28,15 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-import { cuboidGeometry, type Cuboid } from "./avatar-boxes";
-import { HEAD } from "./avatar-model";
-import { bodyCuboids, C, families, headCuboids, headFaces, headPalette, KING_TRAITS, outfitTones, trackLimits, type TrackLimits, type Traits } from "./avatar-traits";
+import { cuboidGeometry, HEAD, type Cuboid } from "./avatar-cuboids";
+import { KING_TRAITS, traitsText, type Traits } from "./avatar-look";
+import { blend, EMOTE_S, envelope, emotePose, FROWN, Glances, GRIN, idle, OPEN, REST, type Emote, type Pose } from "./avatar-poses";
+import { bodyCuboids, C, families, headCuboids, headFaces, headPalette, outfitTones, trackLimits, type TrackLimits } from "./avatar-traits";
 
-export { KING_TRAITS, TRAIT_OPTIONS, traitsFrom, traitsText, type Traits } from "./avatar-traits";
-import { blend, EMOTE_S, envelope, emotePose, FROWN, Glances, GRIN, idle, OPEN, REST, type Emote, type Pose } from "./avatar-rig";
+export { EMOTES, type Emote } from "./avatar-poses";
 
 /**
- * AVATAR-LIVING (exploration, v4): the king as the Codex target builds him, measured on it: a head cube painted on its six faces
+ * The avatar (AVATAR-LIVING): the king as his render target builds him, measured on it: a head cube painted on its six faces
  * at 8 x 8 (its front: hair, thick brows, a white and a dark pixel an eye, the moustache over a light mouth, the beard), hair in
  * upright stepped blocks just proud of the skull, a crown of five points round a ruby set in a socket, chunky gold pauldrons, a
  * blue tunic with a strap over the shoulder and one across with a large buckle. The colours are the target's (sampled). Every
@@ -138,7 +139,7 @@ function painted(box: Cuboid, tones: readonly number[], salt: number, front?: (x
 }
 
 /** The tunic (8 x 12 x 4, z 2..6): the outfit's tiles, a square neckline of skin framed by a dark collar, the head's shade on top. */
-export function kingV4Tunic(tones = outfitTones(KING_TRAITS)): PaintedBox {
+export function kingTunic(tones = outfitTones(KING_TRAITS)): PaintedBox {
   return painted({ from: [0, -12, 2], size: [8, 12, 4], colour: 0xffffff, inflate: 0 }, tones.tunic, 1, (x, y) => {
     if (y <= 1 && x >= 3 && x <= 4) return tones.skin[(x + y) % 2];
     if ((y <= 2 && (x === 2 || x === 5)) || (y === 2 && x >= 3 && x <= 4)) return tones.collar;
@@ -153,7 +154,7 @@ const LEATHERS = [0x7a3f22, 0x86462a, 0x6e391e, 0x8e4f2b, 0x74401f];
  * The diagonal strap as the target draws it: a staircase of leather blocks from the viewer's right shoulder by the neck (u 6.9,
  * 1.2 down) to the left hip (u 1, 7.2 down), two blocks across, each its own tone; the ring buckle on it at u 4.5, 4.6 down.
  */
-export function kingV5Strap(): Cuboid[] {
+export function kingStrap(): Cuboid[] {
   const out: Cuboid[] = [];
   const steps = 7;
   for (let i = 0; i < steps; i++) {
@@ -306,31 +307,216 @@ export function aimHead({ root, pivots }: KingRig, view: KingView, yaw: number, 
 export function kingParts(traits: Traits = KING_TRAITS): Record<keyof typeof PIVOTS, Cuboid[]> {
   // The body from Codex's decomposition of the target (`avatar-king-body.ts`), but for what the target measures otherwise: the
   // tunic's tiles a unit (not two), the diagonal strap a staircase of blocks from the shoulder by the neck, the buckle higher.
-  return { head: headCuboids(traits), ...bodyCuboids(traits, kingV5Strap()) };
+  return { head: headCuboids(traits), ...bodyCuboids(traits, kingStrap()) };
 }
 
 /** The painted boxes, whose faces count in the checks too: the tunic (the torso's) and the head cube. */
 export const kingPaintedBoxes = (): { part: keyof typeof PIVOTS; box: Cuboid }[] => [
-  { part: "torso", box: kingV4Tunic().box },
+  { part: "torso", box: kingTunic().box },
   { part: "head", box: { from: [0, 0, 0], size: [HEAD, HEAD, HEAD], colour: 0xffffff, inflate: 0, name: "head-cube" } },
 ];
 
+/** A backdrop's image, loaded once a URL (the live busts and the stills share it); a failed one is asked again next time. */
+const backdrops = new Map<string, Promise<HTMLImageElement>>();
+function loadBackdrop(url: string): Promise<HTMLImageElement> {
+  let image = backdrops.get(url);
+  if (!image) {
+    image = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        backdrops.delete(url);
+        reject(new Error(`The avatar's backdrop did not load: ${url}`));
+      };
+      img.src = url;
+    });
+    backdrops.set(url, image);
+  }
+  return image;
+}
+
+/**
+ * The king's scene, the live bust's and the stills' alike: the lights, the rig on its turn, the camera as the view sets it, the
+ * blurred backdrop, and the bust's meshes for some traits (`build` replaces them).
+ */
+class KingStage {
+  readonly scene = new Scene();
+  // A perspective camera, as the target's: what is nearer (the crown's corner, a pauldron) is larger.
+  readonly camera = new PerspectiveCamera(30, 1, 5, 200);
+  readonly rig = makeRig();
+  /** The view (the calibration's, `KING_VIEW`). */
+  view: KingView = { ...KING_VIEW };
+  /** The eyelids over the eyes, shown for a blink. */
+  readonly lids = new Group();
+  /** The head cube's materials by the mouth they paint (none: the rest's). */
+  private readonly heads = new Map<number | undefined, MeshLambertMaterial[]>();
+  private headMesh: Mesh | null = null;
+  private shownMouth: number | undefined;
+  /** What the last build made, freed by the next build or `dispose`, and the meshes it put on the rig. */
+  private built: { dispose(): void }[] = [];
+  private placed: Mesh[] = [];
+  private backdrop: CanvasTexture | null = null;
+
+  constructor() {
+    // Light as the target's: bright and soft, a sky over a warm ground, a key from above at the camera's left, a cool fill.
+    // A warm ambient: the sides away from the key turn red-brown, as the target shades them.
+    this.scene.add(new HemisphereLight(0xffd2c2, 0xa0604c, 1.6));
+    // From the front right and above: the face and the tops lit, the head's left side (the viewer's) in the shade.
+    const key = new DirectionalLight(0xffffff, 2.7);
+    key.position.set(10, 14, 16);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
+    key.shadow.radius = 4;
+    key.shadow.blurSamples = 12;
+    key.shadow.intensity = 0.2;
+    key.shadow.bias = -0.0005;
+    key.shadow.normalBias = 0.04;
+    this.scene.add(key);
+    this.scene.add(this.rig.root);
+    this.rig.pivots.head.add(this.lids);
+    this.lids.visible = false;
+  }
+
+  /** Builds the bust for `traits`, in place of the last one. */
+  build(traits: Traits): void {
+    this.clear();
+    const own = <T extends { dispose(): void }>(item: T): T => (this.built.push(item), item);
+    const place = (part: keyof typeof PIVOTS, mesh: Mesh) => {
+      mesh.castShadow = mesh.receiveShadow = true;
+      this.rig.pivots[part].add(mesh);
+      this.placed.push(mesh);
+    };
+    const painted = (item: PaintedBox, part: keyof typeof PIVOTS) => {
+      const geometry = own(cuboidGeometry([item.box], PIVOTS[part]));
+      for (let f = 0; f < 6; f++) geometry.addGroup(f * 6, 6, f);
+      return geometry;
+    };
+    const material = own(blockMaterial());
+    const parts = kingParts(traits);
+    for (const part of ["torso", "armRight", "armLeft", "pauldronRight", "pauldronLeft"] as const) place(part, new Mesh(own(cuboidGeometry(parts[part], PIVOTS[part], PART_SALT[part])), material));
+    const tunic = kingTunic(outfitTones(traits));
+    place("torso", new Mesh(painted(tunic, "torso"), tunic.faces.map(({ tiles, width }) => own(Object.assign(blockMaterial(true), { map: own(paint(tiles, width)) })))));
+    place("head", new Mesh(own(cuboidGeometry(parts.head, PIVOTS.head, PART_SALT.head)), material));
+    const palette = headPalette(traits);
+    const faces = (mouth?: number) => headFaces(traits, mouth, undefined, palette).map((pixels) => own(Object.assign(blockMaterial(true), { map: own(paint(pixels)) })));
+    this.heads.set(undefined, faces());
+    for (const mouth of [GRIN, OPEN, FROWN]) this.heads.set(mouth, faces(mouth));
+    this.headMesh = new Mesh(painted({ box: kingPaintedBoxes()[1]!.box, faces: [] }, "head"), this.heads.get(undefined)!);
+    this.shownMouth = undefined;
+    place("head", this.headMesh);
+    // The eyelids over the eyes (texel rows 6 and 7: y 4..5), a hair in front of the face.
+    const lid = own(new MeshLambertMaterial({ color: new Color().setHex(families(traits).skin(C.skinShade), SRGBColorSpace) }));
+    for (const x of [2, 6]) {
+      const mesh = new Mesh(own(new PlaneGeometry(2.04, 1.29)), lid);
+      mesh.position.set(x - PIVOTS.head[0], 4.625 - PIVOTS.head[1], HEAD - PIVOTS.head[2] + 0.02);
+      this.lids.add(mesh);
+    }
+  }
+
+  /** Shows the mouth an emote paints (none: the rest's). */
+  setMouth(mouth: number | undefined): void {
+    if (mouth === this.shownMouth || !this.headMesh) return;
+    this.headMesh.material = this.heads.get(mouth) ?? this.heads.get(undefined)!;
+    this.shownMouth = mouth;
+  }
+
+  /** Sets the view: the bust's turn (`yaw` when the avatar fixes one), the camera's pitch, aim, distance and field, the head's size. */
+  setView(view: Partial<KingView>, yaw?: number): void {
+    this.view = { ...this.view, ...view };
+    const { pitch, target, distance, fov, head, stretch, pan } = this.view;
+    this.rig.root.rotation.y = yaw ?? this.view.yaw;
+    this.rig.pivots.head.scale.set(head, head * stretch, head);
+    this.camera.fov = fov;
+    // The depth range hugs the bust (it is within 25 units of its middle): the depth buffer's precision is spent there.
+    this.camera.near = Math.max(1, distance - 40);
+    this.camera.far = distance + 40;
+    this.camera.position.set(pan, target + Math.sin(pitch) * distance, Math.cos(pitch) * distance);
+    this.camera.lookAt(pan, target, 0);
+    this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld(true);
+    this.rig.root.updateMatrixWorld(true);
+  }
+
+  setAspect(aspect: number): void {
+    this.camera.aspect = aspect;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /** The backdrop behind the bust: `image` blurred by `blur` px at 512 px, drawn past its edges so the blur does not darken the rim. */
+  setBackdrop(image: CanvasImageSource, blur: number): void {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.filter = `blur(${blur}px)`;
+    ctx.drawImage(image, -16, -16, 544, 544);
+    this.backdrop?.dispose();
+    this.backdrop = new CanvasTexture(canvas);
+    this.backdrop.colorSpace = SRGBColorSpace;
+    this.scene.background = this.backdrop;
+  }
+
+  dispose(): void {
+    this.clear();
+    this.backdrop?.dispose();
+    this.backdrop = null;
+    this.scene.background = null;
+  }
+
+  private clear() {
+    for (const mesh of this.placed) mesh.removeFromParent();
+    for (const item of this.built) item.dispose();
+    this.placed = [];
+    this.built = [];
+    this.lids.clear();
+    this.heads.clear();
+    this.headMesh = null;
+  }
+}
+
+/** A renderer as the bust is drawn. */
+function kingRenderer(parameters: WebGLRendererParameters): WebGLRenderer {
+  const renderer = new WebGLRenderer({ antialias: true, ...parameters });
+  // No tone mapping: a lit face shows its own colour (the neutral curve took an offset off every channel and crushed the darks'
+  // blue, the hair and the beard turning orange-black).
+  renderer.toneMapping = NoToneMapping;
+  renderer.toneMappingExposure = 1;
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  // Variance shadows: smooth (three's PCF dithers its taps per pixel, which dotted the gold).
+  renderer.shadowMap.type = VSMShadowMap;
+  return renderer;
+}
+
+/** The passes: the scene multisampled first (the edges stay clean), then the ambient occlusion, then the output. */
+function kingComposer(renderer: WebGLRenderer, stage: KingStage): EffectComposer {
+  const composer = new EffectComposer(renderer, new WebGLRenderTarget(1, 1, { samples: 4, type: HalfFloatType }));
+  composer.addPass(new RenderPass(stage.scene, stage.camera));
+  const ao = new GTAOPass(stage.scene, stage.camera, 512, 512);
+  ao.updateGtaoMaterial({ radius: 1.4, distanceExponent: 1.4, thickness: 3, scale: 1.4, samples: 16 });
+  ao.blendIntensity = 0.45;
+  composer.addPass(ao);
+  composer.addPass(new OutputPass());
+  return composer;
+}
+
+/** Frees a composer and its passes' targets and materials (the composer's own `dispose` frees only its two targets). */
+function disposeComposer(composer: EffectComposer) {
+  for (const pass of composer.passes) pass.dispose();
+  composer.dispose();
+}
+
 export interface KingAvatarOptions {
-  /** The backdrop, blurred behind the bust (a CSS blur of `blur` px at the canvas's size). */
+  /** The backdrop's URL, blurred behind the bust (`blur` px at 512 px). */
   backdrop?: string;
   blur?: number;
   pixelRatio?: number;
   random?: () => number;
-  /** Tests and comparisons: the rest pose, no idle, no blink. */
+  /** The rest pose, no idle, no blink (a frame only when something changes, as under reduced motion). */
   still?: boolean;
-  /** The bust's turn in radians (a three-quarter view by default; 0 faces the camera). */
+  /** The bust's turn in radians (the view's three-quarter by default; 0 faces the camera). */
   yaw?: number;
-  /** Checks: the eyes kept shut (the lids shown). */
-  eyesShut?: boolean;
-  /** The eyes' white as painted (its rendered tone is checked against the target's). */
-  eyeWhite?: number;
-  /** Checks: the key's and the fill's intensities. */
-  light?: { key?: number; fill?: number };
   /**
    * The head follows the mouse's cursor (on by default): only where the device has one (`hover: hover` and `pointer: fine`, so
    * never on a touch screen) and never under reduced motion.
@@ -351,131 +537,110 @@ export const TRACK = {
   fadeRate: 4,
 };
 
-/** The king, v4: the rig's idle and emotes, a blink, the painted mouth an emote shows. */
+/**
+ * The living bust in a canvas filling `container`: its idle (a breath, a sway, glances), a blink, the emotes `play` asks, and on a
+ * desktop its head following the cursor. One WebGL context; a frame every animation frame while it moves and is on screen, and
+ * under reduced motion (or `still`) only when something changes. The canvas follows its container's size.
+ */
 export class KingAvatar {
   readonly canvas: HTMLCanvasElement;
   private readonly renderer: WebGLRenderer;
   private readonly composer: EffectComposer;
-  private readonly scene = new Scene();
-  // A perspective camera, as the target's: what is nearer (the crown's corner, a pauldron) is larger.
-  private readonly camera = new PerspectiveCamera(30, 1, 5, 200);
-  private readonly rig = makeRig();
-  private readonly root = this.rig.root;
-  private readonly pivots = this.rig.pivots;
-  private readonly heads = new Map<number | undefined, MeshLambertMaterial[]>();
-  private headMesh!: Mesh;
-  private readonly lids = new Group();
-  private readonly owned: { dispose(): void }[] = [];
+  private readonly stage = new KingStage();
   private readonly glances: Glances;
   private emote: { name: Emote; start: number } | null = null;
-  private shownMouth: number | undefined;
   private frame = 0;
   private readonly start = performance.now();
   private last = 0;
   private nextBlink = 3.5;
   private disposed = false;
+  private readonly motion: MediaQueryList | null;
+  private readonly resizer: ResizeObserver | null;
+  private readonly visibility: IntersectionObserver | null;
+  /** Whether the canvas is on screen: no frame is drawn off it. */
+  private shown = true;
 
   constructor(
     private readonly container: HTMLElement,
     private readonly options: KingAvatarOptions = {},
   ) {
+    const traits: Traits = { ...KING_TRAITS, ...options.traits };
     this.glances = new Glances(options.random ?? Math.random, 4.5);
-    this.limits = trackLimits({ ...KING_TRAITS, ...options.traits });
+    this.limits = trackLimits(traits);
     const media = (q: string) => typeof window.matchMedia === "function" && window.matchMedia(q).matches;
     this.tracksPointer = options.followPointer !== false && media("(hover: hover) and (pointer: fine)") && !media("(prefers-reduced-motion: reduce)");
-    this.motion = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
-    this.motion?.addEventListener("change", this.request);
     if (this.tracksPointer) {
       window.addEventListener("pointermove", this.onPointerMove, { passive: true });
       window.addEventListener("mouseout", this.onPointerOut);
       window.addEventListener("blur", this.onPointerGone);
     }
+    this.motion = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+    this.motion?.addEventListener("change", this.request);
     this.canvas = document.createElement("canvas");
     this.canvas.style.cssText = "display:block;width:100%;height:100%";
     container.appendChild(this.canvas);
-    this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true });
+    this.renderer = kingRenderer({ canvas: this.canvas });
     this.renderer.setPixelRatio(Math.min(2, options.pixelRatio ?? window.devicePixelRatio ?? 1));
-    // No tone mapping: a lit face shows its own colour (the neutral curve took an offset off every channel and crushed the
-    // darks' blue, the hair and the beard turning orange-black).
-    this.renderer.toneMapping = NoToneMapping;
-    this.renderer.toneMappingExposure = 1;
-    this.renderer.outputColorSpace = SRGBColorSpace;
-    this.renderer.shadowMap.enabled = true;
-    // Variance shadows: smooth (three's PCF dithers its taps per pixel, which dotted the gold).
-    this.renderer.shadowMap.type = VSMShadowMap;
-    if (options.backdrop) this.loadBackdrop(options.backdrop, options.blur ?? 3);
-    // Light as the target's: bright and soft, a sky over a warm ground, a key from above at the camera's left, a cool fill.
-    // A warm ambient: the sides away from the key turn red-brown, as the target shades them.
-    this.scene.add(new HemisphereLight(0xffd2c2, 0xa0604c, this.options.light?.fill ?? 1.6));
-    // From the front right and above, as in the target: the face and the crown's front lit, the head's left side in shade.
-    const key = new DirectionalLight(0xffffff, this.options.light?.key ?? 2.7);
-    // From the front right and above: the face and the tops lit, the head's left side (the viewer's) in the shade.
-    key.position.set(10, 14, 16);
-    key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
-    Object.assign(key.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
-    key.shadow.radius = 4;
-    key.shadow.blurSamples = 12;
-    key.shadow.intensity = 0.2;
-    key.shadow.bias = -0.0005;
-    key.shadow.normalBias = 0.04;
-    this.scene.add(key);
-    const fill = new DirectionalLight(0xe6eeff, 0.0);
-    fill.position.set(-12, 4, 6);
-    this.scene.add(fill);
-    this.scene.add(this.root);
-    this.root.rotation.y = options.yaw ?? 0.56;
-    this.build();
-    // Multisampled before the ambient occlusion: the edges stay clean.
-    const target = new WebGLRenderTarget(1, 1, { samples: 4, type: HalfFloatType });
-    this.composer = new EffectComposer(this.renderer, target);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    const ao = new GTAOPass(this.scene, this.camera, 512, 512);
-    ao.updateGtaoMaterial({ radius: 1.4, distanceExponent: 1.4, thickness: 3, scale: 1.4, samples: 16 });
-    ao.blendIntensity = 0.45;
-    this.composer.addPass(ao);
-    this.composer.addPass(new OutputPass());
-    // From a little above (the crown's and the pauldrons' tops in view, as in the target).
-    // Far enough for 26 units of height at the bust (the frame's), a little above it.
+    this.stage.build(traits);
+    this.composer = kingComposer(this.renderer, this.stage);
+    if (options.backdrop) {
+      loadBackdrop(options.backdrop).then(
+        (image) => {
+          if (this.disposed) return;
+          this.stage.setBackdrop(image, options.blur ?? 3);
+          this.request();
+        },
+        // No backdrop: the bust on the clear colour.
+        () => {},
+      );
+    }
     this.setView({});
+    this.resizer = typeof ResizeObserver === "function" ? new ResizeObserver(this.onResize) : null;
+    this.resizer?.observe(container);
+    this.visibility =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver((entries) => {
+            this.shown = entries.some((e) => e.isIntersecting);
+            this.request();
+          })
+        : null;
+    this.visibility?.observe(container);
     this.resize();
     this.request();
   }
 
-  /** The view: the bust's turn, the camera's pitch (negative: below, looking up), where it aims, its distance and its field. */
-  // Fitted to the target (`KING_VIEW`, above).
-  private view: KingView = { ...KING_VIEW };
-
-  /** Sets the view (the calibration's: see the exploration's report). */
-  setView(view: Partial<KingAvatar["view"]>): void {
-    this.view = { ...this.view, ...view };
+  /** Sets the view (`KING_VIEW` by default: the calibration's). */
+  setView(view: Partial<KingView>): void {
+    this.stage.setView(view, this.options.yaw);
     this.request();
-    const { yaw, pitch, target, distance, fov, head, stretch, pan } = this.view;
-    if (this.options.yaw === undefined) this.root.rotation.y = yaw;
-    this.pivots.head.scale.set(head, head * stretch, head);
-    this.camera.fov = fov;
-    // The depth range hugs the bust (it is within 25 units of its middle): the depth buffer's precision is spent there.
-    this.camera.near = Math.max(1, distance - 40);
-    this.camera.far = distance + 40;
-    this.camera.position.set(pan, target + Math.sin(pitch) * distance, Math.cos(pitch) * distance);
-    this.camera.lookAt(pan, target, 0);
-    this.camera.updateProjectionMatrix();
-    this.camera.updateMatrixWorld(true);
-    this.root.updateMatrixWorld(true);
   }
 
-  /** Checks: where a point of a part, in the model's units, falls on the canvas, in CSS px from its top left. */
+  /** Where a point of a part, in the model's units, falls on the canvas, in CSS px from its top left. */
   screenOf(part: keyof typeof PIVOTS, point: [number, number, number]): [number, number] {
-    this.root.updateMatrixWorld(true);
+    this.stage.rig.root.updateMatrixWorld(true);
     const P = PIVOTS[part];
-    const v = new Vector3(point[0] - P[0], point[1] - P[1], point[2] - P[2]).applyMatrix4(this.pivots[part].matrixWorld).project(this.camera);
+    const v = new Vector3(point[0] - P[0], point[1] - P[1], point[2] - P[2]).applyMatrix4(this.stage.rig.pivots[part].matrixWorld).project(this.stage.camera);
     const { clientWidth: w, clientHeight: h } = this.container;
     return [((v.x + 1) / 2) * w, ((1 - v.y) / 2) * h];
   }
 
+  /** Builds the bust for other traits (the creator's draft), in the same context. */
+  setTraits(traits: Partial<Traits>): void {
+    const all: Traits = { ...KING_TRAITS, ...traits };
+    this.stage.build(all);
+    this.limits = trackLimits(all);
+    this.request();
+  }
+
+  /** Blends an emote in over the idle (a new one replaces the one playing). */
   play(emote: Emote): void {
     this.emote = { name: emote, start: this.now() };
     this.request();
+  }
+
+  /** The tracking's state: its weight and the head's turn and tilt from the camera's axis (radians), and whether it runs at all. */
+  trackingState() {
+    return { ...this.track, active: this.tracksPointer };
   }
 
   dispose(): void {
@@ -486,104 +651,37 @@ export class KingAvatar {
     window.removeEventListener("pointermove", this.onPointerMove);
     window.removeEventListener("mouseout", this.onPointerOut);
     window.removeEventListener("blur", this.onPointerGone);
-    for (const item of this.owned) item.dispose();
-    for (const materials of this.heads.values()) for (const m of materials) (m.map?.dispose(), m.dispose());
-    this.composer.dispose();
+    this.resizer?.disconnect();
+    this.visibility?.disconnect();
+    this.stage.dispose();
+    disposeComposer(this.composer);
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.canvas.remove();
-  }
-
-  private loadBackdrop(url: string, blur: number) {
-    const image = new Image();
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 512;
-      const ctx = canvas.getContext("2d")!;
-      // Blurred past its edges: drawn larger so the blur does not darken the rim.
-      ctx.filter = `blur(${blur}px)`;
-      ctx.drawImage(image, -16, -16, 544, 544);
-      const texture = new CanvasTexture(canvas);
-      texture.colorSpace = SRGBColorSpace;
-      this.scene.background = texture;
-      this.owned.push(texture);
-      this.request();
-    };
-    image.src = url;
   }
 
   private now() {
     return (performance.now() - this.start) / 1000;
   }
 
-  private build() {
-    const material = blockMaterial();
-    this.owned.push(material);
-    const place = (part: keyof typeof PIVOTS, boxes: Cuboid[]) => {
-      const geometry = cuboidGeometry(boxes, PIVOTS[part], PART_SALT[part]);
-      this.owned.push(geometry);
-      const mesh = new Mesh(geometry, material);
-      mesh.castShadow = mesh.receiveShadow = true;
-      this.pivots[part].add(mesh);
-    };
-    const P = PIVOTS;
-    const traits: Traits = { ...KING_TRAITS, ...this.options.traits };
-    const parts = kingParts(traits);
-    for (const part of ["torso", "armRight", "armLeft", "pauldronRight", "pauldronLeft"] as const) place(part, parts[part]);
-    const placePainted = (part: keyof typeof PIVOTS, item: PaintedBox) => {
-      const geometry = cuboidGeometry([item.box], PIVOTS[part]);
-      for (let f = 0; f < 6; f++) geometry.addGroup(f * 6, 6, f);
-      this.owned.push(geometry);
-      const materials = item.faces.map(({ tiles, width }) => Object.assign(blockMaterial(true), { map: paint(tiles, width) }));
-      for (const m of materials) this.owned.push(m.map!, m);
-      const mesh = new Mesh(geometry, materials);
-      mesh.castShadow = mesh.receiveShadow = true;
-      this.pivots[part].add(mesh);
-    };
-    placePainted("torso", kingV4Tunic(outfitTones(traits)));
-    place("head", parts.head);
-    const palette = headPalette(traits);
-    const faces = (mouth?: number) => headFaces(traits, mouth, this.options.eyeWhite, palette).map((pixels) => Object.assign(blockMaterial(true), { map: paint(pixels) }));
-    this.heads.set(undefined, faces());
-    for (const mouth of [GRIN, OPEN, FROWN]) this.heads.set(mouth, faces(mouth));
-    const cube = cuboidGeometry([kingPaintedBoxes()[1]!.box], P.head);
-    for (let f = 0; f < 6; f++) cube.addGroup(f * 6, 6, f);
-    this.owned.push(cube);
-    this.headMesh = new Mesh(cube, this.heads.get(undefined)! as Material[]);
-    this.headMesh.castShadow = this.headMesh.receiveShadow = true;
-    this.pivots.head.add(this.headMesh);
-    // The eyelids over the eyes (texel rows 6 and 7: y 4..5), a hair in front of the face.
-    const lid = new MeshLambertMaterial({ color: new Color().setHex(families(traits).skin(C.skinShade), SRGBColorSpace) });
-    this.owned.push(lid);
-    for (const x of [2, 6]) {
-      const plane = new PlaneGeometry(2.04, 1.29);
-      this.owned.push(plane);
-      const mesh = new Mesh(plane, lid);
-      mesh.position.set(x - P.head[0], 4.625 - P.head[1], HEAD - P.head[2] + 0.02);
-      this.lids.add(mesh);
-    }
-    this.lids.visible = !!this.options.eyesShut;
-    this.pivots.head.add(this.lids);
-  }
+  private readonly onResize = () => {
+    this.resize();
+    this.request();
+  };
 
   private resize() {
     const { clientWidth: w, clientHeight: h } = this.container;
     if (w === 0 || h === 0) return;
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    this.stage.setAspect(w / h);
   }
 
-  /**
-   * The next frame, once. While still (the `still` option, or reduced motion) a frame is drawn only when something changes (the
-   * view, the backdrop, an emote asked, a hold, the motion setting); otherwise every frame, the idle being alive.
-   */
+  /** The next frame, once, while the canvas is on screen. */
   private readonly request = () => {
-    if (this.disposed || this.frame) return;
+    if (this.disposed || this.frame || !this.shown) return;
     this.frame = requestAnimationFrame(this.tick);
   };
-  private readonly motion: MediaQueryList | null;
 
   /** How far an emote has blended in (0 at rest, 1 in it): the rest pose's own offsets (the arms' spread) give way to it. */
   private emoteWeight = 0;
@@ -594,7 +692,7 @@ export class KingAvatar {
   private track = { weight: 0, yaw: 0, pitch: 0 };
   private readonly tracksPointer: boolean;
   /** The neck's limits for the traits (the head's turn from the shoulders', its tilt). */
-  private readonly limits: TrackLimits;
+  private limits: TrackLimits;
 
   private readonly onPointerMove = (event: PointerEvent) => {
     if (event.pointerType !== "mouse") return;
@@ -608,23 +706,7 @@ export class KingAvatar {
     if (!event.relatedTarget) this.pointer = null;
   };
 
-  /** Checks: the tracking's state (its weight and the head's turn and tilt from the camera's axis, radians). */
-  trackingState() {
-    return { ...this.track, active: this.tracksPointer };
-  }
-
-  /** Checks: an emote held at a moment (its pose in full, over the idle at rest), or none. */
-  private held: { emote: Emote; t: number } | null = null;
-  hold(emote: Emote | null, t = 0): void {
-    this.held = emote ? { emote, t } : null;
-    this.request();
-  }
-
   private pose(t: number, dt: number): Pose {
-    if (this.held) {
-      this.emoteWeight = 1;
-      return blend(idle(0), emotePose(this.held.emote, this.held.t), 1);
-    }
     let pose = idle(t);
     this.emoteWeight = 0;
     // The idle's glances give way to the cursor while the head follows it.
@@ -641,7 +723,6 @@ export class KingAvatar {
     }
     return pose;
   }
-
   /**
    * Turns the head to the cursor: its target from the cursor's offset to the head on screen (as if the cursor stood in a plane a
    * little in front of the screen: farther for a larger avatar), the camera's own angle taken off so a cursor on the head is met
@@ -655,7 +736,7 @@ export class KingAvatar {
     this.track.weight += ((active ? 1 : 0) - this.track.weight) * fade;
     if (this.track.weight < 0.001 && !active) return;
     // The head's resting turn and tilt from the camera's axis: the bust's turn, and the camera below looking up.
-    const restYaw = this.view.yaw + 0.02;
+    const restYaw = this.stage.view.yaw + 0.02;
     const restPitch = 0;
     let yaw = restYaw;
     let pitch = restPitch;
@@ -666,9 +747,9 @@ export class KingAvatar {
       const depth = 150 + 1.2 * rect.width;
       yaw = Math.atan2(this.pointer.x - (rect.left + hx), depth);
       // Looking straight at the viewer means tilting down by the camera's angle below the head.
-      pitch = -this.view.pitch + Math.atan2(this.pointer.y - (rect.top + hy), depth);
+      pitch = -this.stage.view.pitch + Math.atan2(this.pointer.y - (rect.top + hy), depth);
       // Within the neck's limits for the traits: the turn from the shoulders' own (the bust's turn and the torso's), the tilt.
-      const shoulders = this.view.yaw + this.view.torso;
+      const shoulders = this.stage.view.yaw + this.stage.view.torso;
       const L = this.limits;
       yaw = Math.min(shoulders + L.yaw, Math.max(shoulders - L.yaw, yaw));
       pitch = Math.min(L.pitchMax, Math.max(L.pitchMin, pitch));
@@ -679,8 +760,9 @@ export class KingAvatar {
     this.track.yaw += (yaw - this.track.yaw) * turn;
     this.track.pitch += (pitch - this.track.pitch) * turn;
     // In an emote the emote leads: the cursor keeps a fifth of its pull.
-    aimHead(this.rig, this.view, this.track.yaw, this.track.pitch, this.track.weight * (1 - 0.8 * this.emoteWeight));
+    aimHead(this.stage.rig, this.stage.view, this.track.yaw, this.track.pitch, this.track.weight * (1 - 0.8 * this.emoteWeight));
   }
+
 
   private readonly tick = () => {
     this.frame = 0;
@@ -689,20 +771,188 @@ export class KingAvatar {
     this.last = t;
     const reduced = !!this.options.still || !!this.motion?.matches;
     const pose = reduced ? REST : this.pose(t, dt);
-    poseRig(this.rig, pose, this.view, this.options.yaw === 0 ? 0 : 1, this.emoteWeight);
+    poseRig(this.stage.rig, pose, this.stage.view, this.options.yaw === 0 ? 0 : 1, this.emoteWeight);
     if (!reduced) this.followPointer(t, dt);
-    if (pose.mouth !== this.shownMouth) {
-      this.headMesh.material = (this.heads.get(pose.mouth) ?? this.heads.get(undefined))! as Material[];
-      this.shownMouth = pose.mouth;
-    }
+    this.stage.setMouth(pose.mouth);
     if (!reduced && t >= this.nextBlink) {
-      this.lids.visible = true;
+      this.stage.lids.visible = true;
       if (t >= this.nextBlink + 0.11) {
-        this.lids.visible = false;
+        this.stage.lids.visible = false;
         this.nextBlink = t + 2.5 + Math.random() * 3;
       }
     }
     this.composer.render();
     if (!reduced) this.request();
   };
+}
+
+/** Resolves in a task of its own: the renders asked at once run a task each, so a tap is never kept waiting behind a grid. */
+const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+export interface KingStillOptions {
+  /** The image's side in CSS px. */
+  size: number;
+  /** Device px per CSS px; the device's own by default, at most 3. */
+  pixelRatio?: number;
+}
+
+export interface KingStillStats {
+  /** Stills rendered, and asks answered from the cache. */
+  renders: number;
+  hits: number;
+  /** Contexts created (one at a time; released after `idleMs` without a render). */
+  contexts: number;
+  /** A render's milliseconds (building the bust, drawing it, reading it into an image): the last, the total, the worst. */
+  lastMs: number;
+  totalMs: number;
+  maxMs: number;
+  /** The cached images now. */
+  cached: number;
+}
+
+export interface KingStillsOptions {
+  /** The backdrop's URL, blurred behind every still (`blur` px at 512 px), as the live bust's. */
+  backdrop?: string;
+  blur?: number;
+  /** How long the context lives without a render before it is released. */
+  idleMs?: number;
+  /** How many images the cache keeps (the oldest asked goes first). */
+  maxEntries?: number;
+  /** Tests: the clock. */
+  now?: () => number;
+}
+
+/**
+ * The menus' avatars: each traits and size drawn once, as the live bust's first frame (its rest pose, its light, its backdrop),
+ * into an image (a PNG data URL) and kept. One WebGL context serves every render; it is created on the first and released once no
+ * render came for `idleMs`, so a page of avatars holds at most one context, and none at rest. Renders run one at a time, a task
+ * each.
+ */
+export class KingStills {
+  private renderer: WebGLRenderer | null = null;
+  private composer: EffectComposer | null = null;
+  private stage: KingStage | null = null;
+  private readonly cache = new Map<string, string>();
+  private readonly pending = new Map<string, Promise<string>>();
+  /** The renders asked, one after another. */
+  private queue: Promise<unknown> = Promise.resolve();
+  private idle: ReturnType<typeof setTimeout> | null = null;
+  private readonly stats_: KingStillStats = { renders: 0, hits: 0, contexts: 0, lastMs: 0, totalMs: 0, maxMs: 0, cached: 0 };
+  private readonly idleMs: number;
+  private readonly maxEntries: number;
+  private readonly now: () => number;
+
+  constructor(private readonly options: KingStillsOptions = {}) {
+    this.idleMs = options.idleMs ?? 2_000;
+    this.maxEntries = options.maxEntries ?? 256;
+    this.now = options.now ?? (() => performance.now());
+  }
+
+  /** The image's side in device px. */
+  static pixels({ size, pixelRatio }: KingStillOptions): number {
+    const ratio = pixelRatio ?? (typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
+    return Math.max(1, Math.round(size * Math.min(3, ratio)));
+  }
+
+  /** The image already rendered for these, if any (no render). */
+  peek(traits: Traits, options: KingStillOptions): string | undefined {
+    return this.cache.get(this.keyOf(traits, options));
+  }
+
+  /** The traits' image: from the cache, else rendered (once the backdrop is in, after the renders asked before) and kept. */
+  get(traits: Traits, options: KingStillOptions): Promise<string> {
+    const key = this.keyOf(traits, options);
+    const cached = this.cache.get(key);
+    if (cached !== undefined) {
+      this.stats_.hits++;
+      // The most recently asked goes last: the cache drops from the front.
+      this.cache.delete(key);
+      this.cache.set(key, cached);
+      return Promise.resolve(cached);
+    }
+    let pending = this.pending.get(key);
+    if (!pending) {
+      const backdrop = this.options.backdrop ? loadBackdrop(this.options.backdrop).catch(() => null) : Promise.resolve(null);
+      pending = this.queue
+        .then(nextTask)
+        .then(() => backdrop)
+        .then((image) => {
+          const url = this.render(traits, KingStills.pixels(options), image);
+          this.cache.set(key, url);
+          while (this.cache.size > this.maxEntries) this.cache.delete(this.cache.keys().next().value as string);
+          return url;
+        })
+        .finally(() => this.pending.delete(key));
+      this.queue = pending.catch(() => {});
+      this.pending.set(key, pending);
+    }
+    return pending;
+  }
+
+  stats(): KingStillStats {
+    return { ...this.stats_, cached: this.cache.size };
+  }
+
+  /** Whether a context is held now. */
+  get live(): boolean {
+    return this.renderer !== null;
+  }
+
+  /** Releases the context (the cache stays). */
+  release(): void {
+    if (this.idle) clearTimeout(this.idle);
+    this.idle = null;
+    if (!this.renderer) return;
+    this.stage?.dispose();
+    if (this.composer) disposeComposer(this.composer);
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.renderer = null;
+    this.composer = null;
+    this.stage = null;
+  }
+
+  /** Releases the context and forgets every image. */
+  dispose(): void {
+    this.release();
+    this.cache.clear();
+  }
+
+  private keyOf(traits: Traits, options: KingStillOptions): string {
+    return `${traitsText(traits) || "king"}:${KingStills.pixels(options)}`;
+  }
+
+  /** Draws the bust at rest for `traits` on a `px` square and reads it, in the same task (the drawing buffer is not kept). */
+  protected draw(traits: Traits, px: number, backdrop: CanvasImageSource | null): string {
+    if (!this.renderer) {
+      this.renderer = kingRenderer({ preserveDrawingBuffer: false });
+      this.renderer.setPixelRatio(1);
+      this.stage = new KingStage();
+      this.stage.setView({});
+      if (backdrop) this.stage.setBackdrop(backdrop, this.options.blur ?? 3);
+      this.composer = kingComposer(this.renderer, this.stage);
+      this.stats_.contexts++;
+    }
+    const stage = this.stage!;
+    this.renderer.setSize(px, px, false);
+    this.composer!.setSize(px, px);
+    stage.setAspect(1);
+    stage.build(traits);
+    poseRig(stage.rig, REST, stage.view, 1, 0);
+    this.composer!.render();
+    return this.renderer.domElement.toDataURL("image/png");
+  }
+
+  private render(traits: Traits, px: number, backdrop: CanvasImageSource | null): string {
+    const start = this.now();
+    const url = this.draw(traits, px, backdrop);
+    const ms = this.now() - start;
+    this.stats_.renders++;
+    this.stats_.lastMs = ms;
+    this.stats_.totalMs += ms;
+    this.stats_.maxMs = Math.max(this.stats_.maxMs, ms);
+    if (this.idle) clearTimeout(this.idle);
+    this.idle = setTimeout(() => this.release(), this.idleMs);
+    return url;
+  }
 }

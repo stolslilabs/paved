@@ -21,6 +21,10 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   512, 144 and 96 px. Generated with OpenAI's image model through the Codex CLI; the client's layers are in
   `packages/app/wheel-sources/` (`scripts/compress-wheel-art.ts`).
 
+- `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
+  The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
+  fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.
+
 The leagues' client shows them as images: the masters in `packages/app/league-sources/`, compressed into
 `packages/app/public/league-art/` by `scripts/compress-league-art.ts`. Each tier has a crest and an icon in four versions, a
 blank nameplate (the app writes the name in its `font-display`) and a square banner.

@@ -2,14 +2,15 @@ import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { AVATAR_PART_KEYS, decodeAvatar, encodeAvatar, seededRandom } from "@paved/renderer";
+import { TRAIT_PARTS, decodeTraits, encodeTraits, seededRandom } from "@paved/renderer";
+import { idsOfLook } from "../src/components/containers/avatar-types";
 import { App } from "../src/App";
 import { shortAddress } from "../src/components/elements/short-address";
 import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
 import { drawNewPlayer, welcomeNewPlayer } from "../src/data/mock/new-player";
 import { mockConnector } from "../src/data/mock/overlay";
 import { PLAYER_NAME } from "../src/lib/player-names";
-import { AVATAR_FREE_IDS, AVATAR_ITEMS, AVATAR_PARTS_IN_USE, ownedIds } from "../src/mocks/avatar";
+import { AVATAR_FREE, AVATAR_ITEMS, AVATAR_PARTS_IN_USE, ownedIds } from "../src/mocks/avatar";
 import { SETTINGS_KEY } from "../src/data/settings";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
@@ -30,10 +31,10 @@ const WAIT = { timeout: slow(8000) };
 
 const ledgerOn = (store = memoryStore()) => new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
 const catalogue = (owned: bigint[] = AVATAR_ITEMS.map(() => 0n)) => ({ parts: AVATAR_PARTS_IN_USE, items: AVATAR_ITEMS, owned });
-/** Whether every part of `look` is one of the free base set. */
-const allFree = (look: bigint) => AVATAR_PART_KEYS.every((part) => decodeAvatar(look)[part] < AVATAR_FREE_IDS);
+/** Whether every trait of `look` is one of its free options. */
+const allFree = (look: bigint) => TRAIT_PARTS.every((trait) => idsOfLook(look)[trait] < AVATAR_FREE[trait]);
 /** What an older account owns: the Crown (headwear 6) alone. */
-const OWNS_CROWN = AVATAR_PART_KEYS.map((key) => (key === "headwear" ? ownedIds(6) : 0n));
+const OWNS_WIZARD = TRAIT_PARTS.map((trait) => (trait === "headwear" ? ownedIds(4) : 0n));
 
 describe("drawNewPlayer (#926)", () => {
   it("draws a name of the generator's shape and a look of free items only, for a player who owns nothing", () => {
@@ -52,9 +53,9 @@ describe("drawNewPlayer (#926)", () => {
 
   it("draws among the owned items too, for an older account that bought some", () => {
     const random = seededRandom(3);
-    const drawn = new Set(Array.from({ length: 300 }, () => decodeAvatar(drawNewPlayer(catalogue(OWNS_CROWN), random).look).headwear));
-    expect(drawn.has(6)).toBe(true);
-    expect([...drawn].every((id) => id < AVATAR_FREE_IDS || id === 6)).toBe(true);
+    const drawn = new Set(Array.from({ length: 300 }, () => idsOfLook(drawNewPlayer(catalogue(OWNS_WIZARD), random).look).headwear));
+    expect(drawn.has(4)).toBe(true);
+    expect([...drawn].every((id) => id < AVATAR_FREE.headwear || id === 4)).toBe(true);
   });
 });
 
@@ -85,7 +86,7 @@ describe("MockLedger's name (#926)", () => {
 
   it("keeps a look saved before the name: an account made before #926 is named, its face unchanged", async () => {
     const ledger = ledgerOn();
-    const saved = encodeAvatar({ ...decodeAvatar(drawNewPlayer(catalogue(), seededRandom(5)).look), skin: 1 });
+    const saved = encodeTraits({ ...decodeTraits(drawNewPlayer(catalogue(), seededRandom(5)).look), skin: "pale" });
     await ledger.writesFor("0x5f1").setAvatar(saved);
     expect(await welcomeNewPlayer(ledger, "0x5f1", seededRandom(9))).toBe(true);
     expect(await ledger.name("0x5f1")).toMatch(PLAYER_NAME);
@@ -95,7 +96,7 @@ describe("MockLedger's name (#926)", () => {
   it("stores the look through set_avatar's checks: a paid item a new player does not own is refused, nothing stored", async () => {
     const store = memoryStore();
     const ledger = ledgerOn(store);
-    const paid = encodeAvatar({ ...decodeAvatar(drawNewPlayer(catalogue(), seededRandom(5)).look), headwear: 6 });
+    const paid = encodeTraits({ ...decodeTraits(drawNewPlayer(catalogue(), seededRandom(5)).look), headwear: "feathered" });
     await expect(ledger.nameAtConnection("0x5f1", () => ({ name: "MossyMason27", look: paid }))).rejects.toMatchObject({ reason: "not-owned" });
     expect(await ledger.name("0x5f1")).toBeNull();
     expect(store.getItem(MOCK_KEY)).toBeNull();
