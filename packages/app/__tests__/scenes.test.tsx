@@ -151,11 +151,25 @@ describe("Home (#753): the village with its overlays", () => {
     expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "chests", "play", "league", "settings"]);
   });
 
-  it("keeps Missions and Vault in the column below desktop, with no gear and no large Play; Edit and the dial above the bar (#763)", () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+  it("moves Missions and Vault to the left column below desktop, with no right column, no gear and no large Play; Edit and the dial above the bar (#763, #929)", async () => {
+    const onMissions = vi.fn();
+    const onVault = vi.fn();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onMissions={onMissions} onVault={onVault} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+    // The right column is `desktop`'s only (#929); its buttons show whatever its box does.
     const column = screen.getByRole("navigation", { name: "Village" });
-    const below = within(column).getAllByRole("button").filter((b) => !b.className.split(" ").includes("hidden"));
-    expect(below.map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault"]);
+    expect(column.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:flex"]));
+    for (const button of within(column).getAllByRole("button")) expect(button.className.split(" ")).not.toContain("hidden");
+    // Below it, Missions and Vault in the left column, one under the other and aligned left, with the right column's look.
+    const left = (await screen.findByRole("button", { name: /^League: / })).parentElement!;
+    const moved = within(left).getByRole("group", { name: "Village" });
+    expect(moved.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "items-start", "gap-3", "desktop:hidden"]));
+    expect(within(moved).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault"]);
+    await userEvent.click(within(moved).getByRole("button", { name: "Missions, 3 waiting" }));
+    await userEvent.click(within(moved).getByRole("button", { name: "Vault" }));
+    expect(onMissions).toHaveBeenCalledTimes(1);
+    expect(onVault).toHaveBeenCalledTimes(1);
+    // With no right column, the left one runs to the scene's edge below `desktop`, and clears the right column from it.
+    expect(left.className.split(" ")).toEqual(expect.arrayContaining(["right-2", "tablet:right-4", "desktop:right-24"]));
     const outside = (name: string) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
     // Settings above Play from `desktop` (#856): their stack is hidden below it.
     expect(outside("Settings").parentElement).toBe(outside("Play").parentElement);
@@ -165,12 +179,16 @@ describe("Home (#753): the village with its overlays", () => {
     expect(document.querySelector("[data-dial-place]")!.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
   });
 
-  it("HOME-OVERLAYS (#856): one 12 px gap for both columns, each centred in its band; no League in the right column; Settings above Play, Edit's size", async () => {
+  it("HOME-OVERLAYS (#856, #929): one 12 px gap for both columns, the right one centred in its band, the left one at its top; no League in the right column; Settings above Play, Edit's size", async () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.shielded} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
     await screen.findByRole("button", { name: /^League: / });
     const right = screen.getByRole("navigation", { name: "Village" });
     const left = screen.getByRole("button", { name: /^League: / }).parentElement!;
-    for (const column of [right, left]) expect(column.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "gap-3", "justify-center-safe"]));
+    for (const column of [right, left]) expect(column.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "gap-3"]));
+    expect(right.className.split(" ")).toContain("justify-center-safe");
+    // HOME-STACK (#929): the League control and the village score stacked at the top under the profile, at every width.
+    expect(left.className.split(" ")).toContain("justify-start");
+    expect(left.className.split(" ")).not.toContain("justify-center-safe");
     // Each column's band, measured off its neighbours (the browser's layout, the stories' captures): under the balances and above
     // Edit (Settings and Play) on the right, under the profile and above the season dial on the left.
     expect(right.className.split(" ")).toEqual(expect.arrayContaining(["top-(--right-top)", "bottom-(--right-bottom)"]));
@@ -179,9 +197,17 @@ describe("Home (#753): the village with its overlays", () => {
     // `ScrollRegion`'s box, its edge hint attached once the stage's chunk is in (the hint marks the axis that scrolls, none here).
     expect(left).toHaveAttribute("data-slot", "scroll-region");
     expect(left.className.split(" ")).toEqual(expect.arrayContaining(["scroll-hint", "overflow-y-auto", "overscroll-contain"]));
-    // The left column holds the League control, the shield's plate and the village score, in that order.
-    expect(within(left).getByRole("button", { name: /^League: / })).toBeInTheDocument();
-    expect(left.querySelector("[data-slot=village-score]")).not.toBeNull();
+    // The left column holds the League control, the shield's plate, the village score and (below `desktop`) Missions and Vault, in
+    // that order (#929's open point 2: before the chips).
+    await waitFor(() => expect(left.querySelector("[data-slot=shield-plate]")).not.toBeNull());
+    const order = [
+      left.querySelector("[data-slot=league-control]"),
+      left.querySelector("[data-slot=shield-plate]"),
+      left.querySelector("[data-slot=village-score]"),
+      within(left).getByRole("group", { name: "Village" }),
+    ];
+    for (const el of order) expect(el).not.toBeNull();
+    for (let i = 1; i < order.length; i++) expect(order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // From `desktop` no League in the right column (#856): only Missions, Chests, Shop and Vault, at any width.
     expect(within(right).queryByRole("button", { name: /^League/ })).toBeNull();
     // Settings above Play, right-aligned, the size of Edit (56 px, round); none at the top right any more.
