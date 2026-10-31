@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState, type ReactNode } from "react";
 import { fn } from "storybook/test";
 import { DAY_SHARE, WHEEL_SEASONS, WHEEL_STATES, initialWheelRound, nextWheelRound, type WheelRound } from "../../data/season-wheel";
-import { CENTRE_TURNS, SEASON_GLYPH, SeasonWheel, TIME_GLYPH, type CentreTurn } from "./season-wheel";
+import { CENTRE_TURNS, ICON_PX, SEASON_GLYPH, SUMMER_GLYPHS, SeasonWheel, TIME_GLYPH, type CentreTurn, type SummerGlyph } from "./season-wheel";
 import { WorldIcon } from "./world-icon";
 import { bothThemes } from "../../stories/both-themes";
 import { PHONE_320, VIEWPORT_OPTIONS } from "../scenes/viewports";
@@ -17,9 +17,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** A 414 px phone: the dial at 108 px. */
+const PHONE_414 = {
+  parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, phone414: { name: "Phone 414", styles: { width: "414px", height: "896px" }, type: "mobile" } } } },
+  globals: { viewport: { value: "phone414", isRotated: false } },
+};
+
+
 /**
  * Auto, a summer day (#909): three layers, the stones outside, the seasons' disc, the day and night disc at the centre. The red
- * needle at the top crosses summer's quarter and the centre's day half (the sun behind a cloud): "now". No auto mark.
+ * needle at the top crosses summer's quarter (its wheat sheaf) and the centre's day half (the sun): "now". No auto mark.
  */
 export const Auto: Story = {};
 /** Auto, a summer night: the needle still in summer's quarter, on the centre's night half (the moon and its stars). */
@@ -99,11 +106,7 @@ export const PlayedRoundAt144: Story = { render: () => <PlayedRound_ />, globals
 
 /** The dial's three sizes (#909's acceptance): 96 px under 390 px wide, 108 px on other phones, 144 px from tablet up. */
 export const At96: Story = { ...PHONE_320, args: { point: { season: "winter", position: 0.8 } } };
-export const At108: Story = {
-  args: { point: { season: "winter", position: 0.8 } },
-  parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, phone414: { name: "Phone 414", styles: { width: "414px", height: "896px" }, type: "mobile" } } } },
-  globals: { viewport: { value: "phone414", isRotated: false } },
-};
+export const At108: Story = { ...PHONE_414, args: { point: { season: "winter", position: 0.8 } } };
 export const At144: Story = { args: { point: { season: "winter", position: 0.8 } }, globals: { viewport: { value: "tablet", isRotated: false } } };
 
 /**
@@ -119,8 +122,8 @@ export const SeasonBlends: Story = {
 };
 
 /**
- * The centre disc's blends (#930): its dusk, then its dawn under the needle, the day's sky and the night's blending over 30°
- * through a warm horizon under a violet sky.
+ * The centre disc's blends (#930): its dusk, then its dawn under the needle, the day's sky and the night's blending over 60°
+ * (wider than #935's 30°, the owner's ask) through a warm horizon under a violet sky.
  */
 export const DuskAndDawn: Story = {
   render: () => (
@@ -131,10 +134,82 @@ export const DuskAndDawn: Story = {
   ),
 };
 
-/** The day (#930): clouds and birds about the sun behind a cloud, as the night has its stars; neither covers an icon. */
+/** The day (#930's follow-up): Font Awesome's Sun alone, in the game icons' relief, on the day's sky; no clouds or birds. */
 export const Day: Story = { args: { point: { season: "spring", position: 0.3 } } };
 /** The night: the moon and its twinkling stars. */
 export const Night: Story = { args: { point: { season: "spring", position: 0.8 } } };
+/** The centre disc's four moments: its day, its dusk, its night and its dawn under the needle (a summer, then autumn's dawn). */
+const MOMENTS = [
+  { name: "Day", point: { season: "summer", position: 0.3 } },
+  { name: "Dusk", point: { season: "summer", position: DAY_SHARE } },
+  { name: "Night", point: { season: "summer", position: 0.8 } },
+  { name: "Dawn", point: { season: "autumn", position: 0 } },
+] as const;
+
+function Moments_() {
+  return (
+    <div className="flex flex-wrap gap-4">
+      {MOMENTS.map((m) => (
+        <figure key={m.name} className="flex flex-col items-center gap-1">
+          <SeasonWheel state="auto" point={m.point} />
+          <figcaption className="text-xs text-muted-foreground">{m.name}</figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The centre disc at the dial's three sizes (#930's follow-up): by day the Sun alone, at dusk and at dawn the 60° blend, by night
+ * the moon and its stars. 96 px (a 320 px phone), 108 px (other phones) and 144 px (a tablet).
+ */
+export const DayNightAt96: Story = { ...PHONE_320, render: () => <Moments_ /> };
+export const DayNightAt108: Story = { ...PHONE_414, render: () => <Moments_ /> };
+export const DayNightAt144: Story = { render: () => <Moments_ />, globals: { viewport: { value: "tablet", isRotated: false } } };
+
+const SUMMER_NAMES: Record<SummerGlyph, string> = {
+  "wheat-awn": "Wheat sheaf (recommended)",
+  "fire-flame-curved": "Flame",
+  "umbrella-beach": "Beach umbrella",
+};
+
+function SummerCandidates_() {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-4">
+        {SUMMER_GLYPHS.map((glyph) => (
+          <figure key={glyph} className="flex max-w-36 flex-col items-center gap-1">
+            <SeasonWheel state="summer" summerGlyph={glyph} />
+            <figcaption className="text-center text-xs text-muted-foreground">{SUMMER_NAMES[glyph]}</figcaption>
+          </figure>
+        ))}
+      </div>
+      {/* Each candidate beside the day's sun, at the season icons' three sizes (14, 16 and 20 px). */}
+      <div className="flex flex-col gap-2">
+        {SUMMER_GLYPHS.map((glyph) => (
+          <div key={glyph} className="flex flex-wrap items-center gap-3">
+            {Object.values(ICON_PX).map((px) => (
+              <span key={px} className="flex items-center gap-1" style={{ fontSize: px }}>
+                <WorldIcon name={glyph} size="inherit" label={`${SUMMER_NAMES[glyph]}, ${px} px`} />
+                <WorldIcon name={TIME_GLYPH.day} size="inherit" label={`day, ${px} px`} />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Summer's icon candidates (#930's follow-up, the owner to pick), now that the Sun marks the day: a wheat sheaf (recommended and
+ * wired: the harvest, a village's summer, the leagues' sheaf already in this style), a flame, a beach umbrella. Each on a
+ * summer dial, then beside the day's sun at the season icons' three sizes.
+ */
+export const SummerCandidates: Story = { render: () => <SummerCandidates_ /> };
+export const SummerCandidatesAt96: Story = { ...PHONE_320, render: () => <SummerCandidates_ /> };
+export const SummerCandidatesAt144: Story = { render: () => <SummerCandidates_ />, globals: { viewport: { value: "tablet", isRotated: false } } };
+
 function RealSpeed_({ centreTurn }: { centreTurn: CentreTurn }) {
   const [at, setAt] = useState(0.55);
   // The game's speed: the board reads the cycle once a second, a season (a day and a night) in 120 s.
@@ -204,8 +279,8 @@ export const BothThemesDayAndNight: Story = {
 };
 
 /**
- * The wheel's marks side by side (#870's review): the four seasons' icons, then the centre disc's by day and by night. The day's
- * is a small sun behind a light cloud, not summer's lone gold sun, so summer and day are told apart at a glance.
+ * The wheel's marks side by side (#870's review): the four seasons' icons, then the centre disc's by day and by night. Summer's
+ * is a wheat sheaf (#930's follow-up), the day's the Sun, so the two are told apart at a glance.
  */
 export const Marks: Story = {
   render: () => (
