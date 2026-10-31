@@ -49,7 +49,7 @@ const TIME_ICON_SIZE = "text-[0.75rem] tablet:text-[1rem]";
 
 /**
  * The blends (issue 930): 20° across each season's start; 60° at dusk and at dawn, through the dusk tones (the owner's ask after
- * #935: wider than its 30°). The night's half is 135°: 75° of it stays a full night sky about the moon, 165° of the day's about the sun.
+ * PR 935: wider than its 30°). The night's half is 135°: 75° of it stays a full night sky about the moon, 165° of the day's about the sun.
  */
 export const SEASON_BLEND = 20;
 export const DUSK_BLEND = 60;
@@ -135,7 +135,7 @@ function sparkle(x: number, y: number, s: number): string {
 
 /**
  * The centre disc's stars (issue 930), about the moon, each twinkling: the day's half has only its sun (the owner's ask after
- * #935: its clouds and birds were too small to read).
+ * PR 935: its clouds and birds were too small to read).
  */
 export const STARS = (
   [
