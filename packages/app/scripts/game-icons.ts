@@ -40,10 +40,25 @@ export const GAME_ICON_NAMES = [
 ] as const;
 
 /**
- * The world's icons (#870): the four structure categories, then the season wheel's seasons and its day and night marks; the home's
- * Camera mode's camera (#875), whose button is a lazy chunk too.
+ * The world's icons (#870): the four structure categories, then the season wheel's seasons and its day and night marks (#930's
+ * follow-up: the Sun marks the day, summer takes a wheat sheaf, its flame and beach umbrella the candidates shown beside it until
+ * the owner picks); the home's Camera mode's camera (#875), whose button is a lazy chunk too.
  */
-export const WORLD_ICON_NAMES = ["tree", "road", "castle", "landmark-dome", "sun", "leaf", "snowflake", "seedling", "cloud-sun", "moon", "video"] as const;
+export const WORLD_ICON_NAMES = [
+  "tree",
+  "road",
+  "castle",
+  "landmark-dome",
+  "sun",
+  "wheat-awn",
+  "fire-flame-curved",
+  "umbrella-beach",
+  "leaf",
+  "snowflake",
+  "seedling",
+  "moon",
+  "video",
+] as const;
 
 export const WORLD_SHAPES_PATH = join(ROOT, "src/components/elements/world-icon-shapes.ts");
 
