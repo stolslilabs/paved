@@ -37,7 +37,8 @@ export interface ReliefLook {
  * point 2: the swords steel and gold, the trophy gold, the shield blue, the store wood). Consecutive parts of one
  * tone are drawn as one path, so a hole (the gear's, the shield's half) stays a hole. Parts drawn for Paved go `under` the icon
  * (the "+"'s button) or `over` it. The village's (issue 870): its tree green,
- * its house wood. The Chests' treasure chest (issue 873), in the gift's place: wood, its side bands and its lock gold.
+ * its house wood. The Chests' treasure chest (issue 873), in the gift's place: wood, its side bands and its lock gold. The profile
+ * badge's User (issue 928) gold, as the level's bar.
  */
 const PARTS: Record<GameIconName, ReliefLook> = {
   gear: { tones: ["stone"] },
@@ -52,6 +53,7 @@ const PARTS: Record<GameIconName, ReliefLook> = {
   swords: { tones: ["gold", "steel", "steel", "gold"] },
   "treasure-chest": { tones: ["gold", "gold", "wood", "gold", "gold", "wood", "gold"] },
   trophy: { tones: ["gold"] },
+  user: { tones: ["gold"] },
 };
 
 /** The outline's width in the icons' units (512 to the em): about 1.4 px outside the shape at 20 px, 3.4 at 48. */
