@@ -280,6 +280,39 @@ describe("the follow writes on the mock (#954)", () => {
     expect(state.request).toBeNull();
   });
 
+  it("never undo what the guilds did before a block, nor redo it on unblocking (#953)", async () => {
+    const { clock, follows, social } = mock();
+    const guilds = social as SocialSource & GuildSource;
+    await guilds.createGuild(ME, { name: "Stone Road", emblem: { icon: 1, primary: 2, secondary: 3 }, description: "We pave.", joinType: "open", requirements: { level: 0, crowns: 0 } });
+    const invitee = community().find((m) => !seededGuildWorld().guilds.some((g) => g.members.some((x) => playerKey(x.address) === playerKey(m.address))))!.address;
+    await guilds.invite(ME, invitee);
+    // Past the automatic answer, with no guild write since: the join is read, not stored yet.
+    clock.now += MOCK_INVITE_ANSWER_S + 5;
+    const roster = async () => (await guilds.playerGuild(ME)).guild!.roster.map((m) => playerKey(m.profile.address)).sort();
+    const both = [ME, invitee].map(playerKey).sort();
+    expect(await roster()).toEqual(both);
+    // Blocking the member they became leaves them a member (the block judges what comes after it).
+    await follows.block(ME, invitee);
+    expect(await roster()).toEqual(both);
+    clock.now += 60;
+    expect(await roster()).toEqual(both);
+    await follows.unblock(ME, invitee);
+    expect(await roster()).toEqual(both);
+    // The mock's invitation, received before a block of its leader.
+    const other = mock();
+    const otherGuilds = other.social as SocialSource & GuildSource;
+    const leader = seededGuildWorld().guilds.find((g) => g.name === "Iron Quay Wardens")!.members.find((m) => m.rank === GUILD_RANK.leader)!.address;
+    await otherGuilds.visitGuildTab(ME);
+    other.clock.now += MOCK_INVITATION_S + 1;
+    expect((await otherGuilds.playerGuild(ME)).invitations).toHaveLength(1);
+    await other.follows.block(ME, leader);
+    // Still pending when the block came: withdrawn, as the block ends the follows; unblocking brings it back no more.
+    expect((await otherGuilds.playerGuild(ME)).invitations).toEqual([]);
+    await other.follows.unblock(ME, leader);
+    other.clock.now += 3_600;
+    expect((await otherGuilds.playerGuild(ME)).invitations).toEqual([]);
+  });
+
   it("send the player's guild no seeded join request from a player a block stands between (#953)", async () => {
     const draft = { name: "Stone Road", emblem: { icon: 1, primary: 2, secondary: 3 }, description: "We pave.", joinType: "request" as const, requirements: { level: 0, crowns: 0 } };
     const askerOf = async (blockFirst: string | null) => {

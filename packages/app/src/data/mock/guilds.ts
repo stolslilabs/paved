@@ -395,6 +395,19 @@ function lastSeen(world: GuildWorld, address: string, at: number): number {
 }
 
 /**
+ * Withdraws, in place, the guild contact a block now stands between (#954): an invitation between its inviter and the invited
+ * player, and a join request between its sender and one of the guild's officers or its leader. The joins already made stay.
+ */
+export function dropBlocked(world: GuildWorld, blocked: GuildBlocks): GuildWorld {
+  for (const g of world.guilds) {
+    const officers = g.members.filter((m) => m.rank >= GUILD_RANK.officer).map((m) => m.address);
+    g.invitations = g.invitations.filter((i) => !blocked(i.inviter, i.address));
+    g.requests = g.requests.filter((r) => !officers.some((o) => blocked(o, r.address)));
+  }
+  return world;
+}
+
+/**
  * Applies to `world`, in place, what the community does by `now` (in time order), lapses the old invitations, and the
  * leader's rotation. A function of the stored world and `now` alone: a read settles a copy, a write settles before its check.
  */

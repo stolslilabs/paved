@@ -1104,7 +1104,15 @@ export class MockLedger {
       const drawn = new Set<Follow>(seededFollows());
       let next: StoredFollows = { ...stored, follows: w.graph.follows.filter((f) => !drawn.has(f)), blocks: [...w.graph.blocks] };
       if (after) next = after(next, now);
-      this.state = { ...this.state, follows: next };
+      // A block or an unblock judges what the guilds do from now on, never what they did before (#953): what came due until now
+      // is settled under the blocks as they stood, and stored, before the new ones apply. A new block also withdraws the
+      // invitations and requests still pending between the two players; the joins already made stay.
+      let guildWorld: guilds.GuildWorld | null = null;
+      if (w.graph.blocks !== stored.blocks) {
+        const after = graphOf(next);
+        guildWorld = guilds.dropBlocked(this.settledGuilds(now), (a, b) => blockBetween(after, a, b) !== null);
+      }
+      this.state = { ...this.state, follows: next, ...(guildWorld ? { guilds: guildWorld } : {}) };
       this.save();
     });
   }
@@ -1155,6 +1163,13 @@ export class MockLedger {
   private blocksAt(now: number): guilds.GuildBlocks {
     const graph = graphOf(this.followsNow(now));
     return (a, b) => blockBetween(graph, a, b) !== null;
+  }
+
+  /** The guilds' world as stored, settled at `now` under the blocks of the stored follows (a copy: the caller stores it or not). */
+  private settledGuilds(now: number): guilds.GuildWorld {
+    const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
+    guilds.settle(world, this.personOf(world, now), now, this.blocksAt(now));
+    return world;
   }
 
   /** The guilds' world as stored, settled at the ledger's clock for a read (not stored: the next write settles it again). */
