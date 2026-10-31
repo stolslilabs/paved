@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { BoardTile } from "@paved/chain";
 import { formatAgo, formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import type { PvpPlayer } from "../../lib/pvp-rules";
+import type { League, PvpPlayer } from "../../lib/pvp-rules";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -10,6 +10,7 @@ import { Skeleton } from "../ui/skeleton";
 import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
 import { ChestIcon } from "../elements/chest-icon";
 import { Crowns } from "../elements/crowns";
+import { LeagueCrest } from "../elements/league-crest";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
@@ -23,6 +24,8 @@ export interface MatchCardData {
   side: "attack" | "defence";
   /** The other player: the defender of an attack, the attacker of a defence. */
   rival: PvpPlayer;
+  /** The other player's league where the sources know it (#917): its crest beside their name. Left out (v1's rows): none. */
+  league?: League;
   /** The attacked village at the attack's start (the snapshot), in the board's coordinates; null where none is kept (v1). The match page draws it; the card shows its side's background (#834, #857). */
   village: readonly BoardTile[] | null;
   stars: number;
@@ -68,7 +71,7 @@ const matchLost = (m: Pick<MatchCardData, "crowns">): boolean => m.crowns < 0;
  * One match as a card (#786, reshaped by #834): the side's background behind (#857: a render of the game's own board, as the
  * Story campaigns' are, one for every attack and one for every defence), in colour when crowns were won and in grayscale when
  * they were lost, under a veil for the text; a stripe and a badge for Attack or Defence. The figures sit in the corners: the
- * other player's avatar and name top left, the crowns top right, an attack's XP bottom left and its chest bottom right; the
+ * other player's avatar and name top left (their league's crest by the badge, #917), the crowns top right, an attack's XP bottom left and its chest bottom right; the
  * stars, the score and how long ago in the middle. One height for every card (open point 3), 112 px (#857). The whole card
  * opens the match.
  */
@@ -96,10 +99,13 @@ export function MatchCard({ match: m, now, onOpen, renders }: { match: MatchCard
             <PlayerAvatar player={m.rival} look={m.rival.look} />
             <div className="flex min-w-0 flex-col items-start gap-0.5">
               <PlayerName name={m.rival.name} address={m.rival.address} className="max-w-full min-w-0 truncate font-semibold" />
-              <Badge variant={attack ? "info" : "warning"} className="[text-shadow:none]">
-                <Icon name={attack ? "swords" : "shield-halved"} size="xs" />
-                {attack ? "Attack" : "Defence"}
-              </Badge>
+              <span className="flex items-center gap-1.5">
+                <Badge variant={attack ? "info" : "warning"} className="[text-shadow:none]">
+                  <Icon name={attack ? "swords" : "shield-halved"} size="xs" />
+                  {attack ? "Attack" : "Defence"}
+                </Badge>
+                {m.league && <LeagueCrest league={m.league} size="sm" iconOnly />}
+              </span>
             </div>
           </div>
           <Crowns value={m.crowns} signed className="shrink-0 pt-1" />

@@ -69,10 +69,10 @@ describe("/: the PvP standing by the avatar (#755)", () => {
     expect(within(column).queryByRole("button", { name: /^Defence/ })).toBeNull();
   }, slow(30_000));
 
-  it("shows Wood with 0 crowns before any PvP, a tap to the league", async () => {
+  it("shows Unranked with 0 crowns before any PvP (#917), a tap to the league", async () => {
     const { router } = await open();
     await screen.findByRole("button", { name: "Edit village" }, WAIT);
-    fireEvent.click(await screen.findByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }, WAIT));
+    fireEvent.click(await screen.findByRole("button", { name: "League: Unranked, 0 crowns" }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/pvp/league"), WAIT);
   }, slow(30_000));
 });
