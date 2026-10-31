@@ -46,6 +46,15 @@ export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: stri
   14: { title: "High Roller III", description: "Finish still more Challenge games with a high score: the third tier of High Roller.", icon: "dice" },
   15: { title: "Settler IV", description: "Finish Challenge games: the fourth tier.", icon: "house-chimney" },
   16: { title: "Settler V", description: "Finish Challenge games: the fifth tier.", icon: "house-chimney" },
+  // The lifetime league missions (#917, task 23): each league reached once, in place of the first-time bonus of a season.
+  17: { title: "Iron League", description: "Reach the Iron league in PvP.", icon: "trophy" },
+  18: { title: "Bronze League", description: "Reach the Bronze league in PvP.", icon: "trophy" },
+  19: { title: "Silver League", description: "Reach the Silver league in PvP.", icon: "trophy" },
+  20: { title: "Gold League", description: "Reach the Gold league in PvP.", icon: "trophy" },
+  21: { title: "Emerald League", description: "Reach the Emerald league in PvP.", icon: "trophy" },
+  22: { title: "Diamond League", description: "Reach the Diamond league in PvP.", icon: "trophy" },
+  23: { title: "Master League", description: "Reach the Master league in PvP.", icon: "trophy" },
+  24: { title: "Grand Master", description: "Reach the Grand Master league in PvP.", icon: "trophy" },
 };
 
 /** What one unit of a task is, after its count ("2,710 / 3,000 points"), by task id. */
@@ -60,6 +69,7 @@ export const TASK_UNIT: Record<number, string> = {
   8: "podium places",
   9: "wins",
   10: "tutorial claimed",
+  23: "leagues reached",
 };
 
 export const questText = (id: number) => QUEST_TEXT[id] ?? { title: `Mission #${id}`, description: "", icon: "scroll" };
