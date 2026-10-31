@@ -8,7 +8,8 @@ import type { ProfileSheetProps, ProfileState } from "./profile-sheet";
 /** What the shell hands the menu screens' headers: who is connected and what the sheet's actions do. Absent (stories, tests): no avatar is drawn. */
 export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus">;
 
-const ProfileContext = createContext<ProfileValue | null>(null);
+/** The shell's profile, or null (stories, tests, the boards): also what `/player/:id` opens for the connected player's own ID (#952). */
+export const ProfileContext = createContext<ProfileValue | null>(null);
 export const ProfileProvider = ProfileContext.Provider;
 
 /** The profile sheet in its own chunk (#624): fetched on the first tap (or when the pointer comes near), not with the page. */
