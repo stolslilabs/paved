@@ -636,9 +636,10 @@ route.
 |---|---|
 | `data/mock/ledger.ts` | `MockLedger`: `MockedReads` (`CobbleViews`, `PackViews`, `SkinViews`, `VaultViews`, `spawnPaused`, `guardian`, `split`, `seller`, the balances) and `MockedWrites` (the claims, `buySkin`, `setSkins`, a pack's purchase, deposit, withdraw, withdraw all), with the contracts' checks, their typed refusals and their receipts' events; kept in `localStorage` (`paved.mock.v1`) |
 | `data/mock/overlay.ts` | the overlays: each wraps a chain path (`RpcGameViews`, `RpcEconomyViews`, the indexer client, the account's `PavedWriter`, its purchases and Vault writes) and answers only the missing entry points from the ledger |
+| `wallet/mock-key.ts` | the mock's wallet (#927): the device's key in `localStorage`, as the chain's connector keeps it (the same address for the same key), and its account the ledger's: no node is read and nothing is deployed. A write the mock does not answer yet is refused before sending (`MOCK_ACCOUNT_UNSENT`). Reset forgets the key and the ledger's account (`MockLedger.forget`) |
 
 Applied where the chain path is built: `chain-client.ts` (the game views), `economy-client.ts` (the economy's views and a
-pack's purchase), `vault-client.ts` (the Vault's writes), `wallet/connector.ts` (the claims and the skin writes) and
+pack's purchase), `vault-client.ts` (the Vault's writes), `wallet/connector.ts` (the mock's wallet, `mockKeyConnector`, and over it the claims and the skin writes) and
 `routes/sources.ts` (the indexer). The games, their tiles, the moves, a game's purchase, the settlement and the token
 balances stay the chain's; the mock adjusts the PAVED and USDC balances by its own moves (a player starts with 142.35 mock
 PAVED to try the Vault). The claims trust the indexer's progress, which the page shows. The free spawn is refused in plain

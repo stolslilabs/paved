@@ -1733,6 +1733,30 @@ export class MockLedger {
     });
   }
 
+  /**
+   * Forgets an account (#927, Settings' Reset on the mock): its record goes, with everything it held, and its Vault shares
+   * leave the Vault with their value, so the share's price stays as it was for the others. No latency: the wallet's own step,
+   * not a write the player sends. Resolves true when the ledger held the account.
+   */
+  async forget(account: string): Promise<boolean> {
+    return this.lock(() => {
+      this.sync();
+      const key = addressKey(account);
+      const player = this.state.players[key];
+      if (!player) return false;
+      const shares = BigInt(player.shares);
+      if (shares > 0n) {
+        const t = this.totals();
+        this.state.vault = { assets: (t.assets - this.toAssets(shares)).toString(), supply: (t.supply - shares).toString() };
+      }
+      const players = { ...this.state.players };
+      delete players[key];
+      this.state = { ...this.state, players };
+      this.save();
+      return true;
+    });
+  }
+
   /** Back to the mock's start: nothing claimed, bought or deposited. */
   reset(): Promise<void> {
     return this.lock(() => {
