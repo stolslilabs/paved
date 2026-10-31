@@ -37,8 +37,10 @@ export const NoUsername: Story = { args: { state: PROFILE.noUsername } };
 /** A new player on the mock (#926): the name and the look of free items drawn at their first connection, level 1, no games yet. */
 export const NewPlayer: Story = { args: { state: NEW_PLAYER_PROFILE, look: NEW_PLAYER.look, progress: PROGRESS.start } };
 /** A guest: the Training line and Connect. */
+/** The player's own counts of followers and following (#954). */
+export const Follows: Story = { args: { follows: { followers: 14, followed: 5 } } };
 export const Guest: Story = { args: { state: PROFILE.guest } };
 export const Connecting: Story = { args: { state: PROFILE.connecting } };
 export const Loading: Story = { args: { state: PROFILE.loading } };
 /** WRAP360: the longest name, the largest figures. */
-export const Stress: Story = { args: { state: PROFILE.stress, progress: { ...PROGRESS.stress, total: 123_456_789 } } };
+export const Stress: Story = { args: { state: PROFILE.stress, progress: { ...PROGRESS.stress, total: 123_456_789 }, follows: { followers: 1_234_567, followed: 500 } } };

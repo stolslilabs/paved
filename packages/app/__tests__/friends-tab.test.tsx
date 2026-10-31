@@ -189,4 +189,19 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
     expect((await screen.findAllByRole("button", { name: "Social, 1 waiting" }, T(8_000))).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: "Social" })).toHaveLength(0);
   });
+
+  it("shows the player's own counts of followers and following on their own profile", async () => {
+    const { router, me, other } = open();
+    await lists();
+    await userEvent.type(screen.getByRole("searchbox", { name: "Name or player ID" }), other.name);
+    const found = await screen.findByRole("list", { name: "Players found" }, T(8_000));
+    await userEvent.click(await within(found).findByRole("button", { name: `Follow ${other.name}` }, T(8_000)));
+    await count("Following", 1);
+    await act(() => router.navigate(`/social?player=${me}`));
+    const sheet = await screen.findByRole("dialog", undefined, T(8_000));
+    // Their own sheet (Disconnect, Edit avatar), not the public one.
+    expect(await within(sheet).findByRole("button", { name: "Disconnect" }, T(8_000))).toBeInTheDocument();
+    await waitFor(() => expect(within(sheet).getByText("Following").nextSibling).toHaveTextContent("1"), T(8_000));
+    expect(within(sheet).getByText("Followers").nextSibling).toHaveTextContent("0");
+  });
 });

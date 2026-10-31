@@ -1,6 +1,7 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
 import { useContext, useState } from "react";
 import { useGuildBadge } from "../../data/guilds";
+import { useFollowStatus } from "../../data/social";
 import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
 import { DataContext, type DataSources } from "../../data/sources";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
@@ -48,6 +49,8 @@ export interface ProfileSheetProps {
   league?: PlayerLeague | null;
   /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, League is not offered. */
   onOpenLeague?: () => void;
+  /** The player's counts of followers and following (#954), as given (a story); left out, read from the follow source. */
+  follows?: { followers: number; followed: number };
   /** Opens the guild's page (#953) from the guild line; the sheet closes first. */
   onOpenGuild?: (id: number) => void;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
@@ -81,6 +84,31 @@ function ReadGuild({ playerId, onOpen }: { playerId: string; onOpen: (id: number
   return badge ? <GuildLine badge={badge} onOpen={onOpen} /> : null;
 }
 
+/** One figure of the sheet: Games, Best, and the follow counts. */
+function Figure({ term, value }: { term: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3">
+      <dt className="text-xs text-muted-foreground">{term}</dt>
+      <dd className="numeric text-lg font-semibold wrap-anywhere">{value}</dd>
+    </div>
+  );
+}
+
+/** The player's own counts of followers and following (#954, on every profile), read from the follow source; none, nothing. */
+function ReadFollowCounts({ playerId }: { playerId: string }) {
+  const counts = useFollowStatus(playerId, playerId).data;
+  return counts ? <FollowCounts counts={counts} /> : null;
+}
+
+function FollowCounts({ counts }: { counts: { followers: number; followed: number } }) {
+  return (
+    <>
+      <Figure term="Followers" value={formatPoints(counts.followers)} />
+      <Figure term="Following" value={formatPoints(counts.followed)} />
+    </>
+  );
+}
+
 /** One of the level's XP figures on the sheet (#830). */
 function XpLine({ term, value }: { term: string; value: string }) {
   return (
@@ -99,7 +127,7 @@ const DESKTOP_QUERY = "(min-width: 64rem)";
  * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (the
  * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625), the XP made in it, the XP left and the whole XP (#830).
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, league, onOpenLeague, onOpenGuild, returnFocus }: ProfileSheetProps) {
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, league, onOpenLeague, onOpenGuild, follows, returnFocus }: ProfileSheetProps) {
   const sources = useContext(DataContext);
   const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
@@ -167,14 +195,9 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
               </dl>
             </div>
             <dl className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3">
-                <dt className="text-xs text-muted-foreground">Games</dt>
-                <dd className="numeric text-lg font-semibold wrap-anywhere">{formatPoints(connected.stats.challengeFinished)}</dd>
-              </div>
-              <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3">
-                <dt className="text-xs text-muted-foreground">Best</dt>
-                <dd className="numeric text-lg font-semibold wrap-anywhere">{formatPoints(connected.stats.bestScore)}</dd>
-              </div>
+              <Figure term="Games" value={formatPoints(connected.stats.challengeFinished)} />
+              <Figure term="Best" value={formatPoints(connected.stats.bestScore)} />
+              {follows ? <FollowCounts counts={follows} /> : sources && <ReadFollowCounts playerId={connected.player.playerId} />}
             </dl>
             {onOpenLeague && (
               <Button variant="outline" onClick={onOpenLeague}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FriendsPanel, type FriendsList } from "../../components/containers/friends-panel";
 import { SocialEmptyTab } from "../../components/containers/social-tabs";
 import { useGuildBadges } from "../../data/guilds";
@@ -29,12 +29,16 @@ export default function FriendsTab() {
   const openPlayer = useOpenPlayer();
   const [list, setList] = useState<FriendsList>("friends");
 
-  // The new followers, once shown: marked as seen at the source (the badges go), their New mark kept while the tab is shown.
+  // The new followers on screen keep their New mark while the tab is shown. Seeing them at the source (the badges go) marks
+  // every follower seen, so it waits until every new one has been on screen (the panel lists them first).
+  const [onScreen, setOnScreen] = useState<ReadonlySet<string>>(() => new Set());
+  const onFollowersShown = useCallback((addresses: readonly string[]) => setOnScreen(new Set(addresses.map(addressKey))), []);
   const [marked, setMarked] = useState<ReadonlySet<string>>(() => new Set());
-  const fresh = list === "followers" ? (lists.data?.followers.filter((r) => r.isNew).map((r) => addressKey(r.profile.address)) ?? []) : [];
+  const unseen = lists.data?.followers.filter((r) => r.isNew).map((r) => addressKey(r.profile.address)) ?? [];
+  const fresh = list === "followers" ? unseen.filter((k) => onScreen.has(k)) : [];
   if (fresh.some((k) => !marked.has(k))) setMarked(new Set([...marked, ...fresh]));
-  // Once for each batch of new followers shown: the write's own state changes `actions`, which must not send it again.
-  const toSee = fresh.length > 0 && actions !== null;
+  // Once for each batch of new followers all shown: the write's own state changes `actions`, which must not send it again.
+  const toSee = list === "followers" && unseen.length > 0 && fresh.length === unseen.length && actions !== null;
   const seeing = useRef(false);
   useEffect(() => {
     if (!toSee) {
@@ -69,6 +73,7 @@ export default function FriendsTab() {
       guildOf={guildOf}
       onOpenPlayer={openPlayer}
       onAction={(action, address) => actions?.run(action, address)}
+      onFollowersShown={onFollowersShown}
     />
   );
 }

@@ -46,7 +46,8 @@ const guildOf = (address: string) => GUILDS.get(addressKey(address)) ?? null;
 
 /** WRAP360: the longest name and address, the largest figures. */
 const STRESS_PROFILE: PublicProfile = { address: LONG_ADDRESS, name: LONG_NAME, look: generatedLook(LONG_ADDRESS), level: 20, crowns: 5_320, league: 22, score: 123_456_789, lastSeen: MOCK_NOW - 400 * DAY };
-const many = (n: number, isNew = false) => Array.from({ length: n }, (_, i) => row({ ...member(i % 40, (i + 1) * HOUR) }, i * HOUR, isNew && i < 120));
+/** `n` rows, each a player of its own (the community's profiles under new addresses); with `isNew`, the first 119 new. */
+const many = (n: number, isNew = false) => Array.from({ length: n }, (_, i) => row({ ...member(i % 40, (i + 1) * HOUR), address: `0x5eed${i.toString(16).padStart(4, "0")}` }, i * HOUR, isNew && i < 119));
 
 type PanelData = Omit<FriendsPanelProps, "onAction" | "onOpenPlayer" | "onListChange" | "onRetry">;
 const panel = (data: Partial<PanelData>): PanelData => ({ lists: full, suggestions, list: "friends", now: MOCK_NOW, guildOf, ...data });

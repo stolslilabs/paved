@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatInteger } from "@paved/game-core";
 import type { FollowLists, FollowRow, GuildBadge, PublicProfile } from "../../data/social-source";
 import { followErrorText } from "../../lib/follow-text";
@@ -122,6 +122,11 @@ export interface FriendsPanelProps {
   onOpenPlayer?: (address: string) => void;
   /** A row's write on `address`; returns the write's promise. */
   onAction?: (action: FollowRowAction, address: string) => Promise<unknown> | void;
+  /**
+   * The followers on screen, by address, each time they change while Followers is shown (the new ones first, then the rest, a
+   * page at a time): the page marks the new ones seen only once every one of them has been on screen.
+   */
+  onFollowersShown?: (addresses: readonly string[]) => void;
   /** Where the blocked players' sheet starts: open for its story. */
   initialBlockedOpen?: boolean;
 }
@@ -132,7 +137,7 @@ export interface FriendsPanelProps {
  * and has its actions: Unfollow (confirmed), and in Followers, Follow back and Remove (confirmed; they are not told). Then the
  * players suggested to follow, and the tab's menu: the blocked players, with Unblock.
  */
-export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, list, onListChange, now, guildOf, onOpenPlayer, onAction, initialBlockedOpen = false }: FriendsPanelProps) {
+export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, list, onListChange, now, guildOf, onOpenPlayer, onAction, onFollowersShown, initialBlockedOpen = false }: FriendsPanelProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const actions = useGuildActions<{ action: FollowRowAction; address: string }>((a) => onAction?.(a.action, a.address), followErrorText);
   const [shown, setShown] = useState(FRIENDS_PAGE);
@@ -145,7 +150,16 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
   const nameOf = (p: PublicProfile) => p.name ?? "this player";
   const following = new Set(lists?.following.map((r) => keyOf(r.profile.address)));
   const followers = new Set(lists?.followers.map((r) => keyOf(r.profile.address)));
-  const rows = lists ? lists[list] : null;
+  // The new followers first, so that the first page holds them; the source's order (online, then last seen) within each part.
+  const rows = useMemo(() => {
+    if (!lists) return null;
+    const all = lists[list];
+    return list === "followers" ? [...all.filter((r) => r.isNew), ...all.filter((r) => !r.isNew)] : all;
+  }, [lists, list]);
+  const onScreen = list === "followers" && rows ? rows.slice(0, shown).map((r) => r.profile.address).join(",") : null;
+  useEffect(() => {
+    if (onScreen !== null) onFollowersShown?.(onScreen === "" ? [] : onScreen.split(","));
+  }, [onScreen, onFollowersShown]);
   const meta = LISTS.find((l) => l.id === list)!;
 
   const unfollow = (p: PublicProfile, friend: boolean) => (
@@ -175,7 +189,7 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
         <FollowPlayerRow profile={p} now={now} guild={guildOf?.(p.address)} isNew={list === "followers" && r.isNew} mark={list === "friends" ? undefined : { followsYou: followers.has(key), friend }} onOpen={onOpenPlayer}>
           {list === "followers" ? (
             <>
-              {!following.has(key) && follow(p, true)}
+              {following.has(key) ? unfollow(p, friend) : follow(p, true)}
               <Button
                 size="sm"
                 variant="outline"

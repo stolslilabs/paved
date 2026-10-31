@@ -109,6 +109,10 @@ describe("the Friends tab's panel (#954)", () => {
     // Follow back only for those the player does not follow: the three followers who are not friends.
     const back = within(followers).getAllByRole("button", { name: /^Follow back / });
     expect(back).toHaveLength(3);
+    // The four friends among them: Unfollow, beside Remove.
+    expect(within(followers).getAllByRole("button", { name: /^Unfollow / })).toHaveLength(4);
+    // The new ones first.
+    expect(within(followers).getAllByRole("listitem").slice(0, 2).every((li) => li.textContent?.includes("New"))).toBe(true);
     await userEvent.click(back[0]!);
     expect(onAction).toHaveBeenLastCalledWith("follow", expect.any(String));
   });
@@ -120,5 +124,17 @@ describe("the Friends tab's panel (#954)", () => {
     const unblock = within(sheet).getByRole("button", { name: /^Unblock / });
     await userEvent.click(unblock);
     expect(onAction).toHaveBeenLastCalledWith("unblock", FRIENDS_TAB.blocked.lists!.blocked[0]!.profile.address);
+  });
+
+  it("tells which followers are on screen, the new ones first, a page at a time", async () => {
+    const onFollowersShown = vi.fn();
+    const { lists } = FRIENDS_TAB.stress;
+    render(wrap(<FriendsPanel {...FRIENDS_TAB.stress} onFollowersShown={onFollowersShown} />));
+    const newOnes = new Set(lists!.followers.filter((r) => r.isNew).map((r) => r.profile.address));
+    const first = onFollowersShown.mock.lastCall![0] as string[];
+    expect(first).toHaveLength(20);
+    expect(first.every((a) => newOnes.has(a))).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: /^Show more/ }));
+    await waitFor(() => expect(onFollowersShown.mock.lastCall![0]).toHaveLength(40));
   });
 });
