@@ -91,7 +91,7 @@ export const Coins: Story = {
         <h3 className="text-sm font-semibold">In a plate</h3>
         <div className="flex flex-wrap items-start gap-3">
           {PLATE_KINDS.map((p) => (
-            <ResourcePlate key={p.kind} {...p} size="sm" plus={p.kind !== "vpaved"} tone={p.kind === "cobbles" ? "invite" : "default"} />
+            <ResourcePlate key={p.kind} {...p} size="sm" tone={p.kind === "cobbles" ? "invite" : "default"} />
           ))}
         </div>
       </section>
@@ -162,7 +162,7 @@ export const BalanceSpacing: Story = {
           <div key={size} className="flex flex-wrap items-start gap-4">
             {PLATE_KINDS.map((p) => (
               <Measured key={p.kind}>
-                <ResourcePlate {...p} size={size} plus={p.kind === "cobbles"} tone={p.kind === "cobbles" ? "invite" : "default"} />
+                <ResourcePlate {...p} size={size} tone={p.kind === "cobbles" ? "invite" : "default"} />
               </Measured>
             ))}
           </div>

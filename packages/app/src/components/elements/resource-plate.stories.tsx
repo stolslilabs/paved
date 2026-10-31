@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
+import { PLATE_COMPACT } from "./plate";
 import { ResourcePlate, type ResourcePlateProps } from "./resource-plate";
 import type { TokenKind } from "./token-icon";
 
@@ -19,9 +20,6 @@ const UNIT: Record<TokenKind, Pick<ResourcePlateProps, "decimals" | "fraction"> 
   cobbles: { decimals: 0, fraction: 0, start: 240n, step: 100n },
 };
 
-/** The balances that lead to a page carry a "+" (#828): PAVED and vPAVED to the Vault, the Cobbles to the packs; not USDC. */
-const PLUS: Record<TokenKind, boolean> = { usdc: false, paved: true, vpaved: true, cobbles: true };
-
 /** The amount goes up, then down, then back, every 1.8 s: the pop and the "+N", then the dip and the "−N". */
 function Cycling({ kind, size, side }: { kind: TokenKind; size?: ResourcePlateProps["size"]; side?: ResourcePlateProps["side"] }) {
   const u = UNIT[kind];
@@ -31,28 +29,26 @@ function Cycling({ kind, size, side }: { kind: TokenKind; size?: ResourcePlatePr
     return () => clearInterval(timer);
   }, []);
   const amount = step === 1 ? u.start + u.step : step === 2 ? u.start - u.step / 2n : u.start;
-  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} size={size} side={side} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
+  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} size={size} side={side} tone={kind === "cobbles" ? "invite" : "default"} />;
 }
 
 /**
- * USDC: a rounded box, its icon over the right end, hiding the border; no "+" (its faucet is an action, not a page). The icon is
+ * USDC: a rounded box, its icon over the right end, hiding the border. No plate carries a "+" (#925). The icon is
  * bare (#213): no disc behind it, 48 px over the 32 px box, so it stands past the plate above and below.
  */
 export const Usdc: Story = {};
-/** PAVED leads to the Vault: a "+" over the left end, a little smaller than the icon. */
-export const Paved: Story = { args: { kind: "paved", amount: UNIT.paved.start, decimals: 18, plus: true } };
-export const PavedWithoutPlus: Story = { args: { kind: "paved", amount: UNIT.paved.start, decimals: 18 } };
-export const Vpaved: Story = { args: { kind: "vpaved", amount: UNIT.vpaved.start, decimals: 18, plus: true } };
-/** The Cobbles' plate: a gold edge, a "+" and a slow shine, an invitation to the packs. */
-export const Cobbles: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, plus: true, tone: "invite" } };
-export const CobblesWithoutPlus: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite" } };
+/** PAVED: both ends bare, the left one with no "+" (#925); the balances' tap is the whole plate. */
+export const Paved: Story = { args: { kind: "paved", amount: UNIT.paved.start, decimals: 18 } };
+export const Vpaved: Story = { args: { kind: "vpaved", amount: UNIT.vpaved.start, decimals: 18 } };
+/** The Cobbles' plate: a gold edge and a slow shine, an invitation to the packs without a "+" (#925). */
+export const Cobbles: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite" } };
 /** No source on this network: a dash. */
 export const Unavailable: Story = { args: { amount: null } };
 /** From `desktop`: a 36 px box under a 52 px icon, bare (#213). */
 export const Large: Story = { args: { size: "md" } };
-export const LargeWithPlus: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, plus: true, tone: "invite", size: "md" } };
+export const LargeCobbles: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite", size: "md" } };
 
-/** Every plate at both sizes, with and without the "+", and mirrored (`side="left"`, the plates on the left of the screen, #829). */
+/** Every plate at both sizes, and mirrored (`side="left"`, the plates on the left of the screen, #829). */
 export const AllPlates: Story = {
   render: () => (
     <div className="flex flex-col gap-6">
@@ -60,7 +56,7 @@ export const AllPlates: Story = {
         (["sm", "md"] as const).map((size) => (
           <div key={`${side}-${size}`} className={side === "left" ? "flex flex-col items-start gap-1" : "flex flex-col items-end gap-1"}>
             {(Object.keys(UNIT) as TokenKind[]).map((kind) => (
-              <ResourcePlate key={kind} kind={kind} amount={UNIT[kind].start} decimals={UNIT[kind].decimals} fraction={UNIT[kind].fraction} size={size} side={side} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />
+              <ResourcePlate key={kind} kind={kind} amount={UNIT[kind].start} decimals={UNIT[kind].decimals} fraction={UNIT[kind].fraction} size={size} side={side} tone={kind === "cobbles" ? "invite" : "default"} />
             ))}
           </div>
         )),
@@ -68,9 +64,9 @@ export const AllPlates: Story = {
     </div>
   ),
 };
-/** The mirrored plate (#829): the icon over the left end, the "+" over the right. */
-export const Mirrored: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, plus: true, tone: "invite", side: "left" } };
-export const MirroredWithoutPlus: Story = { args: { side: "left" } };
+/** The mirrored plate (#829): the icon over the left end. */
+export const Mirrored: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite", side: "left" } };
+export const MirroredUsdc: Story = { args: { side: "left" } };
 
 /** A gain, once: the count up, the green, the "+N" rising and the icon's pop. */
 function Once({ kind, by, side }: { kind: TokenKind; by: bigint; side?: ResourcePlateProps["side"] }) {
@@ -80,7 +76,7 @@ function Once({ kind, by, side }: { kind: TokenKind; by: bigint; side?: Resource
     const timer = setTimeout(() => setAmount(u.start + by), 600);
     return () => clearTimeout(timer);
   }, [u.start, by]);
-  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} side={side} plus={PLUS[kind]} tone={kind === "cobbles" ? "invite" : "default"} />;
+  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} side={side} tone={kind === "cobbles" ? "invite" : "default"} />;
 }
 export const Gain: Story = { render: () => <div className="pt-6"><Once kind="cobbles" by={100n} /></div> };
 /** A loss, once: the count down, the warning's colour, the "−N" dropping and the icon's dip. */
@@ -104,3 +100,26 @@ export const Changes: Story = {
 };
 /** Reduced motion: the figure changes with a brief colour flash; nothing moves. */
 export const ChangesReducedMotion: Story = { ...Changes, parameters: { reducedMotion: "always" } };
+
+/**
+ * PLATE-WIDTH (#860): a currency's plate has one width at each size (`fixed`), no "+" (#925), whatever its figure; the figure at the side away from the icon, compact from 10,000 (`PLATE_COMPACT`). 0, "9,999.99" and
+ * 1,234,567 for each currency.
+ */
+export const Fixed: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      {(["sm", "md"] as const).map((size) => (
+        <div key={size} className="flex flex-col items-end gap-1">
+          {(Object.keys(UNIT) as TokenKind[]).flatMap((kind) =>
+            // In hundredths: 0, 9,999.99 and 1,234,567 (the Cobbles whole: 0, 9,999 and 1,234,567).
+            [0n, 999_999n, 123_456_700n].map((hundredths) => {
+              const { decimals, fraction } = UNIT[kind];
+              const amount = decimals === 0 ? hundredths / 100n : hundredths * 10n ** BigInt(decimals - 2);
+              return <ResourcePlate key={`${kind}-${hundredths}`} fixed compactFrom={PLATE_COMPACT[size]} kind={kind} amount={amount} decimals={decimals} fraction={fraction} size={size} tone={kind === "cobbles" ? "invite" : "default"} />;
+            }),
+          )}
+        </div>
+      ))}
+    </div>
+  ),
+};

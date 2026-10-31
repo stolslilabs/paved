@@ -13,7 +13,7 @@ const copy = (text: string) => (navigator.clipboard?.writeText ? navigator.clipb
 /**
  * Reads who is connected once for the whole shell and hands it to the menu screens' avatar (`ProfileSlot`, #624). The profile
  * is Home's read (`usePlayerStatus`, one cache entry): before the indexer answers, the player is shown by the wallet's name or
- * address, with zero figures. The avatar is the one saved on chain (`useAvatar`, #626); Edit avatar opens the creator (the village is the home, #753), Battle logs the PvP league and its battle logs (#647, #834).
+ * address, with zero figures; the indexer's name, else the wallet's. The avatar is the one saved on chain (`useAvatar`, #626); Edit avatar opens the creator (the village is the home, #753), Battle logs the PvP league and its battle logs (#647, #834).
  */
 export function ProfileHost({ children }: { children: ReactNode }) {
   const wallet = useAccount();
@@ -27,12 +27,15 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const state = useMemo<ProfileState>(() => {
     if (wallet.status === "restoring") return { status: "loading" };
     if (!address) return { status: "guest", connecting: wallet.status === "connecting" };
+    // The indexer's name, else the wallet's (the mock's drawn name, #926): an account made since #920 has none on the indexer.
     return {
       status: "connected",
-      data: status.data ?? {
-        player: { playerId: address, name: wallet.username, created: null },
-        stats: { challengeGames: 0, challengeFinished: 0, bestScore: 0, paidGames: 0, settledGames: 0, rewards: "0" },
-      },
+      data: status.data
+        ? { ...status.data, player: { ...status.data.player, name: status.data.player.name ?? wallet.username } }
+        : {
+            player: { playerId: address, name: wallet.username, created: null },
+            stats: { challengeGames: 0, challengeFinished: 0, bestScore: 0, paidGames: 0, settledGames: 0, rewards: "0" },
+          },
     };
   }, [wallet.status, wallet.username, address, status.data]);
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);

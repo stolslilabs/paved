@@ -2,12 +2,12 @@ import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { readPacks, type Definitions } from "@paved/chain";
 import { questCobbles } from "../../data/cobbles";
-import { MockLedger } from "../../data/mock/ledger";
+import { MOCK_STARTING_BALANCES, MockLedger, type TokenBalances } from "../../data/mock/ledger";
 import { COBBLES, MISSIONS, PURCHASE, THEME_SHOP, VAULT } from "../../mocks/scenes";
 import { QUEST_DEFINITIONS, QUESTS_WEEKLY_DONE } from "../../mocks/quests";
 import { weekOfDay } from "../../lib/quest-window";
 import { PLAYER_ID } from "../../mocks/players";
-import { BALANCE_RICH } from "../../mocks/economy";
+import { PAVED_BALANCE } from "../../mocks/economy";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import { CobblesScene, type CobblesSceneProps } from "../../components/scenes/cobbles-scene";
 import { PurchaseScene } from "../../components/scenes/purchase-scene";
@@ -18,7 +18,8 @@ import { VaultScene, type VaultSceneProps } from "../../components/scenes/vault-
 /**
  * The pages the mock serves on a network whose contracts are behind the client (MOCK-FIRST: Sepolia by default), each
  * read from a fresh mock ledger (`data/mock/ledger.ts`) and its flows run on it: the figures are the mock's own, the
- * "Mock" mark is in the header. The mock starts a player at 142.35 PAVED and no Cobbles; the quests are Sepolia's
+ * "Mock" mark is in the header. The mock starts a player at 100 USDC (the faucet's), no PAVED and no Cobbles; the Vault's
+ * stories start from a player who won 142.35 PAVED (`WINNER`). The quests are Sepolia's
  * schedule with the Cobbles the mock gives them.
  */
 const withMark: Decorator = (Story) => (
@@ -34,8 +35,11 @@ type Story = StoryObj<typeof meta>;
 const P = 10n ** 18n;
 const USDC = 1_000_000n;
 
-/** A fresh ledger in memory, with no delay: a story starts from the mock's start every time. */
-const ledger = () => new MockLedger({ store: () => null, seller: "0x3", latencyMs: 0 });
+/** A fresh ledger in memory, with no delay: a story starts from the mock's start every time (`starting`: a new account's). */
+const ledger = (starting: TokenBalances = MOCK_STARTING_BALANCES) => new MockLedger({ store: () => null, seller: "0x3", latencyMs: 0, starting });
+
+/** A player who won PAVED (the Challenge's settlement, #927 PR 4): the stories' wallet, 142.35 PAVED beside the faucet's USDC. */
+const WINNER: TokenBalances = { ...MOCK_STARTING_BALANCES, paved: PAVED_BALANCE };
 
 /** The quests of the stories as the indexer's definitions of a deployment that predates the Cobbles (none on any of them). */
 const definitions: Definitions = {
@@ -62,9 +66,9 @@ async function vaultArgs(l: MockLedger, amount: bigint): Promise<VaultSceneProps
   return { ...VAULT.noPosition, ...vaultHandlers, position: await l.vault(PLAYER_ID), balance: await l.pavedBalance(PLAYER_ID), split: await l.split(), amount: String(amount / P), preview: await l.previewDeposit(amount) };
 }
 
-/** The Vault at the mock's start: no vPAVED, 142.35 PAVED in the wallet, a first deposit of 100 PAVED and its preview. */
+/** The Vault of a player who won 142.35 PAVED: no vPAVED, a first deposit of 100 PAVED and its preview. */
 export const VaultStart: Story = {
-  loaders: [async () => ({ props: await vaultArgs(ledger(), 100n * P) })],
+  loaders: [async () => ({ props: await vaultArgs(ledger(WINNER), 100n * P) })],
   render: (_args, { loaded }) => <VaultScene {...(loaded.props as VaultSceneProps)} />,
 };
 
@@ -72,7 +76,7 @@ export const VaultStart: Story = {
 export const VaultDeposited: Story = {
   loaders: [
     async () => {
-      const l = ledger();
+      const l = ledger(WINNER);
       const { events } = await l.writesFor(PLAYER_ID).deposit(100n * P, { confirmedAmount: 100n * P });
       const shares = BigInt(events[0]!.fields.shares as bigint);
       return { props: { ...(await vaultArgs(l, 10n * P)), done: { kind: "deposit", assets: 100n * P, shares } } };
@@ -125,17 +129,17 @@ export const Challenge: Story = {
   render: () => <PurchaseScene {...PURCHASE.stake1} {...{ onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn() }} />,
 };
 
-/** The Cobble packs on the mock (#621): its four packs, 50 Cobbles after the first one (5 USDC) was bought with test USDC. */
+/** The Cobble packs on the mock (#621): its four packs, 50 Cobbles after the first one (5 USDC) was bought with the faucet's USDC, 95 USDC left. */
 export const PackBought: Story = {
   loaders: [
     async () => {
       const l = ledger();
-      await l.writesFor(PLAYER_ID, { paved: async () => 0n, usdc: async () => BALANCE_RICH }).buyPack({ packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null });
+      await l.writesFor(PLAYER_ID).buyPack({ packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null });
       const packs = await readPacks(l);
       const props: CobblesSceneProps = {
         ...(COBBLES.packs as CobblesSceneProps),
         ...{ onConnect: fn(), onBack: fn(), onSelectPack: fn(), onBuyPack: fn() },
-        balance: await l.usdcBalance(PLAYER_ID, BALANCE_RICH),
+        balance: await l.usdcBalance(PLAYER_ID),
         cobbles: { balance: (await l.account(PLAYER_ID)).cobbles, packs, selected: null },
       };
       return { props };
@@ -149,7 +153,7 @@ export const SkinBoughtAndSet: Story = {
   loaders: [
     async () => {
       const l = ledger();
-      const writes = l.writesFor(PLAYER_ID, { paved: async () => 0n, usdc: async () => BALANCE_RICH });
+      const writes = l.writesFor(PLAYER_ID);
       await writes.buyPack({ packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null });
       await writes.buySkin({ theme: 1, plan: 13, confirmedPrice: 50 });
       await writes.setSkins([{ plan: 13, theme: 1 }]);

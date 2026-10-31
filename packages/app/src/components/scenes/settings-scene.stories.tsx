@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { NEW_PLAYER } from "../../mocks/new-player";
 import { SETTINGS } from "../../mocks/scenes";
 import { SettingsScene } from "./settings-scene";
 
@@ -10,6 +11,9 @@ type Story = StoryObj<typeof meta>;
 
 /** A connected account: the device's key's (#918), with Reset. */
 export const Connected: Story = { args: SETTINGS.connected };
+
+/** A new player on the mock (#926): the drawn name and look of free items, never the address alone. */
+export const NewPlayer: Story = { args: { ...SETTINGS.connected, account: { ...SETTINGS.connected.account, name: NEW_PLAYER.name, look: NEW_PLAYER.look } } };
 
 /** No wallet: Connect. */
 export const Guest: Story = { args: SETTINGS.guest };

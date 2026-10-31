@@ -1,7 +1,7 @@
 import { PavedWriter, type EconomyClient } from "@paved/chain";
 import { mockLedger } from "./chain-client";
 import { DATA_SOURCE } from "./data-source";
-import { chainBalances, economyClient } from "./economy-client";
+import { economyClient } from "./economy-client";
 import { mockVaultWrites } from "./mock/overlay";
 import type { GameSigner, VaultWrites } from "./sources";
 
@@ -20,7 +20,7 @@ export function vaultWritesOf(signer: GameSigner): VaultWrites {
 export function vaultWritesFor(economy: EconomyClient, signer: GameSigner): VaultWrites {
   if (!(signer instanceof PavedWriter)) throw new Error("The Vault is off: this wallet cannot write to it");
   // The Vault's class has none of its writes yet (#549): the data source `mock` sends them to the device's ledger.
-  if (DATA_SOURCE === "mock") return mockVaultWrites(mockLedger(), signer.address, chainBalances(economy, signer.address));
+  if (DATA_SOURCE === "mock") return mockVaultWrites(mockLedger(), signer.address);
   const writer = economy.writer(signer);
   return {
     deposit: (amount, options) => writer.deposit(amount, options),

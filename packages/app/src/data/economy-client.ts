@@ -10,7 +10,7 @@ import {
 } from "@paved/chain";
 import { chainClient, mockLedger } from "./chain-client";
 import { DATA_SOURCE } from "./data-source";
-import { mockEconomyViews, mockPurchases, type ChainBalances } from "./mock/overlay";
+import { mockEconomyViews, mockPool, mockPurchases } from "./mock/overlay";
 import type { GameSigner, Purchases } from "./sources";
 
 // The economy's client of the app (P7b): `EconomyClient` on the chain client of the build (`chain-client.ts`) and the
@@ -21,8 +21,6 @@ import type { GameSigner, Purchases } from "./sources";
 const FILES = import.meta.glob<{ default: EconomyDeploymentFile }>("../../../../contracts/deployments/*.json", { eager: true });
 
 let client: EconomyClient | null | undefined;
-/** The client on the chain's own views, under the mock's overlay (`client` is the overlaid one when the data source is `mock`). */
-let chainOnly: EconomyClient | null = null;
 
 /**
  * The economy client of the build's deployment, or null when its contracts are not in the deployments file (the economy's
@@ -33,17 +31,10 @@ export function economyClient(): EconomyClient | null {
   const base = chainClient();
   const file = Object.entries(FILES).find(([path]) => path.endsWith(`/${base.deployment.network}.json`))?.[1].default ?? null;
   const real = createEconomyClient(resolveEconomyDeployment({ base: base.deployment, file }), base);
-  chainOnly = real;
-  // The data source `mock` (`data-source.ts`): the Vault's, the split's and the seller's reads come from the device's ledger,
-  // so the game's purchase (its writer reads the seller and the pause) and every other read stay the chain's.
-  client = real && DATA_SOURCE === "mock" ? new EconomyClient(real.deployment, base, real.codecs, mockEconomyViews(real.views, mockLedger()), real.poolQuoter) : real;
+  // The data source `mock` (`data-source.ts`): the Vault's, the split's, the seller's, the tokens' balances' and the games' reads
+  // (the quote, the days, the terms) and the pool's quote come from the device's ledger (#927).
+  client = real && DATA_SOURCE === "mock" ? new EconomyClient(real.deployment, base, real.codecs, mockEconomyViews(real.views, mockLedger()), mockPool(mockLedger())) : real;
   return client;
-}
-
-/** The chain's own PAVED and USDC of `account` (the mock adds its moves to them): the economy's views under the overlay. */
-export function chainBalances(economy: EconomyClient, account: string): ChainBalances {
-  const chain = (economy === client && chainOnly ? chainOnly : economy).views;
-  return { paved: () => chain.pavedBalance(account), usdc: () => chain.usdcBalance(account) };
 }
 
 /**
@@ -79,8 +70,8 @@ export function purchasesFor(economy: EconomyClient, signer: GameSigner): Purcha
     },
     receipt: (hash) => receiptOutcome(economy.base.provider, hash),
   };
-  // `buy_pack` is not on the class: the ledger sells the pack (`mockPurchases`); a game's purchase stays the chain's.
-  return DATA_SOURCE === "mock" ? mockPurchases(purchases, mockLedger(), signer.address, chainBalances(economy, signer.address)) : purchases;
+  // The data source `mock`: the ledger sells the pack and the Challenge game (`mockPurchases`, #927).
+  return DATA_SOURCE === "mock" ? mockPurchases(purchases, mockLedger(), signer.address) : purchases;
 }
 
 /** What `receiptOutcome` reads: starknet.js's `getTransactionReceipt` (its receipt keeps the node's `execution_status`). */

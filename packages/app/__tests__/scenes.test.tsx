@@ -25,6 +25,7 @@ import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { rewardMarks } from "../src/components/containers/reward-estimate";
 import { GameHud } from "../src/components/containers/game-hud";
+import { MOCK_MARK_TEXT, MockMarkProvider } from "../src/components/containers/mock-mark";
 import { CURVE_PLAYING } from "../src/mocks/games";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
@@ -887,6 +888,15 @@ describe("Purchase", () => {
 // #705 during and after the game: the curve of the mocks' game (R = 4.2 PAVED, c 1.222, H 5, threshold 1,150), its score 1,270.
 describe("Challenge reward on the HUD and the over page (#705)", () => {
   const hud = (props: Partial<React.ComponentProps<typeof GameHud>>) => render(wrap(<GameHud title="Challenge #1042" score={1270} now={0} reward={CURVE_PLAYING} {...props} />));
+
+  it("shows the Mock mark beside the title while the shell says the game is the mock's (#927), and none otherwise", () => {
+    const { unmount } = render(wrap(<MockMarkProvider value><GameHud title="Challenge #1042" score={0} now={0} /></MockMarkProvider>));
+    expect(screen.getByRole("heading", { level: 1, name: "Challenge #1042" })).toBeInTheDocument();
+    expect(screen.getByLabelText(`Mock. ${MOCK_MARK_TEXT}`)).toHaveTextContent("Mock");
+    unmount();
+    hud({});
+    expect(screen.queryByText("Mock")).toBeNull();
+  });
 
   it("shows on the HUD what the score earns past the threshold, the score to beat under it, and max from the cap", () => {
     const { unmount } = hud({});

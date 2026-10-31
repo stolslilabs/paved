@@ -1,5 +1,5 @@
 // The game sessions (P2): Training's `LocalSession` (held in memory, never saved: #718), Challenge's
-// `PredictedSession` (P5), and the `PageSession` shape a board drives. No chain, no DOM: the chain's `GameSession`
+// `PredictedSession` (P5), the mock's seeded Challenge game (#927), and the `PageSession` shape a board drives. No chain, no DOM: the chain's `GameSession`
 // satisfies `PageSession` structurally.
 
 export type { BoardTile, ClosedTileAreas, Closure, MoveSenders, PageSession, PageState, PlaceMove, ScoredStructure, Send } from "./types";
@@ -14,5 +14,7 @@ export { MAX_UNCONFIRMED, PredictedSession, replayChallenge, replayVrfChallenge,
 export type { ChainDraw, ChainGame, ChainTile, Mismatch, MoveReceipt, PredictedOptions, PredictedState, PredictedViews } from "./predicted-session";
 export { offerPlans, placeInVillage, villageGame, villageRefusal } from "./village";
 export type { VillageTileCodes } from "./village";
+export { SEEDED_DRAW_SALT, SeededChallenge, seededBuild } from "./seeded-challenge";
+export type { SeededGameView, SeededMove, SeededOutcome } from "./seeded-challenge";
 export { AttackRun } from "./attack";
 export type { AttackMoveCodes, AttackStepResult, PlacedCodes } from "./attack";
