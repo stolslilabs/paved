@@ -8,7 +8,13 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   Generated with OpenAI's image model through the Codex CLI.
 - `league-divisions.webp`: the crests of Gold to Grand Master in their four versions: plain, then I, II and III, the numeral on a
   ribbon under the motif, drawn into the art.
+- `player-badge.webp`: the player badge's target (2026-10-31), from the owner's starting image: the round voxel portrait in a ring
+  of paving stones with gold ornaments, the luminous level bar in the ring's groove, under the gold shield that holds the level (the
+  client starts it at 12 o'clock, under the shield, for a whole turn clockwise: the owner, 2026-10-31), and the name plate, bricks top and bottom, ended by a gold arrow cap.
+  `player-badge-states.webp`: the same at three lengths of name (3 to 15 characters) and three shares of the level, the plate
+  stretching to the name. Generated with OpenAI's image model through the Codex CLI; the client's parts are in
+  `packages/app/badge-sources/` (`scripts/compress-badge-art.ts`).
 
-The client shows them as images: the masters in `packages/app/league-sources/`, compressed into
+The leagues' client shows them as images: the masters in `packages/app/league-sources/`, compressed into
 `packages/app/public/league-art/` by `scripts/compress-league-art.ts`. Each tier has a crest and an icon in four versions, a
 blank nameplate (the app writes the name in its `font-display`) and a square banner.

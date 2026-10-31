@@ -8,7 +8,8 @@ import { LeaguePlate } from "../elements/league-plate";
 import { divisionOf, tierOf } from "../elements/league-standards";
 
 export interface LeagueCardProps {
-  league: League;
+  /** The league; `null`, Unranked (a player who has not entered the leagues, #917): no range of crowns, before Wood. */
+  league: League | null;
   className?: string;
 }
 
@@ -23,24 +24,29 @@ export function crownRange(league: League): { text: string; name: string } {
  * A league's card (#833), standing alone since #859 (the carousel's arrows beside it and its dots under it, outside), on the page
  * itself (no card ground, the owner's decision of 2026-10-30): one height for every league, Wood included, so moving through them
  * never moves the page (every crest has one box). The league's crest (#917) in its division's version, the range of crowns and the
- * season's Cobbles, then its plate, its name and the card's heading. No first-time bonus since #917: reaching each group once in a
+ * season's Cobbles, then its plate, its name and the card's heading. Unranked's card (`null`, first in the carousel) has no range: its
+ * players have not attacked yet, and Wood's range starts at 0 crowns. No first-time bonus since #917: reaching each group once in a
  * lifetime is a mission (the Missions page). No crowns' count and no back icon (#859): the
  * League page's header holds the player's crowns, and its League control brings the carousel back to the player's league.
  */
 export function LeagueCard({ league, className }: LeagueCardProps) {
-  const range = crownRange(league);
+  const range = league && crownRange(league);
   const tier = tierOf(league);
   return (
     <div data-slot="league-card" className={cn("relative flex flex-col items-center justify-center gap-1 px-3 pb-3 text-center", className)}>
-      <LeagueCrestArt tier={tier} division={divisionOf(league)} size="xl" />
-      <span role="img" aria-label={range.name} className="inline-flex items-center gap-1 text-sm whitespace-nowrap">
-        <Icon name="crown" size="xs" className="text-crown" />
-        <span aria-hidden className="numeric font-semibold">
-          {range.text}
+      <LeagueCrestArt tier={tier} division={league && divisionOf(league)} size="xl" />
+      {range ? (
+        <span role="img" aria-label={range.name} className="inline-flex items-center gap-1 text-sm whitespace-nowrap">
+          <Icon name="crown" size="xs" className="text-crown" />
+          <span aria-hidden className="numeric font-semibold">
+            {range.text}
+          </span>
         </span>
-      </span>
+      ) : (
+        <span className="text-sm font-semibold whitespace-nowrap">Before the first attack</span>
+      )}
       <span className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
-        {league.seasonCobbles > 0 ? (
+        {league && league.seasonCobbles > 0 ? (
           <>
             <Cobbles value={league.seasonCobbles} sign="+" size="sm" /> a season
           </>
@@ -49,7 +55,7 @@ export function LeagueCard({ league, className }: LeagueCardProps) {
         )}
       </span>
       <h2 className="m-0 mt-1 leading-none">
-        <LeaguePlate tier={tier} name={league.name} size="lg" />
+        <LeaguePlate tier={tier} name={league?.name ?? "Unranked"} size="lg" />
       </h2>
     </div>
   );

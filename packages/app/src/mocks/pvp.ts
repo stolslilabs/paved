@@ -309,7 +309,10 @@ export const PVP_LEAGUE = {
   higher: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 8 },
   lower: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 2 },
   grandmaster: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
-  wood: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
+  // No attack yet (#917): Unranked, its card before Wood's, no range of crowns.
+  unranked: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
+  // In Wood after a first attack (120 crowns): Unranked's card before it.
+  wood: { crowns: 120, season: SEASON, now: MOCK_NOW },
   // Dropped to Wood, the carousel opened on Bronze I.
   demoted: { crowns: 200, season: SEASON, now: MOCK_NOW, opensOn: 5 },
   ended: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW - 2 * HOUR }, now: MOCK_NOW },

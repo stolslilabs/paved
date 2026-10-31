@@ -1,11 +1,11 @@
 // A new player's name (#926): an adjective and a noun of Paved's world (its builders, roads, villages and seasons), in
-// CamelCase, then two digits: "MossyMason27", "SwiftCarter04", "AmberReeve61". Letters and digits only, 3 to 19 characters (`PLAYER_NAME_MAX`),
+// CamelCase, then two digits: "MossyMason27", "SwiftCarter04", "AmberReeve61". Letters and digits only, 3 to 15 characters (`PLAYER_NAME_MAX`),
 // so it fits the plates and a short string on chain. The lists are written here, each word reviewed: nothing is fetched.
 // A module of the connection's chunk (`data/mock/new-player.ts`), never of the menus' first load.
 
 import { PLAYER_NAME_MAX } from "./name-limit";
 
-/** The adjectives: at most 9 letters each; a draw past 19 characters (two 9-letter words) is drawn again. */
+/** The adjectives: at most 9 letters each; a draw past 15 characters (about one pair in ten) is drawn again. */
 export const NAME_ADJECTIVES: readonly string[] = [
   "Agile", "Airy", "Amber", "Ancient", "Ardent", "Ashen", "Autumn", "Azure", "Balmy", "Bonny",
   "Blithe", "Bold", "Brave", "Breezy", "Bright", "Brisk", "Bronze", "Bubbly", "Burly", "Busy",
@@ -72,8 +72,8 @@ export const BLOCKED_NAME_PAIRS: ReadonlySet<string> = new Set([
   "ShadyTrader", "ShadyMerchant", "ShadyPeddler", "FreeRider", "IvoryTower",
 ]);
 
-/** A name's shape: an adjective and a noun, each a capital and lower-case letters, then two digits; 3 to 19 characters. */
-export const PLAYER_NAME = /^(?=.{3,19}$)[A-Z][a-z]+[A-Z][a-z]+\d{2}$/;
+/** A name's shape: an adjective and a noun, each a capital and lower-case letters, then two digits; 3 to 15 characters. */
+export const PLAYER_NAME = /^(?=.{3,15}$)[A-Z][a-z]+[A-Z][a-z]+\d{2}$/;
 
 /** A number in [0, 1) from the device's cryptographic random (`crypto.getRandomValues`), as `Math.random` returns. */
 export function cryptoRandom(): number {

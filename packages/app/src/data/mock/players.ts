@@ -31,25 +31,25 @@ export interface SeededPlayer {
 /** The names, as `playerName(seededRandom(index))` draws them; the levels, crowns and skills spread over the first leagues. */
 const SEEDS: readonly { name: string; level: number; crowns: number; skill: number }[] = [
   { name: "ChillyNewt46", level: 1, crowns: 30, skill: 1_900 },
-  { name: "BreezyThatcher66", level: 2, crowns: 85, skill: 2_300 },
+  { name: "ReadyBell92", level: 2, crowns: 85, skill: 2_300 },
   { name: "IcyFern60", level: 3, crowns: 140, skill: 2_100 },
   { name: "FerventCrown28", level: 3, crowns: 210, skill: 2_800 },
   { name: "TawnyMoth11", level: 4, crowns: 260, skill: 2_500 },
   { name: "HeroicVane10", level: 5, crowns: 330, skill: 3_100 },
-  { name: "DistantPioneer36", level: 6, crowns: 395, skill: 2_900 },
+  { name: "GracefulVale98", level: 6, crowns: 395, skill: 2_900 },
   { name: "WinterTrack79", level: 7, crowns: 420, skill: 3_400 },
   { name: "GladWell16", level: 8, crowns: 480, skill: 3_300 },
   { name: "GustyPike69", level: 9, crowns: 530, skill: 3_700 },
-  { name: "BubblyGardener34", level: 10, crowns: 590, skill: 3_600 },
-  { name: "ThriftyMilestone48", level: 11, crowns: 640, skill: 4_000 },
+  { name: "GiddyMaple60", level: 10, crowns: 590, skill: 3_600 },
+  { name: "JoyfulSettler85", level: 11, crowns: 640, skill: 4_000 },
   { name: "MightyTinker46", level: 12, crowns: 720, skill: 3_900 },
-  { name: "FriendlyCarver50", level: 13, crowns: 810, skill: 4_300 },
+  { name: "LilacVillage66", level: 13, crowns: 810, skill: 4_300 },
   { name: "CraftyChapel37", level: 14, crowns: 880, skill: 4_100 },
   { name: "TopazBadger06", level: 15, crowns: 960, skill: 4_600 },
   { name: "JauntyQuarry45", level: 16, crowns: 1_050, skill: 4_400 },
   { name: "HeartyQuay24", level: 17, crowns: 1_130, skill: 4_900 },
   { name: "StonyThistle23", level: 18, crowns: 1_240, skill: 5_100 },
-  { name: "ZealousBramble13", level: 20, crowns: 1_380, skill: 5_400 },
+  { name: "CopperShire38", level: 20, crowns: 1_380, skill: 5_400 },
 ];
 
 /** A number in [0, 1) for each call, from Poseidon on `seed`: the k-th call's is `poseidon('PLAYER', seed, k)`. */

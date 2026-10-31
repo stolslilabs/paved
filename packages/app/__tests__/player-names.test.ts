@@ -20,7 +20,7 @@ describe("playerName (#926)", () => {
     expect(NAME_ADJECTIVES.filter((w) => NAME_NOUNS.includes(w))).toEqual([]);
   });
 
-  it("gives every name its shape: two words in CamelCase and two digits, letters and digits only, 3 to 19 characters (#928)", () => {
+  it("gives every name its shape: two words in CamelCase and two digits, letters and digits only, 3 to 15 characters (the badge's plate)", () => {
     const random = seededRandom(926);
     for (let i = 0; i < NAMES; i++) {
       const name = playerName(random);
