@@ -12,7 +12,7 @@ import { RIVAL_SEEDS } from "../src/data/mock/rivals";
 import { mockRivalsV2 } from "../src/data/mock/v2";
 import { usePlayerProgress } from "../src/data/player-progress";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
-import { mockImplementation, playDailies } from "./mock-fakes";
+import { mockImplementation, playGame, surrenderedGame } from "./mock-fakes";
 
 // PvP v2 on the mock (#741, step 1 of #732): the whole loop through the hooks the screens (#739, #740) read, on the mock
 // ledger's overlays, from a fresh device: found a village, edit and save it; attack rivals with the deck of ceil(1.15 x S) and
@@ -207,11 +207,16 @@ describe("PvP v2 on the mock", () => {
   });
 
   it("pays the day's milestones, no bonus for the whole day (#869), and buys from the shop once per offer and day", async () => {
-    const { sources, ledger, chain } = mockImplementation();
-    // Both milestones of the day, the five dailies done: 10 and 15 Cobbles.
-    playDailies(chain, [1, 2, 3, 4], 1);
+    // The games on the fixture's day (the same games at every run), the shop on the device's clock.
+    const clock: { now: number | null } = { now: TODAY * 86_400 + 9 * 3_600 };
+    const { sources, ledger } = mockImplementation(undefined, undefined, () => clock.now ?? Date.now() / 1000);
+    // Both milestones of the day, the five dailies done (a game played out, then a surrender): 10 and 15 Cobbles.
+    await playGame(ledger, PLAYER);
+    clock.now = clock.now! + 600;
+    await surrenderedGame(ledger, PLAYER);
     await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 0);
     await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 1);
+    clock.now = null;
     const { result } = renderData(useLoop, sources);
     await waitFor(() => expect(result.current.quests.data).toBeTruthy());
     await waitFor(() => expect(result.current.account.data?.cobbles).toBe(25));

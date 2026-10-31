@@ -52,20 +52,16 @@ Choices made where the decisions leave room (each can be reversed by changing on
 - **The day's milestones** (#869): `dailyMilestones(player, day)` reads the day's claimed word (bit `step` per milestone),
   `claimDailyMilestone(day, step)` pays `DAILY_MILESTONES[step]`'s Cobbles once a day (refused `milestone-claimed` or
   `no-milestone`, `DailyMilestoneRefusedError`), and only once that day has the milestone's dailies done (`not-reached`
-  otherwise): the ledger counts them from the mock's indexer (`countDailiesWith`, set by `mockIndexer`). They are kept under
+  otherwise): the ledger counts them from the mock's indexer (`countDailiesWith`, set by `mockIndexer`, `mock/indexer.ts`). They are kept under
   the day's claims (`days[day].milestones`); a day stored before reads as none claimed.
-- **The fifth daily** (#869): the deployed `Setup` defines four dailies a day, so the mock's indexer (`mockIndexer`,
+- **The fifth daily** (#869): the fresh `Setup` defines four dailies a day, so the mock's indexer (`mock/indexer.ts`,
   `mock/dailies.ts`) adds a fourth rotating family, finish 2, 3 or 4 Challenge games in a day (ids 17 to 19,
-  `MOCK_DAILY_FAMILY`), to the definitions and its live quest to each day's progress, counted from the player's paid
-  Challenge games finished that UTC day (a free game reports no quest progress, `Challenge.finish`; a game finished on a later
-  day than its start has no end time, `end_in_day`: one surrendered counts on its surrender's time, which the mock's signer
-  records (`surrenders` of the ledger; `surrender` checks no expiry, so it can come days later, and such a game is read by its id
-  past the pages), one finished by its last move on the day after its start, `finishedAt`; on real data the indexer must expose
-  the surrender's time, #738; read page by page, newest first, down to the games started more than a game's life before the
-  day, so an older day keeps its count). An id the indexer already defines is left as it is; it goes once the contracts define the fifth
-  daily (#738).
+  `MOCK_DAILY_FAMILY`), to its definitions and counts it as the others, from the player's paid Challenge games over that UTC
+  day (a free game reports no quest progress, `Challenge.finish`), each on the time it ended in the ledger (a surrender days
+  after its start counts on its own day; on real data the indexer must expose that time, #738). An id the definitions already
+  hold is left as it is; it goes once the contracts define the fifth daily (#738).
 - **The level** (`playerLevel`, the ring) is v2's: the mock's XP, capped at 20.
-- The "Mock" mark stays on these pages (`MOCKED_PAGES`).
+- The "Mock" mark stays on these pages (`MOCKED_PAGES`: every page since #927).
 
 ## The hooks (`packages/app/src/data`)
 

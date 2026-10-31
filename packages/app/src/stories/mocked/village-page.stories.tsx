@@ -4,11 +4,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
 import { Route, Routes } from "react-router";
 import { Toaster } from "sonner";
-import { FakeGameViews, IndexerClient, SKIN_PLANS, type WriteAccount } from "@paved/chain";
+import { FakeGameViews, SKIN_PLANS, type WriteAccount } from "@paved/chain";
 import { inventoryOf, starterLayout, xpFloor, type ChestRank } from "@paved/game-core";
 import { seededRandom } from "@paved/renderer";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import type { DataSources, GameSigner } from "../../data/sources";
+import { mockIndexer } from "../../data/mock/indexer";
 import { MOCK_KEY, MOCK_STARTING_BALANCES, MockLedger } from "../../data/mock/ledger";
 import { mockConnector, mockGameViews, mockSigner } from "../../data/mock/overlay";
 import { freshV2, mockRivalsV2 } from "../../data/mock/v2";
@@ -101,7 +102,7 @@ function environment(seed: Seed, connected = false) {
   const store = seeded(seed);
   const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 600 });
   const views = mockGameViews(new FakeGameViews(), ledger);
-  const indexer = new IndexerClient({ url: "http://indexer.invalid/", fetch: (() => Promise.reject(new Error("No indexer in this story"))) as typeof fetch });
+  const indexer = mockIndexer(ledger);
   const sources: DataSources = { views, events: { playerGames: async () => [] }, economy: null, pool: null, indexer, signer: null };
   const account: WriteAccount = { address: PLAYER_ID, execute: async () => ({ transaction_hash: "0x0" }) };
   const connector = {

@@ -1,13 +1,16 @@
 import { WriteError } from "@paved/chain";
-import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
+import { FIXTURE_ADA } from "@paved/chain/testing";
+import { CENTER, OrientationType, replayVrfChallenge, type GameKey } from "@paved/game-core";
 import type { DataSources, GameSigner } from "../src/data";
 import { MOCK_STARTING_BALANCES, MockLedger, type TokenBalances } from "../src/data/mock/ledger";
-import { mockEconomyViews, mockEvents, mockGameViews, mockIndexer, mockPool, mockPurchases, mockSettlements, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
+import { mockIndexer } from "../src/data/mock/indexer";
+import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockSettlements, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
 import type { Purchases } from "../src/data/sources";
 import { fakeSources, memoryStore } from "./data-fakes";
 
-// The mock's sources for the tests (MOCK-FIRST): the ledger's overlays over a chain whose Setup, Vault and indexer predate
-// cobbles v1, as Sepolia's do, wired as `chain-client.ts`, `economy-client.ts` and the connector wire them in the app.
+// The mock's sources for the tests (MOCK-FIRST): the ledger's overlays over a chain whose Setup and Vault predate cobbles v1, as
+// Sepolia's do, and the ledger's indexer (#927), wired as `chain-client.ts`, `economy-client.ts`, `routes/sources.ts` and the
+// connector wire them in the app.
 
 const PLAYER = FIXTURE_ADA;
 const USDC = 1_000_000n;
@@ -24,34 +27,6 @@ export function sepoliaChain() {
 }
 
 /**
- * Ada's day on the fixture's indexer (#869): the fixture's dailies `done` (of quests 1 to 4, done every day), and `games`
- * Challenge games over on `day` beside the fixture's own (one on its day): the fifth daily's count (`data/mock/dailies.ts`).
- */
-export function playDailies(f: ReturnType<typeof sepoliaChain>, done: readonly number[], games = 0, day = Math.floor(FIXTURE_HEAD.timestamp / 86_400), free = false) {
-  f.fixture.progress.set(PLAYER, { quests: new Map(done.map((id) => [id, { count: Number.MAX_SAFE_INTEGER, completed_at: day * 86_400 + 3_600 }])), achievements: new Map() });
-  // A copy: the fixture's rows are shared by every fixture of the run.
-  f.fixture.games = [...f.fixture.games];
-  for (let i = 0; i < games; i++) {
-    const end = day * 86_400 + 7_200 + i * 600;
-    f.fixture.games.push({ contract: "challenge", game_id: 5_000 + f.fixture.games.length, player_id: PLAYER, mode: 1, start_time: end - 500, day_id: day, over: true, score: 90, counted_day_id: day, end_time: end, token_id: null, free });
-  }
-  // Newest first, as the indexer pages them (start time, then contract, then id, descending).
-  const key = (g: Record<string, unknown>) => `${g.start_time}:${g.contract}:${String(g.game_id).padStart(10, "0")}`;
-  f.fixture.games.sort((a, b) => (key(a) < key(b) ? 1 : -1));
-}
-
-/**
- * A paid Challenge game of Ada started at `start` and surrendered at `surrenderedAt` (#869): on the fixture's indexer as the
- * contract leaves a game over on a later UTC day than its start (no end time, counted in no day), and its surrender's time in
- * the ledger, as the mock's signer records it.
- */
-export async function surrenderGame(f: ReturnType<typeof sepoliaChain>, ledger: MockLedger, gameId: number, start: number, surrenderedAt: number) {
-  f.fixture.games = [...f.fixture.games, { contract: "challenge", game_id: gameId, player_id: PLAYER, mode: 1, start_time: start, day_id: Math.floor(start / 86_400), over: true, score: 40, counted_day_id: 0, end_time: 0, token_id: null, free: false }];
-  f.fixture.games.sort((a, b) => b.start_time - a.start_time);
-  await ledger.recordSurrender(PLAYER, gameId, surrenderedAt);
-}
-
-/**
  * The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them.
  * `starting`: what a new account holds in the ledger (the app's, `MOCK_STARTING_BALANCES`, by default).
  */
@@ -65,7 +40,7 @@ export function mockImplementation(store = memoryStore(), starting: TokenBalance
     events: mockEvents(f.sources.events, ledger),
     economy: mockEconomyViews(f.economy, ledger),
     pool: mockPool(ledger),
-    indexer: mockIndexer(f.indexer, ledger),
+    indexer: mockIndexer(ledger),
     signer: mockSigner({ address: PLAYER } as unknown as GameSigner, ledger),
     purchases: (signer) => mockPurchases(chainPurchases, ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),
@@ -79,4 +54,35 @@ export function mockImplementation(store = memoryStore(), starting: TokenBalance
 export async function buyGame(ledger: MockLedger, account: string, stake = 1) {
   const quote = await ledger.quote(stake);
   return ledger.writesFor(account).purchase({ stake, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
+}
+
+const ORIENTATIONS = Object.values(OrientationType);
+
+/**
+ * A Challenge game of `account` bought and played to the deck's end on the ledger (#927): each tile where it scores most, from
+ * the game's reads as the board opens it (`replayVrfChallenge`), else a discard. The same game for the same clock.
+ */
+export async function playGame(ledger: MockLedger, account: string, stake = 1) {
+  const { gameId } = await buyGame(ledger, account, stake);
+  const key: GameKey = { mode: "challenge", gameId };
+  const writes = ledger.writesFor(account);
+  while (!(await ledger.game(key)).over) {
+    const [game, tiles, draw] = await Promise.all([ledger.game(key), ledger.tiles(key), ledger.draw(key)]);
+    const engine = replayVrfChallenge(BigInt(await ledger.initialSeed(key)), tiles, game, draw);
+    let best: { placement: ReturnType<typeof engine.legalPlacements>[number]; score: number } | null = null;
+    for (const placement of engine.legalPlacements(engine.hand!.plan)) {
+      const score = engine.clone().build(placement).score;
+      if (!best || score > best.score) best = { placement, score };
+    }
+    if (best) await writes.build(key, { orientation: ORIENTATIONS.indexOf(best.placement.orientation), x: CENTER + best.placement.x, y: CENTER + best.placement.y });
+    else await writes.discard(key);
+  }
+  return { gameId, score: (await ledger.game(key)).score };
+}
+
+/** A Challenge game of `account` bought and surrendered at once on the ledger: over, score 0. */
+export async function surrenderedGame(ledger: MockLedger, account: string, stake = 1) {
+  const { gameId } = await buyGame(ledger, account, stake);
+  await ledger.writesFor(account).surrender({ mode: "challenge", gameId });
+  return gameId;
 }
