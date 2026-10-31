@@ -139,9 +139,9 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
   it("the League and the Chests draw their content in the region: the leagues' carousel and season, the day's slots", () => {
     const { unmount } = draw(PAGES[2]![1], false, "League");
     const region = document.querySelector("[data-slot=page-scroll]")!;
-    // The carousel of the 23 leagues (#785), then the season, all under the sticky header; no Attack button (#833).
+    // The carousel of Unranked and the 23 leagues (#785, #917), then the season, all under the sticky header; no Attack button (#833).
     expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
-    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-slot='carousel-item']").length).toBe(23);
+    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-slot='carousel-item']").length).toBe(24);
     expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
     expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
     // The latest attacks and defences (#786), a section of the page, in the same region.

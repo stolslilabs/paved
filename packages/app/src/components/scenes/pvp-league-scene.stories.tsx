@@ -8,7 +8,7 @@ import { scrolledToEnd } from "../../stories/scrolled-to-end";
 
 /**
  * The league (#647): the League control in the header (#859, no balance there; a tap brings the carousel back to the player's
- * league), a carousel of the 23 leagues opening on the player's (#785), one card size for every league, the card standing alone
+ * league), a carousel of Unranked and the 23 leagues opening on the player's (#785, #917), one card size for every league, the card standing alone
  * between the arrows and over the dots (#833, #859: the crest, the range of crowns, the season's Cobbles, the plate; no
  * crowns' count, no back icon), the season's end and, in one line, what the player's league gives at it (#859), and the latest
  * attacks and defences as cards (#786, no shield's card since #859), each opening its match. No Attack button (#833). The arrows,
@@ -33,7 +33,9 @@ export const Lower: Story = { args: PVP_LEAGUE.lower };
 export const LastDay: Story = { args: PVP_LEAGUE.lastDay };
 /** The top league: the next arrow stops there. */
 export const GrandMaster: Story = { args: PVP_LEAGUE.grandmaster };
-/** No attack yet: Wood, the first view; the previous arrow stops there. */
+/** No attack yet: Unranked (#917), the first view, before Wood, with no range of crowns; the previous arrow stops there. */
+export const Unranked: Story = { args: PVP_LEAGUE.unranked };
+/** In Wood after a first attack (120 crowns, 0 – 399): Unranked's card before it. */
 export const Wood: Story = { args: PVP_LEAGUE.wood };
 /** Dropped to Wood (200 crowns), the carousel opened on Bronze I. */
 export const Demoted: Story = { args: PVP_LEAGUE.demoted };
@@ -64,6 +66,8 @@ export const HigherPhone: Story = { ...Higher, ...PHONE_375 };
 export const HigherWide: Story = { ...Higher, ...WIDE_1440, decorators: [inPanel("League")] };
 export const LowerPhone: Story = { ...Lower, ...PHONE_375 };
 export const LowerWide: Story = { ...Lower, ...WIDE_1440, decorators: [inPanel("League")] };
+export const UnrankedPhone: Story = { ...Unranked, ...PHONE_375 };
+export const UnrankedWide: Story = { ...Unranked, ...WIDE_1440, decorators: [inPanel("League")] };
 export const WoodPhone: Story = { ...Wood, ...PHONE_375 };
 export const WoodWide: Story = { ...Wood, ...WIDE_1440, decorators: [inPanel("League")] };
 export const GrandMasterPhone: Story = { ...GrandMaster, ...PHONE_375 };
@@ -73,6 +77,7 @@ export const GrandMasterWide: Story = { ...GrandMaster, ...WIDE_1440, decorators
 /** The narrowest phone (320 px): the League control in the header, beside the title, never under it. */
 export const BronzeSmall: Story = { ...Bronze, ...PHONE_320 };
 export const HigherSmall: Story = { ...Higher, ...PHONE_320 };
+export const UnrankedSmall: Story = { ...Unranked, ...PHONE_320 };
 export const WoodSmall: Story = { ...Wood, ...PHONE_320 };
 export const GrandMasterSmall: Story = { ...GrandMaster, ...PHONE_320 };
 export const AttacksBelowSmall: Story = { ...AttacksBelow, ...PHONE_320 };
