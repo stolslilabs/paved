@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_DAYNIGHT_SETTINGS, DAY_PHASE_AT, SEASONS } from "@paved/renderer";
@@ -7,6 +7,8 @@ import { DEFAULT_DAYNIGHT_SETTINGS, DAY_PHASE_AT, SEASONS } from "@paved/rendere
 import { DAY_SHARE as RENDERER_DAY_SHARE, KEYFRAMES } from "../../renderer/src/core/daynight";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheelRound, useSeasonWheel, type WheelRound, wheelDayNight } from "../src/data/season-wheel";
 import { CENTRE_TURNS, DIAL_PX, NIGHT_ENDS, RING, SeasonWheel, TIME_DISC, TIME_ICON_AT, TIME_ICON_RADIUS, TIME_ICON_SIZE, TIME_TURNS_PER_YEAR } from "../src/components/elements/season-wheel";
+import { WHEEL_ART, wheelArtSources, wheelArtUrl } from "../src/components/elements/wheel-art";
+import { OUT, expected, masters, problems } from "../scripts/compress-wheel-art.ts";
 
 // The season wheel (#547), painted art since V4-WHEEL-ART: its states, what each asks of the renderer, its layers, and the element.
 
@@ -94,7 +96,6 @@ describe("the season wheel's states", () => {
 describe("the season dial's art (V4-WHEEL-ART)", () => {
   const theme = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
   const token = (name: string) => theme.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1]?.trim();
-  const ART = resolve(import.meta.dirname, "../src/assets/season-wheel");
 
   it("keeps the sky tokens the 3D cycle's, its keyframes' top and bottom", () => {
     for (const season of SEASONS) {
@@ -112,18 +113,33 @@ describe("the season dial's art (V4-WHEEL-ART)", () => {
     const layers = [...container.querySelectorAll<HTMLImageElement>("img[data-layer]")];
     expect(layers.map((l) => l.dataset.layer)).toEqual(["season-ring", "time-disc", "shade", "inner-bezel", "frame", "pointer", "hub"]);
     for (const img of [...container.querySelectorAll<HTMLImageElement>("img")]) {
-      expect(img.getAttribute("src"), img.dataset.layer).not.toMatch(/^(https?:)?\/\//);
+      expect(img.getAttribute("src"), img.dataset.layer).toMatch(/^\/wheel-art\//);
+      expect(img.getAttribute("srcset"), img.dataset.layer).not.toMatch(/(https?:)?\/\//);
       expect(img).toHaveAttribute("alt", "");
       expect(img).toHaveAttribute("draggable", "false");
     }
     for (const l of layers) expect(l).toHaveClass("absolute", "inset-0", "size-full");
   });
 
-  it("ships its art as WebP, light enough for a HUD widget", () => {
-    const files = readdirSync(ART).filter((f) => f.endsWith(".webp"));
-    expect(files.sort()).toEqual(["frame", "hub", "icon-moon", "icon-sun", "inner-bezel", "pointer", "season-ring", "shade", "time-disc"].map((n) => `${n}.webp`));
-    const total = files.reduce((sum, f) => sum + statSync(resolve(ART, f)).size, 0);
-    expect(total).toBeLessThan(250 * 1024);
+  it("ships each layer as WebP copies of its sizes, from a master on its frame (scripts/compress-wheel-art.ts), light for a HUD widget", () => {
+    expect(masters()).toEqual(["frame", "hub", "icon-moon", "icon-sun", "inner-bezel", "pointer", "season-ring", "shade", "time-disc"].map((n) => `${n}.webp`));
+    expect(expected()).toHaveLength(7 * 3 + 2 * 2);
+    expect(problems()).toEqual([]);
+    // What a 144 px dial on a 3x screen loads: the largest copy of each layer.
+    const largest = Object.entries(WHEEL_ART).map(([layer, f]) => join(OUT, layer, `${f.sizes[f.sizes.length - 1]}.webp`));
+    expect(largest.reduce((sum, f) => sum + statSync(f).size, 0)).toBeLessThan(250 * 1024);
+    expect(readdirSync(OUT).sort()).toEqual(Object.keys(WHEEL_ART).sort());
+  });
+
+  it("points each image at the smallest copy that stays sharp for the dial's size at each breakpoint", () => {
+    expect(wheelArtSources("frame")).toEqual({
+      src: "/wheel-art/frame/432.webp",
+      srcSet: "/wheel-art/frame/192.webp 192w, /wheel-art/frame/288.webp 288w, /wheel-art/frame/432.webp 432w",
+      sizes: "(min-width: 40rem) 144px, (min-width: 24.375rem) 108px, 96px",
+    });
+    expect(wheelArtSources("icon-sun", TIME_ICON_SIZE / 100).sizes).toBe("(min-width: 40rem) 15px, (min-width: 24.375rem) 11px, 10px");
+    expect(wheelArtUrl("icon-moon", 64)).toBe("/wheel-art/icon-moon/64.webp");
+    expect(DIAL_PX).toEqual([96, 108, 144]);
   });
 
   it("turns only the seasons' ring and the day and night disc; the rest stays still", () => {
