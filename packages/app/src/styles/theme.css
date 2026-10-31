@@ -257,12 +257,6 @@
   --resource-glint: rgb(255 255 255 / 0.14);
 }
 
-/* 3c'. The profile badge's level bar (#928): opaque, its track a dark gold mixed from the primary and the background, its outline
-   the background itself. */
-:root {
-  --level-track: color-mix(in oklab, var(--primary) 32%, var(--background));
-}
-
 /* 3d. The PvP flow (#647): the search's clouds over their sky, the crowns, and each league group's crest (#644's leagues:
    Wood, Iron to Master in three divisions each, Grand Master). The crests are told apart by their names too, never by colour
    alone. */
@@ -387,7 +381,6 @@
   --color-medal-3: var(--medal-3);
   --color-resource-plate: var(--resource-plate);
   --color-resource-edge: var(--resource-edge);
-  --color-level-track: var(--level-track);
   --color-fog: var(--fog);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -545,6 +538,11 @@
   }
 }
 
+
+/* Light text on the player badge's art (its name, its level): a dark outline, the background's colour a pixel each way, and a soft drop. */
+@utility text-outline {
+  text-shadow: 1px 0 var(--background), -1px 0 var(--background), 0 1px var(--background), 0 -1px var(--background), 0 2px 3px var(--background);
+}
 
 /*
  * The plan view's pending tile (#681): its opacity from 80 to 100 % and back on a sine (easeInOutSine), one cycle every

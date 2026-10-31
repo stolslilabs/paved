@@ -4,17 +4,16 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ProfileProvider, type ProfileValue } from "../src/components/containers/profile-context";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { PlayerBadge, nameSize } from "../src/components/containers/player-badge";
-import { badgeWidth, isMaxLevel, levelLabel, nameCorner, tagWidth, xpLeftText } from "../src/components/elements/xp-level";
-import { BAR_OUTLINE, barHeight, levelPath, pathPoint, tagFont, tagText, XpPathStill } from "../src/components/elements/xp-path-frame";
-import { XpPath } from "../src/components/elements/xp-path";
+import { badgeLayout, NAME_ROOM, nameSize, PlayerBadge } from "../src/components/containers/player-badge";
+import { BADGE_ART, badgeArtSources, badgeArtUrl, barUrl, BAR_BAND, BAR_CORE, BAR_RADIUS, GROOVE, levelBar, PORTRAIT, SHIELD_HEIGHT, SHIELD_RISE } from "../src/components/elements/badge-art";
+import { arcPoint, LevelRing, levelArc, levelFont, levelText } from "../src/components/elements/level-ring";
+import { isMaxLevel, levelLabel, xpLeftText } from "../src/components/elements/xp-level";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { PLAYER_NAME_MAX } from "../src/lib/name-limit";
 import { PROGRESS } from "../src/mocks/players";
 import { PROFILE } from "../src/mocks/scenes";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
+import { expected, masters, problems } from "../scripts/compress-badge-art.ts";
 
 const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
   <LazyMotion features={domMax}>
@@ -30,6 +29,8 @@ const value = (over: Partial<ProfileValue> = {}): ProfileValue => ({
   ...over,
 });
 const badge = (v: ProfileValue | null) => wrap(v ? <ProfileProvider value={v}><PlayerBadge /></ProfileProvider> : <PlayerBadge />);
+/** A connected player of that name (the mock's own). */
+const named = (name: string): ProfileValue["state"] => ({ status: "connected", data: { ...PROFILE.connected.data, player: { ...PROFILE.connected.data.player, name } } });
 
 describe("the XP left (#787)", () => {
   it("says the XP to the next level, or Max level at the cap (20, #734)", () => {
@@ -43,214 +44,203 @@ describe("the XP left (#787)", () => {
   });
 });
 
-/** The avatar's three sizes (the season dial's, #856): 96, 108 from 390 px wide, 144 from `tablet`. */
+/** The ring's three sizes (the season dial's, #856): 96, 108 from 390 px wide, 144 from `tablet`. */
 const BOXES = [96, 108, 144];
 
-describe("the level's path (#830, reshaped by #928)", () => {
-  it("an arc from the avatar's right clockwise to its top, inside its box with the outline, then a line to the tag", () => {
-    const { d, arc, line, length, r, tag } = levelPath(96);
-    // The bar 14 px thick, its outline 2: the arc's middle 9 px inside the box. From 3 o'clock (87, 48) clockwise to 12 o'clock.
-    expect(r).toBe(39);
-    expect(d).toBe("M 87 48 A 39 39 0 1 1 48 9 h 44");
-    expect(arc).toBeCloseTo(1.5 * Math.PI * 39);
-    // From the avatar's top (48) to the tag's left edge (144 - 52).
-    expect(tag).toBe(92);
-    expect(line).toBe(44);
-    expect(length).toBeCloseTo(arc + line);
+describe("the badge's art (the owner's direction of 2026-10-31)", () => {
+  it("ships each part as a WebP of its size, from a master on the part's frame (scripts/compress-badge-art.ts)", () => {
+    expect(masters()).toEqual(["bar.webp", "plate-cap.webp", "plate-tile.webp", "ring.webp", "shield.webp"]);
+    expect(expected()).toHaveLength(9);
+    expect(problems()).toEqual([]);
+    // The ring and the bar share their square frame, so they lie one over the other; the plate's tile and cap share their height.
+    expect([BADGE_ART.ring.width, BADGE_ART.ring.height]).toEqual([BADGE_ART.bar.width, BADGE_ART.bar.height]);
+    expect(BADGE_ART["plate-tile"].height).toBe(BADGE_ART["plate-cap"].height);
   });
 
-  it("lays the share on the whole path: the arc fills first, then the line, in proportion", () => {
-    const { arc, length, line } = levelPath(96);
-    const at = (share: number) => pathPoint(share, 96);
-    expect(at(0)).toEqual({ x: 87, y: 48 });
-    // A third of the arc: a quarter turn clockwise, the avatar's bottom.
-    const bottom = at(arc / 3 / length);
-    expect(bottom.x).toBeCloseTo(48);
-    expect(bottom.y).toBeCloseTo(87);
-    // The arc full: the avatar's top, where the line starts.
-    const top = at(arc / length);
-    expect(top.x).toBeCloseTo(48);
-    expect(top.y).toBeCloseTo(9);
-    // Past it, along the line; the whole level ends at the tag.
-    expect(at((arc + line / 2) / length).x).toBeCloseTo(70);
-    expect(at(1).x).toBeCloseTo(92);
+  it("points each image at the smallest copy that stays sharp for the size shown", () => {
+    expect(badgeArtSources("ring", 96)).toEqual({
+      src: "/badge-art/ring/432.webp",
+      srcSet: "/badge-art/ring/192.webp 192w, /badge-art/ring/288.webp 288w, /badge-art/ring/432.webp 432w",
+      sizes: "96px",
+    });
+    expect(badgeArtUrl("plate-tile", 160)).toBe("/badge-art/plate-tile/160.webp");
+    // An SVG image takes no srcSet: the bar's larger copy from the 144 px ring.
+    expect(BOXES.map(barUrl)).toEqual(["/badge-art/bar/288.webp", "/badge-art/bar/288.webp", "/badge-art/bar/432.webp"]);
+  });
+});
+
+describe("the level's bar", () => {
+  it("runs in the groove a whole turn clockwise from 12 o'clock, under the shield, back to it", () => {
+    const r = BAR_RADIUS * 96;
+    const { d, c, length } = levelArc(96, r);
+    expect(c).toBe(48);
+    // From the top down the right side to the bottom, then up the left side to the top (sweep 1: clockwise on the screen).
+    expect(d).toBe(`M 48 ${48 - r} A ${r} ${r} 0 0 1 48 ${48 + r} A ${r} ${r} 0 0 1 48 ${48 - r}`);
+    expect(length).toBeCloseTo(2 * Math.PI * r);
+    // Its bright core in the groove; its glow, over the groove's edges, inside the ring's box. The portrait under the groove.
+    expect(BAR_RADIUS - BAR_CORE / 2).toBeGreaterThan(GROOVE.inner);
+    expect(BAR_RADIUS + BAR_CORE / 2).toBeLessThan(GROOVE.outer);
+    expect(BAR_RADIUS + BAR_BAND / 2).toBeLessThan(0.5);
+    expect(PORTRAIT / 2).toBeGreaterThan(GROOVE.inner);
+    expect(PORTRAIT / 2).toBeLessThan(BAR_RADIUS);
+  });
+
+  it("lays the share on the course: a quarter of it is 3 o'clock, half the bottom, all of it the top again", () => {
+    const r = BAR_RADIUS * 96;
+    const at = (share: number) => arcPoint(share, 96, r);
+    const near = (p: { x: number; y: number }, x: number, y: number) => {
+      expect(p.x).toBeCloseTo(x);
+      expect(p.y).toBeCloseTo(y);
+    };
+    near(at(0), 48, 48 - r);
+    near(at(0.25), 48 + r, 48);
+    near(at(0.5), 48, 48 + r);
+    near(at(0.75), 48 - r, 48);
+    near(at(1), 48, 48 - r);
     expect(at(2)).toEqual(at(1));
   });
+
+  it("is given the art's measures by the badge: the bar's image, radius and band, the level in the shield's face", () => {
+    expect(levelBar(96)).toEqual({ src: "/badge-art/bar/288.webp", radius: BAR_RADIUS * 96, band: BAR_BAND * 96, levelY: expect.any(Number) });
+    // The face's centre, inside the shield, which starts above the ring's box.
+    for (const box of BOXES) {
+      expect(levelBar(box).levelY).toBeGreaterThan(-SHIELD_RISE * box);
+      expect(levelBar(box).levelY).toBeLessThan((SHIELD_HEIGHT - SHIELD_RISE) * box);
+    }
+  });
+
+  it("draws the glowing ring's image through a mask of the course, round at both ends", async () => {
+    const { container } = render(wrap(<LevelRing progress={PROGRESS.partWay} box={96} bar={levelBar(96)} />));
+    const svg = container.querySelector("[data-slot=level-bar]")!;
+    const image = svg.querySelector("image")!;
+    expect(image.getAttribute("href")).toBe("/badge-art/bar/288.webp");
+    const mask = svg.querySelector(image.getAttribute("mask")!.replace(/^url\((.*)\)$/, "$1"))!;
+    const fill = mask.querySelector("[data-slot=level-fill]")!;
+    expect(fill.getAttribute("d")).toBe(levelArc(96, BAR_RADIUS * 96).d);
+    expect(fill.getAttribute("stroke-linecap")).toBe("round");
+    expect(Number(fill.getAttribute("stroke-width"))).toBeCloseTo(BAR_BAND * 96);
+    expect(fill.getAttribute("stroke")).toBe("white");
+  });
+
+  it("puts the level in the shield's face, in figures that read (12 px at least); nothing while the XP is read", () => {
+    for (const box of BOXES) expect(levelFont(box)).toBeGreaterThanOrEqual(12);
+    expect(levelText(3)).toBe("3");
+    expect(levelText(99)).toBe("99");
+    expect(levelText(1_234)).toBe("99+");
+    expect(levelText(undefined)).toBe("");
+    const { container } = render(wrap(<LevelRing progress={undefined} box={96} bar={levelBar(96)} />));
+    expect(container.querySelector("[data-slot=level]")).toHaveTextContent(/^$/);
+  });
 });
 
-describe("the badge's shape (#928)", () => {
-  it("is at most 1.5 times the avatar's width, the tag included, at each avatar size", () => {
+describe("the badge's layout", () => {
+  it("rises the shield above the ring and centres the plate, half the ring's height, on it", () => {
     for (const box of BOXES) {
-      const { tag } = levelPath(box);
-      expect(badgeWidth(box)).toBe(1.5 * box);
-      expect(tag + tagWidth(box)).toBe(badgeWidth(box));
-      // The line runs from the avatar's top (its middle) to the tag, never back over the avatar.
-      expect(levelPath(box).line).toBeGreaterThan(0);
+      const { rise, plate, plateTop, shield } = badgeLayout(box);
+      expect(rise).toBe(Math.round(SHIELD_RISE * box));
+      expect(plate).toBe(Math.round(box / 2));
+      expect(plateTop + plate / 2).toBeCloseTo(rise + box / 2, 0);
+      expect(shield).toBe(Math.round(0.3 * box));
     }
-    expect(BOXES.map(badgeWidth)).toEqual([144, 162, 216]);
+    expect(BOXES.map((b) => badgeLayout(b).cap)).toEqual([33, 37, 50]);
   });
 
-  it("the button's widths are 1.5 times the avatar's at each width (the classes, as Tailwind lays them)", () => {
-    const { container } = render(badge(value()));
-    const rem = (cls: string, prefix: string) => {
-      const m = new RegExp(`(?:^|\\s)${prefix.replace(/[.[\]()]/g, "\\$&")}(\\d+(?:\\.\\d+)?|\\[(\\d+(?:\\.\\d+)?)rem\\])(?:\\s|$)`).exec(cls);
-      if (!m) throw new Error(`no ${prefix} in ${cls}`);
-      return m[2] ? Number(m[2]) * 16 : Number(m[1]) * 4;
-    };
-    const avatar = container.querySelector("[data-slot=player-avatar]")!.className;
-    const button = screen.getByRole("button").className;
-    for (const [size, width] of [["size-", "w-"], ["min-[24.375rem]:size-", "min-[24.375rem]:w-"], ["tablet:size-", "tablet:w-"]] as const) {
-      const box = rem(avatar, size);
-      expect(BOXES).toContain(box);
-      expect(rem(button, width)).toBe(badgeWidth(box));
-    }
-  });
-
-  it("the tag has one width for every level from 1 to 99, which holds Lv 99 in tabular figures", () => {
-    for (const box of BOXES) {
-      const widths = new Set<string>();
-      for (let level = 1; level <= 99; level++) {
-        const { container, unmount } = render(wrap(<XpPathStill progress={{ level, xp: 0, xpForNext: 100 }} box={box} />));
-        const tag = container.querySelector<HTMLElement>("[data-slot=level]")!;
-        expect(tag).toHaveTextContent(`Lv ${level}`);
-        widths.add(tag.style.width);
-        // The bar's height and outline: the tag continues the line at the same height.
-        expect(tag.style.height).toBe(`${barHeight(box) + 2 * BAR_OUTLINE}px`);
-        expect(tag.style.left).toBe(`${levelPath(box).tag}px`);
-        unmount();
-      }
-      expect([...widths]).toEqual([`${tagWidth(box)}px`]);
-      // "Lv 99": 5 figures of Space Mono's 0.6 em, plus 4 px of padding each side and the outline.
-      expect(5 * 0.6 * tagFont(box) + 8 + BAR_OUTLINE).toBeLessThanOrEqual(tagWidth(box));
-      // The figures read: at least 12 px, inside the bar's height.
-      expect(tagFont(box)).toBeGreaterThanOrEqual(12);
-      expect(tagFont(box)).toBeLessThanOrEqual(barHeight(box));
-    }
-    expect(tagText(undefined)).toBe("Lv");
-    expect(tagText(1_234)).toBe("99+");
-  });
-
-  it("the bar is opaque: its track and its outline, no alpha in their colours; its line's end square, its wrapping end round", () => {
-    const { container } = render(wrap(<XpPathStill progress={PROGRESS.partWay} box={96} />));
-    const outline = container.querySelector("[data-slot=xp-outline]")!;
-    const track = container.querySelector("[data-slot=xp-track]")!;
-    expect(outline.getAttribute("class")).toBe("stroke-background");
-    expect(track.getAttribute("class")).toBe("stroke-level-track");
-    // The paths end square (into the tag); the start, at 3 o'clock (87, 48), is a disc of each layer's width: a round cap.
-    for (const p of container.querySelectorAll("path")) expect(p.getAttribute("stroke-linecap")).toBe("butt");
-    // (A circle's stroke, half the width round a quarter of it: the layers' own stroke classes.)
-    const caps = [["xp-outline-cap", 18, "stroke-background"], ["xp-track-cap", 14, "stroke-level-track"], ["xp-fill-cap", 14, "stroke-primary"]] as const;
-    for (const [slot, width, stroke] of caps) {
-      const cap = container.querySelector(`circle[data-slot=${slot}]`)!;
-      expect(["cx", "cy", "r", "stroke-width", "fill"].map((a) => cap.getAttribute(a))).toEqual(["87", "48", String(width / 4), String(width / 2), "none"]);
-      expect(cap.getAttribute("class")).toBe(stroke);
-    }
-    const tag = container.querySelector("[data-slot=level]")!;
-    expect(tag.className).toMatch(/(^|\s)border-background(\s|$)/);
-    expect(tag.className).toMatch(/(^|\s)border-2 border-l-0(\s|$)/);
-    expect(BAR_OUTLINE).toBe(2);
-    expect(tag.className).toMatch(/(^|\s)bg-resource-plate(\s|$)/);
-    // The tokens, as theme.css defines them: no alpha, and the track mixed from two opaque tokens.
-    const css = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
-    const token = (name: string) => new RegExp(`--${name}:\\s*([^;]+);`).exec(css)![1]!;
-    expect(token("level-track")).toBe("color-mix(in oklab, var(--primary) 32%, var(--background))");
-    for (const name of ["background", "primary", "resource-plate"]) expect(token(name)).toMatch(/^var\(--(color|accent)-[a-z]+-\d+\)$/);
-    for (const name of ["level-track", "background", "primary", "resource-plate"]) expect(token(name)).not.toMatch(/\/|rgba|transparent/);
-  });
-
-  it("the name's corner: under the bar's run, over its round wrapping end, from that end to the badge's end; the name's line fits", () => {
-    for (const box of BOXES) {
-      const { r, c, thick } = levelPath(box);
-      const { left, top, height } = nameCorner(box);
-      const edge = thick / 2 + BAR_OUTLINE;
-      // The run's underside, outline included; the wrapping end's cap's top, outline included, its left edge.
-      expect(top).toBe(c - r + edge);
-      expect(top + height).toBe(c - edge);
-      expect(left).toBe(c + r - edge);
-      // Beside the avatar, right of its middle, inside the badge: at least half the avatar's width less the bar.
-      expect(left).toBeGreaterThan(c);
-      expect(badgeWidth(box) - left).toBeGreaterThanOrEqual(box / 2 + edge);
-      // The name's line: `h-5`, `tablet:h-7` from the 144 px avatar.
-      expect(height).toBeGreaterThanOrEqual(box >= 144 ? 28 : 20);
-    }
-    expect(BOXES.map(nameCorner)).toEqual([
-      { left: 78, top: 18, height: 21 },
-      { left: 90, top: 18, height: 27 },
-      { left: 122, top: 22, height: 39 },
-    ]);
-  });
-
-  it("the name's size: its own when it fits in its corner, else smaller, never under 12 px", () => {
+  it("the name's size: its own while the plate stays within its room, else smaller, never under 12 px", () => {
     expect(nameSize("Al", 96)).toBe(16);
     expect(nameSize("Al", 144)).toBe(20);
-    expect(nameSize("bal7hazar", 144)).toBeLessThan(20);
-    for (const box of BOXES) expect(nameSize("A".repeat(PLAYER_NAME_MAX), box)).toBe(12);
+    expect(nameSize("bal7hazar", 96)).toBe(16);
+    // The longest name (15 characters) a little smaller beside the phones' rings, at its own size beside the 144 px one.
+    expect(BOXES.map((b) => nameSize("A".repeat(PLAYER_NAME_MAX), b))).toEqual([13, 15, 20]);
+    expect(PLAYER_NAME_MAX).toBe(15);
+    expect(NAME_ROOM).toBe(1.05);
+    // A name past the limit (the stress mock's) never under 12 px; the ellipsis cuts it.
+    expect(nameSize("stonemaster_of_the_long_roads31", 96)).toBe(12);
   });
 });
 
-describe("PlayerBadge (#787, the league out of it since #829, the level's path since #830)", () => {
-  it("names the level and the XP left; the name in the display font after the User icon on its band, Lv i at the line's end; no XP left on the home", async () => {
+describe("PlayerBadge (#787, redrawn after the owner's direction of 2026-10-31)", () => {
+  it("names the level and the XP left; the ring, the portrait in it, the shield with the level, the name on the plate", async () => {
     const { container } = render(badge(value()));
     const profile = screen.getByRole("button", { name: "Profile: bal7hazar, level 3, 180 XP to level 4" });
-    expect(profile).toHaveTextContent("bal7hazar");
     const name = within(profile).getByText("bal7hazar");
-    expect(name.closest("[data-slot=name-row]")).toHaveClass("font-display");
+    expect(name).toHaveClass("font-display", "truncate", "text-outline");
     expect(name).toHaveAttribute("title", "bal7hazar");
-    expect(name).toHaveClass("truncate");
-    // The User icon before it, a game icon. The row in its corner, from the bar's wrapping end (78) to the badge's end (the
-    // button's right), between the run (18) and the cap (39); the band from the avatar's middle (48) to the badge's end.
-    expect(name.previousElementSibling).toHaveAttribute("data-icon", "user");
-    const row = profile.querySelector<HTMLElement>("[data-slot=name-row]")!;
-    expect([row.style.left, row.style.top, row.style.height]).toEqual(["78px", "18px", "21px"]);
-    expect(row).toHaveClass("right-0");
-    const band = profile.querySelector<HTMLElement>("[data-slot=name-band]")!;
-    expect(78 + parseFloat(band.style.left)).toBe(48);
-    expect(band).toHaveClass("right-0", "inset-y-0");
-    // Linear, from the band's start to fully transparent at its end, toward the level.
-    expect(band.className).toContain("[mask-image:linear-gradient(to_right,black,transparent)]");
-    await waitFor(() => expect(profile.querySelector("[data-slot=xp-path]")).not.toBeNull());
-    expect(profile.querySelector("[data-slot=level]")).toHaveTextContent("Lv 3");
-    // The motion's path keeps the round start: the fill's cap at 3 o'clock.
-    expect(profile.querySelector("circle[data-slot=xp-fill-cap]")).toHaveAttribute("cx", "87");
+    expect(name.style.fontSize).toBe("16px");
+    // The ring at the season dial's size (#856), the shield rising 8 px above it; the button the ring's box and the shield.
+    const ring = profile.querySelector<HTMLElement>("[data-slot=avatar-ring]")!;
+    expect(ring.className).toContain("size-24");
+    expect(ring.className).toContain("min-[24.375rem]:size-27");
+    expect(ring.className).toContain("tablet:size-36");
+    expect(ring.style.top).toBe("8px");
+    expect(profile.style.height).toBe("104px");
+    expect(profile.querySelector("img[data-slot=ring]")).toHaveAttribute("sizes", "96px");
+    // The portrait under the ring, a little wider than its hole.
+    const portrait = profile.querySelector("[data-slot=player-avatar]")!.parentElement!;
+    expect(parseFloat(portrait.style.inset)).toBeCloseTo(((1 - PORTRAIT) / 2) * 96);
+    // The plate from the ring's middle, half its height, centred on it; the tile repeated from the cap leftward.
+    expect(profile.style.paddingLeft).toBe("48px");
+    const plate = profile.querySelector<HTMLElement>("[data-slot=name-plate]")!;
+    expect([plate.style.height, plate.style.marginTop]).toEqual(["48px", "32px"]);
+    const face = profile.querySelector<HTMLElement>("[data-slot=name-face]")!;
+    expect(face.style.backgroundImage).toBe('url("/badge-art/plate-tile/160.webp")');
+    expect(face).toHaveClass("bg-repeat-x", "bg-right");
+    expect(face.style.paddingLeft).toBe("52px");
+    expect(plate.querySelector("img[data-slot=name-cap]")).toHaveAttribute("src", "/badge-art/plate-cap/160.webp");
+    // Within the home's room beside its balances.
+    expect(profile).toHaveClass("max-w-(--profile-room)");
+    expect(profile.querySelector("img[data-slot=shield]")).not.toBeNull();
+    await waitFor(() => expect(profile.querySelector("[data-slot=level-bar]")).not.toBeNull());
+    expect(profile.querySelector("[data-slot=level]")).toHaveTextContent(/^3$/);
     expect(profile).not.toHaveTextContent("XP to Lv");
     expect(screen.queryByRole("button", { name: /^League/ })).toBeNull();
     expect(container.querySelector("[data-slot=league-border]")).toBeNull();
   });
 
-  it("at the cap, max level in the name, Lv 20 at the line's end (with the path's chunk)", async () => {
-    render(badge(value({ progress: PROGRESS.maxLevel })));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Profile: bal7hazar, level 20, max level" })).toHaveTextContent("Lv 20"));
+  it("the plate grows with the name: the longest name, 15 characters, a little smaller beside the phone's ring", () => {
+    render(badge(value({ state: named("CobblestoneKing") })));
+    const name = screen.getByText("CobblestoneKing");
+    expect(name.style.fontSize).toBe("13px");
   });
 
-  it("the avatar opens the profile sheet", async () => {
+  it("at the cap, max level in the name, 20 in the shield (with the bar's chunk)", async () => {
+    render(badge(value({ progress: PROGRESS.maxLevel })));
+    const profile = screen.getByRole("button", { name: "Profile: bal7hazar, level 20, max level" });
+    await waitFor(() => expect(profile.querySelector("[data-slot=level]")).toHaveTextContent(/^20$/));
+  });
+
+  it("the badge opens the profile sheet", async () => {
     render(badge(value()));
     await userEvent.click(screen.getByRole("button", { name: /^Profile: bal7hazar/ }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
-  it("a guest: the silhouette and Guest, no path; without the shell's profile, nothing", () => {
+  it("a guest: the silhouette in the ring and Guest on the plate, no bar, no shield; without the shell's profile, nothing", () => {
     const { container, rerender } = render(badge(value({ state: PROFILE.guest, progress: undefined })));
     expect(screen.getByRole("button", { name: "Profile: guest" })).toHaveTextContent("Guest");
-    expect(container.querySelector("[data-slot=xp-path]")).toBeNull();
-    expect(container.querySelector("[data-slot=level]")).toBeNull();
+    expect(container.querySelector("img[data-slot=ring]")).not.toBeNull();
+    expect(container.querySelector("[data-slot=level-bar]")).toBeNull();
+    expect(container.querySelector("img[data-slot=shield]")).toBeNull();
     rerender(badge(null));
     expect(container.querySelector("[data-slot=player-badge]")).toBeNull();
   });
 
-  it("is the home's top left; under it the League control, then the village score (#829); no XP ring there", async () => {
+  it("while the wallet looks: the placeholder in the ring, no plate", () => {
+    const { container } = render(badge(value({ state: PROFILE.loading, progress: undefined })));
+    expect(container.querySelector("[data-slot=skeleton]")).not.toBeNull();
+    expect(container.querySelector("[data-slot=name-plate]")).toBeNull();
+  });
+
+  it("is the home's top left; under it the League control, then the village score (#829)", async () => {
     const { container } = render(wrap(<ProfileProvider value={value()}><HomeVillageScene {...HOME_VILLAGE.view} /></ProfileProvider>));
     // The League control in its own chunk (FIRST-LOAD): a stand-in of its height until it comes.
     await screen.findByRole("button", { name: /^League: / });
     const corner = container.querySelector<HTMLElement>("[data-slot=player-badge]")!;
     expect(within(corner).getByRole("button", { name: /^Profile: bal7hazar, level 3/ })).toBeInTheDocument();
-    // The avatar at the season dial's size (#856).
-    expect(corner.querySelector("[data-slot=player-avatar]")!.className).toContain("tablet:size-36");
-    // The column under the profile (#856, centred between it and the dial): the League control, then the village score.
+    // The column under the profile: the League control, then the village score.
     const column = screen.getByRole("button", { name: /^League: / }).parentElement!;
     const [league, score] = [...column.children] as HTMLElement[];
     expect(league).toHaveAccessibleName(/^League: /);
     expect(score).toHaveAttribute("data-slot", "village-score");
-    expect(within(score!).getByRole("button")).toHaveAccessibleName(/^Village score /);
     expect(container.querySelector("[data-slot=xp-ring]")).toBeNull();
   });
 });

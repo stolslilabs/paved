@@ -311,8 +311,9 @@ function leftColumnHint(el: HTMLDivElement) {
 const GAP_PX = 12;
 
 /**
- * The overlays' measures, on their box. The profile beside the balances' first plate needs none since #928: the badge is at most
- * 1.5 times the avatar, so it stops short of the plate whatever the amounts (a 999,999 Cobbles plate at 320 px, #828).
+ * The overlays' measures, on their box. The profile beside the balances' first plate: `--profile-room`, the width the badge may
+ * take (its name plate grows with the name), so it stops a gap short of the plate whatever the amounts (a 999,999 Cobbles plate
+ * at 320 px, #828).
  * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands of the two columns, a gap off their neighbours as they are drawn: the right one from under the
  * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
  * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929, open point 1): the left band starts
@@ -339,6 +340,8 @@ function useOverlayMeasures(dial: boolean) {
         "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom),
       };
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
+      // The profile's room, from its left to a gap short of the balances: the badge's name plate ends there.
+      box.style.setProperty("--profile-room", `${balances!.left - profile!.left - GAP_PX}px`);
     });
     // The box and what the bands stand off (not the columns, which the bands size).
     for (const el of els) if (el) observer.observe(el);
