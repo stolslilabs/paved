@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LEAGUES } from "../src/lib/pvp-rules";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { dotsWindow } from "../src/components/ui/carousel-dots";
-import { BONUS_BURST_MS } from "../src/components/elements/league-bonus";
 import { crownRange } from "../src/components/containers/league-card";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
 
@@ -21,7 +20,6 @@ const inView = () => within(carousel()).getByRole("group");
 const dots = () => within(screen.getByRole("group", { name: "Go to a league" })).getAllByRole("button");
 const current = () => dots().find((d) => d.getAttribute("aria-current") === "true");
 const control = () => screen.getByRole("button", { name: /^Your league: .*\. Show it$/ });
-const bonus = () => within(inView()).getByLabelText(/^First-time bonus/);
 
 afterEach(cleanup);
 
@@ -37,9 +35,9 @@ describe("League carousel (#785, #833, #859)", () => {
     // No crowns' count in the card (#859): no way to the next league, no crowns to go.
     expect(within(carousel()).queryByRole("progressbar")).toBeNull();
     expect(within(carousel()).queryByText(/crowns to go|Reached/)).toBeNull();
-    // The card stands alone: the arrows and the dots outside it, no box around them.
+    // The card stands alone on the page, with no ground of its own (2026-10-30): the arrows and the dots outside it, no box around them.
     const card = within(inView()).getByText("Bronze II").closest<HTMLElement>("[data-slot=league-card]")!;
-    expect(card).toHaveClass("rounded-xl", "border", "bg-card");
+    expect(card.className).not.toMatch(/\bborder\b|\bbg-card\b/);
     for (const name of ["Previous league", "Next league", "Go to Bronze II"]) expect(card).not.toContainElement(screen.getByRole("button", { name }));
     expect(carousel().parentElement!.parentElement!.className).not.toMatch(/\bborder\b|\bbg-card\b/);
     // One dot per league, the current one marked; no "N of 23".
@@ -57,14 +55,20 @@ describe("League carousel (#785, #833, #859)", () => {
     expect(screen.queryAllByRole("list").map((l) => l.getAttribute("aria-label"))).toEqual(["Matches"]);
   });
 
-  it("every league's card has the same content rows: the crest, the title, the range, the season reward", () => {
+  it("every league's card has the same content rows: the crest, the range, the season reward, the plate (the title)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
     const cards = carousel().querySelectorAll<HTMLElement>("[data-slot='league-card']");
     expect(cards).toHaveLength(LEAGUES.length);
-    // One fixed height for all, Wood included.
-    expect(new Set([...cards].map((c) => [...c.classList].filter((k) => /^h-/.test(k)).join()))).toEqual(new Set(["h-40"]));
-    // The bonus's corner (none for Wood), then the four rows.
-    for (const card of cards) expect(card.children).toHaveLength(card.closest("[data-league]")!.getAttribute("data-league") === "0" ? 4 : 5);
+    // One height for all, Wood included: every crest has one box, at one size (#917).
+    const crests = [...cards].map((c) => c.querySelector<HTMLElement>(":scope > [data-slot=league-crest-art]")!);
+    expect(new Set(crests.map((f) => f.style.fontSize))).toEqual(new Set(["10rem"]));
+    expect(crests.map((f) => f.dataset.tier)).toEqual(LEAGUES.map((l) => l.id));
+    // The plate names the card: its heading, the last row.
+    expect(cards[13]!.querySelector("h2")).toHaveAccessibleName("Emerald III");
+    for (const card of cards) expect(card.lastElementChild!.tagName).toBe("H2");
+    // The four rows, no bonus's corner since #917 (a lifetime league mission instead).
+    for (const card of cards) expect(card.children).toHaveLength(4);
+    expect(carousel().querySelector("[data-bonus]")).toBeNull();
     expect(crownRange(LEAGUES[0]!).text).toBe("0 – 399");
     expect(crownRange(LEAGUES[22]!).text).toBe("5,000+");
   });
@@ -122,91 +126,13 @@ describe("League carousel (#785, #833, #859)", () => {
     });
   }
 
-  it("the first-time bonus: had up to the season's best league, out of reach above", async () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
-    // The season's best, 1,240, is in Bronze I: its bonus was had too.
-    expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: had this season");
-    await userEvent.click(screen.getByRole("button", { name: "Go to Bronze I" }));
-    expect(bonus()).toHaveAttribute("data-bonus", "had");
-    await userEvent.click(screen.getByRole("button", { name: "Go to Silver III" }));
-    expect(bonus()).toHaveAccessibleName("First-time bonus, +15 Cobbles: reach Silver III to earn it");
-    expect(bonus()).toHaveAttribute("data-bonus", "locked");
-    await userEvent.click(screen.getByRole("button", { name: "Go to Wood" }));
-    expect(within(inView()).queryByLabelText(/^First-time bonus/)).toBeNull();
-    expect(within(inView()).getByText("No season reward")).toBeInTheDocument();
-  });
-
-  it("a drop to Wood keeps the season's bonuses had up to the season's best", async () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.demoted} />));
-    // The header shows Wood's crest and the crowns now, 200.
-    expect(control()).toHaveAccessibleName("Your league: Wood, 200 crowns. Show it");
-    expect(control()).toHaveAttribute("data-league", "wood");
-    expect(inView()).toHaveAccessibleName("Bronze II");
-    expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: had this season");
-    await userEvent.click(screen.getByRole("button", { name: "Go to Bronze I" }));
-    expect(bonus()).toHaveAttribute("data-bonus", "had");
-    await userEvent.click(screen.getByRole("button", { name: "Go to Silver III" }));
-    expect(bonus()).toHaveAttribute("data-bonus", "locked");
-    // The header's League control returns to the player's league, Wood.
-    await userEvent.click(control());
-    expect(inView()).toHaveAccessibleName("Wood");
-  });
-
-  for (const reduced of ["never", "always"] as const) {
-    it(`a bonus to celebrate: a tap plays its moment and marks it seen, then it is had (reduced motion ${reduced})`, async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      try {
-        const onBonusSeen = vi.fn();
-        render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bonusReady} onBonusSeen={onBonusSeen} />, reduced));
-        expect(bonus()).toHaveAccessibleName("First-time bonus, +10 Cobbles: earned, tap to celebrate");
-        await userEvent.click(bonus());
-        expect(within(inView()).getByRole("status")).toHaveTextContent("+10");
-        // Seen at the tap: the moment plays once, whatever comes next.
-        expect(onBonusSeen).toHaveBeenCalledExactlyOnceWith(5);
-        expect(bonus()).toHaveAttribute("data-bonus", "had");
-        await act(async () => {
-          vi.advanceTimersByTime(BONUS_BURST_MS + 10);
-        });
-        expect(within(inView()).queryByRole("status")).toBeNull();
-        expect(bonus()).toHaveAttribute("data-bonus", "had");
-        expect(onBonusSeen).toHaveBeenCalledTimes(1);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-  }
-
-  it("leaving the league during the moment ends it; a return never replays it", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      const onBonusSeen = vi.fn();
-      render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bonusReady} onBonusSeen={onBonusSeen} />));
-      await userEvent.click(bonus());
-      expect(within(inView()).getByRole("status")).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Next league" }));
-      expect(inView()).toHaveAccessibleName("Bronze I");
-      await act(async () => {
-        vi.advanceTimersByTime(BONUS_BURST_MS + 300);
-      });
-      await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
-      expect(inView()).toHaveAccessibleName("Bronze II");
-      expect(document.querySelector("[data-slot=bonus-burst]")).toBeNull();
-      expect(bonus()).toHaveAttribute("data-bonus", "had");
-      // Back at once, before the moment's end, the same.
-      await userEvent.click(screen.getByRole("button", { name: "Next league" }));
-      await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
-      expect(document.querySelector("[data-slot=bonus-burst]")).toBeNull();
-      expect(onBonusSeen).toHaveBeenCalledExactlyOnceWith(5);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("stops at Wood and at Grand Master", async () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wood} />));
     expect(inView()).toHaveAccessibleName("Wood");
     expect(screen.getByRole("heading", { name: "Wood" })).toBeInTheDocument();
-    expect(control()).toHaveAccessibleName("Your league: Wood, 0 crowns. Show it");
+    // Outside the leagues (no crown, no attack): the header reads Unranked (#917), the carousel opens on Wood.
+    expect(control()).toHaveAccessibleName("Your league: Unranked, 0 crowns. Show it");
+    expect(control()).toHaveAttribute("data-tier", "unranked");
     expect(screen.getByRole("button", { name: "Previous league" })).toBeDisabled();
     carousel().focus();
     await userEvent.keyboard("{ArrowLeft}");

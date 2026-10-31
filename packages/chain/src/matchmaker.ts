@@ -123,8 +123,6 @@ export const LEAGUE_COUNT = 23;
 export const LEAGUE_FLOORS = [400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3500, 3800, 4100, 4400, 4700, 5000] as const;
 /** The groups of three leagues, then Grand Master's (one league). */
 export const LEAGUE_GROUPS = ["Iron", "Bronze", "Silver", "Gold", "Emerald", "Diamond", "Master", "Grand Master"] as const;
-/** The bonus of reaching a league of each group the first time in a season, then Grand Master's (`GROUP_BONUSES`). */
-export const LEAGUE_BONUSES = [5, 10, 15, 20, 25, 30, 40, 50] as const;
 /** The season reward of a group, then Grand Master's (`GROUP_REWARDS`); Wood earns nothing. */
 export const SEASON_REWARDS = [10, 20, 35, 50, 75, 100, 150, 250] as const;
 /** The attacks a village settles in a season to earn that season's reward (`MIN_SEASON_ATTACKS`). */
@@ -145,8 +143,11 @@ export function leagueName(league: number): string {
 }
 /** The Cobbles of ending a season in `league` (`reward_of`). */
 export const seasonRewardOf = (league: number): number => (league <= 0 ? 0 : SEASON_REWARDS[groupOf(league)]!);
-/** The Cobbles of reaching `league` the first time in a season (`bonus_of`). */
-export const leagueBonusOf = (league: number): number => (league <= 0 ? 0 : LEAGUE_BONUSES[groupOf(league)]!);
+/**
+ * The groups reached at `league` (`groups_of`): 0 for Wood, 1 (Iron) to 8 (Grand Master). The lifetime league missions count it
+ * (`Setup`'s task 23, #917): the league's first-time bonus is gone.
+ */
+export const groupsOf = (league: number): number => groupOf(league) + 1;
 
 /** The salt index of an attacker's next draw is its draw counter; `search` and `next` both draw. */
 function matchDraw(matchmaker: string, provider: string, attacker: string, draws: number, entrypoint: "search" | "next"): Call[] {

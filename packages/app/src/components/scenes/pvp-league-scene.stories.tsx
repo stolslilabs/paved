@@ -9,7 +9,7 @@ import { scrolledToEnd } from "../../stories/scrolled-to-end";
 /**
  * The league (#647): the League control in the header (#859, no balance there; a tap brings the carousel back to the player's
  * league), a carousel of the 23 leagues opening on the player's (#785), one card size for every league, the card standing alone
- * between the arrows and over the dots (#833, #859: the first-time bonus's icon, the range of crowns, the season's Cobbles; no
+ * between the arrows and over the dots (#833, #859: the crest, the range of crowns, the season's Cobbles, the plate; no
  * crowns' count, no back icon), the season's end and, in one line, what the player's league gives at it (#859), and the latest
  * attacks and defences as cards (#786, no shield's card since #859), each opening its match. No Attack button (#833). The arrows,
  * a swipe, the arrow keys and the dots move it; reduced motion cuts instead of sliding. On fakes.
@@ -25,19 +25,17 @@ type Story = StoryObj<typeof meta>;
 
 /** The player's league, Bronze II, 28 crowns from Bronze I; the season ends in 4 days. */
 export const Bronze: Story = { args: PVP_LEAGUE.bronze };
-/** The carousel on a higher league (Silver II): its range, its bonus out of reach; the header's League control brings it back. */
+/** The carousel on a higher league (Silver II): its range and its reward; the header's League control brings it back. */
 export const Higher: Story = { args: PVP_LEAGUE.higher };
-/** The carousel on a lower league (Iron II): its bonus had (crossed out). */
+/** The carousel on a lower league (Iron II). */
 export const Lower: Story = { args: PVP_LEAGUE.lower };
-/** Bronze II's first-time bonus paid and not yet celebrated: its icon active, with a glow (#833). */
-export const BonusReady: Story = { args: PVP_LEAGUE.bonusReady };
 /** The season's last day: its timer. */
 export const LastDay: Story = { args: PVP_LEAGUE.lastDay };
 /** The top league: the next arrow stops there. */
 export const GrandMaster: Story = { args: PVP_LEAGUE.grandmaster };
 /** No attack yet: Wood, the first view; the previous arrow stops there. */
 export const Wood: Story = { args: PVP_LEAGUE.wood };
-/** Dropped to Wood (200 crowns) after reaching Bronze I this season: on Bronze II, its bonus stays had, not locked. */
+/** Dropped to Wood (200 crowns), the carousel opened on Bronze I. */
 export const Demoted: Story = { args: PVP_LEAGUE.demoted };
 export const DemotedPhone: Story = { ...Demoted, ...PHONE_375 };
 /** The season has ended: its rewards on their way. */
@@ -102,7 +100,7 @@ export const ShowMineReduced: Story = { ...ShowMinePhone, parameters: { ...ShowM
 
 /**
  * The page scrolled to the end of 26 matches, the carousel on Silver II: the tap brings the carousel back into view under the
- * sticky header, never beneath it (the card's crest and bonus icon in sight), then on Bronze II.
+ * sticky header, never beneath it (the card's crest in sight), then on Bronze II.
  */
 const showMineScrolled: Story["play"] = async (context) => {
   await scrolledToEnd(context);
@@ -126,24 +124,3 @@ export const BronzePhoneScrolled: Story = { ...BronzePhone, play: scrolledToEnd 
 /** PAGES-SCROLL (#782): at 1440 px the panel's body scrolls to the last league; no close button (a click outside or Escape). */
 export const BronzeWideScrolled: Story = { ...BronzeWide, play: scrolledToEnd };
 
-export const BonusReadyPhone: Story = { ...BonusReady, ...PHONE_375 };
-export const BonusReadyWide: Story = { ...BonusReady, ...WIDE_1440, decorators: [inPanel("League")] };
-/** A tap on the active bonus: the moment plays (the Cobbles burst out, "+10" rises), then the icon is crossed out. */
-export const BonusMoment: Story = {
-  ...BonusReadyPhone,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: /First-time bonus, \+10 Cobbles: earned/ }));
-    await expect(canvas.getByRole("status")).toBeInTheDocument();
-  },
-};
-/** The moment under reduced motion: still, the figure shown, then the icon crossed out. */
-export const BonusMomentReduced: Story = {
-  ...BonusMoment,
-  parameters: { ...BonusMoment.parameters, reducedMotion: "always" },
-  play: async (context) => {
-    await BonusMoment.play!(context);
-    const canvas = within(context.canvasElement);
-    await waitFor(() => expect(canvas.getByRole("img", { name: /First-time bonus, \+10 Cobbles: had this season/ })).toBeInTheDocument(), { timeout: 4_000 });
-  },
-};

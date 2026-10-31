@@ -1,8 +1,9 @@
 //! The leagues and seasons of PvP (#644, `docs/architecture/leagues.md`): as in Clash of Clans,
 //! a league is a range of crowns, the rating of the matchmaker (owner decision of 2026-10-20).
-//! Pure functions: the league of a crown count, the Cobbles of a league (its bonus, the first time
-//! it is reached in a season, and its season reward), the reset at a season's end, and the season
-//! of a time on the calendar.
+//! Pure functions: the league of a crown count, its group (the macro league the lifetime league
+//! missions count, #917), the Cobbles of its season reward, the reset at a season's end, and the
+//! season of a time on the calendar. A league's first-time bonus is gone (#917, the owner's ruling
+//! of 2026-10-30): reaching each group once in a lifetime is a mission instead.
 //!
 //! The table is Clash of Clans' leagues before the 2025 update, one crown per trophy, the scale of
 //! the matchmaker's crown curves (`paved::matchmaker::crowns`). Every value below is the owner's
@@ -22,6 +23,9 @@
 pub const LEAGUE_COUNT: u8 = 23;
 pub const UNRANKED: u8 = 0;
 pub const LEGEND: u8 = 22;
+/// The groups, Bronze to Titan then Legend (the app's Iron to Master, then Grand Master): the most
+/// a village reaches, and the highest total of a lifetime league mission (#917).
+pub const LEAGUE_GROUPS: u8 = 8;
 /// At a season's end, crowns above this come back to it (Clash of Clans' Legend League reset).
 pub const RESET_CROWNS: u32 = 5000;
 /// The attacks a village settles in a season to earn that season's reward.
@@ -151,9 +155,6 @@ const LEAGUE_FLOORS: [u32; 22] = [
     3500, 3800, 4100, 4400, 4700, 5000,
 ];
 
-/// The bonus of each league of a group (Bronze to Titan), then Legend's.
-const GROUP_BONUSES: [u8; 8] = [5, 10, 15, 20, 25, 30, 40, 50];
-
 /// The season reward of a group (Bronze to Titan), then Legend's; Unranked earns nothing.
 const GROUP_REWARDS: [u8; 8] = [10, 20, 35, 50, 75, 100, 150, 250];
 
@@ -187,13 +188,15 @@ pub fn floor_of(league: u8) -> u32 {
     }
 }
 
-/// The Cobbles of reaching `league` for the first time in a season (0 for Unranked).
-pub fn bonus_of(league: u8) -> u8 {
+/// The groups reached at `league`, its group's number: 0 for Unranked, 1 for leagues 1 to 3 (the
+/// app's Iron) up to 7 for 19 to 21, and 8 for Legend (Grand Master). The lifetime league missions
+/// count it (`Setup`'s `TASK_LEAGUE_REACHED`, #917).
+pub fn groups_of(league: u8) -> u8 {
     assert(league < LEAGUE_COUNT, errors::INVALID_LEAGUE);
     if league == UNRANKED {
         0
     } else {
-        *GROUP_BONUSES.span().at(group_of(league))
+        (group_of(league) + 1).try_into().unwrap()
     }
 }
 
