@@ -389,8 +389,14 @@ export interface ChatPage {
   nextSendAt: number;
 }
 
-/** What a conversation's subscriber hears: a new message, or one deleted. */
-export type ChatEvent = { type: "message"; message: ChatMessage } | { type: "deleted"; conversation: ConversationId; id: string };
+/** What a page says of its conversation beside its messages: its summary, pinned line, standing, write refusal and rate limit. */
+export type ChatPageHead = Omit<ChatPage, "messages" | "before">;
+
+/**
+ * What a conversation's subscriber hears: a new message, or one deleted, each with the conversation's head as it stands after it
+ * (a reply opens a request's conversation, a message moves the rate limit), so that a cached page stays true without a read.
+ */
+export type ChatEvent = { type: "message"; message: ChatMessage; head: ChatPageHead } | { type: "deleted"; conversation: ConversationId; id: string; head: ChatPageHead };
 
 /** Why a chat write was refused: game-core's rule, or `unknown-player` for a private conversation with an ID no player has. */
 export type ChatWriteRefusal = ChatRefusal | "unknown-player";

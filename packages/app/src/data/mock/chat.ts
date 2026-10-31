@@ -1,4 +1,5 @@
 import {
+  CHAT_KEPT,
   CHAT_PAGE_SIZE,
   CHAT_WORLD_MIN_LEVEL,
   GUILD_RANK,
@@ -17,6 +18,7 @@ import {
   isBlocking,
   isMuted,
   keepMessages,
+  messageTextRefusal,
   muteRefusal,
   nextSendAt,
   normalMessage,
@@ -43,7 +45,7 @@ import {
   type PrivatePair,
   type PrivateSide,
 } from "@paved/game-core";
-import { ChatRefusedError, type ChatMessage, type ChatOverview, type ChatPage, type ChatWriteRefusal, type ConversationSummary, type GuildAnnouncement, type GuildLogEntry, type PublicProfile } from "../social-source";
+import { ChatRefusedError, type ChatMessage, type ChatOverview, type ChatPage, type ChatPageHead, type ChatWriteRefusal, type ConversationSummary, type GuildAnnouncement, type GuildLogEntry, type PublicProfile } from "../social-source";
 import { CHAT_FILTER_WORDS, GUILD_LINES, REPLY_LINES, REQUEST_LINES, WORLD_LINES } from "./chat-lines";
 import { community, communityMember } from "./community";
 import type { GuildPeople, GuildWorld, StoredGuild, StoredLogEntry } from "./guilds";
@@ -70,12 +72,11 @@ export const MOCK_REQUEST_S = 45;
 /** The World's draws: one slot a minute, a line in about half of them. */
 export const WORLD_SLOT_S = 60;
 const WORLD_CHANCE = 0.5;
-/** How far back the World's lines are drawn: past it, more than the 200 kept. */
-const WORLD_LOOKBACK_S = 8 * 3_600;
+/** How far back the World's lines are looked for at most, should the draws give fewer than the 200 kept: 30 days. */
+const WORLD_LOOKBACK_S = 30 * 86_400;
 /** A guild's draws: one slot each 5 minutes, a line in about two in five. */
 export const GUILD_SLOT_S = 300;
 const GUILD_CHANCE = 0.4;
-const GUILD_LOOKBACK_S = 2 * 86_400;
 /** How far ahead a subscriber's next drawn line is looked for. */
 const AHEAD_SLOTS = 240;
 
@@ -132,6 +133,19 @@ export interface StoredChat {
   reports: StoredReport[];
   /** By player key. */
   players: Record<string, StoredChatPlayer>;
+  /**
+   * The memberships that ended (a leave, a kick), so that a guild's past lines keep their authors whatever the roster becomes:
+   * a drawn line's author is one of the members of that time. Absent: none yet.
+   */
+  departed?: Departure[];
+}
+
+/** A membership that ended: who, in which guild, from when to when (seconds). */
+export interface Departure {
+  guild: number;
+  address: string;
+  joinedAt: number;
+  leftAt: number;
 }
 
 export const freshChat = (): StoredChat => ({ version: 1, nextId: 1, messages: {}, deleted: {}, sides: {}, reads: {}, mutes: [], reports: [], players: {} });
@@ -198,31 +212,55 @@ function worldLine(slot: number): StoredChatMessage | null {
   return { id: `w${slot}`, author: pick(speakers(), who), text: filterWords(pick(WORLD_LINES, line), CHAT_FILTER_WORDS), at: slot * WORLD_SLOT_S + Math.floor(second * WORLD_SLOT_S), deleted: false };
 }
 
-/** The community members of a guild who may write at `at`: those who had joined, by address. */
-const guildSpeakers = (g: StoredGuild, at: number): string[] =>
-  g.members
-    .filter((m) => m.joinedAt <= at && isCommunity(m.address))
-    .map((m) => m.address)
-    .sort();
+/** The memberships a guild's log shows ended: each leave or kick, from the member's join (or the guild's creation) before it. */
+function logDepartures(g: StoredGuild): { address: string; from: number; to: number }[] {
+  const joined = new Map<string, number>();
+  const out: { address: string; from: number; to: number }[] = [];
+  for (const e of g.log) {
+    if (e.kind === "joined" || e.kind === "created") joined.set(e.actor, e.at);
+    const gone = e.kind === "left" ? e.actor : e.kind === "kicked" ? e.target : null;
+    if (gone === null) continue;
+    out.push({ address: gone, from: joined.get(gone) ?? g.createdAt, to: e.at });
+    joined.delete(gone);
+  }
+  return out;
+}
 
-/** A guild's drawn line of a slot, or null (no community member, or no line then). */
-function guildLine(g: StoredGuild, slot: number): StoredChatMessage | null {
+/** A guild's community memberships, past and present: who, from when, until when (Infinity: still a member). */
+type Memberships = readonly { address: string; from: number; to: number }[];
+
+function membershipsOf(g: StoredGuild, departed: readonly Departure[]): Memberships {
+  return [
+    ...g.members.map((m) => ({ address: m.address, from: m.joinedAt, to: Infinity })),
+    ...departed.filter((d) => d.guild === g.id).map((d) => ({ address: d.address, from: d.joinedAt, to: d.leftAt })),
+    ...logDepartures(g),
+  ].filter((m) => isCommunity(m.address));
+}
+
+/** The community members of a guild at `at`, by address: those of that time, whoever joined or left since. */
+const guildSpeakers = (memberships: Memberships, at: number): string[] => [...new Set(memberships.filter((m) => m.from <= at && at < m.to).map((m) => m.address))].sort();
+
+/** A guild's drawn line of a slot, or null (no community member then, or no line). */
+function guildLine(g: StoredGuild, memberships: Memberships, slot: number): StoredChatMessage | null {
   const [chance, second, who, line] = cachedDraws(GUILD_DRAW, BigInt(g.id), BigInt(slot));
   if (chance >= GUILD_CHANCE) return null;
   const at = slot * GUILD_SLOT_S + Math.floor(second * GUILD_SLOT_S);
-  const members = guildSpeakers(g, at);
+  const members = guildSpeakers(memberships, at);
   if (members.length === 0 || at < g.createdAt) return null;
   return { id: `g${slot}`, author: pick(members, who), text: filterWords(pick(GUILD_LINES, line), CHAT_FILTER_WORDS), at, deleted: false };
 }
 
-/** The lines drawn in `[from, to]` by a slot's draw. */
-function drawnIn(slotS: number, from: number, to: number, line: (slot: number) => StoredChatMessage | null): StoredChatMessage[] {
+/**
+ * The `count` latest lines drawn at or before `to`, and none before `from`, oldest first: walked back slot by slot, so that what
+ * a conversation keeps is its last lines by count (`CHAT_KEPT`), never by age.
+ */
+function drawnBack(slotS: number, from: number, to: number, count: number, line: (slot: number) => StoredChatMessage | null): StoredChatMessage[] {
   const out: StoredChatMessage[] = [];
-  for (let slot = Math.floor(from / slotS); slot <= Math.floor(to / slotS); slot++) {
+  for (let slot = Math.floor(to / slotS); slot >= Math.floor(from / slotS) && out.length < count; slot--) {
     const m = line(slot);
     if (m && m.at >= from && m.at <= to) out.push(m);
   }
-  return out;
+  return out.reverse();
 }
 
 /** The time of the next drawn line after `now`, or null within `AHEAD_SLOTS`. */
@@ -273,15 +311,18 @@ function linesOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversa
   const mark = (m: StoredChatMessage): Line => ({ ...m, deleted: m.deleted || gone.has(m.id), event: null });
   let lines: Line[];
   if (c.kind === "world") {
-    lines = [...drawnIn(WORLD_SLOT_S, w.now - WORLD_LOOKBACK_S, w.now, worldLine).map(mark), ...stored];
+    lines = [...drawnBack(WORLD_SLOT_S, w.now - WORLD_LOOKBACK_S, w.now, CHAT_KEPT.world, worldLine).map(mark), ...stored];
   } else {
     const g = w.guilds.guilds.find((x) => x.id === c.guild);
     if (!g) return [];
-    const from = Math.max(g.createdAt, w.now - GUILD_LOOKBACK_S);
+    const memberships = membershipsOf(g, chat.departed ?? []);
+    // No line before the guild, nor before its first community member.
+    const from = Math.max(g.createdAt, Math.min(...memberships.map((m) => m.from)));
     const events: Line[] = g.log
-      .filter((e) => EVENT_KINDS.has(e.kind) && e.at >= from && e.at <= w.now)
+      .filter((e) => EVENT_KINDS.has(e.kind) && e.at >= g.createdAt && e.at <= w.now)
       .map((e) => ({ id: `e${e.at}-${e.kind}-${e.actor}-${e.target ?? ""}`, author: e.actor, text: "", at: e.at, deleted: false, event: e }));
-    lines = [...drawnIn(GUILD_SLOT_S, from, w.now, (slot) => guildLine(g, slot)).map(mark), ...events, ...stored];
+    const drawnLines = Number.isFinite(from) ? drawnBack(GUILD_SLOT_S, from, w.now, CHAT_KEPT.guild, (slot) => guildLine(g, memberships, slot)) : [];
+    lines = [...drawnLines.map(mark), ...events, ...stored];
   }
   return keepMessages(c.kind, lines.filter((l) => l.at <= w.now).sort(compareMessages));
 }
@@ -376,7 +417,7 @@ export function nextDue(chat: StoredChat, w: ChatWorld, player: string, id: Conv
   const times: number[] = [];
   const guild = guildOfKey(w.guilds, player);
   if (id === null || id === WORLD_CONVERSATION) times.push(nextDrawn(WORLD_SLOT_S, w.now, worldLine) ?? Infinity);
-  if (guild && (id === null || id === guildConversation(guild.id))) times.push(nextDrawn(GUILD_SLOT_S, w.now, (slot) => guildLine(guild, slot)) ?? Infinity);
+  if (guild && (id === null || id === guildConversation(guild.id))) times.push(nextDrawn(GUILD_SLOT_S, w.now, (slot) => guildLine(guild, membershipsOf(guild, chat.departed ?? []), slot)) ?? Infinity);
   for (const conversation of Object.keys(chat.messages)) {
     if ((id !== null && conversation !== id) || otherPlayer(conversation, player) === null) continue;
     const due = replyDue(chat, w, conversation);
@@ -536,6 +577,14 @@ export function pageOf(chat: StoredChat, w: ChatWorld, player: string, id: Conve
   };
 }
 
+/** What a page of a conversation says beside its messages, as `player` sees it, or null when they may not read it. */
+export function headOf(chat: StoredChat, w: ChatWorld, player: string, id: ConversationId): ChatPageHead | null {
+  const page = pageOf(chat, w, player, id);
+  if (!page) return null;
+  const { messages: _, before: __, ...head } = page;
+  return head;
+}
+
 /** The players `player` mutes, the latest first. */
 export const mutesOf = (chat: StoredChat, w: ChatWorld, player: string): PublicProfile[] =>
   chat.mutes
@@ -593,9 +642,12 @@ export function sendIn({ chat, w, player }: ChatWrite, id: ConversationId, text:
   const r = readableOrRefuse(w, id, player);
   const sent = sentBy(chat, id, player);
   const pair = r.c.kind === "private" ? pairOf(chat, w, id, player, r.other!) : undefined;
-  const refused = sendRefusal(r.c, { level: w.people(player).level, guild: r.guild?.id ?? null }, text, sent, w.now, pair);
+  // The text as it is kept (filtered), so that the repeat rule compares it with the kept texts: "darn" twice is "•••" twice.
+  // Its length is checked as typed first: the filter never lets a longer text through.
+  const kept = filterWords(normalMessage(text), CHAT_FILTER_WORDS);
+  const refused = messageTextRefusal(text) ?? sendRefusal(r.c, { level: w.people(player).level, guild: r.guild?.id ?? null }, kept, sent, w.now, pair);
   if (refused) refuse(refused, refused === "too-fast" || refused === "per-minute" ? nextSendAt(r.c.kind, sent, w.now) : null);
-  const message: StoredChatMessage = { id: `m${chat.nextId++}`, author: key(player), text: filterWords(normalMessage(text), CHAT_FILTER_WORDS), at: w.now, deleted: false };
+  const message: StoredChatMessage = { id: `m${chat.nextId++}`, author: key(player), text: kept, at: w.now, deleted: false };
   chat.messages[id] = keepMessages(r.c.kind, [...(chat.messages[id] ?? []), message]);
   // Writing in private answers a request, and opens the conversation on the player's side.
   if (r.c.kind === "private") chat.sides[sideKey(id, player)] = { accepted: true, declined: false };
@@ -666,6 +718,22 @@ export function seeNoticeIn({ chat, player }: ChatWrite): void {
 /** The player's first visit to the Chat tab: the mock's stranger request comes `MOCK_REQUEST_S` later. */
 export function visitChatIn({ chat, w, player }: ChatWrite): void {
   (chat.players[key(player)] ??= {}).firstVisit ??= w.now;
+}
+
+/**
+ * The stored chat with the memberships a guild write ended (`before`: each guild's members before it, by guild ID), at `now`:
+ * a member gone from their guild, or into another, has left it then.
+ */
+export function recordDepartures(chat: StoredChat, before: ReadonlyMap<number, readonly { address: string; joinedAt: number }[]>, after: GuildWorld, now: number): StoredChat {
+  const departed: Departure[] = [];
+  for (const [guild, members] of before) {
+    const still = after.guilds.find((g) => g.id === guild);
+    for (const m of members) {
+      const now_ = still?.members.find((x) => x.address === m.address);
+      if (!now_ || now_.joinedAt !== m.joinedAt) departed.push({ guild, address: m.address, joinedAt: m.joinedAt, leftAt: now });
+    }
+  }
+  return departed.length === 0 ? chat : { ...chat, departed: [...(chat.departed ?? []), ...departed] };
 }
 
 /** A stored chat without anything of `player`: their messages, private conversations, sides, reads, mutes, reports. */

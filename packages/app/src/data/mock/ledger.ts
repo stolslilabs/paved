@@ -1196,12 +1196,12 @@ export class MockLedger {
   private tellChat(conversation: ConversationId, message: string, type: "message" | "deleted"): void {
     for (const sub of this.chatSubscribers) {
       if (sub.conversation !== null && sub.conversation !== conversation) continue;
-      const seen = this.chatRead((stored, w) => chat.messageView(stored, w, sub.player, conversation, message));
-      if (!seen) continue;
-      if (type === "deleted") sub.listener({ type, conversation, id: message });
+      const [seen, head] = this.chatRead((stored, w) => [chat.messageView(stored, w, sub.player, conversation, message), chat.headOf(stored, w, sub.player, conversation)] as const);
+      if (!seen || !head) continue;
+      if (type === "deleted") sub.listener({ type, conversation, id: message, head });
       else if (!sub.heard.has(message)) {
         sub.heard.add(message);
-        sub.listener({ type, message: seen });
+        sub.listener({ type, message: seen, head });
       }
     }
   }
@@ -1209,12 +1209,17 @@ export class MockLedger {
   /** A subscriber hears what came by itself since it last heard (the community's lines, the answers, the requests). */
   private hearChat(sub: ChatSubscriber): void {
     const now = this.second();
-    const arrived = this.chatRead((stored, w) => chat.arrivals(stored, w, sub.player, sub.conversation, sub.since));
+    const [arrived, heads] = this.chatRead((stored, w) => {
+      const messages = chat.arrivals(stored, w, sub.player, sub.conversation, sub.since);
+      const ids = [...new Set(messages.map((m) => m.conversation))];
+      return [messages, new Map(ids.map((id) => [id, chat.headOf(stored, w, sub.player, id)] as const))] as const;
+    });
     sub.since = now;
     for (const m of arrived) {
-      if (sub.heard.has(m.id)) continue;
+      const head = heads.get(m.conversation);
+      if (sub.heard.has(m.id) || !head) continue;
       sub.heard.add(m.id);
-      sub.listener({ type: "message", message: m });
+      sub.listener({ type: "message", message: m, head });
     }
   }
 
@@ -1326,9 +1331,13 @@ export class MockLedger {
       const blocked = this.blocksAt(now);
       const w: guilds.GuildWrite = { world, people, now, player: addressKey(player), blocked };
       guilds.settle(world, people, now, blocked);
+      const before = new Map(world.guilds.map((g) => [g.id, g.members.map((m) => ({ address: m.address, joinedAt: m.joinedAt }))] as const));
       const result = change(w);
       guilds.seen(w);
-      this.state = { ...this.state, guilds: world };
+      // The memberships the write ended (#955): the guild's past lines keep their authors.
+      const stored = chat.parseChat(this.state.chat);
+      const chatState = chat.recordDepartures(stored ?? chat.freshChat(), before, world, now);
+      this.state = { ...this.state, guilds: world, ...(stored || chatState.departed ? { chat: chatState } : {}) };
       this.save();
       return result;
     });

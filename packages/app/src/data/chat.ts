@@ -12,7 +12,7 @@ import { useDataSources } from "./sources";
 // `subscribe`, which a socket can serve, #956); the overview is read again when anything comes to the player. The Chat tab's
 // chunk carries them, not the home's.
 
-export type { ChatAuthor, ChatEvent, ChatMessage, ChatOverview, ChatPage, ChatSource, ChatWriteRefusal, ConversationSummary } from "./social-source";
+export type { ChatAuthor, ChatEvent, ChatMessage, ChatOverview, ChatPage, ChatPageHead, ChatSource, ChatWriteRefusal, ConversationSummary } from "./social-source";
 export { ChatRefusedError } from "./social-source";
 
 /** The keys of the chat reads: under the social domain, `[social, chat, player, read, ...args]`. */
@@ -48,19 +48,21 @@ export function useChatOverview(me: string | null): SocialRead<ChatOverview> {
 /** The pages of a conversation as the cache keeps them: the latest first, each older one after it. */
 type ConversationPages = InfiniteData<ChatPage | null, string | null>;
 
-/** The pages with one event of the subscription applied: a new message at the end of the latest page, a deletion where it is. */
+/**
+ * The pages with one event of the subscription applied: a new message at the end of the latest page, a deletion where it is, and
+ * the conversation's head as the event gives it (the standing, whether it awaits a reply, the write refusal, the rate limit, the
+ * summary) on the latest page, so that the page shown stays true without another read.
+ */
 export function applyChatEvent(data: ConversationPages | undefined, event: ChatEvent): ConversationPages | undefined {
   if (!data || data.pages.length === 0 || data.pages[0] === null) return data;
+  const [latest, ...older] = data.pages as [ChatPage, ...(ChatPage | null)[]];
   if (event.type === "deleted") {
-    return {
-      ...data,
-      pages: data.pages.map((p) => p && { ...p, messages: p.messages.map((m) => (m.id === event.id ? { ...m, deleted: true, text: "", mayDelete: false, mayReport: false } : m)) }),
-    };
+    const gone = (p: ChatPage): ChatPage => ({ ...p, messages: p.messages.map((m) => (m.id === event.id ? { ...m, deleted: true, text: "", mayDelete: false, mayReport: false } : m)) });
+    return { ...data, pages: [{ ...gone(latest), ...event.head }, ...older.map((p) => p && gone(p))] };
   }
   const message = event.message;
-  if (data.pages.some((p) => p?.messages.some((m) => m.id === message.id))) return data;
-  const [latest, ...older] = data.pages as [ChatPage, ...(ChatPage | null)[]];
-  return { ...data, pages: [{ ...latest, messages: [...latest.messages, message] }, ...older] };
+  const known = data.pages.some((p) => p?.messages.some((m) => m.id === message.id));
+  return { ...data, pages: [{ ...latest, ...event.head, messages: known ? latest.messages : [...latest.messages, message] }, ...older] };
 }
 
 /** One conversation as the page shows it. */

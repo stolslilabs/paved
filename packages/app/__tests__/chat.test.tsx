@@ -12,7 +12,7 @@ import {
   xpFloor,
   type GuildDraft,
 } from "@paved/game-core";
-import { chatKeys, chatRefusal, useChatMutes, useChatOverview, useChatWrites, useConversation } from "../src/data/chat";
+import { applyChatEvent, chatKeys, chatRefusal, useChatMutes, useChatOverview, useChatWrites, useConversation } from "../src/data/chat";
 import { MOCK_REPLY_MIN_S, MOCK_REQUEST_S, WORLD_SLOT_S } from "../src/data/mock/chat";
 import { community } from "../src/data/mock/community";
 import { followBackDelay } from "../src/data/mock/follows";
@@ -107,7 +107,7 @@ describe("the World on the mock (#955)", () => {
     expect(pageA.messages.some((m) => m.author!.guildTag !== null)).toBe(true);
     // Kept: its last 200, paged 50 at a time, the latest first.
     const all = await allOf(a.chat, ME, WORLD_CONVERSATION);
-    expect(all.length).toBeLessThanOrEqual(CHAT_KEPT.world);
+    expect(all.length).toBe(CHAT_KEPT.world);
     expect(all.length).toBeGreaterThan(pageA.messages.length);
     expect(all.map((m) => m.at)).toEqual([...all.map((m) => m.at)].sort((x, y) => x - y));
     expect(new Set(all.map((m) => m.id)).size).toBe(all.length);
@@ -145,10 +145,15 @@ describe("the World on the mock (#955)", () => {
   });
 
   it("masks the listed words and keeps links and addresses as plain text", async () => {
-    const { chat, store } = world();
+    const { chat, store, clock } = world();
     levelUp(store, 2, ME);
     expect((await chat.send(ME, WORLD_CONVERSATION, "what the FUCK, see https://paved.example/x and 0x05f1")).text).toBe(`what the ${CHAT_FILTER_MASK}, see https://paved.example/x and 0x05f1`);
     await expect(chat.send(ME, WORLD_CONVERSATION, "x".repeat(201))).rejects.toEqual(refused("too-long"));
+    // The repeat rule reads the text as kept: a listed word sent twice is the same "•••" twice.
+    clock.now += CHAT_WORLD_INTERVAL_S;
+    await chat.send(ME, WORLD_CONVERSATION, "shit");
+    clock.now += CHAT_WORLD_INTERVAL_S;
+    await expect(chat.send(ME, WORLD_CONVERSATION, "SHIT")).rejects.toEqual(refused("repeat"));
     await expect(chat.send(ME, WORLD_CONVERSATION, "   ")).rejects.toEqual(refused("empty"));
   });
 
@@ -228,6 +233,39 @@ describe("a guild's conversation on the mock (#955)", () => {
     expect((await chat.overview(ME)).conversations.map((c) => c.kind)).toEqual(["world", "guild"]);
     // A member deletes no one else's line.
     await expect(chat.deleteMessage(ME, id, said.at(-1)!.id)).rejects.toEqual(refused("not-author"));
+  });
+
+  it("keeps its last 500 lines by count, whatever their age", async () => {
+    const { chat, social } = world();
+    const g = quarry();
+    await social.joinGuild(ME, g.id);
+    const all = await allOf(chat, ME, guildConversation(g.id));
+    expect(all).toHaveLength(CHAT_KEPT.guild);
+    expect(T0 - all[0]!.at).toBeGreaterThan(2 * 86_400);
+  });
+
+  it("keeps each past line's author when the roster changes: a kick or a leave rewrites no history", async () => {
+    const { chat, social, store } = world();
+    // The device's player leads The Quarrymen, its seeded leader an officer.
+    const w = seededGuildWorld();
+    const g = w.guilds.find((x) => x.name === "The Quarrymen")!;
+    g.members[0]!.rank = GUILD_RANK.officer;
+    g.members.push({ address: ME, rank: GUILD_RANK.leader, joinedAt: g.createdAt, lastKick: null });
+    // Seen now: the leader's rotation leaves them leader.
+    w.players[ME] = { seenAt: T0 };
+    store.setItem(MOCK_KEY, JSON.stringify({ version: 1, players: {}, vault: { assets: "1", supply: "1" }, transactions: 0, guilds: w }));
+    const id = guildConversation(g.id);
+    const authors = async () => new Map((await allOf(chat, ME, id)).filter((m) => m.kind === "message").map((m) => [m.id, m.author!.address] as const));
+    const before = await authors();
+    const kicked = g.members.find((m) => m.rank === GUILD_RANK.member && community().some((c) => c.address === m.address))!.address;
+    expect([...before.values()]).toContain(kicked);
+    await social.kick(ME, kicked, "");
+    const leaver = g.members.find((m) => m.rank === GUILD_RANK.member && m.address !== kicked && community().some((c) => c.address === m.address))!.address;
+    await social.joinGuild(OTHER, g.id);
+    await social.kick(ME, OTHER, "");
+    const after = await authors();
+    for (const [message, author] of before) if (after.has(message)) expect(after.get(message)).toBe(author);
+    expect(leaver).not.toBe(kicked);
   });
 
   it("lets an officer or the leader delete a message of a member below them, not of one at or above", async () => {
@@ -388,13 +426,31 @@ describe("the mock's subscriptions (#955)", () => {
     for (const e of drawn) if (e.type === "message") expect(ids.has(e.message.id)).toBe(true);
     heard.length = 0;
     const sent = await chat.send(ME, WORLD_CONVERSATION, "live");
-    expect(heard).toEqual([{ type: "message", message: expect.objectContaining({ id: sent.id, mine: true }) }]);
+    expect(heard).toEqual([{ type: "message", message: expect.objectContaining({ id: sent.id, mine: true }), head: expect.objectContaining({ nextSendAt: expect.any(Number) }) }]);
     await chat.deleteMessage(ME, WORLD_CONVERSATION, sent.id);
-    expect(heard.at(-1)).toEqual({ type: "deleted", conversation: WORLD_CONVERSATION, id: sent.id });
+    expect(heard.at(-1)).toEqual({ type: "deleted", conversation: WORLD_CONVERSATION, id: sent.id, head: expect.objectContaining({ writeRefusal: null }) });
     stop();
     heard.length = 0;
     await vi.advanceTimersByTimeAsync(10 * WORLD_SLOT_S * 1000);
     expect(heard).toEqual([]);
+  });
+
+  it("bring a stranger's answer with the conversation's head, so a cached page no longer awaits a reply", async () => {
+    vi.useFakeTimers({ now: T0 * 1000, toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const { chat } = world(T0, () => Date.now() / 1000);
+    const id = privateConversation(ME, stranger);
+    await chat.send(ME, id, "hello");
+    const first = (await chat.conversation(ME, id))!;
+    expect(first.awaitsReply).toBe(true);
+    let cached: Parameters<typeof applyChatEvent>[0] = { pages: [first], pageParams: [null] };
+    const stop = chat.subscribe(ME, id, (e) => (cached = applyChatEvent(cached, e)));
+    await vi.advanceTimersByTimeAsync(10_000);
+    stop();
+    const page = cached!.pages[0]!;
+    expect(page.messages.map((m) => m.mine)).toEqual([true, false]);
+    // The head as a read finds it (the rate limit's time aside, which moves with the clock).
+    const { messages: _, before: __, nextSendAt: ___, ...head } = (await chat.conversation(ME, id))!;
+    expect(page).toMatchObject({ ...head, awaitsReply: false });
   });
 
   it("bring a private answer, and every conversation's news to the overview's subscriber", async () => {
