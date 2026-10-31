@@ -14,6 +14,12 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   `player-badge-states.webp`: the same at three lengths of name (3 to 15 characters) and three shares of the level, the plate
   stretching to the name. Generated with OpenAI's image model through the Codex CLI; the client's parts are in
   `packages/app/badge-sources/` (`scripts/compress-badge-art.ts`).
+- `season-wheel.webp`: the season wheel (2026-10-31), aligned that day with the player badge: the badge ring's paving stones,
+  gold blocks and groove around the four seasons as one little planet (summer top right, then autumn, winter, spring), the day and
+  night disc at the centre (night 135°, day 225°), the gold arrow cap at 12 o'clock and its inner notch reading the season and the
+  time of day; the two painted discs toned to a warm grey (60 % chroma) so the gold reads over them. Six moments of the cycle at
+  512, 144 and 96 px. Generated with OpenAI's image model through the Codex CLI; the client's layers are in
+  `packages/app/wheel-sources/` (`scripts/compress-wheel-art.ts`).
 
 The leagues' client shows them as images: the masters in `packages/app/league-sources/`, compressed into
 `packages/app/public/league-art/` by `scripts/compress-league-art.ts`. Each tier has a crest and an icon in four versions, a

@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("the active tab comes from the route's own entry", () => {
-  const TAB_LABEL = { home: "Home", quests: "Missions", vault: "Vault", shop: "Shop", chests: "Chests", play: "Play", league: "League", settings: "Settings" } as const;
+  const TAB_LABEL = { home: "Home", quests: "Missions", vault: "Vault", shop: "Shop", chests: "Chests", play: "Play", league: "League", settings: "Settings", social: "Social" } as const;
 
   // The home has no tab bar (#753): its overlays replace it; the other tab pages keep theirs.
   it.each(PAGES.filter((p) => p.nav && p.path !== "").map((p) => [p.path, p] as const))("%s", async (_path, page) => {
@@ -147,11 +147,16 @@ describe("redirects of the old links", () => {
     // The ranks left the UI (#623): their links land Home.
     ["/leaderboard", "/"],
     ["/leaderboard/20300", "/"],
-    ["/player/0x1", "/"],
   ])("%s goes to %s", async (from, to) => {
     const router = open(from);
     await waitFor(() => expect(router.state.location.pathname).toBe(to));
     expect(router.state.location.search).toBe("");
+  });
+
+  it("/player/:id goes to / with that player's public profile asked for (#952)", async () => {
+    const router = open("/player/0x1");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.location.search).toBe("?player=0x1");
   });
 
   it("sends an unreadable /game link Home", async () => {

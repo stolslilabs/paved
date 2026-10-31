@@ -7,7 +7,7 @@ import type { GameSigner } from "../src/data";
 import { deploymentOf } from "../src/data/deployment";
 import { mockAppSources, offlineSigner } from "../src/data/mock/app";
 import { MockLedger } from "../src/data/mock/ledger";
-import { MOCKED_ECONOMY_READS, MOCKED_GAME_READS, MOCKED_WRITES, mockConnector } from "../src/data/mock/overlay";
+import { MOCKED_ECONOMY_READS, MOCKED_GAME_READS, MOCKED_GUILD_CALLS, MOCKED_WRITES, mockConnector } from "../src/data/mock/overlay";
 import { attackV2Board } from "../src/data/free-attack";
 import { MockAccountError, mockKeyConnector } from "../src/wallet/mock-key";
 import { createQueryClient } from "../src/lib/query-client";
@@ -240,7 +240,20 @@ describe("a mock build fetches nothing (#927)", () => {
       ...call(sources.events, "playerGames"),
       ...call(sources.pool, "quoteSwap"),
       ...indexerRoutes.flatMap((name) => call(sources.indexer, name)),
+      // The social source (#952): a profile and the search, by name and by ID.
+      ...(["profile", "searchPlayers"] as const).flatMap((name) => call(sources.social, name)),
+      sources.social.searchPlayers("wren"),
+      sources.social.searchPlayers("0x7e3a0001"),
+      // The follows (#954): the lists, a status and the suggestions, then the writes.
+      ...(["lists", "status", "suggestions"] as const).flatMap((name) => call(sources.social.follows!, name)),
+      sources.social.follows!.status(me, "0x7e3a0001"),
     ]);
+    for (const name of ["follow", "unfollow", "removeFollower", "block", "unblock", "seeFollowers"] as const) {
+      for (const p of call(sources.social.follows!, name)) await p.catch(() => undefined);
+      await sources.social.follows![name](me, "0x7e3a0001").catch(() => undefined);
+    }
+    // The guilds (#953), reads and writes, one at a time.
+    for (const name of MOCKED_GUILD_CALLS) for (const p of call(sources.social, name)) await p.catch(() => undefined);
     // The writes one at a time: each is atomic on the ledger, a refusal leaves it as it was.
     for (const name of MOCKED_WRITES) for (const p of call(signer, name)) await p.catch(() => undefined);
     for (const p of [...call(sources.vault(signer as unknown as GameSigner), "deposit"), ...call(sources.settlements(signer as unknown as GameSigner), "settle")]) await p.catch(() => undefined);
@@ -268,6 +281,11 @@ describe("the app's sources on the mock (#927)", () => {
     expect(await APP_SOURCES.economy!.usdcBalance(account.address)).toBeGreaterThan(0n);
     expect((await APP_SOURCES.indexer.head()).data).toMatchObject({ state: "ok", chainId: "mock" });
     await expect(APP_SOURCES.views.tutorialClaimed(account.address)).resolves.toBe(false);
+    // The social source (#952): the ledger's community.
+    expect((await APP_SOURCES.social!.searchPlayers("0x7e3a0001")).map((p) => p.address)).toEqual(["0x7e3a0001"]);
+    // Its follows (#954): a follow kept on the device.
+    await APP_SOURCES.social!.follows!.follow(account.address, "0x7e3a0001");
+    expect((await APP_SOURCES.social!.follows!.lists(account.address)).following.map((r) => r.profile.address)).toEqual(["0x7e3a0001"]);
     await expect(APP_SOURCES.purchases!(connector.signer(account)).receipt("0x6d6f636b00000001")).resolves.toBe("succeeded");
     vi.doUnmock("../src/data/data-source");
     window.localStorage.clear();

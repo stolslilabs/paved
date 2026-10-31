@@ -82,16 +82,24 @@ const lazyVault = (signer: Parameters<NonNullable<DataSources["vault"]>>[0]): Va
 /** The mock's sources (`data/mock/app.ts`, its own chunk), loaded with the first read or write. */
 const mockApp = async () => (await import("../data/mock/app")).appMockSources();
 
-/** A part of the mock's sources whose reads load it on the first call, as `lazyChain` loads the chain's. */
-function lazyMock<T extends object>(part: "views" | "events" | "economy" | "pool" | "indexer"): T {
+type MockApp = Awaited<ReturnType<typeof mockApp>>;
+
+/**
+ * A part of the mock's sources whose reads load it on the first call, as `lazyChain` loads the chain's. `nested` names the
+ * parts it holds as objects (the social source's `follows`, #954), each lazy the same way.
+ */
+function lazyMock<T extends object>(part: (app: MockApp) => object, nested: Record<string, (app: MockApp) => object> = {}): T {
+  const inner = Object.fromEntries(Object.entries(nested).map(([key, pick]) => [key, lazyMock(pick)]));
   return new Proxy({} as T, {
     get: (_target, key) =>
       key === "then"
         ? undefined
-        : async (...args: unknown[]) => {
-            const target = (await mockApp())[part] as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
-            return target[key]!(...args);
-          },
+        : typeof key === "string" && key in inner
+          ? inner[key]
+          : async (...args: unknown[]) => {
+              const target = part(await mockApp()) as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;
+              return target[key]!(...args);
+            },
   });
 }
 
@@ -100,11 +108,12 @@ function lazyMock<T extends object>(part: "views" | "events" | "economy" | "pool
  * or indexer client is built, and neither the chain's chunk nor starknet.js is fetched: nothing leaves the app's origin.
  */
 const MOCK_SOURCES: DataSources = {
-  views: lazyMock("views"),
-  events: lazyMock("events"),
-  economy: lazyMock("economy"),
-  pool: lazyMock("pool"),
-  indexer: lazyMock("indexer"),
+  views: lazyMock((app) => app.views),
+  events: lazyMock((app) => app.events),
+  economy: lazyMock((app) => app.economy),
+  pool: lazyMock((app) => app.pool),
+  indexer: lazyMock((app) => app.indexer),
+  social: lazyMock((app) => app.social, { follows: (app) => app.social.follows! }),
   signer: null,
   purchases: (signer) => ({
     purchase: async (request) => (await mockApp()).purchases(signer).purchase(request),
@@ -134,6 +143,7 @@ const CHAIN_SOURCES: DataSources = {
   economy: lazyEconomy((c) => c.views),
   pool: lazyEconomy((c) => c.poolQuoter),
   indexer: lazyIndexer(),
+  // No `social`: the social features have no chain or service yet (#956), their hooks answer `unavailable`.
   signer: null,
   purchases: lazyPurchases,
   settlements: lazySettlements,

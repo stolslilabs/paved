@@ -228,7 +228,7 @@
 /* 3b. Each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle paints them (`KEYFRAMES`
    in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in step). Hex, not palette steps:
    the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The season dial is painted art since
-   V4-WHEEL-ART (`assets/season-wheel`), its skies anchored on these. */
+   V4-WHEEL-ART (`wheel-sources/`, `elements/wheel-art.ts`), its skies anchored on these. */
 :root {
   --sky-summer-day-top: #1f65a1;
   --sky-summer-day-bottom: #6bb7ff;
@@ -275,6 +275,21 @@
   --league-master: var(--color-charcoal-500);
   --league-grandmaster: var(--color-gold-100);
   --league-wood: var(--color-charcoal-400);
+}
+
+/* 3d'. The guilds' emblems (#953, `elements/guild-emblem.tsx`): a shield in a pair of these eight colours, by index (game-core's
+   `GUILD_EMBLEM_COLOURS`). Its icon is drawn in `--emblem-charge`, over a dark rim, so any pair reads. */
+:root {
+  --emblem-0: var(--color-gold-500);
+  --emblem-1: var(--color-ember-600);
+  --emblem-2: var(--color-meadow-700);
+  --emblem-3: var(--color-river-700);
+  --emblem-4: var(--color-charcoal-500);
+  --emblem-5: var(--color-river-900);
+  --emblem-6: var(--color-amber-600);
+  --emblem-7: var(--color-gold-800);
+  --emblem-charge: var(--color-charcoal-50);
+  --emblem-rim: var(--color-charcoal-950);
 }
 
 /* 3e. The tile stack (after Dorfromantik's): a tile's base as the renders draw it, a stone rim over earth; the pile, one

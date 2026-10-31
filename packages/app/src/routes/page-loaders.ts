@@ -68,6 +68,8 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "training/over": over,
   missions: () => import("./pages/missions"),
   vault: () => import("./pages/vault"),
+  // The Social page (#952), its own chunk; each of its tabs is a chunk of its own, loaded by the page.
+  social: () => import("./pages/social"),
   referral: () => import("./pages/referral"),
   "settings/theme": () => import("./pages/theme"),
   "settings/theme/:theme": () => import("./pages/theme-shop"),

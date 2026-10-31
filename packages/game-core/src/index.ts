@@ -166,3 +166,6 @@ export type { NumberOptions, RelativeOptions } from "./format";
 
 // PvP v2 (#732, #741): the free village, slots and XP, starter layouts, the attack's deck and queue, chests, the daily shop
 export * from "./rules";
+
+// The social rules (#952, #957): the player search, who shows as online, the guilds (#953), the follows, friends and blocks (#954)
+export * from "./social";

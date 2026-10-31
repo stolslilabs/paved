@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { EconomyViews, EconomyWriter, EventReader, GameViews, IndexerClient, PackBuyer, PavedWriter, PoolQuoter } from "@paved/chain";
 import { browserStore, type KeyValueStore } from "@paved/game-core";
+import type { SocialSource } from "./social-source";
 
 /**
  * Who plays: the writes of the connected account, a game's moves, the tutorial's claim, Play free (`spawnFree`) and the Cobbles' claims (P9:
@@ -93,6 +94,11 @@ export interface DataSources {
   settlements?: ((signer: GameSigner) => Settlements) | null;
   /** The Vault's writes of a signer (the economy's writer on the signer's); null or left out without an economy: nothing can be deposited. */
   vault?: ((signer: GameSigner) => VaultWrites) | null;
+  /**
+   * The social features (#952): the players' public profiles and the player search. The mock's on `mock`; null or left out (the
+   * chain, until a service serves them, #956): the social hooks answer no data and no error, `unavailable`.
+   */
+  social?: SocialSource | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }

@@ -24,6 +24,7 @@ import { PrefetchOnIntent } from "../prefetch";
 import { scoreOpenStored, storeScoreOpen } from "../score-open";
 import { useAppNavigate, useTabNavigate } from "../ref";
 import { boardTilesOf, layoutTilesOf, refusalText } from "../village-shapes";
+import { PlayerProfileHost } from "../player-profile";
 
 /** The village's stage as the app wires it (the editor, the engine, the art; the renderer after it): the overlays paint first. */
 const HomeStage = lazy(() => import("../home-stage"));
@@ -150,7 +151,7 @@ export default function Page() {
 
   const failed = readOnly ? null : read.error;
   return (
-    <PrefetchOnIntent routes={["/play", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
+    <PrefetchOnIntent routes={["/play", "/social", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
       <HomeVillageScene
         village={village}
         error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
@@ -187,6 +188,7 @@ export default function Page() {
         seasonWheel={board.wheel}
         renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} onScene={board.onScene} />}
         onPlay={() => go("/play")}
+        onSocial={() => go("/social")}
         onMissions={() => go("/missions")}
         onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}
@@ -206,6 +208,8 @@ export default function Page() {
         onDismissRefusal={writes.reset}
       />
       {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
+      {/* Another player's profile (#952): `/player/:id` lands here with it, and from `desktop` the panels' pages show it over the home. */}
+      <PlayerProfileHost />
     </PrefetchOnIntent>
   );
 }

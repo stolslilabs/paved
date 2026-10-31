@@ -137,6 +137,14 @@ model through the Codex CLI (`codex exec -c model_provider='"openai"'`: the imag
 a transparent background or a key colour, then cut, centred and measured; a redrawn part is a new master on its frame, its measures
 taken again, then the script. The home sets `--profile-room` beside its balances: the plate's name ends there with an ellipsis.
 
+Season wheel (the board's and the home's bottom left, `docs/design/season-wheel.webp`, aligned with the player badge on
+2026-10-31): `elements/season-wheel.tsx` stacks square layers, the dial centred on each: the seasons as one little planet (turning
+counterclockwise; its centre the landscape's vanishing point, so a turn never breaks the perspective), the painted day and night
+disc (turning the other way), the upright sun and moon, then the fixed shade, inner gold ring, badge-ring frame, gold arrow
+pointer and hub. Only the fixed layers carry a directional light. The masters are `wheel-sources/<layer>.webp` on the frames of
+`WHEEL_ART` (`elements/wheel-art.ts`); `node scripts/compress-wheel-art.ts` writes `public/wheel-art/` (`--check` verifies it).
+Generated as the badge's were; the two painted discs carry a warm-grey treatment baked in, so the gold reads over them.
+
 Chests (#874, the owner's direction A, wooden chests with metal bands): `<ChestIcon rank="epic" />` (`elements/chest-icon.tsx`),
 the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), drawn by `ChestBadge` and the battle logs;
 and `<LazyChestArt rank="epic" state="opening" />` (`elements/lazy-chest-art.tsx`, `ChestArt` of `elements/chest-art.tsx` in its own

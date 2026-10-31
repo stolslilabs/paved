@@ -86,6 +86,11 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   /** Chests waiting, missions to claim: the badges of the right column (and of the phone's bar, Chests). */
   chests?: number;
   missions?: number;
+  /**
+   * What waits on the Social page (#952): the total of its three tabs' badges (`socialTotal`: the guild's requests and invitations,
+   * the new followers, the unread messages, each counted by its issue, #953 to #955), on the Social button. None counted yet: 0.
+   */
+  social?: number;
   /** The viewer's Challenge game still running: the Resume chip. */
   activeGame?: GameView | null;
   /**
@@ -118,6 +123,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
    */
   renderStage?: (stage: VillageStageProps) => ReactNode;
   onPlay?: () => void;
+  onSocial?: () => void;
   onMissions?: () => void;
   onChests?: () => void;
   onShop?: () => void;
@@ -142,7 +148,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * the safe areas. In view: at the top left the profile (#787, #830: the avatar in the level's arc and line, "Lv i", the name), under it the League control (#829:
  * the League button, the crowns on a plate closed by the league's crest), the shield's mirrored plate while shielded, then the
  * village score (#755), an inline accordion (#831: the total, a tap unfolds the four kinds' sums in place), those stacked at the top,
- * 24 px under the profile (#929), above the season dial; the balances at the top right; the right column (Missions, Chests, Shop,
+ * 24 px under the profile (#929), above the season dial; the balances at the top right; the right column (Social, Missions, Chests, Shop,
  * Vault) with their counts, centred vertically (#856); Play (the two swords, no text, #807), large, at the bottom right with Settings above it and Edit
  * (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
@@ -154,7 +160,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * large Play go (the bar's Settings and centre disc); Edit and the season dial sit above the bar (its measured `--app-nav-h`).
  * Edit mode has no bar: the editor's panel takes the bottom.
  * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the navigation is this overlay, with no bar and no
- * header: the column of four (Missions, Chests, Shop, Vault; no League since #856, the League control is the way), Settings and Play. Each
+ * header: the column of five (Social, Missions, Chests, Shop, Vault; no League since #856, the League control is the way), Settings and Play. Each
  * opens its page in a side panel on the right, over the village, which stays in view (`routes/home-layout.tsx`); the profile
  * opens on the left.
  * CAMERA-MODE (#875, the owner's decisions of 2026-10-28): on the 3D village in view, a Camera button at Edit's left frees the
@@ -366,10 +372,10 @@ export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpav
 const BESIDE_LEAGUE = ["[data-slot=home-overlays]", "[data-slot=league-control]"] as const;
 
 /**
- * The right column, from `desktop` only, over Play, centred vertically in its band (#856): Missions, Chests, Shop and Vault, with
+ * The right column, from `desktop` only, over Play, centred vertically in its band (#856): Social (#952), Missions, Chests, Shop and Vault, with
  * no League (#856: the League control on the left is the way in). On a short window its buttons wrap into a second column, to the
  * left, instead of running under Play. Below `desktop` there is none (#929): Chests and Shop are the bar's (#763), Missions and
- * Vault the left column's.
+ * Vault the left column's, Social first above them.
  */
 function VillageNav(props: HomeVillageSceneProps) {
   return (
@@ -380,6 +386,7 @@ function VillageNav(props: HomeVillageSceneProps) {
         "pointer-events-none absolute top-(--right-top) right-3 bottom-(--right-bottom) hidden flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 desktop:flex [&>*]:pointer-events-auto",
       )}
     >
+      <OverlayButton icon="users" label="Social" badge={props.social} onClick={props.onSocial} />
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
       <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} />
       <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
@@ -428,10 +435,11 @@ function ViewOverlays({
         <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
       )}
       {/*
-        HOME-STACK (#929, the owner's decisions of 2026-10-30): below `desktop`, Missions and Vault under the village score and before
+        HOME-STACK (#929, the owner's decisions of 2026-10-30): below `desktop`, Social (#952, first), Missions and Vault under the village score and before
         the chips (open point 2), one under the other and aligned left (open point 3), the right column's look; from it, the right
         column's.
       */}
+      <OverlayButton icon="users" label="Social" badge={props.social} onClick={props.onSocial} className="desktop:hidden" />
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} className="desktop:hidden" />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} className="desktop:hidden" />
       {/* The chips, in the same column (#856), clear of the right column. */}
