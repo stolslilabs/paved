@@ -1,9 +1,13 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
+import { DataContext, type DataSources } from "../../data/sources";
+import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
 import { useSidePanel } from "../../lib/side-panel";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { LeagueCrest } from "../elements/league-crest";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
@@ -34,10 +38,37 @@ export interface ProfileSheetProps {
   look?: bigint | null;
   /** Opens the avatar creator (#626); omitted, Edit avatar is not offered. */
   onEditAvatar?: () => void;
+  /**
+   * The connected player's PvP standing (`Matchmaker.league`): their league's crest and name under their name (#917). Left out, the
+   * sheet reads it itself where the app's sources are (the home's read and cache, in the sheet's own chunk, not the first load);
+   * null: none shown (not read, no PvP on the network).
+   */
+  league?: PlayerLeague | null;
   /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, League is not offered. */
   onOpenLeague?: () => void;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
   returnFocus?: () => HTMLElement | null;
+}
+
+/** What the profile shows of the player's standing: the crowns, the league on chain (0 Wood to 22 Grand Master), Unranked or not. */
+export interface PlayerLeague {
+  crowns: number;
+  league: number;
+  /** Not in the leagues yet (`isUnranked`: no crowns, no attack settled, none ever made). */
+  unranked: boolean;
+}
+
+/** The player's league under their name: its crest and name, or Unranked (#917). */
+function ProfileLeague({ league }: { league: PlayerLeague }) {
+  return <LeagueCrest league={LEAGUES[league.league] ?? leagueOf(league.crowns)} unranked={league.unranked} className="self-center" />;
+}
+
+/** The league as the app's sources give it (`Matchmaker.league` and `Arena.attack`, the home's and the PvP screens' reads and cache). */
+function ReadLeague({ sources, playerId }: { sources: DataSources; playerId: string }) {
+  const league = usePvpLeagueOf(sources, playerId);
+  const attack = usePvpLastAttack(sources, playerId);
+  if (!league || attack === undefined) return null;
+  return <ProfileLeague league={{ crowns: league.crowns, league: league.league, unranked: attack !== null && isUnranked(league, attack) }} />;
 }
 
 /** One of the level's XP figures on the sheet (#830). */
@@ -58,7 +89,8 @@ const DESKTOP_QUERY = "(min-width: 64rem)";
  * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (the
  * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625), the XP made in it, the XP left and the whole XP (#830).
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, onOpenLeague, returnFocus }: ProfileSheetProps) {
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, league, onOpenLeague, returnFocus }: ProfileSheetProps) {
+  const sources = useContext(DataContext);
   const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
   const connected = state.status === "connected" ? state.data : null;
@@ -87,6 +119,7 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
             {connected ? <PlayerName name={connected.player.name} address={connected.player.playerId} className="text-lg" /> : state.status === "guest" ? "Playing as a guest" : "Profile"}
           </SheetTitle>
           <SheetDescription>{connected ? "Your profile" : state.status === "guest" ? "Training is free. Connect to enter the Challenge." : "Looking for your account…"}</SheetDescription>
+          {connected && (league !== undefined ? league && <ProfileLeague league={league} /> : sources && <ReadLeague sources={sources} playerId={connected.player.playerId} />)}
         </SheetHeader>
 
         {connected && (
