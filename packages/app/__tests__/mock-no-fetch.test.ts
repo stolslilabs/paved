@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MutationObserver, onlineManager } from "@tanstack/react-query";
 import { ViewError, settlesAfter, type GameKey, type IndexerClient, type KeyStorage } from "@paved/chain";
 import { seededRandom } from "@paved/renderer";
 import { CENTER, OrientationType, replayVrfChallenge, starterLayout } from "@paved/game-core";
@@ -9,6 +10,7 @@ import { MockLedger } from "../src/data/mock/ledger";
 import { MOCKED_ECONOMY_READS, MOCKED_GAME_READS, MOCKED_WRITES, mockConnector } from "../src/data/mock/overlay";
 import { attackV2Board } from "../src/data/free-attack";
 import { MockAccountError, mockKeyConnector } from "../src/wallet/mock-key";
+import { createQueryClient } from "../src/lib/query-client";
 import { memoryStore } from "./data-fakes";
 
 // No request in a mock build (#927, PR 6 of 6): the mock's every read and write stays on the device. `fetch`, `XMLHttpRequest`,
@@ -269,5 +271,23 @@ describe("the app's sources on the mock (#927)", () => {
     await expect(APP_SOURCES.purchases!(connector.signer(account)).receipt("0x6d6f636b00000001")).resolves.toBe("succeeded");
     vi.doUnmock("../src/data/data-source");
     window.localStorage.clear();
+  });
+});
+
+describe("the mock with the browser offline (#927)", () => {
+  afterEach(() => onlineManager.setOnline(true));
+
+  it("runs its reads and writes: the query client does not pause them, as it pauses the chain's", async () => {
+    onlineManager.setOnline(false);
+    const mock = createQueryClient(true);
+    await expect(mock.fetchQuery({ queryKey: ["offline"], queryFn: async () => "read" })).resolves.toBe("read");
+    await expect(new MutationObserver(mock, { mutationFn: async () => "written" }).mutate()).resolves.toBe("written");
+    // The chain's client waits for the network: its read is paused, not run.
+    const chain = createQueryClient(false);
+    const read = vi.fn(async () => "read");
+    void chain.fetchQuery({ queryKey: ["offline"], queryFn: read });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(read).not.toHaveBeenCalled();
+    expect(chain.getQueryCache().find({ queryKey: ["offline"] })?.state.fetchStatus).toBe("paused");
   });
 });

@@ -653,7 +653,8 @@ build never loads them; the deployment's file and `VITE_*` values are read by `d
 refused, starknet.js's node classes and `@paved/chain`'s clients unbuildable and the chain modules unloadable, it walks #927's
 acceptance on the mock's sources (connect, the village, a Challenge game to its settlement, a mission, First Stone, a chest,
 the shop, the Vault, a PvP attack, the leaderboard and a player page, Reset) and calls every mocked read, indexer route and
-write, and fails on any request. The games are the ledger's (#927): a Challenge game is bought or spawned free,
+write, and fails on any request. On the mock the query client runs every read and write with the browser offline too
+(`lib/query-client.ts`, `networkMode: "always"`), where TanStack Query's default pauses them until the network is back. The games are the ledger's (#927): a Challenge game is bought or spawned free,
 played, ended and settled on the device by the contracts' rules and checks (a day settles from the end of the next day, as
 on chain), its reward minted in the ledger's PAVED. The tokens are the ledger's (#927): USDC, PAVED and the Vault's vPAVED, read from no node. A new account holds the
 faucet's USDC (100) and no PAVED (`MOCK_STARTING_BALANCES`); "Get test USDC" is always there on the mock and mints 100 more,
