@@ -9,7 +9,7 @@ import { AttackRun } from "@paved/game-core";
 import { attackV2Board } from "../../data/free-attack";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import type { DataSources, GameSigner } from "../../data/sources";
-import { MOCK_KEY, MOCK_STARTING_PAVED, MockLedger } from "../../data/mock/ledger";
+import { MOCK_KEY, MOCK_STARTING_BALANCES, MockLedger } from "../../data/mock/ledger";
 import { mockGameViews, mockIndexer, mockSigner } from "../../data/mock/overlay";
 import { mockRival } from "../../data/mock/pvp";
 import { APP_MANIFEST } from "../../mocks/assets";
@@ -54,8 +54,8 @@ function seeded(cobbles: number, pvp?: Record<string, unknown>) {
     owned: {},
     active: new Array<number>(SKIN_PLANS).fill(0),
     shares: "0",
-    paved: MOCK_STARTING_PAVED.toString(),
-    usdc: "0",
+    paved: MOCK_STARTING_BALANCES.paved.toString(),
+    usdc: MOCK_STARTING_BALANCES.usdc.toString(),
     village: { parcels: [], tiles: [] },
     ...(pvp ? { pvp } : {}),
   };

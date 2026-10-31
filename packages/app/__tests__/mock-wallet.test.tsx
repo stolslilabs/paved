@@ -153,10 +153,10 @@ describe("MockLedger.forget (#927)", () => {
   });
 
   it("takes the account's Vault shares out with their value: the share's price stays for the others", async () => {
-    const ledger = ledgerOn();
-    const balances = { paved: async () => 10n ** 21n, usdc: async () => 0n };
+    // An account that won 1,000 PAVED (a new one holds none, #927).
+    const ledger = new MockLedger({ store: () => memoryStore(), seller: "0x3", latencyMs: 0, starting: { usdc: 0n, paved: 10n ** 21n } });
     const amount = 10n ** 20n;
-    await ledger.writesFor("0x5f1", balances).deposit(amount, { confirmedAmount: amount });
+    await ledger.writesFor("0x5f1").deposit(amount, { confirmedAmount: amount });
     const price = async () => {
       const { totalAssets, totalSupply } = await ledger.vault("0x5f2");
       return (totalAssets * 10n ** 18n) / totalSupply;

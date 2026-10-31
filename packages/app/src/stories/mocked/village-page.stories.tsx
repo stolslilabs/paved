@@ -9,7 +9,7 @@ import { inventoryOf, starterLayout, xpFloor, type ChestRank } from "@paved/game
 import { seededRandom } from "@paved/renderer";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import type { DataSources, GameSigner } from "../../data/sources";
-import { MOCK_KEY, MOCK_STARTING_PAVED, MockLedger } from "../../data/mock/ledger";
+import { MOCK_KEY, MOCK_STARTING_BALANCES, MockLedger } from "../../data/mock/ledger";
 import { mockConnector, mockGameViews, mockSigner } from "../../data/mock/overlay";
 import { freshV2, mockRivalsV2 } from "../../data/mock/v2";
 import { APP_MANIFEST } from "../../mocks/assets";
@@ -73,8 +73,8 @@ function player({ founded, level, cobbles, chests }: Seed) {
     owned: { 1: 0xffffe },
     active: new Array<number>(SKIN_PLANS).fill(1),
     shares: "0",
-    paved: MOCK_STARTING_PAVED.toString(),
-    usdc: "0",
+    paved: MOCK_STARTING_BALANCES.paved.toString(),
+    usdc: MOCK_STARTING_BALANCES.usdc.toString(),
     v2: {
       ...freshV2(),
       xp: xpFloor(level),

@@ -1,6 +1,7 @@
 import {
   AvatarPriceChangedError,
   AvatarRefusedError,
+  FAUCET_USDC_AMOUNT,
   ClaimRefusedError,
   PackNotOnSaleError,
   PackPriceChangedError,
@@ -132,9 +133,9 @@ import type { AvatarCatalogue } from "../avatar-catalogue";
 // The mock ledger (#549, MOCK-FIRST): the reads and writes the deployed classes lack, served on the device, behind the same
 // interfaces as the chain path (`MockedReads`: `@paved/chain`'s `CobbleViews`, `PackViews`, `SkinViews`, `VaultViews` and
 // the parts of `GameViews` and `EconomyViews` that are missing; `MockedWrites`: the writer's claims, skin writes, the pack
-// purchase and the Vault's writes). It holds state and the contracts' rules only: it reads nothing from the chain. The real
-// token balances it adjusts (PAVED, USDC) are passed in by the overlays (`overlay.ts`), which wire it in place of the
-// missing entry points. Its figures are the specs' (cobbles-v1.md, quests-v2.md, vault-share.md); its state is kept on the
+// purchase, the Vault's writes and the faucet). It holds state and the contracts' rules only: it reads nothing from the chain,
+// the tokens' balances included (USDC, PAVED and the Vault's vPAVED are the ledger's, #927). The overlays (`overlay.ts`) wire
+// it in place of the chain's entry points. Its figures are the specs' (cobbles-v1.md, quests-v2.md, vault-share.md); its state is kept on the
 // device (`MOCK_KEY`), so a flow (claim, buy, set, deposit, withdraw) completes and survives a reload.
 
 /** Where the mock ledger keeps its state on the device. A format change is a new key, never an edit in place. */
@@ -144,10 +145,16 @@ export const MOCK_KEY = "paved.mock.v1";
 export const MOCK_LATENCY_MS = 450;
 
 /**
- * The PAVED a player starts with in the mock, on top of the chain's balance: what a new account needs to try the Vault
- * (the stories' wallet, `mocks/economy.ts` `PAVED_BALANCE`). It never reaches the chain.
+ * What a new account holds in the mock (#927, open point 1): the faucet's USDC (one `mint`, 100 USDC) and no PAVED, which is
+ * won (the Challenge's settlement). "Get test USDC" mints more (`mint`). None of it reaches the chain.
  */
-export const MOCK_STARTING_PAVED = 142_350_000_000_000_000_000n;
+export const MOCK_STARTING_BALANCES: Readonly<TokenBalances> = { usdc: FAUCET_USDC_AMOUNT, paved: 0n };
+
+/** An account's USDC and PAVED, base units (6 and 18 decimals). */
+export interface TokenBalances {
+  usdc: bigint;
+  paved: bigint;
+}
 
 /** The Vault at the mock's start: 542,100 PAVED for 500,000 vPAVED, a rate of about 1.0842 (as `mocks/vault.ts`). */
 export const MOCK_VAULT = { assets: 542_100n * 10n ** 18n, supply: 500_000n * 10n ** 18n, exitFeeBps: 500 };
@@ -201,7 +208,7 @@ export interface MockedReads
     DailyMilestoneViews,
     Pick<GameViews, "spawnPaused" | "guardian">,
     VaultViews,
-    Pick<EconomyViews, "split" | "seller" | "usdcBalance"> {}
+    Pick<EconomyViews, "split" | "seller" | "usdcBalance" | "pavedBalance"> {}
 
 /** The receipt of a pack bought: the writer's `buyPack` answer. */
 export type PackReceipt = WriteResult & { bought: PackBought };
@@ -225,6 +232,8 @@ export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" |
   playAttack(play: AttackPlay): Promise<WriteResult>;
   surrenderAttack(): Promise<WriteResult>;
   buyPack(request: PackPurchaseRequest): Promise<PackReceipt>;
+  /** The faucet (`Faucet.mint(self, FAUCET_USDC_AMOUNT)`): always there on the mock, with no cap (#927). */
+  mint(): Promise<WriteResult>;
   deposit(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult>;
   withdraw(amount: bigint, options: { confirmedAmount: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
   withdrawAll(options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
@@ -257,7 +266,10 @@ interface StoredPlayer {
   owned: Record<string, number>;
   active: number[];
   shares: string;
-  /** What the mock moved of the player's PAVED and USDC, added to the chain's balance. */
+  /**
+   * The player's PAVED and USDC (#927). A state saved before it kept the mock's moves on top of the chain's balance here: it is
+   * read as the balance, a negative one as 0 (`parse`).
+   */
   paved: string;
   usdc: string;
   /**
@@ -378,7 +390,7 @@ export type NewPlayerCatalogue = Pick<AvatarCatalogue, "parts" | "items" | "owne
 /** A name `setName` takes (#926): letters and digits, 3 to 20 characters. */
 const MOCK_NAME = /^[A-Za-z0-9]{3,20}$/;
 
-const newPlayer = (): StoredPlayer => ({
+const newPlayer = (starting: Readonly<TokenBalances>): StoredPlayer => ({
   cobbles: 0,
   credits: 0,
   achievementsClaimed: "0",
@@ -387,9 +399,12 @@ const newPlayer = (): StoredPlayer => ({
   owned: {},
   active: new Array<number>(SKIN_PLANS).fill(0),
   shares: "0",
-  paved: MOCK_STARTING_PAVED.toString(),
-  usdc: "0",
+  paved: starting.paved.toString(),
+  usdc: starting.usdc.toString(),
 });
+
+/** A stored amount, or 0 for a negative one (the moves a state kept before #927 on top of the chain's balance). */
+const held = (amount: string): string => (BigInt(amount) < 0n ? "0" : amount);
 
 /** A stored state, or null when it is not one this version wrote (then the mock starts over). */
 function parse(raw: string | null): StoredState | null {
@@ -397,7 +412,11 @@ function parse(raw: string | null): StoredState | null {
   try {
     const state = JSON.parse(raw) as StoredState;
     if (!(state && state.version === 1 && typeof state.players === "object" && state.vault)) return null;
-    for (const player of Object.values(state.players)) if (player.v2) renameChestsV2(player.v2);
+    for (const player of Object.values(state.players)) {
+      if (player.v2) renameChestsV2(player.v2);
+      player.paved = held(player.paved);
+      player.usdc = held(player.usdc);
+    }
     return state;
   } catch {
     return null;
@@ -423,6 +442,8 @@ export interface MockLedgerOptions {
    * Locks, which hold across the tabs of the origin) by default. A test gives its own.
    */
   lock?: MockLock;
+  /** What a new account holds: `MOCK_STARTING_BALANCES` by default. A test or a story gives its own. */
+  starting?: Readonly<TokenBalances>;
 }
 
 /** Runs `section` while no other holder of the lock runs one; resolves with its result. */
@@ -450,7 +471,7 @@ export const mockLock: MockLock = (section) => {
 };
 
 /**
- * The mock ledger: the reads of `MockedReads` (the PAVED and USDC balances take the chain's, which the overlay reads) and,
+ * The mock ledger: the reads of `MockedReads` (the PAVED and USDC balances its own) and,
  * for an account, the writes of `MockedWrites` (`writesFor`). Each write checks what the contract checks, refuses with the
  * chain path's typed error, and answers a receipt with the contract's events, so the hooks' `apply*Events` read it as they
  * read the chain's. The claims trust the page for completion: the progress is the indexer's (it works), and the page offers
@@ -461,6 +482,7 @@ export class MockLedger {
   private readonly questRates = new Map<number, QuestCobbles>();
   private readonly achievementRates = new Map<number, AchievementCobbles>();
   private readonly latency: number;
+  private readonly starting: Readonly<TokenBalances>;
   private readonly lock: MockLock;
   /** A day's dailies done, as the mock's indexer serves them (`countDailiesWith`); unset, none. */
   private dailiesDone: ((playerId: string, day: number) => Promise<number>) | null = null;
@@ -468,6 +490,7 @@ export class MockLedger {
   constructor(private readonly options: MockLedgerOptions) {
     this.state = this.load();
     this.latency = options.latencyMs ?? MOCK_LATENCY_MS;
+    this.starting = options.starting ?? MOCK_STARTING_BALANCES;
     this.lock = options.lock ?? mockLock;
   }
 
@@ -968,25 +991,22 @@ export class MockLedger {
     return null;
   }
 
-  /** The chain's PAVED (`chain`, read by the overlay) and what the mock moved: the starting PAVED, the deposits and withdraws. */
-  async pavedBalance(account: string, chain = 0n): Promise<bigint> {
+  /** `Paved.balance_of`: the PAVED the account holds, moved by its deposits and withdraws (none at the start). */
+  async pavedBalance(account: string): Promise<bigint> {
     this.sync();
-    return this.adjusted(chain, this.peek(account).paved);
+    return BigInt(this.peek(account).paved);
   }
 
-  /** The chain's USDC (`chain`) less what the mock's packs took. */
-  async usdcBalance(account: string, chain = 0n): Promise<bigint> {
+  /** The USDC's `balance_of`: the faucet's at the start and each `mint`, less what the packs took. */
+  async usdcBalance(account: string): Promise<bigint> {
     this.sync();
-    return this.adjusted(chain, this.peek(account).usdc);
+    return BigInt(this.peek(account).usdc);
   }
 
   // --- MockedWrites ------------------------------------------------------------------------------------------------
 
-  /**
-   * The writes of `account`. `balances` reads the chain's PAVED and USDC of the account at send (the overlay's), so a deposit
-   * or a pack is refused for a balance the player does not have.
-   */
-  writesFor(account: string, balances: { paved(): Promise<bigint>; usdc(): Promise<bigint> } = { paved: async () => 0n, usdc: async () => 0n }): MockedWrites {
+  /** The writes of `account`: a deposit or a pack is refused for a balance the account does not hold in the ledger. */
+  writesFor(account: string): MockedWrites {
     return {
       claimQuest: (questId, period) => this.claim(account, [{ kind: "quest", questId, period }]),
       claimAchievement: (achievementId) => this.claim(account, [{ kind: "achievement", achievementId }]),
@@ -1020,8 +1040,9 @@ export class MockLedger {
       startAttackV2: () => this.startAttackV2(account),
       playAttackV2: (move) => this.playAttackV2(account, move),
       surrenderAttackV2: () => this.surrenderAttackV2(account),
-      buyPack: async (request) => this.buyPack(account, request, await balances.usdc()),
-      deposit: async (amount, options) => this.deposit(account, amount, options, await balances.paved()),
+      buyPack: (request) => this.buyPack(account, request),
+      mint: () => this.mint(account),
+      deposit: (amount, options) => this.deposit(account, amount, options),
       withdraw: (amount, options) => this.withdraw(account, amount, options),
       withdrawAll: (options) => this.withdrawAll(account, options),
     };
@@ -1657,20 +1678,20 @@ export class MockLedger {
   }
 
   /**
-   * `Setup.buy_pack`: the pack on sale at the confirmed price (`PackBuyer`'s checks), paid from the player's USDC (the chain's
-   * `usdc`, less what earlier packs took), its Cobbles added. The pool and the referral are not run: no PAVED is burned.
+   * `Setup.buy_pack`: the pack on sale at the confirmed price (`PackBuyer`'s checks), paid from the player's USDC, its Cobbles
+   * added. The pool and the referral are not run: no PAVED is burned.
    */
-  async buyPack(account: string, request: PackPurchaseRequest, usdc = 0n): Promise<PackReceipt> {
+  async buyPack(account: string, request: PackPurchaseRequest): Promise<PackReceipt> {
     const pack = await this.pack(request.packId);
     if (!(pack.active && pack.cobbles > 0 && pack.price > 0n)) throw new PackNotOnSaleError(request.packId);
     if (request.confirmedPrice !== pack.price) throw new PackPriceChangedError(request.confirmedPrice, pack.price);
     const short = () => new WriteError("Not enough USDC for this pack: get test USDC first. Nothing was sent.");
-    if ((await this.usdcBalance(account, usdc)) < pack.price) throw short();
+    if ((await this.usdcBalance(account)) < pack.price) throw short();
     await sleep(this.latency);
     let bought: PackBought | null = null;
     const result = await this.write(account, (p) => {
       // Checked again at commit: another purchase may have spent the USDC during the wait.
-      if (this.adjusted(usdc, p.usdc) < pack.price) throw short();
+      if (BigInt(p.usdc) < pack.price) throw short();
       p.cobbles += pack.cobbles;
       p.usdc = (BigInt(p.usdc) - pack.price).toString();
       bought = { playerId: addressKey(account), packId: pack.packId, cobbles: pack.cobbles, price: pack.price, referrer: "0x0", balance: p.cobbles };
@@ -1679,16 +1700,29 @@ export class MockLedger {
     return { ...result, bought: bought! };
   }
 
+  /**
+   * `Faucet.mint(self, FAUCET_USDC_AMOUNT)`: the faucet's USDC added to the account's. The mock's faucet has no cap (the
+   * contract's ends an address at 20,000 USDC): "Get test USDC" is always there (#927). The receipt is the token's `Transfer`
+   * from 0x0, as the mint emits it.
+   */
+  async mint(account: string): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p) => {
+      p.usdc = (BigInt(p.usdc) + FAUCET_USDC_AMOUNT).toString();
+      return [this.event("Transfer", { from: "0x0", to: account, value: FAUCET_USDC_AMOUNT })];
+    });
+  }
+
   /** `Vault.deposit(amount, self)`: the shares `preview_deposit` gives; refused above the wallet's PAVED or for 0 shares. */
-  async deposit(account: string, amount: bigint, options: { confirmedAmount: bigint }, paved = 0n): Promise<WriteResult> {
+  async deposit(account: string, amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
     this.checkAmount(amount, options.confirmedAmount);
-    const balance = await this.pavedBalance(account, paved);
+    const balance = await this.pavedBalance(account);
     if (balance < amount) throw new VaultBalanceError(balance);
     if ((await this.previewDeposit(amount)) === 0n) throw new VaultZeroSharesError();
     await sleep(this.latency);
     return this.write(account, (p) => {
       // Checked again at commit, on the stored state: another deposit may have taken the PAVED during the wait, or moved the rate.
-      const now = this.adjusted(paved, p.paved);
+      const now = BigInt(p.paved);
       if (now < amount) throw new VaultBalanceError(now);
       const shares = this.depositShares(amount);
       if (shares === 0n) throw new VaultZeroSharesError();
@@ -1799,7 +1833,7 @@ export class MockLedger {
 
   /** A player's state for a read; a player not seen yet reads the start, and is not stored until a write. */
   private peek(playerId: string): StoredPlayer {
-    return this.state.players[addressKey(playerId)] ?? newPlayer();
+    return this.state.players[addressKey(playerId)] ?? newPlayer(this.starting);
   }
 
   /**
@@ -1814,7 +1848,7 @@ export class MockLedger {
   private commit(account: string, change: (player: StoredPlayer, hash: string) => DecodedEvent[]): WriteResult {
     this.sync();
     const key = addressKey(account);
-    const player: StoredPlayer = structuredClone(this.state.players[key] ?? newPlayer());
+    const player: StoredPlayer = structuredClone(this.state.players[key] ?? newPlayer(this.starting));
     const vault = { ...this.state.vault };
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
@@ -2019,11 +2053,6 @@ export class MockLedger {
     const t = this.totals();
     this.state.vault = { assets: (t.assets + assets).toString(), supply: (t.supply + shares).toString() };
     p.shares = (BigInt(p.shares) + shares).toString();
-  }
-
-  private adjusted(chain: bigint, delta: string): bigint {
-    const total = chain + BigInt(delta);
-    return total < 0n ? 0n : total;
   }
 
   private checkAmount(amount: bigint, confirmed: bigint): void {

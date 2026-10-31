@@ -4,9 +4,10 @@
 /**
  * `chain`: every read and write goes to the chain and the indexer (`@paved/chain`'s views and writers). `mock`: the reads
  * and writes the network's classes do not have yet (the Vault, the Cobbles ledger and its claims, the packs, the skins, the avatar, the village, the PvP,
- * Challenge's pause views, Economy's split and seller, the indexer's Cobbles and referrals) come from the device's mock
- * ledger (`data/mock/ledger.ts`); everything else (the games, their moves, the purchase of a game, the settlement, the
- * tokens' balances) stays on the chain. On `mock`, the wallet is the device's key with the ledger's account, deployed nowhere
+ * Challenge's pause views, Economy's split and seller, the indexer's Cobbles and referrals) and the tokens' balances (USDC,
+ * PAVED, vPAVED; a new account holds the faucet's USDC and no PAVED, and the faucet's `mint` is the ledger's, #927) come from
+ * the device's mock ledger (`data/mock/ledger.ts`); everything else (the games, their moves, the purchase of a game, the
+ * settlement) stays on the chain. On `mock`, the wallet is the device's key with the ledger's account, deployed nowhere
  * and read from no node (`wallet/mock-key.ts`, #927), and an account's village is founded with it at its first connection
  * (`mockConnector`); Found stays for `chain`.
  */
