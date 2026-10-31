@@ -8,7 +8,7 @@ import { Countdown } from "../elements/countdown";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
 import { divisionOf, tierOf } from "../elements/league-standards";
 import { LeagueCard } from "../containers/league-card";
-import { LeagueCarousel } from "../containers/league-carousel";
+import { LeagueCarousel, slideOf } from "../containers/league-carousel";
 import { LeagueControl } from "../containers/league-control";
 import { MatchList, type MatchListProps } from "../containers/match-list";
 import { TabFrame } from "../containers/tab-frame";
@@ -61,7 +61,8 @@ const LAST_DAY_S = 86_400;
 
 /**
  * The league (#647): the League control in the header (#859, in the balances' place: the crowns and the crest; a tap brings the
- * carousel back to the player's league), a carousel of the 23 leagues opening on the player's (#785), its card standing alone
+ * carousel back to the player's league), a carousel of Unranked and the 23 leagues opening on the player's (#785, Unranked's
+ * before the first attack, #917), its card standing alone
  * between the arrows and over the dots (#833, #859: the range of crowns, the season's Cobbles, the first-time bonus's icon), then
  * the season's end and, in one line, what the player's league gives at it (#644's rewards, #859), and the latest attacks and
  * defences as cards (#786), each opening its match. No Attack button (#833): it is in the phone's bar, and the panel closes on
@@ -91,7 +92,7 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
       <TopBar title="League" onBack={onBack} end={control} />
       <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex min-w-0 flex-col gap-4">
-          <LeagueBrowser ref={browser} mine={mine} opensOn={opensOn} />
+          <LeagueBrowser ref={browser} mine={unranked ? null : mine} opensOn={opensOn} />
 
           {season === null ? (
             <section aria-label="Season" className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
@@ -158,8 +159,8 @@ interface LeagueBrowserHandle {
 
 interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "opensOn"> {
   ref?: Ref<LeagueBrowserHandle>;
-  /** The player's league. */
-  mine: League;
+  /** The player's league; `null`, Unranked. */
+  mine: League | null;
 }
 
 /**
@@ -167,7 +168,7 @@ interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "opensOn"> {
  * never the season or the matches below, nor the header (its League control calls `showMine`).
  */
 function LeagueBrowser({ ref, mine, opensOn }: LeagueBrowserProps) {
-  const [selected, setSelected] = useState(opensOn ?? mine.index);
+  const [selected, setSelected] = useState(slideOf(opensOn !== undefined ? LEAGUES[opensOn]! : mine));
   const select = (index: number) => setSelected(index);
   const root = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotionConfig();
@@ -175,12 +176,12 @@ function LeagueBrowser({ ref, mine, opensOn }: LeagueBrowserProps) {
   // rule), brought into view when the page was scrolled past it.
   useImperativeHandle(ref, () => ({
     showMine: () => {
-      select(mine.index);
+      select(slideOf(mine));
       root.current?.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
     },
   }));
   return (
-    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={mine.index}>
+    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={slideOf(mine)}>
       {(l) => <LeagueCard league={l} />}
     </LeagueCarousel>
   );
