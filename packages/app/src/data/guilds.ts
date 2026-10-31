@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { GuildRefusal } from "@paved/game-core";
 import { addressKey } from "./keys";
-import { SEARCH_DELAY_MS, useSettled, type SocialRead } from "./social";
+import { SEARCH_DELAY_MS, socialKeys, useSettled, type SocialRead } from "./social";
 import { GuildRefusedError, guildSource, type GuildBadge, type GuildQuery, type GuildSource, type GuildSummary, type GuildView, type PlayerGuild } from "./social-source";
 import { useDataSources } from "./sources";
 
@@ -14,7 +14,7 @@ export type * from "./social-source";
 
 /** The keys of the guild reads: under the social domain (`socialKeys.all`), `[social, guild, read, ...args]`. */
 export const guildKeys = {
-  all: ["social", "guild"] as const,
+  all: socialKeys.guilds,
   player: (player: string) => ["social", "guild", "player", addressKey(player)] as const,
   /** A guild's page as a viewer sees it ("" : anyone). */
   page: (id: number, viewer: string | null) => ["social", "guild", "page", id, viewer === null ? "" : addressKey(viewer)] as const,

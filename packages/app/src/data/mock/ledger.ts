@@ -144,13 +144,29 @@ import {
   type LayoutTile,
   type SeededMove,
   type QueuedMove,
+  areFriends,
+  blockBetween,
+  blockPlayer,
+  followCounts,
+  followPlayer,
+  isBlocking,
+  isFollowing,
+  playerKey,
+  removeFollower,
+  suggestFollows,
+  unblockPlayer,
+  unfollowPlayer,
+  type Follow,
+  type FollowGraph,
+  type GraphWrite,
 } from "@paved/game-core";
 import { NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
-import { communityProfile, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
-import type { GuildBadge, GuildQuery, GuildSummary, GuildView, PlayerGuild, PublicProfile } from "../social-source";
+import { communityMember, communityProfile, community, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
+import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PublicProfile } from "../social-source";
+import { forgetFollows, freshFollows, graphOf, listsOf, seededFollows, settleFollows, type StoredFollows } from "./follows";
 import type { GuildDraft, GuildSettings } from "@paved/game-core";
 import * as guilds from "./guilds";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
@@ -449,6 +465,8 @@ interface StoredState {
   transactions: number;
   /** The Challenge's games and the Economy's days (#927, `challenge.ts`); absent: none yet (a state stored before them). */
   challenge?: StoredChallenge;
+  /** The players' follows and blocks (#954, `follows.ts`); absent: none yet. */
+  follows?: StoredFollows;
   /** The guilds (#953, `guilds.ts`); absent: the seeded world, before any guild write. */
   guilds?: guilds.GuildWorld;
 }
@@ -1022,6 +1040,101 @@ export class MockLedger {
     return searchCommunity(query, this.now());
   }
 
+  // --- The follows (#954) ----------------------------------------------------------------------------------------------
+
+  /** The stored follows at the ledger's clock, the follow backs due made (`settleFollows`). Not saved: a read stores nothing. */
+  private followsNow(now: number): StoredFollows {
+    return settleFollows(this.state.follows ?? freshFollows(), now);
+  }
+
+  /** The player's own lists (`follows.ts`): friends, following and followers by presence, the new followers, the blocks. */
+  async followLists(player: string): Promise<FollowLists> {
+    this.sync();
+    const now = this.second();
+    return listsOf(this.followsNow(now), player, now);
+  }
+
+  /** Another player as `player` sees them: the marks, and the counts every profile shows. Never whether they block `player`. */
+  async followStatus(player: string, other: string): Promise<FollowStatus> {
+    this.sync();
+    const graph = graphOf(this.followsNow(this.second()));
+    const counts = followCounts(graph, other);
+    return {
+      following: isFollowing(graph, player, other),
+      followsYou: isFollowing(graph, other, player),
+      friend: areFriends(graph, player, other),
+      blocking: isBlocking(graph, player, other),
+      followers: counts.followers,
+      followed: counts.following,
+    };
+  }
+
+  /**
+   * Whom `player` may follow (game-core's `suggestFollows`): the followers not followed back, their guild's members (#953, by
+   * rank then crowns), the recent PvP opponents (newest first), then the community. Only the community's members: the mock
+   * shows no other player's profile.
+   */
+  async followSuggestions(player: string): Promise<PublicProfile[]> {
+    this.sync();
+    const now = this.second();
+    const v2 = this.peek(player).v2 ?? freshV2();
+    const opponents = [...v2.attacks.filter((a) => a.status !== "open").map((a) => ({ address: a.defender, at: a.finishedAt })), ...(v2.defences ?? []).map((d) => ({ address: d.attacker, at: d.finishedAt }))]
+      .sort((x, y) => y.at - x.at)
+      .map((o) => o.address)
+      .filter((a) => communityMember(a) !== null);
+    const guildmates = this.guildRead((world, people, at) => guilds.playerGuildOf(world, people, at, player).guild?.roster.map((m) => m.profile.address) ?? []).filter((a) => communityMember(a) !== null);
+    const members = community().map((m) => m.address);
+    return suggestFollows(graphOf(this.followsNow(now)), player, [guildmates, opponents, members]).flatMap((address) => communityProfile(address, now) ?? []);
+  }
+
+  /**
+   * One follow write of `player`, under the lock: the follow backs due made, then `change` on the whole graph by game-core's
+   * rules; a refusal throws a `FollowRefusedError` and leaves the ledger as it was. `target`, when given, must be a player the
+   * mock knows.
+   */
+  private async writeFollows(player: string, target: string | null, change: (graph: FollowGraph, now: number) => GraphWrite<FollowWriteRefusal>, after?: (stored: StoredFollows, now: number) => StoredFollows): Promise<void> {
+    await sleep(this.latency);
+    return this.lock(() => {
+      this.sync();
+      if (target !== null && communityMember(target) === null) throw new FollowRefusedError("unknown-player");
+      const now = this.second();
+      const stored = this.followsNow(now);
+      const w = change(graphOf(stored), now);
+      if (!w.ok) throw new FollowRefusedError(w.reason);
+      const drawn = new Set<Follow>(seededFollows());
+      let next: StoredFollows = { ...stored, follows: w.graph.follows.filter((f) => !drawn.has(f)), blocks: [...w.graph.blocks] };
+      if (after) next = after(next, now);
+      // A block or an unblock judges what the guilds do from now on, never what they did before (#953): what came due until now
+      // is settled under the blocks as they stood, and stored, before the new ones apply. A new block also withdraws the
+      // invitations and requests still pending between the two players; the joins already made stay.
+      let guildWorld: guilds.GuildWorld | null = null;
+      if (w.graph.blocks !== stored.blocks) {
+        const after = graphOf(next);
+        guildWorld = guilds.dropBlocked(this.settledGuilds(now), (a, b) => blockBetween(after, a, b) !== null);
+      }
+      this.state = { ...this.state, follows: next, ...(guildWorld ? { guilds: guildWorld } : {}) };
+      this.save();
+    });
+  }
+
+  /** The writes of the follow source, for the connected player. */
+  followWrites() {
+    return {
+      follow: (player: string, target: string) => this.writeFollows(player, target, (g, now) => followPlayer(g, player, target, now)),
+      unfollow: (player: string, target: string) => this.writeFollows(player, null, (g) => unfollowPlayer(g, player, target)),
+      removeFollower: (player: string, follower: string) => this.writeFollows(player, null, (g) => removeFollower(g, player, follower)),
+      block: (player: string, target: string) => this.writeFollows(player, target, (g, now) => blockPlayer(g, player, target, now)),
+      unblock: (player: string, target: string) => this.writeFollows(player, null, (g) => unblockPlayer(g, player, target)),
+      seeFollowers: (player: string) =>
+        this.writeFollows(
+          player,
+          null,
+          (graph) => ({ ok: true, graph, changed: false }),
+          (stored, now) => ({ ...stored, seen: { ...stored.seen, [playerKey(player)]: now } }),
+        ),
+    };
+  }
+
   // --- The guilds (#953, `guilds.ts`) -----------------------------------------------------------------------------------
 
   /**
@@ -1046,13 +1159,26 @@ export class MockLedger {
     };
   }
 
+  /** Whether a block stands between two players at `now`, either way (#954): what the guilds' writes and settlement check. */
+  private blocksAt(now: number): guilds.GuildBlocks {
+    const graph = graphOf(this.followsNow(now));
+    return (a, b) => blockBetween(graph, a, b) !== null;
+  }
+
+  /** The guilds' world as stored, settled at `now` under the blocks of the stored follows (a copy: the caller stores it or not). */
+  private settledGuilds(now: number): guilds.GuildWorld {
+    const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
+    guilds.settle(world, this.personOf(world, now), now, this.blocksAt(now));
+    return world;
+  }
+
   /** The guilds' world as stored, settled at the ledger's clock for a read (not stored: the next write settles it again). */
   private guildRead<T>(read: (world: guilds.GuildWorld, people: guilds.GuildPeople, now: number) => T): T {
     this.sync();
     const now = this.second();
     const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
     const people = this.personOf(world, now);
-    guilds.settle(world, people, now);
+    guilds.settle(world, people, now, this.blocksAt(now));
     return read(world, people, now);
   }
 
@@ -1064,8 +1190,9 @@ export class MockLedger {
       const now = this.second();
       const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
       const people = this.personOf(world, now);
-      const w = { world, people, now, player: addressKey(player) };
-      guilds.settle(world, people, now);
+      const blocked = this.blocksAt(now);
+      const w: guilds.GuildWrite = { world, people, now, player: addressKey(player), blocked };
+      guilds.settle(world, people, now, blocked);
       const result = change(w);
       guilds.seen(w);
       this.state = { ...this.state, guilds: world };
@@ -2230,7 +2357,9 @@ export class MockLedger {
       delete players[key];
       // Its games go too: the next account of the key has none in play.
       const challenge = this.state.challenge && { ...this.state.challenge, games: Object.fromEntries(Object.entries(this.state.challenge.games).filter(([, g]) => g.player !== key)) };
-      this.state = { ...this.state, players, ...(challenge ? { challenge } : {}) };
+      // Its follows and blocks go too (#954), and those of it.
+      const follows = this.state.follows && forgetFollows(this.state.follows, key);
+      this.state = { ...this.state, players, ...(challenge ? { challenge } : {}), ...(follows ? { follows } : {}) };
       this.save();
       return true;
     });
