@@ -1,3 +1,4 @@
+import { chatKeys } from "./chat-overview";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { normalQuery, parsePlayerId } from "@paved/game-core";
 import { useEffect, useMemo, useState } from "react";
@@ -180,6 +181,9 @@ export function useFollowActions(me: string | null): FollowActions | null {
         // A block withdraws the guild invitations and requests between the two players, and an unblock lets the mock's held-back
         // invitation come (#953): every guild read is read again too.
         ...(action === "block" || action === "unblock" ? [client.invalidateQueries({ queryKey: socialKeys.guilds })] : []),
+        // A block hides the player's messages everywhere, and a follow or a block changes who may write in private (#955): the
+        // chat's reads, an open conversation included, are read again.
+        ...(action === "seeFollowers" ? [] : [client.invalidateQueries({ queryKey: chatKeys.all(me ?? "0x0") })]),
       ]),
   });
   const { mutateAsync, isPending, error } = mutation;

@@ -7,6 +7,7 @@ import { FollowProfileActions } from "./follow-profile";
 import { PUBLIC_PROFILES } from "../../mocks/social";
 import { GuildLine, GuildMemberActions } from "./guild-profile";
 import { Button } from "../ui/button";
+import { MessageButton } from "./message-button";
 import { PublicProfileSheet } from "./public-profile-sheet";
 
 /**
@@ -57,6 +58,18 @@ export const Friend: Story = {
   },
 };
 /** A player the viewer blocks: Unblock only. */
+/** A friend's profile with Message (#955), which opens the private conversation, above the follow actions. */
+export const Message: Story = {
+  args: {
+    follow: FOLLOW_STATUS.friend,
+    actions: (
+      <>
+        <MessageButton name={FOLLOW_ACTIONS.friend.name} onMessage={fn()} />
+        <FollowProfileActions {...FOLLOW_ACTIONS.friend} onAction={fn(async () => {})} />
+      </>
+    ),
+  },
+};
 export const Blocking: Story = { args: { follow: FOLLOW_STATUS.blocking, actions: <FollowProfileActions {...FOLLOW_ACTIONS.blocking} onAction={fn(async () => {})} /> } };
 /** WRAP360 with the follows: the largest counts, the mark beside the presence. */
 export const FollowStress: Story = { args: { state: PUBLIC_PROFILES.stress, follow: FOLLOW_STATUS.stress, actions: <FollowProfileActions {...FOLLOW_ACTIONS.stress} onAction={fn(async () => {})} /> } };

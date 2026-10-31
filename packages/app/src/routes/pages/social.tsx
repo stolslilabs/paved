@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router";
 import { Skeleton } from "../../components/ui/skeleton";
 import type { SocialTab } from "../../components/containers/social-tabs";
 import { SocialScene } from "../../components/scenes/social-scene";
+import { useChatOverview } from "../../data/chat-overview";
 import { usePlayerGuild } from "../../data/guilds";
 import { useFollowActions, useFollowLists, usePlayerSearch } from "../../data/social";
 import { addressKey } from "../../data/keys";
@@ -11,6 +12,7 @@ import { useDataSources } from "../../data/sources";
 import { useSidePanel } from "../../lib/side-panel";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
+import { CHAT_PARAM } from "../chat-param";
 import { GUILD_PARAM } from "../guild-param";
 import { DESKTOP_QUERY } from "../home-layout";
 import { useOpenPlayer } from "../open-player";
@@ -38,7 +40,8 @@ void loadHost().catch(() => {});
  * `/social` (#952, PvP v2 step 1 on the mock): the player search (the sources' `social`, `usePlayerSearch`; the connected player
  * left out), each result opening the player's public profile (`?player=`, `useOpenPlayer`), and the three tabs, opened on the last
  * one used on this device (`social-tab.ts`), or on Guild for a guild's page (`?guild=`, #953). The Guild tab counts its badge
- * (#953); #954 and #955 count theirs.
+ * (#953), the Friends tab its new followers (#954), the Chat tab its unread messages and requests (#955); a conversation
+ * (`?chat=`) opens on Chat.
  */
 export default function Page() {
   const onNavigate = useTabNavigate();
@@ -46,15 +49,25 @@ export default function Page() {
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
   // A guild's page (`?guild=`, #953) is the Guild tab's: the page turns to it whenever the parameter comes.
-  const guildAsked = useSearchParams()[0].get(GUILD_PARAM);
-  const [tab, setTab] = useState<SocialTab>(() => (guildAsked !== null ? "guild" : socialTabStored()));
+  // So is a conversation (`?chat=`, #955), the Chat tab's.
+  const [params] = useSearchParams();
+  const guildAsked = params.get(GUILD_PARAM);
+  const chatAsked = params.get(CHAT_PARAM);
+  const [tab, setTab] = useState<SocialTab>(() => (guildAsked !== null ? "guild" : chatAsked !== null ? "chat" : socialTabStored()));
   const [seenAsk, setSeenAsk] = useState(guildAsked);
   if (guildAsked !== seenAsk) {
     setSeenAsk(guildAsked);
     if (guildAsked !== null) setTab("guild");
   }
+  const [seenChat, setSeenChat] = useState(chatAsked);
+  if (chatAsked !== seenChat) {
+    setSeenChat(chatAsked);
+    if (chatAsked !== null) setTab("chat");
+  }
   // What waits in the Guild tab (#953): the invitations, the unread announcements, and for officers the requests.
   const guildWaiting = usePlayerGuild(me).data?.badge ?? 0;
+  // The guild's and the private unread messages, and the requests (#955); the World never badges.
+  const chatWaiting = useChatOverview(me).data?.badge ?? 0;
   // The follows (#954): the new followers on the Friends tab's badge, and Follow on each result of the search.
   const follows = useFollowLists(me);
   const followActions = useFollowActions(me);
@@ -78,7 +91,7 @@ export default function Page() {
       <SocialScene
         tab={tab}
         onTabChange={changeTab}
-        badges={{ guild: guildWaiting, friends: lists?.newFollowers ?? 0, chat: 0 }}
+        badges={{ guild: guildWaiting, friends: lists?.newFollowers ?? 0, chat: chatWaiting }}
         search={{
           query,
           onQueryChange: setQuery,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { privateConversation } from "@paved/game-core";
 import { FriendsPanel, type FriendsList } from "../../components/containers/friends-panel";
 import { SocialEmptyTab } from "../../components/containers/social-tabs";
 import { useGuildBadges } from "../../data/guilds";
@@ -8,6 +9,7 @@ import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
+import { useOpenChat } from "../open-chat";
 import { useOpenPlayer } from "../open-player";
 
 // The Social page's Friends tab (#954), its own chunk: the player's friends, following and followers, the suggestions and the
@@ -27,6 +29,7 @@ export default function FriendsTab() {
   const suggestions = useFollowSuggestions(me);
   const actions = useFollowActions(me);
   const openPlayer = useOpenPlayer();
+  const openChat = useOpenChat();
   const [list, setList] = useState<FriendsList>("friends");
 
   // The new followers on screen keep their New mark while the tab is shown. Seeing them at the source (the badges go) marks
@@ -72,6 +75,7 @@ export default function FriendsTab() {
       now={now}
       guildOf={guildOf}
       onOpenPlayer={openPlayer}
+      onMessage={me ? (address) => openChat(privateConversation(me, address)) : undefined}
       onAction={(action, address) => actions?.run(action, address)}
       onFollowersShown={onFollowersShown}
     />

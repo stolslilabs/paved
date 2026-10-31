@@ -120,6 +120,8 @@ export interface FriendsPanelProps {
   /** A player's guild (#953), as read; undefined or null: none shown. */
   guildOf?: (address: string) => GuildBadge | null | undefined;
   onOpenPlayer?: (address: string) => void;
+  /** Message, on each friend's row (#955): opens the private conversation with them. */
+  onMessage?: (address: string) => void;
   /** A row's write on `address`; returns the write's promise. */
   onAction?: (action: FollowRowAction, address: string) => Promise<unknown> | void;
   /**
@@ -137,7 +139,7 @@ export interface FriendsPanelProps {
  * and has its actions: Unfollow (confirmed), and in Followers, Follow back and Remove (confirmed; they are not told). Then the
  * players suggested to follow, and the tab's menu: the blocked players, with Unblock.
  */
-export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, list, onListChange, now, guildOf, onOpenPlayer, onAction, onFollowersShown, initialBlockedOpen = false }: FriendsPanelProps) {
+export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, list, onListChange, now, guildOf, onOpenPlayer, onMessage, onAction, onFollowersShown, initialBlockedOpen = false }: FriendsPanelProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const actions = useGuildActions<{ action: FollowRowAction; address: string }>((a) => onAction?.(a.action, a.address), followErrorText);
   const [shown, setShown] = useState(FRIENDS_PAGE);
@@ -202,7 +204,15 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
               </Button>
             </>
           ) : (
-            unfollow(p, friend)
+            <>
+              {list === "friends" && onMessage && (
+                <Button size="sm" variant="secondary" aria-label={`Message ${nameOf(p)}`} onClick={() => onMessage(p.address)}>
+                  <Icon name="comments" size="xs" />
+                  Message
+                </Button>
+              )}
+              {unfollow(p, friend)}
+            </>
           )}
         </FollowPlayerRow>
       </li>

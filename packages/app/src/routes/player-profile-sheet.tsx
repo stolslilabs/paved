@@ -10,6 +10,7 @@ import { errorDetail } from "./error-detail";
 import { useNow } from "./now";
 import { ProfileFollowActions } from "./profile-follow";
 import { ProfileGuildActions, ProfileGuildLine } from "./profile-guild";
+import { ProfileMessageAction } from "./profile-message";
 
 // The public profile's chunk (#952): the sheet and its read, fetched at the first opening (`player-profile-host.tsx`).
 
@@ -70,6 +71,7 @@ export default function PlayerProfile({ playerId, open, onClose }: { playerId: s
       actions={
         state.status === "ready" && (
           <>
+            <ProfileMessageAction address={state.profile.address} name={state.profile.name} me={me} status={follow.data} />
             <ProfileFollowActions address={state.profile.address} name={state.profile.name} me={me} status={follow.data} />
             <ProfileGuildActions address={state.profile.address} name={state.profile.name} me={me} now={now} />
           </>

@@ -12,7 +12,7 @@ const meta = {
   title: "Containers/FriendsPanel",
   component: FriendsPanel,
   parameters: { layout: "padded" },
-  args: { ...FRIENDS_TAB.friends, onListChange: fn(), onOpenPlayer: fn(), onRetry: fn(), onAction: fn(async () => {}) },
+  args: { ...FRIENDS_TAB.friends, onListChange: fn(), onOpenPlayer: fn(), onMessage: fn(), onRetry: fn(), onAction: fn(async () => {}) },
   decorators: [(Story) => <div className="mx-auto max-w-xl">{Story()}</div>],
 } satisfies Meta<typeof FriendsPanel>;
 export default meta;
@@ -20,7 +20,7 @@ type Story = StoryObj<typeof meta>;
 
 /** A new player: no follows yet, and players to follow. */
 export const NoFollows: Story = { args: FRIENDS_TAB.noFollows };
-/** Friends online and offline: online first, then the most recently seen; their guilds. */
+/** Friends online and offline: online first, then the most recently seen; their guilds; Message on each (#955). */
 export const Friends: Story = {};
 /** Everyone the player follows: the friends, and those who do not follow back. */
 export const Following: Story = { args: FRIENDS_TAB.following };

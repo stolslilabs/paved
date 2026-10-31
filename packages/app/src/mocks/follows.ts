@@ -49,7 +49,7 @@ const STRESS_PROFILE: PublicProfile = { address: LONG_ADDRESS, name: LONG_NAME, 
 /** `n` rows, each a player of its own (the community's profiles under new addresses); with `isNew`, the first 119 new. */
 const many = (n: number, isNew = false) => Array.from({ length: n }, (_, i) => row({ ...member(i % 40, (i + 1) * HOUR), address: `0x5eed${i.toString(16).padStart(4, "0")}` }, i * HOUR, isNew && i < 119));
 
-type PanelData = Omit<FriendsPanelProps, "onAction" | "onOpenPlayer" | "onListChange" | "onRetry">;
+type PanelData = Omit<FriendsPanelProps, "onAction" | "onOpenPlayer" | "onMessage" | "onListChange" | "onRetry">;
 const panel = (data: Partial<PanelData>): PanelData => ({ lists: full, suggestions, list: "friends", now: MOCK_NOW, guildOf, ...data });
 
 /** The Friends tab's states (#954). */
