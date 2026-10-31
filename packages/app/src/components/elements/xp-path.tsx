@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useMotionValue, useTransform } from "motion/react";
 import * as m from "motion/react-m";
 import { DEFAULT_BOX, isMaxLevel, pathShare } from "./xp-level";
-import { BAR_OUTLINE, fillPath, LevelTag, levelPath, pathPoint, tagText, XpPathFrame } from "./xp-path-frame";
+import { BAR_OUTLINE, fillCap, fillPath, LevelTag, levelPath, pathPoint, StartCap, tagText, XpPathFrame } from "./xp-path-frame";
 import { useXpMotion, type PlayerProgress } from "./xp-ring";
 
 export interface XpPathProps {
@@ -15,7 +15,7 @@ export interface XpPathProps {
 
 /**
  * The player's level as a path (issue 830, in place of issue 787's bar): an arc round the avatar from its right, clockwise to its
- * top, that runs on as a line to the right and ends square in the level tag, "Lv i" (issue 928). The share of the level is laid on the whole path,
+ * top (its start round), that runs on as a line to the right and ends square in the level tag, "Lv i" (issue 928). The share of the level is laid on the whole path,
  * so the arc fills first, then the line. A gain fills it and a "+N XP" rises at the progress's end; a level up completes it,
  * flashes it and lights the tag, turns the level over, then fills the new one (`useXpMotion`, the ring's). Under reduced motion the values change
  * at once with a brief flash. Two siblings laid over the badge's box: the drawing and the tag.
@@ -28,7 +28,7 @@ export function XpPath({ progress, box = DEFAULT_BOX }: XpPathProps) {
   const full = useMotionValue(capped ? 1 : 0);
   useEffect(() => full.set(capped ? 1 : 0), [capped, full]);
   const drawn = useTransform([share, full], ([s, f]: number[]) => (f ? 1 : s!));
-  // Nothing drawn at length 0 (a cap would draw an end there): the fill is hidden.
+  // Nothing drawn at length 0 (the round start would draw a dot there): the fill is hidden, its cap with it.
   const fillOpacity = useTransform(drawn, (v) => (v > 0.001 ? 1 : 0));
   const lit = burst ?? flash;
   const { d, thick } = levelPath(box);
@@ -37,7 +37,14 @@ export function XpPath({ progress, box = DEFAULT_BOX }: XpPathProps) {
     <>
       <XpPathFrame
         box={box}
-        fill={<m.path data-slot="xp-fill" d={d} {...fillPath(box)} style={{ pathLength: drawn, opacity: fillOpacity }} />}
+        fill={
+          <>
+            <m.path data-slot="xp-fill" d={d} {...fillPath(box)} style={{ pathLength: drawn, opacity: fillOpacity }} />
+            <m.g style={{ opacity: fillOpacity }}>
+              <StartCap {...fillCap(box)} />
+            </m.g>
+          </>
+        }
         over={
           gain &&
           end && (
@@ -59,14 +66,9 @@ export function XpPath({ progress, box = DEFAULT_BOX }: XpPathProps) {
         }
       >
         {lit !== null && (
-          <m.path
+          <m.g
             key={lit}
             data-slot="xp-flash"
-            d={d}
-            fill="none"
-            strokeWidth={thick + 2 * BAR_OUTLINE}
-            strokeLinecap="butt"
-            className="stroke-primary/60"
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
@@ -74,7 +76,13 @@ export function XpPath({ progress, box = DEFAULT_BOX }: XpPathProps) {
               setFlash((f) => (f === lit ? null : f));
               setBurst((b) => (b === lit ? null : b));
             }}
-          />
+          >
+            {/* Opaque inside a group at 60 %: the cap's lower half, over the path, does not show twice as bright. */}
+            <g opacity={0.6}>
+              <path d={d} fill="none" strokeWidth={thick + 2 * BAR_OUTLINE} strokeLinecap="butt" className="stroke-primary" />
+              <StartCap box={box} width={thick + 2 * BAR_OUTLINE} className="stroke-primary" />
+            </g>
+          </m.g>
         )}
       </XpPathFrame>
       <LevelTag

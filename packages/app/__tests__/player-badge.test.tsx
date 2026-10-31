@@ -7,7 +7,7 @@ import { ProfileProvider, type ProfileValue } from "../src/components/containers
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PlayerBadge, nameSize } from "../src/components/containers/player-badge";
-import { badgeWidth, isMaxLevel, levelLabel, tagWidth, xpLeftText } from "../src/components/elements/xp-level";
+import { badgeWidth, isMaxLevel, levelLabel, nameCorner, tagWidth, xpLeftText } from "../src/components/elements/xp-level";
 import { BAR_OUTLINE, barHeight, levelPath, pathPoint, tagFont, tagText, XpPathStill } from "../src/components/elements/xp-path-frame";
 import { XpPath } from "../src/components/elements/xp-path";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
@@ -130,13 +130,21 @@ describe("the badge's shape (#928)", () => {
     expect(tagText(1_234)).toBe("99+");
   });
 
-  it("the bar is opaque: its track and its outline, no alpha in their colours; every end square", () => {
+  it("the bar is opaque: its track and its outline, no alpha in their colours; its line's end square, its wrapping end round", () => {
     const { container } = render(wrap(<XpPathStill progress={PROGRESS.partWay} box={96} />));
     const outline = container.querySelector("[data-slot=xp-outline]")!;
     const track = container.querySelector("[data-slot=xp-track]")!;
     expect(outline.getAttribute("class")).toBe("stroke-background");
     expect(track.getAttribute("class")).toBe("stroke-level-track");
+    // The paths end square (into the tag); the start, at 3 o'clock (87, 48), is a disc of each layer's width: a round cap.
     for (const p of container.querySelectorAll("path")) expect(p.getAttribute("stroke-linecap")).toBe("butt");
+    // (A circle's stroke, half the width round a quarter of it: the layers' own stroke classes.)
+    const caps = [["xp-outline-cap", 18, "stroke-background"], ["xp-track-cap", 14, "stroke-level-track"], ["xp-fill-cap", 14, "stroke-primary"]] as const;
+    for (const [slot, width, stroke] of caps) {
+      const cap = container.querySelector(`circle[data-slot=${slot}]`)!;
+      expect(["cx", "cy", "r", "stroke-width", "fill"].map((a) => cap.getAttribute(a))).toEqual(["87", "48", String(width / 4), String(width / 2), "none"]);
+      expect(cap.getAttribute("class")).toBe(stroke);
+    }
     const tag = container.querySelector("[data-slot=level]")!;
     expect(tag.className).toMatch(/(^|\s)border-background(\s|$)/);
     expect(tag.className).toMatch(/(^|\s)border-2 border-l-0(\s|$)/);
@@ -150,7 +158,29 @@ describe("the badge's shape (#928)", () => {
     for (const name of ["level-track", "background", "primary", "resource-plate"]) expect(token(name)).not.toMatch(/\/|rgba|transparent/);
   });
 
-  it("the name's size: its own when it fits beside the avatar, else smaller, never under 12 px", () => {
+  it("the name's corner: under the bar's run, over its round wrapping end, from that end to the badge's end; the name's line fits", () => {
+    for (const box of BOXES) {
+      const { r, c, thick } = levelPath(box);
+      const { left, top, height } = nameCorner(box);
+      const edge = thick / 2 + BAR_OUTLINE;
+      // The run's underside, outline included; the wrapping end's cap's top, outline included, its left edge.
+      expect(top).toBe(c - r + edge);
+      expect(top + height).toBe(c - edge);
+      expect(left).toBe(c + r - edge);
+      // Beside the avatar, right of its middle, inside the badge: at least half the avatar's width less the bar.
+      expect(left).toBeGreaterThan(c);
+      expect(badgeWidth(box) - left).toBeGreaterThanOrEqual(box / 2 + edge);
+      // The name's line: `h-5`, `tablet:h-7` from the 144 px avatar.
+      expect(height).toBeGreaterThanOrEqual(box >= 144 ? 28 : 20);
+    }
+    expect(BOXES.map(nameCorner)).toEqual([
+      { left: 78, top: 18, height: 21 },
+      { left: 90, top: 18, height: 27 },
+      { left: 122, top: 22, height: 39 },
+    ]);
+  });
+
+  it("the name's size: its own when it fits in its corner, else smaller, never under 12 px", () => {
     expect(nameSize("Al", 96)).toBe(16);
     expect(nameSize("Al", 144)).toBe(20);
     expect(nameSize("bal7hazar", 144)).toBeLessThan(20);
@@ -167,23 +197,21 @@ describe("PlayerBadge (#787, the league out of it since #829, the level's path s
     expect(name.closest("[data-slot=name-row]")).toHaveClass("font-display");
     expect(name).toHaveAttribute("title", "bal7hazar");
     expect(name).toHaveClass("truncate");
-    // The User icon before it, a game icon. The row under the bar and the tag, from the avatar's right edge to the badge's end
-    // (the button's right); the band from the avatar's middle (48) to transparent at the tag's left edge (144 - 52 = 92).
+    // The User icon before it, a game icon. The row in its corner, from the bar's wrapping end (78) to the badge's end (the
+    // button's right), between the run (18) and the cap (39); the band from the avatar's middle (48) to the badge's end.
     expect(name.previousElementSibling).toHaveAttribute("data-icon", "user");
     const row = profile.querySelector<HTMLElement>("[data-slot=name-row]")!;
-    expect(row.style.left).toBe("96px");
-    expect(row.style.top).toBe("48px");
+    expect([row.style.left, row.style.top, row.style.height]).toEqual(["78px", "18px", "21px"]);
     expect(row).toHaveClass("right-0");
     const band = profile.querySelector<HTMLElement>("[data-slot=name-band]")!;
-    const bandLeft = 96 + parseFloat(band.style.left);
-    const bandRight = badgeWidth(96) - parseFloat(band.style.right);
-    expect(bandLeft).toBe(48);
-    expect(bandRight).toBe(levelPath(96).tag);
-    expect(band.className).not.toMatch(/(^|\s)right-0(\s|$)/);
-    // Linear, from the band's start to fully transparent at its end, the tag's left edge.
+    expect(78 + parseFloat(band.style.left)).toBe(48);
+    expect(band).toHaveClass("right-0", "inset-y-0");
+    // Linear, from the band's start to fully transparent at its end, toward the level.
     expect(band.className).toContain("[mask-image:linear-gradient(to_right,black,transparent)]");
     await waitFor(() => expect(profile.querySelector("[data-slot=xp-path]")).not.toBeNull());
     expect(profile.querySelector("[data-slot=level]")).toHaveTextContent("Lv 3");
+    // The motion's path keeps the round start: the fill's cap at 3 o'clock.
+    expect(profile.querySelector("circle[data-slot=xp-fill-cap]")).toHaveAttribute("cx", "87");
     expect(profile).not.toHaveTextContent("XP to Lv");
     expect(screen.queryByRole("button", { name: /^League/ })).toBeNull();
     expect(container.querySelector("[data-slot=league-border]")).toBeNull();
