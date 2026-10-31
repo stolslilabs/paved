@@ -311,9 +311,9 @@ function leftColumnHint(el: HTMLDivElement) {
 const GAP_PX = 12;
 
 /**
- * The overlays' measures, on their box. The width of the balances' first plate and a gap (`--balances-w`), so the profile's line
- * beside it stops short of it whatever the amounts (a 999,999 Cobbles plate at 320 px, #828). HOME-OVERLAYS (#856, the owner's decisions of
- * 2026-10-28): the bands the two columns are centred in, a gap off their neighbours as they are drawn: the right one from under the
+ * The overlays' measures, on their box. The profile beside the balances' first plate needs none since #928: the badge is at most
+ * 1.5 times the avatar, so it stops short of the plate whatever the amounts (a 999,999 Cobbles plate at 320 px, #828).
+ * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands the two columns are centred in, a gap off their neighbours as they are drawn: the right one from under the
  * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
  * above the season dial (without it, the bottom row's foot, above the bar).
  */
@@ -327,16 +327,11 @@ function useOverlayMeasures(dial: boolean) {
   };
   useLayoutEffect(() => {
     const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial].map((ref) => ref.current);
-    const [box, right] = els as HTMLElement[];
+    const [box] = els as HTMLElement[];
     // Its first notice comes before the first paint: the bands are in place when the overlays show.
     const observer = new ResizeObserver(() => {
-      // The profile's line and name stand beside the stack's first plate only (the others pass under the line, beside the
-      // avatar); from `desktop` the stack is not drawn (0), the row leaves the profile its room. Watched once it is in.
-      const plate = right.querySelector<HTMLElement>("[data-kind]");
-      if (plate) observer.observe(plate);
       const [frame, balances, profile, foot, wheel] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
       const edges = {
-        "--balances-w": (plate ?? right).offsetWidth,
         "--right-top": balances!.bottom - frame!.top,
         "--right-bottom": frame!.bottom - foot!.top,
         "--left-top": profile!.bottom - frame!.top,
@@ -469,11 +464,7 @@ function ViewOverlays({
         <div className="relative flex items-start justify-between gap-2">
           <div
             ref={measures.profile}
-            className={cn(
-              "pointer-events-auto min-w-0",
-              // The profile's line gives way to the balances beside it (`--balances-w`): its name column and the level's line narrow, never under a wide plate.
-              "[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-1rem-var(--balances-w,0px))] tablet:[&_[data-slot=player-badge]>button]:max-w-[calc(100vw-2rem-var(--balances-w,0px))]",
-            )}
+            className="pointer-events-auto min-w-0"
           >
             {/* The profile (#787), the season dial's size (#856). */}
             <PlayerBadge />

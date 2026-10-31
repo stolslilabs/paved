@@ -161,6 +161,7 @@ import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mo
 import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
+import { PLAYER_NAME_MAX } from "../../lib/name-limit";
 import {
   SPAWN_DRAW,
   builderOf,
@@ -457,8 +458,8 @@ const fresh = (): StoredState => ({ version: 1, players: {}, vault: { assets: MO
 /** What a new player's draw reads of the catalogue (#926): the parts in use, their items, what the player owns. */
 export type NewPlayerCatalogue = Pick<AvatarCatalogue, "parts" | "items" | "owned">;
 
-/** A name `setName` takes (#926): letters and digits, 3 to 20 characters. */
-const MOCK_NAME = /^[A-Za-z0-9]{3,20}$/;
+/** A name `setName` takes (#926): letters and digits, 3 to 19 characters (`PLAYER_NAME_MAX`, #928). */
+const MOCK_NAME = new RegExp(`^[A-Za-z0-9]{3,${PLAYER_NAME_MAX}}$`);
 
 const newPlayer = (starting: Readonly<TokenBalances>): StoredPlayer => ({
   cobbles: 0,
@@ -1373,14 +1374,14 @@ export class MockLedger {
     return this.event("AvatarSet", { playerId: account, look });
   }
 
-  /** The player's name (#926): letters and digits, 3 to 20 characters (a short string, if it goes on chain). */
+  /** The player's name (#926): letters and digits, 3 to 19 characters (a short string, if it goes on chain). */
   async setName(account: string, name: string): Promise<WriteResult> {
     await sleep(this.latency);
     return this.write(account, (p) => [this.nameSet(account, p, name)]);
   }
 
   private nameSet(account: string, p: StoredPlayer, name: string): DecodedEvent {
-    if (!MOCK_NAME.test(name)) throw new WriteError(`Not a name: ${JSON.stringify(name)} (letters and digits, 3 to 20)`);
+    if (!MOCK_NAME.test(name)) throw new WriteError(`Not a name: ${JSON.stringify(name)} (letters and digits, 3 to ${PLAYER_NAME_MAX})`);
     p.name = name;
     return this.event("NameSet", { playerId: account, name });
   }
