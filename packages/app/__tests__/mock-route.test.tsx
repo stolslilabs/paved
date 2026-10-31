@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { useCompletionStore } from "../src/data";
-import { MOCK_STARTING_PAVED } from "../src/data/mock/ledger";
+import { MOCK_STARTING_BALANCES, type TokenBalances } from "../src/data/mock/ledger";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -19,8 +19,12 @@ import { fakeWallet } from "./wallet-fakes";
 
 const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
 
-function open(path: string, dailies?: readonly number[]) {
-  const s = mockImplementation();
+/** Ada after she won 142.35 PAVED (a new account holds none, #927): the Vault's deposit takes from it. */
+const WON_PAVED = 142_350_000_000_000_000_000n;
+const WINNER: TokenBalances = { ...MOCK_STARTING_BALANCES, paved: WON_PAVED };
+
+function open(path: string, dailies?: readonly number[], starting?: TokenBalances) {
+  const s = mockImplementation(undefined, starting);
   // Ada did Daily Run today and finished her first game (Settler I): the indexer's progress, which the mock's claims trust.
   s.chain.fixture.progress.set(FIXTURE_ADA, {
     quests: new Map([[1, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
@@ -87,7 +91,7 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
   });
 
   it("/vault: the mock's position and wallet; a deposit goes through and moves both", async () => {
-    const s = open("/vault");
+    const s = open("/vault", undefined, WINNER);
     expect(await screen.findByRole("region", { name: "Your position" }, { timeout: slow(5000) })).toHaveTextContent("No vPAVED yet");
     noRawErrors();
     await userEvent.type(screen.getByRole("textbox", { name: /Amount to deposit/ }), "100");
@@ -95,7 +99,7 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
     expect(await screen.findByText("Deposited", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect((await s.ledger.vault(FIXTURE_ADA)).shares).toBeGreaterThan(0n);
-    expect(await s.ledger.pavedBalance(FIXTURE_ADA)).toBe(MOCK_STARTING_PAVED - 100n * 10n ** 18n);
+    expect(await s.ledger.pavedBalance(FIXTURE_ADA)).toBe(WON_PAVED - 100n * 10n ** 18n);
     await waitFor(() => expect(screen.getByRole("region", { name: "Your position" })).not.toHaveTextContent("No vPAVED yet"));
     noRawErrors();
   });

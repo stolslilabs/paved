@@ -1,7 +1,7 @@
 import { WriteError } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import type { DataSources, GameSigner } from "../src/data";
-import { MockLedger } from "../src/data/mock/ledger";
+import { MOCK_STARTING_BALANCES, MockLedger, type TokenBalances } from "../src/data/mock/ledger";
 import { mockEconomyViews, mockGameViews, mockIndexer, mockPurchases, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
 import type { Purchases } from "../src/data/sources";
 import { fakeSources, memoryStore } from "./data-fakes";
@@ -51,11 +51,13 @@ export async function surrenderGame(f: ReturnType<typeof sepoliaChain>, ledger: 
   await ledger.recordSurrender(PLAYER, gameId, surrenderedAt);
 }
 
-/** The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them. */
-export function mockImplementation(store = memoryStore()) {
+/**
+ * The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them.
+ * `starting`: what a new account holds in the ledger (the app's, `MOCK_STARTING_BALANCES`, by default).
+ */
+export function mockImplementation(store = memoryStore(), starting: TokenBalances = MOCK_STARTING_BALANCES) {
   const f = sepoliaChain();
-  const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0 });
-  const chainBalances = { paved: () => f.economy.pavedBalance(PLAYER), usdc: () => f.economy.usdcBalance(PLAYER) };
+  const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, starting });
   const chainPurchases: Purchases = { purchase: () => Promise.reject(new WriteError("not in this test")), buyPack: () => Promise.reject(new WriteError("no buy_pack on this class")), referrer: async () => null, receipt: async () => "unknown" };
   const sources: DataSources = {
     ...f.sources,
@@ -63,8 +65,8 @@ export function mockImplementation(store = memoryStore()) {
     economy: mockEconomyViews(f.economy, ledger),
     indexer: mockIndexer(f.indexer, ledger),
     signer: mockSigner({ address: PLAYER } as unknown as GameSigner, ledger),
-    purchases: (signer) => mockPurchases(chainPurchases, ledger, signer.address, chainBalances),
-    vault: (signer) => mockVaultWrites(ledger, signer.address, chainBalances),
+    purchases: (signer) => mockPurchases(chainPurchases, ledger, signer.address),
+    vault: (signer) => mockVaultWrites(ledger, signer.address),
   };
   return { sources, ledger, store, chain: f };
 }

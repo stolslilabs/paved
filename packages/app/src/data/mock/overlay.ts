@@ -59,11 +59,11 @@ export const MOCKED_GAME_READS = [
   "dailyMilestones",
 ] as const satisfies readonly (keyof MockedReads)[];
 
-/** `EconomyViews`' reads the mock answers; `pavedBalance` and `usdcBalance` are the chain's, adjusted by the mock's moves. */
-export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf"] as const satisfies readonly (keyof MockedReads)[];
+/** `EconomyViews`' reads the mock answers: the Vault's, the split, the seller and the tokens' balances (USDC, PAVED, #927). */
+export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance"] as const satisfies readonly (keyof MockedReads)[];
 
-/** The signer's writes the mock answers. */
-export const MOCKED_WRITES = ["claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
+/** The signer's writes the mock answers (`mint`: the faucet, #927). */
+export const MOCKED_WRITES = ["mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
 
 /**
  * The free spawn (`Challenge.spawn_free`) is not on the network's class, and the mock cannot spawn a game: the credit stays.
@@ -169,13 +169,9 @@ export function mockGameViews<T extends GameViews>(chain: T, ledger: MockLedger,
   }) as T & MockedReads;
 }
 
-/** The economy's views with the Vault, the split and the seller of the ledger, and the token balances adjusted by its moves. */
+/** The economy's views with the Vault, the split, the seller and the tokens' balances of the ledger: no balance is the chain's. */
 export function mockEconomyViews(chain: EconomyViews, ledger: MockLedger): EconomyViews {
-  return overlay(chain, [...MOCKED_ECONOMY_READS, "pavedBalance", "usdcBalance"], {
-    ...bound(ledger, MOCKED_ECONOMY_READS),
-    pavedBalance: async (account: string) => ledger.pavedBalance(account, await chain.pavedBalance(account)),
-    usdcBalance: async (account: string) => ledger.usdcBalance(account, await chain.usdcBalance(account)),
-  });
+  return overlay(chain, MOCKED_ECONOMY_READS, bound(ledger, MOCKED_ECONOMY_READS));
 }
 
 /** A player's id as the indexer writes it: 64 hex digits. */
@@ -245,12 +241,15 @@ export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerCl
 }
 
 /**
- * The account's writer with the ledger's claims, skin, avatar and village writes, and the free spawn refused (`FREE_SPAWN_MOCKED`). The board's
- * moves, the faucet and every other write are the writer's: it stays the `PavedWriter` the purchases and the Vault check for.
+ * The account's writer with the ledger's faucet (#927), claims, skin, avatar and village writes, and the free spawn refused
+ * (`FREE_SPAWN_MOCKED`). The board's moves and every other write are the writer's: it stays the `PavedWriter` the purchases and
+ * the Vault check for.
  */
 export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger): T {
   const writes = ledger.writesFor(writer.address);
   return overlay(writer, [...MOCKED_WRITES, "surrender"], {
+    // The faucet (#927): the ledger's USDC, with no cap, so "Get test USDC" is always there.
+    mint: writes.mint,
     // The chain's surrender, its time recorded once taken (#869): the indexer has none for a game over on a later day than its
     // start, and the fifth daily counts the game on it.
     surrender: async (key: GameKey) => {
@@ -330,15 +329,9 @@ export function mockConnector(connector: WalletConnector, ledger: MockLedger, op
   };
 }
 
-/** The chain's PAVED and USDC of an account, read at a mocked write's send. */
-export interface ChainBalances {
-  paved(): Promise<bigint>;
-  usdc(): Promise<bigint>;
-}
-
-/** The purchases with the ledger's pack (`buy_pack` is not on the class); a game's purchase stays the chain's. */
-export function mockPurchases(chain: Purchases, ledger: MockLedger, account: string, balances: ChainBalances): Purchases {
-  const writes = ledger.writesFor(account, balances);
+/** The purchases with the ledger's pack (`buy_pack` is not on the class), paid from the ledger's USDC; a game's purchase stays the chain's. */
+export function mockPurchases(chain: Purchases, ledger: MockLedger, account: string): Purchases {
+  const writes = ledger.writesFor(account);
   return {
     ...chain,
     buyPack: writes.buyPack,
@@ -346,8 +339,8 @@ export function mockPurchases(chain: Purchases, ledger: MockLedger, account: str
   };
 }
 
-/** The Vault's writes of the ledger (the Vault's class has none of them). */
-export function mockVaultWrites(ledger: MockLedger, account: string, balances: ChainBalances): VaultWrites {
-  const writes = ledger.writesFor(account, balances);
+/** The Vault's writes of the ledger (the Vault's class has none of them), on the ledger's PAVED and vPAVED. */
+export function mockVaultWrites(ledger: MockLedger, account: string): VaultWrites {
+  const writes = ledger.writesFor(account);
   return { deposit: writes.deposit, withdraw: writes.withdraw, withdrawAll: writes.withdrawAll };
 }
