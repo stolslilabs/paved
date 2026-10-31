@@ -12,6 +12,8 @@ import type { AvatarCreator } from "../components/scenes/avatar-creator-scene";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
 import type { PvpSearchSceneProps } from "../components/scenes/pvp-search-scene";
+import type { PlayerSearchProps } from "../components/containers/player-search";
+import type { PublicProfileState } from "../components/containers/public-profile-sheet";
 import type * as avatar from "./avatar";
 import type * as avatarCatalogue from "./avatar-catalogue";
 import type * as avatarOffers from "./avatar-offers";
@@ -20,6 +22,7 @@ import type * as indexer from "./indexer";
 import type * as playerProgress from "./player-progress";
 import type * as purchase from "./purchase";
 import type * as pvp from "./pvp";
+import type * as social from "./social";
 import type * as training from "./training";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
@@ -65,4 +68,7 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof chain.useVaultPosition>, VaultSceneProps["position"]>>,
   Expect<Equal<Data<typeof chain.usePavedBalance>, OrNull<VaultSceneProps["balance"]>>>,
   Expect<Equal<Data<typeof chain.useSplit>, VaultSceneProps["split"]>>,
+  // the social base (#952): another player's public profile (null: no player of that ID), the player search's results
+  Expect<Equal<NonNullable<Data<typeof social.usePublicProfile>>, Extract<PublicProfileState, { status: "ready" }>["profile"]>>,
+  Expect<Equal<Data<typeof social.usePlayerSearch>, Exclude<PlayerSearchProps["results"], null>>>,
 ];

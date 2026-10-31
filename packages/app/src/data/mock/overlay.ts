@@ -1,5 +1,6 @@
 import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
+import type { SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -108,6 +109,11 @@ export function mockEvents<T extends Pick<EventReader, "playerGames">>(chain: T,
 /** The pool's quote of the ledger (#927): the mock's rate, no pool read. */
 export function mockPool(ledger: MockLedger): PoolQuoter {
   return { quoteSwap: (usdcIn) => ledger.quoteSwap(usdcIn) };
+}
+
+/** The social source of the ledger (#952): the community's public profiles and the player search. No chain part lies beneath. */
+export function mockSocial(ledger: MockLedger): SocialSource {
+  return { profile: (address) => ledger.publicProfile(address), searchPlayers: (query) => ledger.searchPlayers(query) };
 }
 
 /** The economy's views with the Vault, the split, the seller and the tokens' balances of the ledger: no balance is the chain's. */

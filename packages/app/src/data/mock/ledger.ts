@@ -120,7 +120,6 @@ import {
   layoutSlotOpen,
   layoutSlotPrice,
   levelStatus,
-  xpFloor,
   offerPlans,
   parcelLevel,
   parcelPrice,
@@ -146,10 +145,12 @@ import {
   type SeededMove,
   type QueuedMove,
 } from "@paved/game-core";
-import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
+import { NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
+import { communityProfile, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
+import type { PublicProfile } from "../social-source";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
@@ -425,11 +426,6 @@ const PLAY_REFUSALS: Record<string, PvpRefusal> = {
   "Tile: cannot place": "cannot-place",
 };
 
-/** The league of a crown count (`league_of`). */
-const leagueIndex = (crowns: number): number => LEAGUE_FLOORS.filter((f) => f <= crowns).length;
-
-/** A level's status at its floor's XP: a seeded player's (`players.ts`). */
-const levelAt = (level: number) => levelStatus(xpFloor(level));
 
 /** The next tile of an attack: its draw's random (a Poseidon for the VRF) modulo the tiles left, the rank among those not drawn. */
 function drawTile(account: string, a: StoredAttack): number {
@@ -884,10 +880,7 @@ export class MockLedger {
     const seeded = seededPlayer(playerId);
     if (seeded) {
       // A seeded player's village is the layout of a rival of its level or below (the highest such, then the seeded one's turn).
-      const fits = mockRivalsV2().filter((r) => r.level <= seeded.level);
-      const top = Math.max(...fits.map((r) => r.level));
-      const same = fits.filter((r) => r.level === top);
-      const layout = same[seeded.index % same.length]!;
+      const layout = seededVillage(seeded);
       const { xp, slots } = levelAt(seeded.level);
       return { founded: true, xp, level: seeded.level, slots, tiles: layout.tiles.map((t) => ({ ...t })), score: layout.score };
     }
@@ -1011,6 +1004,18 @@ export class MockLedger {
     }));
     // Oldest first, an answer after the attack it answers within the same second; then newest first.
     return [...attacks, ...defences].sort((x, y) => x.finishedAt - y.finishedAt || (x.side === y.side ? 0 : x.side === "attack" ? -1 : 1)).reverse();
+  }
+
+  // --- The social source (#952) -------------------------------------------------------------------------------------
+
+  /** Another player's public profile (`community.ts`): a seeded player or a rival, last seen by the ledger's clock; null for any other ID. */
+  async publicProfile(address: string): Promise<PublicProfile | null> {
+    return communityProfile(address, this.now());
+  }
+
+  /** The community's players a query finds (game-core's `searchPlayers`), last seen by the ledger's clock. */
+  async searchPlayers(query: string): Promise<PublicProfile[]> {
+    return searchCommunity(query, this.now());
   }
 
   /** A rival village's name (the mock's opponents, PvP v1's and v2's) or a seeded player's (`players.ts`), or null for any other player. */

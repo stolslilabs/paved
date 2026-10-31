@@ -4,7 +4,7 @@ import { CENTER, OrientationType, replayVrfChallenge, type GameKey } from "@pave
 import type { DataSources, GameSigner } from "../src/data";
 import { MOCK_STARTING_BALANCES, MockLedger, type TokenBalances } from "../src/data/mock/ledger";
 import { mockIndexer } from "../src/data/mock/indexer";
-import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockSettlements, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
+import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockSettlements, mockSocial, mockSigner, mockVaultWrites } from "../src/data/mock/overlay";
 import type { Purchases } from "../src/data/sources";
 import { fakeSources, memoryStore } from "./data-fakes";
 
@@ -41,6 +41,7 @@ export function mockImplementation(store = memoryStore(), starting: TokenBalance
     economy: mockEconomyViews(f.economy, ledger),
     pool: mockPool(ledger),
     indexer: mockIndexer(ledger),
+    social: mockSocial(ledger),
     signer: mockSigner({ address: PLAYER } as unknown as GameSigner, ledger),
     purchases: (signer) => mockPurchases(chainPurchases, ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),

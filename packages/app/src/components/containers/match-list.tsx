@@ -49,6 +49,8 @@ export interface MatchListProps {
   error?: string | null;
   errorDetail?: ErrorDetail;
   onOpen?: (id: string) => void;
+  /** Opens the rival's public profile (#952) from their avatar or name; left out, the whole card opens the match. */
+  onOpenPlayer?: (address: string) => void;
   onRetry?: () => void;
   /** The build's renders (`useTileRenders`): the cards' backgrounds (#857); unset or without them, the cards' own colour. */
   renders?: TileRenders;
@@ -75,30 +77,58 @@ const matchLost = (m: Pick<MatchCardData, "crowns">): boolean => m.crowns < 0;
  * stars, the score and how long ago in the middle. One height for every card (open point 3), 112 px (#857). The whole card
  * opens the match.
  */
-export function MatchCard({ match: m, now, onOpen, renders }: { match: MatchCardData; now: number; onOpen?: (id: string) => void; renders?: TileRenders }) {
+export function MatchCard({ match: m, now, onOpen, onOpenPlayer, renders }: { match: MatchCardData; now: number; onOpen?: (id: string) => void; onOpenPlayer?: (address: string) => void; renders?: TileRenders }) {
   const attack = m.side === "attack";
   const lost = matchLost(m);
   const rewards = attack && m.xp !== undefined;
+  // With the rival's profile (#952) the card holds two controls, which may not nest: the card's own is a layer under the figures,
+  // which let the taps through but on the rival's avatar and name.
+  const split = onOpenPlayer !== undefined;
+  const Root = split ? "div" : "button";
+  const card = "state-layer outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
-    <button
-      type="button"
+    <Root
+      {...(split ? { "data-slot": "match-card" } : { type: "button" as const, "aria-label": cardName(m), onClick: () => onOpen?.(m.id) })}
       data-side={m.side}
       data-lost={lost}
-      aria-label={cardName(m)}
-      onClick={() => onOpen?.(m.id)}
-      className="state-layer relative flex h-28 w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn("relative flex h-28 w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-left", !split && card)}
     >
       <span aria-hidden data-slot="match-art" className={cn("pointer-events-none absolute inset-0", lost && "grayscale")}>
         <BattleBackground side={m.side} renders={renders} />
       </span>
       <span aria-hidden className="pointer-events-none absolute inset-0 bg-background/60" />
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", attack ? "bg-info" : "bg-warning")} />
-      <div className="relative flex min-w-0 flex-1 flex-col py-2 pr-3 pl-4 [text-shadow:0_1px_2px_var(--background)]">
+      {split && <button type="button" data-slot="match-open" aria-label={cardName(m)} onClick={() => onOpen?.(m.id)} className={cn("absolute inset-0 rounded-[inherit] focus-visible:ring-inset", card)} />}
+      <div className={cn("relative flex min-w-0 flex-1 flex-col py-2 pr-3 pl-4 [text-shadow:0_1px_2px_var(--background)]", split && "pointer-events-none")}>
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <PlayerAvatar player={m.rival} look={m.rival.look} />
+            {split ? (
+              <button
+                type="button"
+                data-slot="match-rival"
+                aria-label={`${m.rival.name ?? "The player"}'s profile`}
+                onClick={() => onOpenPlayer(m.rival.address)}
+                className="pointer-events-auto -m-1 flex min-w-0 shrink-0 cursor-pointer items-center rounded-full p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <PlayerAvatar player={m.rival} look={m.rival.look} />
+              </button>
+            ) : (
+              <PlayerAvatar player={m.rival} look={m.rival.look} />
+            )}
             <div className="flex min-w-0 flex-col items-start gap-0.5">
-              <PlayerName name={m.rival.name} address={m.rival.address} className="max-w-full min-w-0 truncate font-semibold" />
+              {split ? (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-hidden
+                  onClick={() => onOpenPlayer(m.rival.address)}
+                  className="pointer-events-auto max-w-full min-w-0 cursor-pointer text-left outline-none"
+                >
+                  <PlayerName name={m.rival.name} address={m.rival.address} className="block max-w-full min-w-0 truncate font-semibold" />
+                </button>
+              ) : (
+                <PlayerName name={m.rival.name} address={m.rival.address} className="max-w-full min-w-0 truncate font-semibold" />
+              )}
               <span className="flex items-center gap-1.5">
                 <Badge variant={attack ? "info" : "warning"} className="[text-shadow:none]">
                   <Icon name={attack ? "swords" : "shield-halved"} size="xs" />
@@ -138,7 +168,7 @@ export function MatchCard({ match: m, now, onOpen, renders }: { match: MatchCard
           </div>
         ) : null}
       </div>
-    </button>
+    </Root>
   );
 }
 
@@ -147,7 +177,7 @@ export function MatchCard({ match: m, now, onOpen, renders }: { match: MatchCard
  * defences mixed, newest first, as cards one under the other, 20 at first and 20 more with each "Show more". No shield's card
  * (#859): the home's overlay shows the shield (#829).
  */
-export function MatchList({ matches, now, error, errorDetail, onOpen, onRetry, renders }: MatchListProps) {
+export function MatchList({ matches, now, error, errorDetail, onOpen, onOpenPlayer, onRetry, renders }: MatchListProps) {
   const [shown, setShown] = useState(MATCHES_PAGE);
   return (
     <section aria-labelledby="matches" className="flex flex-col gap-3">
@@ -180,7 +210,7 @@ export function MatchList({ matches, now, error, errorDetail, onOpen, onRetry, r
         <ul aria-label="Matches" className="flex flex-col gap-2">
           {matches.slice(0, shown).map((m) => (
             <li key={m.id}>
-              <MatchCard match={m} now={now} onOpen={onOpen} renders={renders} />
+              <MatchCard match={m} now={now} onOpen={onOpen} onOpenPlayer={onOpenPlayer} renders={renders} />
             </li>
           ))}
         </ul>

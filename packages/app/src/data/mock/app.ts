@@ -2,10 +2,11 @@ import { RefusedReferrerError, ViewError, packReferrer, type Deployment, type Ec
 import { browserStore } from "@paved/game-core";
 import { MockAccountError } from "../../wallet/mock-key";
 import { deploymentOf, economyDeploymentOf, network } from "../deployment";
+import type { SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import { mockIndexer } from "./indexer";
 import { MockLedger } from "./ledger";
-import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockSettlements, mockVaultWrites } from "./overlay";
+import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
 
 // The app's mock (#549, #927): every source of `DataSources` from the device's ledger, and nothing under it. No chain client,
 // no economy client and no indexer client is built, no node and no indexer is read: the overlays of `overlay.ts` go over
@@ -46,6 +47,8 @@ export interface MockAppSources {
   economy: EconomyViews;
   pool: PoolQuoter;
   indexer: IndexerClient;
+  /** The social features (#952), the ledger's alone. */
+  social: SocialSource;
   purchases(signer: GameSigner): Purchases;
   settlements(signer: GameSigner): Settlements;
   vault(signer: GameSigner): VaultWrites;
@@ -85,6 +88,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     economy,
     pool: mockPool(ledger),
     indexer: mockIndexer(ledger),
+    social: mockSocial(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),
