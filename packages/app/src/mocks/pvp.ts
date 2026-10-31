@@ -293,27 +293,25 @@ export const PVP_MATCHES = {
 const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 
 export const PVP_LEAGUE = {
-  bronze: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
+  bronze: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
   // The season's reward (#859): the attacks still needed below `MIN_SEASON_ATTACKS` (5), none past it.
-  attacksBelow: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 2, matches: PVP_MATCHES.latest },
-  attacksOneLeft: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 4 },
-  attacksAbove: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 7, matches: PVP_MATCHES.latest },
+  attacksBelow: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 2, matches: PVP_MATCHES.latest },
+  attacksOneLeft: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 4 },
+  attacksAbove: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 7, matches: PVP_MATCHES.latest },
   // The matches' states (#786), a section of the page (BACK-RULE #783).
-  matchesMany: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
-  matchesNoSnapshot: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.noSnapshot },
-  matchesEmpty: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.empty },
-  matchesLoading: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.loading },
-  matchesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
+  matchesMany: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
+  matchesNoSnapshot: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.noSnapshot },
+  matchesEmpty: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.empty },
+  matchesLoading: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.loading },
+  matchesFailed: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
-  // The first-time bonus of Bronze II paid on reaching it and not yet celebrated (#833, open point 1): its icon is active.
-  bonusReady: { crowns: ME.crowns, best: 1_180, bonusesToSee: [5], season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
   // The carousel on a league above the player's (Silver II) and one below (Iron II): the header's League control brings it back.
-  higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },
-  lower: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 2 },
+  higher: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 8 },
+  lower: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 2 },
   grandmaster: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
   wood: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
-  // Dropped to Wood after reaching Bronze I this season: the bonuses up to Bronze I stay had.
-  demoted: { crowns: 200, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 5 },
+  // Dropped to Wood, the carousel opened on Bronze I.
+  demoted: { crowns: 200, season: SEASON, now: MOCK_NOW, opensOn: 5 },
   ended: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW - 2 * HOUR }, now: MOCK_NOW },
 } satisfies Record<string, Data<PvpLeagueSceneProps>>;
 

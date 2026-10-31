@@ -10,10 +10,10 @@ use paved::components::leagueable::{
 use paved::components::seasonable::SeasonableComponent::InternalTrait as SeasonableInternal;
 use paved::components::seasonable::{ISeasonable, SeasonableComponent};
 use paved::matchmaker::leagues::{
-    LEAGUE_COUNT, LEGEND, MIN_SEASON_ATTACKS, MISSIONS_COUNT_NPC, POOL_CROWNS_CAP, RESET_CROWNS,
-    SEASONS_PER_YEAR, SEASON_STARTS, SEASON_TABLE_FIRST_YEAR, SEASON_TABLE_LENGTH, TROPICAL_YEAR,
-    UNRANKED, bonus_of, calendar_season, floor_of, is_season_start, league_of, reset, reward_of,
-    season_boundary, season_of, season_start,
+    LEAGUE_COUNT, LEAGUE_GROUPS, LEGEND, MIN_SEASON_ATTACKS, MISSIONS_COUNT_NPC, POOL_CROWNS_CAP,
+    RESET_CROWNS, SEASONS_PER_YEAR, SEASON_STARTS, SEASON_TABLE_FIRST_YEAR, SEASON_TABLE_LENGTH,
+    TROPICAL_YEAR, UNRANKED, calendar_season, floor_of, groups_of, is_season_start, league_of,
+    reset, reward_of, season_boundary, season_of, season_start,
 };
 use paved::systems::matchmaker::Matchmaker;
 use snforge_std::start_cheat_block_timestamp_global;
@@ -49,20 +49,20 @@ fn village(id: u32) -> ContractAddress {
 // The table (section 4)
 
 #[test]
-fn test_league_table_pins_floors_bonuses_and_rewards() {
-    // (league, floor, bonus, reward)
+fn test_league_table_pins_floors_groups_and_rewards() {
+    // (league, floor, groups reached, reward)
     let rows: Array<(u8, u32, u8, u8)> = array![
-        (0, 0, 0, 0), (1, 400, 5, 10), (2, 500, 5, 10), (3, 600, 5, 10), (4, 800, 10, 20),
-        (5, 1000, 10, 20), (6, 1200, 10, 20), (7, 1400, 15, 35), (8, 1600, 15, 35),
-        (9, 1800, 15, 35), (10, 2000, 20, 50), (11, 2200, 20, 50), (12, 2400, 20, 50),
-        (13, 2600, 25, 75), (14, 2800, 25, 75), (15, 3000, 25, 75), (16, 3200, 30, 100),
-        (17, 3500, 30, 100), (18, 3800, 30, 100), (19, 4100, 40, 150), (20, 4400, 40, 150),
-        (21, 4700, 40, 150), (22, 5000, 50, 250),
+        (0, 0, 0, 0), (1, 400, 1, 10), (2, 500, 1, 10), (3, 600, 1, 10), (4, 800, 2, 20),
+        (5, 1000, 2, 20), (6, 1200, 2, 20), (7, 1400, 3, 35), (8, 1600, 3, 35), (9, 1800, 3, 35),
+        (10, 2000, 4, 50), (11, 2200, 4, 50), (12, 2400, 4, 50), (13, 2600, 5, 75),
+        (14, 2800, 5, 75), (15, 3000, 5, 75), (16, 3200, 6, 100), (17, 3500, 6, 100),
+        (18, 3800, 6, 100), (19, 4100, 7, 150), (20, 4400, 7, 150), (21, 4700, 7, 150),
+        (22, 5000, 8, 250),
     ];
     assert_eq!(rows.len(), LEAGUE_COUNT.into());
-    for (league, floor, bonus, reward) in rows {
+    for (league, floor, groups, reward) in rows {
         assert_eq!(floor_of(league), floor);
-        assert_eq!(bonus_of(league), bonus);
+        assert_eq!(groups_of(league), groups);
         assert_eq!(reward_of(league), reward);
         // The floor is in the league, the crown below it in the one under
         assert_eq!(league_of(floor), league);
@@ -72,6 +72,7 @@ fn test_league_table_pins_floors_bonuses_and_rewards() {
     }
     assert_eq!(UNRANKED, 0);
     assert_eq!(LEGEND, LEAGUE_COUNT - 1);
+    assert_eq!(groups_of(LEGEND), LEAGUE_GROUPS);
     assert_eq!(floor_of(LEGEND), RESET_CROWNS);
     assert_eq!(league_of(core::num::traits::Bounded::<u32>::MAX), LEGEND);
 }
@@ -91,20 +92,9 @@ fn test_proposal_defaults_are_pinned() {
 }
 
 #[test]
-fn test_a_full_climb_pays_485_in_bonuses() {
-    let mut total: u32 = 0;
-    let mut league: u8 = 0;
-    while league < LEAGUE_COUNT {
-        total += bonus_of(league).into();
-        league += 1;
-    }
-    assert_eq!(total, 485);
-}
-
-#[test]
 #[should_panic(expected: 'Leagues: invalid league')]
-fn test_bonus_of_a_league_past_legend_fails() {
-    bonus_of(LEAGUE_COUNT);
+fn test_groups_of_a_league_past_legend_fails() {
+    groups_of(LEAGUE_COUNT);
 }
 
 #[test]
@@ -365,34 +355,30 @@ fn test_roll_without_enough_attacks_pays_nothing() {
 }
 
 #[test]
-fn test_climb_reaches_each_league_once_with_its_bonus() {
+fn test_climb_reaches_each_league_once() {
     let mut state = leagues();
     state.roll(village(1), 450, 1);
     assert_eq!(state.league_record(village(1)).peak, 1);
     // From Bronze III to Silver III: Bronze II, Bronze I, Silver III
-    let reached = state.climb(village(1), 800, true, true);
+    let reached = state.climb(village(1), 800, true);
     assert_eq!(
         reached,
         array![
-            Reach { season: 1, league: 2, bonus: 5 }, Reach { season: 1, league: 3, bonus: 5 },
-            Reach { season: 1, league: 4, bonus: 10 },
+            Reach { season: 1, league: 2 }, Reach { season: 1, league: 3 },
+            Reach { season: 1, league: 4 },
         ],
     );
     // Down and back up: nothing new; one more attack each time
-    assert_eq!(state.climb(village(1), 420, true, true).len(), 0);
-    assert_eq!(state.climb(village(1), 810, false, true).len(), 0);
+    assert_eq!(state.climb(village(1), 420, true).len(), 0);
+    assert_eq!(state.climb(village(1), 810, false).len(), 0);
     assert_eq!(state.league_record(village(1)), LeagueRecord { season: 1, peak: 4, attacks: 2 });
-    // Unpaid (a crown set): reached, bonus 0
-    assert_eq!(
-        state.climb(village(1), 1000, false, false),
-        array![Reach { season: 1, league: 5, bonus: 0 }],
-    );
+    assert_eq!(state.climb(village(1), 1000, false), array![Reach { season: 1, league: 5 }]);
 }
 
 #[test]
 fn test_climb_in_season_zero_reaches_nothing() {
     let mut state = leagues();
-    assert_eq!(state.climb(village(1), 5000, true, true).len(), 0);
+    assert_eq!(state.climb(village(1), 5000, true).len(), 0);
     assert_eq!(state.league_record(village(1)), Default::default());
 }
 
@@ -400,7 +386,7 @@ fn test_climb_in_season_zero_reaches_nothing() {
 fn test_attacks_saturate() {
     let mut state = leagues();
     state.league_records.write(village(1), LeagueRecord { season: 1, peak: 0, attacks: 0xffff });
-    state.climb(village(1), 0, true, true);
+    state.climb(village(1), 0, true);
     assert_eq!(state.league_record(village(1)).attacks, 0xffff);
 }
 
