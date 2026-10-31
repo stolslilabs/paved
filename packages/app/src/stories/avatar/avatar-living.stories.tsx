@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { loadAvatarBoxes, loadAvatarKing, type KingAvatar, loadAvatarRig, randomAvatar, type Avatar, type BoxAvatar, type Emote, type LivingAvatar, type LivingAvatarOptions, type Traits } from "@paved/renderer";
 import { Button } from "../../components/ui/button";
 import { SOURCE_ASSETS } from "../../mocks/assets";
@@ -377,8 +377,36 @@ const CAST_TRAITS: Partial<Traits>[] = [
   { skin: "pale", hair: "ginger", beard: "full", eyes: "green", headwear: "helmet", accessory: "eyepatch", outfit: "blue", pauldrons: "iron" },
 ];
 
+/** Calls `then` once the frame after the next has started: a bust built now has drawn its first frame by then. */
+const afterFirstFrame = (then: () => void) => requestAnimationFrame(() => requestAnimationFrame(then));
+
+/** Whether the element has come into the viewport (once in, it stays true). */
+function useSeen(ref: RefObject<HTMLElement | null>): boolean {
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (seen || !ref.current) return;
+    const observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setSeen(true));
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [ref, seen]);
+  return seen;
+}
+
+/** A bust's place: the bust once it is its turn and in view, before that an empty disc of its size. */
+function CastSlot({ traits, turn, onReady }: { traits: Partial<Traits>; turn: boolean; onReady: (k: KingAvatar) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const seen = useSeen(ref);
+  if (turn && seen) return <KingBust size={220} traits={traits} onReady={onReady} />;
+  return <div ref={ref} style={{ width: 220, maxWidth: "100%", aspectRatio: "1", borderRadius: "50%", background: "#3a3f4a" }} />;
+}
+
+/**
+ * The busts come one at a time, each once the one before has drawn its first frame, and only on screen: eight contexts
+ * compiling their shaders in one frame held software WebGL for over a minute (the wrap sweep's runners), with no frame between.
+ */
 function CastAll() {
   const kings = useRef<(KingAvatar | null)[]>([]);
+  const [turns, setTurns] = useState(1);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16, background: "#23262d" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -390,7 +418,15 @@ function CastAll() {
       </div>
       <div data-slot="cast" style={{ display: "flex", flexWrap: "wrap", gap: 16, maxWidth: 4 * 220 + 3 * 16 }}>
         {CAST_TRAITS.map((t, i) => (
-          <KingBust key={i} size={220} traits={t} onReady={(k) => (kings.current[i] = k)} />
+          <CastSlot
+            key={i}
+            traits={t}
+            turn={i < turns}
+            onReady={(k) => {
+              kings.current[i] = k;
+              afterFirstFrame(() => setTurns((n) => Math.max(n, i + 2)));
+            }}
+          />
         ))}
       </div>
     </div>
