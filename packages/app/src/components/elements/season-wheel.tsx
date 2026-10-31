@@ -1,20 +1,13 @@
 import { useRef } from "react";
 import { cn } from "../../lib/utils";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, isNight, type WheelPoint, type WheelState } from "../../data/season-wheel";
-import seasonRing from "../../assets/season-wheel/season-ring.webp";
-import timeDisc from "../../assets/season-wheel/time-disc.webp";
-import sun from "../../assets/season-wheel/icon-sun.webp";
-import moon from "../../assets/season-wheel/icon-moon.webp";
-import shade from "../../assets/season-wheel/shade.webp";
-import innerBezel from "../../assets/season-wheel/inner-bezel.webp";
-import frame from "../../assets/season-wheel/frame.webp";
-import pointer from "../../assets/season-wheel/pointer.webp";
-import hub from "../../assets/season-wheel/hub.webp";
+import { wheelArtSources, type WheelLayer } from "./wheel-art";
 
-// The dial's art: painted layers on one square canvas each, stacked, from `assets/season-wheel` (its README names their
-// sources). Two of them turn: the seasons' ring, one little planet seen from above (its ground along the inner edge, its sky
-// towards the pavers, everything standing outwards), a season a quarter, each blending into the next at its start, so the
-// wheel's centre is the landscape's vanishing point and a turn never breaks the perspective; and the day and night disc. Their
+// The dial's art: painted layers on one square canvas each, stacked (`wheel-art.ts`: their copies in `public/wheel-art`, their
+// masters in `wheel-sources/`), in the player badge's stone and gold. Two of them turn: the seasons' ring, one little planet
+// seen from above (its ground along the inner edge, its sky towards the pavers, everything standing outwards), a season a
+// quarter, each blending into the next at its start, so the wheel's centre is the landscape's vanishing point and a turn never
+// breaks the perspective; and the day and night disc. Both are toned down to a warm grey, so the gold reads over them. Their
 // light is radial, so it holds at any angle. The fixed layers (the shade, the inner gold ring, the pavers and their gold, the
 // pointer, the hub) carry the light from the top left. The sun and the moon ride on the disc and stay upright, so their light
 // stays put too. Sizes in a 100-unit box, the canvas's.
@@ -62,12 +55,7 @@ export const TIME_ICON_AT = Object.fromEntries(
 ) as Record<CentreTurn, Record<"day" | "night", { x: number; y: number }>>;
 
 /** The fixed layers over the discs, bottom to top: the hub last, over the pointer. */
-const FIXED = [
-  { name: "shade", src: shade },
-  { name: "inner-bezel", src: innerBezel },
-  { name: "frame", src: frame },
-  { name: "pointer", src: pointer },
-] as const;
+const FIXED = ["shade", "inner-bezel", "frame", "pointer", "hub"] as const satisfies readonly WheelLayer[];
 
 /** The centre disc turns once per day and night, so four times per turn of the seasons' ring (a season is one day and night). */
 export const TIME_TURNS_PER_YEAR = WHEEL_SEASONS.length;
@@ -92,8 +80,8 @@ function cyclePoint(state: WheelState, point?: WheelPoint | null): number {
 }
 
 /** A layer of the dial: the whole canvas, decorative. */
-function Layer({ src, name, className }: { src: string; name: string; className?: string }) {
-  return <img src={src} alt="" draggable={false} decoding="async" data-layer={name} className={cn("absolute inset-0 size-full", className)} />;
+function Layer({ name, className }: { name: WheelLayer; className?: string }) {
+  return <img {...wheelArtSources(name)} alt="" draggable={false} decoding="async" data-layer={name} className={cn("absolute inset-0 size-full", className)} />;
 }
 
 /**
@@ -137,18 +125,18 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
       <span aria-hidden className={cn("relative block rounded-full", DIAL_SIZE)}>
         {/* The seasons' ring, turning. */}
         <span data-dial-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${turned}deg)`, ...turn }}>
-          <Layer src={seasonRing} name="season-ring" />
+          <Layer name="season-ring" />
         </span>
         {/* The day and night disc, turning four times as fast, mirrored when it turns with the ring. */}
         <span data-time-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
-          <Layer src={timeDisc} name="time-disc" className={mirrored ? "-scale-x-100" : undefined} />
+          <Layer name="time-disc" className={mirrored ? "-scale-x-100" : undefined} />
         </span>
         {/* The sun and the moon ride on the disc and turn back about their own centres, so they stay upright. */}
         <span data-time-icons className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
           {(["day", "night"] as const).map((t) => (
             <img
               key={t}
-              src={t === "day" ? sun : moon}
+              {...wheelArtSources(t === "day" ? "icon-sun" : "icon-moon", TIME_ICON_SIZE / 100)}
               alt=""
               draggable={false}
               decoding="async"
@@ -166,10 +154,9 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
           ))}
         </span>
         {/* Fixed: the shade, the inner gold ring, the pavers and their gold, the pointer at the top, the hub. */}
-        {FIXED.map((l) => (
-          <Layer key={l.name} src={l.src} name={l.name} />
+        {FIXED.map((name) => (
+          <Layer key={name} name={name} />
         ))}
-        <Layer src={hub} name="hub" />
         <span className="absolute inset-0 rounded-full transition-colors group-hover:bg-state-hover group-active:bg-state-pressed" />
       </span>
     </button>
