@@ -1,6 +1,6 @@
 /**
  * V4-CHEST-ART-2 (#874): the chests wired in, for the pull request. A GIF at 375 px of an epic chest opening on the Chests page (the
- * story `Pages/Village` `Chests`, on the mock ledger: the chest shakes, a tap opens it, the lid swings up and back on its hinges, the
+ * story `Pages/Village` `Chests`, on the mock ledger: the chest drops in and shakes, a tap opens it, it springs and pops its lid, the
  * light bursts and the tiles fly out), and WebP stills at 375 x 812 and 1440 x 900 (DPR 2) of the slots, the modal and the icons.
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up, or a static build served)
@@ -33,7 +33,7 @@ const STILLS = [
   { name: "modal-open", story: "scenes-village-v2-chests--epic-chosen" },
   { name: "slots", story: "scenes-village-v2-chests--slots" },
   { name: "slots-full", story: "scenes-village-v2-chests--kept" },
-  { name: "art-hinge", story: "elements-chestart--hinge" },
+  { name: "art-layers", story: "elements-chestart--layers" },
   { name: "art-states", story: "elements-chestart--states" },
   { name: "art-icons", story: "elements-chestart--in-badges-and-text" },
 ];
