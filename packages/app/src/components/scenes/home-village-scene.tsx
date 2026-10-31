@@ -141,15 +141,16 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
  * the safe areas. In view: at the top left the profile (#787, #830: the avatar in the level's arc and line, "Lv i", the name), under it the League control (#829:
  * the League button, the crowns on a plate closed by the league's crest), the shield's mirrored plate while shielded, then the
- * village score (#755), an inline accordion (#831: the total, a tap unfolds the four kinds' sums in place), those centred between the
- * profile and the season dial (#856); the balances at the top right; the right column (Missions, Chests, Shop, Vault) with their
- * counts, centred vertically (#856); Play (the two swords, no text, #807), large, at the bottom right with Settings above it and Edit
+ * village score (#755), an inline accordion (#831: the total, a tap unfolds the four kinds' sums in place), those stacked at the top,
+ * 24 px under the profile (#929), above the season dial; the balances at the top right; the right column (Missions, Chests, Shop,
+ * Vault) with their counts, centred vertically (#856); Play (the two swords, no text, #807), large, at the bottom right with Settings above it and Edit
  * (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
  * too, through a bubble by the tile with Edit and the hold's ring (LONGPRESS-EDIT, #799, the stage's `onEdit`).
  * PHONE-NAV (#763, the owner's decisions of 2026-10-25): below `desktop` the view has the app's bottom bar again (Shop, Chests
- * with its count, Play, League, Settings; no item current), so the right column keeps Missions and Vault, and the gear and the
+ * with its count, Play, League, Settings; no item current), so there is no right column (#929: Missions and Vault are the left
+ * column's, under the village score, before the chips), and the gear and the
  * large Play go (the bar's Settings and centre disc); Edit and the season dial sit above the bar (its measured `--app-nav-h`).
  * Edit mode has no bar: the editor's panel takes the bottom.
  * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the navigation is this overlay, with no bar and no
@@ -262,8 +263,6 @@ const LEAGUE_STAND_IN = <span aria-hidden className="block h-11" />;
 /** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
 const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
 
-/** The right column's buttons whose place is the bar below `desktop` (#763). */
-const BAR_ONLY_BELOW_DESKTOP = "hidden desktop:flex";
 /** The bottom overlays' place: 8 px above the bar below `desktop` (its height, measured before the first paint), the scene's foot from it. */
 const ABOVE_BAR = "bottom-[calc(var(--app-nav-h)+0.5rem)] desktop:bottom-4";
 
@@ -314,9 +313,10 @@ const GAP_PX = 12;
 /**
  * The overlays' measures, on their box. The profile beside the balances' first plate needs none since #928: the badge is at most
  * 1.5 times the avatar, so it stops short of the plate whatever the amounts (a 999,999 Cobbles plate at 320 px, #828).
- * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands the two columns are centred in, a gap off their neighbours as they are drawn: the right one from under the
+ * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands of the two columns, a gap off their neighbours as they are drawn: the right one from under the
  * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
- * above the season dial (without it, the bottom row's foot, above the bar).
+ * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929, open point 1): the left band starts
+ * twice the gap, 24 px, under the profile.
  */
 function useOverlayMeasures(dial: boolean) {
   const refs = {
@@ -335,7 +335,7 @@ function useOverlayMeasures(dial: boolean) {
       const edges = {
         "--right-top": balances!.bottom - frame!.top,
         "--right-bottom": frame!.bottom - foot!.top,
-        "--left-top": profile!.bottom - frame!.top,
+        "--left-top": profile!.bottom - frame!.top + GAP_PX,
         "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom),
       };
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
@@ -363,9 +363,10 @@ export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpav
 const BESIDE_LEAGUE = ["[data-slot=home-overlays]", "[data-slot=league-control]"] as const;
 
 /**
- * The right column, over Play, centred vertically in its band (#856). Below `desktop` it keeps Missions and Vault (Chests and Shop
- * are the bar's, #763); from it Missions, Chests, Shop and Vault, with no League (#856: the League control on the left is the way
- * in). On a short window its buttons wrap into a second column, to the left, instead of running under Play.
+ * The right column, from `desktop` only, over Play, centred vertically in its band (#856): Missions, Chests, Shop and Vault, with
+ * no League (#856: the League control on the left is the way in). On a short window its buttons wrap into a second column, to the
+ * left, instead of running under Play. Below `desktop` there is none (#929): Chests and Shop are the bar's (#763), Missions and
+ * Vault the left column's.
  */
 function VillageNav(props: HomeVillageSceneProps) {
   return (
@@ -373,12 +374,12 @@ function VillageNav(props: HomeVillageSceneProps) {
       aria-label="Village"
       className={cn(
         // Centred in its band (`justify-center-safe`: taller than the band, it starts at the band's top, never over the balances).
-        "pointer-events-none absolute top-(--right-top) right-1 bottom-(--right-bottom) flex flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 tablet:right-3 [&>*]:pointer-events-auto",
+        "pointer-events-none absolute top-(--right-top) right-3 bottom-(--right-bottom) hidden flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 desktop:flex [&>*]:pointer-events-auto",
       )}
     >
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
-      <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} className={BAR_ONLY_BELOW_DESKTOP} />
-      <OverlayButton icon="store" label="Shop" onClick={props.onShop} className={BAR_ONLY_BELOW_DESKTOP} />
+      <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} />
+      <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
     </nav>
   );
@@ -423,6 +424,13 @@ function ViewOverlays({
         // Under it (#755), the village score (#831): the total, a tap unfolds the four kinds' sums in place.
         <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
       )}
+      {/*
+        HOME-STACK (#929, the owner's decisions of 2026-10-30): below `desktop`, Missions and Vault under the village score and before
+        the chips (open point 2), one under the other and aligned left (open point 3), the right column's look; from it, the right
+        column's.
+      */}
+      <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} className="desktop:hidden" />
+      <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} className="desktop:hidden" />
       {/* The chips, in the same column (#856), clear of the right column. */}
       <>
         {activeGame && (
@@ -489,14 +497,15 @@ function ViewOverlays({
       <div data-fade className="absolute inset-0">
         <VillageNav {...props} />
         {/*
-          The left column under the profile (#829), centred between it and the dial (#856), clear of the right column. Taller than its
-          band (the score unfolded while shielded, on a short screen), it starts at the band's top and scrolls within it (its edge
-          fading where more waits), never over the dial; its padding keeps the controls' shadows inside the scroll box.
+          The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the dial;
+          from `desktop` clear of the right column, below it (no right column) to the scene's edge. Taller than its band (the score
+          unfolded while shielded, on a short screen), it scrolls within it (its edge fading where more waits), never over the dial;
+          its padding keeps the controls' shadows inside the scroll box.
         */}
         <div
           ref={leftColumnHint}
           data-slot="scroll-region"
-          className="scroll-hint absolute top-(--left-top) right-[4.75rem] bottom-(--left-bottom) left-0 flex flex-col items-start justify-center-safe gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
+          className="scroll-hint absolute top-(--left-top) right-2 bottom-(--left-bottom) left-0 flex flex-col items-start gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-4 tablet:pl-4 desktop:right-24 [&>*]:pointer-events-auto"
         >
           {leftColumn}
         </div>
