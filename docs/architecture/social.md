@@ -136,6 +136,7 @@ contract is written.
 | `accept_request` (by an officer) | 3 | 2 | 0 | 2 | 1 | 1.42 | 0.06 | **1.48** |
 | `accept_invitation` (by a guildless invitee; requirements waived) | 3 | 2 | 0 | 2 | 1 | 0.90 | 0.06 | **0.96** |
 | `accept_invitation`, the invitee leaving another guild in the same call | 4 | 3 | 0 | 3 | 2 | 1.13 | 0.09 | **1.22** |
+| `accept_invitation`, the invitee a Leader alone, their guild disbanded in the same call | 5 | 4 | 0 | 4 | 2 | 1.33 | 0.12 | **1.45** |
 | `kick`, by an officer (writes their kick time) | 3 | 3 | 0 | 3 | 1 | 0.67 | 0.09 | **0.76** |
 | `kick`, by the leader (no kick rate) | 3 | 2 | 0 | 2 | 1 | 0.55 | 0.06 | **0.61** |
 | `promote`, `demote` | 3 | 2 | 0 | 2 | 1 | 0.55 | 0.06 | **0.61** |
@@ -319,7 +320,7 @@ spends Cobbles through `Setup.spend_cobbles` as an allowed spender. **The player
 | | `disband(name)` | the Leader, alone in the guild | the index gives this guild for the lowercased `name` (`'Guild: not the name'` otherwise); frees the name. The client takes the name from the indexer (the creation's event): no slot holds it |
 | Joining | `join(guild_id)` | a player in no guild | Open, not full, requirements met |
 | | `accept_request(request, signature)` | an Officer or the Leader of the guild | the request (6.3): the guild's, not expired, the player's nonce, the player in no guild, not full, the join type By request (or Open), requirements met, the player's signature |
-| | `accept_invitation(invitation, signature)` | the invitee | the invitation (6.3): not expired, the invitee's nonce, the inviter still an Officer or the Leader of that guild, not full, the inviter's signature. The requirements are waived (#953, open point 8). **An invitee in another guild switches in this one call**: the nonce is checked first, against the value the invitation was signed at, then the contract takes the invitee out of their old guild (its count lowered, `MemberLeft`) and into the new one, raising the nonce once. A Leader of a guild with others cannot (`'Guild: leader must transfer'`); a Leader alone disbands first. A separate `leave` before it would raise the nonce and void the invitation |
+| | `accept_invitation(invitation, signature, old_name)` | the invitee | the invitation (6.3): not expired, the invitee's nonce, the inviter still an Officer or the Leader of that guild, not full, the inviter's signature. The requirements are waived (#953, open point 8). **An invitee in another guild switches in this one call**: the nonce is checked first, against the value the invitation was signed at, then the contract takes the invitee out of their old guild (its count lowered, `MemberLeft`) and into the new one, raising the nonce once. A Leader of a guild with others cannot (`'Guild: leader must transfer'`). **A Leader alone in their guild switches in the same call too**: `old_name` is that guild's name (0 for anyone else), checked against the name index as `disband` does (`'Guild: not the name'`); after the nonce check the old guild is disbanded (its felt and name index written 0, `GuildDisbanded`) and the invitee joins the new one, the nonce raised once. A separate `leave` or `disband` before it would raise the nonce and void the invitation, so the client never sends one |
 | | `cancel_signed()` | any player | raises the caller's nonce: every request or invitation of theirs not yet redeemed dies |
 | Ranks | `kick(player)` | an Officer or the Leader | the same guild, the caller's rank strictly above the target's; for an Officer, 20 minutes since their last kick. The reason is off chain (its line in the service) |
 | | `promote(player)`, `demote(player)` | the Leader (#953, open point 2) | a Member to Officer, an Officer to Member |
@@ -364,8 +365,8 @@ carry over to another deployment.
 - **Why the joining player's nonce in both**: the player joins at most once per nonce. Two requests to two guilds: the first
   redeemed raises the nonce and kills the other, so one pending request at a time (#953) holds on chain whatever the
   service does. A used invitation dies when its invitee joins; after a leave, an old request cannot pull the player back. So the nonce
-  is checked before any change the call makes: `accept_invitation` leaves the old guild itself (6.1), after the check, and the
-  client never sends a `leave` before it.
+  is checked before any change the call makes: `accept_invitation` leaves the old guild itself, or disbands it when the
+  invitee is its Leader alone (6.1), after the check, and the client never sends a `leave` or a `disband` before it.
 - **Expiry**: 7 days for both (#953's invitations; the same for requests, open point 11).
 - **Cancelling before it expires**, weighed: a short expiry alone leaves a cancelled request redeemable until it ends by an
   officer who kept it; a nonce raised on chain ends it at once for 0.31M. **Default: both.** The client cancels in the
