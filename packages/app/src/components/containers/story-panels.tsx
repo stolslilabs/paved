@@ -91,7 +91,7 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, tip, deck
                   transition={{ delay: 0.25 + i * step, duration: 0.3, ease: "easeOut" }}
                 >
                   <TileRender plan={plan} theme={shownIn(plan)} renders={renders} />
-                  <span className="numeric absolute top-1 left-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow" aria-hidden>
+                  <span className="numeric absolute top-1 left-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow-sm" aria-hidden>
                     {i + 1}
                   </span>
                 </m.li>

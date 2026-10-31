@@ -3,5 +3,18 @@
 
 /* The Storybook-only directions (#537) carry their own utilities; the app's stylesheet must not scan them. */
 @source not "../directions";
-/* The avatar's stories (#626 PR 1) are Storybook-only too: their utilities stay out of the app's stylesheet. */
-@source not "../stories/avatar";
+/* CSS-CLEANUP: nor what the app never ships: its stories (Storybook imports theme.css and scans them itself, the avatar's of #626
+   included), tests, scripts and the sources of its assets. */
+@source not "../stories";
+@source not "../**/*.stories.tsx";
+@source not "../../__tests__";
+@source not "../../e2e";
+@source not "../../scripts";
+@source not "../../vendor";
+@source not "../../asset-sources";
+@source not "../../music-sources";
+@source not "../../README.md";
+/* Words the scanner reads as utilities in the app's comments and code but no class names: "the focus ring", `static start()`,
+   `role="table"`, `variant="outline"`, `state === "paused"`. None is a class anywhere in the app (`css-sources.test.ts`
+   holds it); a class that needs one takes it out of this list. */
+@source not inline("auto-cols-fr blur container filter lowercase mobile:not-sr-only outline paused resize ring running shadow static table transform visible");

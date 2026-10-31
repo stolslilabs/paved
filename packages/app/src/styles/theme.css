@@ -2,9 +2,6 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-/* iPhone Safari in a tab (not an installed app): its floating bottom toolbar overlays the page's end, and
-   `env(safe-area-inset-bottom)` does not count it. `-webkit-touch-callout` exists only on iOS WebKit, so Android Chrome, desktop
-   browsers and a home-screen app of an older manifest (`display-mode: standalone`, dropped in #589) never match; the width keeps iPad out. */
 /* NO-SCROLLBARS (#609): the tab page's region has more below (`pageScrollHintRef`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
 @custom-variant page-more (&:where(html[data-scroll-end] *));
 /* PAGE-HEADER (#760): the page has more above, under its sticky header (the tab page's region or a flow's document, `data-scroll-start` on `<html>`). */
@@ -29,13 +26,6 @@
 @custom-variant wide {
   @media (width >= 90rem) {
     &:not(:where([data-page-panel] *)) {
-      @slot;
-    }
-  }
-}
-@custom-variant iphone-tab {
-  @supports (-webkit-touch-callout: none) {
-    @media (display-mode: browser) and (max-width: 40rem) {
       @slot;
     }
   }
