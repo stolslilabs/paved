@@ -110,17 +110,18 @@ describe("Loading", () => {
 
 describe("Home (#753): the village with its overlays", () => {
   it("shows the village full screen with the right column, Play and Edit from desktop", async () => {
-    const on = { onPlay: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
+    const on = { onPlay: vi.fn(), onSocial: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
     // The stage (the board, the editor) is its own chunk: it arrives after the overlays. The file's first test imports it cold:
     // 1.5 s on a quiet machine, past the 5 s default on CI once the HUD drew its relief icons (#844).
     expect(await screen.findByRole("img", { name: /^Village layout of \d+ tiles/ }, { timeout: slow(10_000) })).toBeInTheDocument();
     const column = screen.getByRole("navigation", { name: "Village" });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Social, 4 waiting", "Missions, 3 waiting", "Chests, 2 waiting", "Shop", "Vault"]);
     // The overlays outside the bar (the bar's own are tested below).
     const overlay = (name: string | RegExp) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
     for (const [name, handler] of [
+      ["Social, 4 waiting", on.onSocial],
       ["Missions, 3 waiting", on.onMissions],
       ["Chests, 2 waiting", on.onChests],
       ["Shop", on.onShop],
@@ -151,25 +152,26 @@ describe("Home (#753): the village with its overlays", () => {
     expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "chests", "play", "league", "settings"]);
   });
 
-  it("moves Missions and Vault to the left column below desktop, with no right column, no gear and no large Play; Edit and the dial above the bar (#763, #929)", async () => {
+  it("moves Social, Missions and Vault to the left column below desktop, with no right column, no gear and no large Play; Edit and the dial above the bar (#763, #929, #952)", async () => {
+    const onSocial = vi.fn();
     const onMissions = vi.fn();
     const onVault = vi.fn();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onMissions={onMissions} onVault={onVault} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onSocial={onSocial} onMissions={onMissions} onVault={onVault} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
     // The right column is `desktop`'s only (#929); its buttons show whatever its box does.
     const column = screen.getByRole("navigation", { name: "Village" });
     expect(column.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:flex"]));
     for (const button of within(column).getAllByRole("button")) expect(button.className.split(" ")).not.toContain("hidden");
-    // Below it, Missions and Vault in the left column (a column of 12 px gaps, aligned left), with the right column's look.
+    // Below it, Social, Missions and Vault in the left column (a column of 12 px gaps, aligned left), with the right column's look.
     const left = (await screen.findByRole("button", { name: /^League: / })).parentElement!;
     expect(left.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "items-start", "gap-3"]));
-    const moved = within(left).getAllByRole("button", { name: /^(Missions|Vault)/ });
-    expect(moved.map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault"]);
+    const moved = within(left).getAllByRole("button", { name: /^(Social|Missions|Vault)/ });
+    expect(moved.map((b) => b.getAttribute("aria-label"))).toEqual(["Social, 4 waiting", "Missions, 3 waiting", "Vault"]);
     for (const button of moved) {
       expect(button.parentElement).toBe(left);
       expect(button.className.split(" ")).toEqual(expect.arrayContaining(["w-16", "desktop:hidden"]));
     }
-    await userEvent.click(moved[0]!);
-    await userEvent.click(moved[1]!);
+    for (const button of moved) await userEvent.click(button);
+    expect(onSocial).toHaveBeenCalledTimes(1);
     expect(onMissions).toHaveBeenCalledTimes(1);
     expect(onVault).toHaveBeenCalledTimes(1);
     // With no right column, the left one runs to the scene's edge below `desktop`, and clears the right column from it.
@@ -207,6 +209,7 @@ describe("Home (#753): the village with its overlays", () => {
       left.querySelector("[data-slot=league-control]"),
       left.querySelector("[data-slot=shield-plate]"),
       left.querySelector("[data-slot=village-score]"),
+      within(left).getByRole("button", { name: /^Social/ }),
       within(left).getByRole("button", { name: /^Missions/ }),
       within(left).getByRole("button", { name: "Vault" }),
     ];
@@ -241,7 +244,7 @@ describe("Home (#753): the village with its overlays", () => {
     expect(edit.parentElement).toBe(play.parentElement!.parentElement);
     expect(edit.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["gap-2", "desktop:gap-4"]));
     // The game icons (#844): the HUD's icons in relief, drawn at the first paint, not Font Awesome's flat ones.
-    for (const name of ["Play", "Edit village", "Missions", "Vault", "Settings"]) {
+    for (const name of ["Play", "Edit village", "Social", "Missions", "Vault", "Settings"]) {
       for (const button of screen.getAllByRole("button", { name: new RegExp(`^${name}`) })) expect(button.querySelector("[data-slot=game-icon]"), name).not.toBeNull();
     }
     // The League button's trophy; the crest is the league's own (#917), not a game icon.

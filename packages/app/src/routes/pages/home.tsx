@@ -151,7 +151,7 @@ export default function Page() {
 
   const failed = readOnly ? null : read.error;
   return (
-    <PrefetchOnIntent routes={["/play", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
+    <PrefetchOnIntent routes={["/play", "/social", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
       <HomeVillageScene
         village={village}
         error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
@@ -188,6 +188,7 @@ export default function Page() {
         seasonWheel={board.wheel}
         renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} onScene={board.onScene} />}
         onPlay={() => go("/play")}
+        onSocial={() => go("/social")}
         onMissions={() => go("/missions")}
         onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}
