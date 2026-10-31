@@ -3,6 +3,9 @@ import { fn } from "storybook/test";
 import { FRIENDS_TAB } from "../../mocks/follows";
 import { GUILD_FINDER, GUILD_PAGE } from "../../mocks/guilds";
 import { FriendsPanel } from "../containers/friends-panel";
+import { ChatConversation } from "../containers/chat-conversation";
+import { ChatList } from "../containers/chat-list";
+import { CHAT_CONVERSATION, CHAT_LIST } from "../../mocks/chat";
 import { SOCIAL } from "../../mocks/social";
 import { GuildFinder } from "../containers/guild-finder";
 import { GuildPage } from "../containers/guild-page";
@@ -24,7 +27,7 @@ type Story = StoryObj<typeof meta>;
 export const Guild: Story = {};
 /** The Friends tab with nothing drawn in it: its empty state, as a guest sees it. */
 export const Friends: Story = { args: SOCIAL.friends };
-/** The Chat tab, empty until the messages (#955). */
+/** The Chat tab with nothing drawn in it: its empty state, as a guest sees it. */
 export const Chat: Story = { args: SOCIAL.chat };
 /** What waits in each tab, on its badge. */
 export const Badges: Story = { args: SOCIAL.badges };
@@ -51,4 +54,12 @@ export const FriendsTab: Story = {
 /** The Friends tab of a new player (#954): no follows, players to follow. */
 export const FriendsTabEmpty: Story = {
   args: { tab: "friends", renderTab: (tab) => (tab === "friends" ? <FriendsPanel {...FRIENDS_TAB.noFollows} onAction={fn()} onOpenPlayer={fn()} /> : null) },
+};
+/** The Chat tab (#955): the World, the guild and the private conversations, a request on its badge. */
+export const ChatTab: Story = {
+  args: { tab: "chat", badges: { guild: 0, friends: 0, chat: 6 }, renderTab: (tab) => (tab === "chat" ? <ChatList {...CHAT_LIST.request} onOpen={fn()} onUnmute={fn(async () => {})} /> : null) },
+};
+/** The Chat tab with the guild's conversation open (#955): the announcement pinned, the log's lines. */
+export const ChatTabGuild: Story = {
+  args: { tab: "chat", badges: { guild: 0, friends: 0, chat: 3 }, renderTab: (tab) => (tab === "chat" ? <ChatConversation {...CHAT_CONVERSATION.guild} onBack={fn()} onSend={fn(async () => {})} onAction={fn(async () => {})} /> : null) },
 };

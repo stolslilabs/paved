@@ -137,7 +137,8 @@ describe("/social on the mock (#952)", { timeout: slow(20_000) }, () => {
     expect(screen.getByRole("tab", { name: "Friends" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText(/^No friends yet/, undefined, { timeout: slow(5000) })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
-    expect(await screen.findByText("No messages yet", undefined, { timeout: slow(5000) })).toBeInTheDocument();
+    // The Chat tab's conversations (#955): the World first.
+    expect(await screen.findByRole("button", { name: /^World/ }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(localStorage.getItem("social-tab")).toBe("chat");
   });
 

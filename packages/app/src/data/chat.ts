@@ -1,9 +1,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { chatKeys } from "./chat-overview";
 import type { ConversationId } from "@paved/game-core";
 import { useEffect, useMemo } from "react";
 import { addressKey } from "./keys";
 import type { SocialRead } from "./social";
-import { ChatRefusedError, type ChatEvent, type ChatMessage, type ChatOverview, type ChatPage, type ChatSource, type ChatWriteRefusal, type PublicProfile } from "./social-source";
+import { ChatRefusedError, type ChatEvent, type ChatMessage, type ChatPage, type ChatSource, type ChatWriteRefusal, type PublicProfile } from "./social-source";
 import { useDataSources } from "./sources";
 
 // The messages' hooks (#955): the Chat tab's overview, one conversation, the mutes, and the writes, read from the social source's
@@ -14,36 +15,11 @@ import { useDataSources } from "./sources";
 
 export type { ChatAuthor, ChatEvent, ChatMessage, ChatOverview, ChatPage, ChatPageHead, ChatSource, ChatWriteRefusal, ConversationSummary } from "./social-source";
 export { ChatRefusedError } from "./social-source";
-
-/** The keys of the chat reads: under the social domain, `[social, chat, player, read, ...args]`. */
-export const chatKeys = {
-  /** Everything of the chat as `player` sees it: what a write of theirs makes stale. */
-  all: (player: string) => ["social", "chat", addressKey(player)] as const,
-  overview: (player: string) => ["social", "chat", addressKey(player), "overview"] as const,
-  conversation: (player: string, id: ConversationId) => ["social", "chat", addressKey(player), "conversation", id] as const,
-  mutes: (player: string) => ["social", "chat", addressKey(player), "mutes"] as const,
-};
+export { chatKeys, useChatOverview } from "./chat-overview";
 
 const UNAVAILABLE = { data: undefined, isPending: false, error: null, unavailable: true, refetch: () => undefined } as const;
 
 const chatOf = (social: { chat?: ChatSource } | null | undefined): ChatSource | null => social?.chat ?? null;
-
-/**
- * The Chat tab (#955): the conversations, the requests, the badge and the notice; disabled without a player. Read again whenever
- * a message comes to any conversation of the player (the source's subscription), so the badge follows.
- */
-export function useChatOverview(me: string | null): SocialRead<ChatOverview> {
-  const { social } = useDataSources();
-  const chat = chatOf(social);
-  const client = useQueryClient();
-  const query = useQuery({ queryKey: chatKeys.overview(me ?? "0x0"), queryFn: () => chat!.overview(me!), enabled: me !== null && chat !== null, staleTime: 0 });
-  useEffect(() => {
-    if (!chat || me === null) return;
-    return chat.subscribe(me, null, () => void client.invalidateQueries({ queryKey: chatKeys.overview(me) }));
-  }, [chat, me, client]);
-  if (!chat) return UNAVAILABLE;
-  return { data: query.data, isPending: me !== null && query.isPending && !query.error, error: query.error, unavailable: false, refetch: () => void query.refetch() };
-}
 
 /** The pages of a conversation as the cache keeps them: the latest first, each older one after it. */
 type ConversationPages = InfiniteData<ChatPage | null, string | null>;
