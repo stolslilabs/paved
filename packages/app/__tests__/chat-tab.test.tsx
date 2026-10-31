@@ -171,6 +171,28 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
     expect(await within(sheet).findByText(/You mute no one/, undefined, T(8_000))).toBeInTheDocument();
   });
 
+  it("hides a player's messages at once when the player blocks them from a profile opened on one", async () => {
+    open("/social?chat=world");
+    await conversation("World");
+    const log = screen.getByRole("log", { name: "Messages" });
+    const avatars = await within(log).findAllByRole("button", { name: /^.+'s profile$/ }, T(8_000));
+    const target = avatars.find((b) => b.getAttribute("aria-label") !== "You's profile")!;
+    const name = /^(.+)'s profile$/.exec(target.getAttribute("aria-label")!)![1]!;
+    const shown = () => within(log).queryAllByRole("button", { name: `${name}'s profile` }).length;
+    expect(shown()).toBeGreaterThan(0);
+    await userEvent.click(target);
+    const profile = await screen.findByRole("dialog", { name }, T(10_000));
+    await userEvent.click(await within(profile).findByRole("button", { name: "Block" }, T(8_000)));
+    const confirm = await screen.findByRole("dialog", { name: `Block ${name}?` }, T(5_000));
+    await userEvent.click(within(confirm).getByRole("button", { name: "Block" }));
+    expect(await within(profile).findByRole("button", { name: "Unblock" }, T(8_000))).toBeInTheDocument();
+    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    // The conversation stayed open under the profile: no reload, and the blocked player's messages are gone.
+    expect(screen.getByRole("log", { name: "Messages" })).toBe(log);
+    await waitFor(() => expect(shown()).toBe(0), T(8_000));
+  });
+
   it("writes in the guild, where the log's lines show; an officer deletes a member's message", async () => {
     const { me, social, chat } = open("/social");
     // OTHER leads the guild, the player joins and is made an officer, THIRD joins and writes.
