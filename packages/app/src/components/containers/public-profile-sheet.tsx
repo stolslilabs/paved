@@ -126,7 +126,7 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
 
         {profile && (
           <>
-            {guild && <div data-slot="profile-guild">{guild}</div>}
+            {guild && <div data-slot="profile-guild" className="empty:hidden">{guild}</div>}
             <dl className="grid grid-cols-2 gap-3">
               <Figure term="Level">{formatPoints(profile.level)}</Figure>
               <Figure term="Village score">{formatPoints(profile.score)}</Figure>

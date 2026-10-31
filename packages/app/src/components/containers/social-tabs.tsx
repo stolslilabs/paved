@@ -15,7 +15,7 @@ export const socialTotal = (badges: SocialBadges): number => badges.guild + badg
 
 /** Each tab: its label, its icon, and its empty state until its issue fills it. */
 export const SOCIAL_TABS: readonly { id: SocialTab; label: string; icon: string; empty: { title: string; text: string } }[] = [
-  { id: "guild", label: "Guild", icon: "shield-halved", empty: { title: "No guild yet", text: "Guilds are coming: create one, or join players you meet." } },
+  { id: "guild", label: "Guild", icon: "shield-halved", empty: { title: "No guild yet", text: "Connect to create a guild, or to join one." } },
   { id: "friends", label: "Friends", icon: "user-group", empty: { title: "No friends yet", text: "Follow players you meet: when they follow you back, you are friends." } },
   { id: "chat", label: "Chat", icon: "comments", empty: { title: "No messages yet", text: "Talk with the World, your guild, or a friend in private." } },
 ];

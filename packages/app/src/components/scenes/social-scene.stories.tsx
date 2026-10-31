@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { GUILD_FINDER, GUILD_PAGE } from "../../mocks/guilds";
 import { SOCIAL } from "../../mocks/social";
+import { GuildFinder } from "../containers/guild-finder";
+import { GuildPage } from "../containers/guild-page";
 import { SocialScene } from "./social-scene";
 
 /**
@@ -31,3 +34,11 @@ export const Unavailable: Story = { args: SOCIAL.unavailable };
 export const ReducedMotion: Story = { args: SOCIAL.badges, parameters: { reducedMotion: "always" } };
 /** WRAP360: three-digit badges on every tab, the longest name. */
 export const Stress: Story = { args: SOCIAL.stress };
+/** The Guild tab of a player in no guild (#953), with an invitation waiting on its badge. */
+export const GuildTabGuildless: Story = {
+  args: { badges: { guild: 1, friends: 0, chat: 0 }, renderTab: (tab) => (tab === "guild" ? <GuildFinder {...GUILD_FINDER.invited} onAction={fn()} onOpenGuild={fn()} /> : null) },
+};
+/** The Guild tab of an Officer (#953): their guild's page, two requests on the badge. */
+export const GuildTabOfficer: Story = {
+  args: { badges: { guild: 2, friends: 0, chat: 0 }, renderTab: (tab) => (tab === "guild" ? <GuildPage {...GUILD_PAGE.officer} onAction={fn()} onOpenPlayer={fn()} /> : null) },
+};
