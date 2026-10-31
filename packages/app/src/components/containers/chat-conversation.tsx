@@ -102,7 +102,7 @@ function MessageRow({ message: msg, now, timeZone, showTag, mayMute, arrived, on
           {showTag && author?.guildTag && <span className="numeric text-xs text-muted-foreground">{author.guildTag}</span>}
           <span className="numeric text-xs text-muted-foreground">{messageTime(msg.at, now, timeZone)}</span>
         </div>
-        {msg.deleted ? <p className="text-sm text-muted-foreground italic">Message deleted</p> : <p className="text-sm whitespace-pre-wrap wrap-anywhere">{msg.text}</p>}
+        {msg.deleted ? <p className="text-sm text-muted-foreground italic">Message deleted</p> : <p className="text-sm whitespace-pre-wrap wrap-break-word">{msg.text}</p>}
       </div>
       {hasMenu && (
         <DropdownMenu modal={false}>
@@ -379,7 +379,7 @@ export function ChatConversation({
             onClick={onOpenTitle}
             className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {c.kind === "world" && <Icon name="earth-americas" size="sm" className="text-primary" />}
+            {c.kind === "world" && <Icon name="users" size="sm" className="text-primary" />}
             {c.kind === "guild" && <Icon name="shield-halved" size="sm" className="text-primary" />}
             {c.kind === "private" && c.other ? (
               <PlayerName name={c.other.name} address={c.other.address} className="min-w-0 font-semibold" />
@@ -397,13 +397,13 @@ export function ChatConversation({
 
       {head?.pinned && (
         <div data-slot="chat-pinned" className="flex min-w-0 gap-2 border-b border-border bg-secondary/40 px-3 py-2 text-sm">
-          <Icon name="thumbtack" size="xs" className="mt-1 shrink-0 text-primary" label="Pinned announcement" />
+          <Icon name="scroll" size="xs" className="mt-1 shrink-0 text-primary" label="Pinned announcement" />
           <div className="flex min-w-0 flex-col">
             <span className="text-xs text-muted-foreground">
               <span className="font-semibold">{head.pinned.authorName ?? shortAddress(head.pinned.author)}</span> · <span className="numeric">{messageTime(head.pinned.at, now, timeZone)}</span>
             </span>
             <ScrollRegion className="max-h-20">
-              <p className="whitespace-pre-wrap wrap-anywhere">{head.pinned.text}</p>
+              <p className="whitespace-pre-wrap wrap-break-word">{head.pinned.text}</p>
             </ScrollRegion>
           </div>
         </div>
@@ -449,7 +449,6 @@ export function ChatConversation({
         </ScrollRegion>
         {unseen > 0 && (
           <Button size="sm" className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full shadow-md" onClick={toBottom}>
-            <Icon name="arrow-down" size="xs" />
             New messages
           </Button>
         )}
@@ -504,7 +503,6 @@ export function ChatConversation({
                 </span>
               </div>
               <Button type="submit" className="mb-5 shrink-0" loading={sending} disabled={draft.trim() === "" || tooLong || wait > 0} aria-label={wait > 0 ? `Send, in ${formatInteger(wait)} s` : "Send"}>
-                <Icon name="paper-plane" size="xs" />
                 {wait > 0 ? <span className="numeric">{formatInteger(wait)} s</span> : "Send"}
               </Button>
             </form>

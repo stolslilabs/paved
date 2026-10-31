@@ -43,7 +43,7 @@ const WORLD_MESSAGES: ChatMessage[] = [
   msg(WORLD_CONVERSATION, authorOf(P[2]!, tag(2)), 25 * 60, "Free cobbles at paved-gifts.example/claim, just connect your wallet!"),
   msg(WORLD_CONVERSATION, authorOf(P[3]!, tag(3)), 21 * 60, "Don't click that. Paved never asks for your key."),
   msg(WORLD_CONVERSATION, ME_AUTHOR, 18 * 60, "Thanks. Reported it."),
-  msg(WORLD_CONVERSATION, authorOf(P[4]!, tag(4)), 12 * 60, "My village is 0x04a3…91fe if anyone wants a friendly look."),
+  msg(WORLD_CONVERSATION, authorOf(P[4]!, tag(4)), 12 * 60, "My player ID is 0x04a3c9d2e1f0b7a6958473625140f3e2d1c0b9a8f7e6d5c4b3a2918070605091fe if anyone wants a friendly raid."),
   msg(WORLD_CONVERSATION, authorOf(P[5]!, tag(5)), 8 * 60, "Is the Challenge harder this week or is it just me?"),
   msg(WORLD_CONVERSATION, authorOf(P[6]!, tag(6)), 5 * 60, "", { deleted: true, mayReport: false }),
   msg(WORLD_CONVERSATION, authorOf(P[7]!, tag(7)), 2 * 60, "Three stars on a Silver village with a city still open. Lucky draw. 🎉"),

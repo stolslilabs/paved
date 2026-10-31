@@ -31,7 +31,7 @@ function lastLine(m: ChatMessage | null): string {
 
 /** A conversation's picture: the World's globe, the guild's emblem, or the other player's avatar. */
 function ConversationMark({ c }: { c: ConversationSummary }) {
-  if (c.kind === "world") return <span className="grid size-11 shrink-0 place-items-center rounded-full border border-border bg-secondary text-primary"><Icon name="earth-americas" size="md" /></span>;
+  if (c.kind === "world") return <span className="grid size-11 shrink-0 place-items-center rounded-full border border-border bg-secondary text-primary"><Icon name="users" size="md" /></span>;
   if (c.kind === "guild" && c.guild) return <span className="grid size-11 shrink-0 place-items-center"><GuildEmblem emblem={c.guild.emblem} size="sm" /></span>;
   return <PlayerAvatar player={c.other ? { name: c.other.name, address: c.other.address } : null} look={c.other?.look ?? null} />;
 }
@@ -202,7 +202,7 @@ function MutedSheet({ open, onOpenChange, mutes, onUnmute, onOpenPlayer }: Muted
                     <PlayerName name={p.name} address={p.address} className="min-w-0 font-semibold" />
                   </button>
                   <Button size="sm" variant="outline" className="ml-auto" aria-label={`Unmute ${p.name ?? "this player"}`} loading={busy === p.address} disabled={busy !== null} onClick={() => unmute(p.address)}>
-                    <Icon name="volume" size="xs" />
+                    <Icon name="volume-high" size="xs" />
                     Unmute
                   </Button>
                 </li>

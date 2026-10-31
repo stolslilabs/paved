@@ -53,7 +53,7 @@ describe("a conversation (#955)", () => {
     render(wrap(<ChatConversation {...props()} />));
     const log = screen.getByRole("log", { name: "Messages" });
     expect(within(log).getByText(/paved-gifts\.example\/claim/)).toBeInTheDocument();
-    expect(within(log).getByText(/0x04a3…91fe/)).toBeInTheDocument();
+    expect(within(log).getByText(/0x04a3c9d2e1f0b7a6958473625140f3e2d1c0b9a8f7e6d5c4b3a2918070605091fe/)).toBeInTheDocument();
     expect(log.querySelectorAll("a")).toHaveLength(0);
     expect(within(log).getByText("Message deleted")).toBeInTheDocument();
   });

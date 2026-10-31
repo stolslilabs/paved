@@ -2,7 +2,7 @@ import { slow } from "../test-slow";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Outlet, type RouteObject } from "react-router";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHAT_WORLD_MIN_LEVEL, guildConversation, privateConversation, xpFloor, type GuildDraft } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
@@ -70,6 +70,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
     storeSocialTab("chat");
   });
   afterEach(() => {
+    vi.restoreAllMocks();
     queryClient.clear();
     resetWelcomedForTests();
     resetSocialTabForTests();
@@ -118,9 +119,10 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
   });
 
   it("writes in the World from level 2, deletes the message, and refuses a second one within 5 seconds with the countdown", async () => {
-    const { clock } = open("/social", { level: CHAT_WORLD_MIN_LEVEL });
-    // The page's countdown reads the wall clock, as the mock's does outside the tests.
-    clock.now = Math.floor(Date.now() / 1000);
+    // The page's countdown reads the wall clock, as the mock does outside the tests: both held at T0, so the 5 seconds do not
+    // run out however slow the machine.
+    vi.spyOn(Date, "now").mockReturnValue(T0 * 1000);
+    open("/social", { level: CHAT_WORLD_MIN_LEVEL });
     await userEvent.click(await screen.findByRole("button", { name: /^World/ }, T(10_000)));
     await conversation("World");
     await send("World", "hello builders, see paved-gifts.example and 0x04a3");
@@ -129,7 +131,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
     expect(within(log).queryAllByRole("link")).toEqual([]);
     // The rate limit: Send waits, counting down.
     await userEvent.type(await field("World"), "again");
-    expect(await screen.findByRole("button", { name: /^Send, in \d s$/ }, T(5_000))).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Send, in 5 s" }, T(5_000))).toBeDisabled();
     // Delete one's own message: "Message deleted" in its place.
     const row = mine.closest("li")!;
     await userEvent.click(within(row as HTMLElement).getByRole("button", { name: "More for You's message" }));
