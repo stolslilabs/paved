@@ -388,10 +388,12 @@ describe("Missions: Cobbles only (#832)", () => {
 });
 
 describe("Home and Play: Cobbles", () => {
-  it("leaves the free game to Play: the home's village has no free-game card (#753)", () => {
+  it("leaves the free game to Play: the home's village has no free-game card (#753)", async () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
     expect(screen.queryByText("Daily")).not.toBeInTheDocument();
     expect(screen.queryByText(/Free game/)).not.toBeInTheDocument();
+    // The lazy League control (and its standing reads, #917) loads before the test ends, not after the environment's teardown.
+    expect(await screen.findByRole("button", { name: /^League:/ })).toBeInTheDocument();
   });
 
   it("offers a free game on Play that spends a credit", async () => {
