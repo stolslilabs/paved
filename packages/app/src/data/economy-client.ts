@@ -1,24 +1,18 @@
 import {
-  EconomyClient,
+  type EconomyClient,
   PavedWriter,
   RefusedReferrerError,
   createEconomyClient,
   packBuyerOf,
   packReferrer,
-  resolveEconomyDeployment,
-  type EconomyDeploymentFile,
 } from "@paved/chain";
-import { chainClient, mockLedger } from "./chain-client";
-import { DATA_SOURCE } from "./data-source";
-import { mockEconomyViews, mockPool, mockPurchases } from "./mock/overlay";
+import { chainClient } from "./chain-client";
+import { economyDeploymentOf } from "./deployment";
 import type { GameSigner, Purchases } from "./sources";
 
 // The economy's client of the app (P7b): `EconomyClient` on the chain client of the build (`chain-client.ts`) and the
 // economy's addresses of the same deployments file. Imported only through a dynamic `import()` (`routes/sources.ts`), as
-// the chain client: starknet.js stays out of the first bundle.
-
-/** `contracts/deployments/<network>.json`, keyed by path: the same files `chain-client.ts` reads. */
-const FILES = import.meta.glob<{ default: EconomyDeploymentFile }>("../../../../contracts/deployments/*.json", { eager: true });
+// the chain client: starknet.js stays out of the first bundle. The data source `chain` only: on `mock`, `mock/app.ts` (#927).
 
 let client: EconomyClient | null | undefined;
 
@@ -29,11 +23,7 @@ let client: EconomyClient | null | undefined;
 export function economyClient(): EconomyClient | null {
   if (client !== undefined) return client;
   const base = chainClient();
-  const file = Object.entries(FILES).find(([path]) => path.endsWith(`/${base.deployment.network}.json`))?.[1].default ?? null;
-  const real = createEconomyClient(resolveEconomyDeployment({ base: base.deployment, file }), base);
-  // The data source `mock` (`data-source.ts`): the Vault's, the split's, the seller's, the tokens' balances' and the games' reads
-  // (the quote, the days, the terms) and the pool's quote come from the device's ledger (#927).
-  client = real && DATA_SOURCE === "mock" ? new EconomyClient(real.deployment, base, real.codecs, mockEconomyViews(real.views, mockLedger()), mockPool(mockLedger())) : real;
+  client = createEconomyClient(economyDeploymentOf(base.deployment), base);
   return client;
 }
 
@@ -52,7 +42,7 @@ export function purchasesOf(signer: GameSigner): Purchases {
 export function purchasesFor(economy: EconomyClient, signer: GameSigner): Purchases {
   if (!(signer instanceof PavedWriter)) throw new Error("Purchases are off: this wallet cannot buy");
   const { deployment } = economy;
-  const purchases: Purchases = {
+  return {
     purchase: (request) => economy.writer(signer).purchase(request),
     buyPack: (request) => packBuyerOf(economy, signer).buy(request),
     // A game's purchase and a pack's go through the same `Economy.pay`, which ignores the same addresses: one rule for both.
@@ -70,8 +60,6 @@ export function purchasesFor(economy: EconomyClient, signer: GameSigner): Purcha
     },
     receipt: (hash) => receiptOutcome(economy.base.provider, hash),
   };
-  // The data source `mock`: the ledger sells the pack and the Challenge game (`mockPurchases`, #927).
-  return DATA_SOURCE === "mock" ? mockPurchases(purchases, mockLedger(), signer.address) : purchases;
 }
 
 /** What `receiptOutcome` reads: starknet.js's `getTransactionReceipt` (its receipt keeps the node's `execution_status`). */
