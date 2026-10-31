@@ -8,10 +8,6 @@ import { DAY_SHARE as RENDERER_DAY_SHARE, KEYFRAMES } from "../../renderer/src/c
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheelRound, useSeasonWheel, type WheelRound, wheelDayNight } from "../src/data/season-wheel";
 import {
   CENTRE_TURNS,
-  DECOR,
-  DRIFT,
-  DRIFT_KEYFRAMES,
-  DRIFT_MS,
   DIAL_PX,
   DISC,
   DUSK_BLEND,
@@ -20,6 +16,8 @@ import {
   PEBBLE_BAND,
   SEASON_BLEND,
   SEASON_GLYPH,
+  STARS,
+  SUMMER_GLYPHS,
   SeasonWheel,
   TIME_DISC,
   TIME_GLYPH,
@@ -149,14 +147,22 @@ describe("the season dial's colours and room (#607)", () => {
     expect(container.querySelectorAll("line")).toHaveLength(2);
   });
 
-  it("blends the centre's day and night over 30° at dusk and at dawn, through the dusk tones (#930)", () => {
-    expect(DUSK_BLEND).toBe(30);
-    // Dawn at the top, dusk at `DAY_SHARE` of a turn (225°).
+  it("blends the centre's day and night over 60° at dusk and at dawn, wider than #935's 30°, through the dusk tones (#930)", () => {
+    expect(DUSK_BLEND).toBe(60);
+    // Dawn at the top, dusk at `DAY_SHARE` of a turn (225°), 30° of blend on each side of each.
     const mid = "color-mix(in oklab, var(--dial-day-top), var(--dial-night-top))";
     expect(timeSky("bottom")).toBe(
-      "conic-gradient(var(--sky-autumn-day-bottom), var(--dial-day-bottom) 15deg 210deg, var(--sky-autumn-day-bottom) 225deg, var(--dial-night-bottom) 240deg 345deg, var(--sky-autumn-day-bottom))",
+      "conic-gradient(var(--sky-autumn-day-bottom), var(--dial-day-bottom) 30deg 195deg, var(--sky-autumn-day-bottom) 225deg, var(--dial-night-bottom) 255deg 330deg, var(--sky-autumn-day-bottom))",
     );
-    expect(timeSky("top")).toContain(`var(--dial-day-top) 15deg 210deg, ${mid} 225deg, var(--dial-night-top) 240deg 345deg`);
+    expect(timeSky("top")).toContain(`var(--dial-day-top) 30deg 195deg, ${mid} 225deg, var(--dial-night-top) 255deg 330deg`);
+    // Each icon still on its full sky, out of the blends: the day's sun from 30° to 195°, the night's moon from 255° to 330°.
+    const bearing = (p: { x: number; y: number }) => ((Math.atan2(p.x - 50, 50 - p.y) * 180) / Math.PI + 360) % 360;
+    const b = DUSK_BLEND / 2;
+    const dusk = DAY_SHARE * 360;
+    expect(bearing(TIME_ICON_AT.with.day)).toBeGreaterThan(b);
+    expect(bearing(TIME_ICON_AT.with.day)).toBeLessThan(dusk - b);
+    expect(bearing(TIME_ICON_AT.with.night)).toBeGreaterThan(dusk + b);
+    expect(bearing(TIME_ICON_AT.with.night)).toBeLessThan(360 - b);
     const { container } = render(<SeasonWheel state="auto" />);
     expect(container.querySelector<HTMLElement>("[data-time-disc] [data-sky=time]")!.style.inset).toBe(`${50 - TIME_DISC}%`);
     // The dusk tones from the dial's own tokens: none of their own (the stylesheet's budget).
@@ -175,61 +181,22 @@ describe("the season dial's colours and room (#607)", () => {
     expect([...container.querySelectorAll("svg > circle[stroke='var(--dial-ring)']")].map((c) => Number(c.getAttribute("r")))).toEqual([49.25, DISC + 0.5]);
   });
 
-  it("twinkles the stars, drifts the clouds and glides the birds, all still under reduced motion (#930)", () => {
+  it("twinkles the stars, still under reduced motion, and draws no clouds or birds by day (#930's follow-up)", () => {
     expect(theme).toMatch(/@utility dial-twinkle \{\s*animation: dial-twinkle [^;]+;\s*@media \(prefers-reduced-motion: reduce\) \{\s*animation: none;/);
-    // The drift the geometry test allows for is the keyframes'.
-    expect(DRIFT_KEYFRAMES).toEqual([{ translate: "0 0" }, { translate: "4.4% -1.5%" }]);
-    expect(DRIFT.x).toBeCloseTo(1.5, 1);
-    expect(DRIFT_MS.cloud).toBeGreaterThan(DRIFT_MS.bird);
     const animate = vi.fn(() => ({ cancel: vi.fn() }));
     Element.prototype.animate = animate as unknown as Element["animate"];
     try {
-      const { container, unmount } = render(<SeasonWheel state="auto" />);
-      const of = (kind: string) => [...container.querySelectorAll(`[data-time-disc] [data-decor=${kind}]`)];
-      expect(of("star").length).toBeGreaterThan(2);
-      for (const star of of("star")) expect(star).toHaveClass("dial-twinkle");
-      expect(of("cloud").length).toBeGreaterThanOrEqual(2);
-      expect(of("bird").length).toBeGreaterThanOrEqual(2);
-      // The clouds drift as one and the birds as one, each group in the centre disc's box: two animations of an HTML box's
-      // translate, which the compositor runs. The stars twinkle in a layer of their own.
-      for (const kind of ["cloud", "bird"]) {
-        const group = of(kind).map((p) => p.parentElement);
-        expect(new Set(group).size, kind).toBe(1);
-        expect(group[0]).toHaveAttribute("data-drift", kind);
-        expect((group[0]!.parentElement as HTMLElement).style.inset).toBe(`${50 - TIME_DISC}%`);
-      }
-      expect((of("star")[0]!.parentElement!.parentElement as HTMLElement).style.willChange).toBe("transform");
-      expect(animate).toHaveBeenCalledTimes(2);
-      const calls = animate.mock.calls as unknown as [Keyframe[], KeyframeAnimationOptions][];
-      for (const [frames, options] of calls) {
-        expect(frames).toBe(DRIFT_KEYFRAMES);
-        expect(options).toMatchObject({ iterations: Infinity, direction: "alternate" });
-      }
-      expect(calls.map(([, o]) => o.duration)).toEqual([DRIFT_MS.cloud, DRIFT_MS.bird]);
-      unmount();
-      // Under reduced motion, nothing drifts.
-      animate.mockClear();
-      const listeners = new Set<() => void>();
-      const query = {
-        matches: true,
-        addEventListener: (_: string, l: () => void) => listeners.add(l),
-        removeEventListener: (_: string, l: () => void) => listeners.delete(l),
-      };
-      const matchMedia = vi.spyOn(window, "matchMedia").mockReturnValue(query as unknown as MediaQueryList);
-      const reduced = render(<SeasonWheel state="auto" />);
+      const { container } = render(<SeasonWheel state="auto" />);
+      const stars = [...container.querySelectorAll("[data-time-disc] [data-star]")];
+      expect(stars).toHaveLength(STARS.length);
+      expect(stars.length).toBeGreaterThan(2);
+      for (const star of stars) expect(star).toHaveClass("dial-twinkle");
+      // The stars twinkle in a layer of their own, so a twinkle does not paint the skies again.
+      expect((stars[0]!.parentElement!.parentElement as HTMLElement).style.willChange).toBe("transform");
+      // The day's half has its sun only: no clouds, no birds, nothing drifting by script.
+      expect(container.querySelector("[data-decor], [data-drift]")).toBeNull();
+      expect(container.querySelectorAll("[data-time-disc] path")).toHaveLength(STARS.length);
       expect(animate).not.toHaveBeenCalled();
-      // The setting turned off while the wheel is up: the drift starts; turned on again: every drift stops.
-      query.matches = false;
-      listeners.forEach((l) => l());
-      expect(animate).toHaveBeenCalledTimes(2);
-      const started = animate.mock.results.map((r) => r.value as { cancel: ReturnType<typeof vi.fn> });
-      query.matches = true;
-      listeners.forEach((l) => l());
-      for (const run of started) expect(run.cancel).toHaveBeenCalledOnce();
-      expect(animate).toHaveBeenCalledTimes(2);
-      reduced.unmount();
-      expect(listeners.size).toBe(0);
-      matchMedia.mockRestore();
     } finally {
       delete (Element.prototype as Partial<Element>).animate;
     }
@@ -244,11 +211,14 @@ describe("the season dial's colours and room (#607)", () => {
     expect(paletteTones(container.querySelector("[data-season=winter] svg")!)).toEqual(["ice"]);
     expect(paletteTones(container.querySelector("[data-season=autumn] svg")!)).toEqual(["orange"]);
     const time = (t: "day" | "night") => container.querySelector(`[data-time-icon=${t}] [data-slot=game-icon]`)!;
-    expect(time("day")).toHaveAttribute("data-icon", "cloud-sun");
+    expect(time("day")).toHaveAttribute("data-icon", "sun");
     expect(time("night")).toHaveAttribute("data-icon", "moon");
-    // The day told apart from summer at a glance: a sun behind a cloud, not summer's lone sun.
+    // The day is Font Awesome's Sun, without the cloud (#930's follow-up); summer takes the wheat sheaf, so the two are told
+    // apart at a glance.
+    expect(SEASON_GLYPH.summer).toBe("wheat-awn");
     expect(Object.values(SEASON_GLYPH)).not.toContain(TIME_GLYPH.day);
-    expect(paletteTones(time("day").querySelector("svg") ?? time("day"))).toEqual(["gold", "light"]);
+    expect(paletteTones(time("day").querySelector("svg") ?? time("day"))).toEqual(["gold"]);
+    expect(paletteTones(container.querySelector("[data-season=summer] svg")!)).toEqual(["gold"]);
     expect(paletteTones(time("night").querySelector("svg") ?? time("night"))).toEqual(["silver"]);
   });
 
@@ -298,34 +268,36 @@ describe("the season dial's colours and room (#607)", () => {
     }
   });
 
-  it("keeps the stars, the clouds and the birds on the centre disc, in their halves, off its icons, as far as they drift (#930)", () => {
+  it("draws summer's other candidates when asked (the owner to pick), none of them the day's sun, the wheat sheaf by default", () => {
+    expect(SUMMER_GLYPHS).toEqual(["wheat-awn", "fire-flame-curved", "umbrella-beach"]);
+    expect(SUMMER_GLYPHS[0]).toBe(SEASON_GLYPH.summer);
+    for (const glyph of SUMMER_GLYPHS) {
+      expect(glyph).not.toBe(TIME_GLYPH.day);
+      const { container, unmount } = render(<SeasonWheel state="summer" summerGlyph={glyph} />);
+      expect(container.querySelector("[data-season=summer] [data-slot=game-icon]"), glyph).toHaveAttribute("data-icon", glyph);
+      expect(container.querySelector("[data-season=autumn] [data-slot=game-icon]")).toHaveAttribute("data-icon", "leaf");
+      unmount();
+    }
+    const { container } = render(<SeasonWheel state="summer" />);
+    expect(container.querySelector("[data-season=summer] [data-slot=game-icon]")).toHaveAttribute("data-icon", "wheat-awn");
+  });
+
+  it("keeps the stars on the centre disc, in its night half, off its icons (#930)", () => {
     /** Clockwise from the top, in degrees. */
     const bearing = (x: number, y: number) => ((Math.atan2(x - 50, 50 - y) * 180) / Math.PI + 360) % 360;
-    for (const d of DECOR) {
-      const rad = (d.rot * Math.PI) / 180;
-      // A point of the decoration's own frame (about its anchor, turned by `rot`) on the dial, and back.
-      const out = (u: number, v: number) => [d.x + u * Math.cos(rad) - v * Math.sin(rad), d.y + u * Math.sin(rad) + v * Math.cos(rad)] as const;
-      const back = (x: number, y: number) => [(x - d.x) * Math.cos(rad) + (y - d.y) * Math.sin(rad), -(x - d.x) * Math.sin(rad) + (y - d.y) * Math.cos(rad)] as const;
-      const { x0, x1, y0, y1 } = d.box;
-      // The clouds and the birds drift on the disc by `DRIFT` and back: swept in tenths.
-      const steps = d.kind === "star" ? [0] : Array.from({ length: 11 }, (_, i) => i / 10);
-      for (const t of steps) {
-        for (const [u, v] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]] as const) {
-          const [ox, oy] = out(u, v);
-          const [x, y] = [ox + t * DRIFT.x, oy + t * DRIFT.y];
-          expect(Math.hypot(x - 50, y - 50), `${d.kind} at ${d.d}`).toBeLessThan(TIME_DISC - 0.2);
-          // By day before dusk (225°), by night after it.
-          const deg = bearing(x, y);
-          expect(d.kind === "star" ? deg > 225 : deg < 225, `${d.kind} at ${d.d}: ${deg}°`).toBe(true);
-        }
-        // The icons turn upright on the turning disc: each is taken as a round of its half, outline included, at the largest
-        // share of the dial (96 px). The "against" layout is the mirror of this one, so the same test holds for it.
-        for (const icon of ["day", "night"] as const) {
-          // The decoration drifted by t is the icon moved back by t.
-          const [u, v] = back(TIME_ICON_AT.with[icon].x - t * DRIFT.x, TIME_ICON_AT.with[icon].y - t * DRIFT.y);
-          const gap = Math.hypot(Math.max(x0 - u, 0, u - x1), Math.max(y0 - v, 0, v - y1));
-          for (const dial of DIAL_PX) expect(gap, `${d.kind} at ${d.d} drifted ${t}, the ${icon} icon at ${dial}`).toBeGreaterThan(half(TIME_ICON_PX[dial], dial));
-        }
+    for (const d of STARS) {
+      for (const [u, v] of [[-d.s, -d.s], [d.s, -d.s], [-d.s, d.s], [d.s, d.s]] as const) {
+        const [x, y] = [d.x + u, d.y + v];
+        expect(Math.hypot(x - 50, y - 50), `star at ${d.d}`).toBeLessThan(TIME_DISC - 0.2);
+        // By night, after dusk (225°).
+        expect(bearing(x, y), `star at ${d.d}`).toBeGreaterThan(225);
+      }
+      // The icons turn upright on the turning disc: each is taken as a round of its half, outline included, at the largest
+      // share of the dial (96 px). The "against" layout is the mirror of this one, so the same test holds for it.
+      for (const icon of ["day", "night"] as const) {
+        const { x, y } = TIME_ICON_AT.with[icon];
+        const gap = Math.hypot(Math.max(d.x - d.s - x, 0, x - d.x - d.s), Math.max(d.y - d.s - y, 0, y - d.y - d.s));
+        for (const dial of DIAL_PX) expect(gap, `star at ${d.d}, the ${icon} icon at ${dial}`).toBeGreaterThan(half(TIME_ICON_PX[dial], dial));
       }
     }
     expect(TIME_ICON_AT.against.day).toEqual({ x: 100 - TIME_ICON_AT.with.day.x, y: TIME_ICON_AT.with.day.y });
