@@ -18,6 +18,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { GUILD_EMBLEM_COLOUR_NAMES, GUILD_EMBLEM_ICON_NAMES, GuildEmblem } from "../elements/guild-emblem";
@@ -81,95 +82,97 @@ export function GuildFormSheet({ open, onOpenChange, mode, initial, onSubmit, pe
   const shown = draft.name.trim() === "" && mode === "create" ? null : invalid;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="guild-form" className="max-h-[92dvh] overflow-y-auto">
+      <SheetContent side={desktop ? "right" : "bottom"} data-slot="guild-form" className="max-h-[92dvh]">
         <SheetHeader>
           <SheetTitle>{mode === "create" ? "Create a guild" : "Guild settings"}</SheetTitle>
           <SheetDescription>{mode === "create" ? "Free for now. You become its Leader." : "Only the leader changes these."}</SheetDescription>
         </SheetHeader>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!invalid) onSubmit?.(mode === "create" ? draft : { ...draft, name: initial.name });
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <GuildEmblem emblem={draft.emblem} size="lg" />
-            {mode === "create" ? (
-              <div className="min-w-0 flex-1">
-                <Field label="Name" count={draft.name.trim().length} max={GUILD_NAME_MAX}>
-                  {(id) => <input id={id} className={FIELD} value={draft.name} maxLength={GUILD_NAME_MAX + 5} autoComplete="off" placeholder="The Quarrymen" onChange={(e) => set({ name: e.target.value })} />}
-                </Field>
-              </div>
-            ) : (
-              <p className="min-w-0 flex-1 font-semibold wrap-anywhere">{initial.name}</p>
-            )}
-          </div>
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1.5 text-sm font-semibold">Emblem</legend>
-            <ToggleGroup type="single" aria-label="Icon" className="flex-wrap" value={String(draft.emblem.icon)} onValueChange={(v) => v && set({ emblem: { ...draft.emblem, icon: Number(v) } })}>
-              {GUILD_EMBLEM_ICON_NAMES.map((name, i) => (
-                <ToggleGroupItem key={name} value={String(i)} aria-label={name.replace("-", " ")}>
-                  <Icon name={name} size="sm" fixedWidth />
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            {(["primary", "secondary"] as const).map((part) => (
-              <div key={part} className="flex flex-col gap-1">
-                <span aria-hidden className="text-xs text-muted-foreground">
-                  {part === "primary" ? "Shield" : "Band"}
-                </span>
-                <ToggleGroup
-                  type="single"
-                  aria-label={part === "primary" ? "Shield colour" : "Band colour"}
-                  className="flex-wrap"
-                  value={String(draft.emblem[part])}
-                  onValueChange={(v) => v && set({ emblem: { ...draft.emblem, [part]: Number(v) } })}
-                >
-                  {GUILD_EMBLEM_COLOUR_NAMES.map((name, i) => (
-                    <ToggleGroupItem key={name} value={String(i)} aria-label={`${part === "primary" ? "Shield" : "Band"}: ${name}`}>
-                      <span aria-hidden className="size-5 rounded-full border border-input" style={{ background: `var(--emblem-${i})` }} />
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
-            ))}
-          </fieldset>
-
-          <Field label="Description" count={draft.description.length} max={GUILD_DESCRIPTION_MAX}>
-            {(id) => <textarea id={id} rows={3} className={cn(FIELD, "resize-none")} value={draft.description} onChange={(e) => set({ description: e.target.value })} />}
-          </Field>
-
-          <fieldset className="flex flex-col gap-1.5">
-            <legend className="mb-1.5 text-sm font-semibold">Who can join</legend>
-            <ToggleGroup type="single" aria-label="Who can join" className="flex-wrap" value={draft.joinType} onValueChange={(v) => v && set({ joinType: v as GuildJoinType })}>
-              {GUILD_JOIN_TYPES.map((t) => (
-                <ToggleGroupItem key={t} value={t}>
-                  <Icon name={JOIN_TYPES[t].icon} size="xs" fixedWidth />
-                  {JOIN_TYPES[t].label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            <p className="text-xs text-muted-foreground">{JOIN_TYPES[draft.joinType].line}</p>
-          </fieldset>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Minimum level">
-              {(id) => <input id={id} type="number" inputMode="numeric" min={0} max={LEVEL_CAP} className={cn(FIELD, "numeric")} value={draft.requirements.level} onChange={(e) => set({ requirements: { ...draft.requirements, level: count(e.target.value, LEVEL_CAP) } })} />}
-            </Field>
-            <Field label="Minimum crowns">
-              {(id) => (
-                <input id={id} type="number" inputMode="numeric" min={0} max={GUILD_MAX_CROWNS_REQUIRED} step={50} className={cn(FIELD, "numeric")} value={draft.requirements.crowns} onChange={(e) => set({ requirements: { ...draft.requirements, crowns: count(e.target.value, GUILD_MAX_CROWNS_REQUIRED) } })} />
+        <ScrollRegion className="-mx-6 min-h-0 px-6">
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!invalid) onSubmit?.(mode === "create" ? draft : { ...draft, name: initial.name });
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <GuildEmblem emblem={draft.emblem} size="lg" />
+              {mode === "create" ? (
+                <div className="min-w-0 flex-1">
+                  <Field label="Name" count={draft.name.trim().length} max={GUILD_NAME_MAX}>
+                    {(id) => <input id={id} className={FIELD} value={draft.name} maxLength={GUILD_NAME_MAX + 5} autoComplete="off" placeholder="The Quarrymen" onChange={(e) => set({ name: e.target.value })} />}
+                  </Field>
+                </div>
+              ) : (
+                <p className="min-w-0 flex-1 font-semibold wrap-anywhere">{initial.name}</p>
               )}
-            </Field>
-          </div>
+            </div>
 
-          <InlineError title={mode === "create" ? "Create" : "Settings"} message={error ?? (shown ? REFUSALS[shown] : null)} />
-          <Button type="submit" disabled={invalid !== null} loading={pending}>
-            {mode === "create" ? "Create the guild" : "Save"}
-          </Button>
-        </form>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1.5 text-sm font-semibold">Emblem</legend>
+              <ToggleGroup type="single" aria-label="Icon" className="flex-wrap" value={String(draft.emblem.icon)} onValueChange={(v) => v && set({ emblem: { ...draft.emblem, icon: Number(v) } })}>
+                {GUILD_EMBLEM_ICON_NAMES.map((name, i) => (
+                  <ToggleGroupItem key={name} value={String(i)} aria-label={name.replace("-", " ")}>
+                    <Icon name={name} size="sm" fixedWidth />
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              {(["primary", "secondary"] as const).map((part) => (
+                <div key={part} className="flex flex-col gap-1">
+                  <span aria-hidden className="text-xs text-muted-foreground">
+                    {part === "primary" ? "Shield" : "Band"}
+                  </span>
+                  <ToggleGroup
+                    type="single"
+                    aria-label={part === "primary" ? "Shield colour" : "Band colour"}
+                    className="flex-wrap"
+                    value={String(draft.emblem[part])}
+                    onValueChange={(v) => v && set({ emblem: { ...draft.emblem, [part]: Number(v) } })}
+                  >
+                    {GUILD_EMBLEM_COLOUR_NAMES.map((name, i) => (
+                      <ToggleGroupItem key={name} value={String(i)} aria-label={`${part === "primary" ? "Shield" : "Band"}: ${name}`}>
+                        <span aria-hidden className="size-5 rounded-full border border-input" style={{ background: `var(--emblem-${i})` }} />
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </div>
+              ))}
+            </fieldset>
+
+            <Field label="Description" count={draft.description.length} max={GUILD_DESCRIPTION_MAX}>
+              {(id) => <textarea id={id} rows={3} className={cn(FIELD, "resize-none")} value={draft.description} onChange={(e) => set({ description: e.target.value })} />}
+            </Field>
+
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="mb-1.5 text-sm font-semibold">Who can join</legend>
+              <ToggleGroup type="single" aria-label="Who can join" className="flex-wrap" value={draft.joinType} onValueChange={(v) => v && set({ joinType: v as GuildJoinType })}>
+                {GUILD_JOIN_TYPES.map((t) => (
+                  <ToggleGroupItem key={t} value={t}>
+                    <Icon name={JOIN_TYPES[t].icon} size="xs" fixedWidth />
+                    {JOIN_TYPES[t].label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              <p className="text-xs text-muted-foreground">{JOIN_TYPES[draft.joinType].line}</p>
+            </fieldset>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Minimum level">
+                {(id) => <input id={id} type="number" inputMode="numeric" min={0} max={LEVEL_CAP} className={cn(FIELD, "numeric")} value={draft.requirements.level} onChange={(e) => set({ requirements: { ...draft.requirements, level: count(e.target.value, LEVEL_CAP) } })} />}
+              </Field>
+              <Field label="Minimum crowns">
+                {(id) => (
+                  <input id={id} type="number" inputMode="numeric" min={0} max={GUILD_MAX_CROWNS_REQUIRED} step={50} className={cn(FIELD, "numeric")} value={draft.requirements.crowns} onChange={(e) => set({ requirements: { ...draft.requirements, crowns: count(e.target.value, GUILD_MAX_CROWNS_REQUIRED) } })} />
+                )}
+              </Field>
+            </div>
+
+            <InlineError title={mode === "create" ? "Create" : "Settings"} message={error ?? (shown ? REFUSALS[shown] : null)} />
+            <Button type="submit" disabled={invalid !== null} loading={pending}>
+              {mode === "create" ? "Create the guild" : "Save"}
+            </Button>
+          </form>
+        </ScrollRegion>
       </SheetContent>
     </Sheet>
   );

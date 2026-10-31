@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { GuildCandidate } from "@paved/game-core";
 import { GuildPage, type GuildPageAction } from "../../components/containers/guild-page";
+import { ScrollRegion } from "../../components/ui/scroll-region";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
@@ -85,26 +86,28 @@ export function GuildSheet({ id, me, player, candidate, now, open, onClose, writ
   const apply = guild && player && me !== null && guild.rank === null ? guildApply(guild, player, candidate) : undefined;
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="guild-sheet" className="max-h-[92dvh] overflow-y-auto desktop:max-w-md">
+      <SheetContent side={desktop ? "right" : "bottom"} data-slot="guild-sheet" className="max-h-[92dvh] desktop:max-w-md">
         <SheetHeader className={guild ? "sr-only" : undefined}>
           <SheetTitle>{guild ? guild.name : guild === null ? "Guild not found" : "Guild"}</SheetTitle>
           <SheetDescription>{guild ? `${guild.tag}, ${guild.members} members` : guild === null ? "No guild has this tag any more." : read.unavailable ? "Guilds are not on this network yet." : "Looking for this guild…"}</SheetDescription>
         </SheetHeader>
-        {guild === undefined && read.isPending && <Skeleton aria-busy className="h-48 rounded-xl" />}
-        <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />
-        {guild && (
-          <GuildPage
-            guild={guild}
-            me={me}
-            now={now}
-            apply={apply}
-            onOpenPlayer={onOpenPlayer}
-            onAction={async (a) => {
-              await writes.run(pageWrite(a, guild.id));
-              if ((a.type === "join" || (a.type === "answer-invitation" && a.accept)) && guild.rank === null) onClose();
-            }}
-          />
-        )}
+        <ScrollRegion className="-mx-6 flex min-h-0 flex-col gap-4 px-6">
+          {guild === undefined && read.isPending && <Skeleton aria-busy className="h-48 rounded-xl" />}
+          <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />
+          {guild && (
+            <GuildPage
+              guild={guild}
+              me={me}
+              now={now}
+              apply={apply}
+              onOpenPlayer={onOpenPlayer}
+              onAction={async (a) => {
+                await writes.run(pageWrite(a, guild.id));
+                if ((a.type === "join" || (a.type === "answer-invitation" && a.accept)) && guild.rank === null) onClose();
+              }}
+            />
+          )}
+        </ScrollRegion>
       </SheetContent>
     </Sheet>
   );
