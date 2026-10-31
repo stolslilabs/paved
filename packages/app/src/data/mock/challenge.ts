@@ -85,6 +85,54 @@ export function replayOf(game: StoredGame): SeededChallenge {
   return played;
 }
 
+/** What a game over reports to the quests and achievements (`quests.cairo`'s `Tally`): its score and counters, clamped as stored. */
+export interface GameTally {
+  score: number;
+  /** Roads and cities scored (task 2). */
+  structures: number;
+  /** Forests scored (task 4). */
+  forests: number;
+  /** Wonders scored (task 5). */
+  wonders: number;
+  /** Roads and cities of `BIG_SIZE` tiles or more scored (task 6). */
+  big: number;
+}
+
+/** `Category` codes of the `Scored` events (`CategoryType`'s order). */
+const FOREST = 1;
+const ROAD = 2;
+const CITY = 3;
+const WONDER = 5;
+/** `constants::BIG_SIZE`. */
+const BIG_SIZE = 8;
+
+/** The tallies counted, by game and moves: a game over never moves again. */
+const tallies = new Map<string, { moves: number; tally: GameTally }>();
+
+/**
+ * The tally of a stored game (`quests::tally`): its moves played again and every `Scored` event counted, the counters clamped
+ * to their widths in `GameState` (7, 6, 4 and 6 bits).
+ */
+export function tallyOf(game: StoredGame): GameTally {
+  const key = `${game.player}:${game.id}:${game.seed}`;
+  const kept = tallies.get(key);
+  if (kept && kept.moves === game.moves.length) return kept.tally;
+  const played = new SeededChallenge(BigInt(game.seed), BigInt(game.player));
+  const counts = { structures: 0, forests: 0, wonders: 0, big: 0 };
+  for (const move of game.moves) {
+    for (const s of played.play(move).scored) {
+      if (s.category === ROAD || s.category === CITY) {
+        counts.structures += 1;
+        if (s.size >= BIG_SIZE) counts.big += 1;
+      } else if (s.category === FOREST) counts.forests += 1;
+      else if (s.category === WONDER) counts.wonders += 1;
+    }
+  }
+  const tally = { score: played.score, structures: Math.min(counts.structures, 0x7f), forests: Math.min(counts.forests, 0x3f), wonders: Math.min(counts.wonders, 0xf), big: Math.min(counts.big, 0x3f) };
+  tallies.set(key, { moves: game.moves.length, tally });
+  return tally;
+}
+
 /** `Challenge.game(id)` of a stored game. */
 export function gameView(game: StoredGame): GameView {
   const view = replayOf(game).view();

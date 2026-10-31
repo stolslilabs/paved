@@ -7,7 +7,7 @@ import { App } from "../src/App";
 import { shortAddress } from "../src/components/elements/short-address";
 import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
 import { drawNewPlayer, welcomeNewPlayer } from "../src/data/mock/new-player";
-import { mockConnector, mockIndexer } from "../src/data/mock/overlay";
+import { mockConnector } from "../src/data/mock/overlay";
 import { PLAYER_NAME } from "../src/lib/player-names";
 import { AVATAR_FREE_IDS, AVATAR_ITEMS, AVATAR_PARTS_IN_USE, ownedIds } from "../src/mocks/avatar";
 import { SETTINGS_KEY } from "../src/data/settings";
@@ -146,11 +146,10 @@ describe("mockConnector's new player (#926)", () => {
 });
 
 describe("mockIndexer's player (#926)", () => {
-  it("answers the ledger's name for a player the indexer has no name for, and leaves a known name alone", async () => {
+  it("answers the ledger's name for a player of the device, and none for an address the ledger never saw", async () => {
     const s = mockImplementation();
-    const me = s.sources.signer!.address;
-    const indexer = mockIndexer(s.chain.indexer, s.ledger);
-    expect((await indexer.player(me)).data.player?.name ?? null).toBe((await s.chain.indexer.player(me)).data.player?.name ?? null);
+    const indexer = s.sources.indexer;
+    expect((await indexer.player("0x777")).data).toEqual({ player: null, stats: null });
     await s.ledger.writesFor("0x777").setName("SwiftCarter04");
     expect((await indexer.player("0x777")).data.player).toMatchObject({ name: "SwiftCarter04", created: null });
   });

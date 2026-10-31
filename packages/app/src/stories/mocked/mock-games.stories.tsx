@@ -4,11 +4,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { Toaster } from "sonner";
-import { FakeGameViews, IndexerClient, WriteError, settlesAfter, type EconomyViews, type GameKey, type WriteAccount } from "@paved/chain";
+import { FakeGameViews, WriteError, settlesAfter, type EconomyViews, type GameKey, type WriteAccount } from "@paved/chain";
 import { CENTER, OrientationType, replayVrfChallenge, type KeyValueStore } from "@paved/game-core";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "../../components/scenes/viewports";
 import type { DataSources, GameSigner, Purchases } from "../../data/sources";
+import { mockIndexer } from "../../data/mock/indexer";
 import { MOCK_KEY, MockLedger } from "../../data/mock/ledger";
 import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockSettlements, mockSigner } from "../../data/mock/overlay";
 import { APP_MANIFEST } from "../../mocks/assets";
@@ -24,7 +25,7 @@ import { WalletProvider, useAccount, type LoadConnector } from "../../wallet/wal
  * the device's ledger alone. A game is bought with the ledger's USDC, played on the board by game-core's rules (the VRF's queue,
  * each draw from the seed kept with the game), recorded at its end and settled from the end of the next day, its reward minted
  * in the ledger's PAVED. Each story seeds the ledger's games (bought and played by the ledger itself, at the times it says),
- * then mounts the route. No chain, no indexer: the pages' clock is the device's.
+ * then mounts the route. No chain, no indexer (the ledger's answers its routes, #927 PR 5): the pages' clock is the device's.
  */
 const meta = { title: "Pages/Mock games", parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
@@ -94,7 +95,7 @@ async function seeded(seed: Seed): Promise<KeyValueStore> {
 /** The app's sources on the ledger alone, and a connected player whose writes are the ledger's. */
 function environment(store: KeyValueStore) {
   const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs: 600 });
-  const indexer = new IndexerClient({ url: "http://indexer.invalid/", fetch: (() => Promise.reject(new Error("No indexer in this story"))) as typeof fetch });
+  const indexer = mockIndexer(ledger);
   const noChain: Purchases = { purchase: () => Promise.reject(new WriteError("no chain")), buyPack: () => Promise.reject(new WriteError("no chain")), referrer: async () => null, receipt: async () => "unknown" };
   const sources: DataSources = {
     views: mockGameViews(new FakeGameViews(), ledger),

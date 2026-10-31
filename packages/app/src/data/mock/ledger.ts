@@ -120,6 +120,7 @@ import {
   layoutSlotOpen,
   layoutSlotPrice,
   levelStatus,
+  xpFloor,
   offerPlans,
   parcelLevel,
   parcelPrice,
@@ -147,6 +148,7 @@ import {
 } from "@paved/game-core";
 import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
+import { seededPlayer } from "./players";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
@@ -338,12 +340,6 @@ interface StoredPlayer {
    */
   paved: string;
   usdc: string;
-  /**
-   * The Challenge games the player surrendered through the mock's signer (#869): game id to the surrender's time, in seconds.
-   * The indexer has no finish time for a game over on a later UTC day than its start, and a surrender can come days later: the
-   * fifth daily counts it on this time. Absent: none (a state stored before it).
-   */
-  surrenders?: Record<string, number>;
   /** `avatar(player_id)`, a decimal string; absent: none set (a state stored before the avatar reads it so). */
   avatar?: string;
   /** The player's name (#926), drawn at their first connection (`nameAtConnection`); absent: none (an account before it). */
@@ -427,6 +423,9 @@ const PLAY_REFUSALS: Record<string, PvpRefusal> = {
 
 /** The league of a crown count (`league_of`). */
 const leagueIndex = (crowns: number): number => LEAGUE_FLOORS.filter((f) => f <= crowns).length;
+
+/** A level's status at its floor's XP: a seeded player's (`players.ts`). */
+const levelAt = (level: number) => levelStatus(xpFloor(level));
 
 /** The next tile of an attack: its draw's random (a Poseidon for the VRF) modulo the tiles left, the rank among those not drawn. */
 function drawTile(account: string, a: StoredAttack): number {
@@ -598,21 +597,22 @@ export class MockLedger {
     this.dailiesDone = read;
   }
 
-  /** The Challenge games `playerId` surrendered through the mock (#869), game id to the surrender's time in seconds. */
-  surrenders(playerId: string): Readonly<Record<string, number>> {
-    this.sync();
-    return { ...this.peek(playerId).surrenders };
+  // --- The indexer's rows (#927) -------------------------------------------------------------------------------------
+
+  /** The time of the mock's indexer: the ledger's clock, in whole seconds (its head's block time). */
+  seconds(): number {
+    return this.second();
   }
 
-  /**
-   * A Challenge game's surrender, recorded at `time` (seconds, now by default) by the mock's signer once the chain took it
-   * (`mockSigner`'s `surrender`): the finish the fifth daily counts it on (#869).
-   */
-  async recordSurrender(account: string, gameId: number, time = Math.floor(Date.now() / 1000)): Promise<void> {
-    await this.write(account, (p) => {
-      p.surrenders = { ...p.surrenders, [gameId]: time };
-      return [];
-    });
+  /** Every Challenge game of the device, of every account, as stored (`challenge.ts`): the rows the mock's indexer reads. */
+  challengeGames(): readonly StoredGame[] {
+    return Object.values(this.challenge().games);
+  }
+
+  /** Whether `playerId` is an account of the device: it wrote to the ledger at least once. */
+  knows(playerId: string): boolean {
+    this.sync();
+    return addressKey(playerId) in this.state.players;
   }
 
   /** `/v1/players/:id/referrals`: the mock's player referred nobody yet. */
@@ -627,6 +627,12 @@ export class MockLedger {
    * (game-core's `levelStatus`; at the cap `next` is the level's floor). The Challenge's games give no XP.
    */
   async playerLevel(playerId: string): Promise<PlayerLevel> {
+    // A seeded player (`players.ts`) is at its level's floor.
+    const seeded = seededPlayer(playerId);
+    if (seeded) {
+      const { xp, level, floor, next } = levelAt(seeded.level);
+      return { xp, level, floor, next };
+    }
     this.sync();
     const { xp, level, floor, next } = levelStatus(this.peek(playerId).v2?.xp ?? 0);
     return { xp, level, floor, next };
@@ -708,13 +714,15 @@ export class MockLedger {
 
   /** `Avatar.avatar(player_id)`: a rival of the mock saved none, so it wears the face its battle logs show (#834, #926). */
   async avatar(playerId: string): Promise<bigint> {
-    if (mockRival(playerId) || mockRivalV2(playerId)) return generatedLook(playerId);
+    if (mockRival(playerId) || mockRivalV2(playerId) || seededPlayer(playerId)) return generatedLook(playerId);
     this.sync();
     return BigInt(this.peek(playerId).avatar ?? "0");
   }
 
   /** The player's name (#926), null when they have none: a rival's is its own (`rivalName`). */
   async name(playerId: string): Promise<string | null> {
+    const seeded = seededPlayer(playerId);
+    if (seeded) return seeded.name;
     this.sync();
     return this.peek(playerId).name ?? null;
   }
@@ -798,7 +806,7 @@ export class MockLedger {
   /** `Matchmaker.league(v)`: the season of the mock's clock, the crowns and their league, the season's peak and attacks. */
   async pvpLeague(village: string): Promise<LeagueStatus> {
     const season = mockSeasonOf(Math.floor(Date.now() / 1000));
-    const rival = mockRival(village);
+    const rival = mockRival(village) ?? seededPlayer(village);
     if (rival) return { season, crowns: rival.crowns, league: leagueIndex(rival.crowns), peak: leagueIndex(rival.crowns), attacks: 0, pending: 0 };
     this.sync();
     const pvp = this.peek(village).pvp;
@@ -863,6 +871,16 @@ export class MockLedger {
   async freeVillage(playerId: string): Promise<FreeVillageView> {
     const rival = mockRivalV2(playerId);
     if (rival) return { founded: true, xp: 0, level: rival.level, slots: rival.slots, tiles: rival.tiles.map((t) => ({ ...t })), score: rival.score };
+    const seeded = seededPlayer(playerId);
+    if (seeded) {
+      // A seeded player's village is the layout of a rival of its level or below (the highest such, then the seeded one's turn).
+      const fits = mockRivalsV2().filter((r) => r.level <= seeded.level);
+      const top = Math.max(...fits.map((r) => r.level));
+      const same = fits.filter((r) => r.level === top);
+      const layout = same[seeded.index % same.length]!;
+      const { xp, slots } = levelAt(seeded.level);
+      return { founded: true, xp, level: seeded.level, slots, tiles: layout.tiles.map((t) => ({ ...t })), score: layout.score };
+    }
     this.sync();
     const v2 = this.peek(playerId).v2 ?? freshV2();
     const { xp, level, slots } = levelStatus(v2.xp);
@@ -985,9 +1003,9 @@ export class MockLedger {
     return [...attacks, ...defences].sort((x, y) => x.finishedAt - y.finishedAt || (x.side === y.side ? 0 : x.side === "attack" ? -1 : 1)).reverse();
   }
 
-  /** A rival village's name (the mock's opponents, PvP v1's and v2's), or null for any other player. */
+  /** A rival village's name (the mock's opponents, PvP v1's and v2's) or a seeded player's (`players.ts`), or null for any other player. */
   rivalName(playerId: string): string | null {
-    return mockRival(playerId)?.name ?? mockRivalV2(playerId)?.name ?? null;
+    return mockRival(playerId)?.name ?? mockRivalV2(playerId)?.name ?? seededPlayer(playerId)?.name ?? null;
   }
 
   /** The indexer's attacks that ended (`/players/:id/attacks` and `/defences`): the mock's rivals never attack, so a village has none. */
@@ -2219,8 +2237,6 @@ export class MockLedger {
         const dayId = game.end !== 0 && dayOfTime(game.end) === dayOfTime(game.start) ? dayOfTime(game.start) : 0;
         events.push(this.event("GameOver", { gameId: game.id, playerId: player, dayId, mode: 1, score: outcome.score, startTime: game.start, endTime: game.end }));
         if (game.stake > 0) events.push(this.event("Recorded", { gameId: game.id, score: outcome.score, expired: game.expired }));
-        // The fifth daily counts a surrender on its own day (#869), as the chain's surrender recorded it.
-        if (move.kind === "surrender") p.surrenders = { ...(p.surrenders ?? {}), [String(game.id)]: now };
       }
       return events;
     });

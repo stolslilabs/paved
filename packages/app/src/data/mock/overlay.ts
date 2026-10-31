@@ -1,14 +1,14 @@
-import { IndexerError, type AttackPlay, type BuyAvatarItemRequest, type BuyParcelRequest, type EconomyViews, type EventReader, type GameViews, type IndexerClient, type PoolQuoter } from "@paved/chain";
+import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
-import { dailiesDone, gamesUpTo, needsMockDailies, surrenderedOnDay, withMockDailies, withMockDailyProgress } from "./dailies";
 import type { MockLedger, MockedReads } from "./ledger";
 
-// The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the events, the pool, the indexer
-// client, the account's `PavedWriter`, its purchases, settlement and Vault writes) and answers the entry points the deployed
-// classes lack from the mock ledger, every other one from the chain, unchanged. Since #927 the Challenge's games, their
-// purchase, moves and settlement are the ledger's too. The app applies them when the data source is `mock` (`data-source.ts`):
-// `chain-client.ts`, `economy-client.ts`, `settle-client.ts`, `wallet/connector.ts`, `routes/sources.ts`.
+// The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the events, the pool, the
+// account's `PavedWriter`, its purchases, settlement and Vault writes) and answers the entry points the deployed classes lack
+// from the mock ledger, every other one from the chain, unchanged. Since #927 the Challenge's games, their purchase, moves and
+// settlement are the ledger's too, and the indexer is the ledger's alone (`indexer.ts`, no overlay: no indexer is asked). The
+// app applies them when the data source is `mock` (`data-source.ts`): `chain-client.ts`, `economy-client.ts`,
+// `settle-client.ts`, `wallet/connector.ts`, `routes/sources.ts`.
 
 /** `GameViews`' reads (and the Cobbles', packs', skins', avatar's, village's and PvP's views beside them on `RpcGameViews`) the mock answers. */
 export const MOCKED_GAME_READS = [
@@ -113,72 +113,6 @@ export function mockEconomyViews(chain: EconomyViews, ledger: MockLedger): Econo
   return overlay(chain, MOCKED_ECONOMY_READS, bound(ledger, MOCKED_ECONOMY_READS));
 }
 
-/** A player's id as the indexer writes it: 64 hex digits. */
-const indexerId = (playerId: string | bigint) => `0x${BigInt(playerId).toString(16).padStart(64, "0")}`;
-
-/**
- * The indexer with the ledger's Cobbles in the definitions, its referrals and its attacks (an indexer that predates them has no
- * route), the ledger's name for a player the indexer names not (#926), and the fifth daily of #869 in the definitions and each day's progress (`dailies.ts`). The ledger counts a day's
- * dailies done through it for the milestones' claims.
- */
-export function mockIndexer(chain: IndexerClient, ledger: MockLedger): IndexerClient {
-  const definitions = async () => {
-    const answer = await chain.definitions();
-    return { ...answer, data: ledger.definitions(withMockDailies(answer.data)) };
-  };
-  const playerQuests = async (playerId: string | bigint, params: { day?: number } = {}) => {
-    const [answer, defined] = await Promise.all([chain.playerQuests(playerId, params), chain.definitions()]);
-    if (!needsMockDailies(defined.data, answer.data)) return answer;
-    const day = answer.data.day;
-    const games = await gamesUpTo(day, async (before) => (await chain.playerGames(playerId, { contract: "challenge", limit: 100, ...(before ? { before } : {}) })).data);
-    // The games surrendered that day long after their start (#869): past the pages read, each read by its id.
-    const surrenders = ledger.surrenders(String(playerId));
-    const older = await Promise.all(
-      surrenderedOnDay(day, games, surrenders).map((id) =>
-        chain.game("challenge", id).then(
-          (a) => a.data,
-          () => null,
-        ),
-      ),
-    );
-    return { ...answer, data: withMockDailyProgress(defined.data, answer.data, [...games, ...older.filter((g) => g !== null)], surrenders) };
-  };
-  ledger.countDailiesWith(async (playerId, day) => {
-    const [defined, progress] = await Promise.all([definitions(), playerQuests(playerId, { day })]);
-    return dailiesDone(defined.data, progress.data);
-  });
-  return overlay(chain, ["definitions", "playerQuests", "playerReferrals", "playerAttacks", "playerAttack", "player"], {
-    playerQuests,
-    playerAttack: async (attacker: string | bigint, id: number) => {
-      const row = ledger.attacksOf(String(attacker), "attacker").find((a) => a.id === id);
-      if (!row) throw new IndexerError("not-found", "attack not found", { httpStatus: 404 });
-      return { ...(await chain.head()), data: row };
-    },
-    // A rival village of the mock (`mock/pvp.ts`) is on no indexer: its name is the mock's.
-    player: async (playerId: string | bigint) => {
-      const rival = ledger.rivalName(String(playerId));
-      if (rival === null) {
-        // The mock's player is named by the ledger (#926): the indexer has no name for an account made since #920.
-        const [answer, name] = await Promise.all([chain.player(playerId), ledger.name(String(playerId))]);
-        const known = answer.data.player;
-        if (name === null || known?.name) return answer;
-        return { ...answer, data: { ...answer.data, player: { playerId: known?.playerId ?? indexerId(playerId), name, created: known?.created ?? null } } };
-      }
-      const head = await chain.head();
-      return { ...head, data: { player: { playerId: indexerId(playerId), name: rival, created: null }, stats: null } };
-    },
-    playerAttacks: async (playerId: string | bigint, side: "attacker" | "defender", params: { limit?: number } = {}) => {
-      const head = await chain.head();
-      return { ...head, data: ledger.attacksOf(String(playerId), side).slice(0, params.limit ?? 50) };
-    },
-    definitions,
-    playerReferrals: async (playerId: string | bigint) => {
-      const head = await chain.head();
-      return { ...head, data: ledger.referrals(String(playerId)) };
-    },
-  });
-}
-
 /**
  * The account's writer with the ledger's faucet, a game's moves and the free spawn (#927), the claims, skin, avatar and village
  * writes. Every other write is the writer's: it stays the `PavedWriter` the purchases and the Vault check for.
@@ -188,7 +122,7 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
   return overlay(writer, MOCKED_WRITES, {
     // The faucet (#927): the ledger's USDC, with no cap, so "Get test USDC" is always there.
     mint: writes.mint,
-    // A game's moves (#927), by game-core's rules on the ledger's game; a surrender keeps its time for the fifth daily (#869).
+    // A game's moves (#927), by game-core's rules on the ledger's game.
     build: writes.build,
     discard: writes.discard,
     surrender: writes.surrender,
