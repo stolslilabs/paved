@@ -78,7 +78,7 @@ describe("the search's Follow (#954)", () => {
     const onFollow = vi.fn(() => Promise.reject(new FollowRefusedError("limit")));
     const { rerender } = render(wrap(<FollowResultButton state="follow" name="Wren" onFollow={onFollow} />));
     await userEvent.click(screen.getByRole("button", { name: "Follow Wren" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("You follow 500 players, the most");
+    expect(await screen.findByText(/You follow 500 players, the most/)).toBeInTheDocument();
     rerender(wrap(<FollowResultButton state="following" name="Wren" />));
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText("Following")).toBeInTheDocument();

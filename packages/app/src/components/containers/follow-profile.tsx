@@ -51,7 +51,6 @@ export function FollowProfileActions({ status, name, onAction }: FollowProfileAc
       )}
       <Button
         variant="ghost"
-        className="text-destructive-text"
         onClick={() =>
           ask(
             { title: `Block ${who}?`, text: "Each of you stops following the other. They can no longer follow you, message you or invite you to a guild, and you no longer see their messages. They are not told.", confirm: "Block", destructive: true },

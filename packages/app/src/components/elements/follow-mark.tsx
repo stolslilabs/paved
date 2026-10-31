@@ -3,7 +3,7 @@ import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 
 /**
- * The mark of a player who follows the viewer (#954): "Friend" when the viewer follows them too, else "Follows you". None
+ * The mark of a player who follows the viewer (issue 954): "Friend" when the viewer follows them too, else "Follows you". None
  * otherwise. Never says whether they block the viewer.
  */
 export function FollowMark({ status, className }: { status: Pick<FollowStatus, "followsYou" | "friend">; className?: string }) {

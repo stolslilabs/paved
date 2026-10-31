@@ -2,6 +2,7 @@ import { useState } from "react";
 import { followErrorText } from "../../lib/follow-text";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { InlineError } from "../elements/inline-error";
 
 /** Where the viewer stands with a player found by the search: what its button offers. */
 export type FollowResultState = "follow" | "follow-back" | "following" | "blocking";
@@ -47,11 +48,7 @@ export function FollowResultButton({ state, name, onFollow }: FollowResultButton
         <Icon name="plus" size="xs" />
         {state === "follow-back" ? "Follow back" : "Follow"}
       </Button>
-      {error && (
-        <span role="alert" className="max-w-28 text-right text-xs text-muted-foreground">
-          {error}
-        </span>
-      )}
+      <InlineError title="Follow" message={error} className="max-w-56" />
     </span>
   );
 }
