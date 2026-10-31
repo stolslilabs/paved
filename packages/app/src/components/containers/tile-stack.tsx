@@ -453,7 +453,7 @@ export function TileStack({
         className="pointer-events-auto w-full rounded-xl bg-card shadow-lg"
       />
       {(hint || busy) && (
-        <p data-testid="hand-hint" className="rounded-full bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow">
+        <p data-testid="hand-hint" className="rounded-full bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow-sm">
           {busy ? "Placing…" : "Tap a lit slot on the board."}
         </p>
       )}

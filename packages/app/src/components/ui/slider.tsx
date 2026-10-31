@@ -24,7 +24,7 @@ export function Slider({ className, defaultValue, value, min = 0, max = 100, "ar
           aria-label={label && thumbs.length > 1 ? `${label} ${i === 0 ? "min" : "max"}` : label}
           aria-valuetext={valueText}
           data-slot="slider-thumb"
-          className="block size-5 shrink-0 rounded-full border-2 border-primary bg-background shadow transition-[box-shadow] outline-none hover:ring-4 hover:ring-ring/30 focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none motion-reduce:transition-none"
+          className="block size-5 shrink-0 rounded-full border-2 border-primary bg-background shadow-sm transition-[box-shadow] outline-none hover:ring-4 hover:ring-ring/30 focus-visible:ring-4 focus-visible:ring-ring/60 disabled:pointer-events-none motion-reduce:transition-none"
         />
       ))}
     </SliderPrimitive.Root>
