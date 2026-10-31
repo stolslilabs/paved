@@ -3,7 +3,8 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // CSS-CLEANUP: the app's stylesheet (src/styles/index.css) keeps out the utilities the scanner reads in words that are no class
-// names. This holds the list to it: none of its words is a class in the app's sources (stories aside: Storybook scans them itself).
+// names. This holds the list to it, strictly: a string of the app's sources (stories aside: Storybook scans them itself) that
+// holds one of its words fails, unless it plainly is no class list. A class map, a ternary or a `cn()` argument fails.
 const SRC = resolve(import.meta.dirname, "../src");
 const index = readFileSync(join(SRC, "styles/index.css"), "utf8");
 const excluded = index.match(/@source not inline\("([^"]+)"\)/)![1]!.split(" ");
@@ -19,28 +20,71 @@ function appFiles(dir: string): string[] {
 /** A class name: variants and a utility, its arbitrary values in brackets or parentheses. */
 const classLike = (token: string) => /^!?[a-z0-9-][\w\-:/.!*&>@]*$/.test(token.replace(/\[[^\]]*\]|\([^)]*\)/g, "x"));
 
-/** The class names of a source: each string literal that is a list of class names, or one class after `className=`, `cn(`, `&&`. */
-function classes(source: string): Set<string> {
+/** Props, attributes and fields whose string is never a class: a variant's name, an ARIA role, an SVG or style value, a state. */
+const NOT_CLASS_KEYS = new Set(["variant", "role", "overflow", "visibility", "willChange", "kind", "state", "playbackState"]);
+
+/**
+ * Whether a string at `at` is plainly no class list, from what precedes it in its statement: a comparison, `setAttribute(`, a
+ * type union, or the value of a key of NOT_CLASS_KEYS, a `data-*` or an `aria-*` attribute (through a ternary). Any other
+ * key (`className`, a class map's `root:`) or none at all (a `cn()` argument) is a class list.
+ */
+function plainlyNotClass(code: string, at: number): boolean {
+  const before = code.slice(Math.max(0, at - 160), at).split(/;|\n\s*\n/).pop()!;
+  const anchors = [...before.matchAll(/([\w.-]+)\s*(?:=(?![=>])|:(?!\s*["'`]))\s*\{?|(===|!==|setAttribute\(|\|)/g)];
+  const last = anchors.at(-1);
+  if (!last) return false;
+  if (last[2]) return true;
+  const key = last[1]!.split(".").pop()!;
+  return NOT_CLASS_KEYS.has(key) || /^(data|aria)-/.test(key);
+}
+
+/** The excluded words a source uses in a string that may be a class list. */
+function excludedUses(source: string): string[] {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|\s)\/\/.*$/gm, "$1");
-  const found = new Set<string>();
+  const found: string[] = [];
   for (const m of code.matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g)) {
-    const tokens = (m[1] ?? m[2] ?? m[3]!).split(/\s+/).filter(Boolean);
-    const single = tokens.length === 1 && /(className=\{?|cn\(\s*|&&\s*)$/.test(code.slice(Math.max(0, m.index - 12), m.index));
-    if ((tokens.length > 1 || single) && tokens.every(classLike)) for (const t of tokens) found.add(t);
+    const tokens = (m[1] ?? m[2] ?? m[3]!).replace(/\$\{[^}]*\}/g, " ").split(/\s+/).filter(Boolean);
+    const words = excluded.filter((w) => tokens.includes(w));
+    // Prose or a CSS value ("Purchases paused", "transform 200ms ease-out, …") holds a token no class can be.
+    if (words.length === 0 || !tokens.every(classLike) || plainlyNotClass(code, m.index)) continue;
+    found.push(...words);
   }
   return found;
 }
 
-describe("the app stylesheet's sources", () => {
-  const files = appFiles(SRC).map((path) => ({ path: relative(SRC, path), classes: classes(readFileSync(path, "utf8")) }));
-
-  it("reads the classes of the app's sources", () => {
-    const all = new Set(files.flatMap((f) => [...f.classes]));
-    for (const used of ["flex", "hidden", "invisible", "shadow-sm", "ring-1", "desktop:static"]) expect(all).toContain(used);
+describe("the app stylesheet's word list", () => {
+  it("catches a word used as a class, however the class is written", () => {
+    expect(excludedUses(`<p className="static" />`)).toEqual(["static"]);
+    expect(excludedUses(`<p className={active ? "static" : "relative"} />`)).toEqual(["static"]);
+    expect(excludedUses(`const classes = { root: "table" };`)).toEqual(["table"]);
+    expect(excludedUses(`cn("flex", active ? "visible" : "invisible")`)).toEqual(["visible"]);
+    expect(excludedUses(`cn("p-2", ok && "outline")`)).toEqual(["outline"]);
+    expect(excludedUses("const CARD = `flex shadow ${x}`;")).toEqual(["shadow"]);
+    expect(excludedUses(`<div className="ring-1 transform" />`)).toEqual(["transform"]);
   });
 
-  it("leaves out no utility the app uses as a class", () => {
-    const used = files.flatMap((f) => excluded.filter((w) => f.classes.has(w)).map((w) => `${f.path}: ${w}`));
+  it("lets the word be what it is elsewhere: a variant, a role, a value, a state, prose", () => {
+    const fine = [
+      `<Button variant="outline" />`,
+      `<Badge variant={disabled ? "secondary" : featured ? "default" : "outline"}>`,
+      `function Next({ className, variant = "outline" }) {}`,
+      `<div role="table" className="grid" />`,
+      `<svg overflow="visible" />`,
+      `g.setAttribute("visibility", matrix ? "visible" : "hidden");`,
+      `el.style.visibility = "visible";`,
+      `if (ctx.state !== "running") resume();`,
+      `type Kind = "moved" | "paused";`,
+      `return { kind: "paused", message };`,
+      `<div data-unlock={on ? (playing ? "playing" : "paused") : undefined} />`,
+      `<Notice title="Purchases paused" />`,
+      `el.style.transition = "transform 200ms ease-out, width 200ms ease-out";`,
+      "<polygon filter={`url(#${shadow})`} />",
+    ];
+    for (const source of fine) expect(excludedUses(source), source).toEqual([]);
+  });
+
+  it("is used as no class in the app's sources", () => {
+    const used = appFiles(SRC).flatMap((path) => excludedUses(readFileSync(path, "utf8")).map((w) => `${relative(SRC, path)}: ${w}`));
     expect(used).toEqual([]);
   });
 });
