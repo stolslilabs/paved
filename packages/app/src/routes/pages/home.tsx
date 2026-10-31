@@ -28,6 +28,8 @@ import { PlayerProfileHost } from "../player-profile";
 
 /** The village's stage as the app wires it (the editor, the engine, the art; the renderer after it): the overlays paint first. */
 const HomeStage = lazy(() => import("../home-stage"));
+/** What waits on the Social page (#952 to #954), its own chunk: the social reads stay out of the home's first load. */
+const SocialCount = lazy(() => import("../social-count"));
 /** The leave dialog, its own chunk: loaded only when a leave is blocked. */
 const LeaveDialog = lazy(() => import("../leave-dialog"));
 
@@ -84,6 +86,7 @@ export default function Page() {
   const [initialScoreOpen] = useState(scoreOpenStored);
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
+  const [social, setSocial] = useState(0);
 
   const owner = wallet.username ?? (me ? shortAddress(me) : "");
   const data = read.data;
@@ -180,6 +183,7 @@ export default function Page() {
             : 0
         }
         missions={missions}
+        social={social}
         league={league}
         shieldEndsAt={shield?.up ? shield.until : null}
         activeGame={wallet.address ? (active.data ?? null) : null}
@@ -208,6 +212,9 @@ export default function Page() {
         onDismissRefusal={writes.reset}
       />
       {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
+      <Suspense fallback={null}>
+        <SocialCount me={me} onCount={setSocial} />
+      </Suspense>
       {/* Another player's profile (#952): `/player/:id` lands here with it, and from `desktop` the panels' pages show it over the home. */}
       <PlayerProfileHost />
     </PrefetchOnIntent>

@@ -3,11 +3,12 @@ import { ProfileSheet } from "../components/containers/profile-sheet";
 import { ProfileContext } from "../components/containers/profile-context";
 import { PublicProfileSheet, type PublicProfileState } from "../components/containers/public-profile-sheet";
 import { addressKey } from "../data/keys";
-import { usePublicProfile } from "../data/social";
+import { useFollowStatus, usePublicProfile } from "../data/social";
 import { useDataSources } from "../data/sources";
 import { useAccount } from "../wallet/wallet";
 import { errorDetail } from "./error-detail";
 import { useNow } from "./now";
+import { ProfileFollowActions } from "./profile-follow";
 import { ProfileGuildActions, ProfileGuildLine } from "./profile-guild";
 
 // The public profile's chunk (#952): the sheet and its read, fetched at the first opening (`player-profile-host.tsx`).
@@ -38,6 +39,8 @@ export default function PlayerProfile({ playerId, open, onClose }: { playerId: s
   const restoring = wallet.status === "restoring";
   const read = usePublicProfile(self || restoring ? null : playerId);
   const now = useNow();
+  // The follows (#954): the marks, the counts and the actions, from one read.
+  const follow = useFollowStatus(self || restoring ? null : me, self || restoring ? null : playerId);
   const onOpenChange = (next: boolean) => {
     if (!next) onClose();
   };
@@ -63,7 +66,15 @@ export default function PlayerProfile({ playerId, open, onClose }: { playerId: s
       onRetry={read.refetch}
       errorDetail={read.error ? errorDetail(read.error) : undefined}
       guild={state.status === "ready" && <ProfileGuildLine address={state.profile.address} />}
-      actions={state.status === "ready" && <ProfileGuildActions address={state.profile.address} name={state.profile.name} me={me} now={now} />}
+      follow={state.status === "ready" ? follow.data : undefined}
+      actions={
+        state.status === "ready" && (
+          <>
+            <ProfileFollowActions address={state.profile.address} name={state.profile.name} me={me} status={follow.data} />
+            <ProfileGuildActions address={state.profile.address} name={state.profile.name} me={me} now={now} />
+          </>
+        )
+      }
     />
   );
 }
