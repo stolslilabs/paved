@@ -1,16 +1,19 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { cn } from "../../lib/utils";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, isNight, type WheelPoint, type WheelState } from "../../data/season-wheel";
 import { WorldIcon, type WorldIconName as Glyph } from "./world-icon";
 
 /**
- * Each season's game icon (issue 870), in its tone: summer's sun gold, autumn's leaf orange, winter's snowflake ice, spring's
- * seedling green; and the centre disc's halves (issue 909): a sun behind a cloud by day (not summer's sun, so the two are told
- * apart at a glance), the moon by night. Named glyphs, not icons, so the Font Awesome subset does not take
+ * Each season's game icon (issue 870), in its tone: summer's wheat sheaf gold (issue 930's follow-up, the Sun now the day's),
+ * autumn's leaf orange, winter's snowflake ice, spring's seedling green; and the centre disc's halves (issue 909): the sun by day
+ * (the owner's ask, without the cloud), the moon by night. Named glyphs, not icons, so the Font Awesome subset does not take
  * these names: a game icon draws its own paths.
  */
-export const SEASON_GLYPH = { summer: "sun", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const satisfies Record<string, Glyph>;
-export const TIME_GLYPH = { day: "cloud-sun", night: "moon" } as const satisfies Record<string, Glyph>;
+export const SEASON_GLYPH = { summer: "wheat-awn", autumn: "leaf", winter: "snowflake", spring: "seedling" } as const satisfies Record<string, Glyph>;
+export const TIME_GLYPH = { day: "sun", night: "moon" } as const satisfies Record<string, Glyph>;
+/** Summer's candidates (issue 930's follow-up, the owner to pick): the wheat sheaf (recommended, the app's), a flame, a beach umbrella. */
+export const SUMMER_GLYPHS = ["wheat-awn", "fire-flame-curved", "umbrella-beach"] as const satisfies readonly Glyph[];
+export type SummerGlyph = (typeof SUMMER_GLYPHS)[number];
 
 
 // The dial's drawing, in a 100-unit box (`viewBox="0 0 100 100"`), in three layers (issue 909): outside, a soft gold rim (issue 634)
@@ -44,9 +47,12 @@ const ICON_SIZE = "text-sm min-[24.375rem]:text-[1rem] tablet:text-xl";
 /** The centre disc's icons: 12 px on a phone (the text floor), 16 px from tablet up. */
 const TIME_ICON_SIZE = "text-[0.75rem] tablet:text-[1rem]";
 
-/** The blends (issue 930): 20° across each season's start, 30° at dusk and at dawn, through the dusk tones. */
+/**
+ * The blends (issue 930): 20° across each season's start; 60° at dusk and at dawn, through the dusk tones (the owner's ask after
+ * #935: wider than its 30°). The night's half is 135°: 75° of it stays a full night sky about the moon, 165° of the day's about the sun.
+ */
 export const SEASON_BLEND = 20;
-export const DUSK_BLEND = 30;
+export const DUSK_BLEND = 60;
 
 /** Which way the centre disc turns: with the seasons' disc, counterclockwise (today's), or against it (issue 930, to try). */
 export const CENTRE_TURNS = ["with", "against"] as const;
@@ -127,79 +133,24 @@ function sparkle(x: number, y: number, s: number): string {
   return `M${f(x)} ${f(y - s)}L${f(x + w)} ${f(y - w)}L${f(x + s)} ${f(y)}L${f(x + w)} ${f(y + w)}L${f(x)} ${f(y + s)}L${f(x - w)} ${f(y + w)}L${f(x - s)} ${f(y)}L${f(x - w)} ${f(y - w)}Z`;
 }
 
-/** A day's cloud, its flat base at `y`: three puffs, the middle one the tallest. */
-function cloud(x: number, y: number, s: number): string {
-  const p = (n: number) => f(n * s);
-  return `M${f(x - 2 * s)} ${f(y)}a${p(0.8)} ${p(0.8)} 0 0 1 ${p(1.4)} ${p(-0.9)}a${p(0.8)} ${p(0.8)} 0 0 1 ${p(1.5)} ${p(0.3)}a${p(0.7)} ${p(0.7)} 0 0 1 ${p(1.1)} ${p(0.6)}Z`;
-}
-
-/** A day's bird: two curved wings, a stroke. */
-function bird(x: number, y: number, s: number): string {
-  return `M${f(x - s)} ${f(y - 0.3 * s)}Q${f(x - s / 2)} ${f(y - 0.6 * s)} ${f(x)} ${f(y)}Q${f(x + s / 2)} ${f(y - 0.6 * s)} ${f(x + s)} ${f(y - 0.3 * s)}`;
-}
-
 /**
- * How the clouds drift and the birds glide, back and forth, all the clouds as one and all the birds as one: a translate of their
- * box (the centre disc's), so the compositor runs it, by the Web Animations API, so the stylesheet's budget pays nothing. Two
- * animations in all: each one costs the main thread a little at every frame. `DRIFT` is how far, in dial units, on the disc:
- * 4.4% and -1.5% of the box, `TIME_DISC` twice. The geometry test sweeps it.
+ * The centre disc's stars (issue 930), about the moon, each twinkling: the day's half has only its sun (the owner's ask after
+ * #935: its clouds and birds were too small to read).
  */
-export const DRIFT_KEYFRAMES = [{ translate: "0 0" }, { translate: "4.4% -1.5%" }];
-export const DRIFT = { x: 0.044 * 2 * TIME_DISC, y: -0.015 * 2 * TIME_DISC } as const;
-/** The clouds' drift and the birds' glide, one way, in ms. */
-export const DRIFT_MS = { cloud: 7000, bird: 3000 } as const;
-
-/** A decoration's box about its anchor, in its own frame (up is out, towards the rim). */
-const BOX = {
-  star: (s: number) => ({ x0: -s, x1: s, y0: -s, y1: s }),
-  cloud: (s: number) => ({ x0: -2.2 * s, x1: 2.2 * s, y0: -1.5 * s, y1: 0.3 }),
-  bird: (s: number) => ({ x0: -s - 0.3, x1: s + 0.3, y0: -0.6 * s - 0.3, y1: 0.3 }),
-};
-const SHAPE = { star: sparkle, cloud, bird };
-
-/**
- * The centre disc's decorations, about its icons (issue 930): the night's stars twinkle, the day's clouds drift slowly and its
- * birds glide. The disc is a sky seen from its centre, the horizon there and the sky's top at the rim (issue 607), so each cloud
- * and bird stands on its own line from the centre (`rot`), its base towards the horizon.
- */
-export const DECOR = (
+export const STARS = (
   [
-    { kind: "star", r: 14, deg: 245, s: 1.4, delay: 0 },
-    { kind: "star", r: 14.5, deg: 340, s: 1.2, delay: 0.7 },
-    { kind: "star", r: 15.8, deg: 275, s: 0.8, delay: 1.2 },
-    { kind: "star", r: 15.5, deg: 320, s: 0.9, delay: 0.4 },
-    { kind: "cloud", r: 12, deg: 35, s: 1.3, delay: 0 },
-    { kind: "cloud", r: 12.5, deg: 180, s: 1.1, delay: 0 },
-    { kind: "cloud", r: 13.5, deg: 62, s: 0.8, delay: 0 },
-    { kind: "bird", r: 14, deg: 12, s: 1.2, delay: 0 },
-    { kind: "bird", r: 14.5, deg: 155, s: 1.1, delay: 0 },
-    { kind: "bird", r: 12, deg: 205, s: 1, delay: 0 },
+    { r: 14, deg: 245, s: 1.4, delay: 0 },
+    { r: 14.5, deg: 340, s: 1.2, delay: 0.7 },
+    { r: 15.8, deg: 275, s: 0.8, delay: 1.2 },
+    { r: 15.5, deg: 320, s: 0.9, delay: 0.4 },
   ] as const
-).map(({ kind, r, deg, s, delay }) => {
+).map(({ r, deg, s, delay }) => {
   const [x, y] = at(r, deg);
-  return { kind, x, y, rot: kind === "star" ? 0 : deg, d: SHAPE[kind](x, y, s), delay, box: BOX[kind](s) };
+  return { x, y, s, d: sparkle(x, y, s), delay };
 });
-/** The centre disc's box, in % of the dial, and its view box in dial units: each group of decorations is drawn in one. */
+/** The centre disc's box, in % of the dial, and its view box in dial units: the stars are drawn in one. */
 const TIME_BOX = { inset: `${50 - TIME_DISC}%` };
 const TIME_VIEW = `${50 - TIME_DISC} ${50 - TIME_DISC} ${2 * TIME_DISC} ${2 * TIME_DISC}`;
-
-/** A group of the centre disc's decorations, each turned to its line from the centre. */
-function Decor({ kind }: { kind: "star" | "cloud" | "bird" }) {
-  return DECOR.filter((p) => p.kind === kind).map((p, i) => (
-    <path
-      key={i}
-      data-decor={kind}
-      d={p.d}
-      transform={p.rot ? `rotate(${p.rot} ${f(p.x)} ${f(p.y)})` : undefined}
-      fill={kind === "bird" ? "none" : kind === "star" ? "var(--dial-star)" : "var(--foreground)"}
-      stroke={kind === "bird" ? "var(--dial-ring)" : undefined}
-      strokeWidth={0.6}
-      strokeLinecap="round"
-      className={kind === "star" ? "dial-twinkle" : undefined}
-      style={kind === "star" ? { animationDelay: `${p.delay}s` } : undefined}
-    />
-  ));
-}
 
 /** The stones' two tones, in an uneven order, as laid paving. */
 const STONE_TONES = [0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1];
@@ -227,6 +178,8 @@ export interface SeasonWheelProps {
   turnMs?: number;
   /** Which way the centre disc turns (issue 930): with the seasons' disc, the default until the owner picks, or against it. */
   centreTurn?: CentreTurn;
+  /** Summer's icon (issue 930's follow-up, to try): the wheat sheaf, the default until the owner picks, or another candidate. */
+  summerGlyph?: SummerGlyph;
   className?: string;
 }
 
@@ -242,39 +195,15 @@ export const TIME_TURNS_PER_YEAR = WHEEL_SEASONS.length;
 /**
  * The season dial (issue 547, crafted in issue 607, in three layers since issue 909, blended in issue 930): a gold rim and a band
  * of paving stones around the disc of the four seasons, each quarter its season's day sky with its season's game icon, the
- * skies blending into each other, a ring of small stones inside; at the centre a smaller disc, its day (a sky, the sun behind
- * a cloud, clouds and birds) and its night (a deep sky, the moon, twinkling stars), blending through dusk and dawn. The seasons'
+ * skies blending into each other, a ring of small stones inside; at the centre a smaller disc, its day (a sky and the sun) and
+ * its night (a deep sky, the moon, twinkling stars), blending through dusk and dawn. The seasons'
  * disc turns counterclockwise under a red needle at the top, once a year (four days and nights); the centre's once a day and
  * night, the same way or, `centreTurn` "against", the other: the parts under the needle are "now". In auto they follow the
  * cycle; in a fixed state they rest on that season's day. Nothing tells auto from fixed, nothing is written (issue 634): the
  * button's name says it. Each disc always turns the same way, never back.
  */
-export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = "with", className }: SeasonWheelProps) {
+export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = "with", summerGlyph = SEASON_GLYPH.summer, className }: SeasonWheelProps) {
   const angle = useRef<number | null>(null);
-  const timeDisc = useRef<HTMLSpanElement>(null);
-  // The clouds drift and the birds glide; all still under reduced motion.
-  useEffect(() => {
-    // Started and stopped as the setting changes, not only read at mount.
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    let runs: (Animation | undefined)[] = [];
-    const stop = () => {
-      runs.forEach((run) => run?.cancel());
-      runs = [];
-    };
-    const sync = () => {
-      stop();
-      if (reduced.matches) return;
-      runs = [...(timeDisc.current?.querySelectorAll<SVGElement>("[data-drift]") ?? [])].map((el) =>
-        el.animate?.(DRIFT_KEYFRAMES, { duration: DRIFT_MS[el.dataset.drift as "cloud" | "bird"], iterations: Infinity, direction: "alternate", easing: "ease" }),
-      );
-    };
-    sync();
-    reduced.addEventListener("change", sync);
-    return () => {
-      reduced.removeEventListener("change", sync);
-      stop();
-    };
-  }, []);
   const goal = -cyclePoint(state, point) * 90;
   // The discs only ever turn one way, counterclockwise (the next season comes up the right side to the top): a reading
   // behind the last angle (the cycle wrapped, spring round to summer) is taken a full turn on, never back.
@@ -318,22 +247,17 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
           </svg>
         </span>
         {/* The day and night disc at the centre, turning four times as fast, mirrored when it turns against the seasons. */}
-        <span ref={timeDisc} data-time-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
+        <span data-time-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
           <span className="absolute inset-0" style={against ? { transform: "scaleX(-1)" } : undefined}>
             <Sky name="time" sky={timeSky} r={TIME_DISC} />
             {/* The stars twinkle in a layer of their own, so a twinkle does not paint the skies again. */}
             <span className="absolute" style={{ ...TIME_BOX, willChange: "transform" }}>
               <svg viewBox={TIME_VIEW} className="absolute inset-0 size-full">
-                <Decor kind="star" />
+                {STARS.map((p, i) => (
+                  <path key={i} data-star d={p.d} fill="var(--dial-star)" className="dial-twinkle" style={{ animationDelay: `${p.delay}s` }} />
+                ))}
               </svg>
             </span>
-            {(["cloud", "bird"] as const).map((kind) => (
-              <span key={kind} className="absolute" style={TIME_BOX}>
-                <svg data-drift={kind} viewBox={TIME_VIEW} className="absolute inset-0 size-full">
-                  <Decor kind={kind} />
-                </svg>
-              </span>
-            ))}
           </span>
         </span>
         {/* Fixed: the two rings, black, and the red needle at the top, down across both discs to the centre. */}
@@ -359,7 +283,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
             >
               {/* A game icon carries its own outline and shadow. */}
               <span className={cn("flex", s !== current && "opacity-80")}>
-                <WorldIcon name={SEASON_GLYPH[s]} size="inherit" className={ICON_SIZE} />
+                <WorldIcon name={s === "summer" ? summerGlyph : SEASON_GLYPH[s]} size="inherit" className={ICON_SIZE} />
               </span>
             </span>
           ))}
