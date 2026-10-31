@@ -159,13 +159,17 @@ describe("Home (#753): the village with its overlays", () => {
     const column = screen.getByRole("navigation", { name: "Village" });
     expect(column.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:flex"]));
     for (const button of within(column).getAllByRole("button")) expect(button.className.split(" ")).not.toContain("hidden");
-    // Below it, Missions and Vault in the left column, one under the other and aligned left, with the right column's look.
+    // Below it, Missions and Vault in the left column (a column of 12 px gaps, aligned left), with the right column's look.
     const left = (await screen.findByRole("button", { name: /^League: / })).parentElement!;
-    const moved = within(left).getByRole("group", { name: "Village" });
-    expect(moved.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "items-start", "gap-3", "desktop:hidden"]));
-    expect(within(moved).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault"]);
-    await userEvent.click(within(moved).getByRole("button", { name: "Missions, 3 waiting" }));
-    await userEvent.click(within(moved).getByRole("button", { name: "Vault" }));
+    expect(left.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "items-start", "gap-3"]));
+    const moved = within(left).getAllByRole("button", { name: /^(Missions|Vault)/ });
+    expect(moved.map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault"]);
+    for (const button of moved) {
+      expect(button.parentElement).toBe(left);
+      expect(button.className.split(" ")).toEqual(expect.arrayContaining(["w-16", "desktop:hidden"]));
+    }
+    await userEvent.click(moved[0]!);
+    await userEvent.click(moved[1]!);
     expect(onMissions).toHaveBeenCalledTimes(1);
     expect(onVault).toHaveBeenCalledTimes(1);
     // With no right column, the left one runs to the scene's edge below `desktop`, and clears the right column from it.
@@ -186,9 +190,8 @@ describe("Home (#753): the village with its overlays", () => {
     const left = screen.getByRole("button", { name: /^League: / }).parentElement!;
     for (const column of [right, left]) expect(column.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "gap-3"]));
     expect(right.className.split(" ")).toContain("justify-center-safe");
-    // HOME-STACK (#929): the League control and the village score stacked at the top under the profile, at every width.
-    expect(left.className.split(" ")).toContain("justify-start");
-    expect(left.className.split(" ")).not.toContain("justify-center-safe");
+    // HOME-STACK (#929): the League control and the village score stacked at the top under the profile (flex's start), at every width.
+    expect(left.className.split(" ")).not.toEqual(expect.arrayContaining([expect.stringMatching(/^justify-/)]));
     // Each column's band, measured off its neighbours (the browser's layout, the stories' captures): under the balances and above
     // Edit (Settings and Play) on the right, under the profile and above the season dial on the left.
     expect(right.className.split(" ")).toEqual(expect.arrayContaining(["top-(--right-top)", "bottom-(--right-bottom)"]));
@@ -204,7 +207,8 @@ describe("Home (#753): the village with its overlays", () => {
       left.querySelector("[data-slot=league-control]"),
       left.querySelector("[data-slot=shield-plate]"),
       left.querySelector("[data-slot=village-score]"),
-      within(left).getByRole("group", { name: "Village" }),
+      within(left).getByRole("button", { name: /^Missions/ }),
+      within(left).getByRole("button", { name: "Vault" }),
     ];
     for (const el of order) expect(el).not.toBeNull();
     for (let i = 1; i < order.length; i++) expect(order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

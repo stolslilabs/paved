@@ -308,16 +308,14 @@ function leftColumnHint(el: HTMLDivElement) {
 
 /** The gap of both columns' buttons and of the bands' edges (#856), 12 px. */
 const GAP_PX = 12;
-/** HOME-STACK (#929, open point 1): the left column's margin under the profile, twice the gap, 24 px. */
-const PROFILE_MARGIN_PX = 2 * GAP_PX;
 
 /**
  * The overlays' measures, on their box. The profile beside the balances' first plate needs none since #928: the badge is at most
  * 1.5 times the avatar, so it stops short of the plate whatever the amounts (a 999,999 Cobbles plate at 320 px, #828).
  * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands of the two columns, a gap off their neighbours as they are drawn: the right one from under the
  * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
- * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929): the left band starts 24 px under
- * the profile (`PROFILE_MARGIN_PX`), the others a gap off their neighbours.
+ * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929, open point 1): the left band starts
+ * twice the gap, 24 px, under the profile.
  */
 function useOverlayMeasures(dial: boolean) {
   const refs = {
@@ -334,12 +332,12 @@ function useOverlayMeasures(dial: boolean) {
     const observer = new ResizeObserver(() => {
       const [frame, balances, profile, foot, wheel] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
       const edges = {
-        "--right-top": balances!.bottom - frame!.top + GAP_PX,
-        "--right-bottom": frame!.bottom - foot!.top + GAP_PX,
-        "--left-top": profile!.bottom - frame!.top + PROFILE_MARGIN_PX,
-        "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom) + GAP_PX,
+        "--right-top": balances!.bottom - frame!.top,
+        "--right-bottom": frame!.bottom - foot!.top,
+        "--left-top": profile!.bottom - frame!.top + GAP_PX,
+        "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom),
       };
-      for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px}px`);
+      for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
     });
     // The box and what the bands stand off (not the columns, which the bands size).
     for (const el of els) if (el) observer.observe(el);
@@ -367,7 +365,7 @@ const BESIDE_LEAGUE = ["[data-slot=home-overlays]", "[data-slot=league-control]"
  * The right column, from `desktop` only, over Play, centred vertically in its band (#856): Missions, Chests, Shop and Vault, with
  * no League (#856: the League control on the left is the way in). On a short window its buttons wrap into a second column, to the
  * left, instead of running under Play. Below `desktop` there is none (#929): Chests and Shop are the bar's (#763), Missions and
- * Vault the left column's (`PhoneVillageNav`).
+ * Vault the left column's.
  */
 function VillageNav(props: HomeVillageSceneProps) {
   return (
@@ -383,21 +381,6 @@ function VillageNav(props: HomeVillageSceneProps) {
       <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
     </nav>
-  );
-}
-
-/**
- * HOME-STACK (#929, the owner's decisions of 2026-10-30): below `desktop`, Missions and Vault in the left column, under the village
- * score and before the chips (open point 2), one under the other and aligned left (open point 3), with the right column's look.
- * A group in the column, not a second landmark: the page keeps one navigation named Village (`VillageNav`, from `desktop`), and
- * one of the two sets shows at a time.
- */
-function PhoneVillageNav(props: HomeVillageSceneProps) {
-  return (
-    <div role="group" aria-label="Village" data-slot="phone-village-nav" className="flex flex-col items-start gap-3 desktop:hidden">
-      <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
-      <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
-    </div>
   );
 }
 
@@ -440,8 +423,13 @@ function ViewOverlays({
         // Under it (#755), the village score (#831): the total, a tap unfolds the four kinds' sums in place.
         <VillageScore score={shown} tiles={village.tiles} saved={props.saved} open={scoreOpen} onOpenChange={onScoreOpenChange} className="ml-1" />
       )}
-      {/* Below `desktop`, Missions and Vault (#929). */}
-      <PhoneVillageNav {...props} />
+      {/*
+        HOME-STACK (#929, the owner's decisions of 2026-10-30): below `desktop`, Missions and Vault under the village score and before
+        the chips (open point 2), one under the other and aligned left (open point 3), the right column's look; from it, the right
+        column's.
+      */}
+      <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} className="desktop:hidden" />
+      <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} className="desktop:hidden" />
       {/* The chips, in the same column (#856), clear of the right column. */}
       <>
         {activeGame && (
@@ -506,7 +494,7 @@ function ViewOverlays({
       <div data-fade className="absolute inset-0">
         <VillageNav {...props} />
         {/*
-          The left column under the profile (#829), at its top, 24 px under it (#929, which revises #856's centring), above the dial;
+          The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the dial;
           from `desktop` clear of the right column, below it (no right column) to the scene's edge. Taller than its band (the score
           unfolded while shielded, on a short screen), it scrolls within it (its edge fading where more waits), never over the dial;
           its padding keeps the controls' shadows inside the scroll box.
@@ -514,7 +502,7 @@ function ViewOverlays({
         <div
           ref={leftColumnHint}
           data-slot="scroll-region"
-          className="scroll-hint absolute top-(--left-top) right-2 bottom-(--left-bottom) left-0 flex flex-col items-start justify-start gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-4 tablet:pl-4 desktop:right-24 [&>*]:pointer-events-auto"
+          className="scroll-hint absolute top-(--left-top) right-2 bottom-(--left-bottom) left-0 flex flex-col items-start gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-4 tablet:pl-4 desktop:right-24 [&>*]:pointer-events-auto"
         >
           {leftColumn}
         </div>
