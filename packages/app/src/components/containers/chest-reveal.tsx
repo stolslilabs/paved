@@ -38,7 +38,7 @@ export interface ChestRevealProps {
 }
 
 /** In the `modal` variant, when the first tile leaves the chest (s) and the time between two (s): the burst comes first. */
-export const TILES_OUT_S = 0.45;
+export const TILES_OUT_S = 0.5;
 export const TILE_GAP_S = 0.14;
 
 /**

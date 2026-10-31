@@ -4,6 +4,7 @@ import * as m from "motion/react-m";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
 import { CHEST_CHOICES, CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { CHEST_DROP_S } from "../elements/chest-designs";
 import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LazyChestArt } from "../elements/lazy-chest-art";
@@ -69,9 +70,10 @@ export interface ChestModalProps {
 }
 
 /**
- * A ready chest's opening (#784), in a modal over the dimmed page. The chest (the detailed art of #874) sits at the centre and
- * shakes (a few short shakes, a pause, again) under "Tap to open"; a tap opens it: its lid swings up and back on its hinges and light
- * bursts from inside, rays and a glow in its rank's colour, its tiles fly out and settle side by side (the choice of `ChestReveal`),
+ * A ready chest's opening (#784), in a modal over the dimmed page. The chest (`ChestArt`) drops in at the centre, lands in a puff of
+ * dust and shakes (a few short squashing shakes, a pause, again) under "Tap to open"; a tap opens it: it crouches and springs, its lid
+ * pops up on its hinges in a flash and light bursts from inside, rays and a glow in its rank's colour, it lands, its tiles fly out and
+ * settle side by side (the choice of `ChestReveal`),
  * and the Cobbles show when it held some. The tile kept is said with "Next chest" while others wait, or Done. One sound per beat (`shake`, `burst`, `flip` per tile, `keep`), at the sound effects'
  * volume; a buzz on the shake and the burst where the device has one. Under reduced motion nothing shakes or flies: a short
  * fade instead, the sounds kept.
@@ -165,17 +167,22 @@ function Closed({ chest, more, opening, onOpen }: { chest: Chest; more: number; 
       >
         <m.span
           data-shake={reduced ? undefined : opening ? "fast" : ""}
-          animate={reduced ? { rotate: 0, y: 0 } : { rotate: [0, -9, 9, -7, 7, -3, 3, 0], y: [0, -6, 0, -4, 0, -2, 0, 0] }}
+          animate={
+            reduced
+              ? { rotate: 0, y: 0 }
+              : { rotate: [0, -9, 9, -7, 7, -3, 3, 0], y: [0, -6, 0, -4, 0, -2, 0, 0], scaleX: [1, 1.06, 0.97, 1.04, 0.98, 1.02, 1, 1], scaleY: [1, 0.92, 1.05, 0.96, 1.03, 0.98, 1, 1] }
+          }
           transition={
             reduced
               ? { duration: 0 }
               : opening
                 ? { duration: SHAKE_S / 2, repeat: Infinity, ease: "easeInOut" }
-                : { duration: SHAKE_S, repeat: Infinity, repeatDelay: SHAKE_PAUSE_S, ease: "easeInOut" }
+                : { duration: SHAKE_S, repeat: Infinity, repeatDelay: SHAKE_PAUSE_S, ease: "easeInOut", delay: CHEST_DROP_S }
           }
+          style={{ transformOrigin: "50% 95%" }}
           className="relative grid place-items-center"
         >
-          <LazyChestArt rank={chest.rank} state="ready" shake={false} size="lg" label={null} />
+          <LazyChestArt rank={chest.rank} state="ready" shake={false} drop size="lg" label={null} />
         </m.span>
       </button>
       <p role="status" className={cn("font-display text-xl", opening ? "text-muted-foreground" : "text-primary")}>
@@ -219,7 +226,7 @@ function Reveal({
     <div className="flex flex-col items-center gap-3">
       <DialogTitle className="font-display text-2xl">{CHEST_NAME[draw.rank]}</DialogTitle>
       <DialogDescription>{single ? "One tile, yours as it is." : `Keep one of its ${CHEST_CHOICES[draw.rank]} tiles.`}</DialogDescription>
-      {/* The chest opens: its lid swings up and back on its hinges, the light bursts in the rank's colour. */}
+      {/* The chest opens: it springs, its lid pops up on its hinges, the light bursts in the rank's colour. */}
       <div data-burst={draw.rank} className="relative grid h-36 w-full place-items-center">
         <LazyChestArt rank={draw.rank} state={held ? "open" : "opening"} size="md" label={null} />
       </div>

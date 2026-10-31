@@ -1,16 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { ChestArt, LID_OPEN_DEG, type ChestArtState } from "./chest-art";
+import { ChestArt, type ChestArtState } from "./chest-art";
 import { CHEST_NAME, ChestBadge, type ChestRank } from "./chest-badge";
-import { CHEST_RANKS } from "./chest-designs";
+import { CHEST_ART_REM, CHEST_RANKS } from "./chest-designs";
+import { chestImageUrl } from "./chest-images";
 import { ChestIcon, type ChestIconSize } from "./chest-icon";
 
 /**
- * The chests (#874): the owner's pick, wooden chests with metal bands (basic bronze iron bands on oak, rare silver studs and corners
- * on darker wood, epic gold plating with engraved corners and a jewelled lock), in two versions, the simple icon (`ChestIcon`) and
- * the detailed art that opens (`ChestArt`), its lid swinging up and back on hinges at the chest's back. The app draws the icon in
- * `ChestBadge` and the battle logs, the art in the chest slots and the opening's modal.
+ * The chests (the owner's direction of 2026-10-31, `docs/design/chests.webp`): images in a Supercell-like mobile game's rendering,
+ * basic oak and iron, rare silver and sapphire, epic gold, crown and rubies, in two versions, the icon (`ChestIcon`) and the art that
+ * opens (`ChestArt`): it crouches, springs and pops its lid on its hinges in a flash, the light bursts in the rank's colour, it lands in
+ * a puff of dust. The app draws the icon in `ChestBadge` and the battle logs, the art in the chest slots and the opening's modal.
  */
 const meta = {
   title: "Elements/ChestArt",
@@ -20,7 +21,7 @@ const meta = {
   argTypes: {
     rank: { control: "inline-radio", options: CHEST_RANKS },
     state: { control: "inline-radio", options: ["rest", "ready", "opening", "open", "spent"] },
-    lidAngle: { control: { type: "range", min: 0, max: LID_OPEN_DEG, step: 5 } },
+    drop: { control: "boolean" },
   },
 } satisfies Meta<typeof ChestArt>;
 export default meta;
@@ -72,18 +73,22 @@ export const Ranks: Story = {
   ),
 };
 
-/** The lid on its hinges, held at 0 to 100 degrees: its front tips away, rising, and its lining comes into view, in perspective. */
-export const Hinge: Story = {
+/** The layers of each rank on a card, as the client lays them: the closed chest; the raised lid, then the body over it; the two together. */
+export const Layers: Story = {
   render: () => (
     <div className="flex flex-col gap-3 rounded-2xl bg-card p-3">
       {CHEST_RANKS.map((rank) => (
         <div key={rank} className="flex flex-col gap-1">
           <Caption>{RANK_LABEL[rank]}</Caption>
           <div className="flex flex-wrap gap-x-2 gap-y-2">
-            {[0, 25, 50, 75, LID_OPEN_DEG].map((deg) => (
-              <figure key={deg} className="m-0 flex flex-col items-center gap-1">
-                <ChestArt rank={rank} state="rest" lidAngle={deg} size="xs" label={`${CHEST_NAME[rank]}, lid ${deg} degrees open`} />
-                <figcaption className="numeric text-xs text-foreground">{deg}°</figcaption>
+            {[["closed"], ["lid"], ["body"], ["lid", "body"]].map((layers) => (
+              <figure key={layers.join("+")} className="m-0 flex flex-col items-center gap-1">
+                <span className="relative block" style={{ width: `${CHEST_ART_REM.sm}rem`, height: `${CHEST_ART_REM.sm}rem` }}>
+                  {layers.map((layer) => (
+                    <img key={layer} alt="" src={chestImageUrl(rank, layer as "closed" | "lid" | "body", 320)} className="absolute inset-0 size-full" />
+                  ))}
+                </span>
+                <figcaption className="text-xs text-foreground">{layers.join(" + ")}</figcaption>
               </figure>
             ))}
           </div>
@@ -91,6 +96,25 @@ export const Hinge: Story = {
       ))}
     </div>
   ),
+};
+
+/** The modal's arrival: the chest drops in, lands in a puff of dust, then shakes. Replay with the button. */
+export const Drop: Story = {
+  render: function Render() {
+    const [run, setRun] = useState(0);
+    return (
+      <div className="flex flex-col gap-3 bg-background">
+        <Button size="sm" variant="outline" className="self-start" onClick={() => setRun(run + 1)}>
+          Drop again
+        </Button>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-2xl bg-card p-6">
+          {CHEST_RANKS.map((rank) => (
+            <ChestArt key={`${rank}-${run}`} rank={rank} state="ready" drop size="md" label={CHEST_NAME[rank]} />
+          ))}
+        </div>
+      </div>
+    );
+  },
 };
 
 /** One chest that opens on a tap and closes again, to replay the opening; each new `opens` (the "Open all" button's count) opens it too. */
@@ -124,8 +148,8 @@ function Openable({ rank, opens }: { rank: ChestRank; opens: number }) {
 }
 
 /**
- * The opening (#874's proposal 4): tap a chest to open it, the lid swings up and back on its hinges and the light bursts in the rank's
- * colour; tap again to close it and replay. "Open all" opens the three at once (again on each press).
+ * The opening: tap a chest to open it, it crouches and springs, its lid pops up on its hinges in a flash, the light bursts in the
+ * rank's colour and it lands in a puff of dust; tap again to close it and replay. "Open all" opens the three at once (again on each press).
  */
 export const TapToOpen: Story = {
   render: function Render() {
@@ -145,7 +169,7 @@ export const TapToOpen: Story = {
   },
 };
 
-/** The opening under reduced motion: still frames, the lid open at once, the light only fades in, nothing shakes, turns or flies. */
+/** The opening under reduced motion: still frames, the chest open at once, the light only fades in, nothing shakes, turns or flies. */
 export const ReducedMotion: Story = { ...TapToOpen, parameters: { reducedMotion: "always" } };
 
 /** Each rank in each state: at rest, ready (shaking), open in its light, opened and grey. */
@@ -176,7 +200,7 @@ const GROUNDS = [
   { name: "Summer day sky", style: { background: "linear-gradient(to bottom, var(--sky-summer-day-top), var(--sky-summer-day-bottom))" } },
 ] as const;
 
-/** The simple icons from 16 to 48 px on each ground: the ranks told apart by their ornaments as well as their colours. */
+/** The icons from 16 to 48 px on each ground: the ranks told apart by their silhouettes as well as their colours. */
 export const Icons: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
@@ -203,7 +227,7 @@ export const Icons: Story = {
   ),
 };
 
-/** `ChestBadge` on the simple icons, in its four sizes, and the icons in a line of text, as the battle logs and the explanations show them. */
+/** `ChestBadge` on the icons, in its four sizes, and the icons in a line of text, as the battle logs and the explanations show them. */
 export const InBadgesAndText: Story = {
   render: () => (
     <div className="flex flex-col gap-3">

@@ -1,6 +1,6 @@
 import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
-import type { GuildSource, SocialSource } from "../social-source";
+import type { ChatSource, GuildSource, SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -111,7 +111,10 @@ export function mockPool(ledger: MockLedger): PoolQuoter {
   return { quoteSwap: (usdcIn) => ledger.quoteSwap(usdcIn) };
 }
 
-/** The social source of the ledger (#952): the community's public profiles, the player search, the guilds (#953) and the follows (#954). No chain part lies beneath. */
+/**
+ * The social source of the ledger (#952): the community's public profiles, the player search, the guilds (#953), the follows
+ * (#954) and the messages (#955). No chain part lies beneath.
+ */
 export function mockSocial(ledger: MockLedger): SocialSource {
   return {
     profile: (address) => ledger.publicProfile(address),
@@ -123,12 +126,17 @@ export function mockSocial(ledger: MockLedger): SocialSource {
       suggestions: (player) => ledger.followSuggestions(player),
       ...ledger.followWrites(),
     },
+    // The messages (#955): the ledger's, by game-core's rules, delivered on the device.
+    chat: ledger.chatSource(),
     ...mockGuilds(ledger),
   };
 }
 
 /** Every read and write of `GuildSource` (#953), each the ledger's. */
 export const MOCKED_GUILD_CALLS = ["playerGuild", "guild", "guildOf", "searchGuilds", "suggestedGuilds", "guildRanking", "createGuild", "editGuild", "joinGuild", "requestToJoin", "cancelRequest", "answerRequest", "invite", "answerInvitation", "kick", "promote", "demote", "makeLeader", "leaveGuild", "postAnnouncement", "editAnnouncement", "deleteAnnouncement", "readAnnouncements", "visitGuildTab"] as const satisfies readonly (keyof GuildSource)[];
+
+/** Every read and write of `ChatSource` (#955), each the ledger's. */
+export const MOCKED_CHAT_CALLS = ["overview", "conversation", "subscribe", "send", "deleteMessage", "report", "mute", "unmute", "mutes", "answerRequest", "markRead", "seeNotice", "visitChat"] as const satisfies readonly (keyof ChatSource)[];
 
 /** The guilds of the ledger (#953): every read and write of `GuildSource`, on game-core's rules (`mock/guilds.ts`). */
 export function mockGuilds(ledger: MockLedger): GuildSource {
