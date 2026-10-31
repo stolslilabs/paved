@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useState } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { GameIcon } from "../elements/game-icon";
-import { badgeWidth, DEFAULT_BOX, levelLabel, tagWidth } from "../elements/xp-level";
+import { badgeWidth, DEFAULT_BOX, levelLabel, nameCorner } from "../elements/xp-level";
 import { avatarPlayer, profileLabel, profileName, useProfileOpener } from "./profile-context";
 
 /**
@@ -34,12 +34,12 @@ const CHAR_EMS = 0.5;
 const NAME_PAD = 2;
 
 /**
- * The name's size in px (issue 928's open point 3): its own (16, 20 beside the 144 px avatar) when the icon and the name fit
- * between the avatar and the badge's end, else smaller, never under 12 px (P-69); past that it ends with an ellipsis.
+ * The name's size in px (issue 928's open point 3): its own (16, 20 beside the 144 px avatar) when the icon and the name fit in
+ * its corner, from the bar's wrapping end to the badge's end, else smaller, never under 12 px (P-69); past that it ends with an ellipsis.
  */
 export function nameSize(name: string, box: number): number {
   const own = box >= 144 ? 20 : 16;
-  const room = badgeWidth(box) - box - 2 * NAME_PAD;
+  const room = badgeWidth(box) - nameCorner(box).left - 2 * NAME_PAD;
   const fit = room / (ICON_EMS + CHAR_EMS * [...name].length);
   return Math.max(12, Math.min(own, Math.floor(fit)));
 }
@@ -51,9 +51,10 @@ export interface PlayerBadgeProps {
 /**
  * The profile at the home's top left (#787, reshaped by #830 and #928): the avatar, the season dial's size (#856), with the level's
  * path round it, an opaque bar from its right clockwise to its top that runs on as a line to the right and ends square in the
- * level tag, "Lv i", of a fixed width; the whole at most 1.5 times the avatar's width. The name, after a User icon, on a row under
- * the bar and the tag, on a band that starts behind the avatar and fades out to transparent at the tag's left edge (the owner's
- * choice A on #928: the tag starts within the avatar's width, so no name fits between the two). A tap anywhere on it opens the profile sheet (#624), which has the XP
+ * level tag, "Lv i", of a fixed width; the whole at most 1.5 times the avatar's width. The bar's start, the end that hugs the
+ * avatar, is round. The name, after a User icon, in the corner the bar's wrapping end and its horizontal run leave beside the
+ * avatar (the owner on #928, 2026-10-31), on a band that starts behind the avatar and fades out to transparent toward the level,
+ * at the badge's end. A tap anywhere on it opens the profile sheet (#624), which has the XP
  * made and left. The gains and level ups are `XpPath`'s. The league, its crowns and its border left it for the League control under
  * it (#829). Without the shell's profile (some stories and tests), nothing.
  */
@@ -66,6 +67,7 @@ export function PlayerBadge({ className }: PlayerBadgeProps) {
   const connected = value.state.status === "connected";
   const progress = connected ? value.progress : undefined;
   const name = profileName(value.state);
+  const corner = nameCorner(box);
   return (
     <div data-slot="player-badge" className={cn("flex flex-col items-start", className)}>
       <button
@@ -75,19 +77,19 @@ export function PlayerBadge({ className }: PlayerBadgeProps) {
         className="relative flex w-36 shrink-0 cursor-pointer items-start rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring min-[24.375rem]:w-[10.125rem] tablet:w-54"
       >
         {/*
-          The name's row, from the avatar's middle down (open point 4: its line height and 4 px above and below), under the bar and
-          the tag, to the badge's end. The band starts behind the avatar (its middle) and fades out linearly, its blur with it, to
-          transparent at the tag's left edge; the name after the User icon, sized to fit, its shadow keeping it legible past the band.
+          The name's row in its corner (`nameCorner`): under the bar's horizontal run, over its round wrapping end, from that end's
+          left edge to the badge's end. The band starts behind the avatar (its middle) and fades out linearly, its blur with it, to
+          transparent at the badge's end, under the tag; the name after the User icon, sized to fit, its shadow keeping it legible.
         */}
-        <span data-slot="name-row" aria-hidden className="absolute right-0 flex items-center px-0.5 py-1 font-display" style={{ top: box / 2, left: box }}>
+        <span data-slot="name-row" aria-hidden className="absolute right-0 flex items-center px-0.5 font-display" style={corner}>
           <span
             data-slot="name-band"
-            className="absolute inset-y-0 bg-background/60 backdrop-blur [mask-image:linear-gradient(to_right,black,transparent)]"
-            style={{ left: -box / 2, right: tagWidth(box) }}
+            className="absolute inset-y-0 right-0 bg-background/60 backdrop-blur [mask-image:linear-gradient(to_right,black,transparent)]"
+            style={{ left: box / 2 - corner.left }}
           />
           <span className="relative flex h-5 min-w-0 items-center gap-[0.25em] leading-none tablet:h-7" style={{ fontSize: nameSize(name, box) }}>
             <GameIcon name="user" size="inherit" />
-            <span title={name} className="min-w-0 truncate [text-shadow:0_1px_2px_var(--background)]">
+            <span title={name} className="min-w-0 truncate leading-tight [text-shadow:0_1px_2px_var(--background)]">
               {name}
             </span>
           </span>
