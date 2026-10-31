@@ -20,6 +20,11 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   time of day; the two painted discs toned to a warm grey (60 % chroma) so the gold reads over them. Six moments of the cycle at
   512, 144 and 96 px. Generated with OpenAI's image model through the Codex CLI; the client's layers are in
   `packages/app/wheel-sources/` (`scripts/compress-wheel-art.ts`).
+- `chests.webp`: the chests' sheet (2026-10-31), approved by the owner: the basic, rare and epic chests closed, open and as icons,
+  and the opening's effects (rays, a sparkle, a dust puff), in a Supercell-like mobile game's rendering, original designs. Generated
+  with OpenAI's image model through the Codex CLI; each asset was then generated again alone from its cell (the open chests' lids
+  redrawn to swing up on their hinges) and the open chest cut into its lid and body. The client's layers are in
+  `packages/app/chest-sources/` (`scripts/compress-chest-art.ts`).
 
 The leagues' client shows them as images: the masters in `packages/app/league-sources/`, compressed into
 `packages/app/public/league-art/` by `scripts/compress-league-art.ts`. Each tier has a crest and an icon in four versions, a

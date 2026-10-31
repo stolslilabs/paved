@@ -354,16 +354,6 @@ src/components/elements/game-icon.tsx. The source icons: `gear`,
 `treasure-chest`; and (#875) the Camera mode's `video`; and (#928) the profile badge's `user`. The "+"'s button and the relief style itself are
 written for Paved (Apache 2.0).
 
-Chests (src/components/elements/chest-art-shapes.ts, #874). The chests' simple
-icons, drawn by the app as SVG in the game icons' relief
-(src/components/elements/chest-icon.tsx), tone the parts of a Font Awesome Pro
-6.6.0 solid icon, `treasure-chest`, under the owner's Font Awesome Commercial
-License (above), and add to it. The detailed chests and their opening
-(src/components/elements/chest-designs.ts, chest-art.tsx), the wood, the
-locks, bands, studs, corner guards, engravings, gems, glints, the lid on its
-hinges and its lining, the light and the sparks are written for Paved
-(Apache 2.0).
-
 The currencies in relief (#844): usdc.svg, paved.svg and vpaved.svg above
 carry the HUD icons' relief, an outline, a lit gradient, a light and a shadow
 added to the sources above, under their terms. USDC's mark is unaltered: the
