@@ -3,7 +3,7 @@ import { sideSettings } from "../data/board-side";
 import { BOARD_FOG, squareGridSettings } from "../data/settings";
 import { APP_ASSETS, appRenders } from "./assets";
 import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
-import { NEXT_PRICE, crownsFor, stakesOf, starsFor } from "../lib/pvp-rules";
+import { NEXT_PRICE, crownsFor, leagueOf, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { PvpEndSceneProps } from "../components/scenes/pvp-end-scene";
 import type { MatchCardData, MatchListProps } from "../components/containers/match-list";
@@ -229,7 +229,7 @@ const defence = (i: number, seed: keyof typeof ATTACK_SCORES.mine, at: number): 
   const score = ATTACK_SCORES.mine[seed];
   const stars = starsFor(score, MY_VILLAGE.score);
   // What the attacker wins the defender loses; a defence held (no star) wins the defender a few crowns.
-  return { id: `d${40 + i}`, side: "defence", rival: faced(ATTACKERS[i]!), village: MY_VILLAGE.tiles, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at };
+  return { id: `d${40 + i}`, side: "defence", rival: faced(ATTACKERS[i]!), league: leagueOf(ATTACKERS[i]!.crowns), village: MY_VILLAGE.tiles, stars, score, target: MY_VILLAGE.score, crowns: stars > 0 ? -STAKES.win[stars - 1]! : 6, at };
 };
 
 /** An attack of the player's, of `seed`, on the rival's village (its snapshot, `RIVAL_VILLAGE`): its rewards too. */
@@ -237,7 +237,7 @@ const attackMade = (id: number, seed: keyof typeof ATTACK_SCORES.rival, at: numb
   const score = ATTACK_SCORES.rival[seed];
   const stars = starsFor(score, RIVAL_VILLAGE.score);
   const chest = ([null, "basic", "rare", "epic"] as const)[stars]!;
-  return { id: `a${id}`, side: "attack", village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra, rival: faced(extra.rival ?? RIVAL) };
+  return { id: `a${id}`, side: "attack", village: RIVAL_VILLAGE.tiles, stars, score, target: RIVAL_VILLAGE.score, crowns: crownsFor(STAKES, stars), xp: pvpXp(stars), chest, at, ...extra, rival: faced(extra.rival ?? RIVAL), league: leagueOf((extra.rival ?? RIVAL).crowns) };
 };
 
 /** Newest first, attacks and defences mixed: the latest attack on the village 2 h 48 ago, which put the shield up. */
@@ -281,8 +281,8 @@ const MANY: MatchCardData[] = Array.from({ length: 26 }, (_, i) => {
 export const PVP_MATCHES = {
   latest: { matches: MATCHES, renders: appRenders },
   many: { matches: MANY, renders: appRenders },
-  /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards known. */
-  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, ...m }) => ({ ...m, village: null })), renders: appRenders },
+  /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards nor rival's league known. */
+  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, league: _league, ...m }) => ({ ...m, village: null })), renders: appRenders },
   empty: { matches: [] },
   loading: { matches: null },
   error: { matches: null, error: "The matches could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
@@ -293,27 +293,25 @@ export const PVP_MATCHES = {
 const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 
 export const PVP_LEAGUE = {
-  bronze: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
+  bronze: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
   // The season's reward (#859): the attacks still needed below `MIN_SEASON_ATTACKS` (5), none past it.
-  attacksBelow: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 2, matches: PVP_MATCHES.latest },
-  attacksOneLeft: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 4 },
-  attacksAbove: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, attacks: 7, matches: PVP_MATCHES.latest },
+  attacksBelow: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 2, matches: PVP_MATCHES.latest },
+  attacksOneLeft: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 4 },
+  attacksAbove: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 7, matches: PVP_MATCHES.latest },
   // The matches' states (#786), a section of the page (BACK-RULE #783).
-  matchesMany: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
-  matchesNoSnapshot: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.noSnapshot },
-  matchesEmpty: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.empty },
-  matchesLoading: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.loading },
-  matchesFailed: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
+  matchesMany: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
+  matchesNoSnapshot: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.noSnapshot },
+  matchesEmpty: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.empty },
+  matchesLoading: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.loading },
+  matchesFailed: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.error },
   lastDay: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW + 5 * HOUR + 20 * 60 }, now: MOCK_NOW },
-  // The first-time bonus of Bronze II paid on reaching it and not yet celebrated (#833, open point 1): its icon is active.
-  bonusReady: { crowns: ME.crowns, best: 1_180, bonusesToSee: [5], season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
   // The carousel on a league above the player's (Silver II) and one below (Iron II): the header's League control brings it back.
-  higher: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 8 },
-  lower: { crowns: ME.crowns, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 2 },
+  higher: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 8 },
+  lower: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 2 },
   grandmaster: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
   wood: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
-  // Dropped to Wood after reaching Bronze I this season: the bonuses up to Bronze I stay had.
-  demoted: { crowns: 200, best: 1_240, season: SEASON, now: MOCK_NOW, opensOn: 5 },
+  // Dropped to Wood, the carousel opened on Bronze I.
+  demoted: { crowns: 200, season: SEASON, now: MOCK_NOW, opensOn: 5 },
   ended: { crowns: ME.crowns, season: { ...SEASON, endsAt: MOCK_NOW - 2 * HOUR }, now: MOCK_NOW },
 } satisfies Record<string, Data<PvpLeagueSceneProps>>;
 

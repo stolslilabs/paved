@@ -6,7 +6,6 @@ import {
   NEXT_PRICE as CHAIN_NEXT_PRICE,
   STAR_PERCENTS as CHAIN_STAR_PERCENTS,
   ViewError,
-  leagueBonusOf,
   leagueName,
   prizeOf,
   seasonRewardOf,
@@ -59,7 +58,7 @@ describe("the PvP rules are the contracts'", () => {
     expect(LEAGUE_FLOORS).toEqual(CHAIN_LEAGUE_FLOORS);
     expect(NEXT_PRICE).toBe(CHAIN_NEXT_PRICE);
     expect(SHIELD_S).toBe(ATTACK_SHIELD_S);
-    expect(LEAGUES.map((l) => [l.name, l.seasonCobbles, l.bonus])).toEqual(LEAGUES.map((l) => [leagueName(l.index), seasonRewardOf(l.index), leagueBonusOf(l.index)]));
+    expect(LEAGUES.map((l) => [l.name, l.seasonCobbles])).toEqual(LEAGUES.map((l) => [leagueName(l.index), seasonRewardOf(l.index)]));
     for (const offer of [1, 20, 30, 59]) expect(stakesOf(offer, 7).win).toEqual([1, 2, 3].map((s) => prizeOf(offer, s)));
     for (const [score, target] of [[0, 0], [5, 0], [69, 100], [70, 100], [5643, 5130], [5642, 5130]]) expect(starsFor(score!, target!)).toBe(starsOf(score!, target!));
   });

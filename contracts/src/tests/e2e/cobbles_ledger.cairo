@@ -7,6 +7,7 @@
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::num::traits::Bounded;
+use paved::constants::TASK_LEAGUE_REACHED;
 use paved::systems::setup::{
     Account, AccountPacking, AchievementCobbles, AchievementCobblesPacking, CLAIM_LEAGUE,
     CLAIM_SEASON, DAILY, DAY, GAME_XP, ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait,
@@ -1505,40 +1506,30 @@ fn test_cobbles_report_pvp_by_a_reporter_only_and_saturates() {
 fn test_cobbles_credit_league_by_a_reporter_only() {
     let setup = setup_alone();
     let league = ISetupLeagueSafeDispatcher { contract_address: setup };
-    // A stranger, a wrong kind, no cobbles
+    // A stranger, a wrong kind (the retired league bonus included, #917), no cobbles
     as_caller(setup, ANYONE());
     assert_eq!(
-        error_of(league.credit_league(PLAYER().into(), CLAIM_LEAGUE, 4, 1, 10)),
+        error_of(league.credit_league(PLAYER().into(), CLAIM_SEASON, 4, 1, 10)),
         'Quest: not reporter',
     );
     stop_cheat_caller_address(setup);
     as_caller(setup, REPORTER());
     assert_eq!(error_of(league.credit_league(PLAYER().into(), 3, 4, 1, 10)), 'Setup: invalid kind');
     assert_eq!(
+        error_of(league.credit_league(PLAYER().into(), CLAIM_LEAGUE, 4, 1, 10)),
+        'Setup: invalid kind',
+    );
+    assert_eq!(
         error_of(league.credit_league(PLAYER().into(), CLAIM_SEASON, 4, 1, 0)),
         'Setup: invalid cobbles',
     );
-    // A bonus and a reward
+    // A season's reward
     let mut spy = spy_events();
     let credit = ISetupLeagueDispatcher { contract_address: setup };
-    assert_eq!(credit.credit_league(PLAYER().into(), CLAIM_LEAGUE, 4, 1, 10), 10);
-    assert_eq!(credit.credit_league(PLAYER().into(), CLAIM_SEASON, 22, 3, 250), 260);
+    assert_eq!(credit.credit_league(PLAYER().into(), CLAIM_SEASON, 22, 3, 250), 250);
     spy
         .assert_emitted(
             @array![
-                (
-                    setup,
-                    Setup::Event::CobblesClaimed(
-                        Setup::CobblesClaimed {
-                            player_id: PLAYER().into(),
-                            kind: CLAIM_LEAGUE,
-                            id: 4,
-                            period: 1,
-                            cobbles: 10,
-                            balance: 10,
-                        },
-                    ),
-                ),
                 (
                     setup,
                     Setup::Event::CobblesClaimed(
@@ -1548,11 +1539,59 @@ fn test_cobbles_credit_league_by_a_reporter_only() {
                             id: 22,
                             period: 3,
                             cobbles: 250,
-                            balance: 260,
+                            balance: 250,
                         },
                     ),
                 ),
             ],
         );
-    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 260);
+    assert_eq!(cobbles_of(setup).account(PLAYER().into()).cobbles, 250);
+}
+
+#[test]
+#[available_gas(l2_gas: 80000000)]
+#[feature("safe_dispatcher")]
+fn test_cobbles_league_missions_count_each_group_once() {
+    // The lifetime league missions (#917): reach Iron (group 1), reach Gold (group 4)
+    let setup = setup_alone();
+    let admin = ISetupDispatcher { contract_address: setup };
+    as_caller(setup, OWNER());
+    let always = AchievementWindow { start: 0, end: 0 };
+    let iron = array![AchievementTask { task_id: TASK_LEAGUE_REACHED, total: 1 }];
+    let gold = array![AchievementTask { task_id: TASK_LEAGUE_REACHED, total: 4 }];
+    let past = array![AchievementTask { task_id: TASK_LEAGUE_REACHED, total: 9 }];
+    admin.define_achievement(30, always, iron.span(), 10);
+    admin.define_achievement(31, always, gold.span(), 10);
+    admin.define_achievement(32, always, past.span(), 10);
+    let s = safe(setup);
+    s.set_achievement_cobbles(30, 10).unwrap();
+    s.set_achievement_cobbles(31, 40).unwrap();
+    // No group past Grand Master's (8)
+    assert_eq!(error_of(s.set_achievement_cobbles(32, 10)), 'Setup: total too high');
+    stop_cheat_caller_address(setup);
+    let league = ISetupLeagueSafeDispatcher { contract_address: setup };
+    // A reporter only, a league up to Legend
+    as_caller(setup, ANYONE());
+    assert_eq!(error_of(league.report_league(PLAYER().into(), 1)), 'Quest: not reporter');
+    stop_cheat_caller_address(setup);
+    as_caller(setup, REPORTER());
+    assert_eq!(error_of(league.report_league(PLAYER().into(), 23)), 'Leagues: invalid league');
+    // Bronze III (league 1) is group 1; Bronze I (3), the same group, adds nothing
+    league.report_league(PLAYER().into(), 1).unwrap();
+    league.report_league(PLAYER().into(), 3).unwrap();
+    assert_eq!(league.league_groups(PLAYER().into()).unwrap(), 1);
+    // Gold III (league 10) is group 4; a lower league in a later season changes nothing
+    league.report_league(PLAYER().into(), 10).unwrap();
+    league.report_league(PLAYER().into(), 4).unwrap();
+    assert_eq!(league.league_groups(PLAYER().into()).unwrap(), 4);
+    assert_eq!(league.league_groups(ANYONE().into()).unwrap(), 0);
+    stop_cheat_caller_address(setup);
+    // Each mission pays once, by its claim
+    as_caller(setup, PLAYER());
+    s.claim_achievement(30).unwrap();
+    s.claim_achievement(31).unwrap();
+    assert_eq!(error_of(s.claim_achievement(30)), 'Setup: claimed');
+    let account = cobbles_of(setup).account(PLAYER().into());
+    assert_eq!(account.cobbles, 50);
+    assert_eq!(account.achievements_claimed, 0x40000000 + 0x80000000);
 }

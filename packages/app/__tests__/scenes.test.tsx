@@ -244,7 +244,10 @@ describe("Home (#753): the village with its overlays", () => {
     for (const name of ["Play", "Edit village", "Missions", "Vault", "Settings"]) {
       for (const button of screen.getAllByRole("button", { name: new RegExp(`^${name}`) })) expect(button.querySelector("[data-slot=game-icon]"), name).not.toBeNull();
     }
-    expect(screen.getByRole("button", { name: /^League: / }).querySelectorAll("[data-slot=game-icon]")).toHaveLength(2);
+    // The League button's trophy; the crest is the league's own (#917), not a game icon.
+    const league = screen.getByRole("button", { name: /^League: / });
+    expect(league.querySelectorAll("[data-slot=game-icon]")).toHaveLength(1);
+    expect(league.querySelector("[data-slot=league-crest-icon]")).not.toBeNull();
     // The defence log is the league page's: no overlay button. League is labelled plainly, the badge shows which.
     expect(screen.queryByRole("button", { name: /^Defence/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^League,/ })).toBeNull();
@@ -259,7 +262,7 @@ describe("Home (#753): the village with its overlays", () => {
     expect(standing).toHaveTextContent(/^1,240$/);
     expect(standing).toHaveAttribute("data-league", leagueOf(1_240).id);
     expect(standing.querySelector("[data-icon=trophy]")).not.toBeNull();
-    expect(standing.querySelector("[data-icon=shield-halved]")).toHaveClass(`text-league-${leagueOf(1_240).id}`);
+    expect(standing.querySelector("[data-slot=league-crest-icon]")).toHaveAttribute("data-tier", leagueOf(1_240).id);
     await userEvent.click(standing);
     expect(onLeague).toHaveBeenCalledTimes(1);
     unmount();
@@ -268,6 +271,12 @@ describe("Home (#753): the village with its overlays", () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.start} onLeague={onLeague} />));
     await userEvent.click(await screen.findByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
     expect(onLeague).toHaveBeenCalledTimes(2);
+  });
+
+  it("the League control reads Unranked before any crown and any attack (#917)", async () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.unranked} />));
+    const standing = await screen.findByRole("button", { name: "League: Unranked, 0 crowns" });
+    expect(standing.querySelector("[data-slot=league-crest-icon]")).toHaveAttribute("data-tier", "unranked");
   });
 
   it("carries today's home content as chips: Resume and the spawn pause", async () => {

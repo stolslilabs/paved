@@ -50,7 +50,7 @@ use paved::systems::matchmaker::{
 };
 use paved::systems::setup::Setup::{CobblesClaimed, CobblesSpent, Event as SetupEvent};
 use paved::systems::setup::{
-    CLAIM_LEAGUE, CLAIM_SEASON, DAILY, DAY, ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait,
+    CLAIM_SEASON, DAILY, DAY, ISetupCobblesDispatcher, ISetupCobblesDispatcherTrait,
     ISetupDispatcher, ISetupDispatcherTrait, ISetupLeagueDispatcher, ISetupLeagueDispatcherTrait,
     ISetupSpendDispatcher, ISetupSpendDispatcherTrait, ISetupSpendSafeDispatcher,
     ISetupSpendSafeDispatcherTrait, ISetupStoryDispatcher, ISetupStoryDispatcherTrait, PvpProgress,
@@ -1232,8 +1232,14 @@ fn test_season_zero_has_no_league() {
     assert_eq!(cobbles(world, ALICE()), 0);
 }
 
+/// The groups `player` has reached in a lifetime, `Setup`'s count of the league missions (#917).
+fn groups(world: World, player: ContractAddress) -> u8 {
+    ISetupLeagueDispatcher { contract_address: world.setup.contract_address }
+        .league_groups(player.into())
+}
+
 #[test]
-fn test_settle_reaches_a_league_and_pays_its_bonus() {
+fn test_settle_reaches_a_league_and_counts_its_group() {
     // Alice 390 (Unranked) wins 3 stars on Bob 420 (gap +30, offer 32): 422, Bronze III
     let world = seasoned(390, 420);
     let mut spy = spy_events();
@@ -1244,8 +1250,10 @@ fn test_settle_reaches_a_league_and_pays_its_bonus() {
     );
     // Bob dropped to 388: his peak stays the league he started the season in
     assert_eq!(world.leagues.league_record(BOB()), LeagueRecord { season: 1, peak: 1, attacks: 0 });
-    assert_eq!(cobbles(world, ALICE()), 5);
-    assert_eq!(cobbles(world, BOB()), 0);
+    // No bonus since #917: the group reached is a lifetime mission's count instead
+    assert_eq!(cobbles(world, ALICE()), 0);
+    assert_eq!(groups(world, ALICE()), 1);
+    assert_eq!(groups(world, BOB()), 0);
     let address = world.matchmaker.contract_address;
     spy
         .assert_emitted(
@@ -1254,31 +1262,13 @@ fn test_settle_reaches_a_league_and_pays_its_bonus() {
                     address,
                     league_event(
                         LeagueEvent::LeagueReached(
-                            LeagueReached { village: ALICE(), season: 1, league: 1, bonus: 5 },
+                            LeagueReached { village: ALICE(), season: 1, league: 1 },
                         ),
                     ),
                 ),
             ],
         );
-    spy
-        .assert_emitted(
-            @array![
-                (
-                    world.setup.contract_address,
-                    SetupEvent::CobblesClaimed(
-                        CobblesClaimed {
-                            player_id: ALICE().into(),
-                            kind: CLAIM_LEAGUE,
-                            id: 1,
-                            period: 1,
-                            cobbles: 5,
-                            balance: 5,
-                        },
-                    ),
-                ),
-            ],
-        );
-    // Bob wins it back, then Alice climbs again: Bronze III was reached this season, no bonus
+    // Bob wins it back, then Alice climbs again: the group was reached, its count stays
     start_cheat_block_timestamp_global(SEASON_START + ATTACK_SHIELD);
     world.matchmaker.release_shields(1);
     as_operator(world);
@@ -1286,7 +1276,8 @@ fn test_settle_reaches_a_league_and_pays_its_bonus() {
     stop_cheat_caller_address(world.matchmaker.contract_address);
     attack(world, 'TX2', 1);
     assert(world.crowns.crowns(ALICE()) >= 400, 'alice not back in bronze');
-    assert_eq!(cobbles(world, ALICE()), 5);
+    assert_eq!(groups(world, ALICE()), 1);
+    assert_eq!(cobbles(world, ALICE()), 0);
 }
 
 #[test]
@@ -1296,16 +1287,18 @@ fn test_defender_reaches_a_league_by_a_failed_attack() {
     attack(world, 'TX1', 0);
     assert_eq!(world.crowns.crowns(BOB()), 410);
     assert_eq!(world.leagues.league_record(BOB()), LeagueRecord { season: 1, peak: 1, attacks: 0 });
-    assert_eq!(cobbles(world, BOB()), 5);
+    assert_eq!(groups(world, BOB()), 1);
+    assert_eq!(cobbles(world, BOB()), 0);
 }
 
 #[test]
-fn test_set_crowns_reaches_leagues_without_a_bonus() {
+fn test_set_crowns_reaches_leagues_without_a_mission() {
     let world = seasoned(0, 0);
     as_operator(world);
     world.matchmaker.set_crowns(ALICE(), 1_000);
     stop_cheat_caller_address(world.matchmaker.contract_address);
     assert_eq!(world.leagues.league_record(ALICE()).peak, 5);
+    assert_eq!(groups(world, ALICE()), 0);
     assert_eq!(cobbles(world, ALICE()), 0);
 }
 
@@ -1424,7 +1417,7 @@ fn test_season_end_below_the_threshold_keeps_the_crowns() {
     world.matchmaker.close_season(ALICE());
     assert_eq!(world.crowns.crowns(ALICE()), 1_850);
     assert_eq!(cobbles(world, ALICE()), 35);
-    // Season 2 starts at Gold I: the bonus needs a league above it
+    // Season 2 starts at Gold I: a league reached is one above it
     assert_eq!(world.leagues.league_record(ALICE()).peak, league_of(1_850));
 }
 

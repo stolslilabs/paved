@@ -1268,11 +1268,6 @@
         "name": "league",
         "type": "core::integer::u8",
         "kind": "data"
-      },
-      {
-        "name": "bonus",
-        "type": "core::integer::u8",
-        "kind": "data"
       }
     ]
   },

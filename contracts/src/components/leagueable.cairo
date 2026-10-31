@@ -1,8 +1,9 @@
 //! Leagueable component: each village's league record (#644, `docs/architecture/leagues.md`,
 //! section 5). A system embeds it, rolls a village into the current season before its crowns move,
 //! and reports what they became; this component returns what a roll or a climb owes (the reset
-//! crowns, the season reward, the league bonuses) and the system sets the crowns and credits the
-//! Cobbles. It knows leagues and seasons, not crowns' storage, buckets or Cobble balances.
+//! crowns, the season reward, the leagues reached) and the system sets the crowns, credits the
+//! Cobbles and reports the groups reached (#917). It knows leagues and seasons, not crowns'
+//! storage, buckets or Cobble balances.
 //!
 //! - **The roll** closes the village's last season (its league at the season's end, its reward if
 //!   it settled `MIN_SEASON_ATTACKS` attacks) and resets its crowns to at most `RESET_CROWNS`.
@@ -37,12 +38,11 @@ pub struct Roll {
     pub crowns: u32,
 }
 
-/// A league reached for the first time in `season`, with its bonus (0 when the climb pays none).
+/// A league reached for the first time in `season`.
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct Reach {
     pub season: u32,
     pub league: u8,
-    pub bonus: u8,
 }
 
 const TWO_POW_32: u64 = 0x100000000;
@@ -108,7 +108,7 @@ pub trait ILeagueable<TContractState> {
 #[starknet::component]
 pub mod LeagueableComponent {
     use core::num::traits::Bounded;
-    use paved::matchmaker::leagues::{bonus_of, league_of};
+    use paved::matchmaker::leagues::league_of;
     use starknet::ContractAddress;
     use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use super::{ILeagueable, LeagueRecord, Reach, Roll, roll_of};
@@ -126,15 +126,14 @@ pub mod LeagueableComponent {
         SeasonClosed: SeasonClosed,
     }
 
-    /// `village` reached `league` for the first time in `season`; `bonus` its Cobbles (0: none,
-    /// a crown set by an operator).
+    /// `village` reached `league` for the first time in `season` (no bonus since #917: a group
+    /// reached for the first time in a lifetime is a mission, `Setup`'s `report_league`).
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct LeagueReached {
         #[key]
         pub village: ContractAddress,
         pub season: u32,
         pub league: u8,
-        pub bonus: u8,
     }
 
     /// `village`'s season `season` closed: it ended it in `league` at `crowns`, with `attacks`
@@ -205,14 +204,13 @@ pub mod LeagueableComponent {
         }
 
         /// Records that `village`, rolled into the current season, is now at `crowns`: one more
-        /// attack if `attack`, and every league above its peak up to `crowns`' league reached, with
-        /// its bonus if `paid`. Returns the leagues reached. In season 0 nothing is reached.
+        /// attack if `attack`, and every league above its peak up to `crowns`' league reached.
+        /// Returns the leagues reached. In season 0 nothing is reached.
         fn climb(
             ref self: ComponentState<TContractState>,
             village: ContractAddress,
             crowns: u32,
             attack: bool,
-            paid: bool,
         ) -> Array<Reach> {
             let mut record = self.league_records.read(village);
             let mut reached: Array<Reach> = array![];
@@ -227,14 +225,9 @@ pub mod LeagueableComponent {
             let league = league_of(crowns);
             while record.peak < league {
                 record.peak += 1;
-                let bonus = if paid {
-                    bonus_of(record.peak)
-                } else {
-                    0
-                };
                 let season = record.season;
-                self.emit(LeagueReached { village, season, league: record.peak, bonus });
-                reached.append(Reach { season, league: record.peak, bonus });
+                self.emit(LeagueReached { village, season, league: record.peak });
+                reached.append(Reach { season, league: record.peak });
                 changed = true;
             }
             if changed {

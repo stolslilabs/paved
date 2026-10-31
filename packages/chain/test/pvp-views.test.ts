@@ -15,7 +15,7 @@ import {
   costOf,
   hasPvpViews,
   isNpcAddress,
-  leagueBonusOf,
+  groupsOf,
   leagueName,
   leagueOfCrowns,
   nextCalls,
@@ -173,10 +173,10 @@ describe("the crowns and the leagues", () => {
     expect([1, 2, 3].map((s) => prizeOf(59, s))).toEqual([20, 40, 59]);
   });
 
-  test("the 23 leagues of leagues.cairo: their floors, names, bonuses and rewards", () => {
+  test("the 23 leagues of leagues.cairo: their floors, names, groups and rewards", () => {
     expect([0, 399, 400, 599, 600, 800, 4999, 5000, 9000].map(leagueOfCrowns)).toEqual([0, 0, 1, 2, 3, 4, 21, 22, 22]);
     expect([0, 1, 3, 4, 21, 22].map(leagueName)).toEqual(["Wood", "Iron III", "Iron I", "Bronze III", "Master I", "Grand Master"]);
-    expect([0, 1, 7, 22].map(leagueBonusOf)).toEqual([0, 5, 15, 50]);
+    expect([0, 1, 3, 4, 7, 21, 22].map(groupsOf)).toEqual([0, 1, 1, 2, 3, 7, 8]);
     expect([0, 1, 7, 22].map(seasonRewardOf)).toEqual([0, 10, 35, 250]);
     expect([isNpcAddress("0x0"), isNpcAddress("0xff"), isNpcAddress("0x100")]).toEqual([false, true, false]);
   });

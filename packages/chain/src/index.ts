@@ -110,7 +110,6 @@ export {
 export type { Attack, AttackDeck, AttackMove, AttackPlay } from "./arena";
 export {
   ATTACK_SHIELD_S,
-  LEAGUE_BONUSES,
   LEAGUE_COUNT,
   LEAGUE_FLOORS,
   LEAGUE_GROUPS,
@@ -130,7 +129,7 @@ export {
   groupOf,
   hasPvpViews,
   isNpcAddress,
-  leagueBonusOf,
+  groupsOf,
   leagueName,
   leagueOfCrowns,
   leagueStatus,
