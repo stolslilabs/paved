@@ -7,14 +7,23 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "../ui
 import { CarouselDots } from "../ui/carousel-dots";
 import { Icon } from "../ui/icon";
 
+/**
+ * The carousel's slides: Unranked first (a player who has not entered the leagues, a client state, `null` as `tierOf` reads it,
+ * #917), before Wood; then the 23 leagues.
+ */
+export const LEAGUE_SLIDES: readonly (League | null)[] = [null, ...LEAGUES];
+/** A league's slide in `LEAGUE_SLIDES`; Unranked's (`null`) is the first. */
+export const slideOf = (league: League | null): number => (league ? league.index + 1 : 0);
+const slideName = (league: League | null) => league?.name ?? "Unranked";
+
 export interface LeagueCarouselProps {
-  /** The league in view, `LEAGUES`' index (0 Wood to 22 Grand Master). */
+  /** The slide in view (`slideOf`): 0 Unranked, 1 Wood to 23 Grand Master. */
   selected: number;
   onSelect: (index: number) => void;
-  /** The player's league (`aria-current`). */
+  /** The player's slide (`aria-current`). */
   mine: number;
-  /** A league's card (`LeagueCard`), the same height for every league (#833). */
-  children: (league: League, current: boolean) => ReactNode;
+  /** A league's card (`LeagueCard`), Unranked's as `null`, the same height for every one (#833). */
+  children: (league: League | null, current: boolean) => ReactNode;
   /** The carousel's whole block (the arrows, the card, the dots): the League control brings it into view (#859). */
   ref?: Ref<HTMLDivElement>;
   className?: string;
@@ -23,14 +32,14 @@ export interface LeagueCarouselProps {
 const SCROLL_MARGIN = { scrollMarginTop: "calc(var(--header-h) + env(safe-area-inset-top) + 1rem)" };
 
 /**
- * The leagues one per view (#785), Wood to Grand Master, each card standing alone (#859): the arrows on each side of it, a swipe, the arrow keys and the dots under it (#833, one
+ * The leagues one per view (#785), Unranked then Wood to Grand Master, each card standing alone (#859): the arrows on each side of it, a swipe, the arrow keys and the dots under it (#833, one
  * per league, the current one widened, a tap jumps there) move through them, and stop at both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
  * league in view is in the accessibility tree.
  */
 export function LeagueCarousel({ ref, selected, onSelect, mine, children, className }: LeagueCarouselProps) {
   const [api, setApi] = useState<CarouselApi>();
   const reduced = useReducedMotionConfig();
-  const last = LEAGUES.length - 1;
+  const last = LEAGUE_SLIDES.length - 1;
   const step = useCallback((by: number) => onSelect(Math.max(0, Math.min(last, selected + by))), [onSelect, selected, last]);
 
   // A swipe lands on a snap: the scene takes it.
@@ -73,16 +82,16 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
           className="min-w-0 flex-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <CarouselContent>
-            {LEAGUES.map((l) => (
+            {LEAGUE_SLIDES.map((l, i) => (
               <CarouselItem
-                key={l.index}
-                aria-label={l.name}
-                aria-current={l.index === mine ? "true" : undefined}
-                aria-hidden={l.index === selected ? undefined : true}
-                inert={l.index !== selected}
-                data-league={l.index}
+                key={i}
+                aria-label={slideName(l)}
+                aria-current={i === mine ? "true" : undefined}
+                aria-hidden={i === selected ? undefined : true}
+                inert={i !== selected}
+                data-league={l?.index}
               >
-                {children(l, l.index === selected)}
+                {children(l, i === selected)}
               </CarouselItem>
             ))}
           </CarouselContent>
@@ -92,9 +101,9 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
         </Button>
       </div>
       <p aria-live="polite" className="sr-only">
-        {LEAGUES[selected]!.name}
+        {slideName(LEAGUE_SLIDES[selected]!)}
       </p>
-      <CarouselDots aria-label="Go to a league" count={LEAGUES.length} current={selected} onSelect={onSelect} label={(i) => `Go to ${LEAGUES[i]!.name}`} />
+      <CarouselDots aria-label="Go to a league" count={LEAGUE_SLIDES.length} current={selected} onSelect={onSelect} label={(i) => `Go to ${slideName(LEAGUE_SLIDES[i]!)}`} />
     </div>
   );
 }

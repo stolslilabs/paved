@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { LEAGUES } from "../../lib/pvp-rules";
 import { LeagueCard } from "./league-card";
+import { LEAGUE_SLIDES } from "./league-carousel";
 
 const YEOMAN_II = LEAGUES[5]!;
 
@@ -27,18 +28,20 @@ export const Higher: Story = { args: { league: LEAGUES[8]! } };
 export const Emerald: Story = { args: { league: LEAGUES[13]! } };
 /** A league below: Iron II. */
 export const Lower: Story = { args: { league: LEAGUES[2]! } };
+/** Unranked (#917, `null`): before the first attack, no range of crowns, no season reward; the broken wooden crest. */
+export const Unranked: Story = { args: { league: null } };
 /** Wood: no season reward; the wooden crest, no numeral. */
 export const Wood: Story = { args: { league: LEAGUES[0]! } };
 /** Grand Master: the top league, "5,000+", its winged crest. */
 export const GrandMaster: Story = { args: { league: LEAGUES[22]! } };
 
-/** Every league's card side by side: the same height for all 23, each tier's crest. */
+/** Unranked's card and every league's side by side: the same height for all 24, each tier's crest. */
 export const AllLeagues: Story = {
   decorators: [(Story) => <Story />],
   render: (args) => (
     <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" }}>
-      {LEAGUES.map((league) => (
-        <LeagueCard key={league.index} {...args} league={league} />
+      {LEAGUE_SLIDES.map((league, i) => (
+        <LeagueCard key={i} {...args} league={league} />
       ))}
     </div>
   ),

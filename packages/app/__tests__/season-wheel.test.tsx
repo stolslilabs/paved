@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -6,34 +6,9 @@ import { DEFAULT_DAYNIGHT_SETTINGS, DAY_PHASE_AT, SEASONS } from "@paved/rendere
 // The cycle's own chunk, from its source: the renderer's barrel does not export its keyframes.
 import { DAY_SHARE as RENDERER_DAY_SHARE, KEYFRAMES } from "../../renderer/src/core/daynight";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheelRound, useSeasonWheel, type WheelRound, wheelDayNight } from "../src/data/season-wheel";
-import {
-  CENTRE_TURNS,
-  DIAL_PX,
-  DISC,
-  DUSK_BLEND,
-  ICON_AT,
-  ICON_PX,
-  PEBBLE_BAND,
-  SEASON_BLEND,
-  SEASON_GLYPH,
-  STARS,
-  SUMMER_GLYPHS,
-  SeasonWheel,
-  TIME_DISC,
-  TIME_GLYPH,
-  TIME_ICON_AT,
-  TIME_ICON_PX,
-  TIME_TURNS_PER_YEAR,
-  seasonsSky,
-  timeSky,
-} from "../src/components/elements/season-wheel";
-import { OUTLINE } from "../src/components/elements/game-icon";
+import { CENTRE_TURNS, DIAL_PX, NIGHT_ENDS, RING, SeasonWheel, TIME_DISC, TIME_ICON_AT, TIME_ICON_RADIUS, TIME_ICON_SIZE, TIME_TURNS_PER_YEAR } from "../src/components/elements/season-wheel";
 
-/** A game icon's tones: each has its own gradient, its id ending with the tone's name. */
-const paletteTones = (svg: Element) => [...svg.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0]);
-
-// The season wheel (#547), a crafted dial since #607, in three layers since #909: its states, what each asks of the renderer,
-// its colours, and the element.
+// The season wheel (#547), painted art since V4-WHEEL-ART: its states, what each asks of the renderer, its layers, and the element.
 
 describe("the season wheel's states", () => {
   it("repeats the renderer's seasons, day moment and day share", () => {
@@ -115,9 +90,11 @@ describe("the season wheel's states", () => {
   });
 });
 
-describe("the season dial's colours and room (#607)", () => {
+
+describe("the season dial's art (V4-WHEEL-ART)", () => {
   const theme = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
   const token = (name: string) => theme.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1]?.trim();
+  const ART = resolve(import.meta.dirname, "../src/assets/season-wheel");
 
   it("keeps the sky tokens the 3D cycle's, its keyframes' top and bottom", () => {
     for (const season of SEASONS) {
@@ -126,181 +103,63 @@ describe("the season dial's colours and room (#607)", () => {
         expect(token(`sky-${season}-${phase}-bottom`)?.toLowerCase(), `${season} ${phase} bottom`).toBe(KEYFRAMES[season][phase].bottom.toLowerCase());
       }
     }
+    // The drawn dial's tokens left with it: the art carries its own colours.
+    expect(theme).not.toMatch(/--dial-|dial-twinkle/);
   });
 
-  it("paints the seasons' disc with their day skies, blended over 20° across each start, with no seam line (#930)", () => {
-    expect(SEASON_BLEND).toBe(20);
-    for (const part of ["top", "bottom"] as const) {
-      // Each quarter holds its own sky but for 10° at each end, from summer at the top, clockwise; the gradient starts 10° on.
-      expect(seasonsSky(part)).toBe(
-        `conic-gradient(from 10deg, var(--sky-summer-day-${part}) 0deg 70deg, var(--sky-autumn-day-${part}) 90deg 160deg, ` +
-          `var(--sky-winter-day-${part}) 180deg 250deg, var(--sky-spring-day-${part}) 270deg 340deg, var(--sky-summer-day-${part}))`,
-      );
-    }
+  it("stacks its layers bottom to top, each a whole canvas from this host, decorative", () => {
     const { container } = render(<SeasonWheel state="auto" />);
-    const sky = container.querySelector<HTMLElement>("[data-dial-disc] [data-sky=seasons]")!;
-    // The top at the rim, the bottom (the horizon) at the centre, faded out towards the rim.
-    expect(sky.style.background).toContain("--sky-summer-day-top");
-    expect((sky.firstElementChild as HTMLElement).style.background).toContain("--sky-summer-day-bottom");
-    expect((sky.firstElementChild as HTMLElement).style.maskImage).toBe("radial-gradient(closest-side, black, transparent)");
-    expect(sky.style.inset).toBe(`${50 - DISC}%`);
-    expect(container.querySelectorAll("line")).toHaveLength(2);
+    const layers = [...container.querySelectorAll<HTMLImageElement>("img[data-layer]")];
+    expect(layers.map((l) => l.dataset.layer)).toEqual(["season-ring", "time-disc", "shade", "inner-bezel", "frame", "pointer", "hub"]);
+    for (const img of [...container.querySelectorAll<HTMLImageElement>("img")]) {
+      expect(img.getAttribute("src"), img.dataset.layer).not.toMatch(/^(https?:)?\/\//);
+      expect(img).toHaveAttribute("alt", "");
+      expect(img).toHaveAttribute("draggable", "false");
+    }
+    for (const l of layers) expect(l).toHaveClass("absolute", "inset-0", "size-full");
   });
 
-  it("blends the centre's day and night over 60° at dusk and at dawn, wider than #935's 30°, through the dusk tones (#930)", () => {
-    expect(DUSK_BLEND).toBe(60);
-    // Dawn at the top, dusk at `DAY_SHARE` of a turn (225°), 30° of blend on each side of each.
-    const mid = "color-mix(in oklab, var(--dial-day-top), var(--dial-night-top))";
-    expect(timeSky("bottom")).toBe(
-      "conic-gradient(var(--sky-autumn-day-bottom), var(--dial-day-bottom) 30deg 195deg, var(--sky-autumn-day-bottom) 225deg, var(--dial-night-bottom) 255deg 330deg, var(--sky-autumn-day-bottom))",
-    );
-    expect(timeSky("top")).toContain(`var(--dial-day-top) 30deg 195deg, ${mid} 225deg, var(--dial-night-top) 255deg 330deg`);
-    // Each icon still on its full sky, out of the blends: the day's sun from 30° to 195°, the night's moon from 255° to 330°.
-    const bearing = (p: { x: number; y: number }) => ((Math.atan2(p.x - 50, 50 - p.y) * 180) / Math.PI + 360) % 360;
-    const b = DUSK_BLEND / 2;
-    const dusk = DAY_SHARE * 360;
-    expect(bearing(TIME_ICON_AT.with.day)).toBeGreaterThan(b);
-    expect(bearing(TIME_ICON_AT.with.day)).toBeLessThan(dusk - b);
-    expect(bearing(TIME_ICON_AT.with.night)).toBeGreaterThan(dusk + b);
-    expect(bearing(TIME_ICON_AT.with.night)).toBeLessThan(360 - b);
-    const { container } = render(<SeasonWheel state="auto" />);
-    expect(container.querySelector<HTMLElement>("[data-time-disc] [data-sky=time]")!.style.inset).toBe(`${50 - TIME_DISC}%`);
-    // The dusk tones from the dial's own tokens: none of their own (the stylesheet's budget).
-    for (const name of ["dial-day-top", "dial-day-bottom", "dial-night-top", "dial-night-bottom", "sky-autumn-day-bottom", "dial-star"]) expect(token(name), name).toBeTruthy();
-    // The needle in the theme's red (#909's open point 2).
-    expect(token("dial-needle")).toBe("var(--destructive)");
+  it("ships its art as WebP, light enough for a HUD widget", () => {
+    const files = readdirSync(ART).filter((f) => f.endsWith(".webp"));
+    expect(files.sort()).toEqual(["frame", "hub", "icon-moon", "icon-sun", "inner-bezel", "pointer", "season-ring", "shade", "time-disc"].map((n) => `${n}.webp`));
+    const total = files.reduce((sum, f) => sum + statSync(resolve(ART, f)).size, 0);
+    expect(total).toBeLessThan(250 * 1024);
   });
 
-  it("sets a ring of 16 small stones between the two discs, in the band's tones, in place of the black line (#930)", () => {
-    const { container } = render(<SeasonWheel state="auto" />);
-    const pebbles = [...container.querySelectorAll("[data-dial-disc] [data-pebble]")];
-    expect(pebbles).toHaveLength(16);
-    for (const p of pebbles) expect(["var(--dial-stone)", "var(--dial-stone-alt)"]).toContain(p.getAttribute("fill"));
-    expect(PEBBLE_BAND).toEqual([TIME_DISC, 19.5]);
-    // Only the rim's ring and the seasons' disc's edge are left fixed.
-    expect([...container.querySelectorAll("svg > circle[stroke='var(--dial-ring)']")].map((c) => Number(c.getAttribute("r")))).toEqual([49.25, DISC + 0.5]);
-  });
-
-  it("twinkles the stars, still under reduced motion, and draws no clouds or birds by day (#930's follow-up)", () => {
-    expect(theme).toMatch(/@utility dial-twinkle \{\s*animation: dial-twinkle [^;]+;\s*@media \(prefers-reduced-motion: reduce\) \{\s*animation: none;/);
-    const animate = vi.fn(() => ({ cancel: vi.fn() }));
-    Element.prototype.animate = animate as unknown as Element["animate"];
-    try {
-      const { container } = render(<SeasonWheel state="auto" />);
-      const stars = [...container.querySelectorAll("[data-time-disc] [data-star]")];
-      expect(stars).toHaveLength(STARS.length);
-      expect(stars.length).toBeGreaterThan(2);
-      for (const star of stars) expect(star).toHaveClass("dial-twinkle");
-      // The stars twinkle in a layer of their own, so a twinkle does not paint the skies again.
-      expect((stars[0]!.parentElement!.parentElement as HTMLElement).style.willChange).toBe("transform");
-      // The day's half has its sun only: no clouds, no birds, nothing drifting by script.
-      expect(container.querySelector("[data-decor], [data-drift]")).toBeNull();
-      expect(container.querySelectorAll("[data-time-disc] path")).toHaveLength(STARS.length);
-      expect(animate).not.toHaveBeenCalled();
-    } finally {
-      delete (Element.prototype as Partial<Element>).animate;
+  it("turns only the seasons' ring and the day and night disc; the rest stays still", () => {
+    const { container } = render(<SeasonWheel state="auto" point={{ season: "autumn", position: 0.4 }} />);
+    expect(container.querySelector("[data-dial-disc] [data-layer=season-ring]")).not.toBeNull();
+    expect(container.querySelector("[data-time-disc] [data-layer=time-disc]")).not.toBeNull();
+    for (const name of ["shade", "inner-bezel", "frame", "pointer", "hub"]) {
+      const layer = container.querySelector<HTMLElement>(`[data-layer=${name}]`)!;
+      expect(layer.closest("[data-dial-disc], [data-time-disc], [data-time-icons]"), name).toBeNull();
+      expect(layer.style.transform, name).toBe("");
     }
   });
 
-  it("draws each season's icon and the centre's day and night as game icons, in their own tones (#870)", () => {
-    const { container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0.8 }} />);
-    for (const season of SEASONS) {
-      const icon = container.querySelector(`[data-season=${season}] [data-slot=game-icon]`);
-      expect(icon, season).toHaveAttribute("data-icon", SEASON_GLYPH[season]);
-    }
-    expect(paletteTones(container.querySelector("[data-season=winter] svg")!)).toEqual(["ice"]);
-    expect(paletteTones(container.querySelector("[data-season=autumn] svg")!)).toEqual(["orange"]);
-    const time = (t: "day" | "night") => container.querySelector(`[data-time-icon=${t}] [data-slot=game-icon]`)!;
-    expect(time("day")).toHaveAttribute("data-icon", "sun");
-    expect(time("night")).toHaveAttribute("data-icon", "moon");
-    // The day is Font Awesome's Sun, without the cloud (#930's follow-up); summer takes the wheat sheaf, so the two are told
-    // apart at a glance.
-    expect(SEASON_GLYPH.summer).toBe("wheat-awn");
-    expect(Object.values(SEASON_GLYPH)).not.toContain(TIME_GLYPH.day);
-    expect(paletteTones(time("day").querySelector("svg") ?? time("day"))).toEqual(["gold"]);
-    expect(paletteTones(container.querySelector("[data-season=summer] svg")!)).toEqual(["gold"]);
-    expect(paletteTones(time("night").querySelector("svg") ?? time("night"))).toEqual(["silver"]);
-  });
+  /** Clockwise from the top, in degrees. */
+  const bearing = (p: { x: number; y: number }) => ((Math.atan2(p.x - 50, 50 - p.y) * 180) / Math.PI + 360) % 360;
 
-  it("tones its gold down into the stones (#634)", () => {
-    const share = Number(token("dial-rim")?.match(/^color-mix\(in oklab, var\(--primary\) (\d+)%, var\(--color-charcoal-600\)\)$/)?.[1]);
-    expect(share).toBeLessThan(80);
-  });
-
-  // An icon's half in dial units (100 across) on a dial of `dial` px; with its game outline (half the stroke outside each side).
-  const half = (px: number, dial: number, outline = true) => ((px * (outline ? 1 + OUTLINE / 512 : 1)) / 2 / dial) * 100;
-  const fromCentre = (p: { x: number; y: number }) => Math.hypot(p.x - 50, p.y - 50);
-
-  it("keeps the season icons at least 4 px apart, at each of the dial's sizes", () => {
-    for (const dial of DIAL_PX) {
-      const px = (s: (typeof WHEEL_SEASONS)[number]) => ({ x: (ICON_AT[s].x / 100) * dial, y: (ICON_AT[s].y / 100) * dial });
-      for (let i = 0; i < 4; i++) {
-        const a = px(WHEEL_SEASONS[i]!);
-        const b = px(WHEEL_SEASONS[(i + 1) % 4]!);
-        // Two square icons, upright: apart when the larger of the two axes' distances exceeds an icon by 4 px.
-        expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) - ICON_PX[dial] * (1 + OUTLINE / 512), `${dial}`).toBeGreaterThanOrEqual(4);
+  it("sets the sun in the middle of the disc's day and the moon in the middle of its night, as painted, each way it turns", () => {
+    // Painted to turn clockwise: its night from the top to 135°, its day from there round to the top.
+    expect(NIGHT_ENDS).toBe(135);
+    expect(bearing(TIME_ICON_AT.against.night)).toBeCloseTo(67.5);
+    expect(bearing(TIME_ICON_AT.against.day)).toBeCloseTo(247.5);
+    // Mirrored, turning with the ring.
+    expect(bearing(TIME_ICON_AT.with.night)).toBeCloseTo(292.5);
+    expect(bearing(TIME_ICON_AT.with.day)).toBeCloseTo(112.5);
+    // Both round, inside the disc clear of the inner gold ring, clear of the hub (r 4), and apart.
+    for (const turn of CENTRE_TURNS) {
+      for (const t of ["day", "night"] as const) {
+        const p = TIME_ICON_AT[turn][t];
+        expect(Math.hypot(p.x - 50, p.y - 50) + TIME_ICON_SIZE / 2, `${turn} ${t}`).toBeLessThan(TIME_DISC);
       }
     }
-    expect(DIAL_PX).toEqual([96, 108, 144]);
-    expect(ICON_PX).toEqual({ 96: 14, 108: 16, 144: 20 });
-  });
-
-  it("keeps 15% of the ring clear on each side of the season icons, and of the centre disc about its icons, at each size (#930)", () => {
-    // The seasons' ring is 23 units wide (#930's open point 3): the centre disc at 17.
-    expect(TIME_DISC).toBe(17);
-    const ring = DISC - TIME_DISC;
-    for (const dial of DIAL_PX) {
-      for (const s of WHEEL_SEASONS) {
-        const r = fromCentre(ICON_AT[s]);
-        // The glyph's own box (as #930 counts it) 15% of the ring clear of either disc, its outline clear of the small stones.
-        expect(r - half(ICON_PX[dial], dial, false) - TIME_DISC, `${dial} ${s} inside`).toBeGreaterThanOrEqual(0.15 * ring);
-        expect(DISC - r - half(ICON_PX[dial], dial, false), `${dial} ${s} outside`).toBeGreaterThanOrEqual(0.15 * ring);
-        expect(r - half(ICON_PX[dial], dial) - PEBBLE_BAND[1], `${dial} ${s} stones`).toBeGreaterThan(0);
-      }
-      for (const turn of CENTRE_TURNS) {
-        const icons = TIME_ICON_AT[turn];
-        // The same way on the centre disc: 15% of its radius clear of its rim.
-        for (const t of ["day", "night"] as const) expect(TIME_DISC - fromCentre(icons[t]) - half(TIME_ICON_PX[dial], dial, false), `${dial} ${turn} ${t}`).toBeGreaterThanOrEqual(0.15 * TIME_DISC);
-        // And the two, outlines included, at least 2 px apart (4 px on the 20-unit disc of #909).
-        const gap = Math.hypot(icons.day.x - icons.night.x, icons.day.y - icons.night.y);
-        expect(((gap - 2 * half(TIME_ICON_PX[dial], dial)) / 100) * dial, `${dial} ${turn}`).toBeGreaterThanOrEqual(2);
-      }
-    }
-  });
-
-  it("draws summer's other candidates when asked (the owner to pick), none of them the day's sun, the wheat sheaf by default", () => {
-    expect(SUMMER_GLYPHS).toEqual(["wheat-awn", "fire-flame-curved", "umbrella-beach"]);
-    expect(SUMMER_GLYPHS[0]).toBe(SEASON_GLYPH.summer);
-    for (const glyph of SUMMER_GLYPHS) {
-      expect(glyph).not.toBe(TIME_GLYPH.day);
-      const { container, unmount } = render(<SeasonWheel state="summer" summerGlyph={glyph} />);
-      expect(container.querySelector("[data-season=summer] [data-slot=game-icon]"), glyph).toHaveAttribute("data-icon", glyph);
-      expect(container.querySelector("[data-season=autumn] [data-slot=game-icon]")).toHaveAttribute("data-icon", "leaf");
-      unmount();
-    }
-    const { container } = render(<SeasonWheel state="summer" />);
-    expect(container.querySelector("[data-season=summer] [data-slot=game-icon]")).toHaveAttribute("data-icon", "wheat-awn");
-  });
-
-  it("keeps the stars on the centre disc, in its night half, off its icons (#930)", () => {
-    /** Clockwise from the top, in degrees. */
-    const bearing = (x: number, y: number) => ((Math.atan2(x - 50, 50 - y) * 180) / Math.PI + 360) % 360;
-    for (const d of STARS) {
-      for (const [u, v] of [[-d.s, -d.s], [d.s, -d.s], [-d.s, d.s], [d.s, d.s]] as const) {
-        const [x, y] = [d.x + u, d.y + v];
-        expect(Math.hypot(x - 50, y - 50), `star at ${d.d}`).toBeLessThan(TIME_DISC - 0.2);
-        // By night, after dusk (225°).
-        expect(bearing(x, y), `star at ${d.d}`).toBeGreaterThan(225);
-      }
-      // The icons turn upright on the turning disc: each is taken as a round of its half, outline included, at the largest
-      // share of the dial (96 px). The "against" layout is the mirror of this one, so the same test holds for it.
-      for (const icon of ["day", "night"] as const) {
-        const { x, y } = TIME_ICON_AT.with[icon];
-        const gap = Math.hypot(Math.max(d.x - d.s - x, 0, x - d.x - d.s), Math.max(d.y - d.s - y, 0, y - d.y - d.s));
-        for (const dial of DIAL_PX) expect(gap, `star at ${d.d}, the ${icon} icon at ${dial}`).toBeGreaterThan(half(TIME_ICON_PX[dial], dial));
-      }
-    }
-    expect(TIME_ICON_AT.against.day).toEqual({ x: 100 - TIME_ICON_AT.with.day.x, y: TIME_ICON_AT.with.day.y });
+    expect(TIME_ICON_RADIUS - TIME_ICON_SIZE / 2).toBeGreaterThan(4);
+    expect(TIME_ICON_RADIUS * 2).toBeGreaterThan(TIME_ICON_SIZE);
+    // The seasons' ring shows between the two gold rings.
+    expect(RING[0]).toBeGreaterThan(TIME_DISC);
+    expect(RING[1]).toBeLessThanOrEqual(40);
   });
 });
 
@@ -310,22 +169,18 @@ describe("<SeasonWheel>", () => {
     const { container } = render(<SeasonWheel state="winter" onNext={onNext} />);
     const button = screen.getByRole("button", { name: /winter day/ });
     expect(container.querySelector(".size-24")).not.toBeNull();
+    expect(DIAL_PX).toEqual([96, 108, 144]);
     fireEvent.click(button);
     expect(onNext).toHaveBeenCalledOnce();
   });
 
-  it("shows no auto or fixed mark, only the three layers and the red needle (#909)", () => {
+  it("shows no auto or fixed mark, only its layers and one pointer (#909)", () => {
     const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "autumn", position: 0.3 }} />);
     expect(screen.getByRole("button", { name: /automatic, now autumn day/ })).toBeTruthy();
-    expect([...container.querySelectorAll("[data-sky]")].map((e) => e.getAttribute("data-sky"))).toEqual(["seasons", "time"]);
-    expect(container.querySelectorAll("[data-needle]")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-layer=pointer]")).toHaveLength(1);
     expect(container.querySelector("[data-centre], [data-now], [data-sector]")).toBeNull();
     // A fixed state draws the same dial: only its name, its state and its angles differ.
-    const drawing = () =>
-      container.innerHTML
-        .replace(/(aria-label|title|data-state)="[^"]*"/g, "")
-        .replace(/rotate\([^)]*\)/g, "")
-        .replace(/ data-current="true"/g, "");
+    const drawing = () => container.innerHTML.replace(/(aria-label|title|data-state)="[^"]*"/g, "").replace(/rotate\([^)]*\)/g, "");
     const auto = drawing();
     rerender(<SeasonWheel state="autumn" />);
     expect(screen.getByRole("button", { name: "Season: autumn day. Change" })).toBeTruthy();
@@ -343,46 +198,41 @@ describe("<SeasonWheel>", () => {
     expect(container.textContent).toBe("");
   });
 
-  const angle = (c: HTMLElement, layer: string) => Number(c.querySelector<HTMLElement>(`[data-${layer}]`)!.style.transform.match(/^rotate\((-?[\d.]+)deg\)$/)![1]);
-  /** Which half of the centre disc is under the needle at the top, from its angle (its day from 0 to `DAY_SHARE` of a turn). */
-  const underNeedle = (deg: number) => ((((-deg % 360) + 360) % 360) / 360 < DAY_SHARE ? "day" : "night");
+  const angle = (el: Element | null) => Number((el as HTMLElement).style.transform.match(/^rotate\((-?[\d.]+)deg\)$/)![1]);
+  const layer = (c: HTMLElement, name: string) => angle(c.querySelector(`[data-${name}]`));
+  /**
+   * What the pointer's inner notch is on: the disc as painted (its night from the top to `NIGHT_ENDS`, clockwise) turned by `deg`;
+   * mirrored, when it turns with the ring, the painting's angle under the notch is the other way round. The top itself is dawn,
+   * the day's first moment; `NIGHT_ENDS` is dusk, the night's.
+   */
+  const underNotch = (deg: number, turn: (typeof CENTRE_TURNS)[number] = "against") => {
+    const painted = (((turn === "against" ? -deg : deg) % 360) + 360) % 360;
+    return painted > 0 && painted <= NIGHT_ENDS ? "night" : "day";
+  };
 
-  it("turns the centre disc four times for one turn of the seasons' disc, the icons riding along", () => {
+  it("turns the centre disc four times for one turn of the seasons' ring, the other way, the sun and moon upright", () => {
     expect(TIME_TURNS_PER_YEAR).toBe(4);
     const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0.1 }} />);
-    const start = { seasons: angle(container, "dial-disc"), time: angle(container, "time-disc") };
+    const start = { seasons: layer(container, "dial-disc"), time: layer(container, "time-disc") };
     rerender(<SeasonWheel state="auto" point={{ season: "autumn", position: 0.6 }} />);
-    const seasons = angle(container, "dial-disc") - start.seasons;
-    const time = angle(container, "time-disc") - start.time;
+    const seasons = layer(container, "dial-disc") - start.seasons;
+    const time = layer(container, "time-disc") - start.time;
     expect(seasons).toBeCloseTo(-135);
-    expect(time).toBeCloseTo(4 * seasons);
-    expect(angle(container, "dial-icons")).toBe(angle(container, "dial-disc"));
-    expect(angle(container, "time-icons")).toBe(angle(container, "time-disc"));
+    expect(time).toBeCloseTo(-4 * seasons);
+    expect(layer(container, "time-icons")).toBe(layer(container, "time-disc"));
+    for (const t of ["day", "night"]) expect(angle(container.querySelector(`[data-time-icon=${t}]`)), t).toBe(-layer(container, "time-disc"));
   });
 
-  it("holds the centre disc's day under the needle exactly while the cycle is in day", () => {
+  it("holds the disc's day under the notch exactly while the cycle is in day, both discs only turning forward", () => {
     const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0 }} />);
+    let last = { seasons: layer(container, "dial-disc"), time: layer(container, "time-disc") };
     for (const season of SEASONS) {
       for (let i = 0; i < 40; i++) {
         const point = { season, position: i / 40 };
         rerender(<SeasonWheel state="auto" point={point} />);
-        expect(underNeedle(angle(container, "time-disc")), `${season} ${point.position}`).toBe(isNight(point) ? "night" : "day");
-      }
-    }
-  });
-
-  it("turned against the seasons (#930, to try), mirrors the centre disc so its day is under the needle exactly while the cycle is in day", () => {
-    const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0 }} centreTurn="against" />);
-    // Turning clockwise, the point under the needle is the drawing's angle -deg; mirrored, that is the "with" drawing's deg.
-    const underNeedleAgainst = (deg: number) => ((((deg % 360) + 360) % 360) / 360 < DAY_SHARE ? "day" : "night");
-    let last = { seasons: angle(container, "dial-disc"), time: angle(container, "time-disc") };
-    for (const season of SEASONS) {
-      for (let i = 0; i < 40; i++) {
-        const point = { season, position: i / 40 };
-        rerender(<SeasonWheel state="auto" point={point} centreTurn="against" />);
-        const now = { seasons: angle(container, "dial-disc"), time: angle(container, "time-disc") };
-        expect(underNeedleAgainst(now.time), `${season} ${point.position}`).toBe(isNight(point) ? "night" : "day");
-        // The seasons' disc still counterclockwise, the centre's clockwise, four times as fast, each only forward.
+        const now = { seasons: layer(container, "dial-disc"), time: layer(container, "time-disc") };
+        expect(underNotch(now.time), `${season} ${point.position}`).toBe(isNight(point) ? "night" : "day");
+        // The ring counterclockwise, the disc clockwise, four times as fast, each only forward.
         expect(now.seasons).toBeLessThanOrEqual(last.seasons);
         expect(now.time).toBeGreaterThanOrEqual(last.time);
         expect(now.time).toBeCloseTo(-4 * now.seasons);
@@ -390,46 +240,50 @@ describe("<SeasonWheel>", () => {
       }
     }
     expect(screen.getByRole("button")).toHaveAttribute("data-centre-turn", "against");
-    expect(container.querySelector<HTMLElement>("[data-time-disc] > span")!.style.transform).toBe("scaleX(-1)");
-    expect(angle(container, "time-icons")).toBe(angle(container, "time-disc"));
-    // A fixed season: the middle of its day under the needle, as turning with the seasons.
-    rerender(<SeasonWheel state="autumn" centreTurn="against" />);
-    expect(angle(container, "time-disc") % 360).toBe(360 * (DAY_SHARE / 2));
+    expect(container.querySelector("[data-layer=time-disc]")).not.toHaveClass("-scale-x-100");
   });
 
-  it("turns the centre disc with the seasons' disc by default, today's way, unmirrored", () => {
-    const { container } = render(<SeasonWheel state="autumn" />);
+  it("turned with the ring, mirrors the disc so its day is under the notch exactly while the cycle is in day", () => {
+    const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0 }} centreTurn="with" />);
+    for (const season of SEASONS) {
+      for (let i = 0; i < 40; i++) {
+        const point = { season, position: i / 40 };
+        rerender(<SeasonWheel state="auto" point={point} centreTurn="with" />);
+        expect(underNotch(layer(container, "time-disc"), "with"), `${season} ${point.position}`).toBe(isNight(point) ? "night" : "day");
+        expect(layer(container, "time-disc")).toBeCloseTo(4 * layer(container, "dial-disc"));
+      }
+    }
     expect(screen.getByRole("button")).toHaveAttribute("data-centre-turn", "with");
-    expect(container.querySelector<HTMLElement>("[data-time-disc] > span")!.style.transform).toBe("");
+    expect(container.querySelector("[data-layer=time-disc]")).toHaveClass("-scale-x-100");
   });
 
-  it("rests a fixed season under the needle in the middle of its day, and only ever turns one way", () => {
+  it("rests a fixed season under the pointer in the middle of its day, and only ever turns one way", () => {
     const { rerender, container } = render(<SeasonWheel state="autumn" />);
-    expect(angle(container, "dial-disc")).toBe(-118.125);
-    // The middle of the centre disc's day half, under the needle.
-    expect(angle(container, "time-disc")).toBe(-472.5);
-    expect((-angle(container, "time-disc") % 360) / 360).toBe(DAY_SHARE / 2);
+    expect(layer(container, "dial-disc")).toBe(-118.125);
+    // The middle of the disc's day under the notch: the painting's 247.5°.
+    expect(layer(container, "time-disc")).toBe(472.5);
+    expect((((-layer(container, "time-disc")) % 360) + 360) % 360).toBe((NIGHT_ENDS + 360) / 2);
     rerender(<SeasonWheel state="spring" />);
-    expect(angle(container, "dial-disc")).toBe(-298.125);
+    expect(layer(container, "dial-disc")).toBe(-298.125);
     rerender(<SeasonWheel state="auto" point={{ season: "summer", position: 0.5 }} />);
     // Summer again is on from spring (a turn past it, half a season in), not a step back.
-    expect(angle(container, "dial-disc")).toBe(-405);
+    expect(layer(container, "dial-disc")).toBe(-405);
     rerender(<SeasonWheel state="auto" point={{ season: "summer", position: 0.75 }} />);
-    expect(angle(container, "dial-disc")).toBe(-427.5);
-    expect(angle(container, "time-disc")).toBe(-1710);
+    expect(layer(container, "dial-disc")).toBe(-427.5);
+    expect(layer(container, "time-disc")).toBe(1710);
   });
 
   it("turns both discs forward through a whole tap round, from the last fixed season on to auto", () => {
     let round = initialWheelRound(true);
     const point = { season: "autumn" as const, position: 0.8 };
     const { rerender, container } = render(<SeasonWheel state={round.state} point={point} />);
-    let last = { seasons: angle(container, "dial-disc"), time: angle(container, "time-disc") };
+    let last = { seasons: layer(container, "dial-disc"), time: layer(container, "time-disc") };
     for (let i = 0; i < 5; i++) {
       round = nextWheelRound(round, point.season);
       rerender(<SeasonWheel state={round.state} point={point} />);
-      const now = { seasons: angle(container, "dial-disc"), time: angle(container, "time-disc") };
+      const now = { seasons: layer(container, "dial-disc"), time: layer(container, "time-disc") };
       expect(now.seasons, round.state).toBeLessThanOrEqual(last.seasons);
-      expect(now.time, round.state).toBeLessThanOrEqual(last.time);
+      expect(now.time, round.state).toBeGreaterThanOrEqual(last.time);
       last = now;
     }
     // Back on auto, a full year on from where it started.
