@@ -22,6 +22,8 @@ export const socialKeys = {
   profile: (playerId: string) => ["social", "profile", addressKey(playerId)] as const,
   /** The player search, on its query as the search reads it (`normalQuery`): "Wren" and " wren" share an entry. */
   search: (query: string) => ["social", "search", query] as const,
+  /** Every guild read (#953, `guildKeys` in `guilds.ts` builds on it): what a block or an unblock makes stale too. */
+  guilds: ["social", "guild"] as const,
   /** Everything of the follows (#954) as `player` sees it: what a follow write of theirs makes stale. */
   follows: (player: string) => ["social", "follows", addressKey(player)] as const,
   /** The player's own lists. */
@@ -149,7 +151,10 @@ export type FollowAction = "follow" | "unfollow" | "removeFollower" | "block" | 
 
 /** The connected player's follow writes, or null without a player or a follow source. */
 export interface FollowActions {
-  /** Sends one write; resolves once kept, rejects with its `FollowRefusedError`. Every follow read of the player is read again after it. */
+  /**
+   * Sends one write; resolves once kept, rejects with its `FollowRefusedError`. Every follow read of the player is read again
+   * after it, and after a block or an unblock every guild read too.
+   */
   run(action: Exclude<FollowAction, "seeFollowers">, target: string): Promise<void>;
   /** The player saw their followers: the new marks and the badge go. */
   seeFollowers(): Promise<void>;
@@ -169,7 +174,13 @@ export function useFollowActions(me: string | null): FollowActions | null {
       if (action === "seeFollowers") return follows!.seeFollowers(me!);
       return follows![action](me!, target!);
     },
-    onSettled: () => client.invalidateQueries({ queryKey: socialKeys.follows(me ?? "0x0") }),
+    onSettled: (_data, _error, { action }) =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: socialKeys.follows(me ?? "0x0") }),
+        // A block withdraws the guild invitations and requests between the two players, and an unblock lets the mock's held-back
+        // invitation come (#953): every guild read is read again too.
+        ...(action === "block" || action === "unblock" ? [client.invalidateQueries({ queryKey: socialKeys.guilds })] : []),
+      ]),
   });
   const { mutateAsync, isPending, error } = mutation;
   return useMemo(() => {

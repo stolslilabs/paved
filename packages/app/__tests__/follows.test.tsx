@@ -8,6 +8,7 @@ import { FOLLOW_BACK_MIN_S, followBackDelay, seededFollows } from "../src/data/m
 import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
 import { MOCK_ACCEPT_S, MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, seededGuildWorld } from "../src/data/mock/guilds";
 import { mockSocial } from "../src/data/mock/overlay";
+import { usePlayerGuild } from "../src/data/guilds";
 import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { freshV2, mockRivalsV2 } from "../src/data/mock/v2";
 import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
@@ -473,6 +474,27 @@ describe("the follow hooks (#954)", () => {
     expect(addressesOf(result.current.lists.data!.following)).toEqual([playerKey(member)]);
     await act(() => result.current.actions!.run("unfollow", member));
     await waitFor(() => expect(result.current.status.data?.following).toBe(false));
+  });
+
+  it("read the guilds again after a block or an unblock: a withdrawn invitation and its badge go from the mounted reads (#953)", async () => {
+    const { clock, social } = mock();
+    const guilds = social as SocialSource & GuildSource;
+    const leader = seededGuildWorld().guilds.find((g) => g.name === "Iron Quay Wardens")!.members.find((m) => m.rank === GUILD_RANK.leader)!.address;
+    await guilds.visitGuildTab(ME);
+    clock.now += MOCK_INVITATION_S + 1;
+    const { result } = renderData(() => ({ guild: usePlayerGuild(ME), actions: useFollowActions(ME) }), fakeSources({ social }).sources);
+    await waitFor(() => expect(result.current.guild.data?.invitations).toHaveLength(1));
+    expect(result.current.guild.data!.badge).toBe(1);
+    await act(() => result.current.actions!.run("block", leader));
+    await expect(guilds.playerGuild(ME)).resolves.toMatchObject({ invitations: [] });
+    await waitFor(() => expect(result.current.guild.data!.invitations).toEqual([]), { timeout: 3000 });
+    expect(result.current.guild.data!.badge).toBe(0);
+    // A follow alone reads no guild again.
+    const reads = vi.spyOn(guilds, "playerGuild");
+    await act(() => result.current.actions!.run("follow", SEEDED_PLAYERS[0]!.address));
+    expect(reads).not.toHaveBeenCalled();
+    await act(() => result.current.actions!.run("unblock", leader));
+    expect(reads).toHaveBeenCalled();
   });
 
   it("reject a refused write with its typed reason, and keep it as the error until the next", async () => {
