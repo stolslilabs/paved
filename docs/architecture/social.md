@@ -104,9 +104,9 @@ days as `u32` day numbers.
 
 | Storage | Key | Slots | Packing (low bits first) | Written |
 |---|---|---|---|---|
-| `guilds` | `guild_id: u32` | 1 | `members u8`, `officers u8`, `join_type u8` (1 Open, 2 By request, 3 Invite only), `min_level u16`, `min_crowns u32`, `emblem u32`, `created_at u48`, `leader_seen u32` (day), `rotation_day u32` (0: no claim open), `flags u8` (bit 0: disbanded). 200 bits | create (new), every change of membership, rank or settings (rewrite), the leader's daily check-in (rewrite), a rotation's claim (rewrite) |
+| `guilds` | `guild_id: u32` | 1 | `members u8`, `officers u8`, `join_type u8` (1 Open, 2 By request, 3 Invite only), `min_level u16`, `min_crowns u32`, `emblem u32`, `created_at u48`, `leader_seen u32` (day), `rotation_day u32` (0: no claim open), `flags u8` (bit 0: disbanded). 224 bits | create (new), every change of membership, rank or settings (rewrite), the leader's daily check-in (rewrite), a rotation's claim (rewrite) |
 | `members` | `player: ContractAddress` | 1 | `guild u32` (0: none), `rank u8` (0 none, 1 Member, 2 Officer, 3 Leader), `nonce u32`, `joined_at u48`, `last_kick_at u48`, `last_created_at u48`. 216 bits | the player's first guild ever (new), every later change (rewrite). Kept after leaving (guild 0), since its nonce and delays must survive |
-| `names` | the lowercased name (`felt252`) | 1 | the `guild_id u32` | create (new), disband (written 0) |
+| `names` | the lowercased name (`felt252`) | 1 | the `guild_id u32` | create (new), disband (written 0: `disband` takes the name as an argument and checks that the index gives this guild, since no slot holds the name) |
 | `next_guild_id` | | 1 | `u32` | create (rewrite) |
 | `rotations` | `guild_id: u32` | 1 | the claimed heir (`ContractAddress`); the claim's day is the guild felt's `rotation_day` (section 6.4) | a rotation's claim (new the first time per guild), its contest and finish (rewrite) |
 
@@ -131,10 +131,11 @@ contract is written.
 | `create`, a player's first guild ever | 3 | 4 | 3 | 1 | 1 | 0.79 | 1.38 | **2.17** |
 | `create`, a player who was in a guild before | 3 | 4 | 2 | 2 | 1 | 0.79 | 0.96 | **1.75** |
 | `update_settings` | 2 | 1 | 0 | 1 | 1 | 0.36 | 0.03 | **0.39** |
-| `disband` (the leader alone; also through `leave`) | 2 | 3 | 0 | 3 | 1 | 0.59 | 0.09 | **0.68** |
+| `disband(name)` (the leader alone) | 3 | 3 | 0 | 3 | 1 | 0.67 | 0.09 | **0.76** |
 | `join` an Open guild with requirements | 2 | 2 | 0 | 2 | 1 | 0.99 | 0.06 | **1.05** |
 | `accept_request` (by an officer) | 3 | 2 | 0 | 2 | 1 | 1.42 | 0.06 | **1.48** |
-| `accept_invitation` (by the invitee; requirements waived) | 3 | 2 | 0 | 2 | 1 | 0.90 | 0.06 | **0.96** |
+| `accept_invitation` (by a guildless invitee; requirements waived) | 3 | 2 | 0 | 2 | 1 | 0.90 | 0.06 | **0.96** |
+| `accept_invitation`, the invitee leaving another guild in the same call | 4 | 3 | 0 | 3 | 2 | 1.13 | 0.09 | **1.22** |
 | `kick`, by an officer (writes their kick time) | 3 | 3 | 0 | 3 | 1 | 0.67 | 0.09 | **0.76** |
 | `kick`, by the leader (no kick rate) | 3 | 2 | 0 | 2 | 1 | 0.55 | 0.06 | **0.61** |
 | `promote`, `demote` | 3 | 2 | 0 | 2 | 1 | 0.55 | 0.06 | **0.61** |
@@ -239,7 +240,7 @@ for reads and writes, and a WebSocket for live messages. It reads the chain thro
 - Follows, blocks and mutes are kept until undone; descriptions until changed; announcements, the 20 latest per guild
   (#953); expired requests and invitations are deleted at once.
 
-**Deleting a player's data on request.** Their messages (shown as "Message deleted", as a sender's own deletion), follows
+**Deleting a player's data on request.** Their messages, original and filtered texts and signatures (shown as "Message deleted", as a sender's own deletion), follows
 both ways, blocks, mutes, the reports they made, their pending requests and invitations, and their sessions are deleted;
 the backups age them out within 7 days. **What the chain holds cannot be deleted**: the guild's events (the address joined,
 was promoted, left) stay on chain and in any indexer. The address is pseudonymous; the privacy notice says so. This is one
@@ -247,13 +248,16 @@ more reason to keep every text off chain.
 
 **Moderation.**
 
-- The reports' queue (spam, scam, harassment, other: #955), each with the message, its signature and the conversation's
-  last messages around it.
+- The reports' queue (spam, scam, harassment, other: #955), each with the message's original signed text, its signature,
+  its filtered text, and the conversation's last messages around it.
 - The actions: delete a message; mute a player in the World for a time; ban an address from the service (it can still play,
   but not write in the service). Each action is logged with its moderator.
 - The tools: a small admin page behind the owner's login (phase C of `accounts.md`), or a command line on the host first.
-- **The word filter** runs in the service, which is the one that counts: listed words are replaced with "•••" before the
-  message is stored, so every reader gets the same text. The list leaves the client (where it sits on the mock, #955).
+- **The word filter** runs in the service, which is the one that counts: listed words are replaced with "•••" when the
+  message is written, so every reader gets the same text. The service stores both: the **original signed text with its
+  signature**, which only moderators read (it is the preimage the signature covers, section 5.4), and the **filtered text**,
+  which every reader is served. Both share the message's retention and are deleted together. The list leaves the client
+  (where it sits on the mock, #955).
 
 **The socket.** One WebSocket per open client, authenticated with the session token (5.3), subscribed to the World, the
 player's guild and their private conversations. It replaces the indexer's polling for messages only; the rest stays polled.
@@ -290,7 +294,9 @@ from one officer, 20 an hour. Each is a pure function of game-core, so the servi
 
 **Each message signed**: confirmed. The service could trust its session alone, but the signature gives two things for a few
 milliseconds of the client's time: a moderator can prove who wrote a reported message, and the service itself cannot write
-in a player's name. The signed message is SNIP-12: the conversation, the text's hash, the time, a per-player counter.
+in a player's name. The signed message is SNIP-12: the conversation, the hash of the text as the player wrote it (before
+the word filter), the time, a per-player counter. The service keeps that original text beside the filtered one (5.2), so
+the proof holds for a filtered message too: the moderator hashes the stored original and checks the signature.
 
 **Private messages** are readable by their two players only: the service serves a conversation only to its two members,
 over TLS. **No end-to-end encryption** (open point 5): with it the service could not read a reported message, and so could
@@ -310,15 +316,15 @@ spends Cobbles through `Setup.spend_cobbles` as an allowed spender. **The player
 |---|---|---|---|
 | Creating and running | `create(name, emblem, join_type, min_level, min_crowns)` | a player in no guild | name valid (3 to 20 ASCII letters, digits, spaces) and free whatever the case, the 24-hour delay, the creation's level (open point 8). The creator becomes Leader |
 | | `update_settings(emblem, join_type, min_level, min_crowns)` | the Leader (#953, open point 3) | |
-| | `disband()` | the Leader, alone in the guild | frees the name. Also what the Leader's `leave` does when alone |
+| | `disband(name)` | the Leader, alone in the guild | the index gives this guild for the lowercased `name` (`'Guild: not the name'` otherwise); frees the name. The client takes the name from the indexer (the creation's event): no slot holds it |
 | Joining | `join(guild_id)` | a player in no guild | Open, not full, requirements met |
 | | `accept_request(request, signature)` | an Officer or the Leader of the guild | the request (6.3): the guild's, not expired, the player's nonce, the player in no guild, not full, the join type By request (or Open), requirements met, the player's signature |
-| | `accept_invitation(invitation, signature)` | the invitee | the invitation (6.3): not expired, the invitee's nonce, the inviter still an Officer or the Leader of that guild, not full, the inviter's signature. The requirements are waived (#953, open point 8). A player in a guild leaves it in the same multicall first |
+| | `accept_invitation(invitation, signature)` | the invitee | the invitation (6.3): not expired, the invitee's nonce, the inviter still an Officer or the Leader of that guild, not full, the inviter's signature. The requirements are waived (#953, open point 8). **An invitee in another guild switches in this one call**: the nonce is checked first, against the value the invitation was signed at, then the contract takes the invitee out of their old guild (its count lowered, `MemberLeft`) and into the new one, raising the nonce once. A Leader of a guild with others cannot (`'Guild: leader must transfer'`); a Leader alone disbands first. A separate `leave` before it would raise the nonce and void the invitation |
 | | `cancel_signed()` | any player | raises the caller's nonce: every request or invitation of theirs not yet redeemed dies |
 | Ranks | `kick(player)` | an Officer or the Leader | the same guild, the caller's rank strictly above the target's; for an Officer, 20 minutes since their last kick. The reason is off chain (its line in the service) |
 | | `promote(player)`, `demote(player)` | the Leader (#953, open point 2) | a Member to Officer, an Officer to Member |
 | | `make_leader(player)` | the Leader | a member of the guild; the Leader becomes an Officer |
-| | `leave()` | any member | the Leader only when alone (then the guild is disbanded); the Leader with others must transfer first |
+| | `leave()` | any member but the Leader | the Leader with others must transfer first (`'Guild: leader must transfer'`); the Leader alone calls `disband(name)`, which the client sends for #953's "leave and disband" (`'Guild: disband instead'` from `leave`) |
 | The rotation | `check_in()` | the Leader | marks the day (6.4) |
 | | `claim_rotation(guild_id, heir)`, `contest_rotation(guild_id, heir)`, `finish_rotation(guild_id)` | any member | section 6.4 |
 | Views | `guild(guild_id)`, `member(player)`, `guild_of_name(name)`, `nonce(player)`, `rotation(guild_id)` | | |
@@ -340,7 +346,7 @@ member felt: it costs nothing more.
 **Errors**, one per typed reason of `game-core`'s guild rules, prefixed as the other contracts' (`'Guild: ...'`, at most 31
 characters): `not found`, `full`, `already in a guild`, `not a member`, `rank too low`, `not the same guild`, `name invalid`,
 `name taken`, `create too soon`, `level too low`, `kick too soon`, `join closed`, `requirements`, `expired`, `bad nonce`,
-`bad signature`, `leader must transfer`, `leader active`, `not the heir`, `rotation open`. The mapping between the reasons and
+`bad signature`, `leader must transfer`, `disband instead`, `not the name`, `leader active`, `not the heir`, `rotation open`. The mapping between the reasons and
 the errors is one table of the fixture (section 7).
 
 ### 6.3 Signed requests and invitations
@@ -357,7 +363,9 @@ carry over to another deployment.
 
 - **Why the joining player's nonce in both**: the player joins at most once per nonce. Two requests to two guilds: the first
   redeemed raises the nonce and kills the other, so one pending request at a time (#953) holds on chain whatever the
-  service does. A used invitation dies when its invitee joins; after a leave, an old request cannot pull the player back.
+  service does. A used invitation dies when its invitee joins; after a leave, an old request cannot pull the player back. So the nonce
+  is checked before any change the call makes: `accept_invitation` leaves the old guild itself (6.1), after the check, and the
+  client never sends a `leave` before it.
 - **Expiry**: 7 days for both (#953's invitations; the same for requests, open point 11).
 - **Cancelling before it expires**, weighed: a short expiry alone leaves a cancelled request redeemable until it ends by an
   officer who kept it; a nonce raised on chain ends it at once for 0.31M. **Default: both.** The client cancels in the
@@ -432,7 +440,7 @@ Not taken, as #956's reading of them found (read, not run), and how `Guild` avoi
 | `create` seems to need a pending request | `create` needs only to be in no guild |
 | The requester check of `join` seems inverted, which would block the request-then-accept path | The request is a signed message checked against its signer; the path is tested in the fixture |
 | `leave` does not lower the member count | Every leave, kick and disband updates the counts in the guild's felt |
-| There is no way to disband a guild; the Master can neither leave nor be removed | `disband`, the Leader's `leave` when alone, and the rotation |
+| There is no way to disband a guild; the Master can neither leave nor be removed | `disband(name)` for the Leader alone, and the rotation |
 | `guildable` emits no event | One event per change, which the indexer needs for every list |
 | A 100-member cap | 50 (#953, open point 4) |
 
