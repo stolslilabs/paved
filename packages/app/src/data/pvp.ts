@@ -24,7 +24,7 @@ import type {
 } from "@paved/chain";
 import { AttackRun, CAMPAIGNS, CENTER, CategoryType, OrientationType, PlanType, type AttackMoveCodes, type PlacedCodes } from "@paved/game-core";
 import { stakesOf, type CrownStakes, type PvpCell, type PvpPlayer, type PvpVillage } from "../lib/pvp-rules";
-import { orNone } from "./avatar";
+import { orNone, savedLook, useAvatar } from "./avatar";
 import { cobbleKeys } from "./cobbles";
 import { addressKey, queryKeys } from "./keys";
 import { pvpKeys } from "./pvp-keys";
@@ -143,8 +143,8 @@ export function boardOf(cells: readonly VillageCell[], tiles: readonly VillageTi
 }
 
 /**
- * A player as the PvP screens show them (#647): the name (`name`, the indexer's or the wallet's), the level (`Setup`, #641)
- * and the crowns (`Matchmaker.league`, a hold of an open attack counted, as the season's roll counts it). An NPC village has
+ * A player as the PvP screens show them (#647): the name (`name`, the indexer's or the wallet's), the level (`Setup`, #641),
+ * the crowns (`Matchmaker.league`, a hold of an open attack counted, as the season's roll counts it) and the look they saved (#926). An NPC village has
  * no level (0). Null on a network without PvP; disabled without a player.
  */
 export function usePvpPlayer(playerId: string | null, name: string | null): Result<PvpPlayer> {
@@ -153,12 +153,14 @@ export function usePvpPlayer(playerId: string | null, name: string | null): Resu
   const id = playerId ?? "0x0";
   const league = useQuery({ queryKey: pvpKeys.league(id), queryFn: () => orNone(() => pvp!.pvpLeague(id)), enabled: playerId !== null && pvp !== null });
   const progress = usePlayerProgress(playerId);
+  // The look they saved (#626; a new player's drawn one on the mock, #926): the rows' avatar, the initial until it is read.
+  const look = savedLook(useAvatar(playerId).data);
   if (playerId === null) return { data: undefined, isPending: false, error: null };
   if (pvp === null || league.data === null) return { data: null, isPending: false, error: league.error };
   const error = league.error ?? progress.error ?? null;
   const ready = league.data !== undefined && progress.data !== undefined;
   if (!ready) return { data: undefined, isPending: !error, error };
-  return { data: { name, address: playerId, level: progress.data?.level ?? 0, crowns: league.data!.crowns }, isPending: false, error };
+  return { data: { name, address: playerId, level: progress.data?.level ?? 0, crowns: league.data!.crowns, look }, isPending: false, error };
 }
 
 /** The defender as the scout shows it: its village (cells, tiles, score: the target) and the crowns at stake. */

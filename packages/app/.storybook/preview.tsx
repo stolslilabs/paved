@@ -30,6 +30,11 @@ declare module "storybook/internal/csf" {
     queryFixtures?: QueryFixtures;
     /** The route a story starts at (a MemoryRouter entry). */
     route?: string;
+    /**
+     * The story mounts its own data router (`createMemoryRouter`, for a page that reads its route's `handle`): the preview's
+     * MemoryRouter is left out, as a router cannot be rendered inside another.
+     */
+    ownRouter?: boolean;
     /** `MotionConfig reducedMotion` for the story: "never" (off), "always" (on), or the OS setting ("user", the default). */
     reducedMotion?: "user" | "never" | "always";
     /** Who the menu screens' avatar shows (`ProfileProvider`, #624); none drawn when omitted. */
@@ -46,6 +51,7 @@ declare module "storybook/internal/csf" {
 function Providers({
   fixtures,
   route,
+  ownRouter,
   reducedMotion,
   profile,
   sfx,
@@ -53,6 +59,7 @@ function Providers({
 }: {
   fixtures: QueryFixtures;
   route: string;
+  ownRouter?: boolean;
   reducedMotion: "user" | "never" | "always";
   profile?: ProfileValue;
   sfx?: number;
@@ -63,18 +70,15 @@ function Providers({
     for (const [key, data] of fixtures) qc.setQueryData(key, data);
     return qc;
   });
-  return (
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[route]}>
-        {/* Sync `domMax` (layout animation included): stories use `m` and `motion` alike. */}
-        <LazyMotion features={domMax}>
-          <MotionConfig reducedMotion={reducedMotion}>
-            <WithSfx volume={sfx}>{profile ? <ProfileProvider value={profile}>{children}</ProfileProvider> : children}</WithSfx>
-          </MotionConfig>
-        </LazyMotion>
-      </MemoryRouter>
-    </QueryClientProvider>
+  const story = (
+    // Sync `domMax` (layout animation included): stories use `m` and `motion` alike.
+    <LazyMotion features={domMax}>
+      <MotionConfig reducedMotion={reducedMotion}>
+        <WithSfx volume={sfx}>{profile ? <ProfileProvider value={profile}>{children}</ProfileProvider> : children}</WithSfx>
+      </MotionConfig>
+    </LazyMotion>
   );
+  return <QueryClientProvider client={client}>{ownRouter ? story : <MemoryRouter initialEntries={[route]}>{story}</MemoryRouter>}</QueryClientProvider>;
 }
 
 /** The sound effects for a story that asks for them (`parameters.sfx`), the music off and no playlist. */
@@ -88,7 +92,7 @@ function WithSfx({ volume, children }: { volume?: number; children: React.ReactN
 }
 
 const withProviders: Decorator = (Story, { parameters }) => (
-  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"} reducedMotion={parameters.reducedMotion ?? "user"} profile={parameters.profile} sfx={parameters.sfx}>
+  <Providers fixtures={parameters.queryFixtures ?? []} route={parameters.route ?? "/"} ownRouter={parameters.ownRouter} reducedMotion={parameters.reducedMotion ?? "user"} profile={parameters.profile} sfx={parameters.sfx}>
     <Story />
   </Providers>
 );

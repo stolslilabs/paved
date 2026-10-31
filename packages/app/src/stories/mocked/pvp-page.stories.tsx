@@ -4,13 +4,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domMax } from "motion/react";
 import { Route, Routes } from "react-router";
 import { Toaster } from "sonner";
-import { FakeGameViews, SKIN_PLANS, type IndexerClient, type WriteAccount } from "@paved/chain";
+import { FakeGameViews, SKIN_PLANS, type WriteAccount } from "@paved/chain";
 import { AttackRun } from "@paved/game-core";
 import { attackV2Board } from "../../data/free-attack";
 import { MockMarkProvider } from "../../components/containers/mock-mark";
 import type { DataSources, GameSigner } from "../../data/sources";
-import { MOCK_KEY, MOCK_STARTING_PAVED, MockLedger } from "../../data/mock/ledger";
-import { mockGameViews, mockIndexer, mockSigner } from "../../data/mock/overlay";
+import { MOCK_KEY, MOCK_STARTING_BALANCES, MockLedger } from "../../data/mock/ledger";
+import { mockIndexer } from "../../data/mock/indexer";
+import { mockGameViews, mockSigner } from "../../data/mock/overlay";
 import { mockRival } from "../../data/mock/pvp";
 import { APP_MANIFEST } from "../../mocks/assets";
 import { PLAYER_ID } from "../../mocks/players";
@@ -54,8 +55,8 @@ function seeded(cobbles: number, pvp?: Record<string, unknown>) {
     owned: {},
     active: new Array<number>(SKIN_PLANS).fill(0),
     shares: "0",
-    paved: MOCK_STARTING_PAVED.toString(),
-    usdc: "0",
+    paved: MOCK_STARTING_BALANCES.paved.toString(),
+    usdc: MOCK_STARTING_BALANCES.usdc.toString(),
     village: { parcels: [], tiles: [] },
     ...(pvp ? { pvp } : {}),
   };
@@ -112,12 +113,6 @@ interface Setup {
   latencyMs?: number;
 }
 
-/** An indexer stand-in for the mock's overlay: its head only (the PvP lists and the rivals' names are the ledger's). */
-const HEAD = {
-  head: async () => ({ data: { state: "following", chainId: "0x1", fromBlock: 0, contracts: {} }, head: { number: 1, hash: "0x1", timestamp: Math.floor(Date.now() / 1000) }, behind: 0, freshness: "fresh" }),
-  player: async (id: string) => ({ data: { player: { playerId: id, name: null, created: null }, stats: null }, head: { number: 1, hash: "0x1", timestamp: 0 }, behind: 0, freshness: "fresh" }),
-} as unknown as IndexerClient;
-
 function useEnvironment({ cobbles = 12, pvp, prepare, latencyMs = 600 }: Setup) {
   const [env, setEnv] = useState<{ sources: DataSources; load: LoadConnector; client: QueryClient } | null>(null);
   useEffect(() => {
@@ -125,7 +120,7 @@ function useEnvironment({ cobbles = 12, pvp, prepare, latencyMs = 600 }: Setup) 
     void (async () => {
       await prepare?.(new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, lock: (s) => Promise.resolve(s()) }));
       const ledger = new MockLedger({ store: () => store, seller: "0x3", latencyMs, lock: (s) => Promise.resolve(s()) });
-      const sources: DataSources = { views: mockGameViews(new FakeGameViews(), ledger), events: { playerGames: async () => [] }, economy: null, pool: null, indexer: mockIndexer(HEAD, ledger), signer: null };
+      const sources: DataSources = { views: mockGameViews(new FakeGameViews(), ledger), events: { playerGames: async () => [] }, economy: null, pool: null, indexer: mockIndexer(ledger), signer: null };
       const account: WriteAccount = { address: PLAYER_ID, execute: async () => ({ transaction_hash: "0x0" }) };
       const load: LoadConnector = async () => ({
         probe: async () => account,

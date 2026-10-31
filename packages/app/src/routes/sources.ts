@@ -9,7 +9,8 @@ let indexerClient: IndexerClient | null = null;
 
 /**
  * The indexer client on `VITE_INDEXER_URL` (P6: home's top 3), built at the first read from `@paved/chain`'s chunk, so
- * starknet.js stays out of the first bundle. Without the variable every read is refused with `NO_INDEXER`.
+ * starknet.js stays out of the first bundle. Without the variable every read is refused with `NO_INDEXER`. On the mock it is
+ * the ledger's indexer (`data/mock/indexer.ts`, #927), whatever the variable says.
  */
 function lazyIndexer(): IndexerClient {
   return new Proxy({} as IndexerClient, {
@@ -17,14 +18,12 @@ function lazyIndexer(): IndexerClient {
       key === "then"
         ? undefined
         : async (...args: unknown[]) => {
-            const { createIndexerClient } = await import("@paved/chain");
             if (!indexerClient) {
-              const real = createIndexerClient(import.meta.env.VITE_INDEXER_URL);
-              // The data source `mock` (#549): the definitions' Cobbles and the referrals come from the device's ledger.
-              if (real && MOCKED) {
-                const [{ mockIndexer }, { mockLedger }] = await Promise.all([import("../data/mock/overlay"), import("../data/chain-client")]);
-                indexerClient ??= mockIndexer(real, mockLedger());
-              } else indexerClient = real;
+              // The data source `mock` (#927): every route is the device's ledger's, and no indexer client is built.
+              if (MOCKED) {
+                const [{ mockIndexer }, { mockLedger }] = await Promise.all([import("../data/mock/indexer"), import("../data/chain-client")]);
+                indexerClient ??= mockIndexer(mockLedger());
+              } else indexerClient = (await import("@paved/chain")).createIndexerClient(import.meta.env.VITE_INDEXER_URL);
             }
             if (!indexerClient) throw new Error(NO_INDEXER);
             const target = indexerClient as unknown as Record<PropertyKey, (...a: unknown[]) => unknown>;

@@ -177,34 +177,37 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     expect((await s.ledger.freeVillage(s.me)).tiles).toHaveLength(8);
   }, slow(30_000));
 
-  it("each overlay reaches its page, and Back lands on the village", async () => {
+  // One test per trip, each with its own ceiling, as the own Back's below: the eight trips in one test outlasted one ceiling
+  // under a check's load.
+  it.each([
+    [/^Chests/, "/village/chests"],
+    ["Shop", "/village/shop"],
+    [/^Missions/, "/missions"],
+    ["Vault", "/vault"],
+    ["League", "/pvp/league"],
+    [/^League: /, "/pvp/league"],
+    ["Settings", "/settings"],
+    [/^Play/, "/play"],
+  ] as const)("the overlay %s reaches %s, and Back lands on the village", async (name, path) => {
     const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
-    for (const [name, path] of [
-      [/^Chests/, "/village/chests"],
-      ["Shop", "/village/shop"],
-      [/^Missions/, "/missions"],
-      ["Vault", "/vault"],
-      ["League", "/pvp/league"],
-      [/^League: /, "/pvp/league"],
-      ["Settings", "/settings"],
-      [/^Play/, "/play"],
-    ] as const) {
-      // The home is back, not the page left behind (the chests' page has a Shop of its own).
-      await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
-      // Under load the home's first frame can be replaced as it settles: the tap is made again while the router is idle on
-      // the home, once at a time, until the page opens.
-      await waitFor(() => {
-        if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
-          // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
-          const column = screen.queryByRole("navigation", { name: "Village" });
-          const bar = screen.queryByRole("navigation", { name: "Main" });
-          fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
-        }
-        expect(s.router.state.location.pathname).toBe(path);
-      }, WAIT);
-      await s.router.navigate(-1);
-      await waitFor(() => expect(s.router.state.location.pathname).toBe("/"));
-    }
+    await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+    // Under load the home's first frame can be replaced as it settles: the tap is made again while the router is idle on
+    // the home, once at a time, until the page opens.
+    await waitFor(() => {
+      if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
+        // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
+        const column = screen.queryByRole("navigation", { name: "Village" });
+        const bar = screen.queryByRole("navigation", { name: "Main" });
+        fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+      }
+      expect(s.router.state.location.pathname).toBe(path);
+    }, WAIT);
+    await s.router.navigate(-1);
+    await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
+    // The home is back, not the page left behind (the chests' page has a Shop of its own). Under a check's load the page left
+    // behind stayed in place past 48 s after the League control's trip: the home's return has a wait of its own, as Settings'
+    // Back below.
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(20_000) })).toBeInTheDocument();
   }, slow(60_000));
 
   // One test per page, each with its own ceiling: the seven trips in one test outlasted a single ceiling on a loaded machine.

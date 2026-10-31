@@ -25,6 +25,7 @@ import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { rewardMarks } from "../src/components/containers/reward-estimate";
 import { GameHud } from "../src/components/containers/game-hud";
+import { MOCK_MARK_TEXT, MockMarkProvider } from "../src/components/containers/mock-mark";
 import { CURVE_PLAYING } from "../src/mocks/games";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
@@ -213,10 +214,7 @@ describe("Home (#753): the village with its overlays", () => {
     for (const name of ["Play", "Edit village", "Missions", "Vault", "Settings"]) {
       for (const button of screen.getAllByRole("button", { name: new RegExp(`^${name}`) })) expect(button.querySelector("[data-slot=game-icon]"), name).not.toBeNull();
     }
-    // The League button's trophy; the crest is the league's own (#917), not a game icon.
-    const league = screen.getByRole("button", { name: /^League: / });
-    expect(league.querySelectorAll("[data-slot=game-icon]")).toHaveLength(1);
-    expect(league.querySelector("[data-slot=league-crest-icon]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: /^League: / }).querySelectorAll("[data-slot=game-icon]")).toHaveLength(2);
     // The defence log is the league page's: no overlay button. League is labelled plainly, the badge shows which.
     expect(screen.queryByRole("button", { name: /^Defence/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^League,/ })).toBeNull();
@@ -231,7 +229,7 @@ describe("Home (#753): the village with its overlays", () => {
     expect(standing).toHaveTextContent(/^1,240$/);
     expect(standing).toHaveAttribute("data-league", leagueOf(1_240).id);
     expect(standing.querySelector("[data-icon=trophy]")).not.toBeNull();
-    expect(standing.querySelector("[data-slot=league-crest-icon]")).toHaveAttribute("data-tier", leagueOf(1_240).id);
+    expect(standing.querySelector("[data-icon=shield-halved]")).toHaveClass(`text-league-${leagueOf(1_240).id}`);
     await userEvent.click(standing);
     expect(onLeague).toHaveBeenCalledTimes(1);
     unmount();
@@ -240,12 +238,6 @@ describe("Home (#753): the village with its overlays", () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.start} onLeague={onLeague} />));
     await userEvent.click(await screen.findByRole("button", { name: `League: ${leagueOf(0).name}, 0 crowns` }));
     expect(onLeague).toHaveBeenCalledTimes(2);
-  });
-
-  it("the League control reads Unranked before any crown and any attack (#917)", async () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...HOME_VILLAGE.unranked} />));
-    const standing = await screen.findByRole("button", { name: "League: Unranked, 0 crowns" });
-    expect(standing.querySelector("[data-slot=league-crest-icon]")).toHaveAttribute("data-tier", "unranked");
   });
 
   it("carries today's home content as chips: Resume and the spawn pause", async () => {
@@ -896,6 +888,15 @@ describe("Purchase", () => {
 // #705 during and after the game: the curve of the mocks' game (R = 4.2 PAVED, c 1.222, H 5, threshold 1,150), its score 1,270.
 describe("Challenge reward on the HUD and the over page (#705)", () => {
   const hud = (props: Partial<React.ComponentProps<typeof GameHud>>) => render(wrap(<GameHud title="Challenge #1042" score={1270} now={0} reward={CURVE_PLAYING} {...props} />));
+
+  it("shows the Mock mark beside the title while the shell says the game is the mock's (#927), and none otherwise", () => {
+    const { unmount } = render(wrap(<MockMarkProvider value><GameHud title="Challenge #1042" score={0} now={0} /></MockMarkProvider>));
+    expect(screen.getByRole("heading", { level: 1, name: "Challenge #1042" })).toBeInTheDocument();
+    expect(screen.getByLabelText(`Mock. ${MOCK_MARK_TEXT}`)).toHaveTextContent("Mock");
+    unmount();
+    hud({});
+    expect(screen.queryByText("Mock")).toBeNull();
+  });
 
   it("shows on the HUD what the score earns past the threshold, the score to beat under it, and max from the cap", () => {
     const { unmount } = hud({});

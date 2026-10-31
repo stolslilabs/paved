@@ -99,19 +99,31 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(screen.getByRole("button", { name: "48.50 USDC: Minting…" })).toBeDisabled();
   });
 
-  // #871: the Vault's two plates, PAVED leading to the Challenge: on a phone its "+" only from `mobile` (360 px), so both fit 320 px.
-  it("pill: a row of two plates draws its \"+\" from 360 px only; a lone plate, and the rail, at every width", () => {
-    const plusOf = (container: HTMLElement) => container.querySelector("[data-slot=resource-plus]")!;
-    const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(vault.container.querySelectorAll("[data-slot=resource-plus]")).toHaveLength(1);
-    expect(plusOf(vault.container)).toHaveClass("hidden", "mobile:grid");
-    expect(plusOf(vault.container).nextElementSibling).toHaveClass("pl-5", "max-mobile:pl-2.5");
-    vault.unmount();
+  // #925 (the owner's ruling, 2026-10-30): no "+" on any balance plate, on a phone or from `desktop`, in a row or a column.
+  it("no \"+\" on any plate, pill or rail, in a row of two, alone or in a column; the open end a bare end's padding", () => {
+    for (const layout of ["pill", "rail"] as const) {
+      for (const props of [{ kinds: ["paved", "vpaved"] as const, here: ["vpaved"] as const }, { kinds: ["cobbles"] as const }, { direction: "column" as const }]) {
+        const { container, unmount } = render(wrap(<Balances layout={layout} {...props} state={{ ...READY, vpaved: 1n }} faucet />));
+        expect(container.querySelectorAll("[data-slot=resource-plate]").length).toBeGreaterThan(0);
+        expect(container.querySelector("[data-slot=resource-plus], [data-icon=plus]")).toBeNull();
+        unmount();
+      }
+    }
+    // The figure 4 px clear of the icon's half and of the open end on a phone (#860's 112 px); from `desktop`, a bare end's 12 px.
     const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
-    expect(plusOf(lone.container)).not.toHaveClass("hidden");
+    expect(lone.container.querySelector(".h-8")).toHaveClass("pr-7", "pl-1");
     lone.unmount();
-    const rail = render(wrap(<Balances layout="rail" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
-    expect(plusOf(rail.container)).not.toHaveClass("hidden");
+    const rail = render(wrap(<Balances layout="rail" kinds={["cobbles"]} state={READY} />));
+    expect(rail.container.querySelector(".h-9")).toHaveClass("pr-8.5", "pl-3");
+  });
+
+  it("each plate still leads to its page, with no \"+\"; on its own page it leads nowhere (#925)", async () => {
+    const onAction = vi.fn();
+    render(wrap(<Balances layout="pill" kinds={["paved", "vpaved", "cobbles"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} onAction={onAction} />));
+    await userEvent.click(screen.getByRole("button", { name: /PAVED: Play a Challenge/ }));
+    await userEvent.click(screen.getByRole("button", { name: "240 Cobbles: Buy packs" }));
+    expect(onAction.mock.calls).toEqual([["paved"], ["cobbles"]]);
+    expect(screen.getByRole("button", { name: /vPAVED$/ })).toBeDisabled();
   });
 
   it("a balance with no source is a dash", () => {
@@ -172,33 +184,22 @@ describe("Balances (#538), the resource bar (#620)", () => {
 });
 
 describe("the plates (#828)", () => {
-  it("a '+' on the balances that lead to a page (PAVED, vPAVED, Cobbles), none on USDC; the icon after the figure", () => {
+  it("every balance's plate, the icon after the figure and the box first: nothing over the other end (#925)", () => {
     const { container } = render(wrap(<Balances layout="rail" state={{ ...READY, vpaved: 1n }} />));
     const plates = [...container.querySelectorAll<HTMLElement>("[data-slot=resource-plate]")];
-    expect(plates.map((p) => [p.dataset.token, !!p.querySelector("[data-slot=resource-plus]")])).toEqual([
-      ["usdc", false],
-      ["paved", true],
-      ["vpaved", true],
-      ["cobbles", true],
-    ]);
+    expect(plates.map((p) => p.dataset.token)).toEqual(["usdc", "paved", "vpaved", "cobbles"]);
     for (const plate of plates) {
       expect(plate.dataset.side).toBe("right");
-      // The icon is the plate's last part (over the right end), the "+" its first (over the left end).
+      // The icon is the plate's last part (over the right end), the box its first: no "+" over the left end.
       expect(plate.lastElementChild!.querySelector("[data-slot=token-icon]")).not.toBeNull();
+      expect(plate.firstElementChild).toHaveClass("bg-resource-plate");
     }
-    expect(plates[3]!.firstElementChild).toHaveAttribute("data-slot", "resource-plus");
   });
 
-  it("the '+' is an icon, not a character (#845)", () => {
-    const { container } = render(wrap(<Balances layout="rail" state={READY} />));
-    const pluses = [...container.querySelectorAll("[data-slot=resource-plus]")];
-    expect(pluses.length).toBeGreaterThan(0);
-    for (const plus of pluses) {
-      // A light plus on its green relief button, both drawn by the game icon (#844).
-      const icon = plus.querySelector("[data-slot=game-icon][data-icon=plus]")!;
-      expect([...icon.querySelectorAll("linearGradient")].map((g) => g.id.replace(/^.*?(green|light)$/, "$1"))).toEqual(["green", "light"]);
-      expect(plus).toHaveTextContent("");
-    }
+  it("the Cobbles' plate keeps its gold edge and its shine without the \"+\" (#925, open point 1)", () => {
+    const { container } = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
+    expect(container.querySelector("[data-slot=resource-plate] .h-8")).toHaveClass("border-primary/60");
+    expect(container.querySelector(".plate-shine")).not.toBeNull();
   });
 
   it("the plates are larger from desktop (`rail`) than on a phone (`pill`), the icon taller than the box (#213)", () => {
@@ -216,8 +217,8 @@ describe("the plates (#828)", () => {
     for (const plate of container.querySelectorAll("[data-slot=resource-plate]")) expect(plate.querySelector(".rounded-full")).toBeNull();
   });
 
-  it("the mirrored plate puts the icon at the left end and the '+' at the right", () => {
-    const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} plus side="left" />));
+  it("the mirrored plate puts the icon at the left end", () => {
+    const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} side="left" />));
     const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
     expect(plate.dataset.side).toBe("left");
     expect(plate.className).toContain("flex-row-reverse");
@@ -346,5 +347,88 @@ describe("ResourcePlate: the change animations (#620)", () => {
     rerender(plate(340n, "always"));
     expect(change(container)).toBeNull();
     expect(container.querySelector(".text-success")).not.toBeNull();
+  });
+});
+
+describe("one width for every currency's plate (#860)", () => {
+  const ZERO: BalancesState = { status: "ready", usdc: 0n, paved: 0n, vpaved: 0n, cobbles: 0 };
+  const HUGE: BalancesState = { status: "ready", usdc: 1_234_567_000_000n, paved: 1_234_567n * 10n ** 18n, vpaved: 1_234_567n * 10n ** 18n, cobbles: 1_234_567 };
+  const KINDS = ["usdc", "paved", "vpaved", "cobbles"] as const;
+  const platesOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>("[data-slot=resource-plate]")];
+  const widthOf = (plate: HTMLElement) => [...plate.classList].filter((c) => /(^|:)w-/.test(c)).join(" ");
+  const boxOf = (plate: HTMLElement) => plate.querySelector<HTMLElement>(".h-8, .h-9")!;
+  const tickerOf = (name: string) => screen.getByRole("button", { name }).querySelector("[data-slot=number-ticker]");
+
+  it.each([
+    ["pill", "w-28"],
+    ["rail", "w-48"],
+  ] as const)("%s: 0 and 1,234,567 of each currency, in a column and in a row, with or without a \"+\", have one width (%s)", (layout, width) => {
+    for (const direction of ["column", "row"] as const)
+      for (const state of [ZERO, HUGE]) {
+        const { container, unmount } = render(wrap(<Balances layout={layout} kinds={KINDS} direction={direction} state={state} faucet />));
+        const plates = platesOf(container);
+        expect(plates).toHaveLength(4);
+        for (const plate of plates) {
+          expect(widthOf(plate)).toBe(width);
+          // The box takes what the ends leave, so the figure never sizes the plate.
+          expect(boxOf(plate)).toHaveClass("flex-1", "min-w-0");
+        }
+        unmount();
+      }
+  });
+
+  it("a lone plate and a header's two share the phone's width and figure", () => {
+    const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
+    const [one] = platesOf(lone.container);
+    const loneWidth = widthOf(one!);
+    const loneBox = boxOf(one!).className;
+    lone.unmount();
+    const vault = render(wrap(<Balances layout="pill" kinds={["paved", "vpaved"]} here={["vpaved"]} state={{ ...READY, vpaved: 1n }} />));
+    for (const plate of platesOf(vault.container)) {
+      expect(widthOf(plate)).toBe(loneWidth);
+      expect(boxOf(plate)).toHaveClass("text-xs");
+    }
+    expect(loneBox).toContain("text-xs");
+  });
+
+  it("on a phone, at every width, the figure is whole below 10,000 (\"9,999.99\") and compact from it", () => {
+    const widest: BalancesState = { status: "ready", usdc: 9_999_999_999n, paved: 0n, cobbles: 12_345 };
+    render(wrap(<Balances layout="pill" kinds={["usdc", "cobbles"]} direction="column" state={widest} faucet />));
+    expect(tickerOf("9,999.99 USDC: Get test USDC")).toHaveTextContent(/^9,999\.99$/);
+    expect(screen.getByRole("button", { name: "9,999.99 USDC: Get test USDC" })).not.toHaveAttribute("title");
+    expect(tickerOf("12,345 Cobbles: Buy packs")).toHaveTextContent(/^12\.3K$/);
+    expect(screen.getByRole("button", { name: "12,345 Cobbles: Buy packs" })).toHaveAttribute("title", "12,345 Cobbles");
+  });
+
+  it("from desktop the figure is whole below 10,000 and compact from it", () => {
+    const widest: BalancesState = { status: "ready", usdc: 9_999_999_999n, paved: 0n, cobbles: 1_234_567 };
+    render(wrap(<Balances layout="rail" kinds={["usdc", "cobbles"]} state={widest} faucet />));
+    expect(tickerOf("9,999.99 USDC: Get test USDC")).toHaveTextContent(/^9,999\.99$/);
+    expect(screen.getByRole("button", { name: "9,999.99 USDC: Get test USDC" })).not.toHaveAttribute("title");
+    expect(tickerOf("1,234,567 Cobbles: Buy packs")).toHaveTextContent(/^1\.2M$/);
+    expect(screen.getByRole("button", { name: "1,234,567 Cobbles: Buy packs" })).toHaveAttribute("title", "1,234,567 Cobbles");
+  });
+
+  it("a change keeps the width: the plate is the same before and after, the change itself compact", () => {
+    const { container, rerender } = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={ZERO} />));
+    const before = platesOf(container)[0]!.className;
+    rerender(wrap(<Balances layout="pill" kinds={["cobbles"]} state={HUGE} />));
+    expect(platesOf(container)[0]!.className).toBe(before);
+    expect(container.querySelector("[data-slot=resource-change]")).toHaveTextContent("+1.2M");
+  });
+
+  it("loading: each skeleton takes its plate's width, nothing moves when the figures arrive", () => {
+    for (const [layout, width] of [["pill", "w-28"], ["rail", "w-48"]] as const) {
+      const { container, unmount } = render(wrap(<Balances layout={layout} kinds={["usdc", "cobbles"]} state={{ status: "loading" }} />));
+      const holds = container.querySelectorAll("[data-slot=skeleton]");
+      expect(holds).toHaveLength(2);
+      for (const hold of holds) expect(hold).toHaveClass(width);
+      unmount();
+    }
+  });
+
+  it("a plate without `fixed` fits its content (the League's and the shield's plates, not currencies)", () => {
+    const { container } = render(wrap(<ResourcePlate kind="usdc" amount={1n} decimals={6} fraction={2} />));
+    expect(widthOf(platesOf(container)[0]!)).toBe("");
   });
 });

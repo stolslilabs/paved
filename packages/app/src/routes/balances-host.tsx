@@ -6,6 +6,7 @@ import type { BalanceKind } from "../components/containers/balances";
 import { toastError } from "../components/containers/error-toast";
 import { queryKeys } from "../data/keys";
 import { useBalances } from "../data/balances";
+import { MOCKED } from "../data/data-source";
 import { useDataSources } from "../data/sources";
 import { useAccount } from "../wallet/wallet";
 import { useCobblesSheet } from "./cobbles-sheet";
@@ -20,16 +21,20 @@ import { useAppNavigate } from "./ref";
  */
 export const DESTINATION = { paved: "/play/challenge", vpaved: "/vault", cobbles: "/cobbles" } as const;
 
-/** Devnet and Sepolia deploy the Faucet (`FAUCET_NETWORKS` of `@paved/chain`, kept out of the first bundle); mainnet has none. */
+/**
+ * Devnet and Sepolia deploy the Faucet (`FAUCET_NETWORKS` of `@paved/chain`, kept out of the first bundle); mainnet has none.
+ * The mock's faucet is the ledger's (#927): on the mock, "Get test USDC" is always there, whatever the network.
+ */
 const FAUCET_NETWORKS = ["devnet", "sepolia"];
-const FAUCET = FAUCET_NETWORKS.includes(import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : ""));
+const FAUCET = MOCKED || FAUCET_NETWORKS.includes(import.meta.env.VITE_NETWORK || (import.meta.env.DEV ? "devnet" : ""));
 
 /**
  * Reads the balances once for the whole shell and hands them to the home and the pages' headers (`BalancesSlot`), with the page's
  * route (`page`, #855: its set is the rule's, `header-balances.ts`, read in the balances' chunk; `null`, none), where the page
- * shows some or the home is mounted under it. A plate on its own page leads nowhere, and is not pressed (`here`).
+ * shows some or the home is mounted under it. A plate on its own page leads nowhere, and is not pressed (`here`). `faucet`: whether
+ * USDC mints here, the build's (`FAUCET`) by default; a story of the mock's ledger, built as no mock, gives its own.
  */
-export function BalancesHost({ page, children }: { page: string | null; children: ReactNode }) {
+export function BalancesHost({ page, faucet = FAUCET, children }: { page: string | null; faucet?: boolean; children: ReactNode }) {
   const { state, retry } = useBalances();
   const wallet = useAccount();
   const { signer } = useDataSources();
@@ -55,8 +60,8 @@ export function BalancesHost({ page, children }: { page: string | null; children
   );
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);
   const value = useMemo(
-    () => ({ state, page, onAction, onConnect, onRetry: retry, faucet: FAUCET && Boolean(signer), minting }),
-    [state, page, onAction, onConnect, retry, signer, minting],
+    () => ({ state, page, onAction, onConnect, onRetry: retry, faucet: faucet && Boolean(signer), minting }),
+    [state, page, onAction, onConnect, retry, faucet, signer, minting],
   );
   return (
     <BalancesProvider value={value}>

@@ -7,6 +7,7 @@ import { App } from "../src/App";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
+import { MOCK_STARTING_BALANCES } from "../src/data/mock/ledger";
 import { mockImplementation } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
@@ -19,9 +20,9 @@ preloadPages("home", "vault", "purchase", "home-panel");
 
 const WAIT = { timeout: slow(10_000) };
 
-/** Ada on the mock, holding vPAVED: 100 PAVED deposited in the Vault before the app opens. */
+/** Ada on the mock, holding vPAVED: 100 of the 142.35 PAVED she won (a new account holds none, #927) deposited before the app opens. */
 async function open(path: string) {
-  const s = mockImplementation();
+  const s = mockImplementation(undefined, { ...MOCK_STARTING_BALANCES, paved: 142_350_000_000_000_000_000n });
   await s.ledger.deposit(FIXTURE_ADA, 100n * 10n ** 18n, { confirmedAmount: 100n * 10n ** 18n });
   const router = createTestRouter(path);
   render(<App router={router} sources={s.sources} connector={fakeWallet({ address: FIXTURE_ADA }).load} />);

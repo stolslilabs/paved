@@ -172,6 +172,8 @@ describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () 
       const names = within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label")!);
       expect(names).toHaveLength(kinds.length);
       kinds.forEach((kind, i) => expect(names[i]).toMatch(PLATE[kind.replace("-held", "")]!));
+      // No "+" on any balance plate (#925), the phone's or the desktop's.
+      expect(region.querySelector("[data-slot=resource-plus], [data-icon=plus]")).toBeNull();
     }
   });
 
@@ -189,6 +191,8 @@ describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () 
     expect(regions.map((r) => r.dataset.direction)).toEqual(["column", "row"]);
     for (const region of regions) {
       expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["240 Cobbles: Buy packs", "142.35 PAVED: Play a Challenge", "1.25 vPAVED: Vault"]);
+      // The home's column too: no "+" (#925).
+      expect(region.querySelector("[data-slot=resource-plus], [data-icon=plus]")).toBeNull();
     }
     unmount();
     // A player who holds none: no vPAVED plate.

@@ -1,5 +1,8 @@
 import { PavedWriter, type EconomyClient } from "@paved/chain";
+import { mockLedger } from "./chain-client";
+import { DATA_SOURCE } from "./data-source";
 import { economyClient } from "./economy-client";
+import { mockSettlements } from "./mock/overlay";
 import type { GameSigner, Settlements } from "./sources";
 
 // The settlement of the app (P7a): the economy's writer on the signer's `PavedWriter`, so that the account's writes stay
@@ -16,5 +19,7 @@ export function settlementsOf(signer: GameSigner): Settlements {
 /** The settlement of a signer on a given economy client (`settlementsOf`; a test gives its own client on the fakes). */
 export function settlementsFor(economy: EconomyClient, signer: GameSigner): Settlements {
   if (!(signer instanceof PavedWriter)) throw new Error("Settling is off: this wallet cannot settle");
+  // The data source `mock` (#927): the ledger settles its own games and mints the reward in its PAVED.
+  if (DATA_SOURCE === "mock") return mockSettlements(mockLedger(), signer.address);
   return { settle: (gameIds) => economy.writer(signer).settle(gameIds) };
 }

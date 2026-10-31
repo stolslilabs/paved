@@ -5,29 +5,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import { App } from "../src/App";
 import { useCompletionStore } from "../src/data";
-import { MOCK_STARTING_PAVED } from "../src/data/mock/ledger";
+import { MOCK_STARTING_BALANCES, type TokenBalances } from "../src/data/mock/ledger";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
-import { mockImplementation, playDailies } from "./mock-fakes";
+import { mockImplementation, playGame, surrenderedGame } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // The pages end to end on the mock (MOCK-FIRST), as the Sepolia client serves them: the missions' claims, the Vault's
-// deposit. The ledger's overlays sit over a chain whose Setup, Vault and indexer predate cobbles v1; each flow completes,
-// the balances move, and no page shows a "not available" notice or an RPC error.
+// deposit. The ledger's overlays sit over a chain whose Setup and Vault predate cobbles v1, and the indexer is the ledger's
+// (#927): the missions count the games played on it. Each flow completes, the balances move, and no page shows a "not
+// available" notice or an RPC error.
 
 const TODAY = Math.floor(FIXTURE_HEAD.timestamp / 86_400);
 
-function open(path: string, dailies?: readonly number[]) {
-  const s = mockImplementation();
-  // Ada did Daily Run today and finished her first game (Settler I): the indexer's progress, which the mock's claims trust.
-  s.chain.fixture.progress.set(FIXTURE_ADA, {
-    quests: new Map([[1, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
-    achievements: new Map([[2, { count: 1, completed_at: FIXTURE_HEAD.timestamp - 60 }]]),
-  });
-  // Or those dailies done today (#869).
-  if (dailies) playDailies(s.chain, dailies);
+/** Ada after she won 142.35 PAVED (a new account holds none, #927): the Vault's deposit takes from it. */
+const WON_PAVED = 142_350_000_000_000_000_000n;
+const WINNER: TokenBalances = { ...MOCK_STARTING_BALANCES, paved: WON_PAVED };
+
+/**
+ * The page at `path` on the mock, today at 09:00 UTC by the ledger's clock (the indexer's head). Ada finished her first game
+ * today, surrendered (Daily Run and Settler I); or, `played`, played one out (Daily Run and the three rotating dailies, #869).
+ */
+async function open(path: string, played = false, starting?: TokenBalances) {
+  const s = mockImplementation(undefined, starting, () => TODAY * 86_400 + 9 * 3_600);
+  if (played) await playGame(s.ledger, FIXTURE_ADA);
+  else await surrenderedGame(s.ledger, FIXTURE_ADA);
   render(<App router={createTestRouter(path)} sources={s.sources} connector={fakeWallet({ address: FIXTURE_ADA }).load} />);
   return s;
 }
@@ -54,7 +58,7 @@ afterEach(() => {
 
 describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () => {
   it("/missions: the missions carry the mock's Cobbles, none for a daily (#869); a claim moves the balance; no notice, no RPC text", async () => {
-    const s = open("/missions");
+    const s = await open("/missions");
     expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
     // Daily Run is done but pays nothing on its own: its card has no Claim.
     await userEvent.click(await screen.findByRole("button", { name: /^Daily Run: / }, { timeout: slow(5000) }));
@@ -73,10 +77,10 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     noRawErrors();
   });
 
-  it("/missions: the day's bar (#869): at 3 dailies done its first milestone pays 10 Cobbles once, from the bar", async () => {
-    const s = open("/missions", [1, 2, 3]);
+  it("/missions: the day's bar (#869): at 4 dailies done its first milestone (3) pays 10 Cobbles once, from the bar", async () => {
+    const s = await open("/missions", true);
     const bar = await screen.findByRole("progressbar", { name: "Dailies done today" }, { timeout: slow(5000) });
-    await waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "3"), { timeout: slow(5000) });
+    await waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "4"), { timeout: slow(5000) });
     expect(screen.getByRole("img", { name: "15 Cobbles at 5 dailies done" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }, { timeout: slow(5000) }));
     expect(await screen.findByRole("img", { name: "10 Cobbles claimed: 3 dailies done" }, { timeout: slow(5000) })).toBeInTheDocument();
@@ -87,7 +91,7 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
   });
 
   it("/vault: the mock's position and wallet; a deposit goes through and moves both", async () => {
-    const s = open("/vault");
+    const s = await open("/vault", false, WINNER);
     expect(await screen.findByRole("region", { name: "Your position" }, { timeout: slow(5000) })).toHaveTextContent("No vPAVED yet");
     noRawErrors();
     await userEvent.type(screen.getByRole("textbox", { name: /Amount to deposit/ }), "100");
@@ -95,7 +99,7 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
     expect(await screen.findByText("Deposited", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect((await s.ledger.vault(FIXTURE_ADA)).shares).toBeGreaterThan(0n);
-    expect(await s.ledger.pavedBalance(FIXTURE_ADA)).toBe(MOCK_STARTING_PAVED - 100n * 10n ** 18n);
+    expect(await s.ledger.pavedBalance(FIXTURE_ADA)).toBe(WON_PAVED - 100n * 10n ** 18n);
     await waitFor(() => expect(screen.getByRole("region", { name: "Your position" })).not.toHaveTextContent("No vPAVED yet"));
     noRawErrors();
   });
@@ -107,7 +111,7 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
     // file's last test: a module's interval begun while they are fake stays fake (`theme-route`'s next tests failed so).
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     // A page whose rule shows the Cobbles (Missions earn them, #720): the Vault shows none since the desktop's header went (#762).
-    open("/missions");
+    await open("/missions");
     const [cobbles] = await screen.findAllByRole("button", { name: /Cobbles: Buy packs$/ }, { timeout: slow(10_000) });
     await userEvent.click(cobbles!);
     // The packs first: the page's loading screen has the same heading, replaced as the packs arrive.

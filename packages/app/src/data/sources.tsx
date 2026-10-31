@@ -97,8 +97,7 @@ export interface DataSources {
   store?: () => KeyValueStore | null;
 }
 
-/** The sources, or null outside a `DataProvider` (a view that reads only where they are: the profile sheet's league). */
-export const DataContext = createContext<DataSources | null>(null);
+const DataContext = createContext<DataSources | null>(null);
 
 /** Gives the data hooks their sources; inside the app's `QueryClientProvider`. */
 export function DataProvider({ sources, children }: { sources: DataSources; children: ReactNode }) {
