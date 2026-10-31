@@ -7,7 +7,7 @@ import type { GameSigner } from "../src/data";
 import { deploymentOf } from "../src/data/deployment";
 import { mockAppSources, offlineSigner } from "../src/data/mock/app";
 import { MockLedger } from "../src/data/mock/ledger";
-import { MOCKED_ECONOMY_READS, MOCKED_GAME_READS, MOCKED_WRITES, mockConnector } from "../src/data/mock/overlay";
+import { MOCKED_ECONOMY_READS, MOCKED_GAME_READS, MOCKED_GUILD_CALLS, MOCKED_WRITES, mockConnector } from "../src/data/mock/overlay";
 import { attackV2Board } from "../src/data/free-attack";
 import { MockAccountError, mockKeyConnector } from "../src/wallet/mock-key";
 import { createQueryClient } from "../src/lib/query-client";
@@ -245,6 +245,8 @@ describe("a mock build fetches nothing (#927)", () => {
       sources.social.searchPlayers("wren"),
       sources.social.searchPlayers("0x7e3a0001"),
     ]);
+    // The guilds (#953), reads and writes, one at a time.
+    for (const name of MOCKED_GUILD_CALLS) for (const p of call(sources.social, name)) await p.catch(() => undefined);
     // The writes one at a time: each is atomic on the ledger, a refusal leaves it as it was.
     for (const name of MOCKED_WRITES) for (const p of call(signer, name)) await p.catch(() => undefined);
     for (const p of [...call(sources.vault(signer as unknown as GameSigner), "deposit"), ...call(sources.settlements(signer as unknown as GameSigner), "settle")]) await p.catch(() => undefined);

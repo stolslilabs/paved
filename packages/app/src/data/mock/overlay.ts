@@ -1,6 +1,6 @@
 import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
-import type { SocialSource } from "../social-source";
+import type { GuildSource, SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -111,9 +111,23 @@ export function mockPool(ledger: MockLedger): PoolQuoter {
   return { quoteSwap: (usdcIn) => ledger.quoteSwap(usdcIn) };
 }
 
-/** The social source of the ledger (#952): the community's public profiles and the player search. No chain part lies beneath. */
+/** The social source of the ledger (#952): the community's public profiles, the player search and the guilds (#953). No chain part lies beneath. */
 export function mockSocial(ledger: MockLedger): SocialSource {
-  return { profile: (address) => ledger.publicProfile(address), searchPlayers: (query) => ledger.searchPlayers(query) };
+  return {
+    profile: (address) => ledger.publicProfile(address),
+    searchPlayers: (query) => ledger.searchPlayers(query),
+    ...mockGuilds(ledger),
+  };
+}
+
+/** Every read and write of `GuildSource` (#953), each the ledger's. */
+export const MOCKED_GUILD_CALLS = ["playerGuild", "guild", "guildOf", "searchGuilds", "suggestedGuilds", "guildRanking", "createGuild", "editGuild", "joinGuild", "requestToJoin", "cancelRequest", "answerRequest", "invite", "answerInvitation", "kick", "promote", "demote", "makeLeader", "leaveGuild", "postAnnouncement", "editAnnouncement", "deleteAnnouncement", "readAnnouncements", "visitGuildTab"] as const satisfies readonly (keyof GuildSource)[];
+
+/** The guilds of the ledger (#953): every read and write of `GuildSource`, on game-core's rules (`mock/guilds.ts`). */
+export function mockGuilds(ledger: MockLedger): GuildSource {
+  // The ledger's methods have `GuildSource`'s signatures (checked here); they are bound, so the source can be spread.
+  const source: GuildSource = ledger;
+  return Object.fromEntries(MOCKED_GUILD_CALLS.map((m) => [m, (source[m] as (...args: never[]) => unknown).bind(ledger)])) as unknown as GuildSource;
 }
 
 /** The economy's views with the Vault, the split, the seller and the tokens' balances of the ledger: no balance is the chain's. */

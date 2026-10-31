@@ -56,7 +56,7 @@ export function usePublicProfile(playerId: string | null): SocialRead<PublicProf
 export const SEARCH_DELAY_MS = 200;
 
 /** `value`, once it has stayed the same for `delayMs`. */
-function useSettled<T>(value: T, delayMs: number): T {
+export function useSettled<T>(value: T, delayMs: number): T {
   const [settled, setSettled] = useState(value);
   useEffect(() => {
     if (delayMs <= 0) return;
