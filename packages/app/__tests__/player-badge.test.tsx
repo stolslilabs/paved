@@ -186,8 +186,8 @@ describe("PlayerBadge (#787, redrawn after the owner's direction of 2026-10-31)"
     expect(face).toHaveClass("bg-repeat-x", "bg-right");
     expect(face.style.paddingLeft).toBe("52px");
     expect(plate.querySelector("img[data-slot=name-cap]")).toHaveAttribute("src", "/badge-art/plate-cap/160.webp");
-    // Within the home's room beside its balances.
-    expect(profile).toHaveClass("max-w-(--profile-room)");
+    // Within the home's room beside its balances; where no room is set, within its container.
+    expect(profile).toHaveClass("max-w-(--profile-room,100%)");
     expect(profile.querySelector("img[data-slot=shield]")).not.toBeNull();
     await waitFor(() => expect(profile.querySelector("[data-slot=level-bar]")).not.toBeNull());
     expect(profile.querySelector("[data-slot=level]")).toHaveTextContent(/^3$/);

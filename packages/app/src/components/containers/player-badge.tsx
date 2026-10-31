@@ -73,7 +73,7 @@ export interface PlayerBadgeProps {
  * a whole turn clockwise from 12 o'clock, under the gold shield that holds the level, back to it; at the ring's right the name plate, its
  * bricks repeated to the name's length (a name has at most 15 characters, `PLAYER_NAME_MAX`) and ended by a gold arrow cap. The
  * name grows the plate up to `NAME_ROOM`, then shrinks, then is cut with an ellipsis where the home's room ends (`--profile-room`,
- * set by the home beside its balances). A tap anywhere on it opens the profile sheet (#624), which has the XP made and left. The
+ * set by the home beside its balances; where no room is set, the badge's container). A tap anywhere on it opens the profile sheet (#624), which has the XP made and left. The
  * gains and level ups are `LevelRing`'s. Without the shell's profile (some stories and tests), nothing.
  */
 export function PlayerBadge({ className }: PlayerBadgeProps) {
@@ -91,9 +91,9 @@ export function PlayerBadge({ className }: PlayerBadgeProps) {
       <button
         {...trigger}
         aria-label={`${profileLabel(value.state, undefined)}${progress ? `, ${levelLabel(progress)}` : ""}`}
-        className="relative flex max-w-(--profile-room) shrink-0 cursor-pointer items-start rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative flex max-w-(--profile-room,100%) shrink-0 cursor-pointer items-start rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         // The ring's box and the shield above it; the plate in the flow from the ring's middle, so the badge is as wide as the name,
-        // within the home's room (`--profile-room`; none elsewhere).
+        // within the home's room (`--profile-room`), elsewhere within its container (the stories' 320 px).
         style={{ height: layout.rise + box, paddingLeft: box / 2 }}
       >
         {/*
