@@ -1,19 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { LEAGUES } from "../../lib/pvp-rules";
 import { LeagueCrestIcon } from "./league-crest-art";
-import { LEAGUE_TIERS, pipsOf, tierOf } from "./league-standards";
+import { LEAGUE_TIERS, divisionOf, tierOf } from "./league-standards";
 import { Grounds } from "./league-story-grounds";
 
 /**
  * The crests' icon form (issue 917), for 16 to 40 px: the silhouette, the colours and the motif with fewer ornaments, and the division
- * as one to three pips (III one, I three; the issue's open point 3). The League control's plate, the battle logs, the attack's end and
+ * as its numeral, III, II or I (the issue's open point 3). The League control's plate, the battle logs, the attack's end and
  * the profile draw it in the third pull request.
  */
 const meta = {
   title: "Elements/League crest icon",
   component: LeagueCrestIcon,
   parameters: { layout: "padded" },
-  args: { tier: "silver", pips: 2, size: "xl", label: "Silver II league" },
+  args: { tier: "silver", division: "II", size: "xl", label: "Silver II league" },
 } satisfies Meta<typeof LeagueCrestIcon>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -44,14 +44,14 @@ export const Sizes: Story = {
   ),
 };
 
-/** The 23 leagues and Unranked, each with its pips, at 24 px and 16 px, beside its name. */
+/** The 23 leagues and Unranked, each with its division's numeral, at 24 px and 16 px, beside its name. */
 export const Divisions: Story = {
   render: () => (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2 tablet:grid-cols-4">
       {[null, ...LEAGUES].map((league) => (
         <div key={league?.index ?? "unranked"} className="flex items-center gap-2 text-sm">
-          <LeagueCrestIcon tier={tierOf(league)} pips={league ? pipsOf(league) : 0} size="md" />
-          <LeagueCrestIcon tier={tierOf(league)} pips={league ? pipsOf(league) : 0} size="xs" />
+          <LeagueCrestIcon tier={tierOf(league)} division={league ? divisionOf(league) : null} size="md" />
+          <LeagueCrestIcon tier={tierOf(league)} division={league ? divisionOf(league) : null} size="xs" />
           <span>{league?.name ?? "Unranked"}</span>
         </div>
       ))}
@@ -59,13 +59,13 @@ export const Divisions: Story = {
   ),
 };
 
-/** The icons at 24 px, with a division's pips, on each ground. */
+/** The icons at 24 px, with a division's numeral, on each ground. */
 export const OnGrounds: Story = {
   render: () => (
     <Grounds>
       <div className="flex flex-wrap items-center gap-3">
         {LEAGUE_TIERS.map((t, i) => (
-          <LeagueCrestIcon key={t.id} tier={t.id} pips={i > 1 && i < 9 ? 3 : 0} size="md" label={`${t.name} league`} />
+          <LeagueCrestIcon key={t.id} tier={t.id} division={i > 1 && i < 9 ? "I" : null} size="md" label={`${t.name} league`} />
         ))}
       </div>
     </Grounds>

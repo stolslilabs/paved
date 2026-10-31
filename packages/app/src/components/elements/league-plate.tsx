@@ -1,12 +1,17 @@
 import { useLayoutEffect, useRef } from "react";
-import { ArtSvg, type Relief } from "./league-art";
-import { PLATE, plateParts, type LeagueTier } from "./league-standards";
+import { cn } from "../../lib/utils";
+import { artSources, LEAGUE_ART, PLATE_FACE, type LeagueTier } from "./league-standards";
 
 /** The plate's sizes, as its name's font size (never under 12 px): 12, 14, 18 and 24 px; `inherit` takes the parent's. */
 const PLATE_REM = { sm: 0.75, md: 0.875, lg: 1.125, xl: 1.5, inherit: null } as const;
 export type LeaguePlateSize = keyof typeof PLATE_REM;
 
-const RELIEF: Relief = { outline: 8, drop: 5, rim: 4 };
+/** The plate's width in its name's em. */
+const PLATE_EM = 10;
+const { width: W, height: H } = LEAGUE_ART.plate;
+/** The name's size and the face's width, in the frame's units (the plate is `W` wide, `PLATE_EM` names' em). */
+const FONT = W / PLATE_EM;
+const INNER = W * PLATE_FACE;
 
 /**
  * Squeeze the name to the plate's face when its rendered width passes it (a count of letters cannot tell "WWWW" from "iiii"): measured
@@ -21,8 +26,8 @@ function useFitText(name: string) {
     const fit = () => {
       text.removeAttribute("textLength");
       text.removeAttribute("lengthAdjust");
-      if (text.getComputedTextLength() > PLATE.inner) {
-        text.setAttribute("textLength", String(PLATE.inner));
+      if (text.getComputedTextLength() > INNER) {
+        text.setAttribute("textLength", String(INNER));
         text.setAttribute("lengthAdjust", "spacingAndGlyphs");
       }
     };
@@ -49,41 +54,40 @@ export interface LeaguePlateProps {
 }
 
 /**
- * A league's nameplate (issue 917): a dark face in a frame of the tier's metal with a stud at each end, the name in the app's display
- * font (`font-display`, the owner's decision, not the design's lettering), its size the component's font size. The plate is 10 names'
- * em wide whatever the name; a name whose rendered width passes its face is squeezed to fit (`useFitText`).
+ * A league's nameplate (issue 917): the plate's image, a dark face in a frame of the tier's metal, and the name over it in the app's
+ * display font (`font-display`, the owner's decision, not the design's lettering), its size the component's font size. The plate is
+ * 10 names' em wide whatever the name; a name whose rendered width passes its face is squeezed to fit (`useFitText`).
  */
 export function LeaguePlate({ tier, name, size = "md", className }: LeaguePlateProps) {
   const rem = PLATE_REM[size];
   const ref = useFitText(name);
   return (
-    <ArtSvg
-      parts={plateParts(tier)}
-      relief={RELIEF}
-      viewBox={`0 0 ${PLATE.width} ${PLATE.height}`}
-      width={PLATE.width / PLATE.font}
-      height={PLATE.height / PLATE.font}
-      label={name}
-      slot="league-plate"
-      data={{ "data-tier": tier }}
-      className={className}
-      style={rem === null ? undefined : { fontSize: `${rem}rem` }}
+    <span
+      role="img"
+      aria-label={name}
+      data-slot="league-plate"
+      data-tier={tier}
+      className={cn("relative inline-block shrink-0", className)}
+      style={{ ...(rem === null ? undefined : { fontSize: `${rem}rem` }), width: `${PLATE_EM}em`, height: `${(PLATE_EM * H) / W}em` }}
     >
-      <text
-        ref={ref}
-        x={PLATE.width / 2}
-        y={PLATE.height / 2 + 2}
-        dominantBaseline="central"
-        textAnchor="middle"
-        fontSize={PLATE.font}
-        className="font-display"
-        style={{ fill: "var(--game-light)", stroke: "var(--game-ink)" }}
-        strokeWidth={8}
-        strokeLinejoin="round"
-        paintOrder="stroke"
-      >
-        {name}
-      </text>
-    </ArtSvg>
+      <img {...artSources("plate", tier, rem === null ? undefined : rem * 16 * PLATE_EM)} alt="" draggable={false} decoding="async" className="block" style={{ width: "100%", height: "100%" }} />
+      <svg viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false" overflow="visible" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+        <text
+          ref={ref}
+          x={W / 2}
+          y={H / 2 + 3}
+          dominantBaseline="central"
+          textAnchor="middle"
+          fontSize={FONT}
+          className="font-display"
+          style={{ fill: "var(--game-light)", stroke: "var(--game-ink)" }}
+          strokeWidth={12}
+          strokeLinejoin="round"
+          paintOrder="stroke"
+        >
+          {name}
+        </text>
+      </svg>
+    </span>
   );
 }

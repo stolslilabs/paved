@@ -2,7 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 import type { League } from "../../lib/pvp-rules";
 import { LeagueCrestIcon, type LeagueCrestIconSize } from "./league-crest-art";
-import { pipsOf, tierOf } from "./league-standards";
+import { divisionOf, tierOf } from "./league-standards";
 
 const crestVariants = cva("inline-flex items-center gap-1.5 font-semibold whitespace-nowrap", {
   variants: { size: { sm: "text-xs", md: "text-sm", lg: "text-xl" } },
@@ -22,7 +22,7 @@ export interface LeagueCrestProps extends VariantProps<typeof crestVariants> {
 }
 
 /**
- * A league (issue 644's, `pvp-rules.ts`): its tier's crest in its icon form (issue 917, the division as pips) and its name beside it
+ * A league (issue 644's, `pvp-rules.ts`): its tier's crest in its icon form (issue 917, the division's numeral at its foot) and its name beside it
  * ("Silver II"). Unranked when the player has not entered the leagues.
  */
 export function LeagueCrest({ league, unranked, size, iconOnly, className }: LeagueCrestProps) {
@@ -30,7 +30,7 @@ export function LeagueCrest({ league, unranked, size, iconOnly, className }: Lea
   const name = unranked ? "Unranked" : league.name;
   return (
     <span data-league={league.id} data-tier={tier} className={cn(crestVariants({ size }), className)}>
-      <LeagueCrestIcon tier={tier} pips={unranked ? 0 : pipsOf(league)} size={ICON_SIZE[size ?? "md"]} label={iconOnly ? (unranked ? name : `${name} league`) : undefined} />
+      <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size={ICON_SIZE[size ?? "md"]} label={iconOnly ? (unranked ? name : `${name} league`) : undefined} />
       {!iconOnly && <span>{name}</span>}
     </span>
   );

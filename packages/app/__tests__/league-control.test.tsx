@@ -36,19 +36,19 @@ describe("LeagueControl (#829)", () => {
     expect(plate.lastElementChild!.querySelector("[data-slot=league-crest-icon]")).not.toBeNull();
   });
 
-  it("the crest is its tier's icon form (#917), the division as pips; one crown named singular", () => {
+  it("the crest is its tier's icon form (#917), the division as its numeral; one crown named singular", () => {
     const { container, rerender } = render(control(0));
     expect(crest(container)).toHaveAttribute("data-tier", "wood");
-    expect(crest(container)).not.toHaveAttribute("data-pips");
+    expect(crest(container)).not.toHaveAttribute("data-division");
     rerender(control(1_240));
     expect(crest(container)).toHaveAttribute("data-tier", leagueOf(1_240).id);
     rerender(control(2_800));
-    // Emerald II: two pips.
+    // Emerald II: its numeral.
     expect(crest(container)).toHaveAttribute("data-tier", "emerald");
-    expect(crest(container)).toHaveAttribute("data-pips", "2");
+    expect(crest(container)).toHaveAttribute("data-division", "II");
     rerender(control(5_320));
     expect(crest(container)).toHaveAttribute("data-tier", "grandmaster");
-    expect(crest(container)).not.toHaveAttribute("data-pips");
+    expect(crest(container)).not.toHaveAttribute("data-division");
     rerender(control(1));
     expect(screen.getByRole("button", { name: `League: ${leagueOf(1).name}, 1 crown` })).toBeInTheDocument();
   });
@@ -114,7 +114,7 @@ describe("LeagueControl (#829)", () => {
     const { container } = render(wrap(<LeagueControl crowns={0} unranked />));
     expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked");
     expect(crest(container)).toHaveAttribute("data-tier", "unranked");
-    expect(crest(container)).not.toHaveAttribute("data-pips");
+    expect(crest(container)).not.toHaveAttribute("data-division");
   });
 
   it("the League page's (#859): the chain's league over the count's, no trophy, its own name", () => {
@@ -125,7 +125,7 @@ describe("LeagueControl (#829)", () => {
     expect(button.querySelector("[data-icon=trophy]")).toBeNull();
     expect(button.querySelector("[data-slot=plate-lead]")).toBeNull();
     expect(crest(button)).toHaveAttribute("data-tier", "iron");
-    expect(crest(button)).toHaveAttribute("data-pips", "1");
+    expect(crest(button)).toHaveAttribute("data-division", "III");
   });
 
   it("a tap anywhere opens the League page", async () => {

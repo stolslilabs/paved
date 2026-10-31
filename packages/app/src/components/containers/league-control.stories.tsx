@@ -26,8 +26,8 @@ function Promoting() {
 
 /**
  * The League control (#829, the owner's decisions of 2026-10-27): the round League button over the left end of the balances'
- * plate (#828), the crowns at its centre, the league's crest closing its right end (#917: the tier's icon form, the division as
- * pips); no league name. A tap anywhere opens the
+ * plate (#828), the crowns at its centre, the league's crest closing its right end (#917: the tier's icon form, the division's
+ * numeral); no league name. A tap anywhere opens the
  * League page. `auto` (the home's) is the phone's size below `desktop` and the larger from it: the Viewport toolbar shows both.
  */
 const meta = {
@@ -45,11 +45,11 @@ type Story = StoryObj<typeof meta>;
 
 /** Before PvP (no crown, no attack, #917): Unranked's broken planks. */
 export const Unranked: Story = { args: { crowns: 0, unranked: true } };
-/** Wood (0 crowns after an attack): the wooden hexagon and its leaves, no pips. */
+/** Wood (0 crowns after an attack): the wooden shield and its sprout, no numeral. */
 export const Wood: Story = { args: { crowns: 0 } };
-/** A mid league (1,240 crowns, Bronze I): the copper crest and its three pips. */
+/** A mid league (1,240 crowns, Bronze I): the copper crest and its numeral, I. */
 export const MidLeague: Story = {};
-/** Emerald II (2,800 crowns), Platinum's old place (#917): its crest in green, two pips. */
+/** Emerald II (2,800 crowns), Platinum's old place (#917): its crest in green, II. */
 export const Emerald: Story = { args: { crowns: 2_800 } };
 /** The top league: Grand Master's crest. */
 export const GrandMaster: Story = { args: { crowns: 5_320 } };
@@ -59,7 +59,7 @@ export const Stress: Story = { args: { crowns: 12_345 } };
 export const Page: Story = { args: { variant: "page", label: "Your league: Bronze I, 1,240 crowns. Show it" } };
 /** The League page's header before PvP: Unranked's crest. */
 export const PageUnranked: Story = { args: { variant: "page", crowns: 0, unranked: true, label: "Your league: Unranked, 0 crowns. Show it" } };
-/** Every tier's crest closing the plate (#917), Unranked to Grand Master, a division of each group with its pips. */
+/** Every tier's crest closing the plate (#917), Unranked to Grand Master, a division of each group with its numeral. */
 export const Tiers: Story = {
   render: (args) => (
     <Corner>

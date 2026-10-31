@@ -22,10 +22,10 @@ export const Default: Story = {};
 export const Ladder: Story = {
   render: () => (
     <CastleBackdrop className="py-6">
-      {/* The crests' ornaments pass their plates: the standards close up as the design's, within the backdrop's padding. */}
-      <div className="flex flex-wrap justify-center" style={{ paddingInline: "1.25rem", rowGap: "1.5rem" }}>
+      {/* Each standard in its own square crest's width, side by side as the design shows them. */}
+      <div className="flex flex-wrap justify-center" style={{ paddingInline: "1.25rem", gap: "1.5rem 0.5rem" }}>
         {LEAGUE_TIERS.map((t) => (
-          <LeagueStandard key={t.id} tier={t.id} name={t.name} size="sm" style={{ marginInline: "-1.6em" }} />
+          <LeagueStandard key={t.id} tier={t.id} name={t.name} size="sm" />
         ))}
       </div>
     </CastleBackdrop>

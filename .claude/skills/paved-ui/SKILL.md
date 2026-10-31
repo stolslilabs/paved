@@ -114,11 +114,15 @@ add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in
 record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
 
 League standards (#917, the owner's design in `docs/design/league-standards.webp`, which supersedes #854's studies): ten tiers
-(`LEAGUE_TIERS`, Unranked to Grand Master, `tierOf`, `pipsOf`), each drawn in `elements/league-standards.ts` as toned parts that
-`ArtSvg` (`elements/league-art.tsx`) renders in the relief: `LeagueCrestArt` (full, from 64 px), `LeagueCrestIcon` (16 to 40 px, the
-division as pips), `LeaguePlate` (the name in `font-display`), `LeagueBanner`, and `LeagueStandard` (the three stacked). Their tones are
-derived from the `--game-*` tones (`color-mix`, relative `oklch(from ...)`), and their stories use inline styles where a class would
-be new: the stylesheet's budget has no room.
+(`LEAGUE_TIERS`, Unranked to Grand Master, `tierOf`, `divisionOf`), each shown as images: `LeagueCrestArt` (full, from 64 px),
+`LeagueCrestIcon` (16 to 40 px, its own simplified art), `LeaguePlate` (the plate's image, the name over it in `font-display`),
+`LeagueBanner`, and `LeagueStandard` (the three stacked). The crest and the icon take a `division` ("I", "II", "III"): each has a
+version per division, the numeral on a ribbon drawn into the art, never laid over it. The masters are lossless WebP,
+`league-sources/<part>/<name>.webp` (`artName`: `bronze`, `bronze-ii`), one square frame per part but the plate's (`LEAGUE_ART`
+in `elements/league-standards.ts`); `node scripts/compress-league-art.ts` writes their copies to `public/league-art/` (`--check`
+verifies them), and `artSources` gives an `<img>` its `srcSet` and `sizes`. A new tier or a redrawn part is a new master on its
+frame, then the script. Their stories use inline styles where a class would be new: the
+stylesheet's budget has no room.
 
 Chests (#874, the owner's direction A, wooden chests with metal bands): `<ChestIcon rank="epic" />` (`elements/chest-icon.tsx`),
 the simple version on Font Awesome's `treasure-chest` (`bun run chest-art` generates it), drawn by `ChestBadge` and the battle logs;

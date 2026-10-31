@@ -37,9 +37,9 @@ describe("League carousel (#785, #833, #859)", () => {
     // No crowns' count in the card (#859): no way to the next league, no crowns to go.
     expect(within(carousel()).queryByRole("progressbar")).toBeNull();
     expect(within(carousel()).queryByText(/crowns to go|Reached/)).toBeNull();
-    // The card stands alone: the arrows and the dots outside it, no box around them.
+    // The card stands alone on the page, with no ground of its own (2026-10-30): the arrows and the dots outside it, no box around them.
     const card = within(inView()).getByText("Bronze II").closest<HTMLElement>("[data-slot=league-card]")!;
-    expect(card).toHaveClass("rounded-xl", "border", "bg-card");
+    expect(card.className).not.toMatch(/\bborder\b|\bbg-card\b/);
     for (const name of ["Previous league", "Next league", "Go to Bronze II"]) expect(card).not.toContainElement(screen.getByRole("button", { name }));
     expect(carousel().parentElement!.parentElement!.className).not.toMatch(/\bborder\b|\bbg-card\b/);
     // One dot per league, the current one marked; no "N of 23".
@@ -57,18 +57,19 @@ describe("League carousel (#785, #833, #859)", () => {
     expect(screen.queryAllByRole("list").map((l) => l.getAttribute("aria-label"))).toEqual(["Matches"]);
   });
 
-  it("every league's card has the same content rows: the standard (its plate the title), the range, the season reward", () => {
+  it("every league's card has the same content rows: the crest, the range, the season reward, the plate (the title)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
     const cards = carousel().querySelectorAll<HTMLElement>("[data-slot='league-card']");
     expect(cards).toHaveLength(LEAGUES.length);
-    // One height for all, Wood included: every standard has one box, at one size (#917).
-    const standards = [...cards].map((c) => c.querySelector<HTMLElement>(":scope > [data-slot=league-standard]")!);
-    expect(new Set(standards.map((f) => f.style.fontSize))).toEqual(new Set(["0.75rem"]));
-    expect(standards.map((f) => f.dataset.tier)).toEqual(LEAGUES.map((l) => l.id));
-    // The plate names the card: its heading.
+    // One height for all, Wood included: every crest has one box, at one size (#917).
+    const crests = [...cards].map((c) => c.querySelector<HTMLElement>(":scope > [data-slot=league-crest-art]")!);
+    expect(new Set(crests.map((f) => f.style.fontSize))).toEqual(new Set(["10rem"]));
+    expect(crests.map((f) => f.dataset.tier)).toEqual(LEAGUES.map((l) => l.id));
+    // The plate names the card: its heading, the last row.
     expect(cards[13]!.querySelector("h2")).toHaveAccessibleName("Emerald III");
-    // The bonus's corner (none for Wood), then the three rows.
-    for (const card of cards) expect(card.children).toHaveLength(card.closest("[data-league]")!.getAttribute("data-league") === "0" ? 3 : 4);
+    for (const card of cards) expect(card.lastElementChild!.tagName).toBe("H2");
+    // The bonus's corner (none for Wood), then the four rows.
+    for (const card of cards) expect(card.children).toHaveLength(card.closest("[data-league]")!.getAttribute("data-league") === "0" ? 4 : 5);
     expect(crownRange(LEAGUES[0]!).text).toBe("0 – 399");
     expect(crownRange(LEAGUES[22]!).text).toBe("5,000+");
   });

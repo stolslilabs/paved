@@ -21,7 +21,7 @@ export const All: Story = {
     </div>
   ),
 };
-/** Emerald (#917, Platinum renamed), in green, beside Gold below it and Diamond above it: each tier's icon form, its pips. */
+/** Emerald (#917, Platinum renamed), in green, beside Gold below it and Diamond above it: each tier's icon form, its numeral. */
 export const Emerald: Story = {
   render: () => (
     <div className="flex flex-wrap gap-4">

@@ -8,8 +8,8 @@ import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { GameIcon } from "../elements/game-icon";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
-import { pipsOf, tierOf } from "../elements/league-standards";
-import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
+import { divisionOf, tierOf } from "../elements/league-standards";
+import { Plate, plateBareIconClass, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
 import { Icon } from "../ui/icon";
 
 /** The promotion's ring in its league's colour (#787's, on the crest since #829); Wood a neutral grey. */
@@ -55,9 +55,9 @@ export interface LeagueControlProps {
 /**
  * The home's League control (#829, the owner's decisions of 2026-10-27), under the profile at the top left: a round League button
  * (`trophy`) over the left end of the balances' plate (#828), the crowns at the plate's centre and the league's crest closing its
- * right end. No league name: the crest is enough, and the League page says more. One button, its name the league and the crowns
- * ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under reduced
- * motion.
+ * right end, alone (no disc). No league name: the crest is enough, and the League page says more. One button, its name the league
+ * and the crowns ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under
+ * reduced motion.
  */
 export function LeagueControl(props: LeagueControlProps) {
   const sources = useContext(DataContext);
@@ -107,12 +107,12 @@ function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size
             </PlateDisc>
           )
         }
+        endFit="bare"
         end={
-          <PlateDisc size={size}>
-            {/* The tier's crest in its icon form (issue 917), a size up from the plate's icons so its pips read: 28 px, 34 px from `desktop`. */}
-            <span className={cn("relative leading-none", plateIconClass(size))}>
-              <LeagueCrestIcon tier={tier} pips={unranked ? 0 : pipsOf(league)} size="inherit" style={{ fontSize: "1.4em" }} />
-            </span>
+          // The tier's crest in its icon form (issue 917) alone, no disc (the owner's decision of 2026-10-30): taller than the plate,
+          // it closes its end as the balances' coins do.
+          <span className={cn("relative leading-none", plateBareIconClass(size))}>
+            <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size="inherit" style={{ width: "100%", height: "100%" }} />
             {promoted !== null && (
               <m.span
                 key={promoted}
@@ -125,7 +125,7 @@ function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size
                 onAnimationComplete={() => setPromoted((p) => (p === promoted ? null : p))}
               />
             )}
-          </PlateDisc>
+          </span>
         }
       >
         <span aria-hidden className="flex items-center gap-1">

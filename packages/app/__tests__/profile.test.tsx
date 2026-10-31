@@ -70,7 +70,7 @@ describe("ProfileSheet (#624)", () => {
     const crest = () => sheet.querySelector<HTMLElement>("[data-slot=league-crest-icon]");
     expect(within(sheet).getByText("Bronze II")).toBeInTheDocument();
     expect(crest()).toHaveAttribute("data-tier", "bronze");
-    expect(crest()).toHaveAttribute("data-pips", "2");
+    expect(crest()).toHaveAttribute("data-division", "II");
     rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} league={{ crowns: 0, league: 0, unranked: true }} />));
     expect(within(sheet).getByText("Unranked")).toBeInTheDocument();
     expect(crest()).toHaveAttribute("data-tier", "unranked");

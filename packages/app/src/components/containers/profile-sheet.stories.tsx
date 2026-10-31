@@ -16,7 +16,7 @@ type Story = StoryObj<typeof meta>;
 
 /** The avatar larger in its XP ring, the name, the address with Copy, the level (#625) with the XP made, the XP left to the next and the whole XP (#830), the figures, Edit avatar (#626), Disconnect. */
 export const Connected: Story = {};
-/** The player's league under their name (#917): Bronze II's crest, its pips, and its name. */
+/** The player's league under their name (#917): Bronze II's crest, its numeral, and its name. */
 export const League: Story = { args: { league: { crowns: 1_172, league: 5, unranked: false } } };
 /** Before any crown and any attack: Unranked's crest. */
 export const LeagueUnranked: Story = { args: { league: { crowns: 0, league: 0, unranked: true } } };

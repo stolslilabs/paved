@@ -7,7 +7,7 @@ import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
 import type { LeagueBonusState } from "../elements/league-bonus";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
-import { pipsOf, tierOf } from "../elements/league-standards";
+import { divisionOf, tierOf } from "../elements/league-standards";
 import { LeagueCard } from "../containers/league-card";
 import { LeagueCarousel } from "../containers/league-carousel";
 import { LeagueControl } from "../containers/league-control";
@@ -150,7 +150,7 @@ function SeasonReward({ league, outside, attacks }: { league: League; outside: b
     <>
       {/* Inline, so a narrow card wraps it as text, after a word. */}
       <p data-testid="season-reward" className="text-sm text-muted-foreground">
-        <LeagueCrestIcon tier={tierOf(league)} pips={pipsOf(league)} size="sm" className="mr-1.5" style={{ verticalAlign: "-0.3em" }} />
+        <LeagueCrestIcon tier={tierOf(league)} division={divisionOf(league)} size="sm" className="mr-1.5" style={{ verticalAlign: "-0.3em" }} />
         <span className="font-semibold whitespace-nowrap text-foreground">{league.name}</span>:{" "}
         <Cobbles value={league.seasonCobbles} sign="+" className="align-[-0.125em]" /> Cobbles at the season's end
       </p>
