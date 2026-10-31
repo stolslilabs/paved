@@ -212,16 +212,22 @@ function worldLine(slot: number): StoredChatMessage | null {
   return { id: `w${slot}`, author: pick(speakers(), who), text: filterWords(pick(WORLD_LINES, line), CHAT_FILTER_WORDS), at: slot * WORLD_SLOT_S + Math.floor(second * WORLD_SLOT_S), deleted: false };
 }
 
-/** The memberships a guild's log shows ended: each leave or kick, from the member's join (or the guild's creation) before it. */
-function logDepartures(g: StoredGuild): { address: string; from: number; to: number }[] {
+/**
+ * The memberships a guild's log shows ended, for those no departure records (a world stored before the departures were): each
+ * leave or kick whose join (or the guild's creation by them) is still in the log. One whose join left the bounded log
+ * (`GUILD_LOG_KEPT`) is not guessed: a guessed start would make them a speaker of lines that were never theirs.
+ */
+function logDepartures(g: StoredGuild, recorded: readonly Departure[]): { address: string; from: number; to: number }[] {
   const joined = new Map<string, number>();
   const out: { address: string; from: number; to: number }[] = [];
   for (const e of g.log) {
     if (e.kind === "joined" || e.kind === "created") joined.set(e.actor, e.at);
     const gone = e.kind === "left" ? e.actor : e.kind === "kicked" ? e.target : null;
     if (gone === null) continue;
-    out.push({ address: gone, from: joined.get(gone) ?? g.createdAt, to: e.at });
+    const from = joined.get(gone);
     joined.delete(gone);
+    if (from === undefined || recorded.some((d) => d.address === gone && d.leftAt === e.at)) continue;
+    out.push({ address: gone, from, to: e.at });
   }
   return out;
 }
@@ -230,10 +236,11 @@ function logDepartures(g: StoredGuild): { address: string; from: number; to: num
 type Memberships = readonly { address: string; from: number; to: number }[];
 
 function membershipsOf(g: StoredGuild, departed: readonly Departure[]): Memberships {
+  const recorded = departed.filter((d) => d.guild === g.id);
   return [
     ...g.members.map((m) => ({ address: m.address, from: m.joinedAt, to: Infinity })),
-    ...departed.filter((d) => d.guild === g.id).map((d) => ({ address: d.address, from: d.joinedAt, to: d.leftAt })),
-    ...logDepartures(g),
+    ...recorded.map((d) => ({ address: d.address, from: d.joinedAt, to: d.leftAt })),
+    ...logDepartures(g, recorded),
   ].filter((m) => isCommunity(m.address));
 }
 

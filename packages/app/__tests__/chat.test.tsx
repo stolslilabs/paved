@@ -268,6 +268,34 @@ describe("a guild's conversation on the mock (#955)", () => {
     expect(leaver).not.toBe(kicked);
   });
 
+  it("keeps the authors when the kicked member's join has left the bounded log", async () => {
+    const { chat, social, store, clock } = world();
+    const w = seededGuildWorld();
+    const g = w.guilds.find((x) => x.name === "The Quarrymen")!;
+    g.members[0]!.rank = GUILD_RANK.officer;
+    g.members.push({ address: ME, rank: GUILD_RANK.leader, joinedAt: g.createdAt, lastKick: null });
+    w.players[ME] = { seenAt: T0 };
+    store.setItem(MOCK_KEY, JSON.stringify({ version: 1, players: {}, vault: { assets: "1", supply: "1" }, transactions: 0, guilds: w }));
+    // A community player joins, then 100 announcements push their join out of the log.
+    const joiner = community().find((m) => !inGuild.has(BigInt(m.address).toString(16).replace(/^/, "0x")))!.address;
+    const ledgerWorld = JSON.parse(store.getItem(MOCK_KEY)!);
+    ledgerWorld.guilds.guilds.find((x: { id: number }) => x.id === g.id).members.push({ address: BigInt(joiner).toString(16).replace(/^/, "0x"), rank: GUILD_RANK.member, joinedAt: T0 - 3 * 86_400, lastKick: null });
+    ledgerWorld.guilds.guilds.find((x: { id: number }) => x.id === g.id).log.push({ kind: "joined", at: T0 - 3 * 86_400, actor: BigInt(joiner).toString(16).replace(/^/, "0x"), target: null, reason: null });
+    store.setItem(MOCK_KEY, JSON.stringify(ledgerWorld));
+    for (let i = 0; i < 100; i++) await social.postAnnouncement(ME, `Notice ${i}`);
+    const page = (await social.guild(g.id, ME))!;
+    expect(page.log!.some((e) => e.kind === "joined" && BigInt(e.actor) === BigInt(joiner))).toBe(false);
+    const id = guildConversation(g.id);
+    const authors = async () => new Map((await allOf(chat, ME, id)).filter((m) => m.kind === "message").map((m) => [m.id, m.author!.address] as const));
+    const before = await authors();
+    clock.now += 1;
+    await social.kick(ME, BigInt(joiner).toString(16).replace(/^/, "0x"), "");
+    const after = await authors();
+    const changed = [...before].filter(([message, author]) => after.has(message) && after.get(message) !== author);
+    expect(changed).toEqual([]);
+    expect(after.size).toBeGreaterThan(400);
+  });
+
   it("lets an officer or the leader delete a message of a member below them, not of one at or above", async () => {
     const { chat, social } = world();
     const gid = await social.createGuild(ME, draft());
