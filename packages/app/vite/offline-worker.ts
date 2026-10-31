@@ -12,7 +12,9 @@
  *
  * A request for one of the build's files is answered from the cache, else the network (and kept); a navigation from the
  * network, else the cached `index.html` (the SPA's fallback, as `vercel.json` rewrites). A new build is a new worker (its
- * version is its list's hash): it caches anew and deletes the old build's cache. Nothing is asked outside the app's origin.
+ * version is its list's hash): it caches anew and takes the open tabs, but keeps the old build's cache, and answers from it,
+ * until every tab open at the update has closed: such a tab runs the old build, whose lazy chunks only that cache holds. Nothing
+ * is asked outside the app's origin.
  *
  * Node 24 runs it as is (type stripping): the syntax stays erasable.
  */
@@ -55,13 +57,42 @@ self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)).then(() => self.skipWaiting()));
 });
 
+// An update takes the open tabs at once (\`clients.claim\`), but a tab keeps the build it loaded, and its lazy chunks are that
+// build's: an old build's cache is kept, and read, until every tab open at the update has closed. Who those tabs are is kept
+// in the new cache (\`HELD\`), since the worker may be stopped between two events.
+const HELD = "/__paved-offline/held";
+const PREFIX = ${JSON.stringify(CACHE_PREFIX)};
+
+/** When the last pruning ran: a tab's own requests check again, at most every 10 s (a reload is a new tab only once it loaded). */
+let pruned = 0;
+
+/** Deletes the old builds' caches once no tab open at the update is left. */
+async function prune() {
+  pruned = Date.now();
+  const cache = await caches.open(CACHE);
+  const record = await cache.match(HELD);
+  if (!record) return;
+  const held = await record.json();
+  const open = new Set((await self.clients.matchAll({ includeUncontrolled: true, type: "window" })).map((c) => c.id));
+  if (held.clients.some((id) => open.has(id))) return;
+  for (const key of held.caches) await caches.delete(key);
+  await cache.delete(HELD);
+}
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      for (const key of await caches.keys()) if (key.startsWith(${JSON.stringify(CACHE_PREFIX)}) && key !== CACHE) await caches.delete(key);
-      await self.clients.claim();
       const cache = await caches.open(CACHE);
+      const old = (await caches.keys()).filter((key) => key.startsWith(PREFIX) && key !== CACHE);
+      if (old.length) {
+        const clients = (await self.clients.matchAll({ includeUncontrolled: true, type: "window" })).map((c) => c.id);
+        const before = await cache.match(HELD);
+        const stale = [...new Set([...old, ...(before ? (await before.json()).caches : [])])];
+        await cache.put(HELD, new Response(JSON.stringify({ clients, caches: stale })));
+      }
+      await self.clients.claim();
       for (const file of REST) if (!(await cache.match(file))) await cache.add(file).catch(() => undefined);
+      await prune();
     })(),
   );
 });
@@ -71,17 +102,23 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin || request.headers.has("range")) return;
   if (request.mode === "navigate") {
+    // A new tab: a good time to drop the caches no open tab needs any more.
+    event.waitUntil(prune().catch(() => undefined));
     event.respondWith(fetch(request).catch(async () => (await caches.match("/index.html", { cacheName: CACHE })) ?? Response.error()));
     return;
   }
-  if (!FILES.has(url.pathname)) return;
+  // This build's files, and the hashed chunks of an old build (\`/assets/\`); the rest (the music) is left to the browser.
+  if (!FILES.has(url.pathname) && !url.pathname.startsWith("/assets/")) return;
+  if (Date.now() - pruned > 10_000) event.waitUntil(prune().catch(() => undefined));
   event.respondWith(
     (async () => {
+      // This build's file first (an unhashed one, the renderer's manifest, is this build's), else an old build's still held
+      // for a tab that loaded it.
       const cache = await caches.open(CACHE);
-      const hit = await cache.match(url.pathname);
+      const hit = (await cache.match(url.pathname)) ?? (await caches.match(url.pathname));
       if (hit) return hit;
       const response = await fetch(request);
-      if (response.ok) await cache.put(url.pathname, response.clone()).catch(() => undefined);
+      if (response.ok && FILES.has(url.pathname)) await cache.put(url.pathname, response.clone()).catch(() => undefined);
       return response;
     })(),
   );

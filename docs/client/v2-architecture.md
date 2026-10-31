@@ -658,7 +658,9 @@ write, and fails on any request. On the mock the query client runs every read an
 files come offline from the mock build's service worker (`vite/offline-worker.ts`, `sw.js`, registered by
 `lib/offline-worker.ts` after the legacy clearing of #589, on the mock alone): at install the files a page runs on (the HTML,
 the scripts, the styles, the fonts, Font Awesome, the sound effects, 5.4 MB on 2026-10-31), once active the renderer's assets
-and the large images (13 MB), never the maps or the music; a navigation offline gets the cached `index.html`. So the client
+and the large images (13 MB), never the maps or the music; a navigation offline gets the cached `index.html`. A new build's
+worker takes the open tabs at once but keeps the old build's cache, and answers from it, until every tab open at the update has
+closed: such a tab runs the old build, and its lazy chunks are in that cache alone. So the client
 runs with the network cut seconds after the first load: Connect, every page and a reload. A `chain` build has no worker. The games are the ledger's (#927): a Challenge game is bought or spawned free,
 played, ended and settled on the device by the contracts' rules and checks (a day settles from the end of the next day, as
 on chain), its reward minted in the ledger's PAVED. The tokens are the ledger's (#927): USDC, PAVED and the Vault's vPAVED, read from no node. A new account holds the
