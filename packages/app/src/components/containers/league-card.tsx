@@ -31,7 +31,7 @@ export function LeagueCard({ league, className }: LeagueCardProps) {
   const range = crownRange(league);
   const tier = tierOf(league);
   return (
-    <div data-slot="league-card" className={cn("relative flex flex-col items-center justify-center gap-1 px-3 py-3 text-center", className)}>
+    <div data-slot="league-card" className={cn("relative flex flex-col items-center justify-center gap-1 px-3 pb-3 text-center", className)}>
       <LeagueCrestArt tier={tier} division={divisionOf(league)} size="xl" />
       <span role="img" aria-label={range.name} className="inline-flex items-center gap-1 text-sm whitespace-nowrap">
         <Icon name="crown" size="xs" className="text-crown" />
