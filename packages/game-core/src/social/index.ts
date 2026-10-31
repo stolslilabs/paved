@@ -1,6 +1,6 @@
 // The social rules (#952, #957), pure: what the mock enforces today, so that a contract or a service can mirror them later
 // (#956). The base (#952): the player search and who shows as online. The guilds (#953), and the follows, friends and blocks
-// (#954). The messages (#955) add theirs here.
+// (#954). The messages (#955): the World, the guild's and private conversations.
 
 export { ONLINE_WINDOW_S, byPresence, isOnline } from "./presence";
 export { SEARCH_LIMIT, nameMatches, normalQuery, parsePlayerId, searchPlayers, wordStarts } from "./search";
@@ -96,3 +96,44 @@ export {
   validRequirements,
 } from "./guild";
 export type { GuildActor, GuildCandidate, GuildDraft, GuildEmblem, GuildFilters, GuildJoinType, GuildListing, GuildOpening, GuildRank, GuildRefusal, GuildRequirements, GuildRosterEntry, GuildSettings } from "./guild";
+export {
+  CHAT_FILTER_MASK,
+  CHAT_INTERVAL_S,
+  CHAT_KEPT,
+  CHAT_MESSAGE_MAX,
+  CHAT_PAGE_SIZE,
+  CHAT_REPORT_REASONS,
+  CHAT_WORLD_INTERVAL_S,
+  CHAT_WORLD_MIN_LEVEL,
+  CHAT_WORLD_PER_MINUTE,
+  WORLD_CONVERSATION,
+  answerRequestRefusal,
+  chatBadge,
+  chatInterval,
+  chatLength,
+  chatPage,
+  compareMessages,
+  deleteRefusal,
+  filterWords,
+  guildConversation,
+  hiddenFrom,
+  isMuted,
+  keepMessages,
+  mayRead,
+  messageTextRefusal,
+  muteRefusal,
+  nextSendAt,
+  normalMessage,
+  otherPlayer,
+  parseConversation,
+  privateConversation,
+  privateRefusal,
+  privateStanding,
+  rateRefusal,
+  reachesDirectly,
+  reportRefusal,
+  sendRefusal,
+  sortConversations,
+  unreadMessages,
+} from "./chat";
+export type { ChatDeleter, ChatKind, ChatMessageRef, ChatRefusal, ChatReportReason, ChatSender, Conversation, ConversationId, ListedConversation, Mute, PrivatePair, PrivateSide, PrivateStanding, SentMessage } from "./chat";
