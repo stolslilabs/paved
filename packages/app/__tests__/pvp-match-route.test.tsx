@@ -78,9 +78,12 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     vi.stubGlobal("fetch", (url: string) => Promise.resolve(String(url).endsWith("manifest.json") ? new Response(JSON.stringify({ models: {}, renders, themes: {} })) : new Response("", { status: 404 })));
     const s = await open("/pvp/league");
     const list = await screen.findByRole("list", { name: "Matches" }, WAIT);
-    const cards = within(list).getAllByRole("button");
+    // Each card holds the match's control and the rival's profile's (#952).
+    const cards = [...list.querySelectorAll<HTMLElement>("[data-slot=match-card]")];
     expect(cards.map((c) => c.dataset.side)).toEqual(["defence", "attack"]);
-    expect(cards[1]).toHaveAccessibleName(`Your attack on ${s.rival.name}: ${s.attack.stars} of 3 stars`);
+    const opens = within(list).getAllByRole("button", { name: /stars$/ });
+    expect(opens[1]).toHaveAccessibleName(`Your attack on ${s.rival.name}: ${s.attack.stars} of 3 stars`);
+    expect(within(cards[1]!).getByRole("button", { name: `${s.rival.name}'s profile` })).toBeInTheDocument();
     // No shield's card (#859): the home's overlay shows the shield.
     expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
     // Each card on its side's background (#834), the build's render at each width it has (#857), no plan view behind it.
@@ -94,7 +97,7 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
     );
     expect(cards.every((c) => c.querySelector("[inert]") === null)).toBe(true);
 
-    await userEvent.click(cards[1]!);
+    await userEvent.click(opens[1]!);
     await waitFor(() => expect(s.router.state.location.pathname).toBe(`/pvp/match/a${s.attack.id}`), WAIT);
     expect(await screen.findByRole("heading", { name: `Attack on ${s.rival.name}` }, WAIT)).toBeInTheDocument();
     const views = screen.getByRole("radiogroup", { name: "Match view" });

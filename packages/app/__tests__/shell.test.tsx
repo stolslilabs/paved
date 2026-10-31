@@ -147,11 +147,16 @@ describe("redirects of the old links", () => {
     // The ranks left the UI (#623): their links land Home.
     ["/leaderboard", "/"],
     ["/leaderboard/20300", "/"],
-    ["/player/0x1", "/"],
   ])("%s goes to %s", async (from, to) => {
     const router = open(from);
     await waitFor(() => expect(router.state.location.pathname).toBe(to));
     expect(router.state.location.search).toBe("");
+  });
+
+  it("/player/:id goes to / with that player's public profile asked for (#952)", async () => {
+    const router = open("/player/0x1");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.location.search).toBe("?player=0x1");
   });
 
   it("sends an unreadable /game link Home", async () => {
