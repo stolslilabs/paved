@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -248,7 +249,7 @@ describe("savedLook", () => {
 
 describe("the fresh deployment's catalogue", () => {
   it("is the mocks': the nine traits, and the free items of each (`scripts/deploy.sh`'s FRESH_AVATAR_*)", () => {
-    const script = readFileSync(new URL("../../../scripts/deploy.sh", import.meta.url), "utf8");
+    const script = readFileSync(resolve(__dirname, "../../../scripts/deploy.sh"), "utf8");
     expect(Number(/^FRESH_AVATAR_PARTS=(\d+)$/m.exec(script)![1])).toBe(AVATAR_PARTS_IN_USE);
     expect(AVATAR_PARTS_IN_USE).toBe(TRAIT_PARTS.length);
     const free = /^FRESH_AVATAR_FREE=\(([\d ]+)\)$/m.exec(script)![1]!.split(" ").map(Number);

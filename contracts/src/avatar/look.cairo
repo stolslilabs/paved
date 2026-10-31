@@ -1,6 +1,6 @@
 //! The avatar's look (#627), in the client's format (AVATAR-LIVING,
-//! `packages/renderer/src/core/avatar/avatar-look.ts`): one `u128`, byte 0 the format's version (1),
-//! byte `p + 1` the item id of part `p` (the client's traits: 0 skin, 1 hair colour, 2 eyes,
+//! `packages/renderer/src/core/avatar/avatar-look.ts`): one `u128`, byte 0 the format's version
+//! (1), byte `p + 1` the item id of part `p` (the client's traits: 0 skin, 1 hair colour, 2 eyes,
 //! 3 outfit, 4 pauldrons, 5 hair style, 6 beard, 7 headwear, 8 accessory), the bytes past the parts
 //! 0. What a part means is the client's alone. A look of 0 is no avatar (the client draws its
 //! default). Pure: no storage, no system.
