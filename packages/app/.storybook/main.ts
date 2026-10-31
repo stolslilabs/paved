@@ -11,7 +11,9 @@ const config: StorybookConfig = {
   staticDirs: STATIC_DIRS,
   // Vite would also copy the whole `public/` into `storybook-static/` (its own `publicDir`): off, `staticDirs` is the one way
   // in, and it leaves out `public/music/` but for the tracks the stories play (P-81).
-  viteFinal: (config) => ({ ...config, publicDir: false }),
+  // The app's mock build carries no starknet.js (`vite.config.ts`, #927); the stories build their own sources, some on the
+  // chain's fakes, and keep it whatever the build's network.
+  viteFinal: (config) => ({ ...config, publicDir: false, plugins: config.plugins?.flat().filter((p) => !(p && typeof p === "object" && "name" in p && p.name === "paved:mock-without-starknet")) }),
   core: { disableTelemetry: true },
   addons: ["@storybook/addon-docs", "@storybook/addon-a11y"],
 };

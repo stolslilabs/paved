@@ -624,10 +624,11 @@ Each hook returns the type its scene's prop takes; where the indexer's type diff
 schedule from the definitions; a new player's null profile as an empty one). A past day's leaderboard and a closed
 economy day have `staleTime: Infinity`. No hook polls; the writes (P5, P7, P10) update these keys from their receipts.
 
-**Mock data (MOCK-FIRST, issue 549).** The reads and writes a network's deployed classes lack are served on the device by a
-mock ledger, behind the same interfaces as the chain path, so the client works end to end before the fresh deployment.
+**Mock data (MOCK-FIRST, issue 549).** Every read and write is served on the device by a mock ledger since #927, behind the
+same interfaces as the chain path, so the client works end to end, on its own, before the fresh deployment: no node, no
+indexer, no outside service, and no request outside the app's origin.
 One switch, `VITE_DATA_SOURCE` (`data/data-source.ts`): `chain` or `mock`; unset, `mock` on Sepolia (`MOCK_BY_DEFAULT`) and
-`chain` everywhere else. Measured on 2026-10-19 against Sepolia's classes: Setup has none of the Cobbles ledger, packs or
+`chain` everywhere else. Before #927 the mock served only what the classes lack; measured on 2026-10-19 against Sepolia's classes: Setup has none of the Cobbles ledger, packs or
 skins; the Vault has none of its ERC4626 views or writes; Challenge has no `spawn_paused`, `guardian`, `spawn_free` or
 `initial_seed`; Economy has no `split_bps` or `seller`; the indexer's definitions carry no Cobbles and it has no referrals
 route.
@@ -636,15 +637,23 @@ route.
 |---|---|
 | `data/mock/ledger.ts` | `MockLedger`: `MockedReads` (`CobbleViews`, `PackViews`, `SkinViews`, `VaultViews`, `spawnPaused`, `guardian`, `split`, `seller`, the USDC and PAVED balances) and `MockedWrites` (the claims, `buySkin`, `setSkins`, a pack's purchase, the faucet's `mint`, deposit, withdraw, withdraw all), with the contracts' checks, their typed refusals and their receipts' events; kept in `localStorage` (`paved.mock.v1`) |
 | `data/mock/challenge.ts` | the Challenge's games and the Economy's days on the device (#927): a game's purchase (paid from the ledger's USDC), free spawn, moves, end and settlement, played by game-core's rules (`SeededChallenge`: the VRF's queue, each draw from a seed kept with the game, so a game replays the same after a reload; the mean of `mean.cairo`, the curve of `curve.cairo`), read as `game`, `tiles`, `draw`, `initialSeed`, `terms`, `day`, `quote` and the player's games of the events |
-| `data/mock/overlay.ts` | the overlays: each wraps a chain path (`RpcGameViews`, `RpcEconomyViews`, the events, the pool, the account's `PavedWriter`, its purchases, settlement and Vault writes) and answers only the missing entry points from the ledger |
+| `data/mock/overlay.ts` | the overlays: each answers its entry points (`MOCKED_GAME_READS`, `MOCKED_ECONOMY_READS`, `MOCKED_WRITES`) from the ledger over a part beneath it; in the app that part is `offline` (`data/mock/app.ts`), so nothing falls through to a chain |
+| `data/mock/app.ts` | the app's mock (#927): `appLedger()` (one ledger on `localStorage`, its seller the deployment's `Setup`) and `appMockSources()`, every source of `DataSources` on it: the views, the events, the economy's views, the pool, the indexer, a signer's purchases, settlement and Vault writes. No chain, economy or indexer client is built. A read the ledger does not answer is refused by `offline` (`not-configured`, as a deployment without it), a write by `offlineSigner` (`MockAccountError`, nothing sent) |
+| `data/mock/starknet-shim.ts` | what `starknet` resolves to in a mock build (`vite.config.ts`, `mockWithoutStarknet`): the pure helpers `@paved/chain` calls on the mock's way (a key's address, the selectors, a revert's short string), on `@scure/starknet` as starknet.js computes them, and node classes that refuse. A mock build carries no starknet.js; `scripts/bundle-budget.ts` fails one that does (`starknetInMock`). The Storybook keeps starknet.js |
 | `data/mock/indexer.ts` | the mock's indexer (#927): every route of `IndexerClient` from the ledger, no indexer client built. The leaderboard and the days rank the device's games (every account's) among the seeded players'; a player's profile and games, a game's row with its terms (its threshold once settled), the referrals, the attacks; the quests and achievements of the fresh deployment (`data/mock/definitions.ts`, with the fifth daily of `dailies.ts`), their progress counted from each game over's report as `quests.cairo` builds it (tasks 1 to 4 for the quests, 1 and 4 to 7 for the achievements, on the time the game ended; a free game reports no quest progress), and the podium (task 8) from the mock's own leaderboard of a closed day. The head is the ledger's clock |
 | `data/mock/players.ts` | the twenty seeded players (#927, open point 2): names drawn by #926's generator on a Poseidon seed, the face the mock gives a player it did not see, a level, crowns (their league) and a village (a rival's layout of their level); their Challenge days drawn from Poseidon on their index and the day, the same on every device, from the mock's season start |
+| `wallet/mock-connector.ts` | the connector of a mock build (#927), which `WalletProvider` loads in place of `wallet/connector.ts`: `mockKeyConnector` on `localStorage` and `appLedger()`, the ledger's writes over it (`mockConnector`), its account's other writes refused by `offlineSigner` |
 | `wallet/mock-key.ts` | the mock's wallet (#927): the device's key in `localStorage`, as the chain's connector keeps it (the same address for the same key), and its account the ledger's: no node is read and nothing is deployed. A write the mock does not answer yet is refused before sending (`MOCK_ACCOUNT_UNSENT`). Reset forgets the key and the ledger's account (`MockLedger.forget`) |
 
-Applied where the chain path is built: `chain-client.ts` (the game views and the events), `economy-client.ts` (the economy's
-views, the pool's quote, a pack's and a game's purchase), `settle-client.ts` (the settlement), `vault-client.ts` (the Vault's
-writes), `wallet/connector.ts` (the mock's wallet, `mockKeyConnector`, and over it the claims, the skin writes and a game's
-moves) and `routes/sources.ts` (the indexer, the ledger's alone, #927). The games are the ledger's (#927): a Challenge game is bought or spawned free,
+Applied in two places only (#927): `routes/sources.ts` gives `MOCK_SOURCES` on `mock` (each part loads `data/mock/app.ts`
+with its first call) and `wallet/wallet.tsx` loads `wallet/mock-connector.ts`. The chain path's modules (`chain-client.ts`,
+`economy-client.ts`, `settle-client.ts`, `vault-client.ts`, `wallet/connector.ts`) are the `chain` source's alone and a mock
+build never loads them; the deployment's file and `VITE_*` values are read by `data/deployment.ts`, which builds no client.
+`__tests__/mock-no-fetch.test.ts` is the guard: with `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon`
+refused, starknet.js's node classes and `@paved/chain`'s clients unbuildable and the chain modules unloadable, it walks #927's
+acceptance on the mock's sources (connect, the village, a Challenge game to its settlement, a mission, First Stone, a chest,
+the shop, the Vault, a PvP attack, the leaderboard and a player page, Reset) and calls every mocked read, indexer route and
+write, and fails on any request. The games are the ledger's (#927): a Challenge game is bought or spawned free,
 played, ended and settled on the device by the contracts' rules and checks (a day settles from the end of the next day, as
 on chain), its reward minted in the ledger's PAVED. The tokens are the ledger's (#927): USDC, PAVED and the Vault's vPAVED, read from no node. A new account holds the
 faucet's USDC (100) and no PAVED (`MOCK_STARTING_BALANCES`); "Get test USDC" is always there on the mock and mints 100 more,

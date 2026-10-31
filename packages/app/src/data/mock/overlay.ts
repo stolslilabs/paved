@@ -3,12 +3,12 @@ import type { WalletConnector } from "../../wallet/wallet";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
-// The overlays of the mock (#549): each takes a chain path (`RpcGameViews`, `RpcEconomyViews`, the events, the pool, the
-// account's `PavedWriter`, its purchases, settlement and Vault writes) and answers the entry points the deployed classes lack
-// from the mock ledger, every other one from the chain, unchanged. Since #927 the Challenge's games, their purchase, moves and
-// settlement are the ledger's too, and the indexer is the ledger's alone (`indexer.ts`, no overlay: no indexer is asked). The
-// app applies them when the data source is `mock` (`data-source.ts`): `chain-client.ts`, `economy-client.ts`,
-// `settle-client.ts`, `wallet/connector.ts`, `routes/sources.ts`.
+// The overlays of the mock (#549): each takes a part (the game views, the events, the economy's views, the account's writer)
+// and answers its entry points from the mock ledger, every other one from the part beneath, unchanged. Since #927 the mock
+// answers every read and write the pages make, and in the app the parts beneath are `offline` (`app.ts`): what the ledger does
+// not answer is refused, never sent to a chain. The indexer is the ledger's alone (`indexer.ts`, no overlay). The app applies
+// them on the data source `mock` (`data-source.ts`) in `app.ts` and `wallet/mock-connector.ts`; the tests and stories over
+// the chain's fakes.
 
 /** `GameViews`' reads (and the Cobbles', packs', skins', avatar's, village's and PvP's views beside them on `RpcGameViews`) the mock answers. */
 export const MOCKED_GAME_READS = [
@@ -66,13 +66,15 @@ export const MOCKED_GAME_READS = [
   "attackV2Of",
   "matchesV2",
   "dailyMilestones",
+  // First Stone (D-21, #927)
+  "tutorialClaimed",
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers: the Vault's, the split, the seller, the tokens' balances (USDC, PAVED) and the games' quote, days and terms (#927). */
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance", "quote", "guardRate", "router", "day", "terms"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers (`mint`: the faucet; `build`, `discard`, `surrender`, `spawnFree`: the games, #927). */
-export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree"] as const;
+export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree", "claimTutorial"] as const;
 
 /** The hash prefix of the mock's receipts ("mock"): `receipt` answers them, never the node. */
 const MOCK_HASH = "0x6d6f636b";
@@ -133,6 +135,8 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     claimWeeklyCredit: writes.claimWeeklyCredit,
     // The day's milestones (#869): the ledger's until the contracts have them (#738)
     claimDailyMilestone: writes.claimDailyMilestone,
+    // First Stone (D-21, #927)
+    claimTutorial: writes.claimTutorial,
     // The writer's signature (`buySkin(request, views)`): the price is the ledger's, read inside its own send.
     buySkin: (request: Parameters<GameSigner["buySkin"]>[0]) => writes.buySkin(request),
     setSkins: writes.setSkins,

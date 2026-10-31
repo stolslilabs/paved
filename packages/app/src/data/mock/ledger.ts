@@ -148,6 +148,7 @@ import {
 } from "@paved/game-core";
 import { LEAGUE_FLOORS, NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
+import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
@@ -262,7 +263,7 @@ export interface MockedReads
     AttackV2Views,
     MatchRecordViews,
     DailyMilestoneViews,
-    Pick<GameViews, "spawnPaused" | "guardian" | "game" | "tiles" | "builder" | "initialSeed" | "draw" | "currentDay" | "entryPrice">,
+    Pick<GameViews, "spawnPaused" | "guardian" | "game" | "tiles" | "builder" | "initialSeed" | "draw" | "currentDay" | "entryPrice" | "tutorialClaimed">,
     Pick<DrawViews, "spawnSalt">,
     VaultViews,
     PoolQuoter,
@@ -275,7 +276,7 @@ export type PackReceipt = WriteResult & { bought: PackBought };
  * Every write the deployed classes lack, for the connected account: the writer's (`PavedWriter`) claims and skin writes, the
  * pack buyer's `buy` and the Vault's writes (`EconomyWriter`), with the same requests, receipts and typed refusals.
  */
-export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites {
+export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "claimTutorial" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites {
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
@@ -344,6 +345,8 @@ interface StoredPlayer {
   avatar?: string;
   /** The player's name (#926), drawn at their first connection (`nameAtConnection`); absent: none (an account before it). */
   name?: string;
+  /** When First Stone was claimed (`claimTutorial`, #927), in the ledger's seconds; absent: not claimed. */
+  tutorialAt?: number;
   /** `owned(player_id, part)` by part, decimal strings; absent: nothing bought. */
   avatarOwned?: Record<string, string>;
   /** The village (#640): the parcels in purchase order, the tiles placed after the starter in order; absent: not founded. */
@@ -613,6 +616,12 @@ export class MockLedger {
   knows(playerId: string): boolean {
     this.sync();
     return addressKey(playerId) in this.state.players;
+  }
+
+  /** When `playerId` claimed First Stone (`claimTutorial`), in seconds; null before: the mock's indexer counts its task from it. */
+  tutorialAt(playerId: string): number | null {
+    this.sync();
+    return this.peek(playerId).tutorialAt ?? null;
   }
 
   /** `/v1/players/:id/referrals`: the mock's player referred nobody yet. */
@@ -1157,6 +1166,11 @@ export class MockLedger {
     return dayView(this.challenge(), day);
   }
 
+  /** `Setup.tutorial_claimed(player)`: whether the account claimed First Stone (`claimTutorial`). */
+  async tutorialClaimed(playerId: string): Promise<boolean> {
+    return this.tutorialAt(playerId) !== null;
+  }
+
   async terms(gameId: number): Promise<TermsView> {
     return termsOf(this.challenge().games[gameId]);
   }
@@ -1171,6 +1185,7 @@ export class MockLedger {
       claimDailyCredit: (day) => this.claim(account, [{ kind: "credit", credit: "daily", period: day }]),
       claimWeeklyCredit: (week) => this.claim(account, [{ kind: "credit", credit: "weekly", period: week }]),
       claimDailyMilestone: (day, step) => this.claimDailyMilestone(account, day, step),
+      claimTutorial: () => this.claimTutorial(account),
       claim: (claims) => this.claim(account, claims),
       buySkin: (request) => this.buySkin(account, request),
       setSkins: (changes) => this.setSkins(account, changes),
@@ -1249,6 +1264,19 @@ export class MockLedger {
         }
       }
       return events;
+    });
+  }
+
+  /**
+   * `Setup.claim_tutorial()` (D-21, #927): First Stone's progress, reported once. Idempotent as the contract's: the first claim
+   * emits `AchievementProgressed { task 10 }`, a later one nothing, so the receipt tells them apart (`claimOutcome`).
+   */
+  async claimTutorial(account: string): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p) => {
+      if (p.tutorialAt !== undefined) return [];
+      p.tutorialAt = this.second();
+      return [this.event("AchievementProgressed", { playerId: account, taskId: TASK.tutorialFinished, count: 1 })];
     });
   }
 
