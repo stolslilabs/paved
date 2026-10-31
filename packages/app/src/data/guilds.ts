@@ -19,6 +19,8 @@ export const guildKeys = {
   /** A guild's page as a viewer sees it ("" : anyone). */
   page: (id: number, viewer: string | null) => ["social", "guild", "page", id, viewer === null ? "" : addressKey(viewer)] as const,
   badge: (address: string) => ["social", "guild", "badge", addressKey(address)] as const,
+  /** The guilds of a list's players at once (the Friends tab, #954), by their keys in order. */
+  badges: (keys: readonly string[]) => ["social", "guild", "badges", ...keys] as const,
   search: (q: GuildQuery) => ["social", "guild", "search", q.query, q.joinType ?? "", q.meetsFor ? addressKey(q.meetsFor) : "", q.minMembers ?? -1, q.maxMembers ?? -1] as const,
   suggested: (player: string) => ["social", "guild", "suggested", addressKey(player)] as const,
   ranking: () => ["social", "guild", "ranking"] as const,
@@ -43,6 +45,26 @@ export const useGuild = (id: number | null, viewer: string | null): SocialRead<G
 
 /** The guild a player is in, as their profile shows it (null: none); disabled without a player. */
 export const useGuildBadge = (address: string | null): SocialRead<GuildBadge | null> => useGuildRead(guildKeys.badge(address ?? "0x0"), address !== null, (g) => g.guildOf(address!));
+
+/**
+ * The guilds of several players at once, as a list's rows show them (the Friends tab, #954): one read for the list (not one
+ * query each, which would bring `useQueries` into this chunk and move the home's shared chunks into the entry). The answer
+ * gives a player's badge, null for none, undefined while read or without a guild part.
+ */
+export function useGuildBadges(addresses: readonly string[]): (address: string) => GuildBadge | null | undefined {
+  const { social } = useDataSources();
+  const guilds = guildSource(social);
+  const keys = addresses.map(addressKey);
+  const read = useQuery({
+    queryKey: guildKeys.badges(keys),
+    queryFn: async () => new Map(await Promise.all(keys.map(async (k) => [k, await guilds!.guildOf(k)] as const))),
+    enabled: guilds !== null && keys.length > 0,
+    staleTime: 0,
+    placeholderData: keepPreviousData,
+  });
+  const byKey = read.data;
+  return (address) => byKey?.get(addressKey(address));
+}
 
 /**
  * The guild search (game-core's `searchGuilds` and `filterGuilds`), read `delayMs` after the last keystroke; the previous

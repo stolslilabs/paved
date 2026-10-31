@@ -129,13 +129,13 @@ describe("/social on the mock (#952)", { timeout: slow(20_000) }, () => {
     return { router };
   }
 
-  it("opens on the last tab used, each tab's chunk with its empty state", async () => {
+  it("opens on the last tab used, each tab's chunk with its content", async () => {
     storeSocialTab("friends");
     resetSocialTabForTests();
     open("/social");
     expect(await screen.findByRole("heading", { level: 1, name: "Social" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Friends" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByText("No friends yet", undefined, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByText(/^No friends yet/, undefined, { timeout: slow(5000) })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
     expect(await screen.findByText("No messages yet", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect(localStorage.getItem("social-tab")).toBe("chat");

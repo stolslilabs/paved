@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { FRIENDS_TAB } from "../../mocks/follows";
 import { GUILD_FINDER, GUILD_PAGE } from "../../mocks/guilds";
+import { FriendsPanel } from "../containers/friends-panel";
 import { SOCIAL } from "../../mocks/social";
 import { GuildFinder } from "../containers/guild-finder";
 import { GuildPage } from "../containers/guild-page";
@@ -20,7 +22,7 @@ type Story = StoryObj<typeof meta>;
 
 /** The Guild tab, empty until the guilds (#953). */
 export const Guild: Story = {};
-/** The Friends tab, empty until the follows and friends (#954). */
+/** The Friends tab with nothing drawn in it: its empty state, as a guest sees it. */
 export const Friends: Story = { args: SOCIAL.friends };
 /** The Chat tab, empty until the messages (#955). */
 export const Chat: Story = { args: SOCIAL.chat };
@@ -41,4 +43,12 @@ export const GuildTabGuildless: Story = {
 /** The Guild tab of an Officer (#953): their guild's page, two requests on the badge. */
 export const GuildTabOfficer: Story = {
   args: { badges: { guild: 2, friends: 0, chat: 0 }, renderTab: (tab) => (tab === "guild" ? <GuildPage {...GUILD_PAGE.officer} onAction={fn()} onOpenPlayer={fn()} /> : null) },
+};
+/** The Friends tab (#954): friends online and offline, two new followers on its badge. */
+export const FriendsTab: Story = {
+  args: { tab: "friends", badges: { guild: 0, friends: 2, chat: 0 }, renderTab: (tab) => (tab === "friends" ? <FriendsPanel {...FRIENDS_TAB.friends} onAction={fn()} onOpenPlayer={fn()} /> : null) },
+};
+/** The Friends tab of a new player (#954): no follows, players to follow. */
+export const FriendsTabEmpty: Story = {
+  args: { tab: "friends", renderTab: (tab) => (tab === "friends" ? <FriendsPanel {...FRIENDS_TAB.noFollows} onAction={fn()} onOpenPlayer={fn()} /> : null) },
 };

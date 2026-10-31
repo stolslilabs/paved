@@ -245,9 +245,9 @@ function ConfirmBody({ confirmation: c, onCancel, onConfirm, pending, error }: O
 /**
  * The guild actions of a page or a profile: `run` one at once (Join), or `ask` its confirmation first (Kick, Leave), then run
  * it with the text written. A refused action keeps its dialog open with why; done, the dialog closes. `onAction` returns the
- * write's promise.
+ * write's promise. The follows (#954) use it too, with their refusals' words (`errorText`).
  */
-export function useGuildActions<A>(onAction?: (action: A) => Promise<unknown> | void) {
+export function useGuildActions<A>(onAction?: (action: A) => Promise<unknown> | void, errorText: (error: unknown) => string = guildErrorText) {
   const [asking, setAsking] = useState<{ confirmation: GuildConfirmation; make: (text: string) => A } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -258,7 +258,7 @@ export function useGuildActions<A>(onAction?: (action: A) => Promise<unknown> | 
       await onAction?.(action);
       return true;
     } catch (e) {
-      setError(guildErrorText(e));
+      setError(errorText(e));
       return false;
     } finally {
       setPending(false);
