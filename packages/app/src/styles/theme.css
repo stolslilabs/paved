@@ -225,10 +225,10 @@
   --fog: var(--color-charcoal-400);
 }
 
-/* 3b. The season dial (#607): each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle
-   paints them (`KEYFRAMES` in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in
-   step). Hex, not palette steps: the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The
-   icons are game icons in their own tones (#870, 3f). The ring is paving stones set in a gold rim. */
+/* 3b. Each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle paints them (`KEYFRAMES`
+   in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in step). Hex, not palette steps:
+   the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The season dial is painted art since
+   V4-WHEEL-ART (`assets/season-wheel`), its skies anchored on these. */
 :root {
   --sky-summer-day-top: #1f65a1;
   --sky-summer-day-bottom: #6bb7ff;
@@ -246,22 +246,6 @@
   --sky-spring-day-bottom: #95dc94;
   --sky-spring-night-top: #0a141c;
   --sky-spring-night-bottom: #012604;
-  /* The dial's gold, toned into its stones (#634): it reads as one piece with the sky quarters. */
-  --dial-rim: color-mix(in oklab, var(--primary) 45%, var(--color-charcoal-600));
-  --dial-band: var(--color-charcoal-900);
-  /* The face's three rings (the rim, the seasons' disc's edge, the day and night disc's): black, the owner's pick over the gold. */
-  --dial-ring: var(--color-charcoal-950);
-  --dial-stone: var(--color-charcoal-600);
-  --dial-stone-alt: var(--color-charcoal-700);
-  --dial-stone-edge: var(--color-charcoal-500);
-  /* The day and night disc at the centre (#909): a summer day's sky, a deep night with pale stars. */
-  --dial-day-top: var(--sky-summer-day-top);
-  --dial-day-bottom: var(--sky-summer-day-bottom);
-  --dial-night-top: var(--sky-summer-night-top);
-  --dial-night-bottom: var(--color-river-900);
-  --dial-star: var(--color-gold-200);
-  /* The "now" needle across both discs (#909): the theme's red, as a compass's. */
-  --dial-needle: var(--destructive);
 }
 
 /* 3c. The balances' resource bar (#620): each currency on a dark plate, sunk a little, a hairline edge; the light that
@@ -561,17 +545,6 @@
   }
 }
 
-/* The season dial's stars (#909): a slow twinkle on the night half of its centre disc; still under reduced motion. */
-@keyframes dial-twinkle {
-  from { opacity: 1; }
-  to { opacity: 0.3; }
-}
-@utility dial-twinkle {
-  animation: dial-twinkle 1.8s ease-in-out infinite alternate;
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
-}
 
 /*
  * The plan view's pending tile (#681): its opacity from 80 to 100 % and back on a sine (easeInOutSine), one cycle every
