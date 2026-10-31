@@ -284,7 +284,7 @@ function HomeBar({ children }: { children: ReactNode }) {
   // The bar's box: its items' height, its padding and its top border; empty, so nothing for assistive technology.
   const standIn = <div className="box-content h-11 border-t bg-background/95 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] mobile:h-13" />;
   return (
-    <div ref={ref} data-fade className="fixed inset-x-0 bottom-0 z-20 desktop:hidden">
+    <div ref={ref} data-fade className="pointer-events-auto fixed inset-x-0 bottom-0 z-20 desktop:hidden">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
@@ -457,7 +457,9 @@ function ViewOverlays({
   return (
     // The overlays' box (the scene's): the top row's measures and the bar's height are set on it, for the columns and the bottom.
     // In the Camera mode (`data-camera`, #875's open point 2) all but the profile, the balances and Exit camera fade out (`data-fade`,
-    // theme.css), out of reach once faded.
+    // theme.css), out of reach once faded. The box lets taps through to the village (`pointer-events-none`, #916's gestures): each
+    // control's place takes them back (`pointer-events-auto`: the top row, the columns' children, the dial, the bottom row's children,
+    // the phone's bar). HOME-BUTTONS (#856): the dial, Edit, Settings, Play and the bar had none since #910 and took no tap.
     <div ref={measures.box} data-slot="home-overlays" data-camera={camera || undefined} className="pointer-events-none absolute inset-0">
       {/* Top: the profile at the left, the balances at the right. */}
       <div className="absolute inset-x-0 top-0 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
@@ -500,14 +502,14 @@ function ViewOverlays({
 
         {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
         {props.seasonWheel && (
-          <div ref={measures.dial} data-dial-place className={cn("absolute left-2 tablet:left-4", ABOVE_BAR)}>
+          <div ref={measures.dial} data-dial-place className={cn("pointer-events-auto absolute left-2 tablet:left-4", ABOVE_BAR)}>
             <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
               <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
             </Suspense>
           </div>
         )}
       </div>
-      <div ref={measures.actions} className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div ref={measures.actions} className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {/*
           The Camera mode's button (#875), Edit's size at its left; in the mode, Exit camera and the controls' hint, in the corner: Edit,
           Found, Settings and Play leave the row (`data-collapse`).
