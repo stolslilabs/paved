@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MOCK_NOW } from "../../mocks/clock";
+import { GUILD_ACTIONS, GUILD_BADGE } from "../../mocks/guilds";
 import { PUBLIC_PROFILES } from "../../mocks/social";
+import { GuildLine, GuildMemberActions } from "./guild-profile";
 import { Button } from "../ui/button";
 import { PublicProfileSheet } from "./public-profile-sheet";
 
@@ -31,6 +33,15 @@ export const WithActions: Story = {
     actions: <Button variant="outline">Action</Button>,
   },
 };
+/** A Member of the viewer's guild, seen by its Leader (#953): the guild line, and Promote, Make leader and Kick. */
+export const GuildMember: Story = {
+  args: {
+    guild: <GuildLine badge={GUILD_BADGE.member} onOpen={fn()} />,
+    actions: <GuildMemberActions {...GUILD_ACTIONS.leaderOnMember} onAction={fn(async () => {})} />,
+  },
+};
+/** A guildless player, seen by an Officer (#953): Invite. */
+export const GuildInvite: Story = { args: { actions: <GuildMemberActions {...GUILD_ACTIONS.invite} onAction={fn(async () => {})} /> } };
 export const Loading: Story = { args: { state: PUBLIC_PROFILES.loading } };
 /** An ID no player has (a typed `/player/:id`). */
 export const NotFound: Story = { args: { state: PUBLIC_PROFILES.missing } };
