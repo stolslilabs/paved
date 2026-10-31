@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MOCK_NOW } from "../../mocks/clock";
+import { FOLLOW_ACTIONS, FOLLOW_STATUS } from "../../mocks/follows";
 import { GUILD_ACTIONS, GUILD_BADGE } from "../../mocks/guilds";
+import { FollowProfileActions } from "./follow-profile";
 import { PUBLIC_PROFILES } from "../../mocks/social";
 import { GuildLine, GuildMemberActions } from "./guild-profile";
 import { Button } from "../ui/button";
@@ -42,6 +44,22 @@ export const GuildMember: Story = {
 };
 /** A guildless player, seen by an Officer (#953): Invite. */
 export const GuildInvite: Story = { args: { actions: <GuildMemberActions {...GUILD_ACTIONS.invite} onAction={fn(async () => {})} /> } };
+/** Not followed (#954): Follow, Block, and their counts. */
+export const Follow: Story = { args: { follow: FOLLOW_STATUS.none, actions: <FollowProfileActions {...FOLLOW_ACTIONS.follow} onAction={fn(async () => {})} /> } };
+/** They follow the viewer: the Follows you mark, and Follow back. */
+export const FollowsYou: Story = { args: { follow: FOLLOW_STATUS.followsYou, actions: <FollowProfileActions {...FOLLOW_ACTIONS.followBack} onAction={fn(async () => {})} /> } };
+/** A friend (each follows the other): the Friend mark, Following, and their guild's line. */
+export const Friend: Story = {
+  args: {
+    follow: FOLLOW_STATUS.friend,
+    guild: <GuildLine badge={GUILD_BADGE.member} onOpen={fn()} />,
+    actions: <FollowProfileActions {...FOLLOW_ACTIONS.friend} onAction={fn(async () => {})} />,
+  },
+};
+/** A player the viewer blocks: Unblock only. */
+export const Blocking: Story = { args: { follow: FOLLOW_STATUS.blocking, actions: <FollowProfileActions {...FOLLOW_ACTIONS.blocking} onAction={fn(async () => {})} /> } };
+/** WRAP360 with the follows: the largest counts, the mark beside the presence. */
+export const FollowStress: Story = { args: { state: PUBLIC_PROFILES.stress, follow: FOLLOW_STATUS.stress, actions: <FollowProfileActions {...FOLLOW_ACTIONS.stress} onAction={fn(async () => {})} /> } };
 export const Loading: Story = { args: { state: PUBLIC_PROFILES.loading } };
 /** An ID no player has (a typed `/player/:id`). */
 export const NotFound: Story = { args: { state: PUBLIC_PROFILES.missing } };
