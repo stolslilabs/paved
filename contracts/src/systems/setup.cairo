@@ -63,8 +63,9 @@ pub const CLAIM_ACHIEVEMENT: u8 = 2;
 /// A star of a Story level (#548): `id` the level, `(campaign_id << 8) | level_id`; `period` the
 /// star, 1 to 3. Paid once per star, level and account (`ISetupStory::credit_story`).
 pub const CLAIM_STORY: u8 = 3;
-/// A league reached for the first time in a season (#644, `docs/architecture/leagues.md`): `id`
-/// the league, `period` the season. Paid by `Matchmaker`, an allowlisted reporter.
+/// A league reached for the first time in a season (#644): retired with the league bonus (#917,
+/// a lifetime league mission instead); kept so the kind is never given to another claim, and
+/// refused by `credit_league`.
 pub const CLAIM_LEAGUE: u8 = 4;
 /// A season's reward by the league held at its end (#644): `id` the league, `period` the season.
 pub const CLAIM_SEASON: u8 = 5;
@@ -609,7 +610,8 @@ pub impl AccountImpl of AccountTrait {
     }
 
     /// The lifetime count of an achievement task (1, 4, 5, 6 or 7); 0 for any other. Task 10 (the
-    /// tutorial) is read from `tutorial_claims` by the claim.
+    /// tutorial) is read from `tutorial_claims`, task 23 (the groups reached) from `league_groups`,
+    /// by the claim.
     fn count(self: @Account, task: u32) -> u32 {
         match task {
             0 => 0,
@@ -799,13 +801,13 @@ pub trait ISetupStory<TContractState> {
     ) -> u32;
 }
 
-/// Leagues and seasons (#644, `docs/architecture/leagues.md`): the cobbles of a league reached for
-/// the first time in a season and of a season's end, paid from this ledger for `Matchmaker`, an
-/// allowlisted reporter.
+/// Leagues and seasons (#644, `docs/architecture/leagues.md`): the cobbles of a season's end, paid
+/// from this ledger for `Matchmaker`, an allowlisted reporter, and the groups a player has reached
+/// in a lifetime, the lifetime league missions (#917).
 #[starknet::interface]
 pub trait ISetupLeague<TContractState> {
-    /// Credits `player_id` `cobbles` (not 0) for `league` in `season`: `kind` `CLAIM_LEAGUE` (a
-    /// league's bonus) or `CLAIM_SEASON` (a season's reward). An allowlisted reporter only
+    /// Credits `player_id` `cobbles` (not 0) for `league` in `season`: `kind` `CLAIM_SEASON` (a
+    /// season's reward; `CLAIM_LEAGUE` is retired, #917). An allowlisted reporter only
     /// (`'Quest: not reporter'`); it trusts the reporter for whom, which and how much (`Matchmaker`
     /// pays each once: its league records). Emits `CobblesClaimed` (`id` the league, `period` the
     /// season); returns the balance after it.
@@ -821,6 +823,13 @@ pub trait ISetupLeague<TContractState> {
     /// allowlisted reporter only (`Matchmaker`): the PvP day and week sums (`PvpProgress`), and
     /// quiver's `QuestProgressed` for tasks 19 to 22 (the entries that count).
     fn report_pvp(ref self: TContractState, player_id: felt252, stars: u8);
+    /// `player_id` reached `league` in a settlement (#917), from an allowlisted reporter only
+    /// (`Matchmaker`): when its group (`groups_of`) passes the most the player has reached in a
+    /// lifetime, that count rises to it, with quiver's `AchievementProgressed` for task 23 by the
+    /// difference. A group reached again (a later season) changes nothing.
+    fn report_league(ref self: TContractState, player_id: felt252, league: u8);
+    /// The most groups `player_id` has reached in a lifetime, 0 (none) to 8 (Grand Master).
+    fn league_groups(self: @TContractState, player_id: felt252) -> u8;
     /// A player's PvP day (`DAILY`) or week (`WEEKLY`) `period`.
     fn pvp_progress(
         self: @TContractState, player_id: felt252, kind: u8, period: u64,
@@ -913,6 +922,7 @@ pub mod Setup {
     use paved::components::ownable::OwnableComponent;
     use paved::components::payable::{IERC20Dispatcher, IERC20DispatcherTrait};
     use paved::constants;
+    use paved::matchmaker::leagues::{LEAGUE_GROUPS, groups_of};
     use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait};
     use paved::systems::rewards::{
         GRANTS_CHALLENGE, GRANTS_PVP, GRANTS_STORY, IRewardsDispatcher, IRewardsDispatcherTrait,
@@ -933,15 +943,15 @@ pub mod Setup {
 
     use super::{
         ACHIEVEMENT_COBBLES_MAX, ACHIEVEMENT_COBBLES_MIN, Account, AccountTrait, AchievementCobbles,
-        AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_LEAGUE,
-        CLAIM_QUEST, CLAIM_REWARD, CLAIM_SEASON, CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles,
-        ISetupLeague, ISetupLevel, ISetupPacks, ISetupRewards, ISetupSkins, ISetupSpend,
-        ISetupStory, MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID,
-        MAX_QUEST_TOTAL, PLANS, Pack, PlayerLevel, Progress, ProgressTrait, PvpProgress,
-        PvpProgressTrait, QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait,
-        QuestProgress, QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES,
-        STAR_XP, WEEKLY, Wiring, XP_ATTACK, XP_CHALLENGE, XP_DEFENCE, XP_STORY, active_themes, bit,
-        is_pvp_task, level_floor, level_of, list_ids, list_word, report_xp, schedule_kind, week_of,
+        AchievementProgress, AchievementTask, AchievementWindow, CLAIM_ACHIEVEMENT, CLAIM_QUEST,
+        CLAIM_REWARD, CLAIM_SEASON, CLAIM_STORY, DAILY, DAY, ISetup, ISetupCobbles, ISetupLeague,
+        ISetupLevel, ISetupPacks, ISetupRewards, ISetupSkins, ISetupSpend, ISetupStory,
+        MAX_ACHIEVEMENT_TOTAL, MAX_COBBLE_ID, MAX_CREDIT_XP, MAX_PACK_ID, MAX_QUEST_TOTAL, PLANS,
+        Pack, PlayerLevel, Progress, ProgressTrait, PvpProgress, PvpProgressTrait,
+        QUEST_COBBLES_MAX, QUEST_COBBLES_MIN, QuestCobbles, QuestCobblesTrait, QuestProgress,
+        QuestSchedule, QuestTask, SKIN_PRICE_MAX, SKIN_PRICE_MIN, STAR_COBBLES, STAR_XP, WEEKLY,
+        Wiring, XP_ATTACK, XP_CHALLENGE, XP_DEFENCE, XP_STORY, active_themes, bit, is_pvp_task,
+        level_floor, level_of, list_ids, list_word, report_xp, schedule_kind, week_of,
     };
 
     // Errors
@@ -1103,6 +1113,9 @@ pub mod Setup {
         rewards: ContractAddress,
         /// The tier a skin needs, key `(theme, plan)`; 0: none; written by `set_skin_tier`.
         skin_tiers: Map<(u8, u8), u8>,
+        /// #917 (appended, P-42). The most groups a player has reached in a lifetime, 0 to 8: the
+        /// count of task 23, the lifetime league missions; written by `report_league`.
+        league_groups: Map<felt252, u8>,
     }
 
     // Events
@@ -1558,9 +1571,15 @@ pub mod Setup {
                 || task.task_id == constants::TASK_WONDER_SCORED
                 || task.task_id == constants::TASK_BIG_STRUCTURE
                 || task.task_id == constants::TASK_HIGH_SCORE
-                || task.task_id == constants::TASK_TUTORIAL_FINISHED;
+                || task.task_id == constants::TASK_TUTORIAL_FINISHED
+                || task.task_id == constants::TASK_LEAGUE_REACHED;
             assert(counted, errors::TASK_NOT_COUNTED);
             assert(task.total <= MAX_ACHIEVEMENT_TOTAL, errors::TOTAL_TOO_HIGH);
+            assert(
+                task.task_id != constants::TASK_LEAGUE_REACHED
+                    || task.total <= LEAGUE_GROUPS.into(),
+                errors::TOTAL_TOO_HIGH,
+            );
             assert(head.window.start == 0 && head.window.end == 0, errors::WINDOWED);
             // [Effect] The copy
             self
@@ -1628,6 +1647,8 @@ pub mod Setup {
                 } else {
                     0
                 }
+            } else if entry.task == constants::TASK_LEAGUE_REACHED {
+                self.league_groups.read(player_id).into()
             } else {
                 account.count(entry.task)
             };
@@ -1749,9 +1770,10 @@ pub mod Setup {
             season: u32,
             cobbles: u8,
         ) -> u64 {
-            // [Check] Caller is a reporter (`Matchmaker`), a league claim, cobbles to credit
+            // [Check] Caller is a reporter (`Matchmaker`), a season's reward (the league bonus is
+            // retired, #917), cobbles to credit
             self.quest.assert_reporter(get_caller_address());
-            assert(kind == CLAIM_LEAGUE || kind == CLAIM_SEASON, errors::INVALID_KIND);
+            assert(kind == CLAIM_SEASON, errors::INVALID_KIND);
             assert(cobbles != 0, errors::INVALID_COBBLES);
             // [Effect] The cobbles
             let mut account = self.accounts.read(player_id);
@@ -1816,6 +1838,25 @@ pub mod Setup {
             } else {
                 self.pvp_days.read((player_id, period))
             }
+        }
+
+        fn report_league(ref self: ContractState, player_id: felt252, league: u8) {
+            // [Check] Caller is a reporter (`Matchmaker`); `groups_of` refuses a league past Legend
+            self.quest.assert_reporter(get_caller_address());
+            let groups = groups_of(league);
+            // [Effect] A group never reached before: the lifetime count, then quiver's progress
+            let had = self.league_groups.read(player_id);
+            if groups <= had {
+                return;
+            }
+            self.league_groups.write(player_id, groups);
+            self
+                .achievement
+                .progress(player_id, constants::TASK_LEAGUE_REACHED, (groups - had).into());
+        }
+
+        fn league_groups(self: @ContractState, player_id: felt252) -> u8 {
+            self.league_groups.read(player_id)
         }
     }
 

@@ -76,30 +76,28 @@ export interface League {
   from: number;
   /** The Cobbles a season ending in it gives (`reward_of`). */
   seasonCobbles: number;
-  /** The Cobbles of reaching it the first time in a season (`bonus_of`). */
-  bonus: number;
 }
 
 /** The floors of leagues 1 to 22 (`LEAGUE_FLOORS`). */
 export const LEAGUE_FLOORS = [400, 500, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3200, 3500, 3800, 4100, 4400, 4700, 5000] as const;
-const GROUPS: readonly { id: LeagueId; name: string; bonus: number; reward: number }[] = [
-  { id: "iron", name: "Iron", bonus: 5, reward: 10 },
-  { id: "bronze", name: "Bronze", bonus: 10, reward: 20 },
-  { id: "silver", name: "Silver", bonus: 15, reward: 35 },
-  { id: "gold", name: "Gold", bonus: 20, reward: 50 },
-  { id: "emerald", name: "Emerald", bonus: 25, reward: 75 },
-  { id: "diamond", name: "Diamond", bonus: 30, reward: 100 },
-  { id: "master", name: "Master", bonus: 40, reward: 150 },
-  { id: "grandmaster", name: "Grand Master", bonus: 50, reward: 250 },
+const GROUPS: readonly { id: LeagueId; name: string; reward: number }[] = [
+  { id: "iron", name: "Iron", reward: 10 },
+  { id: "bronze", name: "Bronze", reward: 20 },
+  { id: "silver", name: "Silver", reward: 35 },
+  { id: "gold", name: "Gold", reward: 50 },
+  { id: "emerald", name: "Emerald", reward: 75 },
+  { id: "diamond", name: "Diamond", reward: 100 },
+  { id: "master", name: "Master", reward: 150 },
+  { id: "grandmaster", name: "Grand Master", reward: 250 },
 ];
 const DIVISIONS = ["III", "II", "I"] as const;
 
 /** The 23 leagues, Wood first. */
 export const LEAGUES: readonly League[] = [
-  { index: 0, id: "wood", name: "Wood", from: 0, seasonCobbles: 0, bonus: 0 },
+  { index: 0, id: "wood", name: "Wood", from: 0, seasonCobbles: 0 },
   ...LEAGUE_FLOORS.map((from, i): League => {
     const group = i === 21 ? GROUPS[7]! : GROUPS[Math.floor(i / 3)]!;
-    return { index: i + 1, id: group.id, name: i === 21 ? group.name : `${group.name} ${DIVISIONS[i % 3]}`, from, seasonCobbles: group.reward, bonus: group.bonus };
+    return { index: i + 1, id: group.id, name: i === 21 ? group.name : `${group.name} ${DIVISIONS[i % 3]}`, from, seasonCobbles: group.reward };
   }),
 ];
 
