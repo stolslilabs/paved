@@ -1,12 +1,15 @@
 import { lazy, Suspense, useState, type ComponentType } from "react";
+import { useSearchParams } from "react-router";
 import { Skeleton } from "../../components/ui/skeleton";
 import type { SocialTab } from "../../components/containers/social-tabs";
 import { SocialScene } from "../../components/scenes/social-scene";
+import { usePlayerGuild } from "../../data/guilds";
 import { usePlayerSearch } from "../../data/social";
 import { useDataSources } from "../../data/sources";
 import { useSidePanel } from "../../lib/side-panel";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
+import { GUILD_PARAM } from "../guild-param";
 import { DESKTOP_QUERY } from "../home-layout";
 import { useOpenPlayer } from "../open-player";
 import { useBack, useTabNavigate } from "../ref";
@@ -32,14 +35,24 @@ void loadHost().catch(() => {});
 /**
  * `/social` (#952, PvP v2 step 1 on the mock): the player search (the sources' `social`, `usePlayerSearch`; the connected player
  * left out), each result opening the player's public profile (`?player=`, `useOpenPlayer`), and the three tabs, opened on the last
- * one used on this device (`social-tab.ts`). Nothing waits in the tabs yet: #953 to #955 count their badges.
+ * one used on this device (`social-tab.ts`), or on Guild for a guild's page (`?guild=`, #953). The Guild tab counts its badge
+ * (#953); #954 and #955 count theirs.
  */
 export default function Page() {
   const onNavigate = useTabNavigate();
   const onBack = useBack();
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
-  const [tab, setTab] = useState(socialTabStored);
+  // A guild's page (`?guild=`, #953) is the Guild tab's: the page turns to it whenever the parameter comes.
+  const guildAsked = useSearchParams()[0].get(GUILD_PARAM);
+  const [tab, setTab] = useState<SocialTab>(() => (guildAsked !== null ? "guild" : socialTabStored()));
+  const [seenAsk, setSeenAsk] = useState(guildAsked);
+  if (guildAsked !== seenAsk) {
+    setSeenAsk(guildAsked);
+    if (guildAsked !== null) setTab("guild");
+  }
+  // What waits in the Guild tab (#953): the invitations, the unread announcements, and for officers the requests.
+  const guildWaiting = usePlayerGuild(me).data?.badge ?? 0;
   const [query, setQuery] = useState("");
   const search = usePlayerSearch(query, me);
   const openPlayer = useOpenPlayer();
@@ -53,6 +66,7 @@ export default function Page() {
       <SocialScene
         tab={tab}
         onTabChange={changeTab}
+        badges={{ guild: guildWaiting, friends: 0, chat: 0 }}
         search={{
           query,
           onQueryChange: setQuery,

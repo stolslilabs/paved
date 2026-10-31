@@ -4,9 +4,11 @@ import { ProfileContext } from "../components/containers/profile-context";
 import { PublicProfileSheet, type PublicProfileState } from "../components/containers/public-profile-sheet";
 import { addressKey } from "../data/keys";
 import { usePublicProfile } from "../data/social";
+import { useDataSources } from "../data/sources";
 import { useAccount } from "../wallet/wallet";
 import { errorDetail } from "./error-detail";
 import { useNow } from "./now";
+import { ProfileGuildActions, ProfileGuildLine } from "./profile-guild";
 
 // The public profile's chunk (#952): the sheet and its read, fetched at the first opening (`player-profile-host.tsx`).
 
@@ -30,6 +32,7 @@ function samePlayer(a: string | null, b: string): boolean {
 export default function PlayerProfile({ playerId, open, onClose }: { playerId: string; open: boolean; onClose: () => void }) {
   const wallet = useAccount();
   const own = useContext(ProfileContext);
+  const me = useDataSources().signer?.address ?? wallet.address ?? null;
   const self = own !== null && samePlayer(wallet.address, playerId);
   // While the wallet looks for an earlier session the ID may be the player's own: nothing is read until it knows.
   const restoring = wallet.status === "restoring";
@@ -59,6 +62,8 @@ export default function PlayerProfile({ playerId, open, onClose }: { playerId: s
       onCopy={copy}
       onRetry={read.refetch}
       errorDetail={read.error ? errorDetail(read.error) : undefined}
+      guild={state.status === "ready" && <ProfileGuildLine address={state.profile.address} />}
+      actions={state.status === "ready" && <ProfileGuildActions address={state.profile.address} name={state.profile.name} me={me} now={now} />}
     />
   );
 }

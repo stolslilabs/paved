@@ -1,5 +1,6 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
 import { useContext, useState } from "react";
+import { useGuildBadge } from "../../data/guilds";
 import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
 import { DataContext, type DataSources } from "../../data/sources";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
@@ -13,6 +14,7 @@ import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 import { ShortAddress } from "../elements/short-address";
 import { isMaxLevel, xpLeft } from "../elements/xp-level";
+import { GuildLine } from "./guild-profile";
 import { XpRing, type PlayerProgress } from "../elements/xp-ring";
 
 /** The connected player as the indexer gives them: the profile and their Challenge figures. */
@@ -46,6 +48,8 @@ export interface ProfileSheetProps {
   league?: PlayerLeague | null;
   /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, League is not offered. */
   onOpenLeague?: () => void;
+  /** Opens the guild's page (#953) from the guild line; the sheet closes first. */
+  onOpenGuild?: (id: number) => void;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
   returnFocus?: () => HTMLElement | null;
 }
@@ -71,6 +75,12 @@ function ReadLeague({ sources, playerId }: { sources: DataSources; playerId: str
   return <ProfileLeague league={{ crowns: league.crowns, league: league.league, unranked: attack !== null && isUnranked(league, attack) }} />;
 }
 
+/** The player's guild (#953): its emblem, name and their rank, read from the guild source; none, nothing. */
+function ReadGuild({ playerId, onOpen }: { playerId: string; onOpen: (id: number) => void }) {
+  const badge = useGuildBadge(playerId).data;
+  return badge ? <GuildLine badge={badge} onOpen={onOpen} /> : null;
+}
+
 /** One of the level's XP figures on the sheet (#830). */
 function XpLine({ term, value }: { term: string; value: string }) {
   return (
@@ -89,7 +99,7 @@ const DESKTOP_QUERY = "(min-width: 64rem)";
  * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (the
  * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625), the XP made in it, the XP left and the whole XP (#830).
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, league, onOpenLeague, returnFocus }: ProfileSheetProps) {
+export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, league, onOpenLeague, onOpenGuild, returnFocus }: ProfileSheetProps) {
   const sources = useContext(DataContext);
   const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
@@ -136,6 +146,15 @@ export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnec
                 {copied ? "Copied" : "Copy"}
               </Button>
             </div>
+            {sources && (
+              <ReadGuild
+                playerId={connected.player.playerId}
+                onOpen={(id) => {
+                  onOpenChange(false);
+                  onOpenGuild?.(id);
+                }}
+              />
+            )}
             <div data-slot="player-level" className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
               <span className="text-sm font-semibold">
                 Level <span className="numeric">{progress ? formatPoints(progress.level) : "–"}</span>
