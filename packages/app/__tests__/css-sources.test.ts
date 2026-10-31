@@ -32,10 +32,17 @@ const NOT_CLASS_KEYS = new Set(["variant", "role", "overflow", "visibility", "wi
  */
 function plainlyNotClass(code: string, at: number): boolean {
   const before = code.slice(Math.max(0, at - 160), at).split(/;|\n\s*\n/).pop()!;
-  if (/(?:[!=]==?|\||setAttribute\()\s*$/.test(before)) return true;
+  if (/(?:[!=]==?|(?<!\|)\||setAttribute\()\s*$/.test(before)) return true;
   const keys = [...before.matchAll(/([\w.-]+)\s*(?:=(?![=>])|:(?!\s*["'`]))\s*\{?|setAttribute\(\s*["']([\w-]+)["']\s*,/g)];
   const last = keys.at(-1);
   if (!last) return false;
+  // The key governs the string only if nothing closes or separates them: no `,` at its level, no bracket closed past it.
+  let depth = 0;
+  for (const c of before.slice(last.index + last[0].length).replace(/"[^"]*"|'[^']*'|`[^`]*`/g, "")) {
+    if ("([{".includes(c)) depth++;
+    else if (")]}".includes(c) && --depth < 0) return false;
+    else if (c === "," && depth === 0) return false;
+  }
   const key = (last[2] ?? last[1]!).split(".").pop()!;
   return NOT_CLASS_KEYS.has(key) || /^(data|aria)-/.test(key);
 }
@@ -45,6 +52,8 @@ function excludedUses(source: string): string[] {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|\s)\/\/.*$/gm, "$1");
   const found: string[] = [];
   for (const m of code.matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g)) {
+    // A template's interpolations are code of their own: their strings are read as any other.
+    if (m[3] !== undefined) for (const [, inner] of m[3].matchAll(/\$\{([^}]*)\}/g)) found.push(...excludedUses(inner!));
     const tokens = (m[1] ?? m[2] ?? m[3]!).replace(/\$\{[^}]*\}/g, " ").split(/\s+/).filter(Boolean);
     const words = excluded.filter((w) => tokens.includes(w));
     // Prose or a CSS value ("Purchases paused", "transform 200ms ease-out, …") holds a token no class can be.
@@ -64,6 +73,14 @@ describe("the app stylesheet's word list", () => {
     // A comparison in the condition excuses only the string it compares with.
     expect(excludedUses(`<p className={mode === "idle" ? "static" : "relative"} />`)).toEqual(["static"]);
     expect(excludedUses(`cn("flex", mode === "idle" && "visible")`)).toEqual(["visible"]);
+    // `||` and `??` are no type union: only a single `|` is.
+    expect(excludedUses(`cn("flex", mode === "idle" || "visible")`)).toEqual(["visible"]);
+    expect(excludedUses(`cn("flex", on || "static")`)).toEqual(["static"]);
+    expect(excludedUses(`cn("flex", picked ?? "table")`)).toEqual(["table"]);
+    // A string inside a template's interpolation, and a key that does not govern the string, hide nothing.
+    expect(excludedUses("<p className={`flex ${on ? \"static\" : \"\"}`} />")).toEqual(["static"]);
+    expect(excludedUses(`foo({ kind: "a" }, cn("visible"));`)).toEqual(["visible"]);
+    expect(excludedUses(`<Badge variant={v}>{cn(on && "outline")}</Badge>`)).toEqual(["outline"]);
     expect(excludedUses(`cn(state !== "running" ? "paused" : "flex")`)).toEqual(["paused"]);
     expect(excludedUses(`el.setAttribute("class", on ? "visible" : "hidden");`)).toEqual(["visible"]);
     expect(excludedUses("const CARD = `flex shadow ${x}`;")).toEqual(["shadow"]);
