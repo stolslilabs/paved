@@ -13,11 +13,14 @@
  *   chunk of `/` (`firstLoad.route`), and every chunk those import statically.
  * - `css`: the stylesheets of `dist/assets`.
  * - `fontAwesome`: the three scripts of `dist/fontawesome/js` (the subset: the owner's whole files must stay out of `dist/`).
+ *
+ * A mock build (#927) must also carry no starknet.js (`starknetInMock`): its chunks cannot fetch it, nor reach a node.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
+import { dataSourceOf } from "../src/data/source-of.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const APP = join(HERE, "..");
@@ -130,6 +133,25 @@ export function forbidden(dir: string): string[] {
     .map((f) => `fontawesome/${f} is in ${dir.split("/").pop()}: the owner's whole Font Awesome files must stay out of the output`);
 }
 
+/** starknet.js's mark in a chunk: a JSON-RPC method its provider sends, which no other code of the app names. */
+export const STARKNET_MARK = "starknet_chainId";
+/** The mark of `src/data/mock/starknet-shim.ts`, which a mock build carries in place of starknet.js (`vite.config.ts`). */
+export const SHIM_MARK = "starknet.js is not in a mock build";
+
+/** Whether the environment builds the mock (`VITE_DATA_SOURCE`, `VITE_NETWORK`), as `vite.config.ts` reads it. */
+export const mockEnv = (env: Record<string, string | undefined> = process.env): boolean => dataSourceOf({ source: env.VITE_DATA_SOURCE, network: env.VITE_NETWORK }) === "mock";
+
+/**
+ * The chunks of a mock build that carry starknet.js, as messages (#927: a mock build fetches nothing outside its origin). A
+ * build is a mock one when `mock` says so (the environment's source, by default) or when it carries the shim.
+ */
+export function starknetInMock(dist: string, mock = mockEnv()): string[] {
+  const chunks = readdirSync(join(dist, "assets")).filter((f) => f.endsWith(".js"));
+  const holding = (mark: string) => chunks.filter((f) => readFileSync(join(dist, "assets", f), "utf8").includes(mark));
+  if (!mock && holding(SHIM_MARK).length === 0) return [];
+  return holding(STARKNET_MARK).map((f) => `assets/${f} carries starknet.js in a mock build: the mock fetches nothing outside the app's origin (vite.config.ts)`);
+}
+
 /** The metrics over their limit, as messages that say which figure, by how much, and where the limit is. */
 export function overBudget(sizes: Sizes, limits: Sizes): string[] {
   const out: string[] = [];
@@ -154,7 +176,7 @@ function main() {
     for (const m of METRICS) console.log(`| ${m} | ${sizes[m].raw} | ${sizes[m].gzip} | ${budget.limits[m].raw} | ${budget.limits[m].gzip} |`);
     return;
   }
-  const problems = [...forbidden(dist), ...overBudget(sizes, budget.limits)];
+  const problems = [...forbidden(dist), ...starknetInMock(dist), ...overBudget(sizes, budget.limits)];
   for (const m of METRICS) console.log(`${m.padEnd(13)} ${String(sizes[m].raw).padStart(8)} raw  ${String(sizes[m].gzip).padStart(8)} gzip   (budget ${budget.limits[m].raw} / ${budget.limits[m].gzip})`);
   if (problems.length > 0) {
     console.error(`\nBundle over budget:\n${problems.map((p) => `  - ${p}`).join("\n")}`);

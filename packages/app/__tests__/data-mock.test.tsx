@@ -631,14 +631,16 @@ describe("the mock", () => {
 
   it("keeps the writer a PavedWriter, its other writes the chain's, the faucet and the free spawn the ledger's", async () => {
     const { ledger } = mockImplementation(undefined, WINNER);
-    const writer = Object.create(PavedWriter.prototype) as PavedWriter & { claimTutorial: () => Promise<string> };
+    const writer = Object.create(PavedWriter.prototype) as PavedWriter & { sendCalls: () => Promise<string> };
     Object.defineProperty(writer, "address", { value: PLAYER });
-    writer.claimTutorial = async function (this: unknown) {
+    writer.sendCalls = async function (this: unknown) {
       return this === writer ? "chain" : "wrong this";
     };
     const signer = mockSigner(writer as unknown as GameSigner, ledger);
     expect(signer instanceof PavedWriter).toBe(true);
-    expect(await (signer as unknown as { claimTutorial: () => Promise<string> }).claimTutorial()).toBe("chain");
+    expect(await (signer as unknown as { sendCalls: () => Promise<string> }).sendCalls()).toBe("chain");
+    // First Stone (#927): the ledger's claim, never the writer's.
+    expect((await signer.claimTutorial()).events.map((e) => e.name)).toEqual(["AchievementProgressed"]);
     // The faucet (#927): the ledger's mint, never the writer's.
     await signer.mint();
     expect(await ledger.usdcBalance(PLAYER)).toBe(200n * USDC);

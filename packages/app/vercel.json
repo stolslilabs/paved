@@ -38,7 +38,7 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
-      "source": "/(|index.html|renderer-assets/manifest.json|THIRD_PARTY_NOTICES.txt)",
+      "source": "/(|index.html|sw.js|renderer-assets/manifest.json|THIRD_PARTY_NOTICES.txt)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     },
     {
