@@ -9,8 +9,8 @@ import type { Purchases } from "../src/data/sources";
 import { fakeSources, memoryStore } from "./data-fakes";
 
 // The mock's sources for the tests (MOCK-FIRST): the ledger's overlays over a chain whose Setup and Vault predate cobbles v1, as
-// Sepolia's do, and the ledger's indexer (#927), wired as `chain-client.ts`, `economy-client.ts`, `routes/sources.ts` and the
-// connector wire them in the app.
+// Sepolia's do, and the ledger's indexer (#927), wired as `data/mock/app.ts` wires them in the app (over `offline` parts there:
+// the chain's fakes here show that nothing reaches them).
 
 const PLAYER = FIXTURE_ADA;
 const USDC = 1_000_000n;
@@ -27,7 +27,7 @@ export function sepoliaChain() {
 }
 
 /**
- * The mock: the ledger's overlays over Sepolia's chain, as `chain-client.ts`, `economy-client.ts` and the connector wire them.
+ * The mock: the ledger's overlays over Sepolia's chain, as `data/mock/app.ts` and the mock's connector wire them.
  * `starting`: what a new account holds in the ledger (the app's, `MOCK_STARTING_BALANCES`, by default).
  */
 export function mockImplementation(store = memoryStore(), starting: TokenBalances = MOCK_STARTING_BALANCES, now?: () => number) {

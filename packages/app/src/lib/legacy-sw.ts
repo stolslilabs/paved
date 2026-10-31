@@ -1,7 +1,8 @@
 /**
  * The previous client (`app/`) registered a service worker with a precache (`vite-plugin-pwa`) on this origin, which can
- * serve an old build (#589). The web client is not a PWA and has no service worker: at startup, once per browser, every
- * registration of the origin is removed and every Cache Storage entry deleted. Kept for several releases.
+ * serve an old build (#589). The web client is not a PWA: at startup, once per browser, every registration of the origin is
+ * removed and every Cache Storage entry deleted. Kept for several releases. A mock build's offline worker (#927,
+ * `offline-worker.ts`) is registered only after this ran, so it is never removed.
  */
 
 export const LEGACY_SW_KEY = "paved:legacy-sw-cleared";
