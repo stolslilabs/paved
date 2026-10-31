@@ -83,7 +83,7 @@ const lazyVault = (signer: Parameters<NonNullable<DataSources["vault"]>>[0]): Va
 const mockApp = async () => (await import("../data/mock/app")).appMockSources();
 
 /** A part of the mock's sources whose reads load it on the first call, as `lazyChain` loads the chain's. */
-function lazyMock<T extends object>(part: "views" | "events" | "economy" | "pool" | "indexer"): T {
+function lazyMock<T extends object>(part: "views" | "events" | "economy" | "pool" | "indexer" | "social"): T {
   return new Proxy({} as T, {
     get: (_target, key) =>
       key === "then"
@@ -105,6 +105,7 @@ const MOCK_SOURCES: DataSources = {
   economy: lazyMock("economy"),
   pool: lazyMock("pool"),
   indexer: lazyMock("indexer"),
+  social: lazyMock("social"),
   signer: null,
   purchases: (signer) => ({
     purchase: async (request) => (await mockApp()).purchases(signer).purchase(request),
@@ -134,6 +135,7 @@ const CHAIN_SOURCES: DataSources = {
   economy: lazyEconomy((c) => c.views),
   pool: lazyEconomy((c) => c.poolQuoter),
   indexer: lazyIndexer(),
+  // No `social`: the social features have no chain or service yet (#956), their hooks answer `unavailable`.
   signer: null,
   purchases: lazyPurchases,
   settlements: lazySettlements,

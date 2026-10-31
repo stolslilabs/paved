@@ -24,6 +24,7 @@ import { PrefetchOnIntent } from "../prefetch";
 import { scoreOpenStored, storeScoreOpen } from "../score-open";
 import { useAppNavigate, useTabNavigate } from "../ref";
 import { boardTilesOf, layoutTilesOf, refusalText } from "../village-shapes";
+import { PlayerProfileHost } from "../player-profile";
 
 /** The village's stage as the app wires it (the editor, the engine, the art; the renderer after it): the overlays paint first. */
 const HomeStage = lazy(() => import("../home-stage"));
@@ -206,6 +207,8 @@ export default function Page() {
         onDismissRefusal={writes.reset}
       />
       {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
+      {/* Another player's profile (#952): `/player/:id` lands here with it, and from `desktop` the panels' pages show it over the home. */}
+      <PlayerProfileHost />
     </PrefetchOnIntent>
   );
 }

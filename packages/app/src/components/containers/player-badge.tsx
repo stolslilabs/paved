@@ -91,9 +91,9 @@ export function PlayerBadge({ className }: PlayerBadgeProps) {
       <button
         {...trigger}
         aria-label={`${profileLabel(value.state, undefined)}${progress ? `, ${levelLabel(progress)}` : ""}`}
-        className="relative flex max-w-(--profile-room,100%) shrink-0 cursor-pointer items-start rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative flex max-w-[var(--profile-room,100%)] shrink-0 cursor-pointer items-start rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         // The ring's box and the shield above it; the plate in the flow from the ring's middle, so the badge is as wide as the name,
-        // within the home's room (`--profile-room`), elsewhere within its container (the stories' 320 px).
+        // within the home's room (`--profile-room`; elsewhere, the width it is given).
         style={{ height: layout.rise + box, paddingLeft: box / 2 }}
       >
         {/*

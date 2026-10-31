@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { TabFrame } from "../../components/containers/tab-frame";
 import type { MatchCardData } from "../../components/containers/match-list";
@@ -17,6 +17,9 @@ import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useBack, useTabNavigate } from "../ref";
+import { useOpenPlayer } from "../open-player";
+import { useSidePanel } from "../../lib/side-panel";
+import { DESKTOP_QUERY } from "../home-layout";
 
 /**
  * `/pvp/league` (#647 PR 2): the player's crowns, league and season from `Matchmaker.league` (#644), the season's end from
@@ -36,6 +39,7 @@ export default function Page() {
   const league = status.data?.league ?? null;
   const span = useSeasonSpan(league?.season ?? null);
   const matches = useMatches(me);
+  const desktop = useSidePanel(DESKTOP_QUERY);
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
   // Its waits and refusals in the League tab's frame too (#763): the bar stays while the league is read. In the side panel from
   // `desktop` (#762) a click outside it or Escape closes it (#782).
@@ -56,19 +60,30 @@ export default function Page() {
   const season = league.season > 0 && span.data && span.data.end > 0 ? { name: `Season ${league.season}`, endsAt: span.data.end } : null;
   const last = lastAttack(status.data?.attack, v2.data);
   return (
-    <PvpLeagueScene
-      crowns={league.crowns}
-      league={league.league}
-      season={season}
-      now={now}
-      unranked={last ? isUnranked(league, last) : false}
-      attacks={season ? league.attacks : undefined}
-      onBack={onBack}
-      onNavigate={onNavigate}
-      {...matches}
-    />
+    <>
+      <PvpLeagueScene
+        crowns={league.crowns}
+        league={league.league}
+        season={season}
+        now={now}
+        unranked={last ? isUnranked(league, last) : false}
+        attacks={season ? league.attacks : undefined}
+        onBack={onBack}
+        onNavigate={onNavigate}
+        {...matches}
+      />
+      {/* The rivals' profiles (#952), from the battle logs' cards; from `desktop` the home's host, under this panel, serves. */}
+      {!desktop && (
+        <Suspense fallback={null}>
+          <PlayerProfileHost />
+        </Suspense>
+      )}
+    </>
   );
 }
+
+/** The public profile's host (#952), loaded with the first league below `desktop`: the home's first load keeps it alone. */
+const PlayerProfileHost = lazy(() => import("../player-profile-host"));
 
 /** A match card's player: its address, and its name, level and avatar (a decimal look) where known. */
 const playerOf = (address: string, name: string | null = null, level = 0, look: string | null = null): PvpPlayer => ({ name, address, level, crowns: 0, look: look ? BigInt(look) : null });
@@ -81,6 +96,8 @@ const playerOf = (address: string, name: string | null = null, level = 0, look: 
 function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "onOpenMatch" | "onRetryMatches"> {
   const go = useAppNavigate();
   const client = useQueryClient();
+  // The rival's avatar or name opens their public profile (#952).
+  const openPlayer = useOpenPlayer();
   const v2 = useMatchesV2(me);
   const v1 = v2.data === null;
   const defences = useDefenceLog(v1 ? me : null);
@@ -137,6 +154,7 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
       error: error?.message ?? null,
       errorDetail: error ? errorDetail(error) : undefined,
       renders,
+      onOpenPlayer: openPlayer,
     },
     onOpenMatch: (id) => {
       const path = shown?.paths.get(id);

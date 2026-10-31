@@ -88,3 +88,8 @@ const backgrounds: Story = {
 export const BackgroundsSmall: Story = { ...backgrounds, ...PHONE_320, parameters: { ...PHONE_320.parameters, page: true } };
 export const BackgroundsPhone: Story = { ...backgrounds, ...PHONE_375, parameters: { ...PHONE_375.parameters, page: true } };
 export const BackgroundsWide: Story = { ...backgrounds, ...WIDE_1440, parameters: { page: true } };
+
+/** The rival's avatar and name open their public profile (#952): a control of their own, the card's under it. */
+export const RivalProfile: Story = { render: () => <MatchCard match={MATCH_CARDS.attackWon} now={MOCK_NOW} onOpen={fn()} onOpenPlayer={fn()} renders={appRenders} /> };
+/** The same in the list, as the League page gives it. */
+export const LatestWithProfiles: Story = { args: { onOpenPlayer: fn() } };
