@@ -244,7 +244,14 @@ describe("a mock build fetches nothing (#927)", () => {
       ...(["profile", "searchPlayers"] as const).flatMap((name) => call(sources.social, name)),
       sources.social.searchPlayers("wren"),
       sources.social.searchPlayers("0x7e3a0001"),
+      // The follows (#954): the lists, a status and the suggestions, then the writes.
+      ...(["lists", "status", "suggestions"] as const).flatMap((name) => call(sources.social.follows!, name)),
+      sources.social.follows!.status(me, "0x7e3a0001"),
     ]);
+    for (const name of ["follow", "unfollow", "removeFollower", "block", "unblock", "seeFollowers"] as const) {
+      for (const p of call(sources.social.follows!, name)) await p.catch(() => undefined);
+      await sources.social.follows![name](me, "0x7e3a0001").catch(() => undefined);
+    }
     // The writes one at a time: each is atomic on the ledger, a refusal leaves it as it was.
     for (const name of MOCKED_WRITES) for (const p of call(signer, name)) await p.catch(() => undefined);
     for (const p of [...call(sources.vault(signer as unknown as GameSigner), "deposit"), ...call(sources.settlements(signer as unknown as GameSigner), "settle")]) await p.catch(() => undefined);
@@ -274,6 +281,9 @@ describe("the app's sources on the mock (#927)", () => {
     await expect(APP_SOURCES.views.tutorialClaimed(account.address)).resolves.toBe(false);
     // The social source (#952): the ledger's community.
     expect((await APP_SOURCES.social!.searchPlayers("0x7e3a0001")).map((p) => p.address)).toEqual(["0x7e3a0001"]);
+    // Its follows (#954): a follow kept on the device.
+    await APP_SOURCES.social!.follows!.follow(account.address, "0x7e3a0001");
+    expect((await APP_SOURCES.social!.follows!.lists(account.address)).following.map((r) => r.profile.address)).toEqual(["0x7e3a0001"]);
     await expect(APP_SOURCES.purchases!(connector.signer(account)).receipt("0x6d6f636b00000001")).resolves.toBe("succeeded");
     vi.doUnmock("../src/data/data-source");
     window.localStorage.clear();

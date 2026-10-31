@@ -111,9 +111,19 @@ export function mockPool(ledger: MockLedger): PoolQuoter {
   return { quoteSwap: (usdcIn) => ledger.quoteSwap(usdcIn) };
 }
 
-/** The social source of the ledger (#952): the community's public profiles and the player search. No chain part lies beneath. */
+/** The social source of the ledger (#952): the community's public profiles, the player search and the follows (#954). No chain part lies beneath. */
 export function mockSocial(ledger: MockLedger): SocialSource {
-  return { profile: (address) => ledger.publicProfile(address), searchPlayers: (query) => ledger.searchPlayers(query) };
+  return {
+    profile: (address) => ledger.publicProfile(address),
+    searchPlayers: (query) => ledger.searchPlayers(query),
+    // The follows, friends and blocks (#954): the ledger's, by game-core's rules.
+    follows: {
+      lists: (player) => ledger.followLists(player),
+      status: (player, other) => ledger.followStatus(player, other),
+      suggestions: (player) => ledger.followSuggestions(player),
+      ...ledger.followWrites(),
+    },
+  };
 }
 
 /** The economy's views with the Vault, the split, the seller and the tokens' balances of the ledger: no balance is the chain's. */

@@ -144,13 +144,28 @@ import {
   type LayoutTile,
   type SeededMove,
   type QueuedMove,
+  areFriends,
+  blockPlayer,
+  followCounts,
+  followPlayer,
+  isBlocking,
+  isFollowing,
+  playerKey,
+  removeFollower,
+  suggestFollows,
+  unblockPlayer,
+  unfollowPlayer,
+  type Follow,
+  type FollowGraph,
+  type GraphWrite,
 } from "@paved/game-core";
 import { NEXT_PRICE, SHIELD_S, stakesOf, starsFor } from "../../lib/pvp-rules";
 import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
-import { communityProfile, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
-import type { PublicProfile } from "../social-source";
+import { communityMember, communityProfile, community, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
+import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type PublicProfile } from "../social-source";
+import { forgetFollows, freshFollows, graphOf, listsOf, seededFollows, settleFollows, type StoredFollows } from "./follows";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
@@ -447,6 +462,8 @@ interface StoredState {
   transactions: number;
   /** The Challenge's games and the Economy's days (#927, `challenge.ts`); absent: none yet (a state stored before them). */
   challenge?: StoredChallenge;
+  /** The players' follows and blocks (#954, `follows.ts`); absent: none yet. */
+  follows?: StoredFollows;
 }
 
 const fresh = (): StoredState => ({ version: 1, players: {}, vault: { assets: MOCK_VAULT.assets.toString(), supply: MOCK_VAULT.supply.toString() }, transactions: 0 });
@@ -1016,6 +1033,91 @@ export class MockLedger {
   /** The community's players a query finds (game-core's `searchPlayers`), last seen by the ledger's clock. */
   async searchPlayers(query: string): Promise<PublicProfile[]> {
     return searchCommunity(query, this.now());
+  }
+
+  // --- The follows (#954) ----------------------------------------------------------------------------------------------
+
+  /** The stored follows at the ledger's clock, the follow backs due made (`settleFollows`). Not saved: a read stores nothing. */
+  private followsNow(now: number): StoredFollows {
+    return settleFollows(this.state.follows ?? freshFollows(), now);
+  }
+
+  /** The player's own lists (`follows.ts`): friends, following and followers by presence, the new followers, the blocks. */
+  async followLists(player: string): Promise<FollowLists> {
+    this.sync();
+    const now = this.second();
+    return listsOf(this.followsNow(now), player, now);
+  }
+
+  /** Another player as `player` sees them: the marks, and the counts every profile shows. Never whether they block `player`. */
+  async followStatus(player: string, other: string): Promise<FollowStatus> {
+    this.sync();
+    const graph = graphOf(this.followsNow(this.second()));
+    const counts = followCounts(graph, other);
+    return {
+      following: isFollowing(graph, player, other),
+      followsYou: isFollowing(graph, other, player),
+      friend: areFriends(graph, player, other),
+      blocking: isBlocking(graph, player, other),
+      followers: counts.followers,
+      followed: counts.following,
+    };
+  }
+
+  /**
+   * Whom `player` may follow (game-core's `suggestFollows`): the followers not followed back, the recent PvP opponents (newest
+   * first), then the community. The guild's members join once #953 lands. Only the community's members: the mock knows no other.
+   */
+  async followSuggestions(player: string): Promise<PublicProfile[]> {
+    this.sync();
+    const now = this.second();
+    const v2 = this.peek(player).v2 ?? freshV2();
+    const opponents = [...v2.attacks.filter((a) => a.status !== "open").map((a) => ({ address: a.defender, at: a.finishedAt })), ...(v2.defences ?? []).map((d) => ({ address: d.attacker, at: d.finishedAt }))]
+      .sort((x, y) => y.at - x.at)
+      .map((o) => o.address)
+      .filter((a) => communityMember(a) !== null);
+    const members = community().map((m) => m.address);
+    return suggestFollows(graphOf(this.followsNow(now)), player, [opponents, members]).flatMap((address) => communityProfile(address, now) ?? []);
+  }
+
+  /**
+   * One follow write of `player`, under the lock: the follow backs due made, then `change` on the whole graph by game-core's
+   * rules; a refusal throws a `FollowRefusedError` and leaves the ledger as it was. `target`, when given, must be a player the
+   * mock knows.
+   */
+  private async writeFollows(player: string, target: string | null, change: (graph: FollowGraph, now: number) => GraphWrite<FollowWriteRefusal>, after?: (stored: StoredFollows, now: number) => StoredFollows): Promise<void> {
+    await sleep(this.latency);
+    return this.lock(() => {
+      this.sync();
+      if (target !== null && communityMember(target) === null) throw new FollowRefusedError("unknown-player");
+      const now = this.second();
+      const stored = this.followsNow(now);
+      const w = change(graphOf(stored), now);
+      if (!w.ok) throw new FollowRefusedError(w.reason);
+      const drawn = new Set<Follow>(seededFollows());
+      let next: StoredFollows = { ...stored, follows: w.graph.follows.filter((f) => !drawn.has(f)), blocks: [...w.graph.blocks] };
+      if (after) next = after(next, now);
+      this.state = { ...this.state, follows: next };
+      this.save();
+    });
+  }
+
+  /** The writes of the follow source, for the connected player. */
+  followWrites() {
+    return {
+      follow: (player: string, target: string) => this.writeFollows(player, target, (g, now) => followPlayer(g, player, target, now)),
+      unfollow: (player: string, target: string) => this.writeFollows(player, null, (g) => unfollowPlayer(g, player, target)),
+      removeFollower: (player: string, follower: string) => this.writeFollows(player, null, (g) => removeFollower(g, player, follower)),
+      block: (player: string, target: string) => this.writeFollows(player, target, (g, now) => blockPlayer(g, player, target, now)),
+      unblock: (player: string, target: string) => this.writeFollows(player, null, (g) => unblockPlayer(g, player, target)),
+      seeFollowers: (player: string) =>
+        this.writeFollows(
+          player,
+          null,
+          (graph) => ({ ok: true, graph, changed: false }),
+          (stored, now) => ({ ...stored, seen: { ...stored.seen, [playerKey(player)]: now } }),
+        ),
+    };
   }
 
   /** A rival village's name (the mock's opponents, PvP v1's and v2's) or a seeded player's (`players.ts`), or null for any other player. */
@@ -2101,7 +2203,9 @@ export class MockLedger {
       delete players[key];
       // Its games go too: the next account of the key has none in play.
       const challenge = this.state.challenge && { ...this.state.challenge, games: Object.fromEntries(Object.entries(this.state.challenge.games).filter(([, g]) => g.player !== key)) };
-      this.state = { ...this.state, players, ...(challenge ? { challenge } : {}) };
+      // Its follows and blocks go too (#954), and those of it.
+      const follows = this.state.follows && forgetFollows(this.state.follows, key);
+      this.state = { ...this.state, players, ...(challenge ? { challenge } : {}), ...(follows ? { follows } : {}) };
       this.save();
       return true;
     });
