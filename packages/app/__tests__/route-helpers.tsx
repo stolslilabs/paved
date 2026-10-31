@@ -57,6 +57,7 @@ const PAGES = {
   missions: () => import("../src/routes/pages/missions"),
   referral: () => import("../src/routes/pages/referral"),
   vault: () => import("../src/routes/pages/vault"),
+  social: () => Promise.all([import("../src/routes/pages/social"), import("../src/routes/social/guild-tab"), import("../src/routes/social/friends-tab"), import("../src/routes/social/chat-tab")]),
   settings: () => import("../src/routes/pages/settings"),
   theme: () => import("../src/routes/pages/theme"),
   "theme-shop": () => import("../src/routes/pages/theme-shop"),

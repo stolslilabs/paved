@@ -13,7 +13,7 @@ const COBBLES: HeaderBalances = ["cobbles"];
  * `desktop`. USDC only where USDC is spent: the Cobbles' packs (priced in dollars) and the Challenge's purchase. The Vault shows
  * PAVED and vPAVED (deposited PAVED becomes vPAVED, so it shows even at zero), not the Cobbles. The pages that spend or earn Cobbles
  * (the tile shop, the chests, the missions, the themes, the avatar, a visit) show the Cobbles. None on the League (its header holds
- * the League control, #859), the mode choice, the Story's list, Settings and its pages, the welcome, and the game scenes: the
+ * the League control, #859), Social (#952), the mode choice, the Story's list, Settings and its pages, the welcome, and the game scenes: the
  * boards, the ends of a game, the PvP attack's flow, its result and a replay (#647). The one place that says it, by route; the
  * balances' own chunk reads it (`Balances`, by the page's route), so the first bundle does not carry it.
  */
@@ -35,6 +35,7 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "training/over": NONE,
   missions: COBBLES,
   vault: ["paved", "vpaved"],
+  social: NONE,
   referral: NONE,
   "settings/theme": COBBLES,
   "settings/theme/:theme": COBBLES,
