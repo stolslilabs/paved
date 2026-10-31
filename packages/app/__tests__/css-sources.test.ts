@@ -24,17 +24,19 @@ const classLike = (token: string) => /^!?[a-z0-9-][\w\-:/.!*&>@]*$/.test(token.r
 const NOT_CLASS_KEYS = new Set(["variant", "role", "overflow", "visibility", "willChange", "kind", "state", "playbackState"]);
 
 /**
- * Whether a string at `at` is plainly no class list, from what precedes it in its statement: a comparison, `setAttribute(`, a
- * type union, or the value of a key of NOT_CLASS_KEYS, a `data-*` or an `aria-*` attribute (through a ternary). Any other
- * key (`className`, a class map's `root:`) or none at all (a `cn()` argument) is a class list.
+ * Whether a string at `at` is plainly no class list, from what precedes it in its statement. Its own operand only: the value
+ * it is compared with (`state !== "running"`), a member of a type union, the attribute `setAttribute(` names. Otherwise the key
+ * it is the value of, past any ternary or comparison in between: one of NOT_CLASS_KEYS, a `data-*` or an `aria-*` attribute,
+ * also as `setAttribute("visibility", …)`. Any other key (`className`, a class map's `root:`, `setAttribute("class", …)`) or
+ * none at all (a `cn()` argument) is a class list.
  */
 function plainlyNotClass(code: string, at: number): boolean {
   const before = code.slice(Math.max(0, at - 160), at).split(/;|\n\s*\n/).pop()!;
-  const anchors = [...before.matchAll(/([\w.-]+)\s*(?:=(?![=>])|:(?!\s*["'`]))\s*\{?|(===|!==|setAttribute\(|\|)/g)];
-  const last = anchors.at(-1);
+  if (/(?:[!=]==?|\||setAttribute\()\s*$/.test(before)) return true;
+  const keys = [...before.matchAll(/([\w.-]+)\s*(?:=(?![=>])|:(?!\s*["'`]))\s*\{?|setAttribute\(\s*["']([\w-]+)["']\s*,/g)];
+  const last = keys.at(-1);
   if (!last) return false;
-  if (last[2]) return true;
-  const key = last[1]!.split(".").pop()!;
+  const key = (last[2] ?? last[1]!).split(".").pop()!;
   return NOT_CLASS_KEYS.has(key) || /^(data|aria)-/.test(key);
 }
 
@@ -59,6 +61,11 @@ describe("the app stylesheet's word list", () => {
     expect(excludedUses(`const classes = { root: "table" };`)).toEqual(["table"]);
     expect(excludedUses(`cn("flex", active ? "visible" : "invisible")`)).toEqual(["visible"]);
     expect(excludedUses(`cn("p-2", ok && "outline")`)).toEqual(["outline"]);
+    // A comparison in the condition excuses only the string it compares with.
+    expect(excludedUses(`<p className={mode === "idle" ? "static" : "relative"} />`)).toEqual(["static"]);
+    expect(excludedUses(`cn("flex", mode === "idle" && "visible")`)).toEqual(["visible"]);
+    expect(excludedUses(`cn(state !== "running" ? "paused" : "flex")`)).toEqual(["paused"]);
+    expect(excludedUses(`el.setAttribute("class", on ? "visible" : "hidden");`)).toEqual(["visible"]);
     expect(excludedUses("const CARD = `flex shadow ${x}`;")).toEqual(["shadow"]);
     expect(excludedUses(`<div className="ring-1 transform" />`)).toEqual(["transform"]);
   });
