@@ -1151,13 +1151,19 @@ export class MockLedger {
     };
   }
 
+  /** Whether a block stands between two players at `now`, either way (#954): what the guilds' writes and settlement check. */
+  private blocksAt(now: number): guilds.GuildBlocks {
+    const graph = graphOf(this.followsNow(now));
+    return (a, b) => blockBetween(graph, a, b) !== null;
+  }
+
   /** The guilds' world as stored, settled at the ledger's clock for a read (not stored: the next write settles it again). */
   private guildRead<T>(read: (world: guilds.GuildWorld, people: guilds.GuildPeople, now: number) => T): T {
     this.sync();
     const now = this.second();
     const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
     const people = this.personOf(world, now);
-    guilds.settle(world, people, now);
+    guilds.settle(world, people, now, this.blocksAt(now));
     return read(world, people, now);
   }
 
@@ -1169,9 +1175,9 @@ export class MockLedger {
       const now = this.second();
       const world = structuredClone(guilds.parseGuildWorld(this.state.guilds) ?? guilds.seededGuildWorld());
       const people = this.personOf(world, now);
-      const graph = graphOf(this.followsNow(now));
-      const w: guilds.GuildWrite = { world, people, now, player: addressKey(player), blocked: (a, b) => blockBetween(graph, a, b) !== null };
-      guilds.settle(world, people, now);
+      const blocked = this.blocksAt(now);
+      const w: guilds.GuildWrite = { world, people, now, player: addressKey(player), blocked };
+      guilds.settle(world, people, now, blocked);
       const result = change(w);
       guilds.seen(w);
       this.state = { ...this.state, guilds: world };

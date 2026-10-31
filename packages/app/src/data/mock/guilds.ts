@@ -65,6 +65,7 @@ import { SEEDED_FROM_DAY } from "./players";
 // - a By-request guild a device's player creates gets a request from one of them `MOCK_SEED_REQUEST_S` later;
 // - Iron Quay Wardens invites a guildless device's player `MOCK_INVITATION_S` after their first visit to the Guild tab
 //   (open point 10's default).
+// None of it crosses a block, either way (#954): `settle` takes the follows' blocks from the ledger (`nextDue` says how).
 
 /** A By-request guild of the community answers a request this long after it was sent, in seconds. */
 export const MOCK_ACCEPT_S = 5;
@@ -307,8 +308,19 @@ interface Due {
   apply: () => void;
 }
 
-/** The next thing due at or before `now`, or null. */
-function nextDue(world: GuildWorld, people: GuildPeople, now: number): Due | null {
+/** Whether a block stands between two players, either way (#954, game-core's `blockBetween`). */
+export type GuildBlocks = (a: string, b: string) => boolean;
+
+/** No block anywhere: the guilds alone, before the follows' graph is read. */
+const NO_BLOCKS: GuildBlocks = () => false;
+
+/**
+ * The next thing due at or before `now`, or null. Nothing the community does by itself crosses a block, either way (#954): a
+ * community leader declines a request from a player a block stands between with them, an invited player declines an invitation
+ * from one, no seeded request comes from a player a block stands between with one of the guild's officers, and the mock's
+ * invitation waits while a block stands between the player and the inviting leader.
+ */
+function nextDue(world: GuildWorld, people: GuildPeople, now: number, blocked: GuildBlocks): Due | null {
   const due: Due[] = [];
   for (const g of world.guilds) {
     const leader = leaderOf(g);
@@ -318,6 +330,7 @@ function nextDue(world: GuildWorld, people: GuildPeople, now: number): Due | nul
           at: r.sentAt + MOCK_ACCEPT_S,
           apply: () => {
             g.requests = g.requests.filter((x) => x !== r);
+            if (blocked(leader.address, r.address)) return;
             const c = candidate(world, people, r.address);
             if (acceptRequestRefusal(GUILD_RANK.leader, opening(g), c) === null) enter(world, g, r.address, r.sentAt + MOCK_ACCEPT_S);
           },
@@ -329,7 +342,7 @@ function nextDue(world: GuildWorld, people: GuildPeople, now: number): Due | nul
       due.push({
         at: inv.sentAt + MOCK_INVITE_ANSWER_S,
         apply: () => {
-          if (acceptInvitationRefusal(inv, inv.sentAt + MOCK_INVITE_ANSWER_S, opening(g), { guild: null, rank: null, members: 0 }, false) === null) enter(world, g, inv.address, inv.sentAt + MOCK_INVITE_ANSWER_S);
+          if (!blocked(inv.inviter, inv.address) && acceptInvitationRefusal(inv, inv.sentAt + MOCK_INVITE_ANSWER_S, opening(g), { guild: null, rank: null, members: 0 }, false) === null) enter(world, g, inv.address, inv.sentAt + MOCK_INVITE_ANSWER_S);
           else g.invitations = g.invitations.filter((x) => x !== inv);
         },
       });
@@ -341,7 +354,9 @@ function nextDue(world: GuildWorld, people: GuildPeople, now: number): Due | nul
         apply: () => {
           g.seedRequestAt = null;
           if (g.settings.joinType !== "request") return;
+          const officers = g.members.filter((x) => x.rank >= GUILD_RANK.officer).map((x) => x.address);
           const asked = community().find((m) => {
+            if (officers.some((o) => blocked(o, key(m.address)))) return false;
             const c = candidate(world, people, key(m.address));
             return requestRefusal({ ...c, pending: pendingOf(world, key(m.address))?.id ?? null }, opening(g)) === null;
           });
@@ -353,6 +368,9 @@ function nextDue(world: GuildWorld, people: GuildPeople, now: number): Due | nul
   const inviting = guildById(world, INVITING_GUILD);
   for (const [address, p] of Object.entries(world.players)) {
     if (p.firstVisit === undefined || p.invited) continue;
+    // While a block stands, either way, between the player and the inviting leader, the invitation waits: it is not due, and
+    // comes (with its first time, so it may have lapsed) once the block is lifted. Reads and writes agree, whatever comes first.
+    if (inviting && blocked(leaderOf(inviting).address, address)) continue;
     const at = p.firstVisit + MOCK_INVITATION_S;
     due.push({
       at,
@@ -380,9 +398,9 @@ function lastSeen(world: GuildWorld, address: string, at: number): number {
  * Applies to `world`, in place, what the community does by `now` (in time order), lapses the old invitations, and the
  * leader's rotation. A function of the stored world and `now` alone: a read settles a copy, a write settles before its check.
  */
-export function settle(world: GuildWorld, people: GuildPeople, now: number): GuildWorld {
+export function settle(world: GuildWorld, people: GuildPeople, now: number, blocked: GuildBlocks = NO_BLOCKS): GuildWorld {
   for (let n = 0; n < 1_000; n++) {
-    const due = nextDue(world, people, now);
+    const due = nextDue(world, people, now, blocked);
     if (!due) break;
     due.apply();
   }
@@ -493,7 +511,7 @@ export interface GuildWrite {
   now: number;
   player: string;
   /** Whether a block stands between two players, either way (#954, game-core's `blockBetween`); left out, none does. */
-  blocked?: (a: string, b: string) => boolean;
+  blocked?: GuildBlocks;
 }
 
 /** The actor's guild and membership, or a refusal. */

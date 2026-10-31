@@ -1,12 +1,12 @@
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FOLLOW_LIMIT, ONLINE_WINDOW_S, isOnline, playerKey } from "@paved/game-core";
+import { FOLLOW_LIMIT, GUILD_RANK, ONLINE_WINDOW_S, isOnline, playerKey } from "@paved/game-core";
 import type { GuildSource } from "../src/data/social-source";
 import { FollowRefusedError, useFollowActions, useFollowLists, useFollowStatus, useFollowSuggestions, type FollowSource, type SocialSource } from "../src/data/social";
 import { community } from "../src/data/mock/community";
 import { FOLLOW_BACK_MIN_S, followBackDelay, seededFollows } from "../src/data/mock/follows";
 import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
-import { seededGuildWorld } from "../src/data/mock/guilds";
+import { MOCK_ACCEPT_S, MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, seededGuildWorld } from "../src/data/mock/guilds";
 import { mockSocial } from "../src/data/mock/overlay";
 import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { freshV2, mockRivalsV2 } from "../src/data/mock/v2";
@@ -219,6 +219,82 @@ describe("the follow writes on the mock (#954)", () => {
     await follows.unblock(ME, blocked);
     await expect(guilds.invite(ME, blocked)).resolves.toBeUndefined();
     await expect(guilds.invite(ME, free)).resolves.toBeUndefined();
+  });
+
+  it("hold back the mock's own guild invitation from a blocked leader while the block stands, either way (#953)", async () => {
+    const leader = seededGuildWorld().guilds.find((g) => g.name === "Iron Quay Wardens")!.members.find((m) => m.rank === GUILD_RANK.leader)!.address;
+    // The player blocks the leader, then opens the Guild tab.
+    const { clock, follows, social } = mock();
+    const guilds = social as SocialSource & GuildSource;
+    await follows.block(ME, leader);
+    await guilds.visitGuildTab(ME);
+    clock.now += MOCK_INVITATION_S;
+    expect((await guilds.playerGuild(ME)).invitations).toEqual([]);
+    // A write while blocked keeps it held back.
+    clock.now += 3_600;
+    await guilds.readAnnouncements(ME).catch(() => undefined);
+    await guilds.visitGuildTab(ME);
+    expect((await guilds.playerGuild(ME)).invitations).toEqual([]);
+    expect(await follows.status(ME, leader)).toMatchObject({ blocking: true });
+    // Lifted, the invitation comes, with its first time.
+    await follows.unblock(ME, leader);
+    expect((await guilds.playerGuild(ME)).invitations.map((i) => [i.inviter, i.sentAt])).toEqual([[playerKey(leader), NOW + MOCK_INVITATION_S]]);
+
+    // The leader's block of the player (stored: the mock's members write nothing) holds it back too.
+    const other = mock();
+    const otherGuilds = other.social as SocialSource & GuildSource;
+    await otherGuilds.visitGuildTab(ME);
+    const state = JSON.parse(other.store.getItem(MOCK_KEY)!);
+    state.follows = { follows: [], blocks: [{ blocker: playerKey(leader), blocked: playerKey(ME), at: NOW }], seen: {}, backed: [] };
+    other.store.setItem(MOCK_KEY, JSON.stringify(state));
+    other.clock.now += MOCK_INVITATION_S;
+    expect((await otherGuilds.playerGuild(ME)).invitations).toEqual([]);
+  });
+
+  it("let no community player join across a block set after the invitation or the request (#953)", async () => {
+    const { clock, follows, social } = mock();
+    const guilds = social as SocialSource & GuildSource;
+    await guilds.createGuild(ME, { name: "Stone Road", emblem: { icon: 1, primary: 2, secondary: 3 }, description: "We pave.", joinType: "open", requirements: { level: 0, crowns: 0 } });
+    const invitee = community().find((m) => !seededGuildWorld().guilds.some((g) => g.members.some((x) => playerKey(x.address) === playerKey(m.address))))!.address;
+    await guilds.invite(ME, invitee);
+    await follows.block(ME, invitee);
+    clock.now += MOCK_INVITE_ANSWER_S;
+    const mine = (await guilds.playerGuild(ME)).guild!;
+    expect(mine.members).toBe(1);
+    expect(mine.invitations).toEqual([]);
+
+    // A request to a community leader's By-request guild, then a block of that leader: not accepted.
+    const other = mock();
+    const otherGuilds = other.social as SocialSource & GuildSource;
+    // Hollow Oak without its requirements, as stored (as the guilds' own test does).
+    const w = seededGuildWorld();
+    const target = w.guilds.find((g) => g.name === "Hollow Oak")!;
+    target.settings.requirements = { level: 0, crowns: 0 };
+    other.store.setItem(MOCK_KEY, JSON.stringify({ version: 1, players: {}, vault: { assets: "1", supply: "1" }, transactions: 0, guilds: w }));
+    const leader = target.members.find((m) => m.rank === GUILD_RANK.leader)!.address;
+    await otherGuilds.requestToJoin(ME, target.id, "Hello");
+    await other.follows.block(ME, leader);
+    other.clock.now += MOCK_ACCEPT_S;
+    const state = await otherGuilds.playerGuild(ME);
+    expect(state.guild).toBeNull();
+    expect(state.request).toBeNull();
+  });
+
+  it("send the player's guild no seeded join request from a player a block stands between (#953)", async () => {
+    const draft = { name: "Stone Road", emblem: { icon: 1, primary: 2, secondary: 3 }, description: "We pave.", joinType: "request" as const, requirements: { level: 0, crowns: 0 } };
+    const askerOf = async (blockFirst: string | null) => {
+      const { clock, follows, social } = mock();
+      const guilds = social as SocialSource & GuildSource;
+      if (blockFirst) await follows.block(ME, blockFirst);
+      await guilds.createGuild(ME, draft);
+      clock.now += MOCK_SEED_REQUEST_S;
+      return (await guilds.playerGuild(ME)).guild!.requests!.map((r) => playerKey(r.profile.address));
+    };
+    const [first] = await askerOf(null);
+    expect(first).toBeDefined();
+    const after = await askerOf(first!);
+    expect(after).toHaveLength(1);
+    expect(after[0]).not.toBe(first);
   });
 
   it("list the latest block first", async () => {
