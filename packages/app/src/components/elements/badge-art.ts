@@ -6,8 +6,13 @@
  * imports an image, and the module stays plain TypeScript so the script reads it under Node.
  */
 
-/** The badge's parts, each an image of its own. */
-export type BadgePart = "ring" | "bar" | "shield" | "plate-tile" | "plate-cap";
+/** The badge's parts, each an image of its own (one per line: `css-sources.test.ts` reads "ring" as a member, not a class). */
+export type BadgePart =
+  | "ring"
+  | "bar"
+  | "shield"
+  | "plate-tile"
+  | "plate-cap";
 
 interface Frame {
   /** The master's size: an image takes its box before it loads. */
@@ -45,7 +50,7 @@ export function badgeArtSize(part: BadgePart, size: number): { width: number; he
  * An `<img>`'s sources for a part sized on its width (the ring, the shield) shown `px` CSS pixels wide: the largest copy as `src`,
  * every copy with its width in `srcSet`, and `sizes`, so a screen picks the smallest copy that stays sharp at its density.
  */
-export function badgeArtSources(part: "ring" | "shield", px: number) {
+export function badgeArtSources(part: Exclude<BadgePart, "bar" | "plate-tile" | "plate-cap">, px: number) {
   const { sizes } = BADGE_ART[part];
   return { src: badgeArtUrl(part, sizes[sizes.length - 1]!), srcSet: sizes.map((s) => `${badgeArtUrl(part, s)} ${s}w`).join(", "), sizes: `${Math.ceil(px)}px` };
 }
