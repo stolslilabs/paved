@@ -99,8 +99,8 @@ export function GuildInvitations({ invitations, current, now, onAction, onOpenGu
         {invitations.map((inv) => (
           <li key={inv.guild.id} data-slot="guild-invitation" className="flex flex-col gap-2 rounded-xl border border-primary/60 bg-secondary/60 p-2">
             <GuildCard guild={inv.guild} onOpen={onOpenGuild} />
-            <p className="flex min-w-0 flex-wrap items-center gap-x-1 px-1 text-xs text-muted-foreground">
-              From <PlayerName name={inv.inviterName} address={inv.inviter} className="min-w-0 truncate font-semibold text-foreground" />, {formatAgo(inv.sentAt - now)}. Lapses in {Math.max(1, Math.ceil((inv.expiresAt - now) / 86_400))}d; no requirement applies.
+            <p className="px-1 text-xs wrap-anywhere text-muted-foreground">
+              From <PlayerName name={inv.inviterName} address={inv.inviter} className="font-semibold whitespace-normal text-foreground" />, {formatAgo(inv.sentAt - now)}. Lapses in {Math.max(1, Math.ceil((inv.expiresAt - now) / 86_400))}d; no requirement applies.
             </p>
             <div className="grid grid-cols-2 gap-2">
               <Button

@@ -116,20 +116,24 @@ export function GuildFormSheet({ open, onOpenChange, mode, initial, onSubmit, pe
               ))}
             </ToggleGroup>
             {(["primary", "secondary"] as const).map((part) => (
-              <ToggleGroup
-                key={part}
-                type="single"
-                aria-label={part === "primary" ? "Shield colour" : "Band colour"}
-                className="flex-wrap"
-                value={String(draft.emblem[part])}
-                onValueChange={(v) => v && set({ emblem: { ...draft.emblem, [part]: Number(v) } })}
-              >
-                {GUILD_EMBLEM_COLOUR_NAMES.map((name, i) => (
-                  <ToggleGroupItem key={name} value={String(i)} aria-label={`${part === "primary" ? "Shield" : "Band"}: ${name}`}>
-                    <span aria-hidden className="size-5 rounded-full border border-input" style={{ background: `var(--emblem-${i})` }} />
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+              <div key={part} className="flex flex-col gap-1">
+                <span aria-hidden className="text-xs text-muted-foreground">
+                  {part === "primary" ? "Shield" : "Band"}
+                </span>
+                <ToggleGroup
+                  type="single"
+                  aria-label={part === "primary" ? "Shield colour" : "Band colour"}
+                  className="flex-wrap"
+                  value={String(draft.emblem[part])}
+                  onValueChange={(v) => v && set({ emblem: { ...draft.emblem, [part]: Number(v) } })}
+                >
+                  {GUILD_EMBLEM_COLOUR_NAMES.map((name, i) => (
+                    <ToggleGroupItem key={name} value={String(i)} aria-label={`${part === "primary" ? "Shield" : "Band"}: ${name}`}>
+                      <span aria-hidden className="size-5 rounded-full border border-input" style={{ background: `var(--emblem-${i})` }} />
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
             ))}
           </fieldset>
 
