@@ -48,7 +48,8 @@ function LivingBust({ avatar, backdrop, size, onReady, options }: { avatar: Avat
       ref={ref}
       style={{
         width: size,
-        height: size,
+        maxWidth: "100%",
+        aspectRatio: "1",
         borderRadius: "50%",
         overflow: "hidden",
         backgroundImage: `url(${PROTO}/${backdrop}.webp)`,
@@ -73,7 +74,7 @@ function Playground() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: 24 }}>
       <LivingBust key={variant} avatar={avatar} backdrop={backdrop} size={320} onReady={setLiving} options={options} />
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
         {(["v1", "v2", "hd"] as const).map((v) => (
           <Button key={v} variant={v === variant ? "default" : "ghost"} size="sm" onClick={() => setVariant(v)}>
             {v === "hd" ? "HD king" : `catalogue ${v}`}
@@ -94,7 +95,7 @@ function Playground() {
           </Button>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
         {CAST.map((c) => (
           <Button key={c.name} variant="ghost" size="sm" onClick={() => setAvatar(c.avatar)}>
             {c.name}
@@ -132,7 +133,7 @@ export const BeforeAfter: Story = {
 /** The render target's four characters, each on its backdrop (four contexts: a story's, not the app's way). */
 export const Cast: Story = {
   render: () => (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 256px)", gap: 32, justifyContent: "center", padding: 32 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 32, justifyContent: "center", maxWidth: 2 * 256 + 32 + 64, margin: "0 auto", padding: 32 }}>
       {CAST.map((c) => (
         <LivingBust key={c.name} avatar={c.avatar} backdrop={c.backdrop} size={256} />
       ))}
@@ -144,7 +145,7 @@ export const Cast: Story = {
 export const Compare: Story = {
   render: () => (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center", padding: 24 }}>
-      <img src={`${PROTO}/target-king.webp`} alt="" width={256} height={256} style={{ borderRadius: "50%", boxShadow: "0 0 0 4px #3a3f4a" }} />
+      <img src={`${PROTO}/target-king.webp`} alt="" width={256} height={256} style={{ maxWidth: "100%", height: "auto", borderRadius: "50%", boxShadow: "0 0 0 4px #3a3f4a" }} />
       <LivingBust avatar={CAST[0]!.avatar} backdrop="village" size={256} options={{ look: "v1" }} />
       <LivingBust avatar={CAST[0]!.avatar} backdrop="village" size={256} options={{ model: "hd-king", look: "v2" }} />
       <LivingBust avatar={CAST[0]!.avatar} backdrop="village" size={256} options={{ model: "hd-king", look: "v2", face: KING_FACE }} />
@@ -169,14 +170,14 @@ function BoxBust({ size, backdrop = "village", onReady, ao }: { size: number; ba
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- built once
   }, []);
-  return <div ref={ref} style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", boxShadow: "0 0 0 4px #3a3f4a" }} />;
+  return <div ref={ref} style={{ width: size, maxWidth: "100%", aspectRatio: "1", borderRadius: "50%", overflow: "hidden", boxShadow: "0 0 0 4px #3a3f4a" }} />;
 }
 
 /** The target beside the free-cuboid king, with and without the screen's ambient occlusion. */
 export const Boxes: Story = {
   render: () => (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center", padding: 24 }}>
-      <img src={`${PROTO}/target-king.webp`} alt="" width={256} height={256} style={{ borderRadius: "50%", boxShadow: "0 0 0 4px #3a3f4a" }} />
+      <img src={`${PROTO}/target-king.webp`} alt="" width={256} height={256} style={{ maxWidth: "100%", height: "auto", borderRadius: "50%", boxShadow: "0 0 0 4px #3a3f4a" }} />
       <BoxBust size={256} />
       <LivingBust avatar={CAST[0]!.avatar} backdrop="village" size={256} options={{ model: "hd-king", look: "v2", face: KING_FACE }} />
     </div>
@@ -226,14 +227,14 @@ function KingBust({ size, still, yaw, eyesShut, traits, onReady }: { size: numbe
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- built once
   }, []);
-  return <div data-slot="king" ref={ref} style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden" }} />;
+  return <div data-slot="king" ref={ref} style={{ width: size, maxWidth: "100%", aspectRatio: "1", borderRadius: "50%", overflow: "hidden" }} />;
 }
 
 /** The target and the king v4 at its rest pose, the same size, for an exact comparison. */
 export const KingV4Compare: Story = {
   render: () => (
-    <div style={{ display: "flex", gap: 32, justifyContent: "center", padding: 24, background: "#23262d" }}>
-      <img data-slot="target" src={`${PROTO}/target-king.webp`} alt="" width={480} height={480} style={{ borderRadius: "50%" }} />
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 32, justifyContent: "center", padding: 24, background: "#23262d" }}>
+      <img data-slot="target" src={`${PROTO}/target-king.webp`} alt="" width={480} height={480} style={{ maxWidth: "100%", height: "auto", borderRadius: "50%" }} />
       <KingBust size={480} still />
     </div>
   ),
@@ -242,9 +243,9 @@ export const KingV4Compare: Story = {
 /** The target and the king v4 one over the other at half opacity: where they differ shows twice. */
 export const KingV4Overlay: Story = {
   render: () => (
-    <div style={{ position: "relative", width: 480, height: 480, margin: 24 }}>
+    <div style={{ position: "relative", width: "min(480px, calc(100% - 48px))", aspectRatio: "1", margin: 24 }}>
       <KingBust size={480} still />
-      <img src={`${PROTO}/target-king.webp`} alt="" width={480} height={480} style={{ position: "absolute", inset: 0, borderRadius: "50%", opacity: 0.5 }} />
+      <img src={`${PROTO}/target-king.webp`} alt="" width={480} height={480} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: "50%", opacity: 0.5 }} />
     </div>
   ),
 };
@@ -298,7 +299,7 @@ export const KingV4Side: Story = {
 /** The king v4 alone and large, living: the recordings' (their script plays the emotes). */
 export const KingV4Reel: Story = {
   render: () => (
-    <div style={{ display: "grid", placeItems: "center", width: 540, height: 540, background: "#23262d" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "min(540px, 100%)", aspectRatio: "1", background: "#23262d" }}>
       <KingBust size={500} />
     </div>
   ),
@@ -387,7 +388,7 @@ function CastAll() {
           </Button>
         ))}
       </div>
-      <div data-slot="cast" style={{ display: "grid", gridTemplateColumns: "repeat(4, 220px)", gap: 16 }}>
+      <div data-slot="cast" style={{ display: "flex", flexWrap: "wrap", gap: 16, maxWidth: 4 * 220 + 3 * 16 }}>
         {CAST_TRAITS.map((t, i) => (
           <KingBust key={i} size={220} traits={t} onReady={(k) => (kings.current[i] = k)} />
         ))}

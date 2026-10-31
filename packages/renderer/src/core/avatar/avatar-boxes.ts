@@ -411,6 +411,7 @@ export class BoxAvatar {
       new TextureLoader().load(options.backdrop, (texture) => {
         texture.colorSpace = SRGBColorSpace;
         this.scene.background = texture;
+        this.request();
         this.owned.push(texture);
       });
     }
@@ -455,6 +456,7 @@ export class BoxAvatar {
 
   play(emote: Emote): void {
     this.emote = { name: emote, start: this.now() };
+    this.request();
   }
 
   dispose(): void {
@@ -531,8 +533,10 @@ export class BoxAvatar {
     this.camera.updateProjectionMatrix();
   }
 
+  /** The next frame, once: every frame while the idle runs, under reduced motion only when something changes. */
   private request() {
-    if (!this.disposed) this.frame = requestAnimationFrame(this.tick);
+    if (this.disposed || this.frame) return;
+    this.frame = requestAnimationFrame(this.tick);
   }
 
   private pose(t: number, dt: number): Pose {
@@ -577,6 +581,6 @@ export class BoxAvatar {
     const start = performance.now();
     this.composer.render();
     this.frameMs = performance.now() - start;
-    this.request();
+    if (!reduced) this.request();
   };
 }

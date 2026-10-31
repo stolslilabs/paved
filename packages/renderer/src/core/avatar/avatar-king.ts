@@ -383,6 +383,8 @@ export class KingAvatar {
     this.limits = trackLimits({ ...KING_TRAITS, ...options.traits });
     const media = (q: string) => typeof window.matchMedia === "function" && window.matchMedia(q).matches;
     this.tracksPointer = options.followPointer !== false && media("(hover: hover) and (pointer: fine)") && !media("(prefers-reduced-motion: reduce)");
+    this.motion = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+    this.motion?.addEventListener("change", this.request);
     if (this.tracksPointer) {
       window.addEventListener("pointermove", this.onPointerMove, { passive: true });
       window.addEventListener("mouseout", this.onPointerOut);
@@ -447,6 +449,7 @@ export class KingAvatar {
   /** Sets the view (the calibration's: see the exploration's report). */
   setView(view: Partial<KingAvatar["view"]>): void {
     this.view = { ...this.view, ...view };
+    this.request();
     const { yaw, pitch, target, distance, fov, head, stretch, pan } = this.view;
     if (this.options.yaw === undefined) this.root.rotation.y = yaw;
     this.pivots.head.scale.set(head, head * stretch, head);
@@ -472,12 +475,14 @@ export class KingAvatar {
 
   play(emote: Emote): void {
     this.emote = { name: emote, start: this.now() };
+    this.request();
   }
 
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.frame);
+    this.motion?.removeEventListener("change", this.request);
     window.removeEventListener("pointermove", this.onPointerMove);
     window.removeEventListener("mouseout", this.onPointerOut);
     window.removeEventListener("blur", this.onPointerGone);
@@ -502,6 +507,7 @@ export class KingAvatar {
       texture.colorSpace = SRGBColorSpace;
       this.scene.background = texture;
       this.owned.push(texture);
+      this.request();
     };
     image.src = url;
   }
@@ -569,9 +575,15 @@ export class KingAvatar {
     this.camera.updateProjectionMatrix();
   }
 
-  private request() {
-    if (!this.disposed) this.frame = requestAnimationFrame(this.tick);
-  }
+  /**
+   * The next frame, once. While still (the `still` option, or reduced motion) a frame is drawn only when something changes (the
+   * view, the backdrop, an emote asked, a hold, the motion setting); otherwise every frame, the idle being alive.
+   */
+  private readonly request = () => {
+    if (this.disposed || this.frame) return;
+    this.frame = requestAnimationFrame(this.tick);
+  };
+  private readonly motion: MediaQueryList | null;
 
   /** How far an emote has blended in (0 at rest, 1 in it): the rest pose's own offsets (the arms' spread) give way to it. */
   private emoteWeight = 0;
@@ -605,6 +617,7 @@ export class KingAvatar {
   private held: { emote: Emote; t: number } | null = null;
   hold(emote: Emote | null, t = 0): void {
     this.held = emote ? { emote, t } : null;
+    this.request();
   }
 
   private pose(t: number, dt: number): Pose {
@@ -674,7 +687,7 @@ export class KingAvatar {
     const t = this.now();
     const dt = Math.min(0.1, t - this.last);
     this.last = t;
-    const reduced = this.options.still || (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const reduced = !!this.options.still || !!this.motion?.matches;
     const pose = reduced ? REST : this.pose(t, dt);
     poseRig(this.rig, pose, this.view, this.options.yaw === 0 ? 0 : 1, this.emoteWeight);
     if (!reduced) this.followPointer(t, dt);
@@ -690,6 +703,6 @@ export class KingAvatar {
       }
     }
     this.composer.render();
-    this.request();
+    if (!reduced) this.request();
   };
 }
