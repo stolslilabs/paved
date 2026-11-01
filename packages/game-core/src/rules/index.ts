@@ -1,5 +1,5 @@
 // The rules of PvP v2 (#732, #741), pure: the free village and its score, slots and XP, the starter layouts, the attack's deck,
-// queue and stars, chests, the daily shop and the quests' bonus, the editor's random compact layout (#803),
+// queue and stars, chests, the daily shop and the quests' bonus, the Tutorial's steps (#977), the editor's random compact layout (#803),
 // the saved layouts' slots (#804). The contracts (#733 to #738) match them through parity tests.
 // The layout search (`grow.ts`) is an offline tool and stays out.
 
@@ -103,3 +103,18 @@ export {
   weeklyMilestoneStates,
 } from "./quests";
 export type { DailyMilestone, DailyMilestoneRefusal, DailyMilestoneState, WeeklyMilestone, WeeklyMilestoneRefusal, WeeklyMilestoneState } from "./quests";
+export {
+  TUTORIAL_COBBLES,
+  TUTORIAL_STEPS,
+  TUTORIAL_TASKS,
+  emptyTutorialCounts,
+  tutorialCompleted,
+  tutorialFinished,
+  tutorialOpen,
+  tutorialStates,
+  tutorialStep,
+  tutorialStepClaimed,
+  tutorialStepRefusal,
+  tutorialToClaim,
+} from "./tutorial";
+export type { TutorialCounts, TutorialStep, TutorialStepRefusal, TutorialStepState, TutorialTask } from "./tutorial";
