@@ -175,7 +175,10 @@ describe("the World on the mock (#955)", () => {
     levelUp(store, 2, ME);
     const line = (await chat.conversation(ME, WORLD_CONVERSATION))!.messages.at(-1)!;
     await chat.report(ME, WORLD_CONVERSATION, line.id, "scam");
-    expect(JSON.parse(store.getItem(MOCK_KEY)!).chat.reports).toEqual([expect.objectContaining({ reporter: ME, message: line.id, reason: "scam", text: line.text })]);
+    // The World is public: the report keeps the line, with no envelope to check (#997).
+    expect(JSON.parse(store.getItem(MOCK_KEY)!).chat.reports).toEqual([
+      expect.objectContaining({ reporter: ME, message: line.id, reason: "scam", revealed: [expect.objectContaining({ id: line.id, text: line.text, frankingKey: null, checked: null })] }),
+    ]);
     expect((await chat.conversation(ME, WORLD_CONVERSATION))!.messages.at(-1)!.mayReport).toBe(false);
     await expect(chat.report(ME, WORLD_CONVERSATION, line.id, "spam")).rejects.toEqual(refused("reported-already"));
     const own = await chat.send(ME, WORLD_CONVERSATION, "mine");
@@ -213,21 +216,40 @@ describe("the World on the mock (#955)", () => {
 describe("a guild's conversation on the mock (#955)", () => {
   const quarry = () => seededGuildWorld().guilds.find((g) => g.name === "The Quarrymen")!;
 
+  /** The device's player a member of The Quarrymen since its creation, so that its whole history is theirs to read (#997). */
+  function founder(store: ReturnType<typeof memoryStore>) {
+    const w = seededGuildWorld();
+    const g = w.guilds.find((x) => x.name === "The Quarrymen")!;
+    g.members.push({ address: ME, rank: GUILD_RANK.member, joinedAt: g.createdAt, lastKick: null });
+    w.players[ME] = { seenAt: T0 };
+    store.setItem(MOCK_KEY, JSON.stringify({ version: 1, players: {}, vault: { assets: "1", supply: "1" }, transactions: 0, guilds: w }));
+    return g;
+  }
+
   it("is for its members only: its community's lines, its log's events and its latest announcement pinned", async () => {
-    const { chat, social } = world();
+    const { chat, social, clock } = world();
     const g = quarry();
     const id = guildConversation(g.id);
     expect(await chat.conversation(ME, id)).toBeNull();
     await expect(chat.send(ME, id, "hi")).rejects.toEqual(refused("not-in-guild"));
     await social.joinGuild(ME, g.id);
-    const page = (await chat.conversation(ME, id))!;
-    expect(page.pinned).toMatchObject({ text: g.announcements[0]!.text });
+    const joined = (await chat.conversation(ME, id))!;
+    expect(joined.pinned).toMatchObject({ text: g.announcements[0]!.text });
+    // A joiner reads from their joining on (#997, open point 2): their own join is the latest line, no message before it.
+    expect(joined.messages.at(-1)).toMatchObject({ kind: "event", author: null, event: expect.objectContaining({ kind: "joined", actor: ME }) });
+    expect(joined.messages.filter((m) => m.kind === "message")).toEqual([]);
+    clock.now += 86_400;
+    const later = (await chat.conversation(ME, id))!.messages.filter((m) => m.kind === "message");
+    expect(later.length).toBeGreaterThan(5);
+    for (const m of later) expect(m.at).toBeGreaterThanOrEqual(T0);
+    // A member since the guild's creation reads its history.
+    const { chat: founded, store: foundedStore } = world();
+    founder(foundedStore);
+    const page = (await founded.conversation(ME, id))!;
     const members = new Set(g.members.map((m) => m.address));
     const said = page.messages.filter((m) => m.kind === "message");
     expect(said.length).toBeGreaterThan(5);
     for (const m of said) expect(members.has(m.author!.address)).toBe(true);
-    // The player's own join is a line of the conversation.
-    expect(page.messages.at(-1)).toMatchObject({ kind: "event", author: null, event: expect.objectContaining({ kind: "joined", actor: ME }) });
     // A member at any level may write; the overview lists it after the World.
     expect(await chat.send(ME, id, "hello quarry")).toMatchObject({ mine: true });
     expect((await chat.overview(ME)).conversations.map((c) => c.kind)).toEqual(["world", "guild"]);
@@ -236,9 +258,8 @@ describe("a guild's conversation on the mock (#955)", () => {
   });
 
   it("keeps its last 500 lines by count, whatever their age", async () => {
-    const { chat, social } = world();
-    const g = quarry();
-    await social.joinGuild(ME, g.id);
+    const { chat, store } = world();
+    const g = founder(store);
     const all = await allOf(chat, ME, guildConversation(g.id));
     expect(all).toHaveLength(CHAT_KEPT.guild);
     expect(T0 - all[0]!.at).toBeGreaterThan(2 * 86_400);
