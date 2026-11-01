@@ -1,6 +1,7 @@
 import type { PlayerAchievement, PlayerAchievements, TaskProgress } from "@paved/chain";
 import type { GameMission } from "../components/containers/game-missions";
 import { MOCK_DAILY_FAMILY } from "../data/mock/dailies";
+import { MOCK_PVP_WEEKLIES } from "../data/mock/weeklies";
 import { isLiveOnDay, questWindow, type QuestSchedule, type ScheduledQuest, type ScheduledQuests } from "../lib/quest-window";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { PLAYER_ID, TODAY } from "./players";
@@ -40,8 +41,11 @@ export const QUESTS_FROM = TODAY - 21;
  *    day number mod 3. Five dailies are live a day
  *    (`DAILY_QUESTS`): Daily Run and one of each family (today, day 20,740, offset 1: quests 1, 6, 9, 12 and 18). None pays on
  *    its own since #869: the day's milestones do (`DAILY_MILESTONES`, 3 done and 5 done).
- *  - Three weeklies, ids 14 to 16, `duration = interval = 7 days`, `start` 345,600: Monday 1970-01-05 00:00 UTC, so a week runs
- *    Monday to Sunday UTC (the epoch is a Thursday; a start of 0 would have put the boundary on Thursdays).
+ *  - Five weeklies (`WEEKLY_QUESTS`), `duration = interval = 7 days`, `start` 345,600: Monday 1970-01-05 00:00 UTC, so a week
+ *    runs Monday to Sunday UTC (the epoch is a Thursday; a start of 0 would have put the boundary on Thursdays). Ids 14 to 16 on
+ *    the Challenge, and #976's two on the PvP (the owner's decisions of 2026-11-01, the mock's ids 20 and 21:
+ *    `MOCK_PVP_WEEKLIES`, which the mock's indexer adds): Weekly Raider, 10 attacks settled, and Weekly Stars, 15 stars. The
+ *    week pays at its milestones (`WEEKLY_MILESTONES`, 3 done and 5 done).
  *
  * The client still reads the week from the definition, it does not assume Monday (`lib/quest-window.ts`). The schedule fields are
  * the document's (`start`, `interval`, `duration`); `@paved/chain`'s parsed quest types do not carry them yet (P9).
@@ -71,6 +75,8 @@ export const QUEST_DEFINITIONS: readonly QuestDefinition[] = [
   { questId: 16, taskId: POINTS, total: 20_000, ...weekly },
   // The fifth daily's family, as the mock's indexer adds it (`data/mock/dailies.ts`).
   ...MOCK_DAILY_FAMILY.map((q) => ({ questId: q.questId, taskId: GAME_FINISHED, total: q.total, ...dailyAt(q.offset, 3) })),
+  // The PvP weeklies, as the mock's indexer adds them (`data/mock/weeklies.ts`).
+  ...MOCK_PVP_WEEKLIES.map((q) => ({ questId: q.questId, taskId: q.taskId, total: q.total, ...weekly })),
 ];
 
 const quest = (def: QuestDefinition, day: number, count: number, completedAt: number | null): ScheduledQuest => {
@@ -100,9 +106,9 @@ const DONE_TODAY = { 1: MOCK_NOW - 3 * HOUR };
  * Today (Wednesday 2026-10-14, day 20,740: the rotation is 6, 9, 12 and 18, beside Daily Run; the week began on Monday). Counts
  * are per task, as the indexer's are: 1 game, 4 structures, 1 forest and 2,710 points scored today, so Daily Run is done, Public
  * Works is 4 of 8, Deep Woods 1 of 3, Strong Day 2,710 of 5,000 and Busy Day 1 of 3: one daily of five done. The week: Weekly
- * Forester 3 of 5, Builder 22 of 30, Points 12,400 of 20,000.
+ * Forester 3 of 5, Builder 22 of 30, Points 12,400 of 20,000, Raider 4 of 10 attacks and Stars 7 of 15 stars (#976).
  */
-const TODAY_COUNTS = { 1: 1, 6: 4, 9: 1, 12: 2_710, 18: 1, 14: 3, 15: 22, 16: 12_400 };
+const TODAY_COUNTS = { 1: 1, 6: 4, 9: 1, 12: 2_710, 18: 1, 14: 3, 15: 22, 16: 12_400, 20: 4, 21: 7 };
 export const QUESTS_TODAY = day(TODAY, TODAY_COUNTS, DONE_TODAY);
 
 /** Public Works one structure from done, 7 of 8: scoring it completes the quest (the toast's story). */
@@ -113,17 +119,39 @@ export const QUESTS_TODAY_COMPLETED = day(TODAY, { ...TODAY_COUNTS, 6: 8 }, { ..
 /** The same day with Weekly Forester done (5 of 5). */
 export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR });
 
-/** The same day with all three weeklies done: the week's free game can be claimed. */
+/** The same day with the three Challenge weeklies done, the two PvP ones at today's counts: the week's bonus can be claimed. */
 export const QUESTS_WEEK_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5, 15: 30, 16: 20_000 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR, 15: MOCK_NOW - 4 * HOUR, 16: MOCK_NOW - HOUR });
+
+/**
+ * Today with `done` of the five weeklies done (#976, the week's milestones: none, three and five done are the stories), the
+ * others at today's counts, or at none with nothing done. Done in the order Weekly Forester, Builder, Points, Raider, Stars.
+ */
+export const questsWeekDone = (done: number): ScheduledQuests => {
+  const order = [14, 15, 16, 20, 21].slice(0, done);
+  const totals = Object.fromEntries(order.map((id) => [id, QUEST_DEFINITIONS.find((d) => d.questId === id)!.total]));
+  const none = done === 0 ? { 14: 0, 15: 0, 16: 0, 20: 0, 21: 0 } : {};
+  return day(TODAY, { ...TODAY_COUNTS, ...none, ...totals }, { ...DONE_TODAY, ...Object.fromEntries(order.map((id, i) => [id, MOCK_NOW - (6 - i) * HOUR])) });
+};
 
 /** The same day for a player who has not played yet (#832, a new player): every count at 0. */
 export const QUESTS_TODAY_FRESH = day(TODAY, {});
 
-/** The same day with every daily and weekly done (#832, everything done): the five dailies and the three weeklies at their totals. */
+/** The same day with every daily and weekly done (#832, everything done): the five dailies and the five weeklies at their totals. */
 export const QUESTS_TODAY_ALL_DONE = day(
   TODAY,
-  { 1: 3, 6: 8, 9: 3, 12: 5_000, 18: 3, 14: 5, 15: 30, 16: 20_000 },
-  { ...DONE_TODAY, 6: MOCK_NOW - 2 * HOUR, 9: MOCK_NOW - 90 * 60, 12: MOCK_NOW - HOUR, 18: MOCK_NOW - 30 * 60, 14: MOCK_NOW - 5 * HOUR, 15: MOCK_NOW - 4 * HOUR, 16: MOCK_NOW - HOUR },
+  { 1: 3, 6: 8, 9: 3, 12: 5_000, 18: 3, 14: 5, 15: 30, 16: 20_000, 20: 10, 21: 15 },
+  {
+    ...DONE_TODAY,
+    6: MOCK_NOW - 2 * HOUR,
+    9: MOCK_NOW - 90 * 60,
+    12: MOCK_NOW - HOUR,
+    18: MOCK_NOW - 30 * 60,
+    14: MOCK_NOW - 5 * HOUR,
+    15: MOCK_NOW - 4 * HOUR,
+    16: MOCK_NOW - HOUR,
+    20: MOCK_NOW - 3 * HOUR,
+    21: MOCK_NOW - 45 * 60,
+  },
 );
 
 /**
@@ -133,7 +161,7 @@ export const QUESTS_TODAY_ALL_DONE = day(
 const YESTERDAY = TODAY - 1;
 export const QUESTS_ALL_DONE = day(
   YESTERDAY,
-  { 1: 2, 5: 6, 8: 2, 11: 7_300, 17: 2, 14: 2, 15: 18, 16: 9_000 },
+  { 1: 2, 5: 6, 8: 2, 11: 7_300, 17: 2, 14: 2, 15: 18, 16: 9_000, 20: 2, 21: 3 },
   Object.fromEntries([1, 5, 8, 11, 17].map((id, i) => [id, YESTERDAY * DAY + (8 + i * 2) * HOUR])),
 );
 
@@ -149,7 +177,7 @@ export const questsTodayDone = (done: number): ScheduledQuests => {
   return day(TODAY, { ...TODAY_COUNTS, ...games, ...totals }, Object.fromEntries(order.map((id, i) => [id, MOCK_NOW - (5 - i) * HOUR])));
 };
 
-/** A past day the player did not play (day 20,736, offset 0: 1, 5, 8, 11 and 17, and last week's three): every count at 0. */
+/** A past day the player did not play (day 20,736, offset 0: 1, 5, 8, 11 and 17, and last week's five): every count at 0. */
 export const QUESTS_IDLE = day(TODAY - 4, {});
 
 /** A day before the quests were defined: none live. */

@@ -25,6 +25,7 @@ import { addressKey } from "../keys";
 import { MOCK_FACTOR_BPS, dayOfTime, replayOf, tallyOf, type StoredGame } from "./challenge";
 import { dailiesDone, withMockDailies } from "./dailies";
 import { FRESH_DEFINITIONS, TASK, achievementCounts, questCounts } from "./definitions";
+import { firstDayOfWeek, pvpCounts, weekliesDone, withMockWeeklies } from "./weeklies";
 import type { MockLedger } from "./ledger";
 import { SEEDED_FROM_DAY, SEEDED_PLAYERS, seededDay, seededGame, seededPlayer, type SeededGame, type SeededPlayer } from "./players";
 
@@ -33,7 +34,8 @@ import { SEEDED_FROM_DAY, SEEDED_PLAYERS, seededDay, seededGame, seededPlayer, t
 // (`players.ts`), so the leaderboard, the player pages and the game-over pages have rivals; the quests and achievements are the
 // fresh deployment's (`definitions.ts`), their progress counted from each game over's report as the Challenge reports it
 // (`quests.cairo`: a game's tasks counted on the time it ended, a free game reporting no quest progress); the podium is the
-// mock's own leaderboard's, as the indexer credits it. The head is the ledger's clock.
+// mock's own leaderboard's, as the indexer credits it. The head is the ledger's clock. The PvP weeklies (#976, `weeklies.ts`)
+// count the player's settled attacks, as `Setup.report_pvp` reports each one on the time it ended.
 
 const DAY_S = 86_400;
 const CHALLENGE_MODE = 1;
@@ -79,7 +81,7 @@ function seededIndexed(g: SeededGame): IndexedGame {
 
 /**
  * The mock's indexer on `ledger`. Each answer's head is the ledger's clock, never behind. The ledger counts a day's dailies
- * done through it for the milestones' claims (`countDailiesWith`).
+ * and a week's weeklies done through it for the milestones' claims (`countDailiesWith`, `countWeekliesWith`).
  */
 export function mockIndexer(ledger: MockLedger): IndexerClient {
   const now = () => ledger.seconds();
@@ -198,7 +200,7 @@ export function mockIndexer(ledger: MockLedger): IndexerClient {
 
   // --- The quests and achievements ------------------------------------------------------------------------------------
 
-  const definitions = (): Definitions => ledger.definitions(withMockDailies(FRESH_DEFINITIONS));
+  const definitions = (): Definitions => ledger.definitions(withMockWeeklies(withMockDailies(FRESH_DEFINITIONS)));
 
   /** A task's count and when it reached its total, over `reports` (end time, counts by task), oldest first. */
   const progressOf = (task: TaskTarget, reports: readonly { time: number; counts: Partial<Record<number, number>> }[]) => {
@@ -216,7 +218,10 @@ export function mockIndexer(ledger: MockLedger): IndexerClient {
     // A free game reports no quest progress (`Challenge.finish`, cobbles v1 4.2).
     const games = finished()
       .filter((g) => g.player === key && !g.free)
-      .sort((a, b) => a.endTime - b.endTime);
+      .map((g) => ({ time: g.endTime, counts: questCounts(tallyOf(g.stored)) }));
+    // A settled PvP attack reports its tasks (`Setup.report_pvp`, #976): the PvP weeklies count them.
+    const attacks = ledger.settledAttacks(key).map((a) => ({ time: a.finishedAt, counts: pvpCounts(a.stars) }));
+    const reports = [...games, ...attacks].sort((a, b) => a.time - b.time);
     const quests = definitions()
       .quests.filter((q) => !q.retired)
       .map((d) => ({ d, schedule: { start: d.startTime, interval: d.interval, duration: d.duration } }))
@@ -226,8 +231,8 @@ export function mockIndexer(ledger: MockLedger): IndexerClient {
         const w = questWindow(schedule, day * DAY_S);
         const intervalId = w.active ? w.intervalId : w.intervalId + 1;
         const opens = d.interval > 0 ? d.startTime + intervalId * d.interval : d.startTime;
-        const reports = games.filter((g) => g.endTime >= opens && g.endTime < opens + d.duration).map((g) => ({ time: g.endTime, counts: questCounts(tallyOf(g.stored)) }));
-        const tasks = d.tasks.map((t) => ({ taskId: t.taskId, total: t.total, ...progressOf(t, reports) }));
+        const live = reports.filter((r) => r.time >= opens && r.time < opens + d.duration);
+        const tasks = d.tasks.map((t) => ({ taskId: t.taskId, total: t.total, ...progressOf(t, live) }));
         const completed = tasks.every((t) => t.count >= t.total);
         return { questId: d.questId, intervalId, tasks: tasks.map(({ taskId, total, count }) => ({ taskId, total, count })), completed, completedAt: completed ? Math.max(...tasks.map((t) => t.completedAt ?? 0)) : null, retired: false };
       });
@@ -261,6 +266,8 @@ export function mockIndexer(ledger: MockLedger): IndexerClient {
   };
 
   ledger.countDailiesWith(async (playerId, day) => dailiesDone(definitions(), questsOf(playerId, day)));
+  // A week's weeklies: those live on its first day, whose window is the whole week.
+  ledger.countWeekliesWith(async (playerId, week) => weekliesDone(definitions(), questsOf(playerId, firstDayOfWeek(week))));
 
   // --- The players ----------------------------------------------------------------------------------------------------
 

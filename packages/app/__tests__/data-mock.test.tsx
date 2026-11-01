@@ -335,12 +335,15 @@ describe("the mock", () => {
       [17, 1, 2, 0, 3],
       [18, 1, 3, 1, 3],
       [19, 1, 4, 2, 3],
+      // The PvP weeklies (#976): 10 attacks settled, 15 stars.
+      [20, 19, 10, 4, 7],
+      [21, 20, 15, 4, 7],
     ]);
     expect(defined.achievements).toHaveLength(16);
-    // Today (day mod 3 = 0): Daily Run, 5, 8, 11 and the fifth daily, 17; the three weeklies; nothing counted yet.
+    // Today (day mod 3 = 0): Daily Run, 5, 8, 11 and the fifth daily, 17; the five weeklies; nothing counted yet.
     expect(TODAY % 3).toBe(0);
     const today = (await sources.indexer.playerQuests(PLAYER, { day: TODAY })).data;
-    expect(today.quests.map((q) => q.questId)).toEqual([1, 5, 8, 11, 14, 15, 16, 17]);
+    expect(today.quests.map((q) => q.questId)).toEqual([1, 5, 8, 11, 14, 15, 16, 17, 20, 21]);
     expect(today.quests.every((q) => !q.completed && q.tasks[0]!.count === 0)).toBe(true);
     const { result } = renderData(() => usePlayerQuests(PLAYER, TODAY), sources);
     expect((await dataOf(result))!.quests.filter((q) => questPeriod(q) === "daily")).toHaveLength(DAILY_QUESTS);
@@ -594,7 +597,11 @@ describe("the mock", () => {
   it("gives the definitions their Cobbles: none for a daily (#869), even its own; a weekly's own stay, else the table's", async () => {
     const { sources, ledger } = mockImplementation(undefined, WINNER);
     const definitions = (await sources.indexer.definitions()).data;
-    expect(definitions.quests.map((q) => [q.questId, q.cobbles, q.cobblesKind])).toEqual([1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map((id) => [id, id >= 14 && id <= 16 ? 15 : 0, id >= 14 && id <= 16 ? "weekly" : "daily"]));
+    // The PvP weeklies (#976) pay none of their own: the week's milestones do.
+    const kindOf = (id: number) => ((id >= 14 && id <= 16) || id >= 20 ? "weekly" : "daily");
+    expect(definitions.quests.map((q) => [q.questId, q.cobbles, q.cobblesKind])).toEqual(
+      [1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((id) => [id, id >= 14 && id <= 16 ? 15 : 0, kindOf(id)]),
+    );
     expect(definitions.achievements.find((a) => a.achievementId === 4)?.cobbles).toBe(40);
     const [daily] = FRESH_DEFINITIONS.quests;
     const weekly = FRESH_DEFINITIONS.quests.find((q) => q.questId === 14)!;
