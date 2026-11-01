@@ -45,7 +45,31 @@ import {
   type PrivatePair,
   type PrivateSide,
 } from "@paved/game-core";
-import { ChatRefusedError, type ChatMessage, type ChatOverview, type ChatPage, type ChatPageHead, type ChatWriteRefusal, type ConversationSummary, type GuildAnnouncement, type GuildLogEntry, type PublicProfile } from "../social-source";
+import {
+  bytesToHex,
+  checkCommitment,
+  conversationKey,
+  epochDue,
+  guildMessageKey,
+  hexToBytes,
+  labelledKeyPair,
+  makeEpoch,
+  newKeyPair,
+  open,
+  openEpoch,
+  privateVersions,
+  publicOf,
+  replayedEnvelopes,
+  reportReveal,
+  safetyCode,
+  seal,
+  type EpochMember,
+  type EpochRecord,
+  type Envelope,
+  type MessagingKeyPair,
+  type PublicMessagingKey,
+} from "@paved/game-core/e2e";
+import { ChatRefusedError, type ChatEncryption, type ChatMessage, type ChatOverview, type ChatPage, type ChatPageHead, type ChatWriteRefusal, type ConversationSummary, type GuildAnnouncement, type GuildLogEntry, type PublicProfile } from "../social-source";
 import { CHAT_FILTER_WORDS, GUILD_LINES, REPLY_LINES, REQUEST_LINES, WORLD_LINES } from "./chat-lines";
 import { community, communityMember } from "./community";
 import type { GuildPeople, GuildWorld, StoredGuild, StoredLogEntry } from "./guilds";
@@ -63,6 +87,16 @@ import type { GuildPeople, GuildWorld, StoredGuild, StoredLogEntry } from "./gui
 //   default), across no block;
 // - a stranger of the community sends a request `MOCK_REQUEST_S` after the player's first visit to the Chat tab, so that the
 //   flow can be tried.
+//
+// End-to-end encryption (#997, game-core's `social/e2e.ts`): the private and guild messages are stored sealed, never as text,
+// and opened on each read with the reader's keys; the World stays public. Each player has a messaging key (X25519, with a
+// version): a device player's is made the first time the chat meets them on this device and kept in the ledger's state, as the
+// account's key is; a community player's is derived from their ID (`labelledKeyPair`), so that every device agrees, as the mock
+// plays their part. The directory serves each player's latest public key. A guild's messages are sealed with its epoch's key,
+// wrapped for each member; a new epoch starts as soon as its members change (a joining, a kick, a leave) or one changes key,
+// so that a departed member cannot open what follows, and a joiner reads from their joining on. A report reveals the reported
+// message and the 5 before it, each commitment checked as a moderator will. The encryption's code (`@paved/game-core/e2e`) is
+// a chunk of its own beside the mock's, fetched with it, never in the home's first load (`vite.config.ts`).
 
 /** A community player answers a private message this long after it at the earliest, and up to 5 seconds later. */
 export const MOCK_REPLY_MIN_S = 3;
@@ -89,23 +123,50 @@ const REQUEST_DRAW = 0x41534bn;
 /** The guild log's kinds shown as lines of the guild's conversation (#955, proposal 3). */
 const EVENT_KINDS: ReadonlySet<string> = new Set(["joined", "left", "kicked", "promoted", "leader"]);
 
-/** A message as stored: a device player's, or a community player's the mock made (an answer, a request). */
-export interface StoredChatMessage {
+/**
+ * A message as stored: a device player's, or a community player's the mock made (an answer, a request). The World's holds its
+ * text; a guild's or private one holds its envelope only (`sealed`, #997), never its text.
+ */
+export type StoredChatMessage = { id: string; author: string; at: number; deleted: boolean } & ({ text: string; sealed?: undefined } | { sealed: Envelope; text?: undefined });
+
+/** A message a report reveals (#997, point 7): its text and franking key, and whether its commitment matches (null: public). */
+export interface RevealedMessage {
   id: string;
   author: string;
-  text: string;
   at: number;
-  deleted: boolean;
+  text: string;
+  /** Null: a public line (the World's, a drawn one), with no envelope. */
+  frankingKey: string | null;
+  commitment: string | null;
+  /** The moderator's check of the commitment against the revealed text and key; null for a public line. */
+  checked: boolean | null;
 }
 
-/** A report: the mock records it (#955, proposal 5), with the message as it was. */
+/** A report: the mock records it (#955, proposal 5), with what it reveals: the message, and in private or a guild the 5 before it. */
 export interface StoredReport {
   reporter: string;
   conversation: ConversationId;
   message: string;
   author: string;
-  text: string;
   reason: ChatReportReason;
+  at: number;
+  /** Oldest first, the reported message last. */
+  revealed: RevealedMessage[];
+}
+
+/** A device player's messaging key, as the device keeps it (hexadecimal). */
+export interface StoredKeyPair {
+  version: number;
+  secretKey: string;
+  publicKey: string;
+  /** When it was made, in seconds. */
+  at: number;
+}
+
+/** A messaging key's change: a new version (`rotateKeys`), shown as "<name>'s security key changed" in their conversations. */
+export interface KeyChange {
+  player: string;
+  version: number;
   at: number;
 }
 
@@ -119,7 +180,7 @@ export interface StoredChatPlayer {
 }
 
 export interface StoredChat {
-  version: 1;
+  version: 2;
   nextId: number;
   /** By conversation, oldest first: the device's messages and the ones the mock made. */
   messages: Record<ConversationId, StoredChatMessage[]>;
@@ -138,7 +199,26 @@ export interface StoredChat {
    * a drawn line's author is one of the members of that time. Absent: none yet.
    */
   departed?: Departure[];
+  /** The device players' key rings, by player key, oldest first: every version, so that the history stays readable. */
+  keys: Record<string, StoredKeyPair[]>;
+  /** The community players' key versions past the first, by player key (`rotateKeys`). */
+  rotations: Record<string, number>;
+  keyChanges: KeyChange[];
+  /** A guild conversation's epochs, oldest first. */
+  epochs: Record<ConversationId, EpochRecord[]>;
+  /** Each sender's count of messages in a conversation, by `conversation|player`: an envelope's counter. */
+  counters: Record<string, number>;
 }
+
+/** The chat as version 1 stored it: the messages' texts in clear. Sealed in place on load (`settleChat`). */
+export interface StoredChatV1 extends Omit<StoredChat, "version" | "messages" | "reports" | "keys" | "rotations" | "keyChanges" | "epochs" | "counters"> {
+  version: 1;
+  messages: Record<ConversationId, { id: string; author: string; text: string; at: number; deleted: boolean }[]>;
+  reports: { reporter: string; conversation: ConversationId; message: string; author: string; text: string; reason: ChatReportReason; at: number }[];
+}
+
+/** A stored chat of either version. */
+export type AnyStoredChat = StoredChat | StoredChatV1;
 
 /** A membership that ended: who, in which guild, from when to when (seconds). */
 export interface Departure {
@@ -148,12 +228,27 @@ export interface Departure {
   leftAt: number;
 }
 
-export const freshChat = (): StoredChat => ({ version: 1, nextId: 1, messages: {}, deleted: {}, sides: {}, reads: {}, mutes: [], reports: [], players: {} });
+export const freshChat = (): StoredChat => ({
+  version: 2,
+  nextId: 1,
+  messages: {},
+  deleted: {},
+  sides: {},
+  reads: {},
+  mutes: [],
+  reports: [],
+  players: {},
+  keys: {},
+  rotations: {},
+  keyChanges: [],
+  epochs: {},
+  counters: {},
+});
 
-/** A stored chat, or null when it is not one this version wrote (then a fresh one serves). */
-export function parseChat(stored: unknown): StoredChat | null {
-  const c = stored as StoredChat | null | undefined;
-  return c && c.version === 1 && typeof c.messages === "object" && c.messages !== null && Array.isArray(c.mutes) ? c : null;
+/** A stored chat of version 1 or 2, or null when it is neither (then a fresh one serves). */
+export function parseChat(stored: unknown): AnyStoredChat | null {
+  const c = stored as AnyStoredChat | null | undefined;
+  return c && (c.version === 1 || c.version === 2) && typeof c.messages === "object" && c.messages !== null && Array.isArray(c.mutes) ? c : null;
 }
 
 /** What the chat reads of the rest of the mock at `now`: anyone's profile, the follows' graph, the guilds, the known players. */
@@ -173,6 +268,218 @@ const refuse = (reason: ChatWriteRefusal, retryAt: number | null = null): never 
   throw new ChatRefusedError(reason, retryAt);
 };
 const isCommunity = (address: string): boolean => communityMember(address) !== null;
+
+// --- Keys, the directory, the epochs (#997) --------------------------------------------------------------------------
+
+/** Bounds on the caches below, for a page left open for days. */
+const CACHE_MAX = 5_000;
+const cached = <T>(map: Map<string, T>, k: string, make: () => T): T => {
+  if (map.has(k)) return map.get(k)!;
+  if (map.size > CACHE_MAX) map.clear();
+  const v = make();
+  map.set(k, v);
+  return v;
+};
+const communityPairs = new Map<string, MessagingKeyPair>();
+const storedPairs = new Map<string, MessagingKeyPair>();
+const conversationKeys = new Map<string, Uint8Array | null>();
+const epochKeys = new Map<string, Uint8Array | null>();
+
+/** A community player's key pair of `version`, derived from their ID: every device agrees, as the mock plays their part. */
+const communityPair = (player: string, version: number): MessagingKeyPair =>
+  cached(communityPairs, `${player}|${version}`, () => labelledKeyPair(`paved-mock-community|${player}`, version));
+
+const storedPair = (s: StoredKeyPair): MessagingKeyPair =>
+  cached(storedPairs, s.secretKey, () => ({ version: s.version, secretKey: hexToBytes(s.secretKey), publicKey: hexToBytes(s.publicKey) }));
+
+/** Every key pair of `player` the mock holds, oldest first: a device player's ring, or a community player's versions. */
+function ringOf(chat: StoredChat, w: ChatWorld, player: string): MessagingKeyPair[] {
+  const k = key(player);
+  if (isCommunity(k)) return Array.from({ length: chat.rotations[k] ?? 1 }, (_, i) => communityPair(k, i + 1));
+  return (chat.keys[k] ?? []).map(storedPair);
+}
+
+const pairAt = (chat: StoredChat, w: ChatWorld, player: string, version: number): MessagingKeyPair | null => ringOf(chat, w, player).find((p) => p.version === version) ?? null;
+
+/** The directory: a player's latest public key and its version, or null (a device player the chat has not met yet). */
+export function directoryOf(chat: StoredChat, w: ChatWorld, player: string): PublicMessagingKey | null {
+  const latest = ringOf(chat, w, player).at(-1);
+  return latest ? publicOf(latest) : null;
+}
+
+/** Makes a device player's key the first time the chat meets them (their first connect, on the mock's device); true if made. */
+function ensureKey(chat: StoredChat, w: ChatWorld, player: string): boolean {
+  const k = key(player);
+  if (isCommunity(k) || (chat.keys[k]?.length ?? 0) > 0) return false;
+  const pair = newKeyPair(1);
+  chat.keys[k] = [{ version: 1, secretKey: bytesToHex(pair.secretKey), publicKey: bytesToHex(pair.publicKey), at: w.now }];
+  return true;
+}
+
+/** A private conversation's key as `viewer` derives it for both versions of a header, or null: a version they do not hold. */
+function privateKeyFor(chat: StoredChat, w: ChatWorld, id: ConversationId, viewer: string, versions: readonly [number, number]): Uint8Array | null {
+  const c = parseConversation(id);
+  const me = key(viewer);
+  if (c?.kind !== "private" || !c.players.includes(me)) return null;
+  const mineAt = c.players[0] === me ? 0 : 1;
+  const mine = pairAt(chat, w, me, versions[mineAt]!);
+  const theirs = pairAt(chat, w, c.players[1 - mineAt]!, versions[1 - mineAt]!);
+  if (!mine || !theirs) return null;
+  return cached(conversationKeys, `${id}|${me}|${bytesToHex(mine.publicKey)}|${bytesToHex(theirs.publicKey)}`, () => {
+    try {
+      return conversationKey(id, me, mine, publicOf(theirs));
+    } catch {
+      return null;
+    }
+  });
+}
+
+/** An epoch's key as `viewer` opens it with their ring, or null: the epoch does not cover them. */
+function epochKeyFor(chat: StoredChat, w: ChatWorld, record: EpochRecord, viewer: string): Uint8Array | null {
+  const wrap = record.wraps[key(viewer)];
+  const mine = wrap && pairAt(chat, w, viewer, wrap.version);
+  if (!wrap || !mine) return null;
+  // Cached by the reader's key pair as well as the wrap: a key the device no longer holds opens nothing, warm or cold.
+  return cached(epochKeys, `${record.conversation}|${record.epoch}|${key(viewer)}|${wrap.ephemeral}|${bytesToHex(mine.publicKey)}`, () => openEpoch(record, viewer, [mine]));
+}
+
+/** The members of a guild as its epoch covers them, each with their latest key (a device member's made if need be). */
+function epochMembers(chat: StoredChat, w: ChatWorld, g: StoredGuild): EpochMember[] {
+  return g.members.map((m) => {
+    ensureKey(chat, w, m.address);
+    return { player: m.address, key: directoryOf(chat, w, m.address)! };
+  });
+}
+
+/** A player's latest public key, theirs made first if they are a device player the chat has not met yet. */
+function keyFor(chat: StoredChat, w: ChatWorld, player: string): PublicMessagingKey {
+  ensureKey(chat, w, player);
+  return directoryOf(chat, w, player)!;
+}
+
+/**
+ * Starts a guild's next epochs (#997, point 4), for every guild with a member on this device: one at each change of its
+ * members since its latest epoch (a joining, a kick, a leave: each one's time, from the roster, the recorded departures and
+ * the log, so that a leave and a rejoin between two reads are two epochs, not none), then one more if its members as they
+ * stand, or one of their keys, differ from the latest. The joiner makes it at a joining, else the highest rank (the officer of
+ * a kick, the first remaining member of a leave). The mock makes it at once, dated at the change. True if anything was made.
+ * The ledger also runs it after each guild write (`settleChat`), so that each write's change is an epoch of its own.
+ */
+function settleEpochs(chat: StoredChat, w: ChatWorld): boolean {
+  let changed = false;
+  for (const g of w.guilds.guilds) {
+    if (g.members.length === 0 || g.members.every((m) => isCommunity(m.address))) continue;
+    const id = guildConversation(g.id);
+    // A device member's key made here is a change to store, whether or not an epoch follows.
+    if (g.members.map((m) => ensureKey(chat, w, m.address)).some(Boolean)) changed = true;
+    const rank = new Map(g.members.map((m) => [m.address, m.rank] as const));
+    const start = (at: number, roster: readonly string[], joiners: readonly string[]) => {
+      const list = chat.epochs[id] ?? [];
+      const latest = list.at(-1) ?? null;
+      const covered = new Set(latest?.members ?? []);
+      const joiner = latest ? joiners.find((p) => !covered.has(p)) : undefined;
+      const creator = joiner ?? [...roster].sort((a, b) => (rank.get(b) ?? -1) - (rank.get(a) ?? -1) || (a < b ? -1 : 1))[0]!;
+      const members = roster.map((p) => ({ player: p, key: keyFor(chat, w, p) }));
+      chat.epochs[id] = [...list, makeEpoch({ conversation: id, epoch: (latest?.epoch ?? 0) + 1, creator, at, members }).record];
+      changed = true;
+    };
+    // Each change of the roster since the latest epoch, in order.
+    const since = chat.epochs[id]?.at(-1)?.at;
+    if (since !== undefined) {
+      const spans = allMemberships(g, chat.departed ?? []);
+      const times = [...new Set(spans.flatMap((m) => [m.from, m.to]))].filter((t) => Number.isFinite(t) && t > since && t <= w.now).sort((a, b) => a - b);
+      for (const t of times) {
+        const roster = [...new Set(spans.filter((m) => m.from <= t && t < m.to).map((m) => m.address))].sort();
+        const latest = chat.epochs[id]!.at(-1)!;
+        const now = roster.map((p) => ({ player: p, key: keyFor(chat, w, p) }));
+        if (roster.length > 0 && epochDue(latest, now)) start(t, roster, spans.filter((m) => m.from === t).map((m) => m.address));
+      }
+    }
+    // The members as they stand.
+    const latest = chat.epochs[id]?.at(-1) ?? null;
+    const members = epochMembers(chat, w, g);
+    if (!epochDue(latest, members)) continue;
+    const inGuild = new Set(g.members.map((m) => m.address));
+    const changes = [
+      ...g.members.map((m) => m.joinedAt),
+      ...(chat.departed ?? []).filter((d) => d.guild === g.id).map((d) => d.leftAt),
+      ...chat.keyChanges.filter((k) => inGuild.has(k.player)).map((k) => k.at),
+    ];
+    const at = Math.min(w.now, Math.max(latest?.at ?? g.createdAt, ...changes));
+    start(at, [...inGuild].sort(), [...g.members].sort((a, b) => b.joinedAt - a.joinedAt).map((m) => m.address));
+  }
+  return changed;
+}
+
+/** The key an epoch seals with, as the mock opens it for anyone it covers (the mock plays every member's part), or null. */
+function epochKeyOfAny(chat: StoredChat, w: ChatWorld, record: EpochRecord): Uint8Array | null {
+  for (const member of record.members) {
+    const k = epochKeyFor(chat, w, record, member);
+    if (k) return k;
+  }
+  return null;
+}
+
+/**
+ * Seals a message of `sender` in a guild's or private conversation (#997): with the conversation's key from the sender's latest
+ * key and the other's in the directory, or with the guild's latest epoch; the header carries the sender's next counter.
+ */
+function sealIn(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, sender: string, text: string, at: number): Envelope {
+  const counterKey = sideKey(id, sender);
+  const counter = (chat.counters[counterKey] ?? 0) + 1;
+  chat.counters[counterKey] = counter;
+  if (c.kind === "private") {
+    const other = otherPlayer(id, sender)!;
+    ensureKey(chat, w, sender);
+    ensureKey(chat, w, other);
+    const versions = privateVersions(id, sender, directoryOf(chat, w, sender)!.version, directoryOf(chat, w, other)!.version);
+    const k = privateKeyFor(chat, w, id, sender, versions);
+    if (!k) throw new Error("mock chat: no conversation key");
+    return seal(k, { conversation: id, sender: key(sender), versions, at, counter }, text);
+  }
+  const latest = chat.epochs[id]?.at(-1);
+  const epochKey = latest && (epochKeyFor(chat, w, latest, sender) ?? epochKeyOfAny(chat, w, latest));
+  if (!latest || !epochKey) throw new Error("mock chat: no epoch to seal with");
+  return seal(guildMessageKey(epochKey, id, latest.epoch), { conversation: id, sender: key(sender), epoch: latest.epoch, at, counter }, text);
+}
+
+/** Opens a sealed message of `author` in `id` with `viewer`'s keys, or null: a key they do not hold, or a mismatch. */
+function openFor(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, author: string, at: number, sealed: Envelope) {
+  const h = sealed.header;
+  if (h.conversation !== id || key(h.sender) !== key(author) || h.at !== at) return null;
+  let k: Uint8Array | null = null;
+  if (c.kind === "private" && "versions" in h) k = privateKeyFor(chat, w, id, viewer, h.versions);
+  if (c.kind === "guild" && "epoch" in h) {
+    const record = chat.epochs[id]?.find((e) => e.epoch === h.epoch);
+    const epochKey = record ? epochKeyFor(chat, w, record, viewer) : null;
+    k = epochKey ? guildMessageKey(epochKey, id, h.epoch) : null;
+  }
+  return k ? open(k, sealed) : null;
+}
+
+/** Version 1's chat, sealed in place (#997, point 5): its keys made, its guilds' first epochs, its texts sealed, its reports kept. */
+function upgradeChat(old: StoredChatV1, w: ChatWorld): StoredChat {
+  const { messages, reports, ...rest } = structuredClone(old);
+  const next: StoredChat = { ...rest, version: 2, messages: {}, reports: [], keys: {}, rotations: {}, keyChanges: [], epochs: {}, counters: {} };
+  settleEpochs(next, w);
+  for (const [id, list] of Object.entries(messages)) {
+    const c = parseConversation(id);
+    if (!c) continue;
+    if (c.kind === "world") {
+      next.messages[id] = list;
+      continue;
+    }
+    if (c.kind === "guild" && !next.epochs[id]?.length) {
+      // A guild with no member on this device, or none left: no one here reads it, so its texts are not kept.
+      const g = w.guilds.guilds.find((x) => x.id === c.guild);
+      if (!g || g.members.length === 0) continue;
+      next.epochs[id] = [makeEpoch({ conversation: id, epoch: 1, creator: g.members[0]!.address, at: w.now, members: epochMembers(next, w, g) }).record];
+    }
+    next.messages[id] = list.map((m) => ({ id: m.id, author: m.author, at: m.at, deleted: m.deleted, sealed: sealIn(next, w, id, c, m.author, m.deleted ? "" : m.text, m.at) }));
+  }
+  next.reports = reports.map(({ text, ...r }) => ({ ...r, revealed: [{ id: r.message, author: r.author, at: r.at, text, frankingKey: null, commitment: null, checked: null }] }));
+  return next;
+}
 
 // --- Draws -----------------------------------------------------------------------------------------------------------
 
@@ -235,14 +542,13 @@ function logDepartures(g: StoredGuild, recorded: readonly Departure[]): { addres
 /** A guild's community memberships, past and present: who, from when, until when (Infinity: still a member). */
 type Memberships = readonly { address: string; from: number; to: number }[];
 
-function membershipsOf(g: StoredGuild, departed: readonly Departure[]): Memberships {
+/** A guild's memberships, past and present, the device's players' included. */
+function allMemberships(g: StoredGuild, departed: readonly Departure[]): Memberships {
   const recorded = departed.filter((d) => d.guild === g.id);
-  return [
-    ...g.members.map((m) => ({ address: m.address, from: m.joinedAt, to: Infinity })),
-    ...recorded.map((d) => ({ address: d.address, from: d.joinedAt, to: d.leftAt })),
-    ...logDepartures(g, recorded),
-  ].filter((m) => isCommunity(m.address));
+  return [...g.members.map((m) => ({ address: m.address, from: m.joinedAt, to: Infinity })), ...recorded.map((d) => ({ address: d.address, from: d.joinedAt, to: d.leftAt })), ...logDepartures(g, recorded)];
 }
+
+const membershipsOf = (g: StoredGuild, departed: readonly Departure[]): Memberships => allMemberships(g, departed).filter((m) => isCommunity(m.address));
 
 /** The community members of a guild at `at`, by address: those of that time, whoever joined or left since. */
 const guildSpeakers = (memberships: Memberships, at: number): string[] => [...new Set(memberships.filter((m) => m.from <= at && at < m.to).map((m) => m.address))].sort();
@@ -303,19 +609,32 @@ function pairOf(chat: StoredChat, w: ChatWorld, id: ConversationId, player: stri
   };
 }
 
-/** A line of a conversation, before the viewer: a message, or a guild's event. */
-interface Line extends StoredChatMessage {
+/**
+ * A line of a conversation: a message, or a guild's event. Before a viewer, a sealed message has no text; opened for one
+ * (`readableLines`), it has its text (filtered), its franking key, or `unreadable`.
+ */
+interface Line {
+  id: string;
+  author: string;
+  at: number;
+  deleted: boolean;
+  text: string;
+  sealed: Envelope | null;
+  /** Opened for the viewer: the text as sealed (before the filter) and its franking key. */
+  opened: { text: string; frankingKey: string } | null;
+  /** The viewer's keys do not open it, or its commitment does not match (#997, point 6). */
+  unreadable: boolean;
   event: StoredLogEntry | null;
 }
 
-const asLine = (m: StoredChatMessage): Line => ({ ...m, event: null });
+const asLine = (m: StoredChatMessage): Line => ({ id: m.id, author: m.author, at: m.at, deleted: m.deleted, text: m.text ?? "", sealed: m.sealed ?? null, opened: null, unreadable: false, event: null });
 
 /** Every line a conversation keeps at `w.now` (`CHAT_KEPT`), oldest first, before any viewer's filter. */
 function linesOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation): Line[] {
   const stored = (chat.messages[id] ?? []).map(asLine);
   if (c.kind === "private") return stored;
   const gone = new Set(chat.deleted[id] ?? []);
-  const mark = (m: StoredChatMessage): Line => ({ ...m, deleted: m.deleted || gone.has(m.id), event: null });
+  const mark = (m: StoredChatMessage): Line => ({ ...asLine(m), deleted: m.deleted || gone.has(m.id) });
   let lines: Line[];
   if (c.kind === "world") {
     lines = [...drawnBack(WORLD_SLOT_S, w.now - WORLD_LOOKBACK_S, w.now, CHAT_KEPT.world, worldLine).map(mark), ...stored];
@@ -327,7 +646,7 @@ function linesOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversa
     const from = Math.max(g.createdAt, Math.min(...memberships.map((m) => m.from)));
     const events: Line[] = g.log
       .filter((e) => EVENT_KINDS.has(e.kind) && e.at >= g.createdAt && e.at <= w.now)
-      .map((e) => ({ id: `e${e.at}-${e.kind}-${e.actor}-${e.target ?? ""}`, author: e.actor, text: "", at: e.at, deleted: false, event: e }));
+      .map((e): Line => ({ id: `e${e.at}-${e.kind}-${e.actor}-${e.target ?? ""}`, author: e.actor, text: "", at: e.at, deleted: false, sealed: null, opened: null, unreadable: false, event: e }));
     const drawnLines = Number.isFinite(from) ? drawnBack(GUILD_SLOT_S, from, w.now, CHAT_KEPT.guild, (slot) => guildLine(g, memberships, slot)) : [];
     lines = [...drawnLines.map(mark), ...events, ...stored];
   }
@@ -392,28 +711,40 @@ function requestDue(chat: StoredChat, w: ChatWorld, player: string): { id: Conve
   return null;
 }
 
+/** A community player's message the mock made, sealed as they would seal it (#997: the answers and requests are stored). */
+function sealedBy(chat: StoredChat, w: ChatWorld, id: ConversationId, m: StoredChatMessage): StoredChatMessage {
+  const c = parseConversation(id)!;
+  return { id: m.id, author: m.author, at: m.at, deleted: m.deleted, sealed: sealIn(chat, w, id, c, m.author, m.text ?? "", m.at) };
+}
+
 /**
- * The stored chat at `w.now`, with what the community does when due made: the answers in private, the strangers' requests.
- * A new value; `chat` is left as it is.
+ * The stored chat at `w.now`, a version 1 sealed in place, with what is due made: the reader's key (`player`, their first
+ * connect on this device), the guilds' epochs, the community's answers in private and the strangers' requests, sealed. A new
+ * value, and whether it differs from what is stored (then the reader stores it: keys and epochs must not be made twice).
  */
-export function settleChat(chat: StoredChat, w: ChatWorld): StoredChat {
-  const next: StoredChat = structuredClone(chat);
+export function settleChat(chat: AnyStoredChat, w: ChatWorld, player: string | null = null): { chat: StoredChat; changed: boolean } {
+  let changed = chat.version === 1;
+  const next: StoredChat = chat.version === 1 ? upgradeChat(chat, w) : structuredClone(chat);
+  if (player !== null && ensureKey(next, w, player)) changed = true;
+  if (settleEpochs(next, w)) changed = true;
   for (const id of Object.keys(next.messages)) {
     const due = replyDue(next, w, id);
     if (!due || due.message.at > w.now) continue;
-    next.messages[id] = [...next.messages[id]!, due.message];
+    next.messages[id] = [...next.messages[id]!, sealedBy(next, w, id, due.message)];
     next.sides[sideKey(id, due.member)] = { accepted: true, declined: false };
+    changed = true;
   }
-  for (const player of Object.keys(next.players)) {
-    const p = next.players[player]!;
-    if (!p.firstVisit || p.requested || p.firstVisit + MOCK_REQUEST_S > w.now) continue;
-    const due = requestDue(next, w, player);
-    p.requested = true;
+  for (const p of Object.keys(next.players)) {
+    const seen = next.players[p]!;
+    if (!seen.firstVisit || seen.requested || seen.firstVisit + MOCK_REQUEST_S > w.now) continue;
+    const due = requestDue(next, w, p);
+    seen.requested = true;
+    changed = true;
     if (!due) continue;
-    next.messages[due.id] = [...(next.messages[due.id] ?? []), due.message];
+    next.messages[due.id] = [...(next.messages[due.id] ?? []), sealedBy(next, w, due.id, due.message)];
     next.sides[sideKey(due.id, due.member)] = { accepted: true, declined: false };
   }
-  return next;
+  return { chat: next, changed };
 }
 
 /**
@@ -453,7 +784,7 @@ const logEntryOf = (w: ChatWorld, e: StoredLogEntry): GuildLogEntry => ({
 
 /** A line as `viewer` sees it. */
 function viewOf(chat: StoredChat, w: ChatWorld, id: ConversationId, kind: ChatKind, viewer: string, l: Line, guild: StoredGuild | null): ChatMessage {
-  if (l.event) return { id: l.id, conversation: id, kind: "event", author: null, text: "", at: l.at, deleted: false, event: logEntryOf(w, l.event), mine: false, mayDelete: false, mayReport: false };
+  if (l.event) return { id: l.id, conversation: id, kind: "event", author: null, text: "", at: l.at, deleted: false, unreadable: false, event: logEntryOf(w, l.event), mine: false, mayDelete: false, mayReport: false };
   const profile = w.people(l.author);
   const authorGuild = guildOfKey(w.guilds, l.author);
   const mine = key(l.author) === key(viewer);
@@ -464,19 +795,42 @@ function viewOf(chat: StoredChat, w: ChatWorld, id: ConversationId, kind: ChatKi
     conversation: id,
     kind: "message",
     author: { address: profile.address, name: profile.name, look: profile.look, level: profile.level, guildTag: authorGuild ? guildTag(authorGuild.id) : null },
-    text: l.deleted ? "" : l.text,
+    text: l.deleted || l.unreadable ? "" : l.text,
     at: l.at,
     deleted: l.deleted,
+    unreadable: !l.deleted && l.unreadable,
     event: null,
     mine,
     mayDelete: deleteRefusal(kind, { address: viewer, ...ranks }, l) === null,
-    mayReport: reportRefusal(viewer, l, "spam", reported) === null,
+    mayReport: !l.unreadable && reportRefusal(viewer, l, "spam", reported) === null,
   };
+}
+
+/**
+ * The lines of a conversation that `viewer` may read, opened, oldest first: in a guild's, its messages from their joining on
+ * (a joiner reads from there, #997's open point 2; the log's events stay). A sealed message is unreadable when the viewer's
+ * keys do not open it, its commitment does not match, or it is a replay. Authentication comes first: every sealed line is
+ * opened (a deleted one too, so that a copy of it is still a replay), and only those that open move the senders' counters
+ * (`replayedEnvelopes`), so that a forged counter, which opens nothing, cannot make the messages after it unreadable.
+ */
+function readableLines(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, guild: StoredGuild | null): Line[] {
+  const since = c.kind === "guild" ? (guild?.members.find((m) => m.address === key(viewer))?.joinedAt ?? Infinity) : -Infinity;
+  const lines = linesOf(chat, w, id, c);
+  const opened = lines.map((l) => (l.sealed ? openFor(chat, w, id, c, viewer, l.author, l.at, l.sealed) : null));
+  const authentic = lines.flatMap((l, i) => (l.sealed && opened[i] ? [i] : []));
+  const flags = replayedEnvelopes(authentic.map((i) => lines[i]!.sealed!.header));
+  const replayed = new Set(authentic.filter((_, k) => flags[k]));
+  return lines.flatMap((l, i): Line[] => {
+    if (l.event === null && l.at < since) return [];
+    if (!l.sealed || l.deleted) return [l];
+    const o = opened[i];
+    return [o && !replayed.has(i) ? { ...l, text: filterWords(o.text, CHAT_FILTER_WORDS), opened: o, unreadable: false } : { ...l, text: "", opened: null, unreadable: true }];
+  });
 }
 
 /** The lines of a conversation `viewer` sees, as they see them, oldest first. */
 function visibleOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, guild: StoredGuild | null): ChatMessage[] {
-  return linesOf(chat, w, id, c)
+  return readableLines(chat, w, id, c, viewer, guild)
     .filter((l) => shows(chat, w, c.kind, viewer, l))
     .map((l) => viewOf(chat, w, id, c.kind, viewer, l, guild));
 }
@@ -554,13 +908,27 @@ function parseCursor(cursor: string | null | undefined): { at: number; id: strin
 }
 
 /** The player's own messages in a conversation, as the rate limits read them. */
-const sentBy = (chat: StoredChat, id: ConversationId, player: string) => (chat.messages[id] ?? []).filter((m) => m.author === key(player)).map((m) => ({ at: m.at, text: m.text }));
+const sentBy = (chat: StoredChat, id: ConversationId, player: string) => (chat.messages[id] ?? []).filter((m) => m.author === key(player)).map((m) => ({ at: m.at, text: m.text ?? "" }));
 
 /** Why the player may not write in a conversation at all (not the rate limits), or null. */
 function writeRefusalOf(chat: StoredChat, w: ChatWorld, id: ConversationId, r: NonNullable<ReturnType<typeof readable>>, player: string): ChatRefusal | null {
   if (r.c.kind === "world") return w.people(player).level < CHAT_WORLD_MIN_LEVEL ? "level-low" : null;
   if (r.c.kind === "guild") return null;
   return privateRefusal(pairOf(chat, w, id, player, r.other!));
+}
+
+/** What a conversation's encryption says to `viewer` (#997): public, the guild's, or private with its safety code and key changes. */
+function encryptionOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string): ChatEncryption {
+  if (c.kind !== "private") return { mode: c.kind === "world" ? "public" : "guild", safetyCode: null, keyChanges: [] };
+  const other = otherPlayer(id, viewer)!;
+  const mine = directoryOf(chat, w, viewer);
+  const theirs = directoryOf(chat, w, other);
+  const first = chat.messages[id]?.[0]?.at;
+  return {
+    mode: "private",
+    safetyCode: mine && theirs ? safetyCode(mine.publicKey, theirs.publicKey) : null,
+    keyChanges: first === undefined ? [] : chat.keyChanges.filter((k) => k.player === key(other) && k.at >= first).map(({ at, version }) => ({ at, version })),
+  };
 }
 
 /** A page of a conversation as `player` sees it, or null when they may not read it. */
@@ -574,6 +942,7 @@ export function pageOf(chat: StoredChat, w: ChatWorld, player: string, id: Conve
   const pair = r.c.kind === "private" ? pairOf(chat, w, id, player, r.other!) : null;
   return {
     conversation: summaryOf(chat, w, id, r.c, player, r.guild, messages),
+    encryption: encryptionOf(chat, w, id, r.c, player),
     messages: page.messages,
     before: cursorOf(page.before),
     pinned,
@@ -651,10 +1020,13 @@ export function sendIn({ chat, w, player }: ChatWrite, id: ConversationId, text:
   const pair = r.c.kind === "private" ? pairOf(chat, w, id, player, r.other!) : undefined;
   // The text as it is kept (filtered), so that the repeat rule compares it with the kept texts: "darn" twice is "•••" twice.
   // Its length is checked as typed first: the filter never lets a longer text through.
-  const kept = filterWords(normalMessage(text), CHAT_FILTER_WORDS);
+  // A sealed message keeps the text as typed (normal form): its readers filter it after opening (#997, point 6).
+  const normal = normalMessage(text);
+  const kept = filterWords(normal, CHAT_FILTER_WORDS);
   const refused = messageTextRefusal(text) ?? sendRefusal(r.c, { level: w.people(player).level, guild: r.guild?.id ?? null }, kept, sent, w.now, pair);
   if (refused) refuse(refused, refused === "too-fast" || refused === "per-minute" ? nextSendAt(r.c.kind, sent, w.now) : null);
-  const message: StoredChatMessage = { id: `m${chat.nextId++}`, author: key(player), text: kept, at: w.now, deleted: false };
+  const head = { id: `m${chat.nextId++}`, author: key(player), at: w.now, deleted: false };
+  const message: StoredChatMessage = r.c.kind === "world" ? { ...head, text: kept } : { ...head, sealed: sealIn(chat, w, id, r.c, player, normal, w.now) };
   chat.messages[id] = keepMessages(r.c.kind, [...(chat.messages[id] ?? []), message]);
   // Writing in private answers a request, and opens the conversation on the player's side.
   if (r.c.kind === "private") chat.sides[sideKey(id, player)] = { accepted: true, declined: false };
@@ -679,14 +1051,33 @@ export function deleteIn({ chat, w, player }: ChatWrite, id: ConversationId, mes
   else chat.deleted[id] = [...(chat.deleted[id] ?? []), message];
 }
 
-/** Reports a message: recorded, with the message as it was. */
+/** What a report reveals of a line, the moderator's check of its commitment made. */
+function revealOf(w: ChatWorld, id: ConversationId, l: Line): RevealedMessage {
+  if (!l.sealed || !l.opened) return { id: l.id, author: l.author, at: l.at, text: l.text, frankingKey: null, commitment: null, checked: null };
+  const { text, frankingKey } = l.opened;
+  const checked = checkCommitment({ text, frankingKey, conversation: id, sender: l.author, at: l.sealed.header.at }, l.sealed.commitment);
+  return { id: l.id, author: l.author, at: l.at, text, frankingKey, commitment: l.sealed.commitment, checked };
+}
+
+/**
+ * Reports a message: recorded with what it reveals (#997, point 7): in the World the line; in private and in a guild, the
+ * message and, of the 5 lines before it, those that are readable (a deleted or unreadable one is left out, and never replaced
+ * by an older one), decrypted, each with its franking key and commitment, checked as a moderator will.
+ * An unreadable message cannot be reported.
+ */
 export function reportIn({ chat, w, player }: ChatWrite, id: ConversationId, message: string, reason: ChatReportReason): void {
   const r = readableOrRefuse(w, id, player);
-  const line = lineOrRefuse(chat, w, id, r, message);
+  lineOrRefuse(chat, w, id, r, message);
+  const lines = readableLines(chat, w, id, r.c, player, r.guild).filter((l) => l.event === null);
+  const line = lines.find((l) => l.id === message) ?? refuse("not-found");
+  if (line.unreadable) refuse("not-found");
   const already = chat.reports.some((x) => x.reporter === key(player) && x.conversation === id && x.message === message);
   const refused = reportRefusal(player, line, reason, already);
   if (refused) refuse(refused);
-  chat.reports.push({ reporter: key(player), conversation: id, message, author: line.author, text: line.text, reason, at: w.now });
+  // The window first, over every message line the reporter has (deleted and unreadable ones included), then only the readable
+  // ones in it: a deleted or unreadable line never widens the reveal past the 5 lines before the reported one (#997, point 12).
+  const revealed = r.c.kind === "world" ? [line] : reportReveal(lines, message).filter((l) => l.id === message || (!l.deleted && !l.unreadable));
+  chat.reports.push({ reporter: key(player), conversation: id, message, author: line.author, reason, at: w.now, revealed: revealed.map((l) => revealOf(w, id, l)) });
 }
 
 /** Mutes `target`; muting twice keeps the first mute. */
@@ -712,6 +1103,20 @@ export function answerRequestIn({ chat, w, player }: ChatWrite, id: Conversation
   chat.sides[sideKey(id, player)] = accept ? { accepted: true, declined: false } : { accepted: false, declined: true };
 }
 
+/** Changes the player's messaging key (#997, point 10): a new version, the old kept to read the history. For tests and stories. */
+export function rotateKeysIn({ chat, w, player }: ChatWrite): void {
+  const k = key(player);
+  const version = (directoryOf(chat, w, k)?.version ?? 0) + 1;
+  if (isCommunity(k)) chat.rotations[k] = version;
+  else {
+    const pair = newKeyPair(version);
+    chat.keys[k] = [...(chat.keys[k] ?? []), { version, secretKey: bytesToHex(pair.secretKey), publicKey: bytesToHex(pair.publicKey), at: w.now }];
+  }
+  chat.keyChanges.push({ player: k, version, at: w.now });
+  // The guilds they are in start a new epoch for the new key.
+  settleEpochs(chat, w);
+}
+
 /** Marks a conversation read up to now. */
 export function markReadIn({ chat, w, player }: ChatWrite, id: ConversationId): void {
   readableOrRefuse(w, id, player);
@@ -731,7 +1136,7 @@ export function visitChatIn({ chat, w, player }: ChatWrite): void {
  * The stored chat with the memberships a guild write ended (`before`: each guild's members before it, by guild ID), at `now`:
  * a member gone from their guild, or into another, has left it then.
  */
-export function recordDepartures(chat: StoredChat, before: ReadonlyMap<number, readonly { address: string; joinedAt: number }[]>, after: GuildWorld, now: number): StoredChat {
+export function recordDepartures<T extends AnyStoredChat>(chat: T, before: ReadonlyMap<number, readonly { address: string; joinedAt: number }[]>, after: GuildWorld, now: number): T {
   const departed: Departure[] = [];
   for (const [guild, members] of before) {
     const still = after.guilds.find((g) => g.id === guild);
@@ -740,13 +1145,15 @@ export function recordDepartures(chat: StoredChat, before: ReadonlyMap<number, r
       if (!now_ || now_.joinedAt !== m.joinedAt) departed.push({ guild, address: m.address, joinedAt: m.joinedAt, leftAt: now });
     }
   }
-  return departed.length === 0 ? chat : { ...chat, departed: [...(chat.departed ?? []), ...departed] };
+  return departed.length === 0 ? chat : ({ ...chat, departed: [...(chat.departed ?? []), ...departed] } as T);
 }
 
-/** A stored chat without anything of `player`: their messages, private conversations, sides, reads, mutes, reports. */
-export function forgetChat(chat: StoredChat, player: string): StoredChat {
+/** A stored chat without anything of `player`: their messages, private conversations, sides, reads, mutes, reports, keys. */
+export function forgetChat<T extends AnyStoredChat>(chat: T, player: string): T {
   const k = key(player);
-  const next = structuredClone(chat);
+  // Both versions' common fields, with a message's and a report's author only read: one walk for either.
+  const next = structuredClone(chat) as unknown as Omit<StoredChatV1, "version" | "messages" | "reports"> &
+    Partial<Pick<StoredChat, "keys" | "rotations" | "keyChanges" | "counters">> & { version: 1 | 2; messages: Record<ConversationId, { author: string }[]>; reports: { reporter: string }[] };
   for (const id of Object.keys(next.messages)) {
     if (otherPlayer(id, k) !== null) delete next.messages[id];
     else next.messages[id] = next.messages[id]!.filter((m) => m.author !== k);
@@ -757,5 +1164,9 @@ export function forgetChat(chat: StoredChat, player: string): StoredChat {
   next.mutes = next.mutes.filter((m) => m.muter !== k && m.muted !== k);
   next.reports = next.reports.filter((r) => r.reporter !== k);
   delete next.players[k];
-  return next;
+  if (next.keys) delete next.keys[k];
+  if (next.rotations) delete next.rotations[k];
+  if (next.keyChanges) next.keyChanges = next.keyChanges.filter((c) => c.player !== k);
+  if (next.counters) next.counters = Object.fromEntries(Object.entries(next.counters).filter(([s]) => !mine(s)));
+  return next as unknown as T;
 }

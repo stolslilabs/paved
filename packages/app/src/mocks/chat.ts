@@ -27,11 +27,11 @@ let serial = 0;
 /** A message of `author` in `conversation`, `ago` seconds before `MOCK_NOW`. */
 function msg(conversation: string, author: ChatAuthor, ago: number, text: string, over: Partial<ChatMessage> = {}): ChatMessage {
   const mine = author.address === CHAT_ME;
-  return { id: `m${++serial}`, conversation, kind: "message", author, text, at: MOCK_NOW - ago, deleted: false, event: null, mine, mayDelete: mine, mayReport: !mine, ...over };
+  return { id: `m${++serial}`, conversation, kind: "message", author, text, at: MOCK_NOW - ago, deleted: false, unreadable: false, event: null, mine, mayDelete: mine, mayReport: !mine, ...over };
 }
 /** An event of the guild's log, as a line of its conversation. */
 function event(conversation: string, entry: Omit<GuildLogEntry, "at" | "reason"> & { reason?: string | null }, ago: number): ChatMessage {
-  return { id: `e${++serial}`, conversation, kind: "event", author: null, text: "", at: MOCK_NOW - ago, deleted: false, event: { reason: null, ...entry, at: MOCK_NOW - ago }, mine: false, mayDelete: false, mayReport: false };
+  return { id: `e${++serial}`, conversation, kind: "event", author: null, text: "", at: MOCK_NOW - ago, deleted: false, unreadable: false, event: { reason: null, ...entry, at: MOCK_NOW - ago }, mine: false, mayDelete: false, mayReport: false };
 }
 
 const P = [member(3), member(11), member(7), member(26), member(15), member(18), member(22), member(9), member(1), member(29)];
@@ -161,7 +161,16 @@ export const CHAT_BADGES = {
   stress: { guild: 999, private: 1_234 },
 } satisfies Record<string, ChatBadges>;
 
-const head = (conversation: ConversationSummary, over: Partial<ChatPageHead> = {}): ChatPageHead => ({ conversation, pinned: null, standing: null, awaitsReply: false, writeRefusal: null, nextSendAt: MOCK_NOW, ...over });
+const head = (conversation: ConversationSummary, over: Partial<ChatPageHead> = {}): ChatPageHead => ({
+  conversation,
+  encryption: { mode: conversation.kind === "world" ? "public" : conversation.kind, safetyCode: null, keyChanges: [] },
+  pinned: null,
+  standing: null,
+  awaitsReply: false,
+  writeRefusal: null,
+  nextSendAt: MOCK_NOW,
+  ...over,
+});
 const ANNOUNCEMENT = { id: 7, author: P[0]!.address, authorName: P[0]!.name, text: "Raid night is Thursday, 20:00 UTC. Officers: please answer the requests within a day. Be kind in the chat.", at: MOCK_NOW - 2 * DAY, editedAt: null };
 
 type ConversationData = Omit<ChatConversationProps, "onBack" | "onSend" | "onAction" | "onAnswer" | "onOpenPlayer" | "onOpenTitle" | "onLoadOlder" | "onRetry" | "onSeeNotice">;

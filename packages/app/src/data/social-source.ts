@@ -326,11 +326,16 @@ export interface ChatMessage {
   kind: "message" | "event";
   /** A message's author; null for an event. */
   author: ChatAuthor | null;
-  /** The text, filtered (`filterWords`); "" once deleted (shown as "Message deleted") and for an event. */
+  /** The text, filtered (`filterWords`); "" once deleted (shown as "Message deleted"), unreadable, and for an event. */
   text: string;
   /** In seconds since the epoch. */
   at: number;
   deleted: boolean;
+  /**
+   * A sealed message this device cannot open (#997): a key it does not hold, or a commitment that does not match. Shown as
+   * "This message can't be read on this device" in the place of the text, as "Message deleted" is.
+   */
+  unreadable: boolean;
   /** An event's log entry, else null. */
   event: GuildLogEntry | null;
   /** The connected player wrote it. */
@@ -367,9 +372,20 @@ export interface ChatOverview {
   noticeSeen: boolean;
 }
 
+/** What a conversation's encryption is, as the connected player sees it (#997). */
+export interface ChatEncryption {
+  /** `private` and `guild`: end-to-end encrypted; `public`: the World, which every player can read. */
+  mode: "private" | "guild" | "public";
+  /** A private conversation: the safety code of both players' current keys (20 digits in 4 groups of 5); else null. */
+  safetyCode: string | null;
+  /** A private conversation: when the other's key changed (a new version) since it began, oldest first; else empty. */
+  keyChanges: { at: number; version: number }[];
+}
+
 /** A page of one conversation, as the connected player sees it. */
 export interface ChatPage {
   conversation: ConversationSummary;
+  encryption: ChatEncryption;
   /** Oldest first: the latest `CHAT_PAGE_SIZE` before the cursor asked for. */
   messages: ChatMessage[];
   /** The cursor of the older page (pass it as `before`), or null: none older. */

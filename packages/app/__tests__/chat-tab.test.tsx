@@ -194,7 +194,9 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
   });
 
   it("writes in the guild, where the log's lines show; an officer deletes a member's message", async () => {
-    const { me, social, chat, clock } = open("/chat");
+    // On the World: at `/chat` the page opens on Guild for a member, and so reads the line the test wants unread, whenever its
+    // first read comes after the join (a loaded machine): the badge then never shows.
+    const { me, social, chat, clock } = open("/chat/world");
     // OTHER leads the guild, the player joins and is made an officer, THIRD joins and writes.
     const gid = await social.createGuild(OTHER, draft());
     await social.joinGuild(me, gid);
