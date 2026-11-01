@@ -434,6 +434,42 @@ describe("reports that reveal (#997, point 7)", () => {
     expect(raw).not.toContain("line 7");
   });
 
+  it("never reach past the 5 lines before the reported one: a deleted or unreadable line in the window is left out, not replaced", async () => {
+    const { chat, store, clock, stored, restore } = world();
+    known(store, ME, OTHER);
+    const id = privateConversation(ME, OTHER);
+    const sent = [];
+    for (let i = 0; i < 8; i++) {
+      clock.now += 2;
+      sent.push(await chat.send(i % 2 === 0 ? OTHER : ME, id, `line ${i}`));
+    }
+    await chat.deleteMessage(ME, id, sent[5]!.id);
+    restore((c) => {
+      const m = c.messages[id]!.find((x) => x.id === sent[4]!.id)!;
+      m.sealed!.commitment = "00".repeat(32);
+    });
+    await chat.report(ME, id, sent[6]!.id, "scam");
+    const [report] = stored().reports;
+    // The window is lines 1 to 6; line 4 is unreadable and line 5 deleted, so they are out, and line 0 does not come in.
+    expect(report!.revealed.map((r) => r.text)).toEqual(["line 1", "line 2", "line 3", "line 6"]);
+    expect(JSON.stringify(stored())).not.toContain("line 0");
+  });
+
+  it("of the review's case: lines 0 to 7, line 5 deleted, line 7 reported, reveal lines 2 to 7 but 5", async () => {
+    const { chat, store, clock, stored } = world();
+    known(store, ME, OTHER);
+    const id = privateConversation(ME, OTHER);
+    const sent = [];
+    for (let i = 0; i < 8; i++) {
+      clock.now += 2;
+      sent.push(await chat.send(i % 2 === 0 ? ME : OTHER, id, `line ${i}`));
+    }
+    // Line 5 is OTHER's (the odd lines are).
+    await chat.deleteMessage(OTHER, id, sent[5]!.id);
+    await chat.report(ME, id, sent[7]!.id, "spam");
+    expect(stored().reports[0]!.revealed.map((r) => r.text)).toEqual(["line 2", "line 3", "line 4", "line 6", "line 7"]);
+  });
+
   it("in a guild, of the messages the reporter can read", async () => {
     const { chat, social, clock, stored } = world();
     const gid = await social.createGuild(ME, draft());

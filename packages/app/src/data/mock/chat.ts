@@ -1061,7 +1061,8 @@ function revealOf(w: ChatWorld, id: ConversationId, l: Line): RevealedMessage {
 
 /**
  * Reports a message: recorded with what it reveals (#997, point 7): in the World the line; in private and in a guild, the
- * message and the 5 readable before it, decrypted, each with its franking key and commitment, checked as a moderator will.
+ * message and, of the 5 lines before it, those that are readable (a deleted or unreadable one is left out, and never replaced
+ * by an older one), decrypted, each with its franking key and commitment, checked as a moderator will.
  * An unreadable message cannot be reported.
  */
 export function reportIn({ chat, w, player }: ChatWrite, id: ConversationId, message: string, reason: ChatReportReason): void {
@@ -1073,7 +1074,9 @@ export function reportIn({ chat, w, player }: ChatWrite, id: ConversationId, mes
   const already = chat.reports.some((x) => x.reporter === key(player) && x.conversation === id && x.message === message);
   const refused = reportRefusal(player, line, reason, already);
   if (refused) refuse(refused);
-  const revealed = r.c.kind === "world" ? [line] : reportReveal(lines.filter((l) => l.id === message || (!l.deleted && !l.unreadable)), message);
+  // The window first, over every message line the reporter has (deleted and unreadable ones included), then only the readable
+  // ones in it: a deleted or unreadable line never widens the reveal past the 5 lines before the reported one (#997, point 12).
+  const revealed = r.c.kind === "world" ? [line] : reportReveal(lines, message).filter((l) => l.id === message || (!l.deleted && !l.unreadable));
   chat.reports.push({ reporter: key(player), conversation: id, message, author: line.author, reason, at: w.now, revealed: revealed.map((l) => revealOf(w, id, l)) });
 }
 
