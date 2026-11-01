@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { Euler, Quaternion, Vector3 } from "three";
-import type { Cuboid } from "../src/core/avatar/avatar-boxes";
+import type { Cuboid } from "../src/core/avatar/avatar-cuboids";
 import { contrast, distance } from "../src/core/avatar/avatar-colour";
 import { aimHead, KING_VIEW, kingParts, makeRig, poseRig, TRACK } from "../src/core/avatar/avatar-king";
-import { blend, EMOTE_S, EMOTES, emotePose, envelope, idle, REST, type Emote } from "../src/core/avatar/avatar-rig";
+import { blend, EMOTE_S, EMOTES, emotePose, envelope, idle, REST, type Emote } from "../src/core/avatar/avatar-poses";
 import { C, families, headPalette, KING_TRAITS, outfitTones, SHAPE_TRAITS, TRACK_LIMITS, trackLimits, TRAIT_OPTIONS, traitsFrom, traitsText, type Traits } from "../src/core/avatar/avatar-traits";
 import { boxMatrix, coplanarFaces, cornersOf, excess, kingCamera, PARTS, partMatrices, type Part, type Sample } from "./helpers/avatar-geometry";
 

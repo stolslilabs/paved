@@ -3,20 +3,18 @@ import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import { WEEKLY_MILESTONES, WEEKLY_QUESTS } from "@paved/game-core";
 import type { GameSigner } from "../src/data";
-import { useMissionsReady } from "../src/data/quests";
 import { useWeeklyMilestoneClaims, useWeeklyMilestones } from "../src/data/milestones";
 import { WeeklyMilestoneRefusedError, type WeeklyMilestoneViews, type WeeklyMilestoneWrites } from "../src/data/weekly-milestones";
 import { MOCK_KEY, MockLedger, type TokenBalances } from "../src/data/mock/ledger";
 import { MOCK_PVP_WEEKLIES, PVP_TASK, firstDayOfWeek, pvpCounts } from "../src/data/mock/weeklies";
 import { MOCKED_GAME_READS, MOCKED_WRITES } from "../src/data/mock/overlay";
 import { questPeriod, weekOfDay } from "../src/lib/quest-window";
-import { dataOf, renderData } from "./data-fakes";
+import { dataOf, fakeSources, renderData } from "./data-fakes";
 import { mockImplementation, playGame } from "./mock-fakes";
 
 // The week's milestones on the mock (#976, PR 1 of 2): five weeklies a week, the two new ones counted from the player's
 // settled PvP attacks by UTC week (Monday to Sunday), and the week's two gifts, 3 done for 50 Cobbles and 5 done for 100,
-// each claimed once a week through the mock's signer, with game-core's typed refusals. The home's Missions count shows the
-// reached gifts not claimed yet.
+// each claimed once a week through the mock's signer, with game-core's typed refusals.
 
 const PLAYER = FIXTURE_ADA;
 const DAY = 86_400;
@@ -233,51 +231,23 @@ describe("the week's milestones on the mock (#976)", () => {
 });
 
 describe("the week's milestones through the hooks (#976)", () => {
-  it("read the week's claims, claim a gift into the cache, and show the reached gifts on the home's Missions count", async () => {
+  it("read the week's claims and claim a gift into the cache", async () => {
     const { sources, ledger } = clocked();
-    let done = 3;
-    ledger.countWeekliesWith(async () => done);
-    const { result } = renderData(
-      () => ({ week: useWeeklyMilestones(PLAYER, WEEK), claims: useWeeklyMilestoneClaims(PLAYER), ready: useMissionsReady(PLAYER) }),
-      sources,
-    );
+    ledger.countWeekliesWith(async () => 3);
+    const { result } = renderData(() => ({ week: useWeeklyMilestones(PLAYER, WEEK), claims: useWeeklyMilestoneClaims(PLAYER) }), sources);
     expect(await dataOf({ get current() { return result.current.week; } })).toEqual({ week: WEEK, claimed: 0 });
     expect(result.current.claims.claimer).not.toBeNull();
-    // Nothing played (the claim's count is the test's): no gift reached on the home's count, which reads the indexer's quests.
-    await waitFor(() => expect(result.current.ready).toBe(0));
     await result.current.claims.claim(WEEK, 0);
     await waitFor(() => expect(result.current.week.data).toEqual({ week: WEEK, claimed: 0b01 }));
     expect((await sources.views.account(PLAYER)).cobbles).toBe(50);
-    done = 0;
   });
 
-  it("the home's Missions count: the week's gifts reached and not claimed, and the day's", async () => {
-    const s = clocked();
-    const { sources, ledger, store } = s;
-    const count = async () => {
-      const { result } = renderData(() => useMissionsReady(PLAYER), sources);
-      await waitFor(() => expect(result.current).toBeGreaterThan(0));
-      return result.current;
-    };
-    // The two PvP weeklies done (two of five: no gift of the week), and one game played out: Daily Run and the three rotating
-    // dailies done today, four of five: the day's first gift.
-    await ledger.writesFor(PLAYER).foundFreeVillage();
-    settle(store, PVP_WEEK);
-    await playGame(ledger, PLAYER);
-    expect(await weekliesDoneToday(s)).toEqual([20, 21]);
-    expect(await count()).toBe(1);
-    // Two games more: the fifth daily (the day's second gift) and the three Challenge weeklies, five of five (the week's two
-    // gifts). Those three still pay their own 15 Cobbles until the Weekly row changes (#976's PR 2): three claims more.
-    s.clock.now += 600;
-    await playGame(ledger, PLAYER);
-    s.clock.now += 600;
-    await playGame(ledger, PLAYER);
-    expect(await weekliesDoneToday(s)).toEqual([14, 15, 16, 20, 21]);
-    expect(await count()).toBe(2 + 2 + 3);
-    // A gift of the week claimed, then the day's first: each leaves the count.
-    await ledger.writesFor(PLAYER).claimWeeklyMilestone(WEEK, 0);
-    expect(await count()).toBe(6);
-    await ledger.writesFor(PLAYER).claimDailyMilestone(TODAY, 0);
-    expect(await count()).toBe(5);
+  it("read nothing where the views do not serve them (the chain before #738), and claim nothing without the signer's write", async () => {
+    const { sources } = fakeSources();
+    const { result } = renderData(() => ({ week: useWeeklyMilestones(PLAYER, WEEK), none: useWeeklyMilestones(null, WEEK), claims: useWeeklyMilestoneClaims(PLAYER) }), sources);
+    expect(result.current.week).toEqual({ data: null, isPending: false, error: null });
+    expect(result.current.none).toEqual({ data: null, isPending: false, error: null });
+    expect(result.current.claims.claimer).toBeNull();
+    await expect(result.current.claims.claim(WEEK, 0)).rejects.toThrow("Connect to claim");
   });
 });

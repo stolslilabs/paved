@@ -7,10 +7,10 @@ import { useDataSources, type DataSources } from "./sources";
 import type { WeeklyMilestoneWrites, WeeklyMilestonesView } from "./weekly-milestones";
 
 // The day's milestones (#869) and the week's (#976) on the Missions page: the claims, served by the mock ledger until the
-// contracts have them (#738), beside the reads (`milestone-reads.ts`, which the home's Missions count reads with the first
-// page). Their own module, the Missions page's alone.
+// contracts have them (#738), beside the reads (`milestone-reads.ts`, kept apart so a first-page reader, such as the home's
+// Missions count of #976's PR 2, need not load the claims). Their own module, the Missions page's alone.
 
-export { dailyMilestoneViews, milestoneKey, useDailyMilestones, useWeeklyMilestones, weeklyMilestoneKey, weeklyMilestoneViews } from "./milestone-reads";
+export { milestoneKey, useDailyMilestones, useWeeklyMilestones, weeklyMilestoneKey } from "./milestone-reads";
 
 /** The signer's milestone claim, or null: no signer, or one without it. */
 export function dailyMilestoneSigner(sources: Pick<DataSources, "signer">): DailyMilestoneWrites | null {

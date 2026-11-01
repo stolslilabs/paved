@@ -538,7 +538,7 @@ describe("quests", () => {
     for (const step of [-1, 2, 0.5, Number.NaN]) expect(weeklyMilestoneRefusal(step, 5, 0)).toBe("no-milestone");
   });
 
-  it("counts the gifts reached and not claimed, the day's and the week's (#976: the home's Missions count)", () => {
+  it("counts the gifts reached and not claimed, the day's and the week's (#976: for the home's Missions count)", () => {
     expect(milestonesToClaim(WEEKLY_MILESTONES, 0, 0)).toBe(0);
     expect(milestonesToClaim(WEEKLY_MILESTONES, 3, 0)).toBe(1);
     expect(milestonesToClaim(WEEKLY_MILESTONES, 5, 0)).toBe(2);

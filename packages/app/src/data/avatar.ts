@@ -6,7 +6,7 @@ import { useDataSources } from "./sources";
 // The avatar on chain (#627, `docs/architecture/avatar-chain.md`): any player's avatar (the menus, #624), read from `Avatar`'s
 // views (`AvatarViews`). This module is on the menus' first load: the creator's catalogue and writes (#626 PR 2) are
 // `avatar-catalogue.ts`, in the creator's chunk. Nothing polls. A network without `Avatar` answers null (its views are `not-configured`): no avatar there yet. A look
-// is AVATAR-LOOK's value (`@paved/renderer`'s `encodeAvatar` and `decodeAvatar` turn it into the parts the creator draws).
+// is the traits' value (`@paved/renderer`'s `encodeTraits` and `decodeTraits` turn it into the traits the avatar draws).
 
 /** The keys of the avatar's reads, `[domain, read, ...args]` as `keys.ts`'s. Read from the chain. A look is a decimal string in the cache. */
 export const avatarKeys = {

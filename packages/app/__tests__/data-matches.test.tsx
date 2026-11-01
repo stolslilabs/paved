@@ -1,7 +1,7 @@
 import { leagueOf } from "../src/lib/pvp-rules";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA } from "@paved/chain/testing";
-import { DEFAULT_AVATAR, decodeAvatar } from "@paved/renderer";
+import { KING_TRAITS, decodeTraits } from "@paved/renderer";
 import { VillageDraft, attackDeckSize, attackStars, layoutScore, levelStatus } from "@paved/game-core";
 import { attackV2Board } from "../src/data/free-attack";
 import { matchBoardSide } from "../src/data/matches";
@@ -41,7 +41,7 @@ describe("PvP v2's matches on the mock (#786)", () => {
     expect(match!.village).toEqual(rival.tiles);
     // The rival saved no avatar: a face seeded by its address (#834), the same at every read, as a decimal look.
     expect(match!.rival.look).toBe(String(generatedLook(rival.address)));
-    expect(decodeAvatar(BigInt(match!.rival.look!))).not.toEqual(DEFAULT_AVATAR);
+    expect(decodeTraits(BigInt(match!.rival.look!))).not.toEqual(KING_TRAITS);
     expect(match!.moves).toEqual(done.moves);
     expect(match!.stars).toBe(attackStars(match!.score, match!.target));
 

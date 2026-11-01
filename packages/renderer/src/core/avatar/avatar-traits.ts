@@ -1,4 +1,4 @@
-import { mirrorX, type Cuboid } from "./avatar-boxes";
+import { HEAD, mirrorX, type Cuboid } from "./avatar-cuboids";
 import { apart, shiftTone } from "./avatar-colour";
 import { KING_BODY } from "./avatar-king-body";
 import {
@@ -15,10 +15,10 @@ import {
   T,
   type HeadPalette,
 } from "./avatar-king-spec";
-import { HEAD } from "./avatar-model";
+import { KING_TRAITS, TRAIT_OPTIONS, type Traits } from "./avatar-look";
 
 /**
- * AVATAR-LIVING (exploration): the king's traits, each a layer of named cuboids or a family of tones, so one player's avatar can
+ * The avatar's traits, each a layer of named cuboids or a family of tones, so one player's avatar can
  * differ from another's and every combination can be checked (`packages/renderer/__tests__/avatar-traits.test.ts`: no two faces
  * in one plane, no part through another in any emote or at the head's tracking limits, the bust in its frame, each feature
  * readable on what it sits on).
@@ -28,32 +28,7 @@ import { HEAD } from "./avatar-model";
  * on the head (hair, beard, headwear, accessory) and the pauldrons; a headwear names the hair blocks it covers, which go.
  */
 
-export const TRAIT_OPTIONS = {
-  skin: ["peach", "pale", "tan", "brown", "deep"],
-  hair: ["auburn", "black", "blond", "ginger", "grey"],
-  hairStyle: ["short", "bald", "long"],
-  beard: ["full", "none", "moustache", "goatee", "long"],
-  eyes: ["brown", "blue", "green", "grey", "amber"],
-  headwear: ["crown", "none", "helmet", "hood", "wizard", "feathered"],
-  accessory: ["none", "eyepatch", "glasses", "earrings"],
-  outfit: ["blue", "red", "green", "purple", "black"],
-  pauldrons: ["gold", "iron", "leather", "none"],
-} as const;
-
-export type Traits = { [K in keyof typeof TRAIT_OPTIONS]: (typeof TRAIT_OPTIONS)[K][number] };
-
-/** The king, as the target draws him (each option's first value). */
-export const KING_TRAITS: Traits = {
-  skin: "peach",
-  hair: "auburn",
-  hairStyle: "short",
-  beard: "full",
-  eyes: "brown",
-  headwear: "crown",
-  accessory: "none",
-  outfit: "blue",
-  pauldrons: "gold",
-};
+export { KING_TRAITS, TRAIT_OPTIONS, traitsFrom, traitsText, type Traits } from "./avatar-look";
 
 /**
  * The head's tracking limits: its turn from the shoulders' own (radians, either way) and its tilt (up negative, down positive).
@@ -473,25 +448,6 @@ export function headFaces(t: Traits, mouth?: number, white?: number, p: HeadPale
   const under = Array.from({ length: 64 }, (_, i) => (bearded && i >> 3 < 3 ? p.beard[i % p.beard.length]! : p.skin[i % 2]!));
   return [mirrored, side, bald ? skinTiles : hairTiles, under, facePaint(mouth, white, p), bald ? skinTiles : hairTiles];
 }
-
-/** A parse of `key-value` pairs (`hair-blond.beard-none`), the rest the king's: the stories' and the checks' URLs. */
-export function traitsFrom(text: string | null | undefined): Traits {
-  const out: Traits = { ...KING_TRAITS };
-  for (const pair of (text ?? "").split(".")) {
-    const [key, value] = pair.split("-") as [keyof Traits, string];
-    // Only the traits' own keys: a URL's `__proto__-x` or `constructor-y` names no trait.
-    const options = Object.hasOwn(TRAIT_OPTIONS, key) ? (TRAIT_OPTIONS[key] as readonly string[]) : undefined;
-    if (options?.includes(value)) (out as Record<string, string>)[key] = value;
-  }
-  return out;
-}
-
-/** The traits as `key-value` pairs, only where they differ from the king's. */
-export const traitsText = (t: Traits): string =>
-  (Object.keys(KING_TRAITS) as (keyof Traits)[])
-    .filter((k) => t[k] !== KING_TRAITS[k])
-    .map((k) => `${k}-${t[k]}`)
-    .join(".");
 
 /** The torso's and arms' cuboids from Codex's decomposition (see `avatar-king.ts`), recoloured for the traits. */
 export function bodyCuboids(t: Traits, strap: Cuboid[]) {

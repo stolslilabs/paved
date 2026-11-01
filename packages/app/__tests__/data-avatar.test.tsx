@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,20 +17,21 @@ import {
   type FakeGameViews,
   type WriteResult,
 } from "@paved/chain";
-import { AVATAR_PART_KEYS, DEFAULT_AVATAR, decodeAvatar, encodeAvatar, seededRandom, type Avatar } from "@paved/renderer";
+import { KING_TRAITS, TRAIT_OPTIONS, TRAIT_PARTS, decodeTraits, encodeTraits, seededRandom, type Traits } from "@paved/renderer";
 import type { GameSigner } from "../src/data";
 import { cobbleKeys } from "../src/data/cobbles";
 import { avatarKeys, idsOf, savedLook, useAvatar } from "../src/data/avatar";
 import { applyAvatarEvents, useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogue";
 import { avatarOffer, avatarOffers } from "../src/data/avatar-offers";
-import { randomUsable, unusableParts } from "../src/components/containers/avatar-types";
+import { KING_IDS, randomUsable, unusableParts } from "../src/components/containers/avatar-types";
+import { AVATAR_FREE, AVATAR_ITEMS, AVATAR_PARTS_IN_USE } from "../src/mocks/avatar";
 import { PLAYER_ID } from "../src/mocks/players";
 import { FakeAvatarWriter } from "./avatar-fakes";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
 
 // The avatar's hooks (#627) on `FakeGameViews` and an in-memory writer with `Avatar`'s checks: the reads, the receipts into the cache.
 
-/** The tests' parts in use (the format of AVATAR-LOOK has ten; the owner sets the count). */
+/** The tests' parts in use (the look has nine traits; the owner sets the count). */
 const PARTS = 4;
 const OTHER = "0x99";
 
@@ -58,13 +61,14 @@ describe("idsOf", () => {
     }
   });
 
-  it("is AVATAR-LOOK's format: the renderer's encodeAvatar is the chain's lookOf, and decodeAvatar reads idsOf's ids", () => {
-    const avatar: Avatar = { skin: 8, hairColour: 5, eyes: 5, eyebrows: 4, mouth: 5, hair: 7, beard: 5, headwear: 7, accessory: 7, background: 16 };
-    const look = encodeAvatar(avatar);
-    expect(look).toBe(lookOf(AVATAR_PART_KEYS.map((part) => avatar[part])));
-    expect(idsOf(look, AVATAR_PART_KEYS.length)).toEqual(AVATAR_PART_KEYS.map((part) => avatar[part]));
-    expect(decodeAvatar(lookOf(AVATAR_PART_KEYS.map((part) => avatar[part])))).toEqual(avatar);
-    expect(encodeAvatar(DEFAULT_AVATAR)).toBe(lookOf([]));
+  it("is the traits' look: the renderer's encodeTraits is the chain's lookOf of their ids, and decodeTraits reads idsOf's ids", () => {
+    const traits: Traits = { skin: "deep", hair: "grey", eyes: "amber", outfit: "black", pauldrons: "none", hairStyle: "long", beard: "long", headwear: "feathered", accessory: "earrings" };
+    const ids = TRAIT_PARTS.map((trait) => (TRAIT_OPTIONS[trait] as readonly string[]).indexOf(traits[trait]));
+    const look = encodeTraits(traits);
+    expect(look).toBe(lookOf(ids));
+    expect(idsOf(look, TRAIT_PARTS.length)).toEqual(ids);
+    expect(decodeTraits(lookOf(ids))).toEqual(traits);
+    expect(encodeTraits(KING_TRAITS)).toBe(lookOf([]));
   });
 });
 
@@ -146,7 +150,7 @@ describe("useAvatarWrites", () => {
     const { sources } = avatarSetup();
     const page = renderData(() => ({ catalogue: useAvatarCatalogue(PLAYER_ID), writes: useAvatarWrites(PLAYER_ID) }), sources);
     await waitFor(() => expect(page.result.current.catalogue.data).toBeTruthy());
-    const draft = { ...DEFAULT_AVATAR, skin: 2 };
+    const draft = { ...KING_IDS, skin: 2 };
     // Skin 2 is on sale (30 Cobbles): Save waits for it.
     expect(unusableParts(draft, avatarOffers(page.result.current.catalogue.data!, 0))).toEqual(["skin"]);
     await act(() => page.result.current.writes.buy(0, 2, 30));
@@ -156,7 +160,7 @@ describe("useAvatarWrites", () => {
     // Another device: a fresh cache on the same chain reads the saved look, decoded as the menus draw it.
     const other = renderData(() => useAvatar(PLAYER_ID), sources);
     const read = await dataOf(other.result);
-    expect(decodeAvatar(savedLook(read)!)).toEqual({ ...DEFAULT_AVATAR, skin: 2 });
+    expect(decodeTraits(savedLook(read)!)).toEqual({ ...KING_TRAITS, skin: "tan" });
   });
 
   it("a refusal is the writer's typed error, kept until reset", async () => {
@@ -212,11 +216,11 @@ describe("avatarOffer and avatarOffers", () => {
     const { sources } = avatarSetup();
     const { result } = renderData(() => useAvatarCatalogue(PLAYER_ID), sources);
     const offers = avatarOffers((await dataOf(result))!, 0);
-    expect(Object.keys(offers)).toEqual(AVATAR_PART_KEYS.slice(0, PARTS));
-    // Skin has nine variants: 0 and 1 free, 2 on sale, the rest never listed.
-    expect(offers.skin?.map((o) => o.kind)).toEqual(["free", "free", "sale", "off", "off", "off", "off", "off", "off"]);
-    // Eyes' item 255 is listed, but the client draws six variants: it is left out.
-    expect(offers.eyes).toHaveLength(6);
+    expect(Object.keys(offers)).toEqual(TRAIT_PARTS.slice(0, PARTS));
+    // Skin has five options: 0 and 1 free, 2 on sale, the rest never listed.
+    expect(offers.skin?.map((o) => o.kind)).toEqual(["free", "free", "sale", "off", "off"]);
+    // Eyes' item 255 is listed, but the client draws five options: it is left out.
+    expect(offers.eyes).toHaveLength(5);
   });
 
   it("Randomise draws only what can be saved, and leaves the parts not in use at 0", async () => {
@@ -226,7 +230,7 @@ describe("avatarOffer and avatarOffers", () => {
     for (let seed = 1; seed < 40; seed++) {
       const avatar = randomUsable(offers, seededRandom(seed));
       expect(unusableParts(avatar, offers)).toEqual([]);
-      expect(AVATAR_PART_KEYS.slice(PARTS).every((part) => avatar[part] === 0)).toBe(true);
+      expect(TRAIT_PARTS.slice(PARTS).every((part) => avatar[part] === 0)).toBe(true);
     }
   });
 });
@@ -235,10 +239,23 @@ describe("savedLook", () => {
   it("is the look saved; null for none saved, a look the chain would not take, or nothing read", () => {
     const look = lookOf([1, 0, 1, 1]);
     expect(savedLook({ look, ids: [1, 0, 1, 1] })).toBe(look);
-    expect(decodeAvatar(look)).toEqual({ ...DEFAULT_AVATAR, skin: 1, eyes: 1, eyebrows: 1 });
+    expect(decodeTraits(look)).toEqual({ ...KING_TRAITS, skin: "pale", eyes: "blue", outfit: "red" });
     expect(savedLook({ look: 0n, ids: null })).toBeNull();
     expect(savedLook({ look: 2n, ids: null })).toBeNull();
     expect(savedLook(null)).toBeNull();
     expect(savedLook(undefined)).toBeNull();
+  });
+});
+
+describe("the fresh deployment's catalogue", () => {
+  it("is the mocks': the nine traits, and the free items of each (`scripts/deploy.sh`'s FRESH_AVATAR_*)", () => {
+    const script = readFileSync(resolve(__dirname, "../../../scripts/deploy.sh"), "utf8");
+    expect(Number(/^FRESH_AVATAR_PARTS=(\d+)$/m.exec(script)![1])).toBe(AVATAR_PARTS_IN_USE);
+    expect(AVATAR_PARTS_IN_USE).toBe(TRAIT_PARTS.length);
+    const free = /^FRESH_AVATAR_FREE=\(([\d ]+)\)$/m.exec(script)![1]!.split(" ").map(Number);
+    expect(free).toEqual(TRAIT_PARTS.map((trait) => AVATAR_FREE[trait]));
+    // Every skin tone is free, whatever else is paid; and the free items are the mocks' listed at 0.
+    expect(AVATAR_FREE.skin).toBe(TRAIT_OPTIONS.skin.length);
+    TRAIT_PARTS.forEach((trait, part) => expect(AVATAR_ITEMS[part]!.filter((item) => item.cobbles === 0).map((item) => item.id)).toEqual([...Array(AVATAR_FREE[trait]).keys()]));
   });
 });

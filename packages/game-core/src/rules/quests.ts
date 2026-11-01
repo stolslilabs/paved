@@ -80,7 +80,7 @@ export function weeklyMilestoneStates(done: number, claimed: number): WeeklyMile
   return milestoneStates(WEEKLY_MILESTONES, done, claimed);
 }
 
-/** The milestones reached and not claimed yet, of a period with `done` quests done and `claimed` (#976: the home's Missions count). */
+/** The milestones reached and not claimed yet, of a period with `done` quests done and `claimed` (#976: for the home's Missions count). */
 export function milestonesToClaim(milestones: readonly DailyMilestone[], done: number, claimed: number): number {
   return milestoneStates(milestones, done, claimed).filter((s) => s === "claimable").length;
 }
