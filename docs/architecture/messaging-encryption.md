@@ -47,12 +47,19 @@ What was read to check each choice (2026-11-01):
   commitment the sender signed. Nothing else is read; private and guild messages are no longer scanned.
 - **The other devices** get the player's key ring from the key service's TEE after a login, as they get the login key
   (#918). The encryption holds against the social service, its database, its backups and its moderators, the network and
-  the chain; it relies on the key service's TEE as the account itself does.
+  the chain; it relies on the key service's TEE as the account itself does. The key service also holds the account's
+  login key, which signs the messaging key's binding, so it can always bind a key of its own: no choice of open point 3
+  removes that (section 4.5).
+- **Sending checks freshness against the chain**: a client seals only to a contact's or member's key that the account's
+  current on-chain key has bound, and never into a guild epoch older than a member's key change (sections 5 and 6.3).
+- **Old signatures are proved by when they were accepted**, not by the time a sender writes: a signature by a key the
+  sender's account has since retired is shown as such unless the reader saw it before the rotation (section 3.4).
 - **No forward secrecy now** (open point 5): the keys are fixed until a "Sign out everywhere".
 - **Checked and changed from the issue's plan**: the wraps take HPKE's standard form (section 2.3); the public keys and
-  hashes are `u256` in SNIP-12 (section 3.2); a binding is valid only against the account's key of its time, which makes a
-  stale key detectable (section 3.3); an epoch commits to its key (section 6.4); a member's key change starts an epoch
-  (section 6.2); an epoch of 50 wraps costs about 110 to 200 ms on the VPS, not a few tens of milliseconds (section 6.6).
+  hashes are `u256` in SNIP-12 (section 3.2); a binding is valid only against the account's current key, which makes a
+  stale key detectable (section 3.3); a retired key's signatures are limited to what a reader can date (section 3.4); an
+  epoch commits to its key (section 6.4); a member's key change starts an epoch, and no member sends into the old one
+  (sections 6.2, 6.3); an epoch of 50 wraps costs about 110 to 200 ms on the VPS, not a few tens of milliseconds (section 6.6).
 
 ## 2. The keys and the algorithms
 
@@ -173,19 +180,45 @@ sealed text's hash and the commitment in place of the text's hash: the account s
 - **A deployed account**: the client checks the binding's signature with the account's `is_valid_signature` (OpenZeppelin's
   account 4.0.1 returns `VALIDATED`), or locally against `get_public_key`. **An account not deployed yet**: against the
   public key whose counterfactual address it is (`social.md`, 5.3; `accounts.md`, section 3).
-- **The binding is valid only against the account's key of its time.** A rotation (`set_public_key`) changes the account's
+- **The binding is valid only against the account's current key.** A rotation (`set_public_key`) changes the account's
   key, so every binding signed before it stops verifying against the current key. That is what is wanted: after "Sign out
   everywhere" the messaging key changes too (section 4.4), and a service that kept serving the old binding is caught, since
   it no longer verifies. After adding a login, the messaging key does not change and the binding is signed again by the new
   key (section 4.2).
-- **Old signatures** (an envelope or an epoch signed before the sender's rotation) are checked against the key the account
-  had then. OpenZeppelin's account emits `OwnerAdded { new_owner_guid }` (the new public key) at its initialisation and at
-  each `set_public_key`, and `OwnerRemoved { removed_owner_guid }` before it. **The indexer serves each account's key
-  history** from those events (new, phase 3), and a client checks a signature against the key valid at the envelope's
-  block-time. The service already follows those events to end the sessions (`social.md`, 5.3).
-- So the service cannot slip in a key of its own: it would need the account's key to sign the binding.
+- **The account's key history**: OpenZeppelin's account emits `OwnerAdded { new_owner_guid }` (the new public key) at its
+  initialisation and at each `set_public_key`, and `OwnerRemoved { removed_owner_guid }` before it. **The indexer serves
+  each account's key history** from those events (new, phase 3), with each change's block. The service already follows
+  those events to end the sessions (`social.md`, 5.3). What that history can and cannot prove for an old signature is
+  section 3.4.
+- **The trust this rests on**: the chain as the client reads it (the L3's RPC, `get_public_key`, and the indexer's key
+  history), as for the rest of the game. The service alone cannot slip in a key of its own: it would need the account's
+  key to sign the binding. **The key service can**: it holds the login key, which is the account's key (section 4.5).
 
-### 3.4 On chain instead (open point 2)
+### 3.4 Old signatures: dated by their acceptance, not by their sender
+
+An envelope's `at` is the sender's claim, and the key history says which key the account had at each block, not when an
+envelope was signed. So a holder of a key the account has retired (a stolen device after "Sign out everywhere", or a
+guest's key after a login) can sign a new envelope with a time before the rotation, and the history would accept it.
+The note therefore never dates a signature by its `at`. A signature counts as the sender's by one of these, and by nothing
+else:
+
+1. **Signed by the account's current key** (the chain's `get_public_key` at the reader's read): valid, whatever its `at`.
+2. **Seen live by this device**: the reader's client checked it against the then current key when it arrived, and keeps
+   that result with the message in its ring (`verified: true`, the block it read). This device's own observation is the
+   evidence; it is never taken from the service.
+3. **Accepted by the service before the rotation, for Paved's moderators only**: the service checks each signature against
+   the account's current key when it accepts the envelope, and keeps the acceptance's time and block and the key it
+   checked, append-only. Moderators run the service, so that record is evidence for them; it is no evidence for a client
+   against a malicious service, and the service never presents it to clients as such.
+
+Anything else, a signature by a retired key that this device did not see live, shows the text with "Signed with <name>'s
+earlier key" (#997's pages, one line): readable, its commitment checked, its authorship not claimed. That is every message
+a new device loads that its sender sent before a rotation, until open point 7's anchor (an hourly Merkle root of the
+accepted envelopes on chain) dates them: with it, an envelope in a root at block B is the sender's if its key was the
+account's at some block of the period before B, so a retired key's forgeries are bounded to one period after the rotation,
+and only by a malicious service. Epochs (section 6) follow the same rule.
+
+### 3.5 On chain instead (open point 2)
 
 A registry contract, one small write per key version, with an event the indexer serves. Its history would be public and
 ordered, so the service could not serve an older key in place of the latest even for an account whose key did not rotate.
@@ -224,6 +257,17 @@ against the social service, its database, its backups and its moderators, and ag
 on the key service's TEE, as the account itself does (`accounts.md`, section 8). A login that already has an account
 (`accounts.md`, open point 3): the guest's ring stays with the guest's account.
 
+**What the key service can do if its TEE is compromised**, by choice of open point 3:
+
+- **Passively, with the default**: release the rings, so read the history and what comes next.
+- **Actively, with either choice**: the key service holds the login key, which is the account's key, so it can sign a
+  binding for a messaging key of its own (or rotate the account and do the same). Contacts who pinned the player's key
+  see "<name>'s security key changed"; a new contact, with nothing pinned, cannot tell, and seals to the attacker from the
+  first message. Only comparing the safety code in person (#997) catches it.
+- **The alternative of open point 3** (a recovery code or a device link) removes the passive disclosure: the rings and so
+  the existing ciphertexts stay out of the key service's reach. It does not remove the active path, which comes from the
+  one-key account (`accounts.md`, open point 1), not from where the ring is kept.
+
 ### 4.6 WebCrypto's X25519 for the ring (checked: not taken)
 
 - **Support**: X25519 in WebCrypto from Chrome 133, Firefox 130 and Safari 17 (MDN's compat data, the same for
@@ -252,6 +296,10 @@ on the key service's TEE, as the account itself does (`accounts.md`, section 8).
 - **A stranger's request** is sealed in the same way: the recipient's key is in the directory from their first connect. A
   player with no key yet cannot be written to (refusal `no-key`).
 - **Both players read what either sent**: the key is the pair's, not the sender's.
+- **Before sealing, the sender checks the other's binding is current**: it verifies against the other account's key as
+  the chain gives it now (section 3.3), cached for at most a minute. If it does not (the account rotated and the service
+  serves no new binding), the client does not seal: the message stays on the device, unsent, with "Waiting for <name>'s
+  new security key", until a binding that verifies arrives.
 
 ## 6. Guild conversations
 
@@ -268,8 +316,9 @@ Any member may.
 - At a joining, the joiner's client starts one. The joiner reads from there on (#997, open point 2).
 - At a kick, the officer's client starts one.
 - At a leave, the first remaining member's client that sees the departure starts one, and the service asks it to.
-- **At a member's new key version** ("Sign out everywhere"), that member's client starts one (added: without it, a stolen
-  device's ring would read the current epoch until the next change).
+- **At a rotation of a member's account key** ("Sign out everywhere", which also makes a new messaging key version, or a
+  login added), that member's client starts one (added: without it, a stolen device's ring would read the current epoch
+  until the next change). Any other member's client starts it if that one does not (section 6.3's send-time rule).
 - The service accepts epoch N+1 once: the first valid one. A client whose epoch lost the race reads the winner, and starts
   N+2 only if the winner does not cover the change it saw.
 
@@ -279,6 +328,23 @@ Any member may.
 - A client refuses an epoch whose members or creator do not match the chain at its block, or whose block is before a
   departure the client knows of.
 - So the service cannot add a reader.
+- **The send-time rule (freshness)**: before sealing a guild message, the client checks the epoch it would use against the
+  chain as it reads it now, not against what the service serves:
+  - the epoch's block is at or after the last membership change of the guild;
+  - for each member, the epoch's wrap names the version that the member's current binding carries, and no `OwnerAdded`
+    of that member's account is later than the epoch's block. A member's "Sign out everywhere" rotates their account's
+    key on chain, so every other client learns of it from the chain even if the service hides the new binding and the
+    new epoch.
+
+  An epoch that fails is **stale**: the client never seals into it. It asks the service for the next epoch; if none is
+  served within a few seconds, it starts epoch N+1 itself (any member may, section 6.2), wrapping for the current
+  versions (a member whose new binding is not served cannot be wrapped for, so N+1 waits for it). If the service
+  withholds that too, or refuses it, the message stays unsent on the device with "Waiting for the
+  guild's new key", and nothing is sealed under the old key. A stolen device's ring therefore reads nothing sent after the
+  rotation was on chain, unless the client's own read of the chain is wrong.
+- **Reading a stale epoch**: messages sealed into it are shown, since a sender's clock and its read of the chain may lag,
+  but one this device received after the epoch went stale shows "Sent with the guild's old key", since its sender skipped
+  the check.
 
 ### 6.4 The key's commitment (added)
 
@@ -291,7 +357,8 @@ checks that its unwrapped key matches it. A mismatch refuses the epoch, and the 
 
 Sealed with the epoch's key, as the private ones (padding, nonce, franking). The associated data is the guild, the epoch,
 the sender, the time and the counter. They are signed as the private ones are. **The signature is what tells members
-apart**: every member holds the epoch key, so the AEAD alone cannot say which member sealed a message.
+apart**: every member holds the epoch key, so the AEAD alone cannot say which member sealed a message. An old signature
+counts only as section 3.4 says.
 
 ### 6.6 The cost (measured)
 
@@ -340,14 +407,16 @@ member (open point 5).
   show a text other than the one it committed to.
 - **A report** sends the reported message's text and franking key, and those of the 5 messages before it (#997, open point
   3).
-  - The moderator recomputes each commitment and checks the sender's signature (against the key of its time, section 3.3).
-    That proves who wrote what, and nothing that was not reported is read.
+  - The moderator recomputes each commitment and checks the sender's signature, against the account's current key or,
+    for a key since retired, against the key the service's acceptance record shows it checked before the rotation
+    (section 3.4, case 3). That proves who wrote what, and nothing that was not reported is read. A signature by a
+    retired key with no acceptance before the rotation proves nothing and is treated as unsigned.
   - A reporter cannot invent a text: it would need a franking key that gives the signed commitment.
   - The report dialog says what is shared. The service keeps the revealed texts with the report, under `social.md`'s
     retention.
 - **What moderation loses**: no scanning of the private and guild messages. The World is moderated as before.
-- **What players lose**: deniability. A signed envelope and a revealed text prove to anyone who wrote it. That is the
-  price of moderation by proof, as it was with #956's signed plain texts.
+- **What players lose**: deniability. A signed envelope and a revealed text prove to anyone who wrote it, within section
+  3.4's limit for a retired key. That is the price of moderation by proof, as it was with #956's signed plain texts.
 
 ## 9. Threats
 
@@ -362,7 +431,10 @@ member (open point 5).
 | The service replays or moves a message | The associated data and the counter |
 | The service holds back messages | Not prevented; the counters show the gaps |
 | A crafted low-order public key in the directory | `@noble/curves` refuses it before the ladder (section 2.4) |
-| The key service's TEE is compromised | It can release the rings, so the messages can be read: the same trust as the account (open point 3's alternative removes it) |
+| The key service's TEE is compromised, passively | It can release the rings, so the messages can be read: the same trust as the account. Open point 3's alternative removes this part |
+| The key service's TEE is compromised, actively | It holds the account's key, so it can bind a messaging key of its own and receive what follows: pinned contacts see "security key changed", new contacts cannot tell; the safety code catches it. No choice of open point 3 removes it (section 4.5) |
+| The service withholds a new binding or a new epoch after a rotation | The send-time checks against the chain: nothing is sealed to a stale key or into a stale epoch (sections 5, 6.3) |
+| A retired key signs an envelope dated before its rotation | Its signature is not taken as the sender's unless this device saw it live or, for moderators, the service accepted it before the rotation (section 3.4) |
 | A device is stolen | Its ring reads the history. "Sign out everywhere" stops it from reading what comes next, private (new version) and guild (new epoch) |
 | A reader leaks a conversation | Not preventable; a leak with the franking keys is provable, as a report is |
 | A key taken later reads the past | No forward secrecy with fixed keys (open point 5) |
@@ -377,6 +449,7 @@ member (open point 5).
    replayed by the service's tests. **The indexer** gains the accounts' key history (`OwnerAdded`, `OwnerRemoved`, section
    3.3). To check then: that the L3's `starknet_getEvents` filters by key without a contract address, since the accounts
    are not known in advance.
+   If open point 7's anchor is taken: the anchor's entry point (or event) and the service's hourly root.
 4. **The key service** seals and hands over the rings (`accounts.md`, phase C).
 5. **The chat's real source** behind the same `ChatSource` as the mock (`social.md`, section 9, step 5): the pages do not
    change.
@@ -385,7 +458,7 @@ member (open point 5).
 
 1. **The World.** Default: not encrypted (#997, open point 1).
 2. **The directory.** Default: in the social service, each key signed by its account. Alternative: a registry contract on
-   chain, public and tamper-evident, at one small write per key version (section 3.4).
+   chain, public and tamper-evident, at one small write per key version (section 3.5).
 3. **The player's other devices.** Default: the ring sealed in the key service's TEE, handed over after a login, as the
    login key is. Alternative: the ring never leaves the player's devices in clear. A recovery code of 12 words encrypts a
    backup that the service keeps, or a link from a device the player already has passes it on. A lost code loses the
@@ -395,6 +468,10 @@ member (open point 5).
    conversations, MLS for the guilds. It is much more work, and harder across several devices.
 6. **The guild's description and announcements.** Default: not encrypted, since the description shows on the guild's public
    profile. Alternative: the announcements sealed with the epoch key, for members only.
+7. **Dating old signatures** (new, section 3.4). Default: no anchor; a signature by a key the sender has since retired is
+   the sender's only if this device saw it live, or for moderators if the service accepted it before the rotation; else
+   "Signed with <name>'s earlier key". Alternative: an hourly Merkle root of the accepted envelopes on chain (one small
+   write an hour, against #956's about 1,360M L2 gas a day for the guilds), so any device dates them within one hour.
 
 **The issue's "To check" list, answered**:
 
