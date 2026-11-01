@@ -12,6 +12,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./e2e": {
+      "import": "./dist/social/e2e.js",
+      "types": "./dist/social/e2e.d.ts"
     }
   },
   "scripts": {
@@ -23,6 +27,9 @@
     "generate:parity": "bun scripts/transcribe-goldens.ts"
   },
   "dependencies": {
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "1.7.0",
+    "@noble/hashes": "1.6.1",
     "@scure/starknet": "1.1.0"
   },
   "devDependencies": {
