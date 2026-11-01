@@ -103,6 +103,7 @@ import {
   AttackRun,
   CAMPAIGNS,
   DAILY_MILESTONES,
+  WEEKLY_MILESTONES,
   PVP_CHESTS_PER_DAY,
   QUEST_BONUS_COBBLES,
   QueuedAttack,
@@ -110,6 +111,7 @@ import {
   attackDeck,
   attackStars,
   dailyMilestoneRefusal,
+  weeklyMilestoneRefusal,
   dayOf,
   drawChest,
   inventoryOf,
@@ -178,6 +180,7 @@ import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageV
 import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../free-attack";
 import type { MatchRecord, MatchRecordViews } from "../matches";
 import { DailyMilestoneRefusedError, type DailyMilestoneViews, type DailyMilestoneWrites, type DailyMilestonesView } from "../daily-milestones";
+import { WeeklyMilestoneRefusedError, type WeeklyMilestoneViews, type WeeklyMilestoneWrites, type WeeklyMilestonesView } from "../weekly-milestones";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, generatedLook } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
@@ -286,6 +289,7 @@ export interface MockedReads
     AttackV2Views,
     MatchRecordViews,
     DailyMilestoneViews,
+    WeeklyMilestoneViews,
     Pick<GameViews, "spawnPaused" | "guardian" | "game" | "tiles" | "builder" | "initialSeed" | "draw" | "currentDay" | "entryPrice" | "tutorialClaimed">,
     Pick<DrawViews, "spawnSalt">,
     VaultViews,
@@ -299,7 +303,7 @@ export type PackReceipt = WriteResult & { bought: PackBought };
  * Every write the deployed classes lack, for the connected account: the writer's (`PavedWriter`) claims and skin writes, the
  * pack buyer's `buy` and the Vault's writes (`EconomyWriter`), with the same requests, receipts and typed refusals.
  */
-export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "claimTutorial" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites {
+export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "claimTutorial" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites, WeeklyMilestoneWrites {
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
@@ -339,7 +343,7 @@ const PLACE_REFUSALS: Record<string, VillageRefusal> = {
   "Tile: cannot place": "cannot-place",
 };
 
-/** A day's or a week's claims, as stored: the quests' word, the credit, and a day's milestones (#869). */
+/** A day's or a week's claims, as stored: the quests' word, the credit, and the period's milestones (a day's #869, a week's #976). */
 interface StoredPeriod {
   claimed: string;
   credit: boolean;
@@ -353,6 +357,7 @@ interface StoredPlayer {
   achievementsClaimed: string;
   /** `milestones`: bit `step` per milestone of the day claimed (#869); absent in a state saved before it, read as none. */
   days: Record<string, StoredPeriod>;
+  /** `milestones`: bit `step` per milestone of the week claimed (#976); absent in a state saved before it, read as none. */
   weeks: Record<string, StoredPeriod>;
   /** `skins(player_id, theme)` by theme. */
   owned: Record<string, number>;
@@ -592,6 +597,8 @@ export class MockLedger {
   private readonly lock: MockLock;
   /** A day's dailies done, as the mock's indexer serves them (`countDailiesWith`); unset, none. */
   private dailiesDone: ((playerId: string, day: number) => Promise<number>) | null = null;
+  /** A week's weeklies done, as the mock's indexer serves them (`countWeekliesWith`); unset, none. */
+  private weekliesDone: ((playerId: string, week: number) => Promise<number>) | null = null;
 
   constructor(private readonly options: MockLedgerOptions) {
     this.state = this.load();
@@ -632,6 +639,26 @@ export class MockLedger {
    */
   countDailiesWith(read: (playerId: string, day: number) => Promise<number>): void {
     this.dailiesDone = read;
+  }
+
+  /**
+   * Where the week's milestones' claims read a week's weeklies done (#976): the mock's indexer (`mockIndexer`), with the two
+   * PvP weeklies. Without one, no weekly counts as done and every milestone of the week is refused `not-reached`.
+   */
+  countWeekliesWith(read: (playerId: string, week: number) => Promise<number>): void {
+    this.weekliesDone = read;
+  }
+
+  /**
+   * The player's settled PvP v2 attacks (#976), oldest first: when each ended and its stars (a surrender's none), the rows
+   * `Setup.report_pvp` reports to the quests. The mock's indexer counts the PvP weeklies from them.
+   */
+  settledAttacks(playerId: string): { finishedAt: number; stars: number }[] {
+    this.sync();
+    return (this.peek(playerId).v2?.attacks ?? [])
+      .filter((a) => a.status !== "open")
+      .map((a) => ({ finishedAt: a.finishedAt, stars: a.stars }))
+      .sort((a, b) => a.finishedAt - b.finishedAt);
   }
 
   // --- The indexer's rows (#927) -------------------------------------------------------------------------------------
@@ -701,6 +728,12 @@ export class MockLedger {
   async dailyMilestones(playerId: string, day: number): Promise<DailyMilestonesView> {
     this.sync();
     return { day, claimed: this.peek(playerId).days[day]?.milestones ?? 0 };
+  }
+
+  /** The milestones of `week` claimed (#976): none for a week not played, so each UTC week starts afresh. */
+  async weeklyMilestones(playerId: string, week: number): Promise<WeeklyMilestonesView> {
+    this.sync();
+    return { week, claimed: this.peek(playerId).weeks[week]?.milestones ?? 0 };
   }
 
   async questCobbles(questId: number): Promise<QuestCobbles> {
@@ -1589,6 +1622,7 @@ export class MockLedger {
       claimDailyCredit: (day) => this.claim(account, [{ kind: "credit", credit: "daily", period: day }]),
       claimWeeklyCredit: (week) => this.claim(account, [{ kind: "credit", credit: "weekly", period: week }]),
       claimDailyMilestone: (day, step) => this.claimDailyMilestone(account, day, step),
+      claimWeeklyMilestone: (week, step) => this.claimWeeklyMilestone(account, week, step),
       claimTutorial: () => this.claimTutorial(account),
       claim: (claims) => this.claim(account, claims),
       buySkin: (request) => this.buySkin(account, request),
@@ -1699,6 +1733,24 @@ export class MockLedger {
       progress.milestones = claimed | (1 << step);
       p.cobbles += milestone.cobbles;
       return [this.event("DailyMilestoneClaimed", { playerId: account, day, step, cobbles: milestone.cobbles, balance: p.cobbles })];
+    });
+  }
+
+  /**
+   * A milestone of the week (#976): `WEEKLY_MILESTONES[step]`'s Cobbles, once for `week`, refused until that week has the
+   * milestone's weeklies done (read from the indexer, `countWeekliesWith`). The week's claims made before it stay as they were.
+   */
+  async claimWeeklyMilestone(account: string, week: number, step: number): Promise<WriteResult> {
+    const [done] = await Promise.all([this.weekliesDone ? this.weekliesDone(account, week) : 0, sleep(this.latency)]);
+    return this.write(account, (p, hash) => {
+      const progress = this.period(p, true, week);
+      const claimed = progress.milestones ?? 0;
+      const refusal = weeklyMilestoneRefusal(step, done, claimed);
+      if (refusal) throw new WeeklyMilestoneRefusedError(refusal, hash);
+      const milestone = WEEKLY_MILESTONES[step]!;
+      progress.milestones = claimed | (1 << step);
+      p.cobbles += milestone.cobbles;
+      return [this.event("WeeklyMilestoneClaimed", { playerId: account, week, step, cobbles: milestone.cobbles, balance: p.cobbles })];
     });
   }
 

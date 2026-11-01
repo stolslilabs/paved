@@ -1,21 +1,16 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { CobbleAccount, DecodedEvent, GameViews, WriteResult } from "@paved/chain";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import type { CobbleAccount, DecodedEvent, WriteResult } from "@paved/chain";
 import { cobbleKeys } from "./cobbles";
-import type { DailyMilestoneViews, DailyMilestoneWrites, DailyMilestonesView } from "./daily-milestones";
-import { addressKey } from "./keys";
+import type { DailyMilestoneWrites, DailyMilestonesView } from "./daily-milestones";
+import { milestoneKey, weeklyMilestoneKey } from "./milestone-reads";
 import { useDataSources, type DataSources } from "./sources";
+import type { WeeklyMilestoneWrites, WeeklyMilestonesView } from "./weekly-milestones";
 
-// The day's milestones on the Missions page (#869): the read and the claim, served by the mock ledger until the contracts have
-// them (#738). Their own module, the Missions page's alone: the header's balances load `cobbles.ts` with the first page.
+// The day's milestones (#869) and the week's (#976) on the Missions page: the claims, served by the mock ledger until the
+// contracts have them (#738), beside the reads (`milestone-reads.ts`, which the home's Missions count reads with the first
+// page). Their own module, the Missions page's alone.
 
-/** The day's milestones claimed, under the ledger's reads (`cobbleKeys.all`), so a claim's receipt invalidates them too. */
-export const milestoneKey = (playerId: string, day: number) => [...cobbleKeys.all, "milestones", addressKey(playerId), day] as const;
-
-/** The sources' milestones read (#869), or null: the chain before #738, or a views double without it. */
-export function dailyMilestoneViews(views: GameViews): DailyMilestoneViews | null {
-  const v = views as GameViews & Partial<DailyMilestoneViews>;
-  return typeof v.dailyMilestones === "function" ? (v as DailyMilestoneViews) : null;
-}
+export { dailyMilestoneViews, milestoneKey, useDailyMilestones, useWeeklyMilestones, weeklyMilestoneKey, weeklyMilestoneViews } from "./milestone-reads";
 
 /** The signer's milestone claim, or null: no signer, or one without it. */
 export function dailyMilestoneSigner(sources: Pick<DataSources, "signer">): DailyMilestoneWrites | null {
@@ -23,38 +18,31 @@ export function dailyMilestoneSigner(sources: Pick<DataSources, "signer">): Dail
   return s && typeof s.claimDailyMilestone === "function" ? (s as DailyMilestoneWrites) : null;
 }
 
-/** The milestones of `day` claimed (#869): null where they are not served (the chain before #738), disabled without a player or a day. */
-export function useDailyMilestones(playerId: string | null, day: number | null): { data: DailyMilestonesView | null | undefined; isPending: boolean; error: Error | null } {
-  const { views } = useDataSources();
-  const read = dailyMilestoneViews(views);
-  const query = useQuery({
-    queryKey: milestoneKey(playerId ?? "0x0", day ?? 0),
-    queryFn: () => read!.dailyMilestones(playerId!, day!),
-    enabled: read !== null && playerId !== null && day !== null,
-  });
-  if (read === null || playerId === null || day === null) return { data: null, isPending: false, error: null };
-  return { data: query.data, isPending: query.isPending && !query.error, error: query.error };
-}
-
-/** A milestone's receipt into the cache: each `DailyMilestoneClaimed` sets the balance and the day's claimed bit. */
-export function applyMilestoneEvents(client: QueryClient, playerId: string, events: readonly DecodedEvent[]): void {
-  for (const { name, fields } of events) {
-    if (name !== "DailyMilestoneClaimed") continue;
-    const day = Number(fields.day);
-    client.setQueryData<CobbleAccount | null>(cobbleKeys.account(playerId), (a) => (a ? { ...a, cobbles: Number(fields.balance) } : a));
-    client.setQueryData<DailyMilestonesView>(milestoneKey(playerId, day), (m) => (m ? { ...m, claimed: m.claimed | (1 << Number(fields.step)) } : m));
-  }
+/** The signer's claim of a week's milestone (#976), or null: no signer, or one without it. */
+export function weeklyMilestoneSigner(sources: Pick<DataSources, "signer">): WeeklyMilestoneWrites | null {
+  const s = sources.signer as (Partial<WeeklyMilestoneWrites> & { address: string }) | null | undefined;
+  return s && typeof s.claimWeeklyMilestone === "function" ? (s as WeeklyMilestoneWrites) : null;
 }
 
 /**
- * The milestone claims of the connected account (#869): `claim(day, step)` sends `claimDailyMilestone`, puts the receipt's
- * events into the cache, then invalidates the ledger's reads. `claiming` is the step on its way; `claimer` null: read only.
+ * A milestone's receipt into the cache: each `DailyMilestoneClaimed` sets the balance and the day's claimed bit, each
+ * `WeeklyMilestoneClaimed` (#976) the balance and the week's.
  */
-export function useMilestoneClaims(playerId: string | null) {
-  const claimer = dailyMilestoneSigner(useDataSources());
+export function applyMilestoneEvents(client: QueryClient, playerId: string, events: readonly DecodedEvent[]): void {
+  for (const { name, fields } of events) {
+    if (name !== "DailyMilestoneClaimed" && name !== "WeeklyMilestoneClaimed") continue;
+    const bit = 1 << Number(fields.step);
+    client.setQueryData<CobbleAccount | null>(cobbleKeys.account(playerId), (a) => (a ? { ...a, cobbles: Number(fields.balance) } : a));
+    if (name === "DailyMilestoneClaimed") client.setQueryData<DailyMilestonesView>(milestoneKey(playerId, Number(fields.day)), (m) => (m ? { ...m, claimed: m.claimed | bit } : m));
+    else client.setQueryData<WeeklyMilestonesView>(weeklyMilestoneKey(playerId, Number(fields.week)), (m) => (m ? { ...m, claimed: m.claimed | bit } : m));
+  }
+}
+
+/** A period's milestone claims through `send` (null: read only): the receipt's events into the cache, then the ledger's reads invalidated. */
+function useClaims<C>(playerId: string | null, claimer: C | null, send: (claimer: C, period: number, step: number) => Promise<WriteResult>) {
   const client = useQueryClient();
-  const mutation = useMutation<WriteResult, Error, { day: number; step: number }>({
-    mutationFn: ({ day, step }) => (claimer ? claimer.claimDailyMilestone(day, step) : Promise.reject(new Error("Connect to claim"))),
+  const mutation = useMutation<WriteResult, Error, { period: number; step: number }>({
+    mutationFn: ({ period, step }) => (claimer ? send(claimer, period, step) : Promise.reject(new Error("Connect to claim"))),
     onSuccess: ({ events }) => {
       if (playerId) applyMilestoneEvents(client, playerId, events);
     },
@@ -63,6 +51,22 @@ export function useMilestoneClaims(playerId: string | null) {
   return {
     claimer,
     claiming: mutation.isPending ? mutation.variables.step : null,
-    claim: (day: number, step: number) => mutation.mutateAsync({ day, step }),
+    claim: (period: number, step: number) => mutation.mutateAsync({ period, step }),
   };
+}
+
+/**
+ * The milestone claims of the connected account (#869): `claim(day, step)` sends `claimDailyMilestone`, puts the receipt's
+ * events into the cache, then invalidates the ledger's reads. `claiming` is the step on its way; `claimer` null: read only.
+ */
+export function useMilestoneClaims(playerId: string | null) {
+  return useClaims(playerId, dailyMilestoneSigner(useDataSources()), (c, day, step) => c.claimDailyMilestone(day, step));
+}
+
+/**
+ * The week's milestone claims of the connected account (#976): `claim(week, step)` sends `claimWeeklyMilestone`, puts the
+ * receipt's events into the cache, then invalidates the ledger's reads. `claiming` is the step on its way; `claimer` null: read only.
+ */
+export function useWeeklyMilestoneClaims(playerId: string | null) {
+  return useClaims(playerId, weeklyMilestoneSigner(useDataSources()), (c, week, step) => c.claimWeeklyMilestone(week, step));
 }

@@ -29,6 +29,12 @@ import {
   attackStars,
   dailyMilestoneRefusal,
   dailyMilestoneStates,
+  milestonesToClaim,
+  WEEKLY_MILESTONES,
+  WEEKLY_QUESTS,
+  weeklyMilestoneClaimed,
+  weeklyMilestoneRefusal,
+  weeklyMilestoneStates,
   baseCopies,
   basePlanOf,
   buildOrder,
@@ -493,5 +499,52 @@ describe("quests", () => {
     expect(dailyMilestoneRefusal(1, 5, 0b01)).toBeNull();
     expect(dailyMilestoneRefusal(1, 5, 0b10)).toBe("milestone-claimed");
     for (const step of [-1, 2, 0.5]) expect(dailyMilestoneRefusal(step, 5, 0)).toBe("no-milestone");
+  });
+
+  it("five weeklies a week, two milestones (#976): 3 done give 50 Cobbles, 5 give 100, 150 a week", () => {
+    expect(WEEKLY_QUESTS).toBe(5);
+    expect(WEEKLY_MILESTONES).toEqual([
+      { done: 3, cobbles: 50 },
+      { done: 5, cobbles: 100 },
+    ]);
+    expect(WEEKLY_MILESTONES.reduce((sum, m) => sum + m.cobbles, 0)).toBe(150);
+    // The last milestone is every weekly of the week, and each gift is worth more than any of the day's.
+    expect(WEEKLY_MILESTONES.at(-1)!.done).toBe(WEEKLY_QUESTS);
+    const dayBest = Math.max(...DAILY_MILESTONES.map((m) => m.cobbles));
+    for (const m of WEEKLY_MILESTONES) expect(m.cobbles).toBeGreaterThan(dayBest);
+  });
+
+  it("a milestone of the week is claimable once reached, once a week (#976)", () => {
+    expect(weeklyMilestoneStates(0, 0)).toEqual(["locked", "locked"]);
+    expect(weeklyMilestoneStates(2, 0)).toEqual(["locked", "locked"]);
+    expect(weeklyMilestoneStates(3, 0)).toEqual(["claimable", "locked"]);
+    expect(weeklyMilestoneStates(4, 0b01)).toEqual(["claimed", "locked"]);
+    expect(weeklyMilestoneStates(5, 0b01)).toEqual(["claimed", "claimable"]);
+    expect(weeklyMilestoneStates(5, 0)).toEqual(["claimable", "claimable"]);
+    expect(weeklyMilestoneStates(5, 0b11)).toEqual(["claimed", "claimed"]);
+    expect(weeklyMilestoneClaimed(0b10, 1)).toBe(true);
+    expect(weeklyMilestoneClaimed(0b10, 0)).toBe(false);
+
+    // Allowed: reached and not claimed.
+    expect(weeklyMilestoneRefusal(0, 3, 0)).toBeNull();
+    expect(weeklyMilestoneRefusal(1, 5, 0b01)).toBeNull();
+    // Refused: too few weeklies done.
+    expect(weeklyMilestoneRefusal(0, 2, 0)).toBe("not-reached");
+    expect(weeklyMilestoneRefusal(1, 4, 0b01)).toBe("not-reached");
+    // Refused: already claimed this week (even with too few done: the claim is told first).
+    expect(weeklyMilestoneRefusal(0, 3, 0b01)).toBe("milestone-claimed");
+    expect(weeklyMilestoneRefusal(1, 5, 0b10)).toBe("milestone-claimed");
+    // Refused: no such milestone.
+    for (const step of [-1, 2, 0.5, Number.NaN]) expect(weeklyMilestoneRefusal(step, 5, 0)).toBe("no-milestone");
+  });
+
+  it("counts the gifts reached and not claimed, the day's and the week's (#976: the home's Missions count)", () => {
+    expect(milestonesToClaim(WEEKLY_MILESTONES, 0, 0)).toBe(0);
+    expect(milestonesToClaim(WEEKLY_MILESTONES, 3, 0)).toBe(1);
+    expect(milestonesToClaim(WEEKLY_MILESTONES, 5, 0)).toBe(2);
+    expect(milestonesToClaim(WEEKLY_MILESTONES, 5, 0b01)).toBe(1);
+    expect(milestonesToClaim(WEEKLY_MILESTONES, 5, 0b11)).toBe(0);
+    expect(milestonesToClaim(DAILY_MILESTONES, 4, 0)).toBe(1);
+    expect(milestonesToClaim(DAILY_MILESTONES, 4, 0b01)).toBe(0);
   });
 });

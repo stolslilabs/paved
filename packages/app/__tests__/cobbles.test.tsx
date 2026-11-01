@@ -17,7 +17,7 @@ import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
-import { DAILY_QUESTS } from "@paved/game-core";
+import { DAILY_QUESTS, WEEKLY_QUESTS } from "@paved/game-core";
 import { QUEST_DEFINITIONS, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, questsTodayDone } from "../src/mocks/quests";
 import { TODAY } from "../src/mocks/players";
 import { isLiveOnDay, questPeriod } from "../src/lib/quest-window";
@@ -38,12 +38,24 @@ describe("Cobbles amounts (gems-v1.md)", () => {
     expect(PACKS.map((p) => formatUsd(p.price / BigInt(p.cobbles), 2))).toEqual(["$0.10", "$0.09", "$0.08", "$0.07"]);
   });
 
-  it("gives a weekly 15 (3.1) and a daily none: the day's milestones pay (#869)", () => {
+  it("gives a Challenge weekly 15 (3.1), a PvP weekly and a daily none: the period's milestones pay (#869, #976)", () => {
     expect(QUEST_COBBLES.map((q) => q.questId)).toEqual(QUEST_DEFINITIONS.map((d) => d.questId));
     expect(Object.fromEntries(QUEST_COBBLES.map((q) => [q.questId, q.cobbles]))).toEqual({
-      1: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 15, 15: 15, 16: 15, 17: 0, 18: 0, 19: 0,
+      1: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 15, 15: 15, 16: 15, 17: 0, 18: 0, 19: 0, 20: 0, 21: 0,
     });
-    expect(QUEST_COBBLES.filter((q) => q.kind === "weekly").map((q) => q.questId)).toEqual([14, 15, 16]);
+    expect(QUEST_COBBLES.filter((q) => q.kind === "weekly").map((q) => q.questId)).toEqual([14, 15, 16, 20, 21]);
+  });
+
+  it("lives five weeklies a week (#976): the three Challenge ones, Weekly Raider and Weekly Stars", () => {
+    for (const day of [TODAY - 7, TODAY, TODAY + 7]) {
+      const live = QUEST_DEFINITIONS.filter((d) => questPeriod(d) === "weekly" && isLiveOnDay(d, day));
+      expect(live.map((d) => d.questId)).toEqual([14, 15, 16, 20, 21]);
+      expect(live).toHaveLength(WEEKLY_QUESTS);
+    }
+    expect(QUEST_DEFINITIONS.filter((d) => d.questId >= 20).map((d) => [d.questId, d.taskId, d.total])).toEqual([
+      [20, 19, 10],
+      [21, 20, 15],
+    ]);
   });
 
   it("lives five dailies a day (#869): Daily Run and one of each of the four rotating families", () => {

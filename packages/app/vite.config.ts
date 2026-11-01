@@ -41,13 +41,14 @@ export default defineConfig(({ command, mode }) => {
           moduleSideEffects: [{ test: /[\\/]packages[\\/]game-core[\\/]dist[\\/]/, sideEffects: false }],
         },
         output: {
-          // `@paved/game-core` apart from what the first route reads (the formatters, the device's storage, the barrel) in one chunk of its own, with the hashing under the engine: the pages that play share it, and the
-          // first route does not fetch it.
+          // `@paved/game-core` apart from what the first route reads (the formatters, the device's storage, the barrel, the quests'
+          // milestones of the home's Missions count, #976) in one chunk of its own, with the hashing under the engine: the pages
+          // that play share it, and the first route does not fetch it.
           codeSplitting: {
             groups: [
               {
                 name: "engine",
-                test: /[\\/](game-core[\\/]dist[\\/](?!format\.js|index\.js|constants\.js|sessions[\\/](storage|index)\.js)|@scure|@noble)/,
+                test: /[\\/](game-core[\\/]dist[\\/](?!format\.js|index\.js|constants\.js|rules[\\/]quests\.js|sessions[\\/](storage|index)\.js)|@scure|@noble)/,
                 priority: 10,
                 includeDependenciesRecursively: false,
               },

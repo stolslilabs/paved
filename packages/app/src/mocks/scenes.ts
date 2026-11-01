@@ -21,7 +21,7 @@ import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
 import { CURVE_PLAYING, GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, QUESTS_WEEK_DONE, GAME_MISSIONS, questsTodayDone } from "./quests";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, QUESTS_WEEK_DONE, GAME_MISSIONS, questsTodayDone, questsWeekDone } from "./quests";
 import { DEFAULT_AVATAR as DEFAULT_AVATAR_LOOK } from "@paved/renderer";
 import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
@@ -400,6 +400,18 @@ export const MISSIONS = {
   milestoneFive: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b01 } },
   /** All done: the five done, both reward nodes claimed, 25 Cobbles today. */
   milestonesAllClaimed: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b11 } },
+  /** The five weeklies (#976): none done yet, the two PvP ones (Weekly Raider, Weekly Stars) with no Cobbles of their own. */
+  weekNone: { ...rewarded, quests: questsWeekDone(0) },
+  /** Three of the five weeklies done (the week's first milestone, #976): the three Challenge ones. */
+  weekThree: { ...rewarded, quests: questsWeekDone(3) },
+  /** The five weeklies done (the week's second milestone, #976), the PvP ones too. */
+  weekFive: { ...rewarded, quests: questsWeekDone(5) },
+  /** Weekly Raider selected (#976): 4 of 10 attacks settled this week, counted from the PvP. */
+  weeklyRaider: { ...rewarded, initialSelected: "quest:20" },
+  /** Weekly Stars selected (#976): 7 of 15 stars this week. */
+  weeklyStars: { ...rewarded, initialSelected: "quest:21" },
+  /** Weekly Stars done (#976): 15 of 15 stars, no Cobbles of its own to claim. */
+  weeklyStarsDone: { ...rewarded, quests: questsWeekDone(5), initialSelected: "quest:21" },
   /** A new player: nothing counted, the lifetime missions locked. */
   newPlayer: { ...rewarded, quests: QUESTS_TODAY_FRESH, achievements: ACHIEVEMENTS_NEW },
   /** Four minutes before 00:00 UTC: the Daily countdown is amber. */
