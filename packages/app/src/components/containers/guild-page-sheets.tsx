@@ -29,7 +29,7 @@ function PageSheet({ open, onOpenChange, slot, title, description, children }: {
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
         <ScrollRegion className="-mx-6 min-h-0 px-6">
-          <div className="flex flex-col gap-4 pb-2">{children}</div>
+          <div className="flex flex-col gap-4 pt-1 pb-2">{children}</div>
         </ScrollRegion>
       </SheetContent>
     </Sheet>
