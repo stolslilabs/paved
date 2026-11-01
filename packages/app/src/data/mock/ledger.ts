@@ -176,9 +176,6 @@ import type { GuildDraft, GuildSettings } from "@paved/game-core";
 import * as guilds from "./guilds";
 import * as chat from "./chat";
 import type { ChatEvent, ChatSource } from "../social-source";
-
-/** The mock's chat source: `ChatSource`, and `rotateKeys(player)`, a new messaging key, for the tests and the stories (#997). */
-export type MockChatSource = ChatSource & { rotateKeys(player: string): Promise<void> };
 import type { ConversationId, TutorialCounts, TutorialTask } from "@paved/game-core";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
@@ -493,6 +490,9 @@ interface StoredState {
   /** The messages (#955, `chat.ts`): the device's own, the mock's answers and requests; absent: none yet. */
   chat?: chat.AnyStoredChat;
 }
+
+/** The mock's chat source: `ChatSource`, and `rotateKeys(player)`, a new messaging key, for the tests and the stories (#997). */
+export type MockChatSource = ChatSource & { rotateKeys(player: string): Promise<void> };
 
 /** A subscriber of the messages (#955): what it hears, since when, and its timer to the next line due. */
 interface ChatSubscriber {
@@ -1222,15 +1222,6 @@ export class MockLedger {
 
   private readonly chatSubscribers = new Set<ChatSubscriber>();
 
-  /** The encryption's code (#997), loaded with the chat's first call, so that the home never fetches it. */
-  private e2e: chat.ChatWorld["e2e"] | null = null;
-  private e2eLoading: Promise<void> | null = null;
-  private chatReady(): Promise<void> {
-    return (this.e2eLoading ??= import("@paved/game-core/e2e").then((m) => {
-      this.e2e = m;
-    }));
-  }
-
   /** What the chat reads at `now`: anyone's profile, the follows' graph and the guilds, settled; the players the mock knows. */
   private chatWorld(now: number): chat.ChatWorld {
     const world = this.settledGuilds(now);
@@ -1238,8 +1229,7 @@ export class MockLedger {
       const k = addressKey(address);
       return communityMember(k) !== null || k in this.state.players || k in world.players || k in (this.state.chat?.players ?? {});
     };
-    if (!this.e2e) throw new Error("mock chat: read before the encryption loaded (chatReady)");
-    return { now, people: this.personOf(world, now), graph: graphOf(this.followsNow(now)), guilds: world, known, e2e: this.e2e };
+    return { now, people: this.personOf(world, now), graph: graphOf(this.followsNow(now)), guilds: world, known };
   }
 
   /**
@@ -1259,7 +1249,6 @@ export class MockLedger {
 
   /** One chat write under the lock: the chat settled, the change applied and stored, or, refused, left as it was. */
   private async chatWrite<T>(player: string, change: (write: chat.ChatWrite) => T): Promise<T> {
-    await this.chatReady();
     await sleep(this.latency);
     return this.lock(() => {
       this.sync();
@@ -1332,12 +1321,12 @@ export class MockLedger {
    */
   chatSource(): MockChatSource {
     return {
-      overview: async (player) => (await this.chatReady(), this.chatRead(player, (stored, w) => chat.overviewOf(stored, w, player))),
-      conversation: async (player, id, before = null) => (await this.chatReady(), this.chatRead(player, (stored, w) => chat.pageOf(stored, w, player, id, before))),
+      overview: async (player) => this.chatRead(player, (stored, w) => chat.overviewOf(stored, w, player)),
+      conversation: async (player, id, before = null) => this.chatRead(player, (stored, w) => chat.pageOf(stored, w, player, id, before)),
       subscribe: (player, conversation, listener) => {
         const sub: ChatSubscriber = { player: addressKey(player), conversation, listener, since: this.second(), heard: new Set(), timer: null };
         this.chatSubscribers.add(sub);
-        void this.chatReady().then(() => this.wakeChat(sub));
+        this.wakeChat(sub);
         return () => {
           if (sub.timer) clearTimeout(sub.timer);
           this.chatSubscribers.delete(sub);
@@ -1355,7 +1344,7 @@ export class MockLedger {
       report: (player, id, message, reason) => this.chatWrite(player, (write) => chat.reportIn(write, id, message, reason)),
       mute: (player, target) => this.chatWrite(player, (write) => chat.muteIn(write, target)),
       unmute: (player, target) => this.chatWrite(player, (write) => chat.unmuteIn(write, target)),
-      mutes: async (player) => (await this.chatReady(), this.chatRead(player, (stored, w) => chat.mutesOf(stored, w, player))),
+      mutes: async (player) => this.chatRead(player, (stored, w) => chat.mutesOf(stored, w, player)),
       answerRequest: (player, id, accept) => this.chatWrite(player, (write) => chat.answerRequestIn(write, id, accept)),
       markRead: (player, id) => this.chatWrite(player, (write) => chat.markReadIn(write, id)),
       seeNotice: (player) => this.chatWrite(player, (write) => chat.seeNoticeIn(write)),

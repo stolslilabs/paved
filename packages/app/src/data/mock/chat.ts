@@ -45,8 +45,29 @@ import {
   type PrivatePair,
   type PrivateSide,
 } from "@paved/game-core";
-import type * as E2e from "@paved/game-core/e2e";
-import type { EpochMember, EpochRecord, Envelope, MessagingKeyPair, PublicMessagingKey } from "@paved/game-core/e2e";
+import {
+  bytesToHex,
+  checkCommitment,
+  conversationKey,
+  epochDue,
+  guildMessageKey,
+  hexToBytes,
+  labelledKeyPair,
+  makeEpoch,
+  newKeyPair,
+  open,
+  openEpoch,
+  privateVersions,
+  publicOf,
+  reportReveal,
+  safetyCode,
+  seal,
+  type EpochMember,
+  type EpochRecord,
+  type Envelope,
+  type MessagingKeyPair,
+  type PublicMessagingKey,
+} from "@paved/game-core/e2e";
 import { ChatRefusedError, type ChatEncryption, type ChatMessage, type ChatOverview, type ChatPage, type ChatPageHead, type ChatWriteRefusal, type ConversationSummary, type GuildAnnouncement, type GuildLogEntry, type PublicProfile } from "../social-source";
 import { CHAT_FILTER_WORDS, GUILD_LINES, REPLY_LINES, REQUEST_LINES, WORLD_LINES } from "./chat-lines";
 import { community, communityMember } from "./community";
@@ -73,8 +94,8 @@ import type { GuildPeople, GuildWorld, StoredGuild, StoredLogEntry } from "./gui
 // plays their part. The directory serves each player's latest public key. A guild's messages are sealed with its epoch's key,
 // wrapped for each member; a new epoch starts as soon as its members change (a joining, a kick, a leave) or one changes key,
 // so that a departed member cannot open what follows, and a joiner reads from their joining on. A report reveals the reported
-// message and the 5 before it, each commitment checked as a moderator will. The encryption's code is loaded with the chat
-// (`ChatWorld.e2e`), never with the home.
+// message and the 5 before it, each commitment checked as a moderator will. The encryption's code (`@paved/game-core/e2e`) is
+// a chunk of its own beside the mock's, fetched with it, never in the home's first load (`vite.config.ts`).
 
 /** A community player answers a private message this long after it at the earliest, and up to 5 seconds later. */
 export const MOCK_REPLY_MIN_S = 3;
@@ -237,8 +258,6 @@ export interface ChatWorld {
   guilds: GuildWorld;
   /** Whether a player has that ID: a community player or one of the device's. */
   known: (address: string) => boolean;
-  /** The encryption's code (`@paved/game-core/e2e`), loaded with the chat. */
-  e2e: typeof E2e;
 }
 
 const key = playerKey;
@@ -266,17 +285,17 @@ const conversationKeys = new Map<string, Uint8Array | null>();
 const epochKeys = new Map<string, Uint8Array | null>();
 
 /** A community player's key pair of `version`, derived from their ID: every device agrees, as the mock plays their part. */
-const communityPair = (w: ChatWorld, player: string, version: number): MessagingKeyPair =>
-  cached(communityPairs, `${player}|${version}`, () => w.e2e.labelledKeyPair(`paved-mock-community|${player}`, version));
+const communityPair = (player: string, version: number): MessagingKeyPair =>
+  cached(communityPairs, `${player}|${version}`, () => labelledKeyPair(`paved-mock-community|${player}`, version));
 
-const storedPair = (w: ChatWorld, s: StoredKeyPair): MessagingKeyPair =>
-  cached(storedPairs, s.secretKey, () => ({ version: s.version, secretKey: w.e2e.hexToBytes(s.secretKey), publicKey: w.e2e.hexToBytes(s.publicKey) }));
+const storedPair = (s: StoredKeyPair): MessagingKeyPair =>
+  cached(storedPairs, s.secretKey, () => ({ version: s.version, secretKey: hexToBytes(s.secretKey), publicKey: hexToBytes(s.publicKey) }));
 
 /** Every key pair of `player` the mock holds, oldest first: a device player's ring, or a community player's versions. */
 function ringOf(chat: StoredChat, w: ChatWorld, player: string): MessagingKeyPair[] {
   const k = key(player);
-  if (isCommunity(k)) return Array.from({ length: chat.rotations[k] ?? 1 }, (_, i) => communityPair(w, k, i + 1));
-  return (chat.keys[k] ?? []).map((s) => storedPair(w, s));
+  if (isCommunity(k)) return Array.from({ length: chat.rotations[k] ?? 1 }, (_, i) => communityPair(k, i + 1));
+  return (chat.keys[k] ?? []).map(storedPair);
 }
 
 const pairAt = (chat: StoredChat, w: ChatWorld, player: string, version: number): MessagingKeyPair | null => ringOf(chat, w, player).find((p) => p.version === version) ?? null;
@@ -284,15 +303,15 @@ const pairAt = (chat: StoredChat, w: ChatWorld, player: string, version: number)
 /** The directory: a player's latest public key and its version, or null (a device player the chat has not met yet). */
 export function directoryOf(chat: StoredChat, w: ChatWorld, player: string): PublicMessagingKey | null {
   const latest = ringOf(chat, w, player).at(-1);
-  return latest ? w.e2e.publicOf(latest) : null;
+  return latest ? publicOf(latest) : null;
 }
 
 /** Makes a device player's key the first time the chat meets them (their first connect, on the mock's device); true if made. */
 function ensureKey(chat: StoredChat, w: ChatWorld, player: string): boolean {
   const k = key(player);
   if (isCommunity(k) || (chat.keys[k]?.length ?? 0) > 0) return false;
-  const pair = w.e2e.newKeyPair(1);
-  chat.keys[k] = [{ version: 1, secretKey: w.e2e.bytesToHex(pair.secretKey), publicKey: w.e2e.bytesToHex(pair.publicKey), at: w.now }];
+  const pair = newKeyPair(1);
+  chat.keys[k] = [{ version: 1, secretKey: bytesToHex(pair.secretKey), publicKey: bytesToHex(pair.publicKey), at: w.now }];
   return true;
 }
 
@@ -305,9 +324,9 @@ function privateKeyFor(chat: StoredChat, w: ChatWorld, id: ConversationId, viewe
   const mine = pairAt(chat, w, me, versions[mineAt]!);
   const theirs = pairAt(chat, w, c.players[1 - mineAt]!, versions[1 - mineAt]!);
   if (!mine || !theirs) return null;
-  return cached(conversationKeys, `${id}|${me}|${w.e2e.bytesToHex(mine.publicKey)}|${w.e2e.bytesToHex(theirs.publicKey)}`, () => {
+  return cached(conversationKeys, `${id}|${me}|${bytesToHex(mine.publicKey)}|${bytesToHex(theirs.publicKey)}`, () => {
     try {
-      return w.e2e.conversationKey(id, me, mine, w.e2e.publicOf(theirs));
+      return conversationKey(id, me, mine, publicOf(theirs));
     } catch {
       return null;
     }
@@ -316,7 +335,7 @@ function privateKeyFor(chat: StoredChat, w: ChatWorld, id: ConversationId, viewe
 
 /** An epoch's key as `viewer` opens it with their ring, or null: the epoch does not cover them. */
 const epochKeyFor = (chat: StoredChat, w: ChatWorld, record: EpochRecord, viewer: string): Uint8Array | null =>
-  cached(epochKeys, `${record.conversation}|${record.epoch}|${key(viewer)}|${record.wraps[key(viewer)]?.ephemeral ?? ""}`, () => w.e2e.openEpoch(record, viewer, ringOf(chat, w, viewer)));
+  cached(epochKeys, `${record.conversation}|${record.epoch}|${key(viewer)}|${record.wraps[key(viewer)]?.ephemeral ?? ""}`, () => openEpoch(record, viewer, ringOf(chat, w, viewer)));
 
 /** The members of a guild as its epoch covers them, each with their latest key (a device member's made if need be). */
 function epochMembers(chat: StoredChat, w: ChatWorld, g: StoredGuild): EpochMember[] {
@@ -338,8 +357,10 @@ function settleEpochs(chat: StoredChat, w: ChatWorld): boolean {
     const id = guildConversation(g.id);
     const list = chat.epochs[id] ?? [];
     const latest = list[list.length - 1] ?? null;
+    // A device member's key made here is a change to store, whether or not an epoch follows.
+    if (g.members.map((m) => ensureKey(chat, w, m.address)).some(Boolean)) changed = true;
     const members = epochMembers(chat, w, g);
-    if (!w.e2e.epochDue(latest, members)) continue;
+    if (!epochDue(latest, members)) continue;
     const covered = new Set(latest?.members ?? []);
     const joiner = g.members.filter((m) => !covered.has(m.address)).sort((a, b) => b.joinedAt - a.joinedAt)[0];
     const creator = latest && joiner ? joiner.address : [...g.members].sort((a, b) => b.rank - a.rank || a.joinedAt - b.joinedAt)[0]!.address;
@@ -350,7 +371,7 @@ function settleEpochs(chat: StoredChat, w: ChatWorld): boolean {
       ...chat.keyChanges.filter((k) => inGuild.has(k.player)).map((k) => k.at),
     ];
     const at = Math.min(w.now, Math.max(latest?.at ?? g.createdAt, ...changes));
-    chat.epochs[id] = [...list, w.e2e.makeEpoch({ conversation: id, epoch: (latest?.epoch ?? 0) + 1, creator, at, members }).record];
+    chat.epochs[id] = [...list, makeEpoch({ conversation: id, epoch: (latest?.epoch ?? 0) + 1, creator, at, members }).record];
     changed = true;
   }
   return changed;
@@ -377,15 +398,15 @@ function sealIn(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversat
     const other = otherPlayer(id, sender)!;
     ensureKey(chat, w, sender);
     ensureKey(chat, w, other);
-    const versions = w.e2e.privateVersions(id, sender, directoryOf(chat, w, sender)!.version, directoryOf(chat, w, other)!.version);
+    const versions = privateVersions(id, sender, directoryOf(chat, w, sender)!.version, directoryOf(chat, w, other)!.version);
     const k = privateKeyFor(chat, w, id, sender, versions);
     if (!k) throw new Error("mock chat: no conversation key");
-    return w.e2e.seal(k, { conversation: id, sender: key(sender), versions, at, counter }, text);
+    return seal(k, { conversation: id, sender: key(sender), versions, at, counter }, text);
   }
   const latest = chat.epochs[id]?.at(-1);
   const epochKey = latest && (epochKeyFor(chat, w, latest, sender) ?? epochKeyOfAny(chat, w, latest));
   if (!latest || !epochKey) throw new Error("mock chat: no epoch to seal with");
-  return w.e2e.seal(w.e2e.guildMessageKey(epochKey, id, latest.epoch), { conversation: id, sender: key(sender), epoch: latest.epoch, at, counter }, text);
+  return seal(guildMessageKey(epochKey, id, latest.epoch), { conversation: id, sender: key(sender), epoch: latest.epoch, at, counter }, text);
 }
 
 /** Opens a sealed message of `author` in `id` with `viewer`'s keys, or null: a key they do not hold, or a mismatch. */
@@ -397,9 +418,9 @@ function openFor(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversa
   if (c.kind === "guild" && "epoch" in h) {
     const record = chat.epochs[id]?.find((e) => e.epoch === h.epoch);
     const epochKey = record ? epochKeyFor(chat, w, record, viewer) : null;
-    k = epochKey ? w.e2e.guildMessageKey(epochKey, id, h.epoch) : null;
+    k = epochKey ? guildMessageKey(epochKey, id, h.epoch) : null;
   }
-  return k ? w.e2e.open(k, sealed) : null;
+  return k ? open(k, sealed) : null;
 }
 
 /** Version 1's chat, sealed in place (#997, point 5): its keys made, its guilds' first epochs, its texts sealed, its reports kept. */
@@ -418,7 +439,7 @@ function upgradeChat(old: StoredChatV1, w: ChatWorld): StoredChat {
       // A guild with no member on this device, or none left: no one here reads it, so its texts are not kept.
       const g = w.guilds.guilds.find((x) => x.id === c.guild);
       if (!g || g.members.length === 0) continue;
-      next.epochs[id] = [w.e2e.makeEpoch({ conversation: id, epoch: 1, creator: g.members[0]!.address, at: w.now, members: epochMembers(next, w, g) }).record];
+      next.epochs[id] = [makeEpoch({ conversation: id, epoch: 1, creator: g.members[0]!.address, at: w.now, members: epochMembers(next, w, g) }).record];
     }
     next.messages[id] = list.map((m) => ({ id: m.id, author: m.author, at: m.at, deleted: m.deleted, sealed: sealIn(next, w, id, c, m.author, m.deleted ? "" : m.text, m.at) }));
   }
@@ -868,7 +889,7 @@ function encryptionOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Con
   const first = chat.messages[id]?.[0]?.at;
   return {
     mode: "private",
-    safetyCode: mine && theirs ? w.e2e.safetyCode(mine.publicKey, theirs.publicKey) : null,
+    safetyCode: mine && theirs ? safetyCode(mine.publicKey, theirs.publicKey) : null,
     keyChanges: first === undefined ? [] : chat.keyChanges.filter((k) => k.player === key(other) && k.at >= first).map(({ at, version }) => ({ at, version })),
   };
 }
@@ -997,7 +1018,7 @@ export function deleteIn({ chat, w, player }: ChatWrite, id: ConversationId, mes
 function revealOf(w: ChatWorld, id: ConversationId, l: Line): RevealedMessage {
   if (!l.sealed || !l.opened) return { id: l.id, author: l.author, at: l.at, text: l.text, frankingKey: null, commitment: null, checked: null };
   const { text, frankingKey } = l.opened;
-  const checked = w.e2e.checkCommitment({ text, frankingKey, conversation: id, sender: l.author, at: l.sealed.header.at }, l.sealed.commitment);
+  const checked = checkCommitment({ text, frankingKey, conversation: id, sender: l.author, at: l.sealed.header.at }, l.sealed.commitment);
   return { id: l.id, author: l.author, at: l.at, text, frankingKey, commitment: l.sealed.commitment, checked };
 }
 
@@ -1015,7 +1036,7 @@ export function reportIn({ chat, w, player }: ChatWrite, id: ConversationId, mes
   const already = chat.reports.some((x) => x.reporter === key(player) && x.conversation === id && x.message === message);
   const refused = reportRefusal(player, line, reason, already);
   if (refused) refuse(refused);
-  const revealed = r.c.kind === "world" ? [line] : w.e2e.reportReveal(lines.filter((l) => l.id === message || (!l.deleted && !l.unreadable)), message);
+  const revealed = r.c.kind === "world" ? [line] : reportReveal(lines.filter((l) => l.id === message || (!l.deleted && !l.unreadable)), message);
   chat.reports.push({ reporter: key(player), conversation: id, message, author: line.author, reason, at: w.now, revealed: revealed.map((l) => revealOf(w, id, l)) });
 }
 
@@ -1048,8 +1069,8 @@ export function rotateKeysIn({ chat, w, player }: ChatWrite): void {
   const version = (directoryOf(chat, w, k)?.version ?? 0) + 1;
   if (isCommunity(k)) chat.rotations[k] = version;
   else {
-    const pair = w.e2e.newKeyPair(version);
-    chat.keys[k] = [...(chat.keys[k] ?? []), { version, secretKey: w.e2e.bytesToHex(pair.secretKey), publicKey: w.e2e.bytesToHex(pair.publicKey), at: w.now }];
+    const pair = newKeyPair(version);
+    chat.keys[k] = [...(chat.keys[k] ?? []), { version, secretKey: bytesToHex(pair.secretKey), publicKey: bytesToHex(pair.publicKey), at: w.now }];
   }
   chat.keyChanges.push({ player: k, version, at: w.now });
   // The guilds they are in start a new epoch for the new key.
