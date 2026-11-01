@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { ChangeFloat, ChangePop, changeTone, useAmountChange } from "./amount-change";
 import { NumberTicker } from "./number-ticker";
-import { Plate, plateBareIconClass, PLATE_FIGURE, type PlateVariants } from "./plate";
+import { Plate, plateBareIconClass, plateBareIconPx, PLATE_FIGURE, type PlateVariants } from "./plate";
 import { TokenIcon, type TokenKind } from "./token-icon";
 
 export interface ResourcePlateProps extends PlateVariants {
@@ -32,8 +32,9 @@ export interface ResourcePlateProps extends PlateVariants {
 }
 
 /**
- * A balance as a game's resource bar shows it (issues 620, 828): a `Plate` with the figure in chunky mono, the token's icon
- * standing over one end, bare (issue 213: no disc behind it) and taller than the plate; the other end is bare too, no "+" (the
+ * A balance as a game's resource bar shows it (issues 620, 828): a `Plate` on the stone frame (the owner's direction A of 2026-11-01:
+ * the player badge's name plate made small) with the figure in chunky mono, outlined like the badge's name, the token's icon
+ * standing over one end, bare (issue 213: no disc behind it) and taller than the plate; the other end is the frame's gold point, no "+" (the
  * owner's ruling of issue 925: a balance's tap is its container's). On each change of the amount, never on the first one nor from a missing value, the figure counts to the new value (`NumberTicker`) and briefly takes
  * the change's colour; up, a "+N" rises and fades and the icon pops; down, a "−N" drops and fades and the icon dips. Under reduced
  * motion only the colour flashes: nothing moves. The accessible name is the container's.
@@ -50,14 +51,15 @@ export function ResourcePlate({ kind, amount, decimals, fraction, side = "right"
       fixed={fixed}
       className={className}
       endFit="bare"
+      frame="stone"
       end={
         <ChangePop change={change} moving={moving}>
-          <TokenIcon kind={kind} className={plateBareIconClass(size)} />
+          <TokenIcon kind={kind} px={plateBareIconPx(size)} className={plateBareIconClass(size)} />
         </ChangePop>
       }
       after={<ChangeFloat change={change} moving={moving} className={side === "left" ? "right-auto left-2" : "right-6"} />}
     >
-      <span aria-hidden className={cn(PLATE_FIGURE, "transition-colors duration-700 motion-reduce:duration-300", changeTone(flash, change))}>
+      <span aria-hidden className={cn(PLATE_FIGURE, "text-outline transition-colors duration-700 motion-reduce:duration-300", changeTone(flash, change))}>
         {text === null ? "–" : <NumberTicker value={target} startValue={start} decimalPlaces={fraction} format={format} className="tracking-tight" />}
       </span>
       {children}

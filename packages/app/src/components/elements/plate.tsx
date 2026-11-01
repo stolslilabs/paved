@@ -1,17 +1,23 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
+import { PLATE_ART, PLATE_FACE, PLATE_POINT, plateArtUrl } from "./token-art";
 
-const boxVariants = cva("relative flex items-center rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", {
+const boxVariants = cva("relative flex items-center", {
   variants: {
     // Issue 828: a 32 px box under a 40 px disc on a phone, 36 under 44 from `desktop` (the balances' `rail`; their bare icon, issue
     // 213, 48 and 52); `auto`, the one and then the other (the home's left column, issue 829).
     size: { sm: "h-8 text-sm", md: "h-9 text-lg", auto: "h-8 text-sm desktop:h-9 desktop:text-lg" },
-    /** `invite`: the Cobbles' plate (issue 620), a gold edge and a slow shine: it leads to the packs (no "+", issue 925). */
+    /** `invite`: the Cobbles' plate (issue 620), a slow shine (and a gold edge on the flat frame): it leads to the packs (no "+", issue 925). */
     tone: { default: "border-resource-edge", invite: "border-primary/60" },
+    /** `flat`: a rounded box in the plate's colours. `stone`: the balances' bricks, images drawn under the content (`Plate`). */
+    frame: { flat: "rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", stone: "" },
   },
-  defaultVariants: { size: "sm", tone: "default" },
+  defaultVariants: { size: "sm", tone: "default", frame: "flat" },
 });
+
+/** The box's height at each size in CSS px, for the stone frame's images (`auto`: the phone's, no currency uses it). */
+const BOX_PX: Record<PlateSize, number> = { sm: 32, md: 36, auto: 32 };
 
 export type PlateSize = NonNullable<VariantProps<typeof boxVariants>["size"]>;
 
@@ -100,6 +106,12 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
    * at the side away from the icon. Omitted, the box fits its content (the League's and the shield's plates).
    */
   fixed?: boolean;
+  /**
+   * `flat` (the default): a rounded box in the plate's colours (the League's and the shield's plates). `stone`: the balances' frame
+   * (the owner's direction A of 2026-11-01, `token-art.ts`), the player badge's name plate made small: a slate face between two
+   * rows of bricks, its gold point standing out past the open end as the icon does at the other, the figure on the face.
+   */
+  frame?: "flat" | "stone";
   /** Past the plate, out of its flow (the change's float). */
   after?: ReactNode;
   /** The box's content: the figure, and a hint of what a tap does. */
@@ -114,11 +126,12 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
  * border, and over the other end, if any, a round disc (no "+", issue 925). The box keeps the overlaps plus a gap clear inside, so its
  * content never runs under either end. The balances' plate (`ResourcePlate`), the League's and the shield's (issue 829).
  */
-export function Plate({ side = "right", end, endFit = "disc", lead, leadContent, fixed, after, size, tone, children, className, ...data }: PlateProps) {
+export function Plate({ side = "right", end, endFit = "disc", lead, leadContent, fixed, frame = "flat", after, size, tone, children, className, ...data }: PlateProps) {
   const parts = PARTS[size ?? "sm"];
   const bare = endFit === "bare";
   // A fixed plate's box takes what the ends leave, its figure at the side away from the icon.
   const fill = fixed && ["min-w-0 flex-1", side === "left" && "justify-end", FIGURE[size ?? "sm"], (size ?? "sm") === "sm" && side === "right" && FIXED_PAD];
+  const stone = frame === "stone" ? stoneLayout(size ?? "sm", side) : null;
   return (
     <span {...data} data-side={side} className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", fixed && parts.width, className)}>
       {lead === "disc" && (
@@ -126,10 +139,14 @@ export function Plate({ side = "right", end, endFit = "disc", lead, leadContent,
           {leadContent}
         </span>
       )}
-      <span className={cn(boxVariants({ size, tone }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fill)}>
-        {/* The shine in its own clipped layer: the floating change goes past the plate's edge. */}
+      <span
+        className={cn(boxVariants({ size, tone, frame }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fill)}
+        style={stone?.box}
+      >
+        {stone && <StoneFrame layout={stone} />}
+        {/* The shine in its own clipped layer: the floating change goes past the plate's edge. On the stone frame, its face only. */}
         {tone === "invite" && (
-          <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+          <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]" style={stone?.face}>
             <span className="plate-shine absolute inset-0" />
           </span>
         )}
@@ -137,6 +154,51 @@ export function Plate({ side = "right", end, endFit = "disc", lead, leadContent,
       </span>
       <span className={cn("relative z-10 inline-flex shrink-0 drop-shadow-sm", bare ? [parts.bareEnd.over[side], "-my-1"] : parts.over[side])}>{end}</span>
       {after}
+    </span>
+  );
+}
+
+interface StoneLayout {
+  /** The box's height, which the images take. */
+  h: number;
+  side: "right" | "left";
+  /** The box: its own layer, so the images go under its content; its open end padded to the slate face, past the corner stones. */
+  box: CSSProperties;
+  /** The slate face in the box, for the invite's shine. */
+  face: CSSProperties;
+}
+
+function stoneLayout(size: PlateSize, side: "right" | "left"): StoneLayout {
+  const h = BOX_PX[size];
+  const open = side === "right" ? "left" : "right";
+  // The gold point stands out by `PLATE_POINT`, so the face begins this far inside the box: 6 px on the phone's plate, 7 on the rail's.
+  const inset = Math.ceil((PLATE_FACE.left - PLATE_POINT) * h);
+  return {
+    h,
+    side,
+    box: { isolation: "isolate", [open === "left" ? "paddingLeft" : "paddingRight"]: inset + 2 },
+    face: { top: `${PLATE_FACE.top * 100}%`, bottom: `${PLATE_FACE.bottom * 100}%`, [open]: inset },
+  };
+}
+
+/**
+ * The stone frame's images under the box's content (`token-art.ts`): the left cap, its gold point past the box's open end; the tile,
+ * repeated to the width in whole bricks (`round`: a little longer or shorter, never cut); the right cap, under the icon. Mirrored
+ * for a plate on the left of the screen.
+ */
+function StoneFrame({ layout: { h, side } }: { layout: StoneLayout }) {
+  const width = (part: "cap-left" | "cap-right") => Math.round((h * PLATE_ART[part].width) / PLATE_ART[part].height);
+  const point = Math.round(PLATE_POINT * h);
+  return (
+    <span
+      aria-hidden
+      data-slot="plate-art"
+      className="pointer-events-none absolute inset-y-0 flex"
+      style={side === "right" ? { left: -point, right: 0, zIndex: -1 } : { left: 0, right: -point, zIndex: -1, transform: "scaleX(-1)" }}
+    >
+      <img src={plateArtUrl("cap-left")} alt="" decoding="async" draggable={false} className="block shrink-0" style={{ width: width("cap-left"), height: h }} />
+      <span className="min-w-0 flex-1" style={{ backgroundImage: `url(${plateArtUrl("tile")})`, backgroundSize: "auto 100%", backgroundRepeat: "round no-repeat" }} />
+      <img src={plateArtUrl("cap-right")} alt="" decoding="async" draggable={false} className="block shrink-0" style={{ width: width("cap-right"), height: h }} />
     </span>
   );
 }
@@ -187,6 +249,12 @@ export const plateCoinClass = (size: PlateSize | null | undefined): string => PA
 
 /** A bare icon's box at each size (`endFit="bare"`, issue 213): a token's coin or stone with no disc, taller than the plate. */
 export const plateBareIconClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].bareEnd.box;
+
+/** How far a stone plate's gold point stands out past its open end at each size, in CSS px (10 on the phone's plate, 11 on the rail's). */
+export const platePointPx = (size: PlateSize | null | undefined): number => Math.round(PLATE_POINT * BOX_PX[size ?? "sm"]);
+
+/** A bare icon's width at each size in CSS px (48 over the 32 px box, 52 over the 36), for the copy its image loads. */
+export const plateBareIconPx = (size: PlateSize | null | undefined): number => ({ sm: 48, md: 52, auto: 48 })[size ?? "sm"];
 
 /** The plate's own variants (`size`, `tone`), for a plate built on it. */
 export type PlateVariants = VariantProps<typeof boxVariants>;
