@@ -16,14 +16,14 @@ export const PACKS: readonly Pack[] = [
 ];
 
 /**
- * The Cobbles of the 16 fresh quests (3.1): a weekly 15; a daily none since #869 (the owner's decisions of 2026-10-28: the
+ * The Cobbles of the fresh quests (3.1): none of their own. A daily none since #869 (the owner's decisions of 2026-10-28: the
  * day's milestones pay instead, `DAILY_MILESTONES`), where 3.1 gave a family's easy, middle and hard target 5, 10 and 15 and
- * Daily Run 5. Ids 2 to 4 are not defined; 17 to 19 are #869's fourth rotating family. 20 and 21 are #976's PvP weeklies, with
- * none of their own: the week's milestones pay (`WEEKLY_MILESTONES`).
+ * Daily Run 5; a weekly none since #976 (the owner's decisions of 2026-11-01: the week's milestones pay, `WEEKLY_MILESTONES`),
+ * where 3.1 gave it 15. Ids 2 to 4 are not defined; 17 to 19 are #869's fourth rotating family, 20 and 21 #976's PvP weeklies.
  */
 export const QUEST_COBBLES: readonly QuestCobbles[] = [
   ...[1, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((questId) => ({ questId, cobbles: 0, kind: "daily" as const })),
-  ...[14, 15, 16].map((questId) => ({ questId, cobbles: 15, kind: "weekly" as const })),
+  ...[14, 15, 16].map((questId) => ({ questId, cobbles: 0, kind: "weekly" as const })),
   ...[17, 18, 19].map((questId) => ({ questId, cobbles: 0, kind: "daily" as const })),
   ...[20, 21].map((questId) => ({ questId, cobbles: 0, kind: "weekly" as const })),
 ];

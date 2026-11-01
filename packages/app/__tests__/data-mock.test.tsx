@@ -285,19 +285,19 @@ describe("the mock", () => {
   /** The mock on a clock of `clock.now` (seconds), today at 09:00 UTC by default. */
   const clocked = (clock = { now: TODAY * 86_400 + 9 * 3_600 }) => ({ clock, ...mockImplementation(undefined, WINNER, () => clock.now) });
 
-  it("a weekly's claim adds its Cobbles and marks it claimed; a second claim is refused", async () => {
-    const { sources } = mockImplementation(undefined, WINNER);
+  it("a weekly pays nothing on its own, and the week has no bonus (#976): both claims are refused, nothing moves", async () => {
+    const { sources, ledger } = mockImplementation(undefined, WINNER);
     const week = weekOfDay(TODAY)!;
     const { result } = renderData(() => ({ rewards: useQuestRewards(PLAYER, TODAY), claims: useClaims(PLAYER) }), sources);
     const rewards = await dataOf({ get current() { return result.current.rewards; } });
-    expect(rewards!.cobbles.find((q) => q.questId === 14)).toEqual({ questId: 14, cobbles: 15, kind: "weekly" });
-    expect(rewards!.balance).toBe(0);
-    await act(() => result.current.claims.claim("quest:14", [{ kind: "quest", questId: 14, period: week }]));
-    await waitFor(() => expect(result.current.rewards.data?.balance).toBe(15));
-    expect(result.current.rewards.data!.week.claimed & (1n << 14n)).toBe(1n << 14n);
-    const again = await result.current.claims.claim("quest:14", [{ kind: "quest", questId: 14, period: week }]).catch((e: unknown) => e);
-    expect(again).toBeInstanceOf(ClaimRefusedError);
-    expect((again as ClaimRefusedError).reason).toBe("claimed");
+    expect(rewards!.cobbles.find((q) => q.questId === 14)).toBeUndefined();
+    const quest = await result.current.claims.claim("quest:14", [{ kind: "quest", questId: 14, period: week }]).catch((e: unknown) => e);
+    expect(quest).toBeInstanceOf(ClaimRefusedError);
+    expect((quest as ClaimRefusedError).reason).toBe("no-cobbles");
+    const bonus = await ledger.writesFor(PLAYER).claimWeeklyCredit(week).catch((e: unknown) => e);
+    expect(bonus).toBeInstanceOf(ClaimRefusedError);
+    expect((bonus as ClaimRefusedError).reason).toBe("no-live-quest");
+    expect((await ledger.account(PLAYER)).cobbles).toBe(0);
   });
 
   it("a daily pays nothing on its own, and the day has no bonus (#869): both claims are refused, nothing moves", async () => {
@@ -594,21 +594,21 @@ describe("the mock", () => {
     expect(await ledger.account(PLAYER)).toMatchObject({ cobbles: 0, achievementsClaimed: 0n });
   });
 
-  it("gives the definitions their Cobbles: none for a daily (#869), even its own; a weekly's own stay, else the table's", async () => {
+  it("gives the definitions their Cobbles: none for a quest, even its own (a daily since #869, a weekly since #976)", async () => {
     const { sources, ledger } = mockImplementation(undefined, WINNER);
     const definitions = (await sources.indexer.definitions()).data;
-    // The PvP weeklies (#976) pay none of their own: the week's milestones do.
+    // No weekly (#976) pays on its own, the PvP ones as the Challenge ones: the week's milestones do.
     const kindOf = (id: number) => ((id >= 14 && id <= 16) || id >= 20 ? "weekly" : "daily");
     expect(definitions.quests.map((q) => [q.questId, q.cobbles, q.cobblesKind])).toEqual(
-      [1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((id) => [id, id >= 14 && id <= 16 ? 15 : 0, kindOf(id)]),
+      [1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((id) => [id, 0, kindOf(id)]),
     );
     expect(definitions.achievements.find((a) => a.achievementId === 4)?.cobbles).toBe(40);
     const [daily] = FRESH_DEFINITIONS.quests;
     const weekly = FRESH_DEFINITIONS.quests.find((q) => q.questId === 14)!;
     const one = (q: typeof daily) => ledger.definitions({ quests: [q!], achievements: [] }).quests[0];
     expect(one({ ...daily!, cobbles: 7, cobblesKind: "daily" })).toMatchObject({ cobbles: 0, cobblesKind: "daily" });
-    expect(one({ ...weekly, questId: 1, cobbles: 7, cobblesKind: "weekly" })).toMatchObject({ cobbles: 7, cobblesKind: "weekly" });
-    expect(one({ ...weekly, cobbles: 0, cobblesKind: null })).toMatchObject({ questId: 14, cobbles: 15, cobblesKind: "weekly" });
+    expect(one({ ...weekly, questId: 1, cobbles: 7, cobblesKind: "weekly" })).toMatchObject({ cobbles: 0, cobblesKind: "weekly" });
+    expect(one({ ...weekly, cobbles: 0, cobblesKind: null })).toMatchObject({ questId: 14, cobbles: 0, cobblesKind: "weekly" });
   });
 
   it("answers the referrals from the ledger, without a request", async () => {

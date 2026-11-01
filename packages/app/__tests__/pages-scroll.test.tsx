@@ -38,7 +38,7 @@ const PAGES: readonly [string, ReactNode][] = [
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
   ["League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={no()} onNavigate={no()} onOpenMatch={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
-  ["Missions", <MissionsScene {...MISSIONS.daily} onNavigate={no()} onClaimQuest={no()} onClaimAchievement={no()} onClaimBonus={no()} />],
+  ["Missions", <MissionsScene {...MISSIONS.daily} onNavigate={no()} onClaimQuest={no()} onClaimAchievement={no()} />],
   ["Vault", <VaultScene {...VAULT.position} onNavigate={no()} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onNavigate={no()} onUse={no()} onOpen={no()} />],
   ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} onNavigate={no()} />],
