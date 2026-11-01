@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type FocusEvent } from "react";
 import type { PlayerAchievements } from "@paved/chain";
 import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
@@ -100,6 +100,23 @@ export interface MissionsSceneProps {
   onNavigate?: (tab: Tab) => void;
 }
 
+/**
+ * The card's sticky box (#988): under the page's header (`--header-h` and the notch) once the viewport is 560 px tall or more; below
+ * that (a phone held sideways) it would leave the list almost no room, so it scrolls with the page. It sticks 16 px under the header,
+ * where the content starts on every page (HEADER-HEIGHT, #676), and the page's 16 px gap above it is painted with the page's
+ * background (`before:`, across the column with `-mx-4 px-4`), so no tile shows between the header and the card; a 16 px fade under
+ * its bottom edge lets the tiles pass under it. Above the list, under the header (`z-30`).
+ */
+const STICKY_CARD = [
+  "relative z-20 -mx-4 bg-background px-4",
+  "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
+  "[@media(min-height:35rem)]:sticky [@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]",
+  "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
+].join(" ");
+
+/** The room kept between the sticky card's bottom edge and a part of the list brought out from under it (the fade's height). */
+const BELOW_CARD = 16;
+
 const ROW = {
   daily: { title: "Daily", icon: "sun", ends: "Daily missions reset in" },
   weekly: { title: "Weekly", icon: "crown", ends: "Weekly missions reset in" },
@@ -123,12 +140,37 @@ const fraction = (progress: Mission["progress"]): number =>
  * day's #869, the week's #976): an edge per quest done and a gift node per milestone's Cobbles, opened (claimed) with a tap on it;
  * the week's gifts are larger, and no weekly pays on its own any more, nor a week's bonus. On arrival the first mission not done is
  * selected (Daily, then Weekly, then Lifetime; with everything done, the first one); a tap on an icon selects it, the card
- * updates in place and the page does not scroll. Cobbles are the only reward: no free game, no day picker. Claims go from the
+ * updates in place and the page does not scroll. The card sticks under the page's header while the list scrolls (#988, from a
+ * viewport 560 px tall), so the tapped mission always shows; no tile shows Cobbles, the card does. Cobbles are the only reward: no free game, no day picker. Claims go from the
  * card. The completion toasts are the app's (`routes/completion-host.tsx`).
  */
 export function MissionsScene(props: MissionsSceneProps) {
   const { quests, achievements, connected, error, now, questRewards, achievementRewards, claiming = null, claimingMilestone = null, claimingWeeklyMilestone = null, canClaim = true } = props;
   const [picked, setPicked] = useState<MissionKey | null>(props.initialSelected ?? null);
+  const cardRef = useRef<HTMLElement>(null);
+  // A press on the list, from its pointer down to its up: the focus it gives is a tap's, not the keyboard's.
+  const pressing = useRef(false);
+
+  // A part of the list reached with the keyboard (#988) never stays under the sticky card: the region scrolls it out, below the
+  // card's fade. A tap does not scroll (the card is in view). The browser's own scroll into view comes after the focus event.
+  const keepBelowCard = (event: FocusEvent<HTMLElement>) => {
+    const card = cardRef.current;
+    if (!card || pressing.current || getComputedStyle(card).position !== "sticky") return;
+    const overlap = card.getBoundingClientRect().bottom + BELOW_CARD - event.target.getBoundingClientRect().top;
+    if (overlap > 0) card.closest<HTMLElement>('[data-slot="page-scroll"]')?.scrollBy({ top: -overlap });
+  };
+  // The press ends wherever the pointer is released (dragged off the list, onto the header): the window hears it, once.
+  const press = () => {
+    pressing.current = true;
+    const release = () => {
+      pressing.current = false;
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", release, true);
+    };
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+  };
+  const list = { onFocus: keepBelowCard, onPointerDown: press };
 
   const entries = quests?.quests ?? [];
   // Each quest's window's end (a daily's falls back to the UTC day's end).
@@ -198,7 +240,6 @@ export function MissionsScene(props: MissionsSceneProps) {
       title={m.title}
       icon={m.icon}
       state={m.state}
-      cobbles={m.reward?.cobbles}
       progress={fraction(m.progress)}
       selected={selected?.key === m.key}
       onSelect={() => setPicked(m.key as MissionKey)}
@@ -231,8 +272,8 @@ export function MissionsScene(props: MissionsSceneProps) {
         </div>
       ) : (
         <>
-          {/* The card is read again on each tap: a polite live region says the new mission. */}
-          <section aria-label="Selected mission" aria-live="polite">
+          {/* The card is read again on each tap: a polite live region says the new mission. The notices under it scroll with the list. */}
+          <section ref={cardRef} aria-label="Selected mission" aria-live="polite" data-slot="mission-card-sticky" className={STICKY_CARD}>
             {selected && <MissionCard mission={selected} canClaim={canClaim} onClaim={() => onClaim(selected)} />}
           </section>
           {questRewards && !canClaim && (
@@ -242,7 +283,7 @@ export function MissionsScene(props: MissionsSceneProps) {
           )}
           {props.rewardsUnavailable && <Notice title="Rewards unavailable">{props.rewardsUnavailable}</Notice>}
 
-          <section aria-labelledby="missions-limited" className="flex flex-col gap-3">
+          <section aria-labelledby="missions-limited" {...list} className="flex flex-col gap-3">
             <h2 id="missions-limited" className="font-display text-lg font-semibold">Limited</h2>
             {rows.every((r) => r.missions.length === 0) ? (
               <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">No limited mission live today.</p>
@@ -289,7 +330,7 @@ export function MissionsScene(props: MissionsSceneProps) {
             )}
           </section>
 
-          <section aria-labelledby="missions-lifetime" className="flex flex-col gap-3">
+          <section aria-labelledby="missions-lifetime" {...list} className="flex flex-col gap-3">
             <h2 id="missions-lifetime" className="flex items-baseline gap-2 font-display text-lg font-semibold">
               Lifetime
               <span className="numeric font-sans text-xs font-normal text-muted-foreground">

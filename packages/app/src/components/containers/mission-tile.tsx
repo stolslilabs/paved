@@ -1,6 +1,5 @@
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
-import { Cobbles } from "../elements/cobbles";
 
 /**
  * Where a mission stands, as its tile shows it (#832): `claimable` (done, its Cobbles waiting), `done` (done, claimed or with no
@@ -21,8 +20,6 @@ export interface MissionTileProps {
   title: string;
   icon: string;
   state: MissionTileState;
-  /** Its Cobbles; omitted: none (before Cobbles, or a mission that gives none). */
-  cobbles?: number;
   /** Counted so far, 0 to 1: a thin bar under the icon while in progress. */
   progress?: number;
   /** The tile the card at the top shows: ringed. */
@@ -32,12 +29,13 @@ export interface MissionTileProps {
 }
 
 /**
- * A mission of the Missions page as an icon (#832): a square tile with the mission's icon, its Cobbles under it, and its state
- * (a check once done, a glow while its Cobbles wait, a lock while a lifetime mission has nothing counted). A tap selects it: the
+ * A mission of the Missions page as an icon (#832): a square tile with the mission's icon and its state (a check once done, a glow
+ * while its Cobbles wait, a lock while a lifetime mission has nothing counted). No Cobbles under it (#988): the card at the top is
+ * the one place that shows a mission's Cobbles; a tile is its square alone. A tap selects it: the
  * card at the top shows it, and the tile is ringed (`aria-pressed`). No animation: the glow (a lit fill) is still, so reduced motion has
  * nothing to stop.
  */
-export function MissionTile({ title, icon, state, cobbles, progress, selected = false, onSelect, className }: MissionTileProps) {
+export function MissionTile({ title, icon, state, progress, selected = false, onSelect, className }: MissionTileProps) {
   const done = state === "claimable" || state === "done";
   return (
     <button
@@ -46,7 +44,7 @@ export function MissionTile({ title, icon, state, cobbles, progress, selected = 
       aria-label={`${title}: ${MISSION_STATE_LABEL[state]}`}
       data-state={state}
       onClick={onSelect}
-      className={cn("flex min-w-0 cursor-pointer flex-col items-center gap-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("flex min-w-0 cursor-pointer flex-col items-center rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
       <span
         className={cn(
@@ -71,11 +69,6 @@ export function MissionTile({ title, icon, state, cobbles, progress, selected = 
           </span>
         )}
       </span>
-      {cobbles !== undefined && cobbles > 0 ? (
-        <Cobbles value={cobbles} sign="+" size="sm" tone={done ? "default" : "muted"} />
-      ) : (
-        <span aria-hidden className="h-4" />
-      )}
     </button>
   );
 }

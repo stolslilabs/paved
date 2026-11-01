@@ -105,7 +105,10 @@ describe("/missions (P9, #832)", () => {
     const limited = within(screen.getByRole("region", { name: "Limited" }));
     const lifetime = within(screen.getByRole("region", { name: /^Lifetime/ }));
     expect(limited.getByRole("button", { name: "Daily Run: Cobbles to claim" })).toBeInTheDocument();
-    expect(limited.getAllByRole("img", { name: "+15 Cobbles" }).length).toBeGreaterThan(0);
+    // No tile shows Cobbles (#988): the card at the top is the one place that does.
+    for (const tile of [...limited.getAllByRole("button", { name: /: (Cobbles to claim|Done|In progress|To do|Locked)$/ }), ...lifetime.getAllByRole("button")]) {
+      expect(within(tile).queryByRole("img", { name: /Cobbles/ })).toBeNull();
+    }
     expect(lifetime.getByRole("button", { name: /^Settler I: / })).toBeInTheDocument();
     // On arrival the first mission not done is selected: quest 2 (Daily Run is done).
     expect(card().getByRole("article")).toHaveAccessibleName("Mission #2");
