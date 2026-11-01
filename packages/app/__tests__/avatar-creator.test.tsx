@@ -16,9 +16,9 @@ const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 describe("AvatarCreatorScene", () => {
   it("shows the traits in use as tabs, the open trait's options with their offers, and the saved avatar's Save done", () => {
     render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.headwear} />));
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Skin tone", "Hair colour", "Hair", "Beard", "Eyes", "Headwear", "Accessory", "Outfit", "Pauldrons"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Skin tone", "Hair colour", "Hair", "Beard", "Eyes", "Headwear", "Accessory", "Outfit", "Pauldrons", "Backdrop"]);
     const grid = screen.getByRole("radiogroup", { name: "Headwear" });
-    expect(within(grid).getAllByRole("radio")).toHaveLength(6);
+    expect(within(grid).getAllByRole("radio")).toHaveLength(11);
     expect(within(grid).getByRole("radio", { name: "Wizard hat, owned" })).toHaveAttribute("aria-checked", "true");
     expect(within(grid).getByRole("radio", { name: "Helmet, free" })).toBeInTheDocument();
     expect(within(grid).getByRole("radio", { name: "Feathered cap, 60 Cobbles" })).toBeInTheDocument();
@@ -57,6 +57,12 @@ describe("AvatarCreatorScene", () => {
     const grid = screen.getByRole("radiogroup", { name: "Accessory" });
     expect(within(grid).getByRole("radio", { name: "Glasses, free" })).toHaveAttribute("aria-checked", "true");
     expect(within(grid).getByRole("radio", { name: "Earrings, not for sale" })).toBeInTheDocument();
+  });
+
+  it("a legendary item tried on says its rarity beside its name", () => {
+    render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.legendary} />));
+    expect(screen.getByText("Legendary")).toBeInTheDocument();
+    expect(screen.getByText("Buy the Top hat to save this avatar, or pick a free one.")).toBeInTheDocument();
   });
 
   it("a seasonal item says when its sale ends; too few Cobbles offers Get Cobbles", () => {

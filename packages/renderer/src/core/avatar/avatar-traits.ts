@@ -64,23 +64,39 @@ export function trackLimits(t: Traits): TrackLimits {
 }
 
 /** The traits that change shapes (the geometric checks run over all their combinations); the others change colours only. */
-export const SHAPE_TRAITS = ["hairStyle", "beard", "headwear", "accessory", "pauldrons"] as const;
+export const SHAPE_TRAITS = ["hairStyle", "beard", "headwear", "accessory", "outfit", "pauldrons"] as const;
 export const COLOUR_TRAITS = ["skin", "hair", "eyes", "outfit"] as const;
+/** The traits that shape the head (its cuboids), and those that shape the body (the torso's, the arms', the pauldrons'). */
+export const HEAD_TRAITS = ["hairStyle", "beard", "headwear", "accessory"] as const;
+export const BODY_TRAITS = ["outfit", "pauldrons", "accessory"] as const;
 
 /** Each family's base: the king's (measured), then each option's. */
 const BASE = { skin: 0xfdb56a, hair: 0x66311e, eyes: 0x46271e, outfit: 0x2f78b8, pauldron: 0xdf9334 };
 const SKINS: Record<Traits["skin"], number> = { peach: BASE.skin, pale: 0xffd4ad, tan: 0xd8955a, brown: 0xa4643a, deep: 0x6a3c23 };
-const HAIRS: Record<Traits["hair"], number> = { auburn: BASE.hair, black: 0x2b2220, blond: 0xc9953a, ginger: 0xb04a1e, grey: 0x9a9691 };
-const EYES: Record<Traits["eyes"], number> = { brown: BASE.eyes, blue: 0x2f6fd6, green: 0x2e8b45, grey: 0x5f6e7c, amber: 0xb8741e };
-const OUTFITS: Record<Traits["outfit"], number> = { blue: BASE.outfit, red: 0xb8392e, green: 0x3c8f48, purple: 0x7b4bb3, black: 0x3d4049 };
+const HAIRS: Record<Traits["hair"], number> = { auburn: BASE.hair, black: 0x2b2220, blond: 0xc9953a, ginger: 0xb04a1e, grey: 0x9a9691, white: 0xe4e0d8, blue: 0x2c5cc4 };
+// (the ember a bright red-orange: a glow on the eye's white that keeps the pupil's contrast, where a pale glow lost it)
+const EYES: Record<Traits["eyes"], number> = { brown: BASE.eyes, blue: 0x2f6fd6, green: 0x2e8b45, grey: 0x5f6e7c, amber: 0xb8741e, ember: 0xff4a1a };
+// The paid outfits' cloth: the royal crimson, the ermine's deep wine under its fur, the plate's dark steel sleeves.
+const OUTFITS: Record<Traits["outfit"], number> = { blue: BASE.outfit, red: 0xb8392e, green: 0x3c8f48, purple: 0x7b4bb3, black: 0x3d4049, royal: 0x9e1b32, ermine: 0x7a1f45, plate: 0x4a5260 };
 // (the leather a light tan: a brown one was the strap's own, the two read as one: the checks)
-const PAULDRONS: Record<Traits["pauldrons"], number> = { gold: BASE.pauldron, iron: 0xa3abb5, leather: 0xc4874a, none: BASE.pauldron };
+const PAULDRONS: Record<Traits["pauldrons"], number> = { gold: BASE.pauldron, iron: 0xa3abb5, leather: 0xc4874a, none: BASE.pauldron, spiked: 0x7d858f, dragon: 0x2f8f5f };
 
 /**
  * How far apart the hair and the skin stay (OKLab): the brows, the beard and the moustache read against the face. A hair too
  * close to a skin (auburn on a deep skin, blond on a tan one) is moved in lightness away from it (`apart`), its hue kept.
  */
 const HAIR_SKIN_GAP = 0.13;
+
+// The headwear's own tones (the families take some apart from the hair under them). A dark steel: a light one was grey hair's
+// own tone under it (the checks).
+const IRON = [0x6c7480, 0x7d8692, 0x5e6671, 0x8c95a0, 0x737c87];
+const WIZARD = [0x2b3070, 0x30367c, 0x272c66, 0x353b86];
+const FELT = [0x2a2526, 0x332d2e, 0x252021, 0x3a3334];
+// (the top hat in the tricorn's felt: the families keep one felt apart from the hair)
+const TOPHAT = [0x2a2526, 0x332d2e, 0x252021];
+const LEAF = [0x6fae3f, 0x5a9634, 0x86c452, 0x64a23a];
+const JESTER_RED = [0xb3262e, 0xa01f27, 0xc22f36];
+const JESTER_GREEN = [0x2f8f45, 0x27803c, 0x36a04f];
 
 /** The king's own colours (sampled from the target) that are not the head palette's. */
 export const C = {
@@ -99,15 +115,39 @@ export const C = {
 export function families(t: Traits) {
   // (always darker: a darker brow and beard still read as such, a lighter blond went to the crown's gold)
   const hair = apart(HAIRS[t.hair], SKINS[t.skin], HAIR_SKIN_GAP, -1);
-  // The helmet's steel apart from the hair under it (grey hair under a grey helmet read as one).
+  // The helmet's steel apart from the hair under it (grey hair under a grey helmet read as one); a black hat's felt the same.
   const steel = apart(IRON[4]!, hair, 0.1);
+  const felt = apart(FELT[1]!, hair, 0.1, 1);
+  // The jester's red apart from a red hair beside it (ginger), the pauldrons' metal or scale from the outfit under them.
+  const jester = apart(JESTER_RED[0]!, hair, 0.1);
+  const pauldron = apart(PAULDRONS[t.pauldrons], OUTFITS[t.outfit], 0.12);
+  const shifts = {
+    steel: (c: number) => shiftTone(c, IRON[4]!, steel),
+    felt: (c: number) => shiftTone(c, FELT[1]!, felt),
+    jester: (c: number) => shiftTone(c, JESTER_RED[0]!, jester),
+  };
   return {
     skin: (c: number) => shiftTone(c, BASE.skin, SKINS[t.skin]),
     hair: (c: number) => shiftTone(c, BASE.hair, hair),
-    steel: (c: number) => shiftTone(c, IRON[4]!, steel),
+    ...shifts,
     eyes: (c: number) => shiftTone(c, BASE.eyes, EYES[t.eyes]),
     outfit: (c: number) => shiftTone(c, BASE.outfit, OUTFITS[t.outfit]),
-    pauldron: (c: number) => shiftTone(c, BASE.pauldron, PAULDRONS[t.pauldrons]),
+    pauldron: (c: number) => shiftTone(c, BASE.pauldron, pauldron),
+    /** The tones of a headwear that sit against the hair (none: it covers the hair, or there is no headwear). */
+    headwear: (name: Traits["headwear"]): number[] =>
+      ({
+        crown: [C.gold],
+        helmet: [shifts.steel(IRON[4]!)],
+        viking: [shifts.steel(IRON[4]!)],
+        wizard: [WIZARD[1]!],
+        feathered: [0x3f6b35],
+        tricorn: [shifts.felt(FELT[1]!)],
+        tophat: [shifts.felt(TOPHAT[1]!)],
+        laurel: [LEAF[0]!],
+        jester: [shifts.jester(JESTER_RED[0]!), JESTER_GREEN[0]!],
+        hood: [],
+        none: [],
+      })[name],
   };
 }
 
@@ -195,8 +235,6 @@ function crown(): Headwear {
   };
 }
 
-// A dark steel (a light one was grey hair's own tone under it: the checks).
-const IRON = [0x6c7480, 0x7d8692, 0x5e6671, 0x8c95a0, 0x737c87];
 
 /**
  * An iron helmet: a band round the forehead (over the fringe and the side's top row), a dome in two steps with a crest, a nose
@@ -244,7 +282,6 @@ function hood(cloth: readonly number[]): Headwear {
   };
 }
 
-const WIZARD = [0x2b3070, 0x30367c, 0x272c66, 0x353b86];
 const WIZARD_CONE = [0x4650b4, 0x5560c8, 0x4a55bc];
 
 /** A wizard's hat: a wide brim, a gold band, a cone in three steps, its tip bent back (it stays within the frame). */
@@ -283,6 +320,113 @@ function feathered(): Headwear {
   };
 }
 
+const HORN = [0xf0e6cf, 0xe2d4b4, 0xc9b896];
+
+/** A Viking's helm: the helmet's iron band and dome without its crest, and a horn out of each side, curving up. */
+function viking(steel: (c: number) => number): Headwear {
+  const IRON_ = IRON.map(steel);
+  const half: Cuboid[] = [
+    ...tiles([-0.55, 6.6, 7.95], [4.55, 1.55, 0.75], 0, IRON_, 2, "viking/band-front"),
+    ...tiles([-0.75, 6.6, -0.75], [0.8, 1.55, 9.45], 2, IRON_, 4, "viking/band-side"),
+    { from: [0.15, 7.15, 8.65], size: [0.45, 0.45, 0.2], colour: steel(0xc9cfd6), name: "viking/rivet" },
+    // The horn out of the dome's side, then up in two narrowing steps to a dark tip (no higher than 11: a taller one left the
+    // badge's circle as the head looked down, turned: the checks).
+    { from: [-1.9, 8.35, 3.15], size: [1.95, 1.35, 1.7], colour: HORN[0]!, name: "viking/horn-0" },
+    { from: [-2.9, 9.2, 3.3], size: [1.4, 1.2, 1.4], rotation: [0, 0, -18], pivot: [-2.2, 9.8, 4.0], colour: HORN[1]!, name: "viking/horn-1" },
+    { from: [-3.05, 10.15, 3.5], size: [0.95, 0.6, 1.0], colour: HORN[2]!, name: "viking/horn-2" },
+    { from: [-2.95, 10.7, 3.7], size: [0.6, 0.35, 0.6], colour: 0x8a7a60, name: "viking/horn-tip" },
+  ];
+  return {
+    blocks: [
+      ...bothSides(half),
+      { from: [-0.55, 6.6, -0.75], size: [9.1, 1.55, 0.8], colour: IRON_[2]!, name: "viking/band-back" },
+      { from: [-0.45, 8.15, -0.45], size: [8.9, 1.2, 8.9], colour: IRON_[4]!, grain: 0.1, name: "viking/dome" },
+      { from: [0.6, 9.3, 0.6], size: [6.8, 0.9, 6.8], colour: IRON_[1]!, grain: 0.1, name: "viking/dome-top" },
+      { from: [3.45, 4.0, 8.35], size: [1.1, 2.6, 0.4], colour: IRON_[0]!, name: "viking/nose-guard" },
+    ],
+    hides: prefix("hair/slab", "hair/fringe", "hair/side-top"),
+  };
+}
+
+
+/**
+ * A pirate's tricorn in black felt: a low crown, three brims turned up round it (the back's straight, the sides' meeting in a
+ * point over the brow), gold piping on their edges.
+ */
+function tricorn(felt: (c: number) => number): Headwear {
+  const FELT_ = FELT.map(felt);
+  // A side's brim from the back corner (-1.6, -1.2) to the point (4, 9.6): 12.2 long, turned 27.4 degrees about the vertical.
+  const side: Cuboid[] = [
+    { from: [0.95, 7.9, -1.7], size: [0.5, 2.25, 12.2], rotation: [0, 27.4, 0], pivot: [1.2, 9.0, 4.2], colour: FELT_[1]!, grain: 0.08, name: "tricorn/brim-side" },
+    { from: [0.9, 10.12, -1.7], size: [0.6, 0.35, 12.2], rotation: [0, 27.4, 0], pivot: [1.2, 9.0, 4.2], colour: C.gold, name: "tricorn/piping-side" },
+  ];
+  return {
+    blocks: [
+      ...tiles([0.3, 7.85, 0.2], [7.4, 1.5, 7.2], 0, FELT_, 1, "tricorn/crown"),
+      { from: [1.1, 9.35, 0.9], size: [5.8, 0.45, 5.6], colour: FELT_[3]!, grain: 0.08, name: "tricorn/crown-top" },
+      ...bothSides(side),
+      { from: [-1.5, 7.9, -1.5], size: [11.0, 2.25, 0.5], colour: FELT_[2]!, grain: 0.08, name: "tricorn/brim-back" },
+      // (the brims 2.25 high: higher, the back's piping crossed the badge's circle as the head looked up, turned)
+      { from: [-1.55, 10.12, -1.55], size: [11.1, 0.35, 0.6], colour: C.gold, name: "tricorn/piping-back" },
+      // A white plume at the front point, where the sides meet.
+      { from: [3.55, 9.9, 9.0], size: [0.9, 1.1, 0.7], rotation: [-20, 0, 0], pivot: [4.0, 9.9, 9.35], colour: 0xf2ede2, name: "tricorn/plume" },
+    ],
+    hides: prefix("hair/slab", "hair/side-top"),
+  };
+}
+
+
+/** A laurel wreath: leaves round the head over the hair, in pairs, the front's open in the middle. */
+function laurel(): Headwear {
+  const leaf = (i: number, from: [number, number, number], size: [number, number, number], tilt: [number, number, number]): Cuboid => ({
+    from,
+    size,
+    rotation: tilt,
+    colour: LEAF[i % LEAF.length]!,
+    grain: 0.06,
+    name: `laurel/leaf-${i}`,
+  });
+  const half: Cuboid[] = [];
+  // The side's leaves along it, tilted up and down in turn.
+  for (let i = 0; i < 5; i++) half.push(leaf(i, [-1.0, 8.1 + (i % 2) * 0.25, 0.3 + i * 1.55], [0.6, 0.7, 1.5], [i % 2 ? 22 : -22, 0, 0]));
+  // The front's leaves from the side to the middle (the middle open).
+  for (let i = 0; i < 2; i++) half.push(leaf(5 + i, [0.1 + i * 1.6, 8.2 + (i % 2) * 0.25, 8.35], [1.5, 0.7, 0.6], [0, 0, i % 2 ? -22 : 22]));
+  // The back's.
+  for (let i = 0; i < 3; i++) half.push(leaf(7 + i, [-0.35 + i * 1.6, 8.1 + (i % 2) * 0.25, -1.0], [1.5, 0.7, 0.6], [0, 0, i % 2 ? 22 : -22]));
+  return { blocks: bothSides(half), hides: () => false };
+}
+
+
+/** A jester's cap, red on the left and green on the right, each half rising in a point that droops out, a gold bell at its end. */
+function jester(red: (c: number) => number): Headwear {
+  const half = (tones: readonly number[], name: string): Cuboid[] => [
+    { from: [-0.55, 7.7, -0.55], size: [4.55, 1.35, 9.1], colour: tones[0]!, grain: 0.08, name: `jester/${name}-cap` },
+    // The point: up from the cap's side, out, then drooping over, its bell hanging at the end.
+    { from: [0.0, 9.0, 1.8], size: [2.8, 1.6, 3.6], rotation: [0, 0, 22], pivot: [1.4, 9.0, 3.6], colour: tones[1]!, grain: 0.08, name: `jester/${name}-point-0` },
+    { from: [-1.1, 10.4, 2.4], size: [2.2, 1.2, 2.4], rotation: [0, 0, 40], pivot: [0.0, 10.4, 3.6], colour: tones[2]!, grain: 0.08, name: `jester/${name}-point-1` },
+    { from: [-2.3, 10.6, 3.0], size: [1.5, 0.95, 1.2], rotation: [0, 0, 70], pivot: [-1.55, 11.05, 3.6], colour: tones[1]!, grain: 0.08, name: `jester/${name}-point-2` },
+    { from: [-2.95, 9.25, 3.1], size: [1.0, 1.0, 1.0], colour: C.gold, name: `jester/${name}-bell` },
+    { from: [-2.7, 9.0, 3.35], size: [0.5, 0.25, 0.5], colour: C.goldDark, name: `jester/${name}-bell-mouth` },
+  ];
+  const right = half(JESTER_GREEN, "right").map((b) => ({ ...mirrorX(b), name: `${b.name}:r` }));
+  return { blocks: [...half(JESTER_RED.map(red), "left"), ...right], hides: prefix("hair/slab", "hair/side-top") };
+}
+
+
+/** A top hat: a black brim, a tall crown no higher than the crown's points, a red band with a gold buckle. */
+function tophat(felt: (c: number) => number): Headwear {
+  const TOPHAT_ = TOPHAT.map(felt);
+  return {
+    blocks: [
+      ...tiles([-0.9, 7.85, -0.9], [9.8, 0.45, 9.8], 0, TOPHAT_, 0, "tophat/brim"),
+      { from: [0.7, 8.3, 0.7], size: [6.6, 3.6, 6.6], colour: TOPHAT_[1]!, grain: 0.06, name: "tophat/crown" },
+      { from: [0.6, 8.3, 0.6], size: [6.8, 0.95, 6.8], colour: 0xb3262e, name: "tophat/band" },
+      { from: [3.3, 8.38, 7.4], size: [1.4, 0.8, 0.12], colour: C.gold, name: "tophat/buckle" },
+    ],
+    hides: prefix("hair/slab"),
+  };
+}
+
 function headwearOf(t: Traits, cloth: readonly number[]): Headwear {
   switch (t.headwear) {
     case "crown":
@@ -295,6 +439,16 @@ function headwearOf(t: Traits, cloth: readonly number[]): Headwear {
       return wizard();
     case "feathered":
       return feathered();
+    case "viking":
+      return viking(families(t).steel);
+    case "tricorn":
+      return tricorn(families(t).felt);
+    case "laurel":
+      return laurel();
+    case "jester":
+      return jester(families(t).jester);
+    case "tophat":
+      return tophat(families(t).felt);
     case "none":
       return { blocks: [], hides: () => false };
   }
@@ -363,7 +517,8 @@ function accessoryOf(t: Traits): Cuboid[] {
   switch (t.accessory) {
     case "eyepatch":
       return [
-        { from: [0.85, 8 - 4.15, 7.95], size: [2.3, 1.6, 0.24], colour: 0x221d1c, name: "accessory/patch" },
+        // (its front out of the brow's plane by more than any two cuboids' inflates differ: an equal pair flickered)
+        { from: [0.85, 8 - 4.15, 7.95], size: [2.3, 1.6, 0.32], colour: 0x221d1c, name: "accessory/patch" },
         { from: [3.0, 8 - 2.95, 7.97], size: [5.4, 0.28, 0.13], rotation: [0, 0, 15], pivot: [3.0, 8 - 2.8, 8.0], colour: 0x2e2624, name: "accessory/strap" },
         { from: [-0.32, 8 - 3.3, 7.97], size: [1.25, 0.28, 0.13], colour: 0x2e2624, name: "accessory/strap-left" },
       ];
@@ -391,7 +546,110 @@ function accessoryOf(t: Traits): Cuboid[] {
       ];
       return bothSides(hoop);
     }
+    case "monocle": {
+      // A gold ring round the left eye (the viewer's right, glasses' second lens), its chain down the cheek.
+      return [
+        { from: [4.8, 8 - 3.0, 8.2], size: [2.4, 0.2, 0.2], colour: C.gold, name: "accessory/monocle-top" },
+        { from: [4.8, 8 - 4.2, 8.2], size: [2.4, 0.2, 0.2], colour: C.goldDark, name: "accessory/monocle-bottom" },
+        { from: [4.8, 8 - 4.0, 8.21], size: [0.2, 1.0, 0.18], colour: C.gold, name: "accessory/monocle-inner" },
+        { from: [7.0, 8 - 4.0, 8.21], size: [0.2, 1.0, 0.18], colour: C.goldLight, name: "accessory/monocle-outer" },
+        { from: [7.05, 8 - 6.4, 8.24], size: [0.12, 2.2, 0.12], colour: C.goldDark, name: "accessory/monocle-chain" },
+      ];
+    }
+    case "pipe":
+      // A pipe from the mouth's corner, its stem out past the right cheek (the viewer's left, the side the bust turns to the
+      // camera: on the other the bowl hid behind the beard), its bowl in front of the jaw, out of the beard's plane, in dark
+      // briar with a bright ember (a brown wood was the beard's own).
+      return [
+        { from: [-0.2, 1.8, 8.6], size: [3.2, 0.32, 0.32], colour: 0x2a1a12, name: "accessory/pipe-stem" },
+        { from: [-0.95, 1.55, 8.35], size: [1.05, 1.35, 1.05], colour: 0x3b2418, grain: 0.08, name: "accessory/pipe-bowl" },
+        { from: [-0.85, 2.88, 8.45], size: [0.85, 0.2, 0.85], colour: 0xff7a2a, name: "accessory/pipe-ember" },
+      ];
+    case "warpaint": {
+      // Woad stripes on each cheek under the eye.
+      const stripes: Cuboid[] = [
+        { from: [0.45, 8 - 5.0, 8.0], size: [1.8, 0.32, 0.1], colour: 0x2c55a8, name: "accessory/paint-0" },
+        { from: [0.7, 8 - 5.6, 8.0], size: [1.3, 0.32, 0.1], colour: 0x2a4f9c, name: "accessory/paint-1" },
+      ];
+      return bothSides(stripes);
+    }
+    case "medal":
     case "none":
+      return [];
+  }
+}
+
+/**
+ * The medal on the chest, left of the strap (the viewer's left): a red ribbon from under the collar, a gold disc, its face lit;
+ * on plate armour, out on the plate.
+ */
+function medalBlocks(plate: boolean): Cuboid[] {
+  const z = plate ? 6.47 : 6.02;
+  return [
+    { from: [2.05, -2.65, z], size: [1.05, 0.9, 0.14], colour: 0xb3202a, name: "accessory/medal-ribbon" },
+    { from: [1.6, -4.05, z + 0.06], size: [1.75, 1.5, 0.3], colour: C.gold, name: "accessory/medal" },
+    { from: [2.05, -3.65, z + 0.36], size: [0.85, 0.7, 0.1], colour: C.goldLight, name: "accessory/medal-face" },
+  ];
+}
+
+const FUR = [0xf2efe8, 0xe6e2d8, 0xfaf8f2];
+const PLATE = [0x8c95a0, 0x7d8692, 0x9aa3ad];
+
+/** An outfit's blocks on the torso: the royal's gold collar and ruby brooch, the ermine's fur collar and its tails, the plate. */
+function outfitBlocks(t: Traits): Cuboid[] {
+  switch (t.outfit) {
+    case "royal":
+      return [
+        ...tiles([-0.2, -1.3, 1.85], [8.4, 0.7, 4.35], 0, BAND, 1, "outfit/royal-collar"),
+        { from: [3.45, -1.55, 6.25], size: [1.1, 1.0, 0.25], colour: C.goldDark, name: "outfit/royal-mount" },
+        { from: [3.65, -1.35, 6.45], size: [0.7, 0.6, 0.18], colour: C.ruby, name: "outfit/royal-brooch" },
+      ];
+    case "ermine":
+      return [
+        // (low and close to the chest: a long beard looking down met a higher one)
+        { from: [0.8, -1.85, 1.5], size: [6.4, 1.3, 4.8], colour: FUR[0]!, grain: 0.05, name: "outfit/ermine-collar" },
+        { from: [1.1, -0.7, 1.8], size: [5.8, 0.25, 4.2], colour: FUR[2]!, grain: 0.04, name: "outfit/ermine-collar-top" },
+        ...[1.4, 2.9, 4.4, 5.9].map((x, i): Cuboid => ({ from: [x, -1.45, 6.3], size: [0.3, 0.6, 0.1], colour: 0x1e1b1d, name: `outfit/ermine-tail-${i}` })),
+      ];
+    case "plate":
+      return [
+        { from: [0.25, -6.6, 5.95], size: [7.5, 5.15, 0.5], colour: PLATE[0]!, grain: 0.08, name: "outfit/plate" },
+        { from: [3.55, -6.4, 6.42], size: [0.9, 4.75, 0.3], colour: PLATE[2]!, name: "outfit/plate-ridge" },
+        { from: [0.6, -2.0, 5.92], size: [6.8, 0.4, 0.58], colour: PLATE[1]!, name: "outfit/plate-gorget" },
+        ...[0.7, 6.9].flatMap((x, i): Cuboid[] => [
+          { from: [x, -2.3, 6.45], size: [0.4, 0.4, 0.12], colour: 0xc9cfd6, name: `outfit/plate-rivet-${i}-top` },
+          { from: [x, -5.9, 6.45], size: [0.4, 0.4, 0.12], colour: 0xc9cfd6, name: `outfit/plate-rivet-${i}-bottom` },
+        ]),
+      ];
+    default:
+      return [];
+  }
+}
+
+/** A pauldron's extras (the viewer's right shoulder's, mirrored for the other): the spiked's spikes, the dragon's fins. */
+function pauldronExtras(t: Traits): Cuboid[] {
+  switch (t.pauldrons) {
+    case "spiked":
+      // (on the plate's outer half: nearer the neck, a turned head's jaw beard met the inner one in a dance)
+      return [2.4, 4.6].map((z, i): Cuboid => ({
+        from: [11.65, 0.05, z],
+        size: [0.6, 1.15, 0.6],
+        rotation: [0, 0, -22],
+        pivot: [11.95, 0.05, z + 0.3],
+        colour: i ? 0xc9cfd6 : 0xb7bec6,
+        name: `spike-${i}`,
+      }));
+    case "dragon":
+      // (along the plate's back half: a fin at its front met a dancing head's jaw beard)
+      return [1.95, 3.15, 4.35].map((z, i): Cuboid => ({
+        from: [11.75, -0.05, z],
+        size: [0.36, 1.15, 1.0],
+        rotation: [45, 0, 0],
+        pivot: [11.93, 0.52, z + 0.5],
+        colour: [0xe8b938, 0xf4c84a, 0xdcae32][i]!,
+        name: `fin-${i}`,
+      }));
+    default:
       return [];
   }
 }
@@ -461,14 +719,21 @@ export function bodyCuboids(t: Traits, strap: Cuboid[]) {
   const neck = (b: Cuboid): Cuboid => (b.name === "neck" ? { ...b, size: [b.size[0], b.size[1] + 1.5, b.size[2]] } : b);
   const isPauldron = (b: Cuboid) => b.name?.startsWith("pauldron") ?? false;
   const pauldrons = t.pauldrons !== "none";
+  // Plate armour covers the chest: the strap, its buckle and the harness go under it.
+  const plate = t.outfit === "plate";
+  const harness = (b: Cuboid) => !(plate && b.name?.startsWith("vertical-harness"));
+  const extras = pauldronExtras(t);
   return {
-    torso: [...KING_BODY.torso.filter(keep).map(neck), ...strap].map(tone),
+    torso: [...KING_BODY.torso.filter(keep).filter(harness).map(neck), ...(plate ? [] : strap)].map(tone).concat(outfitBlocks(t), t.accessory === "medal" ? medalBlocks(plate) : []),
     armRight: KING_BODY.armRight.filter((b) => !isPauldron(b)).map(tone),
     armLeft: KING_BODY.armLeft.filter((b) => !isPauldron(b)).map(tone),
     // The pauldrons overhang the sleeve's outer side by a quarter unit (the spec had them flush: one plane, two faces).
     pauldronRight: pauldrons
-      ? KING_BODY.armRight.filter(isPauldron).map((b) => tone(b.from[0] <= -4 + 1e-6 ? { ...b, from: [b.from[0] - 0.25, b.from[1], b.from[2]], size: [b.size[0] + 0.25, b.size[1], b.size[2]] } : b))
+      ? KING_BODY.armRight
+          .filter(isPauldron)
+          .map((b) => tone(b.from[0] <= -4 + 1e-6 ? { ...b, from: [b.from[0] - 0.25, b.from[1], b.from[2]], size: [b.size[0] + 0.25, b.size[1], b.size[2]] } : b))
+          .concat(extras.map((b) => ({ ...mirrorX(b), name: `${b.name}:r` })))
       : [],
-    pauldronLeft: pauldrons ? KING_BODY.armLeft.filter(isPauldron).map((b) => tone(b.from[0] + b.size[0] >= 12 - 1e-6 ? { ...b, size: [b.size[0] + 0.25, b.size[1], b.size[2]] } : b)) : [],
+    pauldronLeft: pauldrons ? KING_BODY.armLeft.filter(isPauldron).map((b) => tone(b.from[0] + b.size[0] >= 12 - 1e-6 ? { ...b, size: [b.size[0] + 0.25, b.size[1], b.size[2]] } : b)).concat(extras) : [],
   };
 }
