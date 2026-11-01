@@ -68,7 +68,7 @@ describe("the tracker's panel", () => {
     render(wrap(<MissionsTracker state={TRACKER.midWay} badge={3} now={MOCK_NOW} onOpen={onOpen} />));
     const nav = screen.getByRole("navigation", { name: "Missions, 3 waiting" });
     const lines = within(nav).getAllByRole("button");
-    expect(lines.map((b) => b.getAttribute("aria-label"))).toEqual(["Raider: done, claim its Cobbles", "Victor: 0 of 1", "Weekly Builder: 22 of 30"]);
+    expect(lines.map((b) => b.getAttribute("aria-label"))).toEqual(["Raider: done, ready to claim", "Victor: 0 of 1", "Weekly Builder: 22 of 30"]);
     expect(within(lines[0]!).getByText("Claim")).toBeInTheDocument();
     expect(within(lines[0]!).queryByRole("progressbar", { hidden: true })).toBeNull();
     expect(within(lines[2]!).getByText("22 / 30")).toBeInTheDocument();

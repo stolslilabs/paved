@@ -370,7 +370,7 @@ describe("the home's missions tracker links to a mission (#978)", () => {
     const router = open("/", served());
     const tracker = await screen.findByRole("navigation", { name: /^Missions/ }, { timeout: slow(10_000) });
     const lines = await within(tracker).findAllByRole("button", { name: /^(Builder|Challenger)/ }, { timeout: slow(10_000) });
-    expect(lines.map((b) => b.getAttribute("aria-label"))).toEqual(["Builder: done, claim its Cobbles", "Challenger: 0 of 1"]);
+    expect(lines.map((b) => b.getAttribute("aria-label"))).toEqual(["Builder: done, ready to claim", "Challenger: 0 of 1"]);
     await userEvent.click(lines[0]!);
     await waitFor(() => expect(router.state.location.pathname + router.state.location.search).toBe("/missions?mission=tutorial:1"));
     await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Builder"), { timeout: slow(5000) });

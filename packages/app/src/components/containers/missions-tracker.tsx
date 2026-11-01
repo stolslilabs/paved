@@ -154,7 +154,7 @@ function Line({ line, onOpen }: { line: TrackerLine; onOpen?: (mission?: Mission
     <button
       type="button"
       onClick={() => onOpen?.(line.key)}
-      aria-label={line.claim ? `${line.title}: done, claim its Cobbles` : `${line.title}: ${formatInteger(line.count)} of ${formatInteger(line.total)}`}
+      aria-label={line.claim ? `${line.title}: done, ready to claim` : `${line.title}: ${formatInteger(line.count)} of ${formatInteger(line.total)}`}
       data-mission={line.key}
       className={LINE}
     >
