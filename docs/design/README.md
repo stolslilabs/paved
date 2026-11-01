@@ -34,6 +34,13 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   badge's, and USDC's face given Circle's own mark. The client's images are in `packages/app/token-sources/`
   (`scripts/compress-token-art.ts`).
 
+- `home.webp`: the home's mobile direction (2026-11-01), chosen by the owner after rounds of proposals in Supercell's rendering:
+  the player card (the avatar in its league's rim and crest, the name, the XP bar with its level star and "90/150"), the trophies
+  (to the League) and the village score (to the build mode) as capsules whose icon caps their left end, the balances mirrored on the
+  right edge, the season dial as a half-disc on the left edge (it stays during a game), Chat on the left edge, Missions, Vault and
+  Friends on the right, and an anchored ribbon dock: Shop, Chests, PLAY, Guild, Settings. Generated with OpenAI's image model through
+  the Codex CLI; its icons and frames are in `packages/app/ui-sources/` (`scripts/compress-ui-art.ts`).
+
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.
