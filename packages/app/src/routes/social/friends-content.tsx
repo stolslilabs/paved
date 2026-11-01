@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { privateConversation } from "@paved/game-core";
 import { FriendsPanel, type FriendsList } from "../../components/containers/friends-panel";
 import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
 import { useGuildBadges } from "../../data/guilds";
@@ -9,7 +8,7 @@ import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
-import { useOpenChat } from "../open-chat";
+import { useOpenPrivateChat } from "../open-chat";
 import { useOpenPlayer } from "../open-player";
 
 // The friends page's lists (#954; the Social page's Friends tab until #973): the player's friends, following and followers, the suggestions and the
@@ -29,7 +28,7 @@ export function FriendsContent() {
   const suggestions = useFollowSuggestions(me);
   const actions = useFollowActions(me);
   const openPlayer = useOpenPlayer();
-  const openChat = useOpenChat();
+  const openChat = useOpenPrivateChat();
   const [list, setList] = useState<FriendsList>("friends");
 
   // The new followers on screen keep their New mark while the page is shown. Seeing them at the source (the badges go) marks
@@ -75,7 +74,7 @@ export function FriendsContent() {
       now={now}
       guildOf={guildOf}
       onOpenPlayer={openPlayer}
-      onMessage={me ? (address) => openChat(privateConversation(me, address)) : undefined}
+      onMessage={me ? openChat : undefined}
       onAction={(action, address) => actions?.run(action, address)}
       onFollowersShown={onFollowersShown}
     />

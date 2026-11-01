@@ -36,6 +36,8 @@ const TABLE: Record<string, readonly string[]> = {
   "pvp/league": [],
   vault: ["paved", "vpaved"],
   chat: [],
+  "chat/private/:player": [],
+  "chat/:tab": [],
   guild: [],
   friends: [],
   play: [],

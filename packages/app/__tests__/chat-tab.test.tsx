@@ -16,6 +16,7 @@ import { memoryStore } from "./data-fakes";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
+import { resetChatTabForTests } from "../src/routes/chat-tab";
 import { mockImplementation } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
@@ -70,6 +71,7 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     vi.restoreAllMocks();
     queryClient.clear();
     resetWelcomedForTests();
+    resetChatTabForTests();
     localStorage.clear();
   });
 
@@ -101,11 +103,12 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     await userEvent.type(input, `${text}{enter}`);
   }
 
-  it("lists the World first; below level 2 it is read, not written, with the reason", async () => {
-    open();
-    const world = await screen.findByRole("button", { name: /^World/ }, T(10_000));
-    expect(screen.queryByRole("button", { name: /^Stone Road/ })).toBeNull();
-    await userEvent.click(world);
+  const tab = (name: string) => screen.findByRole("tab", { name: new RegExp(`^${name}`) }, T(10_000));
+
+  it("opens on the World for a player in no guild, the URL naming it; below level 2 it is read, not written, with the reason", async () => {
+    const { router } = open();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/world"), T(10_000));
+    expect(await tab("World")).toHaveAttribute("aria-selected", "true");
     const log = within(await conversation("World")).getByRole("log", { name: "Messages" });
     await waitFor(() => expect(within(log).getAllByRole("listitem").length).toBeGreaterThan(5), T(8_000));
     expect(screen.getByText(`Writing in the World opens at level ${CHAT_WORLD_MIN_LEVEL}.`)).toBeInTheDocument();
@@ -118,8 +121,7 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     // The page's countdown reads the wall clock, as the mock does outside the tests: both held at T0, so the 5 seconds do not
     // run out however slow the machine.
     vi.spyOn(Date, "now").mockReturnValue(T0 * 1000);
-    open("/chat", { level: CHAT_WORLD_MIN_LEVEL });
-    await userEvent.click(await screen.findByRole("button", { name: /^World/ }, T(10_000)));
+    open("/chat/world", { level: CHAT_WORLD_MIN_LEVEL });
     await conversation("World");
     await send("World", "hello builders, see paved-gifts.example and 0x04a3");
     const log = screen.getByRole("log", { name: "Messages" });
@@ -138,8 +140,8 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     expect(within(log).queryByText("hello builders, see paved-gifts.example and 0x04a3")).toBeNull();
   });
 
-  it("reports a message, mutes its author (their messages go), and unmutes them from the tab's menu", async () => {
-    open("/chat?chat=world", { level: CHAT_WORLD_MIN_LEVEL });
+  it("reports a message, mutes its author (their messages go), and unmutes them from the page's menu", async () => {
+    const { router } = open("/chat?chat=world", { level: CHAT_WORLD_MIN_LEVEL });
     await conversation("World");
     const log = screen.getByRole("log", { name: "Messages" });
     const menus = await within(log).findAllByRole("button", { name: /^More for .+'s message$/ }, T(8_000));
@@ -159,9 +161,11 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     expect(screen.queryByRole("menuitem", { name: "Report" })).toBeNull();
     await userEvent.click(await screen.findByRole("menuitem", { name: "Mute" }, T(5_000)));
     await waitFor(() => expect(count()).toBe(0), T(8_000));
-    // Back to the list, its menu: the muted player, then Unmute.
-    await userEvent.click(screen.getByRole("button", { name: "Back to the conversations" }));
-    await userEvent.click(await screen.findByRole("button", { name: /^Muted players/ }, T(8_000)));
+    // An old link to the World landed on its tab.
+    expect(router.state.location.pathname).toBe("/chat/world");
+    // The page's menu: the muted player, then Unmute.
+    await userEvent.click(screen.getByRole("button", { name: "Chat menu" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /^Muted players/ }, T(8_000)));
     const sheet = await screen.findByRole("dialog", { name: "Muted players" }, T(5_000));
     await userEvent.click(await within(sheet).findByRole("button", { name: `Unmute ${author}` }, T(5_000)));
     expect(await within(sheet).findByText(/You mute no one/, undefined, T(8_000))).toBeInTheDocument();
@@ -190,15 +194,18 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
   });
 
   it("writes in the guild, where the log's lines show; an officer deletes a member's message", async () => {
-    const { me, social, chat } = open("/chat");
+    const { me, social, chat, clock } = open("/chat");
     // OTHER leads the guild, the player joins and is made an officer, THIRD joins and writes.
     const gid = await social.createGuild(OTHER, draft());
     await social.joinGuild(me, gid);
     await social.promote(OTHER, me);
     await social.joinGuild(THIRD, gid);
+    // A minute later, so that the member's line is newer than the player's join: unread.
+    clock.now += 60;
     await chat.send(THIRD, guildConversation(gid), "a member's line");
     await act(() => queryClient.invalidateQueries({ queryKey: ["social"] }));
-    await userEvent.click(await screen.findByRole("button", { name: /^Stone Road/ }, T(10_000)));
+    // Guild badges the unread message.
+    await userEvent.click(await screen.findByRole("tab", { name: /^Guild, \d+ waiting$/ }, T(10_000)));
     await conversation("Stone Road");
     const log = screen.getByRole("log", { name: "Messages" });
     expect(await within(log).findByText(/promoted .* to Officer/, undefined, T(8_000))).toBeInTheDocument();
@@ -229,29 +236,33 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     await waitFor(() => expect(screen.queryByText("Paved never asks for your key or your password.")).toBeNull(), T(8_000));
   });
 
-  it("brings a stranger's request after the first visit: opened, then accepted", async () => {
-    const { later } = open("/chat");
-    await screen.findByRole("button", { name: /^World/ }, T(10_000));
+  it("brings a stranger's request after the first visit: badged on Private, opened, then accepted", async () => {
+    const { later, router } = open("/chat/private");
+    await screen.findByRole("button", { name: "New message" }, T(10_000));
     expect(screen.queryByRole("region", { name: "Requests" })).toBeNull();
     await later(MOCK_REQUEST_S + 1);
     const requests = await screen.findByRole("region", { name: "Requests" }, T(8_000));
+    expect(screen.getByRole("tab", { name: /^Private, \d+ waiting$/ })).toBeInTheDocument();
     await userEvent.click(within(requests).getAllByRole("button")[0]!);
     await screen.findByRole("region", { name: /conversation$/ }, T(8_000));
     await userEvent.click(await screen.findByRole("button", { name: "Accept" }, T(5_000)));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Accept" })).toBeNull(), T(8_000));
+    expect(router.state.location.pathname).toMatch(/^\/chat\/private\/.+/);
+    // Back returns to the list, where the accepted request is a conversation.
     await userEvent.click(screen.getByRole("button", { name: "Back to the conversations" }));
-    await screen.findByRole("button", { name: /^World/ }, T(8_000));
+    await screen.findByRole("button", { name: "New message" }, T(8_000));
+    expect(router.state.location.pathname).toBe("/chat/private");
     expect(screen.queryByRole("region", { name: "Requests" })).toBeNull();
   });
 
   it("declines a stranger's request: it goes away, back to the list", async () => {
-    const { later } = open("/chat");
-    await screen.findByRole("button", { name: /^World/ }, T(10_000));
+    const { later } = open("/chat/private");
+    await screen.findByRole("button", { name: "New message" }, T(10_000));
     await later(MOCK_REQUEST_S + 1);
     const requests = await screen.findByRole("region", { name: "Requests" }, T(8_000));
     await userEvent.click(within(requests).getAllByRole("button")[0]!);
     await userEvent.click(await screen.findByRole("button", { name: "Decline" }, T(8_000)));
-    await screen.findByRole("button", { name: /^World/ }, T(8_000));
+    await screen.findByRole("button", { name: "New message" }, T(8_000));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Requests" })).toBeNull(), T(8_000));
   });
 
@@ -266,8 +277,71 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     expect(await screen.findByText("Your messages wait in their Requests until they reply or accept.", undefined, T(8_000))).toBeInTheDocument();
   });
 
-  it("says a conversation that is not the player's is not there", async () => {
-    open(`/chat?chat=${privateConversation("0x0a", "0x0b")}`);
-    expect(await screen.findByText("This conversation is not there any more.", undefined, T(10_000))).toBeInTheDocument();
+  it("lands an old link to a conversation that is not the player's on the Private list", async () => {
+    const { router } = open(`/chat?chat=${privateConversation("0x0a", "0x0b")}`);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/private"), T(10_000));
+    expect(await screen.findByRole("button", { name: "New message" }, T(8_000))).toBeInTheDocument();
+  });
+
+  it("lands an old link to a private conversation on it, the query kept", async () => {
+    const stranger = SEEDED_PLAYERS[5]!;
+    const { router, me } = open("/friends");
+    await act(() => router.navigate(`/chat?chat=${privateConversation(me, stranger.address)}&ref=abc`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/chat/private/0x${BigInt(stranger.address).toString(16)}`), T(10_000));
+    expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
+    await conversation(stranger.name);
+  });
+
+  it("opens on Guild the first time for a member, then on the last tab used", async () => {
+    const { router, me, social } = open("/friends");
+    const gid = await social.createGuild(OTHER, draft());
+    await social.joinGuild(me, gid);
+    await act(() => router.navigate("/chat"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/guild"), T(10_000));
+    await conversation("Stone Road");
+    // A tab change takes the entry's place: Back leaves the page.
+    await userEvent.click(await tab("Private"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/private"), T(8_000));
+    await act(() => router.navigate(-1));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/friends"), T(8_000));
+    await act(() => router.navigate("/chat"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/private"), T(8_000));
+  });
+
+  it("shows a player in no guild the Guild tab's empty state, with the way to the guild page", async () => {
+    const { router } = open("/chat/guild");
+    expect(await screen.findByText("You are in no guild", undefined, T(10_000))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Find a guild" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/guild"), T(8_000));
+  });
+
+  it("starts a private conversation with a friend from New message; Back returns to the list", async () => {
+    const { router, me, social, later } = open("/chat/private");
+    const friend = SEEDED_PLAYERS.find((p) => followBackDelay(me, p.address) !== null)!;
+    await social.follows!.follow(me, friend.address);
+    await later(followBackDelay(me, friend.address)! + 1);
+    await userEvent.click(await screen.findByRole("button", { name: "New message" }, T(10_000)));
+    const sheet = await screen.findByRole("dialog", { name: "New message" }, T(5_000));
+    const friends = await within(sheet).findByRole("region", { name: "Friends" }, T(5_000));
+    await userEvent.click(await within(friends).findByRole("button", { name: new RegExp(`^${friend.name}`) }, T(8_000)));
+    await conversation(friend.name);
+    expect(router.state.location.pathname).toBe(`/chat/private/${friend.address}`);
+    await send(friend.name, "hi from new message");
+    expect(await within(screen.getByRole("log", { name: "Messages" })).findByText("hi from new message", undefined, T(8_000))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back to the conversations" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/private"), T(8_000));
+    expect(await screen.findByRole("button", { name: new RegExp(`^${friend.name}`) }, T(8_000))).toBeInTheDocument();
+  });
+
+  it("starts a private conversation with a player found by the search of New message", async () => {
+    const { router } = open("/chat/private");
+    const stranger = SEEDED_PLAYERS[4]!;
+    await userEvent.click(await screen.findByRole("button", { name: "New message" }, T(10_000)));
+    const sheet = await screen.findByRole("dialog", { name: "New message" }, T(5_000));
+    await userEvent.type(within(sheet).getByRole("searchbox", { name: "Name or player ID" }), stranger.name.split(" ")[0]!);
+    const found = await within(sheet).findByRole("list", { name: "Players found" }, T(8_000));
+    await userEvent.click(await within(found).findByRole("button", { name: new RegExp(`^${stranger.name}`) }, T(8_000)));
+    await conversation(stranger.name);
+    expect(router.state.location.pathname).toBe(`/chat/private/${stranger.address}`);
   });
 });

@@ -18,7 +18,7 @@ export const PAGE_HEADER_STORIES = {
   "story-campaigns": ["story"],
   missions: ["missions"],
   vault: ["vault"],
-  chat: ["chat"],
+  chat: ["chat", "chat/private/:player", "chat/:tab"],
   guild: ["guild"],
   friends: ["friends"],
   referral: ["referral"],

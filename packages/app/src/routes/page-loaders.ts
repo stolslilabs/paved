@@ -25,6 +25,9 @@ const pvp: PageLoader = () => {
   return import("./pages/pvp");
 };
 
+/** The chat page and its tabs' paths (#973): one loader, so one component, kept across a tab change. */
+const chat: PageLoader = () => import("./pages/chat");
+
 export const PAGE_LOADERS: Record<string, PageLoader> = {
   welcome: () => import("./pages/welcome"),
   "": () => import("./pages/home"),
@@ -69,7 +72,9 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   missions: () => import("./pages/missions"),
   vault: () => import("./pages/vault"),
   // The social pages (#973, the Social page's tabs of #952 before), a chunk each.
-  chat: () => import("./pages/chat"),
+  chat,
+  "chat/private/:player": chat,
+  "chat/:tab": chat,
   guild: () => import("./pages/guild"),
   friends: () => import("./pages/friends"),
   referral: () => import("./pages/referral"),
