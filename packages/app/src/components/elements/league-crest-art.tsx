@@ -15,7 +15,7 @@ const px = (rem: number | null) => (rem === null ? undefined : rem * 16);
 
 export interface LeagueCrestArtProps {
   tier: LeagueTier;
-  /** The division (`divisionOf`): the crest's version with its numeral on a ribbon; none, the plain crest. */
+  /** The division (`divisionOf`): the crest's version with its numeral in its middle; none, the plain crest. */
   division?: Division | null;
   /** 96 px (`md`) high by default. */
   size?: LeagueCrestArtSize;
@@ -25,9 +25,9 @@ export interface LeagueCrestArtProps {
 }
 
 /**
- * A tier's crest (issue 917, after the owner's design): a broad shield in the tier's material, its motif (a sword, crossed swords,
- * a helmet growing horns and spikes up the ladder) and its ornaments (laurels, stones, crystals, wings, a crown); a division's
- * version carries its numeral on a ribbon under the motif. An image on a 1em square.
+ * A tier's crest (issue 917, redrawn after the owner's design of 2026-11-01): the same shield on every tier, made of the tier's
+ * material and colour (cracked stone, oak, iron, bronze, silver, gold, emerald, diamond, amethyst, ruby set in gold); a division's
+ * version carries its numeral in its middle, Grand Master its horned helmet, Unranked and Wood an empty field. An image on a 1em square.
  */
 export function LeagueCrestArt({ tier, division = null, size = "md", label, className }: LeagueCrestArtProps) {
   const rem = CREST_REM[size];
@@ -48,7 +48,7 @@ export function LeagueCrestArt({ tier, division = null, size = "md", label, clas
 
 export interface LeagueCrestIconProps {
   tier: LeagueTier;
-  /** The division (`divisionOf`): the icon's version with its numeral on a ribbon; none, the plain icon. */
+  /** The division (`divisionOf`): the icon's version with its numeral in its middle; none, the plain icon. */
   division?: Division | null;
   /** 24 px (`md`) by default. */
   size?: LeagueCrestIconSize;
@@ -59,8 +59,8 @@ export interface LeagueCrestIconProps {
 }
 
 /**
- * A crest's icon form (issue 917), for 16 to 40 px: the same shield, colours and motif simplified (no small parts, a thick
- * outline), on a 1em square; a division's version carries its numeral, drawn into the art.
+ * A crest's icon form (issue 917), for 16 to 40 px: the same shield and material simplified (fewer facets, a thick outline), on a
+ * 1em square; a division's version carries its numeral, drawn big into the art.
  */
 export function LeagueCrestIcon({ tier, division = null, size = "md", label, className, style }: LeagueCrestIconProps) {
   const rem = ICON_REM[size];
