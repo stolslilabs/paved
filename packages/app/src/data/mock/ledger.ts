@@ -1418,6 +1418,10 @@ export class MockLedger {
       const stored = chat.parseChat(this.state.chat);
       const chatState = chat.recordDepartures(stored ?? chat.freshChat(), before, world, now);
       this.state = { ...this.state, guilds: world, ...(stored || chatState.departed ? { chat: chatState } : {}) };
+      // Each joining, kick or leave starts the guild's next epoch now (#997, point 4), not at the chat's next read: a leave and a
+      // rejoin before it are two epochs.
+      const settled = chat.settleChat(chat.parseChat(this.state.chat) ?? chat.freshChat(), this.chatWorld(now));
+      if (settled.changed) this.state = { ...this.state, chat: settled.chat };
       this.save();
       return result;
     });

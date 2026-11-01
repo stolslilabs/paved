@@ -242,6 +242,22 @@ export function open(key: Uint8Array, envelope: Envelope): OpenedMessage | null 
   }
 }
 
+/**
+ * Which envelopes of a conversation are replays, in the order the conversation keeps them (oldest first): true for one whose
+ * sender's counter repeats a counter of theirs before it, or is not above it. The associated data stops a counter from being
+ * changed; this stops a sealed message from being stored or relayed twice (#997, point 3). The first copy stays readable.
+ */
+export function replayedEnvelopes(headers: readonly Pick<EnvelopeHeader, "sender" | "counter">[]): boolean[] {
+  const last = new Map<string, number>();
+  return headers.map((h) => {
+    const sender = playerKey(h.sender);
+    const before = last.get(sender);
+    if (!Number.isSafeInteger(h.counter) || h.counter < 1 || (before !== undefined && h.counter <= before)) return true;
+    last.set(sender, h.counter);
+    return false;
+  });
+}
+
 // --- The guild's epochs ------------------------------------------------------------------------------------------------
 
 /**
@@ -264,6 +280,8 @@ export interface EpochRecord {
 export interface KeyWrap {
   /** The recipient's key version. */
   version: number;
+  /** The recipient's public key (hexadecimal): the wrap names the key it is for, so that a replaced key is seen as changed. */
+  publicKey: string;
   ephemeral: string;
   nonce: string;
   ciphertext: string;
@@ -289,13 +307,13 @@ export function wrapKey(key: Uint8Array, conversation: ConversationId, epoch: nu
   const k = wrapKeyOf(eph.publicKey, recipient.publicKey, sharedSecret(eph.secretKey, recipient.publicKey), context);
   const nonce = random(E2E_NONCE_BYTES);
   const ciphertext = xchacha20poly1305(k, nonce, text(context)).encrypt(key);
-  return { version: recipient.version, ephemeral: bytesToHex(eph.publicKey), nonce: bytesToHex(nonce), ciphertext: bytesToHex(ciphertext) };
+  return { version: recipient.version, publicKey: bytesToHex(recipient.publicKey), ephemeral: bytesToHex(eph.publicKey), nonce: bytesToHex(nonce), ciphertext: bytesToHex(ciphertext) };
 }
 
 /** Unwraps a key wrapped for `member` with their key pair (of the wrap's version), or null. */
 export function unwrapKey(wrap: KeyWrap, conversation: ConversationId, epoch: number, member: string, mine: MessagingKeyPair): Uint8Array | null {
   try {
-    if (mine.version !== wrap.version) return null;
+    if (mine.version !== wrap.version || bytesToHex(mine.publicKey) !== wrap.publicKey) return null;
     const ephemeral = hexToBytes(wrap.ephemeral);
     const context = wrapContext(conversation, epoch, member, wrap.version);
     const k = wrapKeyOf(ephemeral, mine.publicKey, sharedSecret(mine.secretKey, ephemeral), context);
@@ -334,13 +352,18 @@ export function openEpoch(record: EpochRecord, player: string, ring: readonly Me
 
 /**
  * Whether a guild's conversation needs a new epoch for its members now: none yet, or its members are not the latest epoch's (a
- * joining, a kick or a leave), or one of them changed key since. A kicked or departed member cannot open the next one.
+ * joining, a kick or a leave), or one of them has another key since (a new version, or another key of the same version, as a
+ * device that lost its keys makes). A kicked or departed member cannot open the next one.
  */
 export function epochDue(latest: EpochRecord | null, members: readonly EpochMember[]): boolean {
   if (!latest) return members.length > 0;
-  const now = new Map(members.map((m) => [playerKey(m.player), m.key.version] as const));
+  const now = new Map(members.map((m) => [playerKey(m.player), m.key] as const));
   if (now.size !== latest.members.length) return true;
-  return latest.members.some((p) => now.get(p) !== latest.wraps[p]?.version);
+  return latest.members.some((p) => {
+    const key = now.get(p);
+    const wrap = latest.wraps[p];
+    return !key || !wrap || key.version !== wrap.version || bytesToHex(key.publicKey) !== wrap.publicKey;
+  });
 }
 
 // --- Reports ------------------------------------------------------------------------------------------------------------

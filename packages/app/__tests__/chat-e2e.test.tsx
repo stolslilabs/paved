@@ -277,6 +277,96 @@ describe("the guild's conversation, sealed with its epochs (#997, point 4)", () 
   });
 });
 
+describe("the review's cases (#997)", () => {
+  it("makes an epoch at each leave and each rejoin, even with no chat read between them", async () => {
+    const { chat, social, clock, stored } = world();
+    const gid = await social.createGuild(ME, draft());
+    const id = guildConversation(gid);
+    await social.joinGuild(OTHER, gid);
+    clock.now += 1;
+    await chat.send(ME, id, "in the first epoch");
+    const first = stored().epochs[id]!.at(-1)!.epoch;
+    await social.leaveGuild(OTHER);
+    expect(stored().epochs[id]!.at(-1)!).toMatchObject({ epoch: first + 1, members: [ME] });
+    await social.joinGuild(OTHER, gid);
+    expect(stored().epochs[id]!.at(-1)!.epoch).toBe(first + 2);
+    await chat.overview(ME);
+    expect(stored().epochs[id]!.at(-1)!).toMatchObject({ epoch: first + 2, creator: OTHER });
+    expect(stored().epochs[id]!.at(-1)!.members.sort()).toEqual([ME, OTHER].sort());
+  });
+
+  it("makes an epoch at each membership change it finds since the latest, whichever write made them", async () => {
+    const { chat, social, clock, stored, store } = world();
+    const gid = await social.createGuild(ME, draft());
+    const id = guildConversation(gid);
+    await social.joinGuild(OTHER, gid);
+    clock.now += 1;
+    await chat.overview(ME);
+    const first = stored().epochs[id]!.at(-1)!.epoch;
+    // A leave at +10 and a rejoin at +20 written straight to the state, as a settle of the guilds would: no write of the chat's.
+    const state = JSON.parse(store.getItem(MOCK_KEY)!);
+    const g = state.guilds.guilds.find((x: { id: number }) => x.id === gid);
+    const m = g.members.find((x: { address: string }) => x.address === OTHER);
+    state.chat.departed = [...(state.chat.departed ?? []), { guild: gid, address: OTHER, joinedAt: m.joinedAt, leftAt: T0 + 10 }];
+    m.joinedAt = T0 + 20;
+    store.setItem(MOCK_KEY, JSON.stringify(state));
+    clock.now = T0 + 30;
+    await chat.overview(ME);
+    const epochs = stored().epochs[id]!;
+    expect(epochs.map((e) => e.epoch).slice(-3)).toEqual([first, first + 1, first + 2]);
+    expect(epochs.at(-2)).toMatchObject({ at: T0 + 10, members: [ME] });
+    expect(epochs.at(-1)!.at).toBe(T0 + 20);
+    expect(epochs.at(-1)!.members.sort()).toEqual([ME, OTHER].sort());
+  });
+
+  it("refuses a sealed message stored twice under another ID, or with another time, in a guild and in private", async () => {
+    const { chat, social, store, clock, restore } = world();
+    known(store, ME, OTHER);
+    const gid = await social.createGuild(ME, draft());
+    const guild = guildConversation(gid);
+    await social.joinGuild(OTHER, gid);
+    clock.now += 1;
+    const original = await chat.send(ME, guild, "original message");
+    const dm = privateConversation(ME, OTHER);
+    const said = await chat.send(ME, dm, "pay me once");
+    restore((c) => {
+      for (const [id, m] of [[guild, original.id], [dm, said.id]] as const) {
+        const stored = c.messages[id]!.find((x) => x.id === m)!;
+        c.messages[id]!.push({ ...structuredClone(stored), id: "replayed" });
+        c.messages[id]!.push({ ...structuredClone(stored), id: "moved", at: stored.at + 1 });
+      }
+    });
+    clock.now += 5;
+    for (const [id, first, text] of [[guild, original.id, "original message"], [dm, said.id, "pay me once"]] as const) {
+      const shown = await messagesOf(chat, OTHER, id);
+      expect(shown.find((m) => m.id === first)).toMatchObject({ text, unreadable: false });
+      expect(shown.find((m) => m.id === "replayed")).toMatchObject({ text: "", unreadable: true });
+      expect(shown.find((m) => m.id === "moved")).toMatchObject({ text: "", unreadable: true });
+    }
+  });
+
+  it("stops opening a guild's messages once the reader's key is gone, though their key was used before in the same process", async () => {
+    const { chat, social, clock, restore, stored } = world();
+    const gid = await social.createGuild(ME, draft());
+    const id = guildConversation(gid);
+    await social.joinGuild(OTHER, gid);
+    clock.now += 1;
+    await chat.send(ME, id, "guild secret");
+    expect((await messagesOf(chat, OTHER, id))[0]).toMatchObject({ text: "guild secret", unreadable: false });
+    const before = stored().keys[OTHER]![0]!.publicKey;
+    restore((c) => delete c.keys[OTHER]);
+    expect((await messagesOf(chat, OTHER, id))[0]).toMatchObject({ text: "", unreadable: true });
+    // A replacement key was made, and the next epoch covers it.
+    expect(stored().keys[OTHER]![0]!.publicKey).not.toBe(before);
+    clock.now += 2;
+    await chat.send(ME, id, "for the new key");
+    expect((await messagesOf(chat, OTHER, id)).map((m) => [m.text, m.unreadable])).toEqual([
+      ["", true],
+      ["for the new key", false],
+    ]);
+  });
+});
+
 describe("reports that reveal (#997, point 7)", () => {
   it("keep the reported message and the 5 before it, decrypted, each commitment checked as a moderator will", async () => {
     const { chat, store, clock, stored } = world();

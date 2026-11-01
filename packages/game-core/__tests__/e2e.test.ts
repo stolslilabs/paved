@@ -24,6 +24,7 @@ import {
   openEpoch,
   privateVersions,
   publicOf,
+  replayedEnvelopes,
   reportReveal,
   safetyCode,
   seal,
@@ -159,6 +160,20 @@ describe("a private conversation", () => {
   });
 });
 
+describe("replays", () => {
+  it("flag an envelope whose sender's counter repeats or goes back, each sender on their own", () => {
+    const h = (sender: string, counter: number) => ({ sender, counter });
+    expect(replayedEnvelopes([h(ALICE, 1), h(BOB, 1), h(ALICE, 2), h(BOB, 2)])).toEqual([false, false, false, false]);
+    // The same message stored twice: the first copy stays, the copy is a replay.
+    expect(replayedEnvelopes([h(ALICE, 1), h(ALICE, 2), h(ALICE, 2)])).toEqual([false, false, true]);
+    // An older counter after a newer one, whatever the address's form.
+    expect(replayedEnvelopes([h(ALICE, 3), h("0x00A11CE", 2), h(ALICE, 4)])).toEqual([false, true, false]);
+    // A gap is no replay (a message held back, or deleted from the kept history).
+    expect(replayedEnvelopes([h(ALICE, 1), h(ALICE, 5)])).toEqual([false, false]);
+    expect(replayedEnvelopes([h(ALICE, 0), h(ALICE, 1.5)])).toEqual([true, true]);
+  });
+});
+
 describe("the commitments (message franking)", () => {
   const key = conversationKey(DM, ALICE, alice, publicOf(bob));
   const envelope = seal(key, header(), "send your seed phrase");
@@ -240,6 +255,10 @@ describe("a guild's epochs", () => {
     const { record } = makeEpoch({ conversation: GUILD, epoch: 1, creator: officer.player, at: 100, members: as(officer, member) });
     const rotated = [{ player: officer.player, key: publicOf(officer.pair) }, { player: member.player, key: publicOf(labelledKeyPair("member", 2)) }];
     expect(epochDue(record, rotated)).toBe(true);
+    // Another key of the same version (a device that lost its keys and made new ones).
+    const replaced = [{ player: officer.player, key: publicOf(officer.pair) }, { player: member.player, key: publicOf(labelledKeyPair("member-replaced", 1)) }];
+    expect(epochDue(record, replaced)).toBe(true);
+    expect(record.wraps[member.player]!.publicKey).toBe(bytesToHex(member.pair.publicKey));
     expect(epochDue(null, [])).toBe(false);
     expect(epochDue(null, as(officer))).toBe(true);
   });

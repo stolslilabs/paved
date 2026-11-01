@@ -59,6 +59,7 @@ import {
   openEpoch,
   privateVersions,
   publicOf,
+  replayedEnvelopes,
   reportReveal,
   safetyCode,
   seal,
@@ -334,8 +335,13 @@ function privateKeyFor(chat: StoredChat, w: ChatWorld, id: ConversationId, viewe
 }
 
 /** An epoch's key as `viewer` opens it with their ring, or null: the epoch does not cover them. */
-const epochKeyFor = (chat: StoredChat, w: ChatWorld, record: EpochRecord, viewer: string): Uint8Array | null =>
-  cached(epochKeys, `${record.conversation}|${record.epoch}|${key(viewer)}|${record.wraps[key(viewer)]?.ephemeral ?? ""}`, () => openEpoch(record, viewer, ringOf(chat, w, viewer)));
+function epochKeyFor(chat: StoredChat, w: ChatWorld, record: EpochRecord, viewer: string): Uint8Array | null {
+  const wrap = record.wraps[key(viewer)];
+  const mine = wrap && pairAt(chat, w, viewer, wrap.version);
+  if (!wrap || !mine) return null;
+  // Cached by the reader's key pair as well as the wrap: a key the device no longer holds opens nothing, warm or cold.
+  return cached(epochKeys, `${record.conversation}|${record.epoch}|${key(viewer)}|${wrap.ephemeral}|${bytesToHex(mine.publicKey)}`, () => openEpoch(record, viewer, [mine]));
+}
 
 /** The members of a guild as its epoch covers them, each with their latest key (a device member's made if need be). */
 function epochMembers(chat: StoredChat, w: ChatWorld, g: StoredGuild): EpochMember[] {
@@ -345,25 +351,54 @@ function epochMembers(chat: StoredChat, w: ChatWorld, g: StoredGuild): EpochMemb
   });
 }
 
+/** A player's latest public key, theirs made first if they are a device player the chat has not met yet. */
+function keyFor(chat: StoredChat, w: ChatWorld, player: string): PublicMessagingKey {
+  ensureKey(chat, w, player);
+  return directoryOf(chat, w, player)!;
+}
+
 /**
- * Starts a guild's next epoch when its members changed (a joining, a kick, a leave) or one changed key (#997, point 4), for every
- * guild with a member on this device: the joiner makes it at a joining, else the highest rank (the officer of a kick, the first
- * remaining member of a leave). The mock makes it at once, dated at the change. True if one was made.
+ * Starts a guild's next epochs (#997, point 4), for every guild with a member on this device: one at each change of its
+ * members since its latest epoch (a joining, a kick, a leave: each one's time, from the roster, the recorded departures and
+ * the log, so that a leave and a rejoin between two reads are two epochs, not none), then one more if its members as they
+ * stand, or one of their keys, differ from the latest. The joiner makes it at a joining, else the highest rank (the officer of
+ * a kick, the first remaining member of a leave). The mock makes it at once, dated at the change. True if anything was made.
+ * The ledger also runs it after each guild write (`settleChat`), so that each write's change is an epoch of its own.
  */
 function settleEpochs(chat: StoredChat, w: ChatWorld): boolean {
   let changed = false;
   for (const g of w.guilds.guilds) {
     if (g.members.length === 0 || g.members.every((m) => isCommunity(m.address))) continue;
     const id = guildConversation(g.id);
-    const list = chat.epochs[id] ?? [];
-    const latest = list[list.length - 1] ?? null;
     // A device member's key made here is a change to store, whether or not an epoch follows.
     if (g.members.map((m) => ensureKey(chat, w, m.address)).some(Boolean)) changed = true;
+    const rank = new Map(g.members.map((m) => [m.address, m.rank] as const));
+    const start = (at: number, roster: readonly string[], joiners: readonly string[]) => {
+      const list = chat.epochs[id] ?? [];
+      const latest = list.at(-1) ?? null;
+      const covered = new Set(latest?.members ?? []);
+      const joiner = latest ? joiners.find((p) => !covered.has(p)) : undefined;
+      const creator = joiner ?? [...roster].sort((a, b) => (rank.get(b) ?? -1) - (rank.get(a) ?? -1) || (a < b ? -1 : 1))[0]!;
+      const members = roster.map((p) => ({ player: p, key: keyFor(chat, w, p) }));
+      chat.epochs[id] = [...list, makeEpoch({ conversation: id, epoch: (latest?.epoch ?? 0) + 1, creator, at, members }).record];
+      changed = true;
+    };
+    // Each change of the roster since the latest epoch, in order.
+    const since = chat.epochs[id]?.at(-1)?.at;
+    if (since !== undefined) {
+      const spans = allMemberships(g, chat.departed ?? []);
+      const times = [...new Set(spans.flatMap((m) => [m.from, m.to]))].filter((t) => Number.isFinite(t) && t > since && t <= w.now).sort((a, b) => a - b);
+      for (const t of times) {
+        const roster = [...new Set(spans.filter((m) => m.from <= t && t < m.to).map((m) => m.address))].sort();
+        const latest = chat.epochs[id]!.at(-1)!;
+        const now = roster.map((p) => ({ player: p, key: keyFor(chat, w, p) }));
+        if (roster.length > 0 && epochDue(latest, now)) start(t, roster, spans.filter((m) => m.from === t).map((m) => m.address));
+      }
+    }
+    // The members as they stand.
+    const latest = chat.epochs[id]?.at(-1) ?? null;
     const members = epochMembers(chat, w, g);
     if (!epochDue(latest, members)) continue;
-    const covered = new Set(latest?.members ?? []);
-    const joiner = g.members.filter((m) => !covered.has(m.address)).sort((a, b) => b.joinedAt - a.joinedAt)[0];
-    const creator = latest && joiner ? joiner.address : [...g.members].sort((a, b) => b.rank - a.rank || a.joinedAt - b.joinedAt)[0]!.address;
     const inGuild = new Set(g.members.map((m) => m.address));
     const changes = [
       ...g.members.map((m) => m.joinedAt),
@@ -371,8 +406,7 @@ function settleEpochs(chat: StoredChat, w: ChatWorld): boolean {
       ...chat.keyChanges.filter((k) => inGuild.has(k.player)).map((k) => k.at),
     ];
     const at = Math.min(w.now, Math.max(latest?.at ?? g.createdAt, ...changes));
-    chat.epochs[id] = [...list, makeEpoch({ conversation: id, epoch: (latest?.epoch ?? 0) + 1, creator, at, members }).record];
-    changed = true;
+    start(at, [...inGuild].sort(), [...g.members].sort((a, b) => b.joinedAt - a.joinedAt).map((m) => m.address));
   }
   return changed;
 }
@@ -410,9 +444,9 @@ function sealIn(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversat
 }
 
 /** Opens a sealed message of `author` in `id` with `viewer`'s keys, or null: a key they do not hold, or a mismatch. */
-function openFor(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, author: string, sealed: Envelope) {
+function openFor(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, author: string, at: number, sealed: Envelope) {
   const h = sealed.header;
-  if (h.conversation !== id || key(h.sender) !== key(author)) return null;
+  if (h.conversation !== id || key(h.sender) !== key(author) || h.at !== at) return null;
   let k: Uint8Array | null = null;
   if (c.kind === "private" && "versions" in h) k = privateKeyFor(chat, w, id, viewer, h.versions);
   if (c.kind === "guild" && "epoch" in h) {
@@ -508,14 +542,13 @@ function logDepartures(g: StoredGuild, recorded: readonly Departure[]): { addres
 /** A guild's community memberships, past and present: who, from when, until when (Infinity: still a member). */
 type Memberships = readonly { address: string; from: number; to: number }[];
 
-function membershipsOf(g: StoredGuild, departed: readonly Departure[]): Memberships {
+/** A guild's memberships, past and present, the device's players' included. */
+function allMemberships(g: StoredGuild, departed: readonly Departure[]): Memberships {
   const recorded = departed.filter((d) => d.guild === g.id);
-  return [
-    ...g.members.map((m) => ({ address: m.address, from: m.joinedAt, to: Infinity })),
-    ...recorded.map((d) => ({ address: d.address, from: d.joinedAt, to: d.leftAt })),
-    ...logDepartures(g, recorded),
-  ].filter((m) => isCommunity(m.address));
+  return [...g.members.map((m) => ({ address: m.address, from: m.joinedAt, to: Infinity })), ...recorded.map((d) => ({ address: d.address, from: d.joinedAt, to: d.leftAt })), ...logDepartures(g, recorded)];
 }
+
+const membershipsOf = (g: StoredGuild, departed: readonly Departure[]): Memberships => allMemberships(g, departed).filter((m) => isCommunity(m.address));
 
 /** The community members of a guild at `at`, by address: those of that time, whoever joined or left since. */
 const guildSpeakers = (memberships: Memberships, at: number): string[] => [...new Set(memberships.filter((m) => m.from <= at && at < m.to).map((m) => m.address))].sort();
@@ -773,10 +806,14 @@ function viewOf(chat: StoredChat, w: ChatWorld, id: ConversationId, kind: ChatKi
   };
 }
 
-/** A line opened for `viewer`: a sealed message's text (filtered after opening, #997, point 6), or unreadable. */
-function openLine(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, l: Line): Line {
+/**
+ * A line opened for `viewer`: a sealed message's text (filtered after opening, #997, point 6), or unreadable: a key they do
+ * not hold, a mismatch, or a replay (`replayed`: its sender's counter repeats or goes back).
+ */
+function openLine(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, l: Line, replayed: ReadonlySet<string>): Line {
   if (!l.sealed || l.deleted) return l;
-  const opened = openFor(chat, w, id, c, viewer, l.author, l.sealed);
+  if (replayed.has(l.id)) return { ...l, text: "", opened: null, unreadable: true };
+  const opened = openFor(chat, w, id, c, viewer, l.author, l.at, l.sealed);
   return opened ? { ...l, text: filterWords(opened.text, CHAT_FILTER_WORDS), opened, unreadable: false } : { ...l, text: "", opened: null, unreadable: true };
 }
 
@@ -786,9 +823,12 @@ function openLine(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Convers
  */
 function readableLines(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, guild: StoredGuild | null): Line[] {
   const since = c.kind === "guild" ? (guild?.members.find((m) => m.address === key(viewer))?.joinedAt ?? Infinity) : -Infinity;
-  return linesOf(chat, w, id, c)
-    .filter((l) => l.event !== null || l.at >= since)
-    .map((l) => openLine(chat, w, id, c, viewer, l));
+  const lines = linesOf(chat, w, id, c);
+  // The counters are read over every sealed line kept, in order, before the joiner's cut.
+  const sealed = lines.filter((l) => l.sealed !== null);
+  const flags = replayedEnvelopes(sealed.map((l) => l.sealed!.header));
+  const replayed = new Set(sealed.filter((_, i) => flags[i]).map((l) => l.id));
+  return lines.filter((l) => l.event !== null || l.at >= since).map((l) => openLine(chat, w, id, c, viewer, l, replayed));
 }
 
 /** The lines of a conversation `viewer` sees, as they see them, oldest first. */
