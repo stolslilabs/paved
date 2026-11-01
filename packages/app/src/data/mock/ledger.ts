@@ -112,6 +112,9 @@ import {
   attackStars,
   dailyMilestoneRefusal,
   weeklyMilestoneRefusal,
+  TUTORIAL_STEPS,
+  emptyTutorialCounts,
+  tutorialStepRefusal,
   dayOf,
   drawChest,
   inventoryOf,
@@ -173,7 +176,7 @@ import type { GuildDraft, GuildSettings } from "@paved/game-core";
 import * as guilds from "./guilds";
 import * as chat from "./chat";
 import type { ChatEvent, ChatSource } from "../social-source";
-import type { ConversationId } from "@paved/game-core";
+import type { ConversationId, TutorialCounts, TutorialTask } from "@paved/game-core";
 import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
@@ -181,6 +184,7 @@ import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../
 import type { MatchRecord, MatchRecordViews } from "../matches";
 import { DailyMilestoneRefusedError, type DailyMilestoneViews, type DailyMilestoneWrites, type DailyMilestonesView } from "../daily-milestones";
 import { WeeklyMilestoneRefusedError, type WeeklyMilestoneViews, type WeeklyMilestoneWrites, type WeeklyMilestonesView } from "../weekly-milestones";
+import { TutorialStepRefusedError, type TutorialView, type TutorialViews, type TutorialWrites } from "../tutorial";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, generatedLook } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
@@ -284,6 +288,7 @@ export interface MockedReads
     MatchRecordViews,
     DailyMilestoneViews,
     WeeklyMilestoneViews,
+    TutorialViews,
     Pick<GameViews, "spawnPaused" | "guardian" | "game" | "tiles" | "builder" | "initialSeed" | "draw" | "currentDay" | "entryPrice" | "tutorialClaimed">,
     Pick<DrawViews, "spawnSalt">,
     VaultViews,
@@ -297,7 +302,7 @@ export type PackReceipt = WriteResult & { bought: PackBought };
  * Every write the deployed classes lack, for the connected account: the writer's (`PavedWriter`) claims and skin writes, the
  * pack buyer's `buy` and the Vault's writes (`EconomyWriter`), with the same requests, receipts and typed refusals.
  */
-export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "claimTutorial" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites, WeeklyMilestoneWrites {
+export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "claimTutorial" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites, WeeklyMilestoneWrites, TutorialWrites {
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
@@ -369,6 +374,11 @@ interface StoredPlayer {
   name?: string;
   /** When First Stone was claimed (`claimTutorial`, #927), in the ledger's seconds; absent: not claimed. */
   tutorialAt?: number;
+  /**
+   * The Tutorial's steps (#977): each task's count of actions done since the mock had them (the level is read from the XP), and
+   * bit `id - 1` per step claimed. Absent in a state saved before them: nothing counted yet, so the mock counts from then.
+   */
+  tutorial?: StoredTutorial;
   /** `owned(player_id, part)` by part, decimal strings; absent: nothing bought. */
   avatarOwned?: Record<string, string>;
   /** The village (#640): the parcels in purchase order, the tiles placed after the starter in order; absent: not founded. */
@@ -379,6 +389,12 @@ interface StoredPlayer {
   pvp?: StoredPvp;
   /** PvP v2 (#741): the free village, inventory, XP, chests, shop and attacks; absent: a new player's. */
   v2?: StoredV2;
+}
+
+/** The Tutorial's counts and claims (#977): the level is no count, the player's XP gives it. */
+interface StoredTutorial {
+  counts: Partial<Record<Exclude<TutorialTask, "level">, number>>;
+  claimed: number;
 }
 
 /** One attack of the mock's `Arena`: the snapshot (its defender, target, deck), the draws, the moves and the end. */
@@ -492,6 +508,17 @@ export type NewPlayerCatalogue = Pick<AvatarCatalogue, "parts" | "items" | "owne
 
 /** A name `setName` takes (#926): letters and digits, 3 to 15 characters (`PLAYER_NAME_MAX`). */
 const MOCK_NAME = new RegExp(`^[A-Za-z0-9]{3,${PLAYER_NAME_MAX}}$`);
+
+/** One action of `task` counted for the Tutorial (#977), on the write's copy of the player. */
+function countTutorial(p: StoredPlayer, task: Exclude<TutorialTask, "level">): void {
+  const t = (p.tutorial ??= { counts: {}, claimed: 0 });
+  t.counts[task] = (t.counts[task] ?? 0) + 1;
+}
+
+/** The Tutorial's counts of a stored player: the actions counted, and the level of their XP. */
+function tutorialCountsOf(p: StoredPlayer): TutorialCounts {
+  return { ...emptyTutorialCounts(), ...p.tutorial?.counts, level: levelStatus(p.v2?.xp ?? 0).level };
+}
 
 const newPlayer = (starting: Readonly<TokenBalances>): StoredPlayer => ({
   cobbles: 0,
@@ -723,6 +750,16 @@ export class MockLedger {
   async dailyMilestones(playerId: string, day: number): Promise<DailyMilestonesView> {
     this.sync();
     return { day, claimed: this.peek(playerId).days[day]?.milestones ?? 0 };
+  }
+
+  /**
+   * The Tutorial (#977): each task's count, the actions the mock counted since it had them (`countTutorial`), and the player's
+   * level; and the steps claimed. A player the ledger never saw has none.
+   */
+  async tutorialSteps(playerId: string): Promise<TutorialView> {
+    this.sync();
+    const p = this.peek(playerId);
+    return { counts: tutorialCountsOf(p), claimed: p.tutorial?.claimed ?? 0 };
   }
 
   /** The milestones of `week` claimed (#976): none for a week not played, so each UTC week starts afresh. */
@@ -1618,6 +1655,7 @@ export class MockLedger {
       claimWeeklyCredit: (week) => this.claim(account, [{ kind: "credit", credit: "weekly", period: week }]),
       claimDailyMilestone: (day, step) => this.claimDailyMilestone(account, day, step),
       claimWeeklyMilestone: (week, step) => this.claimWeeklyMilestone(account, week, step),
+      claimTutorialStep: (id) => this.claimTutorialStep(account, id),
       claimTutorial: () => this.claimTutorial(account),
       claim: (claims) => this.claim(account, claims),
       buySkin: (request) => this.buySkin(account, request),
@@ -1727,6 +1765,7 @@ export class MockLedger {
       const milestone = DAILY_MILESTONES[step]!;
       progress.milestones = claimed | (1 << step);
       p.cobbles += milestone.cobbles;
+      countTutorial(p, "milestone-claimed");
       return [this.event("DailyMilestoneClaimed", { playerId: account, day, step, cobbles: milestone.cobbles, balance: p.cobbles })];
     });
   }
@@ -1746,6 +1785,23 @@ export class MockLedger {
       progress.milestones = claimed | (1 << step);
       p.cobbles += milestone.cobbles;
       return [this.event("WeeklyMilestoneClaimed", { playerId: account, week, step, cobbles: milestone.cobbles, balance: p.cobbles })];
+    });
+  }
+
+  /**
+   * A step of the Tutorial (#977): `TUTORIAL_STEPS[id - 1]`'s Cobbles, once, refused while a step before it is not completed
+   * (`locked`) or it is not (`not-done`), on the counts the mock keeps (`tutorialSteps`).
+   */
+  async claimTutorialStep(account: string, id: number): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const claimed = p.tutorial?.claimed ?? 0;
+      const refusal = tutorialStepRefusal(id, tutorialCountsOf(p), claimed);
+      if (refusal) throw new TutorialStepRefusedError(refusal, hash);
+      const step = TUTORIAL_STEPS[id - 1]!;
+      (p.tutorial ??= { counts: {}, claimed: 0 }).claimed = claimed | (1 << (id - 1));
+      p.cobbles += step.cobbles;
+      return [this.event("TutorialStepClaimed", { playerId: account, step: id, cobbles: step.cobbles, balance: p.cobbles })];
     });
   }
 
@@ -2087,13 +2143,15 @@ export class MockLedger {
   /** Saves the whole layout, checked against the slots of the player's level and their inventory (`layoutRefusal`). */
   async saveLayout(account: string, tiles: readonly LayoutTile[]): Promise<WriteResult> {
     await sleep(this.latency);
-    return this.writeV2(account, (_p, v2, hash) => {
+    return this.writeV2(account, (p, v2, hash) => {
       if (!v2.layout) throw new V2RefusedError("no-village", hash);
       const layout = tiles.map((t) => ({ plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }));
       const refused = layoutRefusal(layout, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
       if (refused) throw new V2RefusedError(refused, hash);
       const slots = slotsOfV2({ ...v2, layout: v2.layout });
       storeSlotsV2(v2, withSlotSaved(slots, slots.active, layout));
+      // A tile placed and saved (#977, Builder): an empty layout places none.
+      if (layout.length > 0) countTutorial(p, "layout-saved");
       return [this.event("LayoutSaved", { playerId: account, tiles: layout.length, score: layoutScore(layout) })];
     });
   }
@@ -2101,13 +2159,15 @@ export class MockLedger {
   /** Saves a layout into an open slot (#804), checked as `saveLayout` checks it: into the active one, the village changes. */
   async saveLayoutTo(account: string, slot: number, tiles: readonly LayoutTile[]): Promise<WriteResult> {
     await sleep(this.latency);
-    return this.writeV2(account, (_p, v2, hash) => {
+    return this.writeV2(account, (p, v2, hash) => {
       if (!v2.layout) throw new V2RefusedError("no-village", hash);
       const layout = tiles.map((t) => ({ plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }));
       const slots = slotsOfV2({ ...v2, layout: v2.layout });
       const refused = saveSlotRefusal(slots, slot, layout, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
       if (refused) throw new V2RefusedError(refused, hash);
       storeSlotsV2(v2, withSlotSaved(slots, slot, layout));
+      // A tile placed and saved (#977, Builder): an empty layout places none.
+      if (layout.length > 0) countTutorial(p, "layout-saved");
       return [this.event("LayoutSlotSaved", { playerId: account, slot, active: slot === slots.active, tiles: layout.length, score: layoutScore(layout) })];
     });
   }
@@ -2156,6 +2216,7 @@ export class MockLedger {
       v2.chests.opened += 1;
       v2.chests.open = { rank: draw.rank, plans: [...draw.plans], cobbles: draw.cobbles, ...(chest.origin ? { origin: chest.origin } : {}) };
       p.cobbles += draw.cobbles;
+      countTutorial(p, "chest-opened");
       return [this.event("ChestOpened", { playerId: account, rank: draw.rank, plans: draw.plans.join(","), cobbles: draw.cobbles, balance: p.cobbles })];
     });
   }
@@ -2189,6 +2250,7 @@ export class MockLedger {
       p.cobbles -= offer.price;
       v2.inventory[offer.plan - 1] = (v2.inventory[offer.plan - 1] ?? 0) + 1;
       v2.bought = { [today]: [...bought, slot] };
+      countTutorial(p, "shop-bought");
       return [
         this.event("CobblesSpent", { playerId: account, spender: this.options.seller, reason: "SHOP_TILE", cobbles: offer.price, balance: p.cobbles }),
         this.event("TileBought", { playerId: account, day: today, slot, plan: offer.plan, price: offer.price }),
@@ -2718,6 +2780,8 @@ export class MockLedger {
       if (outcome.over) {
         const dayId = game.end !== 0 && dayOfTime(game.end) === dayOfTime(game.start) ? dayOfTime(game.start) : 0;
         events.push(this.event("GameOver", { gameId: game.id, playerId: player, dayId, mode: 1, score: outcome.score, startTime: game.start, endTime: game.end }));
+        // A finished Challenge game, a free one too, as task 1 counts it for the achievements.
+        countTutorial(p, "challenge-finished");
         if (game.stake > 0) events.push(this.event("Recorded", { gameId: game.id, score: outcome.score, expired: game.expired }));
       }
       return events;
@@ -2835,6 +2899,8 @@ export class MockLedger {
       v2.chests.pending.push({ rank, league: this.leagueOf(p), origin: { source: "pvp", day: today, slot: v2.pvpChests[today] ?? 0 } });
       v2.pvpChests = { [today]: (v2.pvpChests[today] ?? 0) + 1 };
     }
+    countTutorial(p, "attack-settled");
+    if (stars > 0) countTutorial(p, "attack-won");
     Object.assign(a, { status: surrendered ? "surrendered" : "finished", score, stars, xp: xp.gained, chest: granted ? rank : null, gained, lost, finishedAt: Math.floor(this.now()) });
     return [this.event("AttackFinished", { attacker: account, defender: a.defender, id: a.id, score, stars, surrendered, gained, lost, xp: xp.gained, chest: granted ? rank : "" })];
   }

@@ -126,7 +126,6 @@ describe("/avatar: the creator", () => {
     c.views.avatarPlayer(PLAYER_ID).look = encodeTraits({ ...KING_TRAITS, hairStyle: "long" });
     const { router } = open(c, "/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 });
-    // The avatar's button is named once the profile's read lands, which can come after the heading on a loaded runner.
     await userEvent.click((await screen.findAllByRole("button", { name: /^Profile: / }, { timeout: 5000 }))[0]!);
     const sheet = await screen.findByRole("dialog");
     await userEvent.click(within(sheet).getByRole("button", { name: /Edit avatar/ }));
