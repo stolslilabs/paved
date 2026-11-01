@@ -1,6 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { GUILD_SIZES, GuildFinder, GuildInvitations, NO_GUILD_FILTERS, type GuildFinderAction, type GuildFinderFilters } from "../../components/containers/guild-finder";
+import { GuildFindSheet } from "../../components/containers/guild-page-sheets";
 import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
@@ -15,14 +16,11 @@ import { GUILD_PARAM, guildParamOf, type GuildSheetState } from "../guild-param"
 import { useNow } from "../now";
 import { useOpenGuild } from "../open-guild";
 import { useOpenPlayer } from "../open-player";
+import { GuildSheet, OwnGuild } from "./guild-view";
 
-// The guild page's content (#953; the Social page's Guild tab until #973): the player's guild, or the finder of a player in none;
-// any other guild's page in a sheet over it (`?guild=`). The guild's page is the next chunk (`guild-view.tsx`), fetched with the page.
-
-const loadView = () => import("./guild-view");
-const OwnGuild = lazy(() => loadView().then((m) => ({ default: m.OwnGuild })));
-const GuildSheet = lazy(() => loadView().then((m) => ({ default: m.GuildSheet })));
-void loadView().catch(() => {});
+// The guild page's content (#953; the Social page's Guild tab until #973): the player's guild with its header, menu and tabs
+// (#973), or the finder of a player in none; any other guild's page in a sheet over it (`?guild=`). The guild's page
+// (`guild-view.tsx`) is in the page's chunk since #973: a chunk of its own put one more name in the first load's preload map.
 
 /** A finder action as the guild source's write. */
 function finderWrite(action: GuildFinderAction): GuildWriteRun {
@@ -59,6 +57,8 @@ export function GuildContent() {
   const candidate = me !== null && level !== undefined && league ? { level, crowns: league.crowns } : null;
 
   const [query, setQuery] = useState("");
+  // The member's Find guilds (#973): the finder's search and lists, in a sheet over their guild.
+  const [finding, setFinding] = useState(false);
   const [filters, setFilters] = useState<GuildFinderFilters>(NO_GUILD_FILTERS);
   const size = GUILD_SIZES[filters.size];
   const results = useGuildSearch({ query, joinType: filters.joinType ?? undefined, meetsFor: filters.meets && me ? me : undefined, minMembers: size.min, maxMembers: size.max });
@@ -104,9 +104,28 @@ export function GuildContent() {
       {state?.guild ? (
         <>
           <GuildInvitations invitations={state.invitations} current={state.guild.name} now={now} onOpenGuild={openGuild} onAction={(a) => writes.run(finderWrite(a))} />
-          <Suspense fallback={<Skeleton className="h-40 rounded-xl" />}>
-            <OwnGuild guild={state.guild} me={me} now={now} unread={state.unread} writes={writes} onOpenPlayer={openPlayer} />
-          </Suspense>
+          <OwnGuild
+            guild={state.guild}
+            me={me}
+            now={now}
+            unread={state.unread}
+            writes={writes}
+            onOpenPlayer={openPlayer}
+            onFindGuilds={() => setFinding(true)}
+          />
+          <GuildFindSheet
+            open={finding}
+            onOpenChange={setFinding}
+            candidate={candidate}
+            query={query}
+            onQueryChange={setQuery}
+            filters={filters}
+            onFiltersChange={setFilters}
+            results={listOf(results)}
+            suggested={listOf(suggested)}
+            ranking={listOf(ranking)}
+            onOpenGuild={openGuild}
+          />
         </>
       ) : (
         state && (
@@ -127,9 +146,7 @@ export function GuildContent() {
         )
       )}
       {shown !== null && shown !== own && (
-        <Suspense fallback={null}>
-          <GuildSheet key={shown} id={shown} me={me} player={state ?? null} candidate={candidate} now={now} open={sheetOpen} onClose={closeGuild} writes={writes} onOpenPlayer={openPlayer} />
-        </Suspense>
+        <GuildSheet key={shown} id={shown} me={me} player={state ?? null} candidate={candidate} now={now} open={sheetOpen} onClose={closeGuild} writes={writes} onOpenPlayer={openPlayer} />
       )}
     </div>
   );

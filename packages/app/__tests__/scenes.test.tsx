@@ -109,7 +109,9 @@ describe("Loading", () => {
 });
 
 describe("Home (#753): the village with its overlays", () => {
-  it("shows the village full screen with the right column, Play and Edit from desktop", async () => {
+  // Load-bound: the stage's cold chunk, then ten overlay clicks. Measured 6.7 to 15.4 s on a loaded machine (2026-11-01, after
+  // #974's currency icons), past the 15 s default: the ceiling is twice the slowest.
+  it("shows the village full screen with the right column, Play and Edit from desktop", { timeout: slow(30_000) }, async () => {
     const on = { onPlay: vi.fn(), onChat: vi.fn(), onGuild: vi.fn(), onFriends: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();

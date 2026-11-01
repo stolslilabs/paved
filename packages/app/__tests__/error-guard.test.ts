@@ -27,6 +27,7 @@ const ALLOWED: Record<string, { count: number; why: string }> = {
   "src/components/containers/reward-panel.tsx": { count: 2, why: "a threshold missed: the icon and the points" },
   "src/components/containers/vault-form.tsx": { count: 1, why: "the invalid amount field's border, beside its InlineError" },
   "src/components/elements/tile-chip.tsx": { count: 1, why: "a refused tile chip's border (the tile stack's state)" },
+  "src/components/containers/guild-page-sheets.tsx": { count: 1, why: "the guild menu's Leave or Disband label (a destructive action, #973)" },
   "src/components/ui/dropdown-menu.tsx": { count: 2, why: "a destructive menu item and its focus" },
   "src/components/ui/badge.tsx": { count: 1, why: "the destructive badge's text on its own fill" },
   "src/components/ui/button.tsx": { count: 1, why: "the destructive button's text on its own fill" },
