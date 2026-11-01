@@ -286,8 +286,22 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
 /** The League control's box while its chunk arrives (its 44 px touch height at every width): nothing under it moves when it comes. */
 const LEAGUE_STAND_IN = <span aria-hidden className="block h-11" />;
 
+/**
+ * The left column's lower part (#978 with #973): the missions tracker, Vault and the social column (the chips come after it below
+ * `desktop`, before it from `desktop`). Below `desktop` its
+ * box is none (`contents`): they are the column's own controls. From `desktop` it is a column that fills the room left under the
+ * village score (at least the tracker's height: the column scrolls past that) and wraps: a control that does not fit under the
+ * ones before it starts a column at their right, at the top. Only the social column, last and one button's height at its basis,
+ * moves so (1440 x 900 shielded with the score unfolded); the tracker keeps its three lines. Taps pass through its
+ * empty room to the village (`pointer-events-none`, its controls take them back).
+ */
+const LOWER_STACK = [
+  "pointer-events-none! contents [&>*]:pointer-events-auto",
+  "desktop:order-2 desktop:flex desktop:min-h-[10.125rem] desktop:flex-1 desktop:basis-0 desktop:flex-col desktop:flex-wrap desktop:content-start desktop:items-start desktop:gap-3",
+].join(" ");
+
 /** The missions tracker's place while its chunk arrives (#978): its panel at three lines (`MissionsTracker`). */
-const TRACKER_STAND_IN = <span aria-hidden data-slot="missions-tracker-stand-in" className="block h-[10.125rem] w-40 shrink-0 rounded-xl border border-border bg-card/60 desktop:w-44" />;
+const TRACKER_STAND_IN = <span aria-hidden data-slot="missions-tracker-stand-in" className="block h-[10.125rem] w-40 rounded-xl border border-border bg-card/60 desktop:w-44" />;
 
 /** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
 const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
@@ -477,19 +491,40 @@ function ViewOverlays({
         right column's.
         MISSIONS-TRACKER (#978, open points 1 and 3's defaults): the missions tracker in the Missions button's place, under the
         village score at every width (from `desktop` the right column no longer has Missions); its own chunk, its size kept meanwhile.
+        Every line always (open point 4's default: no fold). With #973 (its point 6): from `desktop` the tracker and the social
+        column share the room left under the score and the chips (`LOWER_STACK`), where the social column moves beside the tracker rather
+        than off the column.
       */}
-      <Suspense fallback={TRACKER_STAND_IN}>
-        <LazyMissionsTracker state={props.missionsTracker} badge={props.missions} now={now} onOpen={props.onMissions} />
-      </Suspense>
-      <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} className="desktop:hidden" />
-      {/* The chips, in the same column (#856), clear of the right column. */}
+      <div data-slot="home-left-lower" className={LOWER_STACK}>
+        <Suspense fallback={TRACKER_STAND_IN}>
+          <LazyMissionsTracker state={props.missionsTracker} badge={props.missions} now={now} onOpen={props.onMissions} />
+        </Suspense>
+        <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} className="desktop:hidden" />
+        {/*
+          From `desktop`, the social column (#973) under the chips, its buttons centred in the room left above the dial (it grows into
+          it, `justify-center-safe`). Short of room (the shield's plate and the score unfolded), it takes one button's height (its
+          basis), its buttons wrapping into a second column at the right of the first; shorter still, it moves into a column of its own
+          beside the missions tracker (#978, `LOWER_STACK`), the full height of the room: none is cut off, and the tracker keeps every
+          line.
+        */}
+        <SocialNav
+          {...props}
+          place="desktop"
+          className="hidden min-h-19 flex-col flex-wrap content-start gap-3 desktop:flex desktop:basis-19 desktop:grow desktop:justify-center-safe"
+        />
+      </div>
+      {/*
+        The chips, in the same column (#856), clear of the right column: below `desktop` after Vault (#929); from it above the
+        tracker's box (`desktop:order-1`, the box's `order-2`), so the social column (#973) stays under them and only the social
+        column ever moves beside the tracker.
+      */}
       <>
         {activeGame && (
           <button
             type="button"
             onClick={() => props.onResume?.(activeGame.id)}
             aria-label={`Resume Challenge #${activeGame.id}`}
-            className="state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="desktop:order-1 state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
               <Icon name="play" size="xs" />
@@ -500,24 +535,18 @@ function ViewOverlays({
           </button>
         )}
         {props.spawnPaused && (
-          <span role="status" className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-warning/50 bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
+          <span role="status" className="desktop:order-1 pointer-events-auto flex items-center gap-1.5 rounded-full border border-warning/50 bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
             <Icon name="circle-pause" size="xs" className="text-warning" />
             New Challenge games are paused
           </span>
         )}
         {guest && (
           // Connect is the header's (the balances' place): the chip says why, once.
-          <span role="status" className="pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
+          <span role="status" className="desktop:order-1 pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
             Playing as a guest: connect to build your village
           </span>
         )}
       </>
-      {/*
-        From `desktop`, the social column (#973) under the chips, centred in the room left above the dial (`my-auto`). Short of room
-        (the shield's plate and the score unfolded), it shrinks before the column scrolls, down to one button's height, and its
-        buttons wrap into a second column at the right of the first: none is cut off while the column above fits.
-      */}
-      <SocialNav {...props} place="desktop" className="hidden min-h-19 flex-col flex-wrap content-start gap-3 desktop:my-auto desktop:flex" />
     </>
   );
   return (

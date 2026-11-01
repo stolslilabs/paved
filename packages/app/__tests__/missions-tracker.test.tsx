@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { cleanup as cleanupAll, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
@@ -112,57 +112,6 @@ describe("the tracker's panel", () => {
   });
 });
 
-describe("short of room in the home's left column", () => {
-  /** A left column `height` px tall (12 px gaps) holding a control `above` px tall, a social column `social` px (76 px at least), then the panel. */
-  function inColumn(height: number, above: number, social?: number) {
-    // jsdom lays nothing out: the sizes the browser would give, read off `data-h`.
-    const h = (el: HTMLElement) => Number(el.dataset.h ?? 0);
-    const stubs = [
-      vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(() => [{}] as unknown as DOMRectList),
-      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
-        return h(this);
-      }),
-      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
-        return h(this);
-      }),
-    ];
-    render(
-      wrap(
-        <div data-slot="scroll-region" data-h={height} style={{ rowGap: "12px" }}>
-          <div data-h={above} />
-          <MissionsTracker state={TRACKER.midWay} now={MOCK_NOW} />
-          {social !== undefined && <nav aria-label="Social" data-h={social} style={{ minHeight: "76px" }} />}
-        </div>,
-      ),
-    );
-    const shown = within(screen.getByRole("navigation", { name: "Missions" })).getAllByRole("button");
-    for (const stub of stubs) stub.mockRestore();
-    return shown.map((b) => b.getAttribute("aria-label")!.split(":")[0]);
-  }
-
-  it("shows the lines that fit, the first ones, down to one, before the column scrolls", () => {
-    // 400 - 100 - 12 - 30 (its frame) = 258: three lines of 44.
-    expect(inColumn(400, 100)).toEqual(["Raider", "Victor", "Weekly Builder"]);
-  });
-
-  it("drops the last lines first", () => {
-    // 260 - 100 - 12 - 30 = 118: two lines.
-    expect(inColumn(260, 100)).toEqual(["Raider", "Victor"]);
-  });
-
-  it("keeps one line however short the column", () => {
-    expect(inColumn(120, 100)).toEqual(["Raider"]);
-  });
-
-  it("counts the social column (#973) at its minimum: it shrinks first", () => {
-    // 360 - 100 - 76 - 24 - 30 = 130: two lines, though the social column is drawn 200 px tall.
-    expect(inColumn(360, 100, 200)).toEqual(["Raider", "Victor"]);
-    cleanupAll();
-    // 400 - 100 - 76 - 24 - 30 = 170: three lines.
-    expect(inColumn(400, 100, 200)).toEqual(["Raider", "Victor", "Weekly Builder"]);
-  });
-});
-
 describe("the tracker on the home (#978)", () => {
   it("takes the Missions button's place in the left column, under the score; the Camera mode fades it; edit mode hides it", async () => {
     const onMissions = vi.fn();
@@ -171,6 +120,8 @@ describe("the tracker on the home (#978)", () => {
     expect(screen.queryByRole("button", { name: /^Missions/ })).toBeNull();
     expect(tracker.closest("[data-fade]")).not.toBeNull();
     expect(tracker.closest("[data-slot=scroll-region]")).not.toBeNull();
+    // No fold (open point 4's default): every line, always, whatever the room; nothing measures it to drop one.
+    expect(within(tracker).getAllByRole("button")).toHaveLength(3);
     await userEvent.click(within(tracker).getByRole("button", { name: "Builder: 0 of 1" }));
     expect(onMissions).toHaveBeenCalledWith("tutorial:1");
     unmount();

@@ -169,10 +169,14 @@ describe("Home (#753): the village with its overlays", () => {
     const left = (await screen.findByRole("button", { name: /^League: / })).parentElement!;
     expect(left.className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "items-start", "gap-3"]));
     const tracker = await within(left).findByRole("navigation", { name: "Missions, 3 waiting" }, { timeout: slow(5000) });
-    expect(tracker.parentElement).toBe(left);
+    // In the column's lower box (#978 with #973), which is no box below `desktop` (`contents`): its controls are the column's.
+    const lower = left.querySelector<HTMLElement>("[data-slot=home-left-lower]")!;
+    expect(lower.parentElement).toBe(left);
+    expect(lower.className.split(" ")).toContain("contents");
+    expect(tracker.parentElement).toBe(lower);
     expect(tracker.className.split(" ")).not.toContain("desktop:hidden");
     const vault = within(left).getByRole("button", { name: "Vault" });
-    expect(vault.parentElement).toBe(left);
+    expect(vault.parentElement).toBe(lower);
     expect(vault.className.split(" ")).toEqual(expect.arrayContaining(["w-16", "desktop:hidden"]));
     expect(tracker.compareDocumentPosition(vault) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(within(tracker).getByRole("button", { name: "Victor: 0 of 1" }));
@@ -255,13 +259,18 @@ describe("Home (#753): the village with its overlays", () => {
     // Below `desktop`: on the right, centred in the band between the balances and Edit (the right column's from `desktop`).
     expect(phone.className.split(" ")).toEqual(expect.arrayContaining(["desktop:hidden", "right-2", "top-(--right-top)", "bottom-(--right-bottom)", "justify-center-safe"]));
     expect(left.contains(phone)).toBe(false);
-    // From `desktop`: the left column's last, under the score and the chips, centred in the room above the dial.
-    expect(desktop.parentElement).toBe(left);
-    expect(left.lastElementChild).toBe(desktop);
-    expect(desktop.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:flex", "desktop:my-auto"]));
-    // Short of room (shielded, the score unfolded, 1440 x 900), it shrinks to one button's height before the column scrolls and wraps
-    // its buttons into a second column: none is cut off (the stories' measures in Chromium).
-    expect(desktop.className.split(" ")).toEqual(expect.arrayContaining(["min-h-19", "flex-wrap", "content-start"]));
+    // From `desktop`: the left column's last, under the score, the chips and the missions tracker (#978), its buttons centred in the
+    // room above the dial (it grows into it). The chips come first from `desktop` (`order-1` before the lower box's `order-2`).
+    const lower = desktop.parentElement!;
+    expect(lower.dataset.slot).toBe("home-left-lower");
+    expect(lower.parentElement).toBe(left);
+    expect(lower.lastElementChild).toBe(desktop);
+    expect(desktop.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:flex", "desktop:grow", "desktop:justify-center-safe"]));
+    expect(lower.className.split(" ")).toEqual(expect.arrayContaining(["desktop:order-2", "desktop:flex", "desktop:flex-col", "desktop:flex-wrap", "desktop:content-start"]));
+    // Short of room (shielded, the score unfolded, 1440 x 900), it takes one button's height (its basis) and wraps its buttons into a
+    // second column; shorter still it moves into a column of its own beside the tracker, which keeps every line (open point 4): none is
+    // cut off (the stories' measures in Chromium).
+    expect(desktop.className.split(" ")).toEqual(expect.arrayContaining(["min-h-19", "desktop:basis-19", "flex-wrap", "content-start"]));
     // Faded with the rest in the Camera mode: both in the box that fades.
     for (const nav of [phone, desktop]) expect(nav.closest("[data-fade]")).not.toBeNull();
     for (const [name, handler] of [
@@ -333,6 +342,12 @@ describe("Home (#753): the village with its overlays", () => {
     await userEvent.click(screen.getByRole("button", { name: "Resume Challenge #1042" }));
     expect(onResume).toHaveBeenCalledWith(1042);
     expect(screen.getByText("New Challenge games are paused")).toBeInTheDocument();
+    // Below `desktop` after Vault (#929, the DOM's order); from it above the tracker's box (#978), so only the social column can
+    // move beside the tracker.
+    const resume = screen.getByRole("button", { name: "Resume Challenge #1042" });
+    const lower = resume.parentElement!.querySelector("[data-slot=home-left-lower]")!;
+    expect(lower.compareDocumentPosition(resume) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const chip of [resume, screen.getByText("New Challenge games are paused").closest("[role=status]")!]) expect(chip.className.split(" ")).toContain("desktop:order-1");
   });
 
   it("shows a guest a starter village to look at and no Edit", () => {
