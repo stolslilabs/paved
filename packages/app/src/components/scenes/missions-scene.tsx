@@ -15,9 +15,10 @@ import { MissionTile, type MissionTileState } from "../containers/mission-tile";
 import { TUTORIAL_TEXT, TUTORIAL_XP, achievementText, questText, taskUnit, type TutorialGo } from "../containers/quest-text";
 import { TabPage } from "../containers/tab-page";
 import { MilestonesBar } from "../containers/milestones-bar";
+import type { MissionKey } from "../containers/missions-tracker-lines";
 
-/** A mission of the page, by what it is: a Tutorial step (#977), a quest of the day or the week, or an achievement. No period's bonus since #976. */
-export type MissionKey = `tutorial:${number}` | `quest:${number}` | `achievement:${number}`;
+/** A mission of the page, by what it is (no period's bonus since #976): its key, as the home's tracker links to it (#978). */
+export type { MissionKey };
 
 /**
  * The quests' Cobbles (P-61, cobbles-v1.md 3.1, 3.3, 3.4), as `useQuestRewards` reads them: each quest's Cobbles from its
@@ -99,7 +100,10 @@ export interface MissionsSceneProps {
   claiming?: MissionKey | null;
   /** False: the player is known but cannot sign (no wallet yet, P6): the rewards show, each claim says "Connect to claim". */
   canClaim?: boolean;
-  /** The mission the card shows on arrival; omitted, the open Tutorial step, else the first one not done (Daily, then Weekly, then Lifetime). */
+  /**
+   * The mission the card shows on arrival (a story's, or the home's tracker's link, `/missions?mission=`, #978); omitted or not on
+   * the page, the open Tutorial step, else the first one not done (Daily, then Weekly, then Lifetime).
+   */
   initialSelected?: MissionKey;
   /** `claim_quest(quest_id, period)` of today (or its week). */
   onClaimQuest?: (questId: number) => void;
