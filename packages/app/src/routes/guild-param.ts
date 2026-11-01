@@ -1,6 +1,6 @@
-// A guild's page (#953) is the URL's `/guild?guild=<id>` (#973; `/social?guild=` before, which lands there): the guild page opens
-// it in a sheet. The profiles' guild line (`useOpenGuild`) and the guild cards write it; the literal keeps this module out of the
-// first load.
+// A guild's page (#953) is the URL's `/guild?guild=<id>` (#973; `/social?guild=` before and the link `/guild/<id>` land there,
+// `router.tsx`): the guild page opens it in a sheet. The profiles' guild line (`useOpenGuild`) and the guild cards write it; the
+// literal keeps this module out of the first load.
 
 /** The search parameter that holds the guild whose page is open. */
 export const GUILD_PARAM = "guild";
