@@ -21,12 +21,10 @@ export interface ProgressReward {
 /** Which list a mission is of (#832): the day's, the week's, or the lifetime ones. */
 export type MissionKind = "daily" | "weekly" | "lifetime";
 
-/** A mission as the Missions page shows it, a quest, an achievement or a period's bonus, from the scene's reads. */
+/** A mission as the Missions page shows it, a quest or an achievement, from the scene's reads. */
 export interface Mission {
   key: string;
   kind: MissionKind;
-  /** The period's bonus (every mission of the period done): Cobbles, no free game since #738. */
-  bonus?: boolean;
   title: string;
   description: string;
   icon: string;
@@ -50,6 +48,9 @@ const TO_DO: Record<MissionKind, string> = {
   weekly: "Play this week: it resets Monday 00:00 UTC.",
   lifetime: "Every game counts toward it, for good.",
 };
+
+/** A weekly that pays nothing on its own (#976): the week pays at its milestones, the gifts of the bar above the Weekly row. */
+const WEEK_PAYS = { toDo: "It counts toward the week's milestones.", done: "Paid at the week's milestones" } as const;
 
 export interface MissionCardProps {
   mission: Mission;
@@ -88,6 +89,8 @@ function useClamped(text: string, open: boolean) {
 export function MissionCard({ mission, canClaim = true, onClaim, className }: MissionCardProps) {
   const { kind, title, description, icon, state, progress, completedAt, retired, reward } = mission;
   const done = state === "claimable" || state === "done";
+  // A weekly with no Cobbles of its own (#976) says where the week pays instead.
+  const weekPays = kind === "weekly" && !reward && !retired;
   // "More" unfolds the shown mission only (#975): selecting another folds it again, reset while rendering (no effect, no flash).
   const [open, setOpen] = useState(false);
   const [shownKey, setShownKey] = useState(mission.key);
@@ -112,8 +115,8 @@ export function MissionCard({ mission, canClaim = true, onClaim, className }: Mi
           {/* One line, so the card keeps its height (#975): the state gives way to an ellipsis on a narrow phone. */}
           <div className="flex min-w-0 items-center gap-2">
             <Badge variant="outline" className="shrink-0">
-              <Icon name={mission.bonus ? "gift" : KIND[kind].icon} size="xs" />
-              {mission.bonus ? `${KIND[kind].label} bonus` : KIND[kind].label}
+              <Icon name={KIND[kind].icon} size="xs" />
+              {KIND[kind].label}
             </Badge>
             <span title={MISSION_STATE_LABEL[state]} className={cn("min-w-0 truncate text-xs", done ? "text-success" : "text-muted-foreground")}>
               {MISSION_STATE_LABEL[state]}
@@ -151,14 +154,21 @@ export function MissionCard({ mission, canClaim = true, onClaim, className }: Mi
       {progress.map((p) => (
         <TaskProgress key={p.unit} unit={p.unit} count={p.count} total={p.total} />
       ))}
-      {/* The room of a Claim (36 px), its padding and its border, whether the Claim shows or not (#975). */}
-      <div className="flex min-h-[calc(--spacing(12)+1px)] flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+      {/* The room of a Claim (36 px), its padding and its border, whether the Claim shows or not (#975). A done weekly's two lines
+          (its date, and where the week pays, #976) wrap within it on a phone: 16 px each and 2 between. */}
+      <div className="flex min-h-[calc(--spacing(12)+1px)] flex-wrap items-center justify-between gap-x-2 gap-y-0.5 border-t border-border pt-3 text-xs text-muted-foreground">
         {retired ? (
           <span>Retired: nothing counts any more</span>
         ) : done ? (
           <span>{completedAt != null ? `Done ${formatDay(Math.floor(completedAt / DAY_S))}` : "Done"}</span>
         ) : (
-          <span>{TO_DO[kind]}</span>
+          <span>{weekPays ? WEEK_PAYS.toDo : TO_DO[kind]}</span>
+        )}
+        {weekPays && done && (
+          <span className="flex items-center gap-1.5">
+            <Icon name="gift" size="xs" />
+            {WEEK_PAYS.done}
+          </span>
         )}
         {reward && done && (reward.claimed ? (
           <span className="flex items-center gap-1.5">

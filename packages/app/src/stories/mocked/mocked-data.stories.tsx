@@ -4,7 +4,7 @@ import { readPacks, type Definitions } from "@paved/chain";
 import { questCobbles } from "../../data/cobbles";
 import { MOCK_STARTING_BALANCES, MockLedger, type TokenBalances } from "../../data/mock/ledger";
 import { COBBLES, MISSIONS, PURCHASE, THEME_SHOP, VAULT } from "../../mocks/scenes";
-import { QUEST_DEFINITIONS, QUESTS_WEEKLY_DONE } from "../../mocks/quests";
+import { QUEST_DEFINITIONS, questsWeekDone } from "../../mocks/quests";
 import { weekOfDay } from "../../lib/quest-window";
 import { PLAYER_ID } from "../../mocks/players";
 import { PAVED_BALANCE } from "../../mocks/economy";
@@ -85,39 +85,49 @@ export const VaultDeposited: Story = {
   render: (_args, { loaded }) => <VaultScene {...(loaded.props as VaultSceneProps)} />,
 };
 
-const questHandlers = { onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimBonus: fn() };
+const questHandlers = { onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimWeeklyMilestone: fn() };
 
-/** Today's week on the mock: a daily pays nothing on its own since #869, so the stories claim a weekly. */
-const WEEK = weekOfDay(QUESTS_WEEKLY_DONE.day)!;
+/** Today with the three Challenge weeklies done (#976): three of five, the week's first gift reached. */
+const WEEK_THREE = questsWeekDone(3);
+/** Today's week on the mock: no daily nor weekly pays on its own (#869, #976), so the stories claim the week's first gift. */
+const WEEK = weekOfDay(WEEK_THREE.day)!;
+
+/** A ledger whose indexer counts three weeklies done this week, as `WEEK_THREE` shows them. */
+function weekLedger(): MockLedger {
+  const l = ledger();
+  l.definitions(definitions);
+  l.countWeekliesWith(async () => 3);
+  return l;
+}
 
 async function questArgs(l: MockLedger): Promise<MissionsSceneProps> {
   const cobbles = questCobbles(l.definitions(definitions));
   const account = await l.account(PLAYER_ID);
-  const day = await l.dayProgress(PLAYER_ID, QUESTS_WEEKLY_DONE.day);
+  const day = await l.dayProgress(PLAYER_ID, WEEK_THREE.day);
   const week = await l.weekProgress(PLAYER_ID, WEEK);
   return {
     ...(MISSIONS.noRewards as MissionsSceneProps),
     ...questHandlers,
-    quests: QUESTS_WEEKLY_DONE,
+    quests: WEEK_THREE,
     rewardsUnavailable: null,
     initialSelected: "quest:14",
     questRewards: { cobbles, day: { claimed: day.claimed, credit: day.credit }, week: { claimed: week.claimed, credit: week.credit }, balance: account.cobbles, credits: account.credits },
+    weeklyMilestones: await l.weeklyMilestones(PLAYER_ID, WEEK),
   };
 }
 
-/** Today's missions with the mock's Cobbles: Weekly Forester done, its 15 Cobbles to claim; the dailies show none (#869); 0 Cobbles. */
+/** Today's missions with the mock's Cobbles: three weeklies done, the week's first gift (50 Cobbles) to claim from its bar; 0 Cobbles. */
 export const MissionsToClaim: Story = {
-  loaders: [async () => ({ props: await questArgs(ledger()) })],
+  loaders: [async () => ({ props: await questArgs(weekLedger()) })],
   render: (_args, { loaded }) => <MissionsScene {...(loaded.props as MissionsSceneProps)} />,
 };
 
-/** Weekly Forester claimed on the mock: 15 Cobbles in the balance, its Claim gone. */
+/** The week's first gift claimed on the mock: 50 Cobbles in the balance, the gift open with its check. */
 export const MissionsClaimed: Story = {
   loaders: [
     async () => {
-      const l = ledger();
-      l.definitions(definitions);
-      await l.writesFor(PLAYER_ID).claimQuest(14, WEEK);
+      const l = weekLedger();
+      await l.writesFor(PLAYER_ID).claimWeeklyMilestone(WEEK, 0);
       return { props: await questArgs(l) };
     },
   ],

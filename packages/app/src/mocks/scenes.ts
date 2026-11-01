@@ -21,7 +21,7 @@ import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
 import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
 import { CURVE_PLAYING, GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
-import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, QUESTS_WEEK_DONE, GAME_MISSIONS, questsTodayDone, questsWeekDone } from "./quests";
+import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, GAME_MISSIONS, questsTodayDone, questsWeekDone } from "./quests";
 import { KING_IDS } from "../components/containers/avatar-types";
 import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
@@ -360,8 +360,8 @@ export const MY_TILES = {
 const missionsBase = { connected: true, now: MOCK_NOW, quests: QUESTS_TODAY, achievements: ACHIEVEMENTS_MIXED };
 const questRewards = { cobbles: QUEST_COBBLES, day: NOTHING_CLAIMED, week: NOTHING_CLAIMED, balance: ACCOUNT.gems, credits: 0 };
 const achievementRewards = { cobbles: ACHIEVEMENT_COBBLES, claimed: ACCOUNT.achievementsClaimed, balance: ACCOUNT.gems };
-const rewarded = { ...missionsBase, questRewards, achievementRewards, milestones: { claimed: 0 } };
-/** A period with every quest's Cobbles and its bonus claimed. */
+const rewarded = { ...missionsBase, questRewards, achievementRewards, milestones: { claimed: 0 }, weeklyMilestones: { claimed: 0 } };
+/** A period with every quest's Cobbles claimed (none to claim since #869 and #976: the milestones pay), and the old bonus. */
 const allClaimed = { claimed: bits(...QUEST_COBBLES.map((q) => q.questId)), credit: true };
 
 export const MISSIONS = {
@@ -373,15 +373,14 @@ export const MISSIONS = {
   claim: { ...rewarded, initialSelected: "achievement:3" },
   /** Settler II's claim on its way. */
   claiming: { ...rewarded, initialSelected: "achievement:3", claiming: "achievement:3" },
-  /** The three weeklies done: their Cobbles and the week's bonus to claim, the bonus selected. */
-  weekBonus: { ...rewarded, quests: QUESTS_WEEK_DONE, questRewards: { ...questRewards, day: { ...NOTHING_CLAIMED, claimed: bits(1) } }, initialSelected: "bonus:weekly" },
-  /** Everything done and claimed, the week's bonus too (the day has none since #869): the first mission is selected. */
+  /** Everything done and claimed, the day's milestones and the week's (#869, #976): the first mission is selected. */
   allDone: {
     ...rewarded,
     quests: QUESTS_TODAY_ALL_DONE,
     achievements: ACHIEVEMENTS_ALL,
     questRewards: { ...questRewards, balance: ACCOUNT.gems + 200, day: allClaimed, week: allClaimed },
     milestones: { claimed: 0b11 },
+    weeklyMilestones: { claimed: 0b11 },
     achievementRewards: { ...achievementRewards, balance: 580, claimed: bits(...ACHIEVEMENT_COBBLES.map((a) => a.achievementId)) },
   },
   /** The day's graph (#869): no daily done yet, both reward nodes ahead (3: +10, 5: +15). */
@@ -400,12 +399,23 @@ export const MISSIONS = {
   milestoneFive: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b01 } },
   /** All done: the five done, both reward nodes claimed, 25 Cobbles today. */
   milestonesAllClaimed: { ...rewarded, quests: questsTodayDone(5), milestones: { claimed: 0b11 } },
-  /** The five weeklies (#976): none done yet, the two PvP ones (Weekly Raider, Weekly Stars) with no Cobbles of their own. */
-  weekNone: { ...rewarded, quests: questsWeekDone(0) },
-  /** Three of the five weeklies done (the week's first milestone, #976): the three Challenge ones. */
-  weekThree: { ...rewarded, quests: questsWeekDone(3) },
-  /** The five weeklies done (the week's second milestone, #976), the PvP ones too. */
+  /**
+   * The five weeklies (#976): none done yet, the two PvP ones (Weekly Raider, Weekly Stars) beside the three Challenge ones,
+   * none with Cobbles of its own; the week's bar above them, both gifts ahead (3 done: +50, 5 done: +100). Weekly Forester selected.
+   */
+  weekNone: { ...rewarded, quests: questsWeekDone(0), initialSelected: "quest:14" },
+  /** Three of the five weeklies done (the three Challenge ones): the week's first gift lit, its 50 Cobbles to claim. */
+  weekThree: { ...rewarded, quests: questsWeekDone(3), initialSelected: "quest:14" },
+  /** The week's first gift's claim on its way: it shakes fast. */
+  weekClaiming: { ...rewarded, quests: questsWeekDone(3), claimingWeeklyMilestone: 0 },
+  /** The week's first gift claimed: it opens, its 50 Cobbles shown above it (the reveal held). */
+  weekOpening: { ...rewarded, quests: questsWeekDone(3), weeklyMilestones: { claimed: 0b01 }, revealingWeeklyMilestone: 0 },
+  /** A gift claimed: three weeklies done, the week's first gift open with its check, the second ahead. */
+  weekClaimed: { ...rewarded, quests: questsWeekDone(3), weeklyMilestones: { claimed: 0b01 } },
+  /** The five weeklies done, the PvP ones too: both gifts of the week to claim, 50 and 100 Cobbles. */
   weekFive: { ...rewarded, quests: questsWeekDone(5) },
+  /** The five weeklies done and both gifts claimed: 150 Cobbles this week. */
+  weekAllClaimed: { ...rewarded, quests: questsWeekDone(5), weeklyMilestones: { claimed: 0b11 } },
   /** Weekly Raider selected (#976): 4 of 10 attacks settled this week, counted from the PvP. */
   weeklyRaider: { ...rewarded, initialSelected: "quest:20" },
   /** Weekly Stars selected (#976): 7 of 15 stars this week. */

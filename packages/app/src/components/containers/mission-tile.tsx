@@ -27,8 +27,6 @@ export interface MissionTileProps {
   progress?: number;
   /** The tile the card at the top shows: ringed. */
   selected?: boolean;
-  /** The period's bonus (#832, open point 2): a smaller tile, the last of its row. */
-  bonus?: boolean;
   onSelect?: () => void;
   className?: string;
 }
@@ -39,7 +37,7 @@ export interface MissionTileProps {
  * card at the top shows it, and the tile is ringed (`aria-pressed`). No animation: the glow (a lit fill) is still, so reduced motion has
  * nothing to stop.
  */
-export function MissionTile({ title, icon, state, cobbles, progress, selected = false, bonus = false, onSelect, className }: MissionTileProps) {
+export function MissionTile({ title, icon, state, cobbles, progress, selected = false, onSelect, className }: MissionTileProps) {
   const done = state === "claimable" || state === "done";
   return (
     <button
@@ -53,14 +51,13 @@ export function MissionTile({ title, icon, state, cobbles, progress, selected = 
       <span
         className={cn(
           "relative grid aspect-square w-full place-items-center rounded-xl border bg-card",
-          bonus && "w-3/4 border-dashed",
           state === "claimable" ? "border-primary bg-primary/15 shadow-lg" : done ? "border-primary/40" : "border-border",
           selected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
         )}
       >
         <Icon
           name={state === "locked" ? "lock" : icon}
-          size={bonus ? "md" : "lg"}
+          size="lg"
           className={cn(done ? "text-primary" : state === "progress" ? "text-foreground" : "text-muted-foreground")}
         />
         {done && (

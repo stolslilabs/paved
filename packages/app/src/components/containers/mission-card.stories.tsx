@@ -46,10 +46,6 @@ export const ReadOnly: Story = { args: { mission: DAILY_RUN, canClaim: false } }
 export const Locked: Story = {
   args: { mission: { ...PUBLIC_WORKS, key: "achievement:7", kind: "lifetime", title: "Pilgrimage", description: "Score a wonder.", icon: "landmark-dome", state: "locked", progress: [{ unit: "wonders scored", count: 0, total: 1 }], reward: { cobbles: 30, claimed: false } } },
 };
-/** The weekly bonus: every weekly done, its Cobbles to claim. */
-export const WeeklyBonus: Story = {
-  args: { mission: { ...DAILY_RUN, key: "bonus:weekly", kind: "weekly", bonus: true, title: "Weekly bonus", description: "Finish every weekly mission of the week for bonus Cobbles.", icon: "gift", progress: [{ unit: "weekly missions done", count: 3, total: 3 }], completedAt: null, reward: { cobbles: 60, claimed: false } } },
-};
 
 // The card's fixed height (#975): the title on one line, two lines of description kept whatever its length, an ellipsis and
 // "more" beyond them. Each state at 320 and 375 px.

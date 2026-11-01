@@ -5,14 +5,14 @@ import { MissionsScene } from "./missions-scene";
 
 /**
  * Missions (`/missions`, #832): one page, today only. The selected mission's card at the top, then the Limited icons (a Daily and
- * a Weekly row, each with its reset's countdown; the Daily row's milestones graph, an edge per daily done and a gift node per reward, #869; the week's bonus as
- * a small last tile), then the Lifetime icons. A tap on an icon
- * updates the card. Cobbles are the only reward. One story per state; the viewport is the toolbar's (VP).
+ * a Weekly row, each with its reset's countdown and its period's milestones graph above its icons: an edge per quest done and a
+ * gift node per reward, the day's #869, the week's #976, larger), then the Lifetime icons. A tap on an icon updates the card.
+ * Cobbles are the only reward. One story per state; the viewport is the toolbar's (VP).
  */
 const meta = {
   title: "Scenes/Missions",
   component: MissionsScene,
-  args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimAchievement: fn(), onClaimBonus: fn(), onConnect: fn(), onRetry: fn(), onBack: fn(), onNavigate: fn() },
+  args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn(), onNavigate: fn() },
 } satisfies Meta<typeof MissionsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -29,10 +29,7 @@ export const Claim: Story = { args: MISSIONS.claim };
 /** Settler II's claim on its way. */
 export const Claiming: Story = { args: MISSIONS.claiming };
 
-/** The three weeklies done: the week's bonus (60 Cobbles, no free game) to claim, selected. */
-export const WeekBonus: Story = { args: MISSIONS.weekBonus };
-
-/** Everything done and claimed, the week's bonus too (the day has none since #869): the first mission is selected. */
+/** Everything done and claimed, the day's milestones and the week's (#869, #976): the first mission is selected. */
 export const AllDone: Story = { args: MISSIONS.allDone };
 
 /** The day's graph (#869): no daily done, both reward nodes ahead (3 done: +10 Cobbles, 5 done: +15). */
@@ -59,14 +56,29 @@ export const MilestoneFive: Story = { args: MISSIONS.milestoneFive };
 /** All done: the five done, both reward nodes claimed, 25 Cobbles today. */
 export const MilestonesAllClaimed: Story = { args: MISSIONS.milestonesAllClaimed };
 
-/** The five weeklies (#976): none done, the two PvP ones beside the three Challenge ones, none with Cobbles of its own. */
+/**
+ * The five weeklies (#976): none done, the two PvP ones beside the three Challenge ones, none with Cobbles of its own; the week's
+ * bar above them, both gifts ahead (3 done: +50 Cobbles, 5 done: +100). Weekly Forester's card says the week pays at its milestones.
+ */
 export const WeekNone: Story = { args: MISSIONS.weekNone };
 
-/** Three of the five weeklies done (#976): the week's first milestone reached. */
+/** Three of the five weeklies done (#976): the week's first gift lit and shaking, its 50 Cobbles to claim with a tap on it. */
 export const WeekThree: Story = { args: MISSIONS.weekThree };
 
-/** The five weeklies done (#976): the week's second milestone reached. */
+/** The week's first gift's claim on its way: it shakes fast. */
+export const WeekClaiming: Story = { args: MISSIONS.weekClaiming };
+
+/** The week's first gift's claim landed: it opens, its 50 Cobbles shown above it (held). */
+export const WeekOpening: Story = { args: MISSIONS.weekOpening };
+
+/** A gift claimed (#976): three weeklies done, the week's first gift open with its check, the second ahead. */
+export const WeekClaimed: Story = { args: MISSIONS.weekClaimed };
+
+/** The five weeklies done (#976): both gifts of the week to claim, 50 and 100 Cobbles. */
 export const WeekFive: Story = { args: MISSIONS.weekFive };
+
+/** The five weeklies done, both gifts claimed: 150 Cobbles this week. */
+export const WeekAllClaimed: Story = { args: MISSIONS.weekAllClaimed };
 
 /** Weekly Raider selected (#976): 4 of 10 attacks settled this week. */
 export const WeeklyRaider: Story = { args: MISSIONS.weeklyRaider };

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
 import { WEEKLY_MILESTONES, WEEKLY_QUESTS } from "@paved/game-core";
 import type { GameSigner } from "../src/data";
-import { useWeeklyMilestoneClaims, useWeeklyMilestones } from "../src/data/milestones";
+import { useMilestoneClaims, useWeeklyMilestoneClaims, useWeeklyMilestones } from "../src/data/milestones";
+import { useMissionsReady } from "../src/data/missions-ready";
 import { WeeklyMilestoneRefusedError, type WeeklyMilestoneViews, type WeeklyMilestoneWrites } from "../src/data/weekly-milestones";
 import { MOCK_KEY, MockLedger, type TokenBalances } from "../src/data/mock/ledger";
 import { MOCK_PVP_WEEKLIES, PVP_TASK, firstDayOfWeek, pvpCounts } from "../src/data/mock/weeklies";
@@ -249,5 +250,29 @@ describe("the week's milestones through the hooks (#976)", () => {
     expect(result.current.none).toEqual({ data: null, isPending: false, error: null });
     expect(result.current.claims.claimer).toBeNull();
     await expect(result.current.claims.claim(WEEK, 0)).rejects.toThrow("Connect to claim");
+  });
+});
+
+describe("the home's Missions count (#976)", () => {
+  it("counts the gifts reached and not claimed, the day's and the week's, as no daily or weekly pays on its own", async () => {
+    const s = clocked();
+    const { result } = renderData(() => ({ ready: useMissionsReady(PLAYER), day: useMilestoneClaims(PLAYER), week: useWeeklyMilestoneClaims(PLAYER) }), s.sources);
+    await waitFor(() => expect(result.current.ready).toBe(0));
+    // The five dailies and the three Challenge weeklies done: the day's two gifts and the week's first are reached.
+    await playChallengeWeek(s);
+    const fresh = renderData(() => ({ ready: useMissionsReady(PLAYER), day: useMilestoneClaims(PLAYER), week: useWeeklyMilestoneClaims(PLAYER) }), s.sources);
+    await waitFor(() => expect(fresh.result.current.ready).toBe(3));
+    // A claim leaves it: the week's first gift, then the day's two.
+    await fresh.result.current.week.claim(WEEK, 0);
+    await waitFor(() => expect(fresh.result.current.ready).toBe(2));
+    await fresh.result.current.day.claim(TODAY, 0);
+    await fresh.result.current.day.claim(TODAY, 1);
+    await waitFor(() => expect(fresh.result.current.ready).toBe(0));
+  });
+
+  it("counts no gift where the milestones are not served (the chain before #738)", async () => {
+    const { sources } = fakeSources();
+    const { result } = renderData(() => useMissionsReady(PLAYER), sources);
+    await waitFor(() => expect(result.current).toBe(0));
   });
 });

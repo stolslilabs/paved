@@ -24,7 +24,5 @@ export const Done: Story = { args: { title: "Daily Run", icon: "flag-checkered",
 export const ToDo: Story = { args: { state: "none" } };
 /** A lifetime mission with nothing counted. */
 export const Locked: Story = { args: { title: "Pilgrimage", icon: "landmark-dome", state: "locked", cobbles: 30 } };
-/** The period's bonus: a smaller, dashed tile. */
-export const Bonus: Story = { args: { title: "Daily bonus", icon: "gift", state: "none", cobbles: 20, bonus: true } };
 /** A mission with no Cobbles (On the Podium in v1). */
 export const NoCobbles: Story = { args: { title: "On the Podium", icon: "crown", state: "locked", cobbles: undefined } };

@@ -116,12 +116,6 @@ export const QUESTS_TODAY_ONE_TO_GO = day(TODAY, { ...TODAY_COUNTS, 6: 7 }, DONE
 /** ... and the read after it: 8 of 8. */
 export const QUESTS_TODAY_COMPLETED = day(TODAY, { ...TODAY_COUNTS, 6: 8 }, { ...DONE_TODAY, 6: MOCK_NOW });
 
-/** The same day with Weekly Forester done (5 of 5). */
-export const QUESTS_WEEKLY_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR });
-
-/** The same day with the three Challenge weeklies done, the two PvP ones at today's counts: the week's bonus can be claimed. */
-export const QUESTS_WEEK_DONE = day(TODAY, { ...TODAY_COUNTS, 14: 5, 15: 30, 16: 20_000 }, { ...DONE_TODAY, 14: MOCK_NOW - 5 * HOUR, 15: MOCK_NOW - 4 * HOUR, 16: MOCK_NOW - HOUR });
-
 /**
  * Today with `done` of the five weeklies done (#976, the week's milestones: none, three and five done are the stories), the
  * others at today's counts, or at none with nothing done. Done in the order Weekly Forester, Builder, Points, Raider, Stars.

@@ -181,7 +181,7 @@ export function applyClaimEvents(client: QueryClient, playerId: string, events: 
   }
 }
 
-/** What a claim is for, as the Missions page shows it on its way (#832): a quest, an achievement, or a period's bonus. */
+/** What a claim is for, as the Missions page shows it on its way (#832): a quest or an achievement. */
 export type ClaimTarget = MissionKey;
 
 /**
