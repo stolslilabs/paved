@@ -32,6 +32,12 @@ export const TABLET_768 = {
   globals: { viewport: { value: "portrait", isRotated: false } },
 };
 
+/** A phone held sideways (667 x 375, an iPhone 8 in landscape): `parameters` and `globals` of a story pinned to it. */
+export const PHONE_SIDEWAYS = {
+  parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, sideways: { name: "iPhone sideways 667", styles: { width: "667px", height: "375px" }, type: "mobile" } } } },
+  globals: { viewport: { value: "sideways", isRotated: false } },
+};
+
 /** The narrowest phone kept (320 x 568, an iPhone SE of the first series): `parameters` and `globals` of a story pinned to it. */
 export const PHONE_320 = {
   parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, small: { name: "iPhone SE 320", styles: { width: "320px", height: "568px" }, type: "mobile" } } } },
