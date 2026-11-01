@@ -18,6 +18,7 @@ import type { LayoutBoardView } from "../containers/layout-board";
 import type { LayoutEditorOptions, LayoutSaved } from "../containers/layout-editor";
 import type { Inventory, Spot, VillageLayout } from "../containers/layout-rules";
 import type { VillageStageProps } from "../containers/village-stage";
+import type { MissionKey, TrackerState } from "../containers/missions-tracker-lines";
 import { PlayerBadge } from "../containers/player-badge";
 import { VillageScore } from "../containers/village-score";
 import type { Tab } from "../../routes/pages";
@@ -34,6 +35,8 @@ const LazyVillageStage = lazy(loadStage);
 // The League control (#829) and its plate in their own chunk: a stand-in of its height holds its place meanwhile (FIRST-LOAD).
 const LazyLeagueControl = lazy(() => import("../containers/league-control").then((m) => ({ default: m.LeagueControl })));
 // The shield's plate and its popover (#806, #829): their own chunk, loaded only while the village is shielded (FIRST-LOAD).
+// The missions tracker (#978), its own chunk: the lines, the bars and the texts' icons arrive after the home, its place kept meanwhile.
+const LazyMissionsTracker = lazy(() => import("../containers/missions-tracker"));
 const LazyShieldPlate = lazy(() => import("../elements/shield-plate").then((m) => ({ default: m.ShieldPlate })));
 // The Camera mode's button and its hint (#875), with the camera's icon: the stage's chunk carries them (FIRST-LOAD), and the button
 // shows with the 3D village it draws, at Edit's left (nothing moves as it comes).
@@ -86,9 +89,14 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   onScoreOpenChange?: (open: boolean) => void;
   /** Where the stories start: in the Camera mode (#875), once the 3D village is drawn. */
   initialCamera?: boolean;
-  /** Chests waiting, missions to claim: the badges of the right column (and of the phone's bar, Chests). */
+  /** Chests waiting, missions to claim: the badges of the right column (and of the phone's bar, Chests) and of the missions tracker. */
   chests?: number;
   missions?: number;
+  /**
+   * The missions tracker's lines (#978, `trackerState`): the three missions closest to done, the Tutorial's step first, in place of
+   * the Missions button. Null or omitted: not read yet, its skeleton.
+   */
+  missionsTracker?: TrackerState | null;
   /**
    * What waits on the social pages (#973, in place of the Social page's total, #952), each on its own button: on Chat the guild's
    * and the private unread messages and the requests (#955, the World never counts); on Guild the invitations of a player in no
@@ -133,7 +141,8 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   onChat?: () => void;
   onGuild?: () => void;
   onFriends?: () => void;
-  onMissions?: () => void;
+  /** The Missions page; from a tracker's line (#978), with that mission on its card. */
+  onMissions?: (mission?: MissionKey) => void;
   onChests?: () => void;
   onShop?: () => void;
   onVault?: () => void;
@@ -157,20 +166,21 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * the safe areas. In view: at the top left the profile (#787, #830: the avatar in the level's arc and line, "Lv i", the name), under it the League control (#829:
  * the League button, the crowns on a plate closed by the league's crest), the shield's mirrored plate while shielded, then the
  * village score (#755), an inline accordion (#831: the total, a tap unfolds the four kinds' sums in place), those stacked at the top,
- * 24 px under the profile (#929), above the season dial; the balances at the top right; the right column (Missions, Chests, Shop,
- * Vault) with their counts, centred vertically (#856); the social column (#973: Chat, Guild, Friends, each with its count); Play (the two swords, no text, #807), large, at the bottom right with Settings above it and Edit
+ * 24 px under the profile (#929), above the season dial, and under the score the missions tracker (#978: the three missions closest
+ * to done, in place of the Missions button); the balances at the top right; the right column (Chests, Shop, Vault) with their
+ * counts, centred vertically (#856); the social column (#973: Chat, Guild, Friends, each with its count); Play (the two swords, no text, #807), large, at the bottom right with Settings above it and Edit
  * (a hammer) beside it; the defence log is the league page's; today's home content as chips (Resume, the spawn pause, a guest's Connect). Edit switches the
  * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
  * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
  * too, through a bubble by the tile with Edit and the hold's ring (LONGPRESS-EDIT, #799, the stage's `onEdit`).
  * PHONE-NAV (#763, the owner's decisions of 2026-10-25): below `desktop` the view has the app's bottom bar again (Shop, Chests
- * with its count, Play, League, Settings; no item current), so there is no right column (#929: Missions and Vault are the left
- * column's, under the village score, before the chips; the social column, #973, is on the right, between the balances and Edit), and the gear and the
+ * with its count, Play, League, Settings; no item current), so there is no right column (#929: the missions tracker, #978, and Vault are
+ * the left column's, under the village score, before the chips; the social column, #973, is on the right, between the balances and Edit), and the gear and the
  * large Play go (the bar's Settings and centre disc); Edit and the season dial sit above the bar (its measured `--app-nav-h`).
  * Edit mode has no bar: the editor's panel takes the bottom.
  * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the navigation is this overlay, with no bar and no
- * header: the column of four (Missions, Chests, Shop, Vault; no League since #856, the League control is the way), the social column on the
- * left (#973, under the village score and the chips), Settings and Play. Each
+ * header: the column of three (Chests, Shop, Vault; no League since #856, the League control is the way; Missions is the
+ * tracker's, #978), the missions tracker and the social column on the left (#973, under the village score and the chips), Settings and Play. Each
  * opens its page in a side panel on the right, over the village, which stays in view (`routes/home-layout.tsx`); the profile
  * opens on the left.
  * CAMERA-MODE (#875, the owner's decisions of 2026-10-28): on the 3D village in view, a Camera button at Edit's left frees the
@@ -275,6 +285,9 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
 
 /** The League control's box while its chunk arrives (its 44 px touch height at every width): nothing under it moves when it comes. */
 const LEAGUE_STAND_IN = <span aria-hidden className="block h-11" />;
+
+/** The missions tracker's place while its chunk arrives (#978): its panel at three lines (`MissionsTracker`). */
+const TRACKER_STAND_IN = <span aria-hidden data-slot="missions-tracker-stand-in" className="block h-[10.125rem] w-40 shrink-0 rounded-xl border border-border bg-card/60 desktop:w-44" />;
 
 /** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
 const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
@@ -382,10 +395,10 @@ export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpav
 const BESIDE_LEAGUE = ["[data-slot=home-overlays]", "[data-slot=league-control]"] as const;
 
 /**
- * The right column, from `desktop` only, over Play, centred vertically in its band (#856): Missions, Chests, Shop and Vault, with
- * no League (#856: the League control on the left is the way in). On a short window its buttons wrap into a second column, to the
- * left, instead of running under Play. Below `desktop` there is none (#929): Chests and Shop are the bar's (#763), Missions and
- * Vault the left column's.
+ * The right column, from `desktop` only, over Play, centred vertically in its band (#856): Chests, Shop and Vault, with no League
+ * (#856: the League control on the left is the way in) and no Missions (#978: the missions tracker, in the left column). On a short
+ * window its buttons wrap into a second column, to the left, instead of running under Play. Below `desktop` there is none (#929):
+ * Chests and Shop are the bar's (#763), Vault the left column's.
  */
 function VillageNav(props: HomeVillageSceneProps) {
   return (
@@ -396,7 +409,6 @@ function VillageNav(props: HomeVillageSceneProps) {
         "pointer-events-none absolute top-(--right-top) right-3 bottom-(--right-bottom) hidden flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 desktop:flex [&>*]:pointer-events-auto",
       )}
     >
-      <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
       <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} />
       <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
@@ -461,10 +473,14 @@ function ViewOverlays({
       )}
       {/*
         HOME-STACK (#929, the owner's decisions of 2026-10-30): below `desktop`, Missions and Vault under the village score and before
-        the chips (open point 2), one under the other and aligned left (open point 3), the right column's look; from it, the right
-        column's.
+        the chips (open point 2), one under the other and aligned left (open point 3), the right column's look; from it, Vault is the
+        right column's.
+        MISSIONS-TRACKER (#978, open points 1 and 3's defaults): the missions tracker in the Missions button's place, under the
+        village score at every width (from `desktop` the right column no longer has Missions); its own chunk, its size kept meanwhile.
       */}
-      <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} className="desktop:hidden" />
+      <Suspense fallback={TRACKER_STAND_IN}>
+        <LazyMissionsTracker state={props.missionsTracker} badge={props.missions} now={now} onOpen={props.onMissions} />
+      </Suspense>
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} className="desktop:hidden" />
       {/* The chips, in the same column (#856), clear of the right column. */}
       <>
