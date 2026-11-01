@@ -611,7 +611,7 @@ function pairOf(chat: StoredChat, w: ChatWorld, id: ConversationId, player: stri
 
 /**
  * A line of a conversation: a message, or a guild's event. Before a viewer, a sealed message has no text; opened for one
- * (`openLine`), it has its text (filtered), its franking key, or `unreadable`.
+ * (`readableLines`), it has its text (filtered), its franking key, or `unreadable`.
  */
 interface Line {
   id: string;
@@ -807,28 +807,25 @@ function viewOf(chat: StoredChat, w: ChatWorld, id: ConversationId, kind: ChatKi
 }
 
 /**
- * A line opened for `viewer`: a sealed message's text (filtered after opening, #997, point 6), or unreadable: a key they do
- * not hold, a mismatch, or a replay (`replayed`: its sender's counter repeats or goes back).
- */
-function openLine(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, l: Line, replayed: ReadonlySet<string>): Line {
-  if (!l.sealed || l.deleted) return l;
-  if (replayed.has(l.id)) return { ...l, text: "", opened: null, unreadable: true };
-  const opened = openFor(chat, w, id, c, viewer, l.author, l.at, l.sealed);
-  return opened ? { ...l, text: filterWords(opened.text, CHAT_FILTER_WORDS), opened, unreadable: false } : { ...l, text: "", opened: null, unreadable: true };
-}
-
-/**
  * The lines of a conversation that `viewer` may read, opened, oldest first: in a guild's, its messages from their joining on
- * (a joiner reads from there, #997's open point 2; the log's events stay).
+ * (a joiner reads from there, #997's open point 2; the log's events stay). A sealed message is unreadable when the viewer's
+ * keys do not open it, its commitment does not match, or it is a replay. Authentication comes first: every sealed line is
+ * opened (a deleted one too, so that a copy of it is still a replay), and only those that open move the senders' counters
+ * (`replayedEnvelopes`), so that a forged counter, which opens nothing, cannot make the messages after it unreadable.
  */
 function readableLines(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, guild: StoredGuild | null): Line[] {
   const since = c.kind === "guild" ? (guild?.members.find((m) => m.address === key(viewer))?.joinedAt ?? Infinity) : -Infinity;
   const lines = linesOf(chat, w, id, c);
-  // The counters are read over every sealed line kept, in order, before the joiner's cut.
-  const sealed = lines.filter((l) => l.sealed !== null);
-  const flags = replayedEnvelopes(sealed.map((l) => l.sealed!.header));
-  const replayed = new Set(sealed.filter((_, i) => flags[i]).map((l) => l.id));
-  return lines.filter((l) => l.event !== null || l.at >= since).map((l) => openLine(chat, w, id, c, viewer, l, replayed));
+  const opened = lines.map((l) => (l.sealed ? openFor(chat, w, id, c, viewer, l.author, l.at, l.sealed) : null));
+  const authentic = lines.flatMap((l, i) => (l.sealed && opened[i] ? [i] : []));
+  const flags = replayedEnvelopes(authentic.map((i) => lines[i]!.sealed!.header));
+  const replayed = new Set(authentic.filter((_, k) => flags[k]));
+  return lines.flatMap((l, i): Line[] => {
+    if (l.event === null && l.at < since) return [];
+    if (!l.sealed || l.deleted) return [l];
+    const o = opened[i];
+    return [o && !replayed.has(i) ? { ...l, text: filterWords(o.text, CHAT_FILTER_WORDS), opened: o, unreadable: false } : { ...l, text: "", opened: null, unreadable: true }];
+  });
 }
 
 /** The lines of a conversation `viewer` sees, as they see them, oldest first. */

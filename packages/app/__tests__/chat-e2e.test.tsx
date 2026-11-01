@@ -345,6 +345,46 @@ describe("the review's cases (#997)", () => {
     }
   });
 
+  it("lets no forged counter hide the sender's next messages: only envelopes that open move the counters", async () => {
+    const { chat, social, store, clock, restore } = world();
+    known(store, ME, OTHER);
+    const dm = privateConversation(ME, OTHER);
+    const gid = await social.createGuild(ME, draft());
+    const guild = guildConversation(gid);
+    await social.joinGuild(OTHER, gid);
+    const sent: Record<string, string[]> = { [dm]: [], [guild]: [] };
+    for (const id of [dm, guild]) {
+      clock.now += 2;
+      sent[id]!.push((await chat.send(ME, id, "first authentic message")).id);
+      clock.now += 2;
+      sent[id]!.push((await chat.send(ME, id, "second authentic message")).id);
+    }
+    restore((c) => {
+      for (const id of [dm, guild]) c.messages[id]!.find((m) => m.id === sent[id]![0])!.sealed!.header.counter = Number.MAX_SAFE_INTEGER;
+    });
+    for (const id of [dm, guild]) {
+      const shown = await messagesOf(chat, OTHER, id);
+      expect(shown.find((m) => m.id === sent[id]![0])).toMatchObject({ text: "", unreadable: true });
+      expect(shown.find((m) => m.id === sent[id]![1])).toMatchObject({ text: "second authentic message", unreadable: false });
+    }
+  });
+
+  it("still sees a copy of a deleted message as a replay", async () => {
+    const { chat, store, clock, restore } = world();
+    known(store, ME, OTHER);
+    const id = privateConversation(ME, OTHER);
+    const sent = await chat.send(ME, id, "delete me");
+    await chat.deleteMessage(ME, id, sent.id);
+    restore((c) => {
+      const stored = c.messages[id]!.find((x) => x.id === sent.id)!;
+      c.messages[id]!.push({ ...structuredClone(stored), id: "copy", deleted: false });
+    });
+    clock.now += 1;
+    const shown = await messagesOf(chat, OTHER, id);
+    expect(shown.find((m) => m.id === sent.id)).toMatchObject({ deleted: true, text: "" });
+    expect(shown.find((m) => m.id === "copy")).toMatchObject({ text: "", unreadable: true });
+  });
+
   it("stops opening a guild's messages once the reader's key is gone, though their key was used before in the same process", async () => {
     const { chat, social, clock, restore, stored } = world();
     const gid = await social.createGuild(ME, draft());

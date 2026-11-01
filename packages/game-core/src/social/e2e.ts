@@ -246,6 +246,8 @@ export function open(key: Uint8Array, envelope: Envelope): OpenedMessage | null 
  * Which envelopes of a conversation are replays, in the order the conversation keeps them (oldest first): true for one whose
  * sender's counter repeats a counter of theirs before it, or is not above it. The associated data stops a counter from being
  * changed; this stops a sealed message from being stored or relayed twice (#997, point 3). The first copy stays readable.
+ * Pass only the headers of envelopes that opened (`open`): a header is authenticated by its envelope, so a forged counter
+ * on one that does not open must not move its sender's count, or it would make their next messages look like replays.
  */
 export function replayedEnvelopes(headers: readonly Pick<EnvelopeHeader, "sender" | "counter">[]): boolean[] {
   const last = new Map<string, number>();
