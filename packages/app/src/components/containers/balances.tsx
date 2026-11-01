@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { InlineError } from "../elements/inline-error";
-import { PLATE_COMPACT, plateWidthClass } from "../elements/plate";
+import { PLATE_COMPACT, platePointPx, plateWidthClass } from "../elements/plate";
 import { ResourcePlate } from "../elements/resource-plate";
 import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 
@@ -324,7 +324,10 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
       ref={crowded}
       aria-label="Balances"
       data-direction={direction}
-      className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-3" : cn("items-center", size === "md" ? "gap-3" : "gap-2"), className)}
+      // Each plate's gold point stands out past its left end (`platePointPx`): room for it before the first plate, so it never meets
+      // the title or the profile (whose room ends a gap short of this box), and a gap between two plates wider than it.
+      className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-3" : "items-center gap-3", className)}
+      style={state.status === "ready" || state.status === "loading" ? { paddingLeft: platePointPx(size) } : undefined}
     >
       {state.status === "disconnected" ? (
         <Guest connecting={state.connecting} onConnect={onConnect} names={size === "md" ? namesOf(kinds) : undefined} />

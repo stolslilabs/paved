@@ -3207,7 +3207,7 @@ ruling), until D-29 removed both. The views and entry points the pages read are 
 `components/containers/cobble-types.ts`. Since P9 the ledger's (`CobbleAccount`, the claims of a period, a quest's and an
 achievement's Cobbles) are `@paved/chain`'s, named `cobbles` as CORE renamed them; the packs and the skins stay provisional
 until P7b and P11b. The element is `Cobbles` (`elements/cobbles.tsx`, the stones of
-`TokenIcon`, `src/assets/tokens/cobbles.svg`, #620), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
+`TokenIcon`, `elements/token-art.ts`, #620), the mocks `src/mocks/cobbles.ts`. Two props sit beside the hooks' types rather than inside them, so
 `src/data/scene-types.ts` holds: the scenes' Cobbles props are optional (the leaderboard's free mark, a list of player ids, left with the
 leaderboard, D-29).
 

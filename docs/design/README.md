@@ -25,6 +25,13 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   with OpenAI's image model through the Codex CLI; each asset was then generated again alone from its cell (the open chests' lids
   redrawn to swing up on their hinges) and the open chest cut into its lid and body. The client's layers are in
   `packages/app/chest-sources/` (`scripts/compress-chest-art.ts`).
+- `balances.webp`: the balances' direction A (2026-11-01), chosen by the owner among three: the player badge's name plate made
+  small (a slate face between two rows of bricks, a gold point closing its open end) and the four currencies as single objects,
+  the Cobbles a hewn paving stone, PAVED a thick gold coin with its "P", vPAVED the same coin in silver (its padlock dropped by the
+  owner), USDC the same coin with Circle's mark. Generated with OpenAI's image model through the Codex CLI; each asset was then
+  generated again alone (vPAVED and USDC from PAVED's coin), the plate cut into its caps and a seamless tile, the stone toned to the
+  badge's, and USDC's face given Circle's own mark. The client's images are in `packages/app/token-sources/`
+  (`scripts/compress-token-art.ts`).
 
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
