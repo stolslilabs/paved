@@ -151,7 +151,7 @@ describe("MilestonesBar, the day's (#869)", () => {
 describe("MilestonesBar, the week's (#976)", () => {
   const week = () => screen.getByRole("progressbar", { name: "Weeklies done this week" });
 
-  it("draws the week: an edge per weekly, its two gifts at 3 (+50) and 5 (+100), larger than the day's", () => {
+  it("draws the week: an edge per weekly, its two gifts at 3 (+50) and 5 (+100), the day's size, its own ribbon", () => {
     render(wrap(<MilestonesBar period="weekly" done={2} claimed={0} />));
     expect(week()).toHaveAttribute("aria-valuemax", "5");
     expect(week()).toHaveAttribute("aria-valuetext", "2 of 5 weeklies done");
@@ -161,12 +161,37 @@ describe("MilestonesBar, the week's (#976)", () => {
     expect([...full()].map((n) => n.getAttribute("data-milestone"))).toEqual(["3", "5"]);
     expect(screen.getByRole("img", { name: "50 Cobbles at 3 weeklies done" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "100 Cobbles at 5 weeklies done" })).toBeInTheDocument();
-    // The week's discs are 2.5rem (40 px), the day's 2rem (32 px).
-    const disc = (name: string) => (screen.getByRole("img", { name }).firstElementChild as HTMLElement).style.width;
-    expect(disc("50 Cobbles at 3 weeklies done")).toBe("2.5rem");
+    // The week's discs are the day's size, 2rem (32 px), their gift too (the owner's decision of 2026-11-01): the ribbon tells them apart.
+    const disc = (name: string) => screen.getByRole("img", { name }).firstElementChild as HTMLElement;
+    const look = (name: string) => {
+      const el = disc(name);
+      const art = el.querySelector<HTMLElement>('[data-slot="gift-art"]')!;
+      return { width: el.style.width, height: el.style.height, art: art.className.match(/text-\[[^\]]+\]/)?.[0], variant: art.getAttribute("data-variant"), seams: art.querySelectorAll('[data-part="seam"]').length };
+    };
+    expect(look("50 Cobbles at 3 weeklies done")).toEqual({ width: "2rem", height: "2rem", art: "text-[1.125rem]", variant: "week", seams: 2 });
     cleanup();
     render(wrap(<MilestonesBar done={2} claimed={0} />));
-    expect(disc("10 Cobbles at 3 dailies done")).toBe("2rem");
+    expect(look("10 Cobbles at 3 dailies done")).toEqual({ width: "2rem", height: "2rem", art: "text-[1.125rem]", variant: "day", seams: 0 });
+  });
+
+  it("keeps the week's gifts the day's size and ribbon in every state: locked, ready, shaking, lit, opening, claimed, reduced motion", () => {
+    const sizes = () =>
+      [...document.querySelectorAll<HTMLElement>("[data-milestone]")].map((node) => {
+        const el = node.firstElementChild as HTMLElement;
+        const art = el.querySelector('[data-slot="gift-art"]')!;
+        return `${el.style.width}x${el.style.height} ${art.getAttribute("data-state")} ${art.getAttribute("data-variant")}`;
+      });
+    const graph = () => document.querySelector<HTMLElement>('[data-graph="weekly-milestones"]')!.style.height;
+    const { rerender, unmount } = render(wrap(<MilestonesBar period="weekly" done={1} claimed={0} />));
+    expect(sizes()).toEqual(["2remx2rem locked week", "2remx2rem locked week"]);
+    expect(graph()).toBe("2rem");
+    rerender(wrap(<MilestonesBar period="weekly" done={5} claimed={0} claiming={0} />));
+    expect(sizes()).toEqual(["2remx2rem shaking week", "2remx2rem lit week"]);
+    rerender(wrap(<MilestonesBar period="weekly" done={5} claimed={0b01} />));
+    expect(sizes()).toEqual(["2remx2rem opening week", "2remx2rem ready week"]);
+    unmount();
+    render(wrap(<MilestonesBar period="weekly" done={5} claimed={0b11} />, true));
+    expect(sizes()).toEqual(["2remx2rem open week", "2remx2rem open week"]);
   });
 
   it("a reached gift of the week is claimed with a tap, once, and opens with its Cobbles; under reduced motion at once", async () => {
