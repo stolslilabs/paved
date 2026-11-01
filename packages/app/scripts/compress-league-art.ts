@@ -3,18 +3,22 @@
  *
  *   node scripts/compress-league-art.ts [--check]
  *
- * Reads `league-sources/<part>/<name>.webp`, one transparent lossless WebP per part (crest, icon, plate, banner), tier and version (the crest's
- * and the icon's plain version and one per division, `bronze-ii`: `artName`), each on its part's frame (`LEAGUE_ART` in
+ * Reads `league-sources/<part>/<name>.webp`, one transparent lossless WebP per part (crest, icon, plate, banner, rim), tier and version (the
+ * plain version, and one per division of a divided tier for the crest, the icon and the banner, `bronze-ii`: `artName`, `versionsOf`),
+ * each on its part's frame (`LEAGUE_ART` in
  * `src/components/elements/league-standards.ts`), left untouched and never shipped (not in `public/`), and writes
  * `public/league-art/<part>/<size>/<name>.webp` for each size of the part. Each run removes the copies of an earlier one.
  * `--check` encodes nothing and fails when a master is missing, extra or not of its frame, or a copy is missing, extra, not a
  * WebP, or not of its size: the bytes depend on the encoder's build, which nothing in the repository pins, so they are not compared.
  *
- * The masters were generated with OpenAI's image model through the Codex CLI, after the owner's design
- * (`docs/design/league-standards.webp`): per tier, a sheet of the crest's four versions, one of the icon's, and one of the blank
- * plate and the banner, each on a transparent background, cut apart, the glow around the parts cleared, each shield stretched across
- * to be as wide as it is tall (the owner's 1:1, 2026-10-30), scaled onto the frames, and stored as lossless WebP (`cwebp -lossless
- * -z 9 -exact`): about 18 MiB for the 100 masters, where PNG took 33.
+ * The masters were generated with OpenAI's image model through the Codex CLI, after the owner's design of 2026-11-01 (one material
+ * and one colour a tier; `docs/design/league-standards.webp`): per tier, a sheet of the crest's versions drawn large, one of the
+ * icons and the blank plate, one of the banners, and one sheet of the ten avatar rims, each on a flat background or a transparent
+ * one. Cut apart (the background cleared by a flood fill from the edges through the mix of the background and the parts' black
+ * outlines), then put on the frames by one rule a part: the shields at 98% of the frame's height in their own proportions; the
+ * plate's end caps kept and its middle sized to the width; the banner's plain cloth sized to the frame and its numeral (or Grand
+ * Master's helmet), lifted off the drawn banner, laid over it unstretched at one size and place; the rims masked to their ring and
+ * scaled so every hole is the same. Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
  *
  * Per copy: resized on the part's side and encoded as lossy WebP with its alpha (`cwebp`, libwebp 1.6.0 when these were written,
  * `-m 6 -sharp_yuv -alpha_q 100`, no metadata) at the quality of `QUALITY`. The encoder runs under `nice -n 10`. No package:
@@ -35,10 +39,10 @@ export const OUT = resolve(HERE, "../public/league-art");
 const PARTS = Object.keys(LEAGUE_ART) as LeaguePart[];
 
 /** The quality per part: the plate's name is drawn over it and the icon is seen small, so neither needs more. */
-const QUALITY: Record<LeaguePart, number> = { crest: 80, icon: 82, plate: 78, banner: 78 };
+const QUALITY: Record<LeaguePart, number> = { crest: 80, icon: 82, plate: 78, banner: 78, rim: 80 };
 
 /** Each part's file names: every tier's, in each of the part's versions (`bronze`, `bronze-i`, ...). */
-const names = (part: LeaguePart) => LEAGUE_TIERS.flatMap((t) => versionsOf(part).map((v) => artName(t.id, v)));
+const names = (part: LeaguePart) => LEAGUE_TIERS.flatMap((t) => versionsOf(part, t.id).map((v) => artName(t.id, v)));
 
 /** The masters a run reads, as `<part>/<name>.webp`. */
 export const masters = () => PARTS.flatMap((part) => names(part).map((n) => `${part}/${n}.webp`)).sort();
