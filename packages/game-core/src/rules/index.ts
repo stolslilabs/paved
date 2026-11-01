@@ -88,5 +88,18 @@ export {
 export type { ChestDraw, ChestRank } from "./chests";
 export { DAY_S, SHOP_OFFERS, SHOP_PRICES, dayOf, shopEndsAt, shopOffers } from "./shop";
 export type { ShopOffer } from "./shop";
-export { DAILY_MILESTONES, DAILY_QUESTS, QUEST_BONUS_COBBLES, dailyMilestoneClaimed, dailyMilestoneRefusal, dailyMilestoneStates } from "./quests";
-export type { DailyMilestone, DailyMilestoneRefusal, DailyMilestoneState } from "./quests";
+export {
+  DAILY_MILESTONES,
+  DAILY_QUESTS,
+  QUEST_BONUS_COBBLES,
+  WEEKLY_MILESTONES,
+  WEEKLY_QUESTS,
+  dailyMilestoneClaimed,
+  dailyMilestoneRefusal,
+  dailyMilestoneStates,
+  milestonesToClaim,
+  weeklyMilestoneClaimed,
+  weeklyMilestoneRefusal,
+  weeklyMilestoneStates,
+} from "./quests";
+export type { DailyMilestone, DailyMilestoneRefusal, DailyMilestoneState, WeeklyMilestone, WeeklyMilestoneRefusal, WeeklyMilestoneState } from "./quests";

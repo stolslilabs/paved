@@ -59,6 +59,24 @@ export const MilestoneFive: Story = { args: MISSIONS.milestoneFive };
 /** All done: the five done, both reward nodes claimed, 25 Cobbles today. */
 export const MilestonesAllClaimed: Story = { args: MISSIONS.milestonesAllClaimed };
 
+/** The five weeklies (#976): none done, the two PvP ones beside the three Challenge ones, none with Cobbles of its own. */
+export const WeekNone: Story = { args: MISSIONS.weekNone };
+
+/** Three of the five weeklies done (#976): the week's first milestone reached. */
+export const WeekThree: Story = { args: MISSIONS.weekThree };
+
+/** The five weeklies done (#976): the week's second milestone reached. */
+export const WeekFive: Story = { args: MISSIONS.weekFive };
+
+/** Weekly Raider selected (#976): 4 of 10 attacks settled this week. */
+export const WeeklyRaider: Story = { args: MISSIONS.weeklyRaider };
+
+/** Weekly Stars selected (#976): 7 of 15 stars this week. */
+export const WeeklyStars: Story = { args: MISSIONS.weeklyStars };
+
+/** Weekly Stars done (#976): 15 of 15 stars, nothing to claim from its card. */
+export const WeeklyStarsDone: Story = { args: MISSIONS.weeklyStarsDone };
+
 /** Nothing counted yet: the limited missions to do, the lifetime ones locked. */
 export const NewPlayer: Story = { args: MISSIONS.newPlayer };
 

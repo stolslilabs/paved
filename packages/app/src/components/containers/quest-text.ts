@@ -33,6 +33,9 @@ export const QUEST_TEXT: Record<number, { title: string; description: string; ic
   17: { title: "Second Round", description: "Finish Challenge games in a day: the smallest of three rotating targets.", icon: "flag-checkered" },
   18: { title: "Busy Day", description: "Finish Challenge games in a day: the middle of three rotating targets.", icon: "flag-checkered" },
   19: { title: "Long Haul", description: "Finish Challenge games in a day: the largest of three rotating targets.", icon: "flag-checkered" },
+  // The PvP weeklies (#976): the attacks settled from Monday to Sunday UTC, and their stars.
+  20: { title: "Weekly Raider", description: "Settle PvP attacks over the week, Monday to Sunday UTC.", icon: "swords" },
+  21: { title: "Weekly Stars", description: "Earn stars in PvP attacks over the week, Monday to Sunday UTC.", icon: "star" },
 };
 
 export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: string; icon: string }> = {
@@ -76,6 +79,8 @@ export const TASK_UNIT: Record<number, string> = {
   8: "podium places",
   9: "wins",
   10: "tutorial claimed",
+  19: "attacks settled",
+  20: "stars earned",
   23: "leagues reached",
 };
 
