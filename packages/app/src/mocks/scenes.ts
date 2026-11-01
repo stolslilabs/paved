@@ -14,7 +14,7 @@ import type { OwnedSkins, ThemeSceneProps } from "../components/scenes/theme-sce
 import type { ThemeShopSceneProps, ThemeSkinsData } from "../components/scenes/theme-shop-scene";
 import type { MyTiles, MyTilesSceneProps } from "../components/scenes/my-tiles-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
-import { CategoryType } from "@paved/game-core";
+import { CategoryType, emptyTutorialCounts, type TutorialTask } from "@paved/game-core";
 import { APP_ASSETS, FOREST_VARIANTS, SOURCE_ASSETS, appRenders, originalTileArt } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
@@ -364,6 +364,19 @@ const rewarded = { ...missionsBase, questRewards, achievementRewards, milestones
 /** A period with every quest's Cobbles claimed (none to claim since #869 and #976: the milestones pay), and the old bonus. */
 const allClaimed = { claimed: bits(...QUEST_COBBLES.map((q) => q.questId)), credit: true };
 
+/**
+ * The Tutorial (#977) as `tutorialSteps` reads it: each task counted once up to `done` steps (the level at 3 past step 7, else
+ * `level`), and `claimed` its bits.
+ */
+function tutorialAt(done: number, claimed: number, { level = 1, extra = {} }: { level?: number; extra?: Partial<Record<TutorialTask, number>> } = {}) {
+  const tasks: TutorialTask[] = ["layout-saved", "challenge-finished", "attack-settled", "attack-won", "chest-opened", "shop-bought", "milestone-claimed"];
+  const counts = { ...emptyTutorialCounts(), level: done >= 8 ? 3 : level, ...extra };
+  tasks.slice(0, done).forEach((t) => (counts[t] = Math.max(counts[t], 1)));
+  return { counts, claimed };
+}
+/** A new player's day with Cobbles, for the Tutorial's stories: nothing counted. */
+const fresh = { ...rewarded, quests: QUESTS_TODAY_FRESH, achievements: ACHIEVEMENTS_NEW };
+
 export const MISSIONS = {
   /** Today with Cobbles: the first mission not done (Public Works) selected; the dailies show none (#869), Settler II's 20 glow in its tile. */
   daily: rewarded,
@@ -422,6 +435,24 @@ export const MISSIONS = {
   weeklyStars: { ...rewarded, initialSelected: "quest:21" },
   /** Weekly Stars done (#976): 15 of 15 stars, no Cobbles of its own to claim. */
   weeklyStarsDone: { ...rewarded, quests: questsWeekDone(5), initialSelected: "quest:21" },
+  /** The Tutorial (#977), a new player: step 1 (Builder) open and selected, with its Go; steps 2 to 8 locked, dimmed, numbered. */
+  tutorialNew: { ...fresh, tutorial: tutorialAt(0, 0) },
+  /** Three steps done and claimed: Tutorial 3/8, Victor open and selected (Go to the PvP). */
+  tutorialThree: { ...fresh, tutorial: tutorialAt(3, 0b111) },
+  /** A step done and not claimed: Challenger's 10 Cobbles to claim from its card; Raider open. */
+  tutorialToClaim: { ...fresh, tutorial: tutorialAt(2, 0b1), initialSelected: "tutorial:2" },
+  /** Challenger's claim on its way. */
+  tutorialClaiming: { ...fresh, tutorial: tutorialAt(2, 0b1), initialSelected: "tutorial:2", claiming: "tutorial:2" },
+  /** A locked step selected: Treasure, "Unlocks after Victor"; the chest opened early already counts (1 of 1). */
+  tutorialLocked: { ...fresh, tutorial: tutorialAt(3, 0b111, { extra: { "chest-opened": 1 } }), initialSelected: "tutorial:5" },
+  /** Regular open: its Go brings the Daily row out below the card. */
+  tutorialRegular: { ...rewarded, tutorial: tutorialAt(6, 0b111111) },
+  /** Rising open, level 2 of 3: no Go, the card says how XP comes. */
+  tutorialRising: { ...rewarded, tutorial: tutorialAt(7, 0b1111111, { level: 2 }) },
+  /** Every step done, the last to claim: Rising's 50 Cobbles; the section stays until it is claimed. */
+  tutorialLastToClaim: { ...rewarded, tutorial: tutorialAt(8, 0b1111111), initialSelected: "tutorial:8" },
+  /** Every step claimed: the Tutorial's section is gone, the page as before it (open point 5). */
+  tutorialAllClaimed: { ...rewarded, tutorial: tutorialAt(8, 0b11111111) },
   /** A new player: nothing counted, the lifetime missions locked. */
   newPlayer: { ...rewarded, quests: QUESTS_TODAY_FRESH, achievements: ACHIEVEMENTS_NEW },
   /** Four minutes before 00:00 UTC: the Daily countdown is amber. */

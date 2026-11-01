@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { CompletionKind } from "../../lib/quest-toasts";
 import { QUESTS_TODAY_COMPLETED, QUESTS_TODAY_ONE_TO_GO } from "../../mocks/quests";
 import { Button } from "../ui/button";
 import { Toaster } from "../ui/sonner";
@@ -7,7 +8,7 @@ import { toastCompletion, useCompletionToasts, type CompletionToast } from "./co
 import { questText } from "./quest-text";
 
 /** Raises one completion toast at mount, and again on the button. */
-function ToastDemo({ kind, entry }: { kind: "quest" | "achievement"; entry: CompletionToast }) {
+function ToastDemo({ kind, entry }: { kind: CompletionKind; entry: CompletionToast }) {
   const [n, setN] = useState(0);
   useEffect(() => toastCompletion(kind, `${kind}:story:${n}`, entry), [kind, entry, n]);
   return (
@@ -41,6 +42,12 @@ export const QuestNoReward: Story = { args: { entry: { title: "Daily Run", icon:
 
 /** An achievement earned: its points and its Cobbles. */
 export const AchievementEarned: Story = { args: { kind: "achievement", entry: { title: "Forester", icon: "tree", description: "+20 pts", cobbles: 20 } } };
+
+/** A Tutorial step done (#977): its title, the next step's, and its Cobbles to claim. */
+export const TutorialStepDone: Story = { args: { kind: "tutorial", entry: { title: "Builder", icon: "hammer", description: "Next: Challenger", cobbles: 10 } } };
+
+/** The Tutorial's last step done (#977): no step after it. */
+export const TutorialLastStep: Story = { args: { kind: "tutorial", entry: { title: "Rising", icon: "arrow-trend-up", description: "Every step done", cobbles: 50 } } };
 
 function CompletingDemo() {
   const [done, setDone] = useState(false);

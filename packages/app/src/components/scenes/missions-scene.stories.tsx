@@ -12,7 +12,7 @@ import { MissionsScene } from "./missions-scene";
 const meta = {
   title: "Scenes/Missions",
   component: MissionsScene,
-  args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn(), onNavigate: fn() },
+  args: { onClaimTutorial: fn(), onGo: fn(), onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn(), onNavigate: fn() },
 } satisfies Meta<typeof MissionsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -88,6 +88,33 @@ export const WeeklyStars: Story = { args: MISSIONS.weeklyStars };
 
 /** Weekly Stars done (#976): 15 of 15 stars, nothing to claim from its card. */
 export const WeeklyStarsDone: Story = { args: MISSIONS.weeklyStarsDone };
+
+/** The Tutorial (#977), a new player: step 1 (Builder) open and selected, with Go; steps 2 to 8 locked, their icons dimmed, a lock and their number. */
+export const TutorialNewPlayer: Story = { args: MISSIONS.tutorialNew };
+
+/** Three steps done and claimed: "Tutorial 3/8", Victor open and selected, its Go to the PvP. */
+export const TutorialThreeDone: Story = { args: MISSIONS.tutorialThree };
+
+/** A step done and not claimed: Challenger's 10 Cobbles to claim from its card, its tile lit; Raider open. */
+export const TutorialStepToClaim: Story = { args: MISSIONS.tutorialToClaim };
+
+/** Challenger's claim on its way. */
+export const TutorialClaiming: Story = { args: MISSIONS.tutorialClaiming };
+
+/** A locked step selected: Treasure, "Unlocks after Victor"; the chest opened early counts already. */
+export const TutorialLocked: Story = { args: MISSIONS.tutorialLocked };
+
+/** Regular open: its Go brings the Daily row out below the card, on this page. */
+export const TutorialRegular: Story = { args: MISSIONS.tutorialRegular };
+
+/** Rising open at level 2 of 3: no Go, the card says how XP comes. */
+export const TutorialRising: Story = { args: MISSIONS.tutorialRising };
+
+/** Every step done, Rising's 50 Cobbles still to claim: the section stays until then. */
+export const TutorialLastToClaim: Story = { args: MISSIONS.tutorialLastToClaim };
+
+/** Every step claimed: the Tutorial's section is gone (#977 open point 5). */
+export const TutorialAllClaimed: Story = { args: MISSIONS.tutorialAllClaimed };
 
 /** Nothing counted yet: the limited missions to do, the lifetime ones locked. */
 export const NewPlayer: Story = { args: MISSIONS.newPlayer };

@@ -5,6 +5,7 @@ import { TUTORIAL_COBBLES, TUTORIAL_STEPS, dayOf, emptyTutorialCounts, shopOffer
 import type { GameSigner } from "../src/data";
 import { TutorialStepRefusedError, type TutorialViews, type TutorialWrites } from "../src/data/tutorial";
 import { useTutorialClaims, useTutorialSteps } from "../src/data/tutorial-steps";
+import { useMissionsReady } from "../src/data/missions-ready";
 import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
 import { MOCKED_GAME_READS, MOCKED_WRITES } from "../src/data/mock/overlay";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
@@ -210,5 +211,18 @@ describe("the Tutorial's steps through the hooks (#977)", () => {
     expect(result.current.none).toEqual({ data: null, isPending: false, error: null });
     expect(result.current.claims.claimer).toBeNull();
     await expect(result.current.claims.claim(1)).rejects.toThrow("Connect to claim");
+  });
+});
+
+describe("the home's Missions count, with the Tutorial (#977)", () => {
+  it("counts each step completed and not claimed, and drops it once claimed", async () => {
+    const { sources, ledger } = clocked();
+    const writes = ledger.writesFor(PLAYER);
+    await writes.foundFreeVillage();
+    await writes.saveLayout((await ledger.freeVillage(PLAYER)).tiles);
+    const { result } = renderData(() => ({ ready: useMissionsReady(PLAYER), claims: useTutorialClaims(PLAYER) }), sources);
+    await waitFor(() => expect(result.current.ready).toBe(1));
+    await result.current.claims.claim(1);
+    await waitFor(() => expect(result.current.ready).toBe(0));
   });
 });

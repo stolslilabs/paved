@@ -1,3 +1,5 @@
+import type { TutorialTask } from "@paved/game-core";
+
 // What the screens say about quests and achievements, from the legacy client's `utils/quests-view.ts` (the accepted list,
 // docs/architecture/quests.md, P-22, and its v2a section). The titles and texts of quests 1 and 5 to 16 and achievements 1 to 16
 // are copied from there (app-web, removed in P-70; see git history), with an icon each. Quests 2 to 4
@@ -66,6 +68,30 @@ export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: stri
   23: { title: "Master League", description: "Reach the Master league in PvP.", icon: "trophy" },
   24: { title: "Grand Master", description: "Reach the Grand Master league in PvP.", icon: "trophy" },
 };
+
+/**
+ * Where a Tutorial step's Go leads (#977, the issue's table): the home in Edit, Play, the PvP, the chests, the tile shop, or the
+ * Daily row of the Missions page itself. Rising (the level) has none: its card says how XP comes.
+ */
+export type TutorialGo = "village-edit" | "play" | "pvp" | "chests" | "tile-shop" | "daily";
+
+/**
+ * The Tutorial's steps as the Missions page shows them (#977), by `TUTORIAL_STEPS`' task: the title, what to do, the icon, what
+ * its bar counts, and where its Go leads (null: none). The rules (order, targets, Cobbles) are game-core's.
+ */
+export const TUTORIAL_TEXT: Record<TutorialTask, { title: string; description: string; icon: string; unit: string; go: TutorialGo | null }> = {
+  "layout-saved": { title: "Builder", description: "Place a tile in your village and save its layout.", icon: "hammer", unit: "layouts saved", go: "village-edit" },
+  "challenge-finished": { title: "Challenger", description: "Finish a Challenge game.", icon: "flag-checkered", unit: "Challenge games finished", go: "play" },
+  "attack-settled": { title: "Raider", description: "Settle an attack in PvP: win, lose or surrender.", icon: "swords", unit: "attacks settled", go: "pvp" },
+  "attack-won": { title: "Victor", description: "Win an attack in PvP: one star or more.", icon: "star", unit: "attacks won", go: "pvp" },
+  "chest-opened": { title: "Treasure", description: "Open a chest.", icon: "treasure-chest", unit: "chests opened", go: "chests" },
+  "shop-bought": { title: "Trader", description: "Buy a plan in the tile shop.", icon: "store", unit: "plans bought", go: "tile-shop" },
+  "milestone-claimed": { title: "Regular", description: "Claim a gift of the day's bar, above the Daily row.", icon: "gift", unit: "gifts claimed", go: "daily" },
+  level: { title: "Rising", description: "Reach level 3.", icon: "arrow-trend-up", unit: "level", go: null },
+};
+
+/** How XP comes, on Rising's card (the level step, which has no Go): Story levels and PvP attacks pay it. */
+export const TUTORIAL_XP = "XP comes from Story levels and attacks.";
 
 /** What one unit of a task is, after its count ("2,710 / 3,000 points"), by task id. */
 export const TASK_UNIT: Record<number, string> = {

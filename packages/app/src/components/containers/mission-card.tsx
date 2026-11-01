@@ -18,8 +18,22 @@ export interface ProgressReward {
   disabled?: boolean;
 }
 
-/** Which list a mission is of (#832): the day's, the week's, or the lifetime ones. */
-export type MissionKind = "daily" | "weekly" | "lifetime";
+/** Which list a mission is of (#832): the Tutorial's steps (#977), the day's, the week's, or the lifetime ones. */
+export type MissionKind = "tutorial" | "daily" | "weekly" | "lifetime";
+
+/**
+ * A Tutorial step's own parts (#977): its number, the step before it (while it is locked: "Unlocks after Raider"), its Go (the
+ * open step's way to where its action is done; none for Rising), and the line where its Go would be when it has none.
+ */
+export interface TutorialPart {
+  step: number;
+  /** The title of the step before, said while this one is locked; null for the first. */
+  after: string | null;
+  /** Go, on the open step: it opens the place where its action is done. Omitted: no Go (Rising, or a step not open). */
+  onGo?: () => void;
+  /** The open step's line without a Go (Rising: how XP comes). */
+  hint?: string;
+}
 
 /** A mission as the Missions page shows it, a quest or an achievement, from the scene's reads. */
 export interface Mission {
@@ -34,9 +48,12 @@ export interface Mission {
   completedAt: number | null;
   retired?: boolean;
   reward?: ProgressReward;
+  /** A Tutorial step's parts (`kind` "tutorial"). */
+  tutorial?: TutorialPart;
 }
 
 const KIND = {
+  tutorial: { label: "Tutorial", icon: "graduation-cap" },
   daily: { label: "Daily", icon: "sun" },
   weekly: { label: "Weekly", icon: "crown" },
   lifetime: { label: "Lifetime", icon: "medal" },
@@ -44,6 +61,7 @@ const KIND = {
 
 /** The short line of a mission not done yet, where its Claim will be: one line at 320 px, so the card keeps its height (#975). */
 const TO_DO: Record<MissionKind, string> = {
+  tutorial: "Steps open in order: each one opens the next.",
   daily: "Play today: it resets at 00:00 UTC.",
   weekly: "Play this week: it resets Monday 00:00 UTC.",
   lifetime: "Every game counts toward it, for good.",
@@ -87,7 +105,7 @@ function useClamped(text: string, open: boolean) {
  * row and the footer. "More" unfolds the description, with no motion (so none to reduce); another mission folds it.
  */
 export function MissionCard({ mission, canClaim = true, onClaim, className }: MissionCardProps) {
-  const { kind, title, description, icon, state, progress, completedAt, retired, reward } = mission;
+  const { kind, title, description, icon, state, progress, completedAt, retired, reward, tutorial } = mission;
   const done = state === "claimable" || state === "done";
   // A weekly with no Cobbles of its own (#976) says where the week pays instead.
   const weekPays = kind === "weekly" && !reward && !retired;
@@ -161,8 +179,16 @@ export function MissionCard({ mission, canClaim = true, onClaim, className }: Mi
           <span>Retired: nothing counts any more</span>
         ) : done ? (
           <span>{completedAt != null ? `Done ${formatDay(Math.floor(completedAt / DAY_S))}` : "Done"}</span>
+        ) : tutorial ? (
+          <span>{state === "locked" ? (tutorial.after ? `Unlocks after ${tutorial.after}` : "Locked") : (tutorial.hint ?? `Step ${tutorial.step} of the Tutorial`)}</span>
         ) : (
           <span>{weekPays ? WEEK_PAYS.toDo : TO_DO[kind]}</span>
+        )}
+        {tutorial?.onGo && !done && state !== "locked" && (
+          <Button size="sm" onClick={tutorial.onGo} aria-label={`Go: ${title}`}>
+            Go
+            <Icon name="chevron-right" size="xs" />
+          </Button>
         )}
         {weekPays && done && (
           <span className="flex items-center gap-1.5">
