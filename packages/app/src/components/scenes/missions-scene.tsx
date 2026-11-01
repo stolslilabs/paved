@@ -157,18 +157,18 @@ export function MissionsScene(props: MissionsSceneProps) {
     const overlap = card.getBoundingClientRect().bottom + BELOW_CARD - event.target.getBoundingClientRect().top;
     if (overlap > 0) card.closest<HTMLElement>('[data-slot="page-scroll"]')?.scrollBy({ top: -overlap });
   };
-  const list = {
-    onFocus: keepBelowCard,
-    onPointerDown: () => {
-      pressing.current = true;
-    },
-    onPointerUp: () => {
+  // The press ends wherever the pointer is released (dragged off the list, onto the header): the window hears it, once.
+  const press = () => {
+    pressing.current = true;
+    const release = () => {
       pressing.current = false;
-    },
-    onPointerCancel: () => {
-      pressing.current = false;
-    },
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", release, true);
+    };
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
   };
+  const list = { onFocus: keepBelowCard, onPointerDown: press };
 
   const entries = quests?.quests ?? [];
   // Each quest's window's end (a daily's falls back to the UTC day's end).

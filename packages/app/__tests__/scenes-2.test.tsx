@@ -493,6 +493,16 @@ describe("Missions (#832)", () => {
     // With Tab: the region scrolls the tile below the card and its 16 px fade (300 + 16 - 250).
     await userEvent.tab();
     expect(scrollBy).toHaveBeenLastCalledWith({ top: -66 });
+    // A press on a tile released off the list (dragged onto the header): the next Tab still brings its tile out.
+    scrollBy.mockClear();
+    const header = screen.getAllByRole("banner")[0]!;
+    const tile = screen.getByRole("button", { name: /^Settler V:/ });
+    await userEvent.pointer([{ keys: "[MouseLeft>]", target: tile }, { target: header }, { keys: "[/MouseLeft]", target: header }]);
+    expect(tile).toHaveFocus();
+    expect(scrollBy).not.toHaveBeenCalled();
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toHaveAccessibleName(/^Settler IV:/);
+    expect(scrollBy).toHaveBeenLastCalledWith({ top: -66 });
     rect.mockRestore();
     unmount();
   });
