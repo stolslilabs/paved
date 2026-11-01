@@ -43,7 +43,7 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const shown = progress.isPending ? undefined : (progress.data ?? undefined);
   const onEditAvatar = useCallback(() => go("/avatar"), [go]);
   const onOpenLeague = useCallback(() => go("/pvp/league"), [go]);
-  const onOpenGuild = useCallback((id: number) => go(`/social?guild=${id}`, { state: { guildSheet: true } }), [go]);
+  const onOpenGuild = useCallback((id: number) => go(`/guild?guild=${id}`, { state: { guildSheet: true } }), [go]);
   const value = useMemo(
     () => ({ state, progress: shown, look, onConnect, onDisconnect, onCopy: copy, onEditAvatar, onOpenLeague, onOpenGuild }),
     [state, shown, look, onConnect, onDisconnect, onEditAvatar, onOpenLeague, onOpenGuild],

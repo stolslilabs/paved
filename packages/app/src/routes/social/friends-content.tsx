@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { privateConversation } from "@paved/game-core";
 import { FriendsPanel, type FriendsList } from "../../components/containers/friends-panel";
-import { SocialEmptyTab } from "../../components/containers/social-tabs";
+import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
 import { useGuildBadges } from "../../data/guilds";
 import { addressKey } from "../../data/keys";
 import { useFollowActions, useFollowLists, useFollowSuggestions, type FollowLists } from "../../data/social";
@@ -12,16 +12,16 @@ import { useNow } from "../now";
 import { useOpenChat } from "../open-chat";
 import { useOpenPlayer } from "../open-player";
 
-// The Social page's Friends tab (#954), its own chunk: the player's friends, following and followers, the suggestions and the
+// The friends page's lists (#954; the Social page's Friends tab until #973): the player's friends, following and followers, the suggestions and the
 // blocked players, on the social source's follows (the mock's ledger today, a service later, #956).
 
-/** The lists with the followers marked new while the tab is shown: seen once on screen, they keep their mark until the tab goes. */
+/** The lists with the followers marked new while the page is shown: seen once on screen, they keep their mark until the page goes. */
 function withMarks(lists: FollowLists, marked: ReadonlySet<string>): FollowLists {
   if (marked.size === 0) return lists;
   return { ...lists, followers: lists.followers.map((r) => (r.isNew || !marked.has(addressKey(r.profile.address)) ? r : { ...r, isNew: true })) };
 }
 
-export default function FriendsTab() {
+export function FriendsContent() {
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
   const now = useNow();
@@ -32,7 +32,7 @@ export default function FriendsTab() {
   const openChat = useOpenChat();
   const [list, setList] = useState<FriendsList>("friends");
 
-  // The new followers on screen keep their New mark while the tab is shown. Seeing them at the source (the badges go) marks
+  // The new followers on screen keep their New mark while the page is shown. Seeing them at the source (the badges go) marks
   // every follower seen, so it waits until every new one has been on screen (the panel lists them first).
   const [onScreen, setOnScreen] = useState<ReadonlySet<string>>(() => new Set());
   const onFollowersShown = useCallback((addresses: readonly string[]) => setOnScreen(new Set(addresses.map(addressKey))), []);
@@ -61,8 +61,8 @@ export default function FriendsTab() {
   }, [shown, list, suggestions.data]);
   const guildOf = useGuildBadges(addresses);
 
-  if (lists.unavailable) return <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">Follows are not on this network yet.</p>;
-  if (me === null) return <SocialEmptyTab tab="friends" />;
+  if (lists.unavailable) return <SocialUnavailable>Follows are not on this network yet.</SocialUnavailable>;
+  if (me === null) return <SocialEmpty page="friends" />;
   return (
     <FriendsPanel
       lists={shown}

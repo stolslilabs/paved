@@ -3,7 +3,7 @@ import { MessageButton } from "../components/containers/message-button";
 import type { FollowStatus } from "../data/social";
 import { useOpenChat } from "./open-chat";
 
-// The profile's Message (#955), in the profile's chunk: the private conversation with the player, in the Social page's Chat tab.
+// The profile's Message (#955), in the profile's chunk: the private conversation with the player, on the chat page (#973).
 
 /**
  * Message, on `address`'s profile: opens the private conversation with them (a friend's or a guildmate's at once; anyone else's

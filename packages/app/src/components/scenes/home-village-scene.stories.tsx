@@ -148,6 +148,20 @@ export const OverlaysEverythingPhone320: Story = {
 };
 /** The same at 375 px: the moved buttons between the village score and the chips. */
 export const OverlaysChipsPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
+/**
+ * SOCIAL-SPLIT (#973, open point 1's default): Chat, Guild and Friends, each with its count, in place of Social. Below `desktop` a
+ * column on the right, centred between the balances and Edit; from it, in the left column under the village score and the chips,
+ * centred in the room above the dial. Three-digit counts, shielded and the score unfolded: nothing overlaps the profile, the
+ * balances, Edit, the dial or the other column. At 320, 375, 768 and 1440 px.
+ */
+const SOCIAL_COUNTS = { chat: 128, guild: 12, friends: 7 } satisfies Partial<HomeVillageSceneProps>;
+const SOCIAL_FULL = { ...HOME_VILLAGE.shielded, ...DIAL, ...SOCIAL_COUNTS, initialScoreOpen: true } satisfies HomeVillageSceneProps;
+export const OverlaysSocialPhone320: Story = { ...PHONE_320, args: SOCIAL_FULL };
+export const OverlaysSocialPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL };
+export const OverlaysSocialTablet768: Story = { ...TABLET_768, args: SOCIAL_FULL };
+export const OverlaysSocialWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL };
+/** The same with the chips (Resume, the spawn pause) on a short laptop: from `desktop` the social column stays under them. */
+export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...SOCIAL_FULL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
 /** A Challenge game running: the Resume chip under the top row. */
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */

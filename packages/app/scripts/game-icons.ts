@@ -22,8 +22,9 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE = join(ROOT, "vendor/fontawesome/solid.min.js");
 export const SHAPES_PATH = join(ROOT, "src/components/elements/game-icon-shapes.ts");
 
-/** The HUD's icons (#844's list): the overlay buttons, the phone's bar, the plates, Play, Edit, Found; the village's (#870); the Chests' (#873, in the gift's place); the profile badge's User (#928); the home's Social (#952). Solid, by name. */
+/** The HUD's icons (#844's list): the overlay buttons, the phone's bar, the plates, Play, Edit, Found; the village's (#870); the Chests' (#873, in the gift's place); the profile badge's User (#928); the home's Friends (#952, then #973) and Chat (#973). Solid, by name. */
 export const GAME_ICON_NAMES = [
+  "comments",
   "gear",
   "hammer",
   "house",
