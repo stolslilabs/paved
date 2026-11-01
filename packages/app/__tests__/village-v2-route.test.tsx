@@ -177,12 +177,20 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     expect((await s.ledger.freeVillage(s.me)).tiles).toHaveLength(8);
   }, slow(30_000));
 
+  /** The missions tracker (#978), in the Missions button's place: its first line opens the Missions page. */
+  const TRACKER = "the missions tracker";
+  /** The overlay's control named `name`: the tracker's first line, else in the overlay's column, else in the phone's bar. */
+  const overlay = (name: string | RegExp, column: HTMLElement | null, bar: HTMLElement | null) =>
+    name === TRACKER
+      ? within(screen.getByRole("navigation", { name: /^Missions/ })).getAllByRole("button")[0]!
+      : ((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+
   // One test per trip, each with its own ceiling, as the own Back's below: the eight trips in one test outlasted one ceiling
   // under a check's load.
   it.each([
     [/^Chests/, "/village/chests"],
     ["Shop", "/village/shop"],
-    [/^Missions/, "/missions"],
+    [TRACKER, "/missions"],
     ["Vault", "/vault"],
     ["League", "/pvp/league"],
     [/^League: /, "/pvp/league"],
@@ -198,7 +206,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
         // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
         const column = screen.queryByRole("navigation", { name: "Village" });
         const bar = screen.queryByRole("navigation", { name: "Main" });
-        fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+        fireEvent.click(overlay(name, column, bar));
       }
       expect(s.router.state.location.pathname).toBe(path);
     }, WAIT);
@@ -216,7 +224,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     ["Shop", "/village/shop"],
     ["League", "/pvp/league"],
     [/^Play/, "/play"],
-    [/^Missions/, "/missions"],
+    [TRACKER, "/missions"],
     ["Vault", "/vault"],
     ["Settings", "/settings"],
   ] as const)("the own Back of the overlay page %s (%s) lands on the village", async (name, path) => {
@@ -227,7 +235,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
         // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
         const column = screen.queryByRole("navigation", { name: "Village" });
         const bar = screen.queryByRole("navigation", { name: "Main" });
-        fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
+        fireEvent.click(overlay(name, column, bar));
       }
       expect(s.router.state.location.pathname).toBe(path);
     }, WAIT);

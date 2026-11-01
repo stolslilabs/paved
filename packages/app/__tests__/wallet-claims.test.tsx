@@ -59,7 +59,9 @@ describe("the Cobbles' claims through the wallet", () => {
     const s = setup();
     render(<App router={createTestRouter("/")} sources={s.sources} connector={s.load} />);
     // Home restores the session; the Quests tab then reads the connected player.
-    await userEvent.click(within(await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) })).getByRole("button", { name: "Missions" }));
+    // The missions tracker (#978): any line opens the page.
+    const tracker = await screen.findByRole("navigation", { name: /^Missions/ }, { timeout: slow(5000) });
+    await userEvent.click((await within(tracker).findAllByRole("button", {}, { timeout: slow(5000) }))[0]!);
     await userEvent.click(await screen.findByRole("button", { name: /^Daily Run: / }, { timeout: slow(5000) }));
     const claim = await screen.findByRole("button", { name: "Claim 5 Cobbles: Daily Run" }, { timeout: slow(5000) });
     expect(claim).toBeEnabled();
