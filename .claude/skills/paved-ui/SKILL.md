@@ -117,7 +117,9 @@ League standards (#917, the owner's design in `docs/design/league-standards.webp
 (`LEAGUE_TIERS`, Unranked to Grand Master, `tierOf`, `divisionOf`), each shown as images: `LeagueCrestArt` (full, from 64 px),
 `LeagueCrestIcon` (16 to 40 px, its own simplified art), `LeaguePlate` (the plate's image, the name over it in `font-display`),
 `LeagueBanner`, and `LeagueStandard` (the three stacked). The crest and the icon take a `division` ("I", "II", "III"): each has a
-version per division, the numeral on a ribbon drawn into the art, never laid over it. The masters are lossless WebP,
+version per division, the numeral on a ribbon drawn into the art, never laid over it, its ends curling up on every tier (but
+Unranked's plank). Every crest's shield body has one size, Grand Master's (its wings reach the frame), centred in the frame;
+a redrawn crest keeps it. The masters are lossless WebP,
 `league-sources/<part>/<name>.webp` (`artName`: `bronze`, `bronze-ii`), one square frame per part but the plate's (`LEAGUE_ART`
 in `elements/league-standards.ts`); `node scripts/compress-league-art.ts` writes their copies to `public/league-art/` (`--check`
 verifies them), and `artSources` gives an `<img>` its `srcSet` and `sizes`. A new tier or a redrawn part is a new master on its
