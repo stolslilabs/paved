@@ -27,7 +27,7 @@ export const AllIcons: Story = {
 /** One icon at every size: 20, 24, 32, 40, 48 and 64 px. */
 export const Sizes: Story = {
   render: () => (
-    <div className="flex items-end gap-4 rounded-xl bg-background p-4">
+    <div className="flex flex-wrap items-end gap-4 rounded-xl bg-background p-4">
       {SIZES.map((size) => (
         <UiIcon key={size} name="missions" size={size} />
       ))}
@@ -42,7 +42,8 @@ export const Frames: Story = {
       {UI_FRAMES.map((name) => {
         const px = name === "dock-ribbon" ? 360 : name === "dock-divider" ? 8 : 96;
         const { width, height, ...sources } = uiFrameSources(name, px);
-        return <img key={name} {...sources} alt="" draggable={false} style={{ width: px, height: (px * FRAME_ART[name].height) / FRAME_ART[name].width }} />;
+        // At most the story's width (the 320 px viewport of the wrap sweep), its proportions kept.
+        return <img key={name} {...sources} alt="" draggable={false} style={{ width: px, maxWidth: "100%", height: "auto", aspectRatio: `${FRAME_ART[name].width} / ${FRAME_ART[name].height}` }} />;
       })}
     </div>
   ),
