@@ -1,25 +1,9 @@
-import { GuildLine, GuildMemberActions, type GuildMemberAction } from "../components/containers/guild-profile";
-import { useGuildBadge, useGuildWrites, usePlayerGuild, type GuildWriteRun } from "../data/guilds";
+import { GuildLine, GuildMemberActions, memberWrite } from "../components/containers/guild-profile";
+import { useGuildBadge, useGuildWrites, usePlayerGuild } from "../data/guilds";
 import { addressKey } from "../data/keys";
 import { useOpenGuild } from "./open-guild";
 
 // The guild parts of a player's public profile (#953), in the profile's chunk: the guild line and the rank actions.
-
-/** A profile action as the guild source's write, on `target`. */
-function memberWrite(action: GuildMemberAction, target: string): GuildWriteRun {
-  switch (action.type) {
-    case "invite":
-      return (g, me) => g.invite(me, target);
-    case "promote":
-      return (g, me) => g.promote(me, target);
-    case "demote":
-      return (g, me) => g.demote(me, target);
-    case "kick":
-      return (g, me) => g.kick(me, target, action.reason.trim());
-    case "make-leader":
-      return (g, me) => g.makeLeader(me, target);
-  }
-}
 
 /** The ID as the guilds keep it, or the text as it came when it is not one. */
 const keyOf = (address: string): string => {

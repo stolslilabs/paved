@@ -1,19 +1,25 @@
-import { useEffect } from "react";
-import type { GuildCandidate } from "@paved/game-core";
+import { useEffect, useState } from "react";
+import { GUILD_RANK, type GuildCandidate } from "@paved/game-core";
 import { GuildPage, type GuildPageAction } from "../../components/containers/guild-page";
+import { GuildInviteSheet } from "../../components/containers/guild-page-sheets";
+import { memberWrite } from "../../components/containers/guild-profile";
 import { ScrollRegion } from "../../components/ui/scroll-region";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
 import { useGuild, type GuildWrites, type GuildWriteRun } from "../../data/guilds";
+import { usePlayerSearch } from "../../data/social";
 import type { GuildView, PlayerGuild } from "../../data/social-source";
 import { useSidePanel } from "../../lib/side-panel";
 import { errorDetail } from "../error-detail";
+import { openingGuildTab, storeGuildTab, type GuildTab } from "../guild-tab";
 import { DESKTOP_QUERY } from "../home-layout";
+import { useAppNavigate } from "../ref";
 import { guildApply } from "./guild-apply";
 
-// The guild's page (#953), its own chunk: the connected player's guild on their guild page (#973), and any other guild in a sheet over
-// it (`?guild=`). Each action of the page is a write of the guild source (`useGuildWrites`).
+// The guild's page (#953), in the guild page's chunk: the connected player's guild on their guild page, with its header, menu
+// and tabs (#973), and any other guild in a sheet over it (`?guild=`). Each action of the page is a write of the guild source
+// (`useGuildWrites`).
 
 /** A page action as the guild source's write, for guild `id`. */
 export function pageWrite(action: GuildPageAction, id: number): GuildWriteRun {
@@ -40,6 +46,8 @@ export function pageWrite(action: GuildPageAction, id: number): GuildWriteRun {
     }
     case "leave":
       return (g, me) => g.leaveGuild(me);
+    case "member":
+      return memberWrite(action.action, action.target);
   }
 }
 
@@ -47,19 +55,75 @@ export interface OwnGuildProps {
   guild: GuildView;
   me: string;
   now: number;
-  /** Their guild's announcements they have not read: the page marks them read once shown. */
+  /** Their guild's announcements they have not read: the page opens on them, and marks them read once shown. */
   unread: number;
   writes: GuildWrites;
   onOpenPlayer?: (address: string) => void;
+  /** The menu's Find guilds: the finder's search, Suggested and the ranking, in a sheet (the page's). */
+  onFindGuilds?: () => void;
 }
 
-/** The connected player's guild, on the guild page: shown, its announcements are read (the Guild button's count drops them). */
-export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer }: OwnGuildProps) {
+/** Invite a player (#973): the player search, a result opening their profile, where Invite is. */
+function InviteSheet({ me, guildName, open, onOpenChange, onOpenPlayer }: { me: string; guildName: string; open: boolean; onOpenChange: (open: boolean) => void; onOpenPlayer?: (address: string) => void }) {
+  const [query, setQuery] = useState("");
+  const search = usePlayerSearch(query, me);
+  return (
+    <GuildInviteSheet
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) setQuery("");
+      }}
+      guildName={guildName}
+      search={{
+        query,
+        onQueryChange: setQuery,
+        results: search.data ?? null,
+        error: search.error?.message ?? null,
+        errorDetail: search.error ? errorDetail(search.error) : undefined,
+        onRetry: search.refetch,
+        unavailable: search.unavailable,
+      }}
+      onOpenPlayer={onOpenPlayer}
+    />
+  );
+}
+
+/**
+ * The connected player's guild, on the guild page (#973): it opens on Announcements while one is unread, else on the last tab used
+ * on this device, the first time on Members. Announcements shown, they are read (the Guild button's count drops them).
+ */
+export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer, onFindGuilds }: OwnGuildProps) {
   const { run } = writes;
+  const go = useAppNavigate();
+  const officer = guild.rank !== null && guild.rank >= GUILD_RANK.officer;
+  const [tab, setTab] = useState<GuildTab>(() => openingGuildTab(unread, officer));
+  const [inviting, setInviting] = useState(false);
   useEffect(() => {
-    if (unread > 0) void run((g, p) => g.readAnnouncements(p)).catch(() => undefined);
-  }, [unread, guild.id, run]);
-  return <GuildPage guild={guild} me={me} now={now} onAction={(a) => writes.run(pageWrite(a, guild.id))} onOpenPlayer={onOpenPlayer} />;
+    if (tab === "announcements" && unread > 0) void run((g, p) => g.readAnnouncements(p)).catch(() => undefined);
+  }, [tab, unread, guild.id, run]);
+  return (
+    <>
+      <GuildPage
+        guild={guild}
+        me={me}
+        now={now}
+        tab={tab}
+        onTabChange={(next) => {
+          setTab(next);
+          storeGuildTab(next);
+        }}
+        unread={unread}
+        onAction={(a) => writes.run(pageWrite(a, guild.id))}
+        onOpenPlayer={onOpenPlayer}
+        // The chat page on Guild (`chatTabPath`, as a literal: the chat's URL module stays out of this chunk).
+        onOpenChat={() => go("/chat/guild")}
+        onInvite={() => setInviting(true)}
+        onFindGuilds={onFindGuilds}
+      />
+      {officer && <InviteSheet me={me} guildName={guild.name} open={inviting} onOpenChange={setInviting} onOpenPlayer={onOpenPlayer} />}
+    </>
+  );
 }
 
 export interface GuildSheetProps {
