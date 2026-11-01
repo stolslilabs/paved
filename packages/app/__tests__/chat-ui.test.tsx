@@ -5,8 +5,12 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ChatConversation, type ChatConversationProps } from "../src/components/containers/chat-conversation";
 import { ChatList } from "../src/components/containers/chat-list";
+import { ChatMenu } from "../src/components/containers/chat-menu";
+import { ChatNewMessage } from "../src/components/containers/chat-new-message";
+import { ChatTabs } from "../src/components/containers/chat-tabs";
+import { chatBadges } from "../src/routes/social/chat-content";
 import { ChatRefusedError, type ChatMessage } from "../src/data/social-source";
-import { CHAT_CONVERSATION, CHAT_LIST } from "../src/mocks/chat";
+import { CHAT_BADGES, CHAT_CONVERSATION, CHAT_LIST, CHAT_MENU, CHAT_NEW_MESSAGE } from "../src/mocks/chat";
 
 // The messages' views (#955): the list's rows and requests, a conversation's menus, refusals and request, links kept as plain
 // text, the rate limit's countdown, and the reading place (older pages keep it, a new message while reading older ones shows
@@ -24,25 +28,96 @@ function geometry(el: HTMLElement, sizes: { content: number; view: number }) {
   Object.defineProperty(el, "clientHeight", { configurable: true, get: () => sizes.view });
 }
 
-describe("the Chat tab's list (#955)", () => {
-  it("lists the World, the guild and the private conversations with their unread counts, and the requests above", async () => {
+describe("the chat page's Private tab (#973)", () => {
+  it("lists the private conversations with their unread counts, then the requests, and New message", async () => {
     const onOpen = vi.fn();
-    render(wrap(<ChatList {...CHAT_LIST.request} onOpen={onOpen} />));
+    const onNewMessage = vi.fn();
+    render(wrap(<ChatList {...CHAT_LIST.request} onOpen={onOpen} onNewMessage={onNewMessage} />));
+    const rows = within(screen.getByRole("region", { name: "Conversations" })).getAllByRole("button");
+    // The World and the guild have their own tabs: only the three private conversations here.
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.getAttribute("aria-label"))).not.toContain("World, 14 unread");
+    expect(rows[1]!.getAttribute("aria-label")).toMatch(/, 2 unread$/);
     const requests = screen.getByRole("region", { name: "Requests" });
     expect(within(requests).getAllByRole("button")).toHaveLength(1);
-    const rows = within(screen.getByRole("region", { name: "Conversations" })).getAllByRole("button");
-    expect(rows[0]).toHaveAccessibleName("World, 14 unread");
-    expect(rows[1]!.getAttribute("aria-label")).toMatch(/, 3 unread$/);
+    // The requests come after the conversations.
+    expect(rows[0]!.compareDocumentPosition(requests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(rows[0]!);
-    expect(onOpen).toHaveBeenCalledWith("world");
+    expect(onOpen).toHaveBeenCalledWith(CHAT_LIST.request.overview!.conversations[2]!.id);
+    await userEvent.click(screen.getByRole("button", { name: "New message" }));
+    expect(onNewMessage).toHaveBeenCalled();
   });
 
-  it("lists the muted players in its menu, each with Unmute", async () => {
+  it("says when there is no private conversation yet", () => {
+    render(wrap(<ChatList {...CHAT_LIST.guildless} />));
+    expect(screen.getByText(/No private messages yet/)).toBeInTheDocument();
+  });
+});
+
+describe("the chat page's menu (#973)", () => {
+  it("lists the muted players, each with Unmute", async () => {
     const onUnmute = vi.fn(async () => {});
-    render(wrap(<ChatList {...CHAT_LIST.muted} onUnmute={onUnmute} />));
+    render(wrap(<ChatMenu {...CHAT_MENU.muted} onUnmute={onUnmute} />));
     const sheet = await screen.findByRole("dialog", { name: "Muted players" });
     await userEvent.click(within(sheet).getByRole("button", { name: /^Unmute / }));
-    expect(onUnmute).toHaveBeenCalledWith(CHAT_LIST.muted.mutes![0]!.address);
+    expect(onUnmute).toHaveBeenCalledWith(CHAT_MENU.muted.mutes[0]!.address);
+  });
+});
+
+describe("New message (#973)", () => {
+  it("lists the friends, then the guildmates who are not friends, then the search; a pick closes it and opens the conversation", async () => {
+    const onPick = vi.fn();
+    const onOpenChange = vi.fn();
+    const data = CHAT_NEW_MESSAGE.contacts;
+    render(wrap(<ChatNewMessage {...data} open onOpenChange={onOpenChange} onPick={onPick} />));
+    const sheet = await screen.findByRole("dialog", { name: "New message" });
+    const friends = within(within(sheet).getByRole("region", { name: "Friends" })).getAllByRole("button");
+    const mates = within(within(sheet).getByRole("region", { name: "Guildmates" })).getAllByRole("button");
+    expect(friends).toHaveLength(data.friends.length);
+    // The first guildmate is a friend too: listed once, among the friends.
+    expect(mates).toHaveLength(data.guildmates.length - 1);
+    expect(within(sheet).getByRole("searchbox", { name: "Name or player ID" })).toBeInTheDocument();
+    expect(friends[0]!.compareDocumentPosition(mates[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(mates[0]!);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onPick).toHaveBeenCalledWith(data.guildmates[1]!.address);
+  });
+
+  it("has no guildmates' list for a player in no guild, and picks a player found", async () => {
+    const onPick = vi.fn();
+    const data = CHAT_NEW_MESSAGE.searching;
+    render(wrap(<ChatNewMessage {...data} open onOpenChange={vi.fn()} onPick={onPick} />));
+    const sheet = await screen.findByRole("dialog", { name: "New message" });
+    expect(within(sheet).queryByRole("region", { name: "Guildmates" })).toBeNull();
+    const found = within(within(sheet).getByRole("list", { name: "Players found" })).getAllByRole("button");
+    await userEvent.click(found[0]!);
+    expect(onPick).toHaveBeenCalledWith(data.search.results[0]!.address);
+  });
+});
+
+describe("the chat page's tabs (#973)", () => {
+  it("shows World, Guild and Private, Guild and Private with their badges, the World none", async () => {
+    const onTabChange = vi.fn();
+    render(
+      wrap(
+        <ChatTabs tab="world" badges={{ guild: 3, private: 120 }} onTabChange={onTabChange}>
+          <p>world content</p>
+        </ChatTabs>,
+      ),
+    );
+    const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
+    expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["World", "Guild, 3 waiting", "Private, 120 waiting"]);
+    expect(within(tabs[2]!).getByText("99+")).toBeInTheDocument();
+    expect(screen.getByText("world content")).toBeInTheDocument();
+    await userEvent.click(tabs[2]!);
+    expect(onTabChange).toHaveBeenCalledWith("private");
+  });
+
+  it("counts the guild's unread on Guild, the private unread and the requests on Private", () => {
+    expect(chatBadges(CHAT_LIST.request.overview!)).toEqual(CHAT_BADGES.request);
+    expect(chatBadges(CHAT_LIST.conversations.overview!)).toEqual(CHAT_BADGES.conversations);
+    expect(chatBadges(CHAT_LIST.guildless.overview!)).toEqual(CHAT_BADGES.guildless);
+    expect(chatBadges(undefined)).toEqual({ guild: 0, private: 0 });
   });
 });
 

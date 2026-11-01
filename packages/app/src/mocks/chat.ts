@@ -1,6 +1,9 @@
 import { CHAT_MESSAGE_MAX, CHAT_WORLD_INTERVAL_S, WORLD_CONVERSATION, guildConversation, guildTag, privateConversation } from "@paved/game-core";
 import type { ChatConversationProps } from "../components/containers/chat-conversation";
 import type { ChatListProps } from "../components/containers/chat-list";
+import type { ChatMenuProps } from "../components/containers/chat-menu";
+import type { ChatNewMessageProps } from "../components/containers/chat-new-message";
+import type { ChatBadges } from "../components/containers/chat-tabs";
 import { community, communityProfile } from "../data/mock/community";
 import type { ChatAuthor, ChatMessage, ChatOverview, ChatPageHead, ConversationSummary, GuildLogEntry, PublicProfile } from "../data/social-source";
 import { DAY, HOUR, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
@@ -99,22 +102,18 @@ const STRESS_NONAME: PublicProfile = { ...STRESS_PROFILE, address: `${LONG_ADDRE
 const STRESS_AUTHOR: ChatAuthor = { address: LONG_ADDRESS, name: LONG_NAME, look: STRESS_PROFILE.look, level: 1_000, guildTag: GUILD_BADGE.stress.tag };
 const STRESS_TEXT = `${LONG_WORD}${LONG_WORD}${LONG_WORD}${LONG_WORD}`.slice(0, CHAT_MESSAGE_MAX);
 
-type ListData = Omit<ChatListProps, "onOpen" | "onRetry" | "onUnmute" | "onOpenPlayer">;
-const list = (l: Partial<ListData>): ListData => ({ overview: overview({}), now: MOCK_NOW, mutes: [], ...l });
+type ListData = Omit<ChatListProps, "onOpen" | "onRetry" | "onNewMessage">;
+const list = (l: Partial<ListData>): ListData => ({ overview: overview({}), now: MOCK_NOW, ...l });
 
-/** The Chat tab's states (#955). */
+/** The Private tab's states (#973; the Chat tab's of #955 before): its list reads the private conversations of the overview. */
 export const CHAT_LIST = {
-  /** The World, the guild, then the private conversations by their last message, each with its unread count. */
+  /** The private conversations by their last message, each with its unread count. */
   conversations: list({}),
-  /** A player in no guild with no private conversation yet: the World alone. */
+  /** A player in no guild with no private conversation yet: the empty list. */
   guildless: list({ overview: overview({ conversations: [{ ...WORLD, unread: 0 }], badge: 0 }) }),
-  /** A stranger's request, waiting above the conversations. */
+  /** A stranger's request, waiting under the conversations. */
   request: list({ overview: overview({ requests: [REQUEST], badge: 6 }) }),
-  /** The tab's menu: a muted player, with Unmute. */
-  muted: list({ mutes: [P[2]!], initialMutedOpen: true }),
-  /** The menu with no one muted. */
-  noneMuted: list({ initialMutedOpen: true }),
-  loading: list({ overview: null, mutes: null }),
+  loading: list({ overview: null }),
   failed: list({ overview: null, error: "The chat did not answer: try again in a moment." }),
   /** WRAP360: the longest names and addresses, three-digit counts, a long last line. */
   stress: list({
@@ -128,9 +127,39 @@ export const CHAT_LIST = {
       requests: Array.from({ length: 3 }, (_, i) => ({ ...REQUEST, id: `${REQUEST.id}${i}`, other: i === 0 ? STRESS_PROFILE : STRESS_NONAME, unread: 120 })),
       badge: 1_500,
     }),
-    mutes: [STRESS_PROFILE, STRESS_NONAME],
   }),
 } satisfies Record<string, ListData>;
+
+/** The chat page's menu (#973): the muted players' sheet, open. */
+export const CHAT_MENU = {
+  /** A muted player, with Unmute. */
+  muted: { mutes: [P[2]!], initialMutedOpen: true },
+  /** No one muted. */
+  noneMuted: { mutes: [], initialMutedOpen: true },
+  /** WRAP360: the longest names, and a player with no name. */
+  stress: { mutes: [STRESS_PROFILE, STRESS_NONAME], initialMutedOpen: true },
+} satisfies Record<string, ChatMenuProps>;
+
+/** New message (#973): the friends, the guildmates, then the player search. */
+export const CHAT_NEW_MESSAGE = {
+  /** Friends and guildmates (one friend is both: among the friends only), the search empty. */
+  contacts: { friends: [FRIEND, P[1]!, P[4]!], guildmates: [FRIEND, P[2]!, P[5]!, P[6]!], search: { query: "", results: null } },
+  /** A player in no guild with no friend yet: the search, a name typed and found. */
+  searching: { friends: [], guildmates: undefined, search: { query: "Ste", results: [STRANGER, P[8]!] } },
+  loading: { friends: null, guildmates: null, search: { query: "", results: null } },
+  /** WRAP360: the longest names and addresses, among friends, guildmates and results. */
+  stress: { friends: [STRESS_PROFILE, STRESS_NONAME], guildmates: [STRESS_PROFILE, { ...STRESS_NONAME, address: `${LONG_ADDRESS.slice(0, -1)}7` }], search: { query: LONG_NAME, results: [STRESS_PROFILE, STRESS_NONAME] } },
+} satisfies Record<string, Omit<ChatNewMessageProps, "open" | "onOpenChange" | "onPick">>;
+
+/** The tabs' badges (#973) for the overviews above: Guild, its unread; Private, the private unread and the requests. */
+export const CHAT_BADGES = {
+  /** The guild's 3 unread, a friend's 2. */
+  conversations: { guild: 3, private: 2 },
+  /** With the stranger's request. */
+  request: { guild: 3, private: 3 },
+  guildless: { guild: 0, private: 0 },
+  stress: { guild: 999, private: 1_234 },
+} satisfies Record<string, ChatBadges>;
 
 const head = (conversation: ConversationSummary, over: Partial<ChatPageHead> = {}): ChatPageHead => ({ conversation, pinned: null, standing: null, awaitsReply: false, writeRefusal: null, nextSendAt: MOCK_NOW, ...over });
 const ANNOUNCEMENT = { id: 7, author: P[0]!.address, authorName: P[0]!.name, text: "Raid night is Thursday, 20:00 UTC. Officers: please answer the requests within a day. Be kind in the chat.", at: MOCK_NOW - 2 * DAY, editedAt: null };
