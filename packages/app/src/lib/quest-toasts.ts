@@ -10,8 +10,11 @@ export interface Trackable {
   completed: boolean;
 }
 
+/** What completed: a quest, an achievement, or a Tutorial step (#977, its id the step's number, no interval). */
+export type CompletionKind = "quest" | "achievement" | "tutorial";
+
 /** One toast per (id, interval): the key a completion is remembered by. */
-export const completionKey = (kind: "quest" | "achievement", t: Trackable): string => `${kind}:${t.id}:${t.intervalId ?? 0}`;
+export const completionKey = (kind: CompletionKind, t: Trackable): string => `${kind}:${t.id}:${t.intervalId ?? 0}`;
 
 /**
  * The entries of `next` that reached their target since `prev`: complete now, and present and not complete in `prev`.
@@ -21,7 +24,7 @@ export const completionKey = (kind: "quest" | "achievement", t: Trackable): stri
  * within one interval, shows nothing twice. The caller adds the returned keys to `announced`.
  */
 export function newlyCompleted<T extends Trackable>(
-  kind: "quest" | "achievement",
+  kind: CompletionKind,
   prev: readonly Trackable[] | null,
   next: readonly T[],
   announced: ReadonlySet<string> = new Set(),

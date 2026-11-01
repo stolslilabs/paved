@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { DAILY_MILESTONES, DAILY_QUESTS, WEEKLY_MILESTONES, WEEKLY_QUESTS, dailyMilestoneStates, weeklyMilestoneStates, type DailyMilestoneState } from "@paved/game-core";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { Cobbles } from "../elements/cobbles";
 import { CobblesBurst } from "../elements/cobbles-burst";
 import { GIFT_LIGHT_S, GiftArt, type GiftArtState } from "../elements/gift-art";
@@ -32,6 +33,8 @@ export interface MilestonesBarProps {
   rewards?: boolean;
   /** For the stories: the gift of this milestone (its step, claimed) held open at its reveal, its Cobbles shown. */
   revealing?: number | null;
+  /** For the stories: the tooltip of this milestone's gift (its step) held open. */
+  tip?: number | null;
   className?: string;
 }
 
@@ -86,7 +89,7 @@ const left = (bar: PeriodBar, at: number) => `calc(${bar.node / 2}rem + (100% - 
  * shakes or flies: the gift shows open at once and its Cobbles show above it, still, for the same time, the sound kept. The edges are the progress bar (`role="progressbar"`), the nodes a
  * list beside it.
  */
-export function MilestonesBar({ period = "daily", done, claimed, claiming = null, canClaim = true, onClaim, rewards = true, revealing = null, className }: MilestonesBarProps) {
+export function MilestonesBar({ period = "daily", done, claimed, claiming = null, canClaim = true, onClaim, rewards = true, revealing = null, tip = null, className }: MilestonesBarProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const play = useSfx();
   const bar = PERIOD[period];
@@ -160,6 +163,9 @@ export function MilestonesBar({ period = "daily", done, claimed, claiming = null
                   claiming={claiming === step}
                   opening={states[step] === "claimed" && (opening === step || revealing === step)}
                   held={revealing === step}
+                  count={count}
+                  served={claimed !== null}
+                  tip={tip === step}
                   disabled={claimed === null || !canClaim || (claiming !== null && claiming !== step)}
                   onClaim={() => onClaim?.(step)}
                 />
@@ -196,30 +202,83 @@ export function MilestonesBar({ period = "daily", done, claimed, claiming = null
   );
 }
 
+/**
+ * The gift whose tooltip is open, on every bar at once (#989): opening one closes any other, the day's and the week's alike. A
+ * module store, not a context: the Daily's and the Weekly's bars are two components that share no parent of their own.
+ */
+let openTip: string | null = null;
+const tipListeners = new Set<() => void>();
+const subscribeTip = (listener: () => void) => {
+  tipListeners.add(listener);
+  return () => tipListeners.delete(listener);
+};
+const readTip = () => openTip;
+const setTip = (id: string, open: boolean) => {
+  const next = open ? id : openTip === id ? null : openTip;
+  if (next === openTip) return;
+  openTip = next;
+  for (const listener of tipListeners) listener();
+};
+
+/** What a gift's tooltip says it holds, one line per item (#989): Cobbles only today; a later item (a chest, #976) adds one. */
+type GiftItem = { kind: "cobbles"; amount: number };
+
+/** Where a gift stands, in its tooltip: what is left to reach it, or whether it waits or is claimed (#989). */
+export function giftStanding(state: DailyMilestoneState, left: number, served: boolean): string {
+  if (state === "claimed") return "Claimed";
+  if (state === "claimable") return served ? "Ready to claim" : "Reached";
+  return `${left} more to go`;
+}
+
 interface GiftNodeProps {
   bar: PeriodBar;
   cobbles: number;
   /** The period's quests done that reach it. */
   at: number;
+  /** The period's quests done now. */
+  count: number;
   state: DailyMilestoneState;
+  /** The milestones are served here: a reached gift can be claimed (false before #738). */
+  served: boolean;
   claiming: boolean;
   /** Its claim just landed: the gift opens, its Cobbles shown above it. */
   opening: boolean;
   /** The opening's last frame at once (the stories). */
   held: boolean;
+  /** Its tooltip held open (the stories). */
+  tip: boolean;
   disabled: boolean;
   onClaim: () => void;
 }
 
 /**
- * A reward's node: a disc with its gift, no figure on it (the reward is in its name, and shows once opened), the week's larger than
- * the day's. Reached, it is lit and shakes, a button; claimed, it shows the gift open and a check.
+ * A reward's node: a disc with its gift, no figure on it, the week's larger than the day's. Reached, it is lit and shakes, a button;
+ * claimed, it shows the gift open and a check.
+ *
+ * Its tooltip (#989) says what it holds, what reaches it and where it stands. It is Radix's Tooltip, controlled: the Tooltip gives
+ * the hover's delay (300 ms) for a mouse, the focus and Escape for the keyboard, `role="tooltip"` and `aria-describedby`, and it
+ * stays a description, where a Popover would be a dialog that takes the focus and names the gift a menu button. It does not open
+ * on a tap, so a tap on a gift that does not claim (locked, claimed, or reached with no claim open now) toggles it here, and a tap
+ * outside closes it (the Tooltip's own dismissal). A tap or a click on a gift that claims claims at once, the tooltip closed: the
+ * Cobbles rising out of it show what it held. One open at a time on every bar, closed while a claim is on its way or lands.
  */
-function GiftNode({ bar, cobbles, at, state, claiming, opening, held, disabled, onClaim }: GiftNodeProps) {
+function GiftNode({ bar, cobbles, at, count, state, served, claiming, opening, held, tip, disabled, onClaim }: GiftNodeProps) {
+  const reduced = useReducedMotionConfig() ?? false;
+  const id = useId();
+  const current = useSyncExternalStore(subscribeTip, readTip, readTip);
+  useEffect(() => () => setTip(id, false), [id]);
+  const press = useRef<{ touch: boolean; wasOpen: boolean }>({ touch: false, wasOpen: false });
+  const node = useRef<HTMLElement | null>(null);
   const reach = `${at} ${plural(bar, at)} done`;
   // A claim not open now (another on its way, no wallet) dims the gift, never its disc: the edges stay hidden.
   const dim = state === "claimable" && disabled && !claiming;
+  // The gift a tap claims: its tooltip opens on hover and focus only, never on that tap.
+  const claims = state === "claimable" && !disabled && !claiming;
+  const open = tip || (current === id && !claiming && !opening);
   const gift: GiftArtState = state === "locked" ? "locked" : state === "claimed" ? (opening ? "opening" : "open") : claiming ? "shaking" : disabled ? "lit" : "ready";
+  const items: GiftItem[] = [{ kind: "cobbles", amount: cobbles }];
+  const standing = giftStanding(state, at - count, served);
+  const when = `At ${reach}`;
   const disc = (
     <span
       aria-hidden
@@ -238,35 +297,89 @@ function GiftNode({ bar, cobbles, at, state, claiming, opening, held, disabled, 
       )}
     </span>
   );
-  if (state === "claimable") {
-    return (
+  // A tap (touch) on a gift that does not claim toggles its tooltip; a mouse press leaves it as the hover left it. The Tooltip closes
+  // on a press and on a click: both are kept from it here, the touch's toggle read from before the press.
+  const onPointerDown = (event: PointerEvent) => {
+    press.current = { touch: event.pointerType === "touch", wasOpen: open };
+    if (!claims && !press.current.touch) event.preventDefault();
+  };
+  const onClick = (event: MouseEvent) => {
+    if (claims) {
+      onClaim();
+      return;
+    }
+    event.preventDefault();
+    if (press.current.touch) setTip(id, !press.current.wasOpen);
+    press.current = { touch: false, wasOpen: false };
+  };
+  const trigger =
+    state === "claimable" ? (
       <button
+        ref={(el) => {
+          node.current = el;
+        }}
         type="button"
         data-milestone={at}
         data-state={state}
-        disabled={disabled || claiming}
+        aria-disabled={!claims || undefined}
         aria-busy={claiming || undefined}
         aria-label={`Claim ${cobbles} Cobbles: ${reach}`}
-        onClick={onClaim}
-        // 44 px to tap: the disc (32 px for the day, 40 for the week) and a ring around it, over the node's box.
-        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+        onPointerDown={onPointerDown}
+        onClick={onClick}
+        // 44 px to tap: the disc (32 px for the day, 40 for the week) and a ring around it, over the node's box. It keeps the focus
+        // while no claim is open (aria-disabled, not disabled), so its tooltip still opens.
+        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-default"
         style={{ margin: `${(bar.node - 2.75) / 2}rem` }}
       >
         {disc}
       </button>
+    ) : (
+      <span
+        ref={(el) => {
+          node.current = el;
+        }}
+        role="img"
+        tabIndex={0}
+        data-milestone={at}
+        data-state={state}
+        data-opening={opening || undefined}
+        aria-label={state === "claimed" ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
+        onPointerDown={onPointerDown}
+        onClick={onClick}
+        className="flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {disc}
+      </span>
     );
-  }
-  const claimed = state === "claimed";
   return (
-    <span
-      role="img"
-      data-milestone={at}
-      data-state={state}
-      data-opening={opening || undefined}
-      aria-label={claimed ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
-      className="flex"
-    >
-      {disc}
-    </span>
+    <Tooltip open={open} onOpenChange={(next) => setTip(id, next)}>
+      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+      <TooltipContent
+        side="top"
+        collisionPadding={16}
+        data-gift-tip={at}
+        // A press on the gift itself is not outside: the gift's own handlers above decide.
+        onPointerDownOutside={(event) => {
+          if (event.target instanceof Node && node.current?.contains(event.target)) event.preventDefault();
+        }}
+        // The description the gift's name is read with: the Tooltip's hidden copy says it in one sentence.
+        aria-label={`${items.map((item) => `+${item.amount} Cobbles`).join(", ")}, ${when.toLowerCase()}: ${standing}.`}
+        // The app's tooltips fade in; under reduced motion (the app's setting or the system's) it shows at once.
+        className={cn("w-max max-w-[min(16rem,calc(100vw-2rem))] px-3 py-2", reduced && "animate-none data-[state=closed]:animate-none")}
+      >
+        <ul className="grid gap-0.5">
+          {items.map((item) => (
+            <li key={item.kind} className="flex items-center gap-1 text-sm font-semibold">
+              <Cobbles value={item.amount} sign="+" size="md" />
+              <span aria-hidden>Cobbles</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-muted-foreground">{when}</p>
+        <p data-standing={state} className={cn("font-medium", state === "claimable" ? "text-primary" : state === "claimed" ? "text-success" : "text-foreground")}>
+          {standing}
+        </p>
+      </TooltipContent>
+    </Tooltip>
   );
 }

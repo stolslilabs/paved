@@ -12,6 +12,7 @@ import { GuildLine, GuildMemberActions } from "../src/components/containers/guil
 import { GuildRefusedError } from "../src/data/social-source";
 import { logLine, REFUSALS } from "../src/lib/guild-text";
 import { GUILD_ACTIONS, GUILD_BADGE, GUILD_FINDER, GUILD_PAGE } from "../src/mocks/guilds";
+import { openingGuildTab } from "../src/routes/guild-tab";
 import { guildApply } from "../src/routes/social/guild-apply";
 
 // The guilds' interface (#953, PR 2): the guild page as each rank and a visitor see it, the finder, the cards, the profile's
@@ -27,65 +28,136 @@ const wrap = (ui: ReactNode) => (
 
 const button = (name: string | RegExp) => screen.queryByRole("button", { name });
 
-describe("GuildPage (#953): each rank sees only its actions", () => {
-  it("a Member: the announcements, the members and the log; no Post, requests, invitations or settings; Leave", () => {
-    render(wrap(<GuildPage {...GUILD_PAGE.member} />));
-    expect(screen.getByRole("heading", { name: "The Quarrymen" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Announcements" })).toBeInTheDocument();
+/** The guild page's tabs, as their labels read. */
+const tabNames = () => within(screen.getByRole("tablist", { name: "Guild" })).getAllByRole("tab").map((t) => t.textContent);
+/** Opens the header's menu (a sheet); its items, by their names. */
+async function menu() {
+  await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
+  const sheet = await screen.findByRole("dialog", { name: "Guild menu" });
+  return within(sheet).getAllByRole("listitem").map((i) => within(i).getByRole("button").textContent);
+}
+/** An item of the open menu. */
+const item = (name: string | RegExp) => within(screen.getByRole("dialog", { name: "Guild menu" })).getByRole("button", { name });
+const tab = (name: string) => userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+
+describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank sees only its own", () => {
+  it("a Member: the header with Chat; Announcements, Members and Log, on Members the first time; the menu's Find guilds and Leave", async () => {
+    const onOpenChat = vi.fn();
+    render(wrap(<GuildPage {...GUILD_PAGE.member} onOpenChat={onOpenChat} onFindGuilds={vi.fn()} />));
+    const header = screen.getByRole("heading", { level: 2, name: "The Quarrymen" }).closest("header")!;
+    expect(header).toHaveTextContent("Member");
+    expect(header).toHaveTextContent(/\d+\/50/);
+    expect(header).toHaveTextContent("Requirements:");
+    expect(tabNames()).toEqual(["Announcements", "Members", "Log"]);
+    expect(screen.getByRole("tab", { name: "Members" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("region", { name: "Members" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Log" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Requests" })).toBeNull();
-    expect(screen.queryByRole("region", { name: "Invitations sent" })).toBeNull();
+    await userEvent.click(within(header).getByRole("button", { name: "Chat" }));
+    expect(onOpenChat).toHaveBeenCalled();
+    expect(await menu()).toEqual(["Find guilds", "Leave the guild"]);
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await tab("Announcements");
+    expect(screen.getByRole("region", { name: "Announcements" })).toBeInTheDocument();
     expect(button(/Post/)).toBeNull();
     expect(button(/Edit/)).toBeNull();
-    expect(button(/Guild settings/)).toBeNull();
-    expect(button(/Leave the guild/)).toBeEnabled();
+    await tab("Log");
+    expect(screen.getByRole("region", { name: "Log" })).toBeInTheDocument();
   });
 
-  it("an Officer: the requests and invitations with their counts, Post, their own announcements only; no settings", () => {
-    render(wrap(<GuildPage {...GUILD_PAGE.officer} />));
-    const requests = screen.getByRole("region", { name: "Requests" });
-    expect(within(requests).getByRole("heading")).toHaveTextContent("Requests2");
+  it("opens on Announcements while one is unread, badged", () => {
+    render(wrap(<GuildPage {...GUILD_PAGE.member} unread={2} />));
+    expect(screen.getByRole("tab", { name: "Announcements, 2 waiting" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Announcements" })).toBeInTheDocument();
+  });
+
+  it("an Officer: the Requests tab badged, the requests then the invitations sent; Post, their own announcements only; Invite in the menu, no settings", async () => {
+    const onInvite = vi.fn();
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} onInvite={onInvite} onFindGuilds={vi.fn()} />));
+    expect(tabNames()).toEqual(["Announcements", "Members", "Requests2", "Log"]);
+    await tab("Requests");
+    expect(within(screen.getByRole("region", { name: "Requests" })).getByRole("heading")).toHaveTextContent("Requests2");
     expect(within(screen.getByRole("region", { name: "Invitations sent" })).getByRole("heading")).toHaveTextContent("Invitations sent1");
+    await tab("Announcements");
     expect(button(/Post/)).toBeInTheDocument();
     // The officer wrote the second announcement only: one Edit.
     expect(screen.getAllByRole("button", { name: /Edit/ })).toHaveLength(1);
-    expect(button(/Guild settings/)).toBeNull();
+    expect(await menu()).toEqual(["Invite a player", "Find guilds", "Leave the guild"]);
+    await userEvent.click(item("Invite a player"));
+    expect(onInvite).toHaveBeenCalled();
   });
 
-  it("the Leader: every announcement's Edit and Delete, the settings; Leave waits for another leader", () => {
-    render(wrap(<GuildPage {...GUILD_PAGE.leader} />));
+  it("the Leader: every announcement's Edit and Delete; the menu's Guild settings; Leave waits for another leader", async () => {
+    render(wrap(<GuildPage {...GUILD_PAGE.leader} defaultTab="announcements" onInvite={vi.fn()} onFindGuilds={vi.fn()} />));
     expect(screen.getAllByRole("button", { name: /Edit/ })).toHaveLength(GUILD_PAGE.leader.guild.announcements!.length);
     expect(screen.getAllByRole("button", { name: /Delete/ })).toHaveLength(GUILD_PAGE.leader.guild.announcements!.length);
-    expect(button(/Guild settings/)).toBeInTheDocument();
-    expect(button(/Leave the guild/)).toBeDisabled();
-    expect(screen.getByText(REFUSALS["leader-must-transfer"])).toBeInTheDocument();
+    const items = await menu();
+    expect(items.slice(0, 3)).toEqual(["Invite a player", "Guild settings", "Find guilds"]);
+    expect(item("Leave the guild")).toBeDisabled();
+    expect(within(screen.getByRole("dialog", { name: "Guild menu" })).getByText(REFUSALS["leader-must-transfer"])).toBeInTheDocument();
+    await userEvent.click(item("Guild settings"));
+    expect(await screen.findByRole("dialog", { name: /settings/i })).toBeInTheDocument();
   });
 
-  it("a leader alone disbands the guild, after confirming", async () => {
+  it("a leader alone disbands the guild from the menu, after confirming", async () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildPage {...GUILD_PAGE.alone} onAction={onAction} />));
-    await userEvent.click(button(/Disband the guild/)!);
+    await menu();
+    await userEvent.click(item("Disband the guild"));
     const dialog = await screen.findByRole("dialog", { name: "Disband Ashford Lanterns?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Disband" }));
     expect(onAction).toHaveBeenCalledWith({ type: "leave" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("lists the members by rank, then crowns, each opening their profile", async () => {
+  it("lists the members by rank, then crowns; a row shows the Profile, and only the actions the viewer's rank allows", async () => {
     const onOpenPlayer = vi.fn();
-    render(wrap(<GuildPage {...GUILD_PAGE.member} onOpenPlayer={onOpenPlayer} />));
+    const { unmount } = render(wrap(<GuildPage {...GUILD_PAGE.member} onOpenPlayer={onOpenPlayer} />));
     const rows = within(screen.getByRole("region", { name: "Members" })).getAllByRole("button");
     expect(rows[0]).toHaveTextContent("Leader");
     const roster = GUILD_PAGE.member.guild.roster;
     expect(roster.map((m) => m.rank)).toEqual([...roster.map((m) => m.rank)].sort((a, b) => b - a));
-    await userEvent.click(rows[1]!);
-    expect(onOpenPlayer).toHaveBeenCalledWith(roster[1]!.profile.address);
+    // A Member on the Leader: the Profile only.
+    await userEvent.click(rows[0]!);
+    let sheet = await screen.findByRole("dialog", { name: roster[0]!.profile.name! });
+    expect(within(sheet).queryByRole("button", { name: /Promote|Demote|Kick|Make leader/ })).toBeNull();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Profile" }));
+    expect(onOpenPlayer).toHaveBeenCalledWith(roster[0]!.profile.address);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    unmount();
+
+    // The Leader on a Member: Promote, Make leader, Kick; on an Officer: Demote instead of Promote.
+    const leader = GUILD_PAGE.leader.guild.roster;
+    const member = leader.find((m) => m.rank === GUILD_RANK.member)!;
+    const officer = leader.find((m) => m.rank === GUILD_RANK.officer)!;
+    const onAction = vi.fn(async () => {});
+    render(wrap(<GuildPage {...GUILD_PAGE.leader} onAction={onAction} />));
+    const members = screen.getByRole("region", { name: "Members" });
+    await userEvent.click(within(members).getAllByRole("button").find((b) => b.textContent?.includes(officer.profile.name!))!);
+    sheet = await screen.findByRole("dialog", { name: officer.profile.name! });
+    expect(within(sheet).getAllByRole("button").map((b) => b.textContent)).toEqual(expect.arrayContaining(["Profile", "Demote to Member", "Make leader", "Kick"]));
+    expect(within(sheet).queryByRole("button", { name: "Promote to Officer" })).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await userEvent.click(within(members).getAllByRole("button").find((b) => b.textContent?.includes(member.profile.name!))!);
+    sheet = await screen.findByRole("dialog", { name: member.profile.name! });
+    await userEvent.click(within(sheet).getByRole("button", { name: "Promote to Officer" }));
+    const confirm = await screen.findByRole("dialog", { name: /^Promote / });
+    await userEvent.click(within(confirm).getByRole("button", { name: "Promote to Officer" }));
+    expect(onAction).toHaveBeenCalledWith({ type: "member", target: member.profile.address, action: { type: "promote" } });
+    // Done, the row's sheet closes.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("an Officer's row of a Member: Profile and Kick only", async () => {
+    const member = GUILD_PAGE.officer.guild.roster.find((m) => m.rank === GUILD_RANK.member)!;
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} initialMember={member.profile.address} />));
+    const sheet = await screen.findByRole("dialog", { name: member.profile.name! });
+    expect(within(sheet).getAllByRole("button", { name: /Profile|Promote|Demote|Kick|Make leader/ }).map((b) => b.textContent)).toEqual(["Profile", "Kick"]);
   });
 
   it("posts an announcement through its dialog, and keeps the dialog with why when refused", async () => {
     const onAction = vi.fn(async () => Promise.reject(new GuildRefusedError("announcement-length")));
-    render(wrap(<GuildPage {...GUILD_PAGE.officer} onAction={onAction} />));
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} defaultTab="announcements" onAction={onAction} />));
     await userEvent.click(button(/Post/)!);
     const dialog = await screen.findByRole("dialog", { name: "Post an announcement" });
     const post = within(dialog).getByRole("button", { name: "Post" });
@@ -98,20 +170,38 @@ describe("GuildPage (#953): each rank sees only its actions", () => {
 
   it("answers a request", async () => {
     const onAction = vi.fn(async () => {});
-    render(wrap(<GuildPage {...GUILD_PAGE.officer} onAction={onAction} />));
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} defaultTab="requests" onAction={onAction} />));
     const first = within(screen.getByRole("region", { name: "Requests" })).getAllByRole("listitem")[0]!;
     await userEvent.click(within(first).getByRole("button", { name: "Accept" }));
     expect(onAction).toHaveBeenCalledWith({ type: "answer-request", applicant: GUILD_PAGE.officer.guild.requests![0]!.profile.address, accept: true });
   });
 });
 
+describe("openingGuildTab (#973)", () => {
+  it("opens on Announcements while one is unread, else on the last tab used, the first time on Members", () => {
+    expect(openingGuildTab(1, false, "log")).toBe("announcements");
+    expect(openingGuildTab(0, false, null)).toBe("members");
+    expect(openingGuildTab(0, false, "log")).toBe("log");
+    expect(openingGuildTab(0, true, "requests")).toBe("requests");
+    // Requests is an officer's: anyone else opens on Members.
+    expect(openingGuildTab(0, false, "requests")).toBe("members");
+  });
+});
+
 describe("GuildPage (#953) for a player outside", () => {
-  it("shows no announcement, log or Leave; Join for an Open guild", async () => {
+  it("shows the header and the members, no tab, Chat or menu; Join for an Open guild; a row opens the member's profile", async () => {
     const onAction = vi.fn(async () => {});
-    render(wrap(<GuildPage {...GUILD_PAGE.join} onAction={onAction} />));
+    const onOpenPlayer = vi.fn();
+    render(wrap(<GuildPage {...GUILD_PAGE.join} onAction={onAction} onOpenPlayer={onOpenPlayer} />));
+    expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByRole("region", { name: "Announcements" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Log" })).toBeNull();
+    expect(button("Chat")).toBeNull();
+    expect(button("Guild menu")).toBeNull();
     expect(button(/Leave/)).toBeNull();
+    await userEvent.click(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")[0]!);
+    expect(onOpenPlayer).toHaveBeenCalledWith(GUILD_PAGE.join.guild.roster[0]!.profile.address);
+    expect(screen.queryByRole("dialog")).toBeNull();
     await userEvent.click(button("Join")!);
     expect(onAction).toHaveBeenCalledWith({ type: "join" });
   });

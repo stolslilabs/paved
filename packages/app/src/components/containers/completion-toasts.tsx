@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { newlyCompleted, completionKey, type Trackable } from "../../lib/quest-toasts";
+import { newlyCompleted, completionKey, type CompletionKind, type Trackable } from "../../lib/quest-toasts";
 import { Cobbles, formatCobbles } from "../elements/cobbles";
 import { Icon } from "../ui/icon";
 import { toast } from "../ui/sonner";
@@ -7,7 +7,7 @@ import { toast } from "../ui/sonner";
 export interface CompletionToast {
   title: string;
   icon: string;
-  /** The line under the title: an achievement's points. */
+  /** The line under the title: an achievement's points, or a Tutorial step's next one ("Next: Challenger"). */
   description?: string;
   /** Its Cobbles, to claim on the Missions page (#595); none: no reward. */
   cobbles?: number;
@@ -29,9 +29,12 @@ export function CompletionReward({ entry }: { entry: Pick<CompletionToast, "desc
   );
 }
 
+/** A completion's title by kind: a Tutorial step's (#977) is said as a step done. */
+const COMPLETED: Record<CompletionKind, string> = { quest: "Mission completed", achievement: "Lifetime mission earned", tutorial: "Tutorial step done" };
+
 /** A completion's toast: at the top, clear of the board's hand and the pages' bottom bar, once per key (Sonner's `id`). */
-export function toastCompletion(kind: "quest" | "achievement", key: string, entry: CompletionToast) {
-  toast.success(`${kind === "quest" ? "Mission completed" : "Lifetime mission earned"}: ${entry.title}`, {
+export function toastCompletion(kind: CompletionKind, key: string, entry: CompletionToast) {
+  toast.success(`${COMPLETED[kind]}: ${entry.title}`, {
     id: key,
     description: entry.cobbles ? <CompletionReward entry={entry} /> : completionLine(entry),
     icon: <Icon name={entry.icon} size="md" />,
@@ -66,7 +69,7 @@ export interface CompletionMemory {
  * list: only the current window's progress is news. `memory` keeps both above the scene (see `CompletionMemory`).
  */
 export function useCompletionToasts<T extends Trackable>(
-  kind: "quest" | "achievement",
+  kind: CompletionKind,
   entries: readonly T[] | null,
   describe: (entry: T) => CompletionToast,
   { scope, live = true, memory }: { scope?: string | number; live?: boolean; memory?: CompletionMemory } = {},

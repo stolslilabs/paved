@@ -6,12 +6,23 @@ import { MissionsScene } from "../../components/scenes/missions-scene";
 import { useDataSources } from "../../data/sources";
 import { usePlayerAchievements, usePlayerQuests } from "../../data/indexer";
 import { cobbleKeys, useAchievementRewards, useClaims, useQuestRewards, type ClaimTarget } from "../../data/cobbles";
+import { useTutorialClaims, useTutorialSteps } from "../../data/tutorial-steps";
+import type { TutorialGo } from "../../components/containers/quest-text";
 import { useDailyMilestones, useMilestoneClaims, useWeeklyMilestoneClaims, useWeeklyMilestones } from "../../data/milestones";
 import { queryKeys } from "../../data/keys";
 import { useIndexerNow } from "../../data/quests";
 import { DAY_S, weekOfDay } from "../../lib/quest-window";
 import { useAccount } from "../../wallet/wallet";
 import { useBack, useAppNavigate, useTabNavigate } from "../ref";
+
+/** Where an open Tutorial step's Go leads (#977): the home in Edit, Play, the PvP, the chests, the tile shop. The Daily row is the page's. */
+const GO: Record<Exclude<TutorialGo, "daily">, string> = {
+  "village-edit": "/?edit",
+  play: "/play",
+  pvp: "/pvp",
+  chests: "/village/chests",
+  "tile-shop": "/village/shop",
+};
 
 /**
  * `/missions` (P9, #832): one page, today only, on the indexer's clock (`useIndexerNow`). Today's quests (`usePlayerQuests`, with
@@ -20,7 +31,8 @@ import { useBack, useAppNavigate, useTabNavigate } from "../ref";
  * an achievement's or a milestone's claim goes through the signer; after a receipt the cache follows its events (`useClaims`,
  * `useMilestoneClaims`, `useWeeklyMilestoneClaims`). No week's bonus since #976: the week pays at its milestones. The player is the signer's address: without a signer the page is a guest's; with one
  * that cannot claim, it is read only ("Connect to claim"). A wallet approved earlier is looked for here too (`useAccount`), so a
- * returning player can claim at once. The completion toasts are the app's (`routes/completion-host.tsx`).
+ * returning player can claim at once. The Tutorial's steps (#977) are the mock ledger's until #738 (`useTutorialSteps`,
+ * `useTutorialClaims`); where they are not served the section does not show. The completion toasts are the app's (`routes/completion-host.tsx`).
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -41,6 +53,8 @@ export default function Page() {
   const week = day === null ? null : weekOfDay(day);
   const weeklyMilestones = useWeeklyMilestones(playerId, week);
   const weeklyMilestoneClaims = useWeeklyMilestoneClaims(playerId);
+  const tutorial = useTutorialSteps(playerId);
+  const tutorialClaims = useTutorialClaims(playerId);
   const client = useQueryClient();
   const retry = () => {
     void client.invalidateQueries({ queryKey: queryKeys.indexer.all });
@@ -63,6 +77,9 @@ export default function Page() {
   const claimMilestone = (step: number) => {
     if (day !== null) milestoneClaims.claim(day, step).catch(refused);
   };
+  const claimTutorial = (id: number) => {
+    tutorialClaims.claim(id).catch(refused);
+  };
   const claimWeeklyMilestone = (step: number) => {
     if (week !== null) weeklyMilestoneClaims.claim(week, step).catch(refused);
   };
@@ -79,7 +96,8 @@ export default function Page() {
       questRewards={questRewards.data ?? null}
       achievementRewards={achievementRewards.data ?? null}
       milestones={milestones.data ?? null}
-      claiming={claims.claiming}
+      claiming={claims.claiming ?? (tutorialClaims.claiming != null ? `tutorial:${tutorialClaims.claiming}` : null)}
+      tutorial={tutorial.data ?? null}
       claimingMilestone={milestoneClaims.claiming}
       weeklyMilestones={weeklyMilestones.data ?? null}
       claimingWeeklyMilestone={weeklyMilestoneClaims.claiming}
@@ -88,6 +106,8 @@ export default function Page() {
       onClaimAchievement={(achievementId) => send(`achievement:${achievementId}`, { kind: "achievement", achievementId })}
       onClaimMilestone={claimMilestone}
       onClaimWeeklyMilestone={claimWeeklyMilestone}
+      onClaimTutorial={claimTutorial}
+      onGo={(to) => go(GO[to])}
       onConnect={() => go("/welcome")}
       onRetry={retry}
       onBack={onBack}

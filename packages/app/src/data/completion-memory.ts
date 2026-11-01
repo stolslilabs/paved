@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { create } from "zustand";
 import type { CompletionMemory } from "../components/containers/completion-toasts";
-import type { Trackable } from "../lib/quest-toasts";
+import type { CompletionKind, Trackable } from "../lib/quest-toasts";
 import { addressKey } from "./keys";
 
 // The completion toasts' memory, above the routes (P9, section 12's note): per player, the keys already toasted and the
@@ -24,7 +24,7 @@ interface CompletionState {
 export const useCompletionStore = create<CompletionState>(() => ({ announced: {}, last: {} }));
 
 /** The memory of one player's quest or achievement toasts, read and written in the store at call time. */
-export function completionMemory(playerId: string, kind: "quest" | "achievement"): CompletionMemory {
+export function completionMemory(playerId: string, kind: CompletionKind): CompletionMemory {
   const player = addressKey(playerId);
   const slot = `${player}:${kind}`;
   const { getState, setState } = useCompletionStore;
@@ -43,6 +43,6 @@ export function completionMemory(playerId: string, kind: "quest" | "achievement"
 }
 
 /** `completionMemory` for a scene's `toasts`; none for a guest. */
-export function useCompletionMemory(playerId: string | null, kind: "quest" | "achievement"): CompletionMemory | undefined {
+export function useCompletionMemory(playerId: string | null, kind: CompletionKind): CompletionMemory | undefined {
   return useMemo(() => (playerId === null ? undefined : completionMemory(playerId, kind)), [playerId, kind]);
 }

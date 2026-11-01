@@ -329,10 +329,11 @@ describe("Missions (#832)", () => {
     expect(weekly.getByRole("progressbar", { name: "Weeklies done this week" })).toHaveAttribute("aria-valuenow", "0");
     expect(daily.getByRole("timer", { name: "Daily missions reset in 9:00:00" })).toBeInTheDocument();
     expect(weekly.getByRole("timer", { name: "Weekly missions reset in 105:00:00" })).toBeInTheDocument();
-    // A daily pays nothing on its own (#869): no Cobbles under its icon. A claimable one glows, its Cobbles under its icon.
+    // A daily pays nothing on its own (#869): no Cobbles under its icon. No tile shows Cobbles at all (#988): a claimable one
+    // glows and keeps its state in its name, its Cobbles on the card alone.
     for (const icon of daily.getAllByRole("button")) expect(within(icon).queryByRole("img", { name: /Cobbles/ })).toBeNull();
     expect(lifetime().getByRole("button", { name: "Settler II: Cobbles to claim" })).toHaveAttribute("data-state", "claimable");
-    expect(within(lifetime().getByRole("button", { name: /^Settler II:/ })).getByRole("img", { name: "+20 Cobbles" })).toBeInTheDocument();
+    for (const icon of lifetime().getAllByRole("button")) expect(within(icon).queryByRole("img", { name: /Cobbles/ })).toBeNull();
     expect(names(lifetime())).toHaveLength(16);
     expect(lifetime().getByRole("heading", { level: 2 })).toHaveTextContent("Lifetime4/16");
     // Today only, Cobbles only: no day picker, no free game, no tabs.
@@ -377,7 +378,7 @@ describe("Missions (#832)", () => {
     three.unmount();
     const busy = render(wrap(<MissionsScene {...MISSIONS.milestoneThree} claiming="achievement:3" />));
     // Another claim on its way: the milestone waits.
-    expect(daily().getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" })).toBeDisabled();
+    expect(daily().getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" })).toHaveAttribute("aria-disabled", "true");
     busy.unmount();
     const five = render(wrap(<MissionsScene {...MISSIONS.milestoneFive} />));
     expect(daily().getByRole("img", { name: "10 Cobbles claimed: 3 dailies done" })).toBeInTheDocument();
@@ -412,7 +413,7 @@ describe("Missions (#832)", () => {
     three.unmount();
     // A day's gift on its way: the week's waits, and the other way round.
     const busy = render(wrap(<MissionsScene {...MISSIONS.weekThree} claimingMilestone={0} />));
-    expect(weekly().getByRole("button", { name: "Claim 50 Cobbles: 3 weeklies done" })).toBeDisabled();
+    expect(weekly().getByRole("button", { name: "Claim 50 Cobbles: 3 weeklies done" })).toHaveAttribute("aria-disabled", "true");
     busy.unmount();
     const claiming = render(wrap(<MissionsScene {...MISSIONS.weekClaiming} />));
     expect(weekly().getByRole("button", { name: "Claim 50 Cobbles: 3 weeklies done" })).toHaveAttribute("aria-busy", "true");
@@ -463,6 +464,56 @@ describe("Missions (#832)", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Weekly Builder/ }));
     expect(card().getByRole("article")).toHaveAccessibleName("Weekly Builder");
     expect(card().getByText("It counts toward the week's milestones.")).toBeInTheDocument();
+  });
+
+  it("sticks the card under the page's header from 560 px tall, and brings a tile reached with Tab out from under it (#988)", async () => {
+    const { unmount } = render(wrap(<MissionsScene {...MISSIONS.claim} />));
+    const sticky = screen.getByRole("region", { name: "Selected mission" });
+    // The card's box: sticky 16 px under the header (where every page's content starts) only on a viewport 560 px tall or more;
+    // its 16 px gap above it painted on the page's background.
+    expect(sticky).toHaveClass(
+      "[@media(min-height:35rem)]:sticky",
+      "[@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]",
+      "before:bottom-full",
+      "before:h-4",
+      "before:bg-background",
+      "bg-background",
+    );
+    expect(sticky).not.toHaveClass("-mt-4");
+    expect(sticky).not.toHaveClass("sticky");
+    // Its Cobbles on the card, none under the tile.
+    expect(card().getByRole("img", { name: "+20 Cobbles" })).toBeInTheDocument();
+    expect(within(screen.getByRole("button", { name: /^Settler II:/ })).queryByRole("img", { name: /Cobbles/ })).toBeNull();
+    // The notices stay out of the sticky box.
+    expect(sticky.querySelector('[role="status"]')).toBeNull();
+
+    // jsdom lays nothing out: the card is sticky, its bottom edge at 300 px, every tile's top at 250 px, under it.
+    const region = sticky.closest<HTMLElement>('[data-slot="page-scroll"]')!;
+    const scrollBy = vi.fn();
+    region.scrollBy = scrollBy as typeof region.scrollBy;
+    // jsdom reads no Tailwind: the media query's `sticky`, inline.
+    sticky.style.position = "sticky";
+    vi.spyOn(sticky, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ y: 72, height: 228, width: 320 }));
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ y: 250, height: 51, width: 51 }));
+    // A tap: no scroll, the card is in view.
+    await userEvent.click(screen.getByRole("button", { name: /^Settler III/ }));
+    expect(card().getByRole("article")).toHaveAccessibleName("Settler III");
+    expect(scrollBy).not.toHaveBeenCalled();
+    // With Tab: the region scrolls the tile below the card and its 16 px fade (300 + 16 - 250).
+    await userEvent.tab();
+    expect(scrollBy).toHaveBeenLastCalledWith({ top: -66 });
+    // A press on a tile released off the list (dragged onto the header): the next Tab still brings its tile out.
+    scrollBy.mockClear();
+    const header = screen.getAllByRole("banner")[0]!;
+    const tile = screen.getByRole("button", { name: /^Settler V:/ });
+    await userEvent.pointer([{ keys: "[MouseLeft>]", target: tile }, { target: header }, { keys: "[/MouseLeft]", target: header }]);
+    expect(tile).toHaveFocus();
+    expect(scrollBy).not.toHaveBeenCalled();
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toHaveAccessibleName(/^Settler IV:/);
+    expect(scrollBy).toHaveBeenLastCalledWith({ top: -66 });
+    rect.mockRestore();
+    unmount();
   });
 
   it("opens on the mission asked for: a lifetime one, a claim, a weekly", () => {

@@ -1,11 +1,12 @@
 import { slow } from "../test-slow";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isValidElement } from "react";
 import { completionLine, type CompletionToast } from "../src/components/containers/completion-toasts";
 import { NOT_AVAILABLE_MESSAGE, ViewError, type QuestCobbles } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_HEAD, FakeClaimer } from "@paved/chain/testing";
+import { TUTORIAL_STEPS, emptyTutorialCounts } from "@paved/game-core";
 import { App } from "../src/App";
 import { toast } from "../src/components/ui/sonner";
 import type { GameSigner } from "../src/data";
@@ -105,7 +106,10 @@ describe("/missions (P9, #832)", () => {
     const limited = within(screen.getByRole("region", { name: "Limited" }));
     const lifetime = within(screen.getByRole("region", { name: /^Lifetime/ }));
     expect(limited.getByRole("button", { name: "Daily Run: Cobbles to claim" })).toBeInTheDocument();
-    expect(limited.getAllByRole("img", { name: "+15 Cobbles" }).length).toBeGreaterThan(0);
+    // No tile shows Cobbles (#988): the card at the top is the one place that does.
+    for (const tile of [...limited.getAllByRole("button", { name: /: (Cobbles to claim|Done|In progress|To do|Locked)$/ }), ...lifetime.getAllByRole("button")]) {
+      expect(within(tile).queryByRole("img", { name: /Cobbles/ })).toBeNull();
+    }
     expect(lifetime.getByRole("button", { name: /^Settler I: / })).toBeInTheDocument();
     // On arrival the first mission not done is selected: quest 2 (Daily Run is done).
     expect(card().getByRole("article")).toHaveAccessibleName("Mission #2");
@@ -271,4 +275,70 @@ describe("the completion toasts, app-wide (#595)", () => {
     await screen.findByRole("heading", { level: 1 }, { timeout: slow(5000) });
     expect(playerQuests).not.toHaveBeenCalled();
   });
+});
+
+describe("/missions, the Tutorial (#977)", () => {
+  /** The fakes with the Tutorial served, as the mock serves it: the counts and claims kept here, a claim's receipt as the mock's. */
+  function tutorialSetup() {
+    const s = setup();
+    const state = { counts: { ...emptyTutorialCounts(), level: 1 }, claimed: 0 };
+    Object.assign(s.views, { tutorialSteps: async () => ({ counts: { ...state.counts }, claimed: state.claimed }) });
+    const claims: number[] = [];
+    Object.assign(s.claimer, {
+      claimTutorialStep: async (id: number) => {
+        claims.push(id);
+        state.claimed |= 1 << (id - 1);
+        const cobbles = TUTORIAL_STEPS[id - 1]!.cobbles;
+        s.ada.account = { ...s.ada.account, cobbles: s.ada.account.cobbles + cobbles };
+        return { transactionHash: "0x1", events: [{ name: "TutorialStepClaimed", fields: { playerId: FIXTURE_ADA, step: id, cobbles, balance: s.ada.account.cobbles }, fromAddress: "0x3" }] };
+      },
+    });
+    return { ...s, state, claims };
+  }
+
+  it("shows the open step on arrival; its Go opens the home in Edit", async () => {
+    const s = tutorialSetup();
+    const router = open("/missions", s);
+    expect(await screen.findByRole("region", { name: /^Tutorial/ }, { timeout: slow(5000) })).toBeInTheDocument();
+    await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Builder"));
+    await userEvent.click(card().getByRole("button", { name: "Go: Builder" }));
+    await waitFor(() => expect(router.state.location.pathname + router.state.location.search).toMatch(/^\/\?edit/));
+  });
+
+  it("each open step's Go opens its place: Play, the PvP, the chests, the shop", async () => {
+    const places: [number, string][] = [[1, "/play"], [2, "/pvp"], [4, "/village/chests"], [5, "/village/shop"]];
+    const tasks = ["layout-saved", "challenge-finished", "attack-settled", "attack-won", "chest-opened"] as const;
+    for (const [done, path] of places) {
+      queryClient.clear();
+      const s = tutorialSetup();
+      for (const t of tasks.slice(0, done)) s.state.counts[t] = 1;
+      const router = open("/missions", s);
+      // The step open is the one after those done: Challenger, Raider, Treasure, Trader.
+      await userEvent.click(await screen.findByRole("button", { name: /^Go: / }, { timeout: slow(5000) }));
+      await waitFor(() => expect(router.state.location.pathname).toBe(path));
+      cleanup();
+    }
+  }, slow(30_000));
+
+  it("a step completed toasts app-wide with the next step's title; its claim goes through the signer and the balance follows", async () => {
+    const s = tutorialSetup();
+    const success = vi.spyOn(toast, "success");
+    open("/missions", s);
+    await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Builder"), { timeout: slow(5000) });
+    // A layout saved (the mock counts it as the write lands): the tracker reads the steps again after the indexer's next read.
+    s.state.counts["layout-saved"] = 1;
+    await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
+    await waitFor(() => expect(success).toHaveBeenCalledWith("Tutorial step done: Builder", expect.anything()), { timeout: slow(5000) });
+    const [, options] = success.mock.calls.find(([title]) => title === "Tutorial step done: Builder")!;
+    const description = (options as { description?: unknown }).description;
+    expect(isValidElement<{ entry: CompletionToast }>(description) && completionLine(description.props.entry)).toBe("Next: Challenger · +10 Cobbles to claim");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Step 1, Builder: Cobbles to claim" }, { timeout: slow(5000) }));
+    await userEvent.click(await claimButton(10, "Builder"));
+    await waitFor(() => expect(s.claims).toEqual([1]));
+    expect(await balance(250)).toBeInTheDocument();
+    expect(await card().findByText("Cobbles claimed")).toBeInTheDocument();
+    // Once: the claim's own reads toast nothing again.
+    expect(success.mock.calls.filter(([title]) => String(title).startsWith("Tutorial step done"))).toHaveLength(1);
+  }, slow(20_000));
 });
