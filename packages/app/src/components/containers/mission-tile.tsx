@@ -24,6 +24,11 @@ export interface MissionTileProps {
   progress?: number;
   /** The tile the card at the top shows: ringed. */
   selected?: boolean;
+  /**
+   * A Tutorial step's number (#977): shown in the tile's corner; locked, the step keeps its icon dimmed, with a lock beside the
+   * number, so the path ahead reads in order.
+   */
+  step?: number;
   onSelect?: () => void;
   className?: string;
 }
@@ -35,13 +40,15 @@ export interface MissionTileProps {
  * card at the top shows it, and the tile is ringed (`aria-pressed`). No animation: the glow (a lit fill) is still, so reduced motion has
  * nothing to stop.
  */
-export function MissionTile({ title, icon, state, progress, selected = false, onSelect, className }: MissionTileProps) {
+export function MissionTile({ title, icon, state, progress, selected = false, step, onSelect, className }: MissionTileProps) {
   const done = state === "claimable" || state === "done";
+  // A locked step keeps its own icon, dimmed (#977); a locked achievement shows the lock in its place.
+  const lockedStep = step !== undefined && state === "locked";
   return (
     <button
       type="button"
       aria-pressed={selected}
-      aria-label={`${title}: ${MISSION_STATE_LABEL[state]}`}
+      aria-label={`${step !== undefined ? `Step ${step}, ` : ""}${title}: ${MISSION_STATE_LABEL[state]}`}
       data-state={state}
       onClick={onSelect}
       className={cn("flex min-w-0 cursor-pointer flex-col items-center rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
@@ -54,10 +61,16 @@ export function MissionTile({ title, icon, state, progress, selected = false, on
         )}
       >
         <Icon
-          name={state === "locked" ? "lock" : icon}
+          name={state === "locked" && !lockedStep ? "lock" : icon}
           size="lg"
-          className={cn(done ? "text-primary" : state === "progress" ? "text-foreground" : "text-muted-foreground")}
+          className={cn(done ? "text-primary" : state === "progress" ? "text-foreground" : "text-muted-foreground", lockedStep && "opacity-40")}
         />
+        {step !== undefined && (
+          <span aria-hidden className="numeric absolute top-1 left-1.5 flex items-center gap-0.5 text-xs leading-none font-semibold text-muted-foreground">
+            {lockedStep && <Icon name="lock" size="xs" />}
+            {step}
+          </span>
+        )}
         {done && (
           <span className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-success text-background">
             <Icon name="check" size="xs" />
