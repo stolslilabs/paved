@@ -141,6 +141,24 @@ describe("the Tutorial's steps on the mock (#977)", () => {
     expect(tutorialFinished(end.claimed)).toBe(true);
   });
 
+  it("does not complete Builder for an empty layout saved: no tile placed", async () => {
+    const { ledger } = clocked();
+    const writes = ledger.writesFor(PLAYER);
+    await writes.foundFreeVillage();
+    const starter = (await ledger.freeVillage(PLAYER)).tiles;
+    // Both saves take an empty layout (the starter alone), and neither counts.
+    await writes.saveLayout([]);
+    await writes.saveLayoutTo(0, []);
+    expect((await ledger.freeVillage(PLAYER)).tiles).toEqual([]);
+    const view = await ledger.tutorialSteps(PLAYER);
+    expect(view.counts["layout-saved"]).toBe(0);
+    expect(tutorialStates(view.counts, view.claimed).slice(0, 2)).toEqual(["open", "locked"]);
+    expect(refusal(await writes.claimTutorialStep(1).catch((e: unknown) => e))).toBe("not-done");
+    // Tiles placed again, then saved, do.
+    await writes.saveLayoutTo(0, starter);
+    expect((await ledger.tutorialSteps(PLAYER)).counts["layout-saved"]).toBe(1);
+  });
+
   it("refuses a claim and leaves the ledger as it was: no Cobbles, nothing claimed", async () => {
     const { ledger } = clocked();
     const writes = ledger.writesFor(PLAYER);

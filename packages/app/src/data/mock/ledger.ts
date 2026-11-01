@@ -2150,7 +2150,8 @@ export class MockLedger {
       if (refused) throw new V2RefusedError(refused, hash);
       const slots = slotsOfV2({ ...v2, layout: v2.layout });
       storeSlotsV2(v2, withSlotSaved(slots, slots.active, layout));
-      countTutorial(p, "layout-saved");
+      // A tile placed and saved (#977, Builder): an empty layout places none.
+      if (layout.length > 0) countTutorial(p, "layout-saved");
       return [this.event("LayoutSaved", { playerId: account, tiles: layout.length, score: layoutScore(layout) })];
     });
   }
@@ -2165,7 +2166,8 @@ export class MockLedger {
       const refused = saveSlotRefusal(slots, slot, layout, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
       if (refused) throw new V2RefusedError(refused, hash);
       storeSlotsV2(v2, withSlotSaved(slots, slot, layout));
-      countTutorial(p, "layout-saved");
+      // A tile placed and saved (#977, Builder): an empty layout places none.
+      if (layout.length > 0) countTutorial(p, "layout-saved");
       return [this.event("LayoutSlotSaved", { playerId: account, slot, active: slot === slots.active, tiles: layout.length, score: layoutScore(layout) })];
     });
   }
