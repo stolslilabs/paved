@@ -113,7 +113,7 @@ describe("MilestonesBar, the day's (#869)", () => {
     expect(onClaim).toHaveBeenCalledExactlyOnceWith(0);
     expect(screen.getByRole("img", { name: "15 Cobbles at 5 dailies done" })).toBeInTheDocument();
     rerender(wrap(<MilestonesBar done={3} claimed={0} claiming={0} onClaim={onClaim} />));
-    expect(screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" })).toHaveAttribute("aria-disabled", "true");
     rerender(wrap(<MilestonesBar done={5} claimed={0b01} onClaim={onClaim} />));
     expect(screen.getByRole("img", { name: "10 Cobbles claimed: 3 dailies done" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Claim 15 Cobbles: 5 dailies done" }));
@@ -123,11 +123,16 @@ describe("MilestonesBar, the day's (#869)", () => {
     expect(within(screen.getByRole("list")).getAllByRole("img", { name: /claimed/ })).toHaveLength(2);
   });
 
-  it("offers no claim without a wallet to sign, nor where the milestones are not served", () => {
-    const { rerender } = render(wrap(<MilestonesBar done={5} claimed={0} canClaim={false} />));
-    for (const b of screen.getAllByRole("button")) expect(b).toBeDisabled();
+  it("offers no claim without a wallet to sign, nor where the milestones are not served", async () => {
+    const onClaim = vi.fn();
+    const { rerender } = render(wrap(<MilestonesBar done={5} claimed={0} canClaim={false} onClaim={onClaim} />));
+    await userEvent.click(screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }));
+    expect(onClaim).not.toHaveBeenCalled();
+    // Not claimable, still focusable (aria-disabled), so its tooltip opens (#989); a tap claims nothing.
+    for (const b of screen.getAllByRole("button")) expect(b).toHaveAttribute("aria-disabled", "true");
     rerender(wrap(<MilestonesBar done={5} claimed={null} />));
-    for (const b of screen.getAllByRole("button")) expect(b).toBeDisabled();
+    // Not claimable, still focusable (aria-disabled), so its tooltip opens (#989); a tap claims nothing.
+    for (const b of screen.getAllByRole("button")) expect(b).toHaveAttribute("aria-disabled", "true");
   });
 
   it("bursts Cobbles when a claim lands, not for a day read already claimed, and not under reduced motion", () => {
@@ -179,5 +184,143 @@ describe("MilestonesBar, the week's (#976)", () => {
     expect(gifts()).toEqual(["opening", "locked"]);
     expect(document.querySelector('[data-reveal="3"]')).toHaveTextContent("+50");
     expect(burst()).toBeNull();
+  });
+});
+
+describe("MilestonesBar, the gifts' tooltip (#989)", () => {
+  /** The tooltip's sentence: Radix's hidden copy (`role="tooltip"`), the description the gift is read with. */
+  const tip = () => screen.queryByRole("tooltip");
+  /** The tooltip's visible box. */
+  const box = (at: number) => document.querySelector<HTMLElement>(`[data-gift-tip="${at}"]`);
+  const touch = (target: Element) => userEvent.pointer({ keys: "[TouchA]", target });
+
+  it("says what each gift holds, what reaches it and where it stands, in each state, on both bars", () => {
+    const cases: [ReactNode, number, string][] = [
+      [<MilestonesBar done={1} claimed={0} tip={0} />, 3, "+10 Cobbles, at 3 dailies done: 2 more to go."],
+      [<MilestonesBar done={4} claimed={0} tip={1} />, 5, "+15 Cobbles, at 5 dailies done: 1 more to go."],
+      [<MilestonesBar done={3} claimed={0} tip={0} />, 3, "+10 Cobbles, at 3 dailies done: Ready to claim."],
+      [<MilestonesBar done={5} claimed={0b11} tip={1} />, 5, "+15 Cobbles, at 5 dailies done: Claimed."],
+      [<MilestonesBar done={3} claimed={null} tip={0} />, 3, "+10 Cobbles, at 3 dailies done: Reached."],
+      [<MilestonesBar period="weekly" done={0} claimed={0} tip={0} />, 3, "+50 Cobbles, at 3 weeklies done: 3 more to go."],
+      [<MilestonesBar period="weekly" done={5} claimed={0} tip={1} />, 5, "+100 Cobbles, at 5 weeklies done: Ready to claim."],
+      [<MilestonesBar period="weekly" done={5} claimed={0b01} tip={0} />, 3, "+50 Cobbles, at 3 weeklies done: Claimed."],
+    ];
+    for (const [ui, at, sentence] of cases) {
+      render(wrap(ui));
+      expect(tip()).toHaveTextContent(sentence);
+      const shown = box(at)!;
+      // One line per item (the Cobbles' icon and their figure), then what reaches it and where it stands.
+      expect(within(shown).getAllByRole("listitem")).toHaveLength(1);
+      expect(within(shown).getByRole("listitem")).toHaveTextContent(/^\+[\d,]+Cobbles$/);
+      expect(within(shown).getByText(/^At \d (dailies|weeklies) done$/)).toBeInTheDocument();
+      // The gift keeps its name; the tooltip describes it.
+      expect(document.querySelector(`[data-milestone="${at}"]`)).toHaveAttribute("aria-describedby", tip()!.id);
+      cleanup();
+    }
+  });
+
+  it("with a mouse: hovering a gift opens its tooltip and leaving closes it; a click on a reached gift claims it, no tooltip", async () => {
+    const onClaim = vi.fn();
+    const user = userEvent.setup();
+    render(wrap(<MilestonesBar done={3} claimed={0} onClaim={onClaim} />));
+    const locked = screen.getByRole("img", { name: "15 Cobbles at 5 dailies done" });
+    await user.hover(locked);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("2 more to go");
+    // A click on a gift that does not claim leaves it open.
+    await user.click(locked);
+    expect(tip()).toHaveTextContent("2 more to go");
+    // The pointer leaves it for the page (the Tooltip waits for it to leave the way to its box too).
+    await user.unhover(locked);
+    await user.pointer({ target: document.body, coords: { clientX: 500, clientY: 500 } });
+    await vi.waitFor(() => expect(tip()).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }));
+    expect(onClaim).toHaveBeenCalledExactlyOnceWith(0);
+    expect(tip()).toBeNull();
+  });
+
+  it("on a touch screen: a tap on a locked or a claimed gift toggles its tooltip, a tap outside closes it, a tap on a reached gift claims", async () => {
+    const onClaim = vi.fn();
+    const first = render(wrap(<MilestonesBar done={3} claimed={0b01} onClaim={onClaim} />));
+    const claimed = screen.getByRole("img", { name: "10 Cobbles claimed: 3 dailies done" });
+    await touch(claimed);
+    expect(tip()).toHaveTextContent("+10 Cobbles, at 3 dailies done: Claimed.");
+    // The gift again closes it.
+    await touch(claimed);
+    expect(tip()).toBeNull();
+    await touch(screen.getByRole("img", { name: "15 Cobbles at 5 dailies done" }));
+    expect(tip()).toHaveTextContent("2 more to go");
+    // A tap outside.
+    await touch(document.body);
+    await vi.waitFor(() => expect(tip()).toBeNull());
+    first.unmount();
+    const reached = render(wrap(<MilestonesBar done={3} claimed={0} onClaim={onClaim} />));
+    await touch(screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }));
+    expect(onClaim).toHaveBeenCalledExactlyOnceWith(0);
+    expect(tip()).toBeNull();
+    reached.unmount();
+    // A reached gift with no claim open now (no wallet) claims nothing: the tap opens its tooltip.
+    onClaim.mockClear();
+    render(wrap(<MilestonesBar done={3} claimed={0} canClaim={false} onClaim={onClaim} />));
+    await touch(screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }));
+    expect(onClaim).not.toHaveBeenCalled();
+    expect(tip()).toHaveTextContent("Ready to claim");
+  });
+
+  it("with the keyboard: every gift takes the focus, which opens its tooltip; Escape closes it; Enter on a reached gift claims", async () => {
+    const onClaim = vi.fn();
+    const user = userEvent.setup();
+    render(wrap(<MilestonesBar done={3} claimed={0} onClaim={onClaim} />));
+    await user.tab();
+    const reached = screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" });
+    expect(reached).toHaveFocus();
+    expect(tip()).toHaveTextContent("Ready to claim");
+    expect(reached).toHaveAttribute("aria-describedby", tip()!.id);
+    await user.keyboard("{Escape}");
+    expect(tip()).toBeNull();
+    await user.tab();
+    expect(screen.getByRole("img", { name: "15 Cobbles at 5 dailies done" })).toHaveFocus();
+    expect(tip()).toHaveTextContent("2 more to go");
+    await user.tab({ shift: true });
+    expect(tip()).toHaveTextContent("Ready to claim");
+    await user.keyboard("{Enter}");
+    expect(onClaim).toHaveBeenCalledExactlyOnceWith(0);
+    expect(tip()).toBeNull();
+  });
+
+  it("one open at a time on both bars, and closed while its claim is on its way or lands", async () => {
+    const day = (claiming: number | null, claimed = 0) => <MilestonesBar done={3} claimed={claimed} claiming={claiming} />;
+    const { rerender } = render(
+      wrap(
+        <>
+          {day(null)}
+          <MilestonesBar period="weekly" done={1} claimed={0} />
+        </>,
+      ),
+    );
+    await touch(screen.getByRole("img", { name: "15 Cobbles at 5 dailies done" }));
+    expect(screen.getAllByRole("tooltip")).toHaveLength(1);
+    await touch(screen.getByRole("img", { name: "50 Cobbles at 3 weeklies done" }));
+    expect(screen.getAllByRole("tooltip")).toHaveLength(1);
+    expect(tip()).toHaveTextContent("+50 Cobbles, at 3 weeklies done: 2 more to go.");
+    act(() => screen.getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }).focus());
+    expect(screen.getAllByRole("tooltip")).toHaveLength(1);
+    expect(tip()).toHaveTextContent("+10 Cobbles, at 3 dailies done: Ready to claim.");
+    // Its claim on its way, then landed: no tooltip over the gift as it opens.
+    rerender(wrap(<>{day(0)}</>));
+    expect(tip()).toBeNull();
+    rerender(wrap(<>{day(null, 0b01)}</>));
+    expect(tip()).toBeNull();
+  });
+
+  it("fades in as the app's tooltips do; under reduced motion it shows at once; with no rewards there is none", () => {
+    const { unmount } = render(wrap(<MilestonesBar done={3} claimed={0} tip={0} />));
+    expect(box(3)).toHaveClass("animate-in");
+    expect(box(3)).not.toHaveClass("animate-none");
+    unmount();
+    const reduced = render(wrap(<MilestonesBar done={3} claimed={0} tip={0} />, true));
+    expect(box(3)).toHaveClass("animate-none");
+    reduced.unmount();
+    render(wrap(<MilestonesBar done={3} claimed={0} tip={0} rewards={false} />));
+    expect(tip()).toBeNull();
   });
 });
