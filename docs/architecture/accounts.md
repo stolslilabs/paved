@@ -14,6 +14,10 @@ bind:
 
 The issue's open points keep their defaults until the owner answers them (section 9). Section 7, phase A, is as built.
 
+**The messages' encryption** (owner, 2026-11-01, #998) adds a second key per player, the **messaging key** (X25519), apart
+from the account's key, which keeps only signing. Its design is `messaging-encryption.md`; this note records what it
+changes for the keys, the devices and the threats (sections 4 to 9).
+
 Sources: #918 and its reading of Eternum's `next` branch on 2026-10-30 (`apps/realms`, an identity service on better-auth
 1.5.3; `packages/core/src/account/realms-account.ts`, a random Stark key per browser). The account's interface is
 OpenZeppelin's `openzeppelin_account::interface::AccountABI` (`get_public_key`, `set_public_key`, `__validate_deploy__`),
@@ -63,6 +67,11 @@ after a guest's rotation (section 5) that address cannot be computed from the lo
 |---|---|---|---|
 | A guest's key | the device, from `crypto.getRandomValues` | that device: `localStorage` in phase A, then IndexedDB (open point 7) | never |
 | An identity's login key | the key service, in the Katana TEE: derived there from the identity's id and the TEE's secret, or generated once and sealed (open point 2) | the TEE; and each device the player has logged in on | only to a device that has just logged in, over TLS, never logged |
+| The messaging key (X25519, versioned; #998) | the player's device, from `crypto.getRandomValues`, at the first connect | the device's key ring (IndexedDB), every version kept; after a login, the ring sealed in the key service's TEE (#998, open point 3) | its private part as the login key does: only to a device that has just logged in, over TLS, never logged. Its public part is published, bound by the account's key |
+
+The account's key signs the messaging key's binding, each envelope and each guild epoch; it never encrypts. The messaging
+key never signs a transaction. Each binding is valid only against the account's key of its time, so every rotation below
+re-signs it (`messaging-encryption.md`, section 3.3).
 
 No key is derived from public data. A key derived from the login outside a TEE would be a brain wallet (from a password) or
 would need a server secret anyway (from a provider's user id): the TEE is where that secret lives.
@@ -74,7 +83,9 @@ would need a server secret anyway (from a provider's user id): the TEE is where 
 2. The guest logs in. The service makes (or derives) the identity's login key.
 3. The guest's account calls `set_public_key(login_public_key, signature)`: the transaction is signed by the guest's key,
    and `signature` is the login key's, given by the service for that one change. The account's key is now the login key.
-4. The service records the identity's account address; the device replaces its guest key with the login key.
+4. The service records the identity's account address; the device replaces its guest key with the login key. The
+   messaging key does not change: its binding is signed again by the login key, and the ring is sealed into the key
+   service (#998).
 5. The address does not change: the player keeps their progress.
 
 **The login already has an account** (the player signed in elsewhere first). Default (open point 3): the login's account is
@@ -86,10 +97,13 @@ address comes from it. It is deployed on its first write.
 ## 6. Devices
 
 - **Another device**: the player logs in; the service hands the identity's login key to the device over TLS after the
-  login; the device keeps it as a guest's key is kept, and signs for the account the service records.
+  login; the device keeps it as a guest's key is kept, and signs for the account the service records. With it, the sealed
+  key ring (#998), so the device reads the player's whole message history.
 - **Losing a device, or "Sign out everywhere"** (phase D): the service rotates the account's key (`set_public_key`, signed
   with the current login key held in the TEE, with the new key's signature). The old key can no longer write. Every other
-  device logs in again to get the new key.
+  device logs in again to get the new key. It also makes a new version of the messaging key (#998): the ring keeps the old
+  versions for the history, the new binding is published, contacts see "security key changed", and the player's guild
+  starts a new epoch, so the lost device stops reading what comes next.
 - **No per-device revocation**: with one key per account, every device of the player holds the same key, so a rotation
   signs every device out at once.
 
@@ -138,7 +152,8 @@ rotation (`set_public_key`) tested from the client.
 ### C. The identity and key service
 
 The logins; the login keys in the TEE (sealed or derived, open point 2); the guest's rotation to a login; the identity's
-account address; the hand-over of the login key to a new device; the rotation after a lost device. Hosted with its secrets
+account address; the hand-over of the login key to a new device; the rotation after a lost device. For the messages
+(#998): sealing the player's key ring in the TEE and handing it over with the login key. Hosted with its secrets
 (open point 4): beside the Katana TEE, with the VRF's secret handling; the logins' part (better-auth) may run as a small
 serverless service, its secrets in the host's secret store.
 
@@ -146,7 +161,8 @@ serverless service, its secrets in the host's secret store.
 
 - The "Connect" sheet with the methods (social buttons, email).
 - The guest's prompt to save the account by adding a login.
-- The account page: the linked logins, and "Sign out everywhere" (a rotation).
+- The account page: the linked logins, and "Sign out everywhere" (a rotation of the account's key and a new version of the
+  messaging key, #998).
 
 The account's connector takes the local key's place behind `WalletConnector`, so the pages that write do not change.
 
@@ -163,6 +179,9 @@ The account's connector takes the local key's place behind `WalletConnector`, so
 | A key derived from public data | None is: a guest's key is random, a login key is derived only with the TEE's secret (or generated and sealed) |
 | A guest loses its device before adding a login | Its account cannot be recovered: there is no other copy of the key. The guest's prompt (phase D) asks to add a login |
 | Phishing for the key | No flow asks for the key or shows it; nothing exports it in phase A |
+| A messaging key ring is read from one of the player's devices (#998) | It reads that player's message history. "Sign out everywhere" makes a new messaging key version and a new guild epoch, so it reads nothing that comes next. No forward secrecy (#998, open point 5) |
+| The key service is compromised, for the messages (#998) | It holds the sealed rings with the login keys, so it could read the private and guild messages: the same trust as the account. #998's open point 3 alternative (a recovery code or a device link) removes it |
+| The social service serves a messaging key of its own (#998) | Each client checks the key's binding against the account's key on chain (`messaging-encryption.md`, section 3.3) |
 
 ## 9. Open points (defaults until the owner answers on #918)
 
@@ -174,4 +193,6 @@ The account's connector takes the local key's place behind `WalletConnector`, so
 4. Where the service runs: beside the Katana TEE; the logins' part may run as a small serverless service.
 5. The first logins: Discord, Google, Apple and an emailed code; a password later if wanted.
 6. External wallets (Braavos, Argent, Ready): later, linked to an identity by a signature, as Eternum's.
-7. Key storage on the device: `localStorage` in phase A, then IndexedDB; "Sign out everywhere" rotates the key.
+7. Key storage on the device: `localStorage` in phase A, then IndexedDB; "Sign out everywhere" rotates the key. The
+   messaging key ring is in IndexedDB from the start, as raw keys: a non-exportable WebCrypto key could not be sealed for
+   the player's other devices (`messaging-encryption.md`, section 4.6).
