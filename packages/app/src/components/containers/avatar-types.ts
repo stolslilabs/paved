@@ -43,8 +43,13 @@ export type AvatarOffers = Readonly<Partial<Record<Trait, readonly AvatarOffer[]
 /** An option the player may save: free or owned. */
 export const isUsable = (offer: AvatarOffer | undefined): boolean => offer?.kind === "free" || offer?.kind === "owned";
 
-/** The creator's tabs in order: the face first, then what the player wears. */
-export const TAB_ORDER: readonly Trait[] = ["skin", "hair", "hairStyle", "beard", "eyes", "headwear", "accessory", "outfit", "pauldrons"];
+/** The creator's tabs in order: the face first, then what the player wears, then the scene behind. */
+export const TAB_ORDER: readonly Trait[] = ["skin", "hair", "hairStyle", "beard", "eyes", "headwear", "accessory", "outfit", "pauldrons", "backdrop"];
+
+/** A paid item's rarity, by the catalogue's price tiers (20, 40, 60 and 100 Cobbles); a price off the tiers has none. */
+export function rarityOf(cobbles: number): "Common" | "Rare" | "Epic" | "Legendary" | null {
+  return ({ 20: "Common", 40: "Rare", 60: "Epic", 100: "Legendary" } as const)[cobbles as 20 | 40 | 60 | 100] ?? null;
+}
 
 /** The traits in use (the chain's parts, in the look's byte order), as the creator's tabs. */
 export const partsInUse = (offers: AvatarOffers): Trait[] => TAB_ORDER.filter((trait) => offers[trait] !== undefined);

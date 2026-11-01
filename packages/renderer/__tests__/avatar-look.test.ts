@@ -29,8 +29,8 @@ describe("the avatar's look", () => {
     expect(Object.entries(KING_TRAITS).every(([trait, value]) => TRAIT_OPTIONS[trait as Trait][0] === value)).toBe(true);
   });
 
-  it("takes the old parts' bytes: skin, hair colour, eyes, then outfit and pauldrons, hair, beard, headwear, accessory", () => {
-    expect(TRAIT_PARTS).toEqual(["skin", "hair", "eyes", "outfit", "pauldrons", "hairStyle", "beard", "headwear", "accessory"]);
+  it("takes the old parts' bytes: skin, hair colour, eyes, then outfit and pauldrons, hair, beard, headwear, accessory, backdrop", () => {
+    expect(TRAIT_PARTS).toEqual(["skin", "hair", "eyes", "outfit", "pauldrons", "hairStyle", "beard", "headwear", "accessory", "backdrop"]);
     const look = encodeTraits({ ...KING_TRAITS, skin: "deep", outfit: "black", headwear: "feathered" });
     expect(look).toBe(1n | (4n << 8n) | (4n << 32n) | (5n << 64n));
     expect(look < 1n << 88n).toBe(true);
@@ -55,9 +55,10 @@ describe("the avatar's look", () => {
   });
 
   it("reads a look saved in the catalogue's format, its bytes taken by the traits", () => {
-    // AVATAR-LOOK's skin 2, hair colour 3, eyes 0, eyebrows 1, mouth 2, hair 3, beard 1, headwear 6, accessory 0, background 12.
+    // AVATAR-LOOK's skin 2, hair colour 3, eyes 0, eyebrows 1, mouth 2, hair 3, beard 1, headwear 6, accessory 0, background 12
+    // (the backdrop's byte: 12 is past its options, the village).
     const old = [2, 3, 0, 1, 2, 3, 1, 6, 0, 12].reduce((look, id, p) => look | (BigInt(id) << (8n * BigInt(p + 1))), 1n);
-    expect(decodeTraits(old)).toEqual({ ...KING_TRAITS, skin: "tan", hair: "ginger", outfit: "red", pauldrons: "leather", beard: "none" });
+    expect(decodeTraits(old)).toEqual({ ...KING_TRAITS, skin: "tan", hair: "ginger", outfit: "red", pauldrons: "leather", beard: "none", headwear: "viking" });
   });
 
   it("names every trait and option for the creator", () => {

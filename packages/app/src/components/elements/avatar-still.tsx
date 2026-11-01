@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { loadAvatarKing, traitsText, type KingStills, type Traits } from "@paved/renderer";
+import { loadAvatarKing, traitsText, type BackdropUrl, type KingStills, type Traits } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 
 /**
- * The village behind every avatar (the live bust's and the stills'), blurred by the renderer: one image in `public/avatar/`,
- * 512 px, the size it is drawn at.
+ * The scene behind an avatar (the live bust's and the stills'), the backdrop trait's, blurred by the renderer: one image a scene
+ * in `public/avatar/backdrops/`, 512 px, the size it is drawn at.
  */
-export const AVATAR_BACKDROP = "/avatar/backdrop.webp";
+export const avatarBackdrop: BackdropUrl = (name) => `/avatar/backdrops/${name}.webp`;
 
 /**
  * The avatar's still image (issue 626, AVATAR-LIVING): the bust at rest, as the live one's first frame, rendered once by the
@@ -23,7 +23,7 @@ function useKingStills(): KingStills | null {
   useEffect(() => {
     if (value) return;
     let live = true;
-    loading ??= loadAvatarKing().then((m) => (stills = new m.KingStills({ backdrop: AVATAR_BACKDROP })));
+    loading ??= loadAvatarKing().then((m) => (stills = new m.KingStills({ backdrops: avatarBackdrop })));
     loading.then(
       (s) => live && setValue(s),
       () => {

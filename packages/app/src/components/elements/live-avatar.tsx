@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { decodeTraits, loadAvatarKing, traitsText, type KingAvatar, type Traits } from "@paved/renderer";
 import { cn } from "../../lib/utils";
-import { AVATAR_BACKDROP } from "./avatar-still";
+import { avatarBackdrop } from "./avatar-still";
 
 export interface LiveAvatarProps {
   traits: Traits;
@@ -9,7 +9,7 @@ export interface LiveAvatarProps {
 }
 
 /**
- * The living avatar (AVATAR-LIVING): the bust on the blurred village, breathing, glancing and blinking, its head following the
+ * The living avatar (AVATAR-LIVING): the bust on its blurred backdrop, breathing, glancing and blinking, its head following the
  * cursor on a desktop (never on a touch screen, never under reduced motion, where it stands still). One WebGL context: the
  * home's badge and the creator only; every other avatar is a still. It fills its box and follows its size; off screen it draws
  * nothing. Without WebGL the box stays as it is (the initial or the disc under it).
@@ -27,7 +27,7 @@ export function LiveAvatar({ traits, className }: LiveAvatarProps) {
       (m) => {
         if (gone || !host.current) return;
         try {
-          avatar.current = new m.KingAvatar(host.current, { backdrop: AVATAR_BACKDROP, traits: first.current });
+          avatar.current = new m.KingAvatar(host.current, { backdrops: avatarBackdrop, traits: first.current });
         } catch {
           setFailed(true);
         }
