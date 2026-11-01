@@ -270,30 +270,24 @@ export const loadFogOfWar = (): Promise<typeof import("./core/fog-of-war")> => i
 export { dropDuration, planDrop } from "./core/voxel-drop-schedule";
 export type { DropSchedule, ScheduleGrid } from "./core/voxel-drop-schedule";
 export type { DropInfo, DropResult, DropSkip } from "./core/tile-drops";
-// The avatar (AVATAR-LOOK, #626 PR 1), stories only for now: its format and parts are small and eager; its rendering (the head
-// in three.js, the cached stills of the menus, the creator's live preview) is a chunk of its own, loaded by `loadAvatarRender`.
+// The avatar (AVATAR-LIVING): its look (the traits, their names, the value the contracts store) is small and eager; its rendering
+// (the living bust of the badge and the creator, the menus' cached stills) is a chunk of its own, loaded by `loadAvatarKing`.
 export {
-  AVATAR_FORMAT_VERSION,
-  AVATAR_PARTS,
-  AVATAR_PART_BITS,
-  AVATAR_PART_KEYS,
-  AVATAR_USED_BITS,
-  AVATAR_VALUE_BITS,
-  DEFAULT_AVATAR,
-  avatarKey,
-  decodeAvatar,
-  encodeAvatar,
-  randomAvatar,
+  KING_TRAITS,
+  LOOK_VERSION,
+  OPTION_NAMES,
+  TRAIT_NAMES,
+  TRAIT_OPTIONS,
+  TRAIT_PARTS,
+  decodeTraits,
+  encodeTraits,
+  optionId,
+  randomTraits,
   seededRandom,
-  variantCount,
-} from "./core/avatar/avatar-format";
-export type { Avatar, AvatarPart } from "./core/avatar/avatar-format";
-export type { AvatarObject, AvatarPreview, AvatarPreviewOptions, AvatarStillOptions, AvatarStillStats, AvatarStills, AvatarStyle } from "./core/avatar/avatar-render";
-export const loadAvatarRender = (): Promise<typeof import("./core/avatar/avatar-render")> => import("./core/avatar/avatar-render");
-// AVATAR-LIVING (exploration): the living bust, its rig and clips; its own chunk, as the stills are.
-export type { Emote, LivingAvatar, LivingAvatarOptions } from "./core/avatar/avatar-rig";
-export const loadAvatarRig = (): Promise<typeof import("./core/avatar/avatar-rig")> => import("./core/avatar/avatar-rig");
-export type { BoxAvatar, BoxAvatarOptions } from "./core/avatar/avatar-boxes";
-export const loadAvatarBoxes = (): Promise<typeof import("./core/avatar/avatar-boxes")> => import("./core/avatar/avatar-boxes");
-export type { KingAvatar, KingAvatarOptions, Traits } from "./core/avatar/avatar-king";
+  traitsFrom,
+  traitsText,
+} from "./core/avatar/avatar-look";
+export type { Trait, Traits } from "./core/avatar/avatar-look";
+export type { Emote } from "./core/avatar/avatar-poses";
+export type { KingAvatar, KingAvatarOptions, KingStillOptions, KingStills, KingStillsOptions, KingStillStats } from "./core/avatar/avatar-king";
 export const loadAvatarKing = (): Promise<typeof import("./core/avatar/avatar-king")> => import("./core/avatar/avatar-king");

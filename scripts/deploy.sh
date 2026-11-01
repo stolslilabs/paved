@@ -2311,16 +2311,19 @@ FRESH_STORY_LEVELS=(
 )
 # The avatar on chain (#627, docs/architecture/avatar-chain.md): the defaults Avatar's owner sets after the wiring, one multicall
 # of what Avatar lacks, read back through its views parts, price_bounds and item. Every value stays the owner's to change
-# (set_price_bounds, set_item, withdraw_item; set_parts may only add parts). The owner's answers of 2026-10-20 (#627):
-# items 0 to 3 of every part are free (the base set), the rest paid at 20 to 100 Cobbles each (rebalanced later with
-# the economy), rare items seasonal (listed for their season with `until`, no quantity limit at launch). The parts are
-# AVATAR-LOOK's ten (#626 PR 1, packages/renderer/src/core/avatar/avatar-format.ts: skin, hair colour, eyes, eyebrows,
-# mouth, hair, beard, headwear, accessory, background), one byte each after the format's version. No paid item is listed
-# here: the owner lists them (set_item) with their art and seasons.
-FRESH_AVATAR_PARTS=10
+# (set_price_bounds, set_item, withdraw_item; set_parts may only add parts). The owner's answers of 2026-10-20 (#627): paid
+# items at 20 to 100 Cobbles each (rebalanced later with the economy), rare items seasonal (listed for their season with
+# `until`, no quantity limit at launch). The parts are the avatar's nine traits (AVATAR-LIVING,
+# packages/renderer/src/core/avatar/avatar-look.ts: skin, hair colour, eyes, outfit, pauldrons, hair style, beard, headwear,
+# accessory), one byte each after the format's version. The free items are set per trait (2026-10-31, in place of items 0 to 3
+# of every part): FRESH_AVATAR_FREE[p] is how many of part p's first items are free, every option of what a player is (skin,
+# hair colour, eyes, hair style, beard) and of the plain gear (outfits, pauldrons, accessories), and the crown, none, the
+# helmet and the hood of the headwear; the Wizard hat and the Feathered cap (headwear 4 and 5) are paid. No paid item is
+# listed here: the owner lists them (set_item) with their art and seasons.
+FRESH_AVATAR_PARTS=9
 FRESH_AVATAR_PRICE_MIN=20
 FRESH_AVATAR_PRICE_MAX=100
-FRESH_AVATAR_FREE_IDS=(0 1 2 3)
+FRESH_AVATAR_FREE=(5 5 5 5 4 3 5 4 4)
 # Cobbles v1, part 3 (P-61, cobbles-v1.md 5.2 and 6.4): the themes whose 19 skins the fresh deployment prices, by the rarity
 # table. Theme 1 is Forest, the only theme with art (the PM's ruling of 2026-10-15); the other themes get no id here and
 # stay unpriced until their art ships (the owner's set_skin_price). Add a theme id to this one list to price it too.
@@ -2645,7 +2648,7 @@ fresh_avatar_calls() {
   [[ "$(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $raw)" != "0 0" ]] ||
     echo "$AVATAR set_price_bounds $FRESH_AVATAR_PRICE_MIN $FRESH_AVATAR_PRICE_MAX"
   for ((part = 0; part < FRESH_AVATAR_PARTS; part++)); do
-    for id in "${FRESH_AVATAR_FREE_IDS[@]}"; do
+    for ((id = 0; id < FRESH_AVATAR_FREE[part]; id++)); do
       raw="$(call "$AVATAR" item "$part" "$id")" || return 1
       read -r -a raw <<<"$raw"
       [[ "$(hex_int "${raw[0]:-0x0}")" != 0 ]] || echo "$AVATAR set_item $part $id 0 0 0"
@@ -2679,7 +2682,7 @@ fresh_avatar_smoke() {
   [[ "$(hex_int "$(call "$SETUP" is_spender "$AVATAR")")" == 1 ]] || die "Setup does not allow Avatar as a spender"
   v AVATAR_RAW fresh_avatar_calls
   [[ -z "$AVATAR_RAW" ]] || die "Avatar lacks: $(cut -d' ' -f2,3,4 <<<"$AVATAR_RAW" | tr '\n' ' ')"
-  echo "   Avatar: setup() is Setup, a spender of Setup; $FRESH_AVATAR_PARTS parts, bounds set, items ${FRESH_AVATAR_FREE_IDS[*]} of each listed (views parts, price_bounds and item)"
+  echo "   Avatar: setup() is Setup, a spender of Setup; $FRESH_AVATAR_PARTS parts, bounds set, the first ${FRESH_AVATAR_FREE[*]} items of each part listed free (views parts, price_bounds and item)"
 }
 
 # fresh_guardian_step: Challenge's guardian is the deployer (PM, 2026-10-14), set in the run that deploys it, with the
@@ -2936,7 +2939,7 @@ fresh_check_only() {
   else
     echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then the skin prices (set_skin_price x 19 for each of the theme(s) ${FRESH_SKIN_THEMES[*]}, the rarity table), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
     echo "   story (story_tx): campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) on Story (set_campaign, set_level); a run sends the ones Story lacks and reads each back"
-    echo "   avatar (avatar_tx): the parts ($FRESH_AVATAR_PARTS), the price bounds $FRESH_AVATAR_PRICE_MIN to $FRESH_AVATAR_PRICE_MAX and items ${FRESH_AVATAR_FREE_IDS[*]} of each part free on Avatar; a run sends what Avatar lacks and reads it back"
+    echo "   avatar (avatar_tx): the parts ($FRESH_AVATAR_PARTS), the price bounds $FRESH_AVATAR_PRICE_MIN to $FRESH_AVATAR_PRICE_MAX and the first ${FRESH_AVATAR_FREE[*]} items of each part free on Avatar; a run sends what Avatar lacks and reads it back"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx Avatar.deploy_tx wiring_tx guardian_tx \
         vrf_tx definitions_tx story_tx avatar_tx \

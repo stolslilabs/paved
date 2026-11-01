@@ -1,7 +1,7 @@
 // The avatar on chain (#627, `docs/architecture/avatar-chain.md`): the `Avatar` system holds the catalogue of avatar items
 // (a part and an item id, priced in Cobbles by the owner, 0 for the free base set, with optional limits in quantity and
-// time), what each player owns (one bitmap per part), and each player's look in AVATAR-LOOK's format (#626 PR 1,
-// `@paved/renderer`'s `avatar-format.ts`): one u128, the format's version in byte 0, the item id of part `p` in byte `p + 1`.
+// time), what each player owns (one bitmap per part), and each player's look in the client's format (AVATAR-LIVING,
+// `@paved/renderer`'s `avatar-look.ts`): one u128, the format's version in byte 0, the item id of part `p` in byte `p + 1`.
 // The parts in use are a count the owner sets, which only grows. The views are read here; the writes and their typed
 // refusals are the writer's (`PavedWriter.buyAvatarItem`, `PavedWriter.setAvatar`).
 
