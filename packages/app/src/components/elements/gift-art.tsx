@@ -48,7 +48,7 @@ export interface GiftArtProps {
 }
 
 /**
- * A small gift drawn for the milestones, the day's (issue 869) and the week's (#976, `variant`): a box in the gold of the primary, a red ribbon, a lid with its bow, so that
+ * A small gift drawn for the milestones, the day's (issue 869) and the week's (issue 976, `variant`): a box in the gold of the primary, a red ribbon, a lid with its bow, so that
  * a reward node needs no figure on it. Decorative (`aria-hidden`): the node names the reward. Its size is the font size (1em). Under
  * reduced motion nothing shakes or flies: the opening shows the gift open at once.
  */
