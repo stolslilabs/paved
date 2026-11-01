@@ -102,13 +102,15 @@ export interface MissionsSceneProps {
 
 /**
  * The card's sticky box (#988): under the page's header (`--header-h` and the notch) once the viewport is 560 px tall or more; below
- * that (a phone held sideways) it would leave the list almost no room, so it scrolls with the page. The page's 16 px gap above it
- * sticks with it on the page's background (`-mt-4 pt-4`, `-mx-4 px-4` across the column), so no tile shows between the header and
- * the card, and a 16 px fade under its bottom edge lets the tiles pass under it. Above the list, under the header (`z-30`).
+ * that (a phone held sideways) it would leave the list almost no room, so it scrolls with the page. It sticks 16 px under the header,
+ * where the content starts on every page (HEADER-HEIGHT, #676), and the page's 16 px gap above it is painted with the page's
+ * background (`before:`, across the column with `-mx-4 px-4`), so no tile shows between the header and the card; a 16 px fade under
+ * its bottom edge lets the tiles pass under it. Above the list, under the header (`z-30`).
  */
 const STICKY_CARD = [
-  "relative z-20 -mx-4 -mt-4 bg-background px-4 pt-4",
-  "[@media(min-height:35rem)]:sticky [@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top))]",
+  "relative z-20 -mx-4 bg-background px-4",
+  "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
+  "[@media(min-height:35rem)]:sticky [@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]",
   "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
 ].join(" ");
 

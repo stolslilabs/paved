@@ -469,8 +469,17 @@ describe("Missions (#832)", () => {
   it("sticks the card under the page's header from 560 px tall, and brings a tile reached with Tab out from under it (#988)", async () => {
     const { unmount } = render(wrap(<MissionsScene {...MISSIONS.claim} />));
     const sticky = screen.getByRole("region", { name: "Selected mission" });
-    // The card's box: sticky under the header only on a viewport 560 px tall or more; its 16 px gap above it on the page's background.
-    expect(sticky).toHaveClass("[@media(min-height:35rem)]:sticky", "[@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top))]", "-mt-4", "pt-4", "bg-background");
+    // The card's box: sticky 16 px under the header (where every page's content starts) only on a viewport 560 px tall or more;
+    // its 16 px gap above it painted on the page's background.
+    expect(sticky).toHaveClass(
+      "[@media(min-height:35rem)]:sticky",
+      "[@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]",
+      "before:bottom-full",
+      "before:h-4",
+      "before:bg-background",
+      "bg-background",
+    );
+    expect(sticky).not.toHaveClass("-mt-4");
     expect(sticky).not.toHaveClass("sticky");
     // Its Cobbles on the card, none under the tile.
     expect(card().getByRole("img", { name: "+20 Cobbles" })).toBeInTheDocument();
