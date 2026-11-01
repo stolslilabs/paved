@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
@@ -10,7 +10,8 @@ import { MilestonesBar } from "./milestones-bar";
  * day's. The nodes at 3 (+10 Cobbles) and 5 (+15) carry a reward: a small gift, no figure on it, lit and shaking once reached;
  * a tap claims it and, once the claim lands, the gift opens and its Cobbles rise out of it; claimed, it stays open with a check. The
  * others are plain and smaller. One story per state; the node's states (no reward, gift closed, gift opening, claimed) and all done
- * are also pinned at 375 and 1440 px. Claim plays the claims, their openings and their bursts.
+ * are also pinned at 375 and 1440 px. Claim plays the claims, their openings and their bursts. The `Tip*` stories hold a gift's
+ * tooltip open (#989), in each state, on both bars.
  */
 const meta = {
   title: "Containers/MilestonesBar",
@@ -87,6 +88,54 @@ export const WeekOpeningPhone: Story = { ...WeekOpening, ...PHONE_375 };
 export const WeekThreeWide: Story = { ...WeekThree, ...WIDE_1440 };
 /** The week's gift opening, at 1440 px. */
 export const WeekOpeningWide: Story = { ...WeekOpening, ...WIDE_1440 };
+
+/** Room above the bar for a gift's tooltip, which opens above the gift (it flips under it when there is none). */
+const ROOM = (Story: () => ReactNode) => (
+  <div style={{ paddingTop: "4.5rem" }}>
+    <Story />
+  </div>
+);
+
+/**
+ * The gifts' tooltip (#989), held open: what the gift holds (one line per item, Cobbles today), what reaches it and where it stands.
+ * It opens on hover after 300 ms with a mouse, on focus with the keyboard, and on a tap on a gift that does not claim on a touch
+ * screen; a tap or a click on a reached gift claims it at once. Locked: one daily done, the first gift two dailies away.
+ */
+export const TipLocked: Story = { args: { done: 1, tip: 0 }, decorators: [ROOM] };
+/** The tooltip of a reached gift: ready to claim. */
+export const TipReady: Story = { args: { done: 3, tip: 0 }, decorators: [ROOM] };
+/** The tooltip of a claimed gift. */
+export const TipClaimed: Story = { args: { done: 3, claimed: 0b01, tip: 0 }, decorators: [ROOM] };
+/** The last gift's tooltip, one daily away: the gift at the bar's right edge, its tooltip shifted left to stay 16 px inside the screen. */
+export const TipLast: Story = { args: { done: 4, tip: 1 }, decorators: [ROOM] };
+/** A reached gift where the milestones are not served (the chain before #738): reached, no claim. */
+export const TipNotServed: Story = { args: { done: 3, claimed: null, tip: 0 }, decorators: [ROOM] };
+/** The tooltip under reduced motion: it shows at once, no fade. */
+export const TipReducedMotion: Story = { ...TipReady, name: "Tip, reduced motion on", parameters: { reducedMotion: "always" } };
+/** The week's locked gift: +50 Cobbles, two weeklies away. */
+export const WeekTipLocked: Story = { args: { period: "weekly", done: 1, tip: 0 }, decorators: [ROOM] };
+/** The week's reached gift. */
+export const WeekTipReady: Story = { args: { period: "weekly", done: 3, tip: 0 }, decorators: [ROOM] };
+/** The week's claimed gift. */
+export const WeekTipClaimed: Story = { args: { period: "weekly", done: 5, claimed: 0b01, tip: 0 }, decorators: [ROOM] };
+/** The week's last gift, +100 Cobbles, reached: its tooltip shifted left. */
+export const WeekTipLast: Story = { args: { period: "weekly", done: 5, claimed: 0b01, tip: 1 }, decorators: [ROOM] };
+/** A locked gift's tooltip, at 375 px. */
+export const TipLockedPhone: Story = { ...TipLocked, ...PHONE_375 };
+/** A reached gift's tooltip, at 375 px. */
+export const TipReadyPhone: Story = { ...TipReady, ...PHONE_375 };
+/** A claimed gift's tooltip, at 375 px. */
+export const TipClaimedPhone: Story = { ...TipClaimed, ...PHONE_375 };
+/** The last gift's tooltip, at 375 px: shifted left, inside the screen. */
+export const TipLastPhone: Story = { ...TipLast, ...PHONE_375 };
+/** The week's last gift's tooltip, at 375 px. */
+export const WeekTipLastPhone: Story = { ...WeekTipLast, ...PHONE_375 };
+/** A locked gift's tooltip, at 1440 px. */
+export const TipLockedWide: Story = { ...TipLocked, ...WIDE_1440 };
+/** The last gift's tooltip, at 1440 px. */
+export const TipLastWide: Story = { ...TipLast, ...WIDE_1440 };
+/** The week's last gift's tooltip, at 1440 px. */
+export const WeekTipLastWide: Story = { ...WeekTipLast, ...WIDE_1440 };
 
 /**
  * Five done: a tap claims a gift; a moment later (the claim's way, faked) it opens, its Cobbles rise and burst out (still under
