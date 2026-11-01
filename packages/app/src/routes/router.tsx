@@ -129,6 +129,8 @@ export const routes: RouteObject[] = [
       // A player's link (#952): the home, with that player's public profile open over it (`PLAYER_PARAM`, `player-param.ts`; the
       // literal here, so that the module stays out of the first load).
       { path: "player/:id", loader: ({ request, params }) => to(`/?player=${encodeURIComponent(params.id!)}`, request) },
+      // Another guild's link (#973): the guild page, with that guild's page open over it (`GUILD_PARAM`, `guild-param.ts`).
+      { path: "guild/:id", loader: ({ request, params }) => to(`/guild?guild=${encodeURIComponent(params.id!)}`, request) },
       // The own village is the home (#753): its old link lands there; a visit (`village/:player`) stays.
       { path: "village", loader: ({ request }) => to("/", request) },
       // The scripted tutorial gave way to Story mode (#546), whose first campaign teaches the rules.

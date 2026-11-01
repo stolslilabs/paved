@@ -13,8 +13,9 @@ export interface GuildSceneProps {
 
 /**
  * The guild page (`/guild`, #973, in place of the Social page's Guild tab), for running the guild: its header (the title and
- * Back), then for a player in no guild the finder, for a member their guild's page (#953). Another guild opens in a sheet over
- * it (`?guild=`). From `desktop` it is in the home's side panel, on the right, as every page.
+ * Back), then for a player in no guild the finder, for a member their guild's header, menu and tabs (Announcements, Members,
+ * Requests for officers and the leader, Log). Another guild opens in a sheet over it (`?guild=`): its header and its members.
+ * From `desktop` it is in the home's side panel, on the right, as every page.
  */
 export function GuildScene({ children, onBack, onNavigate }: GuildSceneProps) {
   return (

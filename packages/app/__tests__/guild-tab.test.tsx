@@ -10,6 +10,7 @@ import { MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, seededGui
 import { memoryStore } from "./data-fakes";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
+import { resetGuildTabForTests } from "../src/routes/guild-tab";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
@@ -54,6 +55,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
   afterEach(() => {
     queryClient.clear();
     resetWelcomedForTests();
+    resetGuildTabForTests();
     localStorage.clear();
   });
 
@@ -85,6 +87,24 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await ownPage(name);
   }
 
+  /** Shows a tab of the guild page. */
+  const tab = (name: string) => userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+  /** Picks an item of the guild page's menu. */
+  async function menuItem(name: string | RegExp) {
+    await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
+    const sheet = await screen.findByRole("dialog", { name: "Guild menu" }, T(5_000));
+    await userEvent.click(within(sheet).getByRole("button", { name }));
+  }
+  /** The member's row's sheet gone, its slide out included. */
+  const sheetGone = () => waitFor(() => expect(document.querySelector("[data-sheet=guild-member-sheet]")).toBeNull(), T(5_000));
+  /** Taps a member's row, the `index`-th of the Members tab: their sheet. */
+  async function memberSheet(index: number) {
+    await sheetGone();
+    const members = screen.getByRole("region", { name: "Members" });
+    await userEvent.click(within(members).getAllByRole("button")[index]!);
+    return screen.findByRole("dialog", undefined, T(5_000));
+  }
+
   async function confirm(title: string | RegExp, button: string, text?: string) {
     const dialog = await screen.findByRole("dialog", { name: title }, T(5_000));
     if (text) await userEvent.type(within(dialog).getByRole("textbox"), text);
@@ -104,12 +124,15 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
       const header = screen.getByRole("heading", { level: 2, name }).closest("header")!;
       expect(header).toHaveTextContent(type);
       expect(header).toHaveTextContent("Leader");
+      // The first visit opens on Members; the next guilds, on the last tab used.
+      expect(screen.getByRole("tab", { name: name === "Stone Road" ? "Members" : "Announcements" })).toHaveAttribute("aria-selected", "true");
       if (type === "Open") {
+        await tab("Announcements");
         await userEvent.click(screen.getByRole("button", { name: "Post" }));
         await confirm("Post an announcement", "Post", "First stones laid today");
         expect(await screen.findByText("First stones laid today", undefined, T(5_000))).toBeInTheDocument();
       }
-      await userEvent.click(screen.getByRole("button", { name: /Disband the guild/ }));
+      await menuItem("Disband the guild");
       await confirm(`Disband ${name}?`, "Disband");
       await finder();
     }
@@ -126,9 +149,15 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
     expect(screen.getByRole("heading", { level: 2, name: "Ashford Lanterns" }).closest("header")).toHaveTextContent("Member");
     // A Member sees no officer's part.
-    expect(screen.queryByRole("region", { name: "Requests" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /^Requests/ })).toBeNull();
+    await tab("Announcements");
     expect(screen.queryByRole("button", { name: "Post" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: /Leave the guild/ }));
+    // Chat opens the chat page on Guild; Back returns to the guild.
+    await userEvent.click(screen.getByRole("button", { name: "Chat" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/guild"), T(5_000));
+    await act(() => router.navigate(-1));
+    await ownPage("Ashford Lanterns");
+    await menuItem("Leave the guild");
     await confirm("Leave Ashford Lanterns?", "Leave");
     await finder();
   });
@@ -143,28 +172,33 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     expect(within(sheet).queryByRole("button", { name: "Join" })).toBeNull();
   });
 
-  it("gets a request on a By-request guild, accepts it, then promotes, demotes, kicks and makes another leader", async () => {
+  it("gets a request on a By-request guild, accepts it, then promotes, demotes and makes another leader from their row", async () => {
     const { later } = open();
     await finder();
     await create("Mill Lane", "By request");
     await later(MOCK_SEED_REQUEST_S + 1);
-    const requests = await screen.findByRole("region", { name: "Requests" }, T(5_000));
-    await waitFor(() => expect(within(requests).getByRole("heading")).toHaveTextContent("Requests1"), T(5_000));
+    // Requests badges the request waiting.
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Requests, 1 waiting" })).toBeInTheDocument(), T(5_000));
+    await tab("Requests");
+    const requests = screen.getByRole("region", { name: "Requests" });
+    expect(within(requests).getByRole("heading")).toHaveTextContent("Requests1");
     await userEvent.click(within(requests).getByRole("button", { name: "Accept" }));
-    const members = screen.getByRole("region", { name: "Members" });
-    await waitFor(() => expect(within(members).getAllByRole("button")).toHaveLength(2), T(5_000));
-    // Their profile, from their row: the Leader's actions on a Member.
-    await userEvent.click(within(members).getAllByRole("button")[1]!);
-    const profile = await screen.findByRole("dialog", undefined, T(8_000));
-    await userEvent.click(await within(profile).findByRole("button", { name: "Promote to Officer" }, T(5_000)));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Requests" })).toBeInTheDocument(), T(5_000));
+    await tab("Members");
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")).toHaveLength(2), T(5_000));
+    // Their row: the Leader's actions on a Member; each done, the sheet closes.
+    await userEvent.click(await within(await memberSheet(1)).findByRole("button", { name: "Promote to Officer" }, T(5_000)));
     await confirm(/^Promote /, "Promote to Officer");
-    await userEvent.click(await within(screen.getByRole("dialog")).findByRole("button", { name: "Demote to Member" }, T(5_000)));
+    await userEvent.click(await within(await memberSheet(1)).findByRole("button", { name: "Demote to Member" }, T(5_000)));
     await confirm(/^Demote /, "Demote to Member");
-    await userEvent.click(await within(screen.getByRole("dialog")).findByRole("button", { name: "Make leader" }, T(5_000)));
+    await userEvent.click(await within(await memberSheet(1)).findByRole("button", { name: "Make leader" }, T(5_000)));
     await confirm(/^Make .* the leader\?$/, "Make leader");
-    // Now an Officer: on the new Leader, no action.
-    await waitFor(() => expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Kick" })).toBeNull(), T(5_000));
-    expect(within(screen.getByRole("dialog")).getByRole("button", { name: /Mill Lane, Leader/ })).toBeInTheDocument();
+    await sheetGone();
+    // Now an Officer: on the new Leader, the Profile only.
+    await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: "Mill Lane" }).closest("header")).toHaveTextContent("Officer"), T(5_000));
+    const sheet = await memberSheet(0);
+    expect(within(sheet).getByRole("button", { name: "Profile" })).toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: /Kick|Demote|Make leader/ })).toBeNull();
   });
 
   it("kicks a member with a reason, which the log shows", async () => {
@@ -172,23 +206,31 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await finder();
     await create("Mill Lane", "By request");
     await later(MOCK_SEED_REQUEST_S + 1);
-    const requests = await screen.findByRole("region", { name: "Requests" }, T(5_000));
-    await userEvent.click(await within(requests).findByRole("button", { name: "Accept" }, T(5_000)));
-    const members = screen.getByRole("region", { name: "Members" });
-    await waitFor(() => expect(within(members).getAllByRole("button")).toHaveLength(2), T(5_000));
-    await userEvent.click(within(members).getAllByRole("button")[1]!);
+    await waitFor(() => expect(screen.getByRole("tab", { name: /^Requests, 1/ })).toBeInTheDocument(), T(5_000));
+    await tab("Requests");
+    await userEvent.click(await within(screen.getByRole("region", { name: "Requests" })).findByRole("button", { name: "Accept" }, T(5_000)));
+    await tab("Members");
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")).toHaveLength(2), T(5_000));
+    // The profile keeps the rank actions: from the row's Profile.
+    await userEvent.click(within(await memberSheet(1)).getByRole("button", { name: "Profile" }));
+    await sheetGone();
     await userEvent.click(await within(await screen.findByRole("dialog", undefined, T(8_000))).findByRole("button", { name: "Kick" }, T(5_000)));
     await confirm(/^Kick /, "Kick", "Never plays");
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    await tab("Log");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Log" })).getByRole("list")).toHaveTextContent("“Never plays”"), T(8_000));
   });
 
-  it("invites a guildless player from their profile, who joins", async () => {
-    const { later, router } = open();
+  it("invites a guildless player found from the menu's Invite a player, through their profile, who joins", async () => {
+    const { later } = open();
     await finder();
     await create("Gate Ward", "Invite only");
     const target = guildless()[0]!;
-    await act(() => router.navigate(`/guild?player=${target.address}`));
+    await menuItem("Invite a player");
+    const invite = await screen.findByRole("dialog", { name: "Invite a player" }, T(5_000));
+    await userEvent.type(within(invite).getByRole("searchbox"), target.name);
+    await userEvent.click(await within(invite).findByRole("button", { name: new RegExp(`^${target.name},`) }, T(8_000)));
     const profile = await screen.findByRole("dialog", { name: target.name }, T(8_000));
     await userEvent.click(await within(profile).findByRole("button", { name: "Invite to Gate Ward" }, T(5_000)));
     await confirm(`Invite ${target.name} to Gate Ward?`, "Invite");
