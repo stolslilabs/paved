@@ -18,6 +18,8 @@ const DISC = "grid size-full place-items-center rounded-full";
 
 /** The saved avatar's still, its own chunk (the renderer's format and the still renderer stay out of the menus' first load). */
 const SavedAvatar = lazy(() => import("./saved-avatar"));
+/** The saved avatar living (the home's badge only), its own chunk too. */
+const LiveSavedAvatar = lazy(() => import("./live-avatar"));
 
 /**
  * The still's side in CSS px at each size: the disc's (the box less its band), `lg` at the largest it is drawn (the home's profile
@@ -41,6 +43,8 @@ export interface PlayerAvatarProps extends VariantProps<typeof avatarVariants> {
    * shows until then. Null or omitted: the default avatar, the initial.
    */
   look?: bigint | null;
+  /** The saved look living (its idle, its head following the cursor) instead of its still: the home's badge only. */
+  live?: boolean;
   /** Drawn over the disc, in the box's band: issue 625's ring and level badge. */
   children?: ReactNode;
   className?: string;
@@ -56,7 +60,7 @@ export function avatarInitial(player: AvatarPlayer): string {
  * 626) as a still image (rendered once, cached: never a live WebGL context per avatar), else the default one: the initial in
  * gold on the secondary disc. A guest: a silhouette on a dashed outline. Decorative: the control that holds it carries the name.
  */
-export function PlayerAvatar({ player, loading, look, size, children, className }: PlayerAvatarProps) {
+export function PlayerAvatar({ player, loading, look, live, size, children, className }: PlayerAvatarProps) {
   return (
     <span data-slot="player-avatar" aria-hidden className={cn(avatarVariants({ size }), className)}>
       {loading ? (
@@ -66,7 +70,7 @@ export function PlayerAvatar({ player, loading, look, size, children, className 
           {avatarInitial(player)}
           {look ? (
             <Suspense fallback={null}>
-              <SavedAvatar look={look} px={DISC_PX[size ?? "md"]} />
+              {live ? <LiveSavedAvatar look={look} className="absolute inset-0 size-full" /> : <SavedAvatar look={look} px={DISC_PX[size ?? "md"]} />}
             </Suspense>
           ) : null}
         </span>

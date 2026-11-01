@@ -5,8 +5,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_AVATAR } from "@paved/renderer";
 import { AvatarCreatorScene } from "../src/components/scenes/avatar-creator-scene";
+import { KING_IDS } from "../src/components/containers/avatar-types";
 import { AVATAR_CREATOR } from "../src/mocks/scenes";
 
 // The avatar creator's scene (#626 PR 2) on its mocks: what the player sees in each state, and what each control asks for.
@@ -14,23 +14,23 @@ import { AVATAR_CREATOR } from "../src/mocks/scenes";
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
 describe("AvatarCreatorScene", () => {
-  it("shows the parts in use as tabs, the open part's variants with their offers, and the saved avatar's Save done", () => {
+  it("shows the traits in use as tabs, the open trait's options with their offers, and the saved avatar's Save done", () => {
     render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.headwear} />));
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Skin tone", "Hair colour", "Eyes", "Eyebrows", "Mouth", "Hair", "Beard", "Headwear", "Accessory", "Background"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Skin tone", "Hair colour", "Hair", "Beard", "Eyes", "Headwear", "Accessory", "Outfit", "Pauldrons"]);
     const grid = screen.getByRole("radiogroup", { name: "Headwear" });
-    expect(within(grid).getAllByRole("radio")).toHaveLength(8);
-    expect(within(grid).getByRole("radio", { name: "Crown, owned" })).toHaveAttribute("aria-checked", "true");
-    expect(within(grid).getByRole("radio", { name: "Cap, free" })).toBeInTheDocument();
-    expect(within(grid).getByRole("radio", { name: "Horned helm, 40 Cobbles" })).toBeInTheDocument();
+    expect(within(grid).getAllByRole("radio")).toHaveLength(6);
+    expect(within(grid).getByRole("radio", { name: "Wizard hat, owned" })).toHaveAttribute("aria-checked", "true");
+    expect(within(grid).getByRole("radio", { name: "Helmet, free" })).toBeInTheDocument();
+    expect(within(grid).getByRole("radio", { name: "Feathered cap, 60 Cobbles" })).toBeInTheDocument();
     // Nothing changed: Save is off, no Buy.
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Buy" })).toBeNull();
   });
 
-  it("a priced variant tried on: its price and Buy, and Save waits for it", async () => {
+  it("a priced option tried on: its price and Buy, and Save waits for it", async () => {
     const onBuy = vi.fn();
     render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.priced} onBuy={onBuy} />));
-    expect(screen.getByText("Buy the Horned helm to save this avatar, or pick a free one.")).toBeInTheDocument();
+    expect(screen.getByText("Buy the Feathered cap to save this avatar, or pick a free one.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Buy" }));
     expect(onBuy).toHaveBeenCalledWith("headwear", 5);
@@ -43,24 +43,24 @@ describe("AvatarCreatorScene", () => {
     const onReset = vi.fn();
     render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.changed} onPick={onPick} onSave={onSave} onRandomise={onRandomise} onReset={onReset} />));
     await userEvent.click(screen.getByRole("radio", { name: "Bald, free" }));
-    expect(onPick).toHaveBeenCalledWith("hair", 1);
+    expect(onPick).toHaveBeenCalledWith("hairStyle", 1);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await userEvent.click(screen.getByRole("button", { name: "Randomise" }));
     await userEvent.click(screen.getByRole("button", { name: "Back to the saved avatar" }));
     expect([onSave, onRandomise, onReset].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
   });
 
-  it("another tab shows its part", async () => {
+  it("another tab shows its trait", async () => {
     render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.saved} />));
     expect(screen.getByRole("radiogroup", { name: "Skin tone" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Background" }));
-    const grid = screen.getByRole("radiogroup", { name: "Background" });
-    expect(within(grid).getByRole("radio", { name: "City, owned" })).toHaveAttribute("aria-checked", "true");
-    expect(within(grid).getByRole("radio", { name: "Night, 100 Cobbles" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Accessory" }));
+    const grid = screen.getByRole("radiogroup", { name: "Accessory" });
+    expect(within(grid).getByRole("radio", { name: "Glasses, free" })).toHaveAttribute("aria-checked", "true");
+    expect(within(grid).getByRole("radio", { name: "Earrings, not for sale" })).toBeInTheDocument();
   });
 
   it("a seasonal item says when its sale ends; too few Cobbles offers Get Cobbles", () => {
-    const { unmount } = render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.background} />));
+    const { unmount } = render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.priced} />));
     expect(screen.getByText(/^Ends /)).toBeInTheDocument();
     unmount();
     const onBuyCobbles = vi.fn();
@@ -114,10 +114,10 @@ describe("AvatarCreatorScene", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
-  it("only the parts in use are tabs", () => {
+  it("only the traits in use are tabs", () => {
     render(wrap(<AvatarCreatorScene {...AVATAR_CREATOR.fewParts} />));
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Skin tone", "Hair colour", "Eyes", "Eyebrows"]);
-    expect(AVATAR_CREATOR.fewParts.creator.draft).toEqual(DEFAULT_AVATAR);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Skin tone", "Hair colour", "Eyes", "Outfit"]);
+    expect(AVATAR_CREATOR.fewParts.creator.draft).toEqual(KING_IDS);
   });
 
   it("a guest connects, a failed read retries, a network without Avatar says so", async () => {

@@ -22,7 +22,7 @@ import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBp
 import { CURVE_PLAYING, GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, QUESTS_WEEK_DONE, GAME_MISSIONS, questsTodayDone } from "./quests";
-import { DEFAULT_AVATAR as DEFAULT_AVATAR_LOOK } from "@paved/renderer";
+import { KING_IDS } from "../components/containers/avatar-types";
 import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
@@ -437,46 +437,44 @@ export const REFERRAL = {
   },
 } satisfies Record<string, Data<ReferralSceneProps>>;
 
-// The avatar creator (#626 PR 2)
+// The avatar creator (#626 PR 2, AVATAR-LIVING)
 
 const creator: AvatarCreator = { saved: SAVED_AVATAR, draft: SAVED_AVATAR, balance: 120, offers: AVATAR_OFFERS, now: MOCK_NOW };
-/** The draft wearing the Horned helm (headwear 5, 40 Cobbles): on sale, Save waits for it. */
-const tryingHelm: AvatarCreator = { ...creator, draft: { ...SAVED_AVATAR, headwear: 5 } };
+/** The draft wearing the Feathered cap (headwear 5, 60 Cobbles, seasonal): on sale, Save waits for it. */
+const tryingCap: AvatarCreator = { ...creator, draft: { ...SAVED_AVATAR, headwear: 5 } };
 
 export const AVATAR_CREATOR = {
-  /** The saved avatar, Skin tone open: four free tones, the others priced 20 to 100 Cobbles. */
+  /** The saved avatar, Skin open: the five tones, all free. */
   saved: { creator, part: "skin" },
-  /** Headwear: the Crown and the Wizard hat owned (bought), four free, the Horned helm on sale. */
+  /** Headwear: the Crown, None, the Helmet and the Hood free, the Wizard hat owned (bought), the Feathered cap on sale for the winter. */
   headwear: { creator, part: "headwear" },
-  /** The Horned helm tried on: its price and Buy above the grid, Save waits for it. */
-  priced: { creator: tryingHelm, part: "headwear" },
-  /** Background: City owned, Night and Wonder seasonal (on sale until the winter's end). */
-  background: { creator: { ...creator, draft: { ...SAVED_AVATAR, background: 15 } }, part: "background" },
-  /** Beard: the Long beard withdrawn from sale (not for sale), the others free or priced. */
-  beard: { creator, part: "beard" },
-  /** Eyes, eyebrows, mouth, hair colour, hair and accessory: the other tabs. */
-  eyes: { creator, part: "eyes" },
-  eyebrows: { creator, part: "eyebrows" },
-  mouth: { creator, part: "mouth" },
-  hairColour: { creator, part: "hairColour" },
-  hair: { creator, part: "hair" },
+  /** The Feathered cap tried on: its price, its season's end and Buy above the grid, Save waits for it. */
+  priced: { creator: tryingCap, part: "headwear" },
+  /** Accessory: the Earrings withdrawn from sale (not for sale), the others free. */
   accessory: { creator, part: "accessory" },
+  /** The other traits' tabs. */
+  hair: { creator, part: "hair" },
+  eyes: { creator, part: "eyes" },
+  outfit: { creator, part: "outfit" },
+  pauldrons: { creator, part: "pauldrons" },
+  hairStyle: { creator, part: "hairStyle" },
+  beard: { creator, part: "beard" },
   /** A free change not saved yet: Save. */
-  changed: { creator: { ...creator, draft: { ...SAVED_AVATAR, hair: 2, mouth: 3 } }, part: "hair" },
-  /** The Horned helm's `buy_avatar_item` on its way. */
-  buying: { creator: { ...tryingHelm, buying: { part: "headwear", id: 5 } }, part: "headwear" },
+  changed: { creator: { ...creator, draft: { ...SAVED_AVATAR, hairStyle: 2, outfit: 1 } }, part: "hairStyle" },
+  /** The Feathered cap's `buy_avatar_item` on its way. */
+  buying: { creator: { ...tryingCap, buying: { part: "headwear", id: 5 } }, part: "headwear" },
   /** Too few Cobbles for the item tried on: Get Cobbles. */
-  short: { creator: { ...tryingHelm, balance: 15 }, part: "headwear" },
+  short: { creator: { ...tryingCap, balance: 15 }, part: "headwear" },
   /** The `set_avatar` on its way. */
-  saving: { creator: { ...creator, draft: { ...SAVED_AVATAR, hair: 2 }, save: "saving" }, part: "hair" },
+  saving: { creator: { ...creator, draft: { ...SAVED_AVATAR, hairStyle: 2 }, save: "saving" }, part: "hairStyle" },
   /** Saved: the draft is the chain's again. */
   savedNow: { creator: { ...creator, save: "saved" }, part: "skin" },
   /** A purchase refused (the price changed since the swatch was read). */
-  refused: { creator: { ...tryingHelm, refusal: "This item's price changed: check the new price and buy again. Nothing was sent." }, part: "headwear" },
-  /** No avatar saved yet: the default one, every part at 0, which Save writes as it is. */
-  none: { creator: { ...creator, saved: DEFAULT_AVATAR_LOOK, unsaved: true, draft: DEFAULT_AVATAR_LOOK, balance: 0 }, part: "skin" },
-  /** Four parts in use (the owner's count): the other six tabs are not shown. */
-  fewParts: { creator: { ...creator, offers: offersOf(AVATAR_ITEMS, [], 4), saved: DEFAULT_AVATAR_LOOK, unsaved: true, draft: DEFAULT_AVATAR_LOOK } },
+  refused: { creator: { ...tryingCap, refusal: "This item's price changed: check the new price and buy again. Nothing was sent." }, part: "headwear" },
+  /** No avatar saved yet: the king, every trait at 0, which Save writes as he is. */
+  none: { creator: { ...creator, saved: KING_IDS, unsaved: true, draft: KING_IDS, balance: 0 }, part: "skin" },
+  /** Four traits in use (the owner's count): the other five tabs are not shown. */
+  fewParts: { creator: { ...creator, offers: offersOf(AVATAR_ITEMS, [], 4), saved: KING_IDS, unsaved: true, draft: KING_IDS } },
   /** A guest: Connect. */
   guest: { status: { kind: "guest" } },
   /** The reads on their way. */
@@ -486,5 +484,5 @@ export const AVATAR_CREATOR = {
   /** A network without the avatar contract. */
   unavailable: { creator: null },
   /** WRAP360: the largest Cobble balance. */
-  stress: { creator: { ...tryingHelm, balance: BIG_NUMBER }, part: "headwear" },
+  stress: { creator: { ...tryingCap, balance: BIG_NUMBER }, part: "headwear" },
 } satisfies Record<string, Data<AvatarCreatorSceneProps>>;

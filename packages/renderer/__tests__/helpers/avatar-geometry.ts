@@ -3,9 +3,9 @@
  * emote's weight, an aim), a cuboid's corners, how far two boxes go into each other, and the faces of one plane that overlap.
  */
 import { Euler, Matrix4, PerspectiveCamera, Vector3 } from "three";
-import { inflateOf, type Cuboid } from "../../src/core/avatar/avatar-boxes";
+import { inflateOf, type Cuboid } from "../../src/core/avatar/avatar-cuboids";
 import { aimHead, KING_VIEW, kingPaintedBoxes, makeRig, PART_SALT, PIVOTS, poseRig } from "../../src/core/avatar/avatar-king";
-import type { Pose } from "../../src/core/avatar/avatar-rig";
+import type { Pose } from "../../src/core/avatar/avatar-poses";
 
 export type Part = keyof typeof PIVOTS;
 export const PARTS = Object.keys(PIVOTS) as Part[];
