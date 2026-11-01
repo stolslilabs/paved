@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { ChatScene } from "../src/components/scenes/chat-scene";
+import { resetChatTabForTests } from "../src/routes/chat-tab";
 import { FriendsScene } from "../src/components/scenes/friends-scene";
 import { GuildScene } from "../src/components/scenes/guild-scene";
 import { SEEDED_PLAYERS } from "../src/data/mock/players";
@@ -54,6 +55,15 @@ describe("the social pages' scenes (#973)", () => {
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
+  it("draws the chat page's three tabs around the tab's content, with no bottom bar", () => {
+    render(wrap(<ChatScene tab="guild" badges={{ guild: 2, private: 0 }}>{<p>guild conversation</p>}</ChatScene>));
+    const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
+    expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["World", "Guild, 2 waiting", "Private"]);
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("guild conversation")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).toBeNull();
+  });
+
   it("draws the content the page gives it", () => {
     render(wrap(<GuildScene>{<p>guild content</p>}</GuildScene>));
     expect(screen.getByText("guild content")).toBeInTheDocument();
@@ -89,6 +99,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
   afterEach(() => {
     queryClient.clear();
     resetWelcomedForTests();
+    resetChatTabForTests();
     localStorage.clear();
   });
 
@@ -102,10 +113,12 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
     return { router, me };
   }
 
-  it("opens the chat page on its conversations, the World first", async () => {
-    open("/chat");
+  it("opens the chat page on the World's tab for a player in no guild", async () => {
+    const { router } = open("/chat");
     expect(await screen.findByRole("heading", { level: 1, name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /^World/ }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "World" }, { timeout: slow(8000) })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/chat/world"), { timeout: slow(8000) });
+    expect(await screen.findByRole("region", { name: "World conversation" }, { timeout: slow(8000) })).toBeInTheDocument();
   });
 
   it("opens the guild page on the finder of a player in no guild", async () => {
@@ -162,11 +175,12 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
       expect(await screen.findByRole("dialog", undefined, { timeout: slow(8000) })).toBeInTheDocument();
     });
 
-    it("with ?chat= opens that conversation on the chat page", async () => {
-      const { router } = open("/social?chat=world");
+    it("with ?chat= opens that conversation's tab on the chat page", async () => {
+      const { router } = open("/social?chat=world&ref=abc");
       expect(await screen.findByRole("heading", { level: 1, name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
-      expect(router.state.location.pathname).toBe("/chat");
-      expect(new URLSearchParams(router.state.location.search).get("chat")).toBe("world");
+      await waitFor(() => expect(router.state.location.pathname).toBe("/chat/world"), { timeout: slow(8000) });
+      expect(new URLSearchParams(router.state.location.search).get("chat")).toBeNull();
+      expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
       expect(await screen.findByRole("log", { name: "Messages" }, { timeout: slow(8000) })).toBeInTheDocument();
     });
 

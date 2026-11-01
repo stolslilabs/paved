@@ -74,7 +74,11 @@ export const PAGES: readonly PageDef[] = [
   { path: "vault", title: "Vault", nav: "vault", panel: true },
   // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
   // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
+  // The chat's tabs (#973): `/chat` opens on the last one used, `/chat/<tab>` names one, `/chat/private/<player>` a private
+  // conversation over the Private tab's list; one component (`page-loaders.ts`), so a move between them keeps the page.
   { path: "chat", title: "Chat", nav: "chat", panel: true },
+  { path: "chat/private/:player", title: "Chat", nav: "chat", panel: true },
+  { path: "chat/:tab", title: "Chat", nav: "chat", panel: true },
   { path: "guild", title: "Guild", nav: "guild", panel: true },
   { path: "friends", title: "Friends", nav: "friends", panel: true },
   // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it, a theme's too.

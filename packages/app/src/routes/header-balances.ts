@@ -36,6 +36,8 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   missions: COBBLES,
   vault: ["paved", "vpaved"],
   chat: NONE,
+  "chat/private/:player": NONE,
+  "chat/:tab": NONE,
   guild: NONE,
   friends: NONE,
   referral: NONE,

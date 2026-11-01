@@ -72,6 +72,8 @@ describe("the route map (#762)", () => {
       "missions",
       "vault",
       "chat",
+      "chat/private/:player",
+      "chat/:tab",
       "guild",
       "friends",
       "referral",

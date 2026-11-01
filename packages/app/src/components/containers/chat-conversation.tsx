@@ -29,6 +29,12 @@ const AT_BOTTOM_PX = 48;
 /** How near the top (px) the older page is loaded. */
 const NEAR_TOP_PX = 120;
 
+/**
+ * What the chat page (#973) draws above and under its conversation: the header (`--header-h` and the notch), the content's top
+ * padding, the tabs and their gap, the content's bottom padding (`TabPage`, `ChatTabs`). No bottom bar on that page.
+ */
+const CHAT_PAGE_CHROME = "var(--header-h) - env(safe-area-inset-top) - 5.75rem";
+
 /** A message's time: the hour today, else the day and the hour. */
 function messageTime(at: number, now: number, timeZone?: string): string {
   const today = formatDate(now * 1000, { day: "numeric", month: "short", timeZone }) === formatDate(at * 1000, { day: "numeric", month: "short", timeZone });
@@ -234,6 +240,11 @@ export interface ChatConversationProps {
   initialDraft?: string;
   /** The message whose report dialog starts open (the stories'). */
   initialReport?: string;
+  /**
+   * The chat page's own conversation (#973: a tab's, or a private one over the list): as tall as what the page leaves under its
+   * header and its tabs, with no cap. Off, a box of at most 44rem among other content.
+   */
+  fill?: boolean;
 }
 
 /**
@@ -265,6 +276,7 @@ export function ChatConversation({
   onAnswer,
   initialDraft = "",
   initialReport,
+  fill = false,
 }: ChatConversationProps) {
   const viewport = useVisualViewportHeight();
   const scroller = useRef<HTMLDivElement>(null);
@@ -362,7 +374,9 @@ export function ChatConversation({
   };
 
   // A tall box on a phone, the field at its foot; with a keyboard open, no taller than what is left above it.
-  const height = viewport !== null ? `min(44rem, max(20rem, ${Math.round(viewport)}px - 9rem))` : "min(44rem, max(20rem, 100dvh - 9rem))";
+  // On the chat page (`fill`), the page's header, its tabs and their gaps (`CHAT_PAGE_CHROME`) are all there is above and under it.
+  const tall = viewport !== null ? `${Math.round(viewport)}px` : "100dvh";
+  const height = fill ? `max(20rem, ${tall} - ${CHAT_PAGE_CHROME})` : `min(44rem, max(20rem, ${tall} - 9rem))`;
 
   return (
     <section aria-label={name ? `${name} conversation` : "Conversation"} data-slot="chat-conversation" className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card" style={{ height }}>

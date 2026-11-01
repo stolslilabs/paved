@@ -1,12 +1,12 @@
 import { useCallback } from "react";
-import { CHAT_PARAM, type ChatSheetState } from "./chat-param";
+import { privateChatPath, type ChatSheetState } from "./chat-param";
 import { useAppNavigate } from "./ref";
 
 /**
- * Opens a conversation (#955) from anywhere: the chat page at `?chat=<id>` (#973), a new history entry, so Back closes it. The
- * profile's Message and the friends' rows open the private conversation with that player.
+ * Opens the private conversation with `player` (#955) from anywhere: the chat page's Private tab at `/chat/private/<player>`
+ * (#973), a new history entry, so Back closes it. The profile's Message and the friends' rows use it.
  */
-export function useOpenChat(): (id: string) => void {
+export function useOpenPrivateChat(): (player: string) => void {
   const go = useAppNavigate();
-  return useCallback((id: string) => void go(`/chat?${CHAT_PARAM}=${encodeURIComponent(id)}`, { state: { chatSheet: true } satisfies ChatSheetState }), [go]);
+  return useCallback((player: string) => void go(privateChatPath(player), { state: { chatSheet: true } satisfies ChatSheetState }), [go]);
 }
