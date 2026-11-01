@@ -182,7 +182,7 @@ import type { MatchRecord, MatchRecordViews } from "../matches";
 import { DailyMilestoneRefusedError, type DailyMilestoneViews, type DailyMilestoneWrites, type DailyMilestonesView } from "../daily-milestones";
 import { WeeklyMilestoneRefusedError, type WeeklyMilestoneViews, type WeeklyMilestoneWrites, type WeeklyMilestonesView } from "../weekly-milestones";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, generatedLook } from "../../mocks/avatar";
-import { ACHIEVEMENT_COBBLES, PACKS, QUEST_COBBLES, SKIN_PRICES } from "../../mocks/cobbles";
+import { ACHIEVEMENT_COBBLES, PACKS, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
@@ -268,12 +268,6 @@ const STARTER = { id: 1, plan: 9, orientation: 3, x: 0, y: 0 } as const;
 
 /** The kind of the mock's reward draw: its random is `poseidon(REWARD, player, index)`, a stand-in for the VRF's. */
 const REWARD_DRAW = 0x524557415244n;
-
-/**
- * The Cobbles of a quest the fresh table does not name (an id of an older deployment): a weekly's. A daily pays none since #869
- * (the day's milestones pay instead), whatever its definition says.
- */
-const DEFAULT_QUEST_COBBLES = { daily: 0, weekly: 15 } as const;
 
 /** Every read the deployed classes lack (#549): implemented by the chain (`RpcGameViews`, `RpcEconomyViews`) and by `MockLedger`. */
 export interface MockedReads
@@ -610,16 +604,17 @@ export class MockLedger {
   // --- The definitions ---------------------------------------------------------------------------------------------
 
   /**
-   * The indexer's definitions with the mock's Cobbles: a definition the indexer gives none (an indexer that predates
-   * cobbles v1) takes the fresh deployment's table (`mocks/cobbles.ts`), else a weekly's default for a quest and its points
-   * for an achievement; a daily has none (#869). Learned here: they are what the claims pay.
+   * The indexer's definitions with the mock's Cobbles: no quest pays on its own (a daily since #869, a weekly since #976: the
+   * period's milestones pay instead), whatever its definition says; an achievement the indexer gives none (an indexer that
+   * predates cobbles v1) takes the fresh deployment's table (`mocks/cobbles.ts`), else its points. Learned here: they are what
+   * the claims pay. A week's bonus is then refused (`no-live-quest`): no weekly pays.
    */
   definitions(definitions: Definitions): Definitions {
     const quests = definitions.quests.map((q) => {
       const kind = questPeriod({ start: q.startTime, interval: q.interval, duration: q.duration });
-      // A daily pays nothing on its own since #869, even where its definition gives it Cobbles: the day's milestones pay.
-      const cobbles = kind === "daily" ? 0 : q.cobbles > 0 ? q.cobbles : (QUEST_COBBLES.find((r) => r.questId === q.questId && r.kind === kind)?.cobbles ?? DEFAULT_QUEST_COBBLES[kind]);
-      const cobblesKind = q.cobbles > 0 && kind !== "daily" ? q.cobblesKind : kind;
+      // A quest pays nothing on its own, even where its definition gives it Cobbles: its period's milestones pay (#869, #976).
+      const cobbles = 0;
+      const cobblesKind = kind;
       const task = q.tasks[0];
       this.questRates.set(q.questId, { questId: q.questId, cobbles, kind: cobblesKind, task: task?.taskId ?? 0, total: task?.total ?? 0, start: q.startTime, interval: q.interval });
       return { ...q, cobbles, cobblesKind };

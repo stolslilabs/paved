@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Definitions } from "@paved/chain";
-import { isClaimed } from "../components/containers/cobble-types";
 import { DAY_S } from "../lib/quest-window";
-import { useQuestRewards } from "./cobbles";
-import { usePlayerQuests } from "./indexer";
 import { useDataSources } from "./sources";
 
 // The quests' clock and calendar (P9): the indexer's block time is `now` (section 12, P9's note), so the day shown, the
@@ -42,21 +39,4 @@ export function useIndexerNow(): { now: number | null; error: Error | null } {
 export function firstQuestDay(definitions: Definitions): number | null {
   const times = definitions.quests.map((q) => Math.max(q.definedAt, q.startTime));
   return times.length === 0 ? null : Math.floor(Math.min(...times) / DAY_S);
-}
-
-/**
- * How many of today's missions wait to be claimed (#753, the home's Missions badge): completed, paying Cobbles, not claimed in
- * their period, as the Missions page's Claim all counts them. 0 until the reads are in, without a player, or on a read's failure.
- */
-export function useMissionsReady(playerId: string | null): number {
-  const clock = useIndexerNow();
-  const day = clock.now === null ? null : Math.floor(clock.now / DAY_S);
-  const quests = usePlayerQuests(playerId, day);
-  const rewards = useQuestRewards(playerId, day);
-  const r = rewards.data;
-  if (playerId === null || !quests.data || !r) return 0;
-  return quests.data.quests.filter((q) => {
-    const entry = r.cobbles.find((c) => c.questId === q.questId);
-    return q.completed && entry !== undefined && !isClaimed(entry.kind === "weekly" ? r.week.claimed : r.day.claimed, q.questId);
-  }).length;
 }

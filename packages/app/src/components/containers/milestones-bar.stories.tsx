@@ -2,21 +2,22 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
-import { DailyMilestonesBar } from "./daily-milestones-bar";
+import { MilestonesBar } from "./milestones-bar";
 
 /**
- * The day's milestones of the Missions page as a graph (#869, reworked 2026-10-29): six nodes, an edge per daily done between two,
- * five in all. The nodes at 3 (+10 Cobbles) and 5 (+15) carry a reward: a small gift, no figure on it, lit and shaking once reached;
+ * A period's milestones of the Missions page as a graph, the day's (#869, reworked 2026-10-29) and the week's (#976, `Week*`
+ * stories): six nodes, an edge per quest done between two, five in all. The week's gifts (+50 and +100) are drawn larger than the
+ * day's. The nodes at 3 (+10 Cobbles) and 5 (+15) carry a reward: a small gift, no figure on it, lit and shaking once reached;
  * a tap claims it and, once the claim lands, the gift opens and its Cobbles rise out of it; claimed, it stays open with a check. The
  * others are plain and smaller. One story per state; the node's states (no reward, gift closed, gift opening, claimed) and all done
  * are also pinned at 375 and 1440 px. Claim plays the claims, their openings and their bursts.
  */
 const meta = {
-  title: "Containers/DailyMilestonesBar",
-  component: DailyMilestonesBar,
+  title: "Containers/MilestonesBar",
+  component: MilestonesBar,
   args: { done: 0, claimed: 0, onClaim: fn() },
   decorators: [(Story) => <div className="mx-auto max-w-md p-4" style={{ paddingTop: "2.5rem" }}><Story /></div>],
-} satisfies Meta<typeof DailyMilestonesBar>;
+} satisfies Meta<typeof MilestonesBar>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -66,6 +67,27 @@ export const ClaimedWide: Story = { ...Claimed, ...WIDE_1440 };
 /** All done, at 1440 px. */
 export const AllDoneWide: Story = { ...AllDone, ...WIDE_1440 };
 
+/** The week (#976): no weekly done, both gifts (+50 at 3 done, +100 at 5) ahead, greyed and larger than the day's. */
+export const WeekNone: Story = { args: { period: "weekly" } };
+/** The week: three weeklies done, the first gift lit and shaking, its 50 Cobbles to claim with a tap on it. */
+export const WeekThree: Story = { args: { period: "weekly", done: 3 } };
+/** The week: five weeklies done, both gifts to claim. */
+export const WeekFive: Story = { args: { period: "weekly", done: 5 } };
+/** The week: its first gift claimed, open with its check; the second to claim. */
+export const WeekClaimed: Story = { args: { period: "weekly", done: 5, claimed: 0b01 } };
+/** The week: the last gift opening, its 100 Cobbles above it, kept to the graph's right edge. */
+export const WeekOpening: Story = { args: { period: "weekly", done: 5, claimed: 0b11, revealing: 1 } };
+/** The week: both gifts open. */
+export const WeekAllDone: Story = { args: { period: "weekly", done: 5, claimed: 0b11 } };
+/** The week's three done, at 375 px. */
+export const WeekThreePhone: Story = { ...WeekThree, ...PHONE_375 };
+/** The week's gift opening, at 375 px. */
+export const WeekOpeningPhone: Story = { ...WeekOpening, ...PHONE_375 };
+/** The week's three done, at 1440 px. */
+export const WeekThreeWide: Story = { ...WeekThree, ...WIDE_1440 };
+/** The week's gift opening, at 1440 px. */
+export const WeekOpeningWide: Story = { ...WeekOpening, ...WIDE_1440 };
+
 /**
  * Five done: a tap claims a gift; a moment later (the claim's way, faked) it opens, its Cobbles rise and burst out (still under
  * reduced motion), then it stays open with its check.
@@ -75,7 +97,7 @@ export const Claim: Story = {
     const [claimed, setClaimed] = useState(0);
     const [claiming, setClaiming] = useState<number | null>(null);
     return (
-      <DailyMilestonesBar
+      <MilestonesBar
         {...args}
         done={5}
         claimed={claimed}
@@ -91,3 +113,6 @@ export const Claim: Story = {
     );
   },
 };
+
+/** The week's claims played: a tap claims a gift of the week, it opens and its 50 or 100 Cobbles burst out. */
+export const WeekClaim: Story = { ...Claim, args: { period: "weekly" } };

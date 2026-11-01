@@ -13,7 +13,6 @@ import { cobbleKeys } from "../../data/cobbles";
 import { useChests, useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
 import { queryKeys } from "../../data/keys";
 import { usePvpLeague, usePvpShield } from "../../data/pvp-league";
-import { useMissionsReady } from "../../data/quests";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { chestsBadge, chestsSeenDay, utcDay } from "../chests-seen";
@@ -30,6 +29,8 @@ import { PlayerProfileHost } from "../player-profile";
 const HomeStage = lazy(() => import("../home-stage"));
 /** What waits on the Chat, Guild and Friends pages (#973), its own chunk: the social reads stay out of the home's first load. */
 const SocialCount = lazy(() => import("../social-count"));
+/** What waits on the Missions page (#753, #976), its own chunk: the quests' rules and reads stay out of the home's first load. */
+const MissionsCount = lazy(() => import("../missions-count"));
 /** Nothing counted on the three buttons: a guest, or the counts not read yet. */
 const NO_SOCIAL_COUNTS: SocialCounts = { chat: 0, guild: 0, friends: 0 };
 /** The leave dialog, its own chunk: loaded only when a leave is blocked. */
@@ -79,7 +80,7 @@ export default function Page() {
   const writes = useFreeVillageWrites(me);
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
-  const missions = useMissionsReady(me);
+  const [missions, setMissions] = useState(0);
   const league = usePvpLeague(me).data;
   const shield = usePvpShield(me).data;
   const board = useBoardSettings();
@@ -220,6 +221,7 @@ export default function Page() {
       {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
       <Suspense fallback={null}>
         <SocialCount me={me} onCount={setSocial} />
+        <MissionsCount me={me} onCount={setMissions} />
       </Suspense>
       {/* Another player's profile (#952): `/player/:id` lands here with it, and from `desktop` the panels' pages show it over the home. */}
       <PlayerProfileHost />

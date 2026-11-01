@@ -38,11 +38,9 @@ describe("Cobbles amounts (gems-v1.md)", () => {
     expect(PACKS.map((p) => formatUsd(p.price / BigInt(p.cobbles), 2))).toEqual(["$0.10", "$0.09", "$0.08", "$0.07"]);
   });
 
-  it("gives a Challenge weekly 15 (3.1), a PvP weekly and a daily none: the period's milestones pay (#869, #976)", () => {
+  it("gives no weekly nor daily Cobbles of its own: the period's milestones pay (#869, #976)", () => {
     expect(QUEST_COBBLES.map((q) => q.questId)).toEqual(QUEST_DEFINITIONS.map((d) => d.questId));
-    expect(Object.fromEntries(QUEST_COBBLES.map((q) => [q.questId, q.cobbles]))).toEqual({
-      1: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 15, 15: 15, 16: 15, 17: 0, 18: 0, 19: 0, 20: 0, 21: 0,
-    });
+    expect(QUEST_COBBLES.every((q) => q.cobbles === 0)).toBe(true);
     expect(QUEST_COBBLES.filter((q) => q.kind === "weekly").map((q) => q.questId)).toEqual([14, 15, 16, 20, 21]);
   });
 
@@ -339,11 +337,11 @@ describe("Missions: Cobbles only (#832)", () => {
   const card = () => within(screen.getByRole("region", { name: "Selected mission" }));
   const select = (name: RegExp) => userEvent.click(screen.getByRole("button", { name }));
 
-  it("shows each mission's Cobbles under its icon, none for a daily (#869), and claims a quest from its card", async () => {
-    const onClaimQuest = vi.fn();
-    render(wrap(<MissionsScene {...MISSIONS.weekBonus} onClaimQuest={onClaimQuest} />));
-    expect(within(screen.getByRole("button", { name: /^Strong Day/ })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("button", { name: /^Weekly Forester/ })).getByRole("img", { name: "+15 Cobbles" })).toBeInTheDocument();
+  it("shows no Cobbles under a daily or a weekly (#869, #976), and the weekly's card says the week pays at its milestones", async () => {
+    render(wrap(<MissionsScene {...MISSIONS.weekThree} />));
+    for (const name of [/^Strong Day/, /^Weekly Forester/, /^Weekly Raider/, /^Weekly Stars/]) {
+      expect(within(screen.getByRole("button", { name })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
+    }
     // A mission not done: its card has no Claim, a short line instead.
     await select(/^Strong Day/);
     expect(card().queryByRole("button")).not.toBeInTheDocument();
@@ -351,17 +349,20 @@ describe("Missions: Cobbles only (#832)", () => {
     // A daily done: nothing to claim on its own.
     await select(/^Daily Run/);
     expect(card().queryByRole("button")).not.toBeInTheDocument();
+    // A weekly done: nothing to claim from its card, the week's milestones pay.
     await select(/^Weekly Forester/);
-    await userEvent.click(card().getByRole("button", { name: "Claim 15 Cobbles: Weekly Forester" }));
-    expect(onClaimQuest).toHaveBeenCalledWith(14);
+    expect(card().queryByRole("button")).not.toBeInTheDocument();
+    expect(card().getByText("Paid at the week's milestones")).toBeInTheDocument();
+    // A weekly not done yet: the same, in its short line.
+    await select(/^Weekly Raider/);
+    expect(card().getByText("It counts toward the week's milestones.")).toBeInTheDocument();
+    // No week's bonus tile any more (#976).
+    expect(screen.queryByRole("button", { name: /bonus/ })).not.toBeInTheDocument();
   });
 
-  it("claims an achievement and a period's bonus from the card; On the Podium gives none", async () => {
+  it("claims an achievement from the card; On the Podium gives none", async () => {
     const onClaimAchievement = vi.fn();
-    const onClaimBonus = vi.fn();
-    render(wrap(<MissionsScene {...MISSIONS.weekBonus} onClaimAchievement={onClaimAchievement} onClaimBonus={onClaimBonus} />));
-    await userEvent.click(card().getByRole("button", { name: "Claim 60 Cobbles: Weekly bonus" }));
-    expect(onClaimBonus).toHaveBeenCalledWith("weekly");
+    render(wrap(<MissionsScene {...MISSIONS.claim} onClaimAchievement={onClaimAchievement} />));
     await select(/^Settler II:/);
     await userEvent.click(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" }));
     expect(onClaimAchievement).toHaveBeenCalledWith(3);
@@ -377,12 +378,12 @@ describe("Missions: Cobbles only (#832)", () => {
     expect(card().getByRole("button", { name: "Claim 20 Cobbles: Grand Builder" })).toBeDisabled();
   });
 
-  it("has nothing left to claim when all are claimed, the week's bonus too; the day has none (#869)", () => {
+  it("has nothing left to claim when all are claimed, the day's and the week's gifts too (#869, #976)", () => {
     render(wrap(<MissionsScene {...MISSIONS.allDone} />));
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
     expect(screen.queryAllByRole("button", { name: /Cobbles to claim$/ })).toHaveLength(0);
-    expect(screen.queryByRole("button", { name: /^Daily bonus/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Weekly bonus: Done" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /bonus/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /Cobbles claimed: \d (dailies|weeklies) done/ })).toHaveLength(4);
   });
 
   it("read only: the card says Connect to claim", () => {

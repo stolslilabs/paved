@@ -79,7 +79,7 @@ const panel = (title: string, page: ReactNode, options: { top?: boolean; side?: 
 });
 
 /** Missions (#832): the selected mission's card, the Limited and the Lifetime icons, the Cobbles they earn in the header. */
-export const Missions: Story = panel("Missions", <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} onClaimBonus={fn()} />);
+export const Missions: Story = panel("Missions", <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />);
 /** The Chests: the slots, the chest to open, the Cobbles. */
 export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The day's tile shop, the Cobbles in the header. */
@@ -119,5 +119,5 @@ export const Profile: Story = {
 /** Below `desktop` the same page is a full page with the phone's bar (#763), not a panel: Missions at 375 px, for comparison. */
 export const MissionsPhone: Story = {
   ...PHONE_375,
-  render: () => <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} onClaimBonus={fn()} />,
+  render: () => <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />,
 };
