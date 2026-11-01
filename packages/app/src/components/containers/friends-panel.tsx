@@ -9,7 +9,7 @@ import { Icon } from "../ui/icon";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { ScrollRegion } from "../ui/scroll-region";
 import { Skeleton } from "../ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { FollowMark } from "../elements/follow-mark";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LeagueCrest } from "../elements/league-crest";
@@ -19,7 +19,7 @@ import { Presence } from "../elements/presence";
 import { formatPoints } from "../elements/score";
 import { useGuildActions } from "./guild-sheets";
 
-/** The Friends tab's three lists (#954). */
+/** The friends page's three tabs (#954's lists, tabs since #973). */
 export type FriendsList = "friends" | "following" | "followers";
 
 /** The writes of the Friends tab's rows, on one player. */
@@ -134,10 +134,10 @@ export interface FriendsPanelProps {
 }
 
 /**
- * The Social page's Friends tab (#954): three lists, Friends (the mutual follows), Following and Followers, each with its count,
+ * The friends page (`/friends`, #973; the Social page's Friends tab of #954 before): three tabs, Friends (the mutual follows), Following and Followers, each with its count,
  * online players first, then the most recently seen; the new followers marked until seen. Each row opens the player's profile
  * and has its actions: Unfollow (confirmed), and in Followers, Follow back and Remove (confirmed; they are not told). Then the
- * players suggested to follow, and the tab's menu: the blocked players, with Unblock.
+ * players suggested to follow, and the page's menu: the blocked players, with Unblock.
  */
 export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, list, onListChange, now, guildOf, onOpenPlayer, onMessage, onAction, onFollowersShown, initialBlockedOpen = false }: FriendsPanelProps) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -235,51 +235,58 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
         }
       />
 
-      <ToggleGroup
-        type="single"
-        aria-label="Lists"
-        className="grid w-full grid-cols-3"
+      {/* The three lists as tabs (#973: the friends page's), each with its count; Followers badges the new ones. */}
+      <Tabs
         value={list}
         onValueChange={(v) => {
-          if (!v) return;
+          const next = LISTS.find((l) => l.id === v)?.id;
+          if (!next) return;
           setShown(FRIENDS_PAGE);
-          onListChange?.(v as FriendsList);
+          onListChange?.(next);
         }}
+        rememberAs="friends"
       >
-        {LISTS.map(({ id, label }) => {
-          const count = lists ? lists[id].length : null;
-          const fresh = id === "followers" ? (lists?.newFollowers ?? 0) : 0;
-          return (
-            <ToggleGroupItem key={id} value={id} aria-label={`${label}${count === null ? "" : `, ${formatInteger(count)}`}${fresh > 0 ? `, ${formatInteger(fresh)} new` : ""}`} className="relative h-auto min-w-0 flex-col gap-0 px-1 py-1.5">
-              <span className="numeric text-base leading-6 font-semibold">{count === null ? "–" : formatInteger(count)}</span>
-              <span className="text-xs">{label}</span>
-              {fresh > 0 && (
-                <span aria-hidden className="numeric absolute -top-2 -right-1 z-10 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground">
-                  {fresh > 99 ? "99+" : fresh}
-                </span>
-              )}
-            </ToggleGroupItem>
-          );
-        })}
-      </ToggleGroup>
-
-      <section aria-label={meta.label} className="flex flex-col gap-2">
-        {rows === null && !error && (
-          <div aria-busy className="flex flex-col gap-2">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-18 rounded-xl" />
-            ))}
-          </div>
-        )}
-        {rows?.length === 0 && <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">{meta.empty}</p>}
-        {rows && rows.length > 0 && <ul className="flex flex-col gap-2">{rows.slice(0, shown).map(rowOf)}</ul>}
-        {rows && rows.length > shown && (
-          <Button variant="ghost" onClick={() => setShown(shown + FRIENDS_PAGE)}>
-            Show more ({formatInteger(rows.length - shown)})
-          </Button>
-        )}
-        <InlineError title="Friends" message={actions.error} />
-      </section>
+        <TabsList aria-label="Lists" className="h-auto w-full">
+          {LISTS.map(({ id, label }) => {
+            const count = lists ? lists[id].length : null;
+            const fresh = id === "followers" ? (lists?.newFollowers ?? 0) : 0;
+            return (
+              <TabsTrigger key={id} value={id} aria-label={`${label}${count === null ? "" : `, ${formatInteger(count)}`}${fresh > 0 ? `, ${formatInteger(fresh)} new` : ""}`} className="h-auto flex-col gap-0 px-1 py-1">
+                <span className="numeric text-base leading-6 font-semibold">{count === null ? "–" : formatInteger(count)}</span>
+                <span className="text-xs">{label}</span>
+                {fresh > 0 && (
+                  <span aria-hidden className="numeric absolute -top-2 -right-1 z-10 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground">
+                    {fresh > 99 ? "99+" : fresh}
+                  </span>
+                )}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+        {LISTS.map(({ id }) => (
+          <TabsContent key={id} value={id}>
+            {id === list && (
+              <section aria-label={meta.label} className="flex flex-col gap-2">
+                {rows === null && !error && (
+                  <div aria-busy className="flex flex-col gap-2">
+                    {[0, 1, 2].map((i) => (
+                      <Skeleton key={i} className="h-18 rounded-xl" />
+                    ))}
+                  </div>
+                )}
+                {rows?.length === 0 && <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">{meta.empty}</p>}
+                {rows && rows.length > 0 && <ul className="flex flex-col gap-2">{rows.slice(0, shown).map(rowOf)}</ul>}
+                {rows && rows.length > shown && (
+                  <Button variant="ghost" onClick={() => setShown(shown + FRIENDS_PAGE)}>
+                    Show more ({formatInteger(rows.length - shown)})
+                  </Button>
+                )}
+                <InlineError title="Friends" message={actions.error} />
+              </section>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
 
       <section aria-label="Suggested players" className="flex flex-col gap-2">
         <h3 className="font-semibold">Players to follow</h3>

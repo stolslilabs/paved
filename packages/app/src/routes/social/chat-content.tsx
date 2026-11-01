@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router";
 import type { ConversationId } from "@paved/game-core";
 import { ChatConversation, type ChatMessageAction } from "../../components/containers/chat-conversation";
 import { ChatList } from "../../components/containers/chat-list";
-import { SocialEmptyTab } from "../../components/containers/social-tabs";
+import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
 import { chatKeys, useChatMutes, useChatOverview, useChatWrites, useConversation, type ChatWrites } from "../../data/chat";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
@@ -14,7 +14,7 @@ import { useNow } from "../now";
 import { useOpenGuild } from "../open-guild";
 import { useOpenPlayer } from "../open-player";
 
-// The Social page's Chat tab (#955), its own chunk: the conversations and the requests, and one conversation at `?chat=<id>`,
+// The chat page's content (#955; the Social page's Chat tab until #973): the conversations and the requests, and one conversation at `?chat=<id>`,
 // on the social source's chat part (the mock's ledger today, a service later, #956).
 
 /** A message's menu as a write of the source. */
@@ -87,7 +87,7 @@ function ConversationView({ me, id, now, noticeSeen, onBack }: ConversationViewP
   );
 }
 
-export default function ChatTab() {
+export function ChatContent() {
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
   const now = useNow();
@@ -96,7 +96,7 @@ export default function ChatTab() {
   const writes = useChatWrites(me);
   const openPlayer = useOpenPlayer();
 
-  // The first visit to the tab: on the mock, a stranger's request comes a little later.
+  // The first visit to the chat: on the mock, a stranger's request comes a little later.
   const { run, unavailable } = writes;
   useEffect(() => {
     if (!unavailable) void run((c, p) => c.visitChat(p)).catch(() => undefined);
@@ -131,8 +131,8 @@ export default function ChatTab() {
     );
   }, [location.state, navigate, setParams]);
 
-  if (overview.unavailable) return <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">Messages are not on this network yet.</p>;
-  if (me === null) return <SocialEmptyTab tab="chat" />;
+  if (overview.unavailable) return <SocialUnavailable>Messages are not on this network yet.</SocialUnavailable>;
+  if (me === null) return <SocialEmpty page="chat" />;
   if (open !== null) return <ConversationView key={open} me={me} id={open} now={now} noticeSeen={overview.data?.noticeSeen ?? true} onBack={closeChat} />;
   return (
     <ChatList

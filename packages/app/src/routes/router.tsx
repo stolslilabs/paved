@@ -50,6 +50,16 @@ function gameRedirect({ request }: LoaderFunctionArgs) {
   return to("/", request);
 }
 
+/**
+ * The Social page gave way to three pages (#973): its old links land where they meant to go, their query kept (a player's
+ * `?player=`, the `?ref=`). A guild's (`?guild=`) on the guild page, a conversation (`?chat=`) on the chat page, any other on
+ * the friends page, whose search was the Social page's.
+ */
+function socialRedirect({ request }: LoaderFunctionArgs) {
+  const { search, searchParams } = new URL(request.url);
+  return replace((searchParams.has("guild") ? "/guild" : searchParams.has("chat") ? "/chat" : "/friends") + search);
+}
+
 /** The Cobble packs left the Challenge's purchase for a page of their own (#621): the old tab's links land there. */
 function challengeLoader({ request }: LoaderFunctionArgs) {
   return new URL(request.url).searchParams.get("tab") === "cobbles" ? to("/cobbles", request) : null;
@@ -112,6 +122,7 @@ export const routes: RouteObject[] = [
       { path: "achievements", loader: ({ request }) => to("/missions", request) },
       // The defence log became a section of the league (BACK-RULE #783), then its matches (#786): its old link lands there.
       { path: "pvp/defence", loader: ({ request }) => to("/pvp/league", request) },
+      { path: "social", loader: socialRedirect },
       { path: "economy", loader: ({ request }) => to("/vault", request) },
       // The ranks left the UI (#623), to come back as leagues: their old links land on Home.
       { path: "leaderboard/:day?", loader: ({ request }) => to("/", request) },

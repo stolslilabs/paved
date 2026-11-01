@@ -351,8 +351,9 @@ src/components/elements/game-icon.tsx. The source icons: `gear`,
 `tree`, `road`, `castle`, `landmark-dome`, and the season wheel's `sun`,
 `wheat-awn`, `fire-flame-curved`, `umbrella-beach`, `leaf`, `snowflake`,
 `seedling`, `moon`; and (#873) the Chests'
-`treasure-chest`; and (#875) the Camera mode's `video`; and (#928) the profile badge's `user`; and (#952)
-the home's Social button's `users`. The "+"'s button and the relief style itself are
+`treasure-chest`; and (#875) the Camera mode's `video`; and (#928) the profile badge's `user`; and (#973)
+the home's Chat `comments`; and (#952) the home's Social button's `users`
+(Friends' since #973). The "+"'s button and the relief style itself are
 written for Paved (Apache 2.0).
 
 The currencies in relief (#844): usdc.svg, paved.svg and vpaved.svg above

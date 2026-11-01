@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { GUILD_SIZES, GuildFinder, GuildInvitations, NO_GUILD_FILTERS, type GuildFinderAction, type GuildFinderFilters } from "../../components/containers/guild-finder";
-import { SocialEmptyTab } from "../../components/containers/social-tabs";
+import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
 import { useGuildRanking, useGuildSearch, useGuildWrites, usePlayerGuild, useSuggestedGuilds, type GuildWriteRun } from "../../data/guilds";
@@ -16,8 +16,8 @@ import { useNow } from "../now";
 import { useOpenGuild } from "../open-guild";
 import { useOpenPlayer } from "../open-player";
 
-// The Social page's Guild tab (#953), its own chunk: the player's guild, or the finder of a player in none; any other guild's
-// page in a sheet over it (`?guild=`). The guild's page is the next chunk (`guild-view.tsx`), fetched with the tab.
+// The guild page's content (#953; the Social page's Guild tab until #973): the player's guild, or the finder of a player in none;
+// any other guild's page in a sheet over it (`?guild=`). The guild's page is the next chunk (`guild-view.tsx`), fetched with the page.
 
 const loadView = () => import("./guild-view");
 const OwnGuild = lazy(() => loadView().then((m) => ({ default: m.OwnGuild })));
@@ -44,7 +44,7 @@ const listOf = (read: { data: readonly GuildSummary[] | undefined; error: Error 
   onRetry: read.refetch,
 });
 
-export default function GuildTab() {
+export function GuildContent() {
   const wallet = useAccount();
   const sources = useDataSources();
   const me = sources.signer?.address ?? wallet.address ?? null;
@@ -65,7 +65,7 @@ export default function GuildTab() {
   const suggested = useSuggestedGuilds(me);
   const ranking = useGuildRanking();
 
-  // The first visit to the tab (open point 10's default: the mock's invitation a minute later).
+  // The first visit to the guild page (open point 10's default: the mock's invitation a minute later).
   const { run, unavailable } = writes;
   useEffect(() => {
     if (!unavailable) void run((g, p) => g.visitGuildTab(p)).catch(() => undefined);
@@ -90,11 +90,11 @@ export default function GuildTab() {
       { replace: true, preventScrollReset: true },
     );
   }, [location.state, navigate, setParams]);
-  // The player's own guild is the tab itself: no sheet over it.
+  // The player's own guild is the page itself: no sheet over it.
   const sheetOpen = asked !== null && asked !== own;
 
-  if (player.unavailable) return <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">Guilds are not on this network yet.</p>;
-  if (me === null) return <SocialEmptyTab tab="guild" />;
+  if (player.unavailable) return <SocialUnavailable>Guilds are not on this network yet.</SocialUnavailable>;
+  if (me === null) return <SocialEmpty page="guild" />;
 
   const state = player.data;
   return (

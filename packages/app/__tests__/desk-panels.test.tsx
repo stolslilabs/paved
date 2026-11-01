@@ -45,7 +45,7 @@ const clickOutside = async () => userEvent.click(document.querySelector<HTMLElem
 /** The home's village stays mounted under the panel (hidden behind the modal). */
 const village = () => screen.getByRole("navigation", { name: "Village", hidden: true });
 
-preloadPages("home", "social", "missions", "vault", "settings", "theme", "play");
+preloadPages("home", "chat", "guild", "friends", "missions", "vault", "settings", "theme", "play");
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
@@ -71,7 +71,9 @@ describe("the route map (#762)", () => {
       "story",
       "missions",
       "vault",
-      "social",
+      "chat",
+      "guild",
+      "friends",
       "referral",
       "settings/theme",
       "settings/theme/:theme",
@@ -87,17 +89,16 @@ describe("the route map (#762)", () => {
 describe("from desktop, the overlay's pages open in the side panel over the village (#762)", () => {
   beforeEach(() => media(true));
 
-  it("the overlay's column holds Social, Missions, Chests, Shop and Vault, no League (#856, #952), with the gear and Play; the phone's bar is hidden there", async () => {
+  it("the overlay's column holds Missions, Chests, Shop and Vault, no League (#856, #973), with the gear and Play; the phone's bar is hidden there", async () => {
     open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Social", "Missions", "Chests", "Shop", "Vault"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Missions", "Chests", "Shop", "Vault"]);
     expect(screen.getAllByRole("button", { name: "Play" }).filter((b) => !b.closest("nav"))).toHaveLength(1);
     // No bar from `desktop` (#763's is below it only); jsdom applies no media query, so its class tells.
     expect((await screen.findByRole("navigation", { name: "Main" })).parentElement).toHaveClass("desktop:hidden");
   });
 
   it.each([
-    ["Social", "/social", "Social", "right"],
     ["Missions", "/missions", "Missions", "right"],
     ["Chests", "/village/chests", "Chests", "right"],
     ["Shop", "/village/shop", "Tile shop", "right"],

@@ -38,9 +38,10 @@ export interface ReliefLook {
  * tone are drawn as one path, so a hole (the gear's, the shield's half) stays a hole. Parts drawn for Paved go `under` the icon
  * (the "+"'s button) or `over` it. The village's (issue 870): its tree green,
  * its house wood. The Chests' treasure chest (issue 873), in the gift's place: wood, its side bands and its lock gold. The profile
- * badge's User (issue 928) gold, as the level's bar.
+ * badge's User (issue 928) gold, as the level's bar. The home's Chat (issue 973): its front bubble light, the one behind green.
  */
 const PARTS: Record<GameIconName, ReliefLook> = {
+  comments: { tones: ["light", "green"] },
   gear: { tones: ["stone"] },
   hammer: { tones: ["steel", "wood"] },
   house: { tones: ["wood"] },
