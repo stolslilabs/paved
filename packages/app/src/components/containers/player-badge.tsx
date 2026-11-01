@@ -69,7 +69,8 @@ export interface PlayerBadgeProps {
 
 /**
  * The profile at the home's top left (#787, redrawn after the owner's direction of 2026-10-31, `docs/design/player-badge.webp`):
- * the avatar in a ring of paving stones set with gold, the season dial's size (#856); in the ring's groove the level's luminous bar,
+ * the avatar in a ring of paving stones set with gold, the season dial's size (#856), living (its idle, its head following the
+ * cursor on a desktop, AVATAR-LIVING); in the ring's groove the level's luminous bar,
  * a whole turn clockwise from 12 o'clock, under the gold shield that holds the level, back to it; at the ring's right the name plate, its
  * bricks repeated to the name's length (a name has at most 15 characters, `PLAYER_NAME_MAX`) and ended by a gold arrow cap. The
  * name grows the plate up to `NAME_ROOM`, then shrinks, then is cut with an ellipsis where the home's room ends (`--profile-room`,
@@ -122,7 +123,7 @@ export function PlayerBadge({ className }: PlayerBadgeProps) {
         {/* The ring at the season dial's size (#856, `DIAL_SIZE`: 96, 108 from 390 px wide, 144 from `tablet`), the shield rising above it. */}
         <span ref={ringRef} data-slot="avatar-ring" className="absolute left-0 size-24 min-[24.375rem]:size-27 tablet:size-36" style={{ top: layout.rise }}>
           <span className="absolute" style={{ inset: ((1 - PORTRAIT) / 2) * box }}>
-            <PlayerAvatar size="lg" className="size-full p-0" player={avatarPlayer(value.state)} loading={value.state.status === "loading"} look={value.look} />
+            <PlayerAvatar size="lg" live className="size-full p-0" player={avatarPlayer(value.state)} loading={value.state.status === "loading"} look={value.look} />
           </span>
           <img data-slot="ring" {...badgeArtSources("ring", box)} alt="" draggable={false} className="absolute inset-0 block size-full" />
           {connected && (

@@ -2,7 +2,8 @@
 
 The owner's decisions of 2026-10-20 bind: **the avatar a player chooses is stored on chain** (the same on every device,
 visible to others later), and **avatar parts are bought with Cobbles**. Their answers to the design's open points (#627,
-2026-10-20): **items 0 to 3 of every part are free**, the rest paid; **paid items cost 20 to 100 Cobbles each**, the bounds
+2026-10-20): **items 0 to 3 of every part are free** (replaced on 2026-10-31 by free items set per trait, below), the rest paid;
+**paid items cost 20 to 100 Cobbles each**, the bounds
 and prices owner-set and rebalanced later; **rare items are seasonal** (summer, autumn, winter, spring: on sale during their
 season, with an end `until`), no quantity limit at launch, the mechanism kept for events. The Overseer's ruling: a separate
 `Avatar` system, the Cobbles debited through one `Setup` entry, `Setup` under its CASM review point (P-64, 50 %), no
@@ -15,10 +16,19 @@ hard-coded prices. No deployment in this task: the owner lists the paid items wi
 - **The Cobbles stay on `Setup`'s one ledger** (`accounts`). `Avatar` debits them through `Setup`'s existing
   `ISetupSpend::spend_cobbles` (#639), as an allowlisted spender (`Setup.set_spender(Avatar, true)`), with the reason
   `'AVATAR_ITEM'`. No second ledger, no transfer, and **`Setup` is unchanged**: its class is the same to the felt as main's.
-- **The avatar's value is AVATAR-LOOK's format** (#626 PR 1, merged as #665, `packages/renderer/src/core/avatar/avatar-format.ts`):
-  one `u128`, byte 0 the format's version (1), byte `p + 1` the item id of part `p` (0 skin, 1 hair colour, 2 eyes,
-  3 eyebrows, 4 mouth, 5 hair, 6 beard, 7 headwear, 8 accessory, 9 background), bytes 11 to 15 reserved (0). The look the
-  renderer's `encodeAvatar` returns is the value `set_avatar` takes, and `decodeAvatar` reads what `avatar` returns.
+- **The avatar's value is the client's look** (AVATAR-LIVING, `packages/renderer/src/core/avatar/avatar-look.ts`; AVATAR-LOOK's
+  format of #626 PR 1 until 2026-10-31): one `u128`, byte 0 the format's version (1), byte `p + 1` the item id of part `p`,
+  the client's traits (0 skin, 1 hair colour, 2 eyes, 3 outfit, 4 pauldrons, 5 hair style, 6 beard, 7 headwear,
+  8 accessory), the bytes past them 0. The contract never reads what a part means. A trait took the byte of the old part
+  closest to it (skin, hair colour, eyes, hair, beard, headwear and accessory kept theirs; the outfit and the pauldrons took
+  the eyebrows' and the mouth's; the background's byte stays 0), so a look saved before is read as traits, an id past a
+  trait's options as its first. The look the renderer's `encodeTraits` returns is the value `set_avatar` takes, and
+  `decodeTraits` reads what `avatar` returns.
+- **The free items, per trait** (2026-10-31, the owner's go to set them as is standard): every option of what a player is
+  (skin, hair colour, eyes, hair style, beard) and of the plain gear (outfits, pauldrons, accessories) is free, and the
+  crown, none, the helmet and the hood of the headwear; the Wizard hat and the Feathered cap are the paid items. No skin tone
+  is ever paid. `scripts/deploy.sh` lists them (`FRESH_AVATAR_FREE`, the first items of each part), the mocks the same
+  (`packages/app/src/mocks/avatar.ts`, a test keeps the two equal).
 - **The calls**: `set_parts`, `set_price_bounds`, `set_item`, `withdraw_item`, `set_setup` (owner); `buy_avatar_item`,
   `set_avatar` (any account, for itself); the views `avatar`, `owned`, `item`, `items`, `parts`, `price_bounds`, `setup`.
 
@@ -94,11 +104,13 @@ whole from `Setup`'s events alone, as it does for the matchmaker and the village
 - **Data hooks** (`packages/app/src/data/avatar.ts`): `useAvatar(player)` (the menus, #624: the look and its ids),
   `useAvatarCatalogue(player)` (the creator, #626 PR 2: the parts, the bounds, every part's items, the player's owned bitmaps,
   the look and the balance) and `useAvatarWrites(player)` (`buy`, `save`, receipts into the cache). The creator turns a look
-  into the renderer's `Avatar` with `decodeAvatar`, and back with `encodeAvatar`. The mock data source has no `Avatar`: the
+  into item ids with `decodeTraits`, and back with `encodeTraits`. The mock data source has no `Avatar`: the
   hooks answer null there.
 - **Deployment** (`scripts/deploy.sh`, not run in this task): declare and deploy `Avatar(owner, Setup)`,
-  `Setup.set_spender(Avatar, true)` in the wiring, then the defaults (`FRESH_AVATAR_*`: ten parts, bounds 20 to 100, items 0
-  to 3 of every part free) in one multicall, read back. No paid item is listed by the script.
+  `Setup.set_spender(Avatar, true)` in the wiring, then the defaults (`FRESH_AVATAR_*`: nine parts, the traits; bounds 20 to
+  100; the free items of each trait, `FRESH_AVATAR_FREE`) in one multicall, read back. A rerun on a deployment of the ten
+  parts before sends only what it lacks: the free items the traits added (it keeps the tenth part, whose byte stays 0, at its
+  free item 0). No paid item is listed by the script.
 - **Tests** (snforge): `paved::tests::avatar::` (the format's vectors, shared with `packages/chain/test/avatar.test.ts`, the
   parts, the bounds, a purchase once and never twice, Cobbles never below zero, `set_avatar` never accepting a part neither
   free nor owned, the version and the bytes past the parts, `supply` and `until`, only an allowlisted spender spends, a fuzz

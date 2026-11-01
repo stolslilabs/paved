@@ -1,31 +1,31 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { AVATAR_PARTS, type Avatar, type AvatarPart } from "@paved/renderer";
+import type { Trait } from "@paved/renderer";
 import { formatDate } from "@paved/game-core";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { AvatarPreview3D } from "../elements/avatar-preview";
+import { LiveAvatar } from "../elements/live-avatar";
 import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { AvatarSwatches } from "../containers/avatar-swatches";
-import { PART_TITLES, partsInUse, sameAvatar, unusableParts, type AvatarOffers } from "../containers/avatar-types";
+import { optionName, PART_TITLES, partsInUse, sameAvatar, traitsOf, unusableParts, type AvatarOffers, type TraitIds } from "../containers/avatar-types";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
 
 /** The creator's state: the saved avatar (the chain's), the draft, the balance and the offers, and the writes on their way. */
 export interface AvatarCreator {
-  /** The avatar saved on chain: every part at 0 when none is. */
-  saved: Avatar;
+  /** The look saved on chain, by item ids: every trait at 0 (the king) when none is. */
+  saved: TraitIds;
   /**
-   * No avatar is saved on chain yet (look 0): the menus show the initial, so the draft can be saved as it is, the default
-   * head included (it is a look of its own once saved).
+   * No avatar is saved on chain yet (look 0): the menus show the initial, so the draft can be saved as it is, the king
+   * included (he is a look of its own once saved).
    */
   unsaved?: boolean;
-  /** The avatar being made: Save writes it. */
-  draft: Avatar;
+  /** The look being made: Save writes it. */
+  draft: TraitIds;
   /** `Setup.account(player_id).cobbles`. */
   balance: number;
   offers: AvatarOffers;
@@ -34,7 +34,7 @@ export interface AvatarCreator {
   /** `set_avatar`: on its way, or just done (the draft is the saved one). */
   save?: "idle" | "saving" | "saved";
   /** The item whose `buy_avatar_item` is on its way. */
-  buying?: { part: AvatarPart; id: number } | null;
+  buying?: { part: Trait; id: number } | null;
   /** The last write refused or failed: shown until dismissed or the next write. */
   refusal?: string | null;
   refusalDetail?: ErrorDetail;
@@ -44,10 +44,10 @@ export interface AvatarCreatorSceneProps {
   /** The creator's data; omitted, `status` says why; null: the network has no avatar contract yet. */
   creator?: AvatarCreator | null;
   status?: SkinsStatus | null;
-  /** The tab open first (the first part in use by default). */
-  part?: AvatarPart;
-  onPick?: (part: AvatarPart, id: number) => void;
-  onBuy?: (part: AvatarPart, id: number) => void;
+  /** The tab open first (the first trait in use by default). */
+  part?: Trait;
+  onPick?: (part: Trait, id: number) => void;
+  onBuy?: (part: Trait, id: number) => void;
   onSave?: () => void;
   onRandomise?: () => void;
   /** Back to the saved avatar. */
@@ -62,19 +62,19 @@ export interface AvatarCreatorSceneProps {
 /** A seasonal end, as "Ends 23 Nov". */
 const endsOn = (until: number) => `Ends ${formatDate(until * 1000, { day: "numeric", month: "short", timeZone: "UTC" })}`;
 
-/** The names of a list of parts' variants, for a sentence: "Crown and City". */
-function partNames(draft: Avatar, parts: readonly AvatarPart[]): string {
-  const names = parts.map((part) => AVATAR_PARTS[part][draft[part]] ?? PART_TITLES[part]);
+/** The names of a list of traits' options, for a sentence: "Wizard hat and Feathered cap". */
+function partNames(draft: TraitIds, parts: readonly Trait[]): string {
+  const names = parts.map((part) => optionName(part, draft[part]) ?? PART_TITLES[part]);
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
 /**
- * The avatar creator (`/avatar`, #626 PR 2), from Edit avatar in the profile sheet. Mobile first: the head on top, the page's
- * one live 3D preview (drag to turn it); the parts in use as tabs; each part's variants as a grid of swatches, the draft
- * wearing each. A tap tries any variant on; a free or owned one can be saved, one on sale shows its Cobble price with Buy
- * (one `buy_avatar_item`, at the price shown), one off sale cannot be had. Save writes the draft on chain (one `set_avatar`)
- * once every part is free or owned; Randomise draws among those. From `desktop` the head stays on the left, the parts on the
- * right.
+ * The avatar creator (`/avatar`, #626 PR 2), from Edit avatar in the profile sheet. Mobile first: the bust on top, the page's
+ * one live avatar (its idle, its head following the cursor on a desktop); the traits in use as tabs; each trait's options as a
+ * grid of swatches, the draft wearing each. A tap tries any option on; a free or owned one can be saved, one on sale shows its
+ * Cobble price with Buy (one `buy_avatar_item`, at the price shown), one off sale cannot be had. Save writes the draft on chain
+ * (one `set_avatar`) once every trait is free or owned; Randomise draws among those. From `desktop` the bust stays on the left,
+ * the traits on the right.
  */
 export function AvatarCreatorScene({ creator, status, part, onPick, onBuy, onSave, onRandomise, onReset, onDismissRefusal, onBuyCobbles, onConnect, onRetry, onBack }: AvatarCreatorSceneProps) {
   return (
@@ -151,9 +151,10 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
   return (
     <main className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-28 tablet:max-w-2xl desktop:max-w-5xl desktop:grid-cols-[20rem_minmax(0,1fr)] desktop:items-start desktop:gap-8 desktop:pb-10">
       <section aria-label="Your avatar" className="flex flex-col items-center gap-3 desktop:sticky desktop:top-4">
-        {/* One canvas at every width: it follows its box, 208 px, 288 px from `desktop`. */}
-        <AvatarPreview3D avatar={draft} className="size-52 desktop:size-72" />
-        <p className="text-center text-xs text-muted-foreground">Drag the head to turn it.</p>
+        {/* One canvas at every width: it follows its box, 208 px, 288 px from `desktop`; the disc shows while it loads. */}
+        <div className="size-52 rounded-full bg-muted desktop:size-72">
+          <LiveAvatar traits={traitsOf(draft)} className="size-full" />
+        </div>
         <Actions
           className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur desktop:static desktop:w-full desktop:border-0 desktop:bg-transparent desktop:p-0 desktop:backdrop-blur-none"
           canSave={savable && unusable.length === 0 && !busy}
@@ -170,7 +171,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
           </p>
         )}
       </section>
-      <section aria-label="Parts" className="flex min-w-0 flex-col gap-3">
+      <section aria-label="Traits" className="flex min-w-0 flex-col gap-3">
         <InlineError
           title="Not done"
           message={refusal}
@@ -184,7 +185,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
           }
         />
         <Tabs value={tab} onValueChange={setTab}>
-          {/* Ten parts do not fit a phone's width: the list scrolls sideways, each tab as wide as its name. */}
+          {/* Nine traits do not fit a phone's width: the list scrolls sideways, each tab as wide as its name. */}
           <div ref={strip} className="-mx-4 desktop:mx-0">
             <ScrollRegion orientation="horizontal" className="px-4 desktop:px-0">
               <TabsList className="auto-cols-max">
@@ -202,7 +203,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
               <TabsContent key={p} value={p} className="flex flex-col gap-3">
                 {offer?.kind === "sale" && (
                   <BuyCard
-                    name={AVATAR_PARTS[p][draft[p]]!}
+                    name={optionName(p, draft[p])!}
                     cobbles={offer.cobbles}
                     until={offer.until > now ? offer.until : 0}
                     balance={balance}
@@ -271,7 +272,7 @@ interface BuyCardProps {
   onBuyCobbles?: () => void;
 }
 
-/** The variant tried on is on sale: its price, its season's end, and Buy; Get Cobbles when the balance is short. */
+/** The option tried on is on sale: its price, its season's end, and Buy; Get Cobbles when the balance is short. */
 function BuyCard({ name, cobbles, until, balance, buying, disabled, onBuy, onBuyCobbles }: BuyCardProps) {
   const short = balance < cobbles;
   return (

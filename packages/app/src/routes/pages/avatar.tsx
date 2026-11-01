@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AVATAR_PARTS, AVATAR_PART_KEYS, decodeAvatar, encodeAvatar, type Avatar, type AvatarPart } from "@paved/renderer";
+import { TRAIT_PARTS, type Trait } from "@paved/renderer";
 import { errorDetail } from "../error-detail";
-import { randomUsable, sameAvatar, withPart } from "../../components/containers/avatar-types";
+import { idsOfLook, lookOf, optionName, randomUsable, sameAvatar, withPart, type TraitIds } from "../../components/containers/avatar-types";
 import { AvatarCreatorScene, type AvatarCreator } from "../../components/scenes/avatar-creator-scene";
 import { avatarKeys } from "../../data/avatar";
 import { useAvatarCatalogue, useAvatarWrites } from "../../data/avatar-catalogue";
@@ -18,8 +18,8 @@ import { skinsStatus } from "../skins-status";
 /**
  * `/avatar` (#626 PR 2): the avatar creator, from Edit avatar in the profile sheet. The catalogue, the player's items, their
  * saved look and their Cobbles from the chain (`useAvatarCatalogue`); the draft is the page's, from the saved look. Buy sends
- * one `buy_avatar_item` at the price the swatch showed; Save one `set_avatar` of the draft in AVATAR-LOOK's format
- * (`encodeAvatar`). The receipts' events go into the cache (`useAvatarWrites`), and the menus' avatar reads the same look.
+ * one `buy_avatar_item` at the price the swatch showed; Save one `set_avatar` of the draft as the traits' look
+ * (`encodeTraits`). The receipts' events go into the cache (`useAvatarWrites`), and the menus' avatar reads the same look.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -34,10 +34,10 @@ export default function Page() {
   // A seasonal sale's end is read against the time the page opened: the chain refuses a sale past its end anyway.
   const [now] = useState(() => Math.floor(Date.now() / 1000));
   // The draft: null is the saved avatar, so a save made on another device shows here until the player changes a part.
-  const [changes, setChanges] = useState<Avatar | null>(null);
+  const [changes, setChanges] = useState<TraitIds | null>(null);
 
   const catalogue = read.data;
-  const saved = catalogue ? decodeAvatar(catalogue.look) : null;
+  const saved = catalogue ? idsOfLook(catalogue.look) : null;
   const draft = changes ?? saved;
   // The saved look read again (a save's receipt, another device): a draft equal to it is no change any more.
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function Page() {
       ? {
           // Both read from the catalogue: neither is null once it is in.
           saved: saved!,
-          // Look 0: nothing saved yet, so the default head can be saved as it is.
+          // Look 0: nothing saved yet, so the king can be saved as he is.
           unsaved: catalogue.look === 0n,
           draft: draft!,
           balance: catalogue.balance,
@@ -66,19 +66,19 @@ export default function Page() {
   // from the write (TanStack's `mutation.reset` cancels nothing), and the save's completion would then clear a newer draft.
   const busy = writes.saving || writes.buying !== null;
 
-  const edit = (next: Avatar) => {
+  const edit = (next: TraitIds) => {
     if (busy) return;
     writes.reset();
     setChanges(next);
   };
 
-  const buy = (part: AvatarPart, id: number) => {
+  const buy = (part: Trait, id: number) => {
     const offer = creator?.offers[part]?.[id];
     // The price the swatch shows: the writer reads the item again at send and refuses another.
     if (!offer || offer.kind !== "sale" || busy) return;
     writes.reset();
     writes.buy(partIndex(part), id, offer.cobbles).then(
-      () => toast.success(`${AVATAR_PARTS[part][id]} bought`, { description: "It is yours: save your avatar to wear it." }),
+      () => toast.success(`${optionName(part, id)} bought`, { description: "It is yours: save your avatar to wear it." }),
       () => undefined,
     );
   };
@@ -87,7 +87,7 @@ export default function Page() {
     if (!draft || busy) return;
     const sent = draft;
     writes.reset();
-    writes.save(encodeAvatar(sent)).then(
+    writes.save(lookOf(sent)).then(
       () => {
         // The draft saved is the chain's now; a draft that differs from it (none while the save is on its way) stays.
         setChanges((current) => (current === null || sameAvatar(current, sent) ? null : current));
@@ -126,6 +126,6 @@ export default function Page() {
   );
 }
 
-/** A part's index in the format (the chain's part number), and back. */
-const partIndex = (part: AvatarPart): number => AVATAR_PART_KEYS.indexOf(part);
-const partKey = (index: number): AvatarPart => AVATAR_PART_KEYS[index]!;
+/** A trait's index in the look (the chain's part number), and back. */
+const partIndex = (part: Trait): number => TRAIT_PARTS.indexOf(part);
+const partKey = (index: number): Trait => TRAIT_PARTS[index]!;

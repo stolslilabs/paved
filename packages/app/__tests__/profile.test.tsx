@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
+import { KING_TRAITS, encodeTraits } from "@paved/renderer";
 import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-avatar";
 import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -28,7 +28,7 @@ describe("PlayerAvatar (#624)", () => {
   });
 
   it("a saved avatar keeps the initial until its still is rendered (no WebGL in the test's DOM: the initial stays)", () => {
-    const { container } = render(<PlayerAvatar player={{ name: "ada", address: PLAYER_ID }} look={encodeAvatar({ ...DEFAULT_AVATAR, hair: 3 })} />);
+    const { container } = render(<PlayerAvatar player={{ name: "ada", address: PLAYER_ID }} look={encodeTraits({ ...KING_TRAITS, hairStyle: "long" })} />);
     expect(container).toHaveTextContent("A");
   });
 

@@ -733,7 +733,7 @@ export class MockLedger {
     return [...this.peek(playerId).active];
   }
 
-  /** `Avatar.parts()`: the fresh deployment's ten (`mocks/avatar.ts`). */
+  /** `Avatar.parts()`: the fresh deployment's nine (`mocks/avatar.ts`). */
   async avatarParts(): Promise<number> {
     return AVATAR_PARTS_IN_USE;
   }

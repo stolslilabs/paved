@@ -848,8 +848,8 @@ export class PavedWriter {
   }
 
   /**
-   * `Avatar.set_avatar(look)`: stores the caller's avatar, one u128 in AVATAR-LOOK's format (`lookOf`, or the renderer's
-   * `encodeAvatar`); 0n clears it. Every part must be listed and free, or owned, else an `AvatarRefusedError` (`not-owned`)
+   * `Avatar.set_avatar(look)`: stores the caller's avatar, one u128 in the client's format (`lookOf`, or the renderer's
+   * `encodeTraits`); 0n clears it. Every part must be listed and free, or owned, else an `AvatarRefusedError` (`not-owned`)
    * and nothing is saved. The receipt's `AvatarSet` carries the look. A look outside a u128 is refused before anything is sent.
    */
   setAvatar(look: bigint): Promise<WriteResult> {

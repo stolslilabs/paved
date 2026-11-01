@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
+import { KING_TRAITS, encodeTraits } from "@paved/renderer";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { avatarKeys } from "../src/data/avatar";
@@ -56,23 +56,24 @@ afterEach(() => {
 });
 
 describe("/avatar: the creator", () => {
-  it("builds an avatar, buys a priced part, saves it; another device's menus read it", async () => {
+  it("builds an avatar, buys a priced item, saves it; another device's menus read it", async () => {
     const c = chain(50);
     const first = open(c, "/avatar");
     await userEvent.click(await screen.findByRole("tab", { name: "Headwear" }, { timeout: 5000 }));
-    // A free part: picked, Save on.
-    await userEvent.click(screen.getByRole("radio", { name: "Cap, free" }));
-    // A priced part tried on: Save waits for it, Buy at its price.
-    await userEvent.click(screen.getByRole("radio", { name: "Helmet, 20 Cobbles" }));
+    // A free item: picked, Save on.
+    await userEvent.click(screen.getByRole("radio", { name: "Helmet, free" }));
+    // A priced item tried on: Save waits for it, Buy at its price.
+    await userEvent.click(screen.getByRole("radio", { name: "Wizard hat, 40 Cobbles" }));
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Buy" }));
-    expect(await screen.findByRole("radio", { name: "Helmet, owned" })).toBeInTheDocument();
-    expect(c.views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(30);
+    expect(await screen.findByRole("radio", { name: "Wizard hat, owned" })).toBeInTheDocument();
+    expect(c.views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(10);
     await userEvent.click(screen.getByRole("tab", { name: "Skin tone" }));
-    await userEvent.click(screen.getByRole("radio", { name: "Ochre, free" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Brown, free" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    const look = encodeAvatar({ ...DEFAULT_AVATAR, headwear: 4, skin: 3 });
+    const look = encodeTraits({ ...KING_TRAITS, headwear: "wizard", skin: "brown" });
     expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
+    // Headwear is the look's part 7, the Wizard hat its item 4.
     expect(c.writer.sent).toEqual(["buy 7 4", `set ${look}`]);
     expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(look);
     first.unmount();
@@ -84,45 +85,45 @@ describe("/avatar: the creator", () => {
     await waitFor(() => expect(queryClient.getQueryData(avatarKeys.look(PLAYER_ID))).toBe(String(look)));
   });
 
-  it("a save on its way keeps the draft: no part can be picked, and its receipt leaves the page on the saved look", async () => {
+  it("a save on its way keeps the draft: no option can be picked, and its receipt leaves the page on the saved look", async () => {
     const c = chain();
     let release!: () => void;
     c.writer.gate = new Promise<void>((resolve) => (release = resolve));
     open(c, "/avatar");
     await userEvent.click(await screen.findByRole("tab", { name: "Hair" }, { timeout: 5000 }));
-    await userEvent.click(screen.getByRole("radio", { name: "Fringe, free" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Long, free" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-busy", "true"));
-    // A tap on another part while the save is on its way changes nothing, and the save stays pending.
-    const other = screen.getByRole("radio", { name: "Long, free" });
+    // A tap on another option while the save is on its way changes nothing, and the save stays pending.
+    const other = screen.getByRole("radio", { name: "Bald, free" });
     expect(other).toBeDisabled();
     await userEvent.click(other);
-    expect(screen.getByRole("radio", { name: "Fringe, free" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Long, free" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-busy", "true");
     release();
-    const look = encodeAvatar({ ...DEFAULT_AVATAR, hair: 2 });
+    const look = encodeTraits({ ...KING_TRAITS, hairStyle: "long" });
     expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
     expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(look);
     expect(c.writer.sent).toEqual([`set ${look}`]);
-    // Once saved, the parts can be picked again.
-    await userEvent.click(screen.getByRole("radio", { name: "Long, free" }));
-    expect(screen.getByRole("radio", { name: "Long, free" })).toHaveAttribute("aria-checked", "true");
+    // Once saved, the options can be picked again.
+    await userEvent.click(screen.getByRole("radio", { name: "Bald, free" }));
+    expect(screen.getByRole("radio", { name: "Bald, free" })).toHaveAttribute("aria-checked", "true");
   });
 
-  it("a player with no avatar saved can save the default head as it is", async () => {
+  it("a player with no avatar saved can save the king as he is", async () => {
     const c = chain();
     open(c, "/avatar");
     const save = await screen.findByRole("button", { name: "Save" }, { timeout: 5000 });
     await waitFor(() => expect(save).toBeEnabled());
     await userEvent.click(save);
     expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
-    expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(encodeAvatar(DEFAULT_AVATAR));
-    expect(c.writer.sent).toEqual([`set ${encodeAvatar(DEFAULT_AVATAR)}`]);
+    expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(encodeTraits(KING_TRAITS));
+    expect(c.writer.sent).toEqual([`set ${encodeTraits(KING_TRAITS)}`]);
   });
 
   it("Edit avatar in the profile sheet opens the creator on the saved avatar", async () => {
     const c = chain();
-    c.views.avatarPlayer(PLAYER_ID).look = encodeAvatar({ ...DEFAULT_AVATAR, hair: 2 });
+    c.views.avatarPlayer(PLAYER_ID).look = encodeTraits({ ...KING_TRAITS, hairStyle: "long" });
     const { router } = open(c, "/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: 5000 });
     await userEvent.click(screen.getAllByRole("button", { name: /^Profile: / })[0]!);
@@ -130,7 +131,7 @@ describe("/avatar: the creator", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: /Edit avatar/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/avatar"));
     await userEvent.click(await screen.findByRole("tab", { name: "Hair" }, { timeout: 5000 }));
-    expect(screen.getByRole("radio", { name: "Fringe, free" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Long, free" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("a returning guest connects from the creator, and stays on it", async () => {

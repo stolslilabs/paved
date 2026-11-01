@@ -1,5 +1,5 @@
 import type { AvatarItem } from "@paved/chain";
-import { AVATAR_PARTS, AVATAR_PART_KEYS } from "@paved/renderer";
+import { TRAIT_OPTIONS, TRAIT_PARTS } from "@paved/renderer";
 import type { AvatarOffer, AvatarOffers } from "../components/containers/avatar-types";
 import type { AvatarCatalogue } from "./avatar-catalogue";
 
@@ -25,9 +25,9 @@ export function avatarOffer(item: AvatarItem | undefined, owned: bigint, id: num
  */
 export function avatarOffers(catalogue: Pick<AvatarCatalogue, "parts" | "items" | "owned">, now: number): AvatarOffers {
   return Object.fromEntries(
-    AVATAR_PART_KEYS.slice(0, catalogue.parts).map((part, p) => [
-      part,
-      AVATAR_PARTS[part].map((_, id) => avatarOffer(catalogue.items[p]?.[id], catalogue.owned[p] ?? 0n, id, now)),
+    TRAIT_PARTS.slice(0, catalogue.parts).map((trait, p) => [
+      trait,
+      TRAIT_OPTIONS[trait].map((_, id) => avatarOffer(catalogue.items[p]?.[id], catalogue.owned[p] ?? 0n, id, now)),
     ]),
   );
 }

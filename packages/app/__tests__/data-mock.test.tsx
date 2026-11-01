@@ -39,7 +39,7 @@ import { dataOf, fakeSources, memoryStore, renderData } from "./data-fakes";
 import { buyGame, mockImplementation, playGame, surrenderedGame } from "./mock-fakes";
 import { FakeSkinWriter } from "./skin-fakes";
 import { FakeAvatarWriter } from "./avatar-fakes";
-import { DEFAULT_AVATAR, encodeAvatar } from "@paved/renderer";
+import { KING_TRAITS, encodeTraits } from "@paved/renderer";
 import { savedLook, useAvatar } from "../src/data/avatar";
 import { useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogue";
 import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../src/mocks/avatar";
@@ -197,23 +197,24 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     const sources = make();
     const { result } = renderData(() => ({ catalogue: useAvatarCatalogue(PLAYER), writes: useAvatarWrites(PLAYER), avatar: useAvatar(PLAYER), buy: useBuyPack(PLAYER) }), sources);
     await waitFor(() => expect(result.current.catalogue.data?.parts).toBe(AVATAR_PARTS_IN_USE));
-    expect(result.current.catalogue.data!.items[7]![6]).toMatchObject({ state: 1, cobbles: 60 });
+    // The Wizard hat (headwear, part 7, item 4) costs 40 Cobbles.
+    expect(result.current.catalogue.data!.items[7]![4]).toMatchObject({ state: 1, cobbles: 40 });
     expect(result.current.avatar.data).toEqual({ look: 0n, ids: null });
-    await act(() => result.current.buy.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
-    await waitFor(() => expect(result.current.catalogue.data?.balance).toBe(50));
-    // The Crown (headwear 6) costs 60: refused, nothing spent; the Helmet (headwear 4) costs 20.
-    const short = await result.current.writes.buy(7, 6, 60).catch((e: unknown) => e);
+    // No Cobbles yet: refused, nothing spent.
+    const short = await result.current.writes.buy(7, 4, 40).catch((e: unknown) => e);
     expect(short).toBeInstanceOf(AvatarRefusedError);
     expect((short as AvatarRefusedError).reason).toBe("not-enough-cobbles");
-    await act(() => result.current.writes.buy(7, 4, 20));
-    await waitFor(() => expect(result.current.catalogue.data?.balance).toBe(30));
+    await act(() => result.current.buy.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
+    await waitFor(() => expect(result.current.catalogue.data?.balance).toBe(50));
+    await act(() => result.current.writes.buy(7, 4, 40));
+    await waitFor(() => expect(result.current.catalogue.data?.balance).toBe(10));
     expect(result.current.catalogue.data!.owned[7]).toBe(1n << 4n);
-    const look = encodeAvatar({ ...DEFAULT_AVATAR, headwear: 4, skin: 2 });
+    const look = encodeTraits({ ...KING_TRAITS, headwear: "wizard", skin: "tan" });
     await act(() => result.current.writes.save(look));
     await waitFor(() => expect(result.current.avatar.data?.look).toBe(look));
     expect(savedLook(result.current.avatar.data)).toBe(look);
     // An item neither free nor owned is refused, and the look stays.
-    const unowned = await result.current.writes.save(encodeAvatar({ ...DEFAULT_AVATAR, headwear: 5 })).catch((e: unknown) => e);
+    const unowned = await result.current.writes.save(encodeTraits({ ...KING_TRAITS, headwear: "feathered" })).catch((e: unknown) => e);
     expect((unowned as AvatarRefusedError).reason).toBe("not-owned");
   });
 
