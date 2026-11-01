@@ -99,29 +99,3 @@ describe("the world's icons (#870)", () => {
     expect(container.querySelectorAll("mask")).toHaveLength(5);
   });
 });
-
-describe("the currencies in relief (#844, the owner's pick: Relief)", () => {
-  const token = (kind: string) => read(`src/assets/tokens/${kind}.svg`);
-
-  // The Cobbles' icon is its own pick (issue 849, `cobbles.svg`); the coins' shape and colours are #853's (`coins.test.ts`).
-  it("give PAVED and vPAVED a thick dark outline, a lit gradient, a white light and a shadow under them", () => {
-    for (const kind of ["paved", "vpaved"]) {
-      const svg = token(kind);
-      expect(svg, kind).toContain("<linearGradient");
-      expect(svg, kind).toMatch(/fill="#fff" fill-opacity="\.[56]/);
-      expect(svg, kind).toMatch(/opacity="\.45"/);
-      // The outline: the coin's tone mixed toward the ink (#853, the gold's and the steel's edge).
-      expect(svg, kind).toMatch(/stroke="#(?:373126|343538)" stroke-width="72"/);
-    }
-  });
-
-  it("keep USDC's mark unaltered, in its own colours, with the outline, the light and the shadow around it", () => {
-    const svg = token("usdc");
-    expect(svg).toContain('<path fill="#2775CA" d="M996 0h9');
-    expect(svg).toContain('<path fill="#FEFEFE"');
-    expect(svg).not.toContain("<linearGradient");
-    // The ring and the shadow come before the mark: nothing is painted over it.
-    expect(svg.indexOf('fill-opacity=".45"')).toBeLessThan(svg.indexOf("#2775CA"));
-    expect(svg.indexOf('fill="#0B2545"')).toBeLessThan(svg.indexOf("#2775CA"));
-  });
-});

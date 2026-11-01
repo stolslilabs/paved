@@ -190,16 +190,19 @@ describe("the plates (#828)", () => {
     expect(plates.map((p) => p.dataset.token)).toEqual(["usdc", "paved", "vpaved", "cobbles"]);
     for (const plate of plates) {
       expect(plate.dataset.side).toBe("right");
-      // The icon is the plate's last part (over the right end), the box its first: no "+" over the left end.
+      // The icon is the plate's last part (over the right end), the box its first, on the stone frame: no "+" over the left end.
       expect(plate.lastElementChild!.querySelector("[data-slot=token-icon]")).not.toBeNull();
-      expect(plate.firstElementChild).toHaveClass("bg-resource-plate");
+      expect(plate.firstElementChild!.querySelector("[data-slot=plate-art]")).not.toBeNull();
     }
   });
 
-  it("the Cobbles' plate keeps its gold edge and its shine without the \"+\" (#925, open point 1)", () => {
+  it("the Cobbles' plate keeps its shine, on its slate face, without the \"+\" (#925, open point 1)", () => {
     const { container } = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
-    expect(container.querySelector("[data-slot=resource-plate] .h-8")).toHaveClass("border-primary/60");
-    expect(container.querySelector(".plate-shine")).not.toBeNull();
+    const shine = container.querySelector<HTMLElement>(".plate-shine")!;
+    expect(shine).not.toBeNull();
+    // Between the rows of bricks (`PLATE_FACE`), not over them.
+    expect(shine.parentElement!.style.top).toBe("22.5%");
+    expect(container.querySelectorAll(".plate-shine")).toHaveLength(1);
   });
 
   it("the plates are larger from desktop (`rail`) than on a phone (`pill`), the icon taller than the box (#213)", () => {

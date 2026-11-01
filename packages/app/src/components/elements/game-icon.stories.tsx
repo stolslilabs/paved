@@ -163,8 +163,8 @@ export const Tones: Story = {
 };
 
 /**
- * The currencies in the HUD's relief (issue 844), the app's own files (`src/assets/tokens/`), on each of the home's skies at 24 and
- * 48 px. USDC's mark stays unaltered (Circle's guidelines): the outline, the light and the shadow are around it.
+ * The currencies (`TokenIcon`, the owner's direction A of 2026-11-01, `token-art.ts`) on each of the home's skies at 24 and 48 px,
+ * beside the HUD's icons. USDC's mark stays unaltered (Circle's guidelines): only the coin around it is the game's.
  */
 export const Currencies: Story = {
   render: () => (

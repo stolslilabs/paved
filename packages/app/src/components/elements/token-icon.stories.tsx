@@ -68,8 +68,9 @@ const COIN_SURFACES = [
 ] as const;
 
 /**
- * PAVED's gold coin and vPAVED's silver one (#853): Font Awesome's `coin-front` with the Almendra "P", in the game icons' relief.
- * From 16 to 64 px beside the Cobbles and USDC, on dark and on light; in the balances' plates; in a sentence.
+ * The currencies in the player badge's rendering (the owner's direction A of 2026-11-01, `token-art.ts`): PAVED's gold coin and
+ * vPAVED's silver one, the same coin, beside the Cobbles' stone and USDC's coin. From 16 to 64 px, on dark and on light; in the
+ * balances' stone plates; in a sentence.
  */
 export const Coins: Story = {
   render: () => (
