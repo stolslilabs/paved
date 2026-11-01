@@ -162,7 +162,7 @@ const fraction = (progress: Mission["progress"]): number =>
  * mission (`MissionCard`); under it the missions as icons (`MissionTile`): the Limited ones, a Daily and a Weekly row each with its
  * reset's countdown, then the Lifetime ones. Each row has its period's milestones graph above its icons (`MilestonesBar`, the
  * day's #869, the week's #976): an edge per quest done and a gift node per milestone's Cobbles, opened (claimed) with a tap on it;
- * the week's gifts are larger, and no weekly pays on its own any more, nor a week's bonus. On arrival the first mission not done is
+ * the week's gifts are the day's size, told apart by their ribbon (blue, a gold seam), and no weekly pays on its own any more, nor a week's bonus. On arrival the first mission not done is
  * selected (Daily, then Weekly, then Lifetime; with everything done, the first one); a tap on an icon selects it, the card
  * updates in place and the page does not scroll. The card sticks under the page's header while the list scrolls (#988, from a
  * viewport 560 px tall), so the tapped mission always shows; no tile shows Cobbles, the card does. Cobbles are the only reward: no free game, no day picker. Claims go from the

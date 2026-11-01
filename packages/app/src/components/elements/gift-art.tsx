@@ -11,6 +11,13 @@ import { cn } from "../../lib/utils";
  */
 export type GiftArtState = "locked" | "lit" | "ready" | "shaking" | "opening" | "open";
 
+/**
+ * Whose gift it is (the owner's decision of 2026-11-01): the day's (red ribbon) or the week's, the bigger rewards, drawn at the same
+ * size and marked by its ribbon alone: a deep river blue (`--gift-week`) with a gold seam down each band, in every state (greyed when locked,
+ * the seam kept, so the shape still tells it apart).
+ */
+export type GiftArtVariant = "day" | "week";
+
 /** The lid's flight off the box (s), and when the light peaks: the reward shows then. */
 export const GIFT_LID_S = 0.45;
 export const GIFT_LIGHT_S = 0.3;
@@ -35,33 +42,39 @@ export interface GiftArtProps {
   state?: GiftArtState;
   /** The opening's last frame at once (the stories): the lid off, the light held. */
   held?: boolean;
+  /** The day's gift (the default) or the week's: its ribbon blue with a gold seam, never larger. */
+  variant?: GiftArtVariant;
   className?: string;
 }
 
 /**
- * A small gift drawn for the day's milestones (issue 869): a box in the gold of the primary, a red ribbon, a lid with its bow, so that
+ * A small gift drawn for the milestones, the day's (issue 869) and the week's (#976, `variant`): a box in the gold of the primary, a red ribbon, a lid with its bow, so that
  * a reward node needs no figure on it. Decorative (`aria-hidden`): the node names the reward. Its size is the font size (1em). Under
  * reduced motion nothing shakes or flies: the opening shows the gift open at once.
  */
-export function GiftArt({ state = "ready", held = false, className }: GiftArtProps) {
+export function GiftArt({ state = "ready", held = false, variant = "day", className }: GiftArtProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const muted = state === "locked";
   const opened = state === "opening" || state === "open";
   const fly = state === "opening" && !reduced && !held;
   const still = reduced || muted || opened || state === "lit";
   const box = muted ? paint("muted-foreground", 0.45) : paint("primary");
-  const ribbon = muted ? paint("muted-foreground") : paint("destructive");
+  const week = variant === "week";
+  const ribbon = muted ? paint("muted-foreground") : paint(week ? "gift-week" : "destructive");
+  // The week's seam down the middle of each ribbon band: gold on the blue, the card's dark on the greyed ribbon.
+  const seam = muted ? paint("card", 0.7) : paint("primary");
   const lid = (
     <>
       <rect x="3" y="10" width="26" height="6" rx="1.5" style={box} />
       <rect x="3" y="10" width="26" height="1.5" rx="0.75" style={paint("foreground", 0.25)} />
       <rect x="14" y="10" width="4" height="6" style={ribbon} />
+      {week && <rect data-part="seam" x="15.4" y="10" width="1.2" height="6" style={seam} />}
       <path d="M16 10C12 3 6 4 7.5 8.2 8.4 10 12.5 10 16 10ZM16 10C20 3 26 4 24.5 8.2 23.6 10 19.5 10 16 10Z" style={ribbon} />
       <circle cx="16" cy="9.6" r="2" style={ribbon} />
     </>
   );
   return (
-    <span aria-hidden data-slot="gift-art" data-state={state} className={cn("relative inline-grid place-items-center", className)}
+    <span aria-hidden data-slot="gift-art" data-state={state} data-variant={variant} className={cn("relative inline-grid place-items-center", className)}
       style={{ width: "1em", height: "1em" }}>
       {opened && (
         // The light out of the open box: a glow that swells and settles, held while the gift is open.
@@ -92,6 +105,7 @@ export function GiftArt({ state = "ready", held = false, className }: GiftArtPro
         <rect x="5" y="15" width="22" height="14" rx="2" style={box} />
         <rect x="5" y="15" width="22" height="3" style={paint("background", 0.3)} />
         <rect x="14" y="15" width="4" height="14" style={ribbon} />
+        {week && <rect data-part="seam" x="15.4" y="15" width="1.2" height="14" style={seam} />}
         {opened && <rect x="7" y="15" width="18" height="1.5" rx="0.75" style={paint("primary-foreground", 0.6)} />}
         <m.g
           data-part="lid"
