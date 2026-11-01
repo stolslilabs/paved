@@ -11,7 +11,7 @@ import { Cobbles } from "../elements/cobbles";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { AvatarSwatches } from "../containers/avatar-swatches";
-import { optionName, PART_TITLES, partsInUse, sameAvatar, traitsOf, unusableParts, type AvatarOffers, type TraitIds } from "../containers/avatar-types";
+import { optionName, PART_TITLES, partsInUse, rarityOf, sameAvatar, traitsOf, unusableParts, type AvatarOffers, type TraitIds } from "../containers/avatar-types";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
 
@@ -185,7 +185,7 @@ function Creator({ creator, part, onPick, onBuy, onSave, onRandomise, onReset, o
           }
         />
         <Tabs value={tab} onValueChange={setTab}>
-          {/* Nine traits do not fit a phone's width: the list scrolls sideways, each tab as wide as its name. */}
+          {/* Ten traits do not fit a phone's width: the list scrolls sideways, each tab as wide as its name. */}
           <div ref={strip} className="-mx-4 desktop:mx-0">
             <ScrollRegion orientation="horizontal" className="px-4 desktop:px-0">
               <TabsList className="auto-cols-max">
@@ -272,13 +272,17 @@ interface BuyCardProps {
   onBuyCobbles?: () => void;
 }
 
-/** The option tried on is on sale: its price, its season's end, and Buy; Get Cobbles when the balance is short. */
+/** The option tried on is on sale: its rarity, price and season's end, and Buy; Get Cobbles when the balance is short. */
 function BuyCard({ name, cobbles, until, balance, buying, disabled, onBuy, onBuyCobbles }: BuyCardProps) {
   const short = balance < cobbles;
+  const rarity = rarityOf(cobbles);
   return (
     <div data-slot="card" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-primary/40 bg-card p-3">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-sm font-semibold wrap-anywhere">{name}</span>
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-sm font-semibold wrap-anywhere">{name}</span>
+          {rarity && <span className="text-xs font-medium text-primary">{rarity}</span>}
+        </span>
         <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
           <Cobbles value={cobbles} size="sm" />
           {until > 0 && <span>{endsOn(until)}</span>}

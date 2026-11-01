@@ -356,6 +356,8 @@ class KingStage {
   private built: { dispose(): void }[] = [];
   private placed: Mesh[] = [];
   private backdrop: CanvasTexture | null = null;
+  /** The URL of the backdrop shown (none yet: null). */
+  backdropUrl: string | null = null;
 
   constructor() {
     // Light as the target's: bright and soft, a sky over a warm ground, a key from above at the camera's left, a cool fill.
@@ -444,7 +446,8 @@ class KingStage {
   }
 
   /** The backdrop behind the bust: `image` blurred by `blur` px at 512 px, drawn past its edges so the blur does not darken the rim. */
-  setBackdrop(image: CanvasImageSource, blur: number): void {
+  setBackdrop(image: CanvasImageSource, blur: number, url: string | null = null): void {
+    this.backdropUrl = url;
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 512;
     const ctx = canvas.getContext("2d");
@@ -461,6 +464,7 @@ class KingStage {
     this.clear();
     this.backdrop?.dispose();
     this.backdrop = null;
+    this.backdropUrl = null;
     this.scene.background = null;
   }
 
@@ -507,9 +511,12 @@ function disposeComposer(composer: EffectComposer) {
   composer.dispose();
 }
 
+/** A backdrop's URL by its name (the app's images): the scene behind the bust, blurred. */
+export type BackdropUrl = (name: Traits["backdrop"]) => string;
+
 export interface KingAvatarOptions {
-  /** The backdrop's URL, blurred behind the bust (`blur` px at 512 px). */
-  backdrop?: string;
+  /** The backdrops' URLs by name (the traits pick one), blurred behind the bust (`blur` px at 512 px); none: the clear colour. */
+  backdrops?: BackdropUrl;
   blur?: number;
   pixelRatio?: number;
   random?: () => number;
@@ -583,17 +590,7 @@ export class KingAvatar {
     this.renderer.setPixelRatio(Math.min(2, options.pixelRatio ?? window.devicePixelRatio ?? 1));
     this.stage.build(traits);
     this.composer = kingComposer(this.renderer, this.stage);
-    if (options.backdrop) {
-      loadBackdrop(options.backdrop).then(
-        (image) => {
-          if (this.disposed) return;
-          this.stage.setBackdrop(image, options.blur ?? 3);
-          this.request();
-        },
-        // No backdrop: the bust on the clear colour.
-        () => {},
-      );
-    }
+    this.showBackdrop(traits);
     this.setView({});
     this.resizer = typeof ResizeObserver === "function" ? new ResizeObserver(this.onResize) : null;
     this.resizer?.observe(container);
@@ -624,13 +621,30 @@ export class KingAvatar {
     return [((v.x + 1) / 2) * w, ((1 - v.y) / 2) * h];
   }
 
-  /** Builds the bust for other traits (the creator's draft), in the same context. */
+  /** Builds the bust for other traits (the creator's draft), in the same context; a new backdrop once its image is in. */
   setTraits(traits: Partial<Traits>): void {
     const all: Traits = { ...KING_TRAITS, ...traits };
     this.stage.build(all);
     this.limits = trackLimits(all);
+    this.showBackdrop(all);
     this.request();
   }
+
+  /** The traits' backdrop behind the bust, once loaded (the last asked wins); a failed one leaves the one shown. */
+  private showBackdrop(traits: Traits) {
+    const url = this.options.backdrops?.(traits.backdrop);
+    if (!url || url === this.stage.backdropUrl) return;
+    this.wantedBackdrop = url;
+    loadBackdrop(url).then(
+      (image) => {
+        if (this.disposed || this.wantedBackdrop !== url) return;
+        this.stage.setBackdrop(image, this.options.blur ?? 3, url);
+        this.request();
+      },
+      () => {},
+    );
+  }
+  private wantedBackdrop: string | null = null;
 
   /** Blends an emote in over the idle (a new one replaces the one playing). */
   play(emote: Emote): void {
@@ -811,8 +825,8 @@ export interface KingStillStats {
 }
 
 export interface KingStillsOptions {
-  /** The backdrop's URL, blurred behind every still (`blur` px at 512 px), as the live bust's. */
-  backdrop?: string;
+  /** The backdrops' URLs by name (the traits pick one), blurred behind each still (`blur` px at 512 px), as the live bust's. */
+  backdrops?: BackdropUrl;
   blur?: number;
   /** How long the context lives without a render before it is released. */
   idleMs?: number;
@@ -872,7 +886,8 @@ export class KingStills {
     }
     let pending = this.pending.get(key);
     if (!pending) {
-      const backdrop = this.options.backdrop ? loadBackdrop(this.options.backdrop).catch(() => null) : Promise.resolve(null);
+      const url = this.options.backdrops?.(traits.backdrop) ?? null;
+      const backdrop = url ? loadBackdrop(url).then((image) => ({ image, url }), () => null) : Promise.resolve(null);
       pending = this.queue
         .then(nextTask)
         .then(() => backdrop)
@@ -923,17 +938,18 @@ export class KingStills {
   }
 
   /** Draws the bust at rest for `traits` on a `px` square and reads it, in the same task (the drawing buffer is not kept). */
-  protected draw(traits: Traits, px: number, backdrop: CanvasImageSource | null): string {
+  protected draw(traits: Traits, px: number, backdrop: { image: CanvasImageSource; url: string } | null): string {
     if (!this.renderer) {
       this.renderer = kingRenderer({ preserveDrawingBuffer: false });
       this.renderer.setPixelRatio(1);
       this.stage = new KingStage();
       this.stage.setView({});
-      if (backdrop) this.stage.setBackdrop(backdrop, this.options.blur ?? 3);
       this.composer = kingComposer(this.renderer, this.stage);
       this.stats_.contexts++;
     }
     const stage = this.stage!;
+    // The traits' backdrop, blurred once while it stays the same from one still to the next.
+    if (backdrop && backdrop.url !== stage.backdropUrl) stage.setBackdrop(backdrop.image, this.options.blur ?? 3, backdrop.url);
     this.renderer.setSize(px, px, false);
     this.composer!.setSize(px, px);
     stage.setAspect(1);
@@ -943,7 +959,7 @@ export class KingStills {
     return this.renderer.domElement.toDataURL("image/png");
   }
 
-  private render(traits: Traits, px: number, backdrop: CanvasImageSource | null): string {
+  private render(traits: Traits, px: number, backdrop: { image: CanvasImageSource; url: string } | null): string {
     const start = this.now();
     const url = this.draw(traits, px, backdrop);
     const ms = this.now() - start;

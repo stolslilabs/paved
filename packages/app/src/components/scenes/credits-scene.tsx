@@ -54,14 +54,10 @@ export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_
       <Section title="Token icons">
         <ul className="flex flex-col gap-1">
           <li className="wrap-anywhere">
-            USDC: the USDC mark, a trademark of Circle Internet Financial, shown unaltered to name USDC as Circle's brand guidelines ask; the
-            file comes from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo.
+            USDC: the USDC mark, a trademark of Circle Internet Financial, its shape and colours unaltered, to name USDC as Circle's brand
+            guidelines ask, on the face of a coin made for Paved; its paths come from cartridge-gg/nums (commit 4f8f405c), MIT, © 2023 Dojo.
           </li>
-          <li className="wrap-anywhere">Cobbles: one stone cube, drawn for Paved.</li>
-          <li className="wrap-anywhere">
-            PAVED (gold) and vPAVED (silver): Font Awesome Pro's coin-front under the Font Awesome Commercial License, its P the letter of
-            Almendra Bold (SIL Open Font License 1.1) as outlines, the relief drawn for Paved.
-          </li>
+          <li className="wrap-anywhere">Cobbles (a paving stone), PAVED (a gold coin) and vPAVED (a silver one): made for Paved.</li>
         </ul>
       </Section>
       <Section title="Music">
