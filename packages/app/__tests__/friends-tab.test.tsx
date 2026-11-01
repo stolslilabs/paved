@@ -10,7 +10,6 @@ import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { memoryStore } from "./data-fakes";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
-import { resetSocialTabForTests, storeSocialTab } from "../src/routes/social-tab";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
@@ -42,24 +41,21 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
 
 const T = (ms: number) => ({ timeout: slow(ms) });
 
-describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, () => {
-  preloadPages("social");
+describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_000) }, () => {
+  preloadPages("friends");
   beforeEach(() => {
     queryClient.clear();
     resetWelcomedForTests();
     markWelcomed();
-    resetSocialTabForTests();
-    storeSocialTab("friends");
   });
   afterEach(() => {
     queryClient.clear();
     resetWelcomedForTests();
-    resetSocialTabForTests();
     localStorage.clear();
   });
 
   /** The page on the mock; `home`: the home drawn as the app draws it, not plain. */
-  function open(path = "/social", { home = false }: { home?: boolean } = {}) {
+  function open(path = "/friends", { home = false }: { home?: boolean } = {}) {
     const clock = { now: T0 };
     const s = mockImplementation(memoryStore(), undefined, () => clock.now);
     const me = s.sources.signer!.address;
@@ -77,9 +73,9 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
     return { router, later, me, backer, other, delay: followBackDelay(me, backer.address)!, follows: s.sources.social!.follows! };
   }
 
-  const lists = () => screen.findByRole("radiogroup", { name: "Lists" }, T(10_000));
+  const lists = () => screen.findByRole("tablist", { name: "Lists" }, T(10_000));
   const list = (name: "Friends" | "Following" | "Followers") => screen.getByRole("region", { name });
-  const count = (name: string, n: number) => waitFor(() => expect(screen.getByRole("radio", { name: new RegExp(`^${name}, ${n}`) })).toBeInTheDocument(), T(8_000));
+  const count = (name: string, n: number) => waitFor(() => expect(screen.getByRole("tab", { name: new RegExp(`^${name}, ${n}`) })).toBeInTheDocument(), T(8_000));
 
   async function confirm(title: string | RegExp, button: string) {
     const dialog = await screen.findByRole("dialog", { name: title }, T(5_000));
@@ -106,7 +102,7 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
     const name = first[0]!.getAttribute("aria-label")!.replace(/^Follow /, "");
     await userEvent.click(first[0]!);
     await count("Following", 1);
-    await userEvent.click(screen.getByRole("radio", { name: /^Following/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Following/ }));
     expect(list("Following")).toHaveTextContent(name);
     await userEvent.click(within(list("Following")).getByRole("button", { name: `Unfollow ${name}` }));
     await confirm(`Unfollow ${name}?`, "Unfollow");
@@ -126,7 +122,7 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
   it("follows from a profile; the follow back makes a friend, marked new until seen, then removed as a follower", async () => {
     const { router, later, backer, delay } = open();
     await lists();
-    await act(() => router.navigate(`/social?player=${backer.address}`));
+    await act(() => router.navigate(`/friends?player=${backer.address}`));
     const profile = await screen.findByRole("dialog", { name: backer.name }, T(8_000));
     await userEvent.click(await within(profile).findByRole("button", { name: "Follow" }, T(8_000)));
     expect(await within(profile).findByRole("button", { name: `Following ${backer.name}: unfollow` }, T(8_000))).toBeInTheDocument();
@@ -137,11 +133,11 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
     await count("Friends", 1);
     expect(list("Friends")).toHaveTextContent(backer.name);
-    expect(screen.getByRole("tab", { name: "Friends, 1 waiting" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Followers, 1, 1 new" })).toBeInTheDocument();
     // Seen: the badges go, the New mark stays while the list is shown.
-    await userEvent.click(screen.getByRole("radio", { name: /^Followers, 1, 1 new/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Followers, 1, 1 new/ }));
     expect(within(list("Followers")).getByText("New")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("tab", { name: "Friends" })).toBeInTheDocument(), T(8_000));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Followers, 1" })).toBeInTheDocument(), T(8_000));
     expect(within(list("Followers")).getByText("New")).toBeInTheDocument();
     // Removed: they no longer follow; the player still follows them.
     await userEvent.click(within(list("Followers")).getByRole("button", { name: `Remove ${backer.name}` }));
@@ -154,7 +150,7 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
   it("blocks from a profile, which ends the follows, and unblocks from the blocked players", async () => {
     const { router, later, backer, delay } = open();
     await lists();
-    await act(() => router.navigate(`/social?player=${backer.address}`));
+    await act(() => router.navigate(`/friends?player=${backer.address}`));
     const profile = await screen.findByRole("dialog", { name: backer.name }, T(8_000));
     await userEvent.click(await within(profile).findByRole("button", { name: "Follow" }, T(8_000)));
     await later(delay + 1);
@@ -180,14 +176,16 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
     await count("Followers", 0);
   });
 
-  it("counts a new follower on the home's Social button", async () => {
+  it("counts a new follower on the home's Friends button (#973)", async () => {
     const { later, me, backer, delay, follows } = open("/", { home: true });
     await follows.follow(me, backer.address);
-    // Its two places (the right column, and the phone's row under `desktop`) show the same count.
-    expect((await screen.findAllByRole("button", { name: "Social" }, T(10_000))).length).toBeGreaterThan(0);
+    // Its two places (the phone's column on the right, the left column from `desktop`) show the same count.
+    expect((await screen.findAllByRole("button", { name: "Friends" }, T(10_000))).length).toBeGreaterThan(0);
     await later(delay + 1);
-    expect((await screen.findAllByRole("button", { name: "Social, 1 waiting" }, T(8_000))).length).toBeGreaterThan(0);
-    expect(screen.queryAllByRole("button", { name: "Social" })).toHaveLength(0);
+    expect((await screen.findAllByRole("button", { name: "Friends, 1 waiting" }, T(8_000))).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: "Friends" })).toHaveLength(0);
+    // The follow's count is the Friends button's alone.
+    expect(screen.queryAllByRole("button", { name: /^(Chat|Guild), / })).toHaveLength(0);
   });
 
   it("shows the player's own counts of followers and following on their own profile", async () => {
@@ -197,7 +195,7 @@ describe("/social's Friends tab on the mock (#954)", { timeout: slow(40_000) }, 
     const found = await screen.findByRole("list", { name: "Players found" }, T(8_000));
     await userEvent.click(await within(found).findByRole("button", { name: `Follow ${other.name}` }, T(8_000)));
     await count("Following", 1);
-    await act(() => router.navigate(`/social?player=${me}`));
+    await act(() => router.navigate(`/friends?player=${me}`));
     const sheet = await screen.findByRole("dialog", undefined, T(8_000));
     // Their own sheet (Disconnect, Edit avatar), not the public one.
     expect(await within(sheet).findByRole("button", { name: "Disconnect" }, T(8_000))).toBeInTheDocument();

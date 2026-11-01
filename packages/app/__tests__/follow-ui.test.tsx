@@ -87,20 +87,21 @@ describe("the search's Follow (#954)", () => {
   });
 });
 
-describe("the Friends tab's panel (#954)", () => {
+describe("the friends page's panel (#954, #973)", () => {
   it("counts each list, marks the new followers, and offers Follow back and Remove only to followers", async () => {
     const onAction = vi.fn(async () => {});
     const onListChange = vi.fn();
     const { rerender } = render(wrap(<FriendsPanel {...FRIENDS_TAB.friends} onAction={onAction} onListChange={onListChange} />));
-    expect(screen.getByRole("radio", { name: "Friends, 4" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Following, 6" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Followers, 7, 2 new" })).toBeInTheDocument();
+    // The friends page's three tabs (#973; a toggle before).
+    expect(screen.getByRole("tab", { name: "Friends, 4" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Following, 6" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Followers, 7, 2 new" })).toBeInTheDocument();
     const friends = screen.getByRole("region", { name: "Friends" });
     expect(within(friends).getAllByRole("button", { name: /^Unfollow / })).toHaveLength(4);
     expect(within(friends).queryByRole("button", { name: /^Remove / })).toBeNull();
     // Online first: the first two rows say Online.
     expect(within(friends).getAllByRole("listitem").slice(0, 2).every((li) => li.textContent?.includes("Online"))).toBe(true);
-    await userEvent.click(screen.getByRole("radio", { name: /^Followers/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Followers/ }));
     expect(onListChange).toHaveBeenLastCalledWith("followers");
     rerender(wrap(<FriendsPanel {...FRIENDS_TAB.newFollowers} onAction={onAction} onListChange={onListChange} />));
     const followers = screen.getByRole("region", { name: "Followers" });

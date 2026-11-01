@@ -93,9 +93,9 @@ export interface ChatListProps {
 }
 
 /**
- * The Social page's Chat tab (#955): the World, the guild's conversation (none for a player in no guild), then the private ones
+ * The chat page's list (#955; the Social page's Chat tab until #973): the World, the guild's conversation (none for a player in no guild), then the private ones
  * by their last message, each with its unread count; the requests from strangers, waiting to be opened, accepted or declined;
- * and the tab's menu, the muted players, with Unmute.
+ * and the page's menu, the muted players, with Unmute.
  */
 export function ChatList({ overview, error, errorDetail, onRetry, now, onOpen, mutes = null, onUnmute, onOpenPlayer, initialMutedOpen = false }: ChatListProps) {
   const [mutedOpen, setMutedOpen] = useState(initialMutedOpen);

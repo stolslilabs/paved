@@ -309,7 +309,7 @@ export function GuildPage({ guild, me, now, apply, onAction, onOpenPlayer, logSh
       {guild.invitations && (
         <Section title="Invitations sent" count={guild.invitations.length}>
           {guild.invitations.length === 0 ? (
-            <p className={EMPTY}>None waiting. Invite a player from their profile: search them above.</p>
+            <p className={EMPTY}>None waiting. Invite a player from their profile: search them on the Friends page.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {guild.invitations.map((i) => (

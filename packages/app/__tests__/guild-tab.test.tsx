@@ -10,13 +10,12 @@ import { MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, seededGui
 import { memoryStore } from "./data-fakes";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
-import { resetSocialTabForTests } from "../src/routes/social-tab";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
-// The Guild tab on the mock (#953, PR 2): the acceptance's flows through the page, the sheets and the profiles, on the ledger's
+// The guild page on the mock (#953, PR 2; the Social page's Guild tab until #973): the acceptance's flows through the page, the sheets and the profiles, on the ledger's
 // guilds (`data/mock/guilds.ts`), its clock in the test's hands.
 
 /** 2026-10-31 12:00 UTC. */
@@ -45,22 +44,20 @@ const guildless = () => community().filter((m) => !seededGuildWorld().guilds.som
 
 const T = (ms: number) => ({ timeout: slow(ms) });
 
-describe("/social's Guild tab on the mock (#953)", { timeout: slow(40_000) }, () => {
-  preloadPages("social");
+describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000) }, () => {
+  preloadPages("guild");
   beforeEach(() => {
     queryClient.clear();
     resetWelcomedForTests();
     markWelcomed();
-    resetSocialTabForTests();
   });
   afterEach(() => {
     queryClient.clear();
     resetWelcomedForTests();
-    resetSocialTabForTests();
     localStorage.clear();
   });
 
-  function open(path = "/social") {
+  function open(path = "/guild") {
     const clock = { now: T0 };
     const s = mockImplementation(memoryStore(), undefined, () => clock.now);
     const me = s.sources.signer!.address;
@@ -191,7 +188,7 @@ describe("/social's Guild tab on the mock (#953)", { timeout: slow(40_000) }, ()
     await finder();
     await create("Gate Ward", "Invite only");
     const target = guildless()[0]!;
-    await act(() => router.navigate(`/social?player=${target.address}`));
+    await act(() => router.navigate(`/guild?player=${target.address}`));
     const profile = await screen.findByRole("dialog", { name: target.name }, T(8_000));
     await userEvent.click(await within(profile).findByRole("button", { name: "Invite to Gate Ward" }, T(5_000)));
     await confirm(`Invite ${target.name} to Gate Ward?`, "Invite");
@@ -207,7 +204,7 @@ describe("/social's Guild tab on the mock (#953)", { timeout: slow(40_000) }, ()
     await later(MOCK_INVITATION_S + 1);
     const invitations = await screen.findByRole("region", { name: "Invitations" }, T(8_000));
     expect(invitations).toHaveTextContent("Iron Quay Wardens");
-    expect(screen.getByRole("tab", { name: /^Guild, \d+ waiting$/ })).toBeInTheDocument();
+    // The Guild button's count is the home's (#973): `social-pages.test`.
     await userEvent.click(within(invitations).getByRole("button", { name: "Accept" }));
     await ownPage("Iron Quay Wardens");
   });

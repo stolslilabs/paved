@@ -6,10 +6,10 @@
 /**
  * The navigation's destinations. Below `desktop` the bar holds Shop, Chests, Play, League, Settings (`BAR_TABS`, #763); from it
  * the navigation is the home's overlay (DESK-PANELS, #762: no header, no bar). `play` opens the mode choice (`nav: null`), so no
- * page shows it as the current one; the others are tabs of pages. The home, Missions, the Vault and Social are not in the phone's
- * bar: the home's overlay leads to the three, the pages' Back to the home (#760).
+ * page shows it as the current one; the others are tabs of pages. The home, Missions, the Vault, Chat, Guild and Friends are not
+ * in the phone's bar: the home's overlay leads to them, the pages' Back to the home (#760).
  */
-export type Tab = "home" | "quests" | "vault" | "shop" | "chests" | "play" | "league" | "settings" | "social";
+export type Tab = "home" | "quests" | "vault" | "shop" | "chests" | "play" | "league" | "settings" | "chat" | "guild" | "friends";
 
 export interface PageDef {
   /** The route path, relative to the root. */
@@ -72,8 +72,11 @@ export const PAGES: readonly PageDef[] = [
   // land on it (`router.tsx`).
   { path: "missions", title: "Missions", nav: "quests", panel: true },
   { path: "vault", title: "Vault", nav: "vault", panel: true },
-  // The social features (#952): Guild, Friends and Chat, a tab each; the home's Social button opens it, in the right panel from `desktop`.
-  { path: "social", title: "Social", nav: "social", panel: true },
+  // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
+  // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
+  { path: "chat", title: "Chat", nav: "chat", panel: true },
+  { path: "guild", title: "Guild", nav: "guild", panel: true },
+  { path: "friends", title: "Friends", nav: "friends", panel: true },
   // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it, a theme's too.
   { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },
@@ -92,7 +95,9 @@ export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "play", label: "Play", to: "/play" },
   { id: "league", label: "League", to: "/pvp/league" },
   { id: "settings", label: "Settings", to: "/settings" },
-  { id: "social", label: "Social", to: "/social" },
+  { id: "chat", label: "Chat", to: "/chat" },
+  { id: "guild", label: "Guild", to: "/guild" },
+  { id: "friends", label: "Friends", to: "/friends" },
 ];
 
 /** The phone's bar, left to right (#763, the owner's decision of 2026-10-25): Play in the centre. The tab swipe follows it. */

@@ -15,13 +15,12 @@ import type { ChatSource, GuildSource, SocialSource } from "../src/data/social-s
 import { memoryStore } from "./data-fakes";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
-import { resetSocialTabForTests, storeSocialTab } from "../src/routes/social-tab";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
-// The Chat tab, the conversations and the profile's Message on the mock (#955, PR 2): the acceptance's flows through the page,
+// The chat page (the Social page's Chat tab until #973), the conversations and the profile's Message on the mock (#955, PR 2): the acceptance's flows through the page,
 // on the ledger's chat (`data/mock/chat.ts`), its clock in the test's hands.
 
 /** 2026-10-31 12:00 UTC. */
@@ -60,25 +59,22 @@ function levelUp(store: ReturnType<typeof memoryStore>, level: number, player: s
   store.setItem(MOCK_KEY, JSON.stringify(state));
 }
 
-describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () => {
-  preloadPages("social");
+describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) }, () => {
+  preloadPages("chat", "friends");
   beforeEach(() => {
     queryClient.clear();
     resetWelcomedForTests();
     markWelcomed();
-    resetSocialTabForTests();
-    storeSocialTab("chat");
   });
   afterEach(() => {
     vi.restoreAllMocks();
     queryClient.clear();
     resetWelcomedForTests();
-    resetSocialTabForTests();
     localStorage.clear();
   });
 
   /** The page on the mock at `path`; `level`: the player's level first. */
-  function open(path = "/social", { level }: { level?: number } = {}) {
+  function open(path = "/chat", { level }: { level?: number } = {}) {
     const clock = { now: T0 };
     const store = memoryStore();
     const s = mockImplementation(store, undefined, () => clock.now);
@@ -122,7 +118,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
     // The page's countdown reads the wall clock, as the mock does outside the tests: both held at T0, so the 5 seconds do not
     // run out however slow the machine.
     vi.spyOn(Date, "now").mockReturnValue(T0 * 1000);
-    open("/social", { level: CHAT_WORLD_MIN_LEVEL });
+    open("/chat", { level: CHAT_WORLD_MIN_LEVEL });
     await userEvent.click(await screen.findByRole("button", { name: /^World/ }, T(10_000)));
     await conversation("World");
     await send("World", "hello builders, see paved-gifts.example and 0x04a3");
@@ -143,7 +139,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
   });
 
   it("reports a message, mutes its author (their messages go), and unmutes them from the tab's menu", async () => {
-    open("/social?chat=world", { level: CHAT_WORLD_MIN_LEVEL });
+    open("/chat?chat=world", { level: CHAT_WORLD_MIN_LEVEL });
     await conversation("World");
     const log = screen.getByRole("log", { name: "Messages" });
     const menus = await within(log).findAllByRole("button", { name: /^More for .+'s message$/ }, T(8_000));
@@ -172,7 +168,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
   });
 
   it("hides a player's messages at once when the player blocks them from a profile opened on one", async () => {
-    open("/social?chat=world");
+    open("/chat?chat=world");
     await conversation("World");
     const log = screen.getByRole("log", { name: "Messages" });
     const avatars = await within(log).findAllByRole("button", { name: /^.+'s profile$/ }, T(8_000));
@@ -194,7 +190,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
   });
 
   it("writes in the guild, where the log's lines show; an officer deletes a member's message", async () => {
-    const { me, social, chat } = open("/social");
+    const { me, social, chat } = open("/chat");
     // OTHER leads the guild, the player joins and is made an officer, THIRD joins and writes.
     const gid = await social.createGuild(OTHER, draft());
     await social.joinGuild(me, gid);
@@ -217,12 +213,12 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
     expect(within(log).getByText("Message deleted")).toBeInTheDocument();
   });
 
-  it("opens a private conversation with a friend from the Friends tab's Message, with the notice once", async () => {
-    const { me, social, later } = open("/social");
+  it("opens a private conversation with a friend from the friends page's Message, with the notice once", async () => {
+    const { router, me, social, later } = open("/chat");
     const friend = SEEDED_PLAYERS.find((p) => followBackDelay(me, p.address) !== null)!;
     await social.follows!.follow(me, friend.address);
     await later(followBackDelay(me, friend.address)! + 1);
-    await userEvent.click(await screen.findByRole("tab", { name: /^Friends/ }, T(8_000)));
+    await act(() => router.navigate("/friends"));
     await userEvent.click(await screen.findByRole("button", { name: `Message ${friend.name}` }, T(10_000)));
     await conversation(friend.name);
     expect(screen.getByText("Paved never asks for your key or your password.")).toBeInTheDocument();
@@ -234,12 +230,11 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
   });
 
   it("brings a stranger's request after the first visit: opened, then accepted", async () => {
-    const { later } = open("/social");
+    const { later } = open("/chat");
     await screen.findByRole("button", { name: /^World/ }, T(10_000));
     expect(screen.queryByRole("region", { name: "Requests" })).toBeNull();
     await later(MOCK_REQUEST_S + 1);
     const requests = await screen.findByRole("region", { name: "Requests" }, T(8_000));
-    await waitFor(() => expect(screen.getByRole("tab", { name: /^Chat, \d+ waiting/ })).toBeInTheDocument(), T(8_000));
     await userEvent.click(within(requests).getAllByRole("button")[0]!);
     await screen.findByRole("region", { name: /conversation$/ }, T(8_000));
     await userEvent.click(await screen.findByRole("button", { name: "Accept" }, T(5_000)));
@@ -250,7 +245,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
   });
 
   it("declines a stranger's request: it goes away, back to the list", async () => {
-    const { later } = open("/social");
+    const { later } = open("/chat");
     await screen.findByRole("button", { name: /^World/ }, T(10_000));
     await later(MOCK_REQUEST_S + 1);
     const requests = await screen.findByRole("region", { name: "Requests" }, T(8_000));
@@ -262,7 +257,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
 
   it("opens a private conversation from a stranger's profile (Message): the player's messages wait in their Requests", async () => {
     const stranger = SEEDED_PLAYERS[5]!;
-    open(`/social?player=${stranger.address}`);
+    open(`/chat?player=${stranger.address}`);
     const profile = await screen.findByRole("dialog", { name: stranger.name }, T(10_000));
     await userEvent.click(await within(profile).findByRole("button", { name: `Message ${stranger.name}` }, T(8_000)));
     await conversation(stranger.name);
@@ -272,7 +267,7 @@ describe("/social's Chat tab on the mock (#955)", { timeout: slow(60_000) }, () 
   });
 
   it("says a conversation that is not the player's is not there", async () => {
-    open(`/social?chat=${privateConversation("0x0a", "0x0b")}`);
+    open(`/chat?chat=${privateConversation("0x0a", "0x0b")}`);
     expect(await screen.findByText("This conversation is not there any more.", undefined, T(10_000))).toBeInTheDocument();
   });
 });

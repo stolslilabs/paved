@@ -6,7 +6,7 @@ import type { BoardTile } from "@paved/chain";
 import { shortAddress } from "../../components/elements/short-address";
 import type { LayoutSaved } from "../../components/containers/layout-editor";
 import type { VillageLayout } from "../../components/containers/layout-rules";
-import { HomeVillageScene } from "../../components/scenes/home-village-scene";
+import { HomeVillageScene, type SocialCounts } from "../../components/scenes/home-village-scene";
 import { useBoardSettings } from "../../data/board-settings";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
@@ -28,8 +28,10 @@ import { PlayerProfileHost } from "../player-profile";
 
 /** The village's stage as the app wires it (the editor, the engine, the art; the renderer after it): the overlays paint first. */
 const HomeStage = lazy(() => import("../home-stage"));
-/** What waits on the Social page (#952 to #954), its own chunk: the social reads stay out of the home's first load. */
+/** What waits on the Chat, Guild and Friends pages (#973), its own chunk: the social reads stay out of the home's first load. */
 const SocialCount = lazy(() => import("../social-count"));
+/** Nothing counted on the three buttons: a guest, or the counts not read yet. */
+const NO_SOCIAL_COUNTS: SocialCounts = { chat: 0, guild: 0, friends: 0 };
 /** The leave dialog, its own chunk: loaded only when a leave is blocked. */
 const LeaveDialog = lazy(() => import("../leave-dialog"));
 
@@ -86,7 +88,7 @@ export default function Page() {
   const [initialScoreOpen] = useState(scoreOpenStored);
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
-  const [social, setSocial] = useState(0);
+  const [social, setSocial] = useState<SocialCounts>(NO_SOCIAL_COUNTS);
 
   const owner = wallet.username ?? (me ? shortAddress(me) : "");
   const data = read.data;
@@ -154,7 +156,7 @@ export default function Page() {
 
   const failed = readOnly ? null : read.error;
   return (
-    <PrefetchOnIntent routes={["/play", "/social", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
+    <PrefetchOnIntent routes={["/play", "/chat", "/guild", "/friends", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
       <HomeVillageScene
         village={village}
         error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
@@ -183,7 +185,9 @@ export default function Page() {
             : 0
         }
         missions={missions}
-        social={social}
+        chat={social.chat}
+        guild={social.guild}
+        friends={social.friends}
         league={league}
         shieldEndsAt={shield?.up ? shield.until : null}
         activeGame={wallet.address ? (active.data ?? null) : null}
@@ -192,7 +196,9 @@ export default function Page() {
         seasonWheel={board.wheel}
         renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} onScene={board.onScene} />}
         onPlay={() => go("/play")}
-        onSocial={() => go("/social")}
+        onChat={() => go("/chat")}
+        onGuild={() => go("/guild")}
+        onFriends={() => go("/friends")}
         onMissions={() => go("/missions")}
         onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}

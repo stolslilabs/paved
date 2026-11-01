@@ -18,7 +18,7 @@ export interface FollowResultButtonProps {
 /**
  * Follow on a result of the player search (#954): Follow, or Follow back when they follow the viewer; a player already followed
  * shows Following, one the viewer blocks Blocked (their profile unfollows and unblocks). A refusal says why under the button.
- * Light on purpose: the Social page's chunk carries it.
+ * Light on purpose: the friends page's chunk carries it (#973).
  */
 export function FollowResultButton({ state, name, onFollow }: FollowResultButtonProps) {
   const [pending, setPending] = useState(false);

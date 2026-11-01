@@ -12,7 +12,7 @@ import { errorDetail } from "../error-detail";
 import { DESKTOP_QUERY } from "../home-layout";
 import { guildApply } from "./guild-apply";
 
-// The guild's page (#953), its own chunk: the connected player's guild in their Guild tab, and any other guild in a sheet over
+// The guild's page (#953), its own chunk: the connected player's guild on their guild page (#973), and any other guild in a sheet over
 // it (`?guild=`). Each action of the page is a write of the guild source (`useGuildWrites`).
 
 /** A page action as the guild source's write, for guild `id`. */
@@ -53,7 +53,7 @@ export interface OwnGuildProps {
   onOpenPlayer?: (address: string) => void;
 }
 
-/** The connected player's guild, in their Guild tab: shown, its announcements are read (the tab's badge drops them). */
+/** The connected player's guild, on the guild page: shown, its announcements are read (the Guild button's count drops them). */
 export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer }: OwnGuildProps) {
   const { run } = writes;
   useEffect(() => {
@@ -76,8 +76,8 @@ export interface GuildSheetProps {
 }
 
 /**
- * Another guild's page, over the Guild tab (`?guild=`): read as the connected player sees it, with Join, Request, Cancel or
- * the invitation's answer, or why not. Joined, the sheet closes on their own guild, now the tab's.
+ * Another guild's page, over the guild page (`?guild=`): read as the connected player sees it, with Join, Request, Cancel or
+ * the invitation's answer, or why not. Joined, the sheet closes on their own guild, now the page's.
  */
 export function GuildSheet({ id, me, player, candidate, now, open, onClose, writes, onOpenPlayer }: GuildSheetProps) {
   const desktop = useSidePanel(DESKTOP_QUERY);

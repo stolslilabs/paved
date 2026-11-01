@@ -28,8 +28,10 @@ import { StoryScene } from "../components/scenes/story-scene";
 import { ThemeScene } from "../components/scenes/theme-scene";
 import { ThemeShopScene } from "../components/scenes/theme-shop-scene";
 import { VaultScene } from "../components/scenes/vault-scene";
-import { SocialScene } from "../components/scenes/social-scene";
-import { SOCIAL } from "../mocks/social";
+import { ChatScene } from "../components/scenes/chat-scene";
+import { FriendsScene } from "../components/scenes/friends-scene";
+import { GuildScene } from "../components/scenes/guild-scene";
+import { FRIENDS_SEARCH } from "../mocks/social";
 import { WelcomeScene } from "../components/scenes/welcome-scene";
 import { HEADER_BALANCES, hereOf } from "../routes/header-balances";
 import { PAGE_HEADER_STORIES } from "./page-headers";
@@ -70,7 +72,9 @@ type Story = StoryObj<typeof meta>;
 export const Play: Story = { render: () => <PlayScene {...PLAY.connected} onBack={fn()} /> };
 export const Missions: Story = { render: () => <MissionsScene {...MISSIONS.daily} /> };
 export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> };
-export const Social: Story = { render: () => <SocialScene {...SOCIAL.badges} /> };
+export const Chat: Story = { render: () => <ChatScene /> };
+export const Guild: Story = { render: () => <GuildScene /> };
+export const Friends: Story = { render: () => <FriendsScene {...FRIENDS_SEARCH.idle} /> };
 export const Settings: Story = { render: () => <SettingsScene {...SETTINGS.connected} /> };
 export const StoryCampaigns: Story = {
   name: "Story",
