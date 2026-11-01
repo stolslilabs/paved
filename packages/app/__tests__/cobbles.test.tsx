@@ -347,7 +347,7 @@ describe("Missions: Cobbles only (#832)", () => {
     // A mission not done: its card has no Claim, a short line instead.
     await select(/^Strong Day/);
     expect(card().queryByRole("button")).not.toBeInTheDocument();
-    expect(card().getByText(/Play today to finish it/)).toBeInTheDocument();
+    expect(card().getByText(/Play today: it resets/)).toBeInTheDocument();
     // A daily done: nothing to claim on its own.
     await select(/^Daily Run/);
     expect(card().queryByRole("button")).not.toBeInTheDocument();

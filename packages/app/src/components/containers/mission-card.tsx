@@ -1,3 +1,4 @@
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -43,10 +44,10 @@ const KIND = {
   lifetime: { label: "Lifetime", icon: "medal" },
 } as const;
 
-/** The short line of a mission not done yet, where its Claim will be. */
+/** The short line of a mission not done yet, where its Claim will be: one line at 320 px, so the card keeps its height (#975). */
 const TO_DO: Record<MissionKind, string> = {
-  daily: "Play today to finish it: it resets at 00:00 UTC.",
-  weekly: "Play this week to finish it: it resets on Monday at 00:00 UTC.",
+  daily: "Play today: it resets at 00:00 UTC.",
+  weekly: "Play this week: it resets Monday 00:00 UTC.",
   lifetime: "Every game counts toward it, for good.",
 };
 
@@ -59,12 +60,43 @@ export interface MissionCardProps {
 }
 
 /**
+ * Whether the folded text overflows its two lines, on the rendered text (its scroll height against its box), checked again when
+ * its width changes. While unfolded, the last folded answer holds, so "less" stays.
+ */
+function useClamped(text: string, open: boolean) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [value, setValue] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || open) return;
+    const check = () => setValue(el.scrollHeight > el.clientHeight + 1);
+    check();
+    if (typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, open]);
+  return { ref, value };
+}
+
+/**
  * The selected mission, at the top of the Missions page (#832): its icon, title and description, Daily, Weekly or Lifetime, its
- * progress (a bar and "3 / 5" per task), its Cobbles, and its action: Claim when done, a short line when not.
+ * progress (a bar and "3 / 5" per task), its Cobbles, and its action: Claim when done, a short line when not. Its height is the
+ * same whatever the mission (#975): the title on one line, two lines of description (an ellipsis and "more" beyond), one task's
+ * row and the footer. "More" unfolds the description, with no motion (so none to reduce); another mission folds it.
  */
 export function MissionCard({ mission, canClaim = true, onClaim, className }: MissionCardProps) {
   const { kind, title, description, icon, state, progress, completedAt, retired, reward } = mission;
   const done = state === "claimable" || state === "done";
+  // "More" unfolds the shown mission only (#975): selecting another folds it again, reset while rendering (no effect, no flash).
+  const [open, setOpen] = useState(false);
+  const [shownKey, setShownKey] = useState(mission.key);
+  if (shownKey !== mission.key) {
+    setShownKey(mission.key);
+    setOpen(false);
+  }
+  const cut = useClamped(description, open);
+  const textId = useId();
   return (
     <article
       data-slot="card"
@@ -76,23 +108,51 @@ export function MissionCard({ mission, canClaim = true, onClaim, className }: Mi
         <span className={cn("grid size-12 shrink-0 place-items-center rounded-lg bg-secondary", done ? "text-primary" : "text-muted-foreground")}>
           <Icon name={state === "locked" ? "lock" : icon} size="lg" />
         </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-1 wrap-anywhere">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Badge variant="outline">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          {/* One line, so the card keeps its height (#975): the state gives way to an ellipsis on a narrow phone. */}
+          <div className="flex min-w-0 items-center gap-2">
+            <Badge variant="outline" className="shrink-0">
               <Icon name={mission.bonus ? "gift" : KIND[kind].icon} size="xs" />
               {mission.bonus ? `${KIND[kind].label} bonus` : KIND[kind].label}
             </Badge>
-            <span className={cn("text-xs", done ? "text-success" : "text-muted-foreground")}>{MISSION_STATE_LABEL[state]}</span>
+            <span title={MISSION_STATE_LABEL[state]} className={cn("min-w-0 truncate text-xs", done ? "text-success" : "text-muted-foreground")}>
+              {MISSION_STATE_LABEL[state]}
+            </span>
           </div>
-          <h2 className="font-display text-base font-semibold">{title}</h2>
-          {description && <p className="text-xs text-muted-foreground">{description}</p>}
+          <h2 title={title} className="truncate font-display text-base font-semibold">{title}</h2>
         </div>
         {reward && <Cobbles value={reward.cobbles} sign="+" size="md" className="shrink-0" />}
+      </div>
+      {/* Two lines kept even when the description is shorter or empty, so the card keeps its height (#975). The clamp is
+          visual only: the whole text stays in the DOM for assistive technology, and in `title`. The description takes the card's
+          whole width, under the icon. */}
+      <div className="flex items-end gap-1.5 wrap-anywhere">
+        <p
+          ref={cut.ref}
+          id={textId}
+          title={description || undefined}
+          aria-hidden={description ? undefined : true}
+          className={cn("min-h-[2lh] min-w-0 flex-1 text-xs text-muted-foreground", !open && "line-clamp-2")}
+        >
+          {description}
+        </p>
+        {(cut.value || open) && (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={textId}
+            onClick={() => setOpen(!open)}
+            className="relative shrink-0 cursor-pointer rounded text-xs font-semibold text-primary outline-none after:absolute after:-inset-3 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {open ? "less" : "more"}
+          </button>
+        )}
       </div>
       {progress.map((p) => (
         <TaskProgress key={p.unit} unit={p.unit} count={p.count} total={p.total} />
       ))}
-      <div className="flex min-h-9 flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+      {/* The room of a Claim (36 px), its padding and its border, whether the Claim shows or not (#975). */}
+      <div className="flex min-h-[calc(--spacing(12)+1px)] flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
         {retired ? (
           <span>Retired: nothing counts any more</span>
         ) : done ? (

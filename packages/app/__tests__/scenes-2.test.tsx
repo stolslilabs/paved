@@ -418,7 +418,7 @@ describe("Missions (#832)", () => {
     expect(screen.getByRole("button", { name: /^Public Works/ })).toHaveAttribute("aria-pressed", "false");
     await userEvent.click(screen.getByRole("button", { name: /^Weekly Builder/ }));
     expect(card().getByRole("article")).toHaveAccessibleName("Weekly Builder");
-    expect(card().getByText(/resets on Monday/)).toBeInTheDocument();
+    expect(card().getByText(/resets Monday/)).toBeInTheDocument();
   });
 
   it("opens on the mission asked for: a lifetime one, a claim, the week's bonus", () => {

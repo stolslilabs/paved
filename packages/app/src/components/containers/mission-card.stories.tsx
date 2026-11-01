@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
+import { LONG_LABEL, LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
+import { PHONE_320, PHONE_375 } from "../scenes/viewports";
 import { MissionCard, type Mission } from "./mission-card";
 
 const PUBLIC_WORKS: Mission = {
   key: "quest:6",
   kind: "daily",
   title: "Public Works",
-  description: "Score roads and cities in a day: the middle target of the three that rotate.",
+  description: "Score roads and cities in a day: the middle of three rotating targets.",
   icon: "castle",
   state: "progress",
   progress: [{ unit: "roads and cities scored", count: 4, total: 8 }],
@@ -48,3 +50,31 @@ export const Locked: Story = {
 export const WeeklyBonus: Story = {
   args: { mission: { ...DAILY_RUN, key: "bonus:weekly", kind: "weekly", bonus: true, title: "Weekly bonus", description: "Finish every weekly mission of the week for bonus Cobbles.", icon: "gift", progress: [{ unit: "weekly missions done", count: 3, total: 3 }], completedAt: null, reward: { cobbles: 60, claimed: false } } },
 };
+
+// The card's fixed height (#975): the title on one line, two lines of description kept whatever its length, an ellipsis and
+// "more" beyond them. Each state at 320 and 375 px.
+
+const SHORT: Mission = { ...DAILY_RUN, state: "progress", progress: [{ unit: "Challenge games finished", count: 0, total: 1 }], completedAt: null };
+const CUT: Mission = { ...PUBLIC_WORKS, key: "quest:cut", description: LONG_SENTENCE };
+const NONE: Mission = { ...PUBLIC_WORKS, key: "quest:99", title: "Mission #99", description: "", icon: "scroll" };
+
+const unfold: Story["play"] = async ({ canvasElement }) => {
+  const more = within(canvasElement).getByRole("button", { name: "more" });
+  await userEvent.click(more);
+  await expect(within(canvasElement).getByRole("button", { name: "less" })).toHaveAttribute("aria-expanded", "true");
+};
+
+/** A one-line description: the second line's room is kept, the card keeps its height. */
+export const ShortDescription320: Story = { ...PHONE_320, args: { mission: SHORT } };
+export const ShortDescription375: Story = { ...PHONE_375, args: { mission: SHORT } };
+/** A description over two lines: an ellipsis on the second, and "more" after it. */
+export const CutDescription320: Story = { ...PHONE_320, args: { mission: CUT } };
+export const CutDescription375: Story = { ...PHONE_375, args: { mission: CUT } };
+/** The same, unfolded by "more": the card grows, "less" folds it back. */
+export const Unfolded320: Story = { ...PHONE_320, args: { mission: CUT }, play: unfold };
+export const Unfolded375: Story = { ...PHONE_375, args: { mission: CUT }, play: unfold };
+/** A mission the text list does not know: no description, its two lines' room kept. */
+export const NoDescription320: Story = { ...PHONE_320, args: { mission: NONE } };
+export const NoDescription375: Story = { ...PHONE_375, args: { mission: NONE } };
+/** WRAP360's stress text: a long title ends in an ellipsis, a long word breaks within the two lines. */
+export const Stress: Story = { args: { mission: { ...CUT, title: LONG_LABEL, description: `${LONG_WORD} ${LONG_SENTENCE}`, reward: { cobbles: 9_999, claimed: false } } } };
