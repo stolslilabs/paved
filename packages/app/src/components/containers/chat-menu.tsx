@@ -72,7 +72,7 @@ function MutedSheet({ open, onOpenChange, mutes, onUnmute, onOpenPlayer }: Muted
   };
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="muted-players" className="max-h-[92dvh]">
+      <SheetContent side={desktop ? "right" : "bottom"} data-slot="muted-players" className={desktop ? undefined : "max-h-[92dvh]"}>
         <SheetHeader>
           <SheetTitle>Muted players</SheetTitle>
           <SheetDescription>Their messages are hidden from you in the World and in your guild. They are not told.</SheetDescription>

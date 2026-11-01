@@ -451,6 +451,12 @@
   }
 }
 
+/* A tab page without the bottom bar (the chat page, #973: its conversation gets the height). `TabPage`'s `bar={false}` marks its
+   content; the frame's bar is hidden, so its measured height (`--app-nav-h`, the region's bottom margin) is 0. */
+:has(> [data-slot="page-scroll"] [data-no-bar]) > [data-slot="app-nav"] {
+  display: none;
+}
+
 /* A page's header (2c): `--header-h` tall, the notch's safe area added above it; never grows, never shrinks. One row. */
 @utility page-header {
   flex-shrink: 0;

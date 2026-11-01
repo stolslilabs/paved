@@ -61,7 +61,8 @@ describe("the social pages' scenes (#973)", () => {
     expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["World", "Guild, 2 waiting", "Private"]);
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("guild conversation")).toBeInTheDocument();
-    expect(screen.queryByRole("navigation")).toBeNull();
+    // No bottom bar: the page's content says so, and theme.css hides the frame's bar (jsdom draws no style sheet).
+    expect(screen.getByRole("main")).toHaveAttribute("data-no-bar");
   });
 
   it("draws the content the page gives it", () => {

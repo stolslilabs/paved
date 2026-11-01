@@ -76,7 +76,7 @@ export function ChatNewMessage({ open, onOpenChange, friends, guildmates, search
   };
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="chat-new-message" className="max-h-[92dvh]">
+      <SheetContent side={desktop ? "right" : "bottom"} data-slot="chat-new-message" className={desktop ? undefined : "max-h-[92dvh]"}>
         <SheetHeader>
           <SheetTitle>New message</SheetTitle>
           <SheetDescription>Write to a friend or a guildmate, or find any player.</SheetDescription>

@@ -2,7 +2,6 @@ import { useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject } 
 import { useInRouterContext, useLocation, useNavigationType } from "react-router";
 import type { Tab } from "../../routes/pages";
 import { pageScrollHintRef } from "../../lib/page-scroll-hint";
-import { cn } from "../../lib/utils";
 import { AppNav } from "./app-nav";
 import { usePagePanel } from "./page-panel-context";
 import { PageRegionProvider } from "./page-region";
@@ -10,8 +9,6 @@ import { PageRegionProvider } from "./page-region";
 export interface TabFrameProps {
   tab: Tab;
   onNavigate?: (tab: Tab) => void;
-  /** The bottom bar below `desktop` (on by default); off, the region takes the whole height (the chat page, #973). */
-  bar?: boolean;
   children: ReactNode;
 }
 
@@ -34,7 +31,7 @@ export function TabFrame(props: TabFrameProps) {
   return <FullTabFrame {...props} />;
 }
 
-function FullTabFrame({ tab, onNavigate, bar = true, children }: TabFrameProps) {
+function FullTabFrame({ tab, onNavigate, children }: TabFrameProps) {
   const frame = useRef<HTMLDivElement>(null);
   const region = useRef<HTMLDivElement | null>(null);
   const regionRef = useCallback((el: HTMLDivElement | null) => {
@@ -54,8 +51,8 @@ function FullTabFrame({ tab, onNavigate, bar = true, children }: TabFrameProps) 
   }, []);
   return (
     <div ref={frame} className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      {bar && <AppNav active={tab} onNavigate={onNavigate} />}
-      <div ref={regionRef} data-slot="page-scroll" className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain desktop:mb-0", bar && "mb-(--app-nav-h)")}>
+      <AppNav active={tab} onNavigate={onNavigate} />
+      <div ref={regionRef} data-slot="page-scroll" className="mb-(--app-nav-h) min-h-0 flex-1 overflow-y-auto overscroll-contain desktop:mb-0">
         <PageRegionProvider value>{children}</PageRegionProvider>
       </div>
       {useInRouterContext() && <RegionScrollKeeper region={region} />}
