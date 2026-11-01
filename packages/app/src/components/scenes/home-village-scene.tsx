@@ -496,8 +496,12 @@ function ViewOverlays({
           </span>
         )}
       </>
-      {/* From `desktop`, the social column (#973) under the chips, centred in the room left above the dial (`my-auto`). */}
-      <SocialNav {...props} place="desktop" className="hidden flex-col gap-3 desktop:my-auto desktop:flex" />
+      {/*
+        From `desktop`, the social column (#973) under the chips, centred in the room left above the dial (`my-auto`). Short of room
+        (the shield's plate and the score unfolded), it shrinks before the column scrolls, down to one button's height, and its
+        buttons wrap into a second column at the right of the first: none is cut off while the column above fits.
+      */}
+      <SocialNav {...props} place="desktop" className="hidden min-h-19 flex-col flex-wrap content-start gap-3 desktop:my-auto desktop:flex" />
     </>
   );
   return (

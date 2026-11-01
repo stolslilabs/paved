@@ -253,6 +253,9 @@ describe("Home (#753): the village with its overlays", () => {
     expect(desktop.parentElement).toBe(left);
     expect(left.lastElementChild).toBe(desktop);
     expect(desktop.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "desktop:flex", "desktop:my-auto"]));
+    // Short of room (shielded, the score unfolded, 1440 x 900), it shrinks to one button's height before the column scrolls and wraps
+    // its buttons into a second column: none is cut off (the stories' measures in Chromium).
+    expect(desktop.className.split(" ")).toEqual(expect.arrayContaining(["min-h-19", "flex-wrap", "content-start"]));
     // Faded with the rest in the Camera mode: both in the box that fades.
     for (const nav of [phone, desktop]) expect(nav.closest("[data-fade]")).not.toBeNull();
     for (const [name, handler] of [
