@@ -14,7 +14,10 @@
  * (`docs/design/league-standards.webp`): per tier, a sheet of the crest's four versions, one of the icon's, and one of the blank
  * plate and the banner, each on a transparent background, cut apart, the glow around the parts cleared, each shield stretched across
  * to be as wide as it is tall (the owner's 1:1, 2026-10-30), scaled onto the frames, and stored as lossless WebP (`cwebp -lossless
- * -z 9 -exact`): about 18 MiB for the 100 masters, where PNG took 33.
+ * -z 9 -exact`): about 18 MiB for the 100 masters, where PNG took 33. Since 2026-11-01 (the owner's ruling): every ribbon's ends
+ * curl up (Silver, Gold, Diamond and Master's crests and icons, and Grand Master's icons, redrawn so), and every crest is scaled so
+ * its shield's body has the area of Grand Master's, whose wings reach the frame's sides, its body centred in the frame (the icons
+ * keep their size).
  *
  * Per copy: resized on the part's side and encoded as lossy WebP with its alpha (`cwebp`, libwebp 1.6.0 when these were written,
  * `-m 6 -sharp_yuv -alpha_q 100`, no metadata) at the quality of `QUALITY`. The encoder runs under `nice -n 10`. No package:
