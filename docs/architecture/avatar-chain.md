@@ -24,11 +24,47 @@ hard-coded prices. No deployment in this task: the owner lists the paid items wi
   the eyebrows' and the mouth's; the background's byte stays 0), so a look saved before is read as traits, an id past a
   trait's options as its first. The look the renderer's `encodeTraits` returns is the value `set_avatar` takes, and
   `decodeTraits` reads what `avatar` returns.
-- **The free items, per trait** (2026-10-31, the owner's go to set them as is standard): every option of what a player is
-  (skin, hair colour, eyes, hair style, beard) and of the plain gear (outfits, pauldrons, accessories) is free, and the
-  crown, none, the helmet and the hood of the headwear; the Wizard hat and the Feathered cap are the paid items. No skin tone
-  is ever paid. `scripts/deploy.sh` lists them (`FRESH_AVATAR_FREE`, the first items of each part), the mocks the same
+- **The free items, per trait** (2026-10-31, the owner's go to set them as is standard): each trait's first options, every
+  option of what a player is (skin, hair colour, eyes, hair style, beard), the plain gear (the first outfits, pauldrons and
+  accessories; the crown, none, the helmet and the hood of the headwear) and the village of the backdrops. No skin tone is
+  ever paid. `scripts/deploy.sh` lists them (`FRESH_AVATAR_FREE`, the first items of each part), the mocks the same
   (`packages/app/src/mocks/avatar.ts`, a test keeps the two equal).
+- **The paid items** (2026-11-01, the owner's ask for more Cobble items, priced by rarity: common 20, rare 40, epic 60,
+  legendary 100 Cobbles; the creator shows the rarity beside a tried item's name). Every option past a trait's free ones, as
+  the owner lists them (`set_item part id cobbles 0 until`); a seasonal one with its season's end (`until`), the others 0. The
+  mocks list the same (a test keeps every paid price on a tier). Part numbers are the look's bytes, ids the options' indices:
+
+  | Part | Trait | Id | Item | Rarity | Cobbles | Season |
+  |---|---|---|---|---|---|---|
+  | 1 | hair colour | 5 | White | rare | 40 | |
+  | 1 | hair colour | 6 | Blue | rare | 40 | |
+  | 2 | eyes | 5 | Ember | epic | 60 | |
+  | 3 | outfit | 5 | Royal (crimson, gold collar, ruby brooch) | epic | 60 | |
+  | 3 | outfit | 6 | Ermine (wine, white fur collar) | legendary | 100 | |
+  | 3 | outfit | 7 | Plate armour (steel breastplate) | epic | 60 | |
+  | 4 | pauldrons | 4 | Spiked | rare | 40 | |
+  | 4 | pauldrons | 5 | Dragon scale | legendary | 100 | |
+  | 7 | headwear | 4 | Wizard hat | rare | 40 | |
+  | 7 | headwear | 5 | Feathered cap | epic | 60 | winter |
+  | 7 | headwear | 6 | Viking helm | epic | 60 | |
+  | 7 | headwear | 7 | Tricorn | rare | 40 | |
+  | 7 | headwear | 8 | Laurel wreath | rare | 40 | |
+  | 7 | headwear | 9 | Jester hat | epic | 60 | |
+  | 7 | headwear | 10 | Top hat | legendary | 100 | |
+  | 8 | accessory | 4 | Monocle | rare | 40 | |
+  | 8 | accessory | 5 | Pipe | common | 20 | |
+  | 8 | accessory | 6 | War paint | common | 20 | |
+  | 8 | accessory | 7 | Medal | epic | 60 | |
+  | 9 | backdrop | 1 | Fields | common | 20 | |
+  | 9 | backdrop | 2 | Forest | common | 20 | |
+  | 9 | backdrop | 3 | Mountains | common | 20 | |
+  | 9 | backdrop | 4 | River | common | 20 | |
+  | 9 | backdrop | 5 | Castle | rare | 40 | |
+  | 9 | backdrop | 6 | Night | epic | 60 | winter |
+  | 9 | backdrop | 7 | Wonder | legendary | 100 | |
+
+  Every item went through the client's checks (`packages/renderer/__tests__/avatar-traits.test.ts`: no faces in one plane,
+  nothing into the head in any pose, the head in the badge's circle, each feature readable) and a render review.
 - **The calls**: `set_parts`, `set_price_bounds`, `set_item`, `withdraw_item`, `set_setup` (owner); `buy_avatar_item`,
   `set_avatar` (any account, for itself); the views `avatar`, `owned`, `item`, `items`, `parts`, `price_bounds`, `setup`.
 
@@ -107,10 +143,9 @@ whole from `Setup`'s events alone, as it does for the matchmaker and the village
   into item ids with `decodeTraits`, and back with `encodeTraits`. The mock data source has no `Avatar`: the
   hooks answer null there.
 - **Deployment** (`scripts/deploy.sh`, not run in this task): declare and deploy `Avatar(owner, Setup)`,
-  `Setup.set_spender(Avatar, true)` in the wiring, then the defaults (`FRESH_AVATAR_*`: nine parts, the traits; bounds 20 to
-  100; the free items of each trait, `FRESH_AVATAR_FREE`) in one multicall, read back. A rerun on a deployment of the ten
-  parts before sends only what it lacks: the free items the traits added (it keeps the tenth part, whose byte stays 0, at its
-  free item 0). No paid item is listed by the script.
+  `Setup.set_spender(Avatar, true)` in the wiring, then the defaults (`FRESH_AVATAR_*`: ten parts, the traits; bounds 20 to
+  100; the free items of each trait, `FRESH_AVATAR_FREE`) in one multicall, read back. A rerun sends only what a deployment
+  lacks: the free items the traits added. No paid item is listed by the script (the table above is the owner's to list).
 - **Tests** (snforge): `paved::tests::avatar::` (the format's vectors, shared with `packages/chain/test/avatar.test.ts`, the
   parts, the bounds, a purchase once and never twice, Cobbles never below zero, `set_avatar` never accepting a part neither
   free nor owned, the version and the bytes past the parts, `supply` and `until`, only an allowlisted spender spends, a fuzz

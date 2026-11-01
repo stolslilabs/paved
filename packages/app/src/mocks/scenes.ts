@@ -479,6 +479,10 @@ export const AVATAR_CREATOR = {
   eyes: { creator, part: "eyes" },
   outfit: { creator, part: "outfit" },
   pauldrons: { creator, part: "pauldrons" },
+  /** The backdrops: the village free, the other scenes priced by rarity, the Night for the winter. */
+  backdrop: { creator, part: "backdrop" },
+  /** The Top hat tried on: a legendary item, its rarity beside its name. */
+  legendary: { creator: { ...creator, draft: { ...SAVED_AVATAR, headwear: 10 } }, part: "headwear" },
   hairStyle: { creator, part: "hairStyle" },
   beard: { creator, part: "beard" },
   /** A free change not saved yet: Save. */

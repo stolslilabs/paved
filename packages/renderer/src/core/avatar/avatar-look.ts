@@ -8,25 +8,28 @@
  *   bits  16..23   hair colour     bits  56..63  beard
  *   bits  24..31   eyes            bits  64..71  headwear
  *   bits  32..39   outfit          bits  72..79  accessory
- *   bits  40..47   pauldrons       bits  80..127 0 (the bytes past the parts in use)
+ *   bits  40..47   pauldrons       bits  80..87  backdrop
+ *   bits  88..127  0 (the bytes past the parts in use)
  *
  * A trait takes the byte of the catalogue's old part closest to it (AVATAR-LOOK's ten: skin, hair colour, eyes, eyebrows, mouth,
  * hair, beard, headwear, accessory, background), so a look saved before the traits keeps its skin, hair colour, hair, beard,
- * headwear and accessory bytes; the outfit and the pauldrons take the eyebrows' and the mouth's; the background's byte stays 0.
+ * headwear and accessory bytes; the outfit and the pauldrons take the eyebrows' and the mouth's, the backdrop the background's.
  * An item id is the option's index in its trait's list below; an id past the list is read as the trait's first option (each
- * trait's default, free on chain). A list only grows at its end, so a stored id keeps its meaning.
+ * trait's default, free on chain). A list only grows at its end, so a stored id keeps its meaning: each trait's free options
+ * come first, its paid ones after (the chain lists them; `docs/architecture/avatar-chain.md` has the catalogue).
  */
 
 export const TRAIT_OPTIONS = {
   skin: ["peach", "pale", "tan", "brown", "deep"],
-  hair: ["auburn", "black", "blond", "ginger", "grey"],
+  hair: ["auburn", "black", "blond", "ginger", "grey", "white", "blue"],
   hairStyle: ["short", "bald", "long"],
   beard: ["full", "none", "moustache", "goatee", "long"],
-  eyes: ["brown", "blue", "green", "grey", "amber"],
-  headwear: ["crown", "none", "helmet", "hood", "wizard", "feathered"],
-  accessory: ["none", "eyepatch", "glasses", "earrings"],
-  outfit: ["blue", "red", "green", "purple", "black"],
-  pauldrons: ["gold", "iron", "leather", "none"],
+  eyes: ["brown", "blue", "green", "grey", "amber", "ember"],
+  headwear: ["crown", "none", "helmet", "hood", "wizard", "feathered", "viking", "tricorn", "laurel", "jester", "tophat"],
+  accessory: ["none", "eyepatch", "glasses", "earrings", "monocle", "pipe", "warpaint", "medal"],
+  outfit: ["blue", "red", "green", "purple", "black", "royal", "ermine", "plate"],
+  pauldrons: ["gold", "iron", "leather", "none", "spiked", "dragon"],
+  backdrop: ["village", "fields", "forest", "mountains", "river", "castle", "night", "wonder"],
 } as const;
 
 export type Trait = keyof typeof TRAIT_OPTIONS;
@@ -43,10 +46,11 @@ export const KING_TRAITS: Traits = {
   accessory: "none",
   outfit: "blue",
   pauldrons: "gold",
+  backdrop: "village",
 };
 
 /** The traits in the look's byte order (byte `p + 1` holds trait `p`): the parts in use on chain, at least this many. */
-export const TRAIT_PARTS: readonly Trait[] = ["skin", "hair", "eyes", "outfit", "pauldrons", "hairStyle", "beard", "headwear", "accessory"];
+export const TRAIT_PARTS: readonly Trait[] = ["skin", "hair", "eyes", "outfit", "pauldrons", "hairStyle", "beard", "headwear", "accessory", "backdrop"];
 
 /** The creator's labels: each trait's, and each option's. */
 export const TRAIT_NAMES: Record<Trait, string> = {
@@ -59,17 +63,31 @@ export const TRAIT_NAMES: Record<Trait, string> = {
   accessory: "Accessory",
   outfit: "Outfit",
   pauldrons: "Pauldrons",
+  backdrop: "Backdrop",
 };
 export const OPTION_NAMES: { [K in Trait]: Record<Traits[K], string> } = {
   skin: { peach: "Peach", pale: "Pale", tan: "Tan", brown: "Brown", deep: "Deep" },
-  hair: { auburn: "Auburn", black: "Black", blond: "Blond", ginger: "Ginger", grey: "Grey" },
+  hair: { auburn: "Auburn", black: "Black", blond: "Blond", ginger: "Ginger", grey: "Grey", white: "White", blue: "Blue" },
   hairStyle: { short: "Short", bald: "Bald", long: "Long" },
   beard: { full: "Full", none: "None", moustache: "Moustache", goatee: "Goatee", long: "Long" },
-  eyes: { brown: "Brown", blue: "Blue", green: "Green", grey: "Grey", amber: "Amber" },
-  headwear: { crown: "Crown", none: "None", helmet: "Helmet", hood: "Hood", wizard: "Wizard hat", feathered: "Feathered cap" },
-  accessory: { none: "None", eyepatch: "Eyepatch", glasses: "Glasses", earrings: "Earrings" },
-  outfit: { blue: "Blue", red: "Red", green: "Green", purple: "Purple", black: "Black" },
-  pauldrons: { gold: "Gold", iron: "Iron", leather: "Leather", none: "None" },
+  eyes: { brown: "Brown", blue: "Blue", green: "Green", grey: "Grey", amber: "Amber", ember: "Ember" },
+  headwear: {
+    crown: "Crown",
+    none: "None",
+    helmet: "Helmet",
+    hood: "Hood",
+    wizard: "Wizard hat",
+    feathered: "Feathered cap",
+    viking: "Viking helm",
+    tricorn: "Tricorn",
+    laurel: "Laurel wreath",
+    jester: "Jester hat",
+    tophat: "Top hat",
+  },
+  accessory: { none: "None", eyepatch: "Eyepatch", glasses: "Glasses", earrings: "Earrings", monocle: "Monocle", pipe: "Pipe", warpaint: "War paint", medal: "Medal" },
+  outfit: { blue: "Blue", red: "Red", green: "Green", purple: "Purple", black: "Black", royal: "Royal", ermine: "Ermine", plate: "Plate armour" },
+  pauldrons: { gold: "Gold", iron: "Iron", leather: "Leather", none: "None", spiked: "Spiked", dragon: "Dragon scale" },
+  backdrop: { village: "Village", fields: "Fields", forest: "Forest", mountains: "Mountains", river: "River", castle: "Castle", night: "Night", wonder: "Wonder" },
 };
 
 /** The format's version (byte 0); the contract accepts this one only. */

@@ -2315,15 +2315,16 @@ FRESH_STORY_LEVELS=(
 # items at 20 to 100 Cobbles each (rebalanced later with the economy), rare items seasonal (listed for their season with
 # `until`, no quantity limit at launch). The parts are the avatar's nine traits (AVATAR-LIVING,
 # packages/renderer/src/core/avatar/avatar-look.ts: skin, hair colour, eyes, outfit, pauldrons, hair style, beard, headwear,
-# accessory), one byte each after the format's version. The free items are set per trait (2026-10-31, in place of items 0 to 3
+# accessory, backdrop), one byte each after the format's version. The free items are set per trait (2026-10-31, in place of items 0 to 3
 # of every part): FRESH_AVATAR_FREE[p] is how many of part p's first items are free, every option of what a player is (skin,
 # hair colour, eyes, hair style, beard) and of the plain gear (outfits, pauldrons, accessories), and the crown, none, the
-# helmet and the hood of the headwear; the Wizard hat and the Feathered cap (headwear 4 and 5) are paid. No paid item is
-# listed here: the owner lists them (set_item) with their art and seasons.
-FRESH_AVATAR_PARTS=9
+# helmet and the hood of the headwear, and the village of the backdrops; every option after them is paid, at its rarity's price
+# (docs/architecture/avatar-chain.md, "The paid items"). No paid item is listed here: the owner lists them (set_item) with
+# their seasons.
+FRESH_AVATAR_PARTS=10
 FRESH_AVATAR_PRICE_MIN=20
 FRESH_AVATAR_PRICE_MAX=100
-FRESH_AVATAR_FREE=(5 5 5 5 4 3 5 4 4)
+FRESH_AVATAR_FREE=(5 5 5 5 4 3 5 4 4 1)
 # Cobbles v1, part 3 (P-61, cobbles-v1.md 5.2 and 6.4): the themes whose 19 skins the fresh deployment prices, by the rarity
 # table. Theme 1 is Forest, the only theme with art (the PM's ruling of 2026-10-15); the other themes get no id here and
 # stay unpriced until their art ships (the owner's set_skin_price). Add a theme id to this one list to price it too.

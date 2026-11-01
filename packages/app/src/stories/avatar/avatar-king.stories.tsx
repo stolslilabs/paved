@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { KING_TRAITS, loadAvatarKing, OPTION_NAMES, randomTraits, TRAIT_NAMES, TRAIT_OPTIONS, traitsFrom, type Emote, type KingAvatar, type Trait, type Traits } from "@paved/renderer";
 import { Button } from "../../components/ui/button";
-import { AVATAR_BACKDROP, AvatarStill } from "../../components/elements/avatar-still";
+import { avatarBackdrop, AvatarStill } from "../../components/elements/avatar-still";
 
 /**
  * The avatar (AVATAR-LIVING, `@paved/renderer`'s `avatar-king.ts`): the king and his traits, living (the idle, a blink, the
@@ -29,7 +29,7 @@ function KingBust({ size, traits, onReady }: { size: number; traits?: Partial<Tr
       if (gone || !ref.current) return;
       // Checks: the traits from the URL (?traits=hair-blond.beard-none), over the props'.
       const q = new URLSearchParams(window.location.search);
-      king.current = new m.KingAvatar(ref.current, { backdrop: AVATAR_BACKDROP, traits: q.has("traits") ? traitsFrom(q.get("traits")) : first.current });
+      king.current = new m.KingAvatar(ref.current, { backdrops: avatarBackdrop, traits: q.has("traits") ? traitsFrom(q.get("traits")) : first.current });
       onReady?.(king.current);
     });
     return () => {
@@ -167,6 +167,30 @@ export const Stills: Story = {
             <AvatarStill key={i} traits={{ ...KING_TRAITS, ...t }} size={size} />
           ))}
         </div>
+      ))}
+    </div>
+  ),
+};
+
+/**
+ * The catalogue: every option of every trait on the king (the outfits and pauldrons on a bare head, so they show), as the
+ * menus' stills, with its name: what the creator's swatches offer, the free options first, the paid ones after.
+ */
+export const Catalogue: Story = {
+  render: () => (
+    <div style={{ display: "grid", gap: 20, padding: 16 }}>
+      {(Object.keys(TRAIT_OPTIONS) as Trait[]).map((trait) => (
+        <section key={trait} style={{ display: "grid", gap: 8 }}>
+          <h2 className="text-sm font-semibold">{TRAIT_NAMES[trait]}</h2>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+            {TRAIT_OPTIONS[trait].map((value) => (
+              <figure key={value} style={{ display: "grid", justifyItems: "center", gap: 4, margin: 0, width: 96 }}>
+                <AvatarStill traits={{ ...KING_TRAITS, ...(trait === "outfit" || trait === "pauldrons" ? { headwear: "none" } : {}), [trait]: value }} size={96} />
+                <figcaption className="text-center text-xs">{(OPTION_NAMES[trait] as Record<string, string>)[value]}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   ),

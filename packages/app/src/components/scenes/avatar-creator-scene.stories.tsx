@@ -39,6 +39,10 @@ export const Hair: Story = { args: AVATAR_CREATOR.hair };
 export const Eyes: Story = { args: AVATAR_CREATOR.eyes };
 export const Outfit: Story = { args: AVATAR_CREATOR.outfit };
 export const Pauldrons: Story = { args: AVATAR_CREATOR.pauldrons };
+/** Backdrop: the village free, the other scenes priced. */
+export const Backdrop: Story = { args: AVATAR_CREATOR.backdrop };
+/** A legendary item tried on: its rarity beside its name. */
+export const Legendary: Story = { args: AVATAR_CREATOR.legendary };
 export const HairStyle: Story = { args: AVATAR_CREATOR.hairStyle };
 export const Beard: Story = { args: AVATAR_CREATOR.beard };
 /** A free change not saved yet: Save. */

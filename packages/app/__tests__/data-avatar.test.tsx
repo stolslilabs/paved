@@ -23,8 +23,8 @@ import { cobbleKeys } from "../src/data/cobbles";
 import { avatarKeys, idsOf, savedLook, useAvatar } from "../src/data/avatar";
 import { applyAvatarEvents, useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogue";
 import { avatarOffer, avatarOffers } from "../src/data/avatar-offers";
-import { KING_IDS, randomUsable, unusableParts } from "../src/components/containers/avatar-types";
-import { AVATAR_FREE, AVATAR_ITEMS, AVATAR_PARTS_IN_USE } from "../src/mocks/avatar";
+import { KING_IDS, randomUsable, rarityOf, unusableParts } from "../src/components/containers/avatar-types";
+import { AVATAR_FREE, AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, RARITY } from "../src/mocks/avatar";
 import { PLAYER_ID } from "../src/mocks/players";
 import { FakeAvatarWriter } from "./avatar-fakes";
 import { dataOf, fakeSources, renderData } from "./data-fakes";
@@ -62,7 +62,7 @@ describe("idsOf", () => {
   });
 
   it("is the traits' look: the renderer's encodeTraits is the chain's lookOf of their ids, and decodeTraits reads idsOf's ids", () => {
-    const traits: Traits = { skin: "deep", hair: "grey", eyes: "amber", outfit: "black", pauldrons: "none", hairStyle: "long", beard: "long", headwear: "feathered", accessory: "earrings" };
+    const traits: Traits = { skin: "deep", hair: "blue", eyes: "ember", outfit: "ermine", pauldrons: "dragon", hairStyle: "long", beard: "long", headwear: "tophat", accessory: "medal", backdrop: "wonder" };
     const ids = TRAIT_PARTS.map((trait) => (TRAIT_OPTIONS[trait] as readonly string[]).indexOf(traits[trait]));
     const look = encodeTraits(traits);
     expect(look).toBe(lookOf(ids));
@@ -219,8 +219,8 @@ describe("avatarOffer and avatarOffers", () => {
     expect(Object.keys(offers)).toEqual(TRAIT_PARTS.slice(0, PARTS));
     // Skin has five options: 0 and 1 free, 2 on sale, the rest never listed.
     expect(offers.skin?.map((o) => o.kind)).toEqual(["free", "free", "sale", "off", "off"]);
-    // Eyes' item 255 is listed, but the client draws five options: it is left out.
-    expect(offers.eyes).toHaveLength(5);
+    // Eyes' item 255 is listed, but the client draws six options: it is left out.
+    expect(offers.eyes).toHaveLength(6);
   });
 
   it("Randomise draws only what can be saved, and leaves the parts not in use at 0", async () => {
@@ -257,5 +257,14 @@ describe("the fresh deployment's catalogue", () => {
     // Every skin tone is free, whatever else is paid; and the free items are the mocks' listed at 0.
     expect(AVATAR_FREE.skin).toBe(TRAIT_OPTIONS.skin.length);
     TRAIT_PARTS.forEach((trait, part) => expect(AVATAR_ITEMS[part]!.filter((item) => item.cobbles === 0).map((item) => item.id)).toEqual([...Array(AVATAR_FREE[trait]).keys()]));
+  });
+
+  it("prices every paid item at a rarity tier, within the owner's bounds, and lists one for each option the client draws", () => {
+    expect(Object.values(RARITY).every((c) => c >= AVATAR_PRICE_BOUNDS[0] && c <= AVATAR_PRICE_BOUNDS[1])).toBe(true);
+    TRAIT_PARTS.forEach((trait, part) => {
+      expect(AVATAR_ITEMS[part]).toHaveLength(TRAIT_OPTIONS[trait].length);
+      for (const item of AVATAR_ITEMS[part]!) if (item.cobbles) expect(rarityOf(item.cobbles), `${trait} ${item.id}`).not.toBeNull();
+    });
+    expect([20, 40, 60, 100, 50].map(rarityOf)).toEqual(["Common", "Rare", "Epic", "Legendary", null]);
   });
 });

@@ -289,5 +289,5 @@ export {
 } from "./core/avatar/avatar-look";
 export type { Trait, Traits } from "./core/avatar/avatar-look";
 export type { Emote } from "./core/avatar/avatar-poses";
-export type { KingAvatar, KingAvatarOptions, KingStillOptions, KingStills, KingStillsOptions, KingStillStats } from "./core/avatar/avatar-king";
+export type { BackdropUrl, KingAvatar, KingAvatarOptions, KingStillOptions, KingStills, KingStillsOptions, KingStillStats } from "./core/avatar/avatar-king";
 export const loadAvatarKing = (): Promise<typeof import("./core/avatar/avatar-king")> => import("./core/avatar/avatar-king");
