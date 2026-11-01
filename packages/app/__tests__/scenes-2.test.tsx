@@ -377,7 +377,7 @@ describe("Missions (#832)", () => {
     three.unmount();
     const busy = render(wrap(<MissionsScene {...MISSIONS.milestoneThree} claiming="achievement:3" />));
     // Another claim on its way: the milestone waits.
-    expect(daily().getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" })).toBeDisabled();
+    expect(daily().getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" })).toHaveAttribute("aria-disabled", "true");
     busy.unmount();
     const five = render(wrap(<MissionsScene {...MISSIONS.milestoneFive} />));
     expect(daily().getByRole("img", { name: "10 Cobbles claimed: 3 dailies done" })).toBeInTheDocument();
@@ -412,7 +412,7 @@ describe("Missions (#832)", () => {
     three.unmount();
     // A day's gift on its way: the week's waits, and the other way round.
     const busy = render(wrap(<MissionsScene {...MISSIONS.weekThree} claimingMilestone={0} />));
-    expect(weekly().getByRole("button", { name: "Claim 50 Cobbles: 3 weeklies done" })).toBeDisabled();
+    expect(weekly().getByRole("button", { name: "Claim 50 Cobbles: 3 weeklies done" })).toHaveAttribute("aria-disabled", "true");
     busy.unmount();
     const claiming = render(wrap(<MissionsScene {...MISSIONS.weekClaiming} />));
     expect(weekly().getByRole("button", { name: "Claim 50 Cobbles: 3 weeklies done" })).toHaveAttribute("aria-busy", "true");
