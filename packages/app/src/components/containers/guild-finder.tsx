@@ -153,12 +153,9 @@ export interface GuildFinderProps {
  * they may join, the most active first) or the ranking by score. Each card opens the guild's page.
  */
 export function GuildFinder({ player, now, candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, onAction }: GuildFinderProps) {
-  const [list, setList] = useState<"suggested" | "ranking">("suggested");
   const [creating, setCreating] = useState(false);
   const [opening, setOpening] = useState(0);
   const { run, pending, error } = useGuildActions(onAction);
-  const searching = query.trim() !== "" || filtered(filters);
-  const set = (change: Partial<GuildFinderFilters>) => onFiltersChange?.({ ...filters, ...change });
   return (
     <div data-slot="guild-finder" className="flex flex-col gap-5">
       <GuildInvitations invitations={player.invitations} current={null} now={now} onAction={onAction} onOpenGuild={onOpenGuild} />
@@ -191,69 +188,17 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
         </Button>
       </div>
 
-      <section aria-label="Find a guild" className="flex flex-col gap-3">
-        <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3 focus-within:ring-2 focus-within:ring-ring">
-          <Icon name="magnifying-glass" size="xs" className="shrink-0 text-muted-foreground" />
-          <input
-            type="search"
-            aria-label="Guild name or tag"
-            placeholder="Guild name or #tag"
-            autoComplete="off"
-            spellCheck={false}
-            enterKeyHint="search"
-            value={query}
-            onChange={(e) => onQueryChange?.(e.target.value)}
-            className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
-          />
-          {query !== "" && (
-            <Button size="icon" variant="ghost" className="-mr-3 shrink-0" aria-label="Clear the search" onClick={() => onQueryChange?.("")}>
-              <Icon name="xmark" size="xs" />
-            </Button>
-          )}
-        </label>
-        <div data-slot="guild-filters" className="flex flex-col gap-2">
-          <ToggleGroup type="single" size="sm" aria-label="Join type" className="flex-wrap" value={filters.joinType ?? "all"} onValueChange={(v) => v && set({ joinType: v === "all" ? null : (v as GuildJoinType) })}>
-            <ToggleGroupItem value="all">All</ToggleGroupItem>
-            {GUILD_JOIN_TYPES.map((t) => (
-              <ToggleGroupItem key={t} value={t}>
-                {JOIN_TYPES[t].label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <ToggleGroup type="single" size="sm" aria-label="Members" className="flex-wrap" value={filters.size} onValueChange={(v) => v && set({ size: v as GuildSizeFilter })}>
-            {(Object.keys(GUILD_SIZES) as GuildSizeFilter[]).map((s) => (
-              <ToggleGroupItem key={s} value={s}>
-                {GUILD_SIZES[s].label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
-            Requirements I meet
-            <Switch checked={filters.meets} onCheckedChange={(meets) => set({ meets })} aria-label="Requirements I meet" />
-          </label>
-        </div>
-        {searching ? (
-          <Cards list={results} player={candidate} empty="No guild found." onOpen={onOpenGuild} />
-        ) : (
-          <>
-            <ToggleGroup type="single" aria-label="Guilds" className="w-full" value={list} onValueChange={(v) => v && setList(v as typeof list)}>
-              <ToggleGroupItem value="suggested" className="flex-1">
-                <Icon name="star" size="xs" />
-                Suggested
-              </ToggleGroupItem>
-              <ToggleGroupItem value="ranking" className="flex-1">
-                <Icon name="ranking-star" size="xs" />
-                Ranking
-              </ToggleGroupItem>
-            </ToggleGroup>
-            {list === "suggested" ? (
-              <Cards list={suggested} player={candidate} empty="No guild you can join right now: search one, or create yours." onOpen={onOpenGuild} />
-            ) : (
-              <Cards list={ranking} player={candidate} ranked empty="No guild yet." onOpen={onOpenGuild} />
-            )}
-          </>
-        )}
-      </section>
+      <GuildBrowse
+        candidate={candidate}
+        query={query}
+        onQueryChange={onQueryChange}
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        results={results}
+        suggested={suggested}
+        ranking={ranking}
+        onOpenGuild={onOpenGuild}
+      />
 
       <GuildFormSheet
         key={opening}
@@ -266,5 +211,86 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
         onSubmit={(draft) => void run({ type: "create", draft }).then((done) => done && setCreating(false))}
       />
     </div>
+  );
+}
+
+/** The guild search and its lists (#953): what the finder shows under Create, and the guild page's Find guilds (#973). */
+export type GuildBrowseProps = Pick<GuildFinderProps, "candidate" | "query" | "onQueryChange" | "filters" | "onFiltersChange" | "results" | "suggested" | "ranking" | "onOpenGuild"> & {
+  /** What Suggested says with no guild to suggest. */
+  suggestedEmpty?: string;
+};
+
+/**
+ * The search by name or `#` tag with its filters (join type, requirements met, size); without a query, the guilds suggested to the
+ * player (those they may join, the most active first) or the ranking by score. Each card opens the guild's page.
+ */
+export function GuildBrowse({ candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, suggestedEmpty = "No guild you can join right now: search one, or create yours." }: GuildBrowseProps) {
+  const [list, setList] = useState<"suggested" | "ranking">("suggested");
+  const searching = query.trim() !== "" || filtered(filters);
+  const set = (change: Partial<GuildFinderFilters>) => onFiltersChange?.({ ...filters, ...change });
+  return (
+    <section aria-label="Find a guild" className="flex flex-col gap-3">
+      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3 focus-within:ring-2 focus-within:ring-ring">
+        <Icon name="magnifying-glass" size="xs" className="shrink-0 text-muted-foreground" />
+        <input
+          type="search"
+          aria-label="Guild name or tag"
+          placeholder="Guild name or #tag"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="search"
+          value={query}
+          onChange={(e) => onQueryChange?.(e.target.value)}
+          className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
+        />
+        {query !== "" && (
+          <Button size="icon" variant="ghost" className="-mr-3 shrink-0" aria-label="Clear the search" onClick={() => onQueryChange?.("")}>
+            <Icon name="xmark" size="xs" />
+          </Button>
+        )}
+      </label>
+      <div data-slot="guild-filters" className="flex flex-col gap-2">
+        <ToggleGroup type="single" size="sm" aria-label="Join type" className="flex-wrap" value={filters.joinType ?? "all"} onValueChange={(v) => v && set({ joinType: v === "all" ? null : (v as GuildJoinType) })}>
+          <ToggleGroupItem value="all">All</ToggleGroupItem>
+          {GUILD_JOIN_TYPES.map((t) => (
+            <ToggleGroupItem key={t} value={t}>
+              {JOIN_TYPES[t].label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <ToggleGroup type="single" size="sm" aria-label="Members" className="flex-wrap" value={filters.size} onValueChange={(v) => v && set({ size: v as GuildSizeFilter })}>
+          {(Object.keys(GUILD_SIZES) as GuildSizeFilter[]).map((s) => (
+            <ToggleGroupItem key={s} value={s}>
+              {GUILD_SIZES[s].label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
+          Requirements I meet
+          <Switch checked={filters.meets} onCheckedChange={(meets) => set({ meets })} aria-label="Requirements I meet" />
+        </label>
+      </div>
+      {searching ? (
+        <Cards list={results} player={candidate} empty="No guild found." onOpen={onOpenGuild} />
+      ) : (
+        <>
+          <ToggleGroup type="single" aria-label="Guilds" className="w-full" value={list} onValueChange={(v) => v && setList(v as typeof list)}>
+            <ToggleGroupItem value="suggested" className="flex-1">
+              <Icon name="star" size="xs" />
+              Suggested
+            </ToggleGroupItem>
+            <ToggleGroupItem value="ranking" className="flex-1">
+              <Icon name="ranking-star" size="xs" />
+              Ranking
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {list === "suggested" ? (
+            <Cards list={suggested} player={candidate} empty={suggestedEmpty} onOpen={onOpenGuild} />
+          ) : (
+            <Cards list={ranking} player={candidate} ranked empty="No guild yet." onOpen={onOpenGuild} />
+          )}
+        </>
+      )}
+    </section>
   );
 }

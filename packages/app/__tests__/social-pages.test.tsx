@@ -176,6 +176,16 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
       expect(await screen.findByRole("dialog", undefined, { timeout: slow(8000) })).toBeInTheDocument();
     });
 
+    it("a guild's link, /guild/<id>, opens that guild's page over the guild page, the ?ref= kept", async () => {
+      const { router } = open("/guild/2?ref=abc");
+      expect(await screen.findByRole("heading", { level: 1, name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/guild");
+      expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
+      expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
+      const sheet = await screen.findByRole("dialog", undefined, { timeout: slow(8000) });
+      expect(await within(sheet).findByRole("heading", { level: 2 }, { timeout: slow(8000) })).toBeInTheDocument();
+    });
+
     it("with ?chat= opens that conversation's tab on the chat page", async () => {
       const { router } = open("/social?chat=world&ref=abc");
       expect(await screen.findByRole("heading", { level: 1, name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();

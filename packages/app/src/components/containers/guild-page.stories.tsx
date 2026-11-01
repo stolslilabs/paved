@@ -4,9 +4,10 @@ import { GUILD_PAGE } from "../../mocks/guilds";
 import { GuildPage } from "./guild-page";
 
 /**
- * A guild's page (#953). Each rank sees only what its rank allows: a Member the announcements, the members and the log; an
- * Officer also the requests, the invitations sent and Post; the Leader also every announcement's Edit and Delete and the
- * settings. A player outside sees the header and the members, with Join, Request, the invitation's answer, or why not.
+ * A guild's page (#953; its header, menu and tabs since #973). Each rank sees only what its rank allows: a Member the tabs
+ * Announcements, Members and Log; an Officer also Requests (the requests, the invitations sent), Post and Invite a player; the
+ * Leader also every announcement's Edit and Delete and the settings. A player outside sees the header and the members, with
+ * Join, Request, the invitation's answer, or why not. Each tab and the menu: `Scenes/Guild`.
  */
 const meta = {
   title: "Containers/GuildPage",

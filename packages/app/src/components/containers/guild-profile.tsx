@@ -8,6 +8,7 @@ import {
   type GuildRank,
 } from "@paved/game-core";
 import type { ReactNode } from "react";
+import type { GuildWriteRun } from "../../data/guilds";
 import type { GuildBadge } from "../../data/social-source";
 import { REFUSALS, rankName } from "../../lib/guild-text";
 import { Button } from "../ui/button";
@@ -61,6 +62,25 @@ export interface GuildTarget {
 
 /** The profile's guild actions. */
 export type GuildMemberAction = { type: "invite" } | { type: "promote" } | { type: "demote" } | { type: "kick"; reason: string } | { type: "make-leader" };
+
+/**
+ * A rank action on `target` as the guild source's write (#953): from their profile, and from their row on the guild page's
+ * Members (#973).
+ */
+export function memberWrite(action: GuildMemberAction, target: string): GuildWriteRun {
+  switch (action.type) {
+    case "invite":
+      return (g, me) => g.invite(me, target);
+    case "promote":
+      return (g, me) => g.promote(me, target);
+    case "demote":
+      return (g, me) => g.demote(me, target);
+    case "kick":
+      return (g, me) => g.kick(me, target, action.reason.trim());
+    case "make-leader":
+      return (g, me) => g.makeLeader(me, target);
+  }
+}
 
 export interface GuildMemberActionsProps {
   viewer: GuildViewer;
