@@ -113,6 +113,12 @@ shape in relief (outline, lit fill, highlight, shadow), each part in its own ton
 add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in `PARTS`, run `bun run game-icons`, and
 record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
 
+The home's direction of 2026-11-01 (`docs/design/home.webp`) draws its buttons, dock and season dial with full-colour images:
+`UiIcon` (`elements/ui-icon.tsx`, the names in `UI_ICONS`), and the dock's ribbon, the PLAY medallion, the season dial and the dock's
+divider (`FRAME_ART`, `uiFrameSources`), all in `elements/ui-art.ts`. The masters are `ui-sources/<icons|frames>/<name>.webp`, every
+icon on one 256 px square with the same margin (so one swaps for another); `node scripts/compress-ui-art.ts` writes their copies to
+`public/ui-art/` (`--check` verifies them). Panels, capsules, buttons, badges and bars stay CSS on the theme's tokens.
+
 League standards (#917, redrawn after the owner's design of 2026-11-01 in `docs/design/league-standards.webp`): ten tiers
 (`LEAGUE_TIERS`, Unranked to Grand Master, `tierOf`, `divisionOf`), each shown as images: `LeagueCrestArt` (full, from 64 px),
 `LeagueCrestIcon` (16 to 40 px, its own simplified art), `LeaguePlate` (the plate's image, the name over it in `font-display`),

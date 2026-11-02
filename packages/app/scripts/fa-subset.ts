@@ -37,7 +37,7 @@ export type Variant = (typeof VARIANTS)[number];
 export const SCAN_WHOLE = ["src/components/ui/icon.stories.tsx"];
 /**
  * Not icon names: `icon` here is a Button size; the game icons' names (their shapes and their tones) are drawn from their own
- * paths (#844), never from the subset.
+ * paths (#844), and the HUD icons' names are images of `public/ui-art/` (`ui-art.ts`), never from the subset.
  */
 export const SCAN_SKIP = [
   "src/lib/font-awesome.ts",
@@ -46,6 +46,9 @@ export const SCAN_SKIP = [
   "src/components/elements/game-icon-shapes.ts",
   "src/components/elements/world-icon.tsx",
   "src/components/elements/world-icon-shapes.ts",
+  "src/components/elements/ui-art.ts",
+  "src/components/elements/ui-icon.tsx",
+  "src/components/elements/ui-icon.stories.tsx",
 ];
 
 const END = "};!function(c){try{";
