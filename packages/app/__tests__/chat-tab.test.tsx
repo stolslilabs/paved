@@ -230,12 +230,37 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     await act(() => router.navigate("/friends"));
     await userEvent.click(await screen.findByRole("button", { name: `Message ${friend.name}` }, T(10_000)));
     await conversation(friend.name);
-    expect(screen.getByText("Paved never asks for your key or your password.")).toBeInTheDocument();
+    expect(screen.getByText("Your private messages are end-to-end encrypted. Paved never asks for your key or your password.")).toBeInTheDocument();
     await send(friend.name, "hello friend");
     expect(await within(screen.getByRole("log", { name: "Messages" })).findByText("hello friend", undefined, T(8_000))).toBeInTheDocument();
     expect(screen.queryByText(/wait in their Requests/)).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Got it" }));
-    await waitFor(() => expect(screen.queryByText("Paved never asks for your key or your password.")).toBeNull(), T(8_000));
+    await waitFor(() => expect(screen.queryByText("Your private messages are end-to-end encrypted. Paved never asks for your key or your password.")).toBeNull(), T(8_000));
+  });
+
+  it("says a private conversation is end-to-end encrypted, shows the friend's key change and its new safety code (#997)", async () => {
+    const { router, me, social, chat, later } = open("/chat");
+    const friend = SEEDED_PLAYERS.find((p) => followBackDelay(me, p.address) !== null)!;
+    await social.follows!.follow(me, friend.address);
+    await later(followBackDelay(me, friend.address)! + 1);
+    await act(() => router.navigate(`/chat/private/${friend.address}`));
+    const box = await conversation(friend.name);
+    expect(within(box).getByText(`End-to-end encrypted: only you and ${friend.name} can read these messages`)).toBeInTheDocument();
+    await send(friend.name, "hello friend");
+    const log = within(box).getByRole("log", { name: "Messages" });
+    await within(log).findByText("hello friend", undefined, T(8_000));
+    const before = (await chat.conversation(me, privateConversation(me, friend.address)))!.encryption.safetyCode!;
+    // The friend's key changes: a line in the conversation, whose View code shows the new code.
+    await (chat as ChatSource & { rotateKeys(player: string): Promise<void> }).rotateKeys(friend.address);
+    await later(1);
+    const line = await within(log).findByText(`${friend.name}'s security key changed`, undefined, T(8_000));
+    await userEvent.click(within(line.closest("li") as HTMLElement).getByRole("button", { name: "View code" }));
+    const sheet = await screen.findByRole("dialog", { name: "Encryption" }, T(5_000));
+    const after = (await chat.conversation(me, privateConversation(me, friend.address)))!.encryption.safetyCode!;
+    expect(after).not.toBe(before);
+    expect(within(sheet).getByLabelText(`Safety code ${after}`)).toBeInTheDocument();
+    // The history stays readable.
+    expect(within(log).getByText("hello friend")).toBeInTheDocument();
   });
 
   it("brings a stranger's request after the first visit: badged on Private, opened, then accepted", async () => {

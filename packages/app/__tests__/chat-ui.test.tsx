@@ -232,7 +232,7 @@ describe("a conversation (#955)", () => {
   it("shows the first private conversation's notice until Got it", async () => {
     const onSeeNotice = vi.fn();
     render(wrap(<ChatConversation {...CHAT_CONVERSATION.private} onSeeNotice={onSeeNotice} />));
-    expect(screen.getByText("Paved never asks for your key or your password.")).toBeInTheDocument();
+    expect(screen.getByText("Your private messages are end-to-end encrypted. Paved never asks for your key or your password.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(onSeeNotice).toHaveBeenCalled();
   });

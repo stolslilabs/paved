@@ -368,7 +368,7 @@ export interface ChatOverview {
   requests: ConversationSummary[];
   /** The Chat tab's badge, and so the Social button's (#952): the guild's and the private unread messages, and the requests. */
   badge: number;
-  /** The player saw the notice of their first private conversation: "Paved never asks for your key or your password." */
+  /** The player saw the notice of their first private conversation: "Your private messages are end-to-end encrypted. Paved never asks for your key or your password." */
   noticeSeen: boolean;
 }
 
@@ -380,6 +380,12 @@ export interface ChatEncryption {
   safetyCode: string | null;
   /** A private conversation: when the other's key changed (a new version) since it began, oldest first; else empty. */
   keyChanges: { at: number; version: number }[];
+  /**
+   * A guild's conversation: when the connected player joined it, if they joined after it began, so that its messages from before
+   * are not theirs to read (#997, open point 2: "Messages from before you joined are not shown"); else null (a founder, or not a
+   * guild's).
+   */
+  joinedAt: number | null;
 }
 
 /** A page of one conversation, as the connected player sees it. */
