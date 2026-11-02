@@ -22,7 +22,7 @@ export interface LevelBarProps {
 
 /**
  * The player's level on the player card (the owner's direction of 2026-11-01, `docs/design/home.webp`): the HUD's blue star holding
- * the level, over the left end of a luminous blue bar, the XP made and the XP the level needs in it ("90/150"). A gain fills the bar
+ * the level, over the left end of a luminous cyan bar, the XP made and the XP the level needs in it ("90/150"). A gain fills the bar
  * and a "+N XP" rises at its end; a level up completes it, flashes it, turns the level over, then fills the new one (`useXpMotion`).
  * Under reduced motion the values change at once with a brief flash. Decorative: the card says the level and the XP left.
  */
@@ -35,16 +35,16 @@ export function LevelBar({ progress, className }: LevelBarProps) {
   const width = useTransform([share, full], ([s, f]: number[]) => `${(f ? 1 : s!) * 100}%`);
   const lit = burst ?? flash;
   return (
-    <span data-slot="level-bar" aria-hidden className={cn("relative flex h-7 w-36 shrink-0 items-center pl-3.5 tablet:w-40", className)}>
-      {/* The track: a dark groove with a light edge; the fill a luminous blue, lit along its top. */}
-      <span className="relative h-4.5 flex-1 overflow-hidden rounded-r-full border border-foreground/25 bg-background shadow-inner">
-        <m.span data-slot="level-fill" className="absolute inset-y-0 left-0 bg-gradient-to-b from-info to-info/55 after:absolute after:inset-x-0 after:top-0.5 after:h-1 after:rounded-full after:bg-foreground/30" style={{ width }} />
+    <span data-slot="level-bar" aria-hidden className={cn("relative flex h-7 w-36 max-w-full items-center pl-3.5 tablet:w-40", className)}>
+      {/* The track: a charcoal groove in a dark outline, lit along its top; the fill the mockup's cyan to deep blue, a light line on top. */}
+      <span className="relative h-4.5 flex-1 overflow-hidden rounded-r-full border border-background bg-hud-card shadow-[inset_0_2px_0_var(--hud-card-rim)]">
+        <m.span data-slot="level-fill" className="absolute inset-y-0 left-0 bg-linear-to-b from-xp-light from-15% via-xp via-45% to-xp-deep after:absolute after:inset-x-1 after:top-px after:h-0.5 after:rounded-full after:bg-foreground/60" style={{ width }} />
         {lit !== null && (
           // The level up lights the whole bar, fading.
           <m.span
             key={lit}
             data-slot="level-flash"
-            className="absolute inset-0 bg-info"
+            className="absolute inset-0 bg-xp-light"
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}

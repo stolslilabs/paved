@@ -120,8 +120,8 @@ export function PlayerRim({ crowns = 0, attacks, children, className }: PlayerRi
             <LeagueRim tier={tier} size="inherit" className="block">
               {children}
             </LeagueRim>
-            {/* The crest at 42 % of the rim, by its box (an image, not text). */}
-            <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size="inherit" className="absolute -bottom-[4%] -left-[10%]" style={{ width: "42%", height: "42%" }} />
+            {/* The crest at 44 % of the rim, by its box (an image, not text), past the rim's foot. */}
+            <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size="inherit" className="absolute -bottom-[10%] -left-[10%]" style={{ width: "44%", height: "44%" }} />
           </span>
         );
       }}

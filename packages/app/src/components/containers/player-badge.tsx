@@ -22,12 +22,13 @@ export interface PlayerBadgeProps {
 }
 
 /**
- * The player card at the home's top left (#787, redrawn after the owner's direction of 2026-11-01, `docs/design/home.webp`): a dark
- * rounded card, the avatar in the rim of the player's league with the league's crest at its lower left, then the name and, under it,
- * the level's star over the XP's blue bar ("90/150"). The card grows with the name (a name has at most 15 characters,
- * `PLAYER_NAME_MAX`) and ends it with an ellipsis where the home's room ends (`--profile-room`, set by the home beside its balances). A
- * tap anywhere on it opens the profile sheet (#624), which has the XP made and left. The gains and level ups are `LevelBar`'s. 56 px
- * high, 64 from `tablet`. Without the shell's profile (some stories and tests), nothing.
+ * The player card at the home's top left (#787, redrawn after the owner's direction of 2026-11-01, `docs/design/home.webp`): a
+ * see-through dark grey card in a lighter grey rim, a black drop shadow round it; the avatar in the rim of the player's league with the
+ * league's crest at its lower left, both running past the card's foot; then the name and, under it, the level's star over the XP's
+ * blue bar ("90/150"). The card grows with the name (a name has at most 15 characters, `PLAYER_NAME_MAX`) and ends it with an
+ * ellipsis where the home's room ends (`--profile-room`, set by the home beside its balances). A tap anywhere on it opens the profile
+ * sheet (#624), which has the XP made and left. The gains and level ups are `LevelBar`'s. Without the shell's profile (some stories
+ * and tests), nothing.
  */
 export function PlayerBadge({ league, className }: PlayerBadgeProps) {
   const { value, trigger, sheet } = useProfileOpener();
@@ -44,10 +45,14 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
         {...trigger}
         aria-label={`${profileLabel(value.state, undefined)}${progress ? `, ${levelLabel(progress)}` : ""}`}
         data-slot="player-card"
-        className="state-layer flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-2 rounded-2xl border border-border bg-background/75 py-1 pr-3 pl-1 text-left shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring tablet:gap-2.5 tablet:pr-4"
+        // The mockup's card: a see-through dark grey face, a see-through lighter grey rim, a black drop shadow round it.
+        className="state-layer flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-2 rounded-2xl border-2 border-hud-card-rim/60 bg-hud-card/75 py-1 pr-3 pl-1 text-left shadow-[0_2px_8px] shadow-background backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-ring tablet:gap-2.5 tablet:pr-4"
       >
-        {/* The avatar in its rim, 48 px, 56 from `tablet`: the rim's square takes the box's font size. */}
-        <span data-slot="avatar-rim" className="relative block shrink-0 text-[3rem] tablet:text-[3.5rem]">
+        {/*
+          The avatar in its rim, 64 px, 72 from `tablet` (the rim's square takes the box's font size), larger than the card: from its top it
+          runs past the card's foot, the crest further (its negative margin keeps the card the height of the name and the bar).
+        */}
+        <span data-slot="avatar-rim" className="relative -mb-4 block shrink-0 self-start text-[4rem] tablet:-mb-5 tablet:text-[4.5rem]">
           <Suspense
             fallback={
               <span className="relative block size-[1em] rounded-full border-2 border-border">
@@ -67,7 +72,7 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
             </span>
           )}
           {connected && (
-            <Suspense fallback={<span aria-hidden className="block h-7 w-36 tablet:w-40" />}>
+            <Suspense fallback={<span aria-hidden className="block h-7 w-36 max-w-full tablet:w-40" />}>
               <LazyLevelBar progress={progress} />
             </Suspense>
           )}
