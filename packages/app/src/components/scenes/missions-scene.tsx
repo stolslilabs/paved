@@ -15,7 +15,7 @@ import { MissionTile, type MissionTileState } from "../containers/mission-tile";
 import { TUTORIAL_TEXT, TUTORIAL_XP, achievementText, questText, taskUnit, type TutorialGo } from "../containers/quest-text";
 import { TabPage } from "../containers/tab-page";
 import { MilestonesBar } from "../containers/milestones-bar";
-import type { MissionKey } from "../containers/missions-tracker-lines";
+import type { MissionKey } from "../containers/mission-key";
 
 /** A mission of the page, by what it is (no period's bonus since #976): its key, as the home's tracker links to it (#978). */
 export type { MissionKey };

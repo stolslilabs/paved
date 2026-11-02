@@ -19,7 +19,7 @@ afterEach(cleanup);
 
 const { score, previous } = HOME_VILLAGE.saved.saved;
 const gain = formatInteger(score - previous);
-const chip = (n: number) => screen.getByRole("button", { name: `Village score ${formatInteger(n)}` });
+const chip = (n: number) => screen.getByRole("button", { name: `Edit village, score ${formatInteger(n)}` });
 const floating = (root: HTMLElement) => root.querySelectorAll("[data-slot=score-count] [data-slot=resource-change]");
 /** The count, its own chunk, in. */
 const counted = (root: HTMLElement) => waitFor(() => expect(root.querySelector("[data-slot=score-count]")).not.toBeNull());
@@ -65,7 +65,7 @@ describe("the home's score chip after a save (#802)", () => {
     const before = { ...HOME_VILLAGE.view, village: { ...HOME_VILLAGE.view.village, score: previous } };
     const { rerender, unmount } = render(wrap(<HomeVillageScene {...before} editing />));
     // In edit mode: no chip, no message.
-    expect(screen.queryByRole("button", { name: /^Village score/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Edit village, score/ })).toBeNull();
     expect(screen.queryByText(/^Village saved/)).toBeNull();
     // The save lands: edit mode closes on it, the village's read comes later.
     rerender(wrap(<HomeVillageScene {...before} saved={{ score, previous }} />));

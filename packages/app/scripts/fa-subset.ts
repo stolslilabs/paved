@@ -119,10 +119,10 @@ export function iconLines(src: string): string[] {
 }
 
 /**
- * Props and keys that take a word which is also an icon's name ("ghost" button, the "home" tab): not an icon. A `GameIcon`'s
- * or a `WorldIcon`'s name is not one either: it draws its own paths (#844, #870).
+ * Props and keys that take a word which is also an icon's name ("ghost" button, the "home" tab, a plate's "left" side): not an icon. A `GameIcon`'s
+ * or a `WorldIcon`'s name is not one either: it draws its own paths (#844, #870); nor a `UiIcon`'s, an image of `public/ui-art/`.
  */
-const NOT_ICON_PROPS = /\b(?:variant|size|id|tone|type|active|mode|state)\s*[=:]\s*\{?\s*"[^"]*"|<(?:Game|World)Icon\b[^>]*?\bname="[^"]*"/g;
+const NOT_ICON_PROPS = /\b(?:variant|size|id|tone|type|active|mode|state|side|frame)\s*[=:]\s*\{?\s*"[^"]*"|<(?:Game|World|Ui)Icon\b[^>]*?\bname="[^"]*"/g;
 
 /**
  * The first string of each array row that starts its line (`["ticket", "Challenge games", ...],` in a table a later

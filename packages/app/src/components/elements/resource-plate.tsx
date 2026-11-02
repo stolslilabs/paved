@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { ChangeFloat, ChangePop, changeTone, useAmountChange } from "./amount-change";
 import { NumberTicker } from "./number-ticker";
-import { Plate, plateBareIconClass, plateBareIconPx, PLATE_FIGURE, type PlateVariants } from "./plate";
+import { Plate, plateHudIconClass, plateHudIconPx, PLATE_FIGURE, type PlateVariants } from "./plate";
 import { TokenIcon, type TokenKind } from "./token-icon";
 
 export interface ResourcePlateProps extends PlateVariants {
@@ -32,10 +32,10 @@ export interface ResourcePlateProps extends PlateVariants {
 }
 
 /**
- * A balance as a game's resource bar shows it (issues 620, 828): a `Plate` on the stone frame (the owner's direction A of 2026-11-01:
- * the player badge's name plate made small) with the figure in chunky mono, outlined like the badge's name, the token's icon
- * standing over one end, bare (issue 213: no disc behind it) and taller than the plate; the other end is the frame's gold point, no "+" (the
- * owner's ruling of issue 925: a balance's tap is its container's). On each change of the amount, never on the first one nor from a missing value, the figure counts to the new value (`NumberTicker`) and briefly takes
+ * A balance as a game's resource bar shows it (issues 620, 828): a `Plate` on the HUD's frame (HOME-UI-CAPSULES, the player card's
+ * painted rim, `docs/design/home.webp`) with the figure in chunky mono, outlined like the card's name, the token's icon capping one
+ * end from inside, bare (issue 213: no disc behind it) and taller than the plate; no "+" at the other end (the owner's ruling of
+ * issue 925: a balance's tap is its container's). On each change of the amount, never on the first one nor from a missing value, the figure counts to the new value (`NumberTicker`) and briefly takes
  * the change's colour; up, a "+N" rises and fades and the icon pops; down, a "−N" drops and fades and the icon dips. Under reduced
  * motion only the colour flashes: nothing moves. The accessible name is the container's.
  */
@@ -50,11 +50,10 @@ export function ResourcePlate({ kind, amount, decimals, fraction, side = "right"
       tone={tone}
       fixed={fixed}
       className={className}
-      endFit="bare"
-      frame="stone"
+      frame="hud"
       end={
         <ChangePop change={change} moving={moving}>
-          <TokenIcon kind={kind} px={plateBareIconPx(size)} className={plateBareIconClass(size)} />
+          <TokenIcon kind={kind} px={plateHudIconPx(size)} className={plateHudIconClass(size)} />
         </ChangePop>
       }
       after={<ChangeFloat change={change} moving={moving} className={side === "left" ? "right-auto left-2" : "right-6"} />}

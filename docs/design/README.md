@@ -24,9 +24,9 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   small (a slate face between two rows of bricks, a gold point closing its open end) and the four currencies as single objects,
   the Cobbles a hewn paving stone, PAVED a thick gold coin with its "P", vPAVED the same coin in silver (its padlock dropped by the
   owner), USDC the same coin with Circle's mark. Generated with OpenAI's image model through the Codex CLI; each asset was then
-  generated again alone (vPAVED and USDC from PAVED's coin), the plate cut into its caps and a seamless tile, the stone toned to the
-  badge's, and USDC's face given Circle's own mark. The client's images are in `packages/app/token-sources/`
-  (`scripts/compress-token-art.ts`).
+  generated again alone (vPAVED and USDC from PAVED's coin), the stone toned to the badge's, and USDC's face given Circle's own
+  mark. The client's images are in `packages/app/token-sources/` (`scripts/compress-token-art.ts`). The plate gave way to the HUD's
+  frame of `home.webp` (HOME-UI-CAPSULES, 2026-11-02).
 
 - `home.webp`: the home's mobile direction (2026-11-01), chosen by the owner after rounds of proposals in Supercell's rendering:
   the player card (the avatar in its league's rim and crest, the name, the XP bar with its level star and "90/150"), the trophies
@@ -34,7 +34,9 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   right edge, the season dial as a half-disc on the left edge (it stays during a game), Chat on the left edge, Missions, Vault and
   Friends on the right, and an anchored ribbon dock: Shop, Chests, PLAY, Guild, Settings. Generated with OpenAI's image model through
   the Codex CLI; its icons and frames are in `packages/app/ui-sources/` (`scripts/compress-ui-art.ts`). The owner kept the app's
-  layout (2026-11-02): its components take this direction one at a time, the player card first (`containers/player-badge.tsx`).
+  layout (2026-11-02): its components take this direction one at a time, the player card first (`containers/player-badge.tsx`), then
+  the capsules and the balances (HOME-UI-CAPSULES). The season dial keeps its look for now: the mockup's, tried on 2026-11-02, was set
+  aside to come back to.
 
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view

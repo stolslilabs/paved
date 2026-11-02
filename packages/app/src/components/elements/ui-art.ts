@@ -19,6 +19,8 @@ export const UI_ICONS = [
   "friends",
   "chat",
   "trophy",
+  "crown",
+  "shield",
   "village",
   "level-star",
   "spring",
