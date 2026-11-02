@@ -35,12 +35,12 @@ export const Sizes: Story = {
   ),
 };
 
-/** The frames the home draws with them: the dock's ribbon, the PLAY medallion, the season dial and the dock's divider. */
+/** The frames the home draws with them: the player card's frame, the XP bar's track and its fill. */
 export const Frames: Story = {
   render: () => (
     <div className="flex flex-wrap items-end gap-4 rounded-xl bg-background p-4">
       {UI_FRAMES.map((name) => {
-        const px = name === "dock-ribbon" ? 360 : name === "dock-divider" ? 8 : 96;
+        const px = 240;
         const { width, height, ...sources } = uiFrameSources(name, px);
         // At most the story's width (the 320 px viewport of the wrap sweep), its proportions kept.
         return <img key={name} {...sources} alt="" draggable={false} style={{ width: px, maxWidth: "100%", height: "auto", aspectRatio: `${FRAME_ART[name].width} / ${FRAME_ART[name].height}` }} />;
