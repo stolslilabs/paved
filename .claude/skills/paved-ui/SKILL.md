@@ -113,9 +113,9 @@ shape in relief (outline, lit fill, highlight, shadow), each part in its own ton
 add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in `PARTS`, run `bun run game-icons`, and
 record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
 
-The home's direction of 2026-11-01 (`docs/design/home.webp`) draws its buttons, dock and season dial with full-colour images:
-`UiIcon` (`elements/ui-icon.tsx`, the names in `UI_ICONS`), and the dock's ribbon, the PLAY medallion, the season dial and the dock's
-divider (`FRAME_ART`, `uiFrameSources`), all in `elements/ui-art.ts`. The masters are `ui-sources/<icons|frames>/<name>.webp`, every
+The home's direction of 2026-11-01 (`docs/design/home.webp`) draws its buttons with full-colour images: `UiIcon`
+(`elements/ui-icon.tsx`, the names in `UI_ICONS`), and the player card's frame and XP bar (`FRAME_ART`, `uiFrameSources`), all in
+`elements/ui-art.ts`. An image nothing draws leaves the set (the dock's frames and the game modes' icons left on 2026-11-02). The masters are `ui-sources/<icons|frames>/<name>.webp`, every
 icon on one 256 px square with the same margin (so one swaps for another); `node scripts/compress-ui-art.ts` writes their copies to
 `public/ui-art/` (`--check` verifies them). Panels, capsules, buttons, badges and bars stay CSS on the theme's tokens.
 

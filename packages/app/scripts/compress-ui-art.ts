@@ -14,8 +14,8 @@
  * (`docs/design/home.webp`, each step approved by the owner): sheets of 16 icons and one of the frames, drawn on a transparent
  * background by editing the validated screens, so every asset is copied from them; then cut by script, each icon trimmed to its
  * drawing, fitted to a 240 px box (its proportions kept) and centred on a 256 px square, each frame put on its own frame. The
- * ribbon was drawn again with straight rims (no notches, so its stretched middle does not show) and the medallion with a round rim.
- * Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
+ * dock's ribbon and divider, the PLAY medallion, the season dial's frame and the game modes' icons left on 2026-11-02, unused once the
+ * owner kept the app's layout. Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
@@ -32,7 +32,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
-/** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the ribbon is mostly parchment. */
+/** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat. */
 const QUALITY = { icons: 82, frames: 80 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),

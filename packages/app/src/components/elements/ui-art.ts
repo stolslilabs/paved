@@ -1,7 +1,8 @@
 /**
  * The HUD's images (the owner's mobile direction of 2026-11-01, `docs/design/home.webp`, after Supercell's games): the icons of the
- * home's buttons, of the dock, of the seasons and of the Play sheet, and the frames the home draws with them: the dock's ribbon, the
- * PLAY medallion, the season dial and the dock's divider, and the player card's frame and XP bar. Panels, capsules, buttons, badges and bars are CSS; the league's art is
+ * home's buttons, of the dock, of the seasons and of the Play sheet, and the frames the home draws with them: the player card's frame
+ * and XP bar. The owner kept the app's layout (2026-11-02), so the dock's ribbon, the PLAY medallion, the season dial's frame, the
+ * dock's divider and the game modes' icons went unused and were removed. Panels, capsules, buttons, badges and bars are CSS; the league's art is
  * `league-standards.ts`; the currencies stay `token-art.ts` and the chests `chest-art.ts`. Images, not drawings: WebP copies in `public/ui-art/` of the masters in
  * `ui-sources/` (`scripts/compress-ui-art.ts`). URLs and measures only: nothing here imports an image, and the module stays plain
  * TypeScript so the script reads it under Node.
@@ -27,11 +28,6 @@ export const UI_ICONS = [
   "moon",
   "sun",
   "swords",
-  "mode-resume",
-  "mode-daily",
-  "mode-attack",
-  "mode-story",
-  "mode-training",
   "deck",
   "rotate",
   "discard",
@@ -45,7 +41,7 @@ export const UI_ICONS = [
 export type UiIconName = (typeof UI_ICONS)[number];
 
 /** The frames, each an image of its own. */
-export const UI_FRAMES = ["dock-ribbon", "play-medallion", "season-dial", "dock-divider", "card-frame", "xp-track", "xp-fill"] as const;
+export const UI_FRAMES = ["card-frame", "xp-track", "xp-fill"] as const;
 export type UiFrameName = (typeof UI_FRAMES)[number];
 
 interface Frame {
@@ -60,16 +56,8 @@ interface Frame {
 /** The icons' frame: 256 px, copies for a 32 px icon on a 2x screen to a 64 px one on a 2x screen. */
 export const ICON_FRAME: Frame = { width: 256, height: 256, side: "width", sizes: [64, 128] };
 
-/**
- * The frames' masters. The ribbon is a 9-slice image (its wooden ends kept, its middle stretched: `RIBBON_END`); the medallion
- * carries no word (PLAY is the app's text); the dial is empty, its flat side on the frame's left edge (the moon, the sun and the
- * season ride on it in code).
- */
+/** The frames' masters. */
 export const FRAME_ART = {
-  "dock-ribbon": { width: 1440, height: 258, side: "width", sizes: [720, 1440] },
-  "play-medallion": { width: 512, height: 512, side: "width", sizes: [128, 256] },
-  "season-dial": { width: 254, height: 512, side: "height", sizes: [128, 256] },
-  "dock-divider": { width: 25, height: 128, side: "height", sizes: [128] },
   "card-frame": { width: 1494, height: 466, side: "width", sizes: [360, 720] },
   "xp-track": { width: 1464, height: 181, side: "width", sizes: [360, 720] },
   "xp-fill": { width: 1466, height: 119, side: "width", sizes: [360, 720] },
@@ -89,9 +77,6 @@ export const uiFrameImageSet = (name: UiFrameName) => {
   const [small, large] = FRAME_ART[name].sizes;
   return `image-set(url("${uiFrameUrl(name, small!)}") 1x, url("${uiFrameUrl(name, large ?? small!)}") 2x)`;
 };
-
-/** The ribbon's wooden ends, as a share of its width, measured on the master: what a `border-image` keeps unstretched. */
-export const RIBBON_END = 0.05;
 
 export const UI_ART_DIR = "/ui-art";
 
