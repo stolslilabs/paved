@@ -36,12 +36,14 @@ export interface LevelBarProps {
 
 /**
  * The player's level on the player card (the owner's direction of 2026-11-01, `docs/design/home.webp`, decomposed layer by layer): the
- * HUD's blue star holding the level, over the left end of the mockup's track and its faceted cyan fill (images), the XP made and the XP the level needs in it ("90/150"). A gain fills the bar
+ * HUD's blue star holding the level, over the left end of the mockup's track and its faceted cyan fill (images), the XP made and the XP the level needs in it ("90/150"). On load the bar
+ * fills from empty, eased in and out. A gain fills the bar
  * and a "+N XP" rises at its end; a level up completes it, flashes it, turns the level over, then fills the new one (`useXpMotion`).
  * Under reduced motion the values change at once with a brief flash. Decorative: the card says the level and the XP left.
  */
 export function LevelBar({ progress, className }: LevelBarProps) {
-  const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress);
+  // On load the bar fills from empty, eased in and out (the owner's ask of 2026-11-02).
+  const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress, { fillIn: true });
   const capped = progress ? isMaxLevel(progress) : false;
   // The cap's bar is full whatever the share (its span is 0): a motion value too, so a level up into the cap redraws it.
   const full = useMotionValue(capped ? 1 : 0);
@@ -51,12 +53,13 @@ export function LevelBar({ progress, className }: LevelBarProps) {
   return (
     <span data-slot="level-bar" aria-hidden className={cn("relative flex h-7 w-36 max-w-full items-center pl-3.5 tablet:w-40", className)}>
       {/*
-        The mockup's track (`xp-track`: a near-black outline, a silver bevel, a dark recess) with its drop shadow, and in its recess the
-        faceted cyan fill (`xp-fill`), shown from the left up to the share.
+        The mockup's track (`xp-track`: a near-black outline, a silver bevel, a dark recess) with its drop shadow, and over it, inside
+        the outline, the faceted cyan fill (`xp-fill`), shown from the left up to the share: as on the mockup, the fill covers the silver
+        bevel (the owner's ask of 2026-11-02), the outline alone round it (1 px, its inner corner 5 px).
       */}
       <span className="relative h-4.5 flex-1">
         <span aria-hidden data-slot="xp-track" className="absolute inset-0 [filter:drop-shadow(0_1px_0_var(--background))]" style={TRACK} />
-        <span className="absolute inset-[3px] overflow-hidden rounded-r-[6px]">
+        <span data-slot="level-recess" className="absolute inset-px overflow-hidden rounded-r-[5px]">
           <m.span data-slot="level-fill" className="absolute inset-y-0 left-0" style={{ ...FILL, width }} />
         </span>
         {lit !== null && (
@@ -64,7 +67,7 @@ export function LevelBar({ progress, className }: LevelBarProps) {
           <m.span
             key={lit}
             data-slot="level-flash"
-            className="absolute inset-[3px] rounded-r-[6px] bg-xp-light"
+            className="absolute inset-px rounded-r-[5px] bg-xp-light"
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
