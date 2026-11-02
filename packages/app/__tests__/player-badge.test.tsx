@@ -56,9 +56,12 @@ describe("the level's star and bar (the owner's direction of 2026-11-01)", () =>
   });
 
   it("fills the bar to the share of the level, full at the cap; the star is the HUD's", () => {
-    const { container, unmount } = render(wrap(<LevelBar progress={PROGRESS.partWay} />));
+    // Under reduced motion the share is drawn at once (with motion it fills in: the next test).
+    const { container, unmount } = render(wrap(<LevelBar progress={PROGRESS.partWay} />, "always"));
     const fill = container.querySelector<HTMLElement>("[data-slot=level-fill]")!;
     expect(fill.style.width).toBe(`${(120 / 300) * 100}%`);
+    // The fill covers the track's silver bevel, inside its 1 px outline (the mockup's).
+    expect(container.querySelector("[data-slot=level-recess]")).toHaveClass("inset-px", "rounded-r-[5px]");
     expect(container.querySelector("[data-slot=level]")).toHaveTextContent(/^3$/);
     expect(container.querySelector("[data-slot=xp]")).toHaveTextContent(/^120\/300$/);
     expect(container.querySelector("[data-slot=ui-icon][data-icon=level-star]")).not.toBeNull();
@@ -67,6 +70,23 @@ describe("the level's star and bar (the owner's direction of 2026-11-01)", () =>
     const capped = render(wrap(<LevelBar progress={PROGRESS.maxLevel} />)).container;
     expect(capped.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.width).toBe("100%");
     expect(capped.querySelector("[data-slot=xp]")).toHaveTextContent(/^Max$/);
+  });
+
+  it("on load fills from empty to the share, eased in and out; read again, it fills in again", async () => {
+    const { container, rerender } = render(wrap(<LevelBar progress={PROGRESS.partWay} />));
+    const width = () => parseFloat(container.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.width);
+    const share = (120 / 300) * 100;
+    // A width part of the way: the fill moves there (a jump would land on the share at once).
+    const partWay = () => waitFor(() => expect(width() > 0 && width() < share).toBe(true), { timeout: slow(3000) });
+    expect(width()).toBe(0);
+    expect(container.querySelector("[data-slot=level]")).toHaveTextContent(/^3$/);
+    await partWay();
+    await waitFor(() => expect(width()).toBe(share), { timeout: slow(3000) });
+    rerender(wrap(<LevelBar progress={undefined} />));
+    await waitFor(() => expect(width()).toBe(0), { timeout: slow(3000) });
+    rerender(wrap(<LevelBar progress={PROGRESS.partWay} />));
+    await partWay();
+    await waitFor(() => expect(width()).toBe(share), { timeout: slow(3000) });
   });
 
   it("while the XP is read: the empty track, the star blank", () => {
