@@ -172,7 +172,10 @@ interface ReportDialogProps {
 function ReportDialog({ message, encrypted, onCancel, onReport }: ReportDialogProps) {
   return (
     <Dialog open={message !== null} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent data-slot="chat-report">{message && <ReportBody key={message.id} message={message} encrypted={encrypted} onCancel={onCancel} onReport={onReport} />}</DialogContent>
+      {/* As tall as the screen at most, scrolling within: the encrypted conversations' warning makes it taller than a small phone. */}
+      <DialogContent data-slot="chat-report" className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
+        {message && <ReportBody key={message.id} message={message} encrypted={encrypted} onCancel={onCancel} onReport={onReport} />}
+      </DialogContent>
     </Dialog>
   );
 }
@@ -195,7 +198,7 @@ function ReportBody({ message, encrypted, onCancel, onReport }: ReportDialogProp
   return (
     <form className="flex flex-col gap-4" onSubmit={submit}>
       <DialogHeader>
-        <DialogTitle className="wrap-anywhere">Report {authorName(message)}'s message?</DialogTitle>
+        <DialogTitle className="pr-6 wrap-anywhere">Report {authorName(message)}'s message?</DialogTitle>
         <DialogDescription>They are not told. The message stays until it is reviewed.</DialogDescription>
       </DialogHeader>
       {encrypted && (

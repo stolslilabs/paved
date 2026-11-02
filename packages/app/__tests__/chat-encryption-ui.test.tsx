@@ -121,6 +121,12 @@ describe("the report's warning (#997, point 12)", () => {
     expect(within(await screen.findByRole("dialog")).getByText(REVEAL)).toBeInTheDocument();
   });
 
+  it("stays within the screen, scrolling inside, now that the warning makes it taller than a small phone", async () => {
+    render(wrap(<ChatConversation {...CHAT_CONVERSATION.reportPrivate} />));
+    // jsdom lays nothing out: the classes are the contract, measured in Chromium at 320 x 568 for the pull request.
+    expect(await screen.findByRole("dialog")).toHaveClass("max-h-[calc(100dvh-2rem)]", "overflow-y-auto");
+  });
+
   it("says nothing of it in the public World", async () => {
     render(wrap(<ChatConversation {...CHAT_CONVERSATION.report} />));
     expect(within(await screen.findByRole("dialog")).queryByText(REVEAL)).toBeNull();
