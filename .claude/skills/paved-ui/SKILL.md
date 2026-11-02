@@ -113,17 +113,18 @@ shape in relief (outline, lit fill, highlight, shadow), each part in its own ton
 add a name to `GAME_ICON_NAMES` in `scripts/game-icons.ts`, give it its tones in `PARTS`, run `bun run game-icons`, and
 record it in `public/THIRD_PARTY_NOTICES.txt`. Text-sized icons elsewhere stay `Icon`.
 
-League standards (#917, the owner's design in `docs/design/league-standards.webp`, which supersedes #854's studies): ten tiers
+League standards (#917, redrawn after the owner's design of 2026-11-01 in `docs/design/league-standards.webp`): ten tiers
 (`LEAGUE_TIERS`, Unranked to Grand Master, `tierOf`, `divisionOf`), each shown as images: `LeagueCrestArt` (full, from 64 px),
 `LeagueCrestIcon` (16 to 40 px, its own simplified art), `LeaguePlate` (the plate's image, the name over it in `font-display`),
-`LeagueBanner`, and `LeagueStandard` (the three stacked). The crest and the icon take a `division` ("I", "II", "III"): each has a
-version per division, the numeral on a ribbon drawn into the art, never laid over it, its ends curling up on every tier (but
-Unranked's plank). Every crest's shield body has one size, Grand Master's (its wings reach the frame), centred in the frame;
-a redrawn crest keeps it. The masters are lossless WebP,
-`league-sources/<part>/<name>.webp` (`artName`: `bronze`, `bronze-ii`), one square frame per part but the plate's (`LEAGUE_ART`
-in `elements/league-standards.ts`); `node scripts/compress-league-art.ts` writes their copies to `public/league-art/` (`--check`
-verifies them), and `artSources` gives an `<img>` its `srcSet` and `sizes`. A new tier or a redrawn part is a new master on its
-frame, then the script. Their stories use inline styles where a class would be new: the
+`LeagueBanner`, `LeagueStandard` (the three stacked) and `LeagueRim` (the ring around the player's portrait). One material and
+one colour a tier, the same shield, banner, plate and ring for all; no sword, laurel or wing, Grand Master's horned helmet its
+only emblem. The crest, the icon and the banner take a `division` ("I", "II", "III"): the seven divided tiers (`DIVIDED`) have a
+version per division, the numeral in the middle drawn into the art; Unranked, Wood and Grand Master give their plain version. The
+masters are lossless WebP, `league-sources/<part>/<name>.webp` (`artName`: `bronze`, `bronze-ii`), each part on its frame by one
+rule so tiers swap without a layout change (`LEAGUE_ART` in `elements/league-standards.ts`: the crest, the icon and the rim
+square, the shield in its own proportions; the plate and the banner framed to their shape; every rim with the same hole,
+`RIM_HOLE`); `node scripts/compress-league-art.ts` writes their copies to `public/league-art/` (`--check` verifies them), and
+`artSources` gives an `<img>` its `srcSet` and `sizes`. A new tier or a redrawn part is a new master on its frame, then the script. Their stories use inline styles where a class would be new: the
 stylesheet's budget has no room.
 
 Player badge (the home's top left, the owner's direction of 2026-10-31 in `docs/design/player-badge.webp`, its states in

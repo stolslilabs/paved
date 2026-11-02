@@ -2,12 +2,13 @@
 
 Reference images the client is drawn after. They are not shipped: nothing under `docs/` is bundled.
 
-- `league-standards.webp`: the owner's design of the leagues' crests (issue 917, approved 2026-10-30), ten tiers from Unranked
-  (broken wood) and Wood (pure wood, no plant) to Grand Master: broad heater shields, as wide as tall, swords from Iron to Gold, a
-  knight helmet from Emerald to Grand Master that grows horns and spikes league after league, the stones set in the shields.
-  Generated with OpenAI's image model through the Codex CLI.
-- `league-divisions.webp`: the crests of Gold to Grand Master in their four versions: plain, then I, II and III, the numeral on a
-  ribbon under the motif, drawn into the art.
+- `league-standards.webp`: the leagues' standards as the owner redrew them (2026-11-01), ten tiers from Unranked to Grand Master,
+  each row its crest (plain, then III, II, I), its banner (the same), its blank plate and its avatar rim. One material and one
+  colour a tier, and the same shield, banner, plate and ring for all: cracked mossy stone (Unranked, a torn banner), oak (Wood),
+  hammered iron, bronze, silver, gold, then cut emerald, diamond and amethyst (Master), and ruby set in gold (Grand Master). The
+  division's numeral in the middle of the crest and the banner; Grand Master, which has none, its golden horned helmet; Unranked
+  and Wood an empty field. Generated with OpenAI's image model through the Codex CLI, cut and put on the client's frames as
+  `scripts/compress-league-art.ts` describes.
 - `player-badge.webp`: the player badge's target (2026-10-31), from the owner's starting image: the round voxel portrait in a ring
   of paving stones with gold ornaments, the luminous level bar in the ring's groove, under the gold shield that holds the level (the
   client starts it at 12 o'clock, under the shield, for a whole turn clockwise: the owner, 2026-10-31), and the name plate, bricks top and bottom, ended by a gold arrow cap.
@@ -38,5 +39,6 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.
 
 The leagues' client shows them as images: the masters in `packages/app/league-sources/`, compressed into
-`packages/app/public/league-art/` by `scripts/compress-league-art.ts`. Each tier has a crest and an icon in four versions, a
-blank nameplate (the app writes the name in its `font-display`) and a square banner.
+`packages/app/public/league-art/` by `scripts/compress-league-art.ts`. Each tier has a crest, an icon and a banner (in four versions on
+the seven divided tiers, plain and one per division), a blank nameplate (the app writes the name in its `font-display`) and an
+avatar rim.

@@ -5,7 +5,7 @@ import { LEAGUE_TIERS, divisionOf, tierOf } from "./league-standards";
 import { Grounds } from "./league-story-grounds";
 
 /**
- * The crests' icon form (issue 917), for 16 to 40 px: the silhouette, the colours and the motif with fewer ornaments, and the division
+ * The crests' icon form (issue 917), for 16 to 40 px: the shield and its material with fewer details, and the division
  * as its numeral, III, II or I (the issue's open point 3). The League control's plate, the battle logs, the attack's end and
  * the profile draw it in the third pull request.
  */

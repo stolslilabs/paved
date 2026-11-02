@@ -9,12 +9,13 @@ import { MOCK_NOW } from "../src/mocks/clock";
 import { MATCHES, PVP_MATCHES } from "../src/mocks/pvp";
 import { LeagueCrestArt, LeagueCrestIcon } from "../src/components/elements/league-crest-art";
 import { LeaguePlate } from "../src/components/elements/league-plate";
+import { LeagueRim } from "../src/components/elements/league-rim";
 import { LeagueStandard } from "../src/components/elements/league-standard";
-import { artName, artSources, artUrl, divisionOf, LEAGUE_ART, LEAGUE_TIERS, PLATE_FACE, tierOf, versionsOf } from "../src/components/elements/league-standards";
+import { artName, artSources, artUrl, DIVIDED, divisionOf, LEAGUE_ART, LEAGUE_TIERS, PLATE_FACE, RIM_HOLE, RIM_PORTRAIT, tierOf, versionsOf } from "../src/components/elements/league-standards";
 import { LEAGUES } from "../src/lib/pvp-rules";
 import { expected, masters, OUT, problems } from "../scripts/compress-league-art.ts";
 
-describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
+describe("the leagues' standards (#917, PR 2: crests, plates, banners; redrawn 2026-11-01 with the avatar's rims)", () => {
   it("has the ten tiers up the ladder, Unranked to Grand Master, Platinum renamed Emerald", () => {
     expect(LEAGUE_TIERS.map((t) => t.name)).toEqual(["Unranked", "Wood", "Iron", "Bronze", "Silver", "Gold", "Emerald", "Diamond", "Master", "Grand Master"]);
   });
@@ -26,14 +27,26 @@ describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
   });
 
   it("ships each part of each tier as a WebP of its size, from a master on the part's frame (scripts/compress-league-art.ts)", () => {
-    // The crest and the icon in four versions (plain, I, II, III), the plate and the banner in one.
-    expect(masters()).toHaveLength((4 + 4 + 1 + 1) * LEAGUE_TIERS.length);
-    expect(versionsOf("crest")).toEqual([null, "I", "II", "III"]);
-    expect(versionsOf("banner")).toEqual([null]);
+    // The crest, the icon and the banner in four versions (plain, I, II, III) on the seven divided tiers, one on the three others;
+    // the plate and the rim in one.
+    expect([...DIVIDED]).toEqual(["iron", "bronze", "silver", "gold", "emerald", "diamond", "master"]);
+    const undivided = LEAGUE_TIERS.length - DIVIDED.size;
+    expect(masters()).toHaveLength(3 * (4 * DIVIDED.size + undivided) + 2 * LEAGUE_TIERS.length);
+    expect(versionsOf("crest", "bronze")).toEqual([null, "I", "II", "III"]);
+    expect(versionsOf("banner", "bronze")).toEqual([null, "I", "II", "III"]);
+    expect(versionsOf("crest", "grandmaster")).toEqual([null]);
+    expect(versionsOf("plate", "bronze")).toEqual([null]);
     expect(problems()).toEqual([]);
-    // Small: about 39 KiB a crest at 512 px, 2.4 KiB an icon at 64 px (measured 3.3 MiB for the 200 copies; a page loads a few).
+    // Small: about 20 KiB a crest at 512 px, 1.8 KiB an icon at 64 px (measured 2.5 MiB for the 226 copies; a page loads a few).
     const total = expected().reduce((sum, f) => sum + statSync(join(OUT, f)).size, 0);
-    expect(total).toBeLessThan(4 * 1024 * 1024);
+    expect(total).toBeLessThan(3 * 1024 * 1024);
+  });
+
+  it("frames the banner to its shape, not a square, and every rim with the same hole", () => {
+    expect(LEAGUE_ART.banner).toMatchObject({ width: 376, height: 512 });
+    expect(LEAGUE_ART.rim).toMatchObject({ width: 512, height: 512 });
+    // The portrait under the ring is a little wider than its hole, so its edge never shows.
+    expect(RIM_PORTRAIT).toBeGreaterThan(RIM_HOLE);
   });
 
   it("points each image at its tier's copies, the smallest that stays sharp for the size shown, in its division's version", () => {
@@ -43,11 +56,15 @@ describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
     expect(crest.sizes).toBe("96px");
     expect(artSources("crest", "bronze", 96, "II").src).toBe("/league-art/crest/512/bronze-ii.webp");
     expect(artSources("icon", "emerald", 24, "III").srcSet).toBe("/league-art/icon/64/emerald-iii.webp 64w, /league-art/icon/128/emerald-iii.webp 128w");
-    // A part drawn without divisions gives its plain version.
-    expect(artUrl("banner", "silver", 256, "I")).toBe("/league-art/banner/256/silver.webp");
+    // A part or a tier drawn without divisions gives its plain version.
+    expect(artUrl("banner", "silver", 256, "I")).toBe("/league-art/banner/256/silver-i.webp");
+    expect(artUrl("plate", "silver", 256, "I")).toBe("/league-art/plate/256/silver.webp");
+    expect(artUrl("crest", "grandmaster", 256, "I")).toBe("/league-art/crest/256/grandmaster.webp");
+    expect(artUrl("rim", "gold", 128)).toBe("/league-art/rim/128/gold.webp");
     expect(artName("grandmaster")).toBe("grandmaster");
     expect(artSources("plate", "iron").srcSet).toBe("/league-art/plate/256/iron.webp 256w, /league-art/plate/512/iron.webp 512w");
-    expect(artSources("banner", "master").srcSet).toBe("/league-art/banner/256/master.webp 256w, /league-art/banner/512/master.webp 512w");
+    // The banner is framed to its shape: its copies are 188 and 376 px wide.
+    expect(artSources("banner", "master").srcSet).toBe("/league-art/banner/256/master.webp 188w, /league-art/banner/512/master.webp 376w");
     expect(artSources("icon", "wood").sizes).toBe("128px");
   });
 
@@ -58,7 +75,10 @@ describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
         <LeagueCrestIcon tier="silver" division="II" label="Silver II league" />
         <LeagueCrestIcon tier="silver" />
         <LeaguePlate tier="iron" name="Iron II" />
-        <LeagueBanner tier="gold" />
+        <LeagueBanner tier="gold" division="III" />
+        <LeagueRim tier="diamond">
+          <span>portrait</span>
+        </LeagueRim>
       </>,
     );
     expect(screen.getByRole("img", { name: "Emerald league" })).toHaveAttribute("data-slot", "league-crest-art");
@@ -73,11 +93,15 @@ describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
     expect(icon.querySelector("img")!.getAttribute("src")).toBe("/league-art/icon/128/silver-ii.webp");
     expect(container.querySelector('[data-slot="league-crest-icon"]:not([data-division]) img')!.getAttribute("src")).toBe("/league-art/icon/128/silver.webp");
     expect(icon).not.toHaveTextContent(/./);
-    // Decorative: both icons' images, the plate's and the banner's; the bare icon hidden whole.
-    expect(container.querySelectorAll('img[alt=""]')).toHaveLength(4);
+    // The banner's division: its numeral on the cloth; the rim around its portrait, which it keeps as given.
+    expect(container.querySelector('[data-slot="league-banner"]')!.getAttribute("src")).toBe("/league-art/banner/512/gold-iii.webp");
+    expect(container.querySelector('[data-slot="league-rim"]')).toHaveTextContent("portrait");
+    expect(container.querySelector('[data-slot="league-rim"] img')!.getAttribute("src")).toBe("/league-art/rim/256/diamond.webp");
+    // Decorative: both icons' images, the plate's, the banner's and the rim's; the bare icon hidden whole.
+    expect(container.querySelectorAll('img[alt=""]')).toHaveLength(5);
     expect(container.querySelectorAll('[data-slot="league-crest-icon"][aria-hidden="true"]')).toHaveLength(1);
     for (const img of container.querySelectorAll("img")) {
-      expect(img.getAttribute("src")).toMatch(/^\/league-art\/(crest|icon|plate|banner)\/\d+\/[a-z]+(-i{1,3})?\.webp$/);
+      expect(img.getAttribute("src")).toMatch(/^\/league-art\/(crest|icon|plate|banner|rim)\/\d+\/[a-z]+(-i{1,3})?\.webp$/);
       expect(img).toHaveAttribute("draggable", "false");
     }
     expect(container.innerHTML).not.toMatch(/https?:|rgb\(/);
@@ -119,16 +143,21 @@ describe("the leagues' standards (#917, PR 2: crests, plates, banners)", () => {
   });
 
   it("stacks the standard: the crest over the plate over the banner, named by its plate", () => {
-    const { container } = render(<LeagueStandard tier="grandmaster" name="Grand Master" />);
+    const { container } = render(<LeagueStandard tier="grandmaster" name="Grand Master" division="I" />);
     const slots = [...container.querySelectorAll<HTMLElement>("[data-slot]")].map((s) => s.dataset.slot);
     expect(slots).toEqual(["league-standard", "league-crest-art", "league-plate", "league-banner"]);
+    // Grand Master has no division: a division asked of it gives its plain crest and banner.
+    expect(container.querySelector('[data-slot="league-banner"]')!.getAttribute("src")).toBe("/league-art/banner/512/grandmaster.webp");
     expect(screen.getAllByRole("img").map((i) => i.getAttribute("aria-label"))).toEqual(["Grand Master"]);
     expect(container.firstElementChild).toHaveAttribute("data-tier", "grandmaster");
   });
 
   it("the standard's plate can be the heading that names it (the League page's card)", () => {
-    render(<LeagueStandard tier="emerald" name="Emerald III" heading="h2" />);
+    const { container } = render(<LeagueStandard tier="emerald" name="Emerald III" division="III" heading="h2" />);
     expect(screen.getByRole("heading", { level: 2 })).toHaveAccessibleName("Emerald III");
+    // The division on the crest and the banner.
+    expect(container.querySelector('[data-slot="league-crest-art"]')!.getAttribute("src")).toBe("/league-art/crest/512/emerald-iii.webp");
+    expect(container.querySelector('[data-slot="league-banner"]')!.getAttribute("src")).toBe("/league-art/banner/512/emerald-iii.webp");
   });
 });
 

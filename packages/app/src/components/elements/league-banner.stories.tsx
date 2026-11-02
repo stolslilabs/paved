@@ -26,6 +26,17 @@ export const Tiers: Story = {
   ),
 };
 
+/** A divided tier's banners: plain, then III, II and I on the cloth. */
+export const Divisions: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      {([null, "III", "II", "I"] as const).map((division) => (
+        <LeagueBanner key={division ?? "plain"} tier="bronze" division={division} label={division ? `Bronze ${division} banner` : "Bronze banner"} />
+      ))}
+    </div>
+  ),
+};
+
 /** The sizes: 96, 128, 160 and 208 px high. */
 export const Sizes: Story = {
   render: () => (
