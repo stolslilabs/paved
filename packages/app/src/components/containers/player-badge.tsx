@@ -51,8 +51,17 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
   const connected = value.state.status === "connected";
   const progress = connected ? value.progress : undefined;
   const name = profileName(value.state);
+  // The default avatar's initial at 30 px, not the large avatar's 36: Almendra's line (1.29 em, 46 px at 36) passes the rim's 44 px
+  // disc and is cut by it; at 30 px it is 39 px, clear inside the disc and the stand-in ring's 42.
   const portrait = (
-    <PlayerAvatar size="lg" live className="size-full p-0" player={avatarPlayer(value.state)} loading={value.state.status === "loading"} look={value.look} />
+    <PlayerAvatar
+      size="lg"
+      live
+      className="size-full p-0 [&>span]:text-3xl"
+      player={avatarPlayer(value.state)}
+      loading={value.state.status === "loading"}
+      look={value.look}
+    />
   );
   return (
     <div data-slot="player-badge" className={cn("flex", className)}>
