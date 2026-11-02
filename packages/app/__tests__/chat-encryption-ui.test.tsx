@@ -124,7 +124,9 @@ describe("the report's warning (#997, point 12)", () => {
   it("stays within the screen, scrolling inside, now that the warning makes it taller than a small phone", async () => {
     render(wrap(<ChatConversation {...CHAT_CONVERSATION.reportPrivate} />));
     // jsdom lays nothing out: the classes are the contract, measured in Chromium at 320 x 568 for the pull request.
-    expect(await screen.findByRole("dialog")).toHaveClass("max-h-[calc(100dvh-2rem)]", "overflow-y-auto");
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveClass("max-h-[calc(100dvh-2rem)]", "flex-col");
+    expect(within(dialog).getByRole("radiogroup").closest("[data-slot=scroll-region]")).toHaveClass("min-h-0");
   });
 
   it("says nothing of it in the public World", async () => {

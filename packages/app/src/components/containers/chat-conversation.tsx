@@ -172,9 +172,10 @@ interface ReportDialogProps {
 function ReportDialog({ message, encrypted, onCancel, onReport }: ReportDialogProps) {
   return (
     <Dialog open={message !== null} onOpenChange={(open) => !open && onCancel()}>
-      {/* As tall as the screen at most, scrolling within: the encrypted conversations' warning makes it taller than a small phone. */}
-      <DialogContent data-slot="chat-report" className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
-        {message && <ReportBody key={message.id} message={message} encrypted={encrypted} onCancel={onCancel} onReport={onReport} />}
+      {/* As tall as the screen at most, its body scrolling within (Close stays put): the encrypted conversations' warning makes it
+          taller than a small phone. */}
+      <DialogContent data-slot="chat-report" className="flex max-h-[calc(100dvh-2rem)] flex-col p-0">
+        <ScrollRegion className="min-h-0 overscroll-contain p-6">{message && <ReportBody key={message.id} message={message} encrypted={encrypted} onCancel={onCancel} onReport={onReport} />}</ScrollRegion>
       </DialogContent>
     </Dialog>
   );
