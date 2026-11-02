@@ -563,8 +563,8 @@ function ViewOverlays({
             ref={measures.profile}
             className="pointer-events-auto min-w-0"
           >
-            {/* The profile (#787), the season dial's size (#856). */}
-            <PlayerBadge />
+            {/* The player card (#787): its rim the league of the crowns below it. */}
+            <PlayerBadge league={props.league} />
           </div>
           {/*
             The home's own balances (#855: the Cobbles, PAVED, vPAVED while held; no USDC) at the top right, the same under a

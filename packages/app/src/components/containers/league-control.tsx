@@ -1,13 +1,14 @@
 import { formatInteger } from "@paved/game-core";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { DataContext, type DataSources } from "../../data/sources";
 import { isUnranked, usePvpLastAttack } from "../../data/pvp-standing";
 import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { GameIcon } from "../elements/game-icon";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
+import { LeagueRim } from "../elements/league-rim";
 import { divisionOf, tierOf } from "../elements/league-standards";
 import { Plate, plateBareIconClass, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
 import { Icon } from "../ui/icon";
@@ -60,18 +61,72 @@ export interface LeagueControlProps {
  * reduced motion.
  */
 export function LeagueControl(props: LeagueControlProps) {
+  return (
+    <Standing crowns={props.crowns} attacks={props.attacks} unranked={props.unranked}>
+      {(unranked) => <ControlView {...props} unranked={unranked} />}
+    </Standing>
+  );
+}
+
+interface StandingProps {
+  crowns?: number;
+  attacks?: number;
+  unranked?: boolean;
+  /** What to draw once it is known whether the player is Unranked. */
+  children: (unranked: boolean) => ReactNode;
+}
+
+/**
+ * Whether the player is Unranked (issue 917): as given; else, with no crowns and no attack settled, unless the player ever attacked
+ * (read where the app's sources are; without them, as never). The League control's and the player card's rim's.
+ */
+function Standing({ crowns = 0, attacks, unranked, children }: StandingProps) {
   const sources = useContext(DataContext);
-  const crowns = props.crowns ?? 0;
-  const maybe = props.unranked === undefined && crowns === 0 && props.attacks === 0;
-  if (maybe && sources?.signer) return <ReadUnranked {...props} sources={sources} playerId={sources.signer.address} />;
-  return <ControlView {...props} unranked={props.unranked ?? maybe} />;
+  const maybe = unranked === undefined && crowns === 0 && attacks === 0;
+  if (maybe && sources?.signer) return <ReadUnranked sources={sources} playerId={sources.signer.address}>{children}</ReadUnranked>;
+  return children(unranked ?? maybe);
 }
 
 /** No crowns and no attack settled: Unranked unless the player ever attacked (an attack open, or one before the season). */
-function ReadUnranked({ sources, playerId, ...props }: LeagueControlProps & { sources: DataSources; playerId: string }) {
+function ReadUnranked({ sources, playerId, children }: { sources: DataSources; playerId: string; children: StandingProps["children"] }) {
   const attack = usePvpLastAttack(sources, playerId);
   // While read, Unranked: a player with no crowns and no attack settled has most likely never attacked.
-  return <ControlView {...props} unranked={attack === undefined || (attack !== null && isUnranked({ crowns: 0, attacks: 0 }, attack))} />;
+  return children(attack === undefined || (attack !== null && isUnranked({ crowns: 0, attacks: 0 }, attack)));
+}
+
+export interface PlayerRimProps {
+  /** The player's crowns and attacks settled this season (`Matchmaker.league`, the home's read); left out: Wood, 0 crowns. */
+  crowns?: number;
+  attacks?: number;
+  /** The portrait, sized to fill the disc under the ring. */
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * The player card's avatar (the owner's direction of 2026-11-01): the portrait in the rim of the player's league (`LeagueRim`), the
+ * league's crest at its lower left, as the crowns' plate decides the league (Unranked included). A 1em square, the parent's font
+ * size; decorative, the card names the player. In this chunk, with the League control, which the home loads at once: not the first
+ * load's.
+ */
+export function PlayerRim({ crowns = 0, attacks, children, className }: PlayerRimProps) {
+  return (
+    <Standing crowns={crowns} attacks={attacks}>
+      {(unranked) => {
+        const league = leagueOf(crowns);
+        const tier = unranked ? "unranked" : tierOf(league);
+        return (
+          <span data-slot="player-rim" data-tier={tier} className={cn("relative block size-[1em]", className)}>
+            <LeagueRim tier={tier} size="inherit" className="block">
+              {children}
+            </LeagueRim>
+            {/* The crest at 42 % of the rim, by its box (an image, not text). */}
+            <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size="inherit" className="absolute -bottom-[4%] -left-[10%]" style={{ width: "42%", height: "42%" }} />
+          </span>
+        );
+      }}
+    </Standing>
+  );
 }
 
 function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size = "auto", variant = "home", label, className }: LeagueControlProps) {
