@@ -76,7 +76,7 @@ describe("the balance plate on the HUD's frame (HOME-UI-CAPSULES)", () => {
     expect(frame.style.borderImageWidth).toBe("10px");
     expect(plate.querySelector("[data-slot=hud-face]")).not.toBeNull();
     const box = frame.parentElement!;
-    expect(box).toHaveClass("isolate", "pr-7.5", "justify-center");
+    expect(box).toHaveClass("isolate", "pr-7.5", "justify-end");
     expect(box).not.toHaveClass("bg-resource-plate");
     expect(plate.querySelector("[data-slot=token-icon]")).toHaveClass("size-10");
     // 30 of its 40 px over the box: the frame's rounded end is under it.

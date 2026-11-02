@@ -112,10 +112,10 @@ describe("Balances (#538), the resource bar (#620)", () => {
     // On the HUD's frame (HOME-UI-CAPSULES) the figure keeps clear of the icon over the right end, a bare end's padding at the left,
     // and is centred between them.
     const lone = render(wrap(<Balances layout="pill" kinds={["cobbles"]} state={READY} />));
-    expect(lone.container.querySelector(".h-7")).toHaveClass("pr-7.5", "pl-1.5", "justify-center");
+    expect(lone.container.querySelector(".h-7")).toHaveClass("pr-7.5", "pl-1.5", "justify-end");
     lone.unmount();
     const rail = render(wrap(<Balances layout="rail" kinds={["cobbles"]} state={READY} />));
-    expect(rail.container.querySelector(".h-8")).toHaveClass("pr-8.5", "pl-2", "justify-center");
+    expect(rail.container.querySelector(".h-8")).toHaveClass("pr-8.5", "pl-2", "justify-end");
   });
 
   it("each plate still leads to its page, with no \"+\"; on its own page it leads nowhere (#925)", async () => {

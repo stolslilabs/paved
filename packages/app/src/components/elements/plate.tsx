@@ -12,9 +12,9 @@ const boxVariants = cva("relative flex items-center", {
     tone: { default: "border-resource-edge", invite: "border-primary/60" },
     /**
      * `flat`: a rounded box in the plate's colours. `hud`: the HUD's frame, drawn under the content (`HudFrame`), the box taking
-     * what its plate leaves and the figure centred in it (the mockup's).
+     * what its plate leaves and the figure at its right end (the owner's ask of 2026-11-02: the figures line up on the right).
      */
-    frame: { flat: "rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", hud: "isolate grow justify-center" },
+    frame: { flat: "rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", hud: "isolate grow justify-end" },
   },
   // On the HUD's frame the balances are lower than the left column's capsules, as on the mockup: 28 px on a phone, 32 from `desktop`.
   compoundVariants: [
