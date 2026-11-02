@@ -1,7 +1,7 @@
 /**
  * The HUD's images (the owner's mobile direction of 2026-11-01, `docs/design/home.webp`, after Supercell's games): the icons of the
  * home's buttons, of the dock, of the seasons and of the Play sheet, and the frames the home draws with them: the dock's ribbon, the
- * PLAY medallion, the season dial and the dock's divider. Panels, capsules, buttons, badges and bars are CSS; the league's art is
+ * PLAY medallion, the season dial and the dock's divider, and the player card's frame and XP bar. Panels, capsules, buttons, badges and bars are CSS; the league's art is
  * `league-standards.ts`; the currencies stay `token-art.ts` and the chests `chest-art.ts`. Images, not drawings: WebP copies in `public/ui-art/` of the masters in
  * `ui-sources/` (`scripts/compress-ui-art.ts`). URLs and measures only: nothing here imports an image, and the module stays plain
  * TypeScript so the script reads it under Node.
@@ -45,7 +45,7 @@ export const UI_ICONS = [
 export type UiIconName = (typeof UI_ICONS)[number];
 
 /** The frames, each an image of its own. */
-export const UI_FRAMES = ["dock-ribbon", "play-medallion", "season-dial", "dock-divider"] as const;
+export const UI_FRAMES = ["dock-ribbon", "play-medallion", "season-dial", "dock-divider", "card-frame", "xp-track", "xp-fill"] as const;
 export type UiFrameName = (typeof UI_FRAMES)[number];
 
 interface Frame {
@@ -70,7 +70,25 @@ export const FRAME_ART = {
   "play-medallion": { width: 512, height: 512, side: "width", sizes: [128, 256] },
   "season-dial": { width: 254, height: 512, side: "height", sizes: [128, 256] },
   "dock-divider": { width: 25, height: 128, side: "height", sizes: [128] },
+  "card-frame": { width: 1494, height: 466, side: "width", sizes: [360, 720] },
+  "xp-track": { width: 1464, height: 181, side: "width", sizes: [360, 720] },
+  "xp-fill": { width: 1466, height: 119, side: "width", sizes: [360, 720] },
 } as const satisfies Record<UiFrameName, Frame>;
+
+/**
+ * The player card's frame (HOME-UI-CARD, the mockup decomposed by layer: `docs/design/home.webp`): the outline and the slate rim
+ * with its painted irregularity, its centre clear (the face is CSS, see-through), drawn as a 9-slice: these insets keep its corners
+ * whole, as shares of its width and height.
+ */
+export const CARD_FRAME_SLICE = { x: 96 / 1494, y: 96 / 466 } as const;
+/** The XP bar's track (outline, silver bevel, dark recess): its rounded ends kept whole; its height is its two halves. */
+export const XP_TRACK_SLICE = { x: 72 / 1464 } as const;
+
+/** A frame's copies as a CSS `image-set`, the 1x copy and the 2x one. */
+export const uiFrameImageSet = (name: UiFrameName) => {
+  const [small, large] = FRAME_ART[name].sizes;
+  return `image-set(url("${uiFrameUrl(name, small!)}") 1x, url("${uiFrameUrl(name, large ?? small!)}") 2x)`;
+};
 
 /** The ribbon's wooden ends, as a share of its width, measured on the master: what a `border-image` keeps unstretched. */
 export const RIBBON_END = 0.05;

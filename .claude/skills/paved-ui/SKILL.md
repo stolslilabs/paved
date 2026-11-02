@@ -133,21 +133,19 @@ square, the shield in its own proportions; the plate and the banner framed to th
 `artSources` gives an `<img>` its `srcSet` and `sizes`. A new tier or a redrawn part is a new master on its frame, then the script. Their stories use inline styles where a class would be new: the
 stylesheet's budget has no room.
 
-Player badge (the home's top left, the owner's direction of 2026-10-31 in `docs/design/player-badge.webp`, its states in
-`player-badge-states.webp`): `containers/player-badge.tsx` lays images over the avatar: a ring of paving stones set with gold
-(its centre a hole the portrait shows through, under it), the level's luminous bar in the ring's groove (`elements/level-ring.tsx`,
-its own chunk: the glowing ring's image seen through an SVG mask of the course, a whole turn clockwise from 12 o'clock under the
-shield, drawn to the share with
-`pathLength`), the gold shield with the level, and the name plate (a tile of bricks repeated leftward from a gold arrow cap, so the
-plate is as long as the name, at most 15 characters, `PLAYER_NAME_MAX`). The masters are `badge-sources/<part>.webp` on the frames of
-`BADGE_ART` (`elements/badge-art.ts`, with the measures, as shares of the ring's box, the client lays them by);
-`node scripts/compress-badge-art.ts` writes `public/badge-art/` (`--check` verifies it). They were generated with OpenAI's image
-model through the Codex CLI (`codex exec -c model_provider='"openai"'`: the image tool is the OpenAI provider's), each part alone on
-a transparent background or a key colour, then cut, centred and measured; a redrawn part is a new master on its frame, its measures
-taken again, then the script. The home sets `--profile-room` beside its balances: the plate's name ends there with an ellipsis.
+Player card (the home's top left, redrawn after the owner's direction of 2026-11-01 in `docs/design/home.webp`, decomposed layer by
+layer): `containers/player-badge.tsx` lays a see-through dark grey face (CSS) under the mockup's frame, an image drawn as a 9-slice
+(`card-frame`, `CARD_FRAME_SLICE`: its near-black outline and slate rim keep their painted irregularity), with a crisp black
+`drop-shadow` that follows it. Then the avatar in the rim of the player's league with the league's crest at its lower left, both
+running past the card's foot (`PlayerRim`, in the League control's chunk: the same Unranked decision as the crowns' plate), the name in
+black-weight Rubik, and under it the level's star (`UiIcon` `level-star`) over the XP bar (`elements/level-bar.tsx`, its own chunk):
+the track a 9-slice image (`xp-track`), the faceted fill an image (`xp-fill`) shown from the left up to the share, never stretched,
+the gains and level ups of `useXpMotion`. The three images are frames of `ui-art.ts` (`ui-sources/frames/`, `compress-ui-art.ts`).
+The card grows with the name (at most 15 characters, `PLAYER_NAME_MAX`); the home sets `--profile-room` beside its balances, and
+the name ends there with an ellipsis. To match a mockup's component, have Codex decompose it first (its layers, measures, colours,
+what must be an image), then generate each image part alone on a flat key colour and cut it.
 
-Season wheel (the board's and the home's bottom left, `docs/design/season-wheel.webp`, aligned with the player badge on
-2026-10-31): `elements/season-wheel.tsx` stacks square layers, the dial centred on each: the seasons as one little planet (turning
+Season wheel (the board's and the home's bottom left, `docs/design/season-wheel.webp`, 2026-10-31): `elements/season-wheel.tsx` stacks square layers, the dial centred on each: the seasons as one little planet (turning
 counterclockwise; its centre the landscape's vanishing point, so a turn never breaks the perspective), the painted day and night
 disc (turning the other way), the upright sun and moon, then the fixed shade, inner gold ring, badge-ring frame, gold arrow
 pointer and hub. Only the fixed layers carry a directional light. The masters are `wheel-sources/<layer>.webp` on the frames of

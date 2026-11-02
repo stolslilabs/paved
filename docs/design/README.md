@@ -9,12 +9,6 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   division's numeral in the middle of the crest and the banner; Grand Master, which has none, its golden horned helmet; Unranked
   and Wood an empty field. Generated with OpenAI's image model through the Codex CLI, cut and put on the client's frames as
   `scripts/compress-league-art.ts` describes.
-- `player-badge.webp`: the player badge's target (2026-10-31), from the owner's starting image: the round voxel portrait in a ring
-  of paving stones with gold ornaments, the luminous level bar in the ring's groove, under the gold shield that holds the level (the
-  client starts it at 12 o'clock, under the shield, for a whole turn clockwise: the owner, 2026-10-31), and the name plate, bricks top and bottom, ended by a gold arrow cap.
-  `player-badge-states.webp`: the same at three lengths of name (3 to 15 characters) and three shares of the level, the plate
-  stretching to the name. Generated with OpenAI's image model through the Codex CLI; the client's parts are in
-  `packages/app/badge-sources/` (`scripts/compress-badge-art.ts`).
 - `season-wheel.webp`: the season wheel (2026-10-31), aligned that day with the player badge: the badge ring's paving stones,
   gold blocks and groove around the four seasons as one little planet (summer top right, then autumn, winter, spring), the day and
   night disc at the centre (night 135°, day 225°), the gold arrow cap at 12 o'clock and its inner notch reading the season and the
@@ -39,7 +33,8 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   (to the League) and the village score (to the build mode) as capsules whose icon caps their left end, the balances mirrored on the
   right edge, the season dial as a half-disc on the left edge (it stays during a game), Chat on the left edge, Missions, Vault and
   Friends on the right, and an anchored ribbon dock: Shop, Chests, PLAY, Guild, Settings. Generated with OpenAI's image model through
-  the Codex CLI; its icons and frames are in `packages/app/ui-sources/` (`scripts/compress-ui-art.ts`).
+  the Codex CLI; its icons and frames are in `packages/app/ui-sources/` (`scripts/compress-ui-art.ts`). The owner kept the app's
+  layout (2026-11-02): its components take this direction one at a time, the player card first (`containers/player-badge.tsx`).
 
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
