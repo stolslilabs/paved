@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { type CSSProperties, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { cn } from "../../lib/utils";
-import { PLATE_ART, PLATE_FACE, PLATE_POINT, plateArtUrl } from "./token-art";
+import { HudFrame } from "./hud-frame";
 
 const boxVariants = cva("relative flex items-center", {
   variants: {
@@ -10,77 +10,74 @@ const boxVariants = cva("relative flex items-center", {
     size: { sm: "h-8 text-sm", md: "h-9 text-lg", auto: "h-8 text-sm desktop:h-9 desktop:text-lg" },
     /** `invite`: the Cobbles' plate (issue 620), a slow shine (and a gold edge on the flat frame): it leads to the packs (no "+", issue 925). */
     tone: { default: "border-resource-edge", invite: "border-primary/60" },
-    /** `flat`: a rounded box in the plate's colours. `stone`: the balances' bricks, images drawn under the content (`Plate`). */
-    frame: { flat: "rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", stone: "" },
+    /**
+     * `flat`: a rounded box in the plate's colours. `hud`: the HUD's frame, drawn under the content (`HudFrame`), the box taking
+     * what its plate leaves and the figure centred in it (the mockup's).
+     */
+    frame: { flat: "rounded-lg border bg-resource-plate shadow-[inset_0_2px_0_var(--resource-shade)]", hud: "isolate grow justify-center" },
   },
+  // On the HUD's frame the balances are lower than the left column's capsules, as on the mockup: 28 px on a phone, 32 from `desktop`.
+  compoundVariants: [
+    { frame: "hud", size: "sm", class: "h-7" },
+    { frame: "hud", size: "md", class: "h-8" },
+  ],
   defaultVariants: { size: "sm", tone: "default", frame: "flat" },
 });
-
-/** The box's height at each size in CSS px, for the stone frame's images (`auto`: the phone's, no currency uses it). */
-const BOX_PX: Record<PlateSize, number> = { sm: 32, md: 36, auto: 32 };
 
 export type PlateSize = NonNullable<VariantProps<typeof boxVariants>["size"]>;
 
 /**
- * Each size's parts (issue 828). The icon stands over the box's end, its centre on the border, so half of it overlaps the box; a
- * disc may do the same at the other end. The box keeps the overlap plus a gap clear inside, so the figure never runs under either.
- * No plate draws a "+" (the owner's ruling of issue 925): the end opposite the icon is bare, or the League's disc.
+ * Each size's parts (issue 828). The icon stands over the box's end, so part of it overlaps the box; the box keeps the overlap plus
+ * a gap clear inside, so the figure never runs under it (`pad`). No plate draws a "+" (the owner's ruling of issue 925): the other end
+ * is bare (`rest`, its padding). The icon gives back what it passes the box, above and below (`my`), so the row keeps the box's height
+ * (a bare icon's, 8 px of it). On the HUD's frame (HOME-UI-CAPSULES) the icon runs past the box's end, so the frame's rounded end is
+ * under it, as on the mockup.
  */
 type Ends = Record<"right" | "left", string>;
-type EndParts = { box: string; over: Ends; pad: Ends };
-const PARTS: Record<PlateSize, { width: string; coin: string; over: Ends; bareEnd: EndParts; leadOver: Ends; pad: { icon: Ends; disc: Ends; bare: Ends } }> = {
+type EndParts = { box: string; over: Ends; pad: Ends; rest: Ends; my: string };
+const PARTS: Record<PlateSize, { width: string; bareEnd: EndParts; hudEnd: EndParts }> = {
   sm: {
-    // A currency's one width (issue 860), in a column or a row, at every phone width, with no "+" (issue 925): 112 px, "9,999.99"
-    // at 12 px (54 px) between the icon's 24 + 4 and an end's 4 (`FIXED_PAD`); two fit a phone's header beside Back at 320 (240 px
-    // left), and the home's stack leaves the profile its line. A class the bundle already has (its CSS budget).
-    width: "w-28",
-    coin: "size-10",
-    over: { right: "-ml-5", left: "-mr-5" },
-    // A bare icon (issue 213, no disc): 48 px over the 32 px box, its half (24) over the end and a gap (8) inside. It gives back
-    // the 8 px it passes a disc's 40, 4 above and 4 below (`-my-1`, the end's), so the row keeps a disc's height.
-    bareEnd: { box: "size-12", over: { right: "-ml-6", left: "-mr-6" }, pad: { right: "pr-8", left: "pl-8" } },
-    leadOver: { right: "-mr-5", left: "-ml-5" },
-    // The icon's half (20) and a gap (8); a disc as the icon; a bare end: 10 px.
-    pad: { icon: { right: "pr-7", left: "pl-7" }, disc: { right: "pl-7", left: "pr-7" }, bare: { right: "pl-2.5", left: "pr-2.5" } },
+    // A currency's one width (issue 860), in a column or a row, at every phone width, with no "+" (issue 925): 108 px on the HUD's
+    // frame (HOME-UI-CAPSULES), "9,999.99" at 13 px (61 px) between the bare end's 6 and the icon's 30 inside the box, the icon's 10
+    // past it; two fit a phone's header beside Back at 320 (240 px left).
+    width: "w-27",
+    // A bare icon (issue 213, no disc): 48 px over the 32 px box, its half (24) over the end and a gap (8) inside; the bare end 10 px.
+    bareEnd: { box: "size-12", over: { right: "-ml-6", left: "-mr-6" }, pad: { right: "pr-8", left: "pl-8" }, rest: { right: "pl-2.5", left: "pr-2.5" }, my: "-my-1" },
+    // HOME-UI-CAPSULES: on the HUD's frame a balance's icon, 40 px over the 28 px box, 30 of it over the box (10 past its end), the
+    // figure against it (the coin is round, its box's corner clear).
+    hudEnd: { box: "size-10", over: { right: "-ml-7.5", left: "-mr-7.5" }, pad: { right: "pr-7.5", left: "pl-7.5" }, rest: { right: "pl-1.5", left: "pr-1.5" }, my: "-my-1.5" },
   },
   md: {
-    // "9,999.99" at 18 px (85 px) in 120 px: the bare icon's 26 + 34 and a bare end's 12 (no "+", issue 925) leave it in 192 px,
-    // issue 860's width, kept (a class the bundle already has).
-    width: "w-48",
-    coin: "size-11",
-    over: { right: "-ml-5.5", left: "-mr-5.5" },
+    // The rail's (from `desktop`): "9,999.99" at 16 px (75 px) between the bare end's 8 and the icon's 34 inside the box, the icon's
+    // 10 past it: 128 px.
+    width: "w-32",
     // 52 px over the 36 px box.
-    bareEnd: { box: "size-13", over: { right: "-ml-6.5", left: "-mr-6.5" }, pad: { right: "pr-8.5", left: "pl-8.5" } },
-    leadOver: { right: "-mr-5.5", left: "-ml-5.5" },
-    pad: { icon: { right: "pr-7.5", left: "pl-7.5" }, disc: { right: "pl-7.5", left: "pr-7.5" }, bare: { right: "pl-3", left: "pr-3" } },
+    bareEnd: { box: "size-13", over: { right: "-ml-6.5", left: "-mr-6.5" }, pad: { right: "pr-8.5", left: "pl-8.5" }, rest: { right: "pl-3", left: "pr-3" }, my: "-my-1" },
+    // 44 px over the 32 px box, 34 of it over the box.
+    hudEnd: { box: "size-11", over: { right: "-ml-8.5", left: "-mr-8.5" }, pad: { right: "pr-8.5", left: "pl-8.5" }, rest: { right: "pl-2", left: "pr-2" }, my: "-my-1.5" },
   },
   auto: {
     // No currency uses `auto`: the phone's width, so no class is built for nothing.
-    width: "w-28",
-    coin: "size-10 desktop:size-11",
-    over: { right: "-ml-5 desktop:-ml-5.5", left: "-mr-5 desktop:-mr-5.5" },
+    width: "w-27",
     // No balance uses `auto`: its bare icon is the phone's, so no class is built for nothing (the bundle's CSS budget).
-    bareEnd: { box: "size-12", over: { right: "-ml-6", left: "-mr-6" }, pad: { right: "pr-8", left: "pl-8" } },
-    leadOver: { right: "-mr-5 desktop:-mr-5.5", left: "-ml-5 desktop:-ml-5.5" },
-    pad: {
-      icon: { right: "pr-7 desktop:pr-7.5", left: "pl-7 desktop:pl-7.5" },
-      disc: { right: "pl-7 desktop:pl-7.5", left: "pr-7 desktop:pr-7.5" },
-      bare: { right: "pl-2.5 desktop:pl-3", left: "pr-2.5 desktop:pr-3" },
+    bareEnd: { box: "size-12", over: { right: "-ml-6", left: "-mr-6" }, pad: { right: "pr-8", left: "pl-8" }, rest: { right: "pl-2.5", left: "pr-2.5" }, my: "-my-1" },
+    // The home's left column (the crowns, the village, the shield), higher than the balances as on the mockup: 40 px over the 32 px
+    // box on a phone, 44 over 36 from `desktop`, 8 px past its end.
+    hudEnd: {
+      box: "size-10 desktop:size-11",
+      over: { right: "-ml-8 desktop:-ml-9", left: "-mr-8 desktop:-mr-9" },
+      pad: { right: "pr-9 desktop:pr-10", left: "pl-9 desktop:pl-10" },
+      rest: { right: "pl-2.5 desktop:pl-3", left: "pr-2.5 desktop:pr-3" },
+      my: "-my-1",
     },
   },
 };
 
 /**
- * A currency's figure at each size (issue 860): 12 px on a phone ("9,999.99", 54 px of the 56 the 112 px plate leaves), the box's
- * 18 px from `desktop` (85 px of 92).
+ * A figure on the HUD's frame (HOME-UI-CAPSULES), as on the mockup: a balance's 13 px on a phone and 16 px on the rail, smaller than
+ * the home's left column's 16 then 18 px.
  */
-const FIGURE: Record<PlateSize, string> = { sm: "text-xs", md: "", auto: "" };
-
-/**
- * A currency's phone plate's box (issue 860), on the balances' side (`right`): the figure 4 px clear of the icon's half (28) and of
- * the open end (4), so "9,999.99" fits 112 px. Classes the bundle already has (its CSS budget).
- */
-const FIXED_PAD = "pr-7 pl-1";
+const HUD_FIGURE: Record<PlateSize, string> = { sm: "text-[0.8125rem]", md: "text-base", auto: "text-base desktop:text-lg" };
 
 /** Where a fixed plate's figure turns compact (issue 860), at each size: from 10,000 (`amountFigure`'s rule), so "9,999.99" is whole. */
 export const PLATE_COMPACT: Record<"sm" | "md", number> = { sm: 10_000, md: 10_000 };
@@ -88,30 +85,23 @@ export const PLATE_COMPACT: Record<"sm" | "md", number> = { sm: 10_000, md: 10_0
 export interface PlateProps extends VariantProps<typeof boxVariants> {
   /** The icon's end (issue 828): `right` on the right of the screen, `left` mirrored for its left (issue 829). */
   side?: "right" | "left";
-  /** Over the icon's end: larger than the box, hiding its border (`PlateDisc` draws an icon on the plate's own disc). */
+  /**
+   * Over the icon's end, larger than the box: on the flat frame a bare icon (issue 213, no disc), 48 px over the 32 px box (52 over
+   * 36), hiding its end; on the HUD's frame the icon capping the end from inside. The other end is bare: no plate draws a "+" (issue
+   * 925), a balance's tap is the whole plate.
+   */
   end: ReactNode;
   /**
-   * `disc` (the default): the end is a `PlateDisc`, 40 px over the 32 px box (44 over 36). `bare`: an icon alone, no disc behind
-   * it (issue 213, the balances' coins and stone), drawn larger, 48 px over the 32 px box (52 over 36), so it covers the end.
-   */
-  endFit?: "disc" | "bare";
-  /**
-   * Over the other end: `disc`, a round face of the icon's size (the League button, issue 829), drawn by `leadContent`. Omitted, the
-   * end is bare: no plate draws a "+" (issue 925), a balance's tap is the whole plate.
-   */
-  lead?: "disc";
-  leadContent?: ReactNode;
-  /**
-   * A currency's plate (issue 860): one width at each size whatever its figure, the box filling what the ends leave and the figure
-   * at the side away from the icon. Omitted, the box fits its content (the League's and the shield's plates).
+   * A currency's plate (issue 860): one width at each size whatever its figure, the box filling what the ends leave. Omitted, the
+   * plate fits its content, or what its caller gives it (the home's left column, one width for its capsules).
    */
   fixed?: boolean;
   /**
-   * `flat` (the default): a rounded box in the plate's colours (the League's and the shield's plates). `stone`: the balances' frame
-   * (the owner's direction A of 2026-11-01, `token-art.ts`), the player badge's name plate made small: a slate face between two
-   * rows of bricks, its gold point standing out past the open end as the icon does at the other, the figure on the face.
+   * `flat` (the default): a rounded box in the plate's colours (the League page's plates). `hud`: the HUD's frame (`HudFrame`, the
+   * player card's, HOME-UI-CAPSULES): a see-through dark face in the mockup's painted rim, the icon capping the end from inside, a
+   * larger figure (the home's capsules and the balances).
    */
-  frame?: "flat" | "stone";
+  frame?: "flat" | "hud";
   /** Past the plate, out of its flow (the change's float). */
   after?: ReactNode;
   /** The box's content: the figure, and a hint of what a tap does. */
@@ -122,121 +112,46 @@ export interface PlateProps extends VariantProps<typeof boxVariants> {
 }
 
 /**
- * A game's resource plate (issues 620, 828): a rounded box, an icon standing over one end, taller than the box and hiding its
- * border, and over the other end, if any, a round disc (no "+", issue 925). The box keeps the overlaps plus a gap clear inside, so its
- * content never runs under either end. The balances' plate (`ResourcePlate`), the League's and the shield's (issue 829).
+ * A game's resource plate (issues 620, 828): a box, an icon standing over one end, taller than the box (no "+" at the other, issue
+ * 925). The box keeps the overlap plus a gap clear inside, so its content never runs under the icon. The balances' plate
+ * (`ResourcePlate`), the League's and the shield's (issue 829), the village score's.
  */
-export function Plate({ side = "right", end, endFit = "disc", lead, leadContent, fixed, frame = "flat", after, size, tone, children, className, ...data }: PlateProps) {
+export function Plate({ side = "right", end, fixed, frame = "flat", after, size, tone, children, className, ...data }: PlateProps) {
   const parts = PARTS[size ?? "sm"];
-  const bare = endFit === "bare";
-  // A fixed plate's box takes what the ends leave, its figure at the side away from the icon.
-  const fill = fixed && ["min-w-0 flex-1", side === "left" && "justify-end", FIGURE[size ?? "sm"], (size ?? "sm") === "sm" && side === "right" && FIXED_PAD];
-  const stone = frame === "stone" ? stoneLayout(size ?? "sm", side) : null;
+  const hud = frame === "hud";
+  // The end's parts: on the HUD's frame the icon caps the end from inside (`hudEnd`), else a bare icon over it.
+  const ends = hud ? parts.hudEnd : parts.bareEnd;
   return (
-    <span {...data} data-side={side} className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", fixed && parts.width, className)}>
-      {lead === "disc" && (
-        <span data-slot="plate-lead" className={cn("relative z-10 inline-flex shrink-0 drop-shadow-sm", parts.leadOver[side])}>
-          {leadContent}
-        </span>
-      )}
+    <span
+      {...data}
+      data-side={side}
+      data-frame={frame}
+      className={cn("relative inline-flex items-center whitespace-nowrap", side === "left" && "flex-row-reverse", fixed && parts.width, className)}
+    >
       <span
-        className={cn(boxVariants({ size, tone, frame }), bare ? parts.bareEnd.pad[side] : parts.pad.icon[side], lead ? parts.pad[lead][side] : parts.pad.bare[side], fill)}
-        style={stone?.box}
+        className={cn(
+          boxVariants({ size, tone, frame }),
+          ends.pad[side],
+          ends.rest[side],
+          hud && HUD_FIGURE[size ?? "sm"],
+          // A fixed plate's box takes what the ends leave.
+          fixed && "min-w-0 flex-1",
+        )}
       >
-        {stone && <StoneFrame layout={stone} />}
-        {/* The shine in its own clipped layer: the floating change goes past the plate's edge. On the stone frame, its face only. */}
+        {hud && <HudFrame px={10} />}
+        {/* The shine in its own clipped layer: the floating change goes past the plate's edge. On the HUD's frame, its face only. */}
         {tone === "invite" && (
-          <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]" style={stone?.face}>
+          <span aria-hidden className={cn("pointer-events-none absolute overflow-hidden", hud ? "inset-[3px] rounded-lg" : "inset-0 rounded-[inherit]")}>
             <span className="plate-shine absolute inset-0" />
           </span>
         )}
         {children}
       </span>
-      <span className={cn("relative z-10 inline-flex shrink-0 drop-shadow-sm", bare ? [parts.bareEnd.over[side], "-my-1"] : parts.over[side])}>{end}</span>
+      <span className={cn("relative z-10 inline-flex shrink-0 drop-shadow-sm", ends.over[side], ends.my)}>{end}</span>
       {after}
     </span>
   );
 }
-
-interface StoneLayout {
-  /** The box's height, which the images take. */
-  h: number;
-  side: "right" | "left";
-  /** The box: its own layer, so the images go under its content; its open end padded to the slate face, past the corner stones. */
-  box: CSSProperties;
-  /** The slate face in the box, for the invite's shine. */
-  face: CSSProperties;
-}
-
-function stoneLayout(size: PlateSize, side: "right" | "left"): StoneLayout {
-  const h = BOX_PX[size];
-  const open = side === "right" ? "left" : "right";
-  // The gold point stands out by `PLATE_POINT`, so the face begins this far inside the box: 6 px on the phone's plate, 7 on the rail's.
-  const inset = Math.ceil((PLATE_FACE.left - PLATE_POINT) * h);
-  return {
-    h,
-    side,
-    box: { isolation: "isolate", [open === "left" ? "paddingLeft" : "paddingRight"]: inset + 2 },
-    face: { top: `${PLATE_FACE.top * 100}%`, bottom: `${PLATE_FACE.bottom * 100}%`, [open]: inset },
-  };
-}
-
-/**
- * The stone frame's images under the box's content (`token-art.ts`): the left cap, its gold point past the box's open end; the tile,
- * repeated to the width in whole bricks (`round`: a little longer or shorter, never cut); the right cap, under the icon. Mirrored
- * for a plate on the left of the screen.
- */
-function StoneFrame({ layout: { h, side } }: { layout: StoneLayout }) {
-  const width = (part: "cap-left" | "cap-right") => Math.round((h * PLATE_ART[part].width) / PLATE_ART[part].height);
-  const point = Math.round(PLATE_POINT * h);
-  return (
-    <span
-      aria-hidden
-      data-slot="plate-art"
-      className="pointer-events-none absolute inset-y-0 flex"
-      style={side === "right" ? { left: -point, right: 0, zIndex: -1 } : { left: 0, right: -point, zIndex: -1, transform: "scaleX(-1)" }}
-    >
-      <img src={plateArtUrl("cap-left")} alt="" decoding="async" draggable={false} className="block shrink-0" style={{ width: width("cap-left"), height: h }} />
-      <span className="min-w-0 flex-1" style={{ backgroundImage: `url(${plateArtUrl("tile")})`, backgroundSize: "auto 100%", backgroundRepeat: "round no-repeat" }} />
-      <img src={plateArtUrl("cap-right")} alt="" decoding="async" draggable={false} className="block shrink-0" style={{ width: width("cap-right"), height: h }} />
-    </span>
-  );
-}
-
-/**
- * An icon over a plate's end, on a disc in the plate's colours: an icon that is not a coin (the Cobbles' stones, a crest, a shield)
- * hides the border too. An image fills the size's box; a Font Awesome icon sits at its centre.
- */
-export function PlateDisc({
-  size,
-  tone,
-  face = "plate",
-  children,
-  className,
-}: VariantProps<typeof boxVariants> & {
-  /** `button`: the overlay buttons' round face (a card disc, the icon in gold), the League button over a plate's end (issue 829). */
-  face?: "plate" | "button";
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <span className={cn("relative grid place-items-center", PARTS[size ?? "sm"].coin, face === "button" && "text-primary", className)}>
-      <span
-        aria-hidden
-        className={cn(
-          "absolute rounded-full border",
-          face === "button" ? "inset-0 border-border bg-card shadow-lg" : "inset-[4%] bg-resource-plate",
-          face === "plate" && (tone === "invite" ? "border-primary/60" : "border-resource-edge"),
-        )}
-      />
-      {children}
-    </span>
-  );
-}
-
-/** A Font Awesome icon on a `PlateDisc`, sized to it: 20 px on the 40 px disc, 24 on the 44. */
-export const plateIconClass = (size: PlateSize | null | undefined): string =>
-  ({ sm: "text-[1.25rem]", md: "text-[1.5rem]", auto: "text-[1.25rem] desktop:text-[1.5rem]" })[size ?? "sm"];
 
 /** A plate's figure in chunky mono, its digits of one width (`numeric`). */
 export const PLATE_FIGURE = "relative numeric font-bold tracking-tight";
@@ -244,17 +159,14 @@ export const PLATE_FIGURE = "relative numeric font-bold tracking-tight";
 /** A currency's plate's one width at each size (`fixed`, issue 860): its skeleton takes it, so nothing moves when the figure arrives. */
 export const plateWidthClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].width;
 
-/** The icon's box at each size, for an image over a plate's end on a `PlateDisc`. */
-export const plateCoinClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].coin;
-
-/** A bare icon's box at each size (`endFit="bare"`, issue 213): a token's coin or stone with no disc, taller than the plate. */
+/** A bare icon's box at each size on the flat frame (issue 213): a crest with no disc, taller than the plate. */
 export const plateBareIconClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].bareEnd.box;
 
-/** How far a stone plate's gold point stands out past its open end at each size, in CSS px (10 on the phone's plate, 11 on the rail's). */
-export const platePointPx = (size: PlateSize | null | undefined): number => Math.round(PLATE_POINT * BOX_PX[size ?? "sm"]);
+/** The icon's box on the HUD's frame at each size (`frame="hud"`): 40 px on a phone's balance, 44 on the rail's, 40 then 44 in the column. */
+export const plateHudIconClass = (size: PlateSize | null | undefined): string => PARTS[size ?? "sm"].hudEnd.box;
 
-/** A bare icon's width at each size in CSS px (48 over the 32 px box, 52 over the 36), for the copy its image loads. */
-export const plateBareIconPx = (size: PlateSize | null | undefined): number => ({ sm: 48, md: 52, auto: 48 })[size ?? "sm"];
+/** The same in CSS px, for the copy its image loads (the largest it is drawn). */
+export const plateHudIconPx = (size: PlateSize | null | undefined): number => ({ sm: 40, md: 44, auto: 44 })[size ?? "sm"];
 
 /** The plate's own variants (`size`, `tone`), for a plate built on it. */
 export type PlateVariants = VariantProps<typeof boxVariants>;

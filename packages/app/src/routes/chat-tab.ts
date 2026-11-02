@@ -2,7 +2,7 @@ import { chatTabOf, type ChatTab } from "./chat-param";
 
 const KEY = "chat-tab";
 
-/** Kept beside `localStorage`, as `score-open` is: with storage off the choice holds for the visit. */
+/** Kept beside `localStorage`, as `chests-seen` is: with storage off the choice holds for the visit. */
 let memory: ChatTab | null = null;
 
 /**

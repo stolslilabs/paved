@@ -4,7 +4,7 @@ import { toastError } from "../../components/containers/error-toast";
 import { ViewError, type CobbleClaim } from "@paved/chain";
 import { errorDetail } from "../error-detail";
 import { MissionsScene } from "../../components/scenes/missions-scene";
-import { missionKeyOf } from "../../components/containers/missions-tracker-lines";
+import { missionKeyOf } from "../../components/containers/mission-key";
 import { useDataSources } from "../../data/sources";
 import { usePlayerAchievements, usePlayerQuests } from "../../data/indexer";
 import { cobbleKeys, useAchievementRewards, useClaims, useQuestRewards, type ClaimTarget } from "../../data/cobbles";

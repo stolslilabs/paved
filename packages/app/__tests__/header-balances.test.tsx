@@ -192,8 +192,8 @@ describe("each row's header, a holder's balances at 375 and 1440 px (#855)", () 
     );
     // The provider's set is a panel page's (none, Settings): the home keeps its own under it.
     const regions = await screen.findAllByRole("region", { name: "Balances" });
-    // Stacked below `desktop`, in a row from it (#856).
-    expect(regions.map((r) => r.dataset.direction)).toEqual(["column", "row"]);
+    // Stacked at every width (HOME-UI-CAPSULES): the phone's plates below `desktop`, the larger ones from it.
+    expect(regions.map((r) => r.dataset.direction)).toEqual(["column", "column"]);
     for (const region of regions) {
       expect(within(region).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["240 Cobbles: Buy packs", "142.35 PAVED: Play a Challenge", "1.25 vPAVED: Vault"]);
       // The home's column too: no "+" (#925).

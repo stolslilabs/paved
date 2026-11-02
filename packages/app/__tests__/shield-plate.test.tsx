@@ -42,13 +42,14 @@ describe("the shield's HHhMMm (#806, revised by #829)", () => {
 });
 
 describe("the shield's plate (#806, #829)", () => {
-  it("shows the shield and its HHhMMm while it is up, named in words: the mirrored plate, the shield over its left end", () => {
+  it("shows the shield and its HHhMMm while it is up, named in words: a capsule on the HUD's frame, the shield capping its left end", () => {
     render(wrap(<ShieldPlate endsAt={MOCK_NOW + LEFT} now={MOCK_NOW} />));
     const chip = screen.getByRole("button", { name: "Shielded, 7 hours 42 minutes left" });
     expect(chip).toHaveTextContent(/^07h42m$/);
     const plate = chip.querySelector<HTMLElement>("[data-side=left]")!;
     expect(plate).toHaveClass("flex-row-reverse");
-    expect(plate.lastElementChild!.querySelector("[data-icon=shield-halved]")).not.toBeNull();
+    expect(plate.dataset.frame).toBe("hud");
+    expect(plate.lastElementChild!.querySelector("[data-slot=ui-icon][data-icon=shield]")).not.toBeNull();
   });
 
   it("ticks each minute with the page's clock and leaves when the shield ends", () => {
@@ -83,14 +84,14 @@ describe("the shield's plate (#806, #829)", () => {
 });
 
 describe("the home with the shield (#806, #829)", () => {
-  it("sits under the League control, before the village score, in the left column", async () => {
+  it("sits under the League control and the village score in the left column, the mockup's order (HOME-UI-CAPSULES)", async () => {
     const { container } = render(wrap(<ProfileProvider value={value}><HomeVillageScene {...HOME_VILLAGE.shielded} /></ProfileProvider>));
     // Its own chunk, loaded only while shielded.
     const plate = await screen.findByRole("button", { name: /^Shielded/ });
     // The League control's own chunk too (#829).
     const league = await screen.findByRole("button", { name: /^League: / });
-    expect(league.nextElementSibling).toBe(plate);
-    expect(plate.nextElementSibling).toHaveAttribute("data-slot", "village-score");
+    expect(league.nextElementSibling).toHaveAttribute("data-slot", "village-score");
+    expect(league.nextElementSibling!.nextElementSibling).toBe(plate);
     expect(container.querySelector("[data-slot=player-badge]")!.contains(plate)).toBe(false);
   });
 

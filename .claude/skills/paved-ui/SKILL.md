@@ -166,13 +166,18 @@ were: one sheet, then each asset alone from its cell, the open chest edited from
 the back rim, so the two give the open chest back. A redrawn chest is new masters on the frames, its measures taken again, then the
 script. The ranks' names and sizes are in `elements/chest-designs.ts`. `Elements/ChestArt` shows every state, the layers and the drop.
 
-The currencies and the balance plate (the owner's direction A of 2026-11-01, `docs/design/balances.webp`): `TokenIcon` draws
-each currency's image (`elements/token-art.ts`: the Cobbles' paving stone, PAVED's gold coin, vPAVED's silver one, USDC's coin
-with Circle's mark, never redrawn), the copy picked by its size (`px` when a class sizes it); `ResourcePlate` is a `Plate` with
-`frame="stone"`, the badge's name plate made small: a left cap whose gold point stands out past the plate's open end, a tile
-repeated to the width, a right cap under the icon (`Balances` keeps the point's room, `platePointPx`). The masters are
-`token-sources/` on the frames of `TOKEN_ART` and `PLATE_ART`; `node scripts/compress-token-art.ts` writes `public/token-art/`
-(`--check` verifies it, in the build too). A new Storybook folder under `public/` is served after a restart (`staticDirs`).
+The currencies (the owner's direction A of 2026-11-01, `docs/design/balances.webp`): `TokenIcon` draws each currency's image
+(`elements/token-art.ts`: the Cobbles' paving stone, PAVED's gold coin, vPAVED's silver one, USDC's coin with Circle's mark, never
+redrawn), the copy picked by its size (`px` when a class sizes it). The masters are `token-sources/` on the frame of `TOKEN_ART`;
+`node scripts/compress-token-art.ts` writes `public/token-art/` (`--check` verifies it, in the build too). A new Storybook folder
+under `public/` is served after a restart (`staticDirs`).
+
+The capsules (HOME-UI-CAPSULES, `docs/design/home.webp` decomposed by Codex: the same material as the player card's frame): a
+`Plate` with `frame="hud"` draws the HUD's frame under its content (`elements/hud-frame.tsx`, `HudFrame`: the see-through face and
+the painted `card-frame` 9-slice, its corner 10 px), the icon over its end, past it so the frame's rounded end is under it
+(`plateHudIconClass`), the figure larger, outlined and centred in the face. The balances (`ResourcePlate`, 108 by 28 px on a phone,
+128 by 32 on the rail), the crowns' capsule (`LeagueControl`'s home variant, the HUD's `crown`; the League page keeps the flat plate
+and the crest), the shield's (`shield`) and the village score's (`village`) share it; the home stretches those three to one width.
 
 ## Motion
 

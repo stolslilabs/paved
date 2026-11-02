@@ -4,11 +4,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { expected, masters, problems } from "../scripts/compress-token-art.ts";
-import { Balances } from "../src/components/containers/balances";
-import { platePointPx } from "../src/components/elements/plate";
 import { ResourcePlate } from "../src/components/elements/resource-plate";
 import { ShieldPlate } from "../src/components/elements/shield-plate";
-import { PLATE_ART, PLATE_FACE, PLATE_POINT, TOKEN_ART, tokenIconSources } from "../src/components/elements/token-art";
+import { TOKEN_ART, tokenIconSources } from "../src/components/elements/token-art";
 import { TokenIcon } from "../src/components/elements/token-icon";
 
 const read = (path: string) => readFileSync(resolve(import.meta.dirname, "..", path), "utf8");
@@ -19,20 +17,12 @@ const wrap = (node: React.ReactNode) => (
 );
 
 describe("the balances' images (the owner's direction A of 2026-11-01)", () => {
-  it("ship each icon and the plate's parts as WebP copies of their sizes, from masters on their frames (scripts/compress-token-art.ts)", () => {
-    expect(masters()).toEqual(["cobbles.webp", "paved.webp", "plate/cap-left.webp", "plate/cap-right.webp", "plate/tile.webp", "usdc.webp", "vpaved.webp"]);
-    expect(expected()).toHaveLength(4 * 4 + 3);
+  it("ship each icon as WebP copies of its sizes, from masters on one frame (scripts/compress-token-art.ts)", () => {
+    expect(masters()).toEqual(["cobbles.webp", "paved.webp", "usdc.webp", "vpaved.webp"]);
+    expect(expected()).toHaveLength(4 * 4);
     expect(problems()).toEqual([]);
-    // The four icons share one frame, so they stand alike in a row; the plate's parts share their height.
+    // The four icons share one frame, so they stand alike in a row.
     expect(new Set(Object.values(TOKEN_ART)).size).toBe(1);
-    expect(new Set(Object.values(PLATE_ART).map((f) => f.height)).size).toBe(1);
-  });
-
-  it("measure the plate's slate face inside its bricks, the gold point short of it", () => {
-    expect(PLATE_FACE.top + PLATE_FACE.bottom).toBeLessThan(0.5);
-    expect(PLATE_POINT).toBeLessThan(PLATE_FACE.left);
-    // The point is inside the left cap.
-    expect(PLATE_FACE.left).toBeLessThan(PLATE_ART["cap-left"].width / PLATE_ART["cap-left"].height);
   });
 
   it("are the app's own files: the old SVG icons and their script are gone", () => {
@@ -76,41 +66,31 @@ describe("TokenIcon", () => {
   });
 });
 
-describe("the balance plate on the stone frame", () => {
-  it("draws the left cap, the tile and the right cap under the figure, the point standing out past the open end", () => {
+describe("the balance plate on the HUD's frame (HOME-UI-CAPSULES)", () => {
+  it("draws the HUD's face and painted frame under the figure, the icon over the right end, 10 px past it", () => {
     const { container } = render(wrap(<ResourcePlate kind="paved" amount={10n ** 18n} decimals={18} fraction={2} fixed />));
-    const art = container.querySelector<HTMLElement>("[data-slot=plate-art]")!;
-    const [left, tile, right] = [...art.children] as HTMLElement[];
-    expect(left).toHaveAttribute("src", "/token-art/plate/cap-left/108.webp");
-    expect(tile.style.backgroundImage).toContain("/token-art/plate/tile/108.webp");
-    expect(tile.style.backgroundRepeat).toBe("round no-repeat");
-    expect(right).toHaveAttribute("src", "/token-art/plate/cap-right/108.webp");
-    // Under the content, the point past the box's left end; the figure from the slate face on, outlined like the badge's name.
-    expect(art.style.zIndex).toBe("-1");
-    expect(art.style.left).toBe(`-${platePointPx("sm")}px`);
-    const box = art.parentElement!;
-    expect(box.style.paddingLeft).toBe(`${Math.ceil((PLATE_FACE.left - PLATE_POINT) * 32) + 2}px`);
+    const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
+    expect(plate.dataset.frame).toBe("hud");
+    // The painted frame is a `border-image` (jsdom drops its `image-set`): its slice and width are what it keeps.
+    const frame = plate.querySelector<HTMLElement>("[data-slot=hud-frame]")!;
+    expect(frame.style.borderImageWidth).toBe("10px");
+    expect(plate.querySelector("[data-slot=hud-face]")).not.toBeNull();
+    const box = frame.parentElement!;
+    expect(box).toHaveClass("isolate", "pr-7.5", "justify-center");
     expect(box).not.toHaveClass("bg-resource-plate");
+    expect(plate.querySelector("[data-slot=token-icon]")).toHaveClass("size-10");
+    // 30 of its 40 px over the box: the frame's rounded end is under it.
+    expect(plate.querySelector("[data-slot=token-icon]")!.closest(".-ml-7\\.5")).not.toBeNull();
     expect(container.querySelector(".numeric")).toHaveClass("text-outline");
   });
 
-  it("is mirrored on the left of the screen, and the shield's plate keeps its flat box", () => {
+  it("is mirrored on the left of the screen, as the shield's capsule is", () => {
     const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} side="left" size="md" />));
-    const art = container.querySelector<HTMLElement>("[data-slot=plate-art]")!;
-    expect(art.style.transform).toBe("scaleX(-1)");
-    expect(art.style.right).toBe(`-${platePointPx("md")}px`);
+    const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
+    expect(plate.className).toContain("flex-row-reverse");
+    expect(plate.querySelector("[data-slot=hud-frame]")!.parentElement).toHaveClass("pl-8.5");
     const shield = render(wrap(<ShieldPlate endsAt={2_000_000_000} now={1_900_000_000} />));
-    expect(shield.container.querySelector("[data-slot=shield-plate]")).not.toBeNull();
-    expect(shield.container.querySelector("[data-slot=plate-art]")).toBeNull();
-    expect(shield.container.querySelector(".bg-resource-plate")).not.toBeNull();
-  });
-
-  it("keeps the point's room before the first plate of the balances, whichever way they stand", () => {
-    const state = { status: "ready", usdc: 48_500_000n, paved: 10n ** 18n, cobbles: 240 } as const;
-    const { unmount } = render(wrap(<Balances layout="pill" state={state} />));
-    expect(screen.getByRole("region", { name: "Balances" }).style.paddingLeft).toBe(`${platePointPx("sm")}px`);
-    unmount();
-    render(wrap(<Balances layout="rail" direction="column" state={state} />));
-    expect(screen.getByRole("region", { name: "Balances" }).style.paddingLeft).toBe(`${platePointPx("md")}px`);
+    expect(shield.container.querySelector("[data-slot=shield-plate] [data-slot=hud-frame]")).not.toBeNull();
+    expect(shield.container.querySelector("[data-slot=shield-plate] [data-slot=ui-icon][data-icon=shield]")).not.toBeNull();
   });
 });

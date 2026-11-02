@@ -7,7 +7,6 @@ import { shortAddress } from "../../components/elements/short-address";
 import type { LayoutSaved } from "../../components/containers/layout-editor";
 import type { VillageLayout } from "../../components/containers/layout-rules";
 import { HomeVillageScene, type SocialCounts } from "../../components/scenes/home-village-scene";
-import type { MissionKey, TrackerState } from "../../components/containers/missions-tracker-lines";
 import { useBoardSettings } from "../../data/board-settings";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
@@ -21,7 +20,6 @@ import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { PrefetchOnIntent } from "../prefetch";
-import { scoreOpenStored, storeScoreOpen } from "../score-open";
 import { useAppNavigate, useTabNavigate } from "../ref";
 import { boardTilesOf, layoutTilesOf, refusalText } from "../village-shapes";
 import { PlayerProfileHost } from "../player-profile";
@@ -30,10 +28,7 @@ import { PlayerProfileHost } from "../player-profile";
 const HomeStage = lazy(() => import("../home-stage"));
 /** What waits on the Chat, Guild and Friends pages (#973), its own chunk: the social reads stay out of the home's first load. */
 const SocialCount = lazy(() => import("../social-count"));
-/**
- * What waits on the Missions page (#753, #976) and the missions tracker's lines (#978), its own chunk: the quests' rules and reads
- * stay out of the home's first load.
- */
+/** What waits on the Missions page (#753, #976), its own chunk: the quests' rules and reads stay out of the home's first load. */
 const MissionsCount = lazy(() => import("../missions-count"));
 /** Nothing counted on the three buttons: a guest, or the counts not read yet. */
 const NO_SOCIAL_COUNTS: SocialCounts = { chat: 0, guild: 0, friends: 0 };
@@ -85,13 +80,11 @@ export default function Page() {
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
   const [missions, setMissions] = useState(0);
-  const [tracker, setTracker] = useState<TrackerState | null>(null);
   const league = usePvpLeague(me).data;
   const shield = usePvpShield(me).data;
   const board = useBoardSettings();
   const [saved, setSaved] = useState<LayoutSaved | null>(null);
   // The village score's fold (#831), as this device left it: read once, as the home opens.
-  const [initialScoreOpen] = useState(scoreOpenStored);
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
   const [social, setSocial] = useState<SocialCounts>(NO_SOCIAL_COUNTS);
@@ -169,8 +162,6 @@ export default function Page() {
         guest={me === null}
         readOnly={readOnly}
         editing={editing}
-        initialScoreOpen={initialScoreOpen}
-        onScoreOpenChange={storeScoreOpen}
         onEditingChange={onEditingChange}
         founded={data?.founded ?? true}
         founding={pending === "found"}
@@ -191,7 +182,6 @@ export default function Page() {
             : 0
         }
         missions={missions}
-        missionsTracker={tracker}
         chat={social.chat}
         guild={social.guild}
         friends={social.friends}
@@ -206,7 +196,7 @@ export default function Page() {
         onChat={() => go("/chat")}
         onGuild={() => go("/guild")}
         onFriends={() => go("/friends")}
-        onMissions={(mission?: MissionKey) => go(mission ? `/missions?mission=${mission}` : "/missions")}
+        onMissions={() => go("/missions")}
         onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
@@ -227,7 +217,7 @@ export default function Page() {
       {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
       <Suspense fallback={null}>
         <SocialCount me={me} onCount={setSocial} />
-        <MissionsCount me={me} onCount={setMissions} onTracker={setTracker} />
+        <MissionsCount me={me} onCount={setMissions} />
       </Suspense>
       {/* Another player's profile (#952): `/player/:id` lands here with it, and from `desktop` the panels' pages show it over the home. */}
       <PlayerProfileHost />
