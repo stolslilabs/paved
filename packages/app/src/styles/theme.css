@@ -270,15 +270,11 @@
   --sky-search-bottom: var(--color-river-500);
   --crown: var(--color-gold-300);
   /*
-   * The player card (HOME-UI-CARD, docs/design/home.webp, the owner's reading of 2026-11-02): a dark grey face and a lighter grey rim,
-   * both see-through (the interface's neutral scale: the navy ink is the night sky's, #537); the XP bar's cyan, light at its top and
-   * deep blue at its foot (measured on the mockup).
+   * The player card (HOME-UI-CARD, docs/design/home.webp): its see-through dark grey face (the interface's neutral scale: the navy
+   * ink is the night sky's, #537), its frame and its XP bar being images; the XP fill's light cyan, its level up's flash.
    */
   --hud-card: var(--color-charcoal-800);
-  --hud-card-rim: var(--color-charcoal-400);
   --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
-  --xp: oklch(0.767 0.151 229); /* #05C4FF */
-  --xp-deep: oklch(0.624 0.195 253.9); /* #0A86F8 */
   --league-iron: var(--color-amber-500);
   --league-bronze: var(--color-charcoal-300);
   --league-silver: var(--color-gold-400);
@@ -364,10 +360,7 @@
   --color-sky-search-bottom: var(--sky-search-bottom);
   --color-crown: var(--crown);
   --color-hud-card: var(--hud-card);
-  --color-hud-card-rim: var(--hud-card-rim);
   --color-xp-light: var(--xp-light);
-  --color-xp: var(--xp);
-  --color-xp-deep: var(--xp-deep);
   --color-league-iron: var(--league-iron);
   --color-league-bronze: var(--league-bronze);
   --color-league-silver: var(--league-silver);

@@ -96,7 +96,7 @@ describe("PlayerBadge, the player card (the owner's direction of 2026-11-01)", (
     const card = screen.getByRole("button", { name: "Profile: bal7hazar, level 3, 180 XP to level 4" });
     expect(card).toHaveAttribute("data-slot", "player-card");
     const name = within(card).getByText("bal7hazar");
-    expect(name).toHaveClass("truncate", "font-bold", "text-outline");
+    expect(name).toHaveClass("truncate", "font-black", "text-outline");
     expect(name).not.toHaveClass("font-display");
     expect(name).toHaveAttribute("title", "bal7hazar");
     // Within the home's room beside its balances; elsewhere (a story at 320 px) within the width it is given.

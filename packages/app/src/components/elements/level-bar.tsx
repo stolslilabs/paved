@@ -1,8 +1,9 @@
 import { formatInteger } from "@paved/game-core";
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { useMotionValue, useTransform } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
+import { uiFrameImageSet, XP_TRACK_SLICE } from "./ui-art";
 import { UiIcon } from "./ui-icon";
 import { isMaxLevel } from "./xp-level";
 import { useXpMotion, type PlayerProgress } from "./xp-ring";
@@ -14,6 +15,19 @@ export const levelText = (level: number | undefined): string => (level === undef
 export const xpText = (progress: PlayerProgress): string =>
   isMaxLevel(progress) ? "Max" : `${formatInteger(progress.xp)}/${formatInteger(progress.xpForNext)}`;
 
+/** The track's ends drawn 7 px wide, its height its two halves (its 9-slice). */
+const TRACK: CSSProperties = {
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderWidth: "9px 7px",
+  borderImageSource: uiFrameImageSet("xp-track"),
+  borderImageSlice: `50% ${(XP_TRACK_SLICE.x * 100).toFixed(2)}% fill`,
+  borderImageWidth: "9px 7px",
+  borderImageRepeat: "stretch",
+};
+/** The fill's painted strip at the recess's height, from the left, never stretched: the share shows as much of it. */
+const FILL: CSSProperties = { backgroundImage: uiFrameImageSet("xp-fill"), backgroundSize: "auto 100%", backgroundRepeat: "repeat-x" };
+
 export interface LevelBarProps {
   /** Undefined while it is read: the empty track, the star blank. */
   progress: PlayerProgress | undefined;
@@ -21,8 +35,8 @@ export interface LevelBarProps {
 }
 
 /**
- * The player's level on the player card (the owner's direction of 2026-11-01, `docs/design/home.webp`): the HUD's blue star holding
- * the level, over the left end of a luminous cyan bar, the XP made and the XP the level needs in it ("90/150"). A gain fills the bar
+ * The player's level on the player card (the owner's direction of 2026-11-01, `docs/design/home.webp`, decomposed layer by layer): the
+ * HUD's blue star holding the level, over the left end of the mockup's track and its faceted cyan fill (images), the XP made and the XP the level needs in it ("90/150"). A gain fills the bar
  * and a "+N XP" rises at its end; a level up completes it, flashes it, turns the level over, then fills the new one (`useXpMotion`).
  * Under reduced motion the values change at once with a brief flash. Decorative: the card says the level and the XP left.
  */
@@ -36,15 +50,21 @@ export function LevelBar({ progress, className }: LevelBarProps) {
   const lit = burst ?? flash;
   return (
     <span data-slot="level-bar" aria-hidden className={cn("relative flex h-7 w-36 max-w-full items-center pl-3.5 tablet:w-40", className)}>
-      {/* The track: a charcoal groove in a dark outline, lit along its top; the fill the mockup's cyan to deep blue, a light line on top. */}
-      <span className="relative h-4.5 flex-1 overflow-hidden rounded-r-full border border-background bg-hud-card shadow-[inset_0_2px_0_var(--hud-card-rim)]">
-        <m.span data-slot="level-fill" className="absolute inset-y-0 left-0 bg-linear-to-b from-xp-light from-15% via-xp via-45% to-xp-deep after:absolute after:inset-x-1 after:top-px after:h-0.5 after:rounded-full after:bg-foreground/60" style={{ width }} />
+      {/*
+        The mockup's track (`xp-track`: a near-black outline, a silver bevel, a dark recess) with its drop shadow, and in its recess the
+        faceted cyan fill (`xp-fill`), shown from the left up to the share.
+      */}
+      <span className="relative h-4.5 flex-1">
+        <span aria-hidden data-slot="xp-track" className="absolute inset-0 [filter:drop-shadow(0_1px_0_var(--background))]" style={TRACK} />
+        <span className="absolute inset-[3px] overflow-hidden rounded-r-[6px]">
+          <m.span data-slot="level-fill" className="absolute inset-y-0 left-0" style={{ ...FILL, width }} />
+        </span>
         {lit !== null && (
           // The level up lights the whole bar, fading.
           <m.span
             key={lit}
             data-slot="level-flash"
-            className="absolute inset-0 bg-xp-light"
+            className="absolute inset-[3px] rounded-r-[6px] bg-xp-light"
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
@@ -60,7 +80,7 @@ export function LevelBar({ progress, className }: LevelBarProps) {
       </span>
       {/* The star over the bar's left end, the level in it. */}
       <span className="absolute top-0 left-0 grid size-7 place-items-center perspective-[200px]">
-        <UiIcon name="level-star" px={28} className="absolute inset-0 size-full" />
+        <UiIcon name="level-star" px={28} className="absolute inset-0 size-full [filter:drop-shadow(0_1px_0_var(--background))]" />
         <span data-slot="level" className="numeric text-outline relative text-xs leading-none font-bold text-foreground">
           {progress && level !== undefined ? (
             <m.span key={level} className="inline-block" initial={burst === null ? false : { rotateX: -90 }} animate={{ rotateX: 0 }} transition={{ duration: 0.3, ease: "easeOut" }}>

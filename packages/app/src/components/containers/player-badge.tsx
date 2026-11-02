@@ -1,6 +1,7 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
+import { CARD_FRAME_SLICE, uiFrameImageSet } from "../elements/ui-art";
 import { levelLabel } from "../elements/xp-level";
 import { avatarPlayer, profileLabel, profileName, useProfileOpener } from "./profile-context";
 
@@ -15,6 +16,19 @@ const LazyLevelBar = lazy(() => import("../elements/level-bar").then((m) => ({ d
 /** The portrait's inset in the rim's square: the rim's hole (`RIM_PORTRAIT`), so nothing moves when the rim comes. */
 const PORTRAIT_INSET = "inset-[15%]";
 
+/** The frame's corners drawn 13 px (its 9-slice): the rim about 5.5 px, the corner's curve about 10.5 px, as on the mockup. */
+const FRAME_PX = 13;
+/** The card's frame (`card-frame`, the mockup's outline and slate rim, painted irregular), its centre clear. */
+const FRAME: CSSProperties = {
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderWidth: FRAME_PX,
+  borderImageSource: uiFrameImageSet("card-frame"),
+  borderImageSlice: `${(CARD_FRAME_SLICE.y * 100).toFixed(2)}% ${(CARD_FRAME_SLICE.x * 100).toFixed(2)}%`,
+  borderImageWidth: `${FRAME_PX}px`,
+  borderImageRepeat: "stretch",
+};
+
 export interface PlayerBadgeProps {
   /** The player's crowns and attacks settled this season (the home's read): the rim's league. Left out: Wood, 0 crowns. */
   league?: { crowns: number; attacks?: number } | null;
@@ -22,8 +36,9 @@ export interface PlayerBadgeProps {
 }
 
 /**
- * The player card at the home's top left (#787, redrawn after the owner's direction of 2026-11-01, `docs/design/home.webp`): a
- * see-through dark grey card in a lighter grey rim, a black drop shadow round it; the avatar in the rim of the player's league with the
+ * The player card at the home's top left (#787, redrawn after the owner's direction of 2026-11-01, `docs/design/home.webp`, decomposed
+ * layer by layer): a see-through dark grey face in the mockup's frame (`card-frame`: a near-black outline and a slate rim, painted
+ * irregular, a 9-slice), a crisp black drop shadow following the frame; the avatar in the rim of the player's league with the
  * league's crest at its lower left, both running past the card's foot; then the name and, under it, the level's star over the XP's
  * blue bar ("90/150"). The card grows with the name (a name has at most 15 characters, `PLAYER_NAME_MAX`) and ends it with an
  * ellipsis where the home's room ends (`--profile-room`, set by the home beside its balances). A tap anywhere on it opens the profile
@@ -45,14 +60,17 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
         {...trigger}
         aria-label={`${profileLabel(value.state, undefined)}${progress ? `, ${levelLabel(progress)}` : ""}`}
         data-slot="player-card"
-        // The mockup's card: a see-through dark grey face, a see-through lighter grey rim, a black drop shadow round it.
-        className="state-layer flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-2 rounded-2xl border-2 border-hud-card-rim/60 bg-hud-card/75 py-1 pr-3 pl-1 text-left shadow-[0_2px_8px] shadow-background backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-ring tablet:gap-2.5 tablet:pr-4"
+        className="state-layer relative isolate flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-1.5 rounded-2xl py-1.5 pr-2.5 pl-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring tablet:gap-2 tablet:pr-3"
       >
+        {/* The face, see-through dark grey, under the frame's rim; then the frame, its black drop shadow following its painted edge. */}
+        <span aria-hidden data-slot="card-face" className="absolute inset-[3px] -z-10 rounded-[11px] bg-hud-card/80 shadow-[inset_0_1px_2px_var(--background)] backdrop-blur-sm" />
+        <span aria-hidden data-slot="card-frame" className="pointer-events-none absolute inset-0 -z-10 [filter:drop-shadow(0_1.5px_0_var(--background))_drop-shadow(0_3px_5px_var(--background))]" style={FRAME} />
         {/*
-          The avatar in its rim, 64 px, 72 from `tablet` (the rim's square takes the box's font size), larger than the card: from its top it
-          runs past the card's foot, the crest further (its negative margin keeps the card the height of the name and the bar).
+          The avatar in its rim, 64 px, 72 from `tablet` (the rim's square takes the box's font size; the default avatar's initial needs
+          that much), about the card's height: from near its top it runs a little past the card's foot, the crest further (its negative
+          margins keep the card the height of the name and the bar).
         */}
-        <span data-slot="avatar-rim" className="relative -mb-4 block shrink-0 self-start text-[4rem] tablet:-mb-5 tablet:text-[4.5rem]">
+        <span data-slot="avatar-rim" className="relative -mt-0.5 -mb-3 block shrink-0 self-start text-[4rem] tablet:-mb-3.5 tablet:text-[4.5rem]">
           <Suspense
             fallback={
               <span className="relative block size-[1em] rounded-full border-2 border-border">
@@ -65,9 +83,9 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
             </LazyPlayerRim>
           </Suspense>
         </span>
-        <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-col">
           {name && (
-            <span data-slot="player-name" title={name} className="text-outline min-w-0 truncate text-base leading-tight font-bold text-foreground tablet:text-lg">
+            <span data-slot="player-name" title={name} className="text-outline min-w-0 truncate text-base leading-tight font-black text-foreground tablet:text-lg">
               {name}
             </span>
           )}
