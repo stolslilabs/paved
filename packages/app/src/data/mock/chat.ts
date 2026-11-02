@@ -918,8 +918,12 @@ function writeRefusalOf(chat: StoredChat, w: ChatWorld, id: ConversationId, r: N
 }
 
 /** What a conversation's encryption says to `viewer` (#997): public, the guild's, or private with its safety code and key changes. */
-function encryptionOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string): ChatEncryption {
-  if (c.kind !== "private") return { mode: c.kind === "world" ? "public" : "guild", safetyCode: null, keyChanges: [] };
+function encryptionOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Conversation, viewer: string, guild: StoredGuild | null): ChatEncryption {
+  if (c.kind === "world") return { mode: "public", safetyCode: null, keyChanges: [], joinedAt: null };
+  if (c.kind === "guild") {
+    const joined = guild?.members.find((m) => m.address === key(viewer))?.joinedAt;
+    return { mode: "guild", safetyCode: null, keyChanges: [], joinedAt: guild && joined !== undefined && joined > guild.createdAt ? joined : null };
+  }
   const other = otherPlayer(id, viewer)!;
   const mine = directoryOf(chat, w, viewer);
   const theirs = directoryOf(chat, w, other);
@@ -928,6 +932,7 @@ function encryptionOf(chat: StoredChat, w: ChatWorld, id: ConversationId, c: Con
     mode: "private",
     safetyCode: mine && theirs ? safetyCode(mine.publicKey, theirs.publicKey) : null,
     keyChanges: first === undefined ? [] : chat.keyChanges.filter((k) => k.player === key(other) && k.at >= first).map(({ at, version }) => ({ at, version })),
+    joinedAt: null,
   };
 }
 
@@ -942,7 +947,7 @@ export function pageOf(chat: StoredChat, w: ChatWorld, player: string, id: Conve
   const pair = r.c.kind === "private" ? pairOf(chat, w, id, player, r.other!) : null;
   return {
     conversation: summaryOf(chat, w, id, r.c, player, r.guild, messages),
-    encryption: encryptionOf(chat, w, id, r.c, player),
+    encryption: encryptionOf(chat, w, id, r.c, player, r.guild),
     messages: page.messages,
     before: cursorOf(page.before),
     pinned,

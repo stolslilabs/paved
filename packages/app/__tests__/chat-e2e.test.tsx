@@ -154,7 +154,7 @@ describe("private messages, sealed end to end (#997)", () => {
     const theirs = (await chat.conversation(OTHER, id))!.encryption;
     expect(mine).toMatchObject({ mode: "private", safetyCode: expect.stringMatching(/^\d{5} \d{5} \d{5} \d{5}$/), keyChanges: [] });
     expect(theirs.safetyCode).toBe(mine.safetyCode);
-    expect((await chat.conversation(ME, "world"))!.encryption).toEqual({ mode: "public", safetyCode: null, keyChanges: [] });
+    expect((await chat.conversation(ME, "world"))!.encryption).toEqual({ mode: "public", safetyCode: null, keyChanges: [], joinedAt: null });
   });
 });
 
@@ -236,6 +236,9 @@ describe("the guild's conversation, sealed with its epochs (#997, point 4)", () 
     expect(openEpoch(joined, THIRD, ringOf(THIRD))).not.toBeNull();
     // The joiner sees nothing from before their joining.
     expect((await messagesOf(chat, THIRD, id)).map((m) => m.text)).toEqual([]);
+    // The page tells the joiner so (open point 2), and not the founder.
+    expect((await chat.conversation(THIRD, id))!.encryption).toMatchObject({ mode: "guild", joinedAt: clock.now });
+    expect((await chat.conversation(ME, id))!.encryption.joinedAt).toBeNull();
     clock.now += 5;
     await chat.send(ME, id, "welcome THIRD");
     expect((await messagesOf(chat, THIRD, id)).map((m) => m.text)).toEqual(["welcome THIRD"]);

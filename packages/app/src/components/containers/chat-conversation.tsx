@@ -3,7 +3,7 @@ import * as m from "motion/react-m";
 import { useReducedMotionConfig } from "motion/react";
 import { CHAT_MESSAGE_MAX, CHAT_REPORT_REASONS, chatLength, formatDate, formatInteger, type ChatReportReason } from "@paved/game-core";
 import { ChatRefusedError, type ChatMessage, type ChatPageHead } from "../../data/social-source";
-import { CHAT_REFUSALS, PRIVATE_NOTICE, REPORT_REASONS, chatErrorText, conversationName } from "../../lib/chat-text";
+import { CHAT_REFUSALS, PRIVATE_NOTICE, REPORT_REASONS, REPORT_REVEAL, UNREADABLE_MESSAGE, chatErrorText, conversationName } from "../../lib/chat-text";
 import { logLine } from "../../lib/guild-text";
 import { cn } from "../../lib/utils";
 import { useVisualViewportHeight } from "../../lib/visual-viewport";
@@ -19,6 +19,7 @@ import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { shortAddress } from "../elements/short-address";
 import { formatPoints } from "../elements/score";
+import { EncryptionLine, EncryptionSheet, JoinerLine, KeyChangeLine } from "./chat-encryption";
 import { useGuildActions } from "./guild-sheets";
 
 /** A write on one message or its author, from the message's menu. */
@@ -62,7 +63,8 @@ interface MessageRowProps {
 
 /**
  * One line of a conversation: a player's message (avatar, name, level, the guild's tag in the World, the time, then the text,
- * plain: a link or an address is never made clickable), "Message deleted", or an event of the guild's log, centred.
+ * plain: a link or an address is never made clickable), "Message deleted", one this device cannot open (#997), or an event of the
+ * guild's log, centred.
  */
 function MessageRow({ message: msg, now, timeZone, showTag, mayMute, arrived, onOpenPlayer, onDelete, onReport, onMute }: MessageRowProps) {
   const reduced = useReducedMotionConfig();
@@ -108,7 +110,16 @@ function MessageRow({ message: msg, now, timeZone, showTag, mayMute, arrived, on
           {showTag && author?.guildTag && <span className="numeric text-xs text-muted-foreground">{author.guildTag}</span>}
           <span className="numeric text-xs text-muted-foreground">{messageTime(msg.at, now, timeZone)}</span>
         </div>
-        {msg.deleted ? <p className="text-sm text-muted-foreground italic">Message deleted</p> : <p className="text-sm whitespace-pre-wrap wrap-break-word">{msg.text}</p>}
+        {msg.deleted ? (
+          <p className="text-sm text-muted-foreground italic">Message deleted</p>
+        ) : msg.unreadable ? (
+          <p data-slot="chat-unreadable" className="flex min-w-0 items-start gap-1.5 text-sm text-muted-foreground italic">
+            <Icon name="lock" size="xs" className="mt-1 shrink-0" />
+            <span className="min-w-0 wrap-anywhere">{UNREADABLE_MESSAGE}</span>
+          </p>
+        ) : (
+          <p className="text-sm whitespace-pre-wrap wrap-break-word">{msg.text}</p>
+        )}
       </div>
       {hasMenu && (
         <DropdownMenu modal={false}>
@@ -151,20 +162,26 @@ function MessageRow({ message: msg, now, timeZone, showTag, mayMute, arrived, on
 
 interface ReportDialogProps {
   message: ChatMessage | null;
+  /** The conversation is end-to-end encrypted: the dialog says what the report reveals (#997, point 12). */
+  encrypted: boolean;
   onCancel: () => void;
   onReport: (reason: ChatReportReason) => Promise<unknown>;
 }
 
-/** Reporting a message: spam, scam, harassment or other. Its author is not told. */
-function ReportDialog({ message, onCancel, onReport }: ReportDialogProps) {
+/** Reporting a message: spam, scam, harassment or other. Its author is not told. In private and in a guild, what it reveals. */
+function ReportDialog({ message, encrypted, onCancel, onReport }: ReportDialogProps) {
   return (
     <Dialog open={message !== null} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent data-slot="chat-report">{message && <ReportBody key={message.id} message={message} onCancel={onCancel} onReport={onReport} />}</DialogContent>
+      {/* As tall as the screen at most, its body scrolling within (Close stays put): the encrypted conversations' warning makes it
+          taller than a small phone. */}
+      <DialogContent data-slot="chat-report" className="flex max-h-[calc(100dvh-2rem)] flex-col p-0">
+        <ScrollRegion className="min-h-0 overscroll-contain p-6">{message && <ReportBody key={message.id} message={message} encrypted={encrypted} onCancel={onCancel} onReport={onReport} />}</ScrollRegion>
+      </DialogContent>
     </Dialog>
   );
 }
 
-function ReportBody({ message, onCancel, onReport }: ReportDialogProps & { message: ChatMessage }) {
+function ReportBody({ message, encrypted, onCancel, onReport }: ReportDialogProps & { message: ChatMessage }) {
   const [reason, setReason] = useState<ChatReportReason | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,9 +199,14 @@ function ReportBody({ message, onCancel, onReport }: ReportDialogProps & { messa
   return (
     <form className="flex flex-col gap-4" onSubmit={submit}>
       <DialogHeader>
-        <DialogTitle className="wrap-anywhere">Report {authorName(message)}'s message?</DialogTitle>
+        <DialogTitle className="pr-6 wrap-anywhere">Report {authorName(message)}'s message?</DialogTitle>
         <DialogDescription>They are not told. The message stays until it is reviewed.</DialogDescription>
       </DialogHeader>
+      {encrypted && (
+        <Notice tone="warning" icon="lock">
+          {REPORT_REVEAL}
+        </Notice>
+      )}
       <div role="radiogroup" aria-label="Reason" className="flex flex-col gap-2">
         {CHAT_REPORT_REASONS.map((r) => (
           <label key={r} className={cn("flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2", reason === r ? "border-primary bg-primary/10" : "border-border")}>
@@ -240,6 +262,8 @@ export interface ChatConversationProps {
   initialDraft?: string;
   /** The message whose report dialog starts open (the stories'). */
   initialReport?: string;
+  /** The Encryption sheet starts open (the stories'). */
+  initialEncryptionOpen?: boolean;
   /**
    * The chat page's own conversation (#973: a tab's, or a private one over the list): as tall as what the page leaves under its
    * header and its tabs, with no cap. Off, a box of at most 44rem among other content.
@@ -253,7 +277,10 @@ export interface ChatConversationProps {
  * pill when one comes while the player reads older ones; then the field, which stays above a phone's keyboard (its height follows
  * `visualViewport`). In private: the notice of the first conversation, a request's Accept and Decline, and a note while the
  * player's own request waits. Each message's menu: Profile, Mute (the World and the guild), Report, Delete. A write refused by
- * the rules says why; the rate limits count down to when the player may send again.
+ * the rules says why; the rate limits count down to when the player may send again. End-to-end encryption (#997): a line under the
+ * title says what is encrypted (the World is public), a joiner's line in the guild, the other's key changes among the messages,
+ * a message this device cannot open in place of its text, what a report reveals, and in private the Encryption sheet with the
+ * safety code, from the conversation's menu or its line.
  */
 export function ChatConversation({
   head,
@@ -276,6 +303,7 @@ export function ChatConversation({
   onAnswer,
   initialDraft = "",
   initialReport,
+  initialEncryptionOpen = false,
   fill = false,
 }: ChatConversationProps) {
   const viewport = useVisualViewportHeight();
@@ -289,6 +317,7 @@ export function ChatConversation({
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [reporting, setReporting] = useState<ChatMessage | null>(() => messages.find((x) => x.id === initialReport) ?? null);
   const actions = useGuildActions<ChatMessageAction>((a) => onAction?.(a), chatErrorText);
+  const [encryptionOpen, setEncryptionOpen] = useState(initialEncryptionOpen);
 
   // The reading place: whether the reader is at the bottom, the messages that came while they were not, and the first and last
   // IDs seen, to tell an older page (keep the place) from a new message (follow it, or show the pill).
@@ -346,6 +375,24 @@ export function ChatConversation({
   const tooLong = length > CHAT_MESSAGE_MAX;
   const refusal = head?.writeRefusal ?? null;
   const request = head?.standing === "request";
+  const encryption = head?.encryption ?? null;
+  const encrypted = encryption !== null && encryption.mode !== "public";
+  const isPrivate = c?.kind === "private";
+  // The other's key changes among the messages, each before the first message after it; one older than the page read waits for
+  // the older page.
+  const keyChangesBefore = new Map<number, { at: number; version: number }[]>();
+  for (const k of isPrivate ? (encryption?.keyChanges ?? []) : []) {
+    if (hasOlder && messages.length > 0 && k.at < messages[0]!.at) continue;
+    const i = messages.findIndex((x) => x.at > k.at);
+    const at = i < 0 ? messages.length : i;
+    keyChangesBefore.set(at, [...(keyChangesBefore.get(at) ?? []), k]);
+  }
+  const keyChangeRows = (i: number) =>
+    (keyChangesBefore.get(i) ?? []).map((k) => (
+      <li key={`key-${k.version}-${k.at}`} data-slot="chat-key-change" className="flex justify-center px-2 py-1">
+        <KeyChangeLine otherName={name} onViewCode={() => setEncryptionOpen(true)} />
+      </li>
+    ));
 
   const send = (e: FormEvent) => {
     e.preventDefault();
@@ -407,7 +454,27 @@ export function ChatConversation({
         ) : (
           <Skeleton className="h-6 flex-1 rounded" />
         )}
+        {isPrivate && encryption && (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost" className="shrink-0" aria-label={`Menu of the conversation with ${name}`}>
+                <Icon name="ellipsis" size="sm" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setEncryptionOpen(true)}>
+                <Icon name="lock" size="xs" fixedWidth />
+                Encryption
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </header>
+      {encryption && (
+        <div className="border-b border-border">
+          <EncryptionLine mode={encryption.mode} otherName={name} onOpen={isPrivate ? () => setEncryptionOpen(true) : undefined} />
+        </div>
+      )}
 
       {head?.pinned && (
         <div data-slot="chat-pinned" className="flex min-w-0 gap-2 border-b border-border bg-secondary/40 px-3 py-2 text-sm">
@@ -440,10 +507,12 @@ export function ChatConversation({
             </div>
           )}
           {head === null && <p className="px-4 py-8 text-center text-sm text-muted-foreground">This conversation is not there any more.</p>}
+          {encryption?.joinedAt != null && !hasOlder && <JoinerLine />}
           {head && messages.length === 0 && <p className="px-4 py-8 text-center text-sm text-muted-foreground">No messages yet: say hello.</p>}
           {messages.length > 0 && (
             <ul className="flex flex-col gap-0.5">
-              {messages.map((msg) => (
+              {messages.map((msg, i) => [
+                ...keyChangeRows(i),
                 <MessageRow
                   key={msg.id}
                   message={msg}
@@ -456,8 +525,9 @@ export function ChatConversation({
                   onDelete={(x) => actions.ask({ title: "Delete this message?", text: x.mine ? "Everyone sees “Message deleted” in its place." : `${authorName(x)}'s message shows “Message deleted” for everyone.`, confirm: "Delete", destructive: true }, () => ({ type: "delete", id: x.id }))}
                   onReport={setReporting}
                   onMute={(x) => void actions.run({ type: "mute", address: x.author!.address })}
-                />
-              ))}
+                />,
+              ])}
+              {keyChangeRows(messages.length)}
             </ul>
           )}
         </ScrollRegion>
@@ -524,7 +594,8 @@ export function ChatConversation({
         )}
         <InlineError title="Send" message={sendError} />
       </div>
-      <ReportDialog message={reporting} onCancel={() => setReporting(null)} onReport={(reason) => onAction?.({ type: "report", id: reporting!.id, reason }) ?? Promise.resolve()} />
+      <ReportDialog message={reporting} encrypted={encrypted} onCancel={() => setReporting(null)} onReport={(reason) => onAction?.({ type: "report", id: reporting!.id, reason }) ?? Promise.resolve()} />
+      {isPrivate && encryption && <EncryptionSheet open={encryptionOpen} onOpenChange={setEncryptionOpen} otherName={name} safetyCode={encryption.safetyCode} />}
       {actions.dialog}
     </section>
   );

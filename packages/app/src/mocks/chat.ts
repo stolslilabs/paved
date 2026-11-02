@@ -1,4 +1,5 @@
 import { CHAT_MESSAGE_MAX, CHAT_WORLD_INTERVAL_S, WORLD_CONVERSATION, guildConversation, guildTag, privateConversation } from "@paved/game-core";
+import { labelledKeyPair, safetyCode } from "@paved/game-core/e2e";
 import type { ChatConversationProps } from "../components/containers/chat-conversation";
 import type { ChatListProps } from "../components/containers/chat-list";
 import type { ChatMenuProps } from "../components/containers/chat-menu";
@@ -161,9 +162,17 @@ export const CHAT_BADGES = {
   stress: { guild: 999, private: 1_234 },
 } satisfies Record<string, ChatBadges>;
 
+/** The safety code of the connected player's key and `other`'s at `theirVersion`: game-core's, from the mock's labelled keys. */
+const codeWith = (other: string, theirVersion = 1): string => safetyCode(labelledKeyPair(CHAT_ME).publicKey, labelledKeyPair(other, theirVersion).publicKey);
+
 const head = (conversation: ConversationSummary, over: Partial<ChatPageHead> = {}): ChatPageHead => ({
   conversation,
-  encryption: { mode: conversation.kind === "world" ? "public" : conversation.kind, safetyCode: null, keyChanges: [] },
+  encryption: {
+    mode: conversation.kind === "world" ? "public" : conversation.kind,
+    safetyCode: conversation.kind === "private" && conversation.other ? codeWith(conversation.other.address) : null,
+    keyChanges: [],
+    joinedAt: null,
+  },
   pinned: null,
   standing: null,
   awaitsReply: false,
@@ -200,6 +209,36 @@ export const CHAT_CONVERSATION = {
   empty: conversation({ head: head(summary({ id: DM_FRIEND, kind: "private", other: FRIEND }), { standing: "open" }), messages: [] }),
   loading: conversation({ head: undefined, messages: [] }),
   failed: conversation({ head: undefined, messages: [], error: "The chat did not answer: try again in a moment." }),
+  /** End-to-end encryption (#997): the Encryption sheet of a private conversation, with the safety code. */
+  encryptionSheet: conversation({ head: head(FRIEND_SUMMARY, { standing: "open" }), messages: PRIVATE_MESSAGES, initialEncryptionOpen: true }),
+  /** The friend's security key changed 20 minutes ago: a line among the messages, with "View code"; the code is the new key's. */
+  keyChanged: conversation({
+    head: head(FRIEND_SUMMARY, { standing: "open", encryption: { mode: "private", safetyCode: codeWith(FRIEND.address, 2), keyChanges: [{ at: MOCK_NOW - 20 * 60, version: 2 }], joinedAt: null } }),
+    messages: PRIVATE_MESSAGES,
+  }),
+  /** Messages this device cannot open (a key it does not hold, or a commitment that does not match), in private. */
+  unreadable: conversation({
+    head: head(FRIEND_SUMMARY, { standing: "open" }),
+    messages: [msg(DM_FRIEND, FRIEND_AUTHOR, DAY + 2 * HOUR, "", { unreadable: true, mayReport: false }), msg(DM_FRIEND, ME_AUTHOR, DAY + HOUR, "", { unreadable: true, mayReport: false }), ...PRIVATE_MESSAGES.slice(2)],
+  }),
+  /** A member who joined the guild an hour ago: the line that the messages from before are not shown, and the newer ones. */
+  guildJoiner: conversation({
+    head: head(GUILD_SUMMARY, { pinned: ANNOUNCEMENT, encryption: { mode: "guild", safetyCode: null, keyChanges: [], joinedAt: MOCK_NOW - HOUR } }),
+    messages: GUILD_MESSAGES.filter((x) => x.at >= MOCK_NOW - HOUR),
+  }),
+  /** The report dialog open on a private message: what goes to the moderators, decrypted. */
+  reportPrivate: conversation({ head: head(FRIEND_SUMMARY, { standing: "open" }), messages: PRIVATE_MESSAGES, initialReport: PRIVATE_MESSAGES[2]!.id }),
+  /** The report dialog open on a guild message: the same warning. */
+  reportGuild: conversation({ head: head(GUILD_SUMMARY, { pinned: ANNOUNCEMENT }), messages: GUILD_MESSAGES, initialReport: GUILD_MESSAGES.find((x) => x.kind === "message" && !x.mine)!.id }),
+  /** WRAP360 in private: the longest name and address, its key's change, an unreadable message, the sheet open. */
+  stressPrivate: conversation({
+    head: head(summary({ id: privateConversation(CHAT_ME, LONG_ADDRESS), kind: "private", other: STRESS_PROFILE }), {
+      standing: "open",
+      encryption: { mode: "private", safetyCode: codeWith(LONG_ADDRESS, 2), keyChanges: [{ at: MOCK_NOW - 2 * DAY, version: 2 }], joinedAt: null },
+    }),
+    messages: [msg("dm", STRESS_AUTHOR, 3 * DAY, "", { unreadable: true, mayReport: false }), msg("dm", STRESS_AUTHOR, DAY, STRESS_TEXT), msg("dm", ME_AUTHOR, 60, STRESS_TEXT)],
+    initialEncryptionOpen: true,
+  }),
   /** WRAP360: the longest name and address, the guild's longest tag, a message of 200 characters in one word, a long announcement. */
   stress: conversation({
     head: head({ ...GUILD_SUMMARY, guild: GUILD_BADGE.stress }, { pinned: { ...ANNOUNCEMENT, authorName: LONG_NAME, text: STRESS_TEXT.repeat(3) } }),
