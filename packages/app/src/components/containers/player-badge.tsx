@@ -1,7 +1,7 @@
-import { lazy, Suspense, type CSSProperties } from "react";
+import { lazy, Suspense } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
-import { CARD_FRAME_SLICE, uiFrameImageSet } from "../elements/ui-art";
+import { HudFrame } from "../elements/hud-frame";
 import { levelLabel } from "../elements/xp-level";
 import { avatarPlayer, profileLabel, profileName, useProfileOpener } from "./profile-context";
 
@@ -15,19 +15,6 @@ const LazyLevelBar = lazy(() => import("../elements/level-bar").then((m) => ({ d
 
 /** The portrait's inset in the rim's square: the rim's hole (`RIM_PORTRAIT`), so nothing moves when the rim comes. */
 const PORTRAIT_INSET = "inset-[15%]";
-
-/** The frame's corners drawn 13 px (its 9-slice): the rim about 5.5 px, the corner's curve about 10.5 px, as on the mockup. */
-const FRAME_PX = 13;
-/** The card's frame (`card-frame`, the mockup's outline and slate rim, painted irregular), its centre clear. */
-const FRAME: CSSProperties = {
-  borderStyle: "solid",
-  borderColor: "transparent",
-  borderWidth: FRAME_PX,
-  borderImageSource: uiFrameImageSet("card-frame"),
-  borderImageSlice: `${(CARD_FRAME_SLICE.y * 100).toFixed(2)}% ${(CARD_FRAME_SLICE.x * 100).toFixed(2)}%`,
-  borderImageWidth: `${FRAME_PX}px`,
-  borderImageRepeat: "stretch",
-};
 
 export interface PlayerBadgeProps {
   /** The player's crowns and attacks settled this season (the home's read): the rim's league. Left out: Wood, 0 crowns. */
@@ -71,9 +58,8 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
         data-slot="player-card"
         className="state-layer relative isolate flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-1.5 rounded-2xl py-1.5 pr-2.5 pl-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring tablet:gap-2 tablet:pr-3"
       >
-        {/* The face, see-through dark grey, under the frame's rim; then the frame, its black drop shadow following its painted edge. */}
-        <span aria-hidden data-slot="card-face" className="absolute inset-[3px] -z-10 rounded-[11px] bg-hud-card/80 shadow-[inset_0_1px_2px_var(--background)] backdrop-blur-sm" />
-        <span aria-hidden data-slot="card-frame" className="pointer-events-none absolute inset-0 -z-10 [filter:drop-shadow(0_1.5px_0_var(--background))_drop-shadow(0_3px_5px_var(--background))]" style={FRAME} />
+        {/* The HUD's frame, its corners 13 px: the rim about 5.5 px, the corner's curve about 10.5 px, as on the mockup. */}
+        <HudFrame px={13} />
         {/*
           The avatar in its rim, 64 px, 72 from `tablet` (the rim's square takes the box's font size; the default avatar's initial needs
           that much), about the card's height: from near its top it runs a little past the card's foot, the crest further (its negative

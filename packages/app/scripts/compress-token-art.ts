@@ -4,19 +4,17 @@
  *   node scripts/compress-token-art.ts [--check]
  *
  * Reads `token-sources/<kind>.webp` (`TOKEN_ART` in `src/components/elements/token-art.ts`: each currency's icon on one square frame
- * of 512 px) and `token-sources/plate/<part>.webp` (`PLATE_ART`: the balance plate's left cap, tile and right cap, one height),
- * transparent lossless WebP left untouched and never shipped (not in `public/`), and writes `public/token-art/<kind>/<size>.webp` and
- * `public/token-art/plate/<part>/<size>.webp` for each size. Each run removes the copies of an earlier one. `--check` encodes nothing
+ * of 512 px), transparent lossless WebP left untouched and never shipped (not in `public/`), and writes
+ * `public/token-art/<kind>/<size>.webp` for each size. Each run removes the copies of an earlier one. `--check` encodes nothing
  * and fails when a master is missing, extra or not of its frame, or a copy is missing, extra, not a WebP, or not of its size.
  *
  * The masters were art-directed and generated with OpenAI's image model through the Codex CLI (`codex exec -c
  * model_provider='"openai"'`), each step approved by the owner on 2026-11-01: three directions, A chosen (`docs/design/balances.webp`),
  * then each asset generated again alone from its cell: PAVED's coin first, vPAVED and USDC's from it (the same coin in silver, and
- * with a silver rim and a blank blue face), the Cobbles' stone with the badge ring's stones as its reference, and the empty plate,
- * cut into its caps and a tile that repeats with no seam. USDC's mark is Circle's, never generated: the white paths of the previous
+ * with a silver rim and a blank blue face), the Cobbles' stone with the badge ring's stones as its reference. USDC's mark is Circle's, never generated: the white paths of the previous
  * `usdc.svg` (nums', see the notices), rasterised and laid on the coin's face along the face's ellipse (an affine map, the tilted
- * coin's foreshortening), its dark blue emboss under it. The plate's stone and slate and the stone's tone were matched to the badge's
- * (per channel, Pillow and NumPy). Stored as lossless WebP (`cwebp -lossless -z 9 -exact`), the icons scaled to 512 px.
+ * coin's foreshortening), its dark blue emboss under it. The stone's tone was matched to the badge's (per channel, Pillow and
+ * NumPy). Stored as lossless WebP (`cwebp -lossless -z 9 -exact`), the icons scaled to 512 px.
  *
  * Per copy: resized and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv`, no metadata) at the quality of `IMAGES`,
  * under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install webp`, `apt install webp`), needed only to
@@ -26,7 +24,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PLATE_ART, TOKEN_ART, type PlatePart } from "../src/components/elements/token-art.ts";
+import { TOKEN_ART } from "../src/components/elements/token-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -34,10 +32,7 @@ export const SOURCE = resolve(HERE, "../token-sources");
 export const OUT = resolve(HERE, "../public/token-art");
 
 /** Each image as `<name>` with its frame and its quality: the icons carry the detail of a coin's face at 16 px. */
-const IMAGES = [
-  ...Object.entries(TOKEN_ART).map(([kind, frame]) => ({ name: kind, frame, quality: 86 })),
-  ...(Object.keys(PLATE_ART) as PlatePart[]).map((part) => ({ name: `plate/${part}`, frame: PLATE_ART[part], quality: 84 })),
-];
+const IMAGES = Object.entries(TOKEN_ART).map(([kind, frame]) => ({ name: kind, frame, quality: 86 }));
 
 /** A copy's width and height in pixels, `size` on its frame's side. */
 function copySize(frame: (typeof IMAGES)[number]["frame"], size: number): { width: number; height: number } {

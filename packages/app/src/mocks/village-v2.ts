@@ -13,7 +13,6 @@ import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, STILL, mainThreadRandomizer, se
 import { GAME_PLAYING } from "./games";
 import { PLAYER } from "./players";
 import { PLAN } from "./village";
-import { TRACKER } from "./missions-tracker";
 
 /**
  * The v2 village's fakes (#739, part of #732): free layouts built by the rules of `layout-rules.ts` (every tile joined to the
@@ -210,11 +209,8 @@ export const VILLAGE_SHOP = {
   guest: { status: { kind: "guest" } },
 } satisfies Record<string, Data<VillageShopSceneProps>>;
 
-/**
- * The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock;
- * the missions tracker mid-way (#978: a Tutorial step to claim, the next one open, Weekly Builder).
- */
-const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, missionsTracker: TRACKER.midWay, chat: 3, guild: 1, friends: 2, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
+/** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock. */
+const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, chat: 3, guild: 1, friends: 2, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
 /** The home village's points (#758): its line of the most points, lit in the stories. */
 export const HOME_POINTS = layoutPoints(LAYOUT_GROWING.tiles);
 /** A tile of the second line's structure that can be lifted: under the bubble, the structure stays lit whole. */
@@ -276,21 +272,7 @@ export const HOME_VILLAGE = {
   /** `spawn_paused`: the notice beside the Resume chip. */
   paused: { ...home, activeGame: GAME_PLAYING, spawnPaused: true },
   /** A new player: the starter village (level 1), no PvP played: the League control unranked, Wood with 0 crowns (#755, #829). */
-  start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, missionsTracker: TRACKER.newPlayer, now: MOCK_NOW },
-  /** The missions tracker (#978), a new player: the Tutorial's Builder first, then Daily Run and Public Works, nothing counted. */
-  trackerNewPlayer: { ...home, missions: 0, missionsTracker: TRACKER.newPlayer },
-  /** Mid-way: Raider to claim, Victor open, then Weekly Builder (22 / 30), the quest the furthest along. */
-  trackerMidWay: { ...home, missionsTracker: TRACKER.midWay },
-  /** The Tutorial claimed whole: the three quests the furthest along, compact figures on Weekly Points (12.4K / 20K). */
-  trackerQuestsOnly: { ...home, missions: 0, missionsTracker: TRACKER.questsOnly },
-  /** Three Tutorial steps done, none claimed: three Claims. */
-  trackerThreeToClaim: { ...home, missions: 3, missionsTracker: TRACKER.threeToClaim },
-  /** One mission left: one line, Weekly Stars. */
-  trackerOneLeft: { ...home, missions: 0, missionsTracker: TRACKER.oneLeft },
-  /** Everything done: "All done" and the countdown to the day's reset. */
-  trackerAllDone: { ...home, missions: 0, missionsTracker: TRACKER.allDone },
-  /** The tracker's lines not read yet: its skeleton, its size. */
-  trackerLoading: { ...home, missionsTracker: null },
+  start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, now: MOCK_NOW },
   /** The village shielded after a defence (#806): the shield's mirrored plate under the League control (#829), 07h42m left. */
   shielded: { ...home, shieldEndsAt: MOCK_NOW + 7 * HOUR + 42 * 60 },
   /** Under an hour left: 00h42m. */
@@ -300,11 +282,11 @@ export const HOME_VILLAGE = {
   /** The widest left column (#829): a five-digit crown count, shielded for 8 hours. */
   leagueStress: { ...home, league: { crowns: 12_345 }, shieldEndsAt: MOCK_NOW + 8 * HOUR },
   /** A new player read by the chain: no crown and no attack yet, the League control's Unranked crest (#917). */
-  unranked: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: { crowns: 0, attacks: 0 }, missionsTracker: TRACKER.newPlayer, now: MOCK_NOW },
+  unranked: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: { crowns: 0, attacks: 0 }, now: MOCK_NOW },
   /** Not founded yet: the starter alone, Found in Edit's place. */
   unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, league: null, now: MOCK_NOW },
   /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */
-  guest: { village: LAYOUT_START, guest: true, league: null, missionsTracker: TRACKER.none, now: MOCK_NOW },
+  guest: { village: LAYOUT_START, guest: true, league: null, now: MOCK_NOW },
   /** The village on its way: the overlays over the sky. */
   loading: { now: MOCK_NOW },
   /** The village's read failed: Retry. */
@@ -315,14 +297,6 @@ export const HOME_VILLAGE = {
   savedLower: { ...home, saved: { score: LAYOUT_GROWING.score, previous: fakeScore(DRAFT_VALID) } },
   /** A save that left the score as it was: nothing plays. */
   savedSame: { ...home, saved: { score: LAYOUT_GROWING.score, previous: LAYOUT_GROWING.score } },
-  /** The save landed with the village score unfolded (#831): the total counts up, the kinds' sums under it are the new layout's. */
-  scoreOpenSaved: { ...home, village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score }, initialScoreOpen: true },
-  /** The village score unfolded (#831): the total, and under it the four kinds' sums, the most points first. */
-  scoreOpen: { ...home, initialScoreOpen: true },
-  /** Unfolded on the starter village: a kind with no structure shows 0. */
-  scoreKindZero: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: null, now: MOCK_NOW, initialScoreOpen: true },
-  /** Unfolded on a village with a closed Wonder (#792): every kind scores. */
-  scoreWonder: { ...home, village: LAYOUT_WONDER, initialScoreOpen: true },
   /** Edit mode: the editor's bar (Reset all beside the slots), the inventory and Save, in the same scene. */
   editing: { ...home, editing: true },
   /** Edit mode's points on a village with a closed Wonder (#792), its line lit: the wonder's tile alone, not the 8 around it. */

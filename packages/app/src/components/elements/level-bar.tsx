@@ -1,12 +1,12 @@
 import { formatInteger } from "@paved/game-core";
-import { useEffect, type CSSProperties } from "react";
-import { useMotionValue, useTransform } from "motion/react";
+import { useEffect, useLayoutEffect, useRef, type CSSProperties, type RefObject } from "react";
+import { useMotionValue, useReducedMotionConfig, useTransform } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
-import { uiFrameImageSet, XP_TRACK_SLICE } from "./ui-art";
+import { FRAME_ART, uiFrameImageSet, uiFrameUrl, XP_TRACK_SLICE } from "./ui-art";
 import { UiIcon } from "./ui-icon";
 import { isMaxLevel } from "./xp-level";
-import { useXpMotion, type PlayerProgress } from "./xp-ring";
+import { levelShare, useXpMotion, type PlayerProgress } from "./xp-ring";
 
 /** The level as the star shows it: two figures at most ("99+" past them). */
 export const levelText = (level: number | undefined): string => (level === undefined ? "" : level > 99 ? "99+" : formatInteger(level));
@@ -25,8 +25,45 @@ const TRACK: CSSProperties = {
   borderImageWidth: "9px 7px",
   borderImageRepeat: "stretch",
 };
-/** The fill's painted strip at the recess's height, from the left, never stretched: the share shows as much of it. */
+/** The fill's painted strip at the recess's height, never stretched, slid in from the left as far as the share. */
 const FILL: CSSProperties = { backgroundImage: uiFrameImageSet("xp-fill"), backgroundSize: "auto 100%", backgroundRepeat: "repeat-x" };
+/** The fill on load: from empty to its share, eased in and out. It waits for its art (1 s at most), so the strip never pops in halfway. */
+export const FILL_IN_MS = 900;
+const ART_WAIT_MS = 1000;
+/** The fill slid to a share: the strip's right end at it. */
+export const fillShift = (share: number) => `translateX(${(share - 1) * 100}%)`;
+
+/**
+ * On load, and when the XP is read again, the fill comes in from empty to its share (the owner's ask of 2026-11-02), as an animation
+ * of the element itself (Web Animations, on `transform`): the compositor runs it, so the work of a page loading does not jerk it, as a
+ * JavaScript animation of the width did. It holds empty until the fill's art is decoded. Under reduced motion, or where the browser has
+ * no Web Animations, the share is drawn at once.
+ */
+function useFillIn(fill: RefObject<HTMLSpanElement | null>, progress: PlayerProgress | undefined, capped: boolean) {
+  const reduced = useReducedMotionConfig();
+  const to = progress ? fillShift(capped ? 1 : levelShare(progress)) : null;
+  useLayoutEffect(() => {
+    const el = fill.current;
+    if (to === null || reduced || typeof el?.animate !== "function") return;
+    const run = el.animate([{ transform: fillShift(0) }, { transform: to }], { duration: FILL_IN_MS, easing: "ease-in-out", fill: "backwards" });
+    run.pause();
+    // The copy the fill's image-set picks at this density.
+    const [small, large] = FRAME_ART["xp-fill"].sizes;
+    const art = new Image();
+    art.src = uiFrameUrl("xp-fill", window.devicePixelRatio > 1 ? (large ?? small!) : small!);
+    let gone = false;
+    const start = () => {
+      if (!gone) run.play();
+    };
+    void Promise.race([art.decode?.() ?? Promise.resolve(), new Promise((r) => setTimeout(r, ART_WAIT_MS))]).then(start, start);
+    return () => {
+      gone = true;
+      run.cancel();
+    };
+    // Once per reading's arrival: a later change of the share is the motion's (a gain, a level up), not a fill-in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [to === null, reduced]);
+}
 
 export interface LevelBarProps {
   /** Undefined while it is read: the empty track, the star blank. */
@@ -42,13 +79,15 @@ export interface LevelBarProps {
  * Under reduced motion the values change at once with a brief flash. Decorative: the card says the level and the XP left.
  */
 export function LevelBar({ progress, className }: LevelBarProps) {
-  // On load the bar fills from empty, eased in and out (the owner's ask of 2026-11-02).
-  const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress, { fillIn: true });
+  const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress);
   const capped = progress ? isMaxLevel(progress) : false;
   // The cap's bar is full whatever the share (its span is 0): a motion value too, so a level up into the cap redraws it.
   const full = useMotionValue(capped ? 1 : 0);
   useEffect(() => full.set(capped ? 1 : 0), [capped, full]);
-  const width = useTransform([share, full], ([s, f]: number[]) => `${(f ? 1 : s!) * 100}%`);
+  // A transform, not a width: the fill moves without laying the bar out again.
+  const shift = useTransform([share, full], ([s, f]: number[]) => fillShift(f ? 1 : s!));
+  const fill = useRef<HTMLSpanElement>(null);
+  useFillIn(fill, progress, capped);
   const lit = burst ?? flash;
   return (
     <span data-slot="level-bar" aria-hidden className={cn("relative flex h-7 w-36 max-w-full items-center pl-3.5 tablet:w-40", className)}>
@@ -60,7 +99,7 @@ export function LevelBar({ progress, className }: LevelBarProps) {
       <span className="relative h-4.5 flex-1">
         <span aria-hidden data-slot="xp-track" className="absolute inset-0 [filter:drop-shadow(0_1px_0_var(--background))]" style={TRACK} />
         <span data-slot="level-recess" className="absolute inset-px overflow-hidden rounded-r-[5px]">
-          <m.span data-slot="level-fill" className="absolute inset-y-0 left-0" style={{ ...FILL, width }} />
+          <m.span ref={fill} data-slot="level-fill" className="absolute inset-0 will-change-transform" style={{ ...FILL, transform: shift }} />
         </span>
         {lit !== null && (
           // The level up lights the whole bar, fading.

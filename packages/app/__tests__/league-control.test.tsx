@@ -17,6 +17,8 @@ const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
 );
 const control = (crowns: number, onLeague = vi.fn(), reduced: "never" | "always" = "never") => wrap(<LeagueControl crowns={crowns} onLeague={onLeague} />, reduced);
 const crest = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-slot=league-crest-icon]")!;
+/** The League page's plate (`variant="page"`), which keeps the crest. */
+const page = (crowns: number, unranked?: boolean) => wrap(<LeagueControl crowns={crowns} unranked={unranked} variant="page" />);
 
 describe("LeagueControl (#829)", () => {
   it("one button named by the league and the crowns; the crowns shown, no league name", () => {
@@ -24,29 +26,31 @@ describe("LeagueControl (#829)", () => {
     const button = screen.getByRole("button", { name: `League: ${leagueOf(1_240).name}, 1,240 crowns` });
     expect(button).toHaveTextContent(/^1,240$/);
     expect(button).not.toHaveTextContent(leagueOf(1_240).name);
-    expect(button.querySelector("[data-icon=trophy]")).not.toBeNull();
-    expect(button.querySelector("[data-icon=crown]")).not.toBeNull();
+    expect(button.querySelector("[data-icon=trophy]")).toBeNull();
+    expect(button.querySelector("[data-slot=ui-icon][data-icon=crown]")).not.toBeNull();
   });
 
-  it("the trophy over the plate's left end, the crest closing its right end", () => {
+  it("the home's capsule (HOME-UI-CAPSULES): the HUD's frame, the gold crown capping its left end; the crest is the player card's", () => {
     const { container } = render(control(1_240));
-    const plate = container.querySelector<HTMLElement>("[data-side=right]")!;
-    expect(plate.firstElementChild).toHaveAttribute("data-slot", "plate-lead");
-    expect(plate.firstElementChild!.querySelector("[data-icon=trophy]")).not.toBeNull();
-    expect(plate.lastElementChild!.querySelector("[data-slot=league-crest-icon]")).not.toBeNull();
+    const plate = container.querySelector<HTMLElement>("[data-side=left]")!;
+    expect(plate.dataset.frame).toBe("hud");
+    expect(plate.querySelector("[data-slot=hud-frame]")).not.toBeNull();
+    // The crown is the end (drawn first, the plate reversed), no crest.
+    expect(plate.lastElementChild!.querySelector("[data-slot=ui-icon][data-icon=crown]")).not.toBeNull();
+    expect(container.querySelector("[data-slot=league-crest-icon]")).toBeNull();
   });
 
-  it("the crest is its tier's icon form (#917), the division as its numeral; one crown named singular", () => {
-    const { container, rerender } = render(control(0));
+  it("the page's crest is its tier's icon form (#917), the division as its numeral; one crown named singular", () => {
+    const { container, rerender } = render(page(0));
     expect(crest(container)).toHaveAttribute("data-tier", "wood");
     expect(crest(container)).not.toHaveAttribute("data-division");
-    rerender(control(1_240));
+    rerender(page(1_240));
     expect(crest(container)).toHaveAttribute("data-tier", leagueOf(1_240).id);
-    rerender(control(2_800));
+    rerender(page(2_800));
     // Emerald II: its numeral.
     expect(crest(container)).toHaveAttribute("data-tier", "emerald");
     expect(crest(container)).toHaveAttribute("data-division", "II");
-    rerender(control(5_320));
+    rerender(page(5_320));
     expect(crest(container)).toHaveAttribute("data-tier", "grandmaster");
     expect(crest(container)).not.toHaveAttribute("data-division");
     rerender(control(1));
@@ -110,9 +114,11 @@ describe("LeagueControl (#829)", () => {
     expect(lastAttack({ id: 0 }, undefined)).toBeUndefined();
   });
 
-  it("Unranked (no crowns, no attack): Unranked's crest, named so", () => {
-    const { container } = render(wrap(<LeagueControl crowns={0} unranked />));
+  it("Unranked (no crowns, no attack): named so; on the page, Unranked's crest", () => {
+    const { unmount } = render(wrap(<LeagueControl crowns={0} unranked />));
     expect(screen.getByRole("button", { name: "League: Unranked, 0 crowns" })).toHaveAttribute("data-tier", "unranked");
+    unmount();
+    const { container } = render(page(0, true));
     expect(crest(container)).toHaveAttribute("data-tier", "unranked");
     expect(crest(container)).not.toHaveAttribute("data-division");
   });
@@ -123,7 +129,6 @@ describe("LeagueControl (#829)", () => {
     expect(button).toHaveAttribute("data-league", "iron");
     // The crowns and the crest alone: no trophy, the page needs no way to itself.
     expect(button.querySelector("[data-icon=trophy]")).toBeNull();
-    expect(button.querySelector("[data-slot=plate-lead]")).toBeNull();
     expect(crest(button)).toHaveAttribute("data-tier", "iron");
     expect(crest(button)).toHaveAttribute("data-division", "III");
   });
@@ -131,12 +136,12 @@ describe("LeagueControl (#829)", () => {
   it("a tap anywhere opens the League page", async () => {
     const onLeague = vi.fn();
     const { container } = render(control(1_240, onLeague));
-    await userEvent.click(crest(container));
+    await userEvent.click(container.querySelector<HTMLElement>("[data-slot=ui-icon][data-icon=crown]")!);
     await userEvent.click(screen.getByText("1,240"));
     expect(onLeague).toHaveBeenCalledTimes(2);
   });
 
-  it("a promotion pulses a ring round the crest; none under reduced motion, nor on a drop", async () => {
+  it("a promotion pulses a ring round the crown; none under reduced motion, nor on a drop", async () => {
     const { container, rerender } = render(control(1_240));
     expect(container.querySelector("[data-slot=league-promotion]")).toBeNull();
     rerender(control(1_000));

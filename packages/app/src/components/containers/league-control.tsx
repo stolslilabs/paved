@@ -6,11 +6,11 @@ import { DataContext, type DataSources } from "../../data/sources";
 import { isUnranked, usePvpLastAttack } from "../../data/pvp-standing";
 import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
-import { GameIcon } from "../elements/game-icon";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
 import { LeagueRim } from "../elements/league-rim";
 import { divisionOf, tierOf } from "../elements/league-standards";
-import { Plate, plateBareIconClass, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "../elements/plate";
+import { Plate, plateBareIconClass, PLATE_FIGURE, plateHudIconClass, plateHudIconPx, type PlateSize } from "../elements/plate";
+import { UiIcon } from "../elements/ui-icon";
 import { Icon } from "../ui/icon";
 
 /** The promotion's ring in its league's colour (#787's, on the crest since #829); Wood a neutral grey. */
@@ -44,7 +44,8 @@ export interface LeagueControlProps {
   /** The balances' sizes (issue 828); `auto` (the home's), `sm` on a phone and `md` from `desktop`. */
   size?: PlateSize;
   /**
-   * `home` (the default): the round League button (`trophy`) over the plate's left end, a tap opening the League page. `page`: the
+   * `home` (the default): the crowns' capsule on the HUD's frame, the gold crown capping its left end, a tap opening the League page
+   * (HOME-UI-CAPSULES; the league's crest is the player card's). `page`: the
    * League page's header (#859), the crowns and the crest alone (the page needs no way to itself), so it fits a 320 px header.
    */
   variant?: "home" | "page";
@@ -54,11 +55,11 @@ export interface LeagueControlProps {
 }
 
 /**
- * The home's League control (#829, the owner's decisions of 2026-10-27), under the profile at the top left: a round League button
- * (`trophy`) over the left end of the balances' plate (#828), the crowns at the plate's centre and the league's crest closing its
- * right end, alone (no disc). No league name: the crest is enough, and the League page says more. One button, its name the league
- * and the crowns ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the crest in its new colour; nothing moves under
- * reduced motion.
+ * The home's League control (#829), under the player card at the top left: a capsule on the HUD's frame (HOME-UI-CAPSULES,
+ * `docs/design/home.webp`), the gold crown capping its left end and the crowns in it; the league's crest is the player card's, on the
+ * avatar's rim. One button, its name the league and the crowns ("League: Gold II, 1,240 crowns"). A promotion pulses a ring round the
+ * crown in the new league's colour; nothing moves under reduced motion. The League page's header keeps the plate with the crest
+ * (`variant="page"`).
  */
 export function LeagueControl(props: LeagueControlProps) {
   return (
@@ -141,6 +142,19 @@ function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size
     if (league.index > from && !reduced) setPromoted(league.index);
   }, [league.index, reduced]);
 
+  const home = variant === "home";
+  const pulse = promoted !== null && (
+    <m.span
+      key={promoted}
+      aria-hidden
+      data-slot="league-promotion"
+      className={cn("pointer-events-none absolute inset-0 rounded-full border-4", RING[league.id])}
+      initial={{ scale: 1, opacity: 0.9 }}
+      animate={{ scale: 1.45, opacity: 0 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      onAnimationComplete={() => setPromoted((p) => (p === promoted ? null : p))}
+    />
+  );
   return (
     <m.button
       type="button"
@@ -152,42 +166,43 @@ function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size
       aria-label={label ?? `League: ${unranked ? "Unranked" : league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
       className={cn("group flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
-      <Plate
-        size={size}
-        lead={variant === "home" ? "disc" : undefined}
-        leadContent={
-          variant === "home" && (
-            <PlateDisc size={size} face="button" className="state-layer rounded-full">
-              <GameIcon name="trophy" size="inherit" className={cn("relative", plateIconClass(size))} />
-            </PlateDisc>
-          )
-        }
-        endFit="bare"
-        end={
-          // The tier's crest in its icon form (issue 917) alone, no disc (the owner's decision of 2026-10-30): taller than the plate,
-          // it closes its end as the balances' coins do.
-          <span className={cn("relative leading-none", plateBareIconClass(size))}>
-            <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size="inherit" style={{ width: "100%", height: "100%" }} />
-            {promoted !== null && (
-              <m.span
-                key={promoted}
-                aria-hidden
-                data-slot="league-promotion"
-                className={cn("pointer-events-none absolute inset-0 rounded-full border-4", RING[league.id])}
-                initial={{ scale: 1, opacity: 0.9 }}
-                animate={{ scale: 1.45, opacity: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                onAnimationComplete={() => setPromoted((p) => (p === promoted ? null : p))}
-              />
-            )}
+      {home ? (
+        // HOME-UI-CAPSULES: the crowns' capsule on the HUD's frame, the gold crown capping its left end (the league's crest is the
+        // player card's, on the avatar's rim); a promotion pulses a ring round the crown in the new league's colour.
+        <Plate
+          side="left"
+          size={size}
+          frame="hud"
+          className="flex-1"
+          end={
+            <span className={cn("relative leading-none", plateHudIconClass(size))}>
+              <UiIcon name="crown" px={plateHudIconPx(size)} className="size-full" />
+              {pulse}
+            </span>
+          }
+        >
+          <span aria-hidden className={cn(PLATE_FIGURE, "text-outline text-foreground")}>
+            {formatInteger(crowns)}
           </span>
-        }
-      >
-        <span aria-hidden className="flex items-center gap-1">
-          <Icon name="crown" size="xs" className="text-crown" />
-          <span className={PLATE_FIGURE}>{formatInteger(crowns)}</span>
-        </span>
-      </Plate>
+        </Plate>
+      ) : (
+        <Plate
+          size={size}
+          end={
+            // The tier's crest in its icon form (issue 917) alone, no disc (the owner's decision of 2026-10-30): taller than the plate,
+            // it closes its end as the balances' coins do.
+            <span className={cn("relative leading-none", plateBareIconClass(size))}>
+              <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size="inherit" style={{ width: "100%", height: "100%" }} />
+              {pulse}
+            </span>
+          }
+        >
+          <span aria-hidden className="flex items-center gap-1">
+            <Icon name="crown" size="xs" className="text-crown" />
+            <span className={PLATE_FIGURE}>{formatInteger(crowns)}</span>
+          </span>
+        </Plate>
+      )}
     </m.button>
   );
 }

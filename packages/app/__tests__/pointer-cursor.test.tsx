@@ -58,14 +58,14 @@ const wrap = (ui: ReactNode) => (
 );
 
 describe("the pointer cursor (#880)", () => {
-  it("every overlay button, the League control, the score's accordion, a battle log card, a carousel dot and a chest slot", () => {
+  it("every overlay button, the League control, the village's capsule, a battle log card, a carousel dot and a chest slot", () => {
     render(
       wrap(
         <>
           <OverlayButton icon="scroll" label="Missions" badge={2} onClick={() => {}} />
           <OverlayButton icon="piggy-bank" label="Vault" onClick={() => {}} />
           <LeagueControl crowns={1_240} onLeague={() => {}} />
-          <VillageScore score={HOME_VILLAGE.view.village.score} tiles={HOME_VILLAGE.view.village.tiles} open={false} onOpenChange={() => {}} />
+          <VillageScore score={HOME_VILLAGE.view.village.score} onEdit={() => {}} />
           <MatchCard match={MATCH_CARDS.attackWon} now={MOCK_NOW} onOpen={() => {}} />
           <CarouselDots count={3} current={0} onSelect={() => {}} />
           <ChestSlots won={1} ranks={["epic"]} resetsAt={TOMORROW} now={MOCK_NOW} onOpenSlot={() => {}} />
@@ -77,7 +77,7 @@ describe("the pointer cursor (#880)", () => {
       screen.getByRole("button", { name: /^Missions/ }),
       screen.getByRole("button", { name: /^Vault/ }),
       screen.getByRole("button", { name: /^League:/ }),
-      screen.getByRole("button", { name: /^Village score/ }),
+      screen.getByRole("button", { name: /^Edit village, score/ }),
       document.querySelector<HTMLElement>("button[data-side=attack]")!,
       ...screen.getAllByRole("button", { name: /^Go to / }),
       screen.getByRole("button", { name: /^Open the / }),

@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { InlineError } from "../elements/inline-error";
-import { PLATE_COMPACT, platePointPx, plateWidthClass } from "../elements/plate";
+import { PLATE_COMPACT, plateWidthClass } from "../elements/plate";
 import { ResourcePlate } from "../elements/resource-plate";
 import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 
@@ -174,10 +174,10 @@ function useCrowded(beside?: readonly [row: string, control: string]) {
   return ref;
 }
 
-/** The plates' size (#828): a 32 px box under a 48 px bare icon on a phone (`pill`), 36 under 52 from `desktop` (`rail`, #213). */
+/** The plates' size (#828): a 28 px capsule under a 40 px icon on a phone (`pill`), 32 under 44 from `desktop` (`rail`, HOME-UI-CAPSULES). */
 type PlateSize = "sm" | "md";
-/** A plate's place while its amount is read: the plates' one width (#860), so nothing moves when it arrives. */
-const holdOf = (size: PlateSize) => <Skeleton className={cn("rounded-lg", plateWidthClass(size), size === "md" ? "h-9" : "h-8")} />;
+/** A plate's place while its amount is read: the plates' one width (#860) and height, so nothing moves when it arrives. */
+const holdOf = (size: PlateSize) => <Skeleton className={cn("rounded-lg", plateWidthClass(size), size === "md" ? "h-8" : "h-7")} />;
 
 interface PlateTapProps {
   /** The amount a plate that just appeared counts from (vPAVED's first deposit). */
@@ -324,10 +324,7 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
       ref={crowded}
       aria-label="Balances"
       data-direction={direction}
-      // Each plate's gold point stands out past its left end (`platePointPx`): room for it before the first plate, so it never meets
-      // the title or the profile (whose room ends a gap short of this box), and a gap between two plates wider than it.
-      className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-3" : "items-center gap-3", className)}
-      style={state.status === "ready" || state.status === "loading" ? { paddingLeft: platePointPx(size) } : undefined}
+      className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-1" : "items-center gap-3", className)}
     >
       {state.status === "disconnected" ? (
         <Guest connecting={state.connecting} onConnect={onConnect} names={size === "md" ? namesOf(kinds) : undefined} />

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ProfileProvider, type ProfileValue } from "../src/components/containers/profile-context";
 import { PlayerBadge } from "../src/components/containers/player-badge";
-import { LevelBar, levelText, xpText } from "../src/components/elements/level-bar";
+import { FILL_IN_MS, LevelBar, fillShift, levelText, xpText } from "../src/components/elements/level-bar";
 import { isMaxLevel, levelLabel, xpLeftText } from "../src/components/elements/xp-level";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { leagueOf } from "../src/lib/pvp-rules";
@@ -56,10 +56,12 @@ describe("the level's star and bar (the owner's direction of 2026-11-01)", () =>
   });
 
   it("fills the bar to the share of the level, full at the cap; the star is the HUD's", () => {
-    // Under reduced motion the share is drawn at once (with motion it fills in: the next test).
-    const { container, unmount } = render(wrap(<LevelBar progress={PROGRESS.partWay} />, "always"));
+    const { container, unmount } = render(wrap(<LevelBar progress={PROGRESS.partWay} />));
+    // A transform, the strip slid in as far as the share (40 %), not a width.
     const fill = container.querySelector<HTMLElement>("[data-slot=level-fill]")!;
-    expect(fill.style.width).toBe(`${(120 / 300) * 100}%`);
+    expect(fill.style.transform).toBe(fillShift(120 / 300));
+    expect(fillShift(0.4)).toBe("translateX(-60%)");
+    expect(fill.style.width).toBe("");
     // The fill covers the track's silver bevel, inside its 1 px outline (the mockup's).
     expect(container.querySelector("[data-slot=level-recess]")).toHaveClass("inset-px", "rounded-r-[5px]");
     expect(container.querySelector("[data-slot=level]")).toHaveTextContent(/^3$/);
@@ -68,30 +70,45 @@ describe("the level's star and bar (the owner's direction of 2026-11-01)", () =>
     unmount();
     // A first reading at the cap (a later one plays the level up first).
     const capped = render(wrap(<LevelBar progress={PROGRESS.maxLevel} />)).container;
-    expect(capped.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.width).toBe("100%");
+    expect(capped.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.transform).toBe(fillShift(1));
     expect(capped.querySelector("[data-slot=xp]")).toHaveTextContent(/^Max$/);
   });
 
-  it("on load fills from empty to the share, eased in and out; read again, it fills in again", async () => {
-    const { container, rerender } = render(wrap(<LevelBar progress={PROGRESS.partWay} />));
-    const width = () => parseFloat(container.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.width);
-    const share = (120 / 300) * 100;
-    // A width part of the way: the fill moves there (a jump would land on the share at once).
-    const partWay = () => waitFor(() => expect(width() > 0 && width() < share).toBe(true), { timeout: slow(3000) });
-    expect(width()).toBe(0);
-    expect(container.querySelector("[data-slot=level]")).toHaveTextContent(/^3$/);
-    await partWay();
-    await waitFor(() => expect(width()).toBe(share), { timeout: slow(3000) });
-    rerender(wrap(<LevelBar progress={undefined} />));
-    await waitFor(() => expect(width()).toBe(0), { timeout: slow(3000) });
-    rerender(wrap(<LevelBar progress={PROGRESS.partWay} />));
-    await partWay();
-    await waitFor(() => expect(width()).toBe(share), { timeout: slow(3000) });
+  it("on load fills in from empty to the share on the compositor, eased in and out, once its art is ready; read again, again", async () => {
+    const runs: { keyframes: Keyframe[]; options: KeyframeAnimationOptions; play: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }[] = [];
+    const animate = vi.fn(function (this: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) {
+      const run = { keyframes, options, pause: vi.fn(), play: vi.fn(), cancel: vi.fn() };
+      runs.push(run);
+      return run as unknown as Animation;
+    });
+    const had = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = animate;
+    try {
+      const { rerender, unmount } = render(wrap(<LevelBar progress={PROGRESS.partWay} />));
+      expect(runs).toHaveLength(1);
+      expect(runs[0]!.keyframes).toEqual([{ transform: fillShift(0) }, { transform: fillShift(0.4) }]);
+      expect(runs[0]!.options).toEqual({ duration: FILL_IN_MS, easing: "ease-in-out", fill: "backwards" });
+      // Held empty until the art is decoded (jsdom decodes nothing: it plays at once), then played.
+      await waitFor(() => expect(runs[0]!.play).toHaveBeenCalledOnce());
+      // A gain is the motion's, not a fill-in.
+      rerender(wrap(<LevelBar progress={{ ...PROGRESS.partWay, xp: 150 }} />));
+      expect(runs).toHaveLength(1);
+      rerender(wrap(<LevelBar progress={undefined} />));
+      expect(runs[0]!.cancel).toHaveBeenCalled();
+      rerender(wrap(<LevelBar progress={PROGRESS.partWay} />));
+      expect(runs).toHaveLength(2);
+      unmount();
+      // Under reduced motion the share is drawn at once.
+      render(wrap(<LevelBar progress={PROGRESS.partWay} />, "always"));
+      expect(runs).toHaveLength(2);
+    } finally {
+      HTMLElement.prototype.animate = had;
+    }
   });
 
   it("while the XP is read: the empty track, the star blank", () => {
     const { container } = render(wrap(<LevelBar progress={undefined} />));
-    expect(container.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.width).toBe("0%");
+    expect(container.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.transform).toBe(fillShift(0));
     expect(container.querySelector("[data-slot=level]")).toHaveTextContent(/^$/);
     expect(container.querySelector("[data-slot=xp]")).toHaveTextContent(/^$/);
   });

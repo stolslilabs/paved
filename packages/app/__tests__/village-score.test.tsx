@@ -1,202 +1,43 @@
-import { slow } from "../test-slow";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { LazyMotion, MotionConfig, domMax } from "motion/react";
+import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { byCategory, formatInteger } from "@paved/game-core";
-import { layoutPoints } from "../src/components/containers/layout-rules";
+import { describe, expect, it, vi } from "vitest";
+import { formatInteger } from "@paved/game-core";
+import { VillageScore } from "../src/components/containers/village-score";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
-import { resetScoreOpenForTests, scoreOpenStored, storeScoreOpen } from "../src/routes/score-open";
 
-// V3-SCORE-ACCORDION (#831): the home's village score is an inline accordion under the profile: folded, the total; unfolded,
-// the total and the four kinds' sums under it, in place. No panel, no light on the scene.
+// The village's capsule (#755, HOME-UI-2): the village's icon capping the capsule's left end, the total in it; a tap opens edit mode,
+// which shows the kinds' points (#758). No accordion on the home any more (#831's is the editor's).
 
-const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
-  <LazyMotion features={domMax}>
-    <MotionConfig reducedMotion={reducedMotion}>{ui}</MotionConfig>
-  </LazyMotion>
-);
-afterEach(cleanup);
+const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
-const total = () => screen.getByRole("button", { name: /^Village score / });
-/** The kinds' list, its own chunk, in. */
-const kinds = () => screen.findByRole("list", { name: "Score by kind" }, { timeout: slow(5000) });
-/** The rows as read: each kind's name (for screen readers alone, V4-VILLAGE-POINTS-3) and its sum. */
-const rows = (list: HTMLElement) =>
-  within(list)
-    .getAllByRole("listitem")
-    .map((li) => ({ kind: li.querySelector(".sr-only")!.textContent, points: Number(li.querySelector(".numeric")!.textContent!.replace(/,/g, "")) }));
+describe("the village's capsule (HOME-UI-2)", () => {
+  it("names the total; a tap opens edit mode", async () => {
+    const onEdit = vi.fn();
+    render(wrap(<VillageScore score={1_234} onEdit={onEdit} />));
+    const capsule = screen.getByRole("button", { name: "Edit village, score 1,234" });
+    expect(capsule).toHaveAttribute("data-slot", "village-score");
+    expect(capsule.querySelector("[data-slot=ui-icon][data-icon=village]")).not.toBeNull();
+    expect(capsule).toHaveTextContent(/^1,234$/);
+    await userEvent.click(capsule);
+    expect(onEdit).toHaveBeenCalledOnce();
+  });
 
-describe("the home's village score (#831)", () => {
-  it("is folded by default: the total alone; a tap unfolds the four kinds, another folds them", async () => {
-    const onScoreOpenChange = vi.fn();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onScoreOpenChange={onScoreOpenChange} />));
-    const button = total();
-    expect(button).toHaveAccessibleName(`Village score ${formatInteger(HOME_VILLAGE.view.village.score)}`);
-    expect(button).toHaveAttribute("aria-expanded", "false");
-    expect(button).not.toHaveAttribute("aria-controls");
+  it("without a way into edit mode, the total alone, not a button", () => {
+    render(wrap(<VillageScore score={838} />));
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByRole("group", { name: "Village score 838" })).toHaveTextContent(/^838$/);
+  });
+
+  it("on the home: under the crowns, the way into edit mode; no accordion, no kinds' list", async () => {
+    const onEditingChange = vi.fn();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onEditingChange={onEditingChange} />));
+    const capsule = screen.getByRole("button", { name: `Edit village, score ${formatInteger(HOME_VILLAGE.view.village!.score)}` });
+    expect(capsule).not.toHaveAttribute("aria-expanded");
+    await userEvent.click(capsule);
+    expect(onEditingChange).toHaveBeenCalledWith(true);
     expect(screen.queryByRole("list", { name: "Score by kind" })).toBeNull();
-    await userEvent.click(button);
-    expect(button).toHaveAttribute("aria-expanded", "true");
-    const list = await kinds();
-    expect(button.getAttribute("aria-controls")).toBe("village-score-kinds");
-    expect(document.getElementById("village-score-kinds")!.contains(list)).toBe(true);
-    expect(rows(list).map((r) => r.kind).sort()).toEqual(["Cities", "Forests", "Roads", "Wonders"]);
-    expect(onScoreOpenChange).toHaveBeenLastCalledWith(true);
-    // Nothing opens over the scene.
-    expect(screen.queryByRole("region", { name: "Village points" })).toBeNull();
-    expect(screen.queryByRole("dialog")).toBeNull();
-    await userEvent.click(button);
-    expect(button).toHaveAttribute("aria-expanded", "false");
-    await waitFor(() => expect(screen.queryByRole("list", { name: "Score by kind" })).toBeNull(), { timeout: slow(2000) });
-    expect(onScoreOpenChange).toHaveBeenLastCalledWith(false);
-  });
-
-  it("adds the kinds up to the total, the most points first", async () => {
-    for (const state of [HOME_VILLAGE.scoreOpen, HOME_VILLAGE.scoreWonder, HOME_VILLAGE.scoreKindZero]) {
-      const { unmount } = render(wrap(<HomeVillageScene {...state} />));
-      const shown = rows(await kinds());
-      expect(shown.reduce((sum, r) => sum + r.points, 0)).toBe(state.village.score);
-      expect(shown.map((r) => r.points)).toEqual([...shown.map((r) => r.points)].sort((a, b) => b - a));
-      expect(shown.map((r) => r.points)).toEqual(byCategory(layoutPoints(state.village.tiles)).map((s) => s.points));
-      unmount();
-    }
-  });
-
-  it("shows 0 for a kind with no structure, last", async () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.scoreKindZero} />));
-    const shown = rows(await kinds());
-    expect(shown).toHaveLength(4);
-    expect(shown.at(-1)).toEqual({ kind: "Wonders", points: 0 });
-  });
-
-  it("every kind scores around a closed Wonder", async () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.scoreWonder} />));
-    expect(rows(await kinds()).find((r) => r.kind === "Wonders")!.points).toBeGreaterThan(0);
-  });
-
-  it("keeps its fold across edit mode", async () => {
-    const { rerender } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.scoreOpen} />));
-    await kinds();
-    rerender(wrap(<HomeVillageScene {...HOME_VILLAGE.scoreOpen} editing />));
-    expect(screen.queryByRole("button", { name: /^Village score / })).toBeNull();
-    rerender(wrap(<HomeVillageScene {...HOME_VILLAGE.scoreOpen} editing={false} />));
-    expect(total()).toHaveAttribute("aria-expanded", "true");
-    await kinds();
-  });
-
-  it("after a save, the total counts to the new score (#802) and the kinds are the new layout's", async () => {
-    const { score } = HOME_VILLAGE.scoreOpenSaved.saved;
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.scoreOpenSaved} />));
-    const button = screen.getByRole("button", { name: `Village score ${formatInteger(score)}` });
-    await waitFor(() => expect(button.querySelector("[data-slot=score-count] [data-slot=resource-change]")).not.toBeNull(), { timeout: slow(5000) });
-    expect(rows(await kinds()).reduce((sum, r) => sum + r.points, 0)).toBe(score);
-  });
-
-  it("under reduced motion, unfolds at once: no height animation, no turning chevron", async () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />, "always"));
-    const button = total();
-    expect(button.querySelector(".transition-transform")).toBeNull();
-    await userEvent.click(button);
-    const list = await kinds();
-    await waitFor(() => expect(document.getElementById("village-score-kinds")!.style.height).not.toBe("0px"));
-    expect(list).toBeVisible();
-  });
-});
-
-// V4-VILLAGE-POINTS-SIZE: folded and unfolded, the box keeps one width (jsdom has no layout: the measure is the `SameWidth`
-// story's, in a browser; here, what makes it hold). An invisible row of no height, laid out as the kinds' rows, stays in the box
-// in both states: the kinds' longest name and a figure as wide as the total, which every sum is under.
-describe("the village score's width (V4-VILLAGE-POINTS-SIZE)", () => {
-  const sizer = () => document.querySelector<HTMLElement>("[data-slot=village-score] > [data-slot=village-score-sizer]");
-
-  it("keeps the sizer, folded and unfolded: the kinds' row, the total's figure, hidden and of no height", async () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
-    const folded = sizer()!;
-    expect(folded).toHaveAttribute("aria-hidden", "true");
-    expect(folded).toHaveClass("invisible", "h-0");
-    const row = folded.firstElementChild!;
-    // Its figure is drawn from `data-text`, not the DOM's text, so the total reads once; no name since V4-VILLAGE-POINTS-3.
-    expect(row.textContent).toBe("");
-    const drawn = [...row.querySelectorAll("[data-text]")].map((el) => el.getAttribute("data-text"));
-    expect(drawn).toEqual([formatInteger(HOME_VILLAGE.view.village.score)]);
-    expect(row.querySelector(".numeric")!.getAttribute("data-text")).toBe(formatInteger(HOME_VILLAGE.view.village.score));
-    expect(screen.getAllByText(formatInteger(HOME_VILLAGE.view.village.score))).toHaveLength(1);
-    await userEvent.click(total());
-    const list = await kinds();
-    expect(sizer()).toBe(folded);
-    // The sizer's row and the kinds' rows lay out alike: the same row classes, the same sides as the list.
-    for (const li of within(list).getAllByRole("listitem")) expect(li.className).toBe(row.className);
-    expect(list).toHaveClass("px-3");
-    expect(folded).toHaveClass("px-3");
-  });
-
-  it("every sum is at most the total, so the sizer's figure is the widest a row shows", async () => {
-    for (const state of [HOME_VILLAGE.scoreOpen, HOME_VILLAGE.scoreWonder, HOME_VILLAGE.scoreKindZero]) {
-      const { unmount } = render(wrap(<HomeVillageScene {...state} />));
-      const figure = sizer()!.querySelector(".numeric")!.getAttribute("data-text")!;
-      for (const r of rows(await kinds())) expect(formatInteger(r.points).length).toBeLessThanOrEqual(figure.length);
-      unmount();
-    }
-  });
-});
-
-// V4-VILLAGE-POINTS-3 (the owner, 2026-10-29): a lighter background, and rows of the kind's icon and its points alone.
-describe("the village score's lighter rows (V4-VILLAGE-POINTS-3)", () => {
-  it("lets more of the scene through: the background at 55%, was 70%", () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
-    const box = document.querySelector("[data-slot=village-score]")!;
-    expect(box).toHaveClass("bg-background/55");
-    expect(box).not.toHaveClass("bg-background/70");
-  });
-
-  it("shows each kind's icon and points, its name for screen readers alone", async () => {
-    for (const state of [HOME_VILLAGE.scoreOpen, HOME_VILLAGE.scoreWonder, HOME_VILLAGE.scoreKindZero]) {
-      const { unmount } = render(wrap(<HomeVillageScene {...state} />));
-      const list = await kinds();
-      for (const li of within(list).getAllByRole("listitem")) {
-        const seen = [...li.children].filter((child) => !child.classList.contains("sr-only"));
-        // The icon, then the points: no other text drawn.
-        expect(seen).toHaveLength(2);
-        expect(seen[0].textContent).toBe("");
-        expect(seen[1]).toHaveAttribute("data-slot", "kind-points");
-        expect(li.querySelector(".sr-only")!.textContent).toMatch(/^(Roads|Cities|Forests|Wonders)$/);
-      }
-      // A row reads as its name and its sum.
-      expect(within(list).getByText("Roads").closest("li")).toHaveTextContent(/^Roads[\d,]+$/);
-      unmount();
-    }
-  });
-});
-
-describe("the village score's fold kept on the device (#831, open point 2)", () => {
-  afterEach(() => {
-    resetScoreOpenForTests();
-    localStorage.clear();
-    vi.restoreAllMocks();
-  });
-
-  it("is folded by default, and keeps the last choice", () => {
-    expect(scoreOpenStored()).toBe(false);
-    storeScoreOpen(true);
-    resetScoreOpenForTests();
-    expect(scoreOpenStored()).toBe(true);
-    storeScoreOpen(false);
-    resetScoreOpenForTests();
-    expect(scoreOpenStored()).toBe(false);
-  });
-
-  it("with storage off, holds the choice for the visit and never throws", () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    expect(scoreOpenStored()).toBe(false);
-    expect(() => storeScoreOpen(true)).not.toThrow();
-    expect(scoreOpenStored()).toBe(true);
   });
 });

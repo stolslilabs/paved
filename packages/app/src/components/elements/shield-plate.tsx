@@ -1,7 +1,7 @@
 import { cn } from "../../lib/utils";
-import { GameIcon } from "./game-icon";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Plate, PLATE_FIGURE, PlateDisc, plateIconClass, type PlateSize } from "./plate";
+import { Plate, PLATE_FIGURE, plateHudIconClass, plateHudIconPx, type PlateSize } from "./plate";
+import { UiIcon } from "./ui-icon";
 import { formatHoursMinutes, shieldDuration, shieldEnd, shieldLabel, shieldUp } from "./shield-time";
 
 export interface ShieldPlateProps {
@@ -15,7 +15,8 @@ export interface ShieldPlateProps {
 }
 
 /**
- * The village's shield while it lasts (issues 806, 829): the balances' plate mirrored, the shield over its left end, and the time
+ * The village's shield while it lasts (issues 806, 829): a capsule on the HUD's frame (HOME-UI-CAPSULES, `docs/design/home.webp`), the
+ * HUD's blue shield capping its left end, and the time
  * left in `HHhMMm`, the minutes rounded up, so it never reads 00h00m while up. It changes each minute with the page's clock and
  * leaves when the shield ends; nothing without one. A tap opens a popover with the rule (until when, and that attacking drops it),
  * whose fade is off under reduced motion. Loaded on its own chunk by the home (FIRST-LOAD): the popover's Radix parts only load for
@@ -32,16 +33,8 @@ export function ShieldPlate({ endsAt, now, size = "auto", className }: ShieldPla
           aria-label={shieldLabel(endsAt, now)}
           className={cn("flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
         >
-          <Plate
-            side="left"
-            size={size}
-            end={
-              <PlateDisc size={size}>
-                <GameIcon name="shield-halved" size="inherit" className={cn("relative", plateIconClass(size))} />
-              </PlateDisc>
-            }
-          >
-            <time dateTime={shieldDuration(endsAt, now)} className={cn(PLATE_FIGURE, "text-foreground")}>
+          <Plate side="left" size={size} frame="hud" className="flex-1" end={<UiIcon name="shield" px={plateHudIconPx(size)} className={plateHudIconClass(size)} />}>
+            <time dateTime={shieldDuration(endsAt, now)} className={cn(PLATE_FIGURE, "text-outline text-foreground")}>
               {formatHoursMinutes(endsAt - now)}
             </time>
           </Plate>

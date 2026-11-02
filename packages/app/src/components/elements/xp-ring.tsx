@@ -45,8 +45,6 @@ const BADGE = {
 
 const FILL_S = 0.6;
 const COMPLETE_S = 0.4;
-/** The first reading's fill from empty, where asked (`fillIn`). */
-const FILL_IN_S = 0.9;
 /** The burst's sparks, evenly round the avatar. */
 const SPARKS = 8;
 
@@ -61,19 +59,17 @@ export interface XpRingProps {
  * The motion of a level's progress (issue 625, shared by the ring and issue 787's bar): the share drawn, the level shown, and the events
  * (a "+N XP", a level up's burst, reduced motion's flash), each a fresh id the drawing keys on and clears once played. A gain
  * fills the share; a level up completes it, turns the level over, then fills the new one; under reduced motion the values change
- * at once with the flash. With `fillIn` (the card's bar, the owner's ask of 2026-11-02), a first reading fills from empty, eased in
- * and out, instead of being drawn as it is.
+ * at once with the flash.
  */
-export function useXpMotion(progress: PlayerProgress | undefined, { fillIn = false }: { fillIn?: boolean } = {}) {
+export function useXpMotion(progress: PlayerProgress | undefined) {
   const reduced = useReducedMotionConfig();
-  const share = useMotionValue(progress && (!fillIn || reduced) ? levelShare(progress) : 0);
+  const share = useMotionValue(progress ? levelShare(progress) : 0);
   const [level, setLevel] = useState(progress?.level);
   const [gain, setGain] = useState<{ id: number; amount: number } | null>(null);
   const [burst, setBurst] = useState<number | null>(null);
   const [flash, setFlash] = useState<number | null>(null);
   const events = useRef(0);
   const last = useRef(progress);
-  const filled = useRef(false);
 
   const lv = progress?.level;
   const xp = progress?.xp;
@@ -81,9 +77,8 @@ export function useXpMotion(progress: PlayerProgress | undefined, { fillIn = fal
   const total = progress?.total;
   useEffect(() => {
     if (lv === undefined || xp === undefined || next === undefined) {
-      // Read again: the empty track, and the next reading is drawn as it is (no gain from a stale one), or filled in.
+      // Read again: the empty track, and the next reading is drawn as it is (no gain from a stale one).
       last.current = undefined;
-      filled.current = false;
       share.jump(0);
       return;
     }
@@ -92,14 +87,6 @@ export function useXpMotion(progress: PlayerProgress | undefined, { fillIn = fal
     last.current = to;
     const target = levelShare(to);
     const gained = from ? xpGained(from, to) : 0;
-    if (fillIn && !filled.current && !reduced && gained <= 0) {
-      // From empty to the share, until it has played once (an effect run again, StrictMode's, finds the reading already taken).
-      setLevel(lv);
-      const run = animate(share, target, { duration: FILL_IN_S, ease: "easeInOut" });
-      void run.then(() => (filled.current = true));
-      return () => run.stop();
-    }
-    filled.current = true;
     if (!from || gained <= 0 || reduced) {
       share.jump(target);
       setLevel(lv);
@@ -125,7 +112,7 @@ export function useXpMotion(progress: PlayerProgress | undefined, { fillIn = fal
       stopped = true;
       run.stop();
     };
-  }, [lv, xp, next, total, reduced, share, fillIn]);
+  }, [lv, xp, next, total, reduced, share]);
 
   return { share, level, gain, setGain, burst, setBurst, flash, setFlash };
 }

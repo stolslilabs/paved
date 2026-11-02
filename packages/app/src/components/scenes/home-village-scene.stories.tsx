@@ -103,7 +103,7 @@ const LONG_NAME = (Story: () => React.JSX.Element) => (
  * (96, 108 and 144 px); from `desktop` the right column centred between the balances and Edit (Settings and Play), the balances in
  * a row, no League in the right column, and Settings above Play, Edit's size. HOME-STACK (#929, the owner's decisions of
  * 2026-10-30): the League control and the village score stacked at the top, 24 px under the profile, at every width; below
- * `desktop` no right column, Missions (since #978 the missions tracker) and Vault in the left column under the village score, before the chips. At 320, 375, 390,
+ * `desktop` no right column, Missions and Vault in the left column under the village score, before the chips. At 320, 375, 390,
  * 768 and 1440 px, shielded or not, and with the longest name.
  */
 /** The season dial in its corner (the plan view has none of its own): the left column stands clear of it. */
@@ -132,62 +132,32 @@ export const OverlaysLongNamePhone320: Story = { ...PHONE_320, args: { ...HOME_V
 export const OverlaysLongNamePhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
 export const OverlaysLongNameTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
 export const OverlaysLongNameWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
+/** Shielded on a short laptop: the left column under the profile, never under the dial. */
+export const OverlaysShieldedShort1024: Story = { ...SHORT_1024, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
 /**
- * The tallest left column: shielded, the village score unfolded, beside the dial, on the smallest phone and a short laptop. Taller
- * than its band, it starts under the profile and scrolls within the band, never under the dial.
- */
-export const OverlaysShieldedScoreOpenPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.shielded, ...DIAL, initialScoreOpen: true } };
-export const OverlaysShieldedScoreOpenShort1024: Story = { ...SHORT_1024, args: { ...HOME_VILLAGE.shielded, ...DIAL, initialScoreOpen: true } };
-/**
- * HOME-STACK (#929) on the short phone (320 x 568) with every control of the left column: shielded, the score unfolded, Missions
+ * HOME-STACK (#929) on the short phone (320 x 568) with every control of the left column: shielded, Missions
  * and Vault, and the chips (Resume, the spawn pause) last. The column scrolls within its band, never under the dial or the bar.
  */
 export const OverlaysEverythingPhone320: Story = {
   ...PHONE_320,
-  args: { ...HOME_VILLAGE.shielded, ...DIAL, initialScoreOpen: true, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true },
+  args: { ...HOME_VILLAGE.shielded, ...DIAL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true },
 };
 /** The same at 375 px: the moved buttons between the village score and the chips. */
 export const OverlaysChipsPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
 /**
  * SOCIAL-SPLIT (#973, open point 1's default): Chat, Guild and Friends, each with its count, in place of Social. Below `desktop` a
  * column on the right, centred between the balances and Edit; from it, in the left column under the village score and the chips,
- * centred in the room above the dial. Three-digit counts, shielded and the score unfolded: nothing overlaps the profile, the
+ * centred in the room above the dial. Three-digit counts and shielded: nothing overlaps the profile, the
  * balances, Edit, the dial or the other column. At 320, 375, 768 and 1440 px.
  */
 const SOCIAL_COUNTS = { chat: 128, guild: 12, friends: 7 } satisfies Partial<HomeVillageSceneProps>;
-const SOCIAL_FULL = { ...HOME_VILLAGE.shielded, ...DIAL, ...SOCIAL_COUNTS, initialScoreOpen: true } satisfies HomeVillageSceneProps;
+const SOCIAL_FULL = { ...HOME_VILLAGE.shielded, ...DIAL, ...SOCIAL_COUNTS } satisfies HomeVillageSceneProps;
 export const OverlaysSocialPhone320: Story = { ...PHONE_320, args: SOCIAL_FULL };
 export const OverlaysSocialPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL };
 export const OverlaysSocialTablet768: Story = { ...TABLET_768, args: SOCIAL_FULL };
 export const OverlaysSocialWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL };
 /** The same with the chips (Resume, the spawn pause) on a short laptop: from `desktop` the social column stays under them. */
 export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...SOCIAL_FULL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
-/**
- * MISSIONS-TRACKER (#978): the missions tracker in the Missions button's place, in the left column under the village score at every
- * width (from `desktop` the right column keeps Chests, Shop and Vault), with Chat, Guild and Friends (#973). A new player (the
- * Tutorial's Builder first), mid-way (a step to claim, the next open, Weekly Builder) and all done ("All done", the day's reset), at
- * 320, 375, 768 and 1440 px; nothing overlaps the profile, the League control, the score, Vault, the chips, the dial or the social
- * buttons.
- */
-const TRACKER_NEW = { ...HOME_VILLAGE.trackerNewPlayer, ...DIAL } satisfies HomeVillageSceneProps;
-const TRACKER_MID = { ...HOME_VILLAGE.trackerMidWay, ...DIAL } satisfies HomeVillageSceneProps;
-const TRACKER_DONE = { ...HOME_VILLAGE.trackerAllDone, ...DIAL } satisfies HomeVillageSceneProps;
-export const OverlaysTrackerNewPlayerPhone320: Story = { ...PHONE_320, args: TRACKER_NEW };
-export const OverlaysTrackerNewPlayerPhone375: Story = { ...PHONE_375, args: TRACKER_NEW };
-export const OverlaysTrackerNewPlayerTablet768: Story = { ...TABLET_768, args: TRACKER_NEW };
-export const OverlaysTrackerNewPlayerWide1440: Story = { ...WIDE_1440, args: TRACKER_NEW };
-export const OverlaysTrackerMidWayPhone320: Story = { ...PHONE_320, args: TRACKER_MID };
-export const OverlaysTrackerMidWayPhone375: Story = { ...PHONE_375, args: TRACKER_MID };
-export const OverlaysTrackerMidWayTablet768: Story = { ...TABLET_768, args: TRACKER_MID };
-export const OverlaysTrackerMidWayWide1440: Story = { ...WIDE_1440, args: TRACKER_MID };
-export const OverlaysTrackerAllDonePhone320: Story = { ...PHONE_320, args: TRACKER_DONE };
-export const OverlaysTrackerAllDonePhone375: Story = { ...PHONE_375, args: TRACKER_DONE };
-export const OverlaysTrackerAllDoneTablet768: Story = { ...TABLET_768, args: TRACKER_DONE };
-export const OverlaysTrackerAllDoneWide1440: Story = { ...WIDE_1440, args: TRACKER_DONE };
-/** The tracker's lines not read yet: its skeleton, its size, so nothing moves when they come. */
-export const OverlaysTrackerLoadingPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.trackerLoading, ...DIAL } };
-// Point 6 (the tracker with Chat, Guild and Friends at 1440 x 900 and on the short laptop): the `OverlaysSocial*` stories carry the
-// tracker mid-way (the home's base), `OverlaysSocialWide1440` and `OverlaysSocialChipsShort1024` among them.
 /** A Challenge game running: the Resume chip under the top row. */
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */
@@ -202,7 +172,7 @@ export const ShieldUnderAnHour: Story = { args: HOME_VILLAGE.shieldUnderAnHour }
 export const ShieldLastMinute: Story = { args: HOME_VILLAGE.shieldLastMinute };
 /**
  * The left column (#829, the owner's decisions of 2026-10-27): the profile, under it the League control (the League button, the
- * crowns on the plate, the league's crest closing it, no name), the shield's mirrored plate while shielded, then the village score.
+ * crowns' capsule), the village score, then the shield's capsule while shielded (HOME-UI-CAPSULES, the mockup's order).
  * Unranked (#917's crest: no crown, no attack), a mid league and shielded, at 320, 375 and 1440 px: nothing under the balances or the
  * right column.
  */
@@ -291,51 +261,6 @@ export const SavedReducedMotion: Story = { args: HOME_VILLAGE.saved, parameters:
 /** The save at 375 px and 1440 px: the chip in view, nothing over it. */
 export const SavedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.saved, parameters: { ...PHONE_375.parameters, reducedMotion: "never" } };
 export const SavedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.saved, parameters: { reducedMotion: "never" } };
-/**
- * V3-SCORE-ACCORDION (#831, the owner's decisions of 2026-10-27): the village score under the profile is an inline accordion,
- * never a panel over the scene. Folded, the total alone (the house, the figure, a chevron); unfolded, the four kinds' sums under
- * it (roads, cities, forests, wonders, the most points first), adding up to the total. At 320, 375 and 1440 px.
- */
-export const ScoreFolded: Story = { args: HOME_VILLAGE.view };
-export const ScoreOpen: Story = { args: HOME_VILLAGE.scoreOpen };
-/** A kind with no structure (the starter village has no Wonder): its sum shows 0. */
-export const ScoreKindZero: Story = { args: HOME_VILLAGE.scoreKindZero };
-/** A village with a closed Wonder: every kind scores. */
-export const ScoreWonder: Story = { args: HOME_VILLAGE.scoreWonder };
-/** After a save, unfolded (#802): the total counts up to the new score, the kinds under it are the new layout's. */
-export const ScoreOpenSaved: Story = { args: HOME_VILLAGE.scoreOpenSaved, parameters: { reducedMotion: "never" } };
-/** A tap on the total unfolds the kinds in place, with a short height animation; another folds them. */
-export const ScoreToggle: Story = {
-  args: HOME_VILLAGE.view,
-  parameters: { reducedMotion: "never" },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const total = canvas.getByRole("button", { name: /^Village score / });
-    await expect(total).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(total);
-    await expect(total).toHaveAttribute("aria-expanded", "true");
-    await expect(await canvas.findByRole("list", { name: "Score by kind" }, { timeout: 10_000 })).toBeVisible();
-    await expect(canvas.queryByRole("region", { name: "Village points" })).toBeNull();
-    await userEvent.click(total);
-    await waitFor(() => expect(canvas.queryByRole("list", { name: "Score by kind" })).toBeNull());
-  },
-};
-/** The same under reduced motion: the kinds come and go at once, no height animation. */
-export const ScoreToggleReducedMotion: Story = { ...ScoreToggle, parameters: { reducedMotion: "always" } };
-export const ScoreFoldedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view };
-export const ScoreFoldedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.view };
-export const ScoreFoldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view };
-export const ScoreOpenPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.scoreOpen };
-export const ScoreOpenPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.scoreOpen };
-export const ScoreOpenWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.scoreOpen };
-export const ScoreKindZeroPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.scoreKindZero };
-export const ScoreKindZeroPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.scoreKindZero };
-export const ScoreKindZeroWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.scoreKindZero };
-export const ScoreOpenSavedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.scoreOpenSaved, parameters: { ...PHONE_320.parameters, reducedMotion: "never" } };
-export const ScoreOpenSavedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.scoreOpenSaved, parameters: { ...PHONE_375.parameters, reducedMotion: "never" } };
-export const ScoreOpenSavedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.scoreOpenSaved, parameters: { reducedMotion: "never" } };
-/** Unfolded, shielded, at 320 px beside the widest balances: the whole left column, nothing under the right column. */
-export const ScoreOpenStressPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.leagueStress, initialScoreOpen: true }, decorators: [WIDE_BALANCES] };
 /** Edit mode: the editor's bar (Back, the score, the slots, Reset all), the inventory and Save. */
 export const Editing: Story = { args: HOME_VILLAGE.editing };
 /** Edit mode's points unfolded above the inventory (#758), a line lit. */
@@ -505,8 +430,8 @@ function InScene({ held, ...args }: HomeVillageSceneProps & { held?: boolean }) 
   );
 }
 
-/** The village in the game scene (the fog, the weather, the day and night, the dial), in view. */
-export const Scene: Story = { args: HOME_VILLAGE.view, render: (args) => <InScene {...args} /> };
+/** The village in the game scene (the fog, the weather, the day and night, the dial), in view, shielded: every capsule of the HUD. */
+export const Scene: Story = { args: { ...HOME_VILLAGE.view, shieldEndsAt: HOME_VILLAGE.shielded.shieldEndsAt }, render: (args) => <InScene {...args} /> };
 /** The same scene in edit mode: the overlays switched to the editor's, the scene's box what the panel leaves. */
 export const SceneEditing: Story = { args: HOME_VILLAGE.holding, render: (args) => <InScene {...args} /> };
 /** A road placed on the scene (#756): the bubble by the tile, following pans, zooms and the compass, clear of the bar and the panel. */
@@ -519,8 +444,6 @@ export const SceneEditingPoints: Story = { args: HOME_VILLAGE.editingPoints, ren
 export const SceneEditingPointsLifted: Story = { args: HOME_VILLAGE.editingPointsLifted, render: (args) => <InScene {...args} /> };
 /** A Wonder's line lit on the scene (#792): the wonder's tile alone lit, the rest of the board dimmed as for any line. */
 export const SceneEditingPointsWonder: Story = { args: HOME_VILLAGE.editingPointsWonder, render: (args) => <InScene {...args} /> };
-/** The village score unfolded over the scene (#831): in the overlay, nothing over the village, nothing lit on it. */
-export const SceneScoreOpen: Story = { args: HOME_VILLAGE.scoreOpen, render: (args) => <InScene {...args} /> };
 
 /** A cold arrival (#761), the village and its assets still loading: the overlays in view and usable over a thick fog. */
 export const Fogged: Story = { args: { ...HOME_VILLAGE.view, arrival: "fog" }, render: (args) => <InScene {...args} held /> };
@@ -540,8 +463,6 @@ export const ScenePlacedPhone: Story = { ...ScenePlaced, ...PHONE_375 };
 export const ScenePlacedWide: Story = { ...ScenePlaced, ...WIDE_1440 };
 export const SceneMovedPhone: Story = { ...SceneMoved, ...PHONE_375 };
 export const SceneMovedWide: Story = { ...SceneMoved, ...WIDE_1440 };
-export const SceneScoreOpenPhone: Story = { ...SceneScoreOpen, ...PHONE_375 };
-export const SceneScoreOpenWide: Story = { ...SceneScoreOpen, ...WIDE_1440 };
 export const SceneEditingPointsWonderPhone: Story = { ...SceneEditingPointsWonder, ...PHONE_375 };
 export const SceneEditingPointsWonderWide: Story = { ...SceneEditingPointsWonder, ...WIDE_1440 };
 export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_375 };
@@ -611,10 +532,9 @@ const enterAndLeave: Story["play"] = async ({ canvasElement }) => {
   const camera = await scene.findByRole("button", { name: "Camera" }, { timeout: 15_000 });
   await userEvent.click(camera);
   const exit = await scene.findByRole("button", { name: "Exit camera" });
-  // The overlays faded and out of reach: Edit out of the row, the missions tracker (#978) and Vault hidden once faded (Vault the
-  // right column's from `desktop`, the left column's below it, #929); the profile stays.
-  const villageButtons = () =>
-    [...scene.queryAllByRole("navigation", { name: /^Missions/ }), ...scene.queryAllByRole("button", { name: /^Vault/ })].filter((b) => b.checkVisibility({ visibilityProperty: true }));
+  // The overlays faded and out of reach: Edit out of the row, Missions and Vault hidden once faded (the right column's from
+  // `desktop`, the left column's below it, #929); the profile stays.
+  const villageButtons = () => scene.queryAllByRole("button", { name: /^(Missions|Vault)/ }).filter((b) => b.checkVisibility({ visibilityProperty: true }));
   await expect(scene.getByRole("button", { name: "Edit village", hidden: true })).not.toBeVisible();
   await waitFor(() => expect(villageButtons()).toHaveLength(0));
   await expect(scene.getByRole("button", { name: /^Profile/ })).toBeVisible();
@@ -647,7 +567,7 @@ export const CameraEnterLeaveReducedMotion: Story = {
 
 /**
  * PHONE-NAV (#763): the app's bar on the home below `desktop` (Shop, Chests with the chests waiting, Play, League, Settings; no
- * item current), the right column down to the missions tracker and Vault (#929, #978), no gear and no large Play; Edit and the dial above the bar. At
+ * item current), the right column down to Missions and Vault, no gear and no large Play; Edit and the dial above the bar. At
  * 320, 375 and 768 px; edit mode has no bar (`SceneEditingPhone`); from 1440 px none of it (`SceneWide`).
  */
 export const BarPhone320: Story = { ...Scene, ...PHONE_320 };
