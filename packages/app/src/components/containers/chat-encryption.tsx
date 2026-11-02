@@ -65,7 +65,7 @@ export interface KeyChangeLineProps {
 export function KeyChangeLine({ otherName, onViewCode }: KeyChangeLineProps) {
   return (
     <span className="max-w-full rounded-2xl bg-secondary/60 px-3 py-1 text-center text-xs text-muted-foreground wrap-anywhere">
-      <Icon name="key" size="xs" className="mr-1.5" />
+      <Icon name="arrows-rotate" size="xs" className="mr-1.5" />
       {keyChangedLine(otherName)}
       {onViewCode && (
         <Button size="sm" variant="link" className="ml-1 inline-flex h-auto min-h-6 px-1 py-0 align-middle text-xs" onClick={onViewCode}>
