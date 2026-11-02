@@ -1,8 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 import { toastError } from "../../components/containers/error-toast";
 import { ViewError, type CobbleClaim } from "@paved/chain";
 import { errorDetail } from "../error-detail";
 import { MissionsScene } from "../../components/scenes/missions-scene";
+import { missionKeyOf } from "../../components/containers/missions-tracker-lines";
 import { useDataSources } from "../../data/sources";
 import { usePlayerAchievements, usePlayerQuests } from "../../data/indexer";
 import { cobbleKeys, useAchievementRewards, useClaims, useQuestRewards, type ClaimTarget } from "../../data/cobbles";
@@ -33,11 +35,14 @@ const GO: Record<Exclude<TutorialGo, "daily">, string> = {
  * that cannot claim, it is read only ("Connect to claim"). A wallet approved earlier is looked for here too (`useAccount`), so a
  * returning player can claim at once. The Tutorial's steps (#977) are the mock ledger's until #738 (`useTutorialSteps`,
  * `useTutorialClaims`); where they are not served the section does not show. The completion toasts are the app's (`routes/completion-host.tsx`).
+ * `?mission=quest:12` (the home's missions tracker, #978) puts that mission on the card on arrival; a key not on the page is ignored.
  */
 export default function Page() {
   const go = useAppNavigate();
   const onNavigate = useTabNavigate();
   const onBack = useBack();
+  const [params] = useSearchParams();
+  const initialSelected = missionKeyOf(params.get("mission"));
   useAccount();
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
@@ -110,6 +115,7 @@ export default function Page() {
       onGo={(to) => go(GO[to])}
       onConnect={() => go("/welcome")}
       onRetry={retry}
+      initialSelected={initialSelected}
       onBack={onBack}
       onNavigate={onNavigate}
     />

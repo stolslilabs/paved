@@ -220,6 +220,9 @@
   --medal-1: var(--color-gold-300);
   --medal-2: var(--color-charcoal-200);
   --medal-3: var(--color-amber-400);
+  /* The week's milestone gifts' ribbon (#976, the owner's decision of 2026-11-01): a deep river blue where the day's is red, so the
+     bigger rewards read apart at the same size (`elements/gift-art.tsx`, `variant="week"`). */
+  --gift-week: var(--color-river-600);
   --board: var(--color-board);
   /* The village's fog in the plan view (#633's rule, until #648 draws the chosen one): a grey veil over the board. */
   --fog: var(--color-charcoal-400);

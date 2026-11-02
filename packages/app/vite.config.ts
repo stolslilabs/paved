@@ -45,6 +45,15 @@ export default defineConfig(({ command, mode }) => {
           // first route does not fetch it.
           codeSplitting: {
             groups: [
+              // The end-to-end encryption (#997): game-core's `social/e2e.js` and what only it reads of `@noble` (X25519 and its
+              // curve, HKDF, XChaCha20-Poly1305) in a chunk of its own, fetched with the chat (the mock imports it at the chat's
+              // first call), never with the home nor the pages that play. What it shares with the engine (SHA-256, HMAC) stays there.
+              {
+                name: "e2e",
+                test: /[\\/](game-core[\\/]dist[\\/]social[\\/]e2e\.js|@noble[\\/]ciphers[\\/]|@noble[\\/]curves[\\/](esm[\\/])?(ed25519|abstract[\\/](edwards|montgomery|hash-to-curve))\.js|@noble[\\/]hashes[\\/](esm[\\/])?(hkdf|sha512)\.js)/,
+                priority: 20,
+                includeDependenciesRecursively: false,
+              },
               {
                 name: "engine",
                 test: /[\\/](game-core[\\/]dist[\\/](?!format\.js|index\.js|constants\.js|sessions[\\/](storage|index)\.js)|@scure|@noble)/,

@@ -91,17 +91,26 @@ describe("the route map (#762)", () => {
 describe("from desktop, the overlay's pages open in the side panel over the village (#762)", () => {
   beforeEach(() => media(true));
 
-  it("the overlay's column holds Missions, Chests, Shop and Vault, no League (#856, #973), with the gear and Play; the phone's bar is hidden there", async () => {
+  it("the overlay's column holds Chests, Shop and Vault, no League (#856, #973) and no Missions (#978: the tracker's), with the gear and Play; the phone's bar is hidden there", async () => {
     open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Missions", "Chests", "Shop", "Vault"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Chests", "Shop", "Vault"]);
     expect(screen.getAllByRole("button", { name: "Play" }).filter((b) => !b.closest("nav"))).toHaveLength(1);
     // No bar from `desktop` (#763's is below it only); jsdom applies no media query, so its class tells.
     expect((await screen.findByRole("navigation", { name: "Main" })).parentElement).toHaveClass("desktop:hidden");
   });
 
+  it("the missions tracker (#978) opens Missions in the panel from the right, the village still mounted", async () => {
+    const router = open("/");
+    const tracker = await screen.findByRole("navigation", { name: /^Missions/ }, { timeout: slow(5000) });
+    await userEvent.click((await within(tracker).findAllByRole("button", {}, { timeout: slow(5000) }))[0]!);
+    const dialog = await panel("Missions");
+    expect(router.state.location.pathname).toBe("/missions");
+    expect(dialog).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+  });
+
   it.each([
-    ["Missions", "/missions", "Missions", "right"],
     ["Chests", "/village/chests", "Chests", "right"],
     ["Shop", "/village/shop", "Tile shop", "right"],
     ["Vault", "/vault", "Vault", "right"],
@@ -172,13 +181,13 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
   it("closes on Escape, back to the home's own entry (Back does not reopen it), the focus on the button that opened it", async () => {
     const router = open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    await userEvent.click(within(column).getByRole("button", { name: /^Missions/ }));
-    await panel("Missions");
+    await userEvent.click(within(column).getByRole("button", { name: /^Chests/ }));
+    await panel("Chests");
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
-    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^Missions/ })).toHaveFocus());
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^Chests/ })).toHaveFocus());
   });
 
   it("the browser's Back closes it", async () => {

@@ -6,7 +6,7 @@ import { MissionsScene } from "./missions-scene";
 /**
  * Missions (`/missions`, #832): one page, today only. The selected mission's card at the top, then the Limited icons (a Daily and
  * a Weekly row, each with its reset's countdown and its period's milestones graph above its icons: an edge per quest done and a
- * gift node per reward, the day's #869, the week's #976, larger), then the Lifetime icons. A tap on an icon updates the card.
+ * gift node per reward, the day's #869, the week's #976, the same size, their ribbon blue with a gold seam), then the Lifetime icons. A tap on an icon updates the card.
  * Cobbles are the only reward. One story per state; the viewport is the toolbar's (VP).
  */
 const meta = {

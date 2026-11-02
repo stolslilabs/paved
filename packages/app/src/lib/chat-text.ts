@@ -50,4 +50,32 @@ export function conversationName(c: Pick<ConversationSummary, "kind" | "guild" |
 }
 
 /** The notice of the first private conversation (#955). */
-export const PRIVATE_NOTICE = "Paved never asks for your key or your password.";
+export const PRIVATE_NOTICE = "Your private messages are end-to-end encrypted. Paved never asks for your key or your password.";
+
+// End-to-end encryption (#997): what each conversation's line, the Encryption sheet, the key's change, an unreadable message and
+// the report's warning say.
+
+/** The line at the top of a conversation: what is encrypted, and for whom (#997, point 8). */
+export function encryptionLine(mode: "private" | "guild" | "public", otherName: string): string {
+  if (mode === "private") return `End-to-end encrypted: only you and ${otherName} can read these messages`;
+  if (mode === "guild") return "End-to-end encrypted for the guild's members";
+  return "Public: every player can read the World";
+}
+
+/** A joiner's line in the guild's conversation (#997, open point 2). */
+export const JOINER_LINE = "Messages from before you joined are not shown";
+
+/** A sealed message this device cannot open, in the place of its text (#997, point 6). */
+export const UNREADABLE_MESSAGE = "This message can't be read on this device";
+
+/** The other player's new key, as a line of the conversation (#997, point 10). */
+export const keyChangedLine = (otherName: string): string => `${otherName}'s security key changed`;
+
+/** What the report dialog says is shared, in an encrypted conversation (#997, point 12). */
+export const REPORT_REVEAL = "This message and the 5 before it go to Paved's moderators, decrypted. Nothing else of this conversation.";
+
+/** The Encryption sheet's two lines on what is encrypted (#997, point 9). */
+export const encryptionSheetLines = (otherName: string): [string, string] => [
+  `Your messages with ${otherName} are sealed on your device and opened only on yours and theirs.`,
+  "Paved stores them sealed and cannot read them, unless one of you reports a message.",
+];

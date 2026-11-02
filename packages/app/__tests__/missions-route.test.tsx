@@ -342,3 +342,38 @@ describe("/missions, the Tutorial (#977)", () => {
     expect(success.mock.calls.filter(([title]) => String(title).startsWith("Tutorial step done"))).toHaveLength(1);
   }, slow(20_000));
 });
+
+describe("the home's missions tracker links to a mission (#978)", () => {
+  function served() {
+    const s = setup();
+    const counts = { ...emptyTutorialCounts(), level: 1, "layout-saved": 1 };
+    Object.assign(s.views, { tutorialSteps: async () => ({ counts, claimed: 0 }) });
+    return s;
+  }
+
+  it("`?mission=` puts that mission on the card on arrival; a key not on the page, or not a key, falls back to the open step", async () => {
+    open("/missions?mission=quest:3", served());
+    await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Mission #3"), { timeout: slow(5000) });
+    cleanup();
+    queryClient.clear();
+    open("/missions?mission=tutorial:1", served());
+    await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Builder"), { timeout: slow(5000) });
+    for (const bad of ["quest:99", "bonus:1"]) {
+      cleanup();
+      queryClient.clear();
+      open(`/missions?mission=${bad}`, served());
+      await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Challenger"), { timeout: slow(5000) });
+    }
+  }, slow(30_000));
+
+  it("from the home: the Tutorial's step to claim first, then the open one; a tap opens the Missions page with it on the card", async () => {
+    const router = open("/", served());
+    const tracker = await screen.findByRole("navigation", { name: /^Missions/ }, { timeout: slow(10_000) });
+    const lines = await within(tracker).findAllByRole("button", { name: /^(Builder|Challenger)/ }, { timeout: slow(10_000) });
+    expect(lines.map((b) => b.getAttribute("aria-label"))).toEqual(["Builder: done, ready to claim", "Challenger: 0 of 1"]);
+    await userEvent.click(lines[0]!);
+    await waitFor(() => expect(router.state.location.pathname + router.state.location.search).toBe("/missions?mission=tutorial:1"));
+    await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Builder"), { timeout: slow(5000) });
+    expect(card().getByRole("button", { name: "Claim 10 Cobbles: Builder" })).toBeInTheDocument();
+  }, slow(30_000));
+});

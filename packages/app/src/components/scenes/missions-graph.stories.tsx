@@ -2,12 +2,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MISSIONS } from "../../mocks/scenes";
 import { MissionsScene } from "./missions-scene";
-import { PHONE_375, WIDE_1440 } from "./viewports";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The milestones graphs in their page, Missions, for the owner: the day's (#869, reworked 2026-10-29), each state of the graph and
  * its gift nodes (no reward, gift closed, gift opening, claimed, all done), and the week's (#976: none, three and five done, a gift
- * claimed, a gift opening), pinned at 375 and 1440 px. `Scenes/Missions` keeps one story per state at the toolbar's width.
+ * claimed, a gift opening), pinned at 375 and 1440 px, the week's also at 320. The week's gifts are the day's size (the owner's
+ * decision of 2026-11-01), told apart by their ribbon: the river blue with a gold seam, where the day's is red. `Scenes/Missions` keeps one story per state at the toolbar's width.
  */
 const meta = {
   title: "Scenes/MissionsGraph",
@@ -38,6 +39,16 @@ export const ClaimedWide: Story = { args: MISSIONS.milestoneThreeClaimed, ...WID
 /** All done, at 1440 px. */
 export const AllDoneWide: Story = { args: MISSIONS.milestonesAllClaimed, ...WIDE_1440 };
 
+/** The week (#976): no weekly done, both gifts ahead, at 320 px. */
+export const WeekNoneSmall: Story = { args: MISSIONS.weekNone, ...PHONE_320 };
+/** The week: three done, the first gift to claim, at 320 px. */
+export const WeekThreeSmall: Story = { args: MISSIONS.weekThree, ...PHONE_320 };
+/** The week: five done, both gifts to claim, at 320 px. */
+export const WeekFiveSmall: Story = { args: MISSIONS.weekFive, ...PHONE_320 };
+/** The week: a gift claimed, at 320 px. */
+export const WeekClaimedSmall: Story = { args: MISSIONS.weekClaimed, ...PHONE_320 };
+/** The week: a gift opening, at 320 px. */
+export const WeekOpeningSmall: Story = { args: MISSIONS.weekOpening, ...PHONE_320 };
 /** The week (#976): no weekly done, both gifts ahead, at 375 px. */
 export const WeekNonePhone: Story = { args: MISSIONS.weekNone, ...PHONE_375 };
 /** The week: three done, the first gift to claim, at 375 px. */

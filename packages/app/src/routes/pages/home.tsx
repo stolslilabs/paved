@@ -7,6 +7,7 @@ import { shortAddress } from "../../components/elements/short-address";
 import type { LayoutSaved } from "../../components/containers/layout-editor";
 import type { VillageLayout } from "../../components/containers/layout-rules";
 import { HomeVillageScene, type SocialCounts } from "../../components/scenes/home-village-scene";
+import type { MissionKey, TrackerState } from "../../components/containers/missions-tracker-lines";
 import { useBoardSettings } from "../../data/board-settings";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
@@ -29,7 +30,10 @@ import { PlayerProfileHost } from "../player-profile";
 const HomeStage = lazy(() => import("../home-stage"));
 /** What waits on the Chat, Guild and Friends pages (#973), its own chunk: the social reads stay out of the home's first load. */
 const SocialCount = lazy(() => import("../social-count"));
-/** What waits on the Missions page (#753, #976), its own chunk: the quests' rules and reads stay out of the home's first load. */
+/**
+ * What waits on the Missions page (#753, #976) and the missions tracker's lines (#978), its own chunk: the quests' rules and reads
+ * stay out of the home's first load.
+ */
 const MissionsCount = lazy(() => import("../missions-count"));
 /** Nothing counted on the three buttons: a guest, or the counts not read yet. */
 const NO_SOCIAL_COUNTS: SocialCounts = { chat: 0, guild: 0, friends: 0 };
@@ -81,6 +85,7 @@ export default function Page() {
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
   const [missions, setMissions] = useState(0);
+  const [tracker, setTracker] = useState<TrackerState | null>(null);
   const league = usePvpLeague(me).data;
   const shield = usePvpShield(me).data;
   const board = useBoardSettings();
@@ -186,6 +191,7 @@ export default function Page() {
             : 0
         }
         missions={missions}
+        missionsTracker={tracker}
         chat={social.chat}
         guild={social.guild}
         friends={social.friends}
@@ -200,7 +206,7 @@ export default function Page() {
         onChat={() => go("/chat")}
         onGuild={() => go("/guild")}
         onFriends={() => go("/friends")}
-        onMissions={() => go("/missions")}
+        onMissions={(mission?: MissionKey) => go(mission ? `/missions?mission=${mission}` : "/missions")}
         onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
@@ -221,7 +227,7 @@ export default function Page() {
       {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
       <Suspense fallback={null}>
         <SocialCount me={me} onCount={setSocial} />
-        <MissionsCount me={me} onCount={setMissions} />
+        <MissionsCount me={me} onCount={setMissions} onTracker={setTracker} />
       </Suspense>
       {/* Another player's profile (#952): `/player/:id` lands here with it, and from `desktop` the panels' pages show it over the home. */}
       <PlayerProfileHost />

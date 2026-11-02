@@ -55,7 +55,7 @@ The table of #956's proposal, each row confirmed or changed, with its reason.
 | The guild's description and announcements | Off chain, in the social service, each signed by its author; the service checks the author's rank against the chain | **Confirmed** | The text is large (150 and 500 characters), often changed, and must be deletable. The chain is checked for the rank, not trusted from the client |
 | Follows | Off chain, signed, in the social service | **Confirmed** (open point 1) | No game rule reads them. On chain, even as events only, they would cost nine times the guilds (section 3.5), and every follow would be public, against #954's default that a player's lists are their own (#954, open point 2). Signed, they can be checked and moved elsewhere later |
 | Blocks, mutes, reports | Off chain, private, in the social service; never on chain, never signed (the session is enough) | **Confirmed** | A public block list would hurt players, and #954 says a block is never shown to the blocked player |
-| Messages: the World, the guild, private | Off chain, in the social service, each message signed by the player's key | **Confirmed** | The volume, privacy, moderation and deletion rule out the chain. The signature proves who wrote a message to a moderator, and the service cannot forge one (section 5.4) |
+| Messages: the World, the guild, private | Off chain, in the social service, each message signed by the player's key; the guild's and the private ones end-to-end encrypted (#998, `messaging-encryption.md`) | **Confirmed**, encryption **added** (2026-11-01) | The volume, privacy, moderation and deletion rule out the chain. The signature proves who wrote a message to a moderator, and the service cannot forge one (section 5.4) |
 | The guild's log | The indexer, from `Guild`'s events; the announcements' lines from the service | **Added** | #953 keeps the last 100 entries; the chain keeps none (no lists on chain) |
 | Search, suggestions, ranking | The indexer | **Added** | Lists and sorting are the indexer's (section 5.1) |
 
@@ -225,7 +225,9 @@ It holds what the chain cannot rebuild:
 - the **pending join requests and invitations** (signed), with the request's message (100 characters), until they are
   redeemed, declined, cancelled or expired;
 - the **messages** of the World, the guilds and the private conversations (signed), and the private conversations' state
-  (Requests, accepted, declined: #955).
+  (Requests, accepted, declined: #955). The guilds' and the private messages are sealed envelopes it cannot read
+  (section 5.4); it also holds the messaging keys' directory and the guilds' epochs (`messaging-encryption.md`, sections 3
+  and 6).
 
 **Its shape.** One Node process in TypeScript, as the indexer, so it imports `@paved/game-core`'s social rules (section 7).
 SQLite in WAL mode, one file, its own (never the indexer's, which can be deleted at any time; this one cannot). An HTTP API
@@ -241,7 +243,7 @@ for reads and writes, and a WebSocket for live messages. It reads the chain thro
 - Follows, blocks and mutes are kept until undone; descriptions until changed; announcements, the 20 latest per guild
   (#953); expired requests and invitations are deleted at once.
 
-**Deleting a player's data on request.** Their messages, original and filtered texts and signatures (shown as "Message deleted", as a sender's own deletion), follows
+**Deleting a player's data on request.** Their messages, original and filtered texts, sealed envelopes and signatures (shown as "Message deleted", as a sender's own deletion), follows
 both ways, blocks, mutes, the reports they made, their pending requests and invitations, and their sessions are deleted;
 the backups age them out within 7 days. **What the chain holds cannot be deleted**: the guild's events (the address joined,
 was promoted, left) stay on chain and in any indexer. The address is pseudonymous; the privacy notice says so. This is one
@@ -249,16 +251,20 @@ more reason to keep every text off chain.
 
 **Moderation.**
 
-- The reports' queue (spam, scam, harassment, other: #955), each with the message's original signed text, its signature,
-  its filtered text, and the conversation's last messages around it.
+- The reports' queue (spam, scam, harassment, other: #955). A World report holds the message's original signed text, its
+  signature, its filtered text, and the conversation's last messages around it. A guild or private report holds what the
+  reporter revealed: the reported message and the 5 before it, each text with its franking key, checked against its signed
+  commitment (`messaging-encryption.md`, section 8). Nothing else of those conversations is readable.
 - The actions: delete a message; mute a player in the World for a time; ban an address from the service (it can still play,
   but not write in the service). Each action is logged with its moderator.
 - The tools: a small admin page behind the owner's login (phase C of `accounts.md`), or a command line on the host first.
-- **The word filter** runs in the service, which is the one that counts: listed words are replaced with "•••" when the
-  message is written, so every reader gets the same text. The service stores both: the **original signed text with its
-  signature**, which only moderators read (it is the preimage the signature covers, section 5.4), and the **filtered text**,
-  which every reader is served. Both share the message's retention and are deleted together. The list leaves the client
-  (where it sits on the mock, #955).
+- **The word filter, in the World**, runs in the service, which is the one that counts: listed words are replaced with
+  "•••" when the message is written, so every reader gets the same text. The service stores both: the **original signed
+  text with its signature**, which only moderators read (it is the preimage the signature covers, section 5.4), and the
+  **filtered text**, which every reader is served. Both share the message's retention and are deleted together.
+- **In the guilds and private conversations** the service cannot read the text, so the filter runs in the readers' clients
+  after opening (game-core's `filterWords`), with the list the service serves: every reader gets the same text, since the
+  list is the same (`messaging-encryption.md`, section 7).
 
 **The socket.** One WebSocket per open client, authenticated with the session token (5.3), subscribed to the World, the
 player's guild and their private conversations. It replaces the indexer's polling for messages only; the rest stays polled.
@@ -291,7 +297,7 @@ text twice in a row refused; in the guild and in private, one per 2 seconds; wri
 in the same spirit: follows, 30 a minute and the cap of 500 (#954); signed requests, one pending at a time (#953); invitations
 from one officer, 20 an hour. Each is a pure function of game-core, so the service and the mock refuse the same way.
 
-### 5.4 Messages and their signatures
+### 5.4 Messages, their signatures and their encryption
 
 **Each message signed**: confirmed. The service could trust its session alone, but the signature gives two things for a few
 milliseconds of the client's time: a moderator can prove who wrote a reported message, and the service itself cannot write
@@ -299,10 +305,14 @@ in a player's name. The signed message is SNIP-12: the conversation, the hash of
 the word filter), the time, a per-player counter. The service keeps that original text beside the filtered one (5.2), so
 the proof holds for a filtered message too: the moderator hashes the stored original and checks the signature.
 
-**Private messages** are readable by their two players only: the service serves a conversation only to its two members,
-over TLS. **No end-to-end encryption** (open point 5): with it the service could not read a reported message, and so could
-not moderate the scams #955 warns of ("Paved never asks for your key or your password"). The database is encrypted at rest
-on the host. End-to-end encryption stays a later option, weighed against moderation then.
+That holds as written for the World. **The guilds' and the private messages are end-to-end encrypted** (owner,
+2026-11-01, #998; open point 5 answered): each is sealed on the sender's device and opened on the readers', and the service
+stores envelopes it cannot read. Their signed message changes: it carries the hash of the sealed text and a **franking
+commitment** in place of the text's hash, and there is no original text in the service. A moderator reads only what a report
+reveals (the reported message and the 5 before it), proved by the commitments the sender signed, so the scams #955 warns of
+("Paved never asks for your key or your password") stay reportable. The keys, the directory, the guilds' epochs, the
+envelope's SNIP-12 type and the threats are in `messaging-encryption.md`. The service still serves a conversation only to its
+members, over TLS, and its database stays encrypted at rest.
 
 ## 6. The contract's outline
 
@@ -452,7 +462,8 @@ Not taken, as #956's reading of them found (read, not run), and how `Guild` avoi
 2. The fixture, then `Guild` and its tests, and its gas measured on the devnet (each figure of section 3.4 becomes a
    measure, ceilings at measured + 5 %, as the other contracts').
 3. The indexer's `Guild` source and its tables (5.1).
-4. The social service (5.2 to 5.4), its hosting beside the indexer.
+4. The social service (5.2 to 5.4), its hosting beside the indexer, with the directory and the guilds' epochs
+   (`messaging-encryption.md`, section 10).
 5. **The social source of #952 gets its implementation** over `Guild` (the writes, through `packages/chain`'s writers), the
    indexer (the lists) and the service (the rest, and the socket), **behind the same interface** as the mock. The pages do
    not change. The mock stays for the tests and the stories.
@@ -466,8 +477,9 @@ Not taken, as #956's reading of them found (read, not run), and how `Guild` avoi
 3. **The guild's text.** Default: the name (in the creation's event and the name index) and the emblem on chain, the
    description and announcements off chain.
 4. **The spam brake for creating a guild.** Default: one per player per 24 hours, and no price. With open point 8.
-5. **Private messages.** Default: no end-to-end encryption, but TLS, access control and encryption at rest, so reports can be
-   moderated.
+5. **Private messages.** **Answered** (owner, 2026-11-01, #998): the private and the guild messages are end-to-end
+   encrypted with asymmetric keys, and moderated by message franking (`messaging-encryption.md`). The default was no
+   end-to-end encryption.
 6. **Retention.** Default: the World 7 days, a guild 90 days, private conversations one year; a reported message until its
    report is handled, then 90 days.
 7. **Where the social service runs.** Default: beside the indexer, its own process and database.

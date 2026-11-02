@@ -15,9 +15,10 @@ import { MissionTile, type MissionTileState } from "../containers/mission-tile";
 import { TUTORIAL_TEXT, TUTORIAL_XP, achievementText, questText, taskUnit, type TutorialGo } from "../containers/quest-text";
 import { TabPage } from "../containers/tab-page";
 import { MilestonesBar } from "../containers/milestones-bar";
+import type { MissionKey } from "../containers/missions-tracker-lines";
 
-/** A mission of the page, by what it is: a Tutorial step (#977), a quest of the day or the week, or an achievement. No period's bonus since #976. */
-export type MissionKey = `tutorial:${number}` | `quest:${number}` | `achievement:${number}`;
+/** A mission of the page, by what it is (no period's bonus since #976): its key, as the home's tracker links to it (#978). */
+export type { MissionKey };
 
 /**
  * The quests' Cobbles (P-61, cobbles-v1.md 3.1, 3.3, 3.4), as `useQuestRewards` reads them: each quest's Cobbles from its
@@ -99,7 +100,10 @@ export interface MissionsSceneProps {
   claiming?: MissionKey | null;
   /** False: the player is known but cannot sign (no wallet yet, P6): the rewards show, each claim says "Connect to claim". */
   canClaim?: boolean;
-  /** The mission the card shows on arrival; omitted, the open Tutorial step, else the first one not done (Daily, then Weekly, then Lifetime). */
+  /**
+   * The mission the card shows on arrival (a story's, or the home's tracker's link, `/missions?mission=`, #978); omitted or not on
+   * the page, the open Tutorial step, else the first one not done (Daily, then Weekly, then Lifetime).
+   */
   initialSelected?: MissionKey;
   /** `claim_quest(quest_id, period)` of today (or its week). */
   onClaimQuest?: (questId: number) => void;
@@ -162,7 +166,7 @@ const fraction = (progress: Mission["progress"]): number =>
  * mission (`MissionCard`); under it the missions as icons (`MissionTile`): the Limited ones, a Daily and a Weekly row each with its
  * reset's countdown, then the Lifetime ones. Each row has its period's milestones graph above its icons (`MilestonesBar`, the
  * day's #869, the week's #976): an edge per quest done and a gift node per milestone's Cobbles, opened (claimed) with a tap on it;
- * the week's gifts are larger, and no weekly pays on its own any more, nor a week's bonus. On arrival the first mission not done is
+ * the week's gifts are the day's size, told apart by their ribbon (blue, a gold seam), and no weekly pays on its own any more, nor a week's bonus. On arrival the first mission not done is
  * selected (Daily, then Weekly, then Lifetime; with everything done, the first one); a tap on an icon selects it, the card
  * updates in place and the page does not scroll. The card sticks under the page's header while the list scrolls (#988, from a
  * viewport 560 px tall), so the tapped mission always shows; no tile shows Cobbles, the card does. Cobbles are the only reward: no free game, no day picker. Claims go from the

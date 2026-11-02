@@ -103,7 +103,7 @@ const LONG_NAME = (Story: () => React.JSX.Element) => (
  * (96, 108 and 144 px); from `desktop` the right column centred between the balances and Edit (Settings and Play), the balances in
  * a row, no League in the right column, and Settings above Play, Edit's size. HOME-STACK (#929, the owner's decisions of
  * 2026-10-30): the League control and the village score stacked at the top, 24 px under the profile, at every width; below
- * `desktop` no right column, Missions and Vault in the left column under the village score, before the chips. At 320, 375, 390,
+ * `desktop` no right column, Missions (since #978 the missions tracker) and Vault in the left column under the village score, before the chips. At 320, 375, 390,
  * 768 and 1440 px, shielded or not, and with the longest name.
  */
 /** The season dial in its corner (the plan view has none of its own): the left column stands clear of it. */
@@ -162,6 +162,32 @@ export const OverlaysSocialTablet768: Story = { ...TABLET_768, args: SOCIAL_FULL
 export const OverlaysSocialWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL };
 /** The same with the chips (Resume, the spawn pause) on a short laptop: from `desktop` the social column stays under them. */
 export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...SOCIAL_FULL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
+/**
+ * MISSIONS-TRACKER (#978): the missions tracker in the Missions button's place, in the left column under the village score at every
+ * width (from `desktop` the right column keeps Chests, Shop and Vault), with Chat, Guild and Friends (#973). A new player (the
+ * Tutorial's Builder first), mid-way (a step to claim, the next open, Weekly Builder) and all done ("All done", the day's reset), at
+ * 320, 375, 768 and 1440 px; nothing overlaps the profile, the League control, the score, Vault, the chips, the dial or the social
+ * buttons.
+ */
+const TRACKER_NEW = { ...HOME_VILLAGE.trackerNewPlayer, ...DIAL } satisfies HomeVillageSceneProps;
+const TRACKER_MID = { ...HOME_VILLAGE.trackerMidWay, ...DIAL } satisfies HomeVillageSceneProps;
+const TRACKER_DONE = { ...HOME_VILLAGE.trackerAllDone, ...DIAL } satisfies HomeVillageSceneProps;
+export const OverlaysTrackerNewPlayerPhone320: Story = { ...PHONE_320, args: TRACKER_NEW };
+export const OverlaysTrackerNewPlayerPhone375: Story = { ...PHONE_375, args: TRACKER_NEW };
+export const OverlaysTrackerNewPlayerTablet768: Story = { ...TABLET_768, args: TRACKER_NEW };
+export const OverlaysTrackerNewPlayerWide1440: Story = { ...WIDE_1440, args: TRACKER_NEW };
+export const OverlaysTrackerMidWayPhone320: Story = { ...PHONE_320, args: TRACKER_MID };
+export const OverlaysTrackerMidWayPhone375: Story = { ...PHONE_375, args: TRACKER_MID };
+export const OverlaysTrackerMidWayTablet768: Story = { ...TABLET_768, args: TRACKER_MID };
+export const OverlaysTrackerMidWayWide1440: Story = { ...WIDE_1440, args: TRACKER_MID };
+export const OverlaysTrackerAllDonePhone320: Story = { ...PHONE_320, args: TRACKER_DONE };
+export const OverlaysTrackerAllDonePhone375: Story = { ...PHONE_375, args: TRACKER_DONE };
+export const OverlaysTrackerAllDoneTablet768: Story = { ...TABLET_768, args: TRACKER_DONE };
+export const OverlaysTrackerAllDoneWide1440: Story = { ...WIDE_1440, args: TRACKER_DONE };
+/** The tracker's lines not read yet: its skeleton, its size, so nothing moves when they come. */
+export const OverlaysTrackerLoadingPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.trackerLoading, ...DIAL } };
+// Point 6 (the tracker with Chat, Guild and Friends at 1440 x 900 and on the short laptop): the `OverlaysSocial*` stories carry the
+// tracker mid-way (the home's base), `OverlaysSocialWide1440` and `OverlaysSocialChipsShort1024` among them.
 /** A Challenge game running: the Resume chip under the top row. */
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */
@@ -585,9 +611,10 @@ const enterAndLeave: Story["play"] = async ({ canvasElement }) => {
   const camera = await scene.findByRole("button", { name: "Camera" }, { timeout: 15_000 });
   await userEvent.click(camera);
   const exit = await scene.findByRole("button", { name: "Exit camera" });
-  // The overlays faded and out of reach: Edit out of the row, Missions and Vault hidden once faded (the right column's from
-  // `desktop`, the left column's below it, #929); the profile stays.
-  const villageButtons = () => scene.queryAllByRole("button", { name: /^(Missions|Vault)/ }).filter((b) => b.checkVisibility({ visibilityProperty: true }));
+  // The overlays faded and out of reach: Edit out of the row, the missions tracker (#978) and Vault hidden once faded (Vault the
+  // right column's from `desktop`, the left column's below it, #929); the profile stays.
+  const villageButtons = () =>
+    [...scene.queryAllByRole("navigation", { name: /^Missions/ }), ...scene.queryAllByRole("button", { name: /^Vault/ })].filter((b) => b.checkVisibility({ visibilityProperty: true }));
   await expect(scene.getByRole("button", { name: "Edit village", hidden: true })).not.toBeVisible();
   await waitFor(() => expect(villageButtons()).toHaveLength(0));
   await expect(scene.getByRole("button", { name: /^Profile/ })).toBeVisible();
@@ -620,7 +647,7 @@ export const CameraEnterLeaveReducedMotion: Story = {
 
 /**
  * PHONE-NAV (#763): the app's bar on the home below `desktop` (Shop, Chests with the chests waiting, Play, League, Settings; no
- * item current), the right column down to Missions and Vault, no gear and no large Play; Edit and the dial above the bar. At
+ * item current), the right column down to the missions tracker and Vault (#929, #978), no gear and no large Play; Edit and the dial above the bar. At
  * 320, 375 and 768 px; edit mode has no bar (`SceneEditingPhone`); from 1440 px none of it (`SceneWide`).
  */
 export const BarPhone320: Story = { ...Scene, ...PHONE_320 };
