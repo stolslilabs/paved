@@ -7,6 +7,7 @@ import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-sta
 import { DataContext, type DataSources } from "../../data/sources";
 import { rankName } from "../../lib/guild-text";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { GuildEmblem } from "../elements/guild-emblem";
@@ -280,7 +281,12 @@ export function ProfileSheet({
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
                   <span className="flex max-w-full min-w-0 flex-col">
-                    <PlayerName name={connected.player.name} address={connected.player.playerId} className="text-outline text-2xl leading-tight font-black" />
+                    {/* With no name, the short address in Space Mono, whose glyphs stand taller than a tight line: `truncate` would cut their top and foot. */}
+                    <PlayerName
+                      name={connected.player.name}
+                      address={connected.player.playerId}
+                      className={cn("text-outline text-2xl font-black", connected.player.name ? "leading-tight" : "leading-normal")}
+                    />
                     {shown && (
                       <span data-slot="profile-league" className="truncate text-sm font-bold text-muted-foreground">
                         {leagueName(shown)}
