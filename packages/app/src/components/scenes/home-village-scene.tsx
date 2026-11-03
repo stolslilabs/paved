@@ -319,7 +319,8 @@ const GAP_PX = 12;
  * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands of the two columns, a gap off their neighbours as they are drawn: the right one from under the
  * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
  * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929, open point 1): the left band starts
- * twice the gap, 24 px, under the profile. PROFILE-DRAWER: the HUD's end, a gap under the capsules in the viewport (`--hud-end`),
+ * twice the gap, 24 px, under the profile, and a gap under its avatar's rim and crest where they run further (the larger circle of
+ * 2026-11-03 hangs past the card's foot). PROFILE-DRAWER: the HUD's end, a gap under the capsules in the viewport (`--hud-end`),
  * where the profile drawer's top stops (`HudDrawer`).
  */
 function useOverlayMeasures(dial: boolean) {
@@ -337,10 +338,14 @@ function useOverlayMeasures(dial: boolean) {
     // Its first notice comes before the first paint: the bands are in place when the overlays show.
     const observer = new ResizeObserver(() => {
       const [frame, balances, profile, foot, wheel, capsules] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
+      // The badge's foot as drawn: its rim runs past the card's (the player card's negative margins) and its crest a tenth of the rim
+      // further (`PlayerRim`, -bottom-[10%]; the rim's box is there before the league's chunk, its stand-in the same size).
+      const rim = refs.profile.current?.querySelector("[data-slot=avatar-rim]")?.getBoundingClientRect();
+      const drawnFoot = Math.max(profile!.bottom + GAP_PX, rim ? rim.bottom + rim.height * 0.1 : 0);
       const edges = {
         "--right-top": balances!.bottom - frame!.top,
         "--right-bottom": frame!.bottom - foot!.top,
-        "--left-top": profile!.bottom - frame!.top + GAP_PX,
+        "--left-top": drawnFoot - frame!.top,
         "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom),
       };
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);

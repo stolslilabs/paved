@@ -8,7 +8,7 @@ import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
 import { LeagueRim } from "../elements/league-rim";
-import { divisionOf, tierOf } from "../elements/league-standards";
+import { divisionOf, tierOf, type LeagueTier } from "../elements/league-standards";
 import { Plate, plateBareIconClass, PLATE_FIGURE, plateHudIconClass, plateHudIconPx, type PlateSize } from "../elements/plate";
 import { UiIcon } from "../elements/ui-icon";
 import { Icon } from "../ui/icon";
@@ -106,10 +106,27 @@ export interface PlayerRimProps {
 
 /**
  * The player card's avatar (the owner's direction of 2026-11-01): the portrait in the rim of the player's league (`LeagueRim`), the
- * league's crest at its lower left, as the crowns' plate decides the league (Unranked included). A 1em square, the parent's font
+ * league's crest at its lower left, its painted left edge on the rim's (the owner's ask of 2026-11-03), as the crowns' plate decides the league (Unranked included). A 1em square, the parent's font
  * size; decorative, the card names the player. In this chunk, with the League control, which the home loads at once: not the first
  * load's.
  */
+/**
+ * Where the crest's box starts, in % of the rim's width, so its painted left edge meets the rim's: each tier's art keeps its own
+ * transparent margin (measured on the 256 px copies' opaque pixels, the crest's divisions averaged: within half a pixel at 104 px).
+ */
+const CREST_LEFT: Record<LeagueTier, number> = {
+  unranked: 0.65,
+  wood: 0.47,
+  iron: -1.14,
+  bronze: 0.02,
+  silver: -0.44,
+  gold: 0.65,
+  emerald: -0.79,
+  diamond: -1.14,
+  master: -2.01,
+  grandmaster: -1.58,
+};
+
 export function PlayerRim({ crowns = 0, attacks, children, className }: PlayerRimProps) {
   return (
     <Standing crowns={crowns} attacks={attacks}>
@@ -121,8 +138,14 @@ export function PlayerRim({ crowns = 0, attacks, children, className }: PlayerRi
             <LeagueRim tier={tier} size="inherit" className="block">
               {children}
             </LeagueRim>
-            {/* The crest at 44 % of the rim, by its box (an image, not text), past the rim's foot. */}
-            <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size="inherit" className="absolute -bottom-[10%] -left-[10%]" style={{ width: "44%", height: "44%" }} />
+            {/* The crest at 44 % of the rim, by its box (an image, not text), past the rim's foot, its left edge on the rim's. */}
+            <LeagueCrestIcon
+              tier={tier}
+              division={unranked ? null : divisionOf(league)}
+              size="inherit"
+              className="absolute -bottom-[10%]"
+              style={{ width: "44%", height: "44%", left: `${CREST_LEFT[tier]}%` }}
+            />
           </span>
         );
       }}

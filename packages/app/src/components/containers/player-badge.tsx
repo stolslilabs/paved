@@ -52,20 +52,27 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
   );
   return (
     <div data-slot="player-badge" className={cn("flex", className)}>
+      {/*
+        The card's top on the cobbles plate's (the owner's ask of 2026-11-03): the plates' frames sit under their icons' art, 2 px below
+        the HUD's inset on a phone and a tablet (`HUD_PLATES_NUDGE`), 6 px on the desktop's rail; the circle rises over both.
+      */}
       <button
         {...trigger}
         aria-label={`${profileLabel(value.state, undefined)}${progress ? `, ${levelLabel(progress)}` : ""}`}
         data-slot="player-card"
-        className="state-layer relative isolate flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-1.5 rounded-2xl py-1.5 pr-2.5 pl-1.5 text-left outline-none tablet:gap-2 tablet:pr-3"
+        className="state-layer relative isolate mt-0.5 flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-1.5 rounded-2xl py-1.5 pr-2.5 pl-1.5 text-left outline-none tablet:gap-2 tablet:pr-3 desktop:mt-1.5"
       >
         {/* The HUD's frame, its corners 13 px: the rim about 5.5 px, the corner's curve about 10.5 px, as on the mockup. */}
         <HudFrame px={13} />
         {/*
-          The avatar in its rim, 64 px, 72 from `tablet` (the rim's square takes the box's font size; the default avatar's initial needs
-          that much), about the card's height: from near its top it runs a little past the card's foot, the crest further (its negative
-          margins keep the card the height of the name and the bar).
+          The avatar in its rim, 96 px, 104 from `tablet`, 80 under `mobile` (a 320 px phone, where 96 left the name and the XP bar no
+          room) (the owner's asks of 2026-11-03: a larger circle, so the avatar shows, the card the height it was, the circle higher, the
+          crest at its lower left, its left edge on the circle's, the circle a little past the card's left edge): it rises 6 px over the card's top edge, 6 px past its
+          left one (its left margin, the card's padding and as much again, narrows the card as much) and runs past its foot, the crest
+          further; its foot's negative margin follows its size (`em`, the rim's square) and keeps the card the height of the name and the
+          bar (50 px, 56 from `tablet`); the home stands the capsules off the crest's foot.
         */}
-        <span data-slot="avatar-rim" className="relative -mt-0.5 -mb-3 block shrink-0 self-start text-[4rem] tablet:-mb-3.5 tablet:text-[4.5rem]">
+        <span data-slot="avatar-rim" className="relative -mt-3 mb-[calc(3.875rem-1em)] -ml-3 block shrink-0 self-start text-[5rem] mobile:text-[6rem] tablet:mb-[calc(4.25rem-1em)] tablet:text-[6.5rem]">
           <Suspense
             fallback={
               <span className="relative block size-[1em] rounded-full border-2 border-border">

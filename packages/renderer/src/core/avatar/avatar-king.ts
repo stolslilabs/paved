@@ -200,8 +200,11 @@ export const PAULDRON_FOLLOW = 0.35;
  * The view, fitted to the target (by the exploration's calibration script, not committed): its head's six corners within 11 px
  * rms of the target's. The camera below the head looking up 21 degrees, a long lens; the head a tenth larger than the body's
  * proportion and 5 % taller than wide. `torso`, `roll`, `shift`: the torso turned, leaned, shifted under the head (turned and moved back to its place).
+ * Reframed on the owner's ask of 2026-11-03 (the bust lower in the badge, a little closer): the aim 2.5 units higher (5.05 to 7.55),
+ * the field 5 % narrower (11.92 to 11.35), the closest the tallest and widest headwear allow (the tricorn's brim at 0.988 of the
+ * circle at rest, `avatar-traits.test.ts`).
  */
-export const KING_VIEW = { yaw: 0.532, pitch: -0.362, target: 5.05, distance: 123.6, fov: 11.92, head: 1.1, stretch: 1.053, pan: 0.766, torso: -0.1, arms: 0, spread: 0.25, roll: 0, shift: 0 };
+export const KING_VIEW = { yaw: 0.532, pitch: -0.362, target: 7.55, distance: 123.6, fov: 11.35, head: 1.1, stretch: 1.053, pan: 0.766, torso: -0.1, arms: 0, spread: 0.25, roll: 0, shift: 0 };
 export type KingView = typeof KING_VIEW;
 
 /** The bust's parts as a hierarchy of pivots: the root (the bust's turn), the torso, and on it the head, the arms, the pauldrons. */

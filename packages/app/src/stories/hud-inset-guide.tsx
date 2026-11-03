@@ -106,9 +106,10 @@ const PAINT_TOLERANCE_PX = 1;
 
 /**
  * The check, on what is painted (`HudInsetGuide` draws the bands it reads):
- * - the player card's box on the inset's top and left lines;
- * - with `align` (below `desktop`): the balances' painted top and right, and the left capsules' painted left, within a pixel of
- *   the card's painted outline (its top for the top, its left for both sides), the art's opaque pixels read from its images;
+ * - the player card's box on the inset's left line, and its frame's top on the cobbles plate's (the owner's ask of 2026-11-03: the
+ *   card lowered onto the balances, its avatar's circle rising over both); with no plate, within its own few px under the inset;
+ * - with `align` (below `desktop`): the balances' painted right and the left capsules' painted left within a pixel of the card's
+ *   painted outline's left, the art's opaque pixels read from its images;
  * - without plates (a guest's Connect): its box on the inset's top and right lines;
  * - without `align` (from `desktop`, whose layout is kept): the balances' column box on the inset's top and right lines;
  * - no page wider than the viewport.
@@ -124,7 +125,6 @@ export async function expectHudInset(canvasElement: HTMLElement, { align = true 
     return found;
   });
   const cardBox = card.getBoundingClientRect();
-  await expect(Math.abs(cardBox.top - top.height)).toBeLessThanOrEqual(0.5);
   await expect(Math.abs(cardBox.left - left.width)).toBeLessThanOrEqual(0.5);
   // The balances' column (the phone's plates and the rail), in its own chunk after the card.
   const column = await waitFor(() => {
@@ -135,6 +135,12 @@ export async function expectHudInset(canvasElement: HTMLElement, { align = true 
     return found;
   }, { timeout: 10000 });
   const plates = drawn(column, "[data-slot=hud-frame]").length > 0;
+  const cardFrame = card.querySelector<HTMLElement>("[data-slot=hud-frame]")!.getBoundingClientRect();
+  if (plates) await expect(Math.abs(cardFrame.top - drawn(column, "[data-slot=hud-frame]")[0]!.getBoundingClientRect().top)).toBeLessThanOrEqual(0.5);
+  else {
+    await expect(cardBox.top - top.height).toBeGreaterThanOrEqual(0);
+    await expect(cardBox.top - top.height).toBeLessThanOrEqual(6.5);
+  }
   if (!plates || !align) {
     const box = (plates ? column : drawn<HTMLElement>(column, "button")[0]!).getBoundingClientRect();
     await expect(Math.abs(box.top - top.height)).toBeLessThanOrEqual(0.5);
@@ -146,7 +152,6 @@ export async function expectHudInset(canvasElement: HTMLElement, { align = true 
     const capsulesLeft = capsules ? (await paintedGroup(capsules)).left : null;
     // The measures, for whoever reads the story's console: the painted insets in CSS px.
     console.info("hud-inset painted", JSON.stringify({ profile: { top: profile.top, left: profile.left }, balances: { top: balances.top, right: view.innerWidth - balances.right }, capsulesLeft }));
-    await expect(Math.abs(balances.top - profile.top)).toBeLessThanOrEqual(PAINT_TOLERANCE_PX);
     await expect(Math.abs(view.innerWidth - balances.right - profile.left)).toBeLessThanOrEqual(PAINT_TOLERANCE_PX);
     if (capsulesLeft !== null) await expect(Math.abs(capsulesLeft - profile.left)).toBeLessThanOrEqual(PAINT_TOLERANCE_PX);
   }
