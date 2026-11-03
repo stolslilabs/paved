@@ -241,6 +241,28 @@ describe("Home (#753): the village with its overlays", () => {
     expect(edit.parentElement!.contains(settings)).toBe(true);
   });
 
+  it("HOME-HUD-PADDING: one inset at the top and on both sides, the notch's safe area added to the token, the balances on the profile's painted edge", async () => {
+    // The token: the spacing scale's 2 on a phone, its 4 from `tablet`, each edge's safe area added there, never by an element.
+    const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
+    expect(css).toMatch(/--hud-inset: calc\(var\(--spacing\) \* 2\);\s*@media \(width >= 40rem\) \{\s*--hud-inset: calc\(var\(--spacing\) \* 4\);/);
+    for (const edge of ["top", "left", "right"]) expect(css).toContain(`--hud-inset-${edge}: calc(var(--hud-inset) + env(safe-area-inset-${edge}));`);
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} chat={3} />));
+    const box = document.querySelector<HTMLElement>("[data-slot=home-overlays]")!;
+    const classes = (el: Element | null | undefined) => el!.className.split(" ");
+    // The top row: the profile and the balances off the top and both sides by the token alone.
+    const balances = (await waitFor(() => box.querySelector("[data-slot=home-phone-balances]")!)).parentElement!;
+    const row = balances.parentElement!.parentElement!;
+    expect(classes(row)).toEqual(expect.arrayContaining(["pt-(--hud-inset-top)", "pr-(--hud-inset-right)", "pl-(--hud-inset-left)"]));
+    expect(row.className).not.toMatch(/\b(tablet:)?p[tlrx]?-\d|safe-area/);
+    // The balances moved by their art's margin onto the profile's painted edge.
+    expect(classes(balances)).toEqual(expect.arrayContaining(["-mt-1", "-mr-px", "desktop:-mt-0.5", "desktop:-mr-0.5"]));
+    // The capsules' column, the dial, the phone's social column and the bottom row on the same sides.
+    expect(classes(box.querySelector("[data-slot=scroll-region]"))).toContain("pl-(--hud-inset-left)");
+    expect(classes(box.querySelector("[data-dial-place]"))).toContain("left-(--hud-inset-left)");
+    expect(classes(box.querySelector("[data-social-place=phone]"))).toContain("right-(--hud-inset-right)");
+    expect(classes(screen.getByRole("button", { name: "Edit village" }).parentElement)).toContain("right-(--hud-inset-right)");
+  });
+
   it("SOCIAL-SPLIT (#973): Chat, Guild and Friends, each with its count, Chat first; on the right below desktop, in the left column from it", async () => {
     const on = { onChat: vi.fn(), onGuild: vi.fn(), onFriends: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
@@ -256,7 +278,7 @@ describe("Home (#753): the village with its overlays", () => {
       expect(within(nav).getByRole("button", { name: /^Friends/ }).querySelector("[data-icon=users]")).not.toBeNull();
     }
     // Below `desktop`: on the right, centred in the band between the balances and Edit (the right column's from `desktop`).
-    expect(phone.className.split(" ")).toEqual(expect.arrayContaining(["desktop:hidden", "right-2", "top-(--right-top)", "bottom-(--right-bottom)", "justify-center-safe"]));
+    expect(phone.className.split(" ")).toEqual(expect.arrayContaining(["desktop:hidden", "right-(--hud-inset-right)", "top-(--right-top)", "bottom-(--right-bottom)", "justify-center-safe"]));
     expect(left.contains(phone)).toBe(false);
     // From `desktop`: the left column's last, under the score and the chips, centred in the room above the dial.
     expect(desktop.parentElement).toBe(left);

@@ -308,6 +308,12 @@ function leftColumnHint(el: HTMLDivElement) {
   };
 }
 
+/**
+ * HOME-HUD-PADDING: the balances' column moved by its art's margin, so its painted top and right edges sit where the profile's
+ * do, on the HUD's inset: up 4 px and right 1 px with the phone's plates (below `desktop`), 2 px each with the rail's (measured on their pixels).
+ */
+const BALANCES_NUDGE = "-mt-1 -mr-px desktop:-mt-0.5 desktop:-mr-0.5";
+
 /** The gap of both columns' buttons and of the bands' edges (#856), 12 px. */
 const GAP_PX = 12;
 
@@ -498,8 +504,11 @@ function ViewOverlays({
     // control's place takes them back (`pointer-events-auto`: the top row, the columns' children, the dial, the bottom row's children,
     // the phone's bar). HOME-BUTTONS (#856): the dial, Edit, Settings, Play and the bar had none since #910 and took no tap.
     <div ref={measures.box} data-slot="home-overlays" data-camera={camera || undefined} className="pointer-events-none absolute inset-0">
-      {/* Top: the profile at the left, the balances at the right. */}
-      <div className="absolute inset-x-0 top-0 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+      {/*
+        Top: the profile at the left, the balances at the right, both the HUD's inset (HOME-HUD-PADDING, `--hud-inset` in theme.css,
+        the notch's safe area added) off the screen's top and sides.
+      */}
+      <div className="absolute inset-x-0 top-0 pt-(--hud-inset-top) pr-(--hud-inset-right) pl-(--hud-inset-left)">
         <div className="relative flex items-start justify-between gap-2">
           <div
             ref={measures.profile}
@@ -513,7 +522,12 @@ function ViewOverlays({
             panel's page: one under the other at every width (HOME-UI-CAPSULES, the mockup's), the phone's plates below `desktop`, the larger ones from it.
             Out of the row's flow: only the profile's line stands beside them, so at 320 px the badge keeps its whole width.
           */}
-          <div ref={measures.balances} className="pointer-events-auto absolute top-0 right-0 flex items-start">
+          {/*
+            HOME-HUD-PADDING: their painted edge on the profile's (the card's outline, 1.5 px inside its box), not their box's: the
+            icons' art keeps a margin in its square and the phone's 44 px target centres the 40 px icon (2 px more at the top), so the
+            column moves up and right by the difference (`BALANCES_NUDGE`).
+          */}
+          <div ref={measures.balances} className={cn("pointer-events-auto absolute top-0 right-0 flex items-start", BALANCES_NUDGE)}>
             <div data-slot="home-phone-balances" className="relative desktop:hidden">
               <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" beside={BESIDE_LEAGUE} />
             </div>
@@ -531,7 +545,7 @@ function ViewOverlays({
         <SocialNav
           {...props}
           place="phone"
-          className="pointer-events-none absolute top-(--right-top) right-2 bottom-(--right-bottom) flex flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 tablet:right-4 desktop:hidden [&>*]:pointer-events-auto"
+          className="pointer-events-none absolute top-(--right-top) right-(--hud-inset-right) bottom-(--right-bottom) flex flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 desktop:hidden [&>*]:pointer-events-auto"
         />
         {/*
           The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the dial;
@@ -542,21 +556,21 @@ function ViewOverlays({
         <div
           ref={leftColumnHint}
           data-slot="scroll-region"
-          className="scroll-hint absolute top-(--left-top) right-20 bottom-(--left-bottom) left-0 flex flex-col items-start gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
+          className="scroll-hint absolute top-(--left-top) right-20 bottom-(--left-bottom) left-0 flex flex-col items-start gap-3 overflow-y-auto overscroll-contain pl-(--hud-inset-left) tablet:right-24 [&>*]:pointer-events-auto"
         >
           {leftColumn}
         </div>
 
         {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
         {props.seasonWheel && (
-          <div ref={measures.dial} data-dial-place className={cn("pointer-events-auto absolute left-2 tablet:left-4", ABOVE_BAR)}>
+          <div ref={measures.dial} data-dial-place className={cn("pointer-events-auto absolute left-(--hud-inset-left)", ABOVE_BAR)}>
             <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
               <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
             </Suspense>
           </div>
         )}
       </div>
-      <div ref={measures.actions} className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div ref={measures.actions} className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {/*
           The Camera mode's button (#875), Edit's size at its left; in the mode, Exit camera and the controls' hint, in the corner: Edit,
           Found, Settings and Play leave the row (`data-collapse`).

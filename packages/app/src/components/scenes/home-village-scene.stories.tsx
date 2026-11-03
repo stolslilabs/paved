@@ -21,7 +21,8 @@ import type { LayoutBoardView } from "../containers/layout-board";
 import { useLayoutCanvas } from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { CentreGuide, expectIconCentred } from "../../stories/centre-guide";
-import { PHONE_320, PHONE_375, TABLET_768, VIEWPORT_OPTIONS, WIDE_1440 } from "./viewports";
+import { HudInsetGuide, SimulatedNotch, expectHudInset } from "../../stories/hud-inset-guide";
+import { PHONE_320, PHONE_375, PHONE_SIDEWAYS, TABLET_768, VIEWPORT_OPTIONS, WIDE_1440 } from "./viewports";
 
 /**
  * Home (`/`, #753): the player's village full screen with Clash of Clans' overlays, and edit mode in the same scene. One story
@@ -158,6 +159,32 @@ export const OverlaysSocialTablet768: Story = { ...TABLET_768, args: SOCIAL_FULL
 export const OverlaysSocialWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL };
 /** The same with the chips (Resume, the spawn pause) on a short laptop: from `desktop` the social column stays under them. */
 export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...SOCIAL_FULL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
+/**
+ * HOME-HUD-PADDING (the owner's request of 2026-11-03): one inset at the top and on both sides (`--hud-inset` of theme.css: 8 px on a
+ * phone, 16 from `tablet`, the notch's safe area added), drawn as the red bands. The profile, the balances, the crowns' and the
+ * village's capsules, the social column, the dial and the bottom row stand on it, their painted edges on one line: at 320 and
+ * 375 px, at 1440, and on a notched phone (the safe area simulated on the tokens, as `env(safe-area-inset-*)` adds it).
+ */
+const INSET_GUIDE = (Story: () => React.JSX.Element) => (
+  <HudInsetGuide>
+    <Story />
+  </HudInsetGuide>
+);
+const NOTCHED = (top: number, side: number) => (Story: () => React.JSX.Element) => (
+  <SimulatedNotch top={top} side={side}>
+    <HudInsetGuide>
+      <Story />
+    </HudInsetGuide>
+  </SimulatedNotch>
+);
+const insetCheck = async ({ canvasElement }: { canvasElement: HTMLElement }) => expectHudInset(canvasElement);
+export const HudInsetPhone320: Story = { ...PHONE_320, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
+export const HudInsetPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
+export const HudInsetWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
+/** An iPhone's portrait notch (a 47 px safe area at the top): the inset grows by it at the top, the same for the profile and the balances. */
+export const HudInsetNotchPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL, decorators: [NOTCHED(47, 0)], play: insetCheck };
+/** The same phone sideways (47 px safe areas at the sides, none at the top): both sides grow by it. */
+export const HudInsetNotchSideways: Story = { ...PHONE_SIDEWAYS, args: SOCIAL_FULL, decorators: [NOTCHED(0, 47)], play: insetCheck };
 /** A Challenge game running: the Resume chip under the top row. */
 export const Resume: Story = { args: HOME_VILLAGE.resume };
 /** `spawn_paused`: its notice beside the Resume chip. */
