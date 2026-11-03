@@ -7,6 +7,8 @@ import { NEW_PLAYER, NEW_PLAYER_PROFILE } from "../../mocks/new-player";
 import { PROFILE } from "../../mocks/scenes";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import type { PlayerProgress } from "../elements/xp-ring";
+import { cn } from "../../lib/utils";
+import { HUD_INSET_BOX } from "../elements/hud-inset";
 import { PlayerBadge } from "./player-badge";
 import { ProfileProvider, type ProfileValue } from "./profile-context";
 import type { ProfileState } from "./profile-sheet";
@@ -23,9 +25,9 @@ const value = (state: ProfileState, progress: PlayerProgress | undefined, look: 
 });
 const profile = (state: ProfileState, progress?: PlayerProgress, look?: bigint | null) => ({ profile: value(state, progress, look) });
 
-/** The home's top left, over the village's sky: where the card sits (#787). */
+/** The home's top left, over the village's sky: where the card sits (#787), off the screen's top and left by the HUD's inset (HOME-HUD-PADDING). */
 function Corner({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-40 bg-gradient-to-b from-background/40 to-board p-2 tablet:p-4">{children}</div>;
+  return <div className={cn("min-h-40 bg-gradient-to-b from-background/40 to-board pb-(--hud-inset)", HUD_INSET_BOX)}>{children}</div>;
 }
 
 /**
@@ -90,6 +92,8 @@ const LEVEL_UPS = Array.from({ length: 6 }, (_, k) => {
 const meta = {
   title: "Containers/PlayerBadge",
   component: PlayerBadge,
+  // At the screen's edge, as on the home: the corner's own inset is the HUD's.
+  parameters: { layout: "fullscreen" },
   args: { league: { crowns: 1_240, attacks: 4 } },
   render: (args) => (
     <Corner>

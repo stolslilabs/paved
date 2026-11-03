@@ -182,6 +182,18 @@
     --header-h: 4rem;
   }
 }
+/* HOME-HUD-PADDING: the home HUD's one inset, top and sides, for everything pinned to an edge (the profile, the balances, the
+   capsules' column, the social column, the dial, the bottom row): the spacing scale's 2 (8 px) on a phone, its 4 (16 px) from
+   `tablet`. The notch's safe area is added to it here, per edge, never by an element. */
+:root {
+  --hud-inset: calc(var(--spacing) * 2);
+  @media (width >= 40rem) {
+    --hud-inset: calc(var(--spacing) * 4);
+  }
+  --hud-inset-top: calc(var(--hud-inset) + env(safe-area-inset-top));
+  --hud-inset-left: calc(var(--hud-inset) + env(safe-area-inset-left));
+  --hud-inset-right: calc(var(--hud-inset) + env(safe-area-inset-right));
+}
 /* A page in the side panel (#762) is laid out as on a phone: the phone's header height. */
 [data-page-panel] {
   --header-h: 3.5rem;

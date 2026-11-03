@@ -3,6 +3,7 @@ import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
 import type { BoardWheel } from "../../data/board-settings";
 import { cn } from "../../lib/utils";
+import { HUD_CAPSULES_NUDGE, HUD_INSET_BOX, HUD_PLATES_NUDGE } from "../elements/hud-inset";
 import { Countdown } from "../elements/countdown";
 import { GameIcon } from "../elements/game-icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
@@ -435,7 +436,7 @@ function ViewOverlays({
         shield's while shielded, stretched to one width, the widest's, and close (their 44 px targets 4 px apart). The group lets taps
         through between them.
       */}
-      <div ref={measures.capsules} data-slot="home-capsules" data-over-drawer className="relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto">
+      <div ref={measures.capsules} data-slot="home-capsules" data-over-drawer className={cn("relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto", HUD_CAPSULES_NUDGE)}>
         <Suspense fallback={LEAGUE_STAND_IN}>
           <LazyLeagueControl crowns={props.league?.crowns} attacks={props.league?.attacks} onLeague={props.onLeague} />
         </Suspense>
@@ -501,8 +502,11 @@ function ViewOverlays({
     // control's place takes them back (`pointer-events-auto`: the top row, the columns' children, the dial, the bottom row's children,
     // the phone's bar). HOME-BUTTONS (#856): the dial, Edit, Settings, Play and the bar had none since #910 and took no tap.
     <div ref={measures.box} data-slot="home-overlays" data-camera={camera || undefined} className="pointer-events-none absolute inset-0">
-      {/* Top: the profile at the left, the balances at the right (over a HUD drawer's veil while one is open, `data-over-drawer`). */}
-      <div data-over-drawer className="absolute inset-x-0 top-0 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+      {/*
+        Top: the profile at the left, the balances at the right, both the HUD's inset (HOME-HUD-PADDING, `--hud-inset` in theme.css,
+        the notch's safe area added) off the screen's top and sides; over a HUD drawer's veil while one is open (`data-over-drawer`).
+      */}
+      <div data-over-drawer className={cn("absolute inset-x-0 top-0", HUD_INSET_BOX)}>
         <div className="relative flex items-start justify-between gap-2">
           <div
             ref={measures.profile}
@@ -517,7 +521,8 @@ function ViewOverlays({
             Out of the row's flow: only the profile's line stands beside them, so at 320 px the badge keeps its whole width.
           */}
           <div ref={measures.balances} className="pointer-events-auto absolute top-0 right-0 flex items-start">
-            <div data-slot="home-phone-balances" className="relative desktop:hidden">
+            {/* HOME-HUD-PADDING: the phone's plates on the profile's painted edge (`HUD_PLATES_NUDGE`); Connect keeps the plain inset. */}
+            <div data-slot="home-phone-balances" className={cn("relative desktop:hidden", HUD_PLATES_NUDGE)}>
               <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" beside={BESIDE_LEAGUE} />
             </div>
             <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />
@@ -534,7 +539,7 @@ function ViewOverlays({
         <SocialNav
           {...props}
           place="phone"
-          className="pointer-events-none absolute top-(--right-top) right-2 bottom-(--right-bottom) flex flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 tablet:right-4 desktop:hidden [&>*]:pointer-events-auto"
+          className="pointer-events-none absolute top-(--right-top) right-(--hud-inset-right) bottom-(--right-bottom) flex flex-col flex-wrap-reverse content-start items-center justify-center-safe gap-3 desktop:hidden [&>*]:pointer-events-auto"
         />
         {/*
           The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the dial;
@@ -546,21 +551,21 @@ function ViewOverlays({
         <div
           ref={leftColumnHint}
           data-slot="scroll-region"
-          className="scroll-hint absolute top-(--left-top) right-20 bottom-(--left-bottom) left-0 flex flex-col items-start gap-3 overflow-y-auto overscroll-contain pl-2 tablet:right-24 tablet:pl-4 [&>*]:pointer-events-auto"
+          className="scroll-hint absolute top-(--left-top) right-20 bottom-(--left-bottom) left-0 flex flex-col items-start gap-3 overflow-y-auto overscroll-contain pl-(--hud-inset-left) tablet:right-24 [&>*]:pointer-events-auto"
         >
           {leftColumn}
         </div>
 
         {/* The bottom: the season dial at the left, Found or Edit and Play at the right. */}
         {props.seasonWheel && (
-          <div ref={measures.dial} data-dial-place className={cn("pointer-events-auto absolute left-2 tablet:left-4", ABOVE_BAR)}>
+          <div ref={measures.dial} data-dial-place className={cn("pointer-events-auto absolute left-(--hud-inset-left)", ABOVE_BAR)}>
             <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
               <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
             </Suspense>
           </div>
         )}
       </div>
-      <div ref={measures.actions} className={cn("absolute right-2 flex items-end gap-2 tablet:right-4 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div ref={measures.actions} className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {/*
           The Camera mode's button (#875), Edit's size at its left; in the mode, Exit camera and the controls' hint, in the corner: Edit,
           Found, Settings and Play leave the row (`data-collapse`).
