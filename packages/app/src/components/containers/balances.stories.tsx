@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { cn } from "../../lib/utils";
+import { HUD_INSET_BOX, HUD_PLATES_NUDGE } from "../elements/hud-inset";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
@@ -73,13 +74,16 @@ const STEPS: readonly Ready[] = [
 
 /**
  * The home's top right (#828), as the home lays it out: its own balances (#855: the Cobbles, PAVED, vPAVED while held; no USDC)
- * one under the other, right-aligned, at every width: the phone's plates below `desktop`, the larger ones from it.
+ * one under the other, right-aligned, at every width: the phone's plates below `desktop`, the larger ones from it. HOME-HUD-PADDING:
+ * off the top and right by the HUD's inset, the phone's plates moved onto the profile's painted edge, as on the home.
  */
 function HomeCorner({ state, onAction, onConnect, onRetry, faucet }: InProps) {
   return (
     <BalancesProvider value={{ state, onAction, onConnect, onRetry, faucet }}>
-      <div className="flex min-h-dvh justify-end bg-background p-2 text-foreground tablet:p-4">
-        <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" className="desktop:hidden" />
+      <div className={cn("flex min-h-dvh items-start justify-end bg-background text-foreground", HUD_INSET_BOX)}>
+        <div className={cn("desktop:hidden", HUD_PLATES_NUDGE)}>
+          <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" />
+        </div>
         <BalancesSlot layout="rail" kinds={HOME_BALANCES} direction="column" className="hidden desktop:flex" />
       </div>
     </BalancesProvider>
@@ -165,6 +169,8 @@ export const Stack1440: Story = { ...corner(CONNECTED), ...WIDE_1440 };
 /** A Vault holder at 1440 px: vPAVED joins the stack. */
 export const StackHolder1440: Story = { ...corner(HOLDER), ...WIDE_1440 };
 export const StackLoading1440: Story = { ...corner({ status: "loading" }), ...WIDE_1440 };
+/** Disconnected at 375 px: Connect in the corner, on the HUD's inset itself (no plates, so no nudge). */
+export const StackGuest375: Story = { ...corner({ status: "disconnected" }), ...PHONE_375, parameters: { ...PHONE_375.parameters, layout: "fullscreen" } };
 /** A Vault holder at 375 px: vPAVED joins the stack on a phone too. */
 export const StackHolder375: Story = { ...corner(HOLDER), ...PHONE_375, parameters: { ...PHONE_375.parameters, layout: "fullscreen" } };
 /** The widest amounts in the stack at 320 px. */
