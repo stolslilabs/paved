@@ -265,13 +265,16 @@ const LEAGUE_STAND_IN = <span aria-hidden className="block h-11" />;
 /** The sky while the stage's chunk arrives (the stage draws its own while the village is read). */
 const SKY = <div aria-hidden className="min-h-0 flex-1 bg-gradient-to-b from-background/40 to-board" />;
 
-/** The bottom overlays' place: 8 px above the bar below `desktop` (its height, measured before the first paint), the scene's foot from it. */
+/**
+ * The bottom overlays' place: 8 px above the dock below `desktop` (its height, measured before the first paint); from it, the scene's
+ * foot, beside the dock, centred and 34 rem wide (HOME-DOCK).
+ */
 const ABOVE_BAR = "bottom-[calc(var(--app-nav-h)+0.5rem)] desktop:bottom-4";
 
 /**
- * The home's bar below `desktop` (#763), fixed at the viewport's bottom, its height on the scene (`--app-nav-h`) for the bottom
- * overlays. While the bar's chunk loads, a stand-in of its box (`AppNav`'s sizes below `desktop`) holds its place, so nothing
- * above it moves when it comes.
+ * The home's dock (#763; HOME-DOCK, the owner's asks of 2026-11-03: at every width, centred from `tablet`), fixed at the viewport's
+ * bottom, its height on the scene (`--app-nav-h`) for the bottom overlays. While the dock's chunk loads, a stand-in of its box
+ * (`AppNav`'s sizes) holds its place, so nothing above it moves when it comes. The band across the screen takes no tap: only the dock.
  */
 function HomeBar({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -283,10 +286,10 @@ function HomeBar({ children }: { children: ReactNode }) {
     resize.observe(el);
     return () => resize.disconnect();
   }, []);
-  // The bar's box: its items' height, its padding and its top border; empty, so nothing for assistive technology.
-  const standIn = <div className="box-content h-11 border-t bg-background/95 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] mobile:h-13" />;
+  // The dock's box: its items' height and its padding; empty, so nothing for assistive technology.
+  const standIn = <div className="box-content h-12 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] mobile:h-15 tablet:mx-auto tablet:max-w-[34rem]" />;
   return (
-    <div ref={ref} data-fade className="pointer-events-auto fixed inset-x-0 bottom-0 z-20 desktop:hidden">
+    <div ref={ref} data-fade className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
@@ -371,10 +374,9 @@ export const HOME_BALANCES: readonly ShownBalance[] = ["cobbles", "paved", "vpav
 const BESIDE_LEAGUE = ["[data-slot=home-overlays]", "[data-slot=league-control]"] as const;
 
 /**
- * The right column, from `desktop` only, over Play, centred vertically in its band (#856): Missions, Chests, Shop and Vault, with
- * no League (#856: the League control on the left is the way in). On a short window its buttons wrap into a second column, to the
- * left, instead of running under Play. Below `desktop` there is none (#929): Chests and Shop are the bar's (#763), Missions and
- * Vault the left column's.
+ * The right column, from `desktop` only, centred vertically in its band (#856): Missions and Vault (Chests and Shop are the dock's
+ * since HOME-DOCK, as below `desktop`, #763), with no League (#856: the League control on the left is the way in). On a short window
+ * its buttons wrap into a second column, to the left. Below `desktop` there is none (#929): Missions and Vault are the left column's.
  */
 function VillageNav(props: HomeVillageSceneProps) {
   return (
@@ -386,16 +388,14 @@ function VillageNav(props: HomeVillageSceneProps) {
       )}
     >
       <OverlayButton icon="scroll" label="Missions" badge={props.missions} onClick={props.onMissions} />
-      <OverlayButton icon="treasure-chest" label="Chests" badge={props.chests} onClick={props.onChests} />
-      <OverlayButton icon="store" label="Shop" onClick={props.onShop} />
       <OverlayButton icon="piggy-bank" label="Vault" onClick={props.onVault} />
     </nav>
   );
 }
 
 /**
- * SOCIAL-SPLIT (#973, open point 1's default): Chat, Guild and Friends, one under the other, each with its own count, Chat first so
- * it is the one in the foreground. Below `desktop`, a column on the right, centred in the room between the balances and Edit (the
+ * SOCIAL-SPLIT (#973, open point 1's default): Chat and Friends (Guild is the dock's since HOME-DOCK), one under the other, each with
+ * its own count, Chat first so it is the one in the foreground. Below `desktop`, a column on the right, centred in the room between the balances and Edit (the
  * right column's band, free since #929); from it, in the left column, under the village score and the chips, centred in the room
  * above the season dial (Clash of Clans keeps its chat on that side). One list, placed by the width: `place` names which.
  */
@@ -403,7 +403,6 @@ function SocialNav({ place, className, ...props }: HomeVillageSceneProps & { pla
   return (
     <nav aria-label="Social" data-social-place={place} className={className}>
       <OverlayButton icon="comments" label="Chat" badge={props.chat} onClick={props.onChat} />
-      <OverlayButton icon="shield-halved" label="Guild" badge={props.guild} onClick={props.onGuild} />
       <OverlayButton icon="users" label="Friends" badge={props.friends} onClick={props.onFriends} />
     </nav>
   );
@@ -586,22 +585,10 @@ function ViewOverlays({
             </Button>
           )
         )}
-        {/*
-          From `desktop` (below it both are the bar's, #763): Settings above Play, right-aligned, Edit's size (#856); Play, the main
-          action (#755, #807), the two swords, no text, gold and large.
-        */}
-        <div data-collapse className="hidden flex-col items-end gap-3 desktop:flex">
-          <Button size="icon" variant="outline" onClick={props.onSettings} aria-label="Settings" className="size-14 rounded-full bg-card/90 shadow-lg backdrop-blur">
-            <GameIcon name="gear" size="lg" />
-          </Button>
-          <Button size="icon" onClick={props.onPlay} aria-label="Play" className="size-16 rounded-2xl shadow-lg tablet:size-18">
-            <GameIcon name="swords" size="xl" />
-          </Button>
-        </div>
       </div>
-      {/* The app's bar below `desktop` (#763): its height on the scene (`--app-nav-h`), which the bottom overlays clear. */}
+      {/* The dock (#763, HOME-DOCK): its height on the scene (`--app-nav-h`), which the bottom overlays clear below `desktop`. */}
       <HomeBar>
-        <LazyAppNav active={null} badges={{ chests: props.chests }} onNavigate={props.onNavigate} className="relative" />
+        <LazyAppNav active={null} badges={{ chests: props.chests, guild: props.guild }} onNavigate={props.onNavigate} className="relative" />
       </HomeBar>
     </div>
   );

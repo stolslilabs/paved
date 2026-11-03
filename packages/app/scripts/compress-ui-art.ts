@@ -17,7 +17,9 @@
  * dock's ribbon and divider, the PLAY medallion, the season dial's frame and the game modes' icons left on 2026-11-02, unused once the
  * owner kept the app's layout; the player card's frame (`card-frame`) on 2026-11-03, the HUD's frame being CSS since. The profile
  * drawer's four (Avatar, Collection, Invite, Disconnect, 2026-11-02) were redrawn one by one from crops of the profile's mockup, on a
- * flat magenta keyed out by script, then put on the same frame. Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
+ * flat magenta keyed out by script, then put on the same frame. The dock's ribbon and divider came back from the git history on
+ * 2026-11-03 (HOME-DOCK), and its medallion was redrawn plain from the old one (its swords removed, on a flat magenta keyed out by
+ * script). Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

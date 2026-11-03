@@ -300,6 +300,8 @@
   /* The HUD's drawer's raised surfaces (PROFILE-DRAWER, direction C of 2026-11-03): a step over its charcoal-800 face, lit along their top. */
   --drawer-raised: var(--color-charcoal-700);
   --drawer-bevel: var(--color-charcoal-500);
+  /* The dock's ink (HOME-DOCK): the ribbon's wood, under the current item (a shade on the parchment, where white would not show). */
+  --dock-ink: #5b3415;
   --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
   --league-iron: var(--color-amber-500);
   --league-bronze: var(--color-charcoal-300);
@@ -386,6 +388,7 @@
   --color-sky-search-bottom: var(--sky-search-bottom);
   --color-crown: var(--crown);
   --color-hud-card: var(--hud-card);
+  --color-dock-ink: var(--dock-ink);
   --color-xp-light: var(--xp-light);
   --color-league-iron: var(--league-iron);
   --color-league-bronze: var(--league-bronze);
@@ -687,6 +690,19 @@ body:has([data-hud-drawer][data-side="bottom"]) {
 }
 
 /* Light text on the player badge's art (its name, its level): a dark outline, the background's colour a pixel each way, and a soft drop. */
+/*
+ * HOME-DOCK: the footer's ribbon, a 9-slice of its painted image (its copies the border image's source, set by `AppNav`): the rails
+ * and the wooden ends kept at the master's proportions (`DOCK_RIBBON_SLICE`, ui-art.ts: 44, 72 and 52 px of its 258 at 3/11 rem a
+ * px), the parchment stretched, which suits it: no grain on it.
+ */
+@utility dock-ribbon {
+  border-style: solid;
+  border-width: 0.75rem 1.25rem 0.875rem;
+  border-image-slice: 44 72 52 fill;
+  border-image-width: 0.75rem 1.25rem 0.875rem;
+  border-image-repeat: stretch;
+}
+
 @utility text-outline {
   text-shadow: 1px 0 var(--background), -1px 0 var(--background), 0 1px var(--background), 0 -1px var(--background), 0 2px 3px var(--background);
 }

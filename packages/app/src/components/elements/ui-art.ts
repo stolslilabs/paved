@@ -1,9 +1,10 @@
 /**
  * The HUD's images (the owner's mobile direction of 2026-11-01, `docs/design/home.webp`, after Supercell's games): the icons of the
  * home's buttons, of the dock, of the seasons and of the Play sheet, the profile drawer's actions (Avatar, Collection, Invite,
- * Disconnect, after its mockup of 2026-11-02), and the frames the home draws with them: the XP bar's track and fill. The owner kept the
- * app's layout (2026-11-02), so the dock's ribbon, the PLAY medallion, the season dial's frame, the dock's divider and the game modes'
- * icons went unused and were removed; the HUD's frame (the player card's, the capsules') is CSS since HUD-FRAME-CSS (`hud-frame.tsx`),
+ * Disconnect, after its mockup of 2026-11-02), and the frames the home draws with them: the XP bar's track and fill, and the dock's
+ * ribbon, divider and PLAY medallion (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width; the ribbon and the
+ * divider back from the git history, the medallion redrawn plain: the swords and PLAY are the app's). The season dial's frame and the
+ * game modes' icons went unused and were removed; the HUD's frame (the player card's, the capsules') is CSS since HUD-FRAME-CSS (`hud-frame.tsx`),
  * its painted 9-slice (`card-frame`) left on 2026-11-03. Panels, capsules, buttons, badges and bars are CSS; the league's art is
  * `league-standards.ts`; the currencies stay `token-art.ts` and the chests `chest-art.ts`. Images, not drawings: WebP copies in
  * `public/ui-art/` of the masters in `ui-sources/` (`scripts/compress-ui-art.ts`). URLs and measures only: nothing here imports an
@@ -49,7 +50,7 @@ export const UI_ICONS = [
 export type UiIconName = (typeof UI_ICONS)[number];
 
 /** The frames, each an image of its own. */
-export const UI_FRAMES = ["xp-track", "xp-fill"] as const;
+export const UI_FRAMES = ["dock-ribbon", "play-medallion", "dock-divider", "xp-track", "xp-fill"] as const;
 export type UiFrameName = (typeof UI_FRAMES)[number];
 
 interface Frame {
@@ -64,11 +65,23 @@ interface Frame {
 /** The icons' frame: 256 px, copies for a 32 px icon on a 2x screen to a 64 px one on a 2x screen. */
 export const ICON_FRAME: Frame = { width: 256, height: 256, side: "width", sizes: [64, 128] };
 
-/** The frames' masters. */
+/**
+ * The frames' masters. The ribbon is a 9-slice image (`DOCK_RIBBON_SLICE`): its wooden ends and rails kept, its parchment stretched;
+ * the medallion is plain (the swords and PLAY are drawn over it); the divider is a thin wooden post.
+ */
 export const FRAME_ART = {
+  "dock-ribbon": { width: 1440, height: 258, side: "width", sizes: [720, 1440] },
+  "play-medallion": { width: 512, height: 512, side: "width", sizes: [128, 256] },
+  "dock-divider": { width: 25, height: 128, side: "height", sizes: [128] },
   "xp-track": { width: 1464, height: 181, side: "width", sizes: [360, 720] },
   "xp-fill": { width: 1466, height: 119, side: "width", sizes: [360, 720] },
 } as const satisfies Record<UiFrameName, Frame>;
+
+/**
+ * The ribbon's 9-slice, in the master's pixels (measured on it): the top rail 44, the wooden ends 72, the bottom rail 52; the middle,
+ * the parchment, stretched (`dock-ribbon`, theme.css).
+ */
+export const DOCK_RIBBON_SLICE = { top: 44, side: 72, bottom: 52 } as const;
 
 /** The XP bar's track (outline, silver bevel, dark recess): its rounded ends kept whole; its height is its two halves. */
 export const XP_TRACK_SLICE = { x: 72 / 1464 } as const;
