@@ -102,7 +102,7 @@ function WithLeague({ league, playerId, children }: { league: PlayerLeague | nul
 const PORTRAIT_INSET = { inset: `${((1 - RIM_PORTRAIT) / 2) * 100}%` };
 
 /**
- * The avatar in the rim of the player's league with its crest at its lower left (the player card's, larger: 96 px, the crest placed alike); no league known,
+ * The avatar in the rim of the player's league with its crest at its lower left (the player card's, larger: 112 px, the crest placed alike); no league known,
  * a plain grey ring round the same hole.
  */
 function ProfileRim({ league, children }: { league: PlayerLeague | null; children: ReactNode }) {
@@ -276,7 +276,7 @@ export function ProfileSheet({
           {(shown) => (
             <>
               <div data-slot="profile-identity" className="flex items-center gap-3">
-                <span className="text-[6rem]">
+                <span className="text-[7rem]">
                   <ProfileRim league={shown}>{portrait}</ProfileRim>
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
@@ -353,7 +353,7 @@ export function ProfileSheet({
         </WithLeague>
       ) : (
         <div data-slot="profile-identity" className="flex flex-col items-center gap-3 text-center">
-          <span className="text-[6rem]">
+          <span className="text-[7rem]">
             <ProfileRim league={null}>{portrait}</ProfileRim>
           </span>
           <span className="text-outline text-xl font-black">{state.status === "guest" ? "Playing as a guest" : "Looking for your account…"}</span>

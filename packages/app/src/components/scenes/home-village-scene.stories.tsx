@@ -5,6 +5,7 @@ import type { GameScene } from "@paved/renderer";
 import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { SAVED_LOOK } from "../../mocks/avatar";
 import { PLAYER_STATUS, PROFILE } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
@@ -55,10 +56,12 @@ const meta = {
     onDismissRefusal: fn(),
   },
   decorators: [
-    (Story, { args }) => (
+    // `parameters.look`: the avatar the player saved (the home's badge draws it living); none, their initial.
+    (Story, { args, parameters }) => (
       <ProfileProvider
         value={{
           state: args.guest ? { status: "guest" } : { status: "connected", data: PLAYER_STATUS },
+          look: (parameters.look as bigint | undefined) ?? null,
           progress: PROGRESS.partWay,
           league: { crowns: 1_172, league: 5, unranked: false },
           follows: { followers: 12, followed: 9 },
@@ -467,8 +470,15 @@ function InScene({ held, ...args }: HomeVillageSceneProps & { held?: boolean }) 
   );
 }
 
-/** The village in the game scene (the fog, the weather, the day and night, the dial), in view, shielded: every capsule of the HUD. */
-export const Scene: Story = { args: { ...HOME_VILLAGE.view, shieldEndsAt: HOME_VILLAGE.shielded.shieldEndsAt }, render: (args) => <InScene {...args} /> };
+/**
+ * The village in the game scene (the fog, the weather, the day and night, the dial), in view, shielded: every capsule of the HUD; the
+ * player's saved avatar living in the badge.
+ */
+export const Scene: Story = {
+  args: { ...HOME_VILLAGE.view, shieldEndsAt: HOME_VILLAGE.shielded.shieldEndsAt },
+  parameters: { look: SAVED_LOOK },
+  render: (args) => <InScene {...args} />,
+};
 /** The same scene in edit mode: the overlays switched to the editor's, the scene's box what the panel leaves. */
 export const SceneEditing: Story = { args: HOME_VILLAGE.holding, render: (args) => <InScene {...args} /> };
 /** A road placed on the scene (#756): the bubble by the tile, following pans, zooms and the compass, clear of the bar and the panel. */
