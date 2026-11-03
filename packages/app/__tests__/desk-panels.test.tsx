@@ -91,23 +91,27 @@ describe("the route map (#762)", () => {
 describe("from desktop, the overlay's pages open in the side panel over the village (#762)", () => {
   beforeEach(() => media(true));
 
-  it("the overlay's column holds Missions, Chests, Shop and Vault, no League (#856, #973), with the gear and Play; the phone's bar is hidden there", async () => {
+  it("the overlay's column holds Missions and Vault, no League (#856, #973); the dock has Shop, Chests, Play, Guild and Settings (HOME-DOCK)", async () => {
     open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Missions", "Chests", "Shop", "Vault"]);
-    expect(screen.getAllByRole("button", { name: "Play" }).filter((b) => !b.closest("nav"))).toHaveLength(1);
-    // No bar from `desktop` (#763's is below it only); jsdom applies no media query, so its class tells.
-    expect((await screen.findByRole("navigation", { name: "Main" })).parentElement).toHaveClass("desktop:hidden");
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Missions", "Vault"]);
+    // Play is the dock's alone, and the dock shows from `desktop` too; jsdom applies no media query, so its classes tell.
+    expect(screen.getAllByRole("button", { name: "Play" }).filter((b) => !b.closest("nav"))).toHaveLength(0);
+    const dock = await screen.findByRole("navigation", { name: "Main" });
+    expect(dock.parentElement).not.toHaveClass("desktop:hidden");
+    expect(within(dock).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Shop", "Chests", "Play", "Guild", "Settings"]);
   });
 
   it.each([
-    ["Missions", "/missions", "Missions", "right"],
-    ["Chests", "/village/chests", "Chests", "right"],
-    ["Shop", "/village/shop", "Tile shop", "right"],
-    ["Vault", "/vault", "Vault", "right"],
-  ] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, path, title, side) => {
+    ["Missions", "Village", "/missions", "Missions", "right"],
+    ["Chests", "Main", "/village/chests", "Chests", "right"],
+    ["Shop", "Main", "/village/shop", "Tile shop", "right"],
+    ["Guild", "Main", "/guild", "Guild", "right"],
+    ["Vault", "Village", "/vault", "Vault", "right"],
+  ] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, from, path, title, side) => {
     const router = open("/");
-    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    // The overlay's column (Missions, Vault) or the dock (HOME-DOCK: Chests, Shop, Guild).
+    const column = await screen.findByRole("navigation", { name: from }, { timeout: slow(5000) });
     await userEvent.click(within(column).getByRole("button", { name: new RegExp(`^${button}`) }));
     const dialog = await panel(title);
     expect(router.state.location.pathname).toBe(path);
@@ -127,17 +131,17 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     expect(dialog).toHaveAttribute("data-side", "left");
   });
 
-  it("the gear opens Settings in the panel, and Play its mode choice", async () => {
+  it("the dock's Settings opens Settings in the panel, and its Play the mode choice (HOME-DOCK)", async () => {
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    await userEvent.click(screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav"))!);
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Settings" }));
     await panel("Settings");
     expect(router.state.location.pathname).toBe("/settings");
     await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     // The village takes the pointer and assistive technology back once the panel has slid out.
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
-    await userEvent.click(screen.getAllByRole("button", { name: "Play" }).find((b) => !b.closest("nav"))!);
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Play" }));
     const play = await panel("Play");
     expect(await within(play).findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/play");
@@ -194,7 +198,7 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
   it("the themes open in a sheet over Settings' panel (BACK-RULE #783): its close goes back to Settings, the panel's to the village", async () => {
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    await userEvent.click(screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav"))!);
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Settings" }));
     await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) })));
     const themes = await panel("Themes");
     expect(router.state.location.pathname).toBe("/settings/theme");
@@ -214,7 +218,7 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
   it("a sheet reopened by Forward closes back to Settings, and the panel to the home's entry: Back then never reopens it", async () => {
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    await userEvent.click(screen.getAllByRole("button", { name: "Settings" }).find((b) => !b.closest("nav"))!);
+    await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Settings" }));
     await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) }));
     await panel("Themes");
     await act(() => router.navigate(-2));

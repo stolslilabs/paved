@@ -184,7 +184,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     ["Shop", "/village/shop"],
     [/^Missions/, "/missions"],
     ["Vault", "/vault"],
-    ["League", "/pvp/league"],
+    [/^Guild/, "/guild"],
     [/^League: /, "/pvp/league"],
     ["Settings", "/settings"],
     [/^Play/, "/play"],
@@ -195,7 +195,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     // the home, once at a time, until the page opens.
     await waitFor(() => {
       if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
-        // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
+        // The overlay's column, else the dock (#763, HOME-DOCK: Chests, Shop, Play, Guild and Settings are the dock's).
         const column = screen.queryByRole("navigation", { name: "Village" });
         const bar = screen.queryByRole("navigation", { name: "Main" });
         fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
@@ -214,7 +214,8 @@ describe("/: the player's village is the home (#753), on the mock", () => {
   it.each([
     [/^Chests/, "/village/chests"],
     ["Shop", "/village/shop"],
-    ["League", "/pvp/league"],
+    [/^Guild/, "/guild"],
+    [/^League: /, "/pvp/league"],
     [/^Play/, "/play"],
     [/^Missions/, "/missions"],
     ["Vault", "/vault"],
@@ -224,7 +225,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
     await waitFor(() => {
       if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
-        // The overlay's column, else the phone's bar (#763: Settings and Play are the bar's below `desktop`).
+        // The overlay's column, else the dock (#763, HOME-DOCK: Chests, Shop, Play, Guild and Settings are the dock's).
         const column = screen.queryByRole("navigation", { name: "Village" });
         const bar = screen.queryByRole("navigation", { name: "Main" });
         fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
@@ -340,14 +341,10 @@ describe("/village/chests", () => {
   }, slow(30_000));
 });
 
-/** The home's Chests in the overlay's column, and in the phone's bar (#763), which carries the same count. */
+/** The home's Chests: the dock's (#763, HOME-DOCK), which carries the count. */
 async function homeChests(name: string) {
-  const column = await screen.findByRole("navigation", { name: "Village" }, WAIT);
   const bar = await screen.findByRole("navigation", { name: "Main" }, WAIT);
-  return waitFor(() => {
-    expect(within(bar).getByRole("button", { name: /^Chests/ })).toHaveAccessibleName(name);
-    return within(column).getByRole("button", { name });
-  }, WAIT);
+  return waitFor(() => within(bar).getByRole("button", { name }), WAIT);
 }
 
 describe("the home's Chests badge (#759)", () => {

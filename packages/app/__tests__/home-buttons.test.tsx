@@ -27,27 +27,19 @@ function pointerEvents(el: Element): "auto" | "none" {
 const DIAL = { seasonWheel: { state: "summer" as const, onNext: vi.fn(), read: null } };
 
 describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
-  it("clicks Play, Settings and Edit at the bottom right, and the phone bar's items", async () => {
+  it("clicks Edit at the bottom right, and the dock's items (Play and Settings the dock's at every width, HOME-DOCK)", async () => {
     const user = userEvent.setup();
-    const onPlay = vi.fn();
-    const onSettings = vi.fn();
     const onEditingChange = vi.fn();
     const onNavigate = vi.fn();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} onPlay={onPlay} onSettings={onSettings} onEditingChange={onEditingChange} onNavigate={onNavigate} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} onEditingChange={onEditingChange} onNavigate={onNavigate} />));
     const box = document.querySelector("[data-slot=home-overlays]") as HTMLElement;
     const edit = await within(box).findByRole("button", { name: "Edit village" });
-    const row = edit.parentElement!;
 
-    for (const name of ["Play", "Settings"]) expect(pointerEvents(within(row).getByRole("button", { name }))).toBe("auto");
     expect(pointerEvents(edit)).toBe("auto");
-    await user.click(within(row).getByRole("button", { name: "Play" }));
-    await user.click(within(row).getByRole("button", { name: "Settings" }));
     await user.click(edit);
-    expect(onPlay).toHaveBeenCalledOnce();
-    expect(onSettings).toHaveBeenCalledOnce();
     expect(onEditingChange).toHaveBeenCalledWith(true);
 
-    // The phone's bar (below `desktop`, #763): its own Play and Settings.
+    // The dock (#763, HOME-DOCK): Play and Settings; its band across the screen passes taps through, the dock takes them.
     const bar = await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
     for (const item of within(bar).getAllByRole("button")) expect(pointerEvents(item)).toBe("auto");
     await user.click(within(bar).getByRole("button", { name: "Play" }));
@@ -62,7 +54,7 @@ describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
     await within(box).findByRole("button", { name: /^Season/ }, { timeout: slow(5000) });
     await within(box).findByRole("button", { name: /^League: / }, { timeout: slow(5000) });
     const controls = within(box).getAllByRole("button");
-    // The profile, the balances, the columns, the dial, Edit, Settings, Play and the bar's five.
+    // The profile, the balances, the columns, the dial, Edit and the dock's five.
     expect(controls.length).toBeGreaterThanOrEqual(14);
     const blocked = controls.filter((el) => pointerEvents(el) === "none").map((el) => el.getAttribute("aria-label") ?? el.textContent);
     expect(blocked).toEqual([]);

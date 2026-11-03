@@ -10,9 +10,9 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
     expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length);
     expect(problems()).toEqual([]);
-    // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (measured 460 KiB for the 71 copies; a screen loads a few), two copies an
-    // image since the unused ribbon, medallion, dial frame, divider and mode icons went (2026-11-02).
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length);
+    // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image, but the dock's divider, one
+    // (HOME-DOCK: a post a few px wide, its 128 px copy serves every density).
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length - 1);
     const total = expected().reduce((sum, f) => sum + statSync(join(OUT, f)).size, 0);
     expect(total).toBeLessThan(400 * 1024);
   });
@@ -20,8 +20,10 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
   it("puts every icon on one square frame, so any one swaps for another", () => {
     expect(ICON_FRAME).toMatchObject({ width: 256, height: 256 });
     expect(new Set(UI_ICONS).size).toBe(UI_ICONS.length);
-    // The frames keep their own shapes: the XP bar's track and fill, both wide.
-    for (const name of UI_FRAMES) expect(FRAME_ART[name].width, name).toBeGreaterThan(FRAME_ART[name].height * 3);
+    // The frames keep their own shapes: the dock's ribbon and the XP bar's track and fill wide, the medallion round, the divider a post.
+    for (const name of ["dock-ribbon", "xp-track", "xp-fill"] as const) expect(FRAME_ART[name].width, name).toBeGreaterThan(FRAME_ART[name].height * 3);
+    expect(FRAME_ART["play-medallion"].width).toBe(FRAME_ART["play-medallion"].height);
+    expect(FRAME_ART["dock-divider"].height).toBeGreaterThan(FRAME_ART["dock-divider"].width * 3);
   });
 
   it("points an image at the smallest copy that stays sharp for the size shown", () => {

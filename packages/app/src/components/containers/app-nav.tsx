@@ -10,12 +10,13 @@ import { UiIcon } from "../elements/ui-icon";
  * the route map's: the bar's chunk stays apart from the route map's (the home loads it lazily). Play (#623) is the main action, in
  * the dock's centre: the PLAY medallion.
  */
-export const NAV_TABS: readonly { id: Tab; label: string; icon: UiIconName }[] = [
-  { id: "shop", label: "Shop", icon: "shop" },
-  { id: "chests", label: "Chests", icon: "chests" },
-  { id: "play", label: "Play", icon: "swords" },
-  { id: "guild", label: "Guild", icon: "guild" },
-  { id: "settings", label: "Settings", icon: "settings" },
+// `art`, not `icon`: the Font Awesome subset's guard reads an `icon` key as a Font Awesome name; these are the HUD's images.
+export const NAV_TABS: readonly { id: Tab; label: string; art: UiIconName }[] = [
+  { id: "shop", label: "Shop", art: "shop" },
+  { id: "chests", label: "Chests", art: "chests" },
+  { id: "play", label: "Play", art: "swords" },
+  { id: "guild", label: "Guild", art: "guild" },
+  { id: "settings", label: "Settings", art: "settings" },
 ];
 
 /** The medallion's side, the swords' and the items' icons', in CSS px (the copies are picked by them). */
@@ -154,9 +155,10 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                     className="relative z-10 -mt-7 -mb-1 grid size-19 shrink-0 cursor-pointer place-items-center rounded-full outline-none transition-transform active:scale-95 motion-reduce:transition-none"
                   >
                     <img {...uiFrameSources("play-medallion", MEDALLION_PX)} alt="" aria-hidden draggable={false} className="absolute inset-0 size-full drop-shadow-md" />
-                    <span className="relative flex flex-col items-center">
-                      <UiIcon name={tab.icon} px={SWORDS_PX} className="-mb-1 size-10" />
-                      <span className="text-outline text-sm leading-none font-black tracking-wide text-white uppercase">{tab.label}</span>
+                    {/* The swords over PLAY, one group centred in the medallion (`data-centre`: the stories' centre guide reads it). */}
+                    <span data-centre className="relative flex flex-col items-center">
+                      <UiIcon name={tab.art} px={SWORDS_PX} className="-mb-1 size-10" />
+                      <span className="text-outline text-sm leading-none font-black tracking-wide text-foreground uppercase">{tab.label}</span>
                     </span>
                   </button>
                 </div>
@@ -177,14 +179,14 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                   // `relative`: painted over the highlight, which comes first.
                   "relative flex h-12 min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-lg px-1 outline-none transition-[color,scale] active:scale-95 mobile:h-15",
                   "duration-(--tab-swipe-duration) ease-(--tab-swipe-ease) motion-reduce:transition-none",
-                  isActive ? "text-primary" : "text-white",
+                  isActive ? "text-primary" : "text-foreground",
                   wasActive && "starting:text-primary",
-                  arrives && "starting:text-white",
+                  arrives && "starting:text-foreground",
                 )}
               >
                 {/* The badge sits inside the icon's box (its side padding), so the item's content never leaves it, two digits included. */}
                 <span className={cn("relative", badge > 0 && "px-2.5")}>
-                  <UiIcon name={tab.icon} px={ICON_PX} className="size-10 drop-shadow-sm" />
+                  <UiIcon name={tab.art} px={ICON_PX} className="size-10" />
                   {badge > 0 && (
                     <span aria-hidden data-slot="app-nav-badge" className="numeric absolute -top-1 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground ring-2 ring-background">
                       {badge}

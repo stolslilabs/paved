@@ -42,15 +42,16 @@ export function CentreGuide({ label, children }: { label: string; children: Reac
 }
 
 /**
- * The check of the guide: in each drawn button named `label`, once Font Awesome has drawn the icon, its box's centre is the
- * button's to half a pixel, on both axes. The swords' glyph fills its 512 x 512 viewBox, so its box's centre is the drawing's.
+ * The check of the guide: in each drawn button named `label`, once its icon is drawn, its box's centre is the button's to half a
+ * pixel, on both axes. The icon: what the button marks `data-centre` (the dock's medallion: the swords and PLAY, as one group,
+ * HOME-DOCK), else its Font Awesome glyph (the swords fill their 512 x 512 viewBox, so the box's centre is the drawing's).
  */
 export async function expectIconCentred(canvasElement: HTMLElement, label: string): Promise<void> {
   const buttons = drawn(canvasElement.ownerDocument, label);
   await expect(buttons.length).toBeGreaterThan(0);
   for (const button of buttons) {
     const svg = await waitFor(() => {
-      const found = button.querySelector("svg");
+      const found = button.querySelector("[data-centre]") ?? button.querySelector("svg");
       if (!found) throw new Error(`no icon drawn in ${label} yet`);
       return found;
     }, { timeout: 5000 });

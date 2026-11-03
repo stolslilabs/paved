@@ -16,7 +16,7 @@ import { preloadPages } from "./route-helpers";
 // TAB-RETAP (#800, the owner's decision of 2026-10-26): a second tap on the bar's current item closes its page and returns to
 // the village, up by the Back rule (#783), so a Back afterwards does not reopen the page; no swipe on the way.
 
-preloadPages("home", "settings", "village-shop", "village-chests", "pvp-league");
+preloadPages("home", "settings", "village-shop", "village-chests", "guild");
 
 const WAIT = { timeout: slow(5000) };
 const html = document.documentElement;
@@ -67,7 +67,7 @@ function open(path: string) {
 }
 
 const bar = () => screen.getByRole("navigation", { name: "Main" });
-/** The bar's current item, once its page is drawn (the League's, without a wallet, is its "connect" notice: no heading). */
+/** The dock's current item, once its page is drawn. */
 const currentItem = async (name: string) => within(await screen.findByRole("navigation", { name: "Main" }, WAIT)).findByRole("button", { name, current: "page" }, WAIT);
 
 /** The village: the home's bar, no item current. */
@@ -80,7 +80,7 @@ describe("a second tap on the bar's current item", { timeout: slow(30_000) }, ()
   it.each([
     ["Shop", "/village/shop"],
     ["Chests", "/village/chests"],
-    ["League", "/pvp/league"],
+    ["Guild", "/guild"],
     ["Settings", "/settings"],
   ])("on %s, opened by a link, returns to the village in place of its entry, with no swipe", async (item, path) => {
     phone();
@@ -102,8 +102,8 @@ describe("a second tap on the bar's current item", { timeout: slow(30_000) }, ()
     const start = viewTransitions();
     const router = open("/");
     await atVillage(router);
-    await userEvent.click(within(bar()).getByRole("button", { name: "League" }));
-    await userEvent.click(await currentItem("League"));
+    await userEvent.click(within(bar()).getByRole("button", { name: /^Guild/ }));
+    await userEvent.click(await currentItem("Guild"));
     await atVillage(router);
     // Back through the history to the village's own entry, never a push of it (#783).
     expect(router.state.historyAction).toBe("POP");
@@ -115,8 +115,8 @@ describe("a second tap on the bar's current item", { timeout: slow(30_000) }, ()
   it("a tap on another item still swipes to its page", async () => {
     phone();
     const start = viewTransitions();
-    const router = open("/pvp/league");
-    await currentItem("League");
+    const router = open("/guild");
+    await currentItem("Guild");
     const shop = within(bar()).getByRole("button", { name: "Shop" });
     expect(shop).not.toHaveAccessibleDescription();
     await userEvent.click(shop);

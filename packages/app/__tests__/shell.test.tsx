@@ -96,7 +96,7 @@ describe("the active tab comes from the route's own entry", () => {
     for (const [name, path, current] of [
       ["Shop", "/village/shop", "Shop"],
       ["Chests", "/village/chests", "Chests"],
-      ["League", "/pvp/league", "League"],
+      ["Guild", "/guild", "Guild"],
       ["Settings", "/settings", "Settings"],
     ] as const) {
       const router = open("/");

@@ -67,10 +67,10 @@ describe("the page headers", () => {
     expect([...covered].sort()).toEqual(PAGES.map((p) => p.path).filter((p) => !BOARD.includes(p)).sort());
   });
 
-  it("the navigation is the bottom bar below desktop only, never a header (#762: the desktop's is the home's overlay)", () => {
+  it("the navigation is the dock at the bottom, never a header (#762; HOME-DOCK: on the home from desktop too, the pages then in its panel)", () => {
     render(<AppNav active="home" />);
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(nav).toHaveClass("desktop:hidden");
+    expect(nav.className).toMatch(/(^| )fixed inset-x-0 bottom-0 /);
     expect(nav.className).not.toMatch(/page-header/);
   });
 });
