@@ -71,12 +71,13 @@ export const ICON_FRAME: Frame = { width: 256, height: 256, side: "width", sizes
  * box by box) until their restack matched it: so a master's pixel is the mockup's, and the dock draws every piece at one scale
  * (`DOCK_ART`). The wood: the rail under the parchment, its stacked ends and its plank (a 9-slice); the panel: the parchment, its
  * dividers painted out (a 9-slice: its notched corners kept); the divider: the line and its two notches; the medallion: plain, its
- * face toned to the mockup's (the swords and PLAY are drawn over it).
+ * face toned to the mockup's (the swords and PLAY are drawn over it). The parchment and the divider are 64 CSS px tall at every width:
+ * their copies are 64 px (1x) and 192 px (2x and 3x screens).
  */
 export const FRAME_ART = {
   "dock-wood": { width: 1536, height: 225, side: "width", sizes: [768, 1536] },
-  "dock-panel": { width: 553, height: 261, side: "height", sizes: [128, 256] },
-  "dock-divider": { width: 23, height: 261, side: "height", sizes: [128, 256] },
+  "dock-panel": { width: 553, height: 261, side: "height", sizes: [64, 192] },
+  "dock-divider": { width: 23, height: 261, side: "height", sizes: [64, 192] },
   "play-medallion": { width: 341, height: 355, side: "width", sizes: [128, 256] },
   "xp-track": { width: 1464, height: 181, side: "width", sizes: [360, 720] },
   "xp-fill": { width: 1466, height: 119, side: "width", sizes: [360, 720] },
