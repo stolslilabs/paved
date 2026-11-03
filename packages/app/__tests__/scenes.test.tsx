@@ -254,8 +254,13 @@ describe("Home (#753): the village with its overlays", () => {
     const row = balances.parentElement!.parentElement!;
     expect(classes(row)).toEqual(expect.arrayContaining(["pt-(--hud-inset-top)", "pr-(--hud-inset-right)", "pl-(--hud-inset-left)"]));
     expect(row.className).not.toMatch(/\b(tablet:)?p[tlrx]?-\d|safe-area/);
-    // The balances moved by their art's margin onto the profile's painted edge.
-    expect(classes(balances)).toEqual(expect.arrayContaining(["-mt-1", "-mr-px", "desktop:-mt-0.5", "desktop:-mr-0.5"]));
+    // The phone's plates moved by their art's margin onto the profile's painted edge, only while plates are drawn (a guest's
+    // Connect keeps the plain inset) and only below `desktop` (the wrapper is the phone's; the column and the rail stay put). The
+    // alignment itself is measured on the painted pixels by the `HudInset*` stories' play (`stories/hud-inset-guide.tsx`).
+    const phonePlates = box.querySelector("[data-slot=home-phone-balances]")!;
+    expect(classes(phonePlates)).toEqual(expect.arrayContaining(["desktop:hidden", "has-[[data-slot=hud-frame]]:-mt-1", "has-[[data-slot=hud-frame]]:-mr-0.5"]));
+    expect(balances.className).not.toMatch(/(^|\s)(desktop:)?-m[trxy]?-/);
+    expect(classes(balances)).toEqual(expect.arrayContaining(["top-0", "right-0"]));
     // The capsules' column, the dial, the phone's social column and the bottom row on the same sides.
     expect(classes(box.querySelector("[data-slot=scroll-region]"))).toContain("pl-(--hud-inset-left)");
     expect(classes(box.querySelector("[data-dial-place]"))).toContain("left-(--hud-inset-left)");

@@ -163,7 +163,8 @@ export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...S
  * HOME-HUD-PADDING (the owner's request of 2026-11-03): one inset at the top and on both sides (`--hud-inset` of theme.css: 8 px on a
  * phone, 16 from `tablet`, the notch's safe area added), drawn as the red bands. The profile, the balances, the crowns' and the
  * village's capsules, the social column, the dial and the bottom row stand on it, their painted edges on one line: at 320 and
- * 375 px, at 1440, and on a notched phone (the safe area simulated on the tokens, as `env(safe-area-inset-*)` adds it).
+ * 375 px (a guest's Connect too), at 1440, and on a notched phone (the safe area simulated on the tokens, as `env(safe-area-inset-*)`
+ * adds it). Their play reads the painted pixels (`expectHudInset`).
  */
 const INSET_GUIDE = (Story: () => React.JSX.Element) => (
   <HudInsetGuide>
@@ -180,7 +181,10 @@ const NOTCHED = (top: number, side: number) => (Story: () => React.JSX.Element) 
 const insetCheck = async ({ canvasElement }: { canvasElement: HTMLElement }) => expectHudInset(canvasElement);
 export const HudInsetPhone320: Story = { ...PHONE_320, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
 export const HudInsetPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
-export const HudInsetWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
+/** A guest at 375 px: Connect in the balances' place, its box on the inset (no plates, so the plates' nudge does not apply). */
+export const HudInsetGuestPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.guest, decorators: [INSET_GUIDE], play: insetCheck };
+/** From `desktop` the layout is kept: the card and the rail's column on the inset's lines (16 px), the rail not nudged. */
+export const HudInsetWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: async ({ canvasElement }) => expectHudInset(canvasElement, { align: false }) };
 /** An iPhone's portrait notch (a 47 px safe area at the top): the inset grows by it at the top, the same for the profile and the balances. */
 export const HudInsetNotchPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL, decorators: [NOTCHED(47, 0)], play: insetCheck };
 /** The same phone sideways (47 px safe areas at the sides, none at the top): both sides grow by it. */
