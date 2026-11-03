@@ -143,7 +143,8 @@ export const NewPlayer: Story = { args: { league: { crowns: 0, attacks: 0 } }, p
 export const Leagues: Story = {
   render: () => (
     <Corner>
-      <div className="flex flex-col gap-4">
+      {/* Spaced as the home spaces the capsules under the card: the circle and its crest run past the card's foot. */}
+      <div className="flex flex-col gap-14 pt-2">
         {[undefined, 1_700, 2_300, 3_600, 5_600].map((crowns) => (
           <ProfileProvider key={crowns ?? "none"} value={value(PROFILE.connected, PROGRESS.partWay)}>
             <PlayerBadge league={crowns === undefined ? null : { crowns, attacks: 4 }} />
