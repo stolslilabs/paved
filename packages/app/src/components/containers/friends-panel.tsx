@@ -72,7 +72,7 @@ export function FollowPlayerRow({ profile, now, guild, isNew, mark, onOpen, chil
         type="button"
         aria-label={`${profile.name ?? profile.address}, level ${formatPoints(profile.level)}, ${league.name} league${isNew ? ", new follower" : ""}`}
         onClick={() => onOpen?.(profile.address)}
-        className="state-layer flex min-h-12 min-w-0 flex-[1_1_12rem] items-center gap-3 rounded-lg px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="state-layer flex min-h-12 min-w-0 flex-[1_1_12rem] items-center gap-3 rounded-lg px-1 text-left outline-none"
       >
         <PlayerAvatar player={{ name: profile.name, address: profile.address }} look={profile.look} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">

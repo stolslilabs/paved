@@ -104,7 +104,7 @@ export function ChestReveal({ draw, owned = {}, initialChoice = null, busy, tile
                 disabled={busy || single}
                 onClick={() => setChoice(chosen ? null : i)}
                 className={cn(
-                  "state-layer flex w-full flex-col items-center gap-1.5 rounded-xl border border-border bg-secondary/40 p-2 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-100",
+                  "state-layer flex w-full flex-col items-center gap-1.5 rounded-xl border border-border bg-secondary/40 p-2 text-center outline-none disabled:opacity-100",
                   chosen && !single && "border-primary bg-primary/10",
                 )}
               >

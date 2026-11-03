@@ -110,12 +110,12 @@ export interface TileBubbleProps {
 }
 
 /**
- * The bubble's buttons: 44 px, round, the focus ring offset on the bubble's card. Their hover (desktop) and pressed (touch)
+ * The bubble's buttons: 44 px, round. Their hover (desktop) and pressed (touch)
  * states are every button's since #537 (`state-layer`, white at 10 % and 20 % over any fill, the gold Validate's too).
  */
-const BUBBLE_BUTTON = "size-11 rounded-full focus-visible:ring-offset-card";
+const BUBBLE_BUTTON = "size-11 rounded-full";
 /** Validate, the strongest: filled with the primary colour (the default variant), raised. */
-const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md focus-visible:ring-offset-card";
+const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md";
 
 /**
  * The bubble on the tile being handled, in this order: Close (cancel), Rotate (clockwise through the valid rotations only,

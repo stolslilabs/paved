@@ -131,10 +131,10 @@ export const Horizontal: Story = {
   ),
 };
 
-/** A keyboard user tabs to the region and scrolls it with the arrows: the ring shows whole, the fade steps aside meanwhile. */
+/** A keyboard user tabs to the region and scrolls it with the arrows, with no focus ring; the fade stays. */
 export const Focus: Story = {
   render: () => (
-    <ScrollRegion tabIndex={0} aria-label="Players" className="h-64 w-64 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <ScrollRegion tabIndex={0} aria-label="Players" className="h-64 w-64 rounded-md outline-none">
       <Rows />
     </ScrollRegion>
   ),

@@ -127,7 +127,7 @@ function MemberRow({ member, now, me, onOpen }: { member: GuildMember; now: numb
       type="button"
       data-slot="guild-member"
       onClick={() => onOpen?.(p.address)}
-      className="state-layer flex w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="state-layer flex w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left outline-none"
     >
       <PlayerAvatar player={{ name: p.name, address: p.address }} look={p.look} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -169,7 +169,7 @@ function GuildDescription({ text, initialUnfolded = false }: { text: string; ini
         {text}
       </p>
       {long && (
-        <button type="button" aria-expanded={unfolded} onClick={() => setUnfolded(!unfolded)} className="rounded text-sm font-semibold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button type="button" aria-expanded={unfolded} onClick={() => setUnfolded(!unfolded)} className="rounded text-sm font-semibold text-primary outline-none">
           {unfolded ? "Less" : "More"}
         </button>
       )}
@@ -323,7 +323,7 @@ export function GuildPage({
             <ul className="flex flex-col gap-2">
               {guild.requests.map((r) => (
                 <li key={r.profile.address} data-slot="guild-request" className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
-                  <button type="button" onClick={() => onOpenPlayer?.(r.profile.address)} className="flex min-w-0 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <button type="button" onClick={() => onOpenPlayer?.(r.profile.address)} className="flex min-w-0 items-center gap-3 rounded-lg text-left outline-none">
                     <PlayerAvatar player={{ name: r.profile.name, address: r.profile.address }} look={r.profile.look} />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <PlayerName name={r.profile.name} address={r.profile.address} className="max-w-full min-w-0 truncate font-semibold" />
@@ -360,7 +360,7 @@ export function GuildPage({
               <ul className="flex flex-col gap-2">
                 {guild.invitations.map((i) => (
                   <li key={i.profile.address}>
-                    <button type="button" onClick={() => onOpenPlayer?.(i.profile.address)} className="state-layer flex w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <button type="button" onClick={() => onOpenPlayer?.(i.profile.address)} className="state-layer flex w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left outline-none">
                       <PlayerAvatar player={{ name: i.profile.name, address: i.profile.address }} look={i.profile.look} />
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <PlayerName name={i.profile.name} address={i.profile.address} className="max-w-full min-w-0 truncate font-semibold" />

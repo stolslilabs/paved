@@ -11,9 +11,15 @@ import { levelShare, useXpMotion, type PlayerProgress } from "./xp-ring";
 /** The level as the star shows it: two figures at most ("99+" past them). */
 export const levelText = (level: number | undefined): string => (level === undefined ? "" : level > 99 ? "99+" : formatInteger(level));
 
-/** The XP as the bar shows it: "90/150", "Max" at the cap. */
-export const xpText = (progress: PlayerProgress): string =>
-  isMaxLevel(progress) ? "Max" : `${formatInteger(progress.xp)}/${formatInteger(progress.xpForNext)}`;
+/** The XP as the bar shows it: "90/150", "Max" at the cap; the profile's longer, "90 / 150 XP", "Max level". */
+export const xpText = (progress: PlayerProgress, variant: LevelBarVariant = "card"): string =>
+  variant === "profile"
+    ? isMaxLevel(progress)
+      ? "Max level"
+      : `${formatInteger(progress.xp)} / ${formatInteger(progress.xpForNext)} XP`
+    : isMaxLevel(progress)
+      ? "Max"
+      : `${formatInteger(progress.xp)}/${formatInteger(progress.xpForNext)}`;
 
 /** The track's ends drawn 7 px wide, its height its two halves (its 9-slice). */
 const TRACK: CSSProperties = {
@@ -65,9 +71,13 @@ function useFillIn(fill: RefObject<HTMLSpanElement | null>, progress: PlayerProg
   }, [to === null, reduced]);
 }
 
+/** `card`: the player card's, 144 px (160 from `tablet`); `profile`: the profile drawer's, its row's width, the XP's unit written. */
+export type LevelBarVariant = "card" | "profile";
+
 export interface LevelBarProps {
   /** Undefined while it is read: the empty track, the star blank. */
   progress: PlayerProgress | undefined;
+  variant?: LevelBarVariant;
   className?: string;
 }
 
@@ -78,7 +88,7 @@ export interface LevelBarProps {
  * and a "+N XP" rises at its end; a level up completes it, flashes it, turns the level over, then fills the new one (`useXpMotion`).
  * Under reduced motion the values change at once with a brief flash. Decorative: the card says the level and the XP left.
  */
-export function LevelBar({ progress, className }: LevelBarProps) {
+export function LevelBar({ progress, variant = "card", className }: LevelBarProps) {
   const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress);
   const capped = progress ? isMaxLevel(progress) : false;
   // The cap's bar is full whatever the share (its span is 0): a motion value too, so a level up into the cap redraws it.
@@ -90,7 +100,11 @@ export function LevelBar({ progress, className }: LevelBarProps) {
   useFillIn(fill, progress, capped);
   const lit = burst ?? flash;
   return (
-    <span data-slot="level-bar" aria-hidden className={cn("relative flex h-7 w-36 max-w-full items-center pl-3.5 tablet:w-40", className)}>
+    <span
+      data-slot="level-bar"
+      aria-hidden
+      className={cn("relative flex h-7 max-w-full items-center pl-3.5", variant === "card" ? "w-36 tablet:w-40" : "w-full", className)}
+    >
       {/*
         The mockup's track (`xp-track`: a near-black outline, a silver bevel, a dark recess) with its drop shadow, and over it, inside
         the outline, the faceted cyan fill (`xp-fill`), shown from the left up to the share: as on the mockup, the fill covers the silver
@@ -117,7 +131,7 @@ export function LevelBar({ progress, className }: LevelBarProps) {
           />
         )}
         <span data-slot="xp" className="numeric text-outline absolute inset-0 grid place-items-center pl-2 text-xs leading-none font-bold text-foreground">
-          {progress ? xpText(progress) : ""}
+          {progress ? xpText(progress, variant) : ""}
         </span>
       </span>
       {/* The star over the bar's left end, the level in it. */}

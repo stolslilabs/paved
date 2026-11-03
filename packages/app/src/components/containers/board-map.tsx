@@ -173,7 +173,7 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
               data-lit={highlight}
               data-fits={s.fits !== false}
               data-placed={placed ? "pending" : undefined}
-              className="state-layer relative block min-h-0 min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="state-layer relative block min-h-0 min-w-0 rounded-[2px] outline-none"
             >
               {state && <span data-plate={state} className={cn(PLATE, PLATE_STATE[state])} />}
               {/* Placed and not confirmed: plain, its opacity pulsing as the board's (`pending-pulse`, #681). */}

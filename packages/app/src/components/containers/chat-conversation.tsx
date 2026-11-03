@@ -89,14 +89,14 @@ function MessageRow({ message: msg, now, timeZone, showTag, mayMute, arrived, on
         aria-label={author ? `${name}'s profile` : name}
         disabled={!author}
         onClick={() => author && onOpenPlayer?.(author.address)}
-        className="state-layer h-fit shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="state-layer h-fit shrink-0 rounded-full outline-none"
       >
         <PlayerAvatar player={author ? { name: author.name, address: author.address } : null} look={author?.look ?? null} />
       </button>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
           {author ? (
-            <button type="button" onClick={() => onOpenPlayer?.(author.address)} className="min-w-0 max-w-full rounded text-left text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <button type="button" onClick={() => onOpenPlayer?.(author.address)} className="min-w-0 max-w-full rounded text-left text-sm font-semibold outline-none">
               {msg.mine ? "You" : <PlayerName name={author.name} address={author.address} className="block" />}
             </button>
           ) : (
@@ -438,7 +438,7 @@ export function ChatConversation({
             type="button"
             disabled={!onOpenTitle || c.kind === "world"}
             onClick={onOpenTitle}
-            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left outline-none"
           >
             {c.kind === "world" && <Icon name="users" size="sm" className="text-primary" />}
             {c.kind === "guild" && <Icon name="shield-halved" size="sm" className="text-primary" />}
@@ -580,7 +580,7 @@ export function ChatConversation({
                     setDraft(e.target.value);
                     if (sendError) setSendError(null);
                   }}
-                  className="min-h-11 w-full min-w-0 rounded-lg border border-input bg-secondary/60 px-3 py-2 text-base outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring tablet:text-sm"
+                  className="min-h-11 w-full min-w-0 rounded-lg border border-input bg-secondary/60 px-3 py-2 text-base outline-none placeholder:text-muted-foreground tablet:text-sm"
                 />
                 <span aria-live="polite" className={cn("numeric self-end text-xs", tooLong ? "text-warning" : "text-muted-foreground")}>
                   {formatInteger(length)}/{formatInteger(CHAT_MESSAGE_MAX)}

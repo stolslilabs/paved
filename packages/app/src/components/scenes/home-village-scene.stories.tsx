@@ -59,8 +59,14 @@ const meta = {
         value={{
           state: args.guest ? { status: "guest" } : { status: "connected", data: PLAYER_STATUS },
           progress: PROGRESS.partWay,
-                onDisconnect: fn(),
+          league: { crowns: 1_172, league: 5, unranked: false },
+          follows: { followers: 12, followed: 9 },
+          onDisconnect: fn(),
           onCopy: fn(async () => {}),
+          onEditAvatar: fn(),
+          onOpenLeague: fn(),
+          onOpenCollection: fn(),
+          onOpenInvite: fn(),
         }}
       >
         <BalancesProvider value={{ state: args.guest ? { status: "disconnected" } : { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 }, faucet: false }}>
@@ -669,4 +675,18 @@ export const ScenePressIntoEditPhone: Story = {
   render: (args) => <Playground {...args} scene />,
   play: ({ canvasElement }) => pressScene(canvasElement),
   ...PHONE_375,
+};
+
+/**
+ * PROFILE-DRAWER: a tap on the player card opens the profile drawer, which stops under the capsules (the HUD's end) on a phone and
+ * from `tablet` is a side panel docked at the left under them (the Viewport control).
+ */
+export const ProfileOpen: Story = {
+  args: { ...HOME_VILLAGE.view, ...DIAL },
+  play: async ({ canvasElement }) => {
+    // The capsules in first (the League control's chunk): the HUD's end is read as the drawer opens.
+    await within(canvasElement).findByRole("button", { name: /^League: / });
+    await userEvent.click(await within(canvasElement).findByRole("button", { name: /^Profile: / }));
+    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Your profile" })).toBeInTheDocument());
+  },
 };

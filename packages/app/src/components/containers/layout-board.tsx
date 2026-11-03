@@ -166,7 +166,7 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
               aria-label={`${tileName(tile.plan)} at ${cellName(c)}: lift it`}
               onClick={() => onTile?.(tile)}
               style={at(c)}
-              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring", litClass(key), shaking === tile.id && "tile-shake ring-2 ring-warning")}
+              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none", litClass(key), shaking === tile.id && "tile-shake ring-2 ring-warning")}
             >
               {chip}
             </button>
@@ -199,7 +199,7 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
             data-lit={litCells?.has(key) || undefined}
             onClick={onPending}
             style={at(c)}
-            className="relative z-10 block min-h-0 min-w-0 rounded-[3px] ring-2 ring-primary ring-offset-2 ring-offset-board outline-none focus-visible:ring-ring"
+            className="relative z-10 block min-h-0 min-w-0 rounded-[3px] ring-2 ring-primary ring-offset-2 ring-offset-board outline-none"
           >
             <TileChip plan={pending.plan} orientation={pending.orientation} art={tileArt} className="size-full rounded-[2px] border-0" />
           </button>,
@@ -217,7 +217,7 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
             aria-label={`Place it at ${cellName(c)}`}
             onClick={() => onPlate?.(plate)}
             style={at(c)}
-            className="state-layer relative block min-h-0 min-w-0 rounded-[3px] border border-primary/60 bg-plate/55 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="state-layer relative block min-h-0 min-w-0 rounded-[3px] border border-primary/60 bg-plate/55 outline-none"
           />,
         );
         continue;

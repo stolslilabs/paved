@@ -129,7 +129,7 @@ export function VillageBoard({ village, fog = "village", placing, over, tileArt,
               aria-label={`Place it at ${cellName(c)}`}
               onClick={() => onPlace?.(c)}
               style={at(c)}
-              className="state-layer relative block min-h-0 min-w-0 rounded-[3px] border border-primary/60 bg-plate/55 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="state-layer relative block min-h-0 min-w-0 rounded-[3px] border border-primary/60 bg-plate/55 outline-none"
             >
               {hovered && placing && (
                 <TileChip

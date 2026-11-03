@@ -27,7 +27,7 @@ import { InlineError } from "../elements/inline-error";
 /** The side panel from `desktop`; the bottom sheet under it. */
 const DESKTOP_QUERY = "(min-width: 64rem)";
 
-const FIELD = "w-full min-w-0 rounded-lg border border-input bg-secondary/60 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring";
+const FIELD = "w-full min-w-0 rounded-lg border border-input bg-secondary/60 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground";
 
 /** A labelled field, with its count of characters when it has a maximum. */
 function Field({ label, count, max, children }: { label: string; count?: number; max?: number; children: (id: string) => ReactNode }) {

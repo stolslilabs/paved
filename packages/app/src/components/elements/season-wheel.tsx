@@ -120,7 +120,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
       data-centre-turn={centreTurn}
       data-testid="season-wheel"
       onClick={onNext}
-      className={cn("group relative flex shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("group relative flex shrink-0 rounded-full outline-none", className)}
     >
       <span aria-hidden className={cn("relative block rounded-full", DIAL_SIZE)}>
         {/* The seasons' ring, turning. */}

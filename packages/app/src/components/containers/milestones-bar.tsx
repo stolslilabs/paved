@@ -330,7 +330,7 @@ function GiftNode({ bar, cobbles, at, count, state, served, claiming, opening, h
         onClick={onClick}
         // 44 px to tap: the disc (32 px, both periods) and a ring around it, over the node's box. It keeps the focus
         // while no claim is open (aria-disabled, not disabled), so its tooltip still opens.
-        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-default"
+        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none aria-disabled:cursor-default"
         style={{ margin: `${(NODE - 2.75) / 2}rem` }}
       >
         {disc}
@@ -348,7 +348,7 @@ function GiftNode({ bar, cobbles, at, count, state, served, claiming, opening, h
         aria-label={state === "claimed" ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
         onPointerDown={onPointerDown}
         onClick={onClick}
-        className="flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex rounded-full outline-none"
       >
         {disc}
       </span>

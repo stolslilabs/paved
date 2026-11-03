@@ -75,7 +75,7 @@ function InventoryTrayBase({ tray, held = null, full = false, busy = false, tile
       {plans.length === 0 ? (
         <p className="px-1 py-3 text-sm text-muted-foreground">No tile off the board: open chests or visit the shop for more.</p>
       ) : desktop ? (
-        // A wheel, a trackpad or the keyboard scrolls it; the focus ring of a card in the first row or column stays inside.
+        // A wheel, a trackpad or the keyboard scrolls it.
         <ScrollRegion role="region" aria-label="Inventory tiles" data-layout="grid" className={cn("min-h-0 flex-1 p-0.5", full && "opacity-50 grayscale")}>
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(5.25rem,1fr))] gap-2">
             {plans.map((p) => (
@@ -114,7 +114,7 @@ function InventoryCard({ plan, count, chosen, disabled, tileArt, onSelect }: { p
         if (!disabled) onSelect?.(chosen ? null : plan);
       }}
       className={cn(
-        "state-layer relative flex w-full flex-col items-center gap-1 rounded-xl border border-border bg-secondary/40 p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "state-layer relative flex w-full flex-col items-center gap-1 rounded-xl border border-border bg-secondary/40 p-1.5 outline-none",
         disabled && "cursor-default",
         chosen && "border-primary bg-primary/10",
         count === 0 && "opacity-40",

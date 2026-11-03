@@ -68,7 +68,7 @@ export function GuildCard({ guild, place, player = null, onOpen }: GuildCardProp
       data-slot="guild-card"
       aria-label={`${guild.name}, ${guild.tag}`}
       onClick={() => onOpen?.(guild.id)}
-      className="state-layer flex w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="state-layer flex w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left outline-none"
     >
       {place !== undefined && <span className="numeric w-6 shrink-0 text-center text-sm font-semibold text-muted-foreground">{formatInteger(place)}</span>}
       <GuildEmblem emblem={guild.emblem} />

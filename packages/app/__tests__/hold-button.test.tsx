@@ -161,15 +161,15 @@ describe("the tones (#606)", () => {
 });
 
 describe("the bubble's buttons (#568, #606)", () => {
-  it("Cancel, Discard, Rotate, Validate in that order, each with the white hover, pressed and focus states; Validate held places once", () => {
+  it("Cancel, Discard, Rotate, Validate in that order, each with the white hover and pressed states, no focus ring; Validate held places once", () => {
     const onConfirm = vi.fn();
     render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} discardCost={50} onConfirm={onConfirm} />));
     const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
     expect(names).toEqual(["Cancel placement", "Hold to discard the tile (costs 50 points)", "Rotate tile", "Hold to place the tile"]);
     for (const b of screen.getAllByRole("button")) {
-      // The white hover and pressed states of #537 (`state-layer`), over Validate's gold fill too, and the focus ring.
+      // The white hover and pressed states of #537 (`state-layer`), over Validate's gold fill too; no focus ring.
       expect(b.className).toMatch(/\bstate-layer\b/);
-      expect(b.className).toMatch(/focus-visible:ring-2/);
+      expect(b.className).not.toMatch(/focus-visible:ring/);
     }
     fireEvent.pointerDown(button(), { button: 0 });
     act(() => vi.advanceTimersByTime(HOLD_MS));

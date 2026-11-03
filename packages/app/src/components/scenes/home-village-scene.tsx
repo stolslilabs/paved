@@ -318,7 +318,8 @@ const GAP_PX = 12;
  * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands of the two columns, a gap off their neighbours as they are drawn: the right one from under the
  * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
  * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929, open point 1): the left band starts
- * twice the gap, 24 px, under the profile.
+ * twice the gap, 24 px, under the profile. PROFILE-DRAWER: the HUD's end, a gap under the capsules in the viewport (`--hud-end`),
+ * where the profile drawer's top stops (`HudDrawer`).
  */
 function useOverlayMeasures(dial: boolean) {
   const refs = {
@@ -327,13 +328,14 @@ function useOverlayMeasures(dial: boolean) {
     profile: useRef<HTMLDivElement>(null),
     actions: useRef<HTMLDivElement>(null),
     dial: useRef<HTMLDivElement>(null),
+    capsules: useRef<HTMLDivElement>(null),
   };
   useLayoutEffect(() => {
-    const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial].map((ref) => ref.current);
+    const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial, refs.capsules].map((ref) => ref.current);
     const [box] = els as HTMLElement[];
     // Its first notice comes before the first paint: the bands are in place when the overlays show.
     const observer = new ResizeObserver(() => {
-      const [frame, balances, profile, foot, wheel] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
+      const [frame, balances, profile, foot, wheel, capsules] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
       const edges = {
         "--right-top": balances!.bottom - frame!.top,
         "--right-bottom": frame!.bottom - foot!.top,
@@ -343,6 +345,7 @@ function useOverlayMeasures(dial: boolean) {
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
       // The profile's room, from its left to a gap short of the balances: the badge's name plate ends there.
       box.style.setProperty("--profile-room", `${balances!.left - profile!.left - GAP_PX}px`);
+      box.style.setProperty("--hud-end", `${(capsules ?? profile)!.bottom + GAP_PX}px`);
     });
     // The box and what the bands stand off (not the columns, which the bands size).
     for (const el of els) if (el) observer.observe(el);
@@ -428,11 +431,11 @@ function ViewOverlays({
   const leftColumn = (
     <>
       {/*
-        The capsules (HOME-UI-CAPSULES), in the mockup's order: the League control (the crowns, #829), the village score (#755), the
+        The capsules (HOME-UI-CAPSULES), in the mockup's order (over a HUD drawer's veil while one is open, `data-over-drawer`): the League control (the crowns, #829), the village score (#755), the
         shield's while shielded, stretched to one width, the widest's, and close (their 44 px targets 4 px apart). The group lets taps
         through between them.
       */}
-      <div data-slot="home-capsules" className="flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto">
+      <div ref={measures.capsules} data-slot="home-capsules" data-over-drawer className="relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto">
         <Suspense fallback={LEAGUE_STAND_IN}>
           <LazyLeagueControl crowns={props.league?.crowns} attacks={props.league?.attacks} onLeague={props.onLeague} />
         </Suspense>
@@ -460,7 +463,7 @@ function ViewOverlays({
             type="button"
             onClick={() => props.onResume?.(activeGame.id)}
             aria-label={`Resume Challenge #${activeGame.id}`}
-            className="state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="state-layer pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-primary/50 bg-card/90 py-1.5 pr-3 pl-1.5 text-xs shadow-lg backdrop-blur outline-none"
           >
             <span className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground">
               <Icon name="play" size="xs" />
@@ -498,8 +501,8 @@ function ViewOverlays({
     // control's place takes them back (`pointer-events-auto`: the top row, the columns' children, the dial, the bottom row's children,
     // the phone's bar). HOME-BUTTONS (#856): the dial, Edit, Settings, Play and the bar had none since #910 and took no tap.
     <div ref={measures.box} data-slot="home-overlays" data-camera={camera || undefined} className="pointer-events-none absolute inset-0">
-      {/* Top: the profile at the left, the balances at the right. */}
-      <div className="absolute inset-x-0 top-0 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
+      {/* Top: the profile at the left, the balances at the right (over a HUD drawer's veil while one is open, `data-over-drawer`). */}
+      <div data-over-drawer className="absolute inset-x-0 top-0 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
         <div className="relative flex items-start justify-between gap-2">
           <div
             ref={measures.profile}
@@ -537,7 +540,8 @@ function ViewOverlays({
           The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the dial;
           clear of the right column from `desktop`, and of the social column (#973) below it. Taller than its band (the score
           unfolded while shielded, on a short screen), it scrolls within it (its edge fading where more waits), never over the dial;
-          its padding keeps the controls' shadows inside the scroll box.
+          its padding keeps the controls' shadows inside the scroll box. Under a HUD drawer it drops its edge fade, so its capsules may
+          stand over the drawer's veil (`data-over-drawer`, theme.css).
         */}
         <div
           ref={leftColumnHint}

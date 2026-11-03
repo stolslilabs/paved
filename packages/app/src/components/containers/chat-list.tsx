@@ -47,7 +47,7 @@ export function ChatRow({ conversation: c, now, onOpen }: ChatRowProps) {
       data-slot="chat-row"
       aria-label={`${name}${c.unread > 0 ? `, ${formatInteger(c.unread)} unread` : ""}`}
       onClick={() => onOpen?.(c.id)}
-      className="state-layer flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-2 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="state-layer flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-2 pr-3 text-left outline-none"
     >
       <ConversationMark c={c} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">

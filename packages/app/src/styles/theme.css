@@ -274,6 +274,20 @@
    * ink is the night sky's, #537), its frame and its XP bar being images; the XP fill's light cyan, its level up's flash.
    */
   --hud-card: var(--color-charcoal-800);
+  /*
+   * The HUD's frame (HUD-FRAME-CSS, `hud-frame` below), sampled on the painted frame it replaced (`card-frame`, in the git history):
+   * its near-black outline, its slate rim, the light along the rim's top and the shade along its inside; the rim's painted patches a
+   * tiled noise (`--hud-noise`, `public/hud-noise.svg`: an SVG turbulence, soft-light over the rim, lighter and darker patches with a
+   * blue and a violet cast; a file, not a data URI, which the one stylesheet's budget could not carry).
+   */
+  --hud-outline: #050407;
+  --hud-rim: #3e4768;
+  --hud-rim-light: #a59ec3;
+  --hud-rim-shade: #1f2737;
+  --hud-noise: url("/hud-noise.svg");
+  /* The HUD's drawer's raised surfaces (PROFILE-DRAWER, direction C of 2026-11-03): a step over its charcoal-800 face, lit along their top. */
+  --drawer-raised: var(--color-charcoal-700);
+  --drawer-bevel: var(--color-charcoal-500);
   --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
   --league-iron: var(--color-amber-500);
   --league-bronze: var(--color-charcoal-300);
@@ -415,7 +429,9 @@
 }
 
 @layer base {
-  * { @apply border-border outline-ring/50; }
+  /* NO-FOCUS-RING (the owner's ask of 2026-11-03): no ring and no outline on a focused control, whatever focused it; the keyboard
+     still moves the focus (Tab, Radix's arrows and trap). */
+  * { @apply border-border outline-none; }
   body { @apply bg-background text-foreground font-sans antialiased; }
 
   /* APP-FEEL (P-69): the app feels native, not like a page. Text, icons and images never highlight on a tap, a long press
@@ -498,8 +514,8 @@
  * NO-SCROLLBARS (#609), the edge hint: a scroller fades its content out over `--scroll-hint-size` on each side where more
  * waits, so the cut row reads as "there is more". The sides come from `data-scroll-start` / `data-scroll-end` and the axis
  * from `data-scroll-axis` (`scrollHintRef`, lib/scroll-hint.ts); with nothing to scroll there is no fade. The mask is on the
- * scroller itself, so a scroller is never the panel that draws a surface (a sheet scrolls an inner `ScrollRegion`). A focused
- * scroller drops the fade so its ring shows whole, and the scroll padding keeps a focused child clear of the fade.
+ * scroller itself, so a scroller is never the panel that draws a surface (a sheet scrolls an inner `ScrollRegion`). The scroll
+ * padding keeps a focused child clear of the fade.
  */
 @property --scroll-hint-start {
   syntax: "<length>";
@@ -526,9 +542,6 @@
   }
   &[data-scroll-end] {
     --scroll-hint-end: var(--scroll-hint-size);
-  }
-  &:focus-visible {
-    mask-image: none;
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
@@ -570,6 +583,96 @@
   }
 }
 
+
+/*
+ * HUD-FRAME-CSS (the owner's ask of 2026-11-03): the HUD's frame in CSS, in place of the painted 9-slice whose brush strokes stretched
+ * with each box's shape. `--hud-px` (a number, the corner in CSS px: 10 a capsule, 13 the player card, 16 the HUD's drawer) sizes it:
+ * the rim 0.28 of it, the corner's curve 0.9 of it. `hud-frame`: the near-black outline with a crisp drop and a soft shade
+ * (outside its box), the slate rim (`::before`, a ring: lit along its top, shaded along its foot, its painted patches the tiled noise at
+ * one scale whatever the box) and a dark line inside the rim (`::after`). `hud-face`: the face under it, inside the rim (its fill the
+ * caller's). Both absolutely placed by the caller.
+ */
+@utility hud-frame {
+  --hud-rim-w: calc(var(--hud-px) * 0.28px);
+  border-radius: calc(var(--hud-px) * 0.9px);
+  box-shadow: 0 0 0 1.5px var(--hud-outline), 0 1.5px 0 1.5px var(--hud-outline), 0 3px 5px 1.5px var(--background);
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+  &::before {
+    inset: 0;
+    padding: var(--hud-rim-w);
+    border-radius: inherit;
+    background: var(--hud-noise) 0 0 / 128px 128px, var(--hud-rim);
+    background-blend-mode: soft-light, normal;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--hud-rim-light) 70%, transparent), inset 0 -1px 0 var(--hud-rim-shade);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  &::after {
+    inset: calc(var(--hud-rim-w) - 1px);
+    border: 1px solid var(--hud-rim-shade);
+    border-radius: calc(var(--hud-px) * 0.9px - var(--hud-rim-w) + 1px);
+  }
+}
+@utility hud-face {
+  inset: calc(var(--hud-px) * 0.28px - 1px);
+  border-radius: calc(var(--hud-px) * 0.62px + 1px);
+  box-shadow: inset 0 1px 2px var(--background);
+}
+
+/*
+ * The HUD's drawer (PROFILE-DRAWER, containers/hud-drawer.tsx and profile-sheet.tsx), in the interface's greys and the game-native
+ * direction the owner chose on 2026-11-03 (C, `docs/design/profile.webp`'s README entry): its surfaces, one plain rule each (Tailwind's
+ * shadow, gradient, divide and blur utilities each weigh a few hundred bytes in the one stylesheet). The veil over the village; the side
+ * panel's header band (a step darker, a near-black line under it); a raised surface (a step lighter than the face, lit along its top,
+ * a near-black outline and lip); a tile (the same, its face fading down); a row's near-black rules between its items; an icon's lip.
+ */
+@utility drawer-veil {
+  background-color: color-mix(in oklab, var(--board) 45%, transparent);
+}
+@utility drawer-band {
+  background-color: var(--card);
+  box-shadow: 0 1px 0 var(--hud-outline);
+}
+@utility drawer-raised {
+  background-color: var(--drawer-raised);
+  box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+}
+@utility drawer-tile {
+  background-image: linear-gradient(var(--drawer-raised), var(--secondary));
+  box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+}
+@utility drawer-rule {
+  & > * + * {
+    border-left: 1px solid var(--hud-outline);
+  }
+}
+@utility drawer-icon {
+  filter: drop-shadow(0 2px 0 var(--background));
+}
+/*
+ * While a HUD drawer is open from a phone's foot (`data-hud-drawer`, under the HUD's end), the HUD above it (`data-over-drawer`: the
+ * home's player card, balances and capsules) stands over its veil, sharp, as on the profile's mockup, and lets taps through to the veil
+ * (a tap on it closes the drawer). The home's left column drops its edge fade meanwhile: a mask is a layer of its own, which would keep
+ * its capsules under the veil. The side panel, the window's height, covers the HUD's left: nothing stands over it.
+ */
+body:has([data-hud-drawer][data-side="bottom"]) {
+  & [data-over-drawer] {
+    z-index: 51;
+  }
+  & [data-over-drawer],
+  & [data-over-drawer] * {
+    pointer-events: none !important;
+  }
+  & .scroll-hint:has(> [data-over-drawer]) {
+    mask-image: none;
+  }
+}
 
 /* Light text on the player badge's art (its name, its level): a dark outline, the background's colour a pixel each way, and a soft drop. */
 @utility text-outline {

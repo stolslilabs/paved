@@ -230,7 +230,7 @@ export function GuildBrowse({ candidate, query, onQueryChange, filters, onFilter
   const set = (change: Partial<GuildFinderFilters>) => onFiltersChange?.({ ...filters, ...change });
   return (
     <section aria-label="Find a guild" className="flex flex-col gap-3">
-      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3 focus-within:ring-2 focus-within:ring-ring">
+      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3">
         <Icon name="magnifying-glass" size="xs" className="shrink-0 text-muted-foreground" />
         <input
           type="search"

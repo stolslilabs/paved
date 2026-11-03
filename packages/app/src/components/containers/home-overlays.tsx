@@ -27,7 +27,7 @@ export function OverlayButton({ icon, label, detail, badge = 0, onClick, classNa
       onClick={onClick}
       whileTap={{ scale: 0.92 }}
       aria-label={badge > 0 ? `${name}, ${badge} waiting` : name}
-      className={cn("group flex w-16 flex-col items-center gap-0.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("group flex w-16 flex-col items-center gap-0.5 rounded-xl outline-none", className)}
     >
       <span className="state-layer relative grid size-12 place-items-center rounded-full border border-border bg-card/90 shadow-lg backdrop-blur tablet:size-14">
         <GameIcon name={icon} size="lg" />

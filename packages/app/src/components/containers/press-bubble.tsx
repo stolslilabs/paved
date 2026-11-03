@@ -103,7 +103,7 @@ export function PressBubble({ label, icon, hold, phase, onTap, onDismiss, scene,
         data-state={hold.state}
         onClick={onTap}
         onContextMenu={(e) => e.preventDefault()}
-        className="relative size-11 touch-none rounded-full shadow-md select-none focus-visible:ring-offset-card [-webkit-touch-callout:none]"
+        className="relative size-11 touch-none rounded-full shadow-md select-none [-webkit-touch-callout:none]"
       >
         <Icon name={icon} size="md" />
         <HoldRing state={drawn ? hold.state : "idle"} holdMs={hold.holdMs} />

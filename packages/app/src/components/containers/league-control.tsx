@@ -164,7 +164,7 @@ function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size
       onClick={onLeague}
       whileTap={{ scale: 0.95 }}
       aria-label={label ?? `League: ${unranked ? "Unranked" : league.name}, ${formatInteger(crowns)} ${crowns === 1 ? "crown" : "crowns"}`}
-      className={cn("group flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("group flex min-h-11 items-center rounded-full outline-none", className)}
     >
       {home ? (
         // HOME-UI-CAPSULES: the crowns' capsule on the HUD's frame, the gold crown capping its left end (the league's crest is the

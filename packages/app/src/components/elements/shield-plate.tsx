@@ -31,7 +31,7 @@ export function ShieldPlate({ endsAt, now, size = "auto", className }: ShieldPla
           type="button"
           data-slot="shield-plate"
           aria-label={shieldLabel(endsAt, now)}
-          className={cn("flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+          className={cn("flex min-h-11 items-center rounded-full outline-none", className)}
         >
           <Plate side="left" size={size} frame="hud" className="flex-1" end={<UiIcon name="shield" px={plateHudIconPx(size)} className={plateHudIconClass(size)} />}>
             <time dateTime={shieldDuration(endsAt, now)} className={cn(PLATE_FIGURE, "text-outline text-foreground")}>

@@ -389,7 +389,7 @@ export function CampaignCard({ id, name, summary, levels, stars, status, missing
       data-status={shown}
       data-unlock={unlocking ? (playing ? "playing" : "paused") : undefined}
       className={cn(
-        "state-layer group relative flex aspect-[16/10] w-full cursor-pointer flex-col justify-end overflow-hidden rounded-xl border bg-card text-left text-card-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        "state-layer group relative flex aspect-[16/10] w-full cursor-pointer flex-col justify-end overflow-hidden rounded-xl border bg-card text-left text-card-foreground outline-none transition-colors",
         selected ? "border-primary ring-1 ring-primary" : "border-border",
         className,
       )}

@@ -1,22 +1,29 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
-import { useContext, useState } from "react";
+import { useContext, useState, type ReactNode } from "react";
 import { useGuildBadge } from "../../data/guilds";
+import type { GuildBadge } from "../../data/social-source";
 import { useFollowStatus } from "../../data/social";
 import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
 import { DataContext, type DataSources } from "../../data/sources";
+import { rankName } from "../../lib/guild-text";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
-import { useSidePanel } from "../../lib/side-panel";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
-import { LeagueCrest } from "../elements/league-crest";
+import { GuildEmblem } from "../elements/guild-emblem";
+import { LeagueCrestIcon } from "../elements/league-crest-art";
+import { LeagueRim } from "../elements/league-rim";
+import { divisionOf, RIM_PORTRAIT, tierOf } from "../elements/league-standards";
+import { LevelBar } from "../elements/level-bar";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
 import { ShortAddress } from "../elements/short-address";
+import { TokenIcon } from "../elements/token-icon";
+import type { UiIconName } from "../elements/ui-art";
+import { UiIcon } from "../elements/ui-icon";
 import { isMaxLevel, xpLeft } from "../elements/xp-level";
-import { GuildLine } from "./guild-profile";
-import { XpRing, type PlayerProgress } from "../elements/xp-ring";
+import type { PlayerProgress } from "../elements/xp-ring";
+import { HudDrawer } from "./hud-drawer";
 
 /** The connected player as the indexer gives them: the profile and their Challenge figures. */
 export interface PlayerStatusData {
@@ -39,20 +46,26 @@ export interface ProfileSheetProps {
   progress?: PlayerProgress;
   /** The look the connected player saved (#626, read from the chain); null or omitted: the default avatar (the initial). */
   look?: bigint | null;
-  /** Opens the avatar creator (#626); omitted, Edit avatar is not offered. */
+  /** Opens the avatar creator (#626); omitted, Avatar is not offered. */
   onEditAvatar?: () => void;
   /**
-   * The connected player's PvP standing (`Matchmaker.league`): their league's crest and name under their name (#917). Left out, the
-   * sheet reads it itself where the app's sources are (the home's read and cache, in the sheet's own chunk, not the first load);
-   * null: none shown (not read, no PvP on the network).
+   * The connected player's PvP standing (`Matchmaker.league`): their league's rim and crest round the avatar and its name under their
+   * name (#917). Left out, the sheet reads it itself where the app's sources are (the home's read and cache, in the sheet's own chunk,
+   * not the first load); null: none shown (not read, no PvP on the network).
    */
   league?: PlayerLeague | null;
-  /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, League is not offered. */
+  /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, Battle logs is not offered. */
   onOpenLeague?: () => void;
+  /** Opens the player's tiles (My tiles); omitted, Collection is not offered. */
+  onOpenCollection?: () => void;
+  /** Opens the referral (the USDC a friend's games earn); omitted, Invite is not offered. */
+  onOpenInvite?: () => void;
   /** The player's counts of followers and following (#954), as given (a story); left out, read from the follow source. */
   follows?: { followers: number; followed: number };
   /** Opens the guild's page (#953) from the guild line; the sheet closes first. */
   onOpenGuild?: (id: number) => void;
+  /** Where the drawer's top stops, in CSS px from the viewport's top (`HudDrawer`): the home's HUD end. */
+  top?: number;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
   returnFocus?: () => HTMLElement | null;
 }
@@ -65,31 +78,92 @@ export interface PlayerLeague {
   unranked: boolean;
 }
 
-/** The player's league under their name: its crest and name, or Unranked (#917). */
-function ProfileLeague({ league }: { league: PlayerLeague }) {
-  return <LeagueCrest league={LEAGUES[league.league] ?? leagueOf(league.crowns)} unranked={league.unranked} className="self-center" />;
-}
-
-/** The league as the app's sources give it (`Matchmaker.league` and `Arena.attack`, the home's and the PvP screens' reads and cache). */
-function ReadLeague({ sources, playerId }: { sources: DataSources; playerId: string }) {
+/** The league as the app's sources give it (`Matchmaker.league` and `Arena.attack`, the home's and the PvP screens' reads and cache); none while read. */
+function ReadLeague({ sources, playerId, children }: { sources: DataSources; playerId: string; children: (league: PlayerLeague | null) => ReactNode }) {
   const league = usePvpLeagueOf(sources, playerId);
   const attack = usePvpLastAttack(sources, playerId);
-  if (!league || attack === undefined) return null;
-  return <ProfileLeague league={{ crowns: league.crowns, league: league.league, unranked: attack !== null && isUnranked(league, attack) }} />;
+  if (!league || attack === undefined) return children(null);
+  return children({ crowns: league.crowns, league: league.league, unranked: attack !== null && isUnranked(league, attack) });
 }
 
-/** The player's guild (#953): its emblem, name and their rank, read from the guild source; none, nothing. */
+/** The league as given, else as read where the app's sources are, else none. */
+function WithLeague({ league, playerId, children }: { league: PlayerLeague | null | undefined; playerId: string; children: (league: PlayerLeague | null) => ReactNode }) {
+  const sources = useContext(DataContext);
+  if (league !== undefined || !sources) return children(league ?? null);
+  return (
+    <ReadLeague sources={sources} playerId={playerId}>
+      {children}
+    </ReadLeague>
+  );
+}
+
+/** The portrait in the rim's hole: the same box with a rim or without one. */
+const PORTRAIT_INSET = { inset: `${((1 - RIM_PORTRAIT) / 2) * 100}%` };
+
+/**
+ * The avatar in the rim of the player's league with its crest at its lower left (the player card's, larger: 96 px, the crest placed alike); no league known,
+ * a plain grey ring round the same hole.
+ */
+function ProfileRim({ league, children }: { league: PlayerLeague | null; children: ReactNode }) {
+  if (!league) {
+    return (
+      <span data-slot="profile-rim" className="relative block size-[1em] shrink-0 rounded-full border-4 border-border">
+        <span className="absolute overflow-hidden rounded-full" style={PORTRAIT_INSET}>
+          {children}
+        </span>
+      </span>
+    );
+  }
+  const shown = LEAGUES[league.league] ?? leagueOf(league.crowns);
+  const tier = league.unranked ? "unranked" : tierOf(shown);
+  return (
+    <span data-slot="profile-rim" data-tier={tier} className="relative block size-[1em] shrink-0">
+      <LeagueRim tier={tier} size="inherit" className="block">
+        {children}
+      </LeagueRim>
+      <LeagueCrestIcon
+        tier={tier}
+        division={league.unranked ? null : divisionOf(shown)}
+        size="inherit"
+        className="absolute -bottom-[10%] -left-[10%]"
+        style={{ width: "44%", height: "44%" }}
+      />
+    </span>
+  );
+}
+
+/** The league's name under the player's: "Bronze II", or "Unranked" (#917). */
+const leagueName = (league: PlayerLeague) => (league.unranked ? "Unranked" : (LEAGUES[league.league] ?? leagueOf(league.crowns)).name);
+
+/** The player's guild (#953): its emblem, its name and a chevron, the player's rank in its name; a tap opens its page. */
+function GuildPill({ badge, onOpen }: { badge: GuildBadge; onOpen?: (id: number) => void }) {
+  return (
+    <button
+      type="button"
+      data-slot="guild-line"
+      aria-label={`${badge.name}, ${rankName(badge.rank)}`}
+      onClick={() => onOpen?.(badge.id)}
+      className="state-layer drawer-raised flex h-10 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl pr-2 pl-1.5 text-left outline-none"
+    >
+      <GuildEmblem emblem={badge.emblem} size="sm" />
+      <span className="text-outline min-w-0 flex-1 truncate font-bold">{badge.name}</span>
+      <Icon name="chevron-right" size="xs" className="shrink-0" />
+    </button>
+  );
+}
+
+/** The player's guild, read from the guild source; none, nothing. */
 function ReadGuild({ playerId, onOpen }: { playerId: string; onOpen: (id: number) => void }) {
   const badge = useGuildBadge(playerId).data;
-  return badge ? <GuildLine badge={badge} onOpen={onOpen} /> : null;
+  return badge ? <GuildPill badge={badge} onOpen={onOpen} /> : null;
 }
 
-/** One figure of the sheet: Games, Best, and the follow counts. */
+/** One figure of the profile: its label over it. */
 function Figure({ term, value }: { term: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3">
-      <dt className="text-xs text-muted-foreground">{term}</dt>
-      <dd className="numeric text-lg font-semibold wrap-anywhere">{value}</dd>
+    <div data-slot="profile-figure" className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 px-0.5 py-2">
+      <dt className="text-xs font-bold text-muted-foreground">{term}</dt>
+      <dd className="numeric text-outline max-w-full text-lg leading-tight font-bold wrap-anywhere">{value}</dd>
     </div>
   );
 }
@@ -109,120 +183,184 @@ function FollowCounts({ counts }: { counts: { followers: number; followed: numbe
   );
 }
 
-/** One of the level's XP figures on the sheet (#830). */
-function XpLine({ term, value }: { term: string; value: string }) {
+/** One of the profile's actions: its icon over its name, on a raised tile; `children` over the icon (Invite's USDC). */
+function ActionTile({ art, label, name, onClick, children }: { art: UiIconName; label: string; name?: string; onClick: () => void; children?: ReactNode }) {
   return (
-    <div data-slot="xp-line" className="flex min-w-0 flex-col gap-0.5">
-      <dt className="text-xs text-muted-foreground">{term}</dt>
-      <dd className="numeric text-sm font-semibold wrap-anywhere">{value}</dd>
-    </div>
+    <button
+      type="button"
+      data-slot="profile-action"
+      aria-label={name}
+      onClick={onClick}
+      className="state-layer drawer-tile flex min-w-0 flex-1 basis-0 cursor-pointer flex-col items-center gap-1 rounded-2xl px-0.5 pt-2.5 pb-2 outline-none"
+    >
+      <span className="relative">
+        <UiIcon name={art} px={44} className="drawer-icon size-11" />
+        {children}
+      </span>
+      {/* 12 px, tight: each name holds on one line in a 360 px phone's quarter; narrower, it wraps between its words. */}
+      <span className="text-outline max-w-full text-center text-xs leading-tight font-black tracking-tight">{label}</span>
+    </button>
   );
 }
 
-/** The side panel from `desktop`, where the avatar sits at the left of the navigation's header; the bottom sheet under it. */
-const DESKTOP_QUERY = "(min-width: 64rem)";
+/**
+ * The level's figures for screen readers, the bar being a picture: the XP made in the level, left to the next, and the whole XP when the
+ * source knows it (#830); "Max level" at the cap. Not shown (the owner's ask of 2026-11-03: the bar says it).
+ */
+function XpLeft({ progress }: { progress: PlayerProgress | undefined }) {
+  if (!progress) return null;
+  const max = isMaxLevel(progress);
+  return (
+    <span data-slot="xp-left" className="sr-only">
+      {formatPoints(progress.xp)} XP made{max ? "" : ` of ${formatPoints(progress.xpForNext)}`},{" "}
+      {max ? "Max level" : `${formatPoints(xpLeft(progress))} XP to level ${formatPoints(progress.level + 1)}`}
+      {progress.total !== undefined && ` · ${formatPoints(progress.total)} XP in all`}
+    </span>
+  );
+}
 
 /**
- * What a tap on the avatar opens (#624): a bottom sheet on a phone, a panel from the left from `desktop`. The avatar larger,
- * the name, the short address with Copy, the Challenge figures the home card showed, Edit avatar (the
- * creator, #626) and Disconnect; a guest gets the Training line and Connect. Connected, the XP ring and the level (#625), the XP made in it, the XP left and the whole XP (#830).
+ * What a tap on the player card opens (#624), redrawn after the profile's mockup (PROFILE-DRAWER, `docs/design/profile.webp`): the HUD's
+ * drawer, rising from the bottom of a phone up to the HUD's end, a side panel docked at the left from `tablet` (`HudDrawer`), one layout.
+ * "Your profile" over the avatar in the rim of the player's league and its crest (#917); beside it the name, the league's, the short
+ * address with Copy and the guild (#953); the level and its bar ("90 / 150 XP"; the XP left and in all, #830, said to screen readers only); Games and the
+ * follow counts (#954) in one band (Best left on 2026-11-03, the owner's ask); the actions as tiles (Battle logs #834, Avatar #626, Collection, Invite); Disconnect. A guest gets
+ * the Training line and Connect.
  */
-export function ProfileSheet({ state, open, onOpenChange, onConnect, onDisconnect, onCopy, progress, look, onEditAvatar, league, onOpenLeague, onOpenGuild, follows, returnFocus }: ProfileSheetProps) {
+export function ProfileSheet({
+  state,
+  open,
+  onOpenChange,
+  onConnect,
+  onDisconnect,
+  onCopy,
+  progress,
+  look,
+  onEditAvatar,
+  league,
+  onOpenLeague,
+  onOpenCollection,
+  onOpenInvite,
+  onOpenGuild,
+  follows,
+  top,
+  returnFocus,
+}: ProfileSheetProps) {
   const sources = useContext(DataContext);
-  const desktop = useSidePanel(DESKTOP_QUERY);
   const [copied, setCopied] = useState(false);
   const connected = state.status === "connected" ? state.data : null;
+  const portrait = (
+    <PlayerAvatar
+      size="lg"
+      className="size-full p-0 [&>span]:text-3xl"
+      player={connected ? { name: connected.player.name, address: connected.player.playerId } : null}
+      loading={state.status === "loading"}
+      look={look}
+    />
+  );
   return (
-    <Sheet
+    <HudDrawer
       open={open}
       onOpenChange={(next) => {
         if (!next) setCopied(false);
         onOpenChange(next);
       }}
+      title={connected ? "Your profile" : "Profile"}
+      top={top}
+      returnFocus={returnFocus}
+      slot="profile"
     >
-      <SheetContent
-        side={desktop ? "left" : "bottom"}
-        onCloseAutoFocus={(e) => {
-          const target = returnFocus?.();
-          if (!target) return;
-          e.preventDefault();
-          target.focus();
-        }}
-      >
-        <SheetHeader className="items-center text-center">
-          <PlayerAvatar size="lg" player={connected ? { name: connected.player.name, address: connected.player.playerId } : null} loading={state.status === "loading"} look={look}>
-            {connected && <XpRing size="lg" progress={progress} />}
-          </PlayerAvatar>
-          <SheetTitle className="flex w-full min-w-0 justify-center">
-            {connected ? <PlayerName name={connected.player.name} address={connected.player.playerId} className="text-lg" /> : state.status === "guest" ? "Playing as a guest" : "Profile"}
-          </SheetTitle>
-          <SheetDescription>{connected ? "Your profile" : state.status === "guest" ? "Training is free. Connect to enter the Challenge." : "Looking for your account…"}</SheetDescription>
-          {connected && (league !== undefined ? league && <ProfileLeague league={league} /> : sources && <ReadLeague sources={sources} playerId={connected.player.playerId} />)}
-        </SheetHeader>
-
-        {connected && (
-          <>
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/60 p-1.5 pl-3">
-              <ShortAddress address={connected.player.playerId} className="flex-1 text-xs" />
-              <Button
-                size="sm"
-                variant={copied ? "secondary" : "default"}
-                aria-live="polite"
-                onClick={() => void onCopy?.(connected.player.playerId).then(() => setCopied(true), () => undefined)}
-              >
-                <Icon name={copied ? "check" : "copy"} size="xs" />
-                {copied ? "Copied" : "Copy"}
-              </Button>
-            </div>
-            {sources && (
-              <ReadGuild
-                playerId={connected.player.playerId}
-                onOpen={(id) => {
-                  onOpenChange(false);
-                  onOpenGuild?.(id);
-                }}
-              />
-            )}
-            <div data-slot="player-level" className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
-              <span className="text-sm font-semibold">
-                Level <span className="numeric">{progress ? formatPoints(progress.level) : "–"}</span>
-              </span>
-              {/* The XP made in the level, the XP left to the next, and the whole XP when the source knows it (#830): not on the home. */}
-              <dl className="grid grid-cols-3 gap-2">
-                <XpLine term="XP made" value={progress ? formatPoints(progress.xp) : "–"} />
-                <XpLine term={progress && !isMaxLevel(progress) ? `To level ${formatPoints(progress.level + 1)}` : "XP left"} value={progress ? (isMaxLevel(progress) ? "Max level" : formatPoints(xpLeft(progress))) : "–"} />
-                {progress?.total !== undefined && <XpLine term="Total XP" value={formatPoints(progress.total)} />}
+      {connected ? (
+        <WithLeague league={league} playerId={connected.player.playerId}>
+          {(shown) => (
+            <>
+              <div data-slot="profile-identity" className="flex items-center gap-3">
+                <span className="text-[6rem]">
+                  <ProfileRim league={shown}>{portrait}</ProfileRim>
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+                  <span className="flex max-w-full min-w-0 flex-col">
+                    <PlayerName name={connected.player.name} address={connected.player.playerId} className="text-outline text-2xl leading-tight font-black" />
+                    {shown && (
+                      <span data-slot="profile-league" className="truncate text-sm font-bold text-muted-foreground">
+                        {leagueName(shown)}
+                      </span>
+                    )}
+                  </span>
+                  <span data-slot="profile-address" className="drawer-raised flex h-8 max-w-full items-center gap-0.5 rounded-lg pl-3">
+                    <ShortAddress address={connected.player.playerId} className="text-sm font-bold text-muted-foreground" />
+                    <button
+                      type="button"
+                      aria-label={copied ? "Copied" : "Copy address"}
+                      aria-live="polite"
+                      onClick={() => void onCopy?.(connected.player.playerId).then(() => setCopied(true), () => undefined)}
+                      className="state-layer grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:text-foreground"
+                    >
+                      <Icon name={copied ? "check" : "copy"} size="xs" />
+                    </button>
+                  </span>
+                </div>
+              </div>
+              {sources && (
+                <ReadGuild
+                  playerId={connected.player.playerId}
+                  onOpen={(id) => {
+                    onOpenChange(false);
+                    onOpenGuild?.(id);
+                  }}
+                />
+              )}
+              <div data-slot="player-level" className="flex flex-col gap-1">
+                <span className="text-outline text-lg leading-tight font-black">
+                  Level <span className="numeric">{progress ? formatPoints(progress.level) : "–"}</span>
+                </span>
+                <LevelBar progress={progress} variant="profile" />
+                <XpLeft progress={progress} />
+              </div>
+              <dl data-slot="profile-figures" className="drawer-raised drawer-rule flex rounded-xl">
+                <Figure term="Games" value={formatPoints(connected.stats.challengeFinished)} />
+                {follows ? <FollowCounts counts={follows} /> : sources && <ReadFollowCounts playerId={connected.player.playerId} />}
               </dl>
-            </div>
-            <dl className="grid grid-cols-2 gap-3">
-              <Figure term="Games" value={formatPoints(connected.stats.challengeFinished)} />
-              <Figure term="Best" value={formatPoints(connected.stats.bestScore)} />
-              {follows ? <FollowCounts counts={follows} /> : sources && <ReadFollowCounts playerId={connected.player.playerId} />}
-            </dl>
-            {onOpenLeague && (
-              <Button variant="outline" onClick={onOpenLeague}>
-                <Icon name="swords" size="xs" />
-                Battle logs
+              {(onOpenLeague || onEditAvatar || onOpenCollection || onOpenInvite) && (
+                <div data-slot="profile-actions" className="flex gap-1.5">
+                  {onOpenLeague && <ActionTile art="swords" label="Battle logs" onClick={onOpenLeague} />}
+                  {onEditAvatar && <ActionTile art="avatar" label="Avatar" name="Edit avatar" onClick={onEditAvatar} />}
+                  {onOpenCollection && <ActionTile art="collection" label="Collection" onClick={onOpenCollection} />}
+                  {onOpenInvite && (
+                    <ActionTile art="invite" label="Invite" onClick={onOpenInvite}>
+                      {/* What an invitation earns: USDC (the referral's share of a friend's games). */}
+                      <TokenIcon kind="usdc" px={20} className="absolute -right-1.5 -bottom-1 size-5" />
+                    </ActionTile>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onDisconnect}
+                className="state-layer drawer-raised flex h-11 cursor-pointer items-center gap-2 self-center rounded-full pr-4 pl-3 outline-none"
+              >
+                <UiIcon name="disconnect" px={32} className="size-8" />
+                <span className="text-outline font-black">Disconnect</span>
+              </button>
+            </>
+          )}
+        </WithLeague>
+      ) : (
+        <div data-slot="profile-identity" className="flex flex-col items-center gap-3 text-center">
+          <span className="text-[6rem]">
+            <ProfileRim league={null}>{portrait}</ProfileRim>
+          </span>
+          <span className="text-outline text-xl font-black">{state.status === "guest" ? "Playing as a guest" : "Looking for your account…"}</span>
+          {state.status === "guest" && (
+            <>
+              <p className="text-sm font-bold text-muted-foreground">Training is free. Connect to enter the Challenge.</p>
+              <Button onClick={onConnect} loading={state.connecting} className="w-full">
+                Connect
               </Button>
-            )}
-            {onEditAvatar && (
-              <Button variant="outline" onClick={onEditAvatar}>
-                <Icon name="pen" size="xs" />
-                Edit avatar
-              </Button>
-            )}
-            <Button variant="ghost" onClick={onDisconnect}>
-              <Icon name="right-from-bracket" size="xs" />
-              Disconnect
-            </Button>
-          </>
-        )}
-        {state.status === "guest" && (
-          <Button onClick={onConnect} loading={state.connecting}>
-            Connect
-          </Button>
-        )}
-      </SheetContent>
-    </Sheet>
+            </>
+          )}
+        </div>
+      )}
+    </HudDrawer>
   );
 }

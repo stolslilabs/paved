@@ -138,7 +138,7 @@ function Openable({ rank, opens }: { rank: ChestRank; opens: number }) {
           setOpen(!open);
           setRun(run + 1);
         }}
-        className="grid place-items-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="grid place-items-center rounded-2xl outline-none"
       >
         <ChestArt key={run} rank={rank} state={open ? "opening" : "ready"} size="sm" label={null} />
       </button>

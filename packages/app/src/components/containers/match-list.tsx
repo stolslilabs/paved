@@ -85,7 +85,7 @@ export function MatchCard({ match: m, now, onOpen, onOpenPlayer, renders }: { ma
   // which let the taps through but on the rival's avatar and name.
   const split = onOpenPlayer !== undefined;
   const Root = split ? "div" : "button";
-  const card = "state-layer outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const card = "state-layer outline-none";
   return (
     <Root
       {...(split ? { "data-slot": "match-card" } : { type: "button" as const, "aria-label": cardName(m), onClick: () => onOpen?.(m.id) })}
@@ -98,7 +98,7 @@ export function MatchCard({ match: m, now, onOpen, onOpenPlayer, renders }: { ma
       </span>
       <span aria-hidden className="pointer-events-none absolute inset-0 bg-background/60" />
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", attack ? "bg-info" : "bg-warning")} />
-      {split && <button type="button" data-slot="match-open" aria-label={cardName(m)} onClick={() => onOpen?.(m.id)} className={cn("absolute inset-0 rounded-[inherit] focus-visible:ring-inset", card)} />}
+      {split && <button type="button" data-slot="match-open" aria-label={cardName(m)} onClick={() => onOpen?.(m.id)} className={cn("absolute inset-0 rounded-[inherit]", card)} />}
       <div className={cn("relative flex min-w-0 flex-1 flex-col py-2 pr-3 pl-4 [text-shadow:0_1px_2px_var(--background)]", split && "pointer-events-none")}>
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
@@ -108,7 +108,7 @@ export function MatchCard({ match: m, now, onOpen, onOpenPlayer, renders }: { ma
                 data-slot="match-rival"
                 aria-label={`${m.rival.name ?? "The player"}'s profile`}
                 onClick={() => onOpenPlayer(m.rival.address)}
-                className="pointer-events-auto -m-1 flex min-w-0 shrink-0 cursor-pointer items-center rounded-full p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="pointer-events-auto -m-1 flex min-w-0 shrink-0 cursor-pointer items-center rounded-full p-1 outline-none"
               >
                 <PlayerAvatar player={m.rival} look={m.rival.look} />
               </button>
