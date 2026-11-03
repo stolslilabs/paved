@@ -35,9 +35,10 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   Friends on the right, and an anchored ribbon dock: Shop, Chests, PLAY, Guild, Settings. Generated with OpenAI's image model through
   the Codex CLI; its icons and frames are in `packages/app/ui-sources/` (`scripts/compress-ui-art.ts`). The owner kept the app's
   layout (2026-11-02): its components take this direction one at a time, the player card first (`containers/player-badge.tsx`), then
-  the capsules and the balances (HOME-UI-CAPSULES), then the dock (HOME-DOCK, 2026-11-03): the ribbon, its posts and the PLAY
-  medallion, Shop, Chests, PLAY, Guild, Settings (Guild in League's place), full width on a phone, centred from a tablet, on the home
-  from a desktop too. The season dial keeps its look for now: the mockup's, tried on 2026-11-02, was set aside to come back to.
+  the capsules and the balances (HOME-UI-CAPSULES), then the dock (HOME-DOCK, 2026-11-03): its wood, parchment, dividers and PLAY
+  medallion cut from this mockup's footer (Codex redrew each layer at the footer's framing, registered on the mockup until their
+  restack matched it) and drawn at its scale, Shop, Chests, PLAY, Guild, Settings (Guild in League's place), full width on a phone,
+  centred from a tablet, on the home from a desktop too. The season dial keeps its look for now: the mockup's, tried on 2026-11-02, was set aside to come back to.
 
 - `profile.webp`: the profile's mobile direction (2026-11-02), in `home.webp`'s rendering: what a tap on the player card opens, a drawer
   that rises over the village and stops under the HUD (the player card and the capsules stay in view): "Your profile", the avatar in

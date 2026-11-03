@@ -2,8 +2,8 @@
  * The HUD's images (the owner's mobile direction of 2026-11-01, `docs/design/home.webp`, after Supercell's games): the icons of the
  * home's buttons, of the dock, of the seasons and of the Play sheet, the profile drawer's actions (Avatar, Collection, Invite,
  * Disconnect, after its mockup of 2026-11-02), and the frames the home draws with them: the XP bar's track and fill, and the dock's
- * ribbon, divider and PLAY medallion (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width; the ribbon and the
- * divider back from the git history, the medallion redrawn plain: the swords and PLAY are the app's). The season dial's frame and the
+ * wood, parchment, divider and PLAY medallion (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width, its
+ * pieces cut from the mockup's footer decomposed and checked against it: `DOCK_ART`). The season dial's frame and the
  * game modes' icons went unused and were removed; the HUD's frame (the player card's, the capsules') is CSS since HUD-FRAME-CSS (`hud-frame.tsx`),
  * its painted 9-slice (`card-frame`) left on 2026-11-03. Panels, capsules, buttons, badges and bars are CSS; the league's art is
  * `league-standards.ts`; the currencies stay `token-art.ts` and the chests `chest-art.ts`. Images, not drawings: WebP copies in
@@ -50,7 +50,7 @@ export const UI_ICONS = [
 export type UiIconName = (typeof UI_ICONS)[number];
 
 /** The frames, each an image of its own. */
-export const UI_FRAMES = ["dock-ribbon", "play-medallion", "dock-divider", "xp-track", "xp-fill"] as const;
+export const UI_FRAMES = ["dock-wood", "dock-panel", "dock-divider", "play-medallion", "xp-track", "xp-fill"] as const;
 export type UiFrameName = (typeof UI_FRAMES)[number];
 
 interface Frame {
@@ -66,22 +66,36 @@ interface Frame {
 export const ICON_FRAME: Frame = { width: 256, height: 256, side: "width", sizes: [64, 128] };
 
 /**
- * The frames' masters. The ribbon is a 9-slice image (`DOCK_RIBBON_SLICE`): its wooden ends and rails kept, its parchment stretched;
- * the medallion is plain (the swords and PLAY are drawn over it); the divider is a thin wooden post.
+ * The frames' masters. The dock's four are crops of the mockup's footer (`docs/design/home.webp`, its bottom 136 px, at 3x: 1536 px
+ * wide), each piece redrawn alone by Codex at that framing, then registered on the mockup (scale and shift, the parchment fitted
+ * box by box) until their restack matched it: so a master's pixel is the mockup's, and the dock draws every piece at one scale
+ * (`DOCK_ART`). The wood: the rail under the parchment, its stacked ends and its plank (a 9-slice); the panel: the parchment, its
+ * dividers painted out (a 9-slice: its notched corners kept); the divider: the line and its two notches; the medallion: plain, its
+ * face toned to the mockup's (the swords and PLAY are drawn over it).
  */
 export const FRAME_ART = {
-  "dock-ribbon": { width: 1440, height: 258, side: "width", sizes: [720, 1440] },
-  "play-medallion": { width: 512, height: 512, side: "width", sizes: [128, 256] },
-  "dock-divider": { width: 25, height: 128, side: "height", sizes: [128] },
+  "dock-wood": { width: 1536, height: 225, side: "width", sizes: [768, 1536] },
+  "dock-panel": { width: 553, height: 261, side: "height", sizes: [128, 256] },
+  "dock-divider": { width: 23, height: 261, side: "height", sizes: [128, 256] },
+  "play-medallion": { width: 341, height: 355, side: "width", sizes: [128, 256] },
   "xp-track": { width: 1464, height: 181, side: "width", sizes: [360, 720] },
   "xp-fill": { width: 1466, height: 119, side: "width", sizes: [360, 720] },
 } as const satisfies Record<UiFrameName, Frame>;
 
 /**
- * The ribbon's 9-slice, in the master's pixels (measured on it): the top rail 44, the wooden ends 72, the bottom rail 52; the middle,
- * the parchment, stretched (`dock-ribbon`, theme.css).
+ * The dock's pieces in the mockup's pixels (1536 for its width; measured on the restack): each piece's box, the dock's top the
+ * parchment's (the medallion rises above it), and the 9-slices' borders. `scale`: CSS px a mockup px, the mockup's width on a 375 px
+ * phone; the dock keeps it at every width (its parchment and plank stretch, its ends and the medallion do not).
  */
-export const DOCK_RIBBON_SLICE = { top: 44, side: 72, bottom: 52 } as const;
+export const DOCK_ART = {
+  scale: 375 / 1536,
+  /** From the parchment's top to the screen's foot. */
+  height: 310,
+  wood: { top: 82, height: 225, side: 74, bottom: 49 },
+  panel: { inset: 51, height: 261, border: 40 },
+  divider: { width: 23 },
+  medallion: { top: -83, width: 341, height: 355 },
+} as const;
 
 /** The XP bar's track (outline, silver bevel, dark recess): its rounded ends kept whole; its height is its two halves. */
 export const XP_TRACK_SLICE = { x: 72 / 1464 } as const;

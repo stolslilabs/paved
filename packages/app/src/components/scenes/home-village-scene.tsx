@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils";
 import { HUD_CAPSULES_NUDGE, HUD_INSET_BOX, HUD_PLATES_NUDGE } from "../elements/hud-inset";
 import { Countdown } from "../elements/countdown";
 import { GameIcon } from "../elements/game-icon";
+import { DOCK_ART } from "../elements/ui-art";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { formatPoints } from "../elements/score";
 import { type TileArt } from "../elements/tile-chip";
@@ -286,8 +287,8 @@ function HomeBar({ children }: { children: ReactNode }) {
     resize.observe(el);
     return () => resize.disconnect();
   }, []);
-  // The dock's box: its items' height and its padding; empty, so nothing for assistive technology.
-  const standIn = <div className="box-content h-12 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] mobile:h-15 tablet:mx-auto tablet:max-w-[34rem]" />;
+  // The dock's box: the band's top to the foot, and the safe area; empty, so nothing for assistive technology.
+  const standIn = <div className="box-content" style={{ height: DOCK_ART.height * DOCK_ART.scale, paddingBottom: "env(safe-area-inset-bottom)" }} />;
   return (
     <div ref={ref} data-fade className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
       <Suspense fallback={standIn}>{children}</Suspense>

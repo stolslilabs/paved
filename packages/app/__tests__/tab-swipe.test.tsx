@@ -172,10 +172,12 @@ describe("the bar", () => {
     expect(screen.getByRole("button", { name: "Guild" })).toHaveClass("text-primary");
     expect(screen.getByRole("button", { name: "Shop" })).toHaveClass("text-foreground");
     expect(highlight().dataset.column).toBe("3");
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("3");
+    // Its offset in its own width (one item's): past Play, the medallion's column less an item's.
+    expect(highlight().style.getPropertyValue("--nav-x")).toMatch(/^calc\(3 \* 100% \+ [\d.]+px - 100%\)$/);
     expect(highlight().className).not.toContain("opacity-0");
     // A first bar starts still: no starting style of another tab.
-    expect(highlight().style.getPropertyValue("--nav-from")).toBe("3");
+    expect(highlight().dataset.from).toBe("3");
+    expect(highlight().style.getPropertyValue("--nav-from-x")).toBe(highlight().style.getPropertyValue("--nav-x"));
     expect(screen.getByRole("button", { name: "Guild" }).className).not.toContain("starting:");
   });
 
@@ -195,8 +197,9 @@ describe("the bar", () => {
     // A tab change: one bar unmounts as the next mounts, in the same commit.
     const { rerender } = render(<AppNav key="shop" active="shop" />);
     rerender(<AppNav key="settings" active="settings" />);
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("4");
-    expect(highlight().style.getPropertyValue("--nav-from")).toBe("0");
+    expect(highlight().dataset.column).toBe("4");
+    expect(highlight().dataset.from).toBe("0");
+    expect(highlight().style.getPropertyValue("--nav-from-x")).toBe("calc(0 * 100%)");
     // The old item starts gold, the new one white, and each moves to its own.
     expect(screen.getByRole("button", { name: "Shop" }).className).toContain("starting:text-primary");
     expect(screen.getByRole("button", { name: "Settings" }).className).toContain("starting:text-foreground");
@@ -206,7 +209,7 @@ describe("the bar", () => {
   it("fades the highlight in on its column when the last bar had no item current (the home's)", () => {
     const { rerender } = render(<AppNav key="home" active={null} />);
     rerender(<AppNav key="chests" active="chests" />);
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("1");
+    expect(highlight().dataset.column).toBe("1");
     expect(highlight().className).toContain("starting:opacity-0");
     expect(highlight().className).not.toMatch(/(^| )opacity-0/);
   });
@@ -216,13 +219,14 @@ describe("the bar", () => {
     unmount();
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     render(<AppNav active="guild" />);
-    expect(highlight().style.getPropertyValue("--nav-from")).toBe("3");
+    expect(highlight().dataset.from).toBe("3");
   });
 
   it("moves by its transitions when it stays mounted", () => {
     const { rerender } = render(<AppNav active="shop" />);
     rerender(<AppNav active="chests" />);
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("1");
+    expect(highlight().dataset.column).toBe("1");
+    expect(highlight().style.getPropertyValue("--nav-x")).toBe("calc(1 * 100%)");
     expect(screen.getByRole("button", { name: "Chests" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "Shop" })).not.toHaveAttribute("aria-current");
   });
@@ -232,8 +236,8 @@ describe("the bar", () => {
     expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "Guild", "Settings"]);
     // The dock itself hides at no width: the page frame hides it from `desktop`, where pages open in the home's side panel.
     expect(screen.getByRole("navigation", { name: "Main" })).not.toHaveClass("desktop:hidden");
-    // The painted ribbon under it, and the four posts between its columns.
-    expect(document.querySelector('[data-slot="dock-ribbon"]')).toHaveClass("dock-ribbon");
+    // The painted wood and parchment under it (the mockup's pieces, 9-slices), and the four dividers between its columns.
+    for (const slot of ["dock-wood", "dock-panel"]) expect(document.querySelector(`[data-slot="${slot}"]`), slot).not.toBeNull();
     expect(document.querySelectorAll('[data-slot="dock-divider"]')).toHaveLength(4);
   });
 

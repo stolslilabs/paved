@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import type { Tab } from "../../routes/pages";
 import { cn } from "../../lib/utils";
-import { uiFrameImageSet, uiFrameSources, type UiIconName } from "../elements/ui-art";
+import { DOCK_ART, FRAME_ART, uiFrameImageSet, uiFrameSources, type UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 
 /**
@@ -19,12 +19,48 @@ export const NAV_TABS: readonly { id: Tab; label: string; art: UiIconName }[] = 
   { id: "settings", label: "Settings", art: "settings" },
 ];
 
-/** The medallion's side, the swords' and the items' icons', in CSS px (the copies are picked by them). */
-const MEDALLION_PX = 76;
-const SWORDS_PX = 40;
-const ICON_PX = 40;
-/** The dividers, a wooden post between two columns: at the four borders of the five (Play's two under the medallion's rim). */
+/** A length of the mockup's, in CSS px (`DOCK_ART`: its pixels at a 375 px phone's scale, kept at every width). */
+const px = (n: number) => n * DOCK_ART.scale;
+/** A 9-slice's border as a share of its image's side, for `border-image-slice` (any copy of the image-set). */
+const share = (n: number, side: number) => `${((100 * n) / side).toFixed(3)}%`;
+const { wood, panel, divider, medallion } = DOCK_ART;
+/** Play's column, the medallion's width; the four items share the rest. */
+const PLAY_PX = px(medallion.width);
+/** The items' icons and the swords, in CSS px (the copies are picked by them): the mockup's drawings, 41 and 44 px wide. */
+const ICON_PX = 44;
+const SWORDS_PX = 47;
+/** The dividers, between two columns: at the four borders of the five (Play's two under the medallion's rim, their notches showing). */
 const DIVIDERS = [1, 2, 3, 4];
+/** A column's left edge in the row: `before` items and, past Play, its column. */
+const columnLeft = (before: number, pastPlay: boolean) => `calc((100% - ${PLAY_PX}px) / 4 * ${before}${pastPlay ? ` + ${PLAY_PX}px` : ""})`;
+
+/*
+ * The painted pieces, inline: boxes of the dock's own chunk, not utilities of the app's stylesheet. The 9-slices' borders are
+ * transparent until their image comes (a border image not yet drawn falls back to the border's own colour).
+ */
+const WOOD_STYLE: CSSProperties = {
+  top: px(wood.top),
+  height: px(wood.height),
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderWidth: `0 ${px(wood.side)}px ${px(wood.bottom)}px`,
+  borderImageSource: uiFrameImageSet("dock-wood"),
+  borderImageSlice: `0 ${share(wood.side, FRAME_ART["dock-wood"].width)} ${share(wood.bottom, FRAME_ART["dock-wood"].height)} fill`,
+};
+const PANEL_STYLE: CSSProperties = {
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderWidth: px(panel.border),
+  borderImageSource: uiFrameImageSet("dock-panel"),
+  borderImageSlice: `${share(panel.border, FRAME_ART["dock-panel"].height)} ${share(panel.border, FRAME_ART["dock-panel"].width)} fill`,
+};
+/** The labels' outline, the mockup's: thick and dark, a drop under it. */
+const OUTLINE: CSSProperties = {
+  textShadow: [[-1.5, 0], [1.5, 0], [0, -1.5], [0, 1.5], [-1, -1], [1, -1], [-1, 1], [1, 1]]
+    .map(([x, y]) => `${x}px ${y}px var(--background)`)
+    .concat("0 2px 2px var(--background)")
+    .join(", "),
+};
 
 /** The current item's description (TAB-RETAP, #800): a tap on it closes its page. */
 export const RETAP_HINT = "Tap again to return to the village";
@@ -72,11 +108,12 @@ function useStartTab(active: Tab | null): Tab | null {
 
 /**
  * The tabbed pages' navigation (section 6.2), the home's footer: the dock (HOME-DOCK, the owner's asks of 2026-11-03, the mockup's
- * anchored ribbon, `docs/design/home.webp`): a painted ribbon (`dock-ribbon`, a 9-slice: its wooden ends and rails kept, its
- * parchment stretched) with wooden posts between its columns, five items on it, each the mockup's icon over its label (white,
- * outlined; from `mobile`, a 320 px phone too narrow for the five), Play in the centre a gold medallion rising above the ribbon, the
- * swords and PLAY on it. Full width on a phone, its wooden ends at the screen's edges; centred, 34 rem wide, from `tablet`; shown
- * on the home from `desktop` too (the home's overlay keeps Missions and the Vault, the dock has the rest).
+ * footer, `docs/design/home.webp`), its painted pieces cut from the mockup and drawn at its scale (`DOCK_ART`): a wooden rail at the
+ * foot, its stacked ends at the screen's edges, under a parchment band (a 9-slice, its notched corners kept) with a divider between
+ * its columns; five items on it, each the mockup's icon over its label (white, outlined; from `mobile`, a 320 px phone too narrow
+ * for the five), and Play in the centre, a gold medallion rising above the band, the swords and PLAY on it. Full width on a phone;
+ * centred, 34 rem wide, from `tablet`, the band and the plank stretched; shown on the home from `desktop` too (the home's overlay
+ * keeps Missions and the Vault, the dock has the rest). Badges: the mockup's red squares at a column's top right.
  * The current item: the sliding highlight (TAB-SWIPE, #726: one column wide, the wood's shade on the parchment, none for Play)
  * slides to its column, and its label turns gold. Every tab page mounts its own bar (`TabFrame`), so a tab change remounts it: the
  * new bar starts from the state the last one drew (`@starting-style`: the highlight on the old column), its transitions run in the
@@ -88,8 +125,8 @@ function useStartTab(active: Tab | null): Tab | null {
  * Chests and the guild's count on Guild (`badges`). Missions and the Vault are the home's overlay's; a page of either has the bar
  * with no item current.
  * The bar is `position: fixed` to the viewport's bottom, outside the page's scrolling region (`TabFrame`, #611, which ends the
- * region at the bar's measured height). It draws the page's edge hint (NO-SCROLLBARS, #609): while the page's region has more
- * below (`page-more`, set by `TabFrame`), a fade just above the bar.
+ * region at the bar's measured height: the band's top to the foot, the medallion rising above it). It draws the page's edge hint
+ * (NO-SCROLLBARS, #609): while the page's region has more below (`page-more`, set by `TabFrame`), a fade just above the bar.
  * TAB-RETAP (#800, the owner's decision of 2026-10-26): a tap on the current item closes its page and returns to the village
  * (`useTabNavigate`); the item says so (`aria-describedby`, `RETAP_HINT`) and keeps `aria-current="page"`.
  */
@@ -99,40 +136,44 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
   const moved = start !== active;
   const column = columnOf(active);
   const startColumn = columnOf(start);
+  // The highlight's offset, in its own width (one item's): past Play, the medallion's column less an item's.
+  const offset = (col: number) => `calc(${Math.max(0, col)} * 100%${col > 2 ? ` + ${PLAY_PX}px - 100%` : ""})`;
   return (
     <nav
       aria-label="Main"
       data-slot="app-nav"
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-20 isolate pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] tablet:mx-auto tablet:w-full tablet:max-w-[34rem]",
-        className,
-      )}
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className={cn("fixed inset-x-0 bottom-0 z-20 isolate tablet:mx-auto tablet:w-full tablet:max-w-[34rem]", className)}
     >
-        <span id={hint} hidden>
-          {RETAP_HINT}
-        </span>
-        <span aria-hidden data-slot="page-scroll-hint" className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-linear-to-b to-background opacity-0 transition-opacity motion-reduce:transition-none page-more:opacity-100" />
-        {/* The ribbon under it all, the safe area's foot included. */}
-        <span aria-hidden data-slot="dock-ribbon" className="dock-ribbon pointer-events-none absolute inset-0 -z-10" style={{ borderImageSource: uiFrameImageSet("dock-ribbon") }} />
-        <div className="relative mx-4 flex min-w-0 justify-between gap-1">
+      <span id={hint} hidden>
+        {RETAP_HINT}
+      </span>
+      <span aria-hidden data-slot="page-scroll-hint" className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-linear-to-b to-background opacity-0 transition-opacity motion-reduce:transition-none page-more:opacity-100" />
+      {/* The safe area's foot, the plank's colour. */}
+      <span aria-hidden className="absolute inset-x-0 bottom-0 bg-dock-ink" style={{ height: "env(safe-area-inset-bottom)" }} />
+      <div className="relative" style={{ height: px(DOCK_ART.height) }}>
+        <span aria-hidden data-slot="dock-wood" className="pointer-events-none absolute inset-x-0" style={WOOD_STYLE} />
+        <div className="absolute top-0 flex" style={{ left: px(panel.inset), right: px(panel.inset), height: px(panel.height) }}>
+          <span aria-hidden data-slot="dock-panel" className="pointer-events-none absolute inset-0" style={PANEL_STYLE} />
           {DIVIDERS.map((k) => (
             <span
               key={k}
               aria-hidden
               data-slot="dock-divider"
-              className="pointer-events-none absolute top-1/2 h-11 w-2 -translate-x-1/2 -translate-y-1/2 bg-contain bg-center bg-no-repeat"
-              style={{ left: `calc((100% + 0.25rem) * ${k} / 5 - 0.125rem)`, backgroundImage: uiFrameImageSet("dock-divider") }}
+              className="pointer-events-none absolute inset-y-0 -translate-x-1/2 bg-size-[100%_100%]"
+              style={{ left: columnLeft(k > 2 ? k - 1 : k, k > 2), width: px(divider.width), backgroundImage: uiFrameImageSet("dock-divider") }}
             />
           ))}
-          {/* The sliding highlight (TAB-SWIPE): one column of the five (`gap-1` between them), under the items. */}
+          {/* The sliding highlight (TAB-SWIPE): one item's column, on the parchment inside its frame, under the items. */}
           <span
             aria-hidden
             data-slot="app-nav-highlight"
             data-column={column}
-            style={{ "--nav-col": Math.max(0, column), "--nav-from": Math.max(0, startColumn) } as CSSProperties}
+            data-from={startColumn}
+            style={{ "--nav-x": offset(column), "--nav-from-x": offset(startColumn), top: px(28), bottom: px(32), width: columnLeft(1, false) } as CSSProperties}
             className={cn(
-              "pointer-events-none absolute inset-y-0 left-0 w-[calc((100%-1rem)/5)] rounded-lg bg-dock-ink/20",
-              "[translate:calc(var(--nav-col)*(100%+0.25rem))_0] starting:[translate:calc(var(--nav-from)*(100%+0.25rem))_0]",
+              "pointer-events-none absolute left-0 rounded-md border-x-4 border-transparent bg-dock-ink/20 bg-clip-padding",
+              "[translate:var(--nav-x)_0] starting:[translate:var(--nav-from-x)_0]",
               "transition-[translate,opacity] duration-(--tab-swipe-duration) ease-(--tab-swipe-ease) motion-reduce:transition-none",
               // None on Play, nor on a page of no item of the bar (the home, Missions, the Vault): it fades in or out in place.
               (active === "play" || column < 0) && "opacity-0",
@@ -144,21 +185,25 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
             const badge = badges?.[tab.id] ?? 0;
             if (tab.id === "play") {
               return (
-                // The slot keeps the dock's five equal columns; the medallion rises above the ribbon (over the edge hint: `z-10`).
-                <div key={tab.id} className="flex min-w-0 flex-1 justify-center">
+                // The medallion's column; the medallion rises above the band (over the edge hint: `z-10`).
+                <div key={tab.id} className="relative shrink-0" style={{ width: PLAY_PX }}>
                   <button
                     type="button"
                     aria-label={tab.label}
                     aria-current={isActive ? "page" : undefined}
                     aria-describedby={isActive ? hint : undefined}
                     onClick={() => onNavigate?.(tab.id)}
-                    className="relative z-10 -mt-7 -mb-1 grid size-19 shrink-0 cursor-pointer place-items-center rounded-full outline-none transition-transform active:scale-95 motion-reduce:transition-none"
+                    style={{ top: px(medallion.top), height: px(medallion.height) }}
+                    className="absolute inset-x-0 z-10 grid cursor-pointer place-items-center rounded-full outline-none transition-transform active:scale-95 motion-reduce:transition-none"
                   >
-                    <img {...uiFrameSources("play-medallion", MEDALLION_PX)} alt="" aria-hidden draggable={false} className="absolute inset-0 size-full drop-shadow-md" />
-                    {/* The swords over PLAY, one group centred in the medallion (`data-centre`: the stories' centre guide reads it). */}
-                    <span data-centre className="relative flex flex-col items-center">
-                      <UiIcon name={tab.art} px={SWORDS_PX} className="-mb-1 size-10" />
-                      <span className="text-outline text-sm leading-none font-black tracking-wide text-foreground uppercase">{tab.label}</span>
+                    <img {...uiFrameSources("play-medallion", PLAY_PX)} alt="" aria-hidden draggable={false} className="absolute inset-0 size-full" />
+                    {/* The swords over PLAY, one group centred in the medallion (`data-centre`: the stories' centre guide reads it), PLAY
+                        over the swords' foot and the group's own foot padded, so the drawing sits where the mockup's does. */}
+                    <span data-centre className="relative flex flex-col items-center" style={{ paddingBottom: 5 }}>
+                      <UiIcon name={tab.art} px={SWORDS_PX} className="size-[47px]" />
+                      <span className="text-xl leading-none font-black text-foreground uppercase" style={{ ...OUTLINE, marginTop: -10.5 }}>
+                        {tab.label}
+                      </span>
                     </span>
                   </button>
                 </div>
@@ -176,31 +221,29 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                 aria-describedby={isActive ? hint : undefined}
                 onClick={() => onNavigate?.(tab.id)}
                 className={cn(
-                  // `relative`: painted over the highlight, which comes first.
-                  "relative flex h-12 min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-lg px-1 outline-none transition-[color,scale] active:scale-95 mobile:h-15",
+                  // `relative`: painted over the highlight, which comes first. The icon alone in the band's middle below `mobile`.
+                  "relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center pb-1.5 outline-none transition-[color,scale] active:scale-95 mobile:justify-start mobile:pb-0",
                   "duration-(--tab-swipe-duration) ease-(--tab-swipe-ease) motion-reduce:transition-none",
                   isActive ? "text-primary" : "text-foreground",
                   wasActive && "starting:text-primary",
                   arrives && "starting:text-foreground",
                 )}
               >
-                {/* The badge sits inside the icon's box (its side padding), so the item's content never leaves it, two digits included. */}
-                <span className={cn("relative", badge > 0 && "px-2.5")}>
-                  <UiIcon name={tab.art} px={ICON_PX} className="size-10" />
-                  {badge > 0 && (
-                    <span aria-hidden data-slot="app-nav-badge" className="numeric absolute -top-1 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground ring-2 ring-background">
-                      {badge}
-                    </span>
-                  )}
-                </span>
+                <UiIcon name={tab.art} px={ICON_PX} className="size-11" />
                 {/* Not `sr-only mobile:not-sr-only`: Font Awesome injects its own `.sr-only` after Tailwind's, which wins. */}
-                <span data-slot="app-nav-label" className="text-outline hidden truncate text-xs leading-tight font-black mobile:block">
+                <span data-slot="app-nav-label" className="-mt-1 hidden max-w-full truncate px-0.5 text-xs leading-none font-black tracking-tight mobile:block" style={OUTLINE}>
                   {tab.label}
                 </span>
+                {badge > 0 && (
+                  <span aria-hidden data-slot="app-nav-badge" className="numeric absolute -top-0.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-[0.3rem] bg-dock-badge px-0.5 text-xs leading-none font-bold text-foreground ring-2 ring-background">
+                    {badge}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
-      </nav>
+      </div>
+    </nav>
   );
 }
