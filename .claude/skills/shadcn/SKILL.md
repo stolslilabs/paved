@@ -21,7 +21,7 @@ do not fit this repository removed or changed. Each rule file marks its changes 
   by hand, copying its source into `ui/` and fitting it to the tokens, or with that pinned version run from the
   project. Never an unpinned or newest version. Check `ui/` first: do not add a component that is already there.
 - Every new `ui/` component keeps shadcn's `data-slot` attributes, has a story per state, and follows the
-  `paved-ui` skill (tokens, focus ring, accessible names, `m` components for motion).
+  `paved-ui` skill (tokens, no focus ring, accessible names, `m` components for motion).
 
 ## Principles
 

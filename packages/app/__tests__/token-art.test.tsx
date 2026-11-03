@@ -67,14 +67,15 @@ describe("TokenIcon", () => {
 });
 
 describe("the balance plate on the HUD's frame (HOME-UI-CAPSULES)", () => {
-  it("draws the HUD's face and painted frame under the figure, the icon over the right end, 10 px past it", () => {
+  it("draws the HUD's face and frame under the figure, the icon over the right end, 10 px past it", () => {
     const { container } = render(wrap(<ResourcePlate kind="paved" amount={10n ** 18n} decimals={18} fraction={2} fixed />));
     const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
     expect(plate.dataset.frame).toBe("hud");
-    // The painted frame is a `border-image` (jsdom drops its `image-set`): its slice and width are what it keeps.
+    // The frame is CSS (HUD-FRAME-CSS, `hud-frame` and `hud-face` in theme.css), sized by its corner: a capsule's 10 px.
     const frame = plate.querySelector<HTMLElement>("[data-slot=hud-frame]")!;
-    expect(frame.style.borderImageWidth).toBe("10px");
-    expect(plate.querySelector("[data-slot=hud-face]")).not.toBeNull();
+    expect(frame).toHaveClass("hud-frame");
+    expect(frame.style.getPropertyValue("--hud-px")).toBe("10");
+    expect(plate.querySelector("[data-slot=hud-face]")).toHaveClass("hud-face");
     const box = frame.parentElement!;
     expect(box).toHaveClass("isolate", "pr-7.5", "justify-end");
     expect(box).not.toHaveClass("bg-resource-plate");

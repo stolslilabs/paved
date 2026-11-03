@@ -389,7 +389,7 @@ export function MissionsScene(props: MissionsSceneProps) {
                     ref={period === "daily" ? dailyRef : undefined}
                     tabIndex={period === "daily" ? -1 : undefined}
                     aria-labelledby={`missions-${period}`}
-                    className="flex flex-col gap-2 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex flex-col gap-2 rounded-xl outline-none"
                   >
                     <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                       <h3 id={`missions-${period}`} className="flex items-center gap-2 text-sm font-semibold">

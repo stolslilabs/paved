@@ -198,14 +198,18 @@ function useSheetDrag(el: HTMLElement | null, active: boolean, close: () => void
   }, [el, active, close, reduced]);
 }
 
-/** `closeButton`: the panel's own close at its top right; off for the page panel (DESK-PANELS), which has none (PAGES-SCROLL). */
+/**
+ * `closeButton`: the panel's own close at its top right; off for the page panel (DESK-PANELS), which has none (PAGES-SCROLL).
+ * `overlayClassName`: the veil's classes over its own (the HUD's drawer veils the village less, `containers/hud-drawer.tsx`).
+ */
 export function SheetContent({
   className,
+  overlayClassName,
   children,
   side = "right",
   closeButton = true,
   ...props
-}: ComponentProps<typeof SheetPrimitive.Content> & { side?: Side; closeButton?: boolean }) {
+}: ComponentProps<typeof SheetPrimitive.Content> & { side?: Side; closeButton?: boolean; overlayClassName?: string }) {
   const { open, close } = useContext(OpenContext);
   // The portal mounts the panel a render late: a state, not a ref, so that the drag attaches once it is there.
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
@@ -217,7 +221,7 @@ export function SheetContent({
           <SheetPrimitive.Overlay forceMount asChild>
             <m.div
               data-slot="sheet-overlay"
-              className="fixed inset-0 z-50 bg-board/80"
+              className={cn("fixed inset-0 z-50 bg-board/80", overlayClassName)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -243,7 +247,7 @@ export function SheetContent({
               {closeButton && (
               <SheetPrimitive.Close
                 data-slot="sheet-close-x"
-                className="state-layer absolute top-3 right-3 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="state-layer absolute top-3 right-3 grid size-8 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:text-foreground"
               >
                 <CloseIcon />
                 <span className="sr-only">Close</span>

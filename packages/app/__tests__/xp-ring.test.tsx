@@ -125,42 +125,31 @@ describe("the ring around the avatar (#625)", () => {
     expect(container.querySelector("[data-slot=xp-ring]")).toBeNull();
   });
 
-  /** The sheet's XP figures (#830), term by term. */
-  const xpLines = (level: HTMLElement) =>
-    Array.from(level.querySelectorAll("[data-slot=xp-line]"), (line) => [line.querySelector("dt")!.textContent, line.querySelector("dd")!.textContent]);
+  /** The sheet's XP line (#830, PROFILE-DRAWER): the bar's figures said, the XP left to the next, the whole XP when known. */
+  const xpLeft = (level: HTMLElement) => level.querySelector("[data-slot=xp-left]")!.textContent;
+  const barText = (level: HTMLElement) => level.querySelector("[data-slot=xp]")!.textContent;
 
-  it("the sheet shows the level, the XP made, the XP left and the whole XP around the larger avatar (#830)", async () => {
+  it("the sheet shows the level, its bar, the XP made, the XP left and the whole XP (#830)", async () => {
     render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={FIRST_LEVEL} />));
     const sheet = await screen.findByRole("dialog");
     const level = sheet.querySelector<HTMLElement>("[data-slot=player-level]")!;
     expect(level).toHaveTextContent("Level 1");
-    expect(xpLines(level)).toEqual([
-      ["XP made", "0"],
-      ["To level 2", "100"],
-      ["Total XP", "0"],
-    ]);
-    expect(sheet.querySelector("[data-slot=xp-ring]")).not.toBeNull();
+    expect(barText(level)).toBe("0 / 100 XP");
+    expect(xpLeft(level)).toBe("0 XP made of 100, 100 XP to level 2 · 0 XP in all");
+    expect(level.querySelector("[data-slot=level-bar]")).not.toBeNull();
   });
 
   it("the sheet's XP part way, without the whole XP when the source does not know it, and at the cap", async () => {
     const { rerender } = render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.partWay} />));
     const level = () => screen.getByRole("dialog").querySelector<HTMLElement>("[data-slot=player-level]")!;
     await screen.findByRole("dialog");
-    expect(xpLines(level())).toEqual([
-      ["XP made", "120"],
-      ["To level 4", "180"],
-      ["Total XP", "420"],
-    ]);
+    expect(barText(level())).toBe("120 / 300 XP");
+    expect(xpLeft(level())).toBe("120 XP made of 300, 180 XP to level 4 · 420 XP in all");
     rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.nearlyFull} />));
-    expect(xpLines(level())).toEqual([
-      ["XP made", "470"],
-      ["To level 8", "30"],
-    ]);
+    expect(xpLeft(level())).toBe("470 XP made of 500, 30 XP to level 8");
     rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.maxLevel} />));
     expect(level()).toHaveTextContent("Level 20");
-    expect(xpLines(level())).toEqual([
-      ["XP made", "0"],
-      ["XP left", "Max level"],
-    ]);
+    expect(barText(level())).toBe("Max level");
+    expect(xpLeft(level())).toBe("0 XP made, Max level");
   });
 });

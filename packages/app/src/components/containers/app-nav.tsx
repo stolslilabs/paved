@@ -137,7 +137,7 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                     aria-current={isActive ? "page" : undefined}
                     aria-describedby={isActive ? hint : undefined}
                     onClick={() => onNavigate?.(tab.id)}
-                    className="state-layer relative z-10 -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none focus-visible:ring-ring"
+                    className="state-layer relative z-10 -mt-6 grid size-14 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background transition-colors outline-none"
                   >
                     {/* No nudge (#827): the swords fill their square box, so the grid's centre is theirs. */}
                     <GameIcon name={tab.icon} size="lg" />
@@ -158,7 +158,7 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
                 onClick={() => onNavigate?.(tab.id)}
                 className={cn(
                   // `relative`: painted over the highlight, which comes first.
-                  "state-layer relative flex h-11 min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-lg px-1 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring mobile:h-13",
+                  "state-layer relative flex h-11 min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-lg px-1 text-xs font-medium outline-none mobile:h-13",
                   "transition-colors duration-(--tab-swipe-duration) ease-(--tab-swipe-ease) motion-reduce:transition-none",
                   // Below `desktop` the highlight is the current item's layer: its own is cleared, except while pressed.
                   "max-desktop:aria-[current=page]:[--layer:transparent] max-desktop:aria-[current=page]:active:[--layer:var(--state-pressed)]",

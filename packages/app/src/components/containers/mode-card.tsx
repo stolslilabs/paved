@@ -45,7 +45,7 @@ export function ModeCard({ title, description, icon, badge, disabled, reason, fe
         type="button"
         disabled={disabled}
         onClick={onSelect}
-        className="flex cursor-pointer items-center gap-3 text-left outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring disabled:cursor-not-allowed"
+        className="flex cursor-pointer items-center gap-3 text-left outline-none after:absolute after:inset-0 after:rounded-xl disabled:cursor-not-allowed"
       >
         {art ? (
           <img src={art} alt="" width={320} height={200} draggable={false} loading="lazy" decoding="async" className="h-20 w-28 shrink-0 self-start rounded-lg bg-secondary object-cover" />

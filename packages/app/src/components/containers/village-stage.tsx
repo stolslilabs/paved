@@ -224,7 +224,7 @@ function EditBar({ editor, village, holdMs, onPoints }: { editor: LayoutEditor; 
             type="button"
             onClick={onPoints}
             aria-label={`Score ${formatInteger(editor.score)}: show the points`}
-            className="self-start rounded-sm text-left text-xs text-muted-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            className="self-start rounded-sm text-left text-xs text-muted-foreground underline-offset-2 outline-none hover:underline"
           >
             Score <span className="numeric font-semibold text-foreground">{formatInteger(editor.score)}</span>
             {editor.score !== village.score && (

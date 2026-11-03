@@ -163,7 +163,7 @@ function Closed({ chest, more, opening, onOpen }: { chest: Chest; more: number; 
         aria-busy={opening || undefined}
         aria-label={`Open the ${CHEST_NAME[chest.rank].toLowerCase()}: ${choices === 1 ? "one tile" : `one of ${choices} tiles`}`}
         onClick={() => onOpen?.(chest.id)}
-        className="relative my-4 grid size-56 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative my-4 grid size-56 place-items-center rounded-full outline-none"
       >
         <m.span
           data-shake={reduced ? undefined : opening ? "fast" : ""}

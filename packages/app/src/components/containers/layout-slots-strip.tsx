@@ -170,7 +170,7 @@ function SlotCard({ slot, active, picked, onPick }: { slot: LayoutSlot; active: 
       aria-label={label}
       onClick={onPick}
       className={cn(
-        "relative flex min-h-11 flex-col items-stretch gap-1 rounded-lg border bg-background/40 p-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        "relative flex min-h-11 flex-col items-stretch gap-1 rounded-lg border bg-background/40 p-1.5 text-left outline-none transition-colors",
         picked ? "border-primary ring-1 ring-primary" : "border-border",
       )}
     >

@@ -190,7 +190,7 @@ function CampaignLevels({ campaigns, campaign, progress, onLevel }: { campaigns:
                 title={level.title}
                 aria-label={`Level ${level.id}, ${level.title}${unlocked ? "" : ", locked"}${done ? `, ${done.stars} of 3 stars` : ""}`}
                 className={cn(
-                  "flex h-16 w-full items-center gap-3 rounded-xl border bg-card px-3 text-left text-card-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex h-16 w-full items-center gap-3 rounded-xl border bg-card px-3 text-left text-card-foreground outline-none transition-colors",
                   unlocked ? "state-layer cursor-pointer border-border" : "cursor-not-allowed border-border/60 opacity-60",
                 )}
               >

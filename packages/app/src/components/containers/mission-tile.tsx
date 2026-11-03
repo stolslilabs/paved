@@ -51,7 +51,7 @@ export function MissionTile({ title, icon, state, progress, selected = false, st
       aria-label={`${step !== undefined ? `Step ${step}, ` : ""}${title}: ${MISSION_STATE_LABEL[state]}`}
       data-state={state}
       onClick={onSelect}
-      className={cn("flex min-w-0 cursor-pointer flex-col items-center rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("flex min-w-0 cursor-pointer flex-col items-center rounded-xl outline-none", className)}
     >
       <span
         className={cn(

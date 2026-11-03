@@ -6,10 +6,17 @@
 export const HUD_INSET_BOX = "pt-(--hud-inset-top) pr-(--hud-inset-right) pl-(--hud-inset-left)";
 
 /**
- * The phone's balance plates (below `desktop`) moved onto the profile's painted edge: their icons' art keeps a margin in its square
- * and the 44 px target centres the 40 px icon, so their painted top and right sat about 4 and 3 px further in than the card's outline
- * (measured on the art's opaque pixels by the `Scenes/Home` `HudInset*` stories' play).
+ * The phone's balance plates (below `desktop`) moved onto the profile's painted edge, the near-black outline its CSS frame draws
+ * 1.5 px outside the card's box (HUD-FRAME-CSS): their icons' art keeps a margin in its square and the 44 px target centres the
+ * 40 px icon, so their painted top and right sat about 5.7 and 4.3 px further in than the card's outline (measured on the art's
+ * opaque pixels by the `Scenes/Home` `HudInset*` stories' play, at 320, 375 and 667 px alike).
  * Only while plates are drawn (`has-` a HUD frame): Connect, the loading stand-in and the error mark keep the plain inset. From
  * `desktop` the rail's plates stay where they were (the desktop layout is kept).
  */
-export const HUD_PLATES_NUDGE = "has-[[data-slot=hud-frame]]:-mt-1 has-[[data-slot=hud-frame]]:-mr-0.5";
+export const HUD_PLATES_NUDGE = "has-[[data-slot=hud-frame]]:-mt-1.5 has-[[data-slot=hud-frame]]:-mr-1";
+
+/**
+ * The capsules (below `desktop`) moved onto the profile's painted edge the same way: their icons' painted left sat about 2.75 px
+ * further in than the card's outline (the same stories' play). From `desktop` they stay where they were.
+ */
+export const HUD_CAPSULES_NUDGE = "-ml-0.75 desktop:ml-0";

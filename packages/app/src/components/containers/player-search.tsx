@@ -39,7 +39,7 @@ export function PlayerResult({ player, onOpen, action }: { player: PublicProfile
       aria-label={`${player.name ?? player.address}, level ${formatPoints(player.level)}, ${league.name} league`}
       onClick={() => onOpen?.(player.address)}
       className={cn(
-        "state-layer flex min-h-14 w-full min-w-0 items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "state-layer flex min-h-14 w-full min-w-0 items-center gap-3 text-left outline-none",
         action ? "flex-[1_1_12rem] rounded-lg px-1 py-1" : "rounded-xl border border-border bg-card px-3 py-2",
       )}
     >
@@ -74,7 +74,7 @@ export function PlayerSearch({ query, onQueryChange, results, error, errorDetail
   const typed = query.trim() !== "";
   return (
     <section aria-label="Find a player" className={cn("flex flex-col gap-3", className)}>
-      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3 focus-within:ring-2 focus-within:ring-ring">
+      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3">
         <Icon name="magnifying-glass" size="xs" className="shrink-0 text-muted-foreground" />
         <input
           type="search"

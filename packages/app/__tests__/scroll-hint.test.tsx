@@ -54,7 +54,7 @@ describe("the scrollable regions", () => {
     expect(region.tabIndex).toBe(0);
     const viewport = screen.getByTestId("area").querySelector("[data-slot=scroll-area-viewport]")!;
     expect(viewport.className).toContain("scroll-hint");
-    expect(viewport.className).toContain("focus-visible:ring-2");
+    expect(viewport.className).not.toMatch(/focus-visible:ring/);
   });
 
   it("no plain scrolling box in the app: every scroller is a ScrollRegion or a ScrollArea", () => {
@@ -141,6 +141,7 @@ describe("theme.css", () => {
     expect(hint).toContain("mask-image: var(--scroll-hint-mask)");
     expect(hint).toMatch(/&\[data-scroll-start\] \{\s*--scroll-hint-start: var\(--scroll-hint-size\)/);
     expect(hint).toMatch(/&\[data-scroll-end\] \{\s*--scroll-hint-end: var\(--scroll-hint-size\)/);
-    expect(hint).toMatch(/&:focus-visible \{\s*mask-image: none/);
+    // No focus ring to show whole: a focused scroller keeps its fade.
+    expect(hint).not.toContain(":focus-visible");
   });
 });

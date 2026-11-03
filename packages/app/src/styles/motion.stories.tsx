@@ -44,7 +44,7 @@ function PressButton() {
       whileTap={{ scale: 0.94 }}
       whileHover={{ scale: 1.03 }}
       transition={SPRING}
-      className="self-start rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="self-start rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
     >
       Place tile
     </motion.button>

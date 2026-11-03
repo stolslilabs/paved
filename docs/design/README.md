@@ -38,6 +38,19 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   the capsules and the balances (HOME-UI-CAPSULES). The season dial keeps its look for now: the mockup's, tried on 2026-11-02, was set
   aside to come back to.
 
+- `profile.webp`: the profile's mobile direction (2026-11-02), in `home.webp`'s rendering: what a tap on the player card opens, a drawer
+  that rises over the village and stops under the HUD (the player card and the capsules stay in view): "Your profile", the avatar in
+  its league's rim and crest, the name, the short address with Copy, the guild, the level and its XP bar, Games, Best, Followers and
+  Following in one band, four actions as tiles (Battle logs, Avatar, Collection, Invite) and Disconnect. Generated with OpenAI's image
+  model through the Codex CLI; its four new icons were redrawn from crops of it (`packages/app/ui-sources/icons/`). The owner's
+  pattern of 2026-11-02: a page is a side panel on a large screen and a full page with Back on a phone, the same layout in both; the
+  profile is the HUD's drawer (`containers/hud-drawer.tsx`, PROFILE-DRAWER): on a phone from the bottom, under the HUD, its frame
+  meeting the screen's sides; from `tablet` a side panel docked at the left, the window's height. The owner's changes of 2026-11-03:
+  the HUD's frame and the interface's greys in place of the mockup's blue, no Best, no XP line under the bar; of four side-panel
+  directions drawn through the Codex CLI that day (a native sheet, frosted glass, game-native, a Material side sheet), the game-native
+  one (a darker header band, outlined tiles lit along their top over a dark lip) with the native sheet's straight edge. The HUD's
+  frame itself is CSS since that day (HUD-FRAME-CSS, `elements/hud-frame.tsx`).
+
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.

@@ -6,7 +6,7 @@ import { shortAddress } from "../elements/short-address";
 import type { ProfileSheetProps, ProfileState } from "./profile-sheet";
 
 /** What the shell hands the menu screens' headers: who is connected and what the sheet's actions do. Absent (stories, tests): no avatar is drawn. */
-export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus">;
+export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus" | "top">;
 
 /** The shell's profile, or null (stories, tests, the boards): also what `/player/:id` opens for the connected player's own ID (#952). */
 export const ProfileContext = createContext<ProfileValue | null>(null);
@@ -85,6 +85,13 @@ export function useProfileOpener(): ProfileOpener {
       setOpen(true);
     },
   };
+  // An action that leaves the sheet for another screen closes it first (no focus back on the avatar: the screen changes).
+  const closing = (action?: () => void) =>
+    action &&
+    (() => {
+      setOpen(false);
+      action();
+    });
   const sheet = value && opened && (
     <Suspense fallback={null}>
       <ProfileSheet
@@ -96,20 +103,10 @@ export function useProfileOpener(): ProfileOpener {
           change(false);
           value.onDisconnect?.();
         }}
-        onEditAvatar={
-          value.onEditAvatar &&
-          (() => {
-            setOpen(false);
-            value.onEditAvatar?.();
-          })
-        }
-        onOpenLeague={
-          value.onOpenLeague &&
-          (() => {
-            setOpen(false);
-            value.onOpenLeague?.();
-          })
-        }
+        onEditAvatar={closing(value.onEditAvatar)}
+        onOpenLeague={closing(value.onOpenLeague)}
+        onOpenCollection={closing(value.onOpenCollection)}
+        onOpenInvite={closing(value.onOpenInvite)}
       />
     </Suspense>
   );
@@ -126,7 +123,7 @@ export function ProfileSlot({ className }: { className?: string }) {
   const { state, progress, look } = value;
   return (
     <>
-      <button {...trigger} aria-label={profileLabel(state, progress)} className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}>
+      <button {...trigger} aria-label={profileLabel(state, progress)} className={cn("state-layer shrink-0 cursor-pointer rounded-full outline-none", className)}>
         <PlayerAvatar player={avatarPlayer(state)} loading={state.status === "loading"} look={look}>
           {state.status === "connected" && (
             <Suspense fallback={null}>

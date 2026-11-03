@@ -31,7 +31,7 @@ export interface SettingsLinkProps {
 /** A row that opens another page (theme, referral): the mockups' "Connected >" row. */
 export function SettingsLink({ label, hint, icon, value, onClick }: SettingsLinkProps) {
   return (
-    <button type="button" onClick={onClick} className="state-layer -mx-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <button type="button" onClick={onClick} className="state-layer -mx-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors outline-none">
       {/* Icons and the value sit on the label's first line (20 px boxes); label and hint wrap (WRAP360). */}
       <span className="inline-flex h-5 items-center">
         <Icon name={icon} className="text-primary" size="sm" fixedWidth />

@@ -134,9 +134,10 @@ square, the shield in its own proportions; the plate and the banner framed to th
 stylesheet's budget has no room.
 
 Player card (the home's top left, redrawn after the owner's direction of 2026-11-01 in `docs/design/home.webp`, decomposed layer by
-layer): `containers/player-badge.tsx` lays a see-through dark grey face (CSS) under the mockup's frame, an image drawn as a 9-slice
-(`card-frame`, `CARD_FRAME_SLICE`: its near-black outline and slate rim keep their painted irregularity), with a crisp black
-`drop-shadow` that follows it. Then the avatar in the rim of the player's league with the league's crest at its lower left, both
+layer): `containers/player-badge.tsx` lays the HUD's frame under its content (`elements/hud-frame.tsx`, `HudFrame`), CSS since
+HUD-FRAME-CSS (the `hud-frame` and `hud-face` utilities of `theme.css`, sized by `--hud-px`): a see-through dark grey face, a
+near-black outline with a crisp drop, a slate rim lit along its top whose painted patches are a tiled SVG noise (`--hud-noise`) at
+one scale whatever the box (a 9-slice image stretched them with each box's shape). Then the avatar in the rim of the player's league with the league's crest at its lower left, both
 running past the card's foot (`PlayerRim`, in the League control's chunk: the same Unranked decision as the crowns' plate), the name in
 black-weight Rubik, and under it the level's star (`UiIcon` `level-star`) over the XP bar (`elements/level-bar.tsx`, its own chunk):
 the track a 9-slice image (`xp-track`), the faceted fill an image (`xp-fill`) shown from the left up to the share, never stretched,
@@ -174,7 +175,7 @@ under `public/` is served after a restart (`staticDirs`).
 
 The capsules (HOME-UI-CAPSULES, `docs/design/home.webp` decomposed by Codex: the same material as the player card's frame): a
 `Plate` with `frame="hud"` draws the HUD's frame under its content (`elements/hud-frame.tsx`, `HudFrame`: the see-through face and
-the painted `card-frame` 9-slice, its corner 10 px), the icon over its end, past it so the frame's rounded end is under it
+the CSS frame, its corner 10 px), the icon over its end, past it so the frame's rounded end is under it
 (`plateHudIconClass`), the figure larger, outlined and centred in the face. The balances (`ResourcePlate`, 108 by 28 px on a phone,
 128 by 32 on the rail), the crowns' capsule (`LeagueControl`'s home variant, the HUD's `crown`; the League page keeps the flat plate
 and the crest), the shield's (`shield`) and the village score's (`village`) share it; the home stretches those three to one width.
@@ -198,8 +199,10 @@ and the crest), the shield's (`shield`) and the village score's (`village`) shar
 
 - Every control has an accessible name (visible text, `aria-label`, or an `Icon` `label`). `app-nav.tsx` is the model:
   `nav aria-label="Main"`, `aria-current="page"`.
-- Focus is visible: `outline-none focus-visible:ring-2 focus-visible:ring-ring`, as the `ui/` primitives do. Keep the
-  keyboard behaviour Radix gives (focus trap, arrow keys); do not rebuild it from `div`s.
+- No focus ring (the owner's ask of 2026-11-03): no `focus-visible:ring-*`, `focus-within:ring-*` or focus outline, even
+  in a copied shadcn primitive; the base layer sets `outline-none` on everything (`theme.css`). `__tests__/app-feel.test.tsx`
+  fails on one. A ring that marks a state (selected, coached) stays. Keep the keyboard behaviour Radix gives (focus trap,
+  arrow keys); do not rebuild it from `div`s.
 - Contrast comes from the tokens, which `theme.test.tsx` measures (inputs at 3:1 on their surface). Never carry meaning by
   colour alone. Use the Storybook a11y panel on each new story.
 - A busy button sets `loading` (it adds `aria-busy` and disables).

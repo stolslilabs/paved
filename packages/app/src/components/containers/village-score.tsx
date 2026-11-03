@@ -50,7 +50,7 @@ export function VillageScore({ score, saved, onEdit, className }: VillageScorePr
       whileTap={{ scale: 0.95 }}
       aria-label={`Edit village, score ${name}`}
       data-slot="village-score"
-      className={cn("group flex min-h-11 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("group flex min-h-11 items-center rounded-full outline-none", className)}
     >
       {plate}
     </m.button>

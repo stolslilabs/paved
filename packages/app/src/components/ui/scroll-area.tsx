@@ -6,7 +6,7 @@ import { cn } from "../../lib/utils";
 export function ScrollArea({ className, children, ...props }: ComponentProps<typeof ScrollAreaPrimitive.Root>) {
   return (
     <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative overflow-hidden", className)} {...props}>
-      <ScrollAreaPrimitive.Viewport ref={scrollHintRef} data-slot="scroll-area-viewport" className="scroll-hint size-full rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <ScrollAreaPrimitive.Viewport ref={scrollHintRef} data-slot="scroll-area-viewport" className="scroll-hint size-full rounded-[inherit] outline-none">
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />

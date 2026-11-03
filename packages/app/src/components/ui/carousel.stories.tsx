@@ -27,7 +27,7 @@ const Modes = () => (
                 <CardDescription>{text}</CardDescription>
               </CardHeader>
               <CardContent>
-                <button type="button" className="text-sm text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring">
+                <button type="button" className="text-sm text-primary underline-offset-4 hover:underline">
                   Choose {title}
                 </button>
               </CardContent>

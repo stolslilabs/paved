@@ -88,7 +88,7 @@ function MutedSheet({ open, onOpenChange, mutes, onUnmute, onOpenPlayer }: Muted
                     type="button"
                     aria-label={p.name ?? p.address}
                     onClick={() => onOpenPlayer?.(p.address)}
-                    className="state-layer flex min-h-12 min-w-0 flex-[1_1_10rem] items-center gap-3 rounded-lg px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="state-layer flex min-h-12 min-w-0 flex-[1_1_10rem] items-center gap-3 rounded-lg px-1 text-left outline-none"
                   >
                     <PlayerAvatar player={{ name: p.name, address: p.address }} look={p.look} />
                     <PlayerName name={p.name} address={p.address} className="min-w-0 font-semibold" />

@@ -463,7 +463,7 @@ export function TileStack({
         {canDiscard && !cellChosen && onDiscard && (
           <div data-testid="stack-discard" className="pointer-events-auto mb-3 flex items-center gap-2 rounded-full border bg-card p-1 shadow-lg">
             {fitsNowhere && <span className="pl-2 text-xs text-muted-foreground">This tile fits nowhere</span>}
-            <DiscardHold onDiscard={onDiscard} cost={discardCost} holdMs={holdMs} className={cn("size-11 rounded-full focus-visible:ring-offset-card", coach === "discard" && cn(COACH_RING, "rounded-full"))} />
+            <DiscardHold onDiscard={onDiscard} cost={discardCost} holdMs={holdMs} className={cn("size-11 rounded-full", coach === "discard" && cn(COACH_RING, "rounded-full"))} />
           </div>
         )}
         <div data-testid="tile-stack" className="relative shrink-0 [--stack-s:0.8] tablet:[--stack-s:1]" style={{ width: scaled(frame.width), height: scaled(frame.height) }}>
@@ -542,7 +542,7 @@ export function TileStack({
             disabled={!onDeck}
             aria-label={`Tiles left: ${remaining}. Show the deck`}
             data-coach={coach === "deck" ? "deck" : undefined}
-            className="peer pointer-events-auto absolute inset-0 cursor-pointer outline-none"
+            className="pointer-events-auto absolute inset-0 cursor-pointer outline-none"
             style={{ clipPath: `polygon(${frame.outline.map(([x, y]) => `${scaled(x)} ${scaled(y)}`).join(", ")})` }}
           >
             {remaining > 0 && (
@@ -555,12 +555,12 @@ export function TileStack({
               </span>
             )}
           </button>
-          {/* The focus ring and the coach mark follow the stack's outline. */}
+          {/* The coach mark follows the stack's outline. */}
           <svg
             aria-hidden
             viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`}
             preserveAspectRatio="none"
-            className={cn("pointer-events-none absolute inset-0 size-full overflow-visible", coach === "deck" ? "animate-pulse text-primary motion-reduce:animate-none" : "hidden text-ring peer-focus-visible:block")}
+            className={cn("pointer-events-none absolute inset-0 size-full overflow-visible", coach === "deck" ? "animate-pulse text-primary motion-reduce:animate-none" : "hidden")}
           >
             <polygon points={outline} fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           </svg>

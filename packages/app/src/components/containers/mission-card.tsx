@@ -163,7 +163,7 @@ export function MissionCard({ mission, canClaim = true, onClaim, className }: Mi
             aria-expanded={open}
             aria-controls={textId}
             onClick={() => setOpen(!open)}
-            className="relative shrink-0 cursor-pointer rounded text-xs font-semibold text-primary outline-none after:absolute after:-inset-3 focus-visible:ring-2 focus-visible:ring-ring"
+            className="relative shrink-0 cursor-pointer rounded text-xs font-semibold text-primary outline-none after:absolute after:-inset-3"
           >
             {open ? "less" : "more"}
           </button>

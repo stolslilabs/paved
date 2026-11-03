@@ -2,11 +2,22 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { formatInteger } from "@paved/game-core";
 import { VillageScore } from "../src/components/containers/village-score";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
+import { slow } from "../test-slow";
+
+// The home's lazy parts loaded before its render, so none is still loading when the file ends (CI threw an EnvironmentTeardownError on
+// the stage's chain, village-stage then layout-board then tile-render, after every test had passed).
+beforeAll(async () => {
+  await Promise.all([
+    import("../src/components/containers/village-stage"),
+    import("../src/components/containers/league-control"),
+    import("../src/components/containers/app-nav"),
+  ]);
+}, slow(60_000));
 
 // The village's capsule (#755, HOME-UI-2): the village's icon capping the capsule's left end, the total in it; a tap opens edit mode,
 // which shows the kinds' points (#758). No accordion on the home any more (#831's is the editor's).

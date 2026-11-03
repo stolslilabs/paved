@@ -24,8 +24,8 @@ export interface PlayerBadgeProps {
 
 /**
  * The player card at the home's top left (#787, redrawn after the owner's direction of 2026-11-01, `docs/design/home.webp`, decomposed
- * layer by layer): a see-through dark grey face in the mockup's frame (`card-frame`: a near-black outline and a slate rim, painted
- * irregular, a 9-slice), a crisp black drop shadow following the frame; the avatar in the rim of the player's league with the
+ * layer by layer): a see-through dark grey face in the HUD's frame (`HudFrame`, CSS: a near-black outline with a crisp drop, a slate
+ * rim with its painted patches); the avatar in the rim of the player's league with the
  * league's crest at its lower left, both running past the card's foot; then the name and, under it, the level's star over the XP's
  * blue bar ("90/150"). The card grows with the name (a name has at most 15 characters, `PLAYER_NAME_MAX`) and ends it with an
  * ellipsis where the home's room ends (`--profile-room`, set by the home beside its balances). A tap anywhere on it opens the profile
@@ -56,7 +56,7 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
         {...trigger}
         aria-label={`${profileLabel(value.state, undefined)}${progress ? `, ${levelLabel(progress)}` : ""}`}
         data-slot="player-card"
-        className="state-layer relative isolate flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-1.5 rounded-2xl py-1.5 pr-2.5 pl-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring tablet:gap-2 tablet:pr-3"
+        className="state-layer relative isolate flex max-w-[var(--profile-room,100%)] min-w-0 cursor-pointer items-center gap-1.5 rounded-2xl py-1.5 pr-2.5 pl-1.5 text-left outline-none tablet:gap-2 tablet:pr-3"
       >
         {/* The HUD's frame, its corners 13 px: the rim about 5.5 px, the corner's curve about 10.5 px, as on the mockup. */}
         <HudFrame px={13} />

@@ -74,7 +74,7 @@ describe("/ (#753): the village home on its data", () => {
     await userEvent.click(avatar);
     // The sheet is its own chunk (#624): its content is drawn once loaded.
     const sheet = await screen.findByRole("dialog", {}, { timeout: slow(5000) });
-    expect(await within(sheet).findByText("To level 2", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    await waitFor(() => expect(sheet.querySelector("[data-slot=xp-left]")).toHaveTextContent("100 XP to level 2"), { timeout: slow(5000) });
     expect(within(sheet).queryByRole("button", { name: /My village/ })).toBeNull();
     await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
     expect(wallet.calls).toContain("disconnect");

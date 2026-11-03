@@ -57,7 +57,7 @@ export const Disabled: Story = { args: { canConfirm: false } };
 export const Coached: Story = { args: { coach: "place" } };
 /** A Story level's coach mark on the discard, the tile on a cell: the bubble's trash is ringed. */
 export const CoachedDiscard: Story = { args: { coach: "discard" } };
-/** Keyboard focus on Validate: the focus ring (Tab to it; Enter or Space held places). */
+/** Keyboard focus on Validate (Tab to it; Enter or Space held places), with no focus ring. */
 export const Focused: Story = {
   play: async ({ canvasElement }) => {
     within(canvasElement).getByRole("button", { name: "Hold to place the tile" }).focus();

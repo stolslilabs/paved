@@ -20,7 +20,7 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
   it("puts every icon on one square frame, so any one swaps for another", () => {
     expect(ICON_FRAME).toMatchObject({ width: 256, height: 256 });
     expect(new Set(UI_ICONS).size).toBe(UI_ICONS.length);
-    // The frames keep their own shapes: the card's frame and the XP bar's track and fill, all wide.
+    // The frames keep their own shapes: the XP bar's track and fill, both wide.
     for (const name of UI_FRAMES) expect(FRAME_ART[name].width, name).toBeGreaterThan(FRAME_ART[name].height * 3);
   });
 
@@ -29,7 +29,7 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     expect(icon.src).toBe("/ui-art/icons/128/chests.webp");
     expect(icon.srcSet).toBe("/ui-art/icons/64/chests.webp 64w, /ui-art/icons/128/chests.webp 128w");
     expect(icon.sizes).toBe("32px");
-    expect(uiFrameSources("card-frame", 240).srcSet).toBe("/ui-art/frames/360/card-frame.webp 360w, /ui-art/frames/720/card-frame.webp 720w");
+    expect(uiFrameSources("xp-track", 240).srcSet).toBe("/ui-art/frames/360/xp-track.webp 360w, /ui-art/frames/720/xp-track.webp 720w");
   });
 
   it("draws an icon decorative, or named when it is a control's only content", () => {

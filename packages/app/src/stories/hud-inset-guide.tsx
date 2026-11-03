@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
 import { expect, waitFor } from "storybook/test";
-import { CARD_FRAME_SLICE, FRAME_ART, uiFrameUrl } from "../components/elements/ui-art";
 
 /** The edge bands: each as wide as the HUD's inset on its edge (`--hud-inset-*` of theme.css, the notch's safe area included). */
 const BANDS: CSSProperties[] = [
@@ -77,18 +76,14 @@ async function paintedImage(el: HTMLImageElement): Promise<{ top: number; left: 
 }
 
 /**
- * Where a HUD frame (`HudFrame`'s 9-slice of `card-frame`) paints: its box shrunk by the art's transparent margin, scaled as the
- * 9-slice scales it (the slice's share of the art drawn at the frame's border width).
+ * Where a HUD frame (`hud-frame`, theme.css) paints: its box grown by its near-black outline, the spread of its first shadow
+ * (`0 0 0 1.5px`), read from the computed style.
  */
 async function paintedFrame(el: HTMLElement): Promise<{ top: number; left: number; right: number }> {
   const box = el.getBoundingClientRect();
-  const width = parseFloat(getComputedStyle(el).borderTopWidth);
-  const ink = await inkOf(uiFrameUrl("card-frame", FRAME_ART["card-frame"].sizes[1]));
-  return {
-    top: box.top + (ink.top / CARD_FRAME_SLICE.y) * width,
-    left: box.left + (ink.left / CARD_FRAME_SLICE.x) * width,
-    right: box.right - ((1 - ink.right) / CARD_FRAME_SLICE.x) * width,
-  };
+  const [, spread = "0"] = /-?[\d.]+px -?[\d.]+px -?[\d.]+px (-?[\d.]+)px/.exec(getComputedStyle(el).boxShadow) ?? [];
+  const outline = Number.parseFloat(spread);
+  return { top: box.top - outline, left: box.left - outline, right: box.right + outline };
 }
 
 const drawn = <T extends Element>(root: ParentNode, selector: string) => [...root.querySelectorAll<T>(selector)].filter((el) => el.getBoundingClientRect().width > 0);

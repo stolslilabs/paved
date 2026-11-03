@@ -35,7 +35,7 @@ export function EncryptionLine({ mode, otherName, onOpen }: EncryptionLineProps)
   const cls = "block w-full min-w-0 px-3 py-1.5 text-center text-xs text-muted-foreground";
   if (mode === "private" && onOpen)
     return (
-      <button type="button" data-slot="chat-encryption-line" data-mode={mode} onClick={onOpen} className={cn(cls, "state-layer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset")}>
+      <button type="button" data-slot="chat-encryption-line" data-mode={mode} onClick={onOpen} className={cn(cls, "state-layer outline-none")}>
         {body}
       </button>
     );

@@ -64,7 +64,7 @@ export function AvatarSwatches({ part, draft, offers, buying, disabled, onPick }
             disabled={disabled}
             onClick={() => onPick?.(id)}
             className={cn(
-              "state-layer relative flex min-w-0 flex-col items-center gap-1 rounded-xl border bg-card px-1 pt-2 pb-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
+              "state-layer relative flex min-w-0 flex-col items-center gap-1 rounded-xl border bg-card px-1 pt-2 pb-1.5 outline-none disabled:pointer-events-none",
               selected ? "border-primary ring-1 ring-primary" : "border-border",
             )}
           >

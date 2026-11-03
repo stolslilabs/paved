@@ -134,7 +134,7 @@ export function TabsTrigger({ className, value, children, ...props }: ComponentP
       data-value={value}
       value={value}
       className={cn(
-        "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium state-layer whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground data-[state=active]:not-active:[--layer:transparent]",
+        "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium state-layer whitespace-nowrap transition-colors outline-none hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground data-[state=active]:not-active:[--layer:transparent]",
         className,
       )}
       {...props}
@@ -145,5 +145,5 @@ export function TabsTrigger({ className, value, children, ...props }: ComponentP
 }
 
 export function TabsContent({ className, ...props }: ComponentProps<typeof TabsPrimitive.Content>) {
-  return <TabsPrimitive.Content data-slot="tabs-content" className={cn("flex-1 outline-none focus-visible:ring-2 focus-visible:ring-ring", className)} {...props} />;
+  return <TabsPrimitive.Content data-slot="tabs-content" className={cn("flex-1 outline-none", className)} {...props} />;
 }

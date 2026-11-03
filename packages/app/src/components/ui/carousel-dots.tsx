@@ -46,7 +46,7 @@ export function CarouselDots({ count, current, onSelect, label, window: size = c
           aria-label={label?.(i) ?? `Go to ${i + 1}`}
           aria-current={i === current ? "true" : undefined}
           onClick={() => onSelect(i)}
-          className="grid h-6 touch-manipulation place-items-center rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="grid h-6 touch-manipulation place-items-center rounded-full px-0.5 outline-none"
         >
           <span className={dot(i)} />
         </button>

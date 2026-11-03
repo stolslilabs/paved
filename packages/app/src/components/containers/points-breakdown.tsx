@@ -40,7 +40,7 @@ export function PointsList({ breakdown, selected, onSelect, className }: PointsL
               data-line={line.key}
               onClick={() => onSelect(on ? null : line.key)}
               className={cn(
-                "state-layer flex min-h-11 w-full items-center rounded-lg border px-3 py-1.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "state-layer flex min-h-11 w-full items-center rounded-lg border px-3 py-1.5 text-left transition-colors outline-none",
                 on ? "border-primary bg-primary/15" : "border-transparent",
               )}
             >
@@ -86,7 +86,7 @@ function PointsFoldBase({ open, onOpenChange, className, ...list }: PointsFoldPr
         aria-expanded={open}
         aria-controls="editor-points"
         onClick={() => onOpenChange(!open)}
-        className="state-layer flex min-h-11 items-center gap-2 rounded-lg px-1 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="state-layer flex min-h-11 items-center gap-2 rounded-lg px-1 text-left text-sm outline-none"
       >
         <Icon name="chevron-right" size="xs" fixedWidth className={cn("text-muted-foreground transition-transform", open && "rotate-90")} />
         <span className="flex-1 font-semibold">Points</span>

@@ -92,7 +92,7 @@ export function RewardSheet({ offer, village, selected = null, orientation = 1, 
                 onClick={() => onSelect?.(chosen ? null : i)}
                 onPointerDown={(e) => !choice.stuck && !busy && onDragStart?.(i, e)}
                 className={cn(
-                  "state-layer flex w-full touch-none flex-col items-center gap-1.5 rounded-xl border border-border bg-secondary/40 p-2 text-center outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "state-layer flex w-full touch-none flex-col items-center gap-1.5 rounded-xl border border-border bg-secondary/40 p-2 text-center outline-none",
                   chosen && "border-primary bg-primary/10",
                   dragging === i && "opacity-40",
                   choice.stuck && "opacity-40 grayscale",

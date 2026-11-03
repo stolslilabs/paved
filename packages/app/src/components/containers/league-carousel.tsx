@@ -79,7 +79,7 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
           setApi={setApi}
           opts={{ startIndex: selected }}
           onKeyDownCapture={onKey}
-          className="min-w-0 flex-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-w-0 flex-1 rounded-lg outline-none"
         >
           <CarouselContent>
             {LEAGUE_SLIDES.map((l, i) => (

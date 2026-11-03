@@ -258,7 +258,9 @@ describe("Home (#753): the village with its overlays", () => {
     // Connect keeps the plain inset) and only below `desktop` (the wrapper is the phone's; the column and the rail stay put). The
     // alignment itself is measured on the painted pixels by the `HudInset*` stories' play (`stories/hud-inset-guide.tsx`).
     const phonePlates = box.querySelector("[data-slot=home-phone-balances]")!;
-    expect(classes(phonePlates)).toEqual(expect.arrayContaining(["desktop:hidden", "has-[[data-slot=hud-frame]]:-mt-1", "has-[[data-slot=hud-frame]]:-mr-0.5"]));
+    expect(classes(phonePlates)).toEqual(expect.arrayContaining(["desktop:hidden", "has-[[data-slot=hud-frame]]:-mt-1.5", "has-[[data-slot=hud-frame]]:-mr-1"]));
+    // The capsules on the same painted edge, below `desktop` only.
+    expect(classes(box.querySelector("[data-slot=home-capsules]"))).toEqual(expect.arrayContaining(["-ml-0.75", "desktop:ml-0"]));
     expect(balances.className).not.toMatch(/(^|\s)(desktop:)?-m[trxy]?-/);
     expect(classes(balances)).toEqual(expect.arrayContaining(["top-0", "right-0"]));
     // The capsules' column, the dial, the phone's social column and the bottom row on the same sides.

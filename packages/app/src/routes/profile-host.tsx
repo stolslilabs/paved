@@ -13,7 +13,7 @@ const copy = (text: string) => (navigator.clipboard?.writeText ? navigator.clipb
 /**
  * Reads who is connected once for the whole shell and hands it to the menu screens' avatar (`ProfileSlot`, #624). The profile
  * is Home's read (`usePlayerStatus`, one cache entry): before the indexer answers, the player is shown by the wallet's name or
- * address, with zero figures; the indexer's name, else the wallet's. The avatar is the one saved on chain (`useAvatar`, #626); Edit avatar opens the creator (the village is the home, #753), Battle logs the PvP league and its battle logs (#647, #834).
+ * address, with zero figures; the indexer's name, else the wallet's. The avatar is the one saved on chain (`useAvatar`, #626); Edit avatar opens the creator (the village is the home, #753), Battle logs the PvP league and its battle logs (#647, #834), Collection the player's tiles and Invite the referral (PROFILE-DRAWER).
  */
 export function ProfileHost({ children }: { children: ReactNode }) {
   const wallet = useAccount();
@@ -44,9 +44,12 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const onEditAvatar = useCallback(() => go("/avatar"), [go]);
   const onOpenLeague = useCallback(() => go("/pvp/league"), [go]);
   const onOpenGuild = useCallback((id: number) => go(`/guild?guild=${id}`, { state: { guildSheet: true } }), [go]);
+  // The profile's Collection and Invite (PROFILE-DRAWER): the player's tiles and the referral, Settings' sheets.
+  const onOpenCollection = useCallback(() => go("/settings/tiles"), [go]);
+  const onOpenInvite = useCallback(() => go("/referral"), [go]);
   const value = useMemo(
-    () => ({ state, progress: shown, look, onConnect, onDisconnect, onCopy: copy, onEditAvatar, onOpenLeague, onOpenGuild }),
-    [state, shown, look, onConnect, onDisconnect, onEditAvatar, onOpenLeague, onOpenGuild],
+    () => ({ state, progress: shown, look, onConnect, onDisconnect, onCopy: copy, onEditAvatar, onOpenLeague, onOpenCollection, onOpenInvite, onOpenGuild }),
+    [state, shown, look, onConnect, onDisconnect, onEditAvatar, onOpenLeague, onOpenCollection, onOpenInvite, onOpenGuild],
   );
   return <ProfileProvider value={value}>{children}</ProfileProvider>;
 }

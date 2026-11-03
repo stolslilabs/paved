@@ -232,7 +232,7 @@ function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: 
       title={compactOf(kind, amount, compactFrom) ? figureOf(kind, amount) : undefined}
       data-plate={kind}
       whileTap={inert ? undefined : { scale: 0.94 }}
-      className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+      className="flex min-h-11 shrink-0 cursor-pointer items-center rounded-lg outline-none disabled:cursor-default"
     >
       <ResourcePlate fixed compactFrom={compactFrom} kind={kind} amount={amount} from={from} decimals={decimals} fraction={fraction} size={size} tone={kind === "cobbles" ? "invite" : "default"} />
     </m.button>
@@ -291,7 +291,7 @@ function BalancesError({ size, message, retrying, onRetry }: { size: PlateSize; 
       title={`${message} Tap to retry.`}
       disabled={retrying}
       onClick={onRetry}
-      className="grid size-11 place-items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="grid size-11 place-items-center rounded-lg outline-none"
     >
       {mark}
     </button>

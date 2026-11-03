@@ -228,7 +228,7 @@ function Slot({ index, state, rank, ready, small, reduced, onOpen }: SlotProps) 
           type="button"
           aria-label={`Open the ${chest} of slot ${index + 1}`}
           onClick={onOpen}
-          className="state-layer flex flex-col items-center gap-1.5 rounded-2xl p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="state-layer flex flex-col items-center gap-1.5 rounded-2xl p-1 outline-none"
         >
           {body}
         </button>

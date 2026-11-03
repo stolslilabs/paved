@@ -101,6 +101,17 @@ describe("no dragging", () => {
   });
 });
 
+describe("no focus ring (NO-FOCUS-RING, the owner's ask of 2026-11-03)", () => {
+  it("the base layer takes every outline off, and no source draws a ring or an outline on focus", () => {
+    expect(rule("*")).toContain("outline-none");
+    const dir = resolve("src");
+    const offenders = (readdirSync(dir, { recursive: true }) as string[])
+      .filter((f) => /\.tsx?$/.test(f))
+      .filter((f) => /\bfocus(-visible|-within)?:([\w-]+:)*(ring|outline)/.test(read(resolve(dir, f))));
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("the page's pinch (iOS Safari ignores user-scalable)", () => {
   it("cancels gesturestart and gesturechange while mounted, and stops when unmounted", () => {
     function Probe() {
