@@ -300,6 +300,10 @@
   /* The HUD's drawer's raised surfaces (PROFILE-DRAWER, direction C of 2026-11-03): a step over its charcoal-800 face, lit along their top. */
   --drawer-raised: var(--color-charcoal-700);
   --drawer-bevel: var(--color-charcoal-500);
+  /* The dock's ink (HOME-DOCK): its plank's wood, under the current item (a shade on the parchment, where white would not show) and the safe area. */
+  --dock-ink: #5b3415;
+  /* The dock's badges (HOME-DOCK): the mockup's red squares, a count waiting, not an error (`--destructive` is the errors'). */
+  --dock-badge: var(--color-ember-600);
   --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
   --league-iron: var(--color-amber-500);
   --league-bronze: var(--color-charcoal-300);
@@ -386,6 +390,8 @@
   --color-sky-search-bottom: var(--sky-search-bottom);
   --color-crown: var(--crown);
   --color-hud-card: var(--hud-card);
+  --color-dock-ink: var(--dock-ink);
+  --color-dock-badge: var(--dock-badge);
   --color-xp-light: var(--xp-light);
   --color-league-iron: var(--league-iron);
   --color-league-bronze: var(--league-bronze);

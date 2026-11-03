@@ -61,11 +61,11 @@ describe("Home's Camera mode (#875)", () => {
     expect(faded(screen.getByRole("navigation", { name: "Village" }))).not.toBeNull();
     expect(faded(document.querySelector("[data-slot=scroll-region]")!)).not.toBeNull();
     expect(faded(document.querySelector("[data-dial-place]")!)).not.toBeNull();
-    // The column's Shop and the phone bar's.
+    // The dock's Shop (HOME-DOCK: the dock's alone).
     for (const shop of screen.getAllByRole("button", { name: "Shop" })) expect(faded(shop)).not.toBeNull();
-    // Out of the row, so Exit camera takes the corner: Edit, Settings and Play.
+    // Out of the row, so Exit camera takes the corner: Edit.
     const row = within(exit.closest("div.absolute") as HTMLElement);
-    for (const name of ["Edit village", "Settings", "Play"]) expect(row.getByRole("button", { name }).closest("[data-collapse]")).not.toBeNull();
+    expect(row.getByRole("button", { name: "Edit village" }).closest("[data-collapse]")).not.toBeNull();
     // Kept: the top row (the profile, the balances) and Exit camera.
     const top = box.firstElementChild!;
     expect(top).toContainElement(document.querySelector("[data-slot=home-phone-balances]") as HTMLElement);

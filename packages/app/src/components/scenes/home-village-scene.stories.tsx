@@ -229,22 +229,26 @@ export const ShieldedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.shield
 export const LeftColumnStressPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.leagueStress, decorators: [WIDE_BALANCES] };
 
 /**
- * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the swords at the centre of Play, under a centre guide (two red lines
- * through the button's centre): the home's gold button from `desktop` (1440 px), the bar's disc below it (375 px). The play checks
- * the drawn one's icon centre is the button's to half a pixel.
+ * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the dock's medallion (HOME-DOCK, at every width), the swords over PLAY
+ * centred in it as one group, under a centre guide (two red lines through the button's centre). The play checks the group's centre
+ * is the button's to half a pixel.
  */
 export const PlayCentred: Story = {
   args: HOME_VILLAGE.view,
   decorators: [(Story) => <CentreGuide label="Play"><Story /></CentreGuide>],
-  play: ({ canvasElement }) => expectIconCentred(canvasElement, "Play"),
+  play: async ({ canvasElement }) => {
+    // The dock is its own chunk on the home: its Play is drawn once it has come.
+    await within(canvasElement).findByRole("navigation", { name: "Main" }, { timeout: 10_000 });
+    await expectIconCentred(canvasElement, "Play");
+  },
 };
 export const PlayCentredPhone375: Story = { ...PlayCentred, ...PHONE_375 };
 export const PlayCentredWide1440: Story = { ...PlayCentred, ...WIDE_1440 };
 
 /**
- * HOME-BUTTONS (#856): Play, Settings and Edit at the bottom right, and the season dial, take the pointer at every width. The play
- * checks that the topmost element at each drawn button's centre is the button (not the village under the overlays' pass-through),
- * then clicks it: from `desktop` the row's Settings and Play, below it the bar's.
+ * HOME-BUTTONS (#856): the dock's Play and Settings, Edit at the bottom right, and the season dial, take the pointer at every
+ * width. The play checks that the topmost element at each drawn button's centre is the button (not the village under the overlays'
+ * pass-through), then clicks it: Play and Settings are the dock's at every width (HOME-DOCK).
  */
 export const ButtonsReachable: Story = {
   args: { ...HOME_VILLAGE.view, ...DIAL },
@@ -265,14 +269,8 @@ export const ButtonsReachable: Story = {
     }
     await reach(canvas.getByRole("button", { name: "Edit village" }));
     await reach(canvas.getByRole("button", { name: /^Season/ }));
-    const desktop = canvasElement.ownerDocument.defaultView!.matchMedia("(min-width: 64rem)").matches;
-    if (desktop) {
-      await expect(args.onPlay).toHaveBeenCalled();
-      await expect(args.onSettings).toHaveBeenCalled();
-    } else {
-      await expect(args.onNavigate).toHaveBeenCalledWith("play");
-      await expect(args.onNavigate).toHaveBeenCalledWith("settings");
-    }
+    await expect(args.onNavigate).toHaveBeenCalledWith("play");
+    await expect(args.onNavigate).toHaveBeenCalledWith("settings");
     await expect(args.onEditingChange).toHaveBeenCalledWith(true);
   },
 };

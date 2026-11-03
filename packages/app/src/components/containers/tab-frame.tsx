@@ -51,7 +51,8 @@ function FullTabFrame({ tab, onNavigate, children }: TabFrameProps) {
   }, []);
   return (
     <div ref={frame} className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      <AppNav active={tab} onNavigate={onNavigate} />
+      {/* From `desktop` a page opens in the home's side panel (`TabFrame`'s other branch), the home drawing the dock. */}
+      <AppNav active={tab} onNavigate={onNavigate} className="desktop:hidden" />
       <div ref={regionRef} data-slot="page-scroll" className="mb-(--app-nav-h) min-h-0 flex-1 overflow-y-auto overscroll-contain desktop:mb-0">
         <PageRegionProvider value>{children}</PageRegionProvider>
       </div>

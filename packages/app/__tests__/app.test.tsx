@@ -24,27 +24,29 @@ afterEach(() => {
 });
 
 describe("app", () => {
-  it("renders the home page as the village with its overlays and the phone's bar (#763)", async () => {
+  it("renders the home page as the village with its overlays and the dock (#763, HOME-DOCK)", async () => {
     render(<App router={createTestRouter("/")} />);
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
     const nav = await screen.findByRole("navigation", { name: "Main" });
     expect(within(nav).getByRole("button", { name: "Play" })).toBeInTheDocument();
-    // No item of the bar is current on the home, and no header from `desktop` (the overlay's column there).
+    // No item of the dock is current on the home; the home draws it at every width (HOME-DOCK).
     expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
-    expect(nav.className).toContain("desktop:hidden");
+    expect(nav.className).not.toContain("desktop:hidden");
   });
 
-  it("gives the tab pages the bar's five items, Play in the centre, and no header from desktop (#762)", async () => {
+  it("gives the tab pages the dock's five items, Play in the centre, and no header from desktop (#762)", async () => {
     render(<App router={createTestRouter("/vault")} />);
     expect(await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Main" });
-    // The items are the buttons of the nav's item row; Play sits in a slot of its own.
-    expect(nav.querySelectorAll(":scope > div > button")).toHaveLength(4);
-    // #763: the bar's Shop, Chests, Play, League, Settings; from `desktop` no bar and no header (#762: the home's overlay).
-    expect([...nav.querySelectorAll(":scope > div > button, :scope > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "League", "Settings"]);
+    // The items are the buttons of the dock's band (`:scope > div > div`); Play sits in a column of its own.
+    expect(nav.querySelectorAll(":scope > div > div > button")).toHaveLength(4);
+    // #763, HOME-DOCK: the dock's Shop, Chests, Play, Guild, Settings; from `desktop` a page has no dock and no header (#762: it
+    // opens in the home's side panel, the home drawing the dock).
+    expect([...nav.querySelectorAll(":scope > div > div > button, :scope > div > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "Guild", "Settings"]);
     expect(nav).toHaveClass("desktop:hidden");
-    expect(within(nav).getByRole("button", { name: "Play" })).toHaveTextContent("");
+    // The medallion: the swords and PLAY on it.
+    expect(within(nav).getByRole("button", { name: "Play" })).toHaveTextContent("Play");
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
   });
 

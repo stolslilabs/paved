@@ -36,48 +36,47 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * Direction D (#537): the bottom bar, below 1024 px (the theme's `desktop`) only: from it the navigation is the home's overlay
- * and its side panels (DESK-PANELS, #762), so the bar draws nothing there. The current item is gold on the white 15% layer; hover is 10%, a press 20%. TAB-SWIPE (#726): on a phone the items are icons and only the current one shows its
- * label; a click here slides the highlight to the new item, folds the old label and unfolds the new one (the bar stays
- * mounted: plain transitions; in the app each page mounts its own bar, which starts from the last one's state). None under
- * reduced motion. PHONE-NAV (#763): the bar holds Shop, Chests, Play, League, Settings; Play, in the centre, has no label: a
- * gold disc raised above the bar, and no highlight. One story per item of the bar active.
+ * The dock (HOME-DOCK, the owner's asks of 2026-11-03, the mockup's footer): the painted ribbon with its wooden posts, Shop, Chests,
+ * Play, Guild, Settings, each the mockup's icon over its label, Play the gold medallion rising above it (the swords over PLAY), no
+ * highlight. Full width on a phone, centred from `tablet`. The current item: its label gold, the wood's shade under it, which slides
+ * to a new item on a click (TAB-SWIPE, #726: the bar stays mounted here, plain transitions; in the app each page mounts its own bar,
+ * which starts from the last one's state). None under reduced motion. One story per item active.
  */
 export const Default: Story = {};
 
 /** Starts on Chests, with 3 chests waiting (its badge). */
 export const ActiveChests: Story = { args: { active: "chests", badges: { chests: 3 } } };
 
-/** Chests active on a phone: its treasure chest (issue 873), a game icon, with its label and its badge. */
+/** Chests active on a phone: the mockup's chest, its label and its badge. */
 export const ActiveChestsPhone375: Story = { ...ActiveChests, ...PHONE_375 };
 export const ActiveChestsPhone320: Story = { ...ActiveChests, ...PHONE_320 };
 
 /** Play active: it never is in the app (the mode choice is a full-screen page, without the bar), shown for the states. */
 export const ActivePlay: Story = { args: { active: "play" } };
 
-/** Starts on League (the league page and its defence log). */
-export const ActiveLeague: Story = { args: { active: "league" } };
+/** Starts on Guild (HOME-DOCK: Guild in League's place, League reached by the crowns' capsule). */
+export const ActiveGuild: Story = { args: { active: "guild" } };
 
 /** Starts on Settings. */
 export const ActiveSettings: Story = { args: { active: "settings" } };
 
-/** On the home (#763): no item current, no highlight; the chests waiting on Chests. */
-export const Home: Story = { args: { active: null, badges: { chests: 2 } } };
+/** On the home (#763): no item current, no highlight; the chests waiting on Chests, the guild's count on Guild. */
+export const Home: Story = { args: { active: null, badges: { chests: 2, guild: 1 } } };
 
 /** On Missions or the Vault: the bar has no item current. */
 export const ActiveVault: Story = { args: { active: "vault" } };
 
 /**
- * TAB-RETAP (#800, the owner's decision of 2026-10-26): the current item, League here, says "Tap again to return to the
+ * TAB-RETAP (#800, the owner's decision of 2026-10-26): the current item, Guild here, says "Tap again to return to the
  * village"; tapped again, it closes its page and the bar is the home's, no item current (in the app: the village, with no swipe).
  */
 export const Retap: Story = {
-  args: { active: "league" },
+  args: { active: "guild" },
   play: async ({ canvasElement, args }) => {
-    const league = within(canvasElement).getByRole("button", { name: "League", current: "page" });
-    await expect(league).toHaveAccessibleDescription("Tap again to return to the village");
-    await userEvent.click(league);
-    await expect(args.onNavigate).toHaveBeenCalledWith("league");
+    const guild = within(canvasElement).getByRole("button", { name: "Guild", current: "page" });
+    await expect(guild).toHaveAccessibleDescription("Tap again to return to the village");
+    await userEvent.click(guild);
+    await expect(args.onNavigate).toHaveBeenCalledWith("guild");
     await expect(within(canvasElement).queryByRole("button", { current: "page" })).toBeNull();
   },
 };
@@ -86,14 +85,15 @@ export const Retap: Story = {
 export const RetapPhone320: Story = { ...Retap, ...PHONE_320 };
 export const RetapPhone375: Story = { ...Retap, ...PHONE_375 };
 
-/** The home's bar at 320, 375 and 768 px. */
+/** The home's dock at 320, 375 and 768 px, and from `desktop`. */
 export const HomePhone320: Story = { ...Home, ...PHONE_320 };
 export const HomePhone375: Story = { ...Home, ...PHONE_375 };
 export const HomeTablet768: Story = { ...Home, ...TABLET_768 };
 
 /**
- * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the swords sit at the centre of the Play disc, under a centre guide
- * (two red lines through the disc's centre). The play checks the icon's centre is the disc's to half a pixel.
+ * SWORDS-CENTRE (#827, the owner's decision of 2026-10-27): the swords over PLAY sit at the centre of the medallion as one group
+ * (HOME-DOCK), under a centre guide (two red lines through its centre). The play checks the group's centre is the medallion's to
+ * half a pixel.
  */
 export const PlayCentredPhone375: Story = {
   ...PHONE_375,
@@ -102,5 +102,5 @@ export const PlayCentredPhone375: Story = {
   play: ({ canvasElement }) => expectIconCentred(canvasElement, "Play"),
 };
 
-/** The same at 320 px. Both pinned to a phone: from `desktop` the bar draws nothing, and the home's Play is `Scenes/Home`'s. */
+/** The same at 320 px. */
 export const PlayCentredPhone320: Story = { ...PlayCentredPhone375, ...PHONE_320 };

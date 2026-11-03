@@ -4,10 +4,10 @@
  * no tabs).
  */
 /**
- * The navigation's destinations. Below `desktop` the bar holds Shop, Chests, Play, League, Settings (`BAR_TABS`, #763); from it
- * the navigation is the home's overlay (DESK-PANELS, #762: no header, no bar). `play` opens the mode choice (`nav: null`), so no
- * page shows it as the current one; the others are tabs of pages. The home, Missions, the Vault, Chat, Guild and Friends are not
- * in the phone's bar: the home's overlay leads to them, the pages' Back to the home (#760).
+ * The navigation's destinations. The dock holds Shop, Chests, Play, Guild, Settings (`BAR_TABS`, #763, HOME-DOCK), on every page
+ * below `desktop` and on the home from it, the pages then in the home's side panel (DESK-PANELS, #762: no header). `play` opens the
+ * mode choice (`nav: null`), so no page shows it as the current one; the others are tabs of pages. The home, Missions, the Vault,
+ * League, Chat and Friends are not in the dock: the home's overlay leads to them, the pages' Back to the home (#760).
  */
 export type Tab = "home" | "quests" | "vault" | "shop" | "chests" | "play" | "league" | "settings" | "chat" | "guild" | "friends";
 
@@ -104,5 +104,8 @@ export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "friends", label: "Friends", to: "/friends" },
 ];
 
-/** The phone's bar, left to right (#763, the owner's decision of 2026-10-25): Play in the centre. The tab swipe follows it. */
-export const BAR_TABS: readonly Tab[] = ["shop", "chests", "play", "league", "settings"];
+/**
+ * The dock, left to right (#763; HOME-DOCK, the owner's asks of 2026-11-03: the mockup's, Guild in League's place): Play in the
+ * centre. The tab swipe follows it.
+ */
+export const BAR_TABS: readonly Tab[] = ["shop", "chests", "play", "guild", "settings"];

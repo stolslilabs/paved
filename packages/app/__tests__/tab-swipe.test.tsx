@@ -48,23 +48,25 @@ afterEach(() => {
 });
 
 describe("tabSwipeWay", () => {
-  it("follows the bar's order (#763): Shop, Chests, Play, League, Settings", () => {
+  it("follows the dock's order (#763, HOME-DOCK): Shop, Chests, Play, Guild, Settings", () => {
     expect(tabSwipeWay("shop", "chests")).toBe("next");
-    expect(tabSwipeWay("chests", "league")).toBe("next");
+    expect(tabSwipeWay("chests", "guild")).toBe("next");
     expect(tabSwipeWay("shop", "settings")).toBe("next");
-    expect(tabSwipeWay("league", "chests")).toBe("prev");
+    expect(tabSwipeWay("guild", "chests")).toBe("prev");
     expect(tabSwipeWay("settings", "shop")).toBe("prev");
   });
 
   it("is none for Play, within one tab, from a page of no tab, and from or to a tab not in the bar", () => {
     expect(tabSwipeWay("shop", "play")).toBeNull();
-    expect(tabSwipeWay("play", "league")).toBeNull();
+    expect(tabSwipeWay("play", "guild")).toBeNull();
     expect(tabSwipeWay("settings", "settings")).toBeNull();
     expect(tabSwipeWay(null, "shop")).toBeNull();
     // The home, Missions and the Vault are the overlay's, not the bar's: no item is current there, so no way.
     expect(tabSwipeWay("home", "chests")).toBeNull();
     expect(tabSwipeWay("vault", "settings")).toBeNull();
-    expect(tabSwipeWay("league", "home")).toBeNull();
+    expect(tabSwipeWay("guild", "home")).toBeNull();
+    // League left the dock (HOME-DOCK): the crowns' capsule leads to it, so no way either.
+    expect(tabSwipeWay("shop", "league")).toBeNull();
     expect(tabSwipeWay("vault", "quests")).toBeNull();
   });
 });
@@ -73,9 +75,9 @@ describe("tabSwipe", () => {
   it("below desktop, marks <html> with the way and asks for a view transition", () => {
     media();
     viewTransitions();
-    expect(tabSwipe("shop", "league")).toEqual({ viewTransition: true });
+    expect(tabSwipe("shop", "guild")).toEqual({ viewTransition: true });
     expect(html.getAttribute(TAB_SWIPE_MARK)).toBe("next");
-    expect(tabSwipe("league", "shop")).toEqual({ viewTransition: true });
+    expect(tabSwipe("guild", "shop")).toEqual({ viewTransition: true });
     expect(html.getAttribute(TAB_SWIPE_MARK)).toBe("prev");
   });
 
@@ -85,7 +87,7 @@ describe("tabSwipe", () => {
     ["without document.startViewTransition", () => media()],
   ])("changes the page at once %s", (_name, setUp) => {
     setUp();
-    expect(tabSwipe("shop", "league")).toBeUndefined();
+    expect(tabSwipe("shop", "guild")).toBeUndefined();
     expect(html.hasAttribute(TAB_SWIPE_MARK)).toBe(false);
   });
 
@@ -163,17 +165,20 @@ describe("the bar", () => {
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
   });
 
-  it("unfolds only the current item's label, and puts the highlight on its column", () => {
-    render(<AppNav active="league" />);
-    expect(["Shop", "Chests", "League", "Settings"].filter((name) => label(name).hasAttribute("data-open"))).toEqual(["League"]);
-    expect(label("League").className).toContain("grid-rows-[1fr]");
-    expect(label("Shop").className).toContain("grid-rows-[0fr]");
+  it("shows every item's label (the mockup's), the current one gold, and puts the highlight on its column", () => {
+    render(<AppNav active="guild" />);
+    // The labels from `mobile` (a 320 px phone too narrow for the five).
+    for (const name of ["Shop", "Chests", "Guild", "Settings"]) expect(label(name).className).toContain("mobile:block");
+    expect(screen.getByRole("button", { name: "Guild" })).toHaveClass("text-primary");
+    expect(screen.getByRole("button", { name: "Shop" })).toHaveClass("text-foreground");
     expect(highlight().dataset.column).toBe("3");
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("3");
+    // Its offset in its own width (one item's): past Play, the medallion's column less an item's.
+    expect(highlight().style.getPropertyValue("--nav-x")).toMatch(/^calc\(3 \* 100% \+ [\d.]+px - 100%\)$/);
     expect(highlight().className).not.toContain("opacity-0");
     // A first bar starts still: no starting style of another tab.
-    expect(highlight().style.getPropertyValue("--nav-from")).toBe("3");
-    expect(label("League").className).not.toContain("starting:");
+    expect(highlight().dataset.from).toBe("3");
+    expect(highlight().style.getPropertyValue("--nav-from-x")).toBe(highlight().style.getPropertyValue("--nav-x"));
+    expect(screen.getByRole("button", { name: "Guild" }).className).not.toContain("starting:");
   });
 
   it("has no highlight on Play, nor where no item of the bar is current (the home, the Vault, #763)", () => {
@@ -192,19 +197,20 @@ describe("the bar", () => {
     // A tab change: one bar unmounts as the next mounts, in the same commit.
     const { rerender } = render(<AppNav key="shop" active="shop" />);
     rerender(<AppNav key="settings" active="settings" />);
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("4");
-    expect(highlight().style.getPropertyValue("--nav-from")).toBe("0");
-    expect(label("Shop").className).toContain("max-desktop:starting:grid-rows-[1fr]");
-    expect(label("Settings").className).toContain("max-desktop:starting:grid-rows-[0fr]");
-    expect(label("Settings")).toHaveAttribute("data-open");
-    expect(label("Shop")).not.toHaveAttribute("data-open");
+    expect(highlight().dataset.column).toBe("4");
+    expect(highlight().dataset.from).toBe("0");
+    expect(highlight().style.getPropertyValue("--nav-from-x")).toBe("calc(0 * 100%)");
+    // The old item starts gold, the new one white, and each moves to its own.
+    expect(screen.getByRole("button", { name: "Shop" }).className).toContain("starting:text-primary");
+    expect(screen.getByRole("button", { name: "Settings" }).className).toContain("starting:text-foreground");
+    expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute("aria-current", "page");
   });
 
   it("fades the highlight in on its column when the last bar had no item current (the home's)", () => {
     const { rerender } = render(<AppNav key="home" active={null} />);
     rerender(<AppNav key="chests" active="chests" />);
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("1");
-    expect(highlight().className).toContain("max-desktop:starting:opacity-0");
+    expect(highlight().dataset.column).toBe("1");
+    expect(highlight().className).toContain("starting:opacity-0");
     expect(highlight().className).not.toMatch(/(^| )opacity-0/);
   });
 
@@ -212,29 +218,33 @@ describe("the bar", () => {
     const { unmount } = render(<AppNav active="shop" />);
     unmount();
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-    render(<AppNav active="league" />);
-    expect(highlight().style.getPropertyValue("--nav-from")).toBe("3");
+    render(<AppNav active="guild" />);
+    expect(highlight().dataset.from).toBe("3");
   });
 
   it("moves by its transitions when it stays mounted", () => {
     const { rerender } = render(<AppNav active="shop" />);
     rerender(<AppNav active="chests" />);
-    expect(highlight().style.getPropertyValue("--nav-col")).toBe("1");
-    expect(label("Chests")).toHaveAttribute("data-open");
-    expect(label("Shop")).not.toHaveAttribute("data-open");
+    expect(highlight().dataset.column).toBe("1");
+    expect(highlight().style.getPropertyValue("--nav-x")).toBe("calc(1 * 100%)");
+    expect(screen.getByRole("button", { name: "Chests" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Shop" })).not.toHaveAttribute("aria-current");
   });
 
-  it("holds Shop, Chests, Play, League, Settings in that order below desktop, and nothing from it (#763, #762)", () => {
+  it("holds Shop, Chests, Play, Guild, Settings in that order, at every width (#763, HOME-DOCK)", () => {
     render(<AppNav active="shop" />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "League", "Settings"]);
-    expect(screen.getByRole("navigation", { name: "Main" })).toHaveClass("desktop:hidden");
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "Guild", "Settings"]);
+    // The dock itself hides at no width: the page frame hides it from `desktop`, where pages open in the home's side panel.
+    expect(screen.getByRole("navigation", { name: "Main" })).not.toHaveClass("desktop:hidden");
+    // The painted wood and parchment under it (the mockup's pieces, 9-slices), and the four dividers between its columns.
+    for (const slot of ["dock-wood", "dock-panel"]) expect(document.querySelector(`[data-slot="${slot}"]`), slot).not.toBeNull();
+    expect(document.querySelectorAll('[data-slot="dock-divider"]')).toHaveLength(4);
   });
 
-  it("on the home, shows the bar's items alone, the chests waiting on Chests, and nothing from desktop", () => {
-    render(<AppNav active={null} badges={{ chests: 2 }} />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "League", "Settings"]);
-    expect(screen.getByRole("navigation", { name: "Main" }).className).toContain("desktop:hidden");
-    expect(document.querySelector('[data-slot="app-nav-badge"]')).toHaveTextContent("2");
+  it("on the home, shows the dock's items alone, the chests waiting on Chests and the guild's count on Guild", () => {
+    render(<AppNav active={null} badges={{ chests: 2, guild: 1 }} />);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "Guild, 1 waiting", "Settings"]);
+    expect([...document.querySelectorAll('[data-slot="app-nav-badge"]')].map((b) => b.textContent)).toEqual(["2", "1"]);
   });
 });
 
