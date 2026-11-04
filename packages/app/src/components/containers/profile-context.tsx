@@ -6,7 +6,7 @@ import { shortAddress } from "../elements/short-address";
 import type { ProfileSheetProps, ProfileState } from "./profile-sheet";
 
 /** What the shell hands the menu screens' headers: who is connected and what the sheet's actions do. Absent (stories, tests): no avatar is drawn. */
-export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus" | "top">;
+export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus">;
 
 /** The shell's profile, or null (stories, tests, the boards): also what `/player/:id` opens for the connected player's own ID (#952). */
 export const ProfileContext = createContext<ProfileValue | null>(null);
@@ -99,10 +99,6 @@ export function useProfileOpener(): ProfileOpener {
         open={open}
         onOpenChange={change}
         returnFocus={returnFocus}
-        onDisconnect={() => {
-          change(false);
-          value.onDisconnect?.();
-        }}
         onEditAvatar={closing(value.onEditAvatar)}
         onOpenLeague={closing(value.onOpenLeague)}
         onOpenCollection={closing(value.onOpenCollection)}

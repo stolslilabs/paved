@@ -1,16 +1,16 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
-import { useContext, useState, type ReactNode } from "react";
-import { useGuildBadge } from "../../data/guilds";
-import type { GuildBadge } from "../../data/social-source";
+import { formatCompact, type ScoringCategory } from "@paved/game-core";
+import { useContext, useState, type CSSProperties, type ReactNode } from "react";
+import { playerRecords } from "../../data/player-records";
 import { useFollowStatus } from "../../data/social";
 import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
 import { DataContext, type DataSources } from "../../data/sources";
-import { rankName } from "../../lib/guild-text";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { GuildEmblem } from "../elements/guild-emblem";
+import { CATEGORY_NAMES } from "../elements/category-names";
+import { LeagueBanner } from "../elements/league-banner";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
 import { LeagueRim } from "../elements/league-rim";
 import { divisionOf, RIM_PORTRAIT, tierOf } from "../elements/league-standards";
@@ -18,7 +18,7 @@ import { LevelBar } from "../elements/level-bar";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { formatPoints } from "../elements/score";
-import { ShortAddress } from "../elements/short-address";
+import { shortAddress } from "../elements/short-address";
 import { TokenIcon } from "../elements/token-icon";
 import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
@@ -35,12 +35,44 @@ export interface PlayerStatusData {
 /** Who is at the controls: the wallet still looking for an earlier session, a guest, or a connected player. */
 export type ProfileState = { status: "loading" } | { status: "guest"; connecting?: boolean } | { status: "connected"; data: PlayerStatusData };
 
+/** A season in the Hall of Fame: the league and the crowns it ended at, or the current one's so far. */
+export interface SeasonStanding {
+  season: number;
+  /** The league on chain (0 Wood to 22 Grand Master). */
+  league: number;
+  crowns: number;
+  /** Not in the leagues that season (`isUnranked`). */
+  unranked?: boolean;
+}
+
+/** A structure type's figures over a span: the points its closings scored, the best closing's, the structures closed. */
+export interface StructureRecord {
+  category: `${ScoringCategory}`;
+  points: number;
+  best: number;
+  closed: number;
+}
+
+/** The player's records over a span (a season, or all time): the same three figures in all, then per structure type. */
+export interface PlayerRecordSpan {
+  points: number;
+  best: number;
+  closed: number;
+  structures: readonly StructureRecord[];
+}
+
+/** The player's records: the current season (picked first), each season's by number, and all time's. */
+export interface PlayerRecords {
+  season: number;
+  seasons: Readonly<Record<number, PlayerRecordSpan>>;
+  allTime: PlayerRecordSpan;
+}
+
 export interface ProfileSheetProps {
   state: ProfileState;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConnect?: () => void;
-  onDisconnect?: () => void;
   /** Copies the address; a rejection is a failed copy (nothing said). The page does the copying. */
   onCopy?: (address: string) => Promise<void>;
   /** The connected player's level and XP (#625, `usePlayerProgress`); undefined while it is read. */
@@ -49,10 +81,12 @@ export interface ProfileSheetProps {
   look?: bigint | null;
   /** Opens the avatar creator (#626); omitted, Avatar is not offered. */
   onEditAvatar?: () => void;
+  /** Changes the player's name; omitted, the name has no pencil. */
+  onEditName?: () => void;
   /**
-   * The connected player's PvP standing (`Matchmaker.league`): their league's rim and crest round the avatar and its name under their
-   * name (#917). Left out, the sheet reads it itself where the app's sources are (the home's read and cache, in the sheet's own chunk,
-   * not the first load); null: none shown (not read, no PvP on the network).
+   * The connected player's PvP standing (`Matchmaker.league`): their league's rim and crest round the avatar, their crowns and
+   * league under League (#917). Left out, the sheet reads it itself where the app's sources are (the home's read and cache,
+   * in the sheet's own chunk, not the first load); null: none shown (not read, no PvP on the network).
    */
   league?: PlayerLeague | null;
   /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, Battle logs is not offered. */
@@ -63,10 +97,13 @@ export interface ProfileSheetProps {
   onOpenInvite?: () => void;
   /** The player's counts of followers and following (#954), as given (a story); left out, read from the follow source. */
   follows?: { followers: number; followed: number };
-  /** Opens the guild's page (#953) from the guild line; the sheet closes first. */
-  onOpenGuild?: (id: number) => void;
-  /** Where the drawer's top stops, in CSS px from the viewport's top (`HudDrawer`): the home's HUD end. */
-  top?: number;
+  /**
+   * Each season's league and crowns, oldest first, the current one last. Left out with `records`, the sheet reads both where the app's
+   * sources are (`playerRecords`, the mock's for now); else none, no Hall of Fame.
+   */
+  hallOfFame?: readonly SeasonStanding[];
+  /** The player's records by season and all time; left out, read with the Hall of Fame (above), else none: no Stats. */
+  records?: PlayerRecords;
   /** Where the focus goes back on close: the avatar that opened it, which is not a Radix trigger (the sheet loads after the tap). */
   returnFocus?: () => HTMLElement | null;
 }
@@ -98,6 +135,12 @@ function WithLeague({ league, playerId, children }: { league: PlayerLeague | nul
   );
 }
 
+/** A standing's tier, division and name: Unranked's, or its league's ("Bronze II"). */
+function standingOf({ league, crowns, unranked }: { league: number; crowns: number; unranked?: boolean }) {
+  const shown = LEAGUES[league] ?? leagueOf(crowns);
+  return unranked ? { tier: "unranked" as const, division: null, name: "Unranked" } : { tier: tierOf(shown), division: divisionOf(shown), name: shown.name };
+}
+
 /** The portrait in the rim's hole: the same box with a rim or without one. */
 const PORTRAIT_INSET = { inset: `${((1 - RIM_PORTRAIT) / 2) * 100}%` };
 
@@ -115,57 +158,80 @@ function ProfileRim({ league, children }: { league: PlayerLeague | null; childre
       </span>
     );
   }
-  const shown = LEAGUES[league.league] ?? leagueOf(league.crowns);
-  const tier = league.unranked ? "unranked" : tierOf(shown);
+  const { tier, division } = standingOf(league);
   return (
     <span data-slot="profile-rim" data-tier={tier} className="relative block size-[1em] shrink-0">
       <LeagueRim tier={tier} size="inherit" className="block">
         {children}
       </LeagueRim>
-      <LeagueCrestIcon
-        tier={tier}
-        division={league.unranked ? null : divisionOf(shown)}
-        size="inherit"
-        className="absolute -bottom-[10%] -left-[10%]"
-        style={{ width: "44%", height: "44%" }}
-      />
+      <LeagueCrestIcon tier={tier} division={division} size="inherit" className="absolute -bottom-[10%] -left-[10%]" style={{ width: "44%", height: "44%" }} />
     </span>
   );
 }
 
-/** The league's name under the player's: "Bronze II", or "Unranked" (#917). */
-const leagueName = (league: PlayerLeague) => (league.unranked ? "Unranked" : (LEAGUES[league.league] ?? leagueOf(league.crowns)).name);
+/**
+ * The rule after a section's title (the owner's ask of 2026-11-04): engraved as the carved surfaces are, a light line over a dark
+ * one, fading out to the right. Inline, in the profile's chunk: the one stylesheet has no room to spare.
+ */
+const TITLE_RULE: CSSProperties = {
+  height: 2,
+  background: "linear-gradient(var(--drawer-bevel) 50%, var(--hud-outline) 50%)",
+  maskImage: "linear-gradient(to right, black, transparent)",
+};
+/** The rule's head: a small diamond in the line's light. */
+const TITLE_DIAMOND: CSSProperties = { background: "var(--drawer-bevel)", boxShadow: "0 1px 0 var(--hud-outline)", transform: "rotate(45deg)" };
 
-/** The player's guild (#953): its emblem, its name and a chevron, the player's rank in its name; a tap opens its page. */
-function GuildPill({ badge, onOpen }: { badge: GuildBadge; onOpen?: (id: number) => void }) {
+/**
+ * A section's title, in the display font (the owner's ask of 2026-11-04: titles in it), the rule after it across the row, and what
+ * the row holds at its end (the Stats' badge), a gap either side of the rule so nothing touches it.
+ */
+function SectionTitle({ children, end }: { children: ReactNode; end?: ReactNode }) {
   return (
-    <button
-      type="button"
-      data-slot="guild-line"
-      aria-label={`${badge.name}, ${rankName(badge.rank)}`}
-      onClick={() => onOpen?.(badge.id)}
-      className="state-layer drawer-raised flex h-10 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl pr-2 pl-1.5 text-left outline-none"
-    >
-      <GuildEmblem emblem={badge.emblem} size="sm" />
-      <span className="text-outline min-w-0 flex-1 truncate font-bold">{badge.name}</span>
-      <Icon name="chevron-right" size="xs" className="shrink-0" />
-    </button>
+    <div className="flex min-h-9 items-center gap-3">
+      <h3 className="text-outline shrink-0 font-display text-2xl leading-tight tracking-wide">{children}</h3>
+      <span aria-hidden className="flex min-w-6 flex-1 items-center gap-1">
+        <span className="size-1.5 shrink-0" style={TITLE_DIAMOND} />
+        <span className="flex-1" style={TITLE_RULE} />
+      </span>
+      {end}
+    </div>
   );
 }
 
-/** The player's guild, read from the guild source; none, nothing. */
-function ReadGuild({ playerId, onOpen }: { playerId: string; onOpen: (id: number) => void }) {
-  const badge = useGuildBadge(playerId).data;
-  return badge ? <GuildPill badge={badge} onOpen={onOpen} /> : null;
+/** From a million, a figure is short ("1.2M"): a 320 px phone's third holds seven characters at the figures' size ("999,999"). */
+const COMPACT_FROM = 1_000_000;
+
+/**
+ * One figure: its label over it, in the mockups' type (the owner's ask of 2026-11-04): the rounded bold face, tabular, not Space Mono
+ * (these figures do not tick). `small`, a structure type's, a step under the total's. A short figure keeps its whole number in its
+ * tooltip and for screen readers.
+ */
+function Figure({ term, value, small = false }: { term: string; value: number; small?: boolean }) {
+  const whole = formatPoints(value);
+  const short = value >= COMPACT_FROM;
+  return (
+    <div data-slot="profile-figure" className={cn("flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 px-0.5", small ? "py-1.5" : "py-2")}>
+      <dt className="text-center text-xs leading-tight font-bold text-muted-foreground">{term}</dt>
+      <dd title={short ? whole : undefined} className={cn("text-outline max-w-full leading-tight font-bold tabular-nums wrap-anywhere", small ? "text-lg" : "text-xl")}>
+        {short ? (
+          <>
+            <span aria-hidden>{formatCompact(value)}</span>
+            <span className="sr-only">{whole}</span>
+          </>
+        ) : (
+          whole
+        )}
+      </dd>
+    </div>
+  );
 }
 
-/** One figure of the profile: its label over it. */
-function Figure({ term, value }: { term: string; value: string }) {
+/** Figures side by side on a carved band: information, never pressed (the owner's rule of 2026-11-04: raised presses, carved informs). */
+function FigureBand({ slot, children }: { slot: string; children: ReactNode }) {
   return (
-    <div data-slot="profile-figure" className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 px-0.5 py-2">
-      <dt className="text-xs font-bold text-muted-foreground">{term}</dt>
-      <dd className="numeric text-outline max-w-full text-lg leading-tight font-bold wrap-anywhere">{value}</dd>
-    </div>
+    <dl data-slot={slot} className="drawer-carved drawer-rule flex rounded-xl">
+      {children}
+    </dl>
   );
 }
 
@@ -178,8 +244,8 @@ function ReadFollowCounts({ playerId }: { playerId: string }) {
 function FollowCounts({ counts }: { counts: { followers: number; followed: number } }) {
   return (
     <>
-      <Figure term="Followers" value={formatPoints(counts.followers)} />
-      <Figure term="Following" value={formatPoints(counts.followed)} />
+      <Figure term="Followers" value={counts.followers} />
+      <Figure term="Following" value={counts.followed} />
     </>
   );
 }
@@ -199,7 +265,7 @@ function ActionTile({ art, label, name, onClick, children }: { art: UiIconName; 
         {children}
       </span>
       {/* 12 px, tight: each name holds on one line in a 360 px phone's quarter; narrower, it wraps between its words. */}
-      <span className="text-outline max-w-full text-center text-xs leading-tight font-black tracking-tight">{label}</span>
+      <span className="text-outline max-w-full text-center text-xs leading-tight font-bold tracking-tight">{label}</span>
     </button>
   );
 }
@@ -221,34 +287,182 @@ function XpLeft({ progress }: { progress: PlayerProgress | undefined }) {
 }
 
 /**
- * What a tap on the player card opens (#624), redrawn after the profile's mockup (PROFILE-DRAWER, `docs/design/profile.webp`): the HUD's
- * drawer, rising from the bottom of a phone up to the HUD's end, a side panel docked at the left from `tablet` (`HudDrawer`), one layout.
- * "Your profile" over the avatar in the rim of the player's league and its crest (#917); beside it the name, the league's, the short
- * address with Copy and the guild (#953); the level and its bar ("90 / 150 XP"; the XP left and in all, #830, said to screen readers only); Games and the
- * follow counts (#954) in one band (Best left on 2026-11-03, the owner's ask); the actions as tiles (Battle logs #834, Avatar #626, Collection, Invite); Disconnect. A guest gets
- * the Training line and Connect.
+ * The player's crowns and league: two carved chips side by side, each as wide as its content and at least 8.5 rem (both on one line
+ * at 320 px for most leagues), wrapping one under the other where both do not fit ("Grand Master" beside its crowns at 320 px).
+ */
+const LEAGUE_CHIP = "drawer-carved flex min-w-34 flex-auto items-center justify-center gap-2 rounded-xl px-3 py-2.5";
+
+function TrophiesBand({ league }: { league: PlayerLeague }) {
+  const { tier, division, name } = standingOf(league);
+  return (
+    <dl data-slot="profile-trophies" className="flex flex-wrap gap-1.5">
+      <div className={LEAGUE_CHIP}>
+        <dt>
+          <UiIcon name="crown" px={32} className="drawer-icon size-8" />
+          <span className="sr-only">Crowns</span>
+        </dt>
+        <dd className="text-outline text-xl leading-tight font-bold tabular-nums">{formatPoints(league.crowns)}</dd>
+      </div>
+      <div className={LEAGUE_CHIP}>
+        <dt className="flex shrink-0 text-[2rem]">
+          <LeagueCrestIcon tier={tier} division={division} size="inherit" />
+          <span className="sr-only">League</span>
+        </dt>
+        <dd data-slot="profile-league" className="text-outline min-w-0 truncate text-lg leading-tight font-bold">
+          {name}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+/** What the Stats show: a season by number, or all time. */
+type Span = number | "all";
+
+/**
+ * One season's card in the Hall of Fame: its number, its league's banner, its crowns; the current one tagged "Now". With the Stats, a
+ * card picks its season for them (the owner's ask of 2026-11-04: the Hall of Fame is the filter): the picked one outlined in gold, a
+ * tap on it again lets go (all time).
+ */
+function SeasonCard({ standing, current, picked, onPick }: { standing: SeasonStanding; current: boolean; picked: boolean; onPick?: (span: Span) => void }) {
+  const { tier, division, name } = standingOf(standing);
+  const body = (
+    <>
+      {current && <span className="absolute -top-2 -right-1 rounded-md bg-medal-1 px-1.5 text-xs leading-tight font-bold text-primary-foreground">Now</span>}
+      <span className="text-xs font-bold text-muted-foreground tabular-nums">S{standing.season}</span>
+      <span className="text-[2.75rem] leading-none">
+        <LeagueBanner tier={tier} division={division} size="inherit" />
+      </span>
+      <span className="flex items-center gap-1">
+        <UiIcon name="crown" px={16} className="size-4" />
+        <span className="text-outline text-xs leading-tight font-bold tabular-nums">{formatPoints(standing.crowns)}</span>
+      </span>
+    </>
+  );
+  const card = cn("drawer-carved relative flex w-full min-w-0 flex-col items-center gap-1 rounded-xl px-1 pt-1.5 pb-2", picked && "ring-2 ring-medal-1");
+  const label = `Season ${standing.season}: ${name}, ${formatPoints(standing.crowns)} crowns`;
+  return (
+    <li data-slot="hall-of-fame-season" data-picked={picked || undefined} className="flex">
+      {onPick ? (
+        <button type="button" aria-label={label} aria-pressed={picked} onClick={() => onPick(picked ? "all" : standing.season)} className={cn(card, "state-layer cursor-pointer outline-none")}>
+          {body}
+        </button>
+      ) : (
+        <div role="img" aria-label={label} className={card}>
+          {body}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Each structure type's image (one a line: the Font Awesome subset's guard reads the words of a line that names an icon). */
+const STRUCTURE_ART = {
+  City: "city",
+  Road: "road",
+  Forest: "forest",
+  Wonder: "wonder",
+} as const satisfies Record<`${ScoringCategory}`, UiIconName>;
+
+/** The three figures of a span or a structure type, in the owner's order (2026-11-04): Total points, Best points, Total closed. */
+function SpanFigures({ figures, small }: { figures: { points: number; best: number; closed: number }; small?: boolean }) {
+  return (
+    <>
+      <Figure term="Total points" value={figures.points} small={small} />
+      <Figure term="Best points" value={figures.best} small={small} />
+      <Figure term="Total closed" value={figures.closed} small={small} />
+    </>
+  );
+}
+
+/**
+ * A block of the Stats: its title with its icon, then its figures carved (the owner's asks of 2026-11-04: the titles out of the carved
+ * style, the data in it). The total is a second-level title (the stats' icon); each structure type a third-level one, a step smaller,
+ * a section of its own so a type can grow its own figures later.
+ */
+function RecordBlock({ slot, art, name, figures, part = false }: { slot: string; art: UiIconName; name: string; figures: { points: number; best: number; closed: number }; part?: boolean }) {
+  const title = (
+    <>
+      <UiIcon name={art} px={part ? 24 : 32} className={cn("drawer-icon", part ? "size-6" : "size-8")} />
+      {name}
+    </>
+  );
+  const heading = "text-outline flex items-center gap-2 font-display leading-tight tracking-wide";
+  return (
+    <section data-slot={slot} aria-label={name} className="flex flex-col gap-1.5">
+      {part ? <h5 className={cn(heading, "text-lg")}>{title}</h5> : <h4 className={cn(heading, "text-xl")}>{title}</h4>}
+      <dl className="drawer-carved drawer-rule flex rounded-xl">
+        <SpanFigures figures={figures} small={part} />
+      </dl>
+    </section>
+  );
+}
+
+/** The Stats: the span the Hall of Fame picked, named in a badge by the title (its cross back to all time), the total, then each type. */
+function RecordsSection({ records, span, onSpan }: { records: PlayerRecords; span: Span; onSpan: (span: Span) => void }) {
+  const shown = span === "all" ? records.allTime : (records.seasons[span] ?? records.allTime);
+  return (
+    <section data-slot="profile-records" aria-label="Stats" className="flex flex-col gap-3">
+      <SectionTitle
+        end={
+          <span data-slot="profile-records-span" className="flex h-7 items-center gap-1 rounded-full bg-card/40 pr-1 pl-2.5 text-xs font-bold">
+            <span className="text-outline pr-1.5">{span === "all" ? "All time" : `Season ${span}`}</span>
+            {span !== "all" && (
+              <button type="button" aria-label="Show all time" onClick={() => onSpan("all")} className="state-layer grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground">
+                <Icon name="xmark" size="xs" />
+              </button>
+            )}
+          </span>
+        }
+      >
+        Stats
+      </SectionTitle>
+      <RecordBlock slot="profile-records-total" art="stats" name="Total" figures={shown} />
+      <div className="flex flex-col gap-3 pt-1">
+        {shown.structures.map((record) => (
+          <RecordBlock key={record.category} slot="profile-structure" art={STRUCTURE_ART[record.category]} name={CATEGORY_NAMES[record.category]?.plural ?? record.category} figures={record} part />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * What a tap on the player card opens (#624), redrawn after the profile's mockups (PROFILE-DRAWER, `docs/design/profile.webp`; PROFILE-PAGE,
+ * the owner's rounds of 2026-11-04): the HUD's drawer, a full page with Back on a phone, a side panel docked at the left from `tablet`
+ * (`HudDrawer`), one layout, titled "Profile". The presentation: the avatar in the rim of the player's league and its crest (#917),
+ * the name with its pencil, the address under it (a tap copies it, no button's look); then the level and its bar ("90 /
+ * 150 XP"; the XP left and in all, #830, said to screen readers only), League (the crowns and the league, carved chips that wrap), Games and the follow
+ * counts (#954), the actions as raised tiles (Battle logs #834, Avatar #626, Collection, Invite), the Hall of Fame (each season's
+ * banner and crowns, the filter of the Stats: the current season picked first, a tap on it again for all time) and the Stats (the
+ * totals, a section per structure type). What informs is carved, what presses is raised. Disconnect is Settings' (the owner's ask of
+ * 2026-11-04). A guest gets the Training line and Connect.
  */
 export function ProfileSheet({
   state,
   open,
   onOpenChange,
   onConnect,
-  onDisconnect,
   onCopy,
   progress,
   look,
   onEditAvatar,
+  onEditName,
   league,
   onOpenLeague,
   onOpenCollection,
   onOpenInvite,
-  onOpenGuild,
   follows,
-  top,
+  hallOfFame: givenFame,
+  records: givenRecords,
   returnFocus,
 }: ProfileSheetProps) {
   const sources = useContext(DataContext);
+  // Neither given (the app): read where the app's sources are.
+  const { hallOfFame, records } = sources && givenFame === undefined && givenRecords === undefined ? playerRecords() : { hallOfFame: givenFame, records: givenRecords };
   const [copied, setCopied] = useState(false);
+  // The Stats' span: the current season until a card of the Hall of Fame picks another, or lets go of it (all time).
+  const [span, setSpan] = useState<Span>(records?.season ?? "all");
   const connected = state.status === "connected" ? state.data : null;
   const portrait = (
     <PlayerAvatar
@@ -263,11 +477,13 @@ export function ProfileSheet({
     <HudDrawer
       open={open}
       onOpenChange={(next) => {
-        if (!next) setCopied(false);
+        if (!next) {
+          setCopied(false);
+          setSpan(records?.season ?? "all");
+        }
         onOpenChange(next);
       }}
-      title={connected ? "Your profile" : "Profile"}
-      top={top}
+      title="Profile"
       returnFocus={returnFocus}
       slot="profile"
     >
@@ -280,53 +496,53 @@ export function ProfileSheet({
                   <ProfileRim league={shown}>{portrait}</ProfileRim>
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-                  <span className="flex max-w-full min-w-0 flex-col">
+                  <span className="flex max-w-full min-w-0 items-center gap-1.5">
                     {/* With no name, the short address in Space Mono, whose glyphs stand taller than a tight line: `truncate` would cut their top and foot. */}
                     <PlayerName
                       name={connected.player.name}
                       address={connected.player.playerId}
-                      className={cn("text-outline text-2xl font-black", connected.player.name ? "leading-tight" : "leading-normal")}
+                      className={cn("text-outline text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
                     />
-                    {shown && (
-                      <span data-slot="profile-league" className="truncate text-sm font-bold text-muted-foreground">
-                        {leagueName(shown)}
-                      </span>
+                    {onEditName && (
+                      <button
+                        type="button"
+                        aria-label="Edit name"
+                        onClick={onEditName}
+                        className="state-layer drawer-raised grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg outline-none"
+                      >
+                        <Icon name="pen" size="xs" />
+                      </button>
                     )}
                   </span>
-                  <span data-slot="profile-address" className="drawer-raised flex h-8 max-w-full items-center gap-0.5 rounded-lg pl-3">
-                    <ShortAddress address={connected.player.playerId} className="text-sm font-bold text-muted-foreground" />
-                    <button
-                      type="button"
-                      aria-label={copied ? "Copied" : "Copy address"}
-                      aria-live="polite"
-                      onClick={() => void onCopy?.(connected.player.playerId).then(() => setCopied(true), () => undefined)}
-                      className="state-layer grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground outline-none hover:text-foreground"
-                    >
-                      <Icon name={copied ? "check" : "copy"} size="xs" />
-                    </button>
-                  </span>
+                  {/* The address as a subtitle: a tap copies it, with no button's look (the owner's ask of 2026-11-04); "Copied" says it worked. */}
+                  <button
+                    type="button"
+                    data-slot="profile-address"
+                    aria-label={copied ? "Copied" : "Copy address"}
+                    aria-live="polite"
+                    onClick={() => void onCopy?.(connected.player.playerId).then(() => setCopied(true), () => undefined)}
+                    className="max-w-full cursor-pointer truncate rounded-sm text-sm font-semibold text-muted-foreground outline-none"
+                  >
+                    {copied ? "Copied" : `#${shortAddress(connected.player.playerId)}`}
+                  </button>
                 </div>
               </div>
-              {sources && (
-                <ReadGuild
-                  playerId={connected.player.playerId}
-                  onOpen={(id) => {
-                    onOpenChange(false);
-                    onOpenGuild?.(id);
-                  }}
-                />
-              )}
               <div data-slot="player-level" className="flex flex-col gap-1">
-                <span className="text-outline text-lg leading-tight font-black">
-                  Level <span className="numeric">{progress ? formatPoints(progress.level) : "–"}</span>
-                </span>
+                {/* The level's number is the bar's star's (the owner's ask of 2026-11-04): the title alone. */}
+                <SectionTitle>Level</SectionTitle>
                 <LevelBar progress={progress} variant="profile" />
                 <XpLeft progress={progress} />
               </div>
-              <dl data-slot="profile-figures" className="drawer-raised drawer-rule flex rounded-xl">
-                <Figure term="Games" value={formatPoints(connected.stats.challengeFinished)} />
+              {shown && (
+                <section aria-label="League" className="flex flex-col gap-2">
+                  <SectionTitle>League</SectionTitle>
+                  <TrophiesBand league={shown} />
+                </section>
+              )}
+              <FigureBand slot="profile-figures">
+                <Figure term="Games" value={connected.stats.challengeFinished} />
                 {follows ? <FollowCounts counts={follows} /> : sources && <ReadFollowCounts playerId={connected.player.playerId} />}
-              </dl>
+              </FigureBand>
               {(onOpenLeague || onEditAvatar || onOpenCollection || onOpenInvite) && (
                 <div data-slot="profile-actions" className="flex gap-1.5">
                   {onOpenLeague && <ActionTile art="swords" label="Battle logs" onClick={onOpenLeague} />}
@@ -340,14 +556,23 @@ export function ProfileSheet({
                   )}
                 </div>
               )}
-              <button
-                type="button"
-                onClick={onDisconnect}
-                className="state-layer drawer-raised flex h-11 cursor-pointer items-center gap-2 self-center rounded-full pr-4 pl-3 outline-none"
-              >
-                <UiIcon name="disconnect" px={32} className="size-8" />
-                <span className="text-outline font-black">Disconnect</span>
-              </button>
+              {hallOfFame && hallOfFame.length > 0 && (
+                <section aria-label="Hall of Fame" className="flex flex-col gap-2">
+                  <SectionTitle>Hall of Fame</SectionTitle>
+                  <ol data-slot="hall-of-fame" className="grid grid-cols-4 gap-1.5 pt-2">
+                    {hallOfFame.map((standing) => (
+                      <SeasonCard
+                        key={standing.season}
+                        standing={standing}
+                        current={standing.season === (records?.season ?? hallOfFame.at(-1)!.season)}
+                        picked={records !== undefined && span === standing.season}
+                        onPick={records && setSpan}
+                      />
+                    ))}
+                  </ol>
+                </section>
+              )}
+              {records && <RecordsSection records={records} span={span} onSpan={setSpan} />}
             </>
           )}
         </WithLeague>
@@ -356,7 +581,7 @@ export function ProfileSheet({
           <span className="text-[7rem]">
             <ProfileRim league={null}>{portrait}</ProfileRim>
           </span>
-          <span className="text-outline text-xl font-black">{state.status === "guest" ? "Playing as a guest" : "Looking for your account…"}</span>
+          <span className="text-outline text-lg font-bold">{state.status === "guest" ? "Playing as a guest" : "Looking for your account…"}</span>
           {state.status === "guest" && (
             <>
               <p className="text-sm font-bold text-muted-foreground">Training is free. Connect to enter the Challenge.</p>

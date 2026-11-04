@@ -133,7 +133,9 @@ describe("the ring around the avatar (#625)", () => {
     render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={FIRST_LEVEL} />));
     const sheet = await screen.findByRole("dialog");
     const level = sheet.querySelector<HTMLElement>("[data-slot=player-level]")!;
-    expect(level).toHaveTextContent("Level 1");
+    // The title reads "Level" alone (the owner's ask of 2026-11-04): the level's number is the bar's star's.
+    expect(level.querySelector("h3")).toHaveTextContent(/^Level$/);
+    expect(level.querySelector("[data-slot=level]")).toHaveTextContent("1");
     expect(barText(level)).toBe("0 / 100 XP");
     expect(xpLeft(level)).toBe("0 XP made of 100, 100 XP to level 2 · 0 XP in all");
     expect(level.querySelector("[data-slot=level-bar]")).not.toBeNull();
@@ -147,8 +149,8 @@ describe("the ring around the avatar (#625)", () => {
     expect(xpLeft(level())).toBe("120 XP made of 300, 180 XP to level 4 · 420 XP in all");
     rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.nearlyFull} />));
     expect(xpLeft(level())).toBe("470 XP made of 500, 30 XP to level 8");
+    // At the cap (the star turns to 20 after the bar's level-up, which jsdom does not play): "Max level" on the bar.
     rerender(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} progress={PROGRESS.maxLevel} />));
-    expect(level()).toHaveTextContent("Level 20");
     expect(barText(level())).toBe("Max level");
     expect(xpLeft(level())).toBe("0 XP made, Max level");
   });

@@ -16,8 +16,13 @@
  * drawing, fitted to a 240 px box (its proportions kept) and centred on a 256 px square, each frame put on its own frame. The
  * dock's ribbon and divider, the PLAY medallion, the season dial's frame and the game modes' icons left on 2026-11-02, unused once the
  * owner kept the app's layout; the player card's frame (`card-frame`) on 2026-11-03, the HUD's frame being CSS since. The profile
- * drawer's four (Avatar, Collection, Invite, Disconnect, 2026-11-02) were redrawn one by one from crops of the profile's mockup, on a
- * flat magenta keyed out by script, then put on the same frame. The dock's four (wood, panel, divider, medallion; HOME-DOCK,
+ * drawer's three (Avatar, Collection, Invite, 2026-11-02) were redrawn one by one from crops of the profile's mockup, on a
+ * flat magenta keyed out by script, then put on the same frame (its Disconnect left with the profile's on 2026-11-04). The four
+ * structures and the profile's totals (City, Road, Forest, Wonder, Stats; PROFILE-PAGE, 2026-11-04) were drawn on a transparent
+ * background in the rendering of the dock's icons, three-quarters from above, each standing on one shared slab of grass (the Wonder's
+ * of stone), checked side by side with the dock's at 44 and 20 points; the four structures cut with one box (the union of their
+ * drawings), not each trimmed to its own, so their slabs keep one size and one place on the frame. The Stats stands alone, no slab
+ * (the owner's ask), trimmed to its drawing as the dock's icons are. The dock's four (wood, panel, divider, medallion; HOME-DOCK,
  * 2026-11-03) were cut from the mockup's footer at 3x: Codex redrew each layer alone at the footer's framing on a flat magenta,
  * keyed out by script; each layer was registered on the mockup (scale and shift by least error, the parchment fitted box by box),
  * their restack checked against the mockup side by side, then each piece cropped (the panel's divider painted out with the

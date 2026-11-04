@@ -9,12 +9,13 @@ import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-a
 import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
+import { DOCK_REACH_PX } from "../src/components/elements/dock-room";
 import { DataProvider, type DataSources } from "../src/data/sources";
 import { TabPage } from "../src/components/containers/tab-page";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { PLAYER_ID } from "../src/mocks/players";
-import { PROFILE } from "../src/mocks/scenes";
+import { HALL_OF_FAME, PROFILE, RECORDS } from "../src/mocks/scenes";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const withProfile = (value: ProfileValue, ui: ReactNode) => wrap(<ProfileProvider value={value}>{ui}</ProfileProvider>);
@@ -41,9 +42,9 @@ describe("PlayerAvatar (#624)", () => {
 });
 
 describe("ProfileSheet (#624)", () => {
-  it("connected: the name, the address to copy, the figures, the actions, Disconnect", async () => {
+  it("connected: the name and its pencil, the address a tap copies, the figures, the actions; no Disconnect (Settings')", async () => {
     const onCopy = vi.fn(async () => {});
-    const onDisconnect = vi.fn();
+    const onEditName = vi.fn();
     const onEditAvatar = vi.fn();
     const onOpenLeague = vi.fn();
     const onOpenCollection = vi.fn();
@@ -55,7 +56,7 @@ describe("ProfileSheet (#624)", () => {
           onOpenChange={() => {}}
           state={PROFILE.connected}
           onCopy={onCopy}
-          onDisconnect={onDisconnect}
+          onEditName={onEditName}
           onEditAvatar={onEditAvatar}
           onOpenLeague={onOpenLeague}
           onOpenCollection={onOpenCollection}
@@ -63,29 +64,87 @@ describe("ProfileSheet (#624)", () => {
         />,
       ),
     );
-    const sheet = await screen.findByRole("dialog", { name: "Your profile" });
-    expect(within(sheet).getByRole("heading", { name: "Your profile" })).toBeInTheDocument();
+    const sheet = await screen.findByRole("dialog", { name: "Profile" });
+    expect(within(sheet).getByRole("heading", { name: "Profile" })).toBeInTheDocument();
     expect(within(sheet).getByText("bal7hazar")).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Edit name" }));
+    expect(onEditName).toHaveBeenCalledOnce();
     // The mockup's tiles, in its order (PROFILE-DRAWER).
     expect(Array.from(sheet.querySelectorAll("[data-slot=profile-action]"), (b) => b.textContent)).toEqual(["Battle logs", "Avatar", "Collection", "Invite"]);
     await userEvent.click(within(sheet).getByRole("button", { name: "Collection" }));
     expect(onOpenCollection).toHaveBeenCalledOnce();
     await userEvent.click(within(sheet).getByRole("button", { name: "Invite" }));
     expect(onOpenInvite).toHaveBeenCalledOnce();
-    expect(within(sheet).getByText("0x05f1…6e7f")).toBeInTheDocument();
     expect(within(sheet).getByText("21")).toBeInTheDocument();
-    // Games and the follow counts; no Best (the owner's ask of 2026-11-03).
-    expect(within(sheet).queryByText("Best")).toBeNull();
     await userEvent.click(within(sheet).getByRole("button", { name: /Edit avatar/ }));
     expect(onEditAvatar).toHaveBeenCalledOnce();
     // The league's button reads "Battle logs" (#834).
     await userEvent.click(within(sheet).getByRole("button", { name: "Battle logs" }));
     expect(onOpenLeague).toHaveBeenCalledOnce();
-    await userEvent.click(within(sheet).getByRole("button", { name: /Copy/ }));
+    // The address as a subtitle, "#" before it: a tap copies it, then it says so.
+    const address = within(sheet).getByRole("button", { name: "Copy address" });
+    expect(address).toHaveTextContent("#0x05f1…6e7f");
+    await userEvent.click(address);
     expect(onCopy).toHaveBeenCalledWith(PLAYER_ID);
-    expect(await within(sheet).findByRole("button", { name: /Copied/ })).toBeInTheDocument();
-    await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
-    expect(onDisconnect).toHaveBeenCalledOnce();
+    expect(await within(sheet).findByRole("button", { name: "Copied" })).toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: /Disconnect/ })).toBeNull();
+  });
+
+  it("the Hall of Fame picks the Stats' season (the current one first); a tap on it again shows all time, as the badge's cross does", async () => {
+    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} league={null} hallOfFame={HALL_OF_FAME} records={RECORDS} />));
+    const sheet = await screen.findByRole("dialog");
+    const stats = within(sheet).getByRole("region", { name: "Stats" });
+    // A figure from a million is short ("1.2M"), its whole number for screen readers.
+    const total = () => Array.from(stats.querySelectorAll("[data-slot=profile-records-total] dd"), (d) => d.querySelector(".sr-only")?.textContent ?? d.textContent);
+    const card = (season: number) => within(sheet).getByRole("button", { name: new RegExp(`^Season ${season}:`) });
+    // Season 6, under way: picked, its totals in the owner's order (Total points, Best points, Total closed).
+    expect(card(6)).toHaveAttribute("aria-pressed", "true");
+    expect(within(stats).getByText("Season 6")).toBeInTheDocument();
+    expect(Array.from(stats.querySelectorAll("[data-slot=profile-records-total] dt"), (d) => d.textContent)).toEqual(["Total points", "Best points", "Total closed"]);
+    expect(total()).toEqual(["269,120", "8,950", "316"]);
+    expect(Array.from(stats.querySelectorAll("[data-slot=profile-structure]"), (s) => s.getAttribute("aria-label"))).toEqual(["Cities", "Roads", "Forests", "Wonders"]);
+    // Another season.
+    await userEvent.click(card(4));
+    expect(card(4)).toHaveAttribute("aria-pressed", "true");
+    expect(card(6)).toHaveAttribute("aria-pressed", "false");
+    expect(total()).toEqual(["285,190", "9,840", "250"]);
+    // The badge's cross: all time, no cross left, no season picked.
+    await userEvent.click(within(stats).getByRole("button", { name: "Show all time" }));
+    expect(within(stats).getByText("All time")).toBeInTheDocument();
+    expect(within(stats).queryByRole("button", { name: "Show all time" })).toBeNull();
+    expect(card(4)).toHaveAttribute("aria-pressed", "false");
+    expect(total()).toEqual(["1,248,630", "9,840", "1,184"]);
+    expect(stats.querySelector("[data-slot=profile-records-total] dd")).toHaveAttribute("title", "1,248,630");
+    expect(stats.querySelector("[data-slot=profile-records-total] dd [aria-hidden]")).toHaveTextContent("1.2M");
+    // The current season again, then a tap on it lets go.
+    await userEvent.click(card(6));
+    expect(total()).toEqual(["269,120", "8,950", "316"]);
+    await userEvent.click(card(6));
+    expect(within(stats).getByText("All time")).toBeInTheDocument();
+  });
+
+  it("in the app (its sources), the Hall of Fame and the Stats are the mock's for now (`playerRecords`, the owner's ask of 2026-11-04)", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      wrap(
+        <QueryClientProvider client={client}>
+          <DataProvider sources={{ views: {} } as unknown as DataSources}>
+            <ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} league={null} follows={{ followers: 0, followed: 0 }} />
+          </DataProvider>
+        </QueryClientProvider>,
+      ),
+    );
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getAllByRole("button", { name: /^Season \d+:/ })).toHaveLength(RECORDS.season);
+    expect(within(within(sheet).getByRole("region", { name: "Stats" })).getByText(`Season ${RECORDS.season}`)).toBeInTheDocument();
+  });
+
+  it("with no sources (a story, a test) and none given: no Hall of Fame and no Stats", async () => {
+    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.connected} league={null} />));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).queryByRole("region", { name: "Hall of Fame" })).toBeNull();
+    expect(within(sheet).queryByRole("region", { name: "Stats" })).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Edit name" })).toBeNull();
   });
 
   it("the player's league under their name (#917): its crest and name, Unranked, or none when not read", async () => {
@@ -134,20 +193,36 @@ describe("ProfileSheet (#624)", () => {
     expect(within(sheet).queryByRole("button", { name: "Battle logs" })).toBeNull();
   });
 
-  it("the HUD's drawer (PROFILE-DRAWER): its top stops at the HUD's end, else under a page's header; the red cross closes it", async () => {
+  it("the HUD's drawer (PROFILE-DRAWER): on a phone a full page with Back, from `tablet` a side panel with the red cross; its end leaves the dock room", async () => {
     const onOpenChange = vi.fn();
-    const { rerender } = render(wrap(<ProfileSheet open onOpenChange={onOpenChange} state={PROFILE.connected} top={198.4} />));
-    const sheet = await screen.findByRole("dialog");
-    expect(sheet).toHaveAttribute("data-hud-drawer", "profile");
-    expect(sheet.style.getPropertyValue("--drawer-top")).toBe("198px");
-    // The phone's layout inside, whatever the width.
-    expect(sheet).toHaveAttribute("data-page-panel");
-    rerender(wrap(<ProfileSheet open onOpenChange={onOpenChange} state={PROFILE.connected} />));
-    expect(sheet.style.getPropertyValue("--drawer-top")).toContain("var(--header-h)");
-    // The drawer takes the focus as it opens, not its close.
-    expect(sheet).toHaveFocus();
-    await userEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+    const { unmount } = render(wrap(<ProfileSheet open onOpenChange={onOpenChange} state={PROFILE.connected} />));
+    const page = await screen.findByRole("dialog");
+    expect(page).toHaveAttribute("data-hud-drawer", "profile");
+    // The phone's layout inside, whatever the width; the page slides in from the right.
+    expect(page).toHaveAttribute("data-page-panel");
+    expect(page).toHaveAttribute("data-side", "right");
+    // The drawer takes the focus as it opens, not its Back.
+    expect(page).toHaveFocus();
+    expect(within(page).queryByRole("button", { name: "Close" })).toBeNull();
+    // Its body's end: the dock's reach, a gap and the safe area.
+    const end = page.querySelector<HTMLElement>("[data-hud-drawer-body]")!.style.paddingBottom;
+    expect(end).toContain(`${DOCK_REACH_PX}px`);
+    expect(end).toContain("env(safe-area-inset-bottom)");
+    await userEvent.click(within(page).getByRole("button", { name: "Back" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+    unmount();
+    // From `tablet`: the side panel at the left, its close the red cross.
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(min-width: 40rem)", media: query, addEventListener() {}, removeEventListener() {} }));
+    try {
+      render(wrap(<ProfileSheet open onOpenChange={onOpenChange} state={PROFILE.connected} />));
+      const side = await screen.findByRole("dialog");
+      expect(side).toHaveAttribute("data-side", "left");
+      expect(within(side).queryByRole("button", { name: "Back" })).toBeNull();
+      await userEvent.click(within(side).getByRole("button", { name: "Close" }));
+      expect(onOpenChange).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("a guest: the Training line and Connect, nothing to copy", async () => {
@@ -162,21 +237,21 @@ describe("ProfileSheet (#624)", () => {
 });
 
 describe("ProfileSlot (#624)", () => {
-  const value = (state: ProfileValue["state"]): ProfileValue => ({ state, onConnect: vi.fn(), onDisconnect: vi.fn(), onCopy: vi.fn(async () => {}) });
+  const value = (state: ProfileValue["state"]): ProfileValue => ({ state, onConnect: vi.fn(), onEditAvatar: vi.fn(), onCopy: vi.fn(async () => {}) });
 
   it("draws nothing without the shell's profile", () => {
     render(wrap(<ProfileSlot />));
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("a tap opens the sheet in its own chunk; Disconnect closes it", async () => {
+  it("a tap opens the sheet in its own chunk; an action that leaves for another screen (Edit avatar) closes it", async () => {
     const v = value(PROFILE.connected);
     render(withProfile(v, <ProfileSlot />));
     expect(screen.queryByRole("dialog")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Profile: bal7hazar" }));
     const sheet = await screen.findByRole("dialog");
-    await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
-    expect(v.onDisconnect).toHaveBeenCalledOnce();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Edit avatar" }));
+    expect(v.onEditAvatar).toHaveBeenCalledOnce();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
@@ -237,36 +312,16 @@ describe("ProfileSlot (#624)", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 
-  it("Home (PROFILE-DRAWER): the player card opens the drawer under the HUD's end, which the home measures under its capsules", async () => {
-    // jsdom lays nothing out and its ResizeObserver never calls: an observer that measures at once, the capsules ending at 186 px.
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        constructor(private readonly notify: ResizeObserverCallback) {}
-        observe(target: Element) {
-          this.notify([{ target, contentRect: target.getBoundingClientRect() } as ResizeObserverEntry], this as unknown as ResizeObserver);
-        }
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    const rect = HTMLElement.prototype.getBoundingClientRect;
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-      return this.dataset.slot === "home-capsules" ? new DOMRect(8, 100, 120, 86) : rect.call(this);
-    });
-    try {
-      render(withProfile(value(PROFILE.connected), <HomeVillageScene {...HOME_VILLAGE.view} />));
-      await screen.findByRole("img", { name: /^Village layout/ }, { timeout: slow(5000) });
-      const overlays = document.querySelector<HTMLElement>("[data-slot=home-overlays]")!;
-      // The capsules' bottom and the 12 px gap.
-      await waitFor(() => expect(overlays.style.getPropertyValue("--hud-end")).toBe("198px"));
-      await userEvent.click(screen.getByRole("button", { name: /^Profile: bal7hazar/ }));
-      const sheet = await screen.findByRole("dialog", { name: "Your profile" });
-      expect(sheet.style.getPropertyValue("--drawer-top")).toBe("198px");
-    } finally {
-      vi.unstubAllGlobals();
-      vi.restoreAllMocks();
-    }
+  it("Home (PROFILE-DRAWER): the player card opens the profile's page, the dock marked to stay over it (`data-dock`, theme.css)", async () => {
+    render(withProfile(value(PROFILE.connected), <HomeVillageScene {...HOME_VILLAGE.view} />));
+    await screen.findByRole("img", { name: /^Village layout/ }, { timeout: slow(5000) });
+    await userEvent.click(screen.getByRole("button", { name: /^Profile: bal7hazar/ }));
+    const page = await screen.findByRole("dialog", { name: "Profile" });
+    expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
+    // The rule's two ends: an open page (`data-page-panel`) and the dock's box, which it raises over the page.
+    expect(page).toHaveAttribute("data-page-panel");
+    const dock = await screen.findByRole("navigation", { name: "Main", hidden: true }, { timeout: slow(5000) });
+    expect(dock.closest("[data-dock]")).not.toBeNull();
   });
 
   it("Home (#753): the avatar and its name at the top left, no player card", async () => {

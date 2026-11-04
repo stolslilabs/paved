@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { PagePanelProvider } from "../src/components/containers/page-panel-context";
+import { DOCK_REACH_PX } from "../src/components/elements/dock-room";
 import { TabPage } from "../src/components/containers/tab-page";
 import { TopBar } from "../src/components/containers/top-bar";
 import { DESKTOP_QUERY } from "../src/routes/home-layout";
@@ -145,6 +146,29 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     const play = await panel("Play");
     expect(await within(play).findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/play");
+  });
+
+  it("the dock stays live over the panel (the owner's ask of 2026-11-04): its Shop opens the shop in the panel, no close; the close then goes home", async () => {
+    const router = open("/");
+    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await userEvent.click(within(column).getByRole("button", { name: /^Missions/ }));
+    const missions = await panel("Missions");
+    // The page leaves the dock room at its end.
+    const end = missions.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom;
+    expect(end).toContain(`${DOCK_REACH_PX}px`);
+    expect(end).toContain("env(safe-area-inset-bottom)");
+    // The modal leaves the body no pointer; theme.css gives the dock its own back (jsdom applies no stylesheet): no pointer check.
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const dock = screen.getByRole("navigation", { name: "Main", hidden: true });
+    expect(dock.closest("[data-dock]")).not.toBeNull();
+    await user.click(within(dock).getByRole("button", { name: "Shop", hidden: true }));
+    await panel("Tile shop");
+    expect(router.state.location.pathname).toBe("/village/shop");
+    expect(router.state.historyAction).toBe("PUSH");
+    // Its close goes back through both pages to the home's own entry.
+    await clickOutside();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
   });
 
   it("a reload with the panel open reopens it over the village; its close then replaces the entry with the home's", async () => {

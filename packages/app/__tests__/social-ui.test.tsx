@@ -216,7 +216,7 @@ describe("/player/:id on the mock (#952)", { timeout: slow(20_000) }, () => {
     const s = mockImplementation();
     const me = s.sources.signer!.address;
     open(`/player/${me}`);
-    const dialog = (await screen.findByText("Your profile", {}, { timeout: slow(8000) })).closest<HTMLElement>("[role=dialog]")!;
+    const dialog = await screen.findByRole("dialog", { name: "Profile" }, { timeout: slow(8000) });
     expect(within(dialog).queryByRole("button", { name: "Copy player ID" })).toBeNull();
   });
 

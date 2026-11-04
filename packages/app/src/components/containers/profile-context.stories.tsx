@@ -21,7 +21,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const profile = (state: ProfileState, progress = PROGRESS.start, look: bigint | null = null) => ({
-  profile: { state, progress, look, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}), onEditAvatar: fn() },
+  profile: { state, progress, look, onConnect: fn(), onCopy: fn(async () => {}), onEditAvatar: fn() },
 });
 
 export const Connected: Story = { parameters: profile(PROFILE.connected) };

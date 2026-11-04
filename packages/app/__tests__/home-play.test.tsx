@@ -63,7 +63,7 @@ describe("/ (#753): the village home on its data", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
   });
 
-  it("the player is the avatar and name at the top left (#624): its sheet names them and disconnects", async () => {
+  it("the player is the avatar and name at the top left (#624): its sheet names them; Disconnect is Settings' alone", async () => {
     const { wallet } = open("/");
     await screen.findByRole("button", { name: resume }, { timeout: slow(5000) });
     // One avatar: the home has no navigation rail.
@@ -76,9 +76,8 @@ describe("/ (#753): the village home on its data", () => {
     const sheet = await screen.findByRole("dialog", {}, { timeout: slow(5000) });
     await waitFor(() => expect(sheet.querySelector("[data-slot=xp-left]")).toHaveTextContent("100 XP to level 2"), { timeout: slow(5000) });
     expect(within(sheet).queryByRole("button", { name: /My village/ })).toBeNull();
-    await userEvent.click(within(sheet).getByRole("button", { name: /Disconnect/ }));
-    expect(wallet.calls).toContain("disconnect");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Profile: guest" })).toBeInTheDocument());
+    expect(within(sheet).queryByRole("button", { name: /Disconnect/ })).toBeNull();
+    expect(wallet.calls).not.toContain("disconnect");
   });
 
   it("no wallet: a starter village to look at, Connect, no game to resume, no Edit; Connect connects", async () => {
