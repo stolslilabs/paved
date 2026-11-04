@@ -156,7 +156,9 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     // The page leaves the dock room at its end.
     const end = missions.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom;
     expect(end).toContain(`${DOCK_REACH_PX}px`);
-    expect(end).toContain("env(safe-area-inset-bottom)");
+    // Its foot: the safe area on a phone, the dock's lift from `tablet` (theme.css).
+    expect(end).toContain("var(--dock-foot)");
+    expect(end).toContain("var(--dock-lift)");
     // The modal leaves the body no pointer; theme.css gives the dock its own back (jsdom applies no stylesheet): no pointer check.
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     const dock = screen.getByRole("navigation", { name: "Main", hidden: true });

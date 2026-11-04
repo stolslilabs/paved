@@ -184,11 +184,17 @@
 }
 /* HOME-HUD-PADDING: the home HUD's one inset, top and sides, for everything pinned to an edge (the profile, the balances, the
    capsules' column, the social column, the dial, the bottom row): the spacing scale's 2 (8 px) on a phone, its 4 (16 px) from
-   `tablet`. The notch's safe area is added to it here, per edge, never by an element. */
+   `tablet`. The notch's safe area is added to it here, per edge, never by an element.
+   HOME-DOCK's foot (the owner's ask of 2026-11-04): on a phone the dock sits on the screen's foot, the safe area under it in the
+   plank's colour (`--dock-foot`); from `tablet` it floats the HUD's inset above it, the safe area in that gap (`--dock-lift`). */
 :root {
+  --dock-foot: env(safe-area-inset-bottom);
+  --dock-lift: 0px;
   --hud-inset: calc(var(--spacing) * 2);
   @media (width >= 40rem) {
     --hud-inset: calc(var(--spacing) * 4);
+    --dock-foot: 0px;
+    --dock-lift: calc(var(--hud-inset) + env(safe-area-inset-bottom));
   }
   --hud-inset-top: calc(var(--hud-inset) + env(safe-area-inset-top));
   --hud-inset-left: calc(var(--hud-inset) + env(safe-area-inset-left));

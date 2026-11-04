@@ -530,7 +530,8 @@ export function ProfileSheet({
               <div data-slot="player-level" className="flex flex-col gap-1">
                 {/* The level's number is the bar's star's (the owner's ask of 2026-11-04): the title alone. */}
                 <SectionTitle>Level</SectionTitle>
-                <LevelBar progress={progress} variant="profile" />
+                {/* 16.5 rem at most, centred (the owner's asks of 2026-11-04): wider than the player card's (9 to 10 rem), never the page's. */}
+                <LevelBar progress={progress} variant="profile" className="mx-auto max-w-66" />
                 <XpLeft progress={progress} />
               </div>
               {shown && (
