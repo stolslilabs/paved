@@ -92,10 +92,10 @@ describe("the route map (#762)", () => {
 describe("from desktop, the overlay's pages open in the side panel over the village (#762)", () => {
   beforeEach(() => media(true));
 
-  it("the overlay's column holds Missions and Vault, no League (#856, #973); the dock has Shop, Chests, Play, Guild and Settings (HOME-DOCK)", async () => {
+  it("the overlay's column holds Missions, Vault, Friends and Tiles, no League (#856, HOME-EDGES); the dock has Shop, Chests, Play, Guild and Settings (HOME-DOCK)", async () => {
     open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Missions", "Vault"]);
+    expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Missions", "Vault", "Friends", "Tiles"]);
     // Play is the dock's alone, and the dock shows from `desktop` too; jsdom applies no media query, so its classes tell.
     expect(screen.getAllByRole("button", { name: "Play" }).filter((b) => !b.closest("nav"))).toHaveLength(0);
     const dock = await screen.findByRole("navigation", { name: "Main" });
@@ -111,7 +111,7 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     ["Vault", "Village", "/vault", "Vault", "right"],
   ] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, from, path, title, side) => {
     const router = open("/");
-    // The overlay's column (Missions, Vault) or the dock (HOME-DOCK: Chests, Shop, Guild).
+    // The overlay's column (HOME-EDGES' tiles: Missions, Vault) or the dock (HOME-DOCK: Chests, Shop, Guild).
     const column = await screen.findByRole("navigation", { name: from }, { timeout: slow(5000) });
     await userEvent.click(within(column).getByRole("button", { name: new RegExp(`^${button}`) }));
     const dialog = await panel(title);

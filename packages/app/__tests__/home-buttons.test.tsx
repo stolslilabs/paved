@@ -27,17 +27,30 @@ function pointerEvents(el: Element): "auto" | "none" {
 const DIAL = { seasonWheel: { state: "summer" as const, onNext: vi.fn(), read: null } };
 
 describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
-  it("clicks Edit at the bottom right, and the dock's items (Play and Settings the dock's at every width, HOME-DOCK)", async () => {
+  it("clicks the village's capsule into edit mode, the edges' buttons (HOME-EDGES) and the dock's items (HOME-DOCK)", async () => {
     const user = userEvent.setup();
     const onEditingChange = vi.fn();
     const onNavigate = vi.fn();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} onEditingChange={onEditingChange} onNavigate={onNavigate} />));
+    const onMissions = vi.fn();
+    const onTiles = vi.fn();
+    const onChat = vi.fn();
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} onEditingChange={onEditingChange} onNavigate={onNavigate} onMissions={onMissions} onTiles={onTiles} onChat={onChat} />));
     const box = document.querySelector("[data-slot=home-overlays]") as HTMLElement;
-    const edit = await within(box).findByRole("button", { name: "Edit village" });
-
+    // The hammer left with HOME-EDGES (the book's): the village score's capsule opens edit mode.
+    const edit = await within(box).findByRole("button", { name: /^Edit village, score/ });
     expect(pointerEvents(edit)).toBe("auto");
     await user.click(edit);
     expect(onEditingChange).toHaveBeenCalledWith(true);
+
+    // The edges (HOME-EDGES): the right column's tiles, the Chat tab, the mission in progress (a tap to Missions).
+    const tiles = await within(box).findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    expect(within(tiles).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault", "Friends, 2 waiting", "Tiles"]);
+    await user.click(within(tiles).getByRole("button", { name: "Tiles" }));
+    await user.click(within(box).getByRole("button", { name: "Chat, 3 waiting" }));
+    await user.click(within(box).getByRole("button", { name: "Public Works, 4 of 8" }));
+    expect(onTiles).toHaveBeenCalledOnce();
+    expect(onChat).toHaveBeenCalledOnce();
+    expect(onMissions).toHaveBeenCalledOnce();
 
     // The dock (#763, HOME-DOCK): Play and Settings; its band across the screen passes taps through, the dock takes them.
     const bar = await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
@@ -53,14 +66,17 @@ describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
     await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
     await within(box).findByRole("button", { name: /^Season/ }, { timeout: slow(5000) });
     await within(box).findByRole("button", { name: /^League: / }, { timeout: slow(5000) });
+    await within(box).findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     const controls = within(box).getAllByRole("button");
-    // The profile, the balances, the columns, the dial, Edit and the dock's five.
-    expect(controls.length).toBeGreaterThanOrEqual(14);
-    const blocked = controls.filter((el) => pointerEvents(el) === "none").map((el) => el.getAttribute("aria-label") ?? el.textContent);
+    const named = (el: HTMLElement) => el.getAttribute("aria-label") ?? el.textContent ?? "";
+    // The capsules, the right column's four tiles, the dial, the Chat tab, the mission and the dock's five, among the rest.
+    const expected = [/^League: /, /^Edit village, score/, /^Missions/, /^Vault/, /^Friends/, /^Tiles/, /^Season/, /^Chat/, /^Public Works/, /^Shop/, /^Chests/, /^Play/, /^Guild/, /^Settings/];
+    expect(controls.map(named)).toEqual(expect.arrayContaining(expected.map((re) => expect.stringMatching(re))));
+    const blocked = controls.filter((el) => pointerEvents(el) === "none").map(named);
     expect(blocked).toEqual([]);
-    // The row itself spans from the dial to the right edge: it passes taps through, so the camera's gestures still reach the canvas.
-    const row = within(box).getByRole("button", { name: "Edit village" }).parentElement!;
-    expect(row).not.toHaveClass("pointer-events-auto");
-    expect(row.closest(".pointer-events-none")).toBe(box);
+    // The bottom left's stack (the dial, the Chat tab, the mission) passes taps through between its items: the village takes them.
+    const stack = within(box).getByRole("button", { name: /^Chat/ }).parentElement!;
+    expect(stack).toHaveClass("pointer-events-none");
+    expect(stack).not.toHaveClass("pointer-events-auto");
   });
 });

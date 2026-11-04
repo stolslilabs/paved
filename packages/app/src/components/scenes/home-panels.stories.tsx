@@ -69,7 +69,7 @@ const PROFILE_VALUE = {
   onEditName: fn(),
   onEditAvatar: fn(),
   onOpenLeague: fn(),
-  onOpenCollection: fn(),
+  onOpenTiles: fn(),
   onOpenInvite: fn(),
 } satisfies ProfileValue;
 

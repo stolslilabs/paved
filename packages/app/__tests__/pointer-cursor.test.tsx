@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { compile } from "tailwindcss";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { ChestSlots } from "../src/components/containers/chest-slots";
-import { OverlayButton } from "../src/components/containers/home-overlays";
+import { ChatTab, EdgeTiles, MissionTab } from "../src/components/containers/home-edges";
 import { LeagueControl } from "../src/components/containers/league-control";
 import { MatchCard } from "../src/components/containers/match-list";
 import { VillageScore } from "../src/components/containers/village-score";
@@ -58,12 +58,13 @@ const wrap = (ui: ReactNode) => (
 );
 
 describe("the pointer cursor (#880)", () => {
-  it("every overlay button, the League control, the village's capsule, a battle log card, a carousel dot and a chest slot", () => {
+  it("every edge button (HOME-EDGES), the League control, the village's capsule, a battle log card, a carousel dot and a chest slot", () => {
     render(
       wrap(
         <>
-          <OverlayButton icon="scroll" label="Missions" badge={2} onClick={() => {}} />
-          <OverlayButton icon="piggy-bank" label="Vault" onClick={() => {}} />
+          <EdgeTiles missions={2} onMissions={() => {}} onVault={() => {}} onFriends={() => {}} onTiles={() => {}} />
+          <ChatTab badge={3} onClick={() => {}} />
+          <MissionTab mission={{ questId: 6, title: "Public Works", task: "Score roads and cities in a day", done: 4, total: 8 }} onClick={() => {}} />
           <LeagueControl crowns={1_240} onLeague={() => {}} />
           <VillageScore score={HOME_VILLAGE.view.village.score} onEdit={() => {}} />
           <MatchCard match={MATCH_CARDS.attackWon} now={MOCK_NOW} onOpen={() => {}} />
@@ -76,6 +77,10 @@ describe("the pointer cursor (#880)", () => {
     const parts = [
       screen.getByRole("button", { name: /^Missions/ }),
       screen.getByRole("button", { name: /^Vault/ }),
+      screen.getByRole("button", { name: /^Friends/ }),
+      screen.getByRole("button", { name: /^Tiles/ }),
+      screen.getByRole("button", { name: /^Chat/ }),
+      screen.getByRole("button", { name: /^Public Works/ }),
       screen.getByRole("button", { name: /^League:/ }),
       screen.getByRole("button", { name: /^Edit village, score/ }),
       document.querySelector<HTMLElement>("button[data-side=attack]")!,

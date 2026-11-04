@@ -61,7 +61,8 @@ afterEach(() => {
 });
 
 /** The home's Edit (a hammer, #753): edit mode, in the URL. */
-const editButton = () => screen.findByRole("button", { name: "Edit village" }, WAIT);
+// Edit mode's way in on the view: the village score's capsule (HOME-EDGES: the hammer left, the book's).
+const editButton = () => screen.findByRole("button", { name: /^Edit village, score/ }, WAIT);
 
 describe("/: the player's village is the home (#753), on the mock", () => {
   it("founds the village: its starter layout and game-core's score, then Edit", async () => {
@@ -87,8 +88,8 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     const plan = await screen.findByRole("img", { name: /^Village layout/ }, WAIT);
     const starter = plan.querySelector<HTMLElement>("[data-kind=starter]")!;
     fireEvent.pointerDown(starter, { button: 0, pointerId: 1 });
-    // The bubble's Edit beside the scene's, its ring filling; at the hold's end, edit mode.
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Edit village" })).toHaveLength(2), WAIT);
+    // The bubble's Edit, its ring filling (the view's way in is the score's capsule since HOME-EDGES); at the hold's end, edit mode.
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Edit village" })).toHaveLength(1), WAIT);
     await waitFor(() => expect(s.router.state.location.search).toBe("?edit"), WAIT);
     fireEvent.pointerUp(starter, { button: 0, pointerId: 1 });
     expect(await screen.findByRole("button", { name: "Leave edit mode" }, WAIT)).toBeInTheDocument();
@@ -136,7 +137,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     // be gone a moment later. Both are waited for together, as they stand once the view has settled.
     await waitFor(() => {
       expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Edit village" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Edit village, score/ })).toBeInTheDocument();
     }, WAIT);
   }, slow(30_000));
 

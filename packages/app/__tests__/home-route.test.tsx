@@ -71,7 +71,7 @@ describe("/: the PvP standing by the avatar (#755)", () => {
 
   it("shows Unranked with 0 crowns before any PvP (#917), a tap to the league", async () => {
     const { router } = await open();
-    await screen.findByRole("button", { name: "Edit village" }, WAIT);
+    await screen.findByRole("button", { name: /^Edit village, score/ }, WAIT);
     fireEvent.click(await screen.findByRole("button", { name: "League: Unranked, 0 crowns" }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/pvp/league"), WAIT);
   }, slow(30_000));

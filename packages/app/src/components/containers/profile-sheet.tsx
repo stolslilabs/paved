@@ -91,8 +91,8 @@ export interface ProfileSheetProps {
   league?: PlayerLeague | null;
   /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, Battle logs is not offered. */
   onOpenLeague?: () => void;
-  /** Opens the player's tiles (My tiles); omitted, Collection is not offered. */
-  onOpenCollection?: () => void;
+  /** Opens the player's tiles (My tiles); omitted, Tiles is not offered. */
+  onOpenTiles?: () => void;
   /** Opens the referral (the USDC a friend's games earn); omitted, Invite is not offered. */
   onOpenInvite?: () => void;
   /** The player's counts of followers and following (#954), as given (a story); left out, read from the follow source. */
@@ -433,7 +433,7 @@ function RecordsSection({ records, span, onSpan }: { records: PlayerRecords; spa
  * (`HudDrawer`), one layout, titled "Profile". The presentation: the avatar in the rim of the player's league and its crest (#917),
  * the name with its pencil, the address under it (a tap copies it, no button's look); then the level and its bar ("90 /
  * 150 XP"; the XP left and in all, #830, said to screen readers only), League (the crowns and the league, carved chips that wrap), Games and the follow
- * counts (#954), the actions as raised tiles (Battle logs #834, Avatar #626, Collection, Invite), the Hall of Fame (each season's
+ * counts (#954), the actions as raised tiles (Battle logs #834, Avatar #626, Tiles, Invite), the Hall of Fame (each season's
  * banner and crowns, the filter of the Stats: the current season picked first, a tap on it again for all time) and the Stats (the
  * totals, a section per structure type). What informs is carved, what presses is raised. Disconnect is Settings' (the owner's ask of
  * 2026-11-04). A guest gets the Training line and Connect.
@@ -450,7 +450,7 @@ export function ProfileSheet({
   onEditName,
   league,
   onOpenLeague,
-  onOpenCollection,
+  onOpenTiles,
   onOpenInvite,
   follows,
   hallOfFame: givenFame,
@@ -544,11 +544,11 @@ export function ProfileSheet({
                 <Figure term="Games" value={connected.stats.challengeFinished} />
                 {follows ? <FollowCounts counts={follows} /> : sources && <ReadFollowCounts playerId={connected.player.playerId} />}
               </FigureBand>
-              {(onOpenLeague || onEditAvatar || onOpenCollection || onOpenInvite) && (
+              {(onOpenLeague || onEditAvatar || onOpenTiles || onOpenInvite) && (
                 <div data-slot="profile-actions" className="flex gap-1.5">
                   {onOpenLeague && <ActionTile art="swords" label="Battle logs" onClick={onOpenLeague} />}
                   {onEditAvatar && <ActionTile art="avatar" label="Avatar" name="Edit avatar" onClick={onEditAvatar} />}
-                  {onOpenCollection && <ActionTile art="collection" label="Collection" onClick={onOpenCollection} />}
+                  {onOpenTiles && <ActionTile art="collection" label="Tiles" onClick={onOpenTiles} />}
                   {onOpenInvite && (
                     <ActionTile art="invite" label="Invite" onClick={onOpenInvite}>
                       {/* What an invitation earns: USDC (the referral's share of a friend's games). */}

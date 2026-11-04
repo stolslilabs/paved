@@ -210,7 +210,9 @@ export const VILLAGE_SHOP = {
 } satisfies Record<string, Data<VillageShopSceneProps>>;
 
 /** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock. */
-const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, chat: 3, guild: 1, friends: 2, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
+/** The mission in progress on the home (HOME-EDGES, the Paved UX Book's): the day's Public Works, half done. */
+export const HOME_MISSION = { questId: 6, title: "Public Works", task: "Score roads and cities in a day", done: 4, total: 8 };
+const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, mission: HOME_MISSION, chat: 3, guild: 1, friends: 2, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
 /** The home village's points (#758): its line of the most points, lit in the stories. */
 export const HOME_POINTS = layoutPoints(LAYOUT_GROWING.tiles);
 /** A tile of the second line's structure that can be lifted: under the bubble, the structure stays lit whole. */

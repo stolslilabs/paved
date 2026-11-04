@@ -101,7 +101,7 @@ export function useProfileOpener(): ProfileOpener {
         returnFocus={returnFocus}
         onEditAvatar={closing(value.onEditAvatar)}
         onOpenLeague={closing(value.onOpenLeague)}
-        onOpenCollection={closing(value.onOpenCollection)}
+        onOpenTiles={closing(value.onOpenTiles)}
         onOpenInvite={closing(value.onOpenInvite)}
       />
     </Suspense>

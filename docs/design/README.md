@@ -39,6 +39,28 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   medallion cut from this mockup's footer (Codex redrew each layer at the footer's framing, registered on the mockup until their
   restack matched it) and drawn at its scale, Shop, Chests, PLAY, Guild, Settings (Guild in League's place), full width on a phone,
   centred from a tablet, on the home from a desktop too. The season dial keeps its look for now: the mockup's, tried on 2026-11-02, was set aside to come back to.
+  HOME-EDGES (2026-11-04), the rest of the home's buttons from the book (`containers/home-edges.tsx`, its own chunk): the right
+  column's four tiles, Missions, Vault, Friends and Tiles (to My tiles, the skins owned; the book's Collection, renamed Tiles here
+  and in the profile at the owner's ask), at every width, centred under the balances; the orange Chat tab on the left edge, the
+  screen's safe area inside it; the mission in progress (the day's first daily not done: its title, "4/8", a gold ring around the
+  hammer, and its task on one line in place of the book's bar) at the left 16 px above the dock (clear of PLAY's medallion), 18 rem
+  wide (less on a narrow phone, clear of the Camera button), in the owner's place rather than the book's (centred over the dock),
+  on a veil almost see-through, blurred, its edges faded, no border. The Edit hammer left: the
+  village score's capsule opens edit mode. The book's blue tiles, redrawn by Codex from its crops, were set aside by the owner as too
+  blue; a grey CSS face, then three directions in the HUD's greys drawn by Codex (the capsules' frame, a carved slate, a soft
+  charcoal) were tried under the real icons, and the owner settled on none: the right column draws its icons and their names alone
+  over the village, on transparent 64 px hit boxes. The Chat tab keeps the book's orange, redrawn at its new size (56 x 64 points).
+  The tab and the mission's hammer (an icon) are in `packages/app/ui-sources/`. HUD-RIM-GREY (the
+  same day, the owner's ask): the HUD's frame (the player card, the capsules, the balances, the drawer) takes this mockup's rim, a
+  cool grey lit along its top and darker at its foot, its painted patches a grey noise, in place of the blue slate and its blue and
+  violet noise, 3 px on every box whatever its size (sampled on the capsules here; `--hud-rim*` in `theme.css`). CAMERA-EXPLORE (the
+  same day): the Camera mode's button at the bottom right reads Explore, an icon over the word as the right column's, no box; of
+  three icons Codex drew in the icons' rendering (a spyglass, an eye in a turning arrow, a house on its tile with an arrow in orbit
+  round it), the owner chose the house, the prettiest if not the most literal (`packages/app/ui-sources/icons/explore.webp`). In the
+  mode every overlay leaves the screen by its nearest edge, the profile and the balances too, in three waves 90 ms apart (the dock
+  and the edges' buttons, the capsules' column, then the profile and the balances), and comes back in the reverse order; Exit, an icon
+  over its word drawn by Codex as Explore's companion (the same house, a straight arrow going out of it; `exit.webp`), goes down to
+  the screen's corner. A cut under reduced motion.
 
 - `profile.webp`: the profile's mobile direction (2026-11-02), in `home.webp`'s rendering: what a tap on the player card opens, a drawer
   that rises over the village and stops under the HUD (the player card and the capsules stay in view): "Your profile", the avatar in
