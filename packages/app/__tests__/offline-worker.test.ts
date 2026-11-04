@@ -5,7 +5,7 @@ import { CACHE_PREFIX, offlineWorker, precacheLists, workerSource, workerVersion
 
 // The offline worker of a mock build (#927): with the network cut after the first load, the build's files come from it.
 
-const FILES = ["index.html", "assets/index-a1.js", "assets/index-a1.js.map", "assets/new-player-b2.js", "assets/index-c3.css", "sfx/tap.wav", "renderer-assets/models/m.glb", "backgrounds/b.webp", "music/00.m4a", "music-art/00.webp", "sw.js"];
+const FILES = ["index.html", "assets/index-a1.js", "assets/index-a1.js.map", "assets/new-player-b2.js", "assets/index-c3.css", "sfx/tap.wav", "renderer-assets/models/m.glb", "backgrounds/b.webp", "music/00.m4a", "music-art/00.webp", "ui-art/icons/64/shop.webp", "ui-art/medallions/96/hammer.webp", "sw.js"];
 
 /** A worker scope of `source`, on a cache and a network of the test's. */
 function scope(source: string, network: (url: string) => Promise<Response>) {
@@ -56,10 +56,10 @@ function scope(source: string, network: (url: string) => Promise<Response>) {
 }
 
 describe("the offline worker's lists (#927)", () => {
-  it("caches the page's files at install, the renderer's and the large images after, never the maps, the music or itself", () => {
+  it("caches the page's files at install, the renderer's and the large images after (the missions' paintings too), never the maps, the music or itself", () => {
     expect(precacheLists(FILES)).toEqual({
-      core: ["assets/index-a1.js", "assets/index-c3.css", "assets/new-player-b2.js", "index.html", "sfx/tap.wav"],
-      rest: ["backgrounds/b.webp", "music-art/00.webp", "renderer-assets/models/m.glb"],
+      core: ["assets/index-a1.js", "assets/index-c3.css", "assets/new-player-b2.js", "index.html", "sfx/tap.wav", "ui-art/icons/64/shop.webp"],
+      rest: ["backgrounds/b.webp", "music-art/00.webp", "renderer-assets/models/m.glb", "ui-art/medallions/96/hammer.webp"],
     });
   });
 
@@ -85,7 +85,7 @@ describe("the offline worker (#927)", () => {
     const w = scope(workerSource(precacheLists(FILES), "v2"), (u) => network(u));
     w.stores.set(`${CACHE_PREFIX}v1`, new Map());
     await w.run("install", {});
-    expect([...w.stores.get(`${CACHE_PREFIX}v2`)!.keys()]).toEqual(["/assets/index-a1.js", "/assets/index-c3.css", "/assets/new-player-b2.js", "/index.html", "/sfx/tap.wav"]);
+    expect([...w.stores.get(`${CACHE_PREFIX}v2`)!.keys()]).toEqual(["/assets/index-a1.js", "/assets/index-c3.css", "/assets/new-player-b2.js", "/index.html", "/sfx/tap.wav", "/ui-art/icons/64/shop.webp"]);
     expect(w.self.skipWaiting).toHaveBeenCalled();
     await w.run("activate", {});
     expect(w.claimed).toHaveBeenCalled();

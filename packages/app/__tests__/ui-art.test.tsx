@@ -4,16 +4,48 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { UiIcon } from "../src/components/elements/ui-icon";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, uiFrameSources, uiIconSources } from "../src/components/elements/ui-art";
+import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS, medallionSources, missionPartImage, missionPartSlice, missionPartSources } from "../src/components/elements/medallion-art";
 import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts";
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length);
-    const total = expected().reduce((sum, f) => sum + statSync(join(OUT, f)).size, 0);
-    expect(total).toBeLessThan(400 * 1024);
+    const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts);
+    const size = (f: string) => statSync(join(OUT, f)).size;
+    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/"));
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024);
+  });
+
+  it("ships the missions' paintings and rings (MISSIONS-PAGE) on one round frame, each copy light: under 16 KiB at 192 px, 8 KiB at 96", () => {
+    expect(MEDALLION_FRAME).toMatchObject({ width: 256, height: 256, sizes: [96, 192] });
+    expect(new Set(UI_MEDALLIONS).size).toBe(UI_MEDALLIONS.length);
+    for (const name of [...UI_MEDALLIONS, ...UI_RINGS]) {
+      expect(statSync(join(OUT, "medallions", "192", `${name}.webp`)).size, name).toBeLessThan(16 * 1024);
+      expect(statSync(join(OUT, "medallions", "96", `${name}.webp`)).size, name).toBeLessThan(8 * 1024);
+    }
+    // The 88 px card on a 2x screen takes the 192 px copy, a 64 px medallion on a 1x screen the 96 px one.
+    expect(medallionSources("hammer", 88)).toEqual({
+      src: "/ui-art/medallions/192/hammer.webp",
+      srcSet: "/ui-art/medallions/96/hammer.webp 96w, /ui-art/medallions/192/hammer.webp 192w",
+      sizes: "88px",
+    });
+  });
+
+  it("ships the milestones' painted pieces (MISSIONS-PAGE) light, the 9-slices cut at half their copy's height", () => {
+    const total = UI_MISSION_PARTS.flatMap((name) => MISSION_PARTS[name].sizes.map((s) => statSync(join(OUT, "missions", String(s), `${name}.webp`)).size)).reduce((a, b) => a + b, 0);
+    expect(total).toBeLessThan(64 * 1024);
+    expect(missionPartSlice("rail-track")).toBe(6);
+    expect(missionPartImage("rail-track")).toBe('url("/ui-art/missions/12/rail-track.webp")');
+    expect(missionPartImage("orb")).toBe('image-set(url("/ui-art/missions/32/orb.webp") 1x, url("/ui-art/missions/64/orb.webp") 2x)');
+    // The done badge, 32 px on the card's medallion: its copies by width, the screen picking one.
+    expect(missionPartSources("check-badge", 31.7)).toEqual({
+      src: "/ui-art/missions/64/check-badge.webp",
+      srcSet: "/ui-art/missions/32/check-badge.webp 32w, /ui-art/missions/64/check-badge.webp 64w",
+      sizes: "32px",
+    });
   });
 
   it("puts every icon on one square frame, so any one swaps for another", () => {

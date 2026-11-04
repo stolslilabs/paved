@@ -309,17 +309,18 @@ describe("Theme", () => {
 
 describe("Missions (#832)", () => {
   const card = () => within(screen.getByRole("region", { name: "Selected mission" }));
-  const limited = () => within(screen.getByRole("region", { name: "Limited" }));
-  const lifetime = () => within(screen.getByRole("region", { name: /^Lifetime/ }));
+  const lifetime = () => within(screen.getByRole("region", { name: /^Achievements/ }));
   const names = (region: ReturnType<typeof within>) => region.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
 
-  it("shows the selected mission's card, then the Limited icons (Daily, Weekly, each with its countdown and its bar), then the Lifetime ones", () => {
+  it("shows the selected mission's card, then the Daily and the Weekly icons (each with its countdown and its bar), then the Achievements", () => {
     render(wrap(<MissionsScene {...MISSIONS.daily} />));
-    const main = screen.getByRole("main");
-    const order = [...main.querySelectorAll("section[aria-label], section[aria-labelledby]")].filter((el) => el.parentElement === main).map((el) => el.getAttribute("aria-label") ?? el.getAttribute("aria-labelledby"));
-    expect(order).toEqual(["Selected mission", "missions-limited", "missions-lifetime"]);
-    const daily = within(limited().getByRole("region", { name: /^Daily/ }));
-    const weekly = within(limited().getByRole("region", { name: /^Weekly/ }));
+    // MISSIONS-PAGE: the HUD's drawer, named by its title, its body the sections' parent.
+    const drawer = screen.getByRole("dialog", { name: "Missions" });
+    const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    const order = [...body.querySelectorAll("section[aria-label], section[aria-labelledby]")].filter((el) => el.parentElement === body).map((el) => el.getAttribute("aria-label") ?? el.getAttribute("aria-labelledby"));
+    expect(order).toEqual(["Selected mission", "missions-daily", "missions-weekly", "missions-achievements"]);
+    const daily = within(screen.getByRole("region", { name: /^Daily/ }));
+    const weekly = within(screen.getByRole("region", { name: /^Weekly/ }));
     // Today's rotation (offset 1): Daily Run, Public Works, Deep Woods, Strong Day and Busy Day, five dailies; no bonus for the day (#869).
     expect(names(daily)).toEqual(["Daily Run: Done", "Public Works: In progress", "Deep Woods: In progress", "Strong Day: In progress", "Busy Day: In progress"]);
     // Five weeklies (#976): the three Challenge ones, then the PvP's Weekly Raider and Weekly Stars, none with Cobbles of its own,
@@ -335,12 +336,13 @@ describe("Missions (#832)", () => {
     expect(lifetime().getByRole("button", { name: "Settler II: Cobbles to claim" })).toHaveAttribute("data-state", "claimable");
     for (const icon of lifetime().getAllByRole("button")) expect(within(icon).queryByRole("img", { name: /Cobbles/ })).toBeNull();
     expect(names(lifetime())).toHaveLength(16);
-    expect(lifetime().getByRole("heading", { level: 2 })).toHaveTextContent("Lifetime4/16");
+    expect(lifetime().getByRole("heading", { level: 3 })).toHaveTextContent("Achievements4/16");
     // Today only, Cobbles only: no day picker, no free game, no tabs.
     expect(screen.queryByRole("button", { name: "Previous day" })).not.toBeInTheDocument();
     expect(screen.queryByText(/free game/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-    // No dock on a page (DOCK-UNDER-PAGES): its Back is its way out.
+    // The drawer's own header: Back (a phone's, jsdom's width), the Cobbles at its end; no dock on a page (DOCK-UNDER-PAGES).
+    expect(within(drawer).getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });
 
@@ -355,7 +357,7 @@ describe("Missions (#832)", () => {
     expect(card().getByRole("article")).toHaveAccessibleName("Weekly Stars");
     expect(card().getByRole("progressbar", { name: "stars earned: 15 of 15" })).toBeInTheDocument();
     expect(card().queryByRole("button", { name: /Claim/ })).not.toBeInTheDocument();
-    const weekly = within(limited().getByRole("region", { name: /^Weekly/ }));
+    const weekly = within(screen.getByRole("region", { name: /^Weekly/ }));
     expect(within(weekly.getByRole("heading", { level: 3 })).getByText("5/5")).toBeInTheDocument();
     stars.unmount();
   });
@@ -363,14 +365,14 @@ describe("Missions (#832)", () => {
   it("puts the day's bar above the Daily icons: a step per daily done, the milestones claimed from it (#869)", async () => {
     const onClaimMilestone = vi.fn();
     const { unmount } = render(wrap(<MissionsScene {...MISSIONS.milestonesTwo} onClaimMilestone={onClaimMilestone} />));
-    const daily = () => within(limited().getByRole("region", { name: /^Daily/ }));
+    const daily = () => within(screen.getByRole("region", { name: /^Daily/ }));
     const bar = daily().getByRole("progressbar", { name: "Dailies done today" });
     expect(bar).toHaveAttribute("aria-valuenow", "2");
     // Above the icons.
     expect(bar.compareDocumentPosition(daily().getByRole("button", { name: /^Daily Run:/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(daily().getByRole("img", { name: "10 Cobbles at 3 dailies done" })).toBeInTheDocument();
     // The weekly row has its own (#976), the week's.
-    expect(within(limited().getByRole("region", { name: /^Weekly/ })).getByRole("progressbar")).toHaveAccessibleName("Weeklies done this week");
+    expect(within(screen.getByRole("region", { name: /^Weekly/ })).getByRole("progressbar")).toHaveAccessibleName("Weeklies done this week");
     unmount();
     const three = render(wrap(<MissionsScene {...MISSIONS.milestoneThree} onClaimMilestone={onClaimMilestone} />));
     await userEvent.click(daily().getByRole("button", { name: "Claim 10 Cobbles: 3 dailies done" }));
@@ -396,15 +398,15 @@ describe("Missions (#832)", () => {
 
   it("puts the week's bar above the Weekly icons (#976): a step per weekly done, its two gifts claimed from it, larger than the day's", async () => {
     const onClaimWeeklyMilestone = vi.fn();
-    const weekly = () => within(limited().getByRole("region", { name: /^Weekly/ }));
+    const weekly = () => within(screen.getByRole("region", { name: /^Weekly/ }));
     const none = render(wrap(<MissionsScene {...MISSIONS.weekNone} />));
     const bar = weekly().getByRole("progressbar", { name: "Weeklies done this week" });
     expect(bar).toHaveAttribute("aria-valuenow", "0");
     expect(bar.compareDocumentPosition(weekly().getByRole("button", { name: /^Weekly Forester:/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(weekly().getByRole("img", { name: "50 Cobbles at 3 weeklies done" })).toBeInTheDocument();
     expect(weekly().getByRole("img", { name: "100 Cobbles at 5 weeklies done" })).toBeInTheDocument();
-    // The weekly's card says where the week pays.
-    expect(card().getByText("It counts toward the week's milestones.")).toBeInTheDocument();
+    // The weekly's card: no claim of its own (the week pays at its milestones), no button.
+    expect(card().queryByRole("button")).not.toBeInTheDocument();
     none.unmount();
     const three = render(wrap(<MissionsScene {...MISSIONS.weekThree} onClaimWeeklyMilestone={onClaimWeeklyMilestone} />));
     expect(weekly().getByRole("progressbar")).toHaveAttribute("aria-valuenow", "3");
@@ -429,15 +431,15 @@ describe("Missions (#832)", () => {
     const five = render(wrap(<MissionsScene {...MISSIONS.weekFive} />));
     expect(weekly().getAllByRole("button", { name: /^Claim \d+ Cobbles: \d weeklies done$/ })).toHaveLength(2);
     // The Daily is unchanged.
-    expect(within(limited().getByRole("region", { name: /^Daily/ })).getByRole("img", { name: "10 Cobbles at 3 dailies done" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /^Daily/ })).getByRole("img", { name: "10 Cobbles at 3 dailies done" })).toBeInTheDocument();
     five.unmount();
     render(wrap(<MissionsScene {...MISSIONS.weekAllClaimed} />));
     expect(weekly().getAllByRole("img", { name: /Cobbles claimed/ })).toHaveLength(2);
-    // The page's last line: the periods pay at their gifts.
-    expect(screen.getByText(/the Daily and the Weekly pay at their gifts/)).toBeInTheDocument();
+    // No paragraph at the page's foot (the owner's ask of 2026-11-04).
+    expect(screen.queryByText(/pay at their gifts/)).not.toBeInTheDocument();
   });
 
-  it("selects the first mission not done on arrival: Daily, then Weekly, then Lifetime", () => {
+  it("selects the first mission not done on arrival: Daily, then Weekly, then the Achievements", () => {
     const { unmount } = render(wrap(<MissionsScene {...MISSIONS.daily} />));
     // Daily Run is done: Public Works is the first not done.
     expect(card().getByRole("article")).toHaveAccessibleName("Public Works");
@@ -449,8 +451,7 @@ describe("Missions (#832)", () => {
     // With everything done, the first one.
     render(wrap(<MissionsScene {...MISSIONS.allDone} />));
     expect(card().getByRole("article")).toHaveAccessibleName("Daily Run");
-    // A daily has no Cobbles of its own (#869): nothing to claim on its card.
-    expect(card().getAllByText(/^Done/).length).toBeGreaterThan(0);
+    // A daily has no Cobbles of its own (#869): no claim on its card, no button.
     expect(card().queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -458,37 +459,29 @@ describe("Missions (#832)", () => {
     render(wrap(<MissionsScene {...MISSIONS.daily} />));
     await userEvent.click(screen.getByRole("button", { name: /^Settler III/ }));
     expect(card().getByRole("article")).toHaveAccessibleName("Settler III");
-    expect(card().getByRole("article")).toHaveTextContent("Lifetime");
+    expect(card().getByRole("article")).toHaveTextContent("Achievement");
     expect(screen.getByRole("button", { name: /^Settler III/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /^Public Works/ })).toHaveAttribute("aria-pressed", "false");
     await userEvent.click(screen.getByRole("button", { name: /^Weekly Builder/ }));
     expect(card().getByRole("article")).toHaveAccessibleName("Weekly Builder");
-    expect(card().getByText("It counts toward the week's milestones.")).toBeInTheDocument();
+    expect(card().queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("sticks the card under the page's header from 560 px tall, and brings a tile reached with Tab out from under it (#988)", async () => {
+  it("sticks the card under the drawer's header from 560 px tall, and brings a tile reached with Tab out from under it (#988)", async () => {
     const { unmount } = render(wrap(<MissionsScene {...MISSIONS.claim} />));
     const sticky = screen.getByRole("region", { name: "Selected mission" });
-    // The card's box: sticky 16 px under the header (where every page's content starts) only on a viewport 560 px tall or more;
-    // its 16 px gap above it painted on the page's background.
-    expect(sticky).toHaveClass(
-      "[@media(min-height:35rem)]:sticky",
-      "[@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]",
-      "before:bottom-full",
-      "before:h-4",
-      "before:bg-background",
-      "bg-background",
-    );
-    expect(sticky).not.toHaveClass("-mt-4");
+    // The card's box (MISSIONS-PAGE): sticky at the top of the drawer's body, under its header band, only on a viewport 560 px
+    // tall or more; the body's 16 px top padding its own, painted with the drawer's face, and stuck that much higher.
+    expect(sticky).toHaveClass("[@media(min-height:35rem)]:sticky", "[@media(min-height:35rem)]:-top-4", "-mt-4", "pt-4", "bg-secondary");
     expect(sticky).not.toHaveClass("sticky");
-    // Its Cobbles on the card, none under the tile.
-    expect(card().getByRole("img", { name: "+20 Cobbles" })).toBeInTheDocument();
+    // Its Cobbles on the card's gift badge, none under the tile.
+    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" })).toBeInTheDocument();
     expect(within(screen.getByRole("button", { name: /^Settler II:/ })).queryByRole("img", { name: /Cobbles/ })).toBeNull();
     // The notices stay out of the sticky box.
     expect(sticky.querySelector('[role="status"]')).toBeNull();
 
     // jsdom lays nothing out: the card is sticky, its bottom edge at 300 px, every tile's top at 250 px, under it.
-    const region = sticky.closest<HTMLElement>('[data-slot="page-scroll"]')!;
+    const region = sticky.closest<HTMLElement>("[data-hud-drawer-body]")!;
     const scrollBy = vi.fn();
     region.scrollBy = scrollBy as typeof region.scrollBy;
     // jsdom reads no Tailwind: the media query's `sticky`, inline.
@@ -504,7 +497,7 @@ describe("Missions (#832)", () => {
     expect(scrollBy).toHaveBeenLastCalledWith({ top: -66 });
     // A press on a tile released off the list (dragged onto the header): the next Tab still brings its tile out.
     scrollBy.mockClear();
-    const header = screen.getAllByRole("banner")[0]!;
+    const header = document.querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
     const tile = screen.getByRole("button", { name: /^Settler V:/ });
     await userEvent.pointer([{ keys: "[MouseLeft>]", target: tile }, { target: header }, { keys: "[/MouseLeft]", target: header }]);
     expect(tile).toHaveFocus();
@@ -528,12 +521,12 @@ describe("Missions (#832)", () => {
     expect(card().queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
   });
 
-  it("shows the Daily countdown in its last minutes as a warning, a new player's locked missions, and a day with no limited mission", () => {
+  it("shows the Daily countdown in its last minutes as a warning, a new player's achievements to do (never locked), and a day with no limited mission", () => {
     const { unmount } = render(wrap(<MissionsScene {...MISSIONS.endingSoon} />));
     expect(screen.getByRole("timer", { name: "Daily missions reset in 0:04:00" })).toHaveAttribute("data-state", "warning");
     unmount();
     const fresh = render(wrap(<MissionsScene {...MISSIONS.newPlayer} />));
-    expect(names(lifetime()).every((n) => n?.endsWith(": Locked"))).toBe(true);
+    expect(names(lifetime()).every((n) => n?.endsWith(": To do"))).toBe(true);
     expect(card().getByRole("article")).toHaveAccessibleName("Daily Run");
     fresh.unmount();
     render(wrap(<MissionsScene {...MISSIONS.noQuest} />));

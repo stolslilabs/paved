@@ -113,7 +113,7 @@ describe("the lifetime missions are on the Missions page (#832)", { timeout: slo
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
     await router.navigate("/missions/lifetime");
-    await screen.findByRole("heading", { level: 1, name: "Missions" }, WAIT);
+    await screen.findByRole("dialog", { name: "Missions" }, WAIT);
     await waitFor(() => expect(router.state.location.pathname).toBe("/missions"));
     expect(screen.queryByRole("tab")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -126,7 +126,7 @@ describe("the lifetime missions are on the Missions page (#832)", { timeout: slo
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
     await router.navigate("/missions");
-    await screen.findByRole("heading", { level: 1, name: "Missions" }, WAIT);
+    await screen.findByRole("dialog", { name: "Missions" }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
@@ -174,7 +174,7 @@ describe("Play's modes (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
 describe("the Cobble packs open in place over a page (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
   it("the header's Cobbles on Missions open the packs in a sheet: the URL stays, the close leaves Missions as it was", async () => {
     const router = open("/missions", fakeWallet({ restored: true }));
-    await screen.findByRole("heading", { level: 1, name: "Missions" }, WAIT);
+    await screen.findByRole("dialog", { name: "Missions" }, WAIT);
     const plate = (await screen.findAllByRole("button", { name: /Cobbles: Buy packs/ }, WAIT))[0]!;
     await userEvent.click(plate);
     await sheet("Cobbles");
@@ -183,9 +183,10 @@ describe("the Cobble packs open in place over a page (BACK-RULE #783)", { timeou
     await waitFor(async () => {
       const open = screen.queryByRole("dialog", { name: "Cobbles" });
       if (open) await userEvent.click(within(open).getByRole("button", { name: "Back" }));
-      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Cobbles" })).toBeNull();
     }, WAIT);
     expect(router.state.location.pathname).toBe("/missions");
-    expect(screen.getByRole("heading", { level: 1, name: "Missions" })).toBeInTheDocument();
+    // Missions is the HUD's drawer (MISSIONS-PAGE), still open under where the packs were.
+    expect(screen.getByRole("dialog", { name: "Missions" })).toBeInTheDocument();
   });
 });

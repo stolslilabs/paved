@@ -1,20 +1,22 @@
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
+import type { CSSProperties } from "react";
 import { cn } from "../../lib/utils";
+import { missionPartImage } from "./medallion-art";
+import { UiIcon } from "./ui-icon";
 
 /**
- * A gift's state (issue 869, the owner's decision of 2026-10-29): `locked` is out of reach (greyed), `lit` is reached but cannot be
+ * A gift's state (issue 869, the owner's decision of 2026-10-29): `locked` is out of reach (silvered), `lit` is reached but cannot be
  * claimed now (still), `ready` waits for its tap (lit,
  * shaking now and then, as a ready chest does), `shaking` is its claim on its way (shaking fast, as the chest while its draw comes),
- * `opening` plays the opening (the box jumps, its lid pops up and away, light bursts out of it), `open` is the gift opened (the lid
- * tilted off the box, its light inside).
+ * `opening` plays the opening (the box jumps, light bursts out of it), `open` is the gift opened (its light inside, the box dimmed). A
+ * gift that waits (`ready`, `shaking`) sits in the book's gold halo, its box rimmed with light.
  */
 export type GiftArtState = "locked" | "lit" | "ready" | "shaking" | "opening" | "open";
 
 /**
- * Whose gift it is (the owner's decision of 2026-11-01): the day's (red ribbon) or the week's, the bigger rewards, drawn at the same
- * size and marked by its ribbon alone: a deep river blue (`--gift-week`) with a gold seam down each band, in every state (greyed when locked,
- * the seam kept, so the shape still tells it apart).
+ * Whose gift it is: the day's or the week's. MISSIONS-PAGE (the Paved UX Book's Missions, the owner's approved mockups of 2026-11-02):
+ * both are the book's one gift, the week's told apart by its row and its tooltip's Cobbles, no longer by a ribbon of its own.
  */
 export type GiftArtVariant = "day" | "week";
 
@@ -29,94 +31,77 @@ const SHAKE = { rotate: [0, -12, 12, -9, 9, -4, 4, 0] };
 /** The claim's fast shake: keyframes of its own, so the change from `ready` starts it at once (Motion restarts on new values only). */
 const SHAKE_FAST = { rotate: [0, -10, 10, -10, 10, 0] };
 
-/**
- * A part's paint, by inline style so the drawing adds no class to the first load's CSS: a semantic token of `theme.css` (`--primary`,
- * always defined, unlike the `--color-*` that Tailwind emits only when a class uses it).
- */
-const paint = (token: string, opacity?: number) => ({ fill: `var(--${token})`, fillOpacity: opacity });
+/** A waiting gift's rim (the book's): a tight light gold glow along the box, then an orange one. */
+export const GIFT_RIM = "drop-shadow(0 0 1.5px var(--medal-1)) drop-shadow(0 0 4px var(--warning))";
 
-/** The lid's resting place once the gift is open: tilted up and off to the left, in the drawing's units. */
-const LID_OPEN = { x: -5, y: -6, rotate: -28 };
+/**
+ * The gift's look by state, as a filter on the book's red gift: out of reach, the book's silver box (no colour, lighter); waiting, its
+ * glowing rim; opened, the box dimmed under its light. Inline, in the page's chunk.
+ */
+const LOOK: Partial<Record<GiftArtState, CSSProperties>> = {
+  locked: { filter: "grayscale(1) brightness(1.2) contrast(0.85)" },
+  ready: { filter: GIFT_RIM },
+  shaking: { filter: GIFT_RIM },
+  open: { filter: "saturate(0.55) brightness(0.8)" },
+};
+
+/** The gold halo a waiting gift sits in (the book's, `gift-glow`): about 3.2 times the gift, saturated as the book's, no blur. */
+const HALO: CSSProperties = { inset: "-1.1em", background: `${missionPartImage("gift-glow")} center / contain no-repeat`, filter: "saturate(1.6)" };
 
 export interface GiftArtProps {
   state?: GiftArtState;
-  /** The opening's last frame at once (the stories): the lid off, the light held. */
+  /** The opening's last frame at once (the stories): the light held. */
   held?: boolean;
-  /** The day's gift (the default) or the week's: its ribbon blue with a gold seam, never larger. */
+  /** The day's gift (the default) or the week's: the same gift (MISSIONS-PAGE), the variant kept on its node for the tests and styles. */
   variant?: GiftArtVariant;
   className?: string;
+  /** Its box's style: its size is its font size (`fontSize`). */
+  style?: CSSProperties;
 }
 
 /**
- * A small gift drawn for the milestones, the day's (issue 869) and the week's (issue 976, `variant`): a box in the gold of the primary, a red ribbon, a lid with its bow, so that
- * a reward node needs no figure on it. Decorative (`aria-hidden`): the node names the reward. Its size is the font size (1em). Under
- * reduced motion nothing shakes or flies: the opening shows the gift open at once.
+ * A gift of the milestones, the day's (issue 869) and the week's (issue 976): the Paved UX Book's red box with its gold ribbon
+ * (MISSIONS-PAGE, the HUD's gift icon, `invite`, the book's own drawing), silvered out of reach, so that a reward node needs no figure
+ * on it. Decorative (`aria-hidden`): the node names the reward. Its size is the font size (1em). Under reduced motion nothing shakes
+ * or jumps: the opening shows the gift open at once.
  */
-export function GiftArt({ state = "ready", held = false, variant = "day", className }: GiftArtProps) {
+export function GiftArt({ state = "ready", held = false, variant = "day", className, style }: GiftArtProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const muted = state === "locked";
   const opened = state === "opening" || state === "open";
   const fly = state === "opening" && !reduced && !held;
   const still = reduced || muted || opened || state === "lit";
-  const box = muted ? paint("muted-foreground", 0.45) : paint("primary");
-  const week = variant === "week";
-  const ribbon = muted ? paint("muted-foreground") : paint(week ? "gift-week" : "destructive");
-  // The week's seam down the middle of each ribbon band: gold on the blue, the card's dark on the greyed ribbon.
-  const seam = muted ? paint("card", 0.7) : paint("primary");
-  const lid = (
-    <>
-      <rect x="3" y="10" width="26" height="6" rx="1.5" style={box} />
-      <rect x="3" y="10" width="26" height="1.5" rx="0.75" style={paint("foreground", 0.25)} />
-      <rect x="14" y="10" width="4" height="6" style={ribbon} />
-      {week && <rect data-part="seam" x="15.4" y="10" width="1.2" height="6" style={seam} />}
-      <path d="M16 10C12 3 6 4 7.5 8.2 8.4 10 12.5 10 16 10ZM16 10C20 3 26 4 24.5 8.2 23.6 10 19.5 10 16 10Z" style={ribbon} />
-      <circle cx="16" cy="9.6" r="2" style={ribbon} />
-    </>
-  );
   return (
     <span aria-hidden data-slot="gift-art" data-state={state} data-variant={variant} className={cn("relative inline-grid place-items-center", className)}
-      style={{ width: "1em", height: "1em" }}>
-      {opened && (
-        // The light out of the open box: a glow that swells and settles, held while the gift is open.
+      style={{ width: "1em", height: "1em", ...style }}>
+      {(opened || state === "ready" || state === "shaking") && (
+        // The light: the book's gold halo round a gift that waits, swelling out of it as it opens, held smaller once it is open.
         <m.span
-          className="absolute rounded-full"
-          style={{ inset: "-0.35em", background: "var(--primary)", filter: "blur(0.2em)" }}
+          data-part="light"
+          className="absolute"
+          style={HALO}
           initial={fly ? { scale: 0.2, opacity: 0 } : false}
-          animate={state === "opening" ? { scale: 1, opacity: 0.4 } : { scale: 0.75, opacity: 0.22 }}
+          animate={state === "opening" ? { scale: 1.1, opacity: 1 } : opened ? { scale: 0.7, opacity: 0.45 } : { scale: 0.8, opacity: 1 }}
           transition={fly ? { duration: 0.5, delay: GIFT_LIGHT_S * 0.4, ease: "easeOut" } : { duration: 0 }}
         />
       )}
-      <m.svg
-        viewBox="0 0 32 32"
-        className="relative size-full overflow-visible"
+      <m.span
+        className="absolute inset-0"
         initial={false}
-        animate={still ? { rotate: 0, scale: fly ? [1, 0.86, 1.12, 1] : 1 } : state === "shaking" ? SHAKE_FAST : SHAKE}
+        animate={still ? { rotate: 0, scale: fly ? [1, 0.86, 1.18, 1] : 1, y: fly ? [0, 0, -4, 0] : 0 } : state === "shaking" ? SHAKE_FAST : SHAKE}
         transition={
           fly
-            ? { duration: 0.4, times: [0, 0.3, 0.65, 1], ease: "easeOut" }
+            ? { duration: GIFT_LID_S, times: [0, 0.3, 0.65, 1], ease: "easeOut" }
             : still
               ? { duration: 0 }
               : state === "shaking"
                 ? { duration: SHAKE_S / 2, repeat: Infinity, ease: "easeInOut" }
                 : { duration: SHAKE_S, repeat: Infinity, repeatDelay: SHAKE_PAUSE_S, ease: "easeInOut" }
         }
-        style={{ transformOrigin: "50% 90%" }}
+        style={{ transformOrigin: "50% 90%", ...LOOK[state] }}
       >
-        <rect x="5" y="15" width="22" height="14" rx="2" style={box} />
-        <rect x="5" y="15" width="22" height="3" style={paint("background", 0.3)} />
-        <rect x="14" y="15" width="4" height="14" style={ribbon} />
-        {week && <rect data-part="seam" x="15.4" y="15" width="1.2" height="14" style={seam} />}
-        {opened && <rect x="7" y="15" width="18" height="1.5" rx="0.75" style={paint("primary-foreground", 0.6)} />}
-        <m.g
-          data-part="lid"
-          initial={fly ? { x: 0, y: 0, rotate: 0 } : false}
-          animate={opened ? (fly ? { x: [0, 0, -7, LID_OPEN.x], y: [0, 2, -12, LID_OPEN.y], rotate: [0, 0, -50, LID_OPEN.rotate] } : LID_OPEN) : { x: 0, y: 0, rotate: 0 }}
-          transition={fly ? { duration: GIFT_LID_S, times: [0, 0.2, 0.65, 1], ease: "easeOut" } : { duration: 0 }}
-          style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}
-        >
-          {lid}
-        </m.g>
-      </m.svg>
+        <UiIcon name="invite" px={40} className="drawer-icon block size-full" />
+      </m.span>
     </span>
   );
 }

@@ -24,8 +24,9 @@ import { titleOf } from "../src/lib/music/track-info";
 import { TRACKS } from "../src/lib/music/tracks";
 
 /**
- * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, Missions, the Vault and the second-level pages
- * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body). The page is drawn
+ * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, the Vault and the second-level pages
+ * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body); Missions in the HUD's
+ * drawer's body at every width (MISSIONS-PAGE). The page is drawn
  * straight in that region: its sticky header and its content are the region's own (no column of its own between them and the
  * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing out, so this test
  * reads the structure that lets a page scroll, not its overflow: the overflow itself (content taller than a 375 x 812 phone and
@@ -38,7 +39,6 @@ const PAGES: readonly [string, ReactNode][] = [
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
   ["League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={no()} onOpenMatch={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />],
-  ["Missions", <MissionsScene {...MISSIONS.daily} onClaimQuest={no()} onClaimAchievement={no()} />],
   ["Vault", <VaultScene {...VAULT.position} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onUse={no()} onOpen={no()} />],
   ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} />],
@@ -154,17 +154,25 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(slots.querySelectorAll(":scope > li")).toHaveLength(3);
   });
 
-  it("Missions (#832) draws its card and its two sections of icons in the region, to its last icon; no part of it takes the finger", () => {
-    draw(PAGES.find(([title]) => title === "Missions")![1], false, "Missions");
-    const region = document.querySelector<HTMLElement>("[data-slot=page-scroll]")!;
+  it("Missions (#832) draws its card and its sections of medallions in the HUD drawer's body (MISSIONS-PAGE), to its last one; no part of it takes the finger", () => {
+    draw(<MissionsScene {...MISSIONS.daily} onBack={no()} onClaimQuest={no()} onClaimAchievement={no()} />, false, "Missions");
+    const drawer = screen.getByRole("dialog", { name: "Missions" });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    expect(region.className).toContain("overscroll-contain");
     expect(region).toContainElement(screen.getByRole("region", { name: "Selected mission" }));
-    expect(region).toContainElement(screen.getByRole("region", { name: "Limited" }));
-    const lifetime = screen.getByRole("region", { name: /^Lifetime/ });
+    expect(region).toContainElement(screen.getByRole("region", { name: /^Daily/ }));
+    expect(region).toContainElement(screen.getByRole("region", { name: /^Weekly/ }));
+    const lifetime = screen.getByRole("region", { name: /^Achievements/ });
     const icons = within(lifetime).getAllByRole("button");
     expect(icons).toHaveLength(16);
     expect(region).toContainElement(icons.at(-1)!);
-    // A vertical drag that starts on a card or an icon scrolls the region: nothing of the page sets its own touch action, and no
-    // fixed height or clip stands between an icon and the region.
+    // The body is the one element that scrolls.
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    // A vertical drag that starts on a card or a medallion scrolls the region: nothing of the page sets its own touch action, and no
+    // fixed height or clip stands between a medallion and the region.
     const touchy = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)touch-(none|pan-x|pinch-zoom)(\s|$)/.test(el.getAttribute("class") ?? ""));
     expect(touchy).toEqual([]);
     for (let el: HTMLElement | null = icons.at(-1)!; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);

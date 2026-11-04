@@ -109,9 +109,15 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     ["/settings", "Settings", "/"],
   ])("%s opened directly: Back lands on %s's parent", async (path, title, parent) => {
     const router = open(path);
-    const heading = await screen.findByRole("heading", { level: 1, name: title }, { timeout: slow(5000) });
-    // Back is the header's first control, before the title.
-    expect(heading.closest("header")!.querySelector("button")).toHaveAccessibleName("Back");
+    if (title === "Missions") {
+      // MISSIONS-PAGE: the HUD's drawer over the village, its Back the header band's first control, before the title.
+      const drawer = await screen.findByRole("dialog", { name: title }, { timeout: slow(5000) });
+      expect(drawer.querySelector('[data-slot="sheet-header"] button')).toHaveAccessibleName("Back");
+    } else {
+      const heading = await screen.findByRole("heading", { level: 1, name: title }, { timeout: slow(5000) });
+      // Back is the header's first control, before the title.
+      expect(heading.closest("header")!.querySelector("button")).toHaveAccessibleName("Back");
+    }
     await back();
     await waitFor(() => expect(at(router)).toBe(parent));
   });

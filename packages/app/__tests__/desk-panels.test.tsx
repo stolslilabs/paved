@@ -32,6 +32,19 @@ function media(desktop: boolean) {
     }) as unknown as MediaQueryList) as typeof window.matchMedia;
 }
 
+/** Every width query matches (a desktop's window): the HUD's drawer is a side panel too (its `tablet` query); reduced motion never. */
+function wide() {
+  window.matchMedia = ((query: string) =>
+    ({
+      matches: query.includes("min-width"),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+}
+
 function open(path: string) {
   const router = createTestRouter(path);
   render(<App router={router} sources={fakeSources().sources} connector={fakeWallet().load} />);
@@ -85,6 +98,9 @@ describe("the route map (#762)", () => {
     ]);
     // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
+    // MISSIONS-PAGE: Missions is the HUD's drawer over the home at every width, never the side panel; a child of the home's route.
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["missions"]);
+    expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
 
@@ -103,7 +119,6 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
   });
 
   it.each([
-    ["Missions", "Village", "/missions", "Missions", "right"],
     ["Chests", "Main", "/village/chests", "Chests", "right"],
     ["Shop", "Main", "/village/shop", "Tile shop", "right"],
     ["Guild", "Main", "/guild", "Guild", "right"],
@@ -121,6 +136,32 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(dialog.querySelector("[data-slot=page-scroll]")?.childElementCount).toBeGreaterThan(0), { timeout: slow(5000) });
     expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
     expect(within(dialog).queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  it("Missions opens the HUD's drawer at the right (MISSIONS-PAGE), not the panel: the URL naming it, the village still mounted, the title on the left, the red cross at the right end", async () => {
+    // From `tablet` the drawer is a side panel (`hud-drawer.tsx`'s query): every width query matches here.
+    wide();
+    const router = open("/");
+    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await userEvent.click(within(column).getByRole("button", { name: /^Missions/ }));
+    const drawer = await panel("Missions");
+    expect(router.state.location.pathname).toBe("/missions");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "missions");
+    expect(drawer).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+    // One dialog: the side panel stays closed under it.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    // One row: the title first, the Cobbles after it, the close last; no Back.
+    const header = drawer.querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
+    expect([...header.children].map((el) => el.getAttribute("data-slot"))).toEqual(["hud-drawer-title", "hud-drawer-end", "hud-drawer-close"]);
+    expect(within(drawer).queryByRole("button", { name: "Back" })).toBeNull();
+    // No room kept for the dock at its body's end (DOCK-UNDER-PAGES): the dock is under the page.
+    expect(drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!.style.paddingBottom).toBe("");
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^Missions/ })).toHaveFocus());
   });
 
   it("the League control under the profile opens the League's panel from the left (#829)", async () => {
@@ -150,10 +191,10 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
   it("the dock stays under the panel (DOCK-UNDER-PAGES, the owner's ask of 2026-11-04): veiled and blurred, the page leaving it no room", async () => {
     const router = open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    await userEvent.click(within(column).getByRole("button", { name: /^Missions/ }));
-    const missions = await panel("Missions");
+    await userEvent.click(within(column).getByRole("button", { name: /^Vault/ }));
+    const vault = await panel("Vault");
     // The page leaves the dock no room at its end.
-    expect(missions.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom).toBe("");
+    expect(vault.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom).toBe("");
     // The veil (the Sheet's, `z-50`) stands over the dock's band (`z-20`), nothing raising it, and blurs it with the village (as the
     // HUD drawer's veil). jsdom applies no stylesheet: the `Dock` stories of Scenes/Home/Panels check what the screen shows.
     const veil = document.querySelector("[data-slot=sheet-overlay]")!;
@@ -295,14 +336,19 @@ describe("the panel's trail: the entries walked from the home's (#762)", () => {
 describe("below desktop the same routes are full pages (#762, #763)", () => {
   beforeEach(() => media(false));
 
-  it("Missions is a full page, no panel, no village under it and no dock (DOCK-UNDER-PAGES): its Back is its way out", async () => {
-    open("/missions");
-    await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.queryByRole("navigation", { name: "Village" })).toBeNull();
-    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+  it("Missions is the HUD's drawer over the village, a full page with Back (MISSIONS-PAGE, the profile's pattern), the home's dock under it", async () => {
+    const router = open("/missions");
+    const drawer = await panel("Missions");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "missions");
+    expect(village()).toBeInTheDocument();
+    // The home's dock is there, under the page (DOCK-UNDER-PAGES), hidden from assistive technology while the drawer is open.
+    expect(screen.getByRole("navigation", { name: "Main", hidden: true })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: "Close" })).toBeNull();
+    // Opened directly: its Back goes up to the village in place.
+    await userEvent.click(within(drawer).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("REPLACE");
   });
 });
 

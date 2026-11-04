@@ -456,7 +456,7 @@ export const MISSIONS = {
   tutorialLastToClaim: { ...rewarded, tutorial: tutorialAt(8, 0b1111111), initialSelected: "tutorial:8" },
   /** Every step claimed: the Tutorial's section is gone, the page as before it (open point 5). */
   tutorialAllClaimed: { ...rewarded, tutorial: tutorialAt(8, 0b11111111) },
-  /** A new player: nothing counted, the lifetime missions locked. */
+  /** A new player: nothing counted, every mission to do (an achievement is never locked). */
   newPlayer: { ...rewarded, quests: QUESTS_TODAY_FRESH, achievements: ACHIEVEMENTS_NEW },
   /** Four minutes before 00:00 UTC: the Daily countdown is amber. */
   endingSoon: { ...rewarded, now: (TODAY + 1) * DAY - 4 * 60 },

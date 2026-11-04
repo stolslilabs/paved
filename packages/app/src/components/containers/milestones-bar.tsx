@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent, type PointerEvent, type ReactElement } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { DAILY_MILESTONES, DAILY_QUESTS, WEEKLY_MILESTONES, WEEKLY_QUESTS, dailyMilestoneStates, weeklyMilestoneStates, type DailyMilestoneState } from "@paved/game-core";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
-import { Icon } from "../ui/icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { Cobbles } from "../elements/cobbles";
+import { Cobbles, formatCobbles } from "../elements/cobbles";
+import { TokenIcon } from "../elements/token-icon";
+import { CheckBadge } from "../elements/check-badge";
 import { CobblesBurst } from "../elements/cobbles-burst";
 import { GIFT_LIGHT_S, GiftArt, type GiftArtState } from "../elements/gift-art";
+import { missionPartImage, missionPartSlice } from "../elements/medallion-art";
 import { useSfx } from "./audio-provider";
 
 /** The period whose milestones the bar shows: the day's (#869) or the week's (#976). */
@@ -43,8 +45,9 @@ export const GIFT_REVEAL_S = 1.8;
 
 /**
  * Each period's bar: its quests and milestones (game-core's), its words, and its gifts' look. Both periods' gift nodes are the same
- * size (2rem, 32 px; the owner's decision of 2026-11-01, changing #976's point 4): the week's gifts read as the bigger rewards (50 and
- * 100 Cobbles against 10 and 15) by their ribbon alone (`GiftArt`'s `week` variant), never by their size.
+ * size (2rem, 32 px; the owner's decision of 2026-11-01, changing #976's point 4), never told apart by their size. MISSIONS-PAGE (the
+ * Paved UX Book's Missions): both the book's one gift, the week's read as the bigger rewards (50 and 100 Cobbles against 10 and 15)
+ * by their row and their tooltip; the `week` variant stays on the node.
  */
 const PERIOD = {
   daily: {
@@ -74,6 +77,23 @@ type PeriodBar = (typeof PERIOD)[MilestonesPeriod];
 /** A gift node's size (rem), the same for both periods. */
 const NODE = 2;
 
+/**
+ * MISSIONS-PAGE (the Paved UX Book's milestones, the owner's asks of 2026-11-04: on target with the mockup, its painted look): the
+ * book's painted rail (`medallion-art.ts`), its steel the whole line and its gold from the start to the last quest done, each 9-sliced
+ * so their rounded ends stay whole; a node reached the book's gold orb, glowing, one ahead its dark bead. Inline, in the page's chunk.
+ */
+const rail = (name: "rail-track" | "rail-fill"): CSSProperties => ({
+  borderStyle: "solid",
+  borderColor: "transparent",
+  borderWidth: "0 4px",
+  borderImage: `${missionPartImage(name)} 0 ${missionPartSlice(name)} fill / 0 4px stretch`,
+});
+const LIT_NODE: CSSProperties = {
+  background: `${missionPartImage("orb")} center / 100% 100% no-repeat`,
+  boxShadow: "0 0 9px 1px color-mix(in oklab, var(--primary) 70%, transparent)",
+};
+const DARK_NODE: CSSProperties = { background: `${missionPartImage("bead")} center / 100% 100% no-repeat` };
+
 const plural = (bar: PeriodBar, n: number) => (n === 1 ? bar.one : bar.many);
 
 /** The node `at` (quests done) on the line: the gift nodes' half width in from each end, the nodes evenly between. */
@@ -83,10 +103,11 @@ const left = (bar: PeriodBar, at: number) => `calc(${NODE / 2}rem + (100% - ${NO
  * A period's milestones as a graph, the day's (#869, the owner's rework of 2026-10-29) or the week's (#976, the owner's decisions of
  * 2026-11-01): the period's quests plus one nodes on a line, one edge per quest between two, lit once that quest is done. A node that
  * carries a reward (the day: 3 done +10 Cobbles, 5 done +15, `DAILY_MILESTONES`; the week: 3 done +50, 5 done +100,
- * `WEEKLY_MILESTONES`) is a gift (`GiftArt`), no figure on it, the week's the same size as the day's, its ribbon blue and gold; the others are plain and smaller,
- * filled once reached. A gift reached shakes now and then,
+ * `WEEKLY_MILESTONES`) is a gift (`GiftArt`, the book's red box, silvered out of reach), no figure on it, the week's the same size as
+ * the day's; the others are beads, gold once reached (MISSIONS-PAGE: the line carved in the drawer's face, each edge done lit in gold).
+ * A gift reached glows and shakes now and then,
  * as a ready chest does; a tap claims it, and it shakes fast while the claim is on its way. Once the claim lands the gift opens, as a
- * chest does (the box jumps, its lid pops off, light bursts out), its Cobbles rise out of it and burst into the balance's plate
+ * chest does (the box jumps, light bursts out), its Cobbles rise out of it and burst into the balance's plate
  * (`CobblesBurst`), with the chest's `burst` sound and a buzz; then the gift stays open, a check on it. Under reduced motion nothing
  * shakes or flies: the gift shows open at once and its Cobbles show above it, still, for the same time, the sound kept. The edges are the progress bar (`role="progressbar"`), the nodes a
  * list beside it.
@@ -128,6 +149,16 @@ export function MilestonesBar({ period = "daily", done, claimed, claiming = null
 
   return (
     <div data-graph={`${period}-milestones`} className={cn("relative", className)} style={{ height: `${height}rem` }}>
+      {/* The painted rail: its steel the whole line, its gold to the last quest done. */}
+      <span aria-hidden data-slot="milestones-track" className="absolute h-2 -translate-y-1/2" style={{ ...rail("rail-track"), left: `${NODE / 2}rem`, right: `${NODE / 2}rem`, top: `${height / 2}rem` }} />
+      {count > 0 && (
+        <span
+          aria-hidden
+          data-slot="milestones-fill"
+          className="absolute h-2 -translate-y-1/2"
+          style={{ ...rail("rail-fill"), left: `${NODE / 2}rem`, top: `${height / 2}rem`, width: `calc((100% - ${NODE}rem) * ${count / quests})` }}
+        />
+      )}
       <div
         role="progressbar"
         aria-label={bar.progress}
@@ -135,11 +166,11 @@ export function MilestonesBar({ period = "daily", done, claimed, claiming = null
         aria-valuemax={quests}
         aria-valuenow={count}
         aria-valuetext={`${count} of ${quests} ${plural(bar, quests)} done`}
-        className="absolute grid -translate-y-1/2"
+        className="absolute grid h-2 -translate-y-1/2"
         style={{ left: `${NODE / 2}rem`, right: `${NODE / 2}rem`, top: `${height / 2}rem`, gridTemplateColumns: `repeat(${quests}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: quests }, (_, i) => (
-          <span key={i} data-step={i + 1} data-done={i < count || undefined} className={cn("h-1", i < count ? "bg-primary" : "bg-input")} />
+          <span key={i} data-step={i + 1} data-done={i < count || undefined} />
         ))}
       </div>
       <ol aria-label={bar.list}>
@@ -173,7 +204,7 @@ export function MilestonesBar({ period = "daily", done, claimed, claiming = null
                 />
               ) : (
                 <span data-node={at} data-reached={at <= count || undefined} className="flex items-center">
-                  <span className={cn("size-3 rounded-full border-2", at <= count ? "border-primary bg-primary" : "border-input bg-background")} />
+                  <span className={cn("shrink-0 rounded-full", at <= count ? "size-4" : "size-3.5")} style={at <= count ? LIT_NODE : DARK_NODE} />
                 </span>
               )}
             </li>
@@ -222,9 +253,6 @@ const setTip = (id: string, open: boolean) => {
   for (const listener of tipListeners) listener();
 };
 
-/** What a gift's tooltip says it holds, one line per item (#989): Cobbles only today; a later item (a chest, #976) adds one. */
-type GiftItem = { kind: "cobbles"; amount: number };
-
 /** Where a gift stands, in its tooltip: what is left to reach it, or whether it waits or is claimed (#989). */
 export function giftStanding(state: DailyMilestoneState, left: number, served: boolean): string {
   if (state === "claimed") return "Claimed";
@@ -253,52 +281,50 @@ interface GiftNodeProps {
   onClaim: () => void;
 }
 
+/** What a gift's tooltip trigger spreads on its element: its ref, its press and its click (the claim, or the tooltip's toggle). */
+export interface GiftTipTrigger {
+  ref: (el: HTMLElement | null) => void;
+  onPointerDown: (event: PointerEvent) => void;
+  onClick: (event: MouseEvent) => void;
+}
+
+export interface GiftTipProps {
+  /** The Cobbles it holds: its tooltip's "+N". */
+  cobbles: number;
+  /** The tooltip's sentence for screen readers (its hidden copy, the gift's description). */
+  sentence: string;
+  /** A tap claims it (reached, a claim open now): its tooltip opens on hover and focus only, never on that tap. */
+  claims: boolean;
+  /** Its claim on its way or landing: the tooltip stays shut. */
+  busy: boolean;
+  /** Held open (the stories). */
+  tip?: boolean;
+  /** The tooltip's own hook (`data-gift-tip`). */
+  tag?: string | number;
+  /** The gift's standing, on the tooltip's line (`data-standing`). */
+  standing?: string;
+  onClaim: () => void;
+  /** The trigger, its element spreading `GiftTipTrigger`. */
+  children: (trigger: GiftTipTrigger) => ReactElement;
+}
+
 /**
- * A reward's node: a disc with its gift, no figure on it, the week's the day's size with its own ribbon. Reached, it is lit and shakes, a button;
- * claimed, it shows the gift open and a check.
- *
- * Its tooltip (#989) says what it holds, what reaches it and where it stands. It is Radix's Tooltip, controlled: the Tooltip gives
- * the hover's delay (300 ms) for a mouse, the focus and Escape for the keyboard, `role="tooltip"` and `aria-describedby`, and it
- * stays a description, where a Popover would be a dialog that takes the focus and names the gift a menu button. It does not open
- * on a tap, so a tap on a gift that does not claim (locked, claimed, or reached with no claim open now) toggles it here, and a tap
- * outside closes it (the Tooltip's own dismissal). A tap or a click on a gift that claims claims at once, the tooltip closed: the
- * Cobbles rising out of it show what it held. One open at a time on every bar, closed while a claim is on its way or lands.
+ * A gift's tooltip (#989), the milestones' and the Missions card's (MISSIONS-PAGE): it shows what the gift holds, "+50" and the Cobble
+ * (the owner's ask of 2026-11-04), and says its sentence to screen readers. It is Radix's Tooltip, controlled: the Tooltip gives the
+ * hover's delay (300 ms) for a mouse, the focus and Escape for the keyboard, `role="tooltip"` and `aria-describedby`, and it stays a
+ * description, where a Popover would be a dialog that takes the focus and names the gift a menu button. It does not open on a tap, so
+ * a tap on a gift that does not claim (out of reach, claimed, or reached with no claim open now) toggles it here, and a tap outside
+ * closes it (the Tooltip's own dismissal). A tap or a click on a gift that claims claims at once, the tooltip closed: the Cobbles
+ * rising out of it show what it held. One open at a time on the page, closed while a claim is on its way or lands.
  */
-function GiftNode({ bar, cobbles, at, count, state, served, claiming, opening, held, tip, disabled, onClaim }: GiftNodeProps) {
+export function GiftTip({ cobbles, sentence, claims, busy, tip = false, tag, standing, onClaim, children }: GiftTipProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const id = useId();
   const current = useSyncExternalStore(subscribeTip, readTip, readTip);
   useEffect(() => () => setTip(id, false), [id]);
   const press = useRef<{ touch: boolean; wasOpen: boolean }>({ touch: false, wasOpen: false });
   const node = useRef<HTMLElement | null>(null);
-  const reach = `${at} ${plural(bar, at)} done`;
-  // A claim not open now (another on its way, no wallet) dims the gift, never its disc: the edges stay hidden.
-  const dim = state === "claimable" && disabled && !claiming;
-  // The gift a tap claims: its tooltip opens on hover and focus only, never on that tap.
-  const claims = state === "claimable" && !disabled && !claiming;
-  const open = tip || (current === id && !claiming && !opening);
-  const gift: GiftArtState = state === "locked" ? "locked" : state === "claimed" ? (opening ? "opening" : "open") : claiming ? "shaking" : disabled ? "lit" : "ready";
-  const items: GiftItem[] = [{ kind: "cobbles", amount: cobbles }];
-  const standing = giftStanding(state, at - count, served);
-  const when = `At ${reach}`;
-  const disc = (
-    <span
-      aria-hidden
-      className={cn(
-        "relative grid shrink-0 place-items-center rounded-full border-2 bg-card",
-        state === "claimable" ? "border-primary shadow-lg" : state === "claimed" ? "border-primary" : "border-input",
-      )}
-      style={{ width: `${NODE}rem`, height: `${NODE}rem` }}
-    >
-      {state === "claimable" && <span className="absolute inset-0 rounded-full bg-primary/15" />}
-      <GiftArt state={gift} held={held} variant={bar.gift} className={cn("text-[1.125rem]", dim && "opacity-60")} />
-      {state === "claimed" && !opening && (
-        <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-success text-background">
-          <Icon name="check" size="xs" />
-        </span>
-      )}
-    </span>
-  );
+  const open = tip || (current === id && !busy);
   // A tap (touch) on a gift that does not claim toggles its tooltip; a mouse press leaves it as the hover left it. The Tooltip closes
   // on a press and on a click: both are kept from it here, the touch's toggle read from before the press.
   const onPointerDown = (event: PointerEvent) => {
@@ -314,74 +340,103 @@ function GiftNode({ bar, cobbles, at, count, state, served, claiming, opening, h
     if (press.current.touch) setTip(id, !press.current.wasOpen);
     press.current = { touch: false, wasOpen: false };
   };
-  const trigger =
-    state === "claimable" ? (
-      <button
-        ref={(el) => {
-          node.current = el;
-        }}
-        type="button"
-        data-milestone={at}
-        data-state={state}
-        aria-disabled={!claims || undefined}
-        aria-busy={claiming || undefined}
-        aria-label={`Claim ${cobbles} Cobbles: ${reach}`}
-        onPointerDown={onPointerDown}
-        onClick={onClick}
-        // 44 px to tap: the disc (32 px, both periods) and a ring around it, over the node's box. It keeps the focus
-        // while no claim is open (aria-disabled, not disabled), so its tooltip still opens.
-        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none aria-disabled:cursor-default"
-        style={{ margin: `${(NODE - 2.75) / 2}rem` }}
-      >
-        {disc}
-      </button>
-    ) : (
-      <span
-        ref={(el) => {
-          node.current = el;
-        }}
-        role="img"
-        tabIndex={0}
-        data-milestone={at}
-        data-state={state}
-        data-opening={opening || undefined}
-        aria-label={state === "claimed" ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
-        onPointerDown={onPointerDown}
-        onClick={onClick}
-        className="flex rounded-full outline-none"
-      >
-        {disc}
-      </span>
-    );
+  const ref = (el: HTMLElement | null) => {
+    node.current = el;
+  };
   return (
     <Tooltip open={open} onOpenChange={(next) => setTip(id, next)}>
-      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+      <TooltipTrigger asChild>{children({ ref, onPointerDown, onClick })}</TooltipTrigger>
       <TooltipContent
         side="top"
         collisionPadding={16}
-        data-gift-tip={at}
+        data-gift-tip={tag}
         // A press on the gift itself is not outside: the gift's own handlers above decide.
         onPointerDownOutside={(event) => {
           if (event.target instanceof Node && node.current?.contains(event.target)) event.preventDefault();
         }}
         // The description the gift's name is read with: the Tooltip's hidden copy says it in one sentence.
-        aria-label={`${items.map((item) => `+${item.amount} Cobbles`).join(", ")}, ${when.toLowerCase()}: ${standing}.`}
+        aria-label={sentence}
         // The app's tooltips fade in; under reduced motion (the app's setting or the system's) it shows at once.
-        className={cn("w-max max-w-[min(16rem,calc(100vw-2rem))] px-3 py-2", reduced && "animate-none data-[state=closed]:animate-none")}
+        className={cn("w-max px-2.5 py-1.5", reduced && "animate-none data-[state=closed]:animate-none")}
       >
-        <ul className="grid gap-0.5">
-          {items.map((item) => (
-            <li key={item.kind} className="flex items-center gap-1 text-sm font-semibold">
-              <Cobbles value={item.amount} sign="+" size="md" />
-              <span aria-hidden>Cobbles</span>
-            </li>
-          ))}
-        </ul>
-        <p className="text-muted-foreground">{when}</p>
-        <p data-standing={state} className={cn("font-medium", state === "claimable" ? "text-primary" : state === "claimed" ? "text-success" : "text-foreground")}>
-          {standing}
-        </p>
+        {/* What it holds and nothing more (the owner's ask of 2026-11-04: "+50" and the Cobble); when and where it stands are said to
+            screen readers alone, in the label above. */}
+        <span data-standing={standing} aria-hidden className="flex items-center gap-1 text-sm font-bold">
+          <span className="numeric">+{formatCobbles(cobbles)}</span>
+          <TokenIcon kind="cobbles" size="em" />
+        </span>
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+/**
+ * A reward's node: its gift, no figure on it, the week's the day's size. Reached, it is lit and shakes, a button; claimed, it shows
+ * the gift open and a check. Its tooltip (`GiftTip`) says what reaches it and where it stands to screen readers.
+ */
+function GiftNode({ bar, cobbles, at, count, state, served, claiming, opening, held, tip, disabled, onClaim }: GiftNodeProps) {
+  const reach = `${at} ${plural(bar, at)} done`;
+  // A claim not open now (another on its way, no wallet) dims the gift, never its disc: the edges stay hidden.
+  const dim = state === "claimable" && disabled && !claiming;
+  // The gift a tap claims: its tooltip opens on hover and focus only, never on that tap.
+  const claims = state === "claimable" && !disabled && !claiming;
+  const gift: GiftArtState = state === "locked" ? "locked" : state === "claimed" ? (opening ? "opening" : "open") : claiming ? "shaking" : disabled ? "lit" : "ready";
+  const standing = giftStanding(state, at - count, served);
+  const disc = (
+    <span
+      aria-hidden
+      className="relative grid shrink-0 place-items-center"
+      style={{ width: `${NODE}rem`, height: `${NODE}rem` }}
+    >
+      <GiftArt state={gift} held={held} variant={bar.gift} className={cn("text-[1.875rem]", dim && "opacity-60")} />
+      {state === "claimed" && !opening && (
+        <CheckBadge px={16} className="absolute -top-1 -right-1 size-4" />
+      )}
+    </span>
+  );
+  return (
+    <GiftTip
+      cobbles={cobbles}
+      sentence={`+${cobbles} Cobbles, at ${reach}: ${standing}.`}
+      claims={claims}
+      busy={claiming || opening}
+      tip={tip}
+      tag={at}
+      standing={state}
+      onClaim={onClaim}
+    >
+      {(trigger) =>
+        state === "claimable" ? (
+          <button
+            {...trigger}
+            type="button"
+            data-milestone={at}
+            data-state={state}
+            aria-disabled={!claims || undefined}
+            aria-busy={claiming || undefined}
+            aria-label={`Claim ${cobbles} Cobbles: ${reach}`}
+            // 44 px to tap: the disc (32 px, both periods) and a ring around it, over the node's box. It keeps the focus
+            // while no claim is open (aria-disabled, not disabled), so its tooltip still opens.
+            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none aria-disabled:cursor-default"
+            style={{ margin: `${(NODE - 2.75) / 2}rem` }}
+          >
+            {disc}
+          </button>
+        ) : (
+          <span
+            {...trigger}
+            role="img"
+            tabIndex={0}
+            data-milestone={at}
+            data-state={state}
+            data-opening={opening || undefined}
+            aria-label={state === "claimed" ? `${cobbles} Cobbles claimed: ${reach}` : `${cobbles} Cobbles at ${reach}`}
+            className="flex rounded-full outline-none"
+          >
+            {disc}
+          </span>
+        )
+      }
+    </GiftTip>
   );
 }

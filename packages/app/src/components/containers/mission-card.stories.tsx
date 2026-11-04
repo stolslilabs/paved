@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { fn } from "storybook/test";
 import { LONG_LABEL, LONG_SENTENCE, LONG_WORD } from "../../mocks/stress";
 import { PHONE_320, PHONE_375 } from "../scenes/viewports";
 import { MissionCard, type Mission } from "./mission-card";
 
+/** A daily: no Cobbles of its own (its row's gifts pay): no claim, the medallion's own badge. */
 const PUBLIC_WORKS: Mission = {
   key: "quest:6",
   kind: "daily",
@@ -12,65 +13,67 @@ const PUBLIC_WORKS: Mission = {
   icon: "castle",
   state: "progress",
   progress: [{ unit: "roads and cities scored", count: 4, total: 8 }],
-  completedAt: null,
-  reward: { cobbles: 10, claimed: false },
 };
-const DAILY_RUN: Mission = {
-  ...PUBLIC_WORKS,
-  key: "quest:1",
-  title: "Daily Run",
-  description: "Finish today's Challenge.",
-  icon: "flag-checkered",
+/** An achievement with its Cobbles: claimed from its medallion's badge. */
+const SETTLER: Mission = {
+  key: "achievement:3",
+  kind: "lifetime",
+  title: "Settler II",
+  description: "Finish Challenge games: the second tier.",
+  icon: "house-chimney",
   state: "claimable",
-  progress: [{ unit: "Challenge games finished", count: 1, total: 1 }],
-  completedAt: 1_792_000_000,
-  reward: { cobbles: 5, claimed: false },
+  progress: [{ unit: "Challenge games finished", count: 10, total: 10 }],
+  reward: { cobbles: 20, claimed: false },
+};
+/** A Tutorial step with its Cobbles, open. */
+const BUILDER: Mission = {
+  key: "tutorial:1",
+  kind: "tutorial",
+  title: "Builder",
+  description: "Place a tile in your village and save its layout.",
+  icon: "hammer",
+  state: "none",
+  progress: [{ unit: "layouts saved", count: 0, total: 1 }],
+  reward: { cobbles: 10, claimed: false },
+  tutorial: { step: 1 },
 };
 
-/** The selected mission at the top of the Missions page (#832): Daily, Weekly or Lifetime, its progress, Cobbles and action. */
+/**
+ * The selected mission at the top of the Missions page (#832; MISSIONS-PAGE, the owner's asks of 2026-11-04: no more text than that,
+ * room for it on a small phone): its medallion, its kind, its title, its task and a counter, the text the card's whole width. A
+ * mission with Cobbles of its own is claimed from the badge at its medallion's foot, its tooltip "+20" and the Cobble.
+ */
 const meta = { title: "Containers/MissionCard", component: MissionCard, args: { mission: PUBLIC_WORKS, onClaim: fn() } } satisfies Meta<typeof MissionCard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** In progress: the bar, "4 / 8", and a short line where the Claim will be. */
+/** A daily in progress: "4 / 8", no claim of its own. */
 export const InProgress: Story = {};
-/** Done, its Cobbles to claim. */
-export const Claim: Story = { args: { mission: DAILY_RUN } };
-/** The claim on its way. */
-export const Claiming: Story = { args: { mission: { ...DAILY_RUN, reward: { cobbles: 5, claimed: false, claiming: true } } } };
-/** Claimed. */
-export const Claimed: Story = { args: { mission: { ...DAILY_RUN, state: "done", reward: { cobbles: 5, claimed: true } } } };
-/** No wallet to sign yet: "Connect to claim". */
-export const ReadOnly: Story = { args: { mission: DAILY_RUN, canClaim: false } };
-/** A lifetime mission locked. */
-export const Locked: Story = {
-  args: { mission: { ...PUBLIC_WORKS, key: "achievement:7", kind: "lifetime", title: "Pilgrimage", description: "Score a wonder.", icon: "landmark-dome", state: "locked", progress: [{ unit: "wonders scored", count: 0, total: 1 }], reward: { cobbles: 30, claimed: false } } },
+/** A daily done: the medallion's check, its row's gift pays. */
+export const DailyDone: Story = { args: { mission: { ...PUBLIC_WORKS, state: "done", progress: [{ unit: "roads and cities scored", count: 8, total: 8 }] } } };
+/** An achievement done: its badge the lit gift in its gold halo, shaking now and then; a tap claims its 20 Cobbles. */
+export const Claim: Story = { args: { mission: SETTLER } };
+/** The claim on its way: the gift shaking fast. */
+export const Claiming: Story = { args: { mission: { ...SETTLER, reward: { cobbles: 20, claimed: false, claiming: true } } } };
+/** Claimed: the check. */
+export const Claimed: Story = { args: { mission: { ...SETTLER, state: "done", reward: { cobbles: 20, claimed: true } } } };
+/** No wallet to sign yet: the gift lit and still (the page's notice asks to connect). */
+export const ReadOnly: Story = { args: { mission: SETTLER, canClaim: false } };
+/** An achievement not done: its gift silvered, its tooltip saying what it holds. */
+export const AchievementToDo: Story = {
+  args: { mission: { ...SETTLER, key: "achievement:7", title: "Pilgrimage", description: "Score a wonder.", icon: "landmark-dome", state: "none", progress: [{ unit: "wonders scored", count: 0, total: 1 }], reward: { cobbles: 30, claimed: false } } },
+};
+/** A Tutorial step open: its gift silvered until the step is done. */
+export const TutorialOpen: Story = { args: { mission: BUILDER } };
+/** A Tutorial step locked: the lock. */
+export const TutorialLocked: Story = {
+  args: { mission: { ...BUILDER, key: "tutorial:5", title: "Treasure", description: "Open a chest.", icon: "treasure-chest", state: "locked", progress: [{ unit: "chests opened", count: 0, total: 1 }], tutorial: { step: 5 } } },
 };
 
-// The card's fixed height (#975): the title on one line, two lines of description kept whatever its length, an ellipsis and
-// "more" beyond them. Each state at 320 and 375 px.
-
-const SHORT: Mission = { ...DAILY_RUN, state: "progress", progress: [{ unit: "Challenge games finished", count: 0, total: 1 }], completedAt: null };
-const CUT: Mission = { ...PUBLIC_WORKS, key: "quest:cut", description: LONG_SENTENCE };
-const NONE: Mission = { ...PUBLIC_WORKS, key: "quest:99", title: "Mission #99", description: "", icon: "scroll" };
-
-const unfold: Story["play"] = async ({ canvasElement }) => {
-  const more = within(canvasElement).getByRole("button", { name: "more" });
-  await userEvent.click(more);
-  await expect(within(canvasElement).getByRole("button", { name: "less" })).toHaveAttribute("aria-expanded", "true");
-};
-
-/** A one-line description: the second line's room is kept, the card keeps its height. */
-export const ShortDescription320: Story = { ...PHONE_320, args: { mission: SHORT } };
-export const ShortDescription375: Story = { ...PHONE_375, args: { mission: SHORT } };
-/** A description over two lines: an ellipsis on the second, and "more" after it. */
-export const CutDescription320: Story = { ...PHONE_320, args: { mission: CUT } };
-export const CutDescription375: Story = { ...PHONE_375, args: { mission: CUT } };
-/** The same, unfolded by "more": the card grows, "less" folds it back. */
-export const Unfolded320: Story = { ...PHONE_320, args: { mission: CUT }, play: unfold };
-export const Unfolded375: Story = { ...PHONE_375, args: { mission: CUT }, play: unfold };
-/** A mission the text list does not know: no description, its two lines' room kept. */
-export const NoDescription320: Story = { ...PHONE_320, args: { mission: NONE } };
-export const NoDescription375: Story = { ...PHONE_375, args: { mission: NONE } };
-/** WRAP360's stress text: a long title ends in an ellipsis, a long word breaks within the two lines. */
-export const Stress: Story = { args: { mission: { ...CUT, title: LONG_LABEL, description: `${LONG_WORD} ${LONG_SENTENCE}`, reward: { cobbles: 9_999, claimed: false } } } };
+/** The text at 320 and 375 px: the title, the task and the counter take the card's width beside the medallion. */
+export const Claim320: Story = { ...PHONE_320, args: { mission: SETTLER } };
+export const InProgress320: Story = { ...PHONE_320 };
+/** WRAP360's stress text: a long title and a long task each end in an ellipsis on their one line, the card keeps its height. */
+const STRESS: Mission = { ...SETTLER, title: LONG_LABEL, description: `${LONG_WORD} ${LONG_SENTENCE}`, reward: { cobbles: 9_999, claimed: false } };
+export const Stress320: Story = { ...PHONE_320, args: { mission: STRESS } };
+export const Stress375: Story = { ...PHONE_375, args: { mission: STRESS } };

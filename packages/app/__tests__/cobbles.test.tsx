@@ -337,25 +337,16 @@ describe("Missions: Cobbles only (#832)", () => {
   const card = () => within(screen.getByRole("region", { name: "Selected mission" }));
   const select = (name: RegExp) => userEvent.click(screen.getByRole("button", { name }));
 
-  it("shows no Cobbles under a daily or a weekly (#869, #976), and the weekly's card says the week pays at its milestones", async () => {
+  it("shows no Cobbles under a daily or a weekly (#869, #976), and their card has no claim of its own (MISSIONS-PAGE)", async () => {
     render(wrap(<MissionsScene {...MISSIONS.weekThree} />));
     for (const name of [/^Strong Day/, /^Weekly Forester/, /^Weekly Raider/, /^Weekly Stars/]) {
       expect(within(screen.getByRole("button", { name })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
     }
-    // A mission not done: its card has no Claim, a short line instead.
-    await select(/^Strong Day/);
-    expect(card().queryByRole("button")).not.toBeInTheDocument();
-    expect(card().getByText(/Play today: it resets/)).toBeInTheDocument();
-    // A daily done: nothing to claim on its own.
-    await select(/^Daily Run/);
-    expect(card().queryByRole("button")).not.toBeInTheDocument();
-    // A weekly done: nothing to claim from its card, the week's milestones pay.
-    await select(/^Weekly Forester/);
-    expect(card().queryByRole("button")).not.toBeInTheDocument();
-    expect(card().getByText("Paid at the week's milestones")).toBeInTheDocument();
-    // A weekly not done yet: the same, in its short line.
-    await select(/^Weekly Raider/);
-    expect(card().getByText("It counts toward the week's milestones.")).toBeInTheDocument();
+    // A daily, done or not, and a weekly done: no button on the card, their row's gifts pay.
+    for (const name of [/^Strong Day/, /^Daily Run/, /^Weekly Forester/, /^Weekly Raider/]) {
+      await select(name);
+      expect(card().queryByRole("button")).not.toBeInTheDocument();
+    }
     // No week's bonus tile any more (#976).
     expect(screen.queryByRole("button", { name: /bonus/ })).not.toBeInTheDocument();
   });
@@ -367,7 +358,7 @@ describe("Missions: Cobbles only (#832)", () => {
     await userEvent.click(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" }));
     expect(onClaimAchievement).toHaveBeenCalledWith(3);
     await select(/^First Stone/);
-    expect(card().getByText("Cobbles claimed")).toBeInTheDocument();
+    expect(card().getByRole("button", { name: "Claimed: First Stone" })).toHaveAttribute("aria-disabled", "true");
     expect(within(screen.getByRole("button", { name: /^On the Podium/ })).queryByRole("img", { name: /Cobbles/ })).not.toBeInTheDocument();
   });
 
@@ -375,7 +366,7 @@ describe("Missions: Cobbles only (#832)", () => {
     render(wrap(<MissionsScene {...MISSIONS.claiming} />));
     expect(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" })).toHaveAttribute("aria-busy", "true");
     await select(/^Grand Builder:/);
-    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Grand Builder" })).toBeDisabled();
+    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Grand Builder" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("has nothing left to claim when all are claimed, the day's and the week's gifts too (#869, #976)", () => {
@@ -386,10 +377,11 @@ describe("Missions: Cobbles only (#832)", () => {
     expect(screen.getAllByRole("img", { name: /Cobbles claimed: \d (dailies|weeklies) done/ })).toHaveLength(4);
   });
 
-  it("read only: the card says Connect to claim", () => {
+  it("read only: the page asks to connect, the card's claim not open", async () => {
     render(wrap(<MissionsScene {...MISSIONS.readOnly} />));
-    expect(card().getByText("Connect to claim")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Connect to claim")).toBeInTheDocument();
+    await select(/^Settler II:/);
+    expect(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("without the ledger: the missions without Cobbles, and why", () => {

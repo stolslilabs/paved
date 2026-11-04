@@ -7,8 +7,8 @@ import { MilestonesBar } from "./milestones-bar";
 /**
  * A period's milestones of the Missions page as a graph, the day's (#869, reworked 2026-10-29) and the week's (#976, `Week*`
  * stories): six nodes, an edge per quest done between two, five in all. The week's gifts (+50 and +100) are the day's size (the
- * owner's decision of 2026-11-01): their ribbon tells them apart, the river blue with a gold seam where the day's is red, in every
- * state (`DayAndWeek*` sets both bars side by side). The nodes at 3 (+10 Cobbles) and 5 (+15) carry a reward: a small gift, no figure on it, lit and shaking once reached;
+ * owner's decision of 2026-11-01) and, MISSIONS-PAGE, the Paved UX Book's same gift (`DayAndWeek*` sets both bars side by side).
+ * The nodes at 3 (+10 Cobbles) and 5 (+15) carry a reward: a small gift, no figure on it, lit and shaking once reached;
  * a tap claims it and, once the claim lands, the gift opens and its Cobbles rise out of it; claimed, it stays open with a check. The
  * others are plain and smaller. One story per state; the node's states (no reward, gift closed, gift opening, claimed) and all done
  * are also pinned at 375 and 1440 px. Claim plays the claims, their openings and their bursts. The `Tip*` stories hold a gift's
@@ -69,9 +69,9 @@ export const ClaimedWide: Story = { ...Claimed, ...WIDE_1440 };
 /** All done, at 1440 px. */
 export const AllDoneWide: Story = { ...AllDone, ...WIDE_1440 };
 
-/** The week (#976): no weekly done, both gifts (+50 at 3 done, +100 at 5) ahead, greyed, the day's size, their ribbon's seam kept. */
+/** The week (#976): no weekly done, both gifts (+50 at 3 done, +100 at 5) ahead, silvered, the day's size. */
 export const WeekNone: Story = { args: { period: "weekly" } };
-/** The week: three weeklies done, the first gift lit and shaking (its blue and gold ribbon), its 50 Cobbles to claim with a tap on it. */
+/** The week: three weeklies done, the first gift lit and shaking, its 50 Cobbles to claim with a tap on it. */
 export const WeekThree: Story = { args: { period: "weekly", done: 3 } };
 /** The week: the first gift's claim on its way, shaking fast. */
 export const WeekClaiming: Story = { args: { period: "weekly", done: 3, claiming: 0 } };
@@ -85,7 +85,7 @@ export const WeekClaimed: Story = { args: { period: "weekly", done: 5, claimed: 
 export const WeekOpening: Story = { args: { period: "weekly", done: 5, claimed: 0b11, revealing: 1 } };
 /** The week: both gifts open. */
 export const WeekAllDone: Story = { args: { period: "weekly", done: 5, claimed: 0b11 } };
-/** The week's gift opening under reduced motion: open at once, nothing shakes or flies, the same size and ribbon. */
+/** The week's gift opening under reduced motion: open at once, nothing shakes or flies, the same size. */
 export const WeekReducedMotion: Story = { ...WeekOpening, name: "Week, reduced motion on", parameters: { reducedMotion: "always" } };
 /** The week's none done, at 320 px. */
 export const WeekNoneSmall: Story = { ...WeekNone, ...PHONE_320 };
@@ -115,8 +115,8 @@ export const WeekClaimedWide: Story = { ...WeekClaimed, ...WIDE_1440 };
 export const WeekOpeningWide: Story = { ...WeekOpening, ...WIDE_1440 };
 
 /**
- * The day's bar above the week's, in the same state (the owner's decision of 2026-11-01): the gifts the same size on both, the week's
- * told apart by their ribbon, blue with a gold seam, where the day's is red. Both bars take the story's `done` and `claimed`.
+ * The day's bar above the week's, in the same state (the owner's decision of 2026-11-01): the gifts the same size on both, the book's
+ * one gift (MISSIONS-PAGE). Both bars take the story's `done` and `claimed`.
  */
 export const DayAndWeek: Story = {
   args: { done: 3, claimed: 0 },
@@ -129,7 +129,7 @@ export const DayAndWeek: Story = {
 };
 /** Both bars, five done, the first gift of each claimed, the second to claim. */
 export const DayAndWeekClaimed: Story = { ...DayAndWeek, args: { done: 5, claimed: 0b01 } };
-/** Both bars, none done: the gifts greyed, the week's seam still tells them apart. */
+/** Both bars, none done: the gifts silvered. */
 export const DayAndWeekNone: Story = { ...DayAndWeek, args: { done: 0, claimed: 0 } };
 /** Both bars, at 320 px. */
 export const DayAndWeekSmall: Story = { ...DayAndWeek, ...PHONE_320 };

@@ -23,5 +23,7 @@ export const Claimable: Story = { args: { title: "Daily Run", icon: "flag-checke
 export const Done: Story = { args: { title: "Daily Run", icon: "flag-checkered", state: "done" } };
 /** A limited mission not started. */
 export const ToDo: Story = { args: { state: "none" } };
-/** A lifetime mission with nothing counted. */
-export const Locked: Story = { args: { title: "Pilgrimage", icon: "landmark-dome", state: "locked" } };
+/** A Tutorial step the one before has not opened yet: its picture greyed, a lock at its foot. */
+export const Locked: Story = { args: { title: "Treasure", icon: "treasure-chest", state: "locked", step: 5 } };
+/** An achievement with nothing counted: to do, never locked. */
+export const AchievementToDo: Story = { args: { title: "Pilgrimage", icon: "landmark-dome", state: "none" } };

@@ -53,7 +53,9 @@ export function PageHeader({ title, onBack, balances = true, end, document = fal
           </Button>
         )}
         {/* Cut sideways only (`overflow-x: clip`): the display font's glyphs stand taller than its line. The mark on the title's line, after it (#622). */}
-        <span data-slot="page-title" title={title} className={cn("min-w-0 flex-1 overflow-x-clip text-ellipsis whitespace-nowrap", !(back && !panel?.top) && "pl-2")}>
+        {/* After Back, about 12 px from its chevron (the owner's ask of 2026-11-04, the HUD drawer's too): the glyph sits in the middle of its
+            44 px target, so the title comes back over the row's gap. */}
+        <span data-slot="page-title" title={title} className={cn("min-w-0 flex-1 overflow-x-clip text-ellipsis whitespace-nowrap", back && !panel?.top ? "-ml-3" : "pl-2")}>
           <h1 className="inline font-display text-3xl font-semibold tracking-wide">{title}</h1>
           <MockMarkSlot className="ml-2 align-[0.375rem]" />
         </span>

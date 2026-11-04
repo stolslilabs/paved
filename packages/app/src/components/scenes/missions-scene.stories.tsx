@@ -1,18 +1,23 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MISSIONS } from "../../mocks/scenes";
+import { withCobbles } from "../../stories/with-cobbles";
 import { MissionsScene } from "./missions-scene";
 
 /**
- * Missions (`/missions`, #832): one page, today only. The selected mission's card at the top, then the Limited icons (a Daily and
- * a Weekly row, each with its reset's countdown and its period's milestones graph above its icons: an edge per quest done and a
- * gift node per reward, the day's #869, the week's #976, the same size, their ribbon blue with a gold seam), then the Lifetime icons. A tap on an icon updates the card.
+ * Missions (`/missions`, #832; MISSIONS-PAGE, the Paved UX Book's): one page, today only, the HUD's drawer (a full page with Back
+ * on a phone, a side panel at the right from `tablet`). The selected mission's card at the top, then the medallions: the Tutorial,
+ * the Daily and the Weekly (each with its reset's countdown and its period's milestones graph above its medallions: an edge per
+ * quest done and a gift per reward, the day's #869, the week's #976, the same gift), then the Achievements (the lifetime missions). A tap on a medallion
+ * updates the card.
  * Cobbles are the only reward. One story per state; the viewport is the toolbar's (VP).
  */
 const meta = {
   title: "Scenes/Missions",
   component: MissionsScene,
-  args: { onClaimTutorial: fn(), onGo: fn(), onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn() },
+  args: { onClaimTutorial: fn(), onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn() },
+  // The Cobbles at the header's top right, where a claim's stones fly.
+  decorators: [withCobbles],
 } satisfies Meta<typeof MissionsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -116,7 +121,7 @@ export const TutorialLastToClaim: Story = { args: MISSIONS.tutorialLastToClaim }
 /** Every step claimed: the Tutorial's section is gone (#977 open point 5). */
 export const TutorialAllClaimed: Story = { args: MISSIONS.tutorialAllClaimed };
 
-/** Nothing counted yet: the limited missions to do, the lifetime ones locked. */
+/** Nothing counted yet: every mission to do, the achievements too (never locked). */
 export const NewPlayer: Story = { args: MISSIONS.newPlayer };
 
 /** Four minutes before 00:00 UTC: the Daily countdown is amber. */

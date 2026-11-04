@@ -3,8 +3,9 @@ import { fn } from "storybook/test";
 import { HudDrawer } from "./hud-drawer";
 
 /**
- * The HUD's drawer (PROFILE-DRAWER): a full page with Back on a phone, a side panel docked at the left from `tablet` (the Viewport
- * control), one layout; its body leaves the dock room at its end. The profile is its first content (`Containers/ProfileSheet`).
+ * The HUD's drawer (PROFILE-DRAWER): a full page with Back on a phone, a side panel docked at its edge from `tablet` (the Viewport
+ * control), one layout; its body leaves the dock room at its end. The profile is its first content (`Containers/ProfileSheet`),
+ * docked at the left; Missions docks at the right, the Cobbles at its header's end (MISSIONS-PAGE, `Scenes/Missions`).
  */
 const meta = {
   title: "Containers/HudDrawer",
@@ -33,5 +34,17 @@ export const Tall: Story = {
         Row {i + 1}
       </p>
     )),
+  },
+};
+
+/**
+ * Docked at the right (MISSIONS-PAGE), what the page shows at the header's end (`end`): from `tablet` the close on its inner edge,
+ * at the left, the end at the right; on a phone Back at the left, the end at the right.
+ */
+export const RightWithEnd: Story = {
+  args: {
+    title: "Missions",
+    side: "right",
+    end: <span className="drawer-carved rounded-full px-3 py-1 text-sm font-bold tabular-nums">640</span>,
   },
 };

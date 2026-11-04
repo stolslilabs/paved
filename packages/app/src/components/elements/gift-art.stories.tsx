@@ -3,9 +3,9 @@ import { GiftArt } from "./gift-art";
 
 /**
  * The gift of the milestones (#869, the owner's decision of 2026-10-29): what a reward node shows instead of its figure. One
- * story per state, drawn at 60 px here (the graph draws it at 18 px); `Opening` plays the opening, `OpeningHeld` holds its last frame.
- * The `Week*` ones are the week's gift (#976, `variant: "week"`): the same drawing and size, its ribbon the river blue with a gold
- * seam down each band (the owner's decision of 2026-11-01: colour or style, never size).
+ * story per state, drawn at 60 px here (the graph draws it at 30 px); `Opening` plays the opening, `OpeningHeld` holds its last frame.
+ * MISSIONS-PAGE: the Paved UX Book's red gift with its gold ribbon, silvered out of reach. The `Week*` ones are the week's gift
+ * (#976, `variant: "week"`): the book's same gift, the same size (the owner's decision of 2026-11-01: never size).
  */
 const meta = {
   title: "Elements/GiftArt",
@@ -16,7 +16,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Out of reach: greyed. */
+/** Out of reach: silvered. */
 export const Locked: Story = { args: { state: "locked" } };
 /** Reached, no claim now (no wallet to sign, another claim on its way): lit, still. */
 export const Lit: Story = { args: { state: "lit" } };
@@ -24,14 +24,14 @@ export const Lit: Story = { args: { state: "lit" } };
 export const Ready: Story = { args: { state: "ready" } };
 /** Its claim on its way: shaking fast. */
 export const Shaking: Story = { args: { state: "shaking" } };
-/** The claim landed: the box jumps, the lid pops off, the light bursts out. */
+/** The claim landed: the box jumps, the light bursts out. */
 export const Opening: Story = { args: { state: "opening" } };
 /** The opening's last frame, held. */
 export const OpeningHeld: Story = { args: { state: "opening", held: true } };
-/** Opened: the lid tilted off the box, its light inside. */
+/** Opened: the box dimmed, its light inside. */
 export const Open: Story = { args: { state: "open" } };
 
-/** The week's gift, out of reach: greyed, its seam kept. */
+/** The week's gift, out of reach: silvered. */
 export const WeekLocked: Story = { args: { state: "locked", variant: "week" } };
 /** The week's gift, reached, no claim now. */
 export const WeekLit: Story = { args: { state: "lit", variant: "week" } };
@@ -43,7 +43,7 @@ export const WeekShaking: Story = { args: { state: "shaking", variant: "week" } 
 export const WeekOpeningHeld: Story = { args: { state: "opening", held: true, variant: "week" } };
 /** The week's gift, opened. */
 export const WeekOpen: Story = { args: { state: "open", variant: "week" } };
-/** The day's gift beside the week's, ready: the same size, the ribbon apart. */
+/** The day's gift beside the week's, ready: the same gift, the same size. */
 export const DayAndWeek: Story = {
   render: (args) => (
     <div className="flex gap-8">

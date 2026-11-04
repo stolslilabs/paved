@@ -4,7 +4,9 @@
  *   node scripts/compress-ui-art.ts [--check]
  *
  * Reads `ui-sources/icons/<name>.webp` (`UI_ICONS`, each on `ICON_FRAME`) and `ui-sources/frames/<name>.webp` (`FRAME_ART`), in
- * `src/components/elements/ui-art.ts`, transparent lossless WebP left untouched and never shipped (not in `public/`), and writes
+ * `src/components/elements/ui-art.ts`, `ui-sources/medallions/<name>.webp` (`UI_MEDALLIONS` and `UI_RINGS`, on `MEDALLION_FRAME`, in
+ * `medallion-art.ts`) and `ui-sources/missions/<name>.webp` (`MISSION_PARTS`, there too), transparent lossless WebP left untouched
+ * and never shipped (not in `public/`), and writes
  * `public/ui-art/icons/<size>/<name>.webp` and `public/ui-art/frames/<size>/<name>.webp` for each size. Each run removes the copies
  * of an earlier one. `--check` encodes nothing and fails when a master is missing, extra or not of its frame, or a copy is missing,
  * extra, not a WebP, or not of its size: the bytes depend on the encoder's build, which nothing in the repository pins, so they are
@@ -36,6 +38,15 @@
  * parchment beside it, the divider kept alone, the medallion's face toned to the mockup's by a fitted gradient). Stored as lossless
  * WebP (`cwebp -lossless -z 9 -exact`).
  *
+ * MISSIONS-PAGE (2026-11-04): the missions' medallion paintings, after the owner's ask (the book's images, not the HUD's icons):
+ * fourteen faces cropped from the Paved UX Book's Missions screens, each redrawn by Codex at 1024 px without its ring or its badge
+ * (the book's locked ones in colour), nine more painted by Codex in their rendering for the missions the book does not draw; each
+ * checked side by side with its crop of the book (the helmet, its ground not the book's, and the road, the handshake and the tower,
+ * drawn by no mission, were left out); cut to their disc, transparent outside it, on a 256 px square. Then the book's painted pieces
+ * (the owner's choice among a CSS rendering and these): the rings (silver, gold, green; their hole the painting's 78%), the
+ * milestones' rail (its steel and its gold) and nodes (the orb, the bead), the waiting gift's halo and the done badge's green check,
+ * each extracted alone from the book's Missions screens by Codex, checked side by side with them, trimmed to its opaque box.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.
@@ -45,17 +56,20 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs"
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, copySize } from "../src/components/elements/ui-art.ts";
+import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS } from "../src/components/elements/medallion-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
-/** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat. */
-const QUALITY = { icons: 82, frames: 80 } as const;
+/** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat, the medallions are paintings. */
+const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),
   ...UI_FRAMES.map((name) => ({ kind: "frames" as const, name, frame: FRAME_ART[name] })),
+  ...[...UI_MEDALLIONS, ...UI_RINGS].map((name) => ({ kind: "medallions" as const, name, frame: MEDALLION_FRAME })),
+  ...UI_MISSION_PARTS.map((name) => ({ kind: "missions" as const, name, frame: MISSION_PARTS[name] })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */
@@ -107,7 +121,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`public/ui-art/ holds the ${expected().length} copies, each a WebP of its size.`);
   } else {
     rmSync(OUT, { recursive: true, force: true });
-    for (const kind of ["icons", "frames"] as const) {
+    for (const kind of ["icons", "frames", "medallions", "missions"] as const) {
       let before = 0;
       const after = new Map<number, number>();
       const images = IMAGES.filter((i) => i.kind === kind);

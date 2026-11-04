@@ -72,16 +72,18 @@ const PROFILE_VALUE = {
   onOpenInvite: fn(),
 } satisfies ProfileValue;
 
-/** The shell's providers (the avatar, the balances), the home and, open over it, the panel. */
+/** The shell's providers (the avatar, the balances), the home and, open over it, the panel (`title`), or a drawer's page (none). */
 function HomeWith({ args, title, top = true, side, children }: { args: HomeVillageSceneProps; title?: string; top?: boolean; side?: "left"; children?: ReactNode }) {
   return (
     <ProfileProvider value={PROFILE_VALUE}>
       <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 }, faucet: false }}>
         <HomeVillageScene {...args} />
-        {title && (
+        {title ? (
           <PagePanel open title={title} top={top} side={side} onClose={fn()}>
             {children}
           </PagePanel>
+        ) : (
+          children
         )}
       </BalancesProvider>
     </ProfileProvider>
@@ -96,8 +98,14 @@ const panel = (title: string, page: ReactNode, options: { top?: boolean; side?: 
   ),
 });
 
-/** Missions (#832): the selected mission's card, the Limited and the Lifetime icons, the Cobbles they earn in the header. */
-export const Missions: Story = panel("Missions", <MissionsScene {...MISSIONS.daily} onClaimQuest={fn()} onClaimAchievement={fn()} />);
+/** Missions' drawer over the home (MISSIONS-PAGE): the HUD's drawer, as the profile's, at every width. */
+const missions = () => <MissionsScene {...MISSIONS.daily} onBack={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />;
+
+/**
+ * Missions (#832; MISSIONS-PAGE, the Paved UX Book's): the HUD's drawer docked at the right, under the right column's Missions: the
+ * selected mission's card, the Tutorial, Daily, Weekly and Achievements medallions, the Cobbles they earn at the header's end.
+ */
+export const Missions: Story = { render: (args) => <HomeWith args={args}>{missions()}</HomeWith> };
 /** The Chests: the slots, the chest to open, the Cobbles. */
 export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The day's tile shop, the Cobbles in the header. */
@@ -190,18 +198,23 @@ export const DockUnderProfileTablet768: Story = {
   },
 };
 
-/** At 1024 px the dock runs under the right panel's foot: the panel covers it, the veil blurs the rest of it. */
-export const DockUnderPanelDesktop1024: Story = {
-  ...panel("Missions", <MissionsScene {...MISSIONS.daily} onClaimQuest={fn()} onClaimAchievement={fn()} />),
+/** At 1024 px the dock runs under Missions' side panel's foot (DOCK-UNDER-PAGES): the panel covers it, the veil blurs the rest of it. */
+export const DockUnderMissionsDesktop1024: Story = {
+  render: (args) => <HomeWith args={args}>{missions()}</HomeWith>,
   globals: { viewport: { value: "desktop", isRotated: false } },
   play: async ({ canvasElement }) => {
-    await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Missions" });
+    const page = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Missions" });
+    expect(within(page).getByRole("button", { name: "Close" })).toBeInTheDocument();
     await expectDockUnder(canvasElement);
   },
 };
 
-/** Below `desktop` the same page is a full page, not a panel, and carries no dock (DOCK-UNDER-PAGES): Missions at 375 px, for comparison. */
+/** On a phone, Missions is a full page with Back over the home (MISSIONS-PAGE, the profile's pattern), covering the dock. */
 export const MissionsPhone: Story = {
   ...PHONE_375,
-  render: () => <MissionsScene {...MISSIONS.daily} onClaimQuest={fn()} onClaimAchievement={fn()} />,
+  render: (args) => <HomeWith args={args}>{missions()}</HomeWith>,
+  play: async ({ canvasElement }) => {
+    const page = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Missions" });
+    expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
+  },
 };

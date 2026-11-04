@@ -30,7 +30,7 @@ export function CompletionReward({ entry }: { entry: Pick<CompletionToast, "desc
 }
 
 /** A completion's title by kind: a Tutorial step's (#977) is said as a step done. */
-const COMPLETED: Record<CompletionKind, string> = { quest: "Mission completed", achievement: "Lifetime mission earned", tutorial: "Tutorial step done" };
+const COMPLETED: Record<CompletionKind, string> = { quest: "Mission completed", achievement: "Achievement earned", tutorial: "Tutorial step done" };
 
 /** A completion's toast: at the top, clear of the board's hand and the pages' bottom bar, once per key (Sonner's `id`). */
 export function toastCompletion(kind: CompletionKind, key: string, entry: CompletionToast) {
