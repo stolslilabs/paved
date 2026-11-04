@@ -95,7 +95,8 @@ export function ChatTab({ badge = 0, onClick }: { badge?: number; onClick?: () =
         <UiIcon name="chat" px={32} className="size-8" />
         <span className="text-outline text-xs leading-none font-black">Chat</span>
       </span>
-      <Badge count={badge} style={{ top: -6, right: -6 }} />
+      {/* Inside the tab, as on the tiles: nothing of its text leaves the button (the wrap sweep's rule). */}
+      <Badge count={badge} style={{ top: 2, right: 2 }} />
     </m.button>
   );
 }
@@ -150,6 +151,8 @@ export function MissionTab({ mission, onClick }: { mission: MissionProgress; onC
       onClick={onClick}
       whileTap={{ scale: 0.96 }}
       aria-label={`${mission.title}, ${formatPoints(mission.done)} of ${formatPoints(mission.total)}`}
+      // The task cut with an ellipsis on a narrow phone: its whole text on hover (the wrap sweep's rule for an ellipsis).
+      title={mission.task || undefined}
       data-slot="mission-tab"
       className="relative isolate flex max-w-full shrink-0 cursor-pointer items-center gap-2 py-1 pr-3 pl-1 text-left outline-none"
       style={{ width: "min(18rem, 100vw - 5.5rem)" }}
