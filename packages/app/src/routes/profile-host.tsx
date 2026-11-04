@@ -39,17 +39,15 @@ export function ProfileHost({ children }: { children: ReactNode }) {
     };
   }, [wallet.status, wallet.username, address, status.data]);
   const onConnect = useCallback(() => void wallet.connect(), [wallet]);
-  const onDisconnect = useCallback(() => wallet.disconnect(), [wallet]);
   const shown = progress.isPending ? undefined : (progress.data ?? undefined);
   const onEditAvatar = useCallback(() => go("/avatar"), [go]);
   const onOpenLeague = useCallback(() => go("/pvp/league"), [go]);
-  const onOpenGuild = useCallback((id: number) => go(`/guild?guild=${id}`, { state: { guildSheet: true } }), [go]);
   // The profile's Collection and Invite (PROFILE-DRAWER): the player's tiles and the referral, Settings' sheets.
   const onOpenCollection = useCallback(() => go("/settings/tiles"), [go]);
   const onOpenInvite = useCallback(() => go("/referral"), [go]);
   const value = useMemo(
-    () => ({ state, progress: shown, look, onConnect, onDisconnect, onCopy: copy, onEditAvatar, onOpenLeague, onOpenCollection, onOpenInvite, onOpenGuild }),
-    [state, shown, look, onConnect, onDisconnect, onEditAvatar, onOpenLeague, onOpenCollection, onOpenInvite, onOpenGuild],
+    () => ({ state, progress: shown, look, onConnect, onCopy: copy, onEditAvatar, onOpenLeague, onOpenCollection, onOpenInvite }),
+    [state, shown, look, onConnect, onEditAvatar, onOpenLeague, onOpenCollection, onOpenInvite],
   );
   return <ProfileProvider value={value}>{children}</ProfileProvider>;
 }

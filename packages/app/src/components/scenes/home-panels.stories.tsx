@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PVP_LEAGUE } from "../../mocks/pvp";
-import { COBBLES, MISSIONS, PLAY, PLAYER_STATUS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
+import { COBBLES, HALL_OF_FAME, MISSIONS, PLAY, PLAYER_STATUS, RECORDS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { HOME_VILLAGE, VILLAGE_CHESTS, VILLAGE_SHOP } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
+import { DOCK_REACH_PX } from "../elements/dock-room";
 import PagePanel from "../containers/page-panel";
 import PageSheet from "../containers/page-sheet";
-import { ProfileProvider } from "../containers/profile-context";
+import { ProfileProvider, type ProfileValue } from "../containers/profile-context";
 import { CobblesScene } from "./cobbles-scene";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { PlayScene } from "./play-scene";
@@ -20,7 +21,7 @@ import { ThemeScene } from "./theme-scene";
 import { VaultScene } from "./vault-scene";
 import { VillageChestsScene } from "./village-chests-scene";
 import { VillageShopScene } from "./village-shop-scene";
-import { PHONE_375, WIDE_1440 } from "./viewports";
+import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
 
 const tileArt = originalTileArt(SOURCE_ASSETS);
@@ -31,6 +32,7 @@ const tileArt = originalTileArt(SOURCE_ASSETS);
  * overlay at 1440 px (the Viewport toolbar can switch it; below `desktop` the app draws these pages full screen instead); the
  * home's Cobbles in every panel's header (ONE-HEADER, #781). No page opens another (BACK-RULE, #783): the defence log is a
  * section of the League, and the themes are a sheet over Settings' panel. The profile opens on the left. The village is the plan view (the `Scene` stories of `Scenes/Home` have the 3D).
+ * The dock stays over every page (the owner's ask of 2026-11-04), which leaves it room at its end: the `Dock` stories check both.
  */
 const meta = {
   title: "Scenes/Home/Panels",
@@ -54,10 +56,27 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** The shell's profile, its whole page (PROFILE-PAGE): the league, the follows, the actions, the Hall of Fame and the Stats. */
+const PROFILE_VALUE = {
+  state: { status: "connected", data: PLAYER_STATUS },
+  progress: PROGRESS.partWay,
+  league: { crowns: 1_240, league: 5, unranked: false },
+  follows: { followers: 12, followed: 9 },
+  hallOfFame: HALL_OF_FAME,
+  records: RECORDS,
+  onConnect: fn(),
+  onCopy: fn(async () => {}),
+  onEditName: fn(),
+  onEditAvatar: fn(),
+  onOpenLeague: fn(),
+  onOpenCollection: fn(),
+  onOpenInvite: fn(),
+} satisfies ProfileValue;
+
 /** The shell's providers (the avatar, the balances), the home and, open over it, the panel. */
 function HomeWith({ args, title, top = true, side, children }: { args: HomeVillageSceneProps; title?: string; top?: boolean; side?: "left"; children?: ReactNode }) {
   return (
-    <ProfileProvider value={{ state: { status: "connected", data: PLAYER_STATUS }, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
+    <ProfileProvider value={PROFILE_VALUE}>
       <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 }, faucet: false }}>
         <HomeVillageScene {...args} />
         {title && (
@@ -108,11 +127,80 @@ export const Play: Story = panel("Play", <PlayScene {...PLAY.connected} onBack={
 /** The Cobble packs, from the balances. */
 export const Cobbles: Story = panel("Cobbles", <CobblesScene {...COBBLES.packs} onBack={fn()} onSelectPack={fn()} onBuyPack={fn()} />);
 
-/** The profile, from the avatar: its sheet on the left, as before (#624). */
+/**
+ * The dock over the open page, live: what the screen shows over the dock's band and over the PLAY medallion is the dock. Then the
+ * page's body scrolled to its end: its last line (`last`) a gap above the dock's reach.
+ */
+async function expectDockOver(scroller: HTMLElement, last: HTMLElement) {
+  const doc = scroller.ownerDocument;
+  // The dock's chunk may still be on its way.
+  await waitFor(() => {
+    const nav = doc.querySelector<HTMLElement>("[data-dock] nav");
+    expect(nav).not.toBeNull();
+    const band = nav!.getBoundingClientRect();
+    for (const [x, y] of [
+      [band.left + band.width * 0.12, band.bottom - 12],
+      [band.left + band.width * 0.88, band.bottom - 12],
+      [band.left + band.width / 2, band.top - 8],
+    ]) {
+      expect(doc.elementFromPoint(x, y)?.closest("[data-dock]")).not.toBeNull();
+    }
+  }, { timeout: 5000 });
+  scroller.scrollTop = scroller.scrollHeight;
+  await waitFor(() => expect(last.getBoundingClientRect().bottom).toBeLessThanOrEqual(doc.documentElement.clientHeight - DOCK_REACH_PX));
+}
+
+/** The profile's last section: the Stats' last structure type. */
+const lastSection = (page: HTMLElement) => [...page.querySelectorAll<HTMLElement>("[data-slot=profile-structure]")].at(-1)!;
+
+/** Opens the profile from the avatar and waits for its page in place (its slide over). */
+async function openProfile(canvasElement: HTMLElement) {
+  await userEvent.click(await within(canvasElement).findByRole("button", { name: /^Profile/ }));
+  const page = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Profile" });
+  await waitFor(() => expect(Math.round(page.getBoundingClientRect().left)).toBe(0), { timeout: 5000 });
+  return page;
+}
+
+/** The profile (PROFILE-DRAWER), from the avatar: its side panel on the left (#624), the dock over its foot. */
 export const Profile: Story = {
   render: (args) => <HomeWith args={args} />,
   play: async ({ canvasElement }) => {
-    await userEvent.click(await within(canvasElement).findByRole("button", { name: /^Profile/ }));
+    await openProfile(canvasElement);
+  },
+};
+
+/** On a phone, a full page with Back (the owner's asks of 2026-11-04); the dock stays over it, and its end scrolls clear of the dock. */
+export const DockOverProfilePhone320: Story = {
+  ...PHONE_320,
+  render: (args) => <HomeWith args={args} />,
+  play: async ({ canvasElement }) => {
+    const page = await openProfile(canvasElement);
+    expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(within(page).queryByRole("button", { name: "Close" })).toBeNull();
+    await expectDockOver(page.querySelector<HTMLElement>("[data-hud-drawer-body]")!, lastSection(page));
+  },
+};
+
+/** From `tablet` the side panel, under the dock's PLAY medallion at 768 px: its end scrolls clear of it too. */
+export const DockOverProfileTablet768: Story = {
+  ...TABLET_768,
+  render: (args) => <HomeWith args={args} />,
+  play: async ({ canvasElement }) => {
+    const page = await openProfile(canvasElement);
+    expect(within(page).getByRole("button", { name: "Close" })).toBeInTheDocument();
+    await expectDockOver(page.querySelector<HTMLElement>("[data-hud-drawer-body]")!, lastSection(page));
+  },
+};
+
+/** At 1024 px the dock runs under the right panel's foot: it stays over it, and Missions' end scrolls clear of it. */
+export const DockOverPanelDesktop1024: Story = {
+  ...panel("Missions", <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />),
+  globals: { viewport: { value: "desktop", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const panelEl = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Missions" });
+    const scroller = panelEl.querySelector<HTMLElement>("[data-slot=page-scroll]")!;
+    await waitFor(() => expect(scroller.querySelector("main")?.lastElementChild).not.toBeNull());
+    await expectDockOver(scroller, scroller.querySelector("main")!.lastElementChild as HTMLElement);
   },
 };
 

@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
+import { DOCK_CLEARANCE, keepForDock } from "../elements/dock-room";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import { PagePanelProvider } from "./page-panel-context";
 import { PageRegionProvider } from "./page-region";
@@ -20,6 +21,7 @@ export interface PageSheetProps {
  * place. A page reached from Settings (the themes, a theme, My tiles, the credits, the referral) is this sheet over it: the page
  * under it stays where it was. Its content is laid out as in the side panel (`PagePanelProvider`, `data-page-panel`: the phone's
  * layout), its header's Back closes it (`PagePanelValue.back`), and its body scrolls. The slide is the Sheet's (Motion, reduced under reduced motion).
+ * From `desktop`, over the side panel, the home's dock stays over it as over the panel (`PagePanel`): its body leaves the dock room.
  */
 export default function PageSheet({ open, title, side, onClose, children }: PageSheetProps) {
   // Its header's Back closes it (PAGES-SCROLL #782 left the panels without a close button).
@@ -32,6 +34,7 @@ export default function PageSheet({ open, title, side, onClose, children }: Page
         aria-describedby={undefined}
         data-page-panel=""
         data-page-sheet={side}
+        onInteractOutside={keepForDock}
         className={cn(
           "gap-0 bg-background p-0 text-foreground",
           side === "bottom" ? "max-h-[calc(100dvh-2rem)] pt-3 pb-[env(safe-area-inset-bottom)]" : "w-[28rem] max-w-full sm:max-w-none",
@@ -39,7 +42,7 @@ export default function PageSheet({ open, title, side, onClose, children }: Page
       >
         <SheetTitle className="sr-only">{title}</SheetTitle>
         <PagePanelProvider value={value}>
-          <div data-slot="page-scroll" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+          <div data-slot="page-scroll" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain" style={side === "right" ? { paddingBottom: DOCK_CLEARANCE } : undefined}>
             <PageRegionProvider value>{children}</PageRegionProvider>
           </div>
         </PagePanelProvider>

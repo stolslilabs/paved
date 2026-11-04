@@ -197,8 +197,8 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     await count("Following", 1);
     await act(() => router.navigate(`/friends?player=${me}`));
     const sheet = await screen.findByRole("dialog", undefined, T(8_000));
-    // Their own sheet (Disconnect, Edit avatar), not the public one.
-    expect(await within(sheet).findByRole("button", { name: "Disconnect" }, T(8_000))).toBeInTheDocument();
+    // Their own sheet (Edit avatar), not the public one.
+    expect(await within(sheet).findByRole("button", { name: "Edit avatar" }, T(8_000))).toBeInTheDocument();
     await waitFor(() => expect(within(sheet).getByText("Following").nextSibling).toHaveTextContent("1"), T(8_000));
     expect(within(sheet).getByText("Followers").nextSibling).toHaveTextContent("0");
   });

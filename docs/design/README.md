@@ -46,12 +46,20 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   Following in one band, four actions as tiles (Battle logs, Avatar, Collection, Invite) and Disconnect. Generated with OpenAI's image
   model through the Codex CLI; its four new icons were redrawn from crops of it (`packages/app/ui-sources/icons/`). The owner's
   pattern of 2026-11-02: a page is a side panel on a large screen and a full page with Back on a phone, the same layout in both; the
-  profile is the HUD's drawer (`containers/hud-drawer.tsx`, PROFILE-DRAWER): on a phone from the bottom, under the HUD, its frame
-  meeting the screen's sides; from `tablet` a side panel docked at the left, the window's height. The owner's changes of 2026-11-03:
+  profile is the HUD's drawer (`containers/hud-drawer.tsx`, PROFILE-DRAWER): since 2026-11-04 a full page with Back on a phone; from
+  `tablet` a side panel docked at the left, the window's height. The dock stays over every page, which leaves it room at its end. The owner's changes of 2026-11-03:
   the HUD's frame and the interface's greys in place of the mockup's blue, no Best, no XP line under the bar; of four side-panel
   directions drawn through the Codex CLI that day (a native sheet, frosted glass, game-native, a Material side sheet), the game-native
   one (a darker header band, outlined tiles lit along their top over a dark lip) with the native sheet's straight edge. The HUD's
-  frame itself is CSS since that day (HUD-FRAME-CSS, `elements/hud-frame.tsx`).
+  frame itself is CSS since that day (HUD-FRAME-CSS, `elements/hud-frame.tsx`). PROFILE-PAGE (2026-11-04), after rounds of
+  proposals drawn through the Codex CLI and approved by the owner: titled "Profile", titles in the display font, each section's
+  followed by an engraved rule; the presentation (the avatar in its rim, the name with a pencil, the address under it, a tap copies
+  it); Level; League (the crowns and the league, chips that wrap); Games and the follow counts; the four actions; the Hall of Fame
+  (each season's banner and crowns, four a row, the filter of the Stats); the Stats (Total, then a section per structure type: Total
+  points, Best points, Total closed; a figure from a million short, "1.2M"). One rule: what presses is raised, what informs is
+  carved. No Disconnect (Settings') and no guild line. Five icons drawn for it in the dock's rendering, the four structures on one
+  shared slab and the Stats alone (`packages/app/ui-sources/icons/`). The Hall of Fame and the Stats are the mock's until the
+  indexer sums them (`data/player-records.ts`).
 
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view

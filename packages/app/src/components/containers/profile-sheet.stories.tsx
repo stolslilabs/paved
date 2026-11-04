@@ -1,14 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { PROGRESS } from "../../mocks/players";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { NEW_PLAYER, NEW_PLAYER_PROFILE } from "../../mocks/new-player";
-import { PROFILE } from "../../mocks/scenes";
+import { HALL_OF_FAME, PROFILE, RECORDS } from "../../mocks/scenes";
 import { ProfileSheet } from "./profile-sheet";
 
 /**
- * What a tap on the player card opens (#624, PROFILE-DRAWER): the HUD's drawer, from the bottom on a phone up to the HUD's end (`top`,
- * here 250 px as on the home), a side panel docked at the left from `tablet` (the Viewport control).
+ * What a tap on the player card opens (#624, PROFILE-DRAWER; PROFILE-PAGE, 2026-11-04): the HUD's drawer, a full page with Back on a
+ * phone, a side panel docked at the left from `tablet` (the Viewport control). The Hall of Fame and the Stats have no source yet: the
+ * stories give them (`HALL_OF_FAME`, `RECORDS`).
  */
 const meta = {
   title: "Containers/ProfileSheet",
@@ -19,12 +20,13 @@ const meta = {
     progress: PROGRESS.partWay,
     league: { crowns: 1_172, league: 5, unranked: false },
     follows: { followers: 12, followed: 9 },
-    top: 250,
+    hallOfFame: HALL_OF_FAME,
+    records: RECORDS,
     onOpenChange: fn(),
     onConnect: fn(),
-    onDisconnect: fn(),
     onCopy: fn(async () => {}),
     onEditAvatar: fn(),
+    onEditName: fn(),
     onOpenLeague: fn(),
     onOpenCollection: fn(),
     onOpenInvite: fn(),
@@ -34,14 +36,32 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * The mockup's: the avatar in its league's rim and crest (Bronze II, #917), the name and the league's, the address with Copy, the
- * level (#625) and its bar (the XP left and in all, #830, for screen readers), the figures with the follow counts (#954), the four actions, Disconnect.
+ * The mockups': the avatar in its league's rim and crest (Bronze II, #917), the name and its pencil, the address (a tap copies it);
+ * the level (#625) and its bar (the XP left and in all, #830, for screen readers), the crowns and the league, the figures
+ * with the follow counts (#954), the four actions, the Hall of Fame (season 6 picked) and its Stats.
  */
 export const Connected: Story = {};
+/** A tap on the picked season lets go of it: the Stats show all time, the badge says so and has no cross. */
+export const AllTime: Story = {
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole("button", { name: /^Season 6:/ }));
+    await expect(page.getByText("All time")).toBeInTheDocument();
+    await expect(page.queryByRole("button", { name: "Show all time" })).toBeNull();
+  },
+};
+/** An earlier season picked from the Hall of Fame: its Stats, its badge with the cross back to all time. */
+export const EarlierSeason: Story = {
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole("button", { name: /^Season 4:/ }));
+    await expect(page.getByText("Season 4")).toBeInTheDocument();
+  },
+};
+/** Neither given and no app sources to read them from (the app reads the mock's, `playerRecords`): no Hall of Fame, no Stats. */
+export const NoHistory: Story = { args: { hallOfFame: undefined, records: undefined } };
 /** No league known (not read, no PvP on the network): a plain ring, no league's name. */
 export const NoLeague: Story = { args: { league: null } };
-/** With no HUD measured (another opener): the drawer's top stops under a page's header. */
-export const NoHud: Story = { args: { top: undefined } };
 /** Only Avatar offered: the other actions' callbacks left out. */
 export const OneAction: Story = { args: { onOpenLeague: undefined, onOpenCollection: undefined, onOpenInvite: undefined } };
 /** Before any crown and any attack: Unranked's crest. */

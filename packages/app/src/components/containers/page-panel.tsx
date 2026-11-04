@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { pageScrollHintRef } from "../../lib/page-scroll-hint";
+import { DOCK_CLEARANCE, keepForDock } from "../elements/dock-room";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import { PagePanelProvider } from "./page-panel-context";
 import { PageRegionProvider } from "./page-region";
@@ -27,6 +28,8 @@ export interface PagePanelProps {
  * the panel has no close button: Escape, or a click or a tap on the dimmed village outside it, closes it, and the focus goes
  * back to the overlay's button that opened it. Its title stays its accessible name. The slide is the Sheet's (Motion), still under reduced motion. Its own chunk: the home's first
  * load does not carry the dialog.
+ * The home's dock stays over it (`data-dock`, theme.css; the owner's ask of 2026-11-04): a tap on it opens its page here, not a close,
+ * and the body leaves it room at its end (`DOCK_CLEARANCE`), so the page's last line scrolls clear of it.
  */
 export default function PagePanel({ open, title, top = true, side = "right", onClose, children }: PagePanelProps) {
   const value = useMemo(() => ({ top }), [top]);
@@ -50,11 +53,12 @@ export default function PagePanel({ open, title, top = true, side = "right", onC
         aria-describedby={undefined}
         data-page-panel=""
         onCloseAutoFocus={refocus}
+        onInteractOutside={keepForDock}
         className="w-[28rem] max-w-full gap-0 bg-background p-0 text-foreground sm:max-w-none"
       >
         <SheetTitle className="sr-only">{title}</SheetTitle>
         <PagePanelProvider value={value}>
-          <div ref={pageScrollHintRef} data-slot="page-scroll" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+          <div ref={pageScrollHintRef} data-slot="page-scroll" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain" style={{ paddingBottom: DOCK_CLEARANCE }}>
             <PageRegionProvider value>{children}</PageRegionProvider>
           </div>
         </PagePanelProvider>

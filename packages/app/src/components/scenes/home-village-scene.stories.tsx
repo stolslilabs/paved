@@ -6,7 +6,7 @@ import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/tes
 import { useBoardSettings } from "../../data/board-settings";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { SAVED_LOOK } from "../../mocks/avatar";
-import { PLAYER_STATUS, PROFILE } from "../../mocks/scenes";
+import { HALL_OF_FAME, PLAYER_STATUS, PROFILE, RECORDS } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6 } from "../../mocks/stress";
 import { HOME_VILLAGE, INVENTORY_LONG, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_SLOTS } from "../../mocks/village-v2";
@@ -65,8 +65,11 @@ const meta = {
           progress: PROGRESS.partWay,
           league: { crowns: 1_172, league: 5, unranked: false },
           follows: { followers: 12, followed: 9 },
-          onDisconnect: fn(),
+          // The profile's Hall of Fame and Stats (PROFILE-PAGE): the app's mock, as its profile reads it.
+          hallOfFame: HALL_OF_FAME,
+          records: RECORDS,
           onCopy: fn(async () => {}),
+          onEditName: fn(),
           onEditAvatar: fn(),
           onOpenLeague: fn(),
           onOpenCollection: fn(),
@@ -104,7 +107,7 @@ export const ShortDesktop: Story = {
 };
 /** The longest username (WRAP360) in the profile: the name under the level's line truncates beside the balances, never under them. */
 const LONG_NAME = (Story: () => React.JSX.Element) => (
-  <ProfileProvider value={{ state: PROFILE.stress, progress: PROGRESS.partWay, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
+  <ProfileProvider value={{ state: PROFILE.stress, progress: PROGRESS.partWay, onConnect: fn(), onCopy: fn(async () => {}) }}>
     <Story />
   </ProfileProvider>
 );
@@ -717,15 +720,13 @@ export const ScenePressIntoEditPhone: Story = {
 };
 
 /**
- * PROFILE-DRAWER: a tap on the player card opens the profile drawer, which stops under the capsules (the HUD's end) on a phone and
- * from `tablet` is a side panel docked at the left under them (the Viewport control).
+ * PROFILE-DRAWER: a tap on the player card opens the profile, a full page with Back on a phone and from `tablet` a side panel docked at
+ * the left (the Viewport control), the dock over both.
  */
 export const ProfileOpen: Story = {
   args: { ...HOME_VILLAGE.view, ...DIAL },
   play: async ({ canvasElement }) => {
-    // The capsules in first (the League control's chunk): the HUD's end is read as the drawer opens.
-    await within(canvasElement).findByRole("button", { name: /^League: / });
     await userEvent.click(await within(canvasElement).findByRole("button", { name: /^Profile: / }));
-    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Your profile" })).toBeInTheDocument());
+    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Profile" })).toBeInTheDocument());
   },
 };

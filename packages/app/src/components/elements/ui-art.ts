@@ -1,7 +1,7 @@
 /**
  * The HUD's images (the owner's mobile direction of 2026-11-01, `docs/design/home.webp`, after Supercell's games): the icons of the
  * home's buttons, of the dock, of the seasons and of the Play sheet, the profile drawer's actions (Avatar, Collection, Invite,
- * Disconnect, after its mockup of 2026-11-02), and the frames the home draws with them: the XP bar's track and fill, and the dock's
+ * after its mockup of 2026-11-02), the four structures and the profile's totals (City, Road, Forest, Wonder, Stats; PROFILE-PAGE, 2026-11-04), and the frames the home draws with them: the XP bar's track and fill, and the dock's
  * wood, parchment, divider and PLAY medallion (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width, its
  * pieces cut from the mockup's footer decomposed and checked against it: `DOCK_ART`). The season dial's frame and the
  * game modes' icons went unused and were removed; the HUD's frame (the player card's, the capsules') is CSS since HUD-FRAME-CSS (`hud-frame.tsx`),
@@ -45,7 +45,11 @@ export const UI_ICONS = [
   "avatar",
   "collection",
   "invite",
-  "disconnect",
+  "city",
+  "road",
+  "forest",
+  "wonder",
+  "stats",
 ] as const;
 export type UiIconName = (typeof UI_ICONS)[number];
 

@@ -52,7 +52,7 @@ const withShell: Decorator = (Story, { id }) => {
   const route = PAGE_HEADER_STORIES[id.replace("pages-headers--", "") as keyof typeof PAGE_HEADER_STORIES]?.[0];
   const story = <Story />;
   return (
-    <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onConnect: fn(), onDisconnect: fn(), onCopy: fn(async () => {}) }}>
+    <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onConnect: fn(), onCopy: fn(async () => {}) }}>
       {route === undefined || HEADER_BALANCES[route].length === 0 ? story : <BalancesProvider value={{ ...BALANCES, kinds: HEADER_BALANCES[route], here: hereOf(`/${route}`) }}>{story}</BalancesProvider>}
     </ProfileProvider>
   );

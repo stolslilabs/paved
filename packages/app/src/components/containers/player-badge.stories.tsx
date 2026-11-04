@@ -4,7 +4,7 @@ import { fn } from "storybook/test";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { PROGRESS } from "../../mocks/players";
 import { NEW_PLAYER, NEW_PLAYER_PROFILE } from "../../mocks/new-player";
-import { PROFILE } from "../../mocks/scenes";
+import { HALL_OF_FAME, PROFILE, RECORDS } from "../../mocks/scenes";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import type { PlayerProgress } from "../elements/xp-ring";
 import { cn } from "../../lib/utils";
@@ -18,7 +18,8 @@ const value = (state: ProfileState, progress: PlayerProgress | undefined, look: 
   progress,
   look,
   onConnect: fn(),
-  onDisconnect: fn(),
+  hallOfFame: HALL_OF_FAME,
+  records: RECORDS,
   onCopy: fn(async () => {}),
   onEditAvatar: fn(),
   onOpenLeague: fn(),

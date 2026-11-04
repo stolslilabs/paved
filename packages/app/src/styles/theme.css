@@ -648,7 +648,9 @@
  * direction the owner chose on 2026-11-03 (C, `docs/design/profile.webp`'s README entry): its surfaces, one plain rule each (Tailwind's
  * shadow, gradient, divide and blur utilities each weigh a few hundred bytes in the one stylesheet). The veil over the village; the side
  * panel's header band (a step darker, a near-black line under it); a raised surface (a step lighter than the face, lit along its top,
- * a near-black outline and lip); a tile (the same, its face fading down); a row's near-black rules between its items; an icon's lip.
+ * a near-black outline and lip); a tile (the same, its face fading down); a carved surface, information (a step darker, a soft shadow
+ * inside its top, a faint light along its foot: the owner's rule of 2026-11-04, raised presses and carved informs); a row's near-black
+ * rules between its items; an icon's lip.
  */
 @utility drawer-veil {
   background-color: color-mix(in oklab, var(--board) 45%, transparent);
@@ -665,6 +667,10 @@
   background-image: linear-gradient(var(--drawer-raised), var(--secondary));
   box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
 }
+@utility drawer-carved {
+  background-color: var(--card);
+  box-shadow: inset 0 2px 3px color-mix(in oklab, var(--hud-outline) 70%, transparent), 0 1px 0 color-mix(in oklab, var(--drawer-bevel) 40%, transparent);
+}
 @utility drawer-rule {
   & > * + * {
     border-left: 1px solid var(--hud-outline);
@@ -674,22 +680,12 @@
   filter: drop-shadow(0 2px 0 var(--background));
 }
 /*
- * While a HUD drawer is open from a phone's foot (`data-hud-drawer`, under the HUD's end), the HUD above it (`data-over-drawer`: the
- * home's player card, balances and capsules) stands over its veil, sharp, as on the profile's mockup, and lets taps through to the veil
- * (a tap on it closes the drawer). The home's left column drops its edge fade meanwhile: a mask is a layer of its own, which would keep
- * its capsules under the veil. The side panel, the window's height, covers the HUD's left: nothing stands over it.
+ * The home's dock (HOME-DOCK, `data-dock`) stays in view while a page is open over the home (`data-page-panel`: a HUD drawer, the side
+ * panel, a sheet over its page; the owner's ask of 2026-11-04): over the veil and the page's foot, which leaves it room
+ * (`DOCK_CLEARANCE`), sharp and live. A dialog still covers it.
  */
-body:has([data-hud-drawer][data-side="bottom"]) {
-  & [data-over-drawer] {
-    z-index: 51;
-  }
-  & [data-over-drawer],
-  & [data-over-drawer] * {
-    pointer-events: none !important;
-  }
-  & .scroll-hint:has(> [data-over-drawer]) {
-    mask-image: none;
-  }
+body:has([data-page-panel]):not(:has([data-slot="dialog-content"])) [data-dock] {
+  z-index: 51;
 }
 
 /* Light text on the player badge's art (its name, its level): a dark outline, the background's colour a pixel each way, and a soft drop. */

@@ -73,6 +73,9 @@ export const PROFILE = {
   stress: { status: "connected", data: { player: { ...PLAYER, name: LONG_NAME }, stats: { ...PLAYER_STATS, challengeFinished: BIG_NUMBER, bestScore: BIG_SCORE } } },
 } satisfies Record<string, ProfileState>;
 
+/** The profile's Hall of Fame and Stats (PROFILE-PAGE), a module of their own: the app's profile reads them too (`data/player-records.ts`). */
+export { HALL_OF_FAME, RECORDS } from "./profile-records";
+
 
 // Play
 

@@ -276,6 +276,7 @@ const ABOVE_BAR = "bottom-[calc(var(--app-nav-h)+0.5rem)] desktop:bottom-4";
  * The home's dock (#763; HOME-DOCK, the owner's asks of 2026-11-03: at every width, centred from `tablet`), fixed at the viewport's
  * bottom, its height on the scene (`--app-nav-h`) for the bottom overlays. While the dock's chunk loads, a stand-in of its box
  * (`AppNav`'s sizes) holds its place, so nothing above it moves when it comes. The band across the screen takes no tap: only the dock.
+ * It stays over a page opened on the home (`data-dock`, theme.css: a HUD drawer, the side panel), live.
  */
 function HomeBar({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -290,7 +291,7 @@ function HomeBar({ children }: { children: ReactNode }) {
   // The dock's box: the band's top to the foot, and the safe area; empty, so nothing for assistive technology.
   const standIn = <div className="box-content" style={{ height: DOCK_ART.height * DOCK_ART.scale, paddingBottom: "env(safe-area-inset-bottom)" }} />;
   return (
-    <div ref={ref} data-fade className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
+    <div ref={ref} data-fade data-dock className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
@@ -324,8 +325,7 @@ const GAP_PX = 12;
  * balances to above Edit (Settings and Play from `desktop`), the left one (the issue's second open point) from under the profile to
  * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929, open point 1): the left band starts
  * twice the gap, 24 px, under the profile, and a gap under its avatar's rim and crest where they run further (the larger circle of
- * 2026-11-03 hangs past the card's foot). PROFILE-DRAWER: the HUD's end, a gap under the capsules in the viewport (`--hud-end`),
- * where the profile drawer's top stops (`HudDrawer`).
+ * 2026-11-03 hangs past the card's foot).
  */
 function useOverlayMeasures(dial: boolean) {
   const refs = {
@@ -334,14 +334,13 @@ function useOverlayMeasures(dial: boolean) {
     profile: useRef<HTMLDivElement>(null),
     actions: useRef<HTMLDivElement>(null),
     dial: useRef<HTMLDivElement>(null),
-    capsules: useRef<HTMLDivElement>(null),
   };
   useLayoutEffect(() => {
-    const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial, refs.capsules].map((ref) => ref.current);
+    const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial].map((ref) => ref.current);
     const [box] = els as HTMLElement[];
     // Its first notice comes before the first paint: the bands are in place when the overlays show.
     const observer = new ResizeObserver(() => {
-      const [frame, balances, profile, foot, wheel, capsules] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
+      const [frame, balances, profile, foot, wheel] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
       // The badge's foot as drawn: its rim runs past the card's (the player card's negative margins) and its crest a tenth of the rim
       // further (`PlayerRim`, -bottom-[10%]; the rim's box is there before the league's chunk, its stand-in the same size).
       const rim = refs.profile.current?.querySelector("[data-slot=avatar-rim]")?.getBoundingClientRect();
@@ -355,7 +354,6 @@ function useOverlayMeasures(dial: boolean) {
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
       // The profile's room, from its left to a gap short of the balances: the badge's name plate ends there.
       box.style.setProperty("--profile-room", `${balances!.left - profile!.left - GAP_PX}px`);
-      box.style.setProperty("--hud-end", `${(capsules ?? profile)!.bottom + GAP_PX}px`);
     });
     // The box and what the bands stand off (not the columns, which the bands size).
     for (const el of els) if (el) observer.observe(el);
@@ -437,11 +435,11 @@ function ViewOverlays({
   const leftColumn = (
     <>
       {/*
-        The capsules (HOME-UI-CAPSULES), in the mockup's order (over a HUD drawer's veil while one is open, `data-over-drawer`): the League control (the crowns, #829), the village score (#755), the
+        The capsules (HOME-UI-CAPSULES), in the mockup's order: the League control (the crowns, #829), the village score (#755), the
         shield's while shielded, stretched to one width, the widest's, and close (their 44 px targets 4 px apart). The group lets taps
         through between them.
       */}
-      <div ref={measures.capsules} data-slot="home-capsules" data-over-drawer className={cn("relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto", HUD_CAPSULES_NUDGE)}>
+      <div data-slot="home-capsules" className={cn("relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto", HUD_CAPSULES_NUDGE)}>
         <Suspense fallback={LEAGUE_STAND_IN}>
           <LazyLeagueControl crowns={props.league?.crowns} attacks={props.league?.attacks} onLeague={props.onLeague} />
         </Suspense>
@@ -509,9 +507,9 @@ function ViewOverlays({
     <div ref={measures.box} data-slot="home-overlays" data-camera={camera || undefined} className="pointer-events-none absolute inset-0">
       {/*
         Top: the profile at the left, the balances at the right, both the HUD's inset (HOME-HUD-PADDING, `--hud-inset` in theme.css,
-        the notch's safe area added) off the screen's top and sides; over a HUD drawer's veil while one is open (`data-over-drawer`).
+        the notch's safe area added) off the screen's top and sides.
       */}
-      <div data-over-drawer className={cn("absolute inset-x-0 top-0", HUD_INSET_BOX)}>
+      <div className={cn("absolute inset-x-0 top-0", HUD_INSET_BOX)}>
         <div className="relative flex items-start justify-between gap-2">
           <div
             ref={measures.profile}
@@ -550,8 +548,7 @@ function ViewOverlays({
           The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the dial;
           clear of the right column from `desktop`, and of the social column (#973) below it. Taller than its band (the score
           unfolded while shielded, on a short screen), it scrolls within it (its edge fading where more waits), never over the dial;
-          its padding keeps the controls' shadows inside the scroll box. Under a HUD drawer it drops its edge fade, so its capsules may
-          stand over the drawer's veil (`data-over-drawer`, theme.css).
+          its padding keeps the controls' shadows inside the scroll box.
         */}
         <div
           ref={leftColumnHint}
