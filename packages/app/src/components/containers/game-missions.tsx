@@ -39,7 +39,7 @@ export function GameMissions({ missions, onOpen }: { missions: readonly GameMiss
             <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
               <span className="text-sm font-semibold">{m.title}</span>
               <span className="text-xs text-muted-foreground">
-                {m.kind === "quest" ? "Mission" : "Lifetime mission"}
+                {m.kind === "quest" ? "Mission" : "Achievement"}
                 {m.points != null && <span className="numeric"> · +{m.points} pts</span>}
               </span>
             </span>

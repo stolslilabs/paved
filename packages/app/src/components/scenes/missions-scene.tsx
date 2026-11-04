@@ -1,18 +1,19 @@
-import { useRef, useState, type FocusEvent } from "react";
+import { useRef, useState, type CSSProperties, type FocusEvent, type ReactNode } from "react";
 import type { PlayerAchievements } from "@paved/chain";
 import { TUTORIAL_STEPS, tutorialCompleted, tutorialFinished, tutorialStates, type TutorialCounts, type TutorialStepState } from "@paved/game-core";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { endOfUtcDay, questPeriod, windowEnd, type ScheduledQuest, type ScheduledQuests } from "../../lib/quest-window";
 import { Countdown } from "../elements/countdown";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
+import { SectionTitle } from "../elements/section-title";
+import { BalancesSlot } from "../containers/balances-context";
 import { isClaimed, type AchievementCobbles, type PeriodClaims, type QuestCobbles } from "../containers/cobble-types";
-import { MissionCard, type Mission, type ProgressReward } from "../containers/mission-card";
+import { HudDrawer } from "../containers/hud-drawer";
+import { MissionCard, missionFraction, type Mission, type ProgressReward } from "../containers/mission-card";
 import { MissionTile, type MissionTileState } from "../containers/mission-tile";
-import { TUTORIAL_TEXT, TUTORIAL_XP, achievementText, questText, taskUnit, type TutorialGo } from "../containers/quest-text";
-import { TabPage } from "../containers/tab-page";
+import { TUTORIAL_TEXT, achievementText, questText, taskUnit } from "../containers/quest-text";
 import { MilestonesBar } from "../containers/milestones-bar";
 import type { MissionKey } from "../containers/mission-key";
 
@@ -93,15 +94,13 @@ export interface MissionsSceneProps {
   tutorial?: TutorialData | null;
   /** `claimTutorialStep(id)` (#977): a step's Cobbles. */
   onClaimTutorial?: (id: number) => void;
-  /** An open step's Go (#977): where its action is done. The Daily row is the page's own: the scene scrolls to it. */
-  onGo?: (to: Exclude<TutorialGo, "daily">) => void;
   /** The claim on its way, if any. */
   claiming?: MissionKey | null;
-  /** False: the player is known but cannot sign (no wallet yet, P6): the rewards show, each claim says "Connect to claim". */
+  /** False: the player is known but cannot sign (no wallet yet, P6): the rewards show, each Claim disabled, a notice asks to connect. */
   canClaim?: boolean;
   /**
    * The mission the card shows on arrival (a story's, or the home's tracker's link, `/missions?mission=`, #978); omitted or not on
-   * the page, the open Tutorial step, else the first one not done (Daily, then Weekly, then Lifetime).
+   * the page, the open Tutorial step, else the first one not done (Daily, then Weekly, then the Achievements).
    */
   initialSelected?: MissionKey;
   /** `claim_quest(quest_id, period)` of today (or its week). */
@@ -114,31 +113,82 @@ export interface MissionsSceneProps {
   onClaimAchievement?: (achievementId: number) => void;
   onConnect?: () => void;
   onRetry?: () => void;
-  /** Back, up to the village (BACK-RULE #783); omitted, no Back. */
+  /**
+   * Whether the drawer is shown (MISSIONS-PAGE): its route is the current one; false while it slides out. Omitted, shown (a story's,
+   * a test's).
+   */
+  open?: boolean;
+  /** Back on a phone, the close from `tablet`, Escape, a tap on the village: up to the village (BACK-RULE #783). */
   onBack?: () => void;
+  /** Where the focus goes back as the drawer closes (the control that opened it); omitted, Radix's own. */
+  returnFocus?: () => HTMLElement | null;
 }
 
 /**
- * The card's sticky box (#988): under the page's header (`--header-h` and the notch) once the viewport is 560 px tall or more; below
- * that (a phone held sideways) it would leave the list almost no room, so it scrolls with the page. It sticks 16 px under the header,
- * where the content starts on every page (HEADER-HEIGHT, #676), and the page's 16 px gap above it is painted with the page's
- * background (`before:`, across the column with `-mx-4 px-4`), so no tile shows between the header and the card; a 16 px fade under
- * its bottom edge lets the tiles pass under it. Above the list, under the header (`z-30`).
+ * The card's sticky box (#988; MISSIONS-PAGE: in the drawer's body, under its header band): at the top of the body once the viewport
+ * is 560 px tall or more; below that (a phone held sideways) it would leave the list almost no room, so it scrolls with the page. The
+ * body's 16 px top padding is the box's own (`-mt-4 pt-4`, across the column with `-mx-4 px-4`), painted with the drawer's face, and
+ * it sticks that padding higher (`-top-4`: a sticky box keeps clear of its scroller's padding), at the header's foot, so no medallion
+ * shows above the card; under it the engraved rule of the drawer's titles, and a 16 px fade that lets the medallions
+ * pass under it. Above the list (`z-20`).
  */
 const STICKY_CARD = [
-  "relative z-20 -mx-4 bg-background px-4",
-  "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
-  "[@media(min-height:35rem)]:sticky [@media(min-height:35rem)]:top-[calc(var(--header-h)+env(safe-area-inset-top)+1rem)]",
-  "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
+  "relative z-20 -mx-4 -mt-4 bg-secondary px-4 pt-4 pb-3",
+  "[@media(min-height:35rem)]:sticky [@media(min-height:35rem)]:-top-4",
+  "after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-linear-to-b after:from-secondary after:to-transparent",
 ].join(" ");
+
+/** The card's engraved rule, the drawer's titles' (`SectionTitle`): a light line over a dark one, across the column. */
+const CARD_RULE: CSSProperties = { height: 2, background: "linear-gradient(var(--hud-outline) 50%, var(--drawer-bevel) 50%)", opacity: 0.8 };
+
+/** A press outside the drawer that is no tap on the village: on a dialog drawn over the drawer. */
+function keepForDialogs(event: Event) {
+  if (event.target instanceof Element && event.target.closest('[role="dialog"]')) event.preventDefault();
+}
+
+/** The tasks the book paints otherwise than their mission's icon (`missionArt`'s keys): the points' coins, the leagues' banner. */
+const TASK_ART: Readonly<Record<number, string>> = { 3: "points", 23: "league" };
+
+/** The scrolling region the page is in: the drawer's body. */
+const SCROLLER = "[data-hud-drawer-body]";
 
 /** The room kept between the sticky card's bottom edge and a part of the list brought out from under it (the fade's height). */
 const BELOW_CARD = 16;
 
 const ROW = {
-  daily: { title: "Daily", icon: "sun", ends: "Daily missions reset in" },
-  weekly: { title: "Weekly", icon: "crown", ends: "Weekly missions reset in" },
+  daily: { title: "Daily", ends: "Daily missions reset in" },
+  weekly: { title: "Weekly", ends: "Weekly missions reset in" },
 } as const;
+
+/** A section's count after its title, in the body's type: "3/8". */
+function Count({ done, of }: { done: number; of: number }) {
+  return (
+    <span className="numeric font-sans text-base font-bold text-muted-foreground">
+      {done}/{of}
+    </span>
+  );
+}
+
+/** A section of the list: its title (the drawer's, its count beside it, what it holds at its end), then its content. */
+function MissionSection({ id, title, count, end, children, ...list }: {
+  id: string;
+  title: string;
+  count?: ReactNode;
+  end?: ReactNode;
+  children: ReactNode;
+  onFocus?: (event: FocusEvent<HTMLElement>) => void;
+  onPointerDown?: () => void;
+}) {
+  return (
+    <section aria-labelledby={id} {...list} className="flex flex-col gap-2.5">
+      <SectionTitle id={id} end={end}>
+        {title}
+        {count}
+      </SectionTitle>
+      {children}
+    </section>
+  );
+}
 
 /** A Tutorial step's tile state (#977): locked, open (to do, or in progress while its level climbs), done with Cobbles waiting, claimed. */
 function stepTileState(state: TutorialStepState, count: number): MissionTileState {
@@ -148,30 +198,34 @@ function stepTileState(state: TutorialStepState, count: number): MissionTileStat
   return count > 0 ? "progress" : "none";
 }
 
-/** A mission's tile state from its progress and its Cobbles. */
-function tileState(kind: "quest" | "achievement", entry: { completed: boolean; tasks: { count: number }[] }, reward: ProgressReward | undefined): MissionTileState {
+/**
+ * A mission's tile state from its progress and its Cobbles. An achievement with nothing counted is to do, never locked (the owner's
+ * ask of 2026-11-04): only a Tutorial step waits for the one before it.
+ */
+function tileState(entry: { completed: boolean; tasks: { count: number }[] }, reward: ProgressReward | undefined): MissionTileState {
   if (entry.completed) return reward && !reward.claimed ? "claimable" : "done";
   if (entry.tasks.some((t) => t.count > 0)) return "progress";
-  return kind === "achievement" ? "locked" : "none";
+  return "none";
 }
 
-/** How far a mission is, 0 to 1: its tasks' mean. */
-const fraction = (progress: Mission["progress"]): number =>
-  progress.length === 0 ? 0 : progress.reduce((sum, p) => sum + (p.total > 0 ? Math.min(1, p.count / p.total) : 0), 0) / progress.length;
-
 /**
- * Missions (`/missions`, #832, the owner's decisions of 2026-10-27): one page, today only. At the top a card with the selected
- * mission (`MissionCard`); under it the missions as icons (`MissionTile`): the Limited ones, a Daily and a Weekly row each with its
- * reset's countdown, then the Lifetime ones. Each row has its period's milestones graph above its icons (`MilestonesBar`, the
- * day's #869, the week's #976): an edge per quest done and a gift node per milestone's Cobbles, opened (claimed) with a tap on it;
- * the week's gifts are the day's size, told apart by their ribbon (blue, a gold seam), and no weekly pays on its own any more, nor a week's bonus. On arrival the first mission not done is
- * selected (Daily, then Weekly, then Lifetime; with everything done, the first one); a tap on an icon selects it, the card
- * updates in place and the page does not scroll. The card sticks under the page's header while the list scrolls (#988, from a
- * viewport 560 px tall), so the tapped mission always shows; no tile shows Cobbles, the card does. Cobbles are the only reward: no free game, no day picker. Claims go from the
- * card. Above Limited, while a step waits to be claimed, the Tutorial (#977): eight steps in order, each opened by the one before's
- * completion, its title counting the steps done ("Tutorial 3/8"); the open step is selected on arrival, its card has Go (where its
- * action is done), a locked one says which step opens it, and the section goes once every step is claimed. The completion toasts are
- * the app's (`routes/completion-host.tsx`).
+ * Missions (`/missions`, #832, the owner's decisions of 2026-10-27): one page, today only. MISSIONS-PAGE (the Paved UX Book's
+ * Missions, the owner's approved mockups of 2026-11-02): the HUD's drawer, as the profile (`HudDrawer`): a full page with Back on a
+ * phone, a side panel docked at the right from `tablet` (the right column's Missions opens it), its close the red cross on its inner
+ * edge, the Cobbles at its header's end, the dock over its foot. At the top a card with the selected mission (`MissionCard`); under
+ * it the missions as medallions, five a row (`MissionTile`), in sections titled as the profile's (`SectionTitle`): the Tutorial,
+ * the Daily and the Weekly, each with its reset's countdown in a carved chip, then the Achievements (the lifetime missions, named so on
+ * the owner's ask of 2026-11-04). The Daily and the Weekly have
+ * their period's milestones graph above their medallions (`MilestonesBar`, the day's #869, the week's #976): an edge per quest done
+ * and a gift per milestone's Cobbles, opened (claimed) with a tap on it; no weekly pays on its own any more, nor a week's bonus. On
+ * arrival the first mission not done is selected (Daily, then Weekly, then the Achievements; with everything done, the first one); a tap on a
+ * medallion selects it, the card updates in place and the page does not scroll. The card sticks at the top of the drawer's body
+ * while the list scrolls (#988, from a viewport 560 px tall), so the tapped mission always shows; no medallion shows Cobbles, the
+ * card does. Cobbles are the only reward: no free game, no day picker. A mission's Cobbles are claimed from the card's medallion's
+ * badge, its gift (the owner's asks of 2026-11-04). Above the Daily, while a step waits to be claimed, the Tutorial (#977): eight
+ * steps in order, each opened by the one before's completion, its title counting the steps done ("Tutorial 3/8"); the open step is
+ * selected on arrival, and the section goes once every step is claimed. The completion toasts are the app's
+ * (`routes/completion-host.tsx`).
  */
 export function MissionsScene(props: MissionsSceneProps) {
   const { quests, achievements, connected, error, now, questRewards, achievementRewards, claiming = null, claimingMilestone = null, claimingWeeklyMilestone = null, canClaim = true } = props;
@@ -186,7 +240,7 @@ export function MissionsScene(props: MissionsSceneProps) {
     const card = cardRef.current;
     if (!card || pressing.current || getComputedStyle(card).position !== "sticky") return;
     const overlap = card.getBoundingClientRect().bottom + BELOW_CARD - event.target.getBoundingClientRect().top;
-    if (overlap > 0) card.closest<HTMLElement>('[data-slot="page-scroll"]')?.scrollBy({ top: -overlap });
+    if (overlap > 0) card.closest<HTMLElement>(SCROLLER)?.scrollBy({ top: -overlap });
   };
   // The press ends wherever the pointer is released (dragged off the list, onto the header): the window hears it, once.
   const press = () => {
@@ -201,22 +255,6 @@ export function MissionsScene(props: MissionsSceneProps) {
   };
   const list = { onFocus: keepBelowCard, onPointerDown: press };
 
-  // Regular's Go (#977): the Daily row is on this page, so Go brings it out below the sticky card (or to the top of the scroll
-  // when the card scrolls with the page) and gives it the focus; with reduced motion, at once.
-  const dailyRef = useRef<HTMLElement>(null);
-  const toDaily = () => {
-    const daily = dailyRef.current;
-    if (!daily) return;
-    const card = cardRef.current;
-    const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const behavior: ScrollBehavior = still ? "auto" : "smooth";
-    const scroller = daily.closest<HTMLElement>('[data-slot="page-scroll"]');
-    if (card && scroller && getComputedStyle(card).position === "sticky") {
-      scroller.scrollBy({ top: daily.getBoundingClientRect().top - (card.getBoundingClientRect().bottom + BELOW_CARD), behavior });
-    } else daily.scrollIntoView?.({ block: "start", behavior });
-    daily.focus({ preventScroll: true });
-  };
-
   const entries = quests?.quests ?? [];
   // Each quest's window's end (a daily's falls back to the UTC day's end).
   const endOf = (q: ScheduledQuest): number | null => windowEnd([q], now) ?? (questPeriod(q) === "daily" ? endOfUtcDay(now) : null);
@@ -228,6 +266,10 @@ export function MissionsScene(props: MissionsSceneProps) {
     disabled: !canClaim || claimingMilestone !== null || claimingWeeklyMilestone !== null || (claiming !== null && claiming !== key),
   });
 
+  // The book paints a mission by its icon (`missionArt`), save two tasks it paints otherwise: the points (task 3) its coins, the
+  // leagues reached (task 23) its banner.
+  const artOf = (icon: string, tasks: readonly { taskId: number }[]) => TASK_ART[tasks[0]?.taskId ?? -1] ?? icon;
+
   const questMission = (q: ScheduledQuest): Mission => {
     const key: MissionKey = `quest:${q.questId}`;
     const entry = questRewards?.cobbles.find((g) => g.questId === q.questId);
@@ -237,10 +279,9 @@ export function MissionsScene(props: MissionsSceneProps) {
       key,
       kind: questPeriod(q),
       ...questText(q.questId),
-      state: tileState("quest", q, reward),
+      icon: artOf(questText(q.questId).icon, q.tasks),
+      state: tileState(q, reward),
       progress: q.tasks.map((t) => ({ unit: taskUnit(t.taskId), count: t.count, total: t.total })),
-      completedAt: q.completedAt,
-      retired: q.retired,
       reward,
     };
   };
@@ -261,10 +302,9 @@ export function MissionsScene(props: MissionsSceneProps) {
       key,
       kind: "lifetime",
       ...achievementText(a.achievementId),
-      state: tileState("achievement", a, reward),
+      icon: artOf(achievementText(a.achievementId).icon, a.tasks),
+      state: tileState(a, reward),
       progress: a.tasks.map((t) => ({ unit: taskUnit(t.taskId), count: t.count, total: t.total })),
-      completedAt: a.completedAt,
-      retired: a.retired,
       reward,
     };
   });
@@ -279,7 +319,6 @@ export function MissionsScene(props: MissionsSceneProps) {
         const text = TUTORIAL_TEXT[step.task];
         const key: MissionKey = `tutorial:${step.id}`;
         const count = Math.min(step.target, tutorialData.counts[step.task] ?? 0);
-        const go = text.go;
         return {
           key,
           kind: "tutorial",
@@ -288,20 +327,14 @@ export function MissionsScene(props: MissionsSceneProps) {
           icon: text.icon,
           state: stepTileState(state, state === "open" ? count : 0),
           progress: [{ unit: text.unit, count, total: step.target }],
-          completedAt: null,
           reward: questRewards || achievementRewards ? claim(key, step.cobbles, state === "claimed") : undefined,
-          tutorial: {
-            step: step.id,
-            after: i > 0 ? TUTORIAL_TEXT[TUTORIAL_STEPS[i - 1]!.task].title : null,
-            onGo: state !== "open" || go === null ? undefined : go === "daily" ? toDaily : () => props.onGo?.(go),
-            hint: go === null ? TUTORIAL_XP : undefined,
-          },
+          tutorial: { step: step.id },
         };
       })
     : [];
 
   const all = [...tutorial, ...rows.flatMap((r) => r.missions), ...lifetime];
-  // On arrival (#977): the open Tutorial step first, then the first mission not done, Daily, Weekly, then Lifetime.
+  // On arrival (#977): the open Tutorial step first, then the first mission not done, Daily, Weekly, then the Achievements.
   const fallback =
     tutorial.find((m) => m.state === "none" || m.state === "progress") ?? all.find((m) => m.kind !== "tutorial" && (m.state === "none" || m.state === "progress" || m.state === "locked")) ?? all[0];
   const selected = all.find((m) => m.key === picked) ?? fallback;
@@ -319,17 +352,31 @@ export function MissionsScene(props: MissionsSceneProps) {
       title={m.title}
       icon={m.icon}
       state={m.state}
-      progress={fraction(m.progress)}
+      progress={missionFraction(m.progress)}
       selected={selected?.key === m.key}
       step={m.tutorial?.step}
       onSelect={() => setPicked(m.key as MissionKey)}
     />
   );
-  const grid = "grid grid-cols-5 gap-2 tablet:grid-cols-6";
+  // Five a row, the book's, at every width: the drawer keeps the phone's column.
+  const grid = "grid grid-cols-5 gap-x-2 gap-y-1.5";
   const earned = lifetime.filter((m) => m.state === "claimable" || m.state === "done").length;
 
   return (
-    <TabPage title="Missions" onBack={props.onBack}>
+    <HudDrawer
+      open={props.open ?? true}
+      onOpenChange={(next) => {
+        if (!next) props.onBack?.();
+      }}
+      title="Missions"
+      side="right"
+      slot="missions"
+      returnFocus={props.returnFocus}
+      // The Cobbles the missions pay, the HUD's balance the right panel covers (#855's set: the page's).
+      end={<BalancesSlot layout="pill" />}
+      // A press on a dialog over it (the Cobbles' packs, even as it slides away) is no tap on the village.
+      onInteractOutside={keepForDialogs}
+    >
       {!connected ? (
         <Notice title="Connect to see your missions" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
           Missions count your games: they need an account.
@@ -343,10 +390,10 @@ export function MissionsScene(props: MissionsSceneProps) {
         />
       ) : quests === null || achievements === null ? (
         <div role="status" aria-label="Loading the missions" className="flex flex-col gap-4">
-          <Skeleton className="h-44 rounded-xl" />
+          <Skeleton className="h-36 rounded-xl" />
           <div className={grid}>
             {Array.from({ length: 10 }, (_, i) => (
-              <Skeleton key={i} className="aspect-square rounded-xl" />
+              <Skeleton key={i} className="aspect-square w-full max-w-16 rounded-full" />
             ))}
           </div>
         </div>
@@ -355,6 +402,7 @@ export function MissionsScene(props: MissionsSceneProps) {
           {/* The card is read again on each tap: a polite live region says the new mission. The notices under it scroll with the list. */}
           <section ref={cardRef} aria-label="Selected mission" aria-live="polite" data-slot="mission-card-sticky" className={STICKY_CARD}>
             {selected && <MissionCard mission={selected} canClaim={canClaim} onClaim={() => onClaim(selected)} />}
+            <span aria-hidden className="mt-3 block" style={CARD_RULE} />
           </section>
           {questRewards && !canClaim && (
             <Notice title="Connect to claim" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
@@ -364,89 +412,71 @@ export function MissionsScene(props: MissionsSceneProps) {
           {props.rewardsUnavailable && <Notice title="Rewards unavailable">{props.rewardsUnavailable}</Notice>}
 
           {tutorial.length > 0 && (
-            <section aria-labelledby="missions-tutorial" {...list} className="flex flex-col gap-3">
-              <h2 id="missions-tutorial" className="flex items-baseline gap-2 font-display text-lg font-semibold">
-                Tutorial
-                <span className="numeric font-sans text-xs font-normal text-muted-foreground">
-                  {stepsDone}/{tutorial.length}
-                </span>
-              </h2>
+            <MissionSection id="missions-tutorial" title="Tutorial" count={<Count done={stepsDone} of={tutorial.length} />} {...list}>
               <div className={grid}>{tutorial.map(tile)}</div>
-            </section>
+            </MissionSection>
           )}
 
-          <section aria-labelledby="missions-limited" {...list} className="flex flex-col gap-3">
-            <h2 id="missions-limited" className="font-display text-lg font-semibold">Limited</h2>
-            {rows.every((r) => r.missions.length === 0) ? (
-              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">No limited mission live today.</p>
-            ) : (
-              rows.map(({ period, missions, done, ends }) =>
-                missions.length === 0 ? null : (
-                  <section
-                    key={period}
-                    ref={period === "daily" ? dailyRef : undefined}
-                    tabIndex={period === "daily" ? -1 : undefined}
-                    aria-labelledby={`missions-${period}`}
-                    className="flex flex-col gap-2 rounded-xl outline-none"
-                  >
-                    <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                      <h3 id={`missions-${period}`} className="flex items-center gap-2 text-sm font-semibold">
-                        <Icon name={ROW[period].icon} size="sm" className="text-primary" />
-                        {ROW[period].title}
-                        <span className="numeric text-xs font-normal text-muted-foreground">
-                          {done}/{missions.length}
-                        </span>
-                      </h3>
-                      {Number.isFinite(ends) && <Countdown expiresAt={ends} now={now} label={ROW[period].ends} />}
-                    </header>
-                    {period === "daily" ? (
-                      <MilestonesBar
-                        done={done}
-                        claimed={props.milestones?.claimed ?? null}
-                        claiming={claimingMilestone}
-                        canClaim={canClaim && claiming === null && claimingWeeklyMilestone === null}
-                        onClaim={props.onClaimMilestone}
-                        rewards={questRewards != null}
-                        revealing={props.revealingMilestone}
+          {rows.every((r) => r.missions.length === 0) ? (
+            <p className="drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semibold text-muted-foreground">No limited mission live today.</p>
+          ) : (
+            rows.map(({ period, missions, done, ends }) =>
+              missions.length === 0 ? null : (
+                <MissionSection
+                  key={period}
+                  id={`missions-${period}`}
+                  title={ROW[period].title}
+                  count={<Count done={done} of={missions.length} />}
+                  end={
+                    Number.isFinite(ends) && (
+                      <Countdown
+                        expiresAt={ends}
+                        now={now}
+                        label={ROW[period].ends}
+                        short
+                        className="drawer-carved h-7 shrink-0 rounded-full px-2.5 text-foreground"
                       />
-                    ) : (
-                      <MilestonesBar
-                        period="weekly"
-                        done={done}
-                        claimed={props.weeklyMilestones?.claimed ?? null}
-                        claiming={claimingWeeklyMilestone}
-                        canClaim={canClaim && claiming === null && claimingMilestone === null}
-                        onClaim={props.onClaimWeeklyMilestone}
-                        rewards={questRewards != null}
-                        revealing={props.revealingWeeklyMilestone}
-                      />
-                    )}
-                    <div className={grid}>{missions.map(tile)}</div>
-                  </section>
-                ),
-              )
-            )}
-          </section>
+                    )
+                  }
+                  {...list}
+                >
+                  {period === "daily" ? (
+                    <MilestonesBar
+                      done={done}
+                      claimed={props.milestones?.claimed ?? null}
+                      claiming={claimingMilestone}
+                      canClaim={canClaim && claiming === null && claimingWeeklyMilestone === null}
+                      onClaim={props.onClaimMilestone}
+                      rewards={questRewards != null}
+                      revealing={props.revealingMilestone}
+                    />
+                  ) : (
+                    <MilestonesBar
+                      period="weekly"
+                      done={done}
+                      claimed={props.weeklyMilestones?.claimed ?? null}
+                      claiming={claimingWeeklyMilestone}
+                      canClaim={canClaim && claiming === null && claimingMilestone === null}
+                      onClaim={props.onClaimWeeklyMilestone}
+                      rewards={questRewards != null}
+                      revealing={props.revealingWeeklyMilestone}
+                    />
+                  )}
+                  <div className={grid}>{missions.map(tile)}</div>
+                </MissionSection>
+              ),
+            )
+          )}
 
-          <section aria-labelledby="missions-lifetime" {...list} className="flex flex-col gap-3">
-            <h2 id="missions-lifetime" className="flex items-baseline gap-2 font-display text-lg font-semibold">
-              Lifetime
-              <span className="numeric font-sans text-xs font-normal text-muted-foreground">
-                {earned}/{lifetime.length}
-              </span>
-            </h2>
+          <MissionSection id="missions-achievements" title="Achievements" count={<Count done={earned} of={lifetime.length} />} {...list}>
             {lifetime.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">No lifetime mission yet.</p>
+              <p className="drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semibold text-muted-foreground">No achievement yet.</p>
             ) : (
               <div className={grid}>{lifetime.map(tile)}</div>
             )}
-          </section>
-          <p className="text-xs text-muted-foreground">
-            Counted by the indexer from the games and attacks the chain reports. Cobbles are the only reward: the Daily and the Weekly pay at
-            their gifts, a Tutorial step or a lifetime mission from its card.
-          </p>
+          </MissionSection>
         </>
       )}
-    </TabPage>
+    </HudDrawer>
   );
 }

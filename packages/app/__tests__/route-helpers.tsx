@@ -42,9 +42,11 @@ const PAGES = {
   // The home and the chunks it draws on every visit: its stage (the editor, the engine, the village's stage and its Camera
   // button), the phone's bar, the League control and the season wheel. A file whose test ends before they are in left their
   // imports running past the environment's teardown, an unhandled error that failed the run (wallet-claims.test, 1 run in 4).
+  // The drawers' pages' host (MISSIONS-PAGE) mounts with the home at every width.
   home: () =>
     Promise.all([
       import("../src/routes/pages/home"),
+      import("../src/routes/home-hosts"),
       import("../src/routes/home-stage"),
       import("../src/components/containers/app-nav"),
       import("../src/components/containers/league-control"),
@@ -54,7 +56,8 @@ const PAGES = {
   play: () => import("../src/routes/pages/play"),
   purchase: () => import("../src/routes/pages/purchase"),
   cobbles: () => import("../src/routes/pages/cobbles"),
-  missions: () => import("../src/routes/pages/missions"),
+  // Missions is the HUD's drawer over the home (MISSIONS-PAGE): its host comes with it.
+  missions: () => Promise.all([import("../src/routes/pages/missions"), import("../src/routes/home-hosts")]),
   referral: () => import("../src/routes/pages/referral"),
   vault: () => import("../src/routes/pages/vault"),
   chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/player-profile-host")]),

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { MISSIONS } from "../../mocks/scenes";
+import { withCobbles } from "../../stories/with-cobbles";
 import { MissionsScene } from "./missions-scene";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 
@@ -8,11 +9,12 @@ import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
  * The milestones graphs in their page, Missions, for the owner: the day's (#869, reworked 2026-10-29), each state of the graph and
  * its gift nodes (no reward, gift closed, gift opening, claimed, all done), and the week's (#976: none, three and five done, a gift
  * claimed, a gift opening), pinned at 375 and 1440 px, the week's also at 320. The week's gifts are the day's size (the owner's
- * decision of 2026-11-01), told apart by their ribbon: the river blue with a gold seam, where the day's is red. `Scenes/Missions` keeps one story per state at the toolbar's width.
+ * decision of 2026-11-01), the Paved UX Book's same gift (MISSIONS-PAGE). `Scenes/Missions` keeps one story per state at the toolbar's width.
  */
 const meta = {
   title: "Scenes/MissionsGraph",
   component: MissionsScene,
+  decorators: [withCobbles],
   args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn() },
 } satisfies Meta<typeof MissionsScene>;
 export default meta;

@@ -59,7 +59,7 @@ afterEach(() => {
 describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () => {
   it("/missions: the missions carry the mock's Cobbles, none for a daily (#869); a claim moves the balance; no notice, no RPC text", async () => {
     const s = await open("/missions");
-    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
     // Daily Run is done but pays nothing on its own: its card has no Claim.
     await userEvent.click(await screen.findByRole("button", { name: /^Daily Run: / }, { timeout: slow(5000) }));
     expect(screen.getByRole("button", { name: "Daily Run: Done" })).toHaveAttribute("aria-pressed", "true");

@@ -30,8 +30,8 @@ export const CACHE_PREFIX = "paved-mock-";
 
 /** Never cached: the source maps, the music's tracks, the worker itself. */
 const SKIP = (path: string) => path.endsWith(".map") || path.startsWith("music/") || path === WORKER_FILE;
-/** Cached once the worker is active, not before: the renderer's assets and the large images. */
-const LATER = (path: string) => /^(renderer-assets|backgrounds|music-art)\//.test(path);
+/** Cached once the worker is active, not before: the renderer's assets and the large images (the Missions page's paintings, MISSIONS-PAGE). */
+const LATER = (path: string) => /^(renderer-assets|backgrounds|music-art|ui-art\/(medallions|missions))\//.test(path);
 
 /** The build's files (paths relative to the output, `/`-separated) split into what the worker caches at install and after. */
 export function precacheLists(files: readonly string[]): { core: string[]; rest: string[] } {

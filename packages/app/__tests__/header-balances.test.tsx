@@ -128,11 +128,12 @@ describe("the balances by page (#855)", () => {
     expect(bar).toHaveClass("page-header");
     const kinds = TABLE[path]!;
     const none = kinds.length === 0;
-    // Both the pill and the rail: a loaded run can read the header between their mounts.
+    // Both the pill and the rail: a loaded run can read the header between their mounts. The bar's own: a drawer's page (Missions,
+    // MISSIONS-PAGE) has the home and its balances under it.
     const regions = none
-      ? screen.queryAllByRole("region", { name: "Balances" })
+      ? within(bar).queryAllByRole("region", { name: "Balances" })
       : await waitFor(() => {
-          const found = screen.getAllByRole("region", { name: "Balances" });
+          const found = within(bar).getAllByRole("region", { name: "Balances" });
           expect(found).toHaveLength(2);
           return found;
         }, { timeout: slow(5000) });

@@ -9,6 +9,7 @@ import { BalancesProvider } from "../src/components/containers/balances-context"
 import { TabPage } from "../src/components/containers/tab-page";
 import { PageHeader, TopBar } from "../src/components/containers/top-bar";
 import { HEADER_BALANCES } from "../src/routes/header-balances";
+import { PAGES } from "../src/routes/pages";
 import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 import * as PAGE_STORIES from "../src/stories/page-headers.stories";
 import { slow } from "../test-slow";
@@ -95,6 +96,16 @@ describe("every page's scene draws the one header (#781)", () => {
     const kinds = HEADER_BALANCES[route];
     const none = kinds.length === 0;
     const { container } = none ? render(<LazyMotion features={domMax}>{page}</LazyMotion>) : withBalances(page, kinds);
+    // A drawer's page (MISSIONS-PAGE) has the HUD drawer's header band: its title, and the page's balances at its end, the phone's
+    // plates alone (the drawer keeps the phone's layout at every width).
+    if (PAGES.find((p) => p.path === route)?.drawer) {
+      const band = (await screen.findByRole("dialog")).querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
+      expect(within(band).getByRole("heading").textContent).not.toBe("");
+      const plates = await within(band).findAllByRole("region", { name: "Balances" }, { timeout: slow(5000) });
+      expect(plates).toHaveLength(1);
+      const names = kinds.map((kind) => (kind === "usdc" ? "USDC" : kind === "paved" ? "PAVED" : kind === "vpaved" ? "vPAVED" : "Cobbles"));
+      return expect(within(plates[0]!).getAllByRole("button").map((b) => b.getAttribute("aria-label")!.replace(/^[\d.,]+ ([A-Za-z]+).*$/, "$1"))).toEqual(names);
+    }
     const header = container.querySelector<HTMLElement>('[data-slot="page-header"]')!;
     expect(header).not.toBeNull();
     expect(within(header).getByRole("heading", { level: 1 }).textContent).not.toBe("");

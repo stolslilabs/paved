@@ -1,6 +1,6 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
 import { formatCompact, type ScoringCategory } from "@paved/game-core";
-import { useContext, useState, type CSSProperties, type ReactNode } from "react";
+import { useContext, useState, type ReactNode } from "react";
 import { playerRecords } from "../../data/player-records";
 import { useFollowStatus } from "../../data/social";
 import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
@@ -17,6 +17,7 @@ import { divisionOf, RIM_PORTRAIT, tierOf } from "../elements/league-standards";
 import { LevelBar } from "../elements/level-bar";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
+import { SectionTitle } from "../elements/section-title";
 import { formatPoints } from "../elements/score";
 import { shortAddress } from "../elements/short-address";
 import { TokenIcon } from "../elements/token-icon";
@@ -166,35 +167,6 @@ function ProfileRim({ league, children }: { league: PlayerLeague | null; childre
       </LeagueRim>
       <LeagueCrestIcon tier={tier} division={division} size="inherit" className="absolute -bottom-[10%] -left-[10%]" style={{ width: "44%", height: "44%" }} />
     </span>
-  );
-}
-
-/**
- * The rule after a section's title (the owner's ask of 2026-11-04): engraved as the carved surfaces are, a light line over a dark
- * one, fading out to the right. Inline, in the profile's chunk: the one stylesheet has no room to spare.
- */
-const TITLE_RULE: CSSProperties = {
-  height: 2,
-  background: "linear-gradient(var(--drawer-bevel) 50%, var(--hud-outline) 50%)",
-  maskImage: "linear-gradient(to right, black, transparent)",
-};
-/** The rule's head: a small diamond in the line's light. */
-const TITLE_DIAMOND: CSSProperties = { background: "var(--drawer-bevel)", boxShadow: "0 1px 0 var(--hud-outline)", transform: "rotate(45deg)" };
-
-/**
- * A section's title, in the display font (the owner's ask of 2026-11-04: titles in it), the rule after it across the row, and what
- * the row holds at its end (the Stats' badge), a gap either side of the rule so nothing touches it.
- */
-function SectionTitle({ children, end }: { children: ReactNode; end?: ReactNode }) {
-  return (
-    <div className="flex min-h-9 items-center gap-3">
-      <h3 className="text-outline shrink-0 font-display text-2xl leading-tight tracking-wide">{children}</h3>
-      <span aria-hidden className="flex min-w-6 flex-1 items-center gap-1">
-        <span className="size-1.5 shrink-0" style={TITLE_DIAMOND} />
-        <span className="flex-1" style={TITLE_RULE} />
-      </span>
-      {end}
-    </div>
   );
 }
 

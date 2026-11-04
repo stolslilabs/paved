@@ -1,4 +1,4 @@
-import { questText } from "../components/containers/quest-text";
+import { missionTask, questText } from "../components/containers/quest-text";
 import { DAY_S, questPeriod } from "../lib/quest-window";
 import { usePlayerQuests } from "./indexer";
 import { useIndexerNow } from "./quests";
@@ -10,14 +10,11 @@ import { useIndexerNow } from "./quests";
 export interface MissionProgress {
   questId: number;
   title: string;
-  /** What to do: the description's first clause ("Score roads and cities in a day"); what follows a colon names the target's tier. */
+  /** What to do: the description's first clause ("Score roads and cities in a day", `missionTask`). */
   task: string;
   done: number;
   total: number;
 }
-
-/** A mission's task: its description up to a colon, without the final full stop. */
-export const missionTask = (description: string) => description.split(":")[0]!.replace(/\.$/, "").trim();
 
 /**
  * Today's first daily mission not completed, as the Missions page opens on it (the first mission not done, Daily first): its title

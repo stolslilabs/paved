@@ -45,13 +45,18 @@ afterEach(() => {
 });
 
 describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
-  // The home draws the dock; no page carries it (the owner's ask of 2026-11-04): a page's way out is its Back.
-  it.each(PAGES.filter((p) => p.nav && p.path !== "").map((p) => [p.path, p] as const))("%s has no dock", async (_path, page) => {
+  // The home draws the dock; no page carries it (the owner's ask of 2026-11-04): a page's way out is its Back. A drawer's page
+  // (MISSIONS-PAGE) is over the home: the home's dock under it, covered, none in the drawer.
+  it.each(PAGES.filter((p) => p.nav && p.path !== "").map((p) => [p.path, p] as const))("%s carries no dock", async (_path, page) => {
     open(concrete(page.path));
     // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
     if (page.path === "pvp/league") await screen.findByText("Connect to see your league.", undefined, { timeout: slow(5000) });
+    // A drawer's page (MISSIONS-PAGE) is the HUD's drawer over the home, named by its title.
+    else if (page.drawer) await screen.findByRole("dialog", { name: page.title }, { timeout: slow(5000) });
     else await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
-    expect(screen.queryByRole("navigation", { name: "Main", hidden: true })).toBeNull();
+    const dock = screen.queryByRole("navigation", { name: "Main", hidden: true });
+    if (page.drawer) expect(within(screen.getByRole("dialog", { name: page.title })).queryByRole("navigation", { name: "Main", hidden: true })).toBeNull();
+    else expect(dock).toBeNull();
   });
 
   it("is on the home with no item current (#763), beside the village's overlays", async () => {

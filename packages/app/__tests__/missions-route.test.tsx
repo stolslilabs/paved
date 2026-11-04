@@ -98,13 +98,14 @@ async function claimOn(title: string, cobbles: number) {
 }
 
 describe("/missions (P9, #832)", () => {
-  it("shows today's quests and the lifetime missions on one page, each reward in Cobbles, and the balance", async () => {
+  it("shows today's quests and the achievements on one page, each reward in Cobbles, and the balance", async () => {
     open("/missions", setup());
     // The page's module is loaded with the first visit: in jsdom it can take longer than findBy's 1 s.
-    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(await balance(240)).toBeInTheDocument();
-    const limited = within(screen.getByRole("region", { name: "Limited" }));
-    const lifetime = within(screen.getByRole("region", { name: /^Lifetime/ }));
+    // MISSIONS-PAGE: the Daily is a section of its own (the book's), no Limited around it.
+    const limited = within(screen.getByRole("region", { name: /^Daily/ }));
+    const lifetime = within(screen.getByRole("region", { name: /^Achievements/ }));
     expect(limited.getByRole("button", { name: "Daily Run: Cobbles to claim" })).toBeInTheDocument();
     // No tile shows Cobbles (#988): the card at the top is the one place that does.
     for (const tile of [...limited.getAllByRole("button", { name: /: (Cobbles to claim|Done|In progress|To do|Locked)$/ }), ...lifetime.getAllByRole("button")]) {
@@ -129,7 +130,7 @@ describe("/missions (P9, #832)", () => {
     await userEvent.click(await claimOn("Daily Run", 5));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: TODAY }]]));
     expect(await balance(245)).toBeInTheDocument();
-    expect(await card().findByText("Cobbles claimed")).toBeInTheDocument();
+    expect(await card().findByRole("button", { name: "Claimed: Daily Run" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("button", { name: "Daily Run: Done" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -161,7 +162,7 @@ describe("/missions (P9, #832)", () => {
     const s = setup();
     const router = open(path, s);
     await waitFor(() => expect(router.state.location.pathname).toBe("/missions"), { timeout: slow(5000) });
-    expect(await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Missions" }, { timeout: slow(5000) })).toBeInTheDocument();
     // Today's claim, never the old day's.
     await userEvent.click(await claimOn("Daily Run", 5));
     await waitFor(() => expect(s.claimer.sent).toEqual([[{ kind: "quest", questId: 1, period: TODAY }]]));
@@ -202,12 +203,12 @@ describe("/missions (P9, #832)", () => {
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
   });
 
-  it("with a signer that cannot claim: read only, Connect to claim", async () => {
+  it("with a signer that cannot claim: read only, Connect to claim, no claim open", async () => {
     open("/missions", setup({ signer: "board" }));
     expect(await screen.findByText("Connect to claim", {}, { timeout: slow(3000) })).toBeInTheDocument();
     await userEvent.click(await tile("Daily Run"));
-    expect(card().getByText("Connect to claim")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
+    expect(card().getByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).toHaveAttribute("aria-disabled", "true");
+    for (const button of screen.queryAllByRole("button", { name: /^Claim/ })) expect(button).toHaveAttribute("aria-disabled", "true");
   });
 });
 
@@ -230,7 +231,7 @@ describe("the completion toast, once per completion (P9's note)", () => {
     // Quest 3 completes while the page is closed.
     s.fixture.progress.get(FIXTURE_ADA)!.quests.set(3, { count: 1, completed_at: FIXTURE_HEAD.timestamp });
     await act(() => router.navigate("/missions"));
-    await screen.findByRole("heading", { level: 1, name: "Missions" });
+    await screen.findByRole("dialog", { name: "Missions" });
     await waitFor(() => expect(success).toHaveBeenCalledTimes(2));
     await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
     await new Promise((r) => setTimeout(r, 100));
@@ -259,7 +260,7 @@ describe("the completion toasts, app-wide (#595)", () => {
     // A reward's line is drawn with the Cobbles' icon (`CompletionReward`, #620); its words are `completionLine`'s.
     const line = (d: unknown) => (isValidElement<{ entry: CompletionToast }>(d) ? completionLine(d.props.entry) : d);
     const calls = Object.fromEntries(success.mock.calls.map(([title, options]) => [title, line((options as { description?: unknown }).description)]));
-    expect(calls).toEqual({ "Mission completed: Mission #4": "+15 Cobbles to claim", "Lifetime mission earned: Settler II": "+20 pts · +20 Cobbles to claim" });
+    expect(calls).toEqual({ "Mission completed: Mission #4": "+15 Cobbles to claim", "Achievement earned: Settler II": "+20 pts · +20 Cobbles to claim" });
 
     await act(() => router.navigate("/missions"));
     await claimOn("Mission #4", 15);
@@ -296,29 +297,12 @@ describe("/missions, the Tutorial (#977)", () => {
     return { ...s, state, claims };
   }
 
-  it("shows the open step on arrival; its Go opens the home in Edit", async () => {
-    const s = tutorialSetup();
-    const router = open("/missions", s);
+  it("shows the open step on arrival, its Cobbles on its card's gift until it is done", async () => {
+    open("/missions", tutorialSetup());
     expect(await screen.findByRole("region", { name: /^Tutorial/ }, { timeout: slow(5000) })).toBeInTheDocument();
     await waitFor(() => expect(card().getByRole("article")).toHaveAccessibleName("Builder"));
-    await userEvent.click(card().getByRole("button", { name: "Go: Builder" }));
-    await waitFor(() => expect(router.state.location.pathname + router.state.location.search).toMatch(/^\/\?edit/));
+    expect(card().getByRole("button", { name: "10 Cobbles once done: Builder" })).toHaveAttribute("aria-disabled", "true");
   });
-
-  it("each open step's Go opens its place: Play, the PvP, the chests, the shop", async () => {
-    const places: [number, string][] = [[1, "/play"], [2, "/pvp"], [4, "/village/chests"], [5, "/village/shop"]];
-    const tasks = ["layout-saved", "challenge-finished", "attack-settled", "attack-won", "chest-opened"] as const;
-    for (const [done, path] of places) {
-      queryClient.clear();
-      const s = tutorialSetup();
-      for (const t of tasks.slice(0, done)) s.state.counts[t] = 1;
-      const router = open("/missions", s);
-      // The step open is the one after those done: Challenger, Raider, Treasure, Trader.
-      await userEvent.click(await screen.findByRole("button", { name: /^Go: / }, { timeout: slow(5000) }));
-      await waitFor(() => expect(router.state.location.pathname).toBe(path));
-      cleanup();
-    }
-  }, slow(30_000));
 
   it("a step completed toasts app-wide with the next step's title; its claim goes through the signer and the balance follows", async () => {
     const s = tutorialSetup();
@@ -337,7 +321,7 @@ describe("/missions, the Tutorial (#977)", () => {
     await userEvent.click(await claimButton(10, "Builder"));
     await waitFor(() => expect(s.claims).toEqual([1]));
     expect(await balance(250)).toBeInTheDocument();
-    expect(await card().findByText("Cobbles claimed")).toBeInTheDocument();
+    expect(await card().findByRole("button", { name: "Claimed: Builder" })).toHaveAttribute("aria-disabled", "true");
     // Once: the claim's own reads toast nothing again.
     expect(success.mock.calls.filter(([title]) => String(title).startsWith("Tutorial step done"))).toHaveLength(1);
   }, slow(20_000));

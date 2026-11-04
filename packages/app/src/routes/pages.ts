@@ -39,6 +39,13 @@ export interface PageDef {
    * left, as the profile's sheet; omitted, the right.
    */
   panelSide?: "left";
+  /**
+   * MISSIONS-PAGE (the owner's pattern of 2026-11-02, the profile's: a page is a side panel on a large screen and a full page with
+   * Back on a phone): the page is the HUD's drawer over the home at every width (`containers/hud-drawer.tsx`, `routes/home-hosts.tsx`),
+   * the home's village kept under it: a full page sliding in on a phone, a side panel docked at the edge of its HUD control from
+   * `tablet` (the right; `panelSide` names another). Its route is a child of the home's (`panel`), never in the desktop's panel.
+   */
+  drawer?: true;
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -69,8 +76,8 @@ export const PAGES: readonly PageDef[] = [
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`
-  // land on it (`router.tsx`).
-  { path: "missions", title: "Missions", nav: "quests", panel: true },
+  // land on it (`router.tsx`). The HUD's drawer at every width, docked at the right from `tablet` (MISSIONS-PAGE).
+  { path: "missions", title: "Missions", nav: "quests", panel: true, drawer: true },
   { path: "vault", title: "Vault", nav: "vault", panel: true },
   // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
   // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).

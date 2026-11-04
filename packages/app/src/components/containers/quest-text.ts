@@ -8,11 +8,12 @@ import type { TutorialTask } from "@paved/game-core";
 // not written here: the screens show the totals the indexer serves. An id the list does not know shows its number.
 
 /**
- * The longest description, in characters (#975): the Missions card keeps two lines of it. Measured at 320 px on 2026-11-01
- * (Rubik, 12 px, a 254 px line in the card): the first text of these words to need a third line had 79 characters; 72 keeps
- * a margin. A longer description is rewritten shorter, not cut.
+ * A mission's task, what to do, as the Missions card and the home's mission tab show it on one line (MISSIONS-PAGE, the owner's ask
+ * of 2026-11-04: no more text than that; HOME-EDGES): its description up to its first colon or comma, without the final full stop.
+ * What follows names the target's tier ("the middle of three rotating targets") or the period ("Monday to Sunday UTC"), which the
+ * card's badge and the page's rows already say.
  */
-export const DESCRIPTION_MAX = 72;
+export const missionTask = (description: string) => description.split(/[:,]/)[0]!.replace(/\.$/, "").trim();
 
 export const QUEST_TEXT: Record<number, { title: string; description: string; icon: string }> = {
   1: { title: "Daily Run", description: "Finish today's Challenge.", icon: "flag-checkered" },
@@ -70,28 +71,19 @@ export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: stri
 };
 
 /**
- * Where a Tutorial step's Go leads (#977, the issue's table): the home in Edit, Play, the PvP, the chests, the tile shop, or the
- * Daily row of the Missions page itself. Rising (the level) has none: its card says how XP comes.
+ * The Tutorial's steps as the Missions page shows them (#977), by `TUTORIAL_STEPS`' task: the title, what to do, the icon and what
+ * its bar counts. The rules (order, targets, Cobbles) are game-core's.
  */
-export type TutorialGo = "village-edit" | "play" | "pvp" | "chests" | "tile-shop" | "daily";
-
-/**
- * The Tutorial's steps as the Missions page shows them (#977), by `TUTORIAL_STEPS`' task: the title, what to do, the icon, what
- * its bar counts, and where its Go leads (null: none). The rules (order, targets, Cobbles) are game-core's.
- */
-export const TUTORIAL_TEXT: Record<TutorialTask, { title: string; description: string; icon: string; unit: string; go: TutorialGo | null }> = {
-  "layout-saved": { title: "Builder", description: "Place a tile in your village and save its layout.", icon: "hammer", unit: "layouts saved", go: "village-edit" },
-  "challenge-finished": { title: "Challenger", description: "Finish a Challenge game.", icon: "flag-checkered", unit: "Challenge games finished", go: "play" },
-  "attack-settled": { title: "Raider", description: "Settle an attack in PvP: win, lose or surrender.", icon: "swords", unit: "attacks settled", go: "pvp" },
-  "attack-won": { title: "Victor", description: "Win an attack in PvP: one star or more.", icon: "star", unit: "attacks won", go: "pvp" },
-  "chest-opened": { title: "Treasure", description: "Open a chest.", icon: "treasure-chest", unit: "chests opened", go: "chests" },
-  "shop-bought": { title: "Trader", description: "Buy a plan in the tile shop.", icon: "store", unit: "plans bought", go: "tile-shop" },
-  "milestone-claimed": { title: "Regular", description: "Claim a gift of the day's bar, above the Daily row.", icon: "gift", unit: "gifts claimed", go: "daily" },
-  level: { title: "Rising", description: "Reach level 3.", icon: "arrow-trend-up", unit: "level", go: null },
+export const TUTORIAL_TEXT: Record<TutorialTask, { title: string; description: string; icon: string; unit: string }> = {
+  "layout-saved": { title: "Builder", description: "Place a tile in your village and save its layout.", icon: "hammer", unit: "layouts saved" },
+  "challenge-finished": { title: "Challenger", description: "Finish a Challenge game.", icon: "flag-checkered", unit: "Challenge games finished" },
+  "attack-settled": { title: "Raider", description: "Settle an attack in PvP: win, lose or surrender.", icon: "swords", unit: "attacks settled" },
+  "attack-won": { title: "Victor", description: "Win an attack in PvP: one star or more.", icon: "star", unit: "attacks won" },
+  "chest-opened": { title: "Treasure", description: "Open a chest.", icon: "treasure-chest", unit: "chests opened" },
+  "shop-bought": { title: "Trader", description: "Buy a plan in the tile shop.", icon: "store", unit: "plans bought" },
+  "milestone-claimed": { title: "Regular", description: "Claim a gift of the day's bar, above the Daily row.", icon: "gift", unit: "gifts claimed" },
+  level: { title: "Rising", description: "Reach level 3.", icon: "arrow-trend-up", unit: "level" },
 };
-
-/** How XP comes, on Rising's card (the level step, which has no Go): Story levels and PvP attacks pay it. */
-export const TUTORIAL_XP = "XP comes from Story levels and attacks.";
 
 /** What one unit of a task is, after its count ("2,710 / 3,000 points"), by task id. */
 export const TASK_UNIT: Record<number, string> = {

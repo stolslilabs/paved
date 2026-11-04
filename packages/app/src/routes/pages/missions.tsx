@@ -9,22 +9,13 @@ import { useDataSources } from "../../data/sources";
 import { usePlayerAchievements, usePlayerQuests } from "../../data/indexer";
 import { cobbleKeys, useAchievementRewards, useClaims, useQuestRewards, type ClaimTarget } from "../../data/cobbles";
 import { useTutorialClaims, useTutorialSteps } from "../../data/tutorial-steps";
-import type { TutorialGo } from "../../components/containers/quest-text";
 import { useDailyMilestones, useMilestoneClaims, useWeeklyMilestoneClaims, useWeeklyMilestones } from "../../data/milestones";
 import { queryKeys } from "../../data/keys";
 import { useIndexerNow } from "../../data/quests";
 import { DAY_S, weekOfDay } from "../../lib/quest-window";
 import { useAccount } from "../../wallet/wallet";
+import { useDrawerRoute } from "../drawer-route";
 import { useBack, useAppNavigate } from "../ref";
-
-/** Where an open Tutorial step's Go leads (#977): the home in Edit, Play, the PvP, the chests, the tile shop. The Daily row is the page's. */
-const GO: Record<Exclude<TutorialGo, "daily">, string> = {
-  "village-edit": "/?edit",
-  play: "/play",
-  pvp: "/pvp",
-  chests: "/village/chests",
-  "tile-shop": "/village/shop",
-};
 
 /**
  * `/missions` (P9, #832): one page, today only, on the indexer's clock (`useIndexerNow`). Today's quests (`usePlayerQuests`, with
@@ -36,10 +27,15 @@ const GO: Record<Exclude<TutorialGo, "daily">, string> = {
  * returning player can claim at once. The Tutorial's steps (#977) are the mock ledger's until #738 (`useTutorialSteps`,
  * `useTutorialClaims`); where they are not served the section does not show. The completion toasts are the app's (`routes/completion-host.tsx`).
  * `?mission=quest:12` (the home's missions tracker, #978) puts that mission on the card on arrival; a key not on the page is ignored.
+ * MISSIONS-PAGE: drawn in the HUD's drawer over the home at every width (`PageDef.drawer`, `home-hosts.tsx`).
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onBack = useBack();
+  // MISSIONS-PAGE: the HUD's drawer over the home (`home-hosts.tsx`), shown while its route is the current one; alone (a story's
+  // route), open, its Back up to the village.
+  const drawer = useDrawerRoute();
+  const back = useBack();
+  const onBack = drawer?.onClose ?? back;
   const [params] = useSearchParams();
   const initialSelected = missionKeyOf(params.get("mission"));
   useAccount();
@@ -111,12 +107,12 @@ export default function Page() {
       onClaimMilestone={claimMilestone}
       onClaimWeeklyMilestone={claimWeeklyMilestone}
       onClaimTutorial={claimTutorial}
-      onGo={(to) => go(GO[to])}
       onConnect={() => go("/welcome")}
       onRetry={retry}
       initialSelected={initialSelected}
+      open={drawer?.open ?? true}
       onBack={onBack}
-     
+      returnFocus={drawer?.returnFocus}
     />
   );
 }

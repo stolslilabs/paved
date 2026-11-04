@@ -63,7 +63,8 @@ describe("MilestonesBar, the day's (#869)", () => {
       expect(gifts()).toEqual(["opening", "ready"]);
       expect(document.querySelector('[data-reveal="3"]')).toHaveTextContent("+10");
       expect((document.querySelector('[data-reveal="3"]') as HTMLElement).style.opacity).not.toBe("0");
-      expect(document.querySelector('[data-part="lid"]')).not.toBeNull();
+      // The open gift's light, held inside it.
+      expect(document.querySelector('[data-part="light"]')).not.toBeNull();
       act(() => vi.advanceTimersByTime(GIFT_REVEAL_S * 1000));
       expect(gifts()).toEqual(["open", "ready"]);
       expect(reveal()).toBeNull();
@@ -151,7 +152,7 @@ describe("MilestonesBar, the day's (#869)", () => {
 describe("MilestonesBar, the week's (#976)", () => {
   const week = () => screen.getByRole("progressbar", { name: "Weeklies done this week" });
 
-  it("draws the week: an edge per weekly, its two gifts at 3 (+50) and 5 (+100), the day's size, its own ribbon", () => {
+  it("draws the week: an edge per weekly, its two gifts at 3 (+50) and 5 (+100), the day's size, the book's one gift", () => {
     render(wrap(<MilestonesBar period="weekly" done={2} claimed={0} />));
     expect(week()).toHaveAttribute("aria-valuemax", "5");
     expect(week()).toHaveAttribute("aria-valuetext", "2 of 5 weeklies done");
@@ -161,20 +162,21 @@ describe("MilestonesBar, the week's (#976)", () => {
     expect([...full()].map((n) => n.getAttribute("data-milestone"))).toEqual(["3", "5"]);
     expect(screen.getByRole("img", { name: "50 Cobbles at 3 weeklies done" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "100 Cobbles at 5 weeklies done" })).toBeInTheDocument();
-    // The week's discs are the day's size, 2rem (32 px), their gift too (the owner's decision of 2026-11-01): the ribbon tells them apart.
+    // The week's discs are the day's size, 2rem (32 px), their gift too (the owner's decision of 2026-11-01); MISSIONS-PAGE: the Paved
+    // UX Book's one gift for both, no ribbon of the week's (its row and its Cobbles tell them apart).
     const disc = (name: string) => screen.getByRole("img", { name }).firstElementChild as HTMLElement;
     const look = (name: string) => {
       const el = disc(name);
       const art = el.querySelector<HTMLElement>('[data-slot="gift-art"]')!;
       return { width: el.style.width, height: el.style.height, art: art.className.match(/text-\[[^\]]+\]/)?.[0], variant: art.getAttribute("data-variant"), seams: art.querySelectorAll('[data-part="seam"]').length };
     };
-    expect(look("50 Cobbles at 3 weeklies done")).toEqual({ width: "2rem", height: "2rem", art: "text-[1.125rem]", variant: "week", seams: 2 });
+    expect(look("50 Cobbles at 3 weeklies done")).toEqual({ width: "2rem", height: "2rem", art: "text-[1.875rem]", variant: "week", seams: 0 });
     cleanup();
     render(wrap(<MilestonesBar done={2} claimed={0} />));
-    expect(look("10 Cobbles at 3 dailies done")).toEqual({ width: "2rem", height: "2rem", art: "text-[1.125rem]", variant: "day", seams: 0 });
+    expect(look("10 Cobbles at 3 dailies done")).toEqual({ width: "2rem", height: "2rem", art: "text-[1.875rem]", variant: "day", seams: 0 });
   });
 
-  it("keeps the week's gifts the day's size and ribbon in every state: locked, ready, shaking, lit, opening, claimed, reduced motion", () => {
+  it("keeps the week's gifts the day's size and variant in every state: locked, ready, shaking, lit, opening, claimed, reduced motion", () => {
     const sizes = () =>
       [...document.querySelectorAll<HTMLElement>("[data-milestone]")].map((node) => {
         const el = node.firstElementChild as HTMLElement;
@@ -219,7 +221,7 @@ describe("MilestonesBar, the gifts' tooltip (#989)", () => {
   const box = (at: number) => document.querySelector<HTMLElement>(`[data-gift-tip="${at}"]`);
   const touch = (target: Element) => userEvent.pointer({ keys: "[TouchA]", target });
 
-  it("says what each gift holds, what reaches it and where it stands, in each state, on both bars", () => {
+  it("shows what each gift holds and nothing more, and says what reaches it and where it stands, in each state, on both bars", () => {
     const cases: [ReactNode, number, string][] = [
       [<MilestonesBar done={1} claimed={0} tip={0} />, 3, "+10 Cobbles, at 3 dailies done: 2 more to go."],
       [<MilestonesBar done={4} claimed={0} tip={1} />, 5, "+15 Cobbles, at 5 dailies done: 1 more to go."],
@@ -234,10 +236,11 @@ describe("MilestonesBar, the gifts' tooltip (#989)", () => {
       render(wrap(ui));
       expect(tip()).toHaveTextContent(sentence);
       const shown = box(at)!;
-      // One line per item (the Cobbles' icon and their figure), then what reaches it and where it stands.
-      expect(within(shown).getAllByRole("listitem")).toHaveLength(1);
-      expect(within(shown).getByRole("listitem")).toHaveTextContent(/^\+[\d,]+Cobbles$/);
-      expect(within(shown).getByText(/^At \d (dailies|weeklies) done$/)).toBeInTheDocument();
+      // MISSIONS-PAGE (the owner's ask of 2026-11-04): "+50" and the Cobble, no more; when and where it stands are the sentence's.
+      const visible = shown.querySelector<HTMLElement>("[data-standing]")!;
+      expect(visible).toHaveTextContent(/^\+[\d,]+$/);
+      expect(visible.querySelector('[data-slot="token-icon"]')).not.toBeNull();
+      expect(shown.querySelectorAll("[data-standing]")).toHaveLength(1);
       // The gift keeps its name; the tooltip describes it.
       expect(document.querySelector(`[data-milestone="${at}"]`)).toHaveAttribute("aria-describedby", tip()!.id);
       cleanup();

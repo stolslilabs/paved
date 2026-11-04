@@ -187,7 +187,7 @@ export const MissionsPhone320: Story = at(Missions, PHONE_320);
 export const MissionsPhone375: Story = at(Missions, PHONE_375);
 export const MissionsWide1440: Story = at(Missions, WIDE_1440);
 
-/** A new account's missions on the mock: every daily and weekly at 0, every achievement locked. */
+/** A new account's missions on the mock: every daily and weekly at 0, every achievement to do (never locked). */
 export const MissionsNew: Story = story("new", "/missions");
 export const MissionsNewPhone320: Story = at(MissionsNew, PHONE_320);
 export const MissionsNewWide1440: Story = at(MissionsNew, WIDE_1440);

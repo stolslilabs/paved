@@ -8,7 +8,7 @@ import { TopBar } from "../src/components/containers/top-bar";
 import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { WELCOME } from "../src/mocks/scenes";
 import { PAGES } from "../src/routes/pages";
-import { PAGE_HEADER_STORIES } from "../src/stories/page-headers";
+import { DRAWER_PAGES, PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 
 // HEADER-HEIGHT (#676): every page's header takes its height from the token, never its own. The heights themselves are
 // measured in a browser at 375 and 1440 px by `scripts/header-sweep.ts` (jsdom lays nothing out).
@@ -65,6 +65,11 @@ describe("the page headers", () => {
   it("the page shells of Pages/Headers cover every route but the game scenes'", () => {
     const covered = Object.values(PAGE_HEADER_STORIES).flat();
     expect([...covered].sort()).toEqual(PAGES.map((p) => p.path).filter((p) => !BOARD.includes(p)).sort());
+  });
+
+  it("names the drawers' pages for the header sweep: those whose route is the HUD's drawer (MISSIONS-PAGE)", () => {
+    const drawers = Object.entries(PAGE_HEADER_STORIES).filter(([, routes]) => routes.some((r) => PAGES.find((p) => p.path === r)?.drawer));
+    expect([...DRAWER_PAGES].sort()).toEqual(drawers.map(([id]) => id).sort());
   });
 
   it("the navigation is the dock at the bottom, never a header (#762; HOME-DOCK: on the home from desktop too, the pages then in its panel)", () => {
