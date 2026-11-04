@@ -11,6 +11,8 @@
  * - the header at the top is the one header (ONE-HEADER, #781): its title (an `h1`) shown, and the home's balances shown in
  *   it on every page whose rule has them (`header-balances.ts`);
  * - every page listed has its story, and every story is listed.
+ * A page drawn as the HUD's drawer (`DRAWER_PAGES`, MISSIONS-PAGE) has the drawer's band for its header: its title shown and the
+ * page's balances at its end are checked; its height and its content's start are the drawer's own, not `--header-h`'s.
  * Headless Chromium only (Playwright's headless shell), against `storybook-static` served on the loopback by this script.
  *
  *   bun run --filter @paved/app build-storybook
@@ -25,7 +27,7 @@ import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
 import { HEADER_BALANCES } from "../src/routes/header-balances.ts";
-import { HERO_PAGES, PAGE_HEADER_STORIES } from "../src/stories/page-headers.ts";
+import { DRAWER_PAGES, HERO_PAGES, PAGE_HEADER_STORIES } from "../src/stories/page-headers.ts";
 
 /** The stories of the page shells: one per page outside the board (src/stories/page-headers.stories.tsx). */
 const PREFIX = "pages-headers--";
@@ -167,6 +169,17 @@ function measure(): Measure {
   return { token: top[0] ? tokenOf(top[0]) : tokenOf(root), content, headers: top.map(sized), others: others.map(sized), title, balances };
 }
 
+/** Runs in the page: a drawer's band, its title shown and the balances' regions at its end. */
+function measureDrawer(): { title: string | null; balances: number } {
+  const shown = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return getComputedStyle(el).visibility !== "hidden" && r.width > 1 && r.height > 1;
+  };
+  const title = document.querySelector('[data-hud-drawer] [data-slot="hud-drawer-title"]');
+  const balances = [...document.querySelectorAll('[data-hud-drawer] [data-slot="hud-drawer-end"] section[aria-label="Balances"]')].filter(shown).length;
+  return { title: title && shown(title) ? title.textContent!.trim() || null : null, balances };
+}
+
 async function main() {
   const opts = args();
   const index = JSON.parse(await readFile(join(opts.dir, "index.json"), "utf8")) as { entries: Record<string, { id: string; type: string }> };
@@ -198,7 +211,16 @@ async function main() {
         const route = (PAGE_HEADER_STORIES as Record<string, readonly string[]>)[name]?.[0];
         const withBalances = route !== undefined && (HEADER_BALANCES[route]?.length ?? 0) > 0;
         // The balances are their own chunk: wait for them where the page has them (the space is held meanwhile).
-        if (withBalances) await page.waitForSelector('[data-slot="page-header"] section[aria-label="Balances"]', { timeout: 10_000 }).catch(() => undefined);
+        const drawer = DRAWER_PAGES.includes(name);
+        const plate = drawer ? '[data-slot="hud-drawer-end"] section[aria-label="Balances"]' : '[data-slot="page-header"] section[aria-label="Balances"]';
+        if (withBalances) await page.waitForSelector(plate, { timeout: 10_000 }).catch(() => undefined);
+        if (drawer) {
+          const { title, balances } = await page.evaluate(measureDrawer);
+          if (!title) failures.push(`${name} at ${width} px: the drawer's band shows no title`);
+          if (withBalances && balances !== 1) failures.push(`${name} at ${width} px: the drawer's band shows ${balances} balances' regions, not the home's one`);
+          console.log(`${width} px  ${name.padEnd(18)}  "${title}"${withBalances ? `, ${balances} balances` : ""}  (the HUD's drawer)`);
+          continue;
+        }
         const { token, headers, others, content, title, balances } = await page.evaluate(measure);
         if (!title) failures.push(`${name} at ${width} px: the header shows no title`);
         if (withBalances && balances !== 1) failures.push(`${name} at ${width} px: the header shows ${balances} balances' regions, not the home's one`);

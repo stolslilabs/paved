@@ -112,7 +112,8 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end,
           {ends}
           {side && control}
         </SheetHeader>
-        <ScrollRegion data-hud-drawer-body="" className="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        {/* Down only: what glows past the content's edge (a waiting gift's halo at a row's end) is cut at the drawer's, never scrolled to. */}
+        <ScrollRegion data-hud-drawer-body="" className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overscroll-contain px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </ScrollRegion>
       </SheetContent>

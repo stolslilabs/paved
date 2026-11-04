@@ -12,13 +12,14 @@ import { MilestonesBar } from "./milestones-bar";
  * a tap claims it and, once the claim lands, the gift opens and its Cobbles rise out of it; claimed, it stays open with a check. The
  * others are plain and smaller. One story per state; the node's states (no reward, gift closed, gift opening, claimed) and all done
  * are also pinned at 375 and 1440 px. Claim plays the claims, their openings and their bursts. The `Tip*` stories hold a gift's
- * tooltip open (#989), in each state, on both bars.
+ * tooltip open (#989), in each state, on both bars. The bar sits in the drawer's padding, which cuts across what glows past it (the
+ * last gift's halo), as the drawer's body does.
  */
 const meta = {
   title: "Containers/MilestonesBar",
   component: MilestonesBar,
   args: { done: 0, claimed: 0, onClaim: fn() },
-  decorators: [(Story) => <div className="mx-auto max-w-md p-4" style={{ paddingTop: "2.5rem" }}><Story /></div>],
+  decorators: [(Story) => <div className="mx-auto max-w-md overflow-x-clip p-4" style={{ paddingTop: "2.5rem" }}><Story /></div>],
 } satisfies Meta<typeof MilestonesBar>;
 export default meta;
 type Story = StoryObj<typeof meta>;

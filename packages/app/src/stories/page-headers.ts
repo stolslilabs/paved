@@ -31,3 +31,9 @@ export const PAGE_HEADER_STORIES = {
 
 /** The pages laid out as a hero (the board's render behind the wordmark): their content does not start after the header. */
 export const HERO_PAGES: readonly string[] = ["welcome"];
+
+/**
+ * The pages drawn as the HUD's drawer (MISSIONS-PAGE, `PageDef.drawer`): their header is the drawer's band (its title, the page's
+ * balances at its end), not `PageHeader`, and its height is the band's own, not `--header-h`.
+ */
+export const DRAWER_PAGES: readonly string[] = ["missions"];

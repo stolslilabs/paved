@@ -19,6 +19,8 @@ import { join } from "node:path";
  *   flows below `desktop`: there the document is what scrolls (`FLOWS`), under their sticky top bar. Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
+ * - Missions is the HUD's drawer at every width (MISSIONS-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
+ *   stays put; from `tablet` its side panel has its close, by design.
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
  *
@@ -49,6 +51,16 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
  * side panel from `desktop` they scroll in its body as every other page.
  */
 const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play", "cobbles"]);
+
+/** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["missions"]);
+/** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
+const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
+  DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });
+/** A page's scope: the dialog of its side panel or its drawer, else the document. */
+const scopeOf = (page: Page, id: (typeof PAGES)[number], panel: boolean) => (panel || DRAWERS.has(id) ? page.getByRole("dialog", { name: TITLES[id] }) : page.locator("body"));
+/** The region that scrolls: a drawer's body, a page's frame or panel body. */
+const REGION = (id: (typeof PAGES)[number]) => (DRAWERS.has(id) ? "[data-hud-drawer-body]" : "[data-slot=page-scroll]");
 
 /**
  * The pages whose content has a fixed length (no list to grow: the league's carousel and season, the referral's link and earnings), shorter
@@ -122,7 +134,9 @@ function measure(region: Locator): Promise<Measure> {
     const doc = el === document.scrollingElement;
     const box = doc ? { top: 0, bottom: innerHeight } : el.getBoundingClientRect();
     const header = el.querySelector("[data-slot=page-header]")?.getBoundingClientRect();
-    let last: Element | null = el.querySelector("main");
+    // A drawer's band sits right above its body, out of it: it stays at the body's top.
+    const band = el.closest("[data-hud-drawer]")?.querySelector("[data-slot=sheet-header]")?.getBoundingClientRect();
+    let last: Element | null = el.querySelector("main") ?? (band ? el : null);
     while (last?.lastElementChild) last = last.lastElementChild;
     const end = last?.getBoundingClientRect();
     const scrollers = [...document.querySelectorAll<HTMLElement>("*")]
@@ -134,7 +148,7 @@ function measure(region: Locator): Promise<Measure> {
       clientHeight: doc ? innerHeight : el.clientHeight,
       scrollers,
       lastInView: !!end && end.bottom <= box.bottom + 1 && end.top >= box.top - 1,
-      headerAtTop: !!header && Math.abs(header.top - box.top) < 1,
+      headerAtTop: header ? Math.abs(header.top - box.top) < 1 : !!band && Math.abs(band.bottom - box.top) < 1,
     };
   });
 }
@@ -142,14 +156,14 @@ function measure(region: Locator): Promise<Measure> {
 /** Opens the harness's page, its fonts in, and scrolls its region to the end; the figures before and after. */
 async function scrollPage(page: Page, id: (typeof PAGES)[number], panel: boolean, scroll: () => Promise<void>) {
   await page.goto(`${base}/e2e/pages-scroll/index.html?page=${id}${panel ? "&panel=1" : ""}`, { waitUntil: "networkidle" });
-  const scope = panel ? page.getByRole("dialog", { name: TITLES[id] }) : page.locator("body");
-  await scope.getByRole("heading", { level: 1, name: TITLES[id] }).waitFor({ timeout: 20_000 });
+  const scope = scopeOf(page, id, panel);
+  await titled(scope, id).waitFor({ timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
   await pause(400);
   const flow = !panel && FLOWS.has(id);
   // A flow has no region: the document scrolls, and it must hold none.
   if (flow) expect(await page.locator("[data-slot=page-scroll]").count()).toBe(0);
-  const region = flow ? page.locator("html") : scope.locator("[data-slot=page-scroll]");
+  const region = flow ? page.locator("html") : scope.locator(REGION(id));
   const before = await measure(region);
   for (let i = 0; i < 20; i++) {
     const m = await measure(region);
@@ -159,13 +173,13 @@ async function scrollPage(page: Page, id: (typeof PAGES)[number], panel: boolean
   return { before, after: await measure(region) };
 }
 
-function expectScrolled(label: string, { before, after }: { before: Measure; after: Measure }, flow = false) {
+function expectScrolled(label: string, { before, after }: { before: Measure; after: Measure }, flow = false, drawer = false) {
   const overflow = before.scrollHeight - before.clientHeight;
   console.log(`${label}: content ${before.scrollHeight} px in a ${before.clientHeight} px region, scrolled ${after.scrollTop} of ${overflow} px, last element ${after.lastInView ? "in view" : "NOT in view"}, header ${after.headerAtTop ? "sticky" : "NOT at the top"}, scrollers [${before.scrollers.join(", ")}]`);
   // The content is taller than the screen's region: otherwise the pass proves nothing.
   expect(overflow, `${label}: the content must be taller than its region`).toBeGreaterThan(40);
   // A flow's document scrolls, no element in it; a page's region is the one element that scrolls.
-  expect(before.scrollers, `${label}: the region is the one element that scrolls`).toEqual(flow ? [] : ["page-scroll"]);
+  expect(before.scrollers, `${label}: the region is the one element that scrolls`).toEqual(flow ? [] : [drawer ? "scroll-region" : "page-scroll"]);
   expect(after.scrollTop + after.clientHeight).toBeGreaterThanOrEqual(after.scrollHeight - 1);
   expect(after.lastInView, `${label}: the last element is in view at the end`).toBe(true);
   expect(after.headerAtTop, `${label}: the header stays at the top`).toBe(true);
@@ -186,7 +200,7 @@ describe("at 375 x 812, every page scrolls in the tab frame to its last element 
     const height = SHORT[id]?.phone ?? 812;
     await page.setViewportSize({ width: 375, height });
     const result = await scrollPage(page, id, false, () => drag(cdp, 187, height - 200, 150));
-    expectScrolled(`375 x ${height} ${id}${FLOWS.has(id) ? " (flow, the document)" : ""}`, result, FLOWS.has(id));
+    expectScrolled(`375 x ${height} ${id}${FLOWS.has(id) ? " (flow, the document)" : DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, FLOWS.has(id), DRAWERS.has(id));
     if (shots && (id === "league" || id === "chests")) await page.screenshot({ path: join(shots, `375-${id}.png`) });
   });
 });
@@ -204,13 +218,14 @@ describe("at 1440 x 900, every side panel scrolls to its page's last element (#7
     const height = SHORT[id]?.desktop ?? 900;
     await page.setViewportSize({ width: 1440, height });
     const result = await scrollPage(page, id, true, async () => {
-      const box = (await page.locator("[data-slot=page-scroll]").boundingBox())!;
+      const box = (await page.locator(REGION(id)).boundingBox())!;
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.mouse.wheel(0, 600);
       await pause(250);
     });
-    expectScrolled(`1440 x ${height} ${id}`, result);
-    expect(await page.getByRole("dialog").getByRole("button", { name: "Close" }).count()).toBe(0);
+    expectScrolled(`1440 x ${height} ${id}${DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, false, DRAWERS.has(id));
+    // The page panel has no close; the HUD's drawer has its own, by design (MISSIONS-PAGE).
+    if (!DRAWERS.has(id)) expect(await page.getByRole("dialog").getByRole("button", { name: "Close" }).count()).toBe(0);
     if (shots && (id === "league" || id === "chests")) await page.screenshot({ path: join(shots, `1440-${id}.png`) });
   });
 });
@@ -295,8 +310,7 @@ describe("at 375, 800 and 1440 px, no page draws a scroll bar (#835)", () => {
         const narrow = w.width === 800 && id === "play" ? 420 : undefined;
         await page.setViewportSize({ width: w.width, height: narrow ?? (panel ? SHORT[id]?.desktop : SHORT[id]?.phone) ?? w.height });
         await page.goto(`${base}/e2e/pages-scroll/index.html?page=${id}${panel ? "&panel=1" : ""}`, { waitUntil: "networkidle" });
-        const scope = panel ? page.getByRole("dialog", { name: TITLES[id] }) : page.locator("body");
-        await scope.getByRole("heading", { level: 1, name: TITLES[id] }).waitFor({ timeout: 20_000 });
+        await titled(scopeOf(page, id, panel), id).waitFor({ timeout: 20_000 });
         await page.evaluate(() => document.fonts.ready);
         await pause(400);
         const found = await page.evaluate(() => {

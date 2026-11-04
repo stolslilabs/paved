@@ -41,9 +41,15 @@ const BUILDER: Mission = {
 /**
  * The selected mission at the top of the Missions page (#832; MISSIONS-PAGE, the owner's asks of 2026-11-04: no more text than that,
  * room for it on a small phone): its medallion, its kind, its title, its task and a counter, the text the card's whole width. A
- * mission with Cobbles of its own is claimed from the badge at its medallion's foot, its tooltip "+20" and the Cobble.
+ * mission with Cobbles of its own is claimed from the badge at its medallion's foot, its tooltip "+20" and the Cobble. In the drawer's
+ * padding, as the page draws it (the medallion's ring a little past its box).
  */
-const meta = { title: "Containers/MissionCard", component: MissionCard, args: { mission: PUBLIC_WORKS, onClaim: fn() } } satisfies Meta<typeof MissionCard>;
+const meta = {
+  title: "Containers/MissionCard",
+  component: MissionCard,
+  args: { mission: PUBLIC_WORKS, onClaim: fn() },
+  decorators: [(Story) => <div className="p-4"><Story /></div>],
+} satisfies Meta<typeof MissionCard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
