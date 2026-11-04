@@ -1,4 +1,4 @@
-import { useBack, useTabNavigate } from "../ref";
+import { useBack } from "../ref";
 import { ChatContent } from "../social/chat-content";
 import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
 
@@ -9,11 +9,10 @@ import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
  * (`router.tsx`, `chat-content.tsx`). Its own chunk, its content with it.
  */
 export default function Page() {
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   return (
     <>
-      <ChatContent onBack={onBack} onNavigate={onNavigate} />
+      <ChatContent onBack={onBack} />
       <ProfilesBelowDesktop />
     </>
   );

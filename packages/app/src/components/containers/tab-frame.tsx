@@ -1,62 +1,49 @@
 import { useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { useInRouterContext, useLocation, useNavigationType } from "react-router";
-import type { Tab } from "../../routes/pages";
 import { pageScrollHintRef } from "../../lib/page-scroll-hint";
-import { AppNav } from "./app-nav";
 import { usePagePanel } from "./page-panel-context";
 import { PageRegionProvider } from "./page-region";
 
 export interface TabFrameProps {
-  tab: Tab;
-  onNavigate?: (tab: Tab) => void;
   children: ReactNode;
 }
 
 /**
- * The frame of a tab page (#611): one viewport tall (`h-dvh`), the page in its own scrolling region and the navigation
- * `position: fixed` to the viewport's bottom below `desktop`. The region
- * ends at the bar's top (`--app-nav-h`, the bar's measured height), so the content never runs under it. The document never
- * scrolls (`html, body` take no overscroll, theme.css), so a pull past the top or the bottom never moves the navigation; the
- * region's own bounce stays inside it (`overscroll-contain`). Home and `TabPage` use it (a file apart from `TabPage`, which
- * Home's first load does not carry). The region is the page's document: it drives the page's edge hint (`pageScrollHintRef`,
- * the fades `AppNav` draws), not the `scroll-hint` mask of a `ScrollRegion`, and it keeps its offset per history entry
- * (`RegionScrollKeeper`). From `desktop` there is no bar (DESK-PANELS, #762): the page is in the home's side panel, whose body is
- * its scrolling region; the frame then draws its page alone.
+ * The frame of a tab page (#611): one viewport tall (`h-dvh`), the page in its own scrolling region. The document never scrolls
+ * (`html, body` take no overscroll, theme.css), so a pull past the top or the bottom never moves the page's header; the region's
+ * own bounce stays inside it (`overscroll-contain`). Home and `TabPage` use it (a file apart from `TabPage`, which Home's first
+ * load does not carry). The region is the page's document: it drives the page's edge hint (`pageScrollHintRef`: the fade at the
+ * screen's foot below, `page-more`), not the `scroll-hint` mask of a `ScrollRegion`, and it keeps its offset per history entry
+ * (`RegionScrollKeeper`). From `desktop` the page is in the home's side panel (DESK-PANELS, #762), whose body is its scrolling
+ * region; the frame then draws its page alone.
+ * DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): a page carries no dock. The region runs to the screen's foot, its safe area
+ * under the page's last line; the page's way out is its header's Back.
  * PAGES-SCROLL (#782): the page is drawn straight in the region, its header and its content as the region's children (no
  * column of its own between them and the region), so the region is the one element that scrolls and its header sticks to its
  * top; the page knows it is in a region (`PageRegionProvider`), and a flow's bar then leaves the document's hint alone.
  */
-export function TabFrame(props: TabFrameProps) {
-  if (usePagePanel()) return <div className="relative flex flex-1 flex-col">{props.children}</div>;
-  return <FullTabFrame {...props} />;
+export function TabFrame({ children }: TabFrameProps) {
+  if (usePagePanel()) return <div className="relative flex flex-1 flex-col">{children}</div>;
+  return <FullTabFrame>{children}</FullTabFrame>;
 }
 
-function FullTabFrame({ tab, onNavigate, children }: TabFrameProps) {
-  const frame = useRef<HTMLDivElement>(null);
+function FullTabFrame({ children }: TabFrameProps) {
   const region = useRef<HTMLDivElement | null>(null);
   const regionRef = useCallback((el: HTMLDivElement | null) => {
     region.current = el;
     return pageScrollHintRef(el);
   }, []);
-  // The bar's height, for the region's bottom margin: it changes with the labels (from `mobile`) and the safe area; from `tablet`
-  // the dock floats, its lift off the screen's foot (`--dock-lift`, its margin) counted too.
-  useLayoutEffect(() => {
-    const el = frame.current;
-    const nav = el?.querySelector<HTMLElement>(":scope > nav");
-    if (!el || !nav) return;
-    const measure = () => el.style.setProperty("--app-nav-h", `${nav.offsetHeight + (Number.parseFloat(getComputedStyle(nav).marginBottom) || 0)}px`);
-    measure();
-    const resize = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
-    resize?.observe(nav);
-    return () => resize?.disconnect();
-  }, []);
   return (
-    <div ref={frame} className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      {/* From `desktop` a page opens in the home's side panel (`TabFrame`'s other branch), the home drawing the dock. */}
-      <AppNav active={tab} onNavigate={onNavigate} className="desktop:hidden" />
-      <div ref={regionRef} data-slot="page-scroll" className="mb-(--app-nav-h) min-h-0 flex-1 overflow-y-auto overscroll-contain desktop:mb-0">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+      <div ref={regionRef} data-slot="page-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
         <PageRegionProvider value>{children}</PageRegionProvider>
       </div>
+      {/* The page's edge hint (NO-SCROLLBARS, #609): while its region has more below, a fade at the screen's foot. */}
+      <span
+        aria-hidden
+        data-slot="page-scroll-hint"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-[calc(2rem+env(safe-area-inset-bottom))] bg-linear-to-b to-background opacity-0 transition-opacity motion-reduce:transition-none page-more:opacity-100"
+      />
       {useInRouterContext() && <RegionScrollKeeper region={region} />}
     </div>
   );

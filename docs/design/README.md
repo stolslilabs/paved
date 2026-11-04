@@ -69,7 +69,10 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   model through the Codex CLI; its four new icons were redrawn from crops of it (`packages/app/ui-sources/icons/`). The owner's
   pattern of 2026-11-02: a page is a side panel on a large screen and a full page with Back on a phone, the same layout in both; the
   profile is the HUD's drawer (`containers/hud-drawer.tsx`, PROFILE-DRAWER): since 2026-11-04 a full page with Back on a phone; from
-  `tablet` a side panel docked at the left, the window's height. The dock stays over every page, which leaves it room at its end. The owner's changes of 2026-11-03:
+  `tablet` a side panel docked at the left, the window's height. The dock stays under every page (DOCK-UNDER-PAGES, the owner's ask of
+  the same day, in place of the dock over them): veiled and blurred with the village beside a side panel, covered by a phone's page;
+  no page carries a dock of its own, its way out is its Back; the swipe between pages, the dock's highlight of the current page and
+  its re-tap left with the pages' docks. The owner's changes of 2026-11-03:
   the HUD's frame and the interface's greys in place of the mockup's blue, no Best, no XP line under the bar; of four side-panel
   directions drawn through the Codex CLI that day (a native sheet, frosted glass, game-native, a Material side sheet), the game-native
   one (a darker header band, outlined tiles lit along their top over a dark lip) with the native sheet's straight edge. The HUD's

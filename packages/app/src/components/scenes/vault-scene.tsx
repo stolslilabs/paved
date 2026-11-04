@@ -1,5 +1,4 @@
 import type { SplitView, VaultPosition as Position } from "@paved/chain";
-import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
@@ -53,9 +52,8 @@ export interface VaultSceneProps {
   onWithdraw?: () => void;
   onWithdrawAll?: () => void;
   onPlay?: () => void;
-  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  /** Back, up to the village (BACK-RULE #783); omitted, no Back. */
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /**
@@ -68,7 +66,7 @@ export function VaultScene(props: VaultSceneProps) {
 
   if (status) {
     return (
-      <TabPage tab="vault" title="Vault" onBack={props.onBack} onNavigate={props.onNavigate}>
+      <TabPage title="Vault" onBack={props.onBack}>
         <p className="text-sm text-muted-foreground">{INTRO}</p>
         <div className="flex flex-col gap-4">
           {status.kind === "guest" ? (
@@ -90,7 +88,7 @@ export function VaultScene(props: VaultSceneProps) {
 
   if (!deployed || !position) {
     return (
-      <TabPage tab="vault" title="Vault" onBack={props.onBack} onNavigate={props.onNavigate}>
+      <TabPage title="Vault" onBack={props.onBack}>
         <p className="text-sm text-muted-foreground">{INTRO}</p>
         <Notice tone="warning" title="Economy not deployed">
           This network has no Vault yet: there is nothing to deposit or withdraw. Training and Story mode still play.
@@ -102,7 +100,7 @@ export function VaultScene(props: VaultSceneProps) {
   const none = position.shares === 0n;
   const nothing = none && balance === 0n;
   return (
-    <TabPage tab="vault" title="Vault" onBack={props.onBack} onNavigate={props.onNavigate}>
+    <TabPage title="Vault" onBack={props.onBack}>
       {/* The page's first line (ONE-HEADER, #781: no subtitle, nothing but the Vault's PAVED and vPAVED in the header, #855): what the Vault does, and the wallet's PAVED. */}
       <div className="flex items-end justify-between gap-3">
         <p className="text-sm text-muted-foreground">{INTRO}</p>

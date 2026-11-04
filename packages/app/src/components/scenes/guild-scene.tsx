@@ -1,14 +1,12 @@
 import type { ReactNode } from "react";
-import type { Tab } from "../../routes/pages";
 import { SocialEmpty } from "../containers/social-empty";
 import { TabPage } from "../containers/tab-page";
 
 export interface GuildSceneProps {
   /** The page's content as the app draws it (the finder, or the player's guild, #953). Unset: the empty state, as a guest sees it. */
   children?: ReactNode;
-  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  /** Back, up to the village (BACK-RULE #783); omitted, no Back. */
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /**
@@ -17,9 +15,9 @@ export interface GuildSceneProps {
  * Requests for officers and the leader, Log). Another guild opens in a sheet over it (`?guild=`): its header and its members.
  * From `desktop` it is in the home's side panel, on the right, as every page.
  */
-export function GuildScene({ children, onBack, onNavigate }: GuildSceneProps) {
+export function GuildScene({ children, onBack }: GuildSceneProps) {
   return (
-    <TabPage tab="guild" title="Guild" onBack={onBack} onNavigate={onNavigate}>
+    <TabPage title="Guild" onBack={onBack}>
       {children ?? <SocialEmpty page="guild" />}
     </TabPage>
   );

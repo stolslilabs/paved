@@ -16,7 +16,7 @@ import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
-import { useAppNavigate, useBack, useTabNavigate } from "../ref";
+import { useAppNavigate, useBack } from "../ref";
 import { useOpenPlayer } from "../open-player";
 import { useSidePanel } from "../../lib/side-panel";
 import { DESKTOP_QUERY } from "../home-layout";
@@ -28,7 +28,6 @@ import { DESKTOP_QUERY } from "../home-layout";
  * replay (`/pvp/replay/:attacker/:id`, v1), whose Back comes up here. No shield on the page (#859): the home's overlay shows it.
  */
 export default function Page() {
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   const now = useNow();
   const wallet = useAccount();
@@ -41,10 +40,10 @@ export default function Page() {
   const matches = useMatches(me);
   const desktop = useSidePanel(DESKTOP_QUERY);
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  // Its waits and refusals in the League tab's frame too (#763): the bar stays while the league is read. In the side panel from
+  // Its waits and refusals in the League tab's frame too (#763). In the side panel from
   // `desktop` (#762) a click outside it or Escape closes it (#782).
   const wait = (scene: ReactNode) => (
-    <TabFrame tab="league" onNavigate={onNavigate}>
+    <TabFrame>
       {scene}
     </TabFrame>
   );
@@ -69,7 +68,6 @@ export default function Page() {
         unranked={last ? isUnranked(league, last) : false}
         attacks={season ? league.attacks : undefined}
         onBack={onBack}
-        onNavigate={onNavigate}
         {...matches}
       />
       {/* The rivals' profiles (#952), from the battle logs' cards; from `desktop` the home's host, under this panel, serves. */}

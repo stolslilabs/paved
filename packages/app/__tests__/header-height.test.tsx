@@ -38,8 +38,8 @@ describe("the page headers", () => {
   it.each([
     ["a flow's top bar", () => <TopBar title="Choose a mode" onBack={() => {}} />],
     ["a flow's top bar without balances", () => <TopBar title="Something broke" balances={false} />],
-    ["a tab page's title row", () => <TabPage tab="vault" title="Vault">{null}</TabPage>],
-    ["a page reached from another", () => <TabPage tab="settings" title="Credits" onBack={() => {}}>{null}</TabPage>],
+    ["a tab page's title row", () => <TabPage title="Vault">{null}</TabPage>],
+    ["a page reached from another", () => <TabPage title="Credits" onBack={() => {}}>{null}</TabPage>],
     ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
   ])("%s is a page header on the token", (_, page) => {
     const { container } = render(page());
@@ -52,7 +52,7 @@ describe("the page headers", () => {
   // the navigation's backdrop, with Back at its top left.
   it.each([
     ["a flow's top bar", () => <TopBar title="Choose a mode" onBack={() => {}} />],
-    ["a tab page's header", () => <TabPage tab="vault" title="Vault">{null}</TabPage>],
+    ["a tab page's header", () => <TabPage title="Vault" onBack={() => {}}>{null}</TabPage>],
     ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
   ])("%s is sticky, with Back at its top left", (_, page) => {
     const { container } = render(page());
@@ -68,7 +68,7 @@ describe("the page headers", () => {
   });
 
   it("the navigation is the dock at the bottom, never a header (#762; HOME-DOCK: on the home from desktop too, the pages then in its panel)", () => {
-    render(<AppNav active="home" />);
+    render(<AppNav />);
     const nav = screen.getByRole("navigation", { name: "Main" });
     expect(nav.className).toMatch(/(^| )fixed inset-x-0 bottom-0 /);
     expect(nav.className).not.toMatch(/page-header/);

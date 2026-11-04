@@ -17,7 +17,7 @@ import { ChatScene } from "./chat-scene";
 const meta = {
   title: "Scenes/Chat",
   component: ChatScene,
-  args: { onBack: fn(), onNavigate: fn(), onTabChange: fn(), menu: <ChatMenu mutes={[]} onUnmute={fn(async () => {})} onOpenPlayer={fn()} /> },
+  args: { onBack: fn(), onTabChange: fn(), menu: <ChatMenu mutes={[]} onUnmute={fn(async () => {})} onOpenPlayer={fn()} /> },
 } satisfies Meta<typeof ChatScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

@@ -7,7 +7,6 @@ import { COBBLES, HALL_OF_FAME, MISSIONS, PLAY, PLAYER_STATUS, RECORDS, SETTINGS
 import { PROGRESS } from "../../mocks/players";
 import { HOME_VILLAGE, VILLAGE_CHESTS, VILLAGE_SHOP } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
-import { DOCK_REACH_PX } from "../elements/dock-room";
 import PagePanel from "../containers/page-panel";
 import PageSheet from "../containers/page-sheet";
 import { ProfileProvider, type ProfileValue } from "../containers/profile-context";
@@ -32,7 +31,7 @@ const tileArt = originalTileArt(SOURCE_ASSETS);
  * overlay at 1440 px (the Viewport toolbar can switch it; below `desktop` the app draws these pages full screen instead); the
  * home's Cobbles in every panel's header (ONE-HEADER, #781). No page opens another (BACK-RULE, #783): the defence log is a
  * section of the League, and the themes are a sheet over Settings' panel. The profile opens on the left. The village is the plan view (the `Scene` stories of `Scenes/Home` have the 3D).
- * The dock stays over every page (the owner's ask of 2026-11-04), which leaves it room at its end: the `Dock` stories check both.
+ * DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): the dock stays under every page, veiled and blurred with the village: the `Dock` stories check it.
  */
 const meta = {
   title: "Scenes/Home/Panels",
@@ -98,27 +97,27 @@ const panel = (title: string, page: ReactNode, options: { top?: boolean; side?: 
 });
 
 /** Missions (#832): the selected mission's card, the Limited and the Lifetime icons, the Cobbles they earn in the header. */
-export const Missions: Story = panel("Missions", <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />);
+export const Missions: Story = panel("Missions", <MissionsScene {...MISSIONS.daily} onClaimQuest={fn()} onClaimAchievement={fn()} />);
 /** The Chests: the slots, the chest to open, the Cobbles. */
-export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
+export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The day's tile shop, the Cobbles in the header. */
-export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} tileArt={tileArt} onBack={fn()} onNavigate={fn()} onBuy={fn()} onGetCobbles={fn()} />);
+export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} tileArt={tileArt} onBack={fn()} onBuy={fn()} onGetCobbles={fn()} />);
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
-export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} onNavigate={fn()} />);
+export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} />);
 /**
  * The League, its defence log in place under Attack (BACK-RULE, #783). Its panel slides in from the left (#829, the owner's
  * decision of 2026-10-27), as the profile's sheet: its button is on the home's left, under the profile.
  */
-export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onNavigate={fn()} onOpenMatch={fn()} />, { side: "left" });
+export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onOpenMatch={fn()} />, { side: "left" });
 /** Settings, from the gear. */
-export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} />);
+export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onChange={fn()} />);
 /** The themes, from Settings: a sheet over its panel (BACK-RULE, #783), its close up to Settings, the Cobbles they cost in its header. */
 export const Themes: Story = panel(
   "Settings",
   <>
-    <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} />
+    <SettingsScene {...SETTINGS.connected} onChange={fn()} />
     <PageSheet open title="Themes" side="right" onClose={fn()}>
-      <ThemeScene {...THEME.mixed} onBack={fn()} onNavigate={fn()} onUse={fn()} onOpen={fn()} />
+      <ThemeScene {...THEME.mixed} onBack={fn()} onUse={fn()} onOpen={fn()} />
     </PageSheet>
   </>,
 );
@@ -128,14 +127,14 @@ export const Play: Story = panel("Play", <PlayScene {...PLAY.connected} onBack={
 export const Cobbles: Story = panel("Cobbles", <CobblesScene {...COBBLES.packs} onBack={fn()} onSelectPack={fn()} onBuyPack={fn()} />);
 
 /**
- * The dock over the open page, live: what the screen shows over the dock's band and over the PLAY medallion is the dock. Then the
- * page's body scrolled to its end: its last line (`last`) a gap above the dock's reach.
+ * The dock under the open page (DOCK-UNDER-PAGES): what the screen shows over the dock's band and over the PLAY medallion is the
+ * page or its veil, never the dock, and the veil blurs what it covers.
  */
-async function expectDockOver(scroller: HTMLElement, last: HTMLElement) {
-  const doc = scroller.ownerDocument;
+async function expectDockUnder(canvasElement: HTMLElement) {
+  const doc = canvasElement.ownerDocument;
   // The dock's chunk may still be on its way.
   await waitFor(() => {
-    const nav = doc.querySelector<HTMLElement>("[data-dock] nav");
+    const nav = doc.querySelector<HTMLElement>('nav[aria-label="Main"]');
     expect(nav).not.toBeNull();
     const band = nav!.getBoundingClientRect();
     for (const [x, y] of [
@@ -143,15 +142,14 @@ async function expectDockOver(scroller: HTMLElement, last: HTMLElement) {
       [band.left + band.width * 0.88, band.bottom - 12],
       [band.left + band.width / 2, band.top - 8],
     ]) {
-      expect(doc.elementFromPoint(x, y)?.closest("[data-dock]")).not.toBeNull();
+      const hit = doc.elementFromPoint(x, y);
+      expect(hit).not.toBeNull();
+      expect(nav!.contains(hit)).toBe(false);
     }
   }, { timeout: 5000 });
-  scroller.scrollTop = scroller.scrollHeight;
-  await waitFor(() => expect(last.getBoundingClientRect().bottom).toBeLessThanOrEqual(doc.documentElement.clientHeight - DOCK_REACH_PX));
+  const veil = doc.querySelector<HTMLElement>("[data-slot=sheet-overlay]");
+  if (veil && getComputedStyle(veil).display !== "none") expect(getComputedStyle(veil).backdropFilter).toContain("blur");
 }
-
-/** The profile's last section: the Stats' last structure type. */
-const lastSection = (page: HTMLElement) => [...page.querySelectorAll<HTMLElement>("[data-slot=profile-structure]")].at(-1)!;
 
 /** Opens the profile from the avatar and waits for its page in place (its slide over). */
 async function openProfile(canvasElement: HTMLElement) {
@@ -161,7 +159,7 @@ async function openProfile(canvasElement: HTMLElement) {
   return page;
 }
 
-/** The profile (PROFILE-DRAWER), from the avatar: its side panel on the left (#624), the dock over its foot. */
+/** The profile (PROFILE-DRAWER), from the avatar: its side panel on the left (#624), the dock under its veil. */
 export const Profile: Story = {
   render: (args) => <HomeWith args={args} />,
   play: async ({ canvasElement }) => {
@@ -169,43 +167,41 @@ export const Profile: Story = {
   },
 };
 
-/** On a phone, a full page with Back (the owner's asks of 2026-11-04); the dock stays over it, and its end scrolls clear of the dock. */
-export const DockOverProfilePhone320: Story = {
+/** On a phone, a full page with Back (the owner's asks of 2026-11-04), over the dock: no dock in view. */
+export const DockUnderProfilePhone320: Story = {
   ...PHONE_320,
   render: (args) => <HomeWith args={args} />,
   play: async ({ canvasElement }) => {
     const page = await openProfile(canvasElement);
     expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(within(page).queryByRole("button", { name: "Close" })).toBeNull();
-    await expectDockOver(page.querySelector<HTMLElement>("[data-hud-drawer-body]")!, lastSection(page));
+    await expectDockUnder(canvasElement);
   },
 };
 
-/** From `tablet` the side panel, under the dock's PLAY medallion at 768 px: its end scrolls clear of it too. */
-export const DockOverProfileTablet768: Story = {
+/** From `tablet` the side panel, over the dock at 768 px: the dock under the veil, blurred with the village. */
+export const DockUnderProfileTablet768: Story = {
   ...TABLET_768,
   render: (args) => <HomeWith args={args} />,
   play: async ({ canvasElement }) => {
     const page = await openProfile(canvasElement);
     expect(within(page).getByRole("button", { name: "Close" })).toBeInTheDocument();
-    await expectDockOver(page.querySelector<HTMLElement>("[data-hud-drawer-body]")!, lastSection(page));
+    await expectDockUnder(canvasElement);
   },
 };
 
-/** At 1024 px the dock runs under the right panel's foot: it stays over it, and Missions' end scrolls clear of it. */
-export const DockOverPanelDesktop1024: Story = {
-  ...panel("Missions", <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />),
+/** At 1024 px the dock runs under the right panel's foot: the panel covers it, the veil blurs the rest of it. */
+export const DockUnderPanelDesktop1024: Story = {
+  ...panel("Missions", <MissionsScene {...MISSIONS.daily} onClaimQuest={fn()} onClaimAchievement={fn()} />),
   globals: { viewport: { value: "desktop", isRotated: false } },
   play: async ({ canvasElement }) => {
-    const panelEl = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Missions" });
-    const scroller = panelEl.querySelector<HTMLElement>("[data-slot=page-scroll]")!;
-    await waitFor(() => expect(scroller.querySelector("main")?.lastElementChild).not.toBeNull());
-    await expectDockOver(scroller, scroller.querySelector("main")!.lastElementChild as HTMLElement);
+    await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Missions" });
+    await expectDockUnder(canvasElement);
   },
 };
 
-/** Below `desktop` the same page is a full page with the phone's bar (#763), not a panel: Missions at 375 px, for comparison. */
+/** Below `desktop` the same page is a full page, not a panel, and carries no dock (DOCK-UNDER-PAGES): Missions at 375 px, for comparison. */
 export const MissionsPhone: Story = {
   ...PHONE_375,
-  render: () => <MissionsScene {...MISSIONS.daily} onNavigate={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />,
+  render: () => <MissionsScene {...MISSIONS.daily} onClaimQuest={fn()} onClaimAchievement={fn()} />,
 };

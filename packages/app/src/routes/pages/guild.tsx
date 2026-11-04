@@ -1,5 +1,5 @@
 import { GuildScene } from "../../components/scenes/guild-scene";
-import { useBack, useTabNavigate } from "../ref";
+import { useBack } from "../ref";
 import { GuildContent } from "../social/guild-content";
 import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
 
@@ -9,11 +9,10 @@ import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
  * guild line and the guild cards open it); the old `/social?guild=` links land here (`router.tsx`). Its own chunk.
  */
 export default function Page() {
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   return (
     <>
-      <GuildScene onBack={onBack} onNavigate={onNavigate}>
+      <GuildScene onBack={onBack}>
         <GuildContent />
       </GuildScene>
       <ProfilesBelowDesktop />

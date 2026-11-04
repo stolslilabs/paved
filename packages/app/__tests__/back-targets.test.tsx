@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORY_KEY, TUTORIAL, recordRun, EMPTY_PROGRESS } from "@paved/game-core";
@@ -129,7 +129,8 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
   it("from Settings reached through Vault, Back is the village, not Vault", async () => {
     const router = open("/vault");
     await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
-    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Settings" }));
+    // A link from the Vault's page (no page carries the dock, DOCK-UNDER-PAGES).
+    await act(() => router.navigate("/settings"));
     await screen.findByRole("heading", { level: 1, name: "Settings" }, { timeout: slow(5000) });
     await back();
     await waitFor(() => expect(at(router)).toBe("/"));

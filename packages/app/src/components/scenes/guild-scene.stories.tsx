@@ -14,7 +14,7 @@ import { GuildScene } from "./guild-scene";
 const meta = {
   title: "Scenes/Guild",
   component: GuildScene,
-  args: { onBack: fn(), onNavigate: fn() },
+  args: { onBack: fn() },
 } satisfies Meta<typeof GuildScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

@@ -12,7 +12,7 @@ import { MissionsScene } from "./missions-scene";
 const meta = {
   title: "Scenes/Missions",
   component: MissionsScene,
-  args: { onClaimTutorial: fn(), onGo: fn(), onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn(), onNavigate: fn() },
+  args: { onClaimTutorial: fn(), onGo: fn(), onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn() },
 } satisfies Meta<typeof MissionsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

@@ -90,11 +90,12 @@ describe("the page's hint", () => {
     const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(400);
     const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => (cb(0), 1));
     try {
-      const { container, unmount } = render(<TabFrame tab="home"><p>Body</p></TabFrame>);
+      const { container, unmount } = render(<TabFrame><p>Body</p></TabFrame>);
       expect(root).toHaveAttribute("data-scroll-end");
-      // One fade, above the bar: from `desktop` there is no bar, the page is in the home's side panel (#762).
+      // One fade, at the screen's foot, the frame's own: no page carries the dock (DOCK-UNDER-PAGES).
       expect(container.querySelectorAll("[data-slot=page-scroll-hint]")).toHaveLength(1);
-      expect(container.querySelector("nav > [data-slot=page-scroll-hint]")).not.toBeNull();
+      expect(container.querySelector("nav")).toBeNull();
+      expect(container.querySelector("[data-slot=page-scroll-hint]")!.className).toMatch(/(^| )fixed inset-x-0 bottom-0 /);
       unmount();
       expect(root).not.toHaveAttribute("data-scroll-end");
     } finally {

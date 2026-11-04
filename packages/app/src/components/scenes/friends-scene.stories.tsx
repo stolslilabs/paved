@@ -15,7 +15,7 @@ import { FriendsScene } from "./friends-scene";
 const meta = {
   title: "Scenes/Friends",
   component: FriendsScene,
-  args: { ...FRIENDS_SEARCH.idle, onBack: fn(), onNavigate: fn() },
+  args: { ...FRIENDS_SEARCH.idle, onBack: fn() },
 } satisfies Meta<typeof FriendsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

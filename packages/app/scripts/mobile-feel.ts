@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   const browser = await chromium.launch({ headless: true, args: ARGS });
   try {
     const context = await browser.newContext({ ...devices["Pixel 7"], reducedMotion: "reduce" });
-    // The welcome seen: the village (`/`) opens, not the welcome, when the current tab picked again returns to it (#800).
+    // The welcome seen: the village (`/`) opens, not the welcome.
     await context.addInitScript(() => localStorage.setItem("welcomed", "1"));
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
@@ -85,29 +85,26 @@ async function main(): Promise<void> {
     await pinch(cdp, cx, cy, 2.5);
     check("chrome: a pinch does not zoom", (await scale(page)) === 1, `scale ${await scale(page)}`);
 
-    // FOOTER-FIXED (#611): the document never scrolls or bounces; the page scrolls in its own region and the navigation
-    // stays at the viewport's bottom through a scroll.
-    const nav = page.getByRole("navigation", { name: "Main" });
-    const navTop = async () => (await nav.boundingBox())!.y;
+    // FOOTER-FIXED (#611): the document never scrolls or bounces; the page scrolls in its own region, its header sticking to
+    // the viewport's top through a scroll. DOCK-UNDER-PAGES (2026-11-04): a page carries no dock, its way out is its Back.
+    const header = page.locator("[data-slot=page-header]").first();
+    const headerTop = async () => (await header.boundingBox())!.y;
     const docStyles = await page.evaluate(() => ({
       html: getComputedStyle(document.documentElement).overscrollBehaviorY,
       body: getComputedStyle(document.body).overscrollBehaviorY,
       region: getComputedStyle(document.querySelector("[data-slot=page-scroll]")!).overscrollBehaviorY,
     }));
     check("tab page: html and body take no overscroll, the region contains its own", docStyles.html === "none" && docStyles.body === "none" && docStyles.region === "contain", JSON.stringify(docStyles));
-    const viewportHeight = page.viewportSize()!.height;
-    const navBox = (await nav.boundingBox())!;
-    check("tab page: the navigation sits at the viewport's bottom", Math.abs(navBox.y + navBox.height - viewportHeight) < 1, `${navBox.y + navBox.height} vs ${viewportHeight}`);
-    const navBefore = await navTop();
+    const docks = await page.getByRole("navigation", { name: "Main" }).count();
+    check("tab page: no dock on a page, Back at its top left", docks === 0 && (await header.getByRole("button", { name: "Back" }).count()) === 1, `${docks} dock(s)`);
+    const headerBefore = await headerTop();
     await page.mouse.wheel(0, 2000);
     await page.waitForTimeout(300);
     const docScroll = await page.evaluate(() => document.scrollingElement!.scrollTop);
     check("tab page: the document does not scroll", docScroll === 0, `scrollTop ${docScroll}`);
-    check("tab page: the navigation does not move on a scroll", (await navTop()) === navBefore, `${await navTop()} vs ${navBefore}`);
-    const navPosition = await nav.evaluate((el) => getComputedStyle(el).position);
-    check("tab page: the navigation is position fixed", navPosition === "fixed", navPosition);
+    check("tab page: the header does not move on a scroll", (await headerTop()) === headerBefore, `${await headerTop()} vs ${headerBefore}`);
     // Back brings the page back where it was left (the region keeps its offset per history entry).
-    const region = page.locator("[data-slot=page-scroll]");
+    const region = page.locator("[data-slot=page-scroll]").first();
     const left = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
     await page.waitForTimeout(300);
     await page.getByRole("button", { name: /Credits/ }).click();
@@ -119,30 +116,20 @@ async function main(): Promise<void> {
     check("tab page: Back restores the page's scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
     await region.evaluate((el) => (el.scrollTop = 0));
     await page.waitForTimeout(300);
-    // Back to an entry left at the top returns to the top: Settings left at 0, the Shop picked in the bar, then Back.
-    await nav.getByRole("button", { name: "Shop" }).click();
-    await page.waitForURL(/village\/shop/);
-    // The Shop drawn first: the URL changes before the page does, and a scroll of Settings' region then would be its offset.
-    await page.getByRole("heading", { level: 1, name: "Tile shop" }).waitFor();
+    // Back to an entry left at the top returns to the top: Settings left at 0, the Credits' sheet over it scrolled, then Back.
+    // A dispatched click: a pointer's would first scroll the region to the link, at its foot.
+    await page.getByRole("button", { name: /Credits/ }).dispatchEvent("click");
+    await page.waitForURL(/credits/);
+    const sheet = page.getByRole("dialog").locator("[data-slot=page-scroll]");
+    await sheet.waitFor();
     await page.waitForTimeout(300);
-    await region.evaluate((el) => (el.scrollTop = 500));
+    await sheet.evaluate((el) => (el.scrollTop = 500));
     await page.waitForTimeout(300);
     await page.goBack();
     await page.getByRole("button", { name: /Credits/ }).waitFor();
     await page.waitForTimeout(500);
     const backToTop = await region.evaluate((el) => el.scrollTop);
     check("tab page: Back to an entry left at the top returns to the top", backToTop === 0, `scrollTop ${backToTop}`);
-    // TAB-RETAP (#800): the current tab picked again closes its page and returns to the village, in place of the page's entry
-    // (Settings was the first entry here), so Back does not reopen it.
-    const entries = await page.evaluate(() => history.length);
-    await nav.getByRole("button", { name: "Settings", exact: true }).click();
-    await page.waitForURL((url) => url.pathname === "/", { waitUntil: "commit" });
-    await page.waitForTimeout(500);
-    const village = { current: await nav.locator("[aria-current=page]").count(), entries: await page.evaluate(() => history.length) };
-    check("tab page: the current tab picked again returns to the village, no item current, its entry replaced", village.current === 0 && village.entries === entries, JSON.stringify(village));
-    await page.goBack();
-    await page.waitForTimeout(500);
-    check("tab page: Back after the retap does not reopen the page", !new URL(page.url(), base).pathname.startsWith("/settings"), page.url());
     await page.goto(`${base}/settings`, { waitUntil: "networkidle" });
     await region.waitFor();
     // A fresh document (a typed URL) opens at the top: its first entry never takes another page's offset.

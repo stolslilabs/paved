@@ -16,7 +16,7 @@ export const Mark: Story = {};
 export const InTabPage: Story = {
   render: () => (
     <MockMarkProvider value>
-      <TabPage tab="vault" title="Vault" onNavigate={fn()}>
+      <TabPage title="Vault">
         <p className="text-sm text-muted-foreground">The page's content.</p>
       </TabPage>
     </MockMarkProvider>
@@ -36,7 +36,7 @@ export const InTopBar: Story = {
 export const InTabPageLongTitle: Story = {
   render: () => (
     <MockMarkProvider value>
-      <TabPage tab="vault" title="The Vault of the long winter" onNavigate={fn()}>
+      <TabPage title="The Vault of the long winter">
         <p className="text-sm text-muted-foreground">The page's content.</p>
       </TabPage>
     </MockMarkProvider>
@@ -47,7 +47,7 @@ export const InTabPageLongTitle: Story = {
 export const Off: Story = {
   render: () => (
     <MockMarkProvider value={false}>
-      <TabPage tab="quests" title="Missions" onNavigate={fn()}>
+      <TabPage title="Missions">
         <p className="text-sm text-muted-foreground">The page's content.</p>
       </TabPage>
     </MockMarkProvider>

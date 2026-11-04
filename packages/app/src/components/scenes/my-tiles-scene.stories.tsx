@@ -33,7 +33,7 @@ const meta = {
   title: "Scenes/MyTiles",
   component: MyTilesScene,
   render: (args) => <Stateful {...args} />,
-  args: { onPick: fn(), onSave: fn(), onDiscard: fn(), onOpenShop: fn(), onBack: fn(), onNavigate: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
+  args: { onPick: fn(), onSave: fn(), onDiscard: fn(), onOpenShop: fn(), onBack: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
 } satisfies Meta<typeof MyTilesScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

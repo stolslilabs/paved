@@ -60,7 +60,7 @@ const definitions: Definitions = {
   achievements: [],
 };
 
-const vaultHandlers = { onModeChange: fn(), onAmountChange: fn(), onMax: fn(), onDeposit: fn(), onWithdraw: fn(), onWithdrawAll: fn(), onPlay: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn() };
+const vaultHandlers = { onModeChange: fn(), onAmountChange: fn(), onMax: fn(), onDeposit: fn(), onWithdraw: fn(), onWithdrawAll: fn(), onPlay: fn(), onConnect: fn(), onRetry: fn() };
 
 async function vaultArgs(l: MockLedger, amount: bigint): Promise<VaultSceneProps> {
   return { ...VAULT.noPosition, ...vaultHandlers, position: await l.vault(PLAYER_ID), balance: await l.pavedBalance(PLAYER_ID), split: await l.split(), amount: String(amount / P), preview: await l.previewDeposit(amount) };
@@ -85,7 +85,7 @@ export const VaultDeposited: Story = {
   render: (_args, { loaded }) => <VaultScene {...(loaded.props as VaultSceneProps)} />,
 };
 
-const questHandlers = { onConnect: fn(), onRetry: fn(), onNavigate: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimWeeklyMilestone: fn() };
+const questHandlers = { onConnect: fn(), onRetry: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimWeeklyMilestone: fn() };
 
 /** Today with the three Challenge weeklies done (#976): three of five, the week's first gift reached. */
 const WEEK_THREE = questsWeekDone(3);
@@ -169,7 +169,7 @@ export const SkinBoughtAndSet: Story = {
       await writes.setSkins([{ plan: 13, theme: 1 }]);
       const props: ThemeShopSceneProps = {
         ...THEME_SHOP.forest,
-        ...{ onBack: fn(), onNavigate: fn(), onBuy: fn(), onBuyCobbles: fn(), onMyTiles: fn() },
+        ...{ onBack: fn(), onBuy: fn(), onBuyCobbles: fn(), onMyTiles: fn() },
         skins: { balance: (await l.account(PLAYER_ID)).cobbles, prices: await l.skinPrices(1), owned: await l.ownedSkins(PLAYER_ID, 1), active: await l.activeSkins(PLAYER_ID) },
       };
       return { props };

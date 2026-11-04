@@ -11,7 +11,7 @@ import { useDataSources } from "../../data/sources";
 import { useThemeVariants, useTileRenders } from "../../data/tile-renders";
 import { useAccount } from "../../wallet/wallet";
 import { useCobblesSheet } from "../cobbles-sheet";
-import { useAppNavigate, useBack, useTabNavigate } from "../ref";
+import { useAppNavigate, useBack } from "../ref";
 import NotFound from "./not-found";
 import { skinsStatus } from "../skins-status";
 
@@ -32,7 +32,6 @@ export default function Page() {
 function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) {
   const go = useAppNavigate();
   const cobbles = useCobblesSheet();
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   useAccount();
   const sources = useDataSources();
@@ -81,7 +80,7 @@ function Shop({ theme, available }: { theme: SkinThemeId; available: boolean }) 
           void client.invalidateQueries({ queryKey: cobbleKeys.all });
         }}
         onBack={onBack}
-        onNavigate={onNavigate}
+       
       />
       {cobbles.sheet}
     </>

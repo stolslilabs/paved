@@ -1,6 +1,5 @@
 import type { SplitView } from "@paved/chain";
 import { formatBps, formatNumber } from "@paved/game-core";
-import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
@@ -57,7 +56,6 @@ export interface ReferralSceneProps {
   onRetry?: () => void;
   onConnect?: () => void;
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 const plural = (count: number, one: string) => `${formatNumber(count)} ${count === 1 ? one : `${one}s`}`;
@@ -70,7 +68,7 @@ const plural = (count: number, one: string) => `${formatNumber(count)} ${count =
 export function ReferralScene(props: ReferralSceneProps) {
   const { link, split, earnings } = props;
   return (
-    <TabPage tab="settings" title="Referral" onBack={props.onBack} onNavigate={props.onNavigate}>
+    <TabPage title="Referral" onBack={props.onBack}>
       <p className="text-sm text-muted-foreground">Invite players, earn a share of their purchases.</p>
       <div className="grid grid-cols-1 gap-4">
         <div className="flex flex-col gap-4">

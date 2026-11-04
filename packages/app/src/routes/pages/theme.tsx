@@ -10,7 +10,7 @@ import { skinChanges, skinKeys, useOwnedSkins, useSkinWrites } from "../../data/
 import { useDataSources } from "../../data/sources";
 import { useTileRenders } from "../../data/tile-renders";
 import { useAccount } from "../../wallet/wallet";
-import { useAppNavigate, useBack, useTabNavigate } from "../ref";
+import { useAppNavigate, useBack } from "../ref";
 import { skinsStatus } from "../skins-status";
 
 /**
@@ -22,7 +22,6 @@ import { skinsStatus } from "../skins-status";
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   useAccount();
   const sources = useDataSources();
@@ -67,7 +66,7 @@ export default function Page() {
         void client.invalidateQueries({ queryKey: cobbleKeys.all });
       }}
       onBack={onBack}
-      onNavigate={onNavigate}
+     
     />
   );
 }

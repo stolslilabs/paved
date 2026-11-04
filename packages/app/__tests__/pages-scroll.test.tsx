@@ -34,17 +34,17 @@ import { TRACKS } from "../src/lib/music/tracks";
  */
 const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
-  ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onNavigate={no()} onBuy={no()} onGetCobbles={no()} />],
-  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onNavigate={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
-  ["League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={no()} onNavigate={no()} onOpenMatch={no()} />],
-  ["Settings", <SettingsScene {...SETTINGS.connected} onNavigate={no()} onChange={no()} />],
-  ["Missions", <MissionsScene {...MISSIONS.daily} onNavigate={no()} onClaimQuest={no()} onClaimAchievement={no()} />],
-  ["Vault", <VaultScene {...VAULT.position} onNavigate={no()} />],
-  ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onNavigate={no()} onUse={no()} onOpen={no()} />],
-  ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} onNavigate={no()} />],
-  ["My tiles", <MyTilesScene {...MY_TILES.owned} onBack={no()} onNavigate={no()} />],
-  ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} onNavigate={no()} />],
-  ["Credits", <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no()} onNavigate={no()} />],
+  ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onBuy={no()} onGetCobbles={no()} />],
+  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
+  ["League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={no()} onOpenMatch={no()} />],
+  ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />],
+  ["Missions", <MissionsScene {...MISSIONS.daily} onClaimQuest={no()} onClaimAchievement={no()} />],
+  ["Vault", <VaultScene {...VAULT.position} />],
+  ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onUse={no()} onOpen={no()} />],
+  ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} />],
+  ["My tiles", <MyTilesScene {...MY_TILES.owned} onBack={no()} />],
+  ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
+  ["Credits", <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no()} />],
 ];
 
 /**

@@ -10,7 +10,7 @@ import { TabPage } from "./tab-page";
 /** The avatar in a tab page, as the shell lays it out (#624): the top left of the header below `desktop`, the left of the navigation's header from it. A tap opens the sheet. */
 function InPage() {
   return (
-    <TabPage tab="vault" title="Vault">
+    <TabPage title="Vault">
       <div data-slot="card" className="h-40 rounded-xl border border-border bg-card" />
     </TabPage>
   );

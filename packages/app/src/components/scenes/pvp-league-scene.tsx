@@ -13,7 +13,6 @@ import { LeagueControl } from "../containers/league-control";
 import { MatchList, type MatchListProps } from "../containers/match-list";
 import { TabFrame } from "../containers/tab-frame";
 import { TopBar } from "../containers/top-bar";
-import type { Tab } from "../../routes/pages";
 
 export interface PvpSeason {
   /** "Season 3". */
@@ -40,8 +39,6 @@ export interface PvpLeagueSceneProps {
   /** The league the carousel opens on (`LEAGUES`' index), for the stories; the player's by default. */
   opensOn?: number;
   onBack?: () => void;
-  /** A pick in the phone's bar (#763): the page is the League tab's. */
-  onNavigate?: (tab: Tab) => void;
   /**
    * The latest attacks and defences as cards (#786, in place of the defence log; no shield since #859); none when omitted. A section
    * of the page (BACK-RULE #783: no page opens another page).
@@ -69,7 +66,7 @@ const LAST_DAY_S = 86_400;
  * desktop.
  */
 export function PvpLeagueScene(props: PvpLeagueSceneProps) {
-  const { crowns, season, now, unranked, attacks, league: index, opensOn, onBack, onNavigate, matches, onOpenMatch, onRetryMatches } = props;
+  const { crowns, season, now, unranked, attacks, league: index, opensOn, onBack, matches, onOpenMatch, onRetryMatches } = props;
   const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
   // Below Iron III (400 crowns) a village is in Wood on chain, as one that never attacked.
   const outside = unranked || league.id === "wood";
@@ -88,7 +85,7 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
     />
   );
   return (
-    <TabFrame tab="league" onNavigate={onNavigate}>
+    <TabFrame>
       <TopBar title="League" onBack={onBack} end={control} />
       <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex min-w-0 flex-col gap-4">

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
-import { DOCK_CLEARANCE } from "../elements/dock-room";
 import { UiIcon } from "../elements/ui-icon";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
@@ -12,7 +11,7 @@ const SIDE_QUERY = "(min-width: 40rem)";
 
 /** The surface, both ways: the face's charcoal under the notch's safe area, the Sheet's padding and gap off. */
 const SURFACE = "gap-0 bg-secondary p-0 pt-[env(safe-area-inset-top)] text-foreground";
-/** The phone's page: the whole screen, no edge, no shadow (the dock stays over its foot). */
+/** The phone's page: the whole screen, no edge, no shadow. */
 const PAGE = "w-full border-0 shadow-none sm:max-w-none";
 /**
  * The side panel (direction C of 2026-11-03, its edge A's): the window's height, one straight hairline along its right side and the
@@ -43,8 +42,8 @@ export interface HudDrawerProps {
  * height, as a shadcn Sheet (the asks of 2026-11-03: side panels, not a floating window; the game-native direction C, a straight edge
  * as A's), its close the red cross. Both in the face's charcoal, the header a darker band, the title centred on its top line in the
  * display font (the owner's ask of 2026-11-04: titles in it).
- * The dock stays over both (`data-dock`, theme.css): a tap on it closes the drawer and goes to its page; the body leaves it room at its
- * end (`DOCK_CLEARANCE`), so its last line scrolls clear of it.
+ * DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): the home's dock stays under both, covered by the phone's page, veiled and blurred
+ * beside the side panel; the body ends at the screen's foot, its safe area under its last line.
  * Inside, the phone's layout whatever the width (`data-page-panel`). The village beside the side panel is veiled lightly and blurred,
  * Escape or a tap on it closing the drawer. It takes the focus itself as it opens. The slide is the Sheet's (Motion).
  */
@@ -86,7 +85,7 @@ export function HudDrawer({ open, onOpenChange, title, returnFocus, slot = "hud-
             </SheetClose>
           )}
         </SheetHeader>
-        <ScrollRegion data-hud-drawer-body="" className="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain px-4 pt-4" style={{ paddingBottom: DOCK_CLEARANCE }}>
+        <ScrollRegion data-hud-drawer-body="" className="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </ScrollRegion>
       </SheetContent>

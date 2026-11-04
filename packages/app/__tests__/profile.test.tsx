@@ -9,7 +9,6 @@ import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-a
 import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
-import { DOCK_REACH_PX } from "../src/components/elements/dock-room";
 import { DataProvider, type DataSources } from "../src/data/sources";
 import { TabPage } from "../src/components/containers/tab-page";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
@@ -193,7 +192,7 @@ describe("ProfileSheet (#624)", () => {
     expect(within(sheet).queryByRole("button", { name: "Battle logs" })).toBeNull();
   });
 
-  it("the HUD's drawer (PROFILE-DRAWER): on a phone a full page with Back, from `tablet` a side panel with the red cross; its end leaves the dock room", async () => {
+  it("the HUD's drawer (PROFILE-DRAWER): on a phone a full page with Back, from `tablet` a side panel with the red cross; its end at the screen's foot", async () => {
     const onOpenChange = vi.fn();
     const { unmount } = render(wrap(<ProfileSheet open onOpenChange={onOpenChange} state={PROFILE.connected} />));
     const page = await screen.findByRole("dialog");
@@ -204,12 +203,10 @@ describe("ProfileSheet (#624)", () => {
     // The drawer takes the focus as it opens, not its Back.
     expect(page).toHaveFocus();
     expect(within(page).queryByRole("button", { name: "Close" })).toBeNull();
-    // Its body's end: the dock's reach, a gap and the safe area.
-    const end = page.querySelector<HTMLElement>("[data-hud-drawer-body]")!.style.paddingBottom;
-    expect(end).toContain(`${DOCK_REACH_PX}px`);
-    // Its foot: the safe area on a phone, the dock's lift from `tablet` (theme.css).
-    expect(end).toContain("var(--dock-foot)");
-    expect(end).toContain("var(--dock-lift)");
+    // Its body's end: a gap and the safe area, no room for the dock, which stays under it (DOCK-UNDER-PAGES).
+    const body = page.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(body.style.paddingBottom).toBe("");
+    expect(body.className).toContain("pb-[calc(1rem+env(safe-area-inset-bottom))]");
     await userEvent.click(within(page).getByRole("button", { name: "Back" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
     unmount();
@@ -306,24 +303,25 @@ describe("ProfileSlot (#624)", () => {
   });
 
   it("a tab page has Back at its top left, not the avatar, which is the home's (#760; no navigation header from desktop, #762)", () => {
-    const { rerender } = render(withProfile(value(PROFILE.guest), <TabPage tab="vault" title="Vault">x</TabPage>));
+    const { rerender } = render(withProfile(value(PROFILE.guest), <TabPage title="Vault" onBack={() => {}}>x</TabPage>));
     expect(screen.queryAllByRole("button", { name: "Profile: guest" })).toHaveLength(0);
     expect(within(screen.getByRole("banner")).getByRole("button", { name: "Back" })).toBeInTheDocument();
-    rerender(withProfile(value(PROFILE.guest), <TabPage tab="settings" title="Themes" onBack={() => {}}>x</TabPage>));
+    rerender(withProfile(value(PROFILE.guest), <TabPage title="Themes" onBack={() => {}}>x</TabPage>));
     expect(screen.queryAllByRole("button", { name: "Profile: guest" })).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 
-  it("Home (PROFILE-DRAWER): the player card opens the profile's page, the dock marked to stay over it (`data-dock`, theme.css)", async () => {
+  it("Home (PROFILE-DRAWER): the player card opens the profile's page over the dock (DOCK-UNDER-PAGES)", async () => {
     render(withProfile(value(PROFILE.connected), <HomeVillageScene {...HOME_VILLAGE.view} />));
     await screen.findByRole("img", { name: /^Village layout/ }, { timeout: slow(5000) });
     await userEvent.click(screen.getByRole("button", { name: /^Profile: bal7hazar/ }));
     const page = await screen.findByRole("dialog", { name: "Profile" });
     expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
-    // The rule's two ends: an open page (`data-page-panel`) and the dock's box, which it raises over the page.
-    expect(page).toHaveAttribute("data-page-panel");
+    // The page and its veil (the Sheet's, `z-50`) stand over the dock's band (`z-20`), nothing raising it; jsdom applies no
+    // stylesheet: the `Dock` stories of Scenes/Home/Panels check what the screen shows.
+    expect(page).toHaveClass("z-50");
     const dock = await screen.findByRole("navigation", { name: "Main", hidden: true }, { timeout: slow(5000) });
-    expect(dock.closest("[data-dock]")).not.toBeNull();
+    expect(dock.closest(".fixed.z-20")).not.toBeNull();
   });
 
   it("Home (#753): the avatar and its name at the top left, no player card", async () => {

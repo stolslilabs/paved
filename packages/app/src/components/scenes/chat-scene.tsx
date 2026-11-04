@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { ChatTab } from "../../routes/chat-param";
-import type { Tab } from "../../routes/pages";
 import { ChatTabs, type ChatBadges } from "../containers/chat-tabs";
 import { SocialEmpty } from "../containers/social-empty";
 import { Skeleton } from "../ui/skeleton";
@@ -18,9 +17,8 @@ export interface ChatSceneProps {
   menu?: ReactNode;
   /** The tab's content as the app draws it (a conversation, or the Private tab's list). Unset: the empty state, as a guest sees it. */
   children?: ReactNode;
-  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  /** Back, up to the village (BACK-RULE #783); omitted, no Back. */
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /**
@@ -29,7 +27,7 @@ export interface ChatSceneProps {
  * no bottom bar, so the conversation gets the height; from `desktop` it is in the home's side panel, on the right, as every page
  * (open point 2's default).
  */
-export function ChatScene({ tab, onTabChange, badges, menu, children, onBack, onNavigate }: ChatSceneProps) {
+export function ChatScene({ tab, onTabChange, badges, menu, children, onBack }: ChatSceneProps) {
   let body: ReactNode = children ?? <SocialEmpty page="chat" />;
   if (tab === null) body = <Skeleton aria-busy className="h-10 rounded-lg" />;
   else if (tab !== undefined)
@@ -39,7 +37,7 @@ export function ChatScene({ tab, onTabChange, badges, menu, children, onBack, on
       </ChatTabs>
     );
   return (
-    <TabPage tab="chat" title="Chat" onBack={onBack} onNavigate={onNavigate} end={menu} bar={false}>
+    <TabPage title="Chat" onBack={onBack} end={menu}>
       {body}
     </TabPage>
   );

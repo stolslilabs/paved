@@ -10,7 +10,7 @@ import { ThemeShopScene } from "./theme-shop-scene";
 const meta = {
   title: "Scenes/ThemeShop",
   component: ThemeShopScene,
-  args: { onBuy: fn(), onBuyCobbles: fn(), onMyTiles: fn(), onBack: fn(), onNavigate: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
+  args: { onBuy: fn(), onBuyCobbles: fn(), onMyTiles: fn(), onBack: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
 } satisfies Meta<typeof ThemeShopScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

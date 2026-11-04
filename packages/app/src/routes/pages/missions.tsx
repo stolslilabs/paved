@@ -15,7 +15,7 @@ import { queryKeys } from "../../data/keys";
 import { useIndexerNow } from "../../data/quests";
 import { DAY_S, weekOfDay } from "../../lib/quest-window";
 import { useAccount } from "../../wallet/wallet";
-import { useBack, useAppNavigate, useTabNavigate } from "../ref";
+import { useBack, useAppNavigate } from "../ref";
 
 /** Where an open Tutorial step's Go leads (#977): the home in Edit, Play, the PvP, the chests, the tile shop. The Daily row is the page's. */
 const GO: Record<Exclude<TutorialGo, "daily">, string> = {
@@ -39,7 +39,6 @@ const GO: Record<Exclude<TutorialGo, "daily">, string> = {
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   const [params] = useSearchParams();
   const initialSelected = missionKeyOf(params.get("mission"));
@@ -117,7 +116,7 @@ export default function Page() {
       onRetry={retry}
       initialSelected={initialSelected}
       onBack={onBack}
-      onNavigate={onNavigate}
+     
     />
   );
 }

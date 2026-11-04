@@ -14,7 +14,6 @@ import type { ChestDraw } from "../containers/chest-reveal";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TabFrame } from "../containers/tab-frame";
 import { TopBar } from "../containers/top-bar";
-import type { Tab } from "../../routes/pages";
 
 export type { Chest, ChestTaken };
 
@@ -55,8 +54,6 @@ export interface VillageChestsSceneProps {
   /** The modal opens by itself on arrival while a chest is ready (#784, the default); false: the page alone, the stories' slots. */
   initialModalOpen?: boolean;
   onBack?: () => void;
-  /** A pick in the phone's bar (#763): the page is the Chests tab's. */
-  onNavigate?: (tab: Tab) => void;
   /** To the mode choice: win stars to fill a slot. */
   onPlay?: () => void;
   onConnect?: () => void;
@@ -97,7 +94,6 @@ export function VillageChestsScene({
   initialChoice,
   initialModalOpen = true,
   onBack,
-  onNavigate,
   onPlay,
   onConnect,
   onRetry,
@@ -129,7 +125,7 @@ export function VillageChestsScene({
     setPassed(taken);
   };
   return (
-    <TabFrame tab="chests" onNavigate={onNavigate}>
+    <TabFrame>
       <TopBar title="Chests" onBack={onBack} />
       <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {status ? (
