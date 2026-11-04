@@ -15,7 +15,7 @@ const meta = {
   title: "Scenes/Village v2/Shop",
   component: VillageShopScene,
   parameters: { layout: "fullscreen" },
-  args: { ...VILLAGE_SHOP.today, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onNavigate: fn(), onBuy: fn(), onGetCobbles: fn(), onDismissRefusal: fn() },
+  args: { ...VILLAGE_SHOP.today, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onBuy: fn(), onGetCobbles: fn(), onDismissRefusal: fn() },
 } satisfies Meta<typeof VillageShopScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

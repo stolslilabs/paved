@@ -18,7 +18,7 @@ const meta = {
   title: "Scenes/PvP/League",
   component: PvpLeagueScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_LEAGUE.bronze, onBack: fn(), onNavigate: fn(), onOpenMatch: fn(), onRetryMatches: fn() },
+  args: { ...PVP_LEAGUE.bronze, onBack: fn(), onOpenMatch: fn(), onRetryMatches: fn() },
 } satisfies Meta<typeof PvpLeagueScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

@@ -24,7 +24,6 @@ const meta = {
     onConnect: fn(),
     onRetry: fn(),
     onBack: fn(),
-    onNavigate: fn(),
   },
   play: scrolledToEnd,
 } satisfies Meta<typeof MissionsScene>;

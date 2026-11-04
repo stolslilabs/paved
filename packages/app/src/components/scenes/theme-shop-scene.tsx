@@ -1,4 +1,3 @@
-import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
@@ -46,7 +45,6 @@ export interface ThemeShopSceneProps {
   onConnect?: () => void;
   onRetry?: () => void;
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /**
@@ -55,7 +53,7 @@ export interface ThemeShopSceneProps {
  * Cobbles when short. A plan with several models says so: the board picks one per tile. Buying does not put a tile on the
  * board: Use on Themes, or My tiles, does.
  */
-export function ThemeShopScene({ theme, renders, variants, skins, skinsStatus, buying, refusal, refusalDetail, onDismissRefusal, onBuy, onBuyCobbles, onMyTiles, onConnect, onRetry, onBack, onNavigate }: ThemeShopSceneProps) {
+export function ThemeShopScene({ theme, renders, variants, skins, skinsStatus, buying, refusal, refusalDetail, onDismissRefusal, onBuy, onBuyCobbles, onMyTiles, onConnect, onRetry, onBack }: ThemeShopSceneProps) {
   const option = THEMES.find((t) => t.id === theme)!;
   const code = THEME_CODES[theme];
   const onSale = skins ? skins.prices.some((p) => p > 0) : false;
@@ -65,10 +63,9 @@ export function ThemeShopScene({ theme, renders, variants, skins, skinsStatus, b
   const variantCount = variants ? Object.values(variants).reduce((a, b) => a + b, 0) : 0;
   return (
     <TabPage
-      tab="settings"
       title={option.name}
       onBack={onBack}
-      onNavigate={onNavigate}
+     
     >
       <p className="text-sm text-muted-foreground">{option.tagline}</p>
       <div className="overflow-hidden rounded-xl border border-border">

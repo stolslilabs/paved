@@ -4,7 +4,7 @@ import { VAULT } from "../../mocks/scenes";
 import { VaultScene } from "./vault-scene";
 
 /** The Vault (`/vault`, vPAVED): the position, its value, its share of the Vault and `max_withdraw`, the rate and the exit fee, deposit, withdraw (its fee shown first) and withdraw all; the Vault's part of each purchase. One story per state; the viewport is the toolbar's (VP). */
-const meta = { title: "Scenes/Vault", component: VaultScene, args: { onModeChange: fn(), onAmountChange: fn(), onMax: fn(), onDeposit: fn(), onWithdraw: fn(), onWithdrawAll: fn(), onPlay: fn(), onConnect: fn(), onRetry: fn(), onNavigate: fn() } } satisfies Meta<typeof VaultScene>;
+const meta = { title: "Scenes/Vault", component: VaultScene, args: { onModeChange: fn(), onAmountChange: fn(), onMax: fn(), onDeposit: fn(), onWithdraw: fn(), onWithdrawAll: fn(), onPlay: fn(), onConnect: fn(), onRetry: fn() } } satisfies Meta<typeof VaultScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 

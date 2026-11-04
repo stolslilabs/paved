@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { Tab } from "../../routes/pages";
 import { TabPage } from "../containers/tab-page";
 
 /** Where the notices file is served: `public/THIRD_PARTY_NOTICES.txt`, copied to `dist` by `vite build`. */
@@ -13,7 +12,6 @@ export interface CreditsSceneProps {
   /** Where the site is served, for the notices link. */
   base?: string;
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -33,9 +31,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  * full texts (D-15, moved here from the footer by #536; Cartridge's notice left with its controller, #918); the fonts, icons,
  * music and sounds are named with their licences, and the token icons with their sources (#620).
  */
-export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_URL, onBack, onNavigate }: CreditsSceneProps) {
+export function CreditsScene({ tracks, sounds = [], base = import.meta.env.BASE_URL, onBack }: CreditsSceneProps) {
   return (
-    <TabPage tab="settings" title="Credits" onBack={onBack} onNavigate={onNavigate}>
+    <TabPage title="Credits" onBack={onBack}>
       <p className="text-sm text-muted-foreground">Who made what Paved uses.</p>
       <Section title="Licences">
         <p className="wrap-anywhere">The full texts of the licences named on this page.</p>

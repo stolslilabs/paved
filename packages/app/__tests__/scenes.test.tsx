@@ -1151,13 +1151,13 @@ describe("Element feedback (EL)", () => {
   });
 
   it("draws the Chests tab with the mockup's chest (HOME-DOCK), and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
-    render(wrap(<AppNav active="home" />));
+    render(wrap(<AppNav />));
     expect(screen.getByRole("button", { name: "Chests" }).querySelector("img[data-slot='ui-icon'][data-icon='chests']")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
   });
 
   it("draws the dock's Play as the medallion, the swords and PLAY on it (#807, HOME-DOCK)", () => {
-    render(wrap(<AppNav active="home" />));
+    render(wrap(<AppNav />));
     const play = screen.getByRole("button", { name: "Play" });
     expect(play.querySelector("img[src*='play-medallion']")).not.toBeNull();
     expect(play.querySelector("[data-icon='swords']")).not.toBeNull();
@@ -1166,26 +1166,22 @@ describe("Element feedback (EL)", () => {
   });
 
   it("draws the dock's icons as the mockup's (HOME-DOCK), its own colours", () => {
-    render(wrap(<AppNav active="home" />));
+    render(wrap(<AppNav />));
     for (const [tab, icon] of [["Shop", "shop"], ["Chests", "chests"], ["Play", "swords"], ["Guild", "guild"], ["Settings", "settings"]]) {
       expect(screen.getByRole("button", { name: new RegExp(`^${tab}`) }).querySelector(`[data-slot=ui-icon][data-icon=${icon}]`), tab).not.toBeNull();
     }
   });
 
-  it("keeps a tab page's navigation out of its scrolling region, fixed to the viewport's bottom below desktop (#611)", () => {
-    render(wrap(<TabPage tab="settings" title="Settings"><p>Body</p></TabPage>));
-    const nav = screen.getByRole("navigation", { name: "Main" });
+  it("draws a tab page in its own scrolling region, one viewport tall, with no dock (#611, DOCK-UNDER-PAGES)", () => {
+    render(wrap(<TabPage title="Settings"><p>Body</p></TabPage>));
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
     const region = screen.getByText("Body").closest("[data-slot=page-scroll]")!;
     expect(region.className).toMatch(/overflow-y-auto/);
     expect(region.className).toMatch(/overscroll-contain/);
-    expect(region.contains(nav)).toBe(false);
-    expect(nav.parentElement).toBe(region.parentElement);
-    expect(nav.parentElement!.className).toMatch(/\bh-dvh\b/);
-    expect(nav.className).toMatch(/(^| )fixed inset-x-0 bottom-0 /);
-    // From `desktop` no bar: the page is in the home's side panel (#762).
-    expect(nav.className).toContain("desktop:hidden");
-    // The region ends at the bar's top: its measured height.
-    expect(region.className).toContain("mb-(--app-nav-h)");
+    expect(region.parentElement!.className).toMatch(/\bh-dvh\b/);
+    // The region runs to the screen's foot, the safe area under the page's last line.
+    expect(region.className).toContain("pb-[env(safe-area-inset-bottom)]");
+    expect(region.className).not.toContain("--app-nav-h");
   });
 
   it("serves the background as AVIF, WebP and a JPEG fallback from this host", () => {

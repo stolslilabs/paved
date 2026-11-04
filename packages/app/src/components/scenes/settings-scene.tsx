@@ -1,4 +1,3 @@
-import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { PlayerAvatar } from "../elements/player-avatar";
@@ -42,16 +41,15 @@ export interface SettingsSceneProps {
   onOpenTheme?: () => void;
   onOpenReferral?: () => void;
   onOpenCredits?: () => void;
-  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  /** Back, up to the village (BACK-RULE #783); omitted, no Back. */
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /** Settings (`/settings`): the device settings (the shared panel), the account, theme, referral and credits. */
 export function SettingsScene(props: SettingsSceneProps) {
   const { preferences: p, account, onChange } = props;
   return (
-    <TabPage tab="settings" title="Settings" onBack={props.onBack} onNavigate={props.onNavigate}>
+    <TabPage title="Settings" onBack={props.onBack}>
       <div className="grid grid-cols-1 gap-4">
         <DeviceSettingsPanel
           preferences={p}

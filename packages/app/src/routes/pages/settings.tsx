@@ -5,7 +5,7 @@ import { useShowSkins } from "../../data/skins";
 import { version } from "../../../package.json";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
-import { useAppNavigate, useBack, useTabNavigate } from "../ref";
+import { useAppNavigate, useBack } from "../ref";
 
 /**
  * `/settings` (P11a, sections 6.1 and 6.4). The device settings (`useDeviceSettings`: graphics quality, sound, music, tile
@@ -16,7 +16,6 @@ import { useAppNavigate, useBack, useTabNavigate } from "../ref";
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   const wallet = useAccount();
   useConnectError(wallet.error);
@@ -46,7 +45,7 @@ export default function Page() {
       onOpenReferral={() => go("/referral")}
       onOpenCredits={() => go("/settings/credits")}
       onBack={onBack}
-      onNavigate={onNavigate}
+     
     />
   );
 }

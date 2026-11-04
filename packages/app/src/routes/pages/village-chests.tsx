@@ -9,7 +9,7 @@ import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
-import { useAppNavigate, useTabNavigate, useUpTo } from "../ref";
+import { useAppNavigate, useUpTo } from "../ref";
 import { markChestsSeen } from "../chests-seen";
 import { chestSlots } from "../chest-slots";
 import { READY_S } from "../../components/containers/chest-slots";
@@ -30,7 +30,6 @@ export default function Page() {
   const sources = useDataSources();
   const client = useQueryClient();
   const go = useAppNavigate();
-  const onNavigate = useTabNavigate();
   const onBack = useUpTo("/");
   // The day is the device's, as the mock ledger rules on it in step 1 (#741); step 3 (#742) reads the chain's with the contracts.
   const now = useNow();
@@ -91,7 +90,6 @@ export default function Page() {
       owned={village.data ? countsByPlan(village.data.inventory) : undefined}
       tileArt={tileArt}
       onBack={onBack}
-      onNavigate={onNavigate}
       onPlay={() => go("/play")}
       onConnect={() => void wallet.connect()}
       onRetry={() => void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all })}

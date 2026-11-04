@@ -1,4 +1,3 @@
-import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
@@ -37,7 +36,6 @@ export interface MyTilesSceneProps {
   onConnect?: () => void;
   onRetry?: () => void;
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 const DEFAULT: SkinOption = { code: 0, name: "Default" };
@@ -48,7 +46,7 @@ const DEFAULT: SkinOption = { code: 0, name: "Default" };
  * theme wear Default and are shown together, small. The picks are batched, then
  * saved in one `set_skins` (Save), or dropped (Discard), as the skins were before (P-61): one tile changes, the others stay.
  */
-export function MyTilesScene({ renders, skins, skinsStatus, onPick, onSave, onDiscard, onDismissRefusal, onOpenShop, onConnect, onRetry, onBack, onNavigate }: MyTilesSceneProps) {
+export function MyTilesScene({ renders, skins, skinsStatus, onPick, onSave, onDiscard, onDismissRefusal, onOpenShop, onConnect, onRetry, onBack }: MyTilesSceneProps) {
   const saving = skins?.save === "saving";
   const current = skins ? applySkinChanges(skins.active, skins.changes) : [];
   const ownsAny = skins ? SKIN_THEMES.some((t) => (skins.owned[THEME_CODES[t.id]] ?? 0) !== 0) : false;
@@ -61,7 +59,7 @@ export function MyTilesScene({ renders, skins, skinsStatus, onPick, onSave, onDi
   const choices = plans.filter((p) => p.options.length > 1 || (current[p.plan - 1] ?? 0) !== 0 || (skins?.active[p.plan - 1] ?? 0) !== 0);
   const defaults = plans.filter((p) => !choices.includes(p));
   return (
-    <TabPage tab="settings" title="My tiles" onBack={onBack} onNavigate={onNavigate}>
+    <TabPage title="My tiles" onBack={onBack}>
       <p className="text-sm text-muted-foreground">The skin each tile wears on your boards.</p>
       {!skins ? (
         skinsStatus && (

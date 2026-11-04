@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { matchPath, useLocation, useNavigate, type NavigateOptions } from "react-router";
 import { stepsBackTo, useTrackedHistory } from "./history";
 import { PAGES, TABS, type PageDef, type Tab } from "./pages";
-import { tabSwipe } from "./tab-swipe";
 
 /** The query key of the referral link (section 6.2): kept across every link and redirect of the app. */
 const REF = "ref";
@@ -27,20 +26,14 @@ export function useAppNavigate() {
 }
 
 /**
- * A tab was picked in the navigation (a scene's `onNavigate`); below `desktop` the page swipes to another tab's (TAB-SWIPE,
- * `tab-swipe.ts`). The tab it leaves is read from the location, as `parentOf`, so a page of the bar (#763) in a plain router
- * (the stories') has it too.
- * TAB-RETAP (#800, the owner's decision of 2026-10-26): the current tab picked again closes its page, up to the village by the
- * Back rule (`useBack`, `useUpTo`: no push, so a Back afterwards never reopens it), with no swipe. From a page under that tab (a sheet over
- * Settings) the first pick goes up to its parent, the tab's page, the next one to the village.
+ * A tab was picked in the home's dock (`AppNav`'s `onNavigate`): its page. DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): only the
+ * home draws the dock, so the pick is always from the village; the swipe between pages (TAB-SWIPE #726) and the re-tap that closed
+ * the current one (TAB-RETAP #800) left with the pages' bars.
  */
 export function useTabNavigate() {
   const go = useAppNavigate();
-  const from = pageAt(useLocation().pathname)?.nav ?? null;
-  // A page of a tab (its own, or a sheet over it) is no flow: Back goes up to its parent.
-  const up = useBack();
-  // No `useCallback`: the bar it goes to is not memoized, and the first load is at its budget.
-  return (tab: Tab) => (tab === from ? up() : go(TABS.find((t) => t.id === tab)!.to, tabSwipe(from, tab)));
+  // No `useCallback`: the dock it goes to is not memoized, and the first load is at its budget.
+  return (tab: Tab) => go(TABS.find((t) => t.id === tab)!.to);
 }
 
 /** The route map's page at `pathname`, in table order (a static path before a parameter's). */

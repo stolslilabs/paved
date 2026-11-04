@@ -10,7 +10,7 @@ import { ThemeScene } from "./theme-scene";
 const meta = {
   title: "Scenes/Theme",
   component: ThemeScene,
-  args: { onUse: fn(), onOpen: fn(), onMyTiles: fn(), onBack: fn(), onNavigate: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
+  args: { onUse: fn(), onOpen: fn(), onMyTiles: fn(), onBack: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
 } satisfies Meta<typeof ThemeScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

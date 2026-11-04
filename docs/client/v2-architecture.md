@@ -3070,7 +3070,8 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
   region only (`routes/tab-swipe.ts`, the TAB-SWIPE block of `styles/theme.css`), the bar staying still while its highlight
   and labels move in the same duration and easing (each page mounts its own bar, which starts from the last one's state,
   `@starting-style`). No swipe for Play, within one tab, under reduced motion, or without `document.startViewTransition`;
-  none from `desktop`. Hidden on full-screen flows (welcome, play, purchase,
+  none from `desktop`. Removed on 2026-11-04 (DOCK-UNDER-PAGES): no page carries the bar any more, so the swipe, the sliding
+  highlight and the re-tap that closed the current page (TAB-RETAP, #800) left with it; only the home draws the dock. Hidden on full-screen flows (welcome, play, purchase,
   board, over), which get a top bar with Back, the title centred and a hairline under it. The balances (#620) sit in the
   page header (the Cobbles and USDC plates; USDC opens a sheet with every balance) and, on a flow, in a strip under the top
   bar; on every screen but the board.

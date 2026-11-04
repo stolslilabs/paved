@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { PagePanelProvider } from "../src/components/containers/page-panel-context";
-import { DOCK_REACH_PX } from "../src/components/elements/dock-room";
 import { TabPage } from "../src/components/containers/tab-page";
 import { TopBar } from "../src/components/containers/top-bar";
 import { DESKTOP_QUERY } from "../src/routes/home-layout";
@@ -148,26 +147,20 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     expect(router.state.location.pathname).toBe("/play");
   });
 
-  it("the dock stays live over the panel (the owner's ask of 2026-11-04): its Shop opens the shop in the panel, no close; the close then goes home", async () => {
+  it("the dock stays under the panel (DOCK-UNDER-PAGES, the owner's ask of 2026-11-04): veiled and blurred, the page leaving it no room", async () => {
     const router = open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(within(column).getByRole("button", { name: /^Missions/ }));
     const missions = await panel("Missions");
-    // The page leaves the dock room at its end.
-    const end = missions.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom;
-    expect(end).toContain(`${DOCK_REACH_PX}px`);
-    // Its foot: the safe area on a phone, the dock's lift from `tablet` (theme.css).
-    expect(end).toContain("var(--dock-foot)");
-    expect(end).toContain("var(--dock-lift)");
-    // The modal leaves the body no pointer; theme.css gives the dock its own back (jsdom applies no stylesheet): no pointer check.
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    // The page leaves the dock no room at its end.
+    expect(missions.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom).toBe("");
+    // The veil (the Sheet's, `z-50`) stands over the dock's band (`z-20`), nothing raising it, and blurs it with the village (as the
+    // HUD drawer's veil). jsdom applies no stylesheet: the `Dock` stories of Scenes/Home/Panels check what the screen shows.
+    const veil = document.querySelector("[data-slot=sheet-overlay]")!;
+    expect(veil).toHaveClass("z-50", "backdrop-blur-sm");
     const dock = screen.getByRole("navigation", { name: "Main", hidden: true });
-    expect(dock.closest("[data-dock]")).not.toBeNull();
-    await user.click(within(dock).getByRole("button", { name: "Shop", hidden: true }));
-    await panel("Tile shop");
-    expect(router.state.location.pathname).toBe("/village/shop");
-    expect(router.state.historyAction).toBe("PUSH");
-    // Its close goes back through both pages to the home's own entry.
+    expect(dock.closest(".fixed.z-20")).not.toBeNull();
+    // A tap there lands on the veil, which closes the panel.
     await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
@@ -302,12 +295,12 @@ describe("the panel's trail: the entries walked from the home's (#762)", () => {
 describe("below desktop the same routes are full pages (#762, #763)", () => {
   beforeEach(() => media(false));
 
-  it("Missions is a page with the phone's bar, no panel and no village under it", async () => {
+  it("Missions is a full page, no panel, no village under it and no dock (DOCK-UNDER-PAGES): its Back is its way out", async () => {
     open("/missions");
     await screen.findByRole("heading", { level: 1, name: "Missions" }, { timeout: slow(5000) });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Village" })).toBeNull();
-    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   });
@@ -327,7 +320,7 @@ describe("the panel's header (#762, #781)", () => {
   // In the panel the `desktop` variant does not apply (`data-page-panel`, theme.css): the pill shows, the rail stays hidden.
   it.each([
     ["a flow's top bar", () => <TopBar title="Chests" onBack={vi.fn()} />, "Chests"],
-    ["a tab page", () => <TabPage tab="vault" title="Vault">Body</TabPage>, "Vault"],
+    ["a tab page", () => <TabPage title="Vault">Body</TabPage>, "Vault"],
   ])("%s: the home's balances in the header and no close button (#782), nothing under it, no Back on the overlay's own page", async (_, page, title) => {
     inPanel(page());
     const header = screen.getByRole("heading", { level: 1, name: title }).closest("header")!;
@@ -342,7 +335,7 @@ describe("the panel's header (#762, #781)", () => {
   });
 
   it("keeps Back on a page reached from another", () => {
-    inPanel(<TabPage tab="settings" title="Themes" onBack={vi.fn()}>Body</TabPage>, false);
+    inPanel(<TabPage title="Themes" onBack={vi.fn()}>Body</TabPage>, false);
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   });

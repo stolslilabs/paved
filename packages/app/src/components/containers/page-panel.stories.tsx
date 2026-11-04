@@ -36,7 +36,7 @@ export const TabPageInPanel: Story = {
   render: (args) => (
     <BalancesProvider value={{ state: READY, onAction: fn() }}>
       <PagePanel {...args}>
-        <TabPage tab="quests" title="Missions">
+        <TabPage title="Missions">
           {CARDS}
         </TabPage>
       </PagePanel>
@@ -50,7 +50,7 @@ export const WithBack: Story = {
   render: (args) => (
     <BalancesProvider value={{ state: READY, onAction: fn() }}>
       <PagePanel {...args}>
-        <TabPage tab="settings" title="Themes" onBack={fn()}>
+        <TabPage title="Themes" onBack={fn()}>
           {CARDS}
         </TabPage>
       </PagePanel>

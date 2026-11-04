@@ -512,12 +512,6 @@
   }
 }
 
-/* A tab page without the bottom bar (the chat page, #973: its conversation gets the height). `TabPage`'s `bar={false}` marks its
-   content; the frame's bar is hidden, so its measured height (`--app-nav-h`, the region's bottom margin) is 0. */
-:has(> [data-slot="page-scroll"] [data-no-bar]) > [data-slot="app-nav"] {
-  display: none;
-}
-
 /* A page's header (2c): `--header-h` tall, the notch's safe area added above it; never grows, never shrinks. One row. */
 @utility page-header {
   flex-shrink: 0;
@@ -723,15 +717,6 @@
 @utility drawer-icon {
   filter: drop-shadow(0 2px 0 var(--background));
 }
-/*
- * The home's dock (HOME-DOCK, `data-dock`) stays in view while a page is open over the home (`data-page-panel`: a HUD drawer, the side
- * panel, a sheet over its page; the owner's ask of 2026-11-04): over the veil and the page's foot, which leaves it room
- * (`DOCK_CLEARANCE`), sharp and live. A dialog still covers it.
- */
-body:has([data-page-panel]):not(:has([data-slot="dialog-content"])) [data-dock] {
-  z-index: 51;
-}
-
 /* Light text on the player badge's art (its name, its level): a dark outline, the background's colour a pixel each way, and a soft drop. */
 @utility text-outline {
   text-shadow: 1px 0 var(--background), -1px 0 var(--background), 0 1px var(--background), 0 -1px var(--background), 0 2px 3px var(--background);
@@ -806,66 +791,6 @@ body:has([data-page-panel]):not(:has([data-slot="dialog-content"])) [data-dock] 
     animation-duration: 0.01ms !important;
   }
 }
-
-/*
- * 6. TAB-SWIPE (#726, owner decisions of 2026-10-24): below `desktop`, a pick in the bar moves the page sideways, from one tab's
- * page to the next, and the bar's highlight and labels move with it, in one duration and one easing. The swipe is a view
- * transition of the page's region only (`routes/tab-swipe.ts`): while `<html>` carries the mark `data-tab-swipe` (`next`, a
- * tab to the right; `prev`), the region (`TabFrame`'s `page-scroll`) is named `tab-page`, its old snapshot leaves on one side
- * and the new one comes in from the other, clipped to the region. The root's snapshots are not animated: the rest of the
- * screen, the bar included, is the new page at once, its own transitions (`AppNav`) running live. No swipe under reduced
- * motion and from `desktop` (the helper starts none).
- * SWIPE-DISC (#780, the owner's decision of 2026-10-26: the Play disc is always whole): the bar is a view transition of its own
- * (`app-nav`), its group painted above the page's, so the disc's top half, which stands over the region, is never covered by
- * the page's moving snapshots. It is not animated: its new snapshot alone shows, live (the bar's own transitions run in it),
- * the old one hidden.
- */
-:root {
-  --tab-swipe-duration: 320ms;
-  --tab-swipe-ease: cubic-bezier(0.32, 0.72, 0, 1);
-}
-html[data-tab-swipe] [data-slot="page-scroll"] {
-  view-transition-name: tab-page;
-}
-html[data-tab-swipe] [data-slot="app-nav"] {
-  view-transition-name: app-nav;
-}
-html[data-tab-swipe]::view-transition-old(root),
-html[data-tab-swipe]::view-transition-new(root) {
-  animation: none;
-}
-html[data-tab-swipe]::view-transition-group(tab-page) {
-  overflow: clip;
-  animation-duration: var(--tab-swipe-duration);
-  animation-timing-function: var(--tab-swipe-ease);
-}
-html[data-tab-swipe]::view-transition-old(tab-page),
-html[data-tab-swipe]::view-transition-new(tab-page) {
-  mix-blend-mode: normal;
-  animation-duration: var(--tab-swipe-duration);
-  animation-timing-function: var(--tab-swipe-ease);
-  animation-fill-mode: both;
-}
-html[data-tab-swipe]::view-transition-group(app-nav) {
-  z-index: 1;
-  animation: none;
-}
-html[data-tab-swipe]::view-transition-old(app-nav) {
-  animation: none;
-  opacity: 0;
-}
-html[data-tab-swipe]::view-transition-new(app-nav) {
-  mix-blend-mode: normal;
-  animation: none;
-}
-html[data-tab-swipe="next"]::view-transition-old(tab-page) { animation-name: tab-swipe-to-start; }
-html[data-tab-swipe="next"]::view-transition-new(tab-page) { animation-name: tab-swipe-from-end; }
-html[data-tab-swipe="prev"]::view-transition-old(tab-page) { animation-name: tab-swipe-to-end; }
-html[data-tab-swipe="prev"]::view-transition-new(tab-page) { animation-name: tab-swipe-from-start; }
-@keyframes tab-swipe-to-start { to { translate: -100% 0; } }
-@keyframes tab-swipe-to-end { to { translate: 100% 0; } }
-@keyframes tab-swipe-from-start { from { translate: -100% 0; } }
-@keyframes tab-swipe-from-end { from { translate: 100% 0; } }
 
 /*
  * BALANCES-BY-PAGE (#855): the home's phone stack, crowded beside the League control (`data-crowded`, home-village-scene.tsx),

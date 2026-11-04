@@ -15,7 +15,6 @@ import { usePlayerGuild } from "../../data/guilds";
 import { addressKey } from "../../data/keys";
 import { useFollowLists, usePlayerSearch } from "../../data/social";
 import { useDataSources } from "../../data/sources";
-import type { Tab } from "../pages";
 import { useAccount } from "../../wallet/wallet";
 import { CHAT_PARAM, chatParamOf, chatPathOf, chatPlayerOf, chatTabOf, chatTabPath, privateChatPath, type ChatSheetState, type ChatTab } from "../chat-param";
 import { chatTabStored, storeChatTab } from "../chat-tab";
@@ -143,7 +142,6 @@ function NewMessage({ me, open, onOpenChange, onPick }: { me: string; open: bool
 export interface ChatContentProps {
   /** Back, up to the village (BACK-RULE #783). */
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /**
@@ -152,7 +150,7 @@ export interface ChatContentProps {
  * private conversation opened from the list is a new entry, so Back returns to the list. An old link to a conversation
  * (`?chat=<id>`) lands on its tab.
  */
-export function ChatContent({ onBack, onNavigate }: ChatContentProps) {
+export function ChatContent({ onBack }: ChatContentProps) {
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
   const now = useNow();
@@ -210,11 +208,11 @@ export function ChatContent({ onBack, onNavigate }: ChatContentProps) {
 
   if (overview.unavailable)
     return (
-      <ChatScene onBack={onBack} onNavigate={onNavigate}>
+      <ChatScene onBack={onBack}>
         <SocialUnavailable>Messages are not on this network yet.</SocialUnavailable>
       </ChatScene>
     );
-  if (me === null) return <ChatScene onBack={onBack} onNavigate={onNavigate} />;
+  if (me === null) return <ChatScene onBack={onBack} />;
 
   const tab = target !== null ? null : urlTab;
   const noticeSeen = data?.noticeSeen ?? true;
@@ -255,7 +253,7 @@ export function ChatContent({ onBack, onNavigate }: ChatContentProps) {
       badges={chatBadges(data)}
       menu={<ChatMenu mutes={mutes.data ?? null} onUnmute={(address) => writes.run((c, p) => c.unmute(p, address))} onOpenPlayer={openPlayer} />}
       onBack={onBack}
-      onNavigate={onNavigate}
+     
     >
       {body}
     </ChatScene>

@@ -13,7 +13,6 @@ import { SHOP_OFFERS } from "../containers/layout-rules";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TabFrame } from "../containers/tab-frame";
 import { TopBar } from "../containers/top-bar";
-import type { Tab } from "../../routes/pages";
 
 /** One of the day's offers (#737): a base plan, its rarity and price in Cobbles, bought once a day. */
 export interface ShopOffer {
@@ -42,8 +41,6 @@ export interface VillageShopSceneProps {
   refusalDetail?: ErrorDetail;
   tileArt?: TileArt;
   onBack?: () => void;
-  /** A pick in the phone's bar (#763): the page is the Shop tab's. */
-  onNavigate?: (tab: Tab) => void;
   onConnect?: () => void;
   onRetry?: () => void;
   onBuy?: (index: number) => void;
@@ -69,7 +66,6 @@ export function VillageShopScene({
   refusalDetail,
   tileArt,
   onBack,
-  onNavigate,
   onConnect,
   onRetry,
   onBuy,
@@ -78,7 +74,7 @@ export function VillageShopScene({
 }: VillageShopSceneProps) {
   const short = offers.some((o) => !o.bought && o.price > cobbles);
   return (
-    <TabFrame tab="shop" onNavigate={onNavigate}>
+    <TabFrame>
       <TopBar
         title="Tile shop"
         onBack={onBack}

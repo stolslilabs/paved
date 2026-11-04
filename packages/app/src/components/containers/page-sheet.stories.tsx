@@ -39,7 +39,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const SETTINGS_PAGE = <SettingsScene {...SETTINGS.connected} onNavigate={fn()} onChange={fn()} onBack={fn()} />;
+const SETTINGS_PAGE = <SettingsScene {...SETTINGS.connected} onChange={fn()} onBack={fn()} />;
 const PLAY_PAGE = <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onTraining={fn()} onStory={fn()} onAttack={fn()} />;
 
 /** The page under the sheet (Settings by default): a full page on a phone, the side panel from `desktop`. */
@@ -68,11 +68,11 @@ const sheet = (title: string, page: ReactNode, wide = false, under?: { page: Rea
   ...(wide ? WIDE_1440 : PHONE_375),
 });
 
-const themes = <ThemeScene {...THEME.mixed} onBack={fn()} onNavigate={fn()} onUse={fn()} onOpen={fn()} onMyTiles={fn()} />;
-const shop = <ThemeShopScene {...THEME_SHOP.forest} onBack={fn()} onNavigate={fn()} onBuy={fn()} onBuyCobbles={fn()} onMyTiles={fn()} />;
-const tiles = <MyTilesScene {...MY_TILES.owned} onBack={fn()} onNavigate={fn()} onPick={fn()} onSave={fn()} onDiscard={fn()} onOpenShop={fn()} />;
-const credits = <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} onNavigate={fn()} />;
-const referral = <ReferralScene {...REFERRAL.earned} onBack={fn()} onNavigate={fn()} onCopy={fn()} />;
+const themes = <ThemeScene {...THEME.mixed} onBack={fn()} onUse={fn()} onOpen={fn()} onMyTiles={fn()} />;
+const shop = <ThemeShopScene {...THEME_SHOP.forest} onBack={fn()} onBuy={fn()} onBuyCobbles={fn()} onMyTiles={fn()} />;
+const tiles = <MyTilesScene {...MY_TILES.owned} onBack={fn()} onPick={fn()} onSave={fn()} onDiscard={fn()} onOpenShop={fn()} />;
+const credits = <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} />;
+const referral = <ReferralScene {...REFERRAL.earned} onBack={fn()} onCopy={fn()} />;
 
 /** The themes over Settings at 375 px: the sheet from the bottom, its grab bar, Settings dimmed behind it. */
 export const ThemesPhone: Story = sheet("Themes", themes);

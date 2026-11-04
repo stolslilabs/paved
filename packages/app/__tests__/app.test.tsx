@@ -27,7 +27,8 @@ describe("app", () => {
   it("renders the home page as the village with its overlays and the dock (#763, HOME-DOCK)", async () => {
     render(<App router={createTestRouter("/")} />);
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Village" })).toBeInTheDocument();
+    // The edges' buttons are a chunk of their own (HOME-EDGES): they may come after the heading.
+    expect(await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) })).toBeInTheDocument();
     const nav = await screen.findByRole("navigation", { name: "Main" });
     expect(within(nav).getByRole("button", { name: "Play" })).toBeInTheDocument();
     // No item of the dock is current on the home; the home draws it at every width (HOME-DOCK).
@@ -35,16 +36,17 @@ describe("app", () => {
     expect(nav.className).not.toContain("desktop:hidden");
   });
 
-  it("gives the tab pages the dock's five items, Play in the centre, and no header from desktop (#762)", async () => {
-    render(<App router={createTestRouter("/vault")} />);
+  it("gives the home the dock's five items, Play in the centre; no page carries it (DOCK-UNDER-PAGES)", async () => {
+    const { unmount } = render(<App router={createTestRouter("/vault")} />);
     expect(await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    unmount();
+    render(<App router={createTestRouter("/")} />);
+    const nav = await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
     // The items are the buttons of the dock's band (`:scope > div > div`); Play sits in a column of its own.
     expect(nav.querySelectorAll(":scope > div > div > button")).toHaveLength(4);
-    // #763, HOME-DOCK: the dock's Shop, Chests, Play, Guild, Settings; from `desktop` a page has no dock and no header (#762: it
-    // opens in the home's side panel, the home drawing the dock).
+    // #763, HOME-DOCK: the dock's Shop, Chests, Play, Guild, Settings.
     expect([...nav.querySelectorAll(":scope > div > div > button, :scope > div > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "Guild", "Settings"]);
-    expect(nav).toHaveClass("desktop:hidden");
     // The medallion: the swords and PLAY on it.
     expect(within(nav).getByRole("button", { name: "Play" })).toHaveTextContent("Play");
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();
@@ -71,9 +73,9 @@ describe("app", () => {
       // The board's page module brings the renderer (three.js): its first import takes longer than findBy's 1 s in jsdom.
       expect(await screen.findByRole("heading", { level: 1, name: page.title }, { timeout: slow(5000) })).toBeInTheDocument();
       expect(screen.getByTestId("page")).toHaveAttribute("data-path", page.path || "/");
-      // Tab pages carry the navigation, full-screen flows the top bar's Back: never both, never neither.
-      expect(screen.queryByRole("navigation", { name: "Main" }) !== null).toBe(page.nav !== null);
-      expect(screen.queryByRole("button", { name: "Back" }) !== null).toBe(page.nav === null);
+      // No page carries the dock (DOCK-UNDER-PAGES): Back is every page's way out.
+      expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     },
   );
 

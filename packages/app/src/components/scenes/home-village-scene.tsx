@@ -282,7 +282,8 @@ const ABOVE_BAR = "bottom-[calc(var(--app-nav-h)+0.5rem)] desktop:bottom-4";
  * The home's dock (#763; HOME-DOCK, the owner's asks of 2026-11-03: at every width, centred from `tablet`), fixed at the viewport's
  * bottom, its height on the scene (`--app-nav-h`) for the bottom overlays. While the dock's chunk loads, a stand-in of its box
  * (`AppNav`'s sizes) holds its place, so nothing above it moves when it comes. The band across the screen takes no tap: only the dock.
- * It stays over a page opened on the home (`data-dock`, theme.css: a HUD drawer, the side panel), live.
+ * DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): it stays under a page opened on the home, veiled and blurred with the village
+ * beside a side panel or a HUD drawer, covered by a phone's page.
  */
 function HomeBar({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -297,7 +298,7 @@ function HomeBar({ children }: { children: ReactNode }) {
   // The dock's box: the band's top to the foot, and its foot (the safe area, or its lift); empty, so nothing for assistive technology.
   const standIn = <div className="box-content" style={{ height: DOCK_ART.height * DOCK_ART.scale, paddingBottom: "calc(var(--dock-foot) + var(--dock-lift))" }} />;
   return (
-    <div ref={ref} data-out="d0" data-dock className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
+    <div ref={ref} data-out="d0" className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
@@ -572,7 +573,7 @@ function ViewOverlays({
       </div>
       {/* The dock (#763, HOME-DOCK): its height on the scene (`--app-nav-h`), which the bottom overlays clear below `desktop`. */}
       <HomeBar>
-        <LazyAppNav active={null} badges={{ chests: props.chests, guild: props.guild }} onNavigate={props.onNavigate} className="relative" />
+        <LazyAppNav badges={{ chests: props.chests, guild: props.guild }} onNavigate={props.onNavigate} className="relative" />
       </HomeBar>
     </div>
   );

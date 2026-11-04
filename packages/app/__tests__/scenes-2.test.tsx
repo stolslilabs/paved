@@ -67,8 +67,8 @@ describe("Vault", () => {
     expect(within(position).getByText("Withdrawable now").closest("div")?.parentElement).toHaveTextContent("1,291.12");
     expect(within(position).getByText("Rate").closest("div")?.parentElement).toHaveTextContent("1 : 1.0841");
     expect(within(position).getByText("Exit fee").closest("div")?.parentElement).toHaveTextContent("5%");
-    // The Vault is the home's overlay's, not the bar's (#763): no item current.
-    expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("button", { current: "page" })).toBeNull();
+    // No dock on a page (DOCK-UNDER-PAGES): its Back is its way out.
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });
 
   it("shows the split of each purchase: burn 73.68%, Vault 26.32%, the referral's 5% out of the Vault's part", () => {
@@ -340,8 +340,8 @@ describe("Missions (#832)", () => {
     expect(screen.queryByRole("button", { name: "Previous day" })).not.toBeInTheDocument();
     expect(screen.queryByText(/free game/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-    // Missions are the home's overlay's, not the bar's (#763): no item current.
-    expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("button", { current: "page" })).toBeNull();
+    // No dock on a page (DOCK-UNDER-PAGES): its Back is its way out.
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });
 
   it("shows the PvP weeklies' cards (#976): Weekly Raider counts the attacks settled, Weekly Stars the stars, neither with a claim", () => {

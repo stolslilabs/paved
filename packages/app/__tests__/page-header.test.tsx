@@ -28,7 +28,7 @@ const withBalances = (page: ReactNode, kinds?: readonly ShownBalance[]) =>
 
 describe("the page header (#781)", () => {
   it.each([
-    ["a tab page", () => <TabPage tab="vault" title="Vault" onNavigate={() => {}}>Body</TabPage>],
+    ["a tab page", () => <TabPage title="Vault" onBack={() => {}}>Body</TabPage>],
     ["a flow's top bar", () => <TopBar title="Vault" onBack={() => {}} />],
   ])("%s draws the one header: Back, then the title, then the page's balances, one row", async (_, page) => {
     const { container } = withBalances(page());

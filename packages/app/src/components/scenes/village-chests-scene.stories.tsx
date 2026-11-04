@@ -24,7 +24,7 @@ const meta = {
   component: VillageChestsScene,
   // The opening's sounds (#784), after a first tap in the canvas.
   parameters: { layout: "fullscreen", sfx: 0.8 },
-  args: { ...VILLAGE_CHESTS.waiting, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onNavigate: fn(), onPlay: fn(), onOpen: fn(), onTake: fn(), onDismissRefusal: fn(), onEditLayout: fn() },
+  args: { ...VILLAGE_CHESTS.waiting, tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onPlay: fn(), onOpen: fn(), onTake: fn(), onDismissRefusal: fn(), onEditLayout: fn() },
 } satisfies Meta<typeof VillageChestsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

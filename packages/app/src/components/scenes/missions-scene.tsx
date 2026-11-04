@@ -1,7 +1,6 @@
 import { useRef, useState, type FocusEvent } from "react";
 import type { PlayerAchievements } from "@paved/chain";
 import { TUTORIAL_STEPS, tutorialCompleted, tutorialFinished, tutorialStates, type TutorialCounts, type TutorialStepState } from "@paved/game-core";
-import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
@@ -115,9 +114,8 @@ export interface MissionsSceneProps {
   onClaimAchievement?: (achievementId: number) => void;
   onConnect?: () => void;
   onRetry?: () => void;
-  /** Back, up to the village (BACK-RULE #783); omitted, the bar's Home. */
+  /** Back, up to the village (BACK-RULE #783); omitted, no Back. */
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /**
@@ -331,7 +329,7 @@ export function MissionsScene(props: MissionsSceneProps) {
   const earned = lifetime.filter((m) => m.state === "claimable" || m.state === "done").length;
 
   return (
-    <TabPage tab="quests" title="Missions" onBack={props.onBack} onNavigate={props.onNavigate}>
+    <TabPage title="Missions" onBack={props.onBack}>
       {!connected ? (
         <Notice title="Connect to see your missions" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
           Missions count your games: they need an account.

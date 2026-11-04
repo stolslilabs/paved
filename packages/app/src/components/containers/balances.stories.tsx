@@ -32,7 +32,7 @@ type InProps = Pick<BalancesProps, "state" | "onAction" | "onConnect" | "onRetry
 function InPage({ state, onAction, onConnect, onRetry, faucet }: InProps) {
   return (
     <BalancesProvider value={{ state, kinds: HEADER_BALANCES.vault, here: VAULT_HERE, onAction, onConnect, onRetry, faucet }}>
-      <TabPage tab="vault" title="Vault">
+      <TabPage title="Vault">
         <div data-slot="card" className="h-40 rounded-xl border border-border bg-card" />
       </TabPage>
     </BalancesProvider>

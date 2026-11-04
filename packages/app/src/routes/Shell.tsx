@@ -12,7 +12,6 @@ import { ProfileHost } from "./profile-host";
 import { HistoryTracker } from "./history";
 import { usePrefetchTabs } from "./prefetch";
 import { StaleChunkGate } from "./stale-chunk-gate";
-import { useTabSwipeEnd } from "./tab-swipe";
 
 /** The boot screen: also the router's `hydrateFallbackElement` and every route's `Suspense` fallback (section 6.1). */
 export const bootScreen = <LoadingScene progress={null} />;
@@ -20,18 +19,12 @@ export const bootScreen = <LoadingScene progress={null} />;
 /** The music volume from the player's pause (0) or resume, stored like a move of the slider. */
 const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));
 
-/** A leaf, so that the view transition's state re-renders it alone: it removes the swipe's mark when the swipe ends (TAB-SWIPE, issue 726). */
-function TabSwipeEnd() {
-  useTabSwipeEnd();
-  return null;
-}
-
 /** The board routes: the scene fills the viewport (`h-dvh`), and it reads neither the balances nor the avatar. */
 const BOARD_PATHS = new Set(["game/:gameId", "training", "story/:campaign/:level"]);
 
 /**
  * The root of every route. It draws nothing of its own (the Cartridge notice lives on the Credits page, D-15): a tab page
- * is one viewport tall, its navigation fixed to the bottom and its content in its own scrolling region (`TabFrame`, FOOTER-FIXED); a
+ * is one viewport tall, its content in its own scrolling region (`TabFrame`, FOOTER-FIXED; no dock on a page: DOCK-UNDER-PAGES); a
  * full-screen flow brings its top bar and is `min-h-dvh`, scrolling as one document. The document never bounces (`html, body`
  * take no overscroll, styles/theme.css). Every page's header, the top bar, the tab pages' title row, the navigation's header from
  * `desktop`, is one height per breakpoint (`--header-h`, the
@@ -61,7 +54,6 @@ export function RootLayout() {
       <MockMarkProvider value={MOCKED && page !== null && MOCKED_PAGES.has(page.path)}>
         <HistoryTracker>
           <StaleChunkGate />
-          <TabSwipeEnd />
           {/* A board shows no balances and no avatar: it reads neither (a board is the heaviest page, and its tests the most timing-bound). */}
           {onBoard ? pages : noBalance ? <ProfileHost>{pages}</ProfileHost> : (
             <BalancesHost page={shown}>

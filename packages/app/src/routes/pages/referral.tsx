@@ -6,7 +6,7 @@ import { referralLink, useReferralEarnings } from "../../data/referral";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
-import { useBack, useTabNavigate } from "../ref";
+import { useBack } from "../ref";
 
 /** How long the Copy button says "Copied". */
 const COPIED_MS = 2_000;
@@ -19,7 +19,6 @@ const COPIED_MS = 2_000;
  * the earnings shows Retry beside it, never in its place. A guest connects.
  */
 export default function Page() {
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   const wallet = useAccount();
   useConnectError(wallet.error);
@@ -56,7 +55,7 @@ export default function Page() {
       onRetry={() => void earnings.refetch()}
       onConnect={() => void wallet.connect()}
       onBack={onBack}
-      onNavigate={onNavigate}
+     
     />
   );
 }

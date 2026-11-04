@@ -7,7 +7,7 @@ import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useOpenPlayer } from "../open-player";
-import { useBack, useTabNavigate } from "../ref";
+import { useBack } from "../ref";
 import { FriendsContent } from "../social/friends-content";
 import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
 
@@ -18,7 +18,6 @@ import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
  * suggestions and the blocked players (#954). Any other old `/social` link lands here (`router.tsx`). Its own chunk.
  */
 export default function Page() {
-  const onNavigate = useTabNavigate();
   const onBack = useBack();
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
@@ -54,7 +53,7 @@ export default function Page() {
             : undefined,
         }}
         onBack={onBack}
-        onNavigate={onNavigate}
+       
       >
         <FriendsContent />
       </FriendsScene>

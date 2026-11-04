@@ -1,5 +1,4 @@
 import { useState } from "react";
-import type { Tab } from "../../routes/pages";
 import { Button } from "../ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Icon } from "../ui/icon";
@@ -43,7 +42,6 @@ export interface ThemeSceneProps {
   onConnect?: () => void;
   onRetry?: () => void;
   onBack?: () => void;
-  onNavigate?: (tab: Tab) => void;
 }
 
 /**
@@ -52,7 +50,7 @@ export interface ThemeSceneProps {
  * owner's ruling of 2026-10-18), and asks first when that replaces a choice made tile by tile; a theme's Tiles is its shop;
  * My tiles chooses tile by tile.
  */
-export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, refusalDetail, onDismissRefusal, onUse, onOpen, onMyTiles, onConnect, onRetry, onBack, onNavigate }: ThemeSceneProps) {
+export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, refusalDetail, onDismissRefusal, onUse, onOpen, onMyTiles, onConnect, onRetry, onBack }: ThemeSceneProps) {
   const [confirm, setConfirm] = useState<{ theme: ThemeId; changes: Record<number, number> } | null>(null);
   const busy = applying != null;
   const use = (theme: ThemeId) => {
@@ -66,7 +64,7 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
   const activeSkins = skins ? skins.active.filter((t) => t !== 0).length : 0;
   const confirmName = confirm ? THEMES.find((t) => t.id === confirm.theme)!.name : "";
   return (
-    <TabPage tab="settings" title="Themes" onBack={onBack} onNavigate={onNavigate}>
+    <TabPage title="Themes" onBack={onBack}>
       <p className="text-sm text-muted-foreground">How your tiles look on the board.</p>
       {!skins && skinsStatus && skinsStatus.kind !== "loading" && (
         <SkinsStatusView status={skinsStatus} guestTitle="Connect to use themes" guestText="Themes are tiles bought with the Cobbles of your account, and kept on it." onConnect={onConnect} onRetry={onRetry} />

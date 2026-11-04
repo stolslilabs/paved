@@ -13,7 +13,7 @@ import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 const meta = {
   title: "Scenes/MissionsGraph",
   component: MissionsScene,
-  args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn(), onNavigate: fn() },
+  args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn() },
 } satisfies Meta<typeof MissionsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
