@@ -142,15 +142,16 @@ export function AppNav({ active, onNavigate, badges, className }: AppNavProps) {
     <nav
       aria-label="Main"
       data-slot="app-nav"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      // Its foot (theme.css): on a phone the safe area under it, from `tablet` a lift off the screen's foot (the owner's ask of 2026-11-04).
+      style={{ paddingBottom: "var(--dock-foot)", marginBottom: "var(--dock-lift)" }}
       className={cn("fixed inset-x-0 bottom-0 z-20 isolate tablet:mx-auto tablet:w-full tablet:max-w-[34rem]", className)}
     >
       <span id={hint} hidden>
         {RETAP_HINT}
       </span>
       <span aria-hidden data-slot="page-scroll-hint" className="pointer-events-none absolute inset-x-0 bottom-full h-8 bg-linear-to-b to-background opacity-0 transition-opacity motion-reduce:transition-none page-more:opacity-100" />
-      {/* The safe area's foot, the plank's colour. */}
-      <span aria-hidden className="absolute inset-x-0 bottom-0 bg-dock-ink" style={{ height: "env(safe-area-inset-bottom)" }} />
+      {/* The safe area's foot on a phone, the plank's colour; none once the dock floats. */}
+      <span aria-hidden className="absolute inset-x-0 bottom-0 bg-dock-ink" style={{ height: "var(--dock-foot)" }} />
       <div className="relative" style={{ height: px(DOCK_ART.height) }}>
         <span aria-hidden data-slot="dock-wood" className="pointer-events-none absolute inset-x-0" style={WOOD_STYLE} />
         <div className="absolute top-0 flex" style={{ left: px(panel.inset), right: px(panel.inset), height: px(panel.height) }}>

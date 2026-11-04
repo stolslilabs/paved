@@ -130,7 +130,8 @@ export function LevelBar({ progress, variant = "card", className }: LevelBarProp
             }}
           />
         )}
-        <span data-slot="xp" className="numeric text-outline absolute inset-0 grid place-items-center pl-2 text-xs leading-none font-bold text-foreground">
+        {/* In capitals, as a game's gauge reads ("MAX LEVEL", "120 / 300 XP"; the owner's ask of 2026-11-04). */}
+        <span data-slot="xp" className="numeric text-outline absolute inset-0 grid place-items-center pl-2 text-xs leading-none font-bold text-foreground uppercase">
           {progress ? xpText(progress, variant) : ""}
         </span>
       </span>

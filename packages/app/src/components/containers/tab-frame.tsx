@@ -38,12 +38,13 @@ function FullTabFrame({ tab, onNavigate, children }: TabFrameProps) {
     region.current = el;
     return pageScrollHintRef(el);
   }, []);
-  // The bar's height, for the region's bottom margin: it changes with the labels (from `mobile`) and the safe area.
+  // The bar's height, for the region's bottom margin: it changes with the labels (from `mobile`) and the safe area; from `tablet`
+  // the dock floats, its lift off the screen's foot (`--dock-lift`, its margin) counted too.
   useLayoutEffect(() => {
     const el = frame.current;
     const nav = el?.querySelector<HTMLElement>(":scope > nav");
     if (!el || !nav) return;
-    const measure = () => el.style.setProperty("--app-nav-h", `${nav.offsetHeight}px`);
+    const measure = () => el.style.setProperty("--app-nav-h", `${nav.offsetHeight + (Number.parseFloat(getComputedStyle(nav).marginBottom) || 0)}px`);
     measure();
     const resize = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
     resize?.observe(nav);

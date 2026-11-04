@@ -207,7 +207,9 @@ describe("ProfileSheet (#624)", () => {
     // Its body's end: the dock's reach, a gap and the safe area.
     const end = page.querySelector<HTMLElement>("[data-hud-drawer-body]")!.style.paddingBottom;
     expect(end).toContain(`${DOCK_REACH_PX}px`);
-    expect(end).toContain("env(safe-area-inset-bottom)");
+    // Its foot: the safe area on a phone, the dock's lift from `tablet` (theme.css).
+    expect(end).toContain("var(--dock-foot)");
+    expect(end).toContain("var(--dock-lift)");
     await userEvent.click(within(page).getByRole("button", { name: "Back" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
     unmount();
