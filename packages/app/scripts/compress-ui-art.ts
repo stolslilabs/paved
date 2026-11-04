@@ -22,7 +22,14 @@
  * background in the rendering of the dock's icons, three-quarters from above, each standing on one shared slab of grass (the Wonder's
  * of stone), checked side by side with the dock's at 44 and 20 points; the four structures cut with one box (the union of their
  * drawings), not each trimmed to its own, so their slabs keep one size and one place on the frame. The Stats stands alone, no slab
- * (the owner's ask), trimmed to its drawing as the dock's icons are. The dock's four (wood, panel, divider, medallion; HOME-DOCK,
+ * (the owner's ask), trimmed to its drawing as the dock's icons are. HOME-EDGES (2026-11-04), from the Paved UX Book's main screen
+ * (the owner's approved mockups): the mission's hammer, redrawn as an icon and put on the icons' frame; the Chat tab, Codex's redraw
+ * of the book's orange tab, alone on a transparent background, then redrawn at its new size (56 x 64 points, the owner's ask) from
+ * that first one, its face toned to it by a per-channel gain (the book's blue tile, and three grey directions after it, were set
+ * aside: the right column draws no tile). CAMERA-EXPLORE (2026-11-04): the Camera mode's icon, a house on its tile with an arrow in
+ * orbit round it, the owner's choice among three Codex drew in the icons' rendering (a spyglass and an eye in a turning arrow the
+ * others), alone on a transparent background; its way out, Exit, the same house with a straight arrow going out of it (the owner's
+ * choice among three: a door ajar and a U-turn arrow the others). The dock's four (wood, panel, divider, medallion; HOME-DOCK,
  * 2026-11-03) were cut from the mockup's footer at 3x: Codex redrew each layer alone at the footer's framing on a flat magenta,
  * keyed out by script; each layer was registered on the mockup (scale and shift by least error, the parchment fitted box by box),
  * their restack checked against the mockup side by side, then each piece cropped (the panel's divider painted out with the

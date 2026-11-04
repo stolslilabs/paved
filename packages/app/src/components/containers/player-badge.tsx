@@ -24,8 +24,8 @@ export interface PlayerBadgeProps {
 
 /**
  * The player card at the home's top left (#787, redrawn after the owner's direction of 2026-11-01, `docs/design/home.webp`, decomposed
- * layer by layer): a see-through dark grey face in the HUD's frame (`HudFrame`, CSS: a near-black outline with a crisp drop, a slate
- * rim with its painted patches); the avatar in the rim of the player's league with the
+ * layer by layer): a see-through dark grey face in the HUD's frame (`HudFrame`, CSS: a near-black outline with a crisp drop, a grey
+ * rim lit along its top); the avatar in the rim of the player's league with the
  * league's crest at its lower left, both running past the card's foot; then the name and, under it, the level's star over the XP's
  * blue bar ("90/150"). The card grows with the name (a name has at most 15 characters, `PLAYER_NAME_MAX`) and ends it with an
  * ellipsis where the home's room ends (`--profile-room`, set by the home beside its balances). A tap anywhere on it opens the profile

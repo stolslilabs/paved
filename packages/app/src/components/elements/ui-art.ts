@@ -1,10 +1,13 @@
 /**
  * The HUD's images (the owner's mobile direction of 2026-11-01, `docs/design/home.webp`, after Supercell's games): the icons of the
- * home's buttons, of the dock, of the seasons and of the Play sheet, the profile drawer's actions (Avatar, Collection, Invite,
- * after its mockup of 2026-11-02), the four structures and the profile's totals (City, Road, Forest, Wonder, Stats; PROFILE-PAGE, 2026-11-04), and the frames the home draws with them: the XP bar's track and fill, and the dock's
- * wood, parchment, divider and PLAY medallion (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width, its
- * pieces cut from the mockup's footer decomposed and checked against it: `DOCK_ART`). The season dial's frame and the
- * game modes' icons went unused and were removed; the HUD's frame (the player card's, the capsules') is CSS since HUD-FRAME-CSS (`hud-frame.tsx`),
+ * home's buttons, of the dock, of the seasons and of the Play sheet, the profile drawer's actions (Avatar, Tiles, Invite,
+ * after its mockup of 2026-11-02), the four structures and the profile's totals (City, Road, Forest, Wonder, Stats; PROFILE-PAGE, 2026-11-04),
+ * the mission's hammer (HOME-EDGES, 2026-11-04), the Camera mode's village in orbit and its way out (Explore, Exit; CAMERA-EXPLORE),
+ * and the frames the home draws with them: the XP bar's track and fill, and the dock's wood, parchment, divider and PLAY medallion
+ * (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width, its pieces cut from the mockup's footer decomposed and
+ * checked against it: `DOCK_ART`). The season dial's frame and the
+ * game modes' icons went unused and were removed, as did HOME-EDGES' blue tile (the right column draws no tile since); its orange
+ * Chat tab stays, redrawn at 56 x 64; the HUD's frame (the player card's, the capsules') is CSS since HUD-FRAME-CSS (`hud-frame.tsx`),
  * its painted 9-slice (`card-frame`) left on 2026-11-03. Panels, capsules, buttons, badges and bars are CSS; the league's art is
  * `league-standards.ts`; the currencies stay `token-art.ts` and the chests `chest-art.ts`. Images, not drawings: WebP copies in
  * `public/ui-art/` of the masters in `ui-sources/` (`scripts/compress-ui-art.ts`). URLs and measures only: nothing here imports an
@@ -50,11 +53,14 @@ export const UI_ICONS = [
   "forest",
   "wonder",
   "stats",
+  "hammer",
+  "explore",
+  "exit",
 ] as const;
 export type UiIconName = (typeof UI_ICONS)[number];
 
 /** The frames, each an image of its own. */
-export const UI_FRAMES = ["dock-wood", "dock-panel", "dock-divider", "play-medallion", "xp-track", "xp-fill"] as const;
+export const UI_FRAMES = ["dock-wood", "dock-panel", "dock-divider", "play-medallion", "xp-track", "xp-fill", "chat-tab"] as const;
 export type UiFrameName = (typeof UI_FRAMES)[number];
 
 interface Frame {
@@ -85,6 +91,9 @@ export const FRAME_ART = {
   "play-medallion": { width: 341, height: 355, side: "width", sizes: [128, 256] },
   "xp-track": { width: 1464, height: 181, side: "width", sizes: [360, 720] },
   "xp-fill": { width: 1466, height: 119, side: "width", sizes: [360, 720] },
+  // HOME-EDGES: the Chat tab on the left edge (its left side cut straight, off the screen), drawn 56 x 64 points: copies of 64 px (1x)
+  // and 192 px (2x and 3x screens).
+  "chat-tab": { width: 448, height: 512, side: "width", sizes: [64, 192] },
 } as const satisfies Record<UiFrameName, Frame>;
 
 /**

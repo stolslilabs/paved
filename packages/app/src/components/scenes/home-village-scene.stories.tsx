@@ -45,6 +45,9 @@ const meta = {
     onChests: fn(),
     onShop: fn(),
     onVault: fn(),
+    onFriends: fn(),
+    onTiles: fn(),
+    onChat: fn(),
     onLeague: fn(),
     onSettings: fn(),
     onNavigate: fn(),
@@ -72,7 +75,7 @@ const meta = {
           onEditName: fn(),
           onEditAvatar: fn(),
           onOpenLeague: fn(),
-          onOpenCollection: fn(),
+          onOpenTiles: fn(),
           onOpenInvite: fn(),
         }}
       >
@@ -86,7 +89,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The village in view: the avatar, the balances, the right column (2 chests, 3 missions), Edit, and Settings over Play. */
+/** The village in view: the avatar, the balances, the right column's tiles (3 missions, 2 friends), the Chat tab and the mission above the dock. */
 export const View: Story = { args: HOME_VILLAGE.view };
 /** The widest balances (the balances' stress amounts) at 320 px: the profile's line narrows beside the plate, never under it (#828). */
 const WIDE_BALANCES = (Story: () => React.JSX.Element) => (
@@ -97,8 +100,8 @@ const WIDE_BALANCES = (Story: () => React.JSX.Element) => (
 export const WideBalancesPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
 export const WideBalancesWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.view, decorators: [WIDE_BALANCES] };
 /**
- * A short desktop window (1024 x 600): the right column centred between the balances' row and Settings over Play (#856); were it
- * taller than its band, its last buttons would wrap into a second column, to the left, never under Settings.
+ * A short desktop window (1024 x 600): the right column's tiles centred under the balances (#856, HOME-EDGES); were it taller than
+ * its band, its last tiles would wrap into a second column, to the left.
  */
 export const ShortDesktop: Story = {
   args: HOME_VILLAGE.view,
@@ -112,12 +115,12 @@ const LONG_NAME = (Story: () => React.JSX.Element) => (
   </ProfileProvider>
 );
 /**
- * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): one 12 px gap in both columns; the profile at the season dial's size
- * (96, 108 and 144 px); from `desktop` the right column centred between the balances and Edit (Settings and Play), the balances in
- * a row, no League in the right column, and Settings above Play, Edit's size. HOME-STACK (#929, the owner's decisions of
- * 2026-10-30): the League control and the village score stacked at the top, 24 px under the profile, at every width; below
- * `desktop` no right column, Missions and Vault in the left column under the village score, before the chips. At 320, 375, 390,
- * 768 and 1440 px, shielded or not, and with the longest name.
+ * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the profile at the season dial's size (96, 108 and 144 px), no League
+ * in the right column. HOME-STACK (#929, the owner's decisions of 2026-10-30): the League control and the village score stacked at
+ * the top, 24 px under the profile, at every width, the chips under them. HOME-EDGES (the owner's asks of 2026-11-04, the Paved UX
+ * Book's main screen): the right column's four tiles (Missions, Vault, Friends, Tiles) at every width, centred under the
+ * balances; at the bottom left the dial, the Chat tab on the edge and the mission in progress, just above the dock. At 320, 375,
+ * 390, 768 and 1440 px, shielded or not, and with the longest name.
  */
 /** The season dial in its corner (the plan view has none of its own): the left column stands clear of it. */
 const DIAL = { seasonWheel: { state: "auto", onNext: fn(), read: null } } satisfies Partial<HomeVillageSceneProps>;
@@ -148,20 +151,19 @@ export const OverlaysLongNameWide1440: Story = { ...WIDE_1440, args: { ...HOME_V
 /** Shielded on a short laptop: the left column under the profile, never under the dial. */
 export const OverlaysShieldedShort1024: Story = { ...SHORT_1024, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
 /**
- * HOME-STACK (#929) on the short phone (320 x 568) with every control of the left column: shielded, Missions
- * and Vault, and the chips (Resume, the spawn pause) last. The column scrolls within its band, never under the dial or the bar.
+ * HOME-STACK (#929) on the short phone (320 x 568) with every control of the left column: shielded, and the chips (Resume, the
+ * spawn pause) last. The column scrolls within its band, never under the dial or the bar.
  */
 export const OverlaysEverythingPhone320: Story = {
   ...PHONE_320,
   args: { ...HOME_VILLAGE.shielded, ...DIAL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true },
 };
-/** The same at 375 px: the moved buttons between the village score and the chips. */
+/** The same at 375 px: the chips under the village score. */
 export const OverlaysChipsPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
 /**
- * SOCIAL-SPLIT (#973, open point 1's default): Chat, Guild and Friends, each with its count, in place of Social. Below `desktop` a
- * column on the right, centred between the balances and Edit; from it, in the left column under the village score and the chips,
- * centred in the room above the dial. Three-digit counts and shielded: nothing overlaps the profile, the
- * balances, Edit, the dial or the other column. At 320, 375, 768 and 1440 px.
+ * SOCIAL-SPLIT (#973), as HOME-EDGES places them: Chat the orange tab on the left edge, Friends a tile of the right column, Guild
+ * the dock's, each with its count. Three-digit counts and shielded: nothing overlaps the profile, the balances, the dial, the mission
+ * or the other column. At 320, 375, 768 and 1440 px.
  */
 const SOCIAL_COUNTS = { chat: 128, guild: 12, friends: 7 } satisfies Partial<HomeVillageSceneProps>;
 const SOCIAL_FULL = { ...HOME_VILLAGE.shielded, ...DIAL, ...SOCIAL_COUNTS } satisfies HomeVillageSceneProps;
@@ -169,12 +171,12 @@ export const OverlaysSocialPhone320: Story = { ...PHONE_320, args: SOCIAL_FULL }
 export const OverlaysSocialPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL };
 export const OverlaysSocialTablet768: Story = { ...TABLET_768, args: SOCIAL_FULL };
 export const OverlaysSocialWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL };
-/** The same with the chips (Resume, the spawn pause) on a short laptop: from `desktop` the social column stays under them. */
+/** The same with the chips (Resume, the spawn pause) on a short laptop: the left column stops above the dial and the Chat tab. */
 export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...SOCIAL_FULL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
 /**
  * HOME-HUD-PADDING (the owner's request of 2026-11-03): one inset at the top and on both sides (`--hud-inset` of theme.css: 8 px on a
  * phone, 16 from `tablet`, the notch's safe area added), drawn as the red bands. The profile, the balances, the crowns' and the
- * village's capsules, the social column, the dial and the bottom row stand on it, their painted edges on one line: at 320 and
+ * village's capsules, the right column, the dial, the mission and the bottom row stand on it (the Chat tab runs to the edge), their painted edges on one line: at 320 and
  * 375 px (a guest's Connect too), at 1440, and on a notched phone (the safe area simulated on the tokens, as `env(safe-area-inset-*)`
  * adds it). Their play reads the painted pixels (`expectHudInset`).
  */
@@ -270,10 +272,16 @@ export const ButtonsReachable: Story = {
       const [button] = canvas.getAllByRole("button", { name }).filter(drawn);
       await reach(button!);
     }
-    await reach(canvas.getByRole("button", { name: "Edit village" }));
+    // HOME-EDGES: the right column's tiles, the Chat tab, the mission in progress; the village score's capsule opens edit mode.
+    const tiles = await canvas.findByRole("navigation", { name: "Village" }, { timeout: 10_000 });
+    for (const tile of within(tiles).getAllByRole("button")) await reach(tile);
+    await reach(canvas.getByRole("button", { name: /^Chat/ }));
+    await reach(canvas.getByRole("button", { name: /^Public Works/ }));
+    await reach(canvas.getByRole("button", { name: /^Edit village, score/ }));
     await reach(canvas.getByRole("button", { name: /^Season/ }));
     await expect(args.onNavigate).toHaveBeenCalledWith("play");
     await expect(args.onNavigate).toHaveBeenCalledWith("settings");
+    for (const handler of [args.onMissions, args.onVault, args.onFriends, args.onTiles, args.onChat]) await expect(handler).toHaveBeenCalled();
     await expect(args.onEditingChange).toHaveBeenCalledWith(true);
   },
 };
@@ -567,29 +575,31 @@ export const CameraTilt85Wide: Story = { args: HOME_VILLAGE.view, render: (args)
 /** The village turned 180 degrees, seen from the other side, at 45 degrees. */
 export const CameraTurned180Phone: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={45} turn={180} />, ...PHONE_375 };
 export const CameraTurned180Wide: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={45} turn={180} />, ...WIDE_1440 };
-/** The narrowest phone: Exit camera and its hint at the corner, clear of the profile and the balances. */
+/** The narrowest phone: Exit and its hint at the corner, alone on the screen (CAMERA-EXPLORE). */
 export const CameraPhone320: Story = { args: HOME_VILLAGE.view, render: (args) => <InCamera {...args} tilt={60} turn={90} />, ...PHONE_320 };
 
 /**
- * Entering and leaving (the GIF of #875 plays this one): Camera fades the overlays and frees the camera; turn and tilt the
- * village, then Exit camera (or Escape) eases it back to the play view (27 degrees, the default turn) over 600 ms and the overlays
- * come back. Under reduced motion the return is a cut and the overlays come back at once.
+ * Entering and leaving (the GIF of #875 plays this one): Explore sends the overlays off the screen by their nearest edges, in three
+ * waves (the dock and the edges, the capsules, then the profile and the balances; CAMERA-EXPLORE), Exit going down to the corner, and
+ * frees the camera; turn and tilt the village, then Exit (or Escape) eases it back to the play view (27 degrees, the default turn) over
+ * 600 ms and the overlays come back in the reverse order. Under reduced motion both are cuts.
  */
 const enterAndLeave: Story["play"] = async ({ canvasElement }) => {
   const scene = within(canvasElement);
-  const camera = await scene.findByRole("button", { name: "Camera" }, { timeout: 15_000 });
+  const camera = await scene.findByRole("button", { name: "Explore" }, { timeout: 15_000 });
   await userEvent.click(camera);
   const exit = await scene.findByRole("button", { name: "Exit camera" });
-  // The overlays faded and out of reach: Edit out of the row, Missions and Vault hidden once faded (the right column's from
-  // `desktop`, the left column's below it, #929); the profile stays.
-  const villageButtons = () => scene.queryAllByRole("button", { name: /^(Missions|Vault)/ }).filter((b) => b.checkVisibility({ visibilityProperty: true }));
-  await expect(scene.getByRole("button", { name: "Edit village", hidden: true })).not.toBeVisible();
-  await waitFor(() => expect(villageButtons()).toHaveLength(0));
-  await expect(scene.getByRole("button", { name: /^Profile/ })).toBeVisible();
+  // The overlays off the screen and out of reach once gone: the edges' buttons (HOME-EDGES: the four tiles, the Chat tab, the
+  // mission), the profile, the league's and the village's capsules; Exit alone stays.
+  const overlayButtons = () =>
+    scene
+      .queryAllByRole("button", { name: /^(Missions|Vault|Friends|Tiles|Chat|Public Works|Profile|League|Edit village)/ })
+      .filter((b) => b.checkVisibility({ visibilityProperty: true }));
+  await waitFor(() => expect(overlayButtons()).toHaveLength(0));
+  await expect(exit).toBeVisible();
   await userEvent.click(exit);
-  await expect(scene.getByRole("button", { name: "Edit village" })).toBeVisible();
-  await waitFor(() => expect(villageButtons()).toHaveLength(2));
-  await expect(scene.getByRole("button", { name: "Camera" })).toHaveFocus();
+  await waitFor(() => expect(overlayButtons()).toHaveLength(9));
+  await expect(scene.getByRole("button", { name: "Explore" })).toHaveFocus();
 };
 export const CameraEnterLeavePhone: Story = {
   args: HOME_VILLAGE.view,
@@ -615,7 +625,7 @@ export const CameraEnterLeaveReducedMotion: Story = {
 
 /**
  * PHONE-NAV (#763): the app's bar on the home below `desktop` (Shop, Chests with the chests waiting, Play, League, Settings; no
- * item current), the right column down to Missions and Vault, no gear and no large Play; Edit and the dial above the bar. At
+ * item current), the right column's tiles, no gear and no large Play; the dial, the Chat tab and the mission above the bar. At
  * 320, 375 and 768 px; edit mode has no bar (`SceneEditingPhone`); from 1440 px none of it (`SceneWide`).
  */
 export const BarPhone320: Story = { ...Scene, ...PHONE_320 };

@@ -119,7 +119,8 @@ describe("a new account from Connect to the editor, on the mock (#927, #753)", (
     expect((await s.ledger.freeVillage(me)).tiles).toEqual(starterLayout(BigInt(me)));
     expect(screen.queryByRole("button", { name: "Found" })).toBeNull();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Edit village" }, WAIT));
+    // The village score's capsule opens edit mode (HOME-EDGES: the hammer left).
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit village, score/ }, WAIT));
     await waitFor(() => expect(router.state.location.search).toBe("?edit"), WAIT);
     expect(await screen.findByRole("button", { name: "Leave edit mode" }, WAIT)).toBeInTheDocument();
   }, slow(30_000));

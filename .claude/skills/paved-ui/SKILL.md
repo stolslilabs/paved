@@ -136,8 +136,8 @@ stylesheet's budget has no room.
 Player card (the home's top left, redrawn after the owner's direction of 2026-11-01 in `docs/design/home.webp`, decomposed layer by
 layer): `containers/player-badge.tsx` lays the HUD's frame under its content (`elements/hud-frame.tsx`, `HudFrame`), CSS since
 HUD-FRAME-CSS (the `hud-frame` and `hud-face` utilities of `theme.css`, sized by `--hud-px`): a see-through dark grey face, a
-near-black outline with a crisp drop, a slate rim lit along its top whose painted patches are a tiled SVG noise (`--hud-noise`) at
-one scale whatever the box (a 9-slice image stretched them with each box's shape). Then the avatar in the rim of the player's league with the league's crest at its lower left, both
+near-black outline with a crisp drop, a smooth grey rim lit along its top (HUD-RIM-GREY: the book's, less blue than the slate and
+its noise it replaced), at one scale whatever the box (a 9-slice image stretched its strokes with each box's shape). Then the avatar in the rim of the player's league with the league's crest at its lower left, both
 running past the card's foot (`PlayerRim`, in the League control's chunk: the same Unranked decision as the crowns' plate), the name in
 black-weight Rubik, and under it the level's star (`UiIcon` `level-star`) over the XP bar (`elements/level-bar.tsx`, its own chunk):
 the track a 9-slice image (`xp-track`), the faceted fill an image (`xp-fill`) shown from the left up to the share, never stretched,

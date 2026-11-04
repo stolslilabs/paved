@@ -186,15 +186,20 @@
    capsules' column, the social column, the dial, the bottom row): the spacing scale's 2 (8 px) on a phone, its 4 (16 px) from
    `tablet`. The notch's safe area is added to it here, per edge, never by an element.
    HOME-DOCK's foot (the owner's ask of 2026-11-04): on a phone the dock sits on the screen's foot, the safe area under it in the
-   plank's colour (`--dock-foot`); from `tablet` it floats the HUD's inset above it, the safe area in that gap (`--dock-lift`). */
+   plank's colour (`--dock-foot`); from `tablet` it floats the HUD's inset above it, the safe area in that gap (`--dock-lift`). On a
+   phone the dock spans the screen and its PLAY medallion rises 20 px over its top at its peak: the home's bottom left stands 8 px
+   higher (`--dock-crest`, HOME-EDGES), 16 above the dock, its mission's bar clear of the medallion's curve (measured at 320 and 375
+   px, the owner's ask of 2026-11-04: the mission close to the dock); from `tablet` the dock is centred, far from it. */
 :root {
   --dock-foot: env(safe-area-inset-bottom);
   --dock-lift: 0px;
+  --dock-crest: 0.5rem;
   --hud-inset: calc(var(--spacing) * 2);
   @media (width >= 40rem) {
     --hud-inset: calc(var(--spacing) * 4);
     --dock-foot: 0px;
     --dock-lift: calc(var(--hud-inset) + env(safe-area-inset-bottom));
+    --dock-crest: 0px;
   }
   --hud-inset-top: calc(var(--hud-inset) + env(safe-area-inset-top));
   --hud-inset-left: calc(var(--hud-inset) + env(safe-area-inset-left));
@@ -293,16 +298,21 @@
    */
   --hud-card: var(--color-charcoal-800);
   /*
-   * The HUD's frame (HUD-FRAME-CSS, `hud-frame` below), sampled on the painted frame it replaced (`card-frame`, in the git history):
-   * its near-black outline, its slate rim, the light along the rim's top and the shade along its inside; the rim's painted patches a
-   * tiled noise (`--hud-noise`, `public/hud-noise.svg`: an SVG turbulence, soft-light over the rim, lighter and darker patches with a
-   * blue and a violet cast; a file, not a data URI, which the one stylesheet's budget could not carry).
+   * The HUD's frame (HUD-FRAME-CSS, `hud-frame` below): its near-black outline, its grey rim (lighter at its top, darker at its foot,
+   * one width whatever the box's size), the light along the rim's top and the shade along its inside; the rim's painted patches a tiled
+   * noise (`--hud-noise`, `public/hud-noise.svg`: an SVG turbulence in greys, soft-light over the rim; a file, not a data URI, which the
+   * one stylesheet's budget could not carry). HUD-RIM-GREY (the owner's asks of 2026-11-04: the book's frame, less blue than ours, its
+   * patches kept, one border width for every box): sampled on `docs/design/home.webp`'s capsules, a cool grey in place of the blue
+   * slate, the noise's blue and violet cast gone.
    */
-  --hud-outline: #050407;
-  --hud-rim: #3e4768;
-  --hud-rim-light: #a59ec3;
-  --hud-rim-shade: #1f2737;
+  --hud-rim-w: 3px;
   --hud-noise: url("/hud-noise.svg");
+  --hud-outline: #050407;
+  --hud-rim-top: #686d79;
+  --hud-rim: #555b67;
+  --hud-rim-foot: #434955;
+  --hud-rim-light: #9ea3b2;
+  --hud-rim-shade: #1c2129;
   /* The HUD's drawer's raised surfaces (PROFILE-DRAWER, direction C of 2026-11-03): a step over its charcoal-800 face, lit along their top. */
   --drawer-raised: var(--color-charcoal-700);
   --drawer-bevel: var(--color-charcoal-500);
@@ -573,23 +583,52 @@
 }
 
 /*
- * CAMERA-MODE (#875): the home's overlays the Camera mode hides (`data-fade`) fade out of its box (`data-camera`), then hide, out
- * of reach (no tap, no focus, nothing read); back at once as it leaves. A cut under reduced motion. Edit, Settings and Play leave
- * the row (`data-collapse`), so Exit camera takes the corner: over the utilities (`desktop:flex`), out of any layer.
+ * CAMERA-MODE (#875) and CAMERA-EXPLORE (the owner's asks of 2026-11-04): in the Camera mode (`data-camera` on the overlays' box) the
+ * home's overlays leave the screen by their nearest edge (`data-out`: its letter the edge, l, r, u or d; its digit the wave), fading,
+ * then hidden, out of reach (no tap, no focus, nothing read). Three waves 90 ms apart (`--w`, the wave's delay), a group each: the
+ * dock and the edges' buttons, the capsules' column, then the profile and the balances; back in the reverse order (a transition takes
+ * the delays of the state it goes to). Up, past the notch's safe area too. A cut under reduced motion. Found leaves the row (`data-collapse`) and the row (`data-corner`) goes down to the screen's
+ * corner, the dock gone: Exit there. Both over the utilities, out of any layer.
  */
 [data-camera] [data-collapse] {
   display: none;
 }
+[data-camera] [data-corner] {
+  bottom: calc(var(--hud-inset) + env(safe-area-inset-bottom));
+}
 @layer base {
-  [data-fade] {
-    transition: opacity 300ms, visibility 300ms;
+  [data-out],
+  [data-corner] {
+    transition: 450ms cubic-bezier(0.55, 0, 0.25, 1) calc(180ms - var(--w, 0ms));
+    transition-property: translate, bottom, opacity, visibility;
     @media (prefers-reduced-motion: reduce) {
       transition: none;
     }
   }
-  [data-camera] [data-fade] {
+  [data-out$="1"] {
+    --w: 90ms;
+  }
+  [data-out$="2"] {
+    --w: 180ms;
+  }
+  [data-camera] :is([data-out], [data-corner]) {
+    transition-delay: var(--w, 0ms);
+  }
+  [data-camera] [data-out] {
     opacity: 0;
     visibility: hidden;
+  }
+  [data-camera] [data-out^="l"] {
+    translate: calc(-100% - 2rem);
+  }
+  [data-camera] [data-out^="r"] {
+    translate: calc(100% + 2rem);
+  }
+  [data-camera] [data-out^="u"] {
+    translate: 0 calc(-100% - var(--hud-inset-top) - 2rem);
+  }
+  [data-camera] [data-out^="d"] {
+    translate: 0 calc(100% + 2rem);
   }
 }
 
@@ -610,14 +649,13 @@
 
 /*
  * HUD-FRAME-CSS (the owner's ask of 2026-11-03): the HUD's frame in CSS, in place of the painted 9-slice whose brush strokes stretched
- * with each box's shape. `--hud-px` (a number, the corner in CSS px: 10 a capsule, 13 the player card, 16 the HUD's drawer) sizes it:
- * the rim 0.28 of it, the corner's curve 0.9 of it. `hud-frame`: the near-black outline with a crisp drop and a soft shade
- * (outside its box), the slate rim (`::before`, a ring: lit along its top, shaded along its foot, its painted patches the tiled noise at
- * one scale whatever the box) and a dark line inside the rim (`::after`). `hud-face`: the face under it, inside the rim (its fill the
+ * with each box's shape. `--hud-px` (a number, the corner in CSS px: 10 a capsule, 13 the player card, 16 the HUD's drawer) sizes its
+ * corner's curve, 0.9 of it; the rim is `--hud-rim-w` on every box (HUD-RIM-GREY). `hud-frame`: the near-black outline with a crisp
+ * drop and a soft shade (outside its box), the grey rim (`::before`, a ring: its grey from its top's to its foot's, its painted patches
+ * the tiled noise at one scale whatever the box, lit along its top, shaded along its foot) and a dark line inside the rim (`::after`). `hud-face`: the face under it, inside the rim (its fill the
  * caller's). Both absolutely placed by the caller.
  */
 @utility hud-frame {
-  --hud-rim-w: calc(var(--hud-px) * 0.28px);
   border-radius: calc(var(--hud-px) * 0.9px);
   box-shadow: 0 0 0 1.5px var(--hud-outline), 0 1.5px 0 1.5px var(--hud-outline), 0 3px 5px 1.5px var(--background);
   &::before,
@@ -630,9 +668,9 @@
     inset: 0;
     padding: var(--hud-rim-w);
     border-radius: inherit;
-    background: var(--hud-noise) 0 0 / 128px 128px, var(--hud-rim);
+    background: var(--hud-noise) 0 0 / 128px 128px, linear-gradient(var(--hud-rim-top), var(--hud-rim) 45%, var(--hud-rim-foot));
     background-blend-mode: soft-light, normal;
-    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--hud-rim-light) 70%, transparent), inset 0 -1px 0 var(--hud-rim-shade);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--hud-rim-light) 55%, transparent), inset 0 -1px 0 var(--hud-rim-shade);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -644,8 +682,8 @@
   }
 }
 @utility hud-face {
-  inset: calc(var(--hud-px) * 0.28px - 1px);
-  border-radius: calc(var(--hud-px) * 0.62px + 1px);
+  inset: calc(var(--hud-rim-w) - 1px);
+  border-radius: calc(var(--hud-px) * 0.9px - var(--hud-rim-w) + 1px);
   box-shadow: inset 0 1px 2px var(--background);
 }
 

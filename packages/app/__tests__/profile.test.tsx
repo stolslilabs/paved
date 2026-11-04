@@ -47,7 +47,7 @@ describe("ProfileSheet (#624)", () => {
     const onEditName = vi.fn();
     const onEditAvatar = vi.fn();
     const onOpenLeague = vi.fn();
-    const onOpenCollection = vi.fn();
+    const onOpenTiles = vi.fn();
     const onOpenInvite = vi.fn();
     render(
       wrap(
@@ -59,7 +59,7 @@ describe("ProfileSheet (#624)", () => {
           onEditName={onEditName}
           onEditAvatar={onEditAvatar}
           onOpenLeague={onOpenLeague}
-          onOpenCollection={onOpenCollection}
+          onOpenTiles={onOpenTiles}
           onOpenInvite={onOpenInvite}
         />,
       ),
@@ -70,9 +70,9 @@ describe("ProfileSheet (#624)", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Edit name" }));
     expect(onEditName).toHaveBeenCalledOnce();
     // The mockup's tiles, in its order (PROFILE-DRAWER).
-    expect(Array.from(sheet.querySelectorAll("[data-slot=profile-action]"), (b) => b.textContent)).toEqual(["Battle logs", "Avatar", "Collection", "Invite"]);
-    await userEvent.click(within(sheet).getByRole("button", { name: "Collection" }));
-    expect(onOpenCollection).toHaveBeenCalledOnce();
+    expect(Array.from(sheet.querySelectorAll("[data-slot=profile-action]"), (b) => b.textContent)).toEqual(["Battle logs", "Avatar", "Tiles", "Invite"]);
+    await userEvent.click(within(sheet).getByRole("button", { name: "Tiles" }));
+    expect(onOpenTiles).toHaveBeenCalledOnce();
     await userEvent.click(within(sheet).getByRole("button", { name: "Invite" }));
     expect(onOpenInvite).toHaveBeenCalledOnce();
     expect(within(sheet).getByText("21")).toBeInTheDocument();

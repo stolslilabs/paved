@@ -1,3 +1,4 @@
+import type { MissionProgress } from "../../data/mission-progress";
 import { Suspense, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { UNSAFE_DataRouterContext, useBlocker, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +29,7 @@ import { PlayerProfileHost } from "../player-profile";
 const HomeStage = lazy(() => import("../home-stage"));
 /** What waits on the Chat, Guild and Friends pages (#973), its own chunk: the social reads stay out of the home's first load. */
 const SocialCount = lazy(() => import("../social-count"));
-/** What waits on the Missions page (#753, #976), its own chunk: the quests' rules and reads stay out of the home's first load. */
+/** What waits on the Missions page (#753, #976) and the mission in progress (HOME-EDGES), one chunk: the quests' rules and reads stay out of the home's first load. */
 const MissionsCount = lazy(() => import("../missions-count"));
 /** Nothing counted on the three buttons: a guest, or the counts not read yet. */
 const NO_SOCIAL_COUNTS: SocialCounts = { chat: 0, guild: 0, friends: 0 };
@@ -80,6 +81,7 @@ export default function Page() {
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
   const [missions, setMissions] = useState(0);
+  const [mission, setMission] = useState<MissionProgress | null>(null);
   const league = usePvpLeague(me).data;
   const shield = usePvpShield(me).data;
   const board = useBoardSettings();
@@ -182,6 +184,7 @@ export default function Page() {
             : 0
         }
         missions={missions}
+        mission={mission}
         chat={social.chat}
         guild={social.guild}
         friends={social.friends}
@@ -200,6 +203,7 @@ export default function Page() {
         onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
+        onTiles={() => go("/settings/tiles")}
         onLeague={() => go("/pvp/league")}
         onSettings={() => go("/settings")}
         onNavigate={onNavigate}
@@ -217,7 +221,7 @@ export default function Page() {
       {guarded && <LeaveGuard when={dirty} leaving={leaving} />}
       <Suspense fallback={null}>
         <SocialCount me={me} onCount={setSocial} />
-        <MissionsCount me={me} onCount={setMissions} />
+        <MissionsCount me={me} onCount={setMissions} onMission={setMission} />
       </Suspense>
       {/* Another player's profile (#952): `/player/:id` lands here with it, and from `desktop` the panels' pages show it over the home. */}
       <PlayerProfileHost />
