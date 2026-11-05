@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import { parsePlayerId } from "@paved/game-core";
 import { ProfileSheet } from "../components/containers/profile-sheet";
 import { ProfileContext } from "../components/containers/profile-context";
 import { PublicProfileSheet, type PublicProfileState } from "../components/containers/public-profile-sheet";
@@ -44,7 +45,10 @@ export default function PlayerProfile({ playerId, open, onClose }: { playerId: s
   // The follows (#954): the marks, the counts and the actions, from one read.
   const follow = useFollowStatus(self || restoring ? null : me, self || restoring ? null : playerId);
   // FRIENDS-PAGE: their level and XP for the Profile's bar, `Setup.player_level` as the player's own profile reads theirs.
-  const progress = usePlayerProgress(self || restoring ? null : playerId);
+  // PLAYER-LINK-CRASH (#1026): the canonical ID, or null for what is not one (a typed `/player/:id`), so that the level's read stays
+  // idle (its key normalises the ID with `BigInt`, which throws on it) and the sheet says "Player not found", as its profile read does.
+  const id = parsePlayerId(playerId);
+  const progress = usePlayerProgress(self || restoring ? null : id);
   const onOpenChange = (next: boolean) => {
     if (!next) onClose();
   };

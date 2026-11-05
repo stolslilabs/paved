@@ -252,7 +252,7 @@ function FollowCounts({ counts }: { counts: { followers: number; followed: numbe
  * The level's figures for screen readers, the bar being a picture: the XP made in the level, left to the next, and the whole XP when the
  * source knows it (#830); "Max level" at the cap. Not shown (the owner's ask of 2026-11-03: the bar says it).
  */
-function XpLeft({ progress }: { progress: PlayerProgress | undefined }) {
+export function XpLeft({ progress }: { progress: PlayerProgress | undefined }) {
   if (!progress) return null;
   const max = isMaxLevel(progress);
   return (
