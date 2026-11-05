@@ -99,15 +99,20 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
   }
   /** The drawer's Back: one view back. */
   const back = () => userEvent.click(within(document.querySelector<HTMLElement>("[data-hud-drawer=guild]")!).getByRole("button", { name: "Back" }));
-  /** Taps a member's row, the `index`-th of the Members tab: their view in the drawer, once the page is back. */
-  async function memberView(index: number) {
+  /** Taps a member's row, the `index`-th of the Members tab: their profile (FRIENDS-PAGE's drawer) over the guild's. */
+  async function profileOf(index: number) {
     const members = await screen.findByRole("region", { name: "Members" }, T(5_000));
     await userEvent.click(within(members).getAllByRole("button")[index]!);
     return waitFor(() => {
-      const view = document.querySelector<HTMLElement>("[data-slot=guild-member-view]");
-      expect(view).not.toBeNull();
-      return view!;
-    }, T(5_000));
+      const profile = screen.getAllByRole("dialog").find((d) => d.getAttribute("data-hud-drawer") !== "guild");
+      expect(profile).toBeDefined();
+      return profile!;
+    }, T(8_000));
+  }
+  /** The profile's Back: the guild's drawer alone again. */
+  async function closeProfile(profile: HTMLElement) {
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    await waitFor(onlyTheDrawer, T(5_000));
   }
 
   async function confirm(title: string | RegExp, button: string, text?: string) {
@@ -192,18 +197,19 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await waitFor(() => expect(screen.getByRole("tab", { name: "Requests" })).toBeInTheDocument(), T(5_000));
     await tab("Members");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")).toHaveLength(2), T(5_000));
-    // Their row: the Leader's actions on a Recruit (GUILD-PAGE: who joins is one), in their view in the drawer; each done, the page again.
-    await userEvent.click(await within(await memberView(1)).findByRole("button", { name: "Promote to Member" }, T(5_000)));
+    // Their row: their profile, the Leader's actions on a Recruit (GUILD-PAGE: who joins is one) as its tiles (FRIENDS-PAGE).
+    const profile = await profileOf(1);
+    await userEvent.click(await within(profile).findByRole("button", { name: "Promote to Member" }, T(5_000)));
     await confirm(/^Promote /, "Promote to Member");
-    await userEvent.click(await within(await memberView(1)).findByRole("button", { name: "Demote to Recruit" }, T(5_000)));
+    await userEvent.click(await within(profile).findByRole("button", { name: "Demote to Recruit" }, T(5_000)));
     await confirm(/^Demote /, "Demote to Recruit");
-    await userEvent.click(await within(await memberView(1)).findByRole("button", { name: "Make leader" }, T(5_000)));
+    await userEvent.click(await within(profile).findByRole("button", { name: "Make leader" }, T(5_000)));
     await confirm(/^Make .* the leader\?$/, "Make leader");
-    // Now an Officer: on the new Leader, the Profile only.
+    await closeProfile(profile);
+    // Now an Officer: on the new Leader, no rank action.
     await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: "Mill Lane" }).closest("header")).toHaveTextContent("Officer"), T(5_000));
-    const view = await memberView(0);
-    expect(within(view).getByRole("button", { name: "Profile" })).toBeInTheDocument();
-    expect(within(view).queryByRole("button", { name: /Kick|Demote|Make leader/ })).toBeNull();
+    const leader = await profileOf(0);
+    expect(within(leader).queryByRole("button", { name: /Kick|Demote|Make leader/ })).toBeNull();
   });
 
   it("kicks a member with a reason, which the log shows", async () => {
@@ -216,14 +222,8 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await userEvent.click(await within(screen.getByRole("region", { name: "Requests" })).findByRole("button", { name: "Accept" }, T(5_000)));
     await tab("Members");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")).toHaveLength(2), T(5_000));
-    // The profile keeps the rank actions: from the row's Profile, over the member's view.
-    await userEvent.click(within(await memberView(1)).getByRole("button", { name: "Profile" }));
-    // The profile's sheet, over the drawer (which holds the member's view and its own Kick).
-    const profile = await waitFor(() => {
-      const sheet = screen.getAllByRole("dialog").find((d) => !d.hasAttribute("data-hud-drawer"));
-      expect(sheet).toBeDefined();
-      return sheet!;
-    }, T(8_000));
+    // Their row: their profile, its Kick.
+    const profile = await profileOf(1);
     await userEvent.click(await within(profile).findByRole("button", { name: "Kick" }, T(5_000)));
     await confirm(/^Kick /, "Kick", "Never plays");
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Back" }));

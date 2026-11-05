@@ -184,6 +184,8 @@ export const GUILD_ACTIONS = {
   leaderOnOfficer: { viewer: viewerOf(GUILD_PAGE.leader.guild, at(QUARRY.leader)), target: targetOf(QUARRY.officer, GUILD_PAGE.leader.guild), now: GUILD_NOW },
   /** An Officer on a Member (GUILD-PAGE's five ranks): Promote to Veteran, Demote to Recruit, Kick. */
   officerOnMember: { viewer: viewerOf(GUILD_PAGE.officer.guild, at(QUARRY.officer)), target: targetOf(QUARRY.member, GUILD_PAGE.officer.guild), now: GUILD_NOW },
+  /** An Officer on a Veteran (GUILD-PAGE's five ranks): Demote to Member, Kick; no Promote (Officer is not under their rank). */
+  officerOnVeteran: { viewer: viewerOf(GUILD_PAGE.officer.guild, at(QUARRY.officer)), target: targetOf(QUARRY.veteran, GUILD_PAGE.officer.guild), now: GUILD_NOW },
   /** An Officer who kicked 15 minutes ago: the next kick waits 5 more. */
   officerCooldown: { viewer: viewerOf(GUILD_PAGE.officer.guild, at(QUARRY.officer), GUILD_NOW - 15 * 60 + GUILD_KICK_COOLDOWN_S), target: targetOf(QUARRY.member, GUILD_PAGE.officer.guild), now: GUILD_NOW },
   /** An Officer on the Leader: nothing (they do not rank above). */

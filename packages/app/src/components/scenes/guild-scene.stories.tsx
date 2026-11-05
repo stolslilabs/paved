@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { GUILD_RANK } from "@paved/game-core";
 import { GUILD_FINDER, GUILD_PAGE } from "../../mocks/guilds";
 import { FRIENDS_SEARCH } from "../../mocks/social";
 import { GuildBrowse, GuildFinder } from "../containers/guild-finder";
@@ -11,8 +10,8 @@ import { GuildScene } from "./guild-scene";
 /**
  * The guild page (`/guild`, #973, the Social page's Guild tab of #953 before; GUILD-PAGE: the HUD's drawer, after the Paved UX Book's
  * "Run my guild"): the finder for a player in no guild; for a member, the guild's header (Chat, the menu), then its tabs:
- * Announcements, Members, Requests (officers and the leader) and Log. The menu, what it opens (Invite a player, Guild settings, Find
- * guilds) and a member's row tapped are views in the drawer, in the page's place, with Back and the red cross. Another guild is a sheet
+ * Announcements, Members, Requests (a Veteran and above) and Log. The menu and what it opens (Invite a player, Guild settings, Find
+ * guilds) are views in the drawer, in the page's place, with Back and the red cross; a member's row opens their profile. Another guild is a sheet
  * over the page, its header and its members. One story per state; the viewport is the toolbar's (VP): a full page with Back on a phone,
  * a side panel at the right from `tablet`.
  */
@@ -32,8 +31,6 @@ const find = <GuildBrowse candidate={candidate} query={query} filters={filters} 
 const page = (data: GuildPageProps, over: Partial<GuildPageProps> = {}) => (
   <GuildPage {...data} onAction={fn(async () => {})} onOpenPlayer={fn()} onOpenChat={fn()} invite={invite} find={find} {...over} />
 );
-/** The first member of `rank` on the guild's roster. */
-const memberOf = (data: GuildPageProps, rank: number) => data.guild.roster.find((m) => m.rank === rank)!.profile.address;
 
 /** A guest: the empty state. */
 export const Guest: Story = {};
@@ -58,8 +55,6 @@ export const MemberChatUnread: Story = { args: { children: page(GUILD_PAGE.membe
 export const MemberAnnouncements: Story = { args: { children: page(GUILD_PAGE.member, { unread: 2 }) } };
 /** A Member's menu, a view in the drawer: Invite a player, Find guilds, then Leave apart. */
 export const MemberMenu: Story = { args: { children: page(GUILD_PAGE.member, { initialView: "menu" }) } };
-/** A Member's tap on another member's row, a view in the drawer: who they are, their Profile, no rank action. */
-export const MemberRowActions: Story = { args: { children: page(GUILD_PAGE.member, { initialView: { member: memberOf(GUILD_PAGE.member, GUILD_RANK.officer) } }) } };
 /** The menu's Find guilds, a view in the drawer: the search, Suggested or the ranking; a guild found opens in its sheet. */
 export const MemberFindGuilds: Story = { args: { children: page(GUILD_PAGE.member, { initialView: "find" }) } };
 /** A Member on the Log, newest first. */
@@ -73,8 +68,6 @@ export const OfficerAnnouncements: Story = { args: { children: page(GUILD_PAGE.o
 export const OfficerMenu: Story = { args: { children: page(GUILD_PAGE.officer, { defaultTab: "requests", initialView: "menu" }) } };
 /** The menu's Invite a player, a view in the drawer: the player search; a player found opens their profile, where Invite is. */
 export const OfficerInvite: Story = { args: { children: page(GUILD_PAGE.officer, { initialView: "invite" }) } };
-/** An Officer's tap on a Member's row: Profile, Promote to Veteran, Demote to Recruit, Kick. */
-export const OfficerRowActions: Story = { args: { children: page(GUILD_PAGE.officer, { initialView: { member: memberOf(GUILD_PAGE.officer, GUILD_RANK.member) } }) } };
 
 /** The Leader: Members, every tab. */
 export const Leader: Story = { args: { children: page(GUILD_PAGE.leader) } };
@@ -82,10 +75,6 @@ export const Leader: Story = { args: { children: page(GUILD_PAGE.leader) } };
 export const LeaderMenu: Story = { args: { children: page(GUILD_PAGE.leader, { initialView: "menu" }) } };
 /** The menu's Guild settings, a view in the drawer: the emblem, the description, who can join, the requirements. */
 export const LeaderSettings: Story = { args: { children: page(GUILD_PAGE.leader, { initialView: "settings" }) } };
-/** The Leader's tap on a Member's row: Profile, Promote to Veteran, Demote to Recruit, Make leader, Kick. */
-export const LeaderRowActions: Story = { args: { children: page(GUILD_PAGE.leader, { initialView: { member: memberOf(GUILD_PAGE.leader, GUILD_RANK.member) } }) } };
-/** The Leader's tap on an Officer's row: Profile, Demote to Veteran, Make leader, Kick. */
-export const LeaderOnOfficer: Story = { args: { children: page(GUILD_PAGE.leader, { initialView: { member: memberOf(GUILD_PAGE.leader, GUILD_RANK.officer) } }) } };
 /** A leader alone: the menu's Disband. */
 export const LeaderAlone: Story = { args: { children: page(GUILD_PAGE.alone, { initialView: "menu" }) } };
 
@@ -106,6 +95,5 @@ export const StressAnnouncements: Story = { args: { children: page(GUILD_PAGE.st
 export const StressRequests: Story = { args: { children: page(GUILD_PAGE.stress, { defaultTab: "requests" }) } };
 /** WRAP360 on the Log. */
 export const StressLog: Story = { args: { children: page(GUILD_PAGE.stress, { defaultTab: "log" }) } };
-/** WRAP360: the menu, and a member's row, with the longest names. */
+/** WRAP360: the menu with the longest names. */
 export const StressMenu: Story = { args: { children: page(GUILD_PAGE.stress, { initialView: "menu" }) } };
-export const StressRowActions: Story = { args: { children: page(GUILD_PAGE.stress, { initialView: { member: GUILD_PAGE.stress.guild.roster[0]!.profile.address } }) } };

@@ -28,11 +28,9 @@ import { LeagueRim } from "../elements/league-rim";
 import { divisionOf, tierOf } from "../elements/league-standards";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
-import { Presence } from "../elements/presence";
 import { SectionTitle } from "../elements/section-title";
 import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
-import { GuildMemberActions, type GuildMemberAction } from "./guild-profile";
 import { GuildForm, useGuildActions } from "./guild-sheets";
 import { GuildTabs } from "./guild-tabs";
 import { ViewHeader, useDrawerView } from "./hud-drawer";
@@ -61,16 +59,15 @@ export type GuildPageAction =
   | { type: "delete-announcement"; id: number }
   | { type: "answer-request"; applicant: string; accept: boolean }
   | { type: "settings"; draft: GuildDraft }
-  | { type: "leave" }
-  /** A rank action on a member, from their row (#973). */
-  | { type: "member"; target: string; action: GuildMemberAction };
+  | { type: "leave" };
 
 /**
  * A view the guild page opens in its drawer, in its own place (GUILD-PAGE, the owner's ask of 2026-11-05: what the page opens, it opens
- * in its drawer, never a sheet over it): the menu, and what the menu opens (Invite a player, Guild settings, Find guilds), or a member's
- * row tapped. Back goes back one view; the red cross, or a tap on the village, leaves the drawer.
+ * in its drawer, never a sheet over it): the menu, and what the menu opens (Invite a player, Guild settings, Find guilds). Back goes back
+ * one view; the red cross, or a tap on the village, leaves the drawer. A member's row opens their profile (FRIENDS-PAGE's, `?player=`),
+ * where the rank's actions are.
  */
-export type GuildPageView = "menu" | "invite" | "settings" | "find" | { member: string };
+export type GuildPageView = "menu" | "invite" | "settings" | "find";
 
 export interface GuildPageProps {
   guild: GuildView;
@@ -82,7 +79,7 @@ export interface GuildPageProps {
   apply?: GuildApply;
   /** Each action, as the source's write (its promise: a refusal keeps the dialog open with why). */
   onAction?: (action: GuildPageAction) => Promise<unknown> | void;
-  /** Opens a player's public profile (a visitor's tap on a member's row; a member's Profile, from the row's sheet). */
+  /** Opens a player's profile (FRIENDS-PAGE's, over the drawer): a member's row tapped, a request's or an invitation's player. */
   onOpenPlayer?: (address: string) => void;
   /** How many log lines show before "Show all". */
   logShown?: number;
@@ -328,41 +325,6 @@ function GuildMenu({ items }: { items: readonly GuildMenuItem[] }) {
 const VIEW_LINE = "text-sm font-semibold text-muted-foreground";
 
 /**
- * A member's row tapped (#973, as in Clash of Clans), a view in the drawer (GUILD-PAGE): who they are on a carved band (their portrait
- * in their league's rim, their rank, level and crowns, when they were last seen), their Profile, then the actions the viewer's rank
- * allows on theirs (Promote, Demote, Make leader, Kick), raised rows each confirmed first. Their profile keeps the same actions.
- */
-function MemberView({ member, guild, me, now, onOpenPlayer, onAction }: { member: GuildMember; guild: GuildView; me: string | null; now: number; onOpenPlayer?: (address: string) => void; onAction?: (action: GuildMemberAction) => Promise<unknown> | void }) {
-  const p = member.profile;
-  const own = me !== null && p.address === me;
-  return (
-    <div data-slot="guild-member-view" className="flex flex-col gap-3">
-      <div className={cn("drawer-carved flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5", own && CHOSEN)}>
-        <MemberPortrait profile={p} />
-        <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
-          <span className="flex max-w-full min-w-0 items-center gap-1.5">
-            <PlayerName name={p.name} address={p.address} className="text-outline min-w-0 text-base leading-tight font-bold" />
-            {own && <span className="shrink-0 rounded-md bg-medal-1 px-1.5 text-xs leading-tight font-bold text-primary-foreground">You</span>}
-          </span>
-          <RankBadge rank={member.rank} />
-          <LevelLine profile={p} />
-          <Presence lastSeen={p.lastSeen} now={now} />
-        </span>
-      </div>
-      <DrawerRow art="user" label="Profile" next onClick={() => onOpenPlayer?.(p.address)} />
-      {!own && me !== null && guild.rank !== null && (
-        <GuildMemberActions
-          viewer={{ address: me, guild: { id: guild.id, name: guild.name, members: guild.members }, rank: guild.rank, nextKickAt: guild.nextKickAt }}
-          target={{ address: p.address, name: p.name, guild: guild.id, rank: member.rank, invited: false }}
-          now={now}
-          onAction={onAction}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
  * A guild's page (#953, its header, menu and tabs since #973; GUILD-PAGE: the Paved UX Book's "Run my guild", in the HUD drawer's
  * style, the profile's, the Missions', the League's and the Shop's). For its members: the identity on the drawer's face, as the
  * profile's (the emblem; the name, the menu as a small raised square; the tag; the player's rank in a carved pill), Chat a raised tile at
@@ -370,9 +332,9 @@ function MemberView({ member, guild, me, now, onOpenPlayer, onAction }: { member
  * the cap, the score under the painted crown, the join type) and the description folded to two lines. Then the Shop's tabs:
  * Announcements (the newest pinned, on a discreet gold wash under the book's pin; an officer's raised Post), Members (by rank, then
  * crowns, the battle logs' carved rows, each portrait in its league's rim, the viewer's own row on the same gold wash with "You"; a row's
- * tap shows what the viewer's rank allows), Requests (officers and the leader: the requests with a raised Accept and Decline, then the
- * invitations sent, each under the drawer's engraved title) and Log (newest first, the book's painted icons). The menu, what it opens
- * and a member's row are views in the drawer, in the page's place (`GuildPageView`, the owner's ask of 2026-11-05): the drawer's header
+ * tap opens the member's profile, where the viewer's rank's actions are), Requests (a Veteran and above: the requests with a raised Accept and Decline, then the
+ * invitations sent, each under the drawer's engraved title) and Log (newest first, the book's painted icons). The menu and what it opens
+ * are views in the drawer, in the page's place (`GuildPageView`, the owner's ask of 2026-11-05): the drawer's header
  * names the view, its Back goes back one (`useDrawerView`); a view slides in from the right, the page back from the left. A player
  * outside sees the identity, the figures, the requirements and the members, with Join, Request, Cancel or the invitation's answer, or
  * why they may not join; a row opens the member's profile.
@@ -407,7 +369,7 @@ export function GuildPage({
   // The views open over the page, the last one shown; one the viewer may no longer see (a member who left the roster, the settings of a
   // leader no more) is dropped.
   const [views, setViews] = useState<readonly GuildPageView[]>(initialView ? [initialView] : []);
-  const stack = views.filter((v) => rank !== null && (typeof v === "object" ? guild.roster.some((m) => m.profile.address === v.member) : v === "invite" ? mayInvite : v === "settings" ? leader : true));
+  const stack = views.filter((v) => rank !== null && (v === "invite" ? mayInvite : v === "settings" ? leader : true));
   const view = stack.at(-1) ?? null;
   const openView = (next: GuildPageView) => setViews([...stack, next]);
   const back = () => setViews(stack.slice(0, -1));
@@ -423,7 +385,6 @@ export function GuildPage({
     setOwnTab(next);
     onTabChange?.(next);
   };
-  const member = view !== null && typeof view === "object" ? (guild.roster.find((m) => m.profile.address === view.member) ?? null) : null;
   const leave = () =>
     ask(
       disbands
@@ -438,8 +399,8 @@ export function GuildPage({
     { label: "Find guilds", art: "find", next: true, onSelect: () => openView("find") },
     { label: disbands ? "Disband the guild" : "Leave the guild", art: disbands ? "disband" : "leave", destructive: true, onSelect: leave, refused: leaveBlock ? REFUSALS[leaveBlock] : undefined },
   ];
-  const titles: Record<Exclude<GuildPageView, { member: string }>, string> = { menu: "Guild menu", invite: "Invite a player", settings: "Guild settings", find: "Find guilds" };
-  const viewTitle = view === null ? null : typeof view === "object" ? (member?.profile.name ?? "A member") : titles[view];
+  const titles: Record<GuildPageView, string> = { menu: "Guild menu", invite: "Invite a player", settings: "Guild settings", find: "Find guilds" };
+  const viewTitle = view === null ? null : titles[view];
   // The drawer's header names the view and its Back goes back one; outside a drawer (a story of the page alone), the view draws its own.
   const inDrawer = useDrawerView(viewTitle, back);
   // A move between the page and a view slides (the Shop's theme's view): forward from the right, back from the left, and starts at the
@@ -450,7 +411,7 @@ export function GuildPage({
     setDepth(stack.length);
     setForward(stack.length > depth);
   }
-  const viewKey = view === null ? "page" : typeof view === "object" ? `member:${view.member}` : view;
+  const viewKey = view ?? "page";
   const shown = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
   useLayoutEffect(() => {
@@ -468,7 +429,7 @@ export function GuildPage({
     <ul aria-label="Members" className="drawer-carved flex flex-col rounded-xl">
       {guild.roster.map((m, i) => (
         <li key={m.profile.address} className={cn("flex", rowRule(i))}>
-          <MemberRow member={m} me={me} onOpen={rank === null ? onOpenPlayer : (address) => openView({ member: address })} />
+          <MemberRow member={m} me={me} onOpen={onOpenPlayer} />
         </li>
       ))}
     </ul>
@@ -661,20 +622,6 @@ export function GuildPage({
         />
       </>
     );
-  else if (member)
-    shownView = (
-      <MemberView
-        member={member}
-        guild={guild}
-        me={me}
-        now={now}
-        onOpenPlayer={onOpenPlayer}
-        onAction={async (action) => {
-          await onAction?.({ type: "member", target: member.profile.address, action });
-          back();
-        }}
-      />
-    );
   else
     shownView = (
       <>
@@ -818,7 +765,7 @@ export function GuildPage({
         ref={shown}
         tabIndex={-1}
         data-slot="guild-view"
-        data-view={view === null ? "page" : typeof view === "object" ? "member" : view}
+        data-view={viewKey}
         // A view comes in from the right, the page back from the left (no slide under reduced motion: `MotionConfig`).
         initial={forward !== null && { x: forward ? 48 : -48, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}

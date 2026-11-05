@@ -138,57 +138,19 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("lists the members by rank, then crowns; a row shows the Profile, and only the actions the viewer's rank allows", async () => {
+  it("lists the members by rank, then crowns; a row opens the member's profile (FRIENDS-PAGE's), the viewer's own included", async () => {
     const onOpenPlayer = vi.fn();
-    const { unmount } = render(wrap(<GuildPage {...GUILD_PAGE.member} onOpenPlayer={onOpenPlayer} />));
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} onOpenPlayer={onOpenPlayer} />));
     const rows = within(screen.getByRole("region", { name: "Members" })).getAllByRole("button");
     expect(rows[0]).toHaveTextContent("Leader");
-    const roster = GUILD_PAGE.member.guild.roster;
+    const roster = GUILD_PAGE.officer.guild.roster;
     expect(roster.map((m) => m.rank)).toEqual([...roster.map((m) => m.rank)].sort((a, b) => b - a));
-    // A Member on the Leader: the Profile only, in the member's view (GUILD-PAGE: in the page's place, never a sheet).
+    // No view of its own in the drawer: the profile opens over it, with the rank's actions.
     await userEvent.click(rows[0]!);
-    expect(await viewTitle(roster[0]!.profile.name!)).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(button(/Promote|Demote|Kick|Make leader/)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Profile" }));
-    expect(onOpenPlayer).toHaveBeenCalledWith(roster[0]!.profile.address);
-    unmount();
-
-    // The Leader on a Member: Promote, Demote, Make leader, Kick; on an Officer: Demote, no Promote (only Make leader raises them).
-    const leader = GUILD_PAGE.leader.guild.roster;
-    const member = leader.find((m) => m.rank === GUILD_RANK.member)!;
-    const officer = leader.find((m) => m.rank === GUILD_RANK.officer)!;
-    const onAction = vi.fn(async () => {});
-    render(wrap(<GuildPage {...GUILD_PAGE.leader} onAction={onAction} />));
-    const rowOf = (name: string) => within(screen.getByRole("region", { name: "Members" })).getAllByRole("button").find((b) => b.textContent?.includes(name))!;
-    await userEvent.click(rowOf(officer.profile.name!));
-    expect(await viewTitle(officer.profile.name!)).toBeInTheDocument();
-    const view = document.querySelector<HTMLElement>("[data-slot=guild-member-view]")!;
-    expect(within(view).getAllByRole("button").map((b) => b.textContent)).toEqual(expect.arrayContaining(["Profile", "Demote to Veteran", "Make leader", "Kick"]));
-    expect(within(view).queryByRole("button", { name: /^Promote/ })).toBeNull();
-    await goBack();
-    await userEvent.click(rowOf(member.profile.name!));
-    await userEvent.click(await screen.findByRole("button", { name: "Promote to Veteran" }));
-    const confirm = await screen.findByRole("dialog", { name: /^Promote / });
-    await userEvent.click(within(confirm).getByRole("button", { name: "Promote to Veteran" }));
-    expect(onAction).toHaveBeenCalledWith({ type: "member", target: member.profile.address, action: { type: "promote" } });
-    // Done, back to the page.
-    expect(await screen.findByRole("region", { name: "Members" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
-  it("an Officer's row of a Member: Profile, Promote to Veteran, Demote to Recruit, Kick; of a Veteran: no Promote", async () => {
-    const member = GUILD_PAGE.officer.guild.roster.find((m) => m.rank === GUILD_RANK.member)!;
-    const { unmount } = render(wrap(<GuildPage {...GUILD_PAGE.officer} initialView={{ member: member.profile.address }} />));
-    let view = document.querySelector<HTMLElement>("[data-slot=guild-member-view]")!;
-    expect(within(view).getAllByRole("button", { name: /Profile|Promote|Demote|Kick|Make leader/ }).map((b) => b.textContent)).toEqual(["Profile", "Promote to Veteran", "Demote to Recruit", "Kick"]);
-    // Painted icons, on raised rows (GUILD-PAGE): the bust, Codex's chevrons, the removed member.
-    expect([...view.querySelectorAll("[data-slot=drawer-row] img[data-icon]")].map((i) => i.getAttribute("data-icon"))).toEqual(["user", "promote", "demote", "kicked"]);
-    unmount();
-    const veteran = GUILD_PAGE.officer.guild.roster.find((m) => m.rank === GUILD_RANK.veteran)!;
-    render(wrap(<GuildPage {...GUILD_PAGE.officer} initialView={{ member: veteran.profile.address }} />));
-    view = document.querySelector<HTMLElement>("[data-slot=guild-member-view]")!;
-    expect(within(view).getAllByRole("button", { name: /Profile|Promote|Demote|Kick|Make leader/ }).map((b) => b.textContent)).toEqual(["Profile", "Demote to Member", "Kick"]);
+    expect(onOpenPlayer).toHaveBeenLastCalledWith(roster[0]!.profile.address);
+    expect(screen.queryByRole("heading", { level: 2, name: roster[0]!.profile.name! })).toBeNull();
+    await userEvent.click(rows.find((r) => r.hasAttribute("data-own"))!);
+    expect(onOpenPlayer).toHaveBeenLastCalledWith(GUILD_PAGE.officer.me);
   });
 
   it("each rank's painted icon and name in the header: the Recruit's sprout, the Veteran's medal", () => {
@@ -515,6 +477,7 @@ describe("the profile's guild parts (#953)", () => {
       ["leaderOnMember", ["Promote to Veteran", "Demote to Recruit", "Make leader", "Kick"]],
       ["leaderOnOfficer", ["Demote to Veteran", "Make leader", "Kick"]],
       ["officerOnMember", ["Promote to Veteran", "Demote to Recruit", "Kick"]],
+      ["officerOnVeteran", ["Demote to Member", "Kick"]],
       ["officerOnLeader", []],
       ["memberOnMember", []],
       ["invite", ["Invite to The Quarrymen"]],
@@ -524,6 +487,11 @@ describe("the profile's guild parts (#953)", () => {
       expect(names(), state).toEqual(expected);
       unmount();
     }
+  });
+
+  it("names the same five-rank actions on the profile's tiles (FRIENDS-PAGE): one rank up or down", () => {
+    render(wrap(<GuildMemberActions {...GUILD_ACTIONS.leaderOnMember} look="tiles" />));
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual(["Promote to Veteran", "Demote to Recruit", "Make leader", "Kick"]);
   });
 
   it("holds an officer's next kick for 20 minutes, and an invitation sent once", () => {

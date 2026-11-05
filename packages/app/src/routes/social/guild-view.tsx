@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { GUILD_RIGHTS, type GuildCandidate } from "@paved/game-core";
 import { GuildPage, type GuildPageAction } from "../../components/containers/guild-page";
-import { memberWrite } from "../../components/containers/guild-profile";
 import { PlayerSearch } from "../../components/containers/player-search";
 import { ScrollRegion } from "../../components/ui/scroll-region";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
@@ -47,8 +46,6 @@ export function pageWrite(action: GuildPageAction, id: number): GuildWriteRun {
     }
     case "leave":
       return (g, me) => g.leaveGuild(me);
-    case "member":
-      return memberWrite(action.action, action.target);
   }
 }
 

@@ -235,15 +235,15 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   sheets, Back goes back, the red cross or a tap on the village leaves): the menu's view, titled "Guild menu" on the drawer's header,
   holds raised rows, each a painted icon, its words outlined and the chevron of a view (Invite a player, Guild settings, Find guilds),
   Leave or Disband apart in the destructive colour, dimmed with why when refused; each of those opens its view in turn (the player
-  search, the settings' form, the guild search), Back one view back. A member's row tapped is a view too: their portrait, rank, level,
-  crowns and last seen on a carved band, then Profile and the rank's actions as the same rows (Promote, Demote, Make leader, Kick). The
-  views slide in from the right and back from the left, as the Shop's theme's. On a phone a view's header has the red cross at its end
+  search, the settings' form, the guild search), Back one view back. A member's row tapped opens their profile, FRIENDS-PAGE's drawer over the
+  guild's (the owner's ask of the same day: straight to it, no view between), the rank's actions its tiles (Promote, Demote, Leader,
+  Kick, named by the rank they give: "Promote to Veteran"); one's own row, one's own profile. The views slide in from the right and back from the left, as the Shop's theme's. On a phone a view's header has the red cross at its end
   besides Back (`HudDrawer`, every drawer's views: the Shop's theme's too), so one press leaves. The icons of Invite a player, Find
-  guilds, Leave, Disband, Promote and Demote were drawn by the Codex CLI's image tool, in the HUD icons' style
+  guilds, Leave, Disband, Promote and Demote (the log's promotions and demotions) were drawn by the Codex CLI's image tool, in the HUD icons' style
   (`scripts/compress-ui-art.ts`). Kept as they were: the finder for a player in no guild, the confirmations (Leave, Disband, a rank's
-  action), the form's fields (the finder's Create a guild draws the same form in its sheet), another guild in its sheet (`?guild=`, the
+  action), another guild in its sheet (`?guild=`, the
   same identity and figures), the link to the chat, the profiles (the home's host, over the drawer). Removed from the page, the book
-  drawing none: a member row's level and last seen (in the member's view, a tap away), the menu's sheets (their descriptions are the
+  drawing none: a member row's level and last seen (on their profile, a tap away), the menu's sheets (their descriptions are the
   views' first lines, the menu's guild name is the page's), the member header's requirements (a visitor's keeps them), a request's age, the tabs' icons. Gaps
   from the book: the house's greys, raised and carved surfaces and the medal's gold in place of the book's blue panels, gold rows and
   gold buttons (as Profile, Missions, League and Shop); the guild's own emblem in place of the book's banners (the emblem is the
