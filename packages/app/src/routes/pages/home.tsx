@@ -203,7 +203,7 @@ export default function Page() {
         onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
-        onTiles={() => go("/settings/tiles")}
+        onTiles={() => go("/tiles")}
         onLeague={() => go("/pvp/league")}
         onSettings={() => go("/settings")}
         onNavigate={onNavigate}

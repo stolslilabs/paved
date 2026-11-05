@@ -15,7 +15,7 @@ import { preloadPages } from "./route-helpers";
 // lifetime missions on the Missions page (#832), the defence log a section of the League), and Back never cycles: it goes up toward the
 // village and ends there, in two steps at most from any page.
 
-preloadPages("home", "missions", "settings", "theme", "theme-shop", "my-tiles", "credits", "referral", "play", "story", "board", "cobbles");
+preloadPages("home", "missions", "settings", "theme", "theme-shop", "tiles", "credits", "referral", "play", "story", "board", "cobbles");
 
 const WAIT = { timeout: slow(5000) };
 
@@ -52,7 +52,7 @@ describe("the route map", () => {
       expect(parent?.parent, page.path).toBeUndefined();
       if (page.panel) expect(page.sheet, page.path).toBe(true);
     }
-    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits"]);
+    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story", "referral", "settings/theme", "settings/theme/:theme", "settings/credits"]);
     expect(PAGES.some((p) => p.path === "pvp/defence")).toBe(false);
   });
 });

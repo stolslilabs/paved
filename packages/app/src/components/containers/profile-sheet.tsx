@@ -92,7 +92,7 @@ export interface ProfileSheetProps {
   league?: PlayerLeague | null;
   /** Opens the PvP league (#647): the crowns, the attacks, the defence log; omitted, Battle logs is not offered. */
   onOpenLeague?: () => void;
-  /** Opens the player's tiles (My tiles); omitted, Tiles is not offered. */
+  /** Opens the player's tiles (Tiles, `/tiles`); omitted, Tiles is not offered. */
   onOpenTiles?: () => void;
   /** Opens the referral (the USDC a friend's games earn); omitted, Invite is not offered. */
   onOpenInvite?: () => void;

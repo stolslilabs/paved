@@ -58,6 +58,7 @@ const PAGES = {
   cobbles: () => import("../src/routes/pages/cobbles"),
   // Missions is the HUD's drawer over the home (MISSIONS-PAGE): its host comes with it.
   missions: () => Promise.all([import("../src/routes/pages/missions"), import("../src/routes/home-hosts")]),
+  tiles: () => Promise.all([import("../src/routes/pages/tiles"), import("../src/routes/home-hosts")]),
   referral: () => import("../src/routes/pages/referral"),
   vault: () => import("../src/routes/pages/vault"),
   chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/player-profile-host")]),
@@ -66,7 +67,6 @@ const PAGES = {
   settings: () => import("../src/routes/pages/settings"),
   theme: () => import("../src/routes/pages/theme"),
   "theme-shop": () => import("../src/routes/pages/theme-shop"),
-  "my-tiles": () => import("../src/routes/pages/my-tiles"),
   credits: () => import("../src/routes/pages/credits"),
   welcome: () => import("../src/routes/pages/welcome"),
   "village-shop": () => import("../src/routes/pages/village-shop"),

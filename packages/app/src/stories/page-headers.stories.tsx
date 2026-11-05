@@ -5,7 +5,7 @@ import { titleOf } from "../lib/music/track-info";
 import { TRACKS } from "../lib/music/tracks";
 import { appRenders } from "../mocks/assets";
 import { PROGRESS } from "../mocks/players";
-import { AVATAR_CREATOR, COBBLES, MISSIONS, MY_TILES, PLAY, PROFILE, PURCHASE, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT, WELCOME } from "../mocks/scenes";
+import { AVATAR_CREATOR, COBBLES, MISSIONS, PLAY, PROFILE, PURCHASE, REFERRAL, SETTINGS, THEME, THEME_SHOP, TILES, VAULT, WELCOME } from "../mocks/scenes";
 import { BalancesProvider } from "../components/containers/balances-context";
 import { ProfileProvider } from "../components/containers/profile-context";
 import { AvatarCreatorScene } from "../components/scenes/avatar-creator-scene";
@@ -18,7 +18,7 @@ import { PvpResultScene } from "../components/scenes/pvp-result-scene";
 import { PVP_LEAGUE, PVP_RESULT } from "../mocks/pvp";
 import { CobblesScene } from "../components/scenes/cobbles-scene";
 import { CreditsScene } from "../components/scenes/credits-scene";
-import { MyTilesScene } from "../components/scenes/my-tiles-scene";
+import { TilesScene } from "../components/scenes/tiles-scene";
 import { PlayScene } from "../components/scenes/play-scene";
 import { PurchaseScene } from "../components/scenes/purchase-scene";
 import { MissionsScene } from "../components/scenes/missions-scene";
@@ -71,6 +71,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Play: Story = { render: () => <PlayScene {...PLAY.connected} onBack={fn()} /> };
 export const Missions: Story = { render: () => <MissionsScene {...MISSIONS.daily} /> };
+export const Tiles: Story = { render: () => <TilesScene {...TILES.owned} onBack={fn()} /> };
 export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> };
 export const Chat: Story = { render: () => <ChatScene /> };
 export const Guild: Story = { render: () => <GuildScene /> };
@@ -80,7 +81,6 @@ export const StoryCampaigns: Story = {
   name: "Story",
   render: () => <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} />,
 };
-export const MyTiles: Story = { render: () => <MyTilesScene {...MY_TILES.owned} onBack={fn()} /> };
 export const Themes: Story = { render: () => <ThemeScene {...THEME.mixed} onBack={fn()} /> };
 export const ThemeShop: Story = { render: () => <ThemeShopScene {...THEME_SHOP.forest} onBack={fn()} /> };
 export const Referral: Story = { render: () => <ReferralScene {...REFERRAL.earned} onBack={fn()} /> };

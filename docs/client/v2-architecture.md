@@ -3091,7 +3091,7 @@ Collection, Themes, Settings; Collection is out of v1 (P-57 B5) and Theme is a r
 - Every page is a route: deep links, the browser's back button, and the referral `?ref=` kept across
   links (nums' `lib/router.tsx` idea).
 - **No pages in pages; Back never cycles (BACK-RULE #783, owner decisions of 2026-10-26).** No page opens another page of
-  the same kind: what a page shows beyond itself it shows in place. Settings' pages (the themes, a theme, My tiles, the
+  the same kind: what a page shows beyond itself it shows in place. Settings' pages (the themes, a theme, the
   credits, the referral) are sheets over Settings (`PageDef.sheet`, `routes/page-sheets.tsx`; from the bottom on a phone,
   from the right from `desktop`, over the side panel), their URLs kept so a link opens them over Settings; a move from one
   to another replaces its entry. Story's campaigns are a sheet over Play's modes (`/story`). The Cobble packs open in place,

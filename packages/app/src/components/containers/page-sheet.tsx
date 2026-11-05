@@ -17,7 +17,7 @@ export interface PageSheetProps {
 
 /**
  * BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page; what a page shows beyond itself, it shows in
- * place. A page reached from Settings (the themes, a theme, My tiles, the credits, the referral) is this sheet over it: the page
+ * place. A page reached from Settings (the themes, a theme, the credits, the referral) is this sheet over it: the page
  * under it stays where it was. Its content is laid out as in the side panel (`PagePanelProvider`, `data-page-panel`: the phone's
  * layout), its header's Back closes it (`PagePanelValue.back`), and its body scrolls. The slide is the Sheet's (Motion, reduced under reduced motion).
  */

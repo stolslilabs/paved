@@ -83,6 +83,7 @@ describe("the route map (#762)", () => {
       "pvp/league",
       "story",
       "missions",
+      "tiles",
       "vault",
       "chat",
       "chat/private/:player",
@@ -92,15 +93,14 @@ describe("the route map (#762)", () => {
       "referral",
       "settings/theme",
       "settings/theme/:theme",
-      "settings/tiles",
       "settings/credits",
       "settings",
     ]);
     // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE: the League and Missions are the HUD's drawer over the home at every width, never the side panel;
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE: the League, Missions and Tiles are the HUD's drawer over the home at every width, never the side panel;
     // children of the home's route.
-    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["pvp/league", "missions"]);
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["pvp/league", "missions", "tiles"]);
     expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });

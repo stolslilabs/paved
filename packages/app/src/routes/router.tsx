@@ -120,6 +120,8 @@ export const routes: RouteObject[] = [
       { path: "missions/:day", loader: ({ request }) => to("/missions", request) },
       { path: "quests/:day?", loader: ({ request }) => to("/missions", request) },
       { path: "achievements", loader: ({ request }) => to("/missions", request) },
+      // My tiles left Settings for the HUD's drawer (COLLECTION-PAGE): its old link lands on Tiles.
+      { path: "settings/tiles", loader: ({ request }) => to("/tiles", request) },
       // The defence log became a section of the league (BACK-RULE #783), then its matches (#786): its old link lands there.
       { path: "pvp/defence", loader: ({ request }) => to("/pvp/league", request) },
       { path: "social", loader: socialRedirect },

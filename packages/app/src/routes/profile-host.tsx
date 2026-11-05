@@ -43,7 +43,7 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   const onEditAvatar = useCallback(() => go("/avatar"), [go]);
   const onOpenLeague = useCallback(() => go("/pvp/league"), [go]);
   // The profile's Tiles and Invite (PROFILE-DRAWER): the player's tiles and the referral, Settings' sheets.
-  const onOpenTiles = useCallback(() => go("/settings/tiles"), [go]);
+  const onOpenTiles = useCallback(() => go("/tiles"), [go]);
   const onOpenInvite = useCallback(() => go("/referral"), [go]);
   const value = useMemo(
     () => ({ state, progress: shown, look, onConnect, onCopy: copy, onEditAvatar, onOpenLeague, onOpenTiles, onOpenInvite }),

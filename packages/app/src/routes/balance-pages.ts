@@ -12,6 +12,7 @@ export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "village/chests",
   "village/shop",
   "missions",
+  "tiles",
   "vault",
   "settings/theme",
   "settings/theme/:theme",

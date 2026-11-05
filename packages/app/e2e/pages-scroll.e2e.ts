@@ -38,7 +38,7 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
   vault: "Vault",
   defence: "League",
   themes: "Themes",
-  tiles: "My tiles",
+  tiles: "Tiles",
   referral: "Referral",
   credits: "Credits",
   theme: "Forest",
@@ -53,7 +53,7 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
 const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play", "cobbles"]);
 
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "tiles"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });
