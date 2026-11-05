@@ -216,7 +216,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await sheetGone();
     await userEvent.click(await within(await screen.findByRole("dialog", undefined, T(8_000))).findByRole("button", { name: "Kick" }, T(5_000)));
     await confirm(/^Kick /, "Kick", "Never plays");
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
     await tab("Log");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Log" })).getByRole("list")).toHaveTextContent("“Never plays”"), T(8_000));
@@ -235,7 +235,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await userEvent.click(await within(profile).findByRole("button", { name: "Invite to Gate Ward" }, T(5_000)));
     await confirm(`Invite ${target.name} to Gate Ward?`, "Invite");
     expect(await within(profile).findByRole("button", { name: "Invited to Gate Ward" }, T(5_000))).toBeDisabled();
-    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
     await later(MOCK_INVITE_ANSWER_S + 1);
     await waitFor(() => expect(screen.getByRole("region", { name: "Members" })).toHaveTextContent(target.name), T(8_000));
   });

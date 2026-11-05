@@ -3,6 +3,7 @@ import { followErrorText } from "../../lib/follow-text";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { InlineError } from "../elements/inline-error";
+import { GOLD_PILL, GOLD_PILL_STYLE, RAISED_PILL } from "./friends-panel";
 
 /** Where the viewer stands with a player found by the search: what its button offers. */
 export type FollowResultState = "follow" | "follow-back" | "following" | "blocking";
@@ -18,7 +19,7 @@ export interface FollowResultButtonProps {
 /**
  * Follow on a result of the player search (#954): Follow, or Follow back when they follow the viewer; a player already followed
  * shows Following, one the viewer blocks Blocked (their profile unfollows and unblocks). A refusal says why under the button.
- * Light on purpose: the friends page's chunk carries it (#973).
+ * FRIENDS-PAGE: the lists' pills, Follow raised and Follow back the book's gold pill. Light on purpose: the friends page's chunk carries it (#973).
  */
 export function FollowResultButton({ state, name, onFollow }: FollowResultButtonProps) {
   const [pending, setPending] = useState(false);
@@ -26,7 +27,7 @@ export function FollowResultButton({ state, name, onFollow }: FollowResultButton
   const who = name ?? "this player";
   if (state === "following" || state === "blocking")
     return (
-      <span data-slot="follow-result" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <span data-slot="follow-result" className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground">
         <Icon name={state === "following" ? "check" : "lock"} size="xs" />
         {state === "following" ? "Following" : "Blocked"}
       </span>
@@ -42,11 +43,11 @@ export function FollowResultButton({ state, name, onFollow }: FollowResultButton
       setPending(false);
     }
   };
+  const back = state === "follow-back";
   return (
     <span data-slot="follow-result" className="flex flex-col items-end gap-1">
-      <Button size="sm" aria-label={`${state === "follow-back" ? "Follow back" : "Follow"} ${who}`} loading={pending} onClick={() => void follow()}>
-        <Icon name="plus" size="xs" />
-        {state === "follow-back" ? "Follow back" : "Follow"}
+      <Button variant="ghost" className={back ? GOLD_PILL : RAISED_PILL} style={back ? GOLD_PILL_STYLE : undefined} aria-label={`${back ? "Follow back" : "Follow"} ${who}`} loading={pending} onClick={() => void follow()}>
+        {back ? "Follow back" : "Follow"}
       </Button>
       <InlineError title="Follow" message={error} className="max-w-56" />
     </span>

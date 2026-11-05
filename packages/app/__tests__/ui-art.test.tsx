@@ -6,18 +6,25 @@ import { UiIcon } from "../src/components/elements/ui-icon";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, uiFrameSources, uiIconSources } from "../src/components/elements/ui-art";
 import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS, medallionSources, missionPartImage, missionPartSlice, missionPartSources } from "../src/components/elements/medallion-art";
 import { PILES, RARITY_END, SHOP_PARTS, UI_SHOP_PARTS, shopPartImage, shopPartSources } from "../src/components/elements/shop-art";
+import { FRIENDS_PARTS, GOLD_PILL_END, UI_FRIENDS_PARTS, friendsPartImage } from "../src/components/elements/friends-art";
 import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts";
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
     const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
-    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/"));
+    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/"));
     expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024);
+  });
+
+  it("ships the friends page's pieces (FRIENDS-PAGE): two icons and the gold pill, 3-sliced, its ends under half its width, each copy light", () => {
+    for (const name of UI_FRIENDS_PARTS) for (const s of FRIENDS_PARTS[name].sizes) expect(statSync(join(OUT, "friends", String(s), `${name}.webp`)).size, name).toBeLessThan(name === "gold-pill" ? 4 * 1024 : 12 * 1024);
+    expect(GOLD_PILL_END * 2).toBeLessThan(FRIENDS_PARTS["gold-pill"].width);
+    expect(friendsPartImage("gold-pill")).toBe('image-set(url("/ui-art/friends/32/gold-pill.webp") 1x, url("/ui-art/friends/64/gold-pill.webp") 2x)');
   });
 
   it("ships the Shop's pieces (SHOP-PAGE): the rarity pills, 3-sliced, and a pile a pack, each copy light", () => {

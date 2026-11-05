@@ -4,6 +4,8 @@ import { PROGRESS } from "../../mocks/players";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { NEW_PLAYER, NEW_PLAYER_PROFILE } from "../../mocks/new-player";
 import { HALL_OF_FAME, PROFILE, RECORDS } from "../../mocks/scenes";
+import { GUILD_BADGE } from "../../mocks/guilds";
+import { GuildLine } from "./guild-profile";
 import { ProfileSheet } from "./profile-sheet";
 
 /**
@@ -20,6 +22,8 @@ const meta = {
     progress: PROGRESS.partWay,
     league: { crowns: 1_172, league: 5, unranked: false },
     follows: { followers: 12, followed: 9 },
+    // The player's guild line, before the actions (FRIENDS-PAGE, the owner's ask of 2026-11-05).
+    guild: <GuildLine badge={GUILD_BADGE.member} onOpen={fn()} />,
     hallOfFame: HALL_OF_FAME,
     records: RECORDS,
     onOpenChange: fn(),

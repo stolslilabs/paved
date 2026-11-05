@@ -18,6 +18,11 @@ const PAGE = "w-full border-0 shadow-none sm:max-w-none";
  * Sheet's, by its side) and the Sheet's shadow over the village, no rounded end.
  */
 const SIDE = "w-[28rem] max-w-full border-input sm:max-w-full";
+/**
+ * The phone's sheet (`phone="sheet"`, FRIENDS-PAGE: a player's profile, the book's "full-width sheet" over the page that opened it): the
+ * screen's width, as tall as its content up to 92 % of the screen, its top rounded, the Sheet's grab bar over its band.
+ */
+const SHEET = "max-h-[92dvh] w-full overflow-hidden rounded-t-2xl border-input pt-0";
 
 /**
  * The title's start after Back: the chevron sits in the middle of its 44 px target, so the visible gap is counted from the glyph, about
@@ -38,6 +43,11 @@ export interface HudDrawerProps {
    * card's), the right for the right column's pages (Missions). The phone's page slides in from the right either way.
    */
   side?: "left" | "right";
+  /**
+   * What it is on a phone: a full page with Back (`page`, the default), or a sheet from the bottom with the red close (`sheet`,
+   * FRIENDS-PAGE: another player's profile and the blocked players, over the page that opened them, as the book draws the first).
+   */
+  phone?: "page" | "sheet";
   /** What the header holds at its outer end, opposite its control (the page's balance: the Missions' Cobbles). */
   end?: ReactNode;
   /**
@@ -69,8 +79,11 @@ export interface HudDrawerProps {
  * Inside, the phone's layout whatever the width (`data-page-panel`). The village beside the side panel is veiled lightly and blurred,
  * Escape or a tap on it closing the drawer. It takes the focus itself as it opens. The slide is the Sheet's (Motion).
  */
-export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
-  const side = useSidePanel(SIDE_QUERY);
+export function HudDrawer({ open, onOpenChange, title, side: edge = "left", phone = "page", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
+  const wide = useSidePanel(SIDE_QUERY);
+  // A phone's sheet closes as the side panel does: its red cross at the header's end.
+  const sheet = !wide && phone === "sheet";
+  const side = wide || sheet;
   // The phone's Back at the top left, the title right after it; the side panel's close at the header's right end, after what the page
   // shows there (the owner's ask of 2026-11-04: the title on the left, the balance at the top right).
   const control = side ? (
@@ -94,7 +107,7 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end,
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={side ? edge : "right"}
+        side={wide ? edge : sheet ? "bottom" : "right"}
         closeButton={false}
         aria-describedby={undefined}
         data-page-panel=""
@@ -112,7 +125,7 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end,
           e.preventDefault();
           target.focus();
         }}
-        className={cn(SURFACE, side ? SIDE : PAGE, className)}
+        className={cn(SURFACE, wide ? SIDE : sheet ? SHEET : PAGE, className)}
       >
         {/* One row: Back (a phone's), the title on the left, what the page shows at the end, the close (a side panel's) last. */}
         <SheetHeader className="drawer-band flex shrink-0 flex-row items-center gap-1 px-2 py-2.5">

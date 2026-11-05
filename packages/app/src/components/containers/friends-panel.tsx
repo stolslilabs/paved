@@ -1,32 +1,35 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { formatInteger } from "@paved/game-core";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { formatCompact, formatInteger, isOnline } from "@paved/game-core";
 import type { FollowLists, FollowRow, GuildBadge, PublicProfile } from "../../data/social-source";
 import { followErrorText } from "../../lib/follow-text";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
-import { useSidePanel } from "../../lib/side-panel";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
-import { ScrollRegion } from "../ui/scroll-region";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { FollowMark } from "../elements/follow-mark";
+import { FRIENDS_PARTS, GOLD_PILL_END, friendsPartImage } from "../elements/friends-art";
+import { FriendsArt } from "../elements/friends-art-image";
+import { GuildEmblem } from "../elements/guild-emblem";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
-import { LeagueCrest } from "../elements/league-crest";
+import { LeagueCrestIcon } from "../elements/league-crest-art";
+import { LevelStar } from "../elements/level-star";
+import { LeagueRim } from "../elements/league-rim";
+import { divisionOf, tierOf } from "../elements/league-standards";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { Presence } from "../elements/presence";
 import { formatPoints } from "../elements/score";
+import { SectionTitle } from "../elements/section-title";
+import { UiIcon } from "../elements/ui-icon";
 import { useGuildActions } from "./guild-sheets";
+import { HudDrawer } from "./hud-drawer";
+import { CARVED_ROWS, rowRule } from "./player-search";
 
 /** The friends page's three tabs (#954's lists, tabs since #973). */
 export type FriendsList = "friends" | "following" | "followers";
 
-/** The writes of the Friends tab's rows, on one player. */
+/** The writes of the lists' rows, on one player (`removeFollower` is the data layer's; FRIENDS-PAGE's rows no longer offer it). */
 export type FollowRowAction = "follow" | "unfollow" | "removeFollower" | "unblock";
-
-/** The side panel from `desktop`; the bottom sheet under it. */
-const DESKTOP_QUERY = "(min-width: 64rem)";
 
 /** How many rows a list shows before "Show more", and how many more each tap. */
 export const FRIENDS_PAGE = 20;
@@ -46,61 +49,121 @@ const keyOf = (address: string): string => {
   }
 };
 
+/** A tab's count, the book's "Friends 6": whole up to 999, short from 1,000 ("1.2K", the whole in its name), so three labels hold on a 360 px phone. */
+const tabCount = (n: number) => (n < 1_000 ? formatInteger(n) : formatCompact(n));
+
+/**
+ * The rows' buttons (FRIENDS-PAGE, the book's pills): 32 px tall and round; their touch target 44 px (a band past their top and
+ * foot). Raised grey presses (the drawer's rule: raised presses,
+ * carved informs); the book's gold is the one way back, Follow back.
+ */
+const PILL = "relative h-8 gap-1 rounded-full px-3 text-sm font-bold after:absolute after:inset-x-0 after:-inset-y-1.5";
+const RAISED = "drawer-raised text-outline text-foreground";
+/** The raised grey pill (Follow, Following, Unblock, Show more). */
+export const RAISED_PILL = cn(PILL, RAISED);
+/** The gold pill (Follow back): the book's painted pill under the words (`GOLD_PILL_STYLE`), white and outlined as the book writes them. */
+export const GOLD_PILL = cn(PILL, "text-outline px-1 text-foreground");
+
+/** The gold pill's height in CSS px (`PILL`'s), its painted ends following it, never stretched. */
+const GOLD_PILL_PX = 32;
+/** The book's gold pill (`friends-art.ts`, the owner's ask of 2026-11-05) as a 3-slice: its rounded ends whole, its middle stretched. */
+export const GOLD_PILL_STYLE: CSSProperties = (() => {
+  const { width, height } = FRIENDS_PARTS["gold-pill"];
+  const end = `${((GOLD_PILL_END * GOLD_PILL_PX) / height).toFixed(2)}px`;
+  return {
+    borderStyle: "solid",
+    borderColor: "transparent",
+    borderWidth: `0 ${end}`,
+    borderImageSource: friendsPartImage("gold-pill"),
+    borderImageSlice: `0 ${((GOLD_PILL_END / width) * 100).toFixed(2)}% fill`,
+    borderImageWidth: `0 ${end}`,
+    borderImageRepeat: "stretch",
+  };
+})();
+
+export interface PlayerPortraitProps {
+  profile: Pick<PublicProfile, "name" | "address" | "look" | "league" | "crowns">;
+  /** A follower not seen yet: the HUD's red dot at the portrait's upper right (the owner's ask of 2026-11-05, in place of the book's New). */
+  isNew?: boolean;
+  className?: string;
+}
+
+/**
+ * A player's portrait in a list (the book's rows): the avatar in the rim of their league, 56 px, the league's crest at its lower right
+ * (the owner's ask of 2026-11-05: the guild's emblem is the guild line's alone), a new follower's red dot at its upper right.
+ */
+export function PlayerPortrait({ profile, isNew, className }: PlayerPortraitProps) {
+  const league = LEAGUES[profile.league] ?? leagueOf(profile.crowns);
+  return (
+    <span data-slot="player-portrait" className={cn("relative shrink-0", className)}>
+      <LeagueRim tier={tierOf(league)} size="md" className="block">
+        <PlayerAvatar player={{ name: profile.name, address: profile.address }} look={profile.look} className="size-full p-0 [&>span]:text-lg" />
+      </LeagueRim>
+      <LeagueCrestIcon tier={tierOf(league)} division={divisionOf(league)} size="md" className="drawer-icon absolute -right-1.5 -bottom-1" />
+      {isNew && <span aria-hidden data-slot="new-dot" className="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-dock-badge ring-2 ring-card" />}
+    </span>
+  );
+}
+
 export interface FollowPlayerRowProps {
   profile: PublicProfile;
-  now: number;
   /** Their guild (#953), or none. */
   guild?: GuildBadge | null;
-  /** A follower not seen yet: the New mark. */
+  /** A follower not seen yet: said in the row's name, its red dot on the portrait. */
   isNew?: boolean;
-  /** The Friend or Follows you mark. */
-  mark?: { followsYou: boolean; friend: boolean };
+  /** `list`: the name, the level's star and the crowns, the guild (the book's lists); `suggestion`: the name and the guild (its Suggestions). */
+  variant?: "list" | "suggestion";
   onOpen?: (address: string) => void;
-  /** The row's actions, on its right (under the player on a narrow screen). */
+  /** What the row holds at its right end: online or last seen, or its actions. */
   children?: ReactNode;
 }
 
 /**
- * One player of a follow list (#954): the avatar, the name, the level, the league, the guild, and online or last seen; a tap
- * opens their profile. The actions sit beside it, and go under it when the row is too narrow.
+ * One player of a list (#954; FRIENDS-PAGE, the Paved UX Book's rows): the portrait (`PlayerPortrait`), the name, the level in the
+ * HUD's blue star (the owner's ask) and the crowns, the guild's emblem and name; a tap opens their profile. What the row shows at its end sits beside it, and goes under it,
+ * at the right, when the player would keep less than 9 rem.
  */
-export function FollowPlayerRow({ profile, now, guild, isNew, mark, onOpen, children }: FollowPlayerRowProps) {
+export function FollowPlayerRow({ profile, guild, isNew, variant = "list", onOpen, children }: FollowPlayerRowProps) {
   const league = LEAGUES[profile.league] ?? leagueOf(profile.crowns);
   return (
-    <div data-slot="follow-row" data-new={isNew || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-card p-2 pr-3">
+    <div data-slot="follow-row" data-new={isNew || undefined} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 py-2">
       <button
         type="button"
         aria-label={`${profile.name ?? profile.address}, level ${formatPoints(profile.level)}, ${league.name} league${isNew ? ", new follower" : ""}`}
         onClick={() => onOpen?.(profile.address)}
-        className="state-layer flex min-h-12 min-w-0 flex-[1_1_12rem] items-center gap-3 rounded-lg px-1 text-left outline-none"
+        className="state-layer -ml-1.5 flex min-h-14 min-w-0 flex-[1_1_9rem] cursor-pointer items-center gap-2.5 rounded-lg py-1 pr-0 pl-1.5 text-left outline-none"
       >
-        <PlayerAvatar player={{ name: profile.name, address: profile.address }} look={profile.look} />
+        <PlayerPortrait profile={profile} isNew={isNew} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex min-w-0 items-center gap-2">
-            <PlayerName name={profile.name} address={profile.address} className="min-w-0 truncate font-semibold" />
-            {isNew && <span className="shrink-0 rounded-full bg-primary px-1.5 text-xs leading-5 font-semibold text-primary-foreground">New</span>}
-          </span>
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            <span>
-              Level <span className="numeric">{formatPoints(profile.level)}</span>
-            </span>
-            <LeagueCrest league={league} size="sm" />
-            {guild && (
-              <span data-slot="follow-row-guild" className="inline-flex min-w-0 items-center gap-1">
-                <Icon name="shield-halved" size="xs" />
-                <span className="min-w-0 wrap-anywhere">{guild.name}</span>
+          {/* With no name, the short address in Space Mono, whose glyphs stand taller than a tight line (the profile's rule). */}
+          <PlayerName name={profile.name} address={profile.address} className={cn("text-outline max-w-full min-w-0 pr-0.5 text-base font-bold", profile.name ? "leading-snug" : "leading-normal")} />
+          {variant === "list" && (
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm leading-tight font-bold whitespace-nowrap">
+              <LevelStar level={profile.level} className="size-6" />
+              <span className="inline-flex items-center gap-1">
+                <UiIcon name="crown" px={20} className="size-5" />
+                <span className="text-outline tabular-nums">{formatPoints(profile.crowns)}</span>
               </span>
-            )}
-          </span>
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <Presence lastSeen={profile.lastSeen} now={now} />
-            {mark && <FollowMark status={mark} />}
-          </span>
+            </span>
+          )}
+          {guild && (
+            <span data-slot="follow-row-guild" className="flex min-w-0 items-center gap-1.5 text-xs leading-tight font-bold text-muted-foreground">
+              <GuildEmblem emblem={guild.emblem} size="sm" className="h-6 w-5" />
+              <span title={guild.name} className="min-w-0 truncate">
+                {guild.name}
+              </span>
+            </span>
+          )}
         </span>
       </button>
-      {children && <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">{children}</div>}
+      {children && <div className="ml-auto flex shrink-0 items-center gap-1.5">{children}</div>}
     </div>
   );
+}
+
+/** Online, or when last seen, at a friend's row's end (the book's: the green "Online", else "2 h ago"). */
+function RowPresence({ profile, now }: { profile: PublicProfile; now: number }) {
+  return <Presence short lastSeen={profile.lastSeen} now={now} className={cn("text-sm font-bold", isOnline(profile.lastSeen, now) && "text-success")} />;
 }
 
 /** A list read as the panel shows it: read, still read (null), or failed. */
@@ -120,7 +183,7 @@ export interface FriendsPanelProps {
   /** A player's guild (#953), as read; undefined or null: none shown. */
   guildOf?: (address: string) => GuildBadge | null | undefined;
   onOpenPlayer?: (address: string) => void;
-  /** Message, on each friend's row (#955): opens the private conversation with them. */
+  /** Message (#955): opens the private conversation with a player. FRIENDS-PAGE: on their profile, the rows have none (the book's). */
   onMessage?: (address: string) => void;
   /** A row's write on `address`; returns the write's promise. */
   onAction?: (action: FollowRowAction, address: string) => Promise<unknown> | void;
@@ -133,13 +196,19 @@ export interface FriendsPanelProps {
   initialBlockedOpen?: boolean;
 }
 
+/** A list's empty state and the panels' words: on the drawer's carved surface. */
+export const CARVED_NOTE = "drawer-carved rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground";
+
 /**
- * The friends page (`/friends`, #973; the Social page's Friends tab of #954 before): three tabs, Friends (the mutual follows), Following and Followers, each with its count,
- * online players first, then the most recently seen; the new followers marked until seen. Each row opens the player's profile
- * and has its actions: Unfollow (confirmed), and in Followers, Follow back and Remove (confirmed; they are not told). Then the
- * players suggested to follow, and the page's menu: the blocked players, with Unblock.
+ * The friends page's lists (`/friends`, #973; the Social page's Friends tab of #954 before), redrawn after the Paved UX Book's
+ * "Friends and followers" (FRIENDS-PAGE): three tabs, the book's words, Friends (the mutual follows), Following and Followers, each
+ * with its count beside it, the current one lit and underlined in gold; the new followers' count on Followers in the HUD's red. Each
+ * list a carved panel of rows, online players first, then the most recently seen; a tap on a row opens the player's profile (Message,
+ * Following, Block are there, as the book's). Friends: online or when last seen at each row's end. Following: Following (unfollows,
+ * confirmed). Followers: the new ones first and marked New, Follow back in gold, or Following. Then the Suggestions (the book's: the
+ * name and the guild, Follow, or Follow back in gold), and the blocked players, a sheet of their own with Unblock.
  */
-export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, list, onListChange, now, guildOf, onOpenPlayer, onMessage, onAction, onFollowersShown, initialBlockedOpen = false }: FriendsPanelProps) {
+export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, list, onListChange, now, guildOf, onOpenPlayer, onAction, onFollowersShown, initialBlockedOpen = false }: FriendsPanelProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const actions = useGuildActions<{ action: FollowRowAction; address: string }>((a) => onAction?.(a.action, a.address), followErrorText);
   const [shown, setShown] = useState(FRIENDS_PAGE);
@@ -164,55 +233,47 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
   }, [onScreen, onFollowersShown]);
   const meta = LISTS.find((l) => l.id === list)!;
 
+  /** Following: the follow, raised; a tap unfollows once confirmed (the profile's Following). */
   const unfollow = (p: PublicProfile, friend: boolean) => (
     <Button
-      size="sm"
-      variant="secondary"
-      aria-label={`Unfollow ${nameOf(p)}`}
+      variant="ghost"
+      aria-label={`Following ${nameOf(p)}: unfollow`}
       disabled={busy !== null}
+      className={RAISED_PILL}
       onClick={() => actions.ask({ title: `Unfollow ${nameOf(p)}?`, text: friend ? "You stop being friends; they still follow you." : "They are not told.", confirm: "Unfollow" }, () => ({ action: "unfollow", address: p.address }))}
     >
-      Unfollow
+      Following
     </Button>
   );
+  /** Follow, raised; Follow back, the book's gold pill. */
   const follow = (p: PublicProfile, back: boolean) => (
-    <Button size="sm" aria-label={`${back ? "Follow back" : "Follow"} ${nameOf(p)}`} loading={busy === keyOf(p.address)} disabled={busy !== null} onClick={() => run("follow", p.address)}>
-      <Icon name="plus" size="xs" />
+    <Button
+      variant="ghost"
+      aria-label={`${back ? "Follow back" : "Follow"} ${nameOf(p)}`}
+      loading={busy === keyOf(p.address)}
+      disabled={busy !== null}
+      className={back ? GOLD_PILL : RAISED_PILL}
+      style={back ? GOLD_PILL_STYLE : undefined}
+      onClick={() => run("follow", p.address)}
+    >
       {back ? "Follow back" : "Follow"}
     </Button>
   );
 
-  const rowOf = (r: FollowRow) => {
+  const rowOf = (r: FollowRow, index: number) => {
     const p = r.profile;
     const key = keyOf(p.address);
     const friend = following.has(key) && followers.has(key);
+    const isNew = list === "followers" && r.isNew;
     return (
-      <li key={key}>
-        <FollowPlayerRow profile={p} now={now} guild={guildOf?.(p.address)} isNew={list === "followers" && r.isNew} mark={list === "friends" ? undefined : { followsYou: followers.has(key), friend }} onOpen={onOpenPlayer}>
-          {list === "followers" ? (
-            <>
-              {following.has(key) ? unfollow(p, friend) : follow(p, true)}
-              <Button
-                size="sm"
-                variant="outline"
-                aria-label={`Remove ${nameOf(p)}`}
-                disabled={busy !== null}
-                onClick={() => actions.ask({ title: `Remove ${nameOf(p)}?`, text: "They stop following you. They are not told, and may follow you again.", confirm: "Remove", destructive: true }, () => ({ action: "removeFollower", address: p.address }))}
-              >
-                <Icon name="xmark" size="xs" />
-                Remove
-              </Button>
-            </>
+      <li key={key} style={rowRule(index)}>
+        <FollowPlayerRow profile={p} guild={guildOf?.(p.address)} isNew={isNew} onOpen={onOpenPlayer}>
+          {list === "friends" ? (
+            <RowPresence profile={p} now={now} />
+          ) : list === "following" ? (
+            unfollow(p, friend)
           ) : (
-            <>
-              {list === "friends" && onMessage && (
-                <Button size="sm" variant="secondary" aria-label={`Message ${nameOf(p)}`} onClick={() => onMessage(p.address)}>
-                  <Icon name="comments" size="xs" />
-                  Message
-                </Button>
-              )}
-              {unfollow(p, friend)}
-            </>
+            following.has(key) ? unfollow(p, friend) : follow(p, true)
           )}
         </FollowPlayerRow>
       </li>
@@ -221,7 +282,7 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
 
   const blocked = lists?.blocked ?? [];
   return (
-    <div data-slot="friends-panel" className="flex flex-col gap-5">
+    <div data-slot="friends-panel" className="flex flex-col gap-4">
       <InlineError
         title="Friends"
         message={error}
@@ -235,7 +296,7 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
         }
       />
 
-      {/* The three lists as tabs (#973: the friends page's), each with its count; Followers badges the new ones. */}
+      {/* The three lists as tabs (#973), the book's: each word with its count, the current one underlined in gold. */}
       <Tabs
         value={list}
         onValueChange={(v) => {
@@ -245,17 +306,24 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
           onListChange?.(next);
         }}
         rememberAs="friends"
+        className="gap-3"
       >
-        <TabsList aria-label="Lists" className="h-auto w-full">
+        <TabsList aria-label="Lists" className="h-auto w-full gap-0.5 bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
           {LISTS.map(({ id, label }) => {
             const count = lists ? lists[id].length : null;
             const fresh = id === "followers" ? (lists?.newFollowers ?? 0) : 0;
             return (
-              <TabsTrigger key={id} value={id} aria-label={`${label}${count === null ? "" : `, ${formatInteger(count)}`}${fresh > 0 ? `, ${formatInteger(fresh)} new` : ""}`} className="h-auto flex-col gap-0 px-1 py-1">
-                <span className="numeric text-base leading-6 font-semibold">{count === null ? "–" : formatInteger(count)}</span>
-                <span className="text-xs">{label}</span>
+              <TabsTrigger
+                key={id}
+                value={id}
+                aria-label={`${label}${count === null ? "" : `, ${formatInteger(count)}`}${fresh > 0 ? `, ${formatInteger(fresh)} new` : ""}`}
+                // A 320 px phone: the count under the word; from `mobile` (360) beside it, the book's.
+                className="text-outline h-11 flex-col gap-0 px-0.5 text-sm leading-tight font-bold mobile:flex-row mobile:gap-1 mobile:text-[0.9375rem] tablet:text-base"
+              >
+                <span>{label}</span>
+                <span className="tabular-nums">{count === null ? "–" : tabCount(count)}</span>
                 {fresh > 0 && (
-                  <span aria-hidden className="numeric absolute -top-2 -right-1 z-10 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-xs leading-none font-semibold text-primary-foreground">
+                  <span aria-hidden className="numeric absolute -top-0.5 right-0 z-10 grid h-4 min-w-4 place-items-center rounded-[0.3rem] bg-dock-badge px-0.5 text-xs leading-none font-bold text-foreground ring-2 ring-secondary">
                     {fresh > 99 ? "99+" : fresh}
                   </span>
                 )}
@@ -266,7 +334,7 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
         {LISTS.map(({ id }) => (
           <TabsContent key={id} value={id}>
             {id === list && (
-              <section aria-label={meta.label} className="flex flex-col gap-2">
+              <section aria-label={meta.label} className="flex flex-col gap-3">
                 {rows === null && !error && (
                   <div aria-busy className="flex flex-col gap-2">
                     {[0, 1, 2].map((i) => (
@@ -274,11 +342,11 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
                     ))}
                   </div>
                 )}
-                {rows?.length === 0 && <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">{meta.empty}</p>}
-                {rows && rows.length > 0 && <ul className="flex flex-col gap-2">{rows.slice(0, shown).map(rowOf)}</ul>}
+                {rows?.length === 0 && <p className={CARVED_NOTE}>{meta.empty}</p>}
+                {rows && rows.length > 0 && <ul className={CARVED_ROWS}>{rows.slice(0, shown).map(rowOf)}</ul>}
                 {rows && rows.length > shown && (
-                  <Button variant="ghost" onClick={() => setShown(shown + FRIENDS_PAGE)}>
-                    Show more ({formatInteger(rows.length - shown)})
+                  <Button variant="ghost" className={cn(RAISED_PILL, "self-center")} onClick={() => setShown(shown + FRIENDS_PAGE)}>
+                    Show more (<span className="tabular-nums">{formatInteger(rows.length - shown)}</span>)
                   </Button>
                 )}
                 <InlineError title="Friends" message={actions.error} />
@@ -288,8 +356,8 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
         ))}
       </Tabs>
 
-      <section aria-label="Suggested players" className="flex flex-col gap-2">
-        <h3 className="font-semibold">Players to follow</h3>
+      <section aria-label="Suggested players" className="flex flex-col gap-2.5">
+        <SectionTitle>Suggestions</SectionTitle>
         {suggestions === null && (
           <div aria-busy className="flex flex-col gap-2">
             {[0, 1].map((i) => (
@@ -297,31 +365,28 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
             ))}
           </div>
         )}
-        {suggestions?.length === 0 && <p className="text-sm text-muted-foreground">No one to suggest right now: search a name above.</p>}
+        {suggestions?.length === 0 && <p className={CARVED_NOTE}>No one to suggest right now: search a name above.</p>}
         {suggestions && suggestions.length > 0 && (
-          <ul className="flex flex-col gap-2">
-            {suggestions.slice(0, suggested).map((p) => {
-              const back = followers.has(keyOf(p.address));
-              return (
-                <li key={keyOf(p.address)}>
-                  <FollowPlayerRow profile={p} now={now} guild={guildOf?.(p.address)} mark={{ followsYou: back, friend: false }} onOpen={onOpenPlayer}>
-                    {follow(p, back)}
-                  </FollowPlayerRow>
-                </li>
-              );
-            })}
+          <ul className={CARVED_ROWS}>
+            {suggestions.slice(0, suggested).map((p, i) => (
+              <li key={keyOf(p.address)} style={rowRule(i)}>
+                <FollowPlayerRow profile={p} guild={guildOf?.(p.address)} variant="suggestion" onOpen={onOpenPlayer}>
+                  {follow(p, followers.has(keyOf(p.address)))}
+                </FollowPlayerRow>
+              </li>
+            ))}
           </ul>
         )}
         {suggestions && suggestions.length > suggested && (
-          <Button variant="ghost" onClick={() => setSuggested(suggested + 5)}>
+          <Button variant="ghost" className={cn(RAISED_PILL, "self-center")} onClick={() => setSuggested(suggested + 5)}>
             More suggestions
           </Button>
         )}
       </section>
 
-      <Button variant="outline" className="self-center" onClick={() => setBlockedOpen(true)}>
-        <Icon name="lock" size="xs" />
-        Blocked players{blocked.length > 0 && <span className="numeric">({formatInteger(blocked.length)})</span>}
+      <Button variant="ghost" className={cn(RAISED_PILL, "gap-1.5 self-center")} onClick={() => setBlockedOpen(true)}>
+        <FriendsArt part="block" px={20} className="size-5" />
+        Blocked players{blocked.length > 0 && <span className="tabular-nums">({formatInteger(blocked.length)})</span>}
       </Button>
       <BlockedSheet open={blockedOpen} onOpenChange={setBlockedOpen} blocked={lists ? blocked : null} now={now} busy={busy} onOpenPlayer={onOpenPlayer} onUnblock={(address) => run("unblock", address)} error={blockedOpen ? actions.error : null} />
       {actions.dialog}
@@ -341,36 +406,31 @@ interface BlockedSheetProps {
   error?: string | null;
 }
 
-/** The Friends tab's menu (#954, open point 5's default): the blocked players, each with Unblock. Theirs only to see. */
+/**
+ * The blocked players (#954, open point 5's default; the book draws none): theirs only to see, each with Unblock. FRIENDS-PAGE: the
+ * HUD's drawer as a player's profile is, over the friends page: a sheet from the bottom on a phone, a side panel at the right from
+ * `tablet`, in the place of the friends page's.
+ */
 function BlockedSheet({ open, onOpenChange, blocked, now, busy, onOpenPlayer, onUnblock, error }: BlockedSheetProps) {
-  const desktop = useSidePanel(DESKTOP_QUERY);
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="blocked-players" className="max-h-[92dvh]">
-        <SheetHeader>
-          <SheetTitle>Blocked players</SheetTitle>
-          <SheetDescription>They cannot follow you, message you or invite you to a guild, and they are not told.</SheetDescription>
-        </SheetHeader>
-        <ScrollRegion className="-mx-6 min-h-0 px-6">
-          {blocked === null && <Skeleton aria-busy className="h-18 rounded-xl" />}
-          {blocked?.length === 0 && <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">You block no one. Block a player from their profile.</p>}
-          {blocked && blocked.length > 0 && (
-            <ul className="flex flex-col gap-2">
-              {blocked.map((r) => (
-                <li key={keyOf(r.profile.address)}>
-                  <FollowPlayerRow profile={r.profile} now={now} onOpen={onOpenPlayer}>
-                    <Button size="sm" variant="outline" aria-label={`Unblock ${r.profile.name ?? "this player"}`} loading={busy === keyOf(r.profile.address)} disabled={busy !== null} onClick={() => onUnblock(r.profile.address)}>
-                      <Icon name="lock-open" size="xs" />
-                      Unblock
-                    </Button>
-                  </FollowPlayerRow>
-                </li>
-              ))}
-            </ul>
-          )}
-          <InlineError title="Unblock" message={error} className="mt-2" />
-        </ScrollRegion>
-      </SheetContent>
-    </Sheet>
+    <HudDrawer open={open} onOpenChange={onOpenChange} title="Blocked players" side="right" phone="sheet" slot="blocked-players">
+      <p className="text-sm font-semibold text-muted-foreground">They cannot follow you, message you or invite you to a guild, and they are not told.</p>
+      {blocked === null && <Skeleton aria-busy className="h-18 rounded-xl" />}
+      {blocked?.length === 0 && <p className={CARVED_NOTE}>You block no one. Block a player from their profile.</p>}
+      {blocked && blocked.length > 0 && (
+        <ul className={CARVED_ROWS}>
+          {blocked.map((r, i) => (
+            <li key={keyOf(r.profile.address)} style={rowRule(i)}>
+              <FollowPlayerRow profile={r.profile} onOpen={onOpenPlayer}>
+                <Button variant="ghost" aria-label={`Unblock ${r.profile.name ?? "this player"}`} loading={busy === keyOf(r.profile.address)} disabled={busy !== null} className={RAISED_PILL} onClick={() => onUnblock(r.profile.address)}>
+                  Unblock
+                </Button>
+              </FollowPlayerRow>
+            </li>
+          ))}
+        </ul>
+      )}
+      <InlineError title="Unblock" message={error} />
+    </HudDrawer>
   );
 }
