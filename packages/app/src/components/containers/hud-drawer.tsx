@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { UiIcon } from "../elements/ui-icon";
@@ -28,6 +28,34 @@ const TITLE_AFTER_BACK = "-ml-2";
 /** The header's control, Back or the close: a 44 px target at its top line's end. */
 const CONTROL = "state-layer grid size-11 cursor-pointer place-items-center rounded-full outline-none";
 
+/** A view a page draws in the drawer's body in its own place: its title on the header, its Back to what it covers. */
+interface DrawerView {
+  title: string;
+  onBack: () => void;
+}
+
+const DrawerViewContext = createContext<((view: DrawerView | null) => void) | null>(null);
+
+/**
+ * A view a page opens in the drawer, in its place (GUILD-PAGE, the owner's ask of 2026-11-05: what a page opens beyond itself opens in
+ * its drawer, never a sheet over it; Back goes back, the red cross or a tap on the village leaves): while `title` is set, the header
+ * shows it, with Back calling `onBack`. Null: the page's own title. Returns whether a drawer holds it (outside one, the caller draws its
+ * own Back).
+ */
+export function useDrawerView(title: string | null, onBack: () => void): boolean {
+  const set = useContext(DrawerViewContext);
+  const back = useRef(onBack);
+  useLayoutEffect(() => {
+    back.current = onBack;
+  });
+  useLayoutEffect(() => {
+    if (!set || title === null) return;
+    set({ title, onBack: () => back.current() });
+    return () => set(null);
+  }, [set, title]);
+  return set !== null;
+}
+
 export interface HudDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,8 +69,9 @@ export interface HudDrawerProps {
   /** What the header holds at its outer end, opposite its control (the page's balance: the Missions' Cobbles). */
   end?: ReactNode;
   /**
-   * A view of the page drawn in its place (SHOP-PAGE: a theme's tiles, never a sheet over the drawer): its Back at the header's start
-   * at every width, back to the page; the side panel keeps its close.
+   * A view of the page drawn in its place (SHOP-PAGE: a theme's tiles, never a sheet over the drawer; a page's own views can also say
+   * so with `useDrawerView`): its Back at the header's start at every width, back to the page, and the red cross at its end, the side
+   * panel's and the phone's alike (the owner's ask of 2026-11-05: on a phone too, the cross leaves at once).
    */
   onBack?: () => void;
   /** A press outside it (the Missions': on a dialog over it, the Cobbles' packs). Prevented, the drawer stays open. */
@@ -53,6 +82,19 @@ export interface HudDrawerProps {
   slot?: string;
   className?: string;
   children: ReactNode;
+}
+
+/** A view's own Back and title, for a page drawn outside a drawer (its stories, a test): in a drawer the header holds them. */
+export function ViewHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <button type="button" onClick={onBack} className={cn(CONTROL, "shrink-0")}>
+        <Icon name="chevron-left" />
+        <span className="sr-only">Back</span>
+      </button>
+      <h2 className="text-outline min-w-0 text-xl leading-tight font-bold wrap-anywhere">{title}</h2>
+    </div>
+  );
 }
 
 /**
@@ -71,21 +113,27 @@ export interface HudDrawerProps {
  */
 export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
   const side = useSidePanel(SIDE_QUERY);
+  // A view a page opened in its place (`useDrawerView`): its title and its Back, over the drawer's own.
+  const [view, setView] = useState<DrawerView | null>(null);
+  const toBack = view?.onBack ?? onBack;
   // The phone's Back at the top left, the title right after it; the side panel's close at the header's right end, after what the page
   // shows there (the owner's ask of 2026-11-04: the title on the left, the balance at the top right).
-  const control = side ? (
+  const close = (
     <SheetClose data-slot="hud-drawer-close" className={CONTROL}>
       <UiIcon name="close" px={36} className="drawer-icon size-9" />
       <span className="sr-only">Close</span>
     </SheetClose>
+  );
+  const control = side ? (
+    close
   ) : (
     <SheetClose data-slot="hud-drawer-back" className={CONTROL}>
       <Icon name="chevron-left" className="drawer-icon" />
       <span className="sr-only">Back</span>
     </SheetClose>
   );
-  const back = onBack && (
-    <button type="button" data-slot="hud-drawer-back" className={CONTROL} onClick={onBack}>
+  const back = toBack && (
+    <button type="button" data-slot="hud-drawer-back" className={CONTROL} onClick={toBack}>
       <Icon name="chevron-left" className="drawer-icon" />
       <span className="sr-only">Back</span>
     </button>
@@ -114,18 +162,18 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end,
         }}
         className={cn(SURFACE, side ? SIDE : PAGE, className)}
       >
-        {/* One row: Back (a phone's), the title on the left, what the page shows at the end, the close (a side panel's) last. */}
+        {/* One row: Back (a phone's, or a view's), the title on the left, what the page shows at the end, the close (a side panel's, or a view's) last. */}
         <SheetHeader className="drawer-band flex shrink-0 flex-row items-center gap-1 px-2 py-2.5">
           {back || (!side && control)}
           <SheetTitle data-slot="hud-drawer-title" className={cn("text-outline min-w-0 flex-1 truncate text-left font-display text-2xl leading-tight tracking-wide", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
-            {title}
+            {view?.title ?? title}
           </SheetTitle>
           {ends}
-          {side && control}
+          {(side || back) && close}
         </SheetHeader>
         {/* Down only: what glows past the content's edge (a waiting gift's halo at a row's end) is cut at the drawer's, never scrolled to. */}
         <ScrollRegion data-hud-drawer-body="" className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overscroll-contain px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {children}
+          <DrawerViewContext.Provider value={setView}>{children}</DrawerViewContext.Provider>
         </ScrollRegion>
       </SheetContent>
     </Sheet>

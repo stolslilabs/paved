@@ -39,7 +39,8 @@ describe("the social pages' scenes (#973)", () => {
       [<FriendsScene {...FRIENDS_SEARCH.idle} onBack={onBack} />, "Friends", "No friends yet"],
     ] as const) {
       const { unmount } = render(wrap(scene));
-      expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+      // The Guild's title is its HUD drawer's (GUILD-PAGE), the dialog's own heading.
+      expect(screen.getByRole("heading", { level: title === "Guild" ? 2 : 1, name: title })).toBeInTheDocument();
       expect(screen.getByText(empty)).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Back" }));
       unmount();
@@ -124,7 +125,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
   it("opens the guild page on the finder of a player in no guild", async () => {
     open("/guild");
-    expect(await screen.findByRole("heading", { level: 1, name: "Guild" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Guild" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(await screen.findByText("You are in no guild", undefined, { timeout: slow(8000) })).toBeInTheDocument();
   });
 
@@ -169,20 +170,28 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
     it("with ?guild= opens that guild on the guild page", async () => {
       const { router } = open("/social?guild=2");
-      // The guild's sheet is modal: the page under it is hidden from assistive technology while it is open.
-      expect(await screen.findByRole("heading", { level: 1, name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
+      // The guild's sheet is modal: the page's drawer under it is hidden from assistive technology while it is open.
+      expect(await screen.findByRole("dialog", { name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
-      expect(await screen.findByRole("dialog", undefined, { timeout: slow(8000) })).toBeInTheDocument();
+      // The guild's sheet over the drawer: the one dialog left in the accessibility tree.
+      await waitFor(() => expect(screen.getByRole("dialog")).not.toHaveAttribute("data-hud-drawer"), { timeout: slow(8000) });
     });
 
     it("a guild's link, /guild/<id>, opens that guild's page over the guild page, the ?ref= kept", async () => {
       const { router } = open("/guild/2?ref=abc");
-      expect(await screen.findByRole("heading", { level: 1, name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
-      const sheet = await screen.findByRole("dialog", undefined, { timeout: slow(8000) });
+      const sheet = await waitFor(
+        () => {
+          const dialog = screen.getByRole("dialog");
+          expect(dialog).not.toHaveAttribute("data-hud-drawer");
+          return dialog;
+        },
+        { timeout: slow(8000) },
+      );
       expect(await within(sheet).findByRole("heading", { level: 2 }, { timeout: slow(8000) })).toBeInTheDocument();
     });
 

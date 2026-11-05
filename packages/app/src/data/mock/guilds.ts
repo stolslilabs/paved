@@ -2,6 +2,7 @@ import {
   GUILD_INVITE_TTL_S,
   GUILD_LEADER_IDLE_S,
   GUILD_RANK,
+  GUILD_RIGHTS,
   acceptInvitationRefusal,
   acceptRequestRefusal,
   cancelRequestRefusal,
@@ -27,6 +28,8 @@ import {
   normalGuildName,
   postAnnouncementRefusal,
   promoteRefusal,
+  rankAbove,
+  rankBelow,
   rankGuilds,
   requestRefusal,
   rotatedLeader,
@@ -102,6 +105,8 @@ export interface StoredLogEntry {
   actor: string;
   target: string | null;
   reason: string | null;
+  /** A promotion's or a demotion's new rank (GUILD-PAGE's five ranks); left out before them, an Officer's or a Member's. */
+  rank?: GuildRank;
 }
 
 export interface StoredGuild {
@@ -242,7 +247,7 @@ function seededGuild(seed: GuildSeed, i: number): StoredGuild {
   seed.officers.forEach((index, n) => {
     const promotedAt = createdAt + 86_400 * (3 + n);
     members.find((m) => m.address === at(index))!.rank = GUILD_RANK.officer;
-    log.push({ kind: "promoted", at: promotedAt, actor: at(seed.leader), target: at(index), reason: null });
+    log.push({ kind: "promoted", at: promotedAt, actor: at(seed.leader), target: at(index), reason: null, rank: GUILD_RANK.officer });
   });
   const announcements = seed.announcements.map((a, n) => ({ id: n + 1, author: at(a.by), text: a.text, at: SEED_T0 + a.day * 3_600 * 24 - 3_600 * (i + 1), editedAt: null }));
   for (const a of announcements) log.push({ kind: "announcement", at: a.at, actor: a.author, target: null, reason: null });
@@ -277,15 +282,15 @@ function candidate(world: GuildWorld, people: GuildPeople, address: string) {
   return { level: p.level, crowns: p.crowns, guild: guildOfKey(world, address)?.id ?? null };
 }
 
-function addLog(g: StoredGuild, kind: GuildLogKind, at: number, actor: string, target: string | null = null, reason: string | null = null): void {
-  g.log = keepLog([...g.log, { kind, at, actor, target, reason }]);
+function addLog(g: StoredGuild, kind: GuildLogKind, at: number, actor: string, target: string | null = null, reason: string | null = null, rank?: GuildRank): void {
+  g.log = keepLog([...g.log, { kind, at, actor, target, reason, ...(rank === undefined ? {} : { rank }) }]);
 }
 
-/** `address` joins `g` at `at`: as a Member, their request and this guild's invitation to them gone. */
+/** `address` joins `g` at `at`: as a Recruit (GUILD-PAGE's five ranks), their request and this guild's invitation to them gone. */
 function enter(world: GuildWorld, g: StoredGuild, address: string, at: number): void {
   for (const other of world.guilds) other.requests = other.requests.filter((r) => r.address !== address);
   g.invitations = g.invitations.filter((i) => i.address !== address);
-  g.members.push({ address, rank: GUILD_RANK.member, joinedAt: at, lastKick: null });
+  g.members.push({ address, rank: GUILD_RANK.recruit, joinedAt: at, lastKick: null });
   addLog(g, "joined", at, address);
 }
 
@@ -354,7 +359,7 @@ function nextDue(world: GuildWorld, people: GuildPeople, now: number, blocked: G
         apply: () => {
           g.seedRequestAt = null;
           if (g.settings.joinType !== "request") return;
-          const officers = g.members.filter((x) => x.rank >= GUILD_RANK.officer).map((x) => x.address);
+          const officers = g.members.filter((x) => x.rank >= GUILD_RIGHTS.answer).map((x) => x.address);
           const asked = community().find((m) => {
             if (officers.some((o) => blocked(o, key(m.address)))) return false;
             const c = candidate(world, people, key(m.address));
@@ -400,7 +405,7 @@ function lastSeen(world: GuildWorld, address: string, at: number): number {
  */
 export function dropBlocked(world: GuildWorld, blocked: GuildBlocks): GuildWorld {
   for (const g of world.guilds) {
-    const officers = g.members.filter((m) => m.rank >= GUILD_RANK.officer).map((m) => m.address);
+    const officers = g.members.filter((m) => m.rank >= GUILD_RIGHTS.answer).map((m) => m.address);
     g.invitations = g.invitations.filter((i) => !blocked(i.inviter, i.address));
     g.requests = g.requests.filter((r) => !officers.some((o) => blocked(o, r.address)));
   }
@@ -459,14 +464,15 @@ const nameOf = (people: GuildPeople, address: string | null): string | null => (
 function viewOf(g: StoredGuild, people: GuildPeople, now: number, viewer: string | null): GuildView {
   const me = viewer === null ? null : memberOf(g, viewer);
   const rank = me?.rank ?? null;
-  const officer = rank !== null && rank >= GUILD_RANK.officer;
+  // The requests and the invitations sent: for the ranks that answer them (a Veteran and above).
+  const officer = rank !== null && rank >= GUILD_RIGHTS.answer;
   const roster = sortGuildMembers(g.members.map((m) => ({ ...m, crowns: people(m.address).crowns }))).map((m) => ({ profile: people(m.address), rank: m.rank, joinedAt: m.joinedAt }));
   return {
     ...summaryOf(g, people, now),
     roster,
     rank,
     announcements: me ? g.announcements.map((a) => ({ id: a.id, author: a.author, authorName: nameOf(people, a.author), text: a.text, at: a.at, editedAt: a.editedAt })) : null,
-    log: me ? g.log.map((e) => ({ kind: e.kind, at: e.at, actor: e.actor, actorName: nameOf(people, e.actor), target: e.target, targetName: nameOf(people, e.target), reason: e.reason })) : null,
+    log: me ? g.log.map((e) => ({ kind: e.kind, at: e.at, actor: e.actor, actorName: nameOf(people, e.actor), target: e.target, targetName: nameOf(people, e.target), reason: e.reason, rank: e.rank ?? null })) : null,
     requests: officer ? g.requests.map((r) => ({ profile: people(r.address), message: r.message, sentAt: r.sentAt })) : null,
     invitations: officer ? [...g.invitations].sort((a, b) => b.sentAt - a.sentAt).map((i) => ({ profile: people(i.address), inviter: i.inviter, sentAt: i.sentAt, expiresAt: i.sentAt + GUILD_INVITE_TTL_S })) : null,
     nextKickAt: officer ? nextKickAt(me!, now) : null,
@@ -630,16 +636,16 @@ export function promoteIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(promoteRefusal(me, t));
-  t.rank = GUILD_RANK.officer;
-  addLog(g, "promoted", w.now, w.player, t.address);
+  t.rank = rankAbove(t.rank)!;
+  addLog(g, "promoted", w.now, w.player, t.address, null, t.rank);
 }
 
 export function demoteIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(demoteRefusal(me, t));
-  t.rank = GUILD_RANK.member;
-  addLog(g, "demoted", w.now, w.player, t.address);
+  t.rank = rankBelow(t.rank)!;
+  addLog(g, "demoted", w.now, w.player, t.address, null, t.rank);
 }
 
 export function makeLeaderIn(w: GuildWrite, target: string): void {

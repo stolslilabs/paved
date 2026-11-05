@@ -1,17 +1,51 @@
 import { GUILD_RANK, formatNumber, type GuildJoinType, type GuildRank, type GuildRefusal, type GuildRequirements } from "@paved/game-core";
+import type { UiIconName } from "../components/elements/ui-art";
 import { GuildRefusedError, type GuildLogEntry } from "../data/social-source";
 
 // The guilds' words (#953): the ranks, the join types, the requirements, the log's lines and why an action is refused, as the
 // Guild tab, the guild's page and the profiles say them. Game-core holds the rules; this is how the pages read them.
 
-/** A rank's name. */
-export const rankName = (rank: GuildRank): string => (rank >= GUILD_RANK.leader ? "Leader" : rank >= GUILD_RANK.officer ? "Officer" : "Member");
+/** The ranks' names (GUILD-PAGE's five, the owner's choice of 2026-11-05). */
+const RANK_NAMES: Record<GuildRank, string> = {
+  [GUILD_RANK.recruit]: "Recruit",
+  [GUILD_RANK.member]: "Member",
+  [GUILD_RANK.veteran]: "Veteran",
+  [GUILD_RANK.officer]: "Officer",
+  [GUILD_RANK.leader]: "Leader",
+};
 
-/** Each join type: its name, its icon and what it means for a player who wants in. */
-export const JOIN_TYPES: Record<GuildJoinType, { label: string; icon: string; line: string }> = {
-  open: { label: "Open", icon: "lock-open", line: "Anyone who meets the requirements joins at once." },
-  request: { label: "By request", icon: "user-group", line: "Send a request: an officer or the leader answers it." },
-  invite: { label: "Invite only", icon: "lock", line: "Only an officer or the leader can bring a player in." },
+/** A rank's name. */
+export const rankName = (rank: GuildRank): string => RANK_NAMES[rank] ?? "Member";
+
+/** Each rank's painted icon (GUILD-PAGE): the Recruit's sprout, the Member's bust, the Veteran's medal, the Officer's star, the Leader's crown. */
+/** A rank's painted art (its own type: the Font Awesome subset's scan reads the literals of a block opened on a line naming an icon). */
+type RankArt = Record<GuildRank, UiIconName>;
+export const RANK_ART: RankArt = {
+  [GUILD_RANK.recruit]: "sprout",
+  [GUILD_RANK.member]: "user",
+  [GUILD_RANK.veteran]: "medal",
+  [GUILD_RANK.officer]: "star",
+  [GUILD_RANK.leader]: "crown",
+};
+
+/** What each rank may do, as a promotion's confirmation says it: the rights it adds to those under it. */
+export const RANK_RIGHTS: Record<GuildRank, string> = {
+  [GUILD_RANK.recruit]: "Recruits read the announcements and chat with the guild.",
+  [GUILD_RANK.member]: "Members also invite players.",
+  [GUILD_RANK.veteran]: "Veterans also answer the requests and post announcements.",
+  [GUILD_RANK.officer]: "Officers also kick, and promote up to Veteran.",
+  [GUILD_RANK.leader]: "The leader also edits the settings and promotes Officers.",
+};
+
+/**
+ * Each join type: its name, its painted icon (GUILD-PAGE: Codex's open padlock and sealed letter, the HUD's padlock) and what it means
+ * for a player who wants in.
+ */
+type JoinTypeText = { label: string; art: UiIconName; line: string };
+export const JOIN_TYPES: Record<GuildJoinType, JoinTypeText> = {
+  open: { label: "Open", art: "unlock", line: "Anyone who meets the requirements joins at once." },
+  request: { label: "By request", art: "letter", line: "Send a request: a Veteran, an Officer or the leader answers it." },
+  invite: { label: "Invite only", art: "lock", line: "Only an invitation brings a player in: from a Member or above." },
 };
 
 /** The requirements as a short line: "Level 5, 300 crowns", or "None". */
@@ -37,9 +71,9 @@ export function logLine(e: GuildLogEntry): string {
     case "kicked":
       return `${actor} kicked ${target}${e.reason ? `: “${e.reason}”` : ""}`;
     case "promoted":
-      return `${actor} promoted ${target} to Officer`;
+      return `${actor} promoted ${target} to ${rankName(e.rank ?? GUILD_RANK.officer)}`;
     case "demoted":
-      return `${actor} demoted ${target} to Member`;
+      return `${actor} demoted ${target} to ${rankName(e.rank ?? GUILD_RANK.member)}`;
     case "leader":
       return e.target === null || e.target === e.actor ? `${actor} became the leader` : `${actor} made ${target} the leader`;
     case "settings":
@@ -75,12 +109,12 @@ export const REFUSALS: Record<GuildRefusal, string> = {
   self: "You cannot do this to yourself.",
   "kick-cooldown": "Officers kick once every 20 minutes.",
   "reason-length": "The reason is too long.",
-  "not-a-member": "Only a Member can be promoted.",
-  "not-an-officer": "Only an Officer can be demoted.",
+  "top-rank": "They cannot rise above the rank under yours.",
+  "bottom-rank": "A Recruit cannot be demoted.",
   "leader-must-transfer": "Make another member leader first.",
   "announcement-empty": "Write something first.",
   "announcement-length": "The announcement is too long.",
-  "not-author": "Officers edit only their own announcements.",
+  "not-author": "Only the leader edits another's announcements.",
   "invited-already": "This player has an invitation from the guild already.",
   blocked: "This player does not take invitations from you.",
   "invite-expired": "This invitation has lapsed.",

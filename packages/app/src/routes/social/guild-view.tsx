@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
-import { GUILD_RANK, type GuildCandidate } from "@paved/game-core";
+import { useEffect, useState, type ReactNode } from "react";
+import { GUILD_RIGHTS, type GuildCandidate } from "@paved/game-core";
 import { GuildPage, type GuildPageAction } from "../../components/containers/guild-page";
-import { GuildInviteSheet } from "../../components/containers/guild-page-sheets";
 import { memberWrite } from "../../components/containers/guild-profile";
+import { PlayerSearch } from "../../components/containers/player-search";
 import { ScrollRegion } from "../../components/ui/scroll-region";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
+import { useChatOverview } from "../../data/chat-overview";
 import { useGuild, type GuildWrites, type GuildWriteRun } from "../../data/guilds";
 import { usePlayerSearch } from "../../data/social";
 import type { GuildView, PlayerGuild } from "../../data/social-source";
@@ -59,32 +60,27 @@ export interface OwnGuildProps {
   unread: number;
   writes: GuildWrites;
   onOpenPlayer?: (address: string) => void;
-  /** The menu's Find guilds: the finder's search, Suggested and the ranking, in a sheet (the page's). */
-  onFindGuilds?: () => void;
+  /** The menu's Find guilds: the finder's search, Suggested and the ranking, in its view (the page's). */
+  find?: ReactNode;
 }
 
-/** Invite a player (#973): the player search, a result opening their profile, where Invite is. */
-function InviteSheet({ me, guildName, open, onOpenChange, onOpenPlayer }: { me: string; guildName: string; open: boolean; onOpenChange: (open: boolean) => void; onOpenPlayer?: (address: string) => void }) {
+/**
+ * Invite a player (#973), in the menu's view: the player search, a result opening their profile (over the drawer), where Invite is.
+ * Mounted while its view is shown: its query starts empty each time.
+ */
+function InviteSearch({ me, onOpenPlayer }: { me: string; onOpenPlayer?: (address: string) => void }) {
   const [query, setQuery] = useState("");
   const search = usePlayerSearch(query, me);
   return (
-    <GuildInviteSheet
-      open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-        if (!next) setQuery("");
-      }}
-      guildName={guildName}
-      search={{
-        query,
-        onQueryChange: setQuery,
-        results: search.data ?? null,
-        error: search.error?.message ?? null,
-        errorDetail: search.error ? errorDetail(search.error) : undefined,
-        onRetry: search.refetch,
-        unavailable: search.unavailable,
-      }}
-      onOpenPlayer={onOpenPlayer}
+    <PlayerSearch
+      query={query}
+      onQueryChange={setQuery}
+      results={search.data ?? null}
+      error={search.error?.message ?? null}
+      errorDetail={search.error ? errorDetail(search.error) : undefined}
+      onRetry={search.refetch}
+      unavailable={search.unavailable}
+      onOpen={onOpenPlayer}
     />
   );
 }
@@ -93,36 +89,37 @@ function InviteSheet({ me, guildName, open, onOpenChange, onOpenPlayer }: { me: 
  * The connected player's guild, on the guild page (#973): it opens on Announcements while one is unread, else on the last tab used
  * on this device, the first time on Members. Announcements shown, they are read (the Guild button's count drops them).
  */
-export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer, onFindGuilds }: OwnGuildProps) {
+export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer, find }: OwnGuildProps) {
   const { run } = writes;
   const go = useAppNavigate();
-  const officer = guild.rank !== null && guild.rank >= GUILD_RANK.officer;
-  const [tab, setTab] = useState<GuildTab>(() => openingGuildTab(unread, officer));
-  const [inviting, setInviting] = useState(false);
+  // GUILD-PAGE's five ranks: the Requests tab for those who answer them (a Veteran and above), Invite a player from a Member.
+  const answers = guild.rank !== null && guild.rank >= GUILD_RIGHTS.answer;
+  const invites = guild.rank !== null && guild.rank >= GUILD_RIGHTS.invite;
+  const [tab, setTab] = useState<GuildTab>(() => openingGuildTab(unread, answers));
+  // The header's Chat counts the guild chat's unread messages (GUILD-PAGE, the book's badge): the chat's overview, the home's read.
+  const chatUnread = useChatOverview(me).data?.conversations.find((c) => c.kind === "guild")?.unread ?? 0;
   useEffect(() => {
     if (tab === "announcements" && unread > 0) void run((g, p) => g.readAnnouncements(p)).catch(() => undefined);
   }, [tab, unread, guild.id, run]);
   return (
-    <>
-      <GuildPage
-        guild={guild}
-        me={me}
-        now={now}
-        tab={tab}
-        onTabChange={(next) => {
-          setTab(next);
-          storeGuildTab(next);
-        }}
-        unread={unread}
-        onAction={(a) => writes.run(pageWrite(a, guild.id))}
-        onOpenPlayer={onOpenPlayer}
-        // The chat page on Guild (`chatTabPath`, as a literal: the chat's URL module stays out of this chunk).
-        onOpenChat={() => go("/chat/guild")}
-        onInvite={() => setInviting(true)}
-        onFindGuilds={onFindGuilds}
-      />
-      {officer && <InviteSheet me={me} guildName={guild.name} open={inviting} onOpenChange={setInviting} onOpenPlayer={onOpenPlayer} />}
-    </>
+    <GuildPage
+      guild={guild}
+      me={me}
+      now={now}
+      tab={tab}
+      onTabChange={(next) => {
+        setTab(next);
+        storeGuildTab(next);
+      }}
+      unread={unread}
+      chatUnread={chatUnread}
+      onAction={(a) => writes.run(pageWrite(a, guild.id))}
+      onOpenPlayer={onOpenPlayer}
+      // The chat page on Guild (`chatTabPath`, as a literal: the chat's URL module stays out of this chunk).
+      onOpenChat={() => go("/chat/guild")}
+      invite={invites ? <InviteSearch me={me} onOpenPlayer={onOpenPlayer} /> : undefined}
+      find={find}
+    />
   );
 }
 

@@ -129,7 +129,7 @@ describe("joining on the mock (#953)", () => {
     const quarry = byName("The Quarrymen");
     await guilds.joinGuild(ME, quarry.id);
     const g = (await guilds.playerGuild(ME)).guild!;
-    expect(g).toMatchObject({ id: quarry.id, rank: GUILD_RANK.member, members: quarry.members.length + 1 });
+    expect(g).toMatchObject({ id: quarry.id, rank: GUILD_RANK.recruit, members: quarry.members.length + 1 });
     expect(g.log!.at(-1)).toMatchObject({ kind: "joined", actor: ME });
     // A member: the announcements and the log, not the requests.
     expect(g.announcements!.length).toBeGreaterThan(0);
@@ -188,12 +188,12 @@ describe("joining on the mock (#953)", () => {
     expect((await guilds.playerGuild(ME)).guild).toBeNull();
     clock.now += 1;
     const g = (await guilds.playerGuild(ME)).guild!;
-    expect(g).toMatchObject({ id: oak.id, rank: GUILD_RANK.member });
+    expect(g).toMatchObject({ id: oak.id, rank: GUILD_RANK.recruit });
     expect(g.log!.at(-1)).toMatchObject({ kind: "joined", actor: ME, at: T0 + MOCK_ACCEPT_S });
     expect((await guilds.playerGuild(ME)).request).toBeNull();
   });
 
-  it("lets the officers and the leader answer requests; a guild created By request gets one from the community", async () => {
+  it("lets a Veteran or above answer requests; a guild created By request gets one from the community", async () => {
     const { guilds, clock } = world();
     const id = await guilds.createGuild(ME, draft({ joinType: "request" }));
     await guilds.requestToJoin(OTHER, id, "Hello");
@@ -201,8 +201,8 @@ describe("joining on the mock (#953)", () => {
     expect(mine.guild!.requests!.map((r) => r.profile.address)).toEqual([OTHER]);
     expect(mine.badge).toBe(1);
     await guilds.answerRequest(ME, OTHER, true);
-    expect((await guilds.playerGuild(OTHER)).guild).toMatchObject({ id, rank: GUILD_RANK.member });
-    // A member may not answer.
+    expect((await guilds.playerGuild(OTHER)).guild).toMatchObject({ id, rank: GUILD_RANK.recruit });
+    // A Recruit may not answer (a Veteran and above do).
     await expect(guilds.answerRequest(OTHER, "0xabc003", true)).rejects.toEqual(refused("rank"));
     await expect(guilds.answerRequest(ME, "0xabc003", false)).rejects.toEqual(refused("no-request"));
 
@@ -234,7 +234,7 @@ describe("invitations on the mock (#953)", () => {
     expect((await guilds.playerGuild(ME)).invitations).toHaveLength(1);
     await guilds.answerInvitation(ME, mine.invitations[0]!.guild.id, true);
     const g = (await guilds.playerGuild(ME)).guild!;
-    expect(g).toMatchObject({ name: "Iron Quay Wardens", rank: GUILD_RANK.member });
+    expect(g).toMatchObject({ name: "Iron Quay Wardens", rank: GUILD_RANK.recruit });
     expect((await guilds.playerGuild(ME)).invitations).toEqual([]);
   });
 
@@ -248,7 +248,7 @@ describe("invitations on the mock (#953)", () => {
     const theirs = await guilds.createGuild(OTHER, draft({ name: "Other Road" }));
     await expect(guilds.answerInvitation(OTHER, id, true)).rejects.toEqual(refused("in-guild"));
     await guilds.answerInvitation(OTHER, id, true, true);
-    expect((await guilds.playerGuild(OTHER)).guild).toMatchObject({ id, rank: GUILD_RANK.member });
+    expect((await guilds.playerGuild(OTHER)).guild).toMatchObject({ id, rank: GUILD_RANK.recruit });
     expect(await guilds.guild(theirs, null)).toBeNull();
     // A member may not invite.
     await expect(guilds.invite(OTHER, "0xabc003")).rejects.toEqual(refused("rank"));
@@ -281,7 +281,7 @@ describe("invitations on the mock (#953)", () => {
   });
 });
 
-/** ME leads a guild with OTHER and two more device players, all Members. */
+/** ME leads a guild with OTHER and two more device players, all Recruits (GUILD-PAGE: a player who joins is one). */
 async function guildOfFour() {
   const w = world();
   const id = await w.guilds.createGuild(ME, draft());
@@ -289,26 +289,38 @@ async function guildOfFour() {
   return { ...w, id };
 }
 
+/** The leader ME promotes `target` one rank at a time up to `rank`. */
+async function promoteTo(guilds: Awaited<ReturnType<typeof guildOfFour>>["guilds"], target: string, rank: number) {
+  while ((await guilds.guildOf(target))!.rank < rank) await guilds.promote(ME, target);
+}
+
 describe("ranks and kicks on the mock (#953)", () => {
-  it("promotes and demotes, the leader only, logged", async () => {
+  it("promotes and demotes one rank at a time (GUILD-PAGE): an Officer up to Veteran, the leader up to Officer, logged with the new rank", async () => {
     const { guilds } = await guildOfFour();
     await guilds.promote(ME, OTHER);
-    expect((await guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.officer);
-    await expect(guilds.promote(OTHER, "0xabc003")).rejects.toEqual(refused("rank"));
-    await expect(guilds.promote(ME, OTHER)).rejects.toEqual(refused("not-a-member"));
-    await guilds.demote(ME, OTHER);
     expect((await guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.member);
-    await expect(guilds.demote(ME, OTHER)).rejects.toEqual(refused("not-an-officer"));
+    await promoteTo(guilds, OTHER, GUILD_RANK.officer);
+    await expect(guilds.promote(ME, OTHER)).rejects.toEqual(refused("top-rank"));
+    // The Officer promotes a Recruit up to Veteran, no higher; a Veteran promotes no one.
+    await guilds.promote(OTHER, "0xabc003");
+    await guilds.promote(OTHER, "0xabc003");
+    expect((await guilds.guildOf("0xabc003"))!.rank).toBe(GUILD_RANK.veteran);
+    await expect(guilds.promote(OTHER, "0xabc003")).rejects.toEqual(refused("top-rank"));
+    await expect(guilds.promote("0xabc003", "0xabc004")).rejects.toEqual(refused("rank"));
+    await guilds.demote(ME, OTHER);
+    expect((await guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.veteran);
+    await expect(guilds.demote(ME, "0xabc004")).rejects.toEqual(refused("bottom-rank"));
     await expect(guilds.promote(ME, "0xdead")).rejects.toEqual(refused("not-in-guild"));
-    expect((await guilds.playerGuild(ME)).guild!.log!.slice(-2).map((e) => [e.kind, e.target])).toEqual([
-      ["promoted", OTHER],
-      ["demoted", OTHER],
+    expect((await guilds.playerGuild(ME)).guild!.log!.slice(-3).map((e) => [e.kind, e.target, e.rank])).toEqual([
+      ["promoted", "0xabc003", GUILD_RANK.member],
+      ["promoted", "0xabc003", GUILD_RANK.veteran],
+      ["demoted", OTHER, GUILD_RANK.veteran],
     ]);
   });
 
-  it("kicks with a reason; an officer Members only, once per 20 minutes", async () => {
+  it("kicks with a reason; an officer the ranks under theirs, once per 20 minutes", async () => {
     const { guilds, clock } = await guildOfFour();
-    await guilds.promote(ME, OTHER);
+    await promoteTo(guilds, OTHER, GUILD_RANK.officer);
     await expect(guilds.kick(OTHER, ME, "")).rejects.toEqual(refused("rank-not-above"));
     await guilds.kick(OTHER, "0xabc003", "Inactive");
     expect(await guilds.guildOf("0xabc003")).toBeNull();
@@ -365,7 +377,7 @@ describe("the leader's rotation, whoever reads (#953)", () => {
     const id = await guilds.createGuild(ME, draft());
     await guilds.joinGuild(OTHER, id);
     await guilds.promote(ME, OTHER);
-    // OTHER plays on day 34; ME stays away until day 35.
+    // OTHER (a Member) plays on day 34; ME stays away until day 35.
     clock.now = T0 + 34 * 86_400;
     await guilds.readAnnouncements(OTHER);
     clock.now = T0 + GUILD_LEADER_IDLE_S;
@@ -373,7 +385,7 @@ describe("the leader's rotation, whoever reads (#953)", () => {
     expect(await reads()).toEqual([GUILD_RANK.officer, GUILD_RANK.officer, GUILD_RANK.leader, GUILD_RANK.leader]);
     // The old leader's write is checked on the rotated guild: an Officer does not kick the Leader.
     await expect(guilds.kick(ME, OTHER, "")).rejects.toEqual(refused("rank-not-above"));
-    await expect(guilds.promote(ME, OTHER)).rejects.toEqual(refused("rank"));
+    await expect(guilds.promote(ME, OTHER)).rejects.toEqual(refused("rank-not-above"));
     expect(await reads()).toEqual([GUILD_RANK.officer, GUILD_RANK.officer, GUILD_RANK.leader, GUILD_RANK.leader]);
     // Later reads agree, the rotation logged once, when it came due.
     clock.now += 5 * 86_400;
@@ -420,7 +432,7 @@ describe("unread announcements, guild by guild (#953)", () => {
 
   it("keeps a poster's earlier unread announcements unread", async () => {
     const { guilds, clock } = await guildOfFour();
-    await guilds.promote(ME, OTHER);
+    await promoteTo(guilds, OTHER, GUILD_RANK.veteran);
     await guilds.postAnnouncement(OTHER, "From the officer.");
     clock.now += 60;
     await guilds.postAnnouncement(ME, "From the leader.");
@@ -452,12 +464,12 @@ describe("leaving on the mock (#953)", () => {
 });
 
 describe("announcements on the mock (#953)", () => {
-  it("are posted by officers and the leader, pinned newest first, unread for the others", async () => {
+  it("are posted by a Veteran or above, pinned newest first, unread for the others", async () => {
     const { guilds, clock } = await guildOfFour();
     await expect(guilds.postAnnouncement(OTHER, "Hi")).rejects.toEqual(refused("rank"));
     await guilds.postAnnouncement(ME, "Raid at dusk.");
     clock.now += 60;
-    await guilds.promote(ME, OTHER);
+    await promoteTo(guilds, OTHER, GUILD_RANK.veteran);
     await guilds.postAnnouncement(OTHER, "  Bring stone.  ");
     const mine = await guilds.playerGuild(ME);
     expect(mine.guild!.announcements!.map((a) => [a.text, a.author])).toEqual([
@@ -472,9 +484,9 @@ describe("announcements on the mock (#953)", () => {
     expect(mine.guild!.log!.filter((e) => e.kind === "announcement")).toHaveLength(2);
   });
 
-  it("are edited and deleted by an officer when theirs, by the leader all", async () => {
+  it("are edited and deleted by a Veteran or an Officer when theirs, by the leader all", async () => {
     const { guilds } = await guildOfFour();
-    await guilds.promote(ME, OTHER);
+    await promoteTo(guilds, OTHER, GUILD_RANK.officer);
     await guilds.postAnnouncement(ME, "Leader's");
     await guilds.postAnnouncement(OTHER, "Officer's");
     const [officers, leaders] = (await guilds.playerGuild(ME)).guild!.announcements!;

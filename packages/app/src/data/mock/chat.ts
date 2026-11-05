@@ -780,6 +780,8 @@ const logEntryOf = (w: ChatWorld, e: StoredLogEntry): GuildLogEntry => ({
   target: e.target,
   targetName: e.target === null ? null : w.people(e.target).name,
   reason: e.reason,
+  // A promotion's or a demotion's new rank (GUILD-PAGE's five ranks), for its line.
+  rank: e.rank ?? null,
 });
 
 /** A line as `viewer` sees it. */

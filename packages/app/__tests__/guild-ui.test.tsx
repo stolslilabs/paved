@@ -4,11 +4,13 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { GUILD_RANK } from "@paved/game-core";
+import { GUILD_EMBLEM_ICONS, GUILD_EMBLEM_SILVER, GUILD_RANK, formatInteger } from "@paved/game-core";
 import { GuildCard } from "../src/components/containers/guild-card";
+import { GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art";
 import { GuildFinder } from "../src/components/containers/guild-finder";
 import { GuildPage } from "../src/components/containers/guild-page";
 import { GuildLine, GuildMemberActions } from "../src/components/containers/guild-profile";
+import { GuildScene } from "../src/components/scenes/guild-scene";
 import { GuildRefusedError } from "../src/data/social-source";
 import { logLine, REFUSALS } from "../src/lib/guild-text";
 import { GUILD_ACTIONS, GUILD_BADGE, GUILD_FINDER, GUILD_PAGE } from "../src/mocks/guilds";
@@ -30,32 +32,44 @@ const button = (name: string | RegExp) => screen.queryByRole("button", { name })
 
 /** The guild page's tabs, as their labels read. */
 const tabNames = () => within(screen.getByRole("tablist", { name: "Guild" })).getAllByRole("tab").map((t) => t.textContent);
-/** Opens the header's menu (a sheet); its items, by their names. */
+/** Opens the header's menu (GUILD-PAGE: a view in the page's place); its items, by their names. */
 async function menu() {
   await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
-  const sheet = await screen.findByRole("dialog", { name: "Guild menu" });
-  return within(sheet).getAllByRole("listitem").map((i) => within(i).getByRole("button").textContent);
+  const list = await screen.findByRole("list", { name: "Guild menu" });
+  return within(list).getAllByRole("listitem").map((i) => within(i).getByRole("button").textContent);
 }
 /** An item of the open menu. */
-const item = (name: string | RegExp) => within(screen.getByRole("dialog", { name: "Guild menu" })).getByRole("button", { name });
+const item = (name: string | RegExp) => within(screen.getByRole("list", { name: "Guild menu" })).getByRole("button", { name });
+/** A view's title: outside the drawer, the page draws it with its own Back. */
+const viewTitle = (name: string) => screen.findByRole("heading", { level: 2, name });
+const goBack = () => userEvent.click(screen.getByRole("button", { name: "Back" }));
 const tab = (name: string) => userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
 
 describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank sees only its own", () => {
-  it("a Member: the header with Chat; Announcements, Members and Log, on Members the first time; the menu's Find guilds and Leave", async () => {
+  it("a Member: the header with Chat; Announcements, Members and Log, on Members the first time; the menu's Invite, Find guilds and Leave", async () => {
     const onOpenChat = vi.fn();
-    render(wrap(<GuildPage {...GUILD_PAGE.member} onOpenChat={onOpenChat} onFindGuilds={vi.fn()} />));
+    render(wrap(<GuildPage {...GUILD_PAGE.member} onOpenChat={onOpenChat} find={<p>The guild search</p>} />));
     const header = screen.getByRole("heading", { level: 2, name: "The Quarrymen" }).closest("header")!;
     expect(header).toHaveTextContent("Member");
     expect(header).toHaveTextContent(/\d+\/50/);
-    expect(header).toHaveTextContent("Requirements:");
+    // GUILD-PAGE: the book's header has no requirements line for a member (a visitor's keeps it).
+    expect(header).not.toHaveTextContent("Requirements:");
     expect(tabNames()).toEqual(["Announcements", "Members", "Log"]);
     expect(screen.getByRole("tab", { name: "Members" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("region", { name: "Members" })).toBeInTheDocument();
     await userEvent.click(within(header).getByRole("button", { name: "Chat" }));
     expect(onOpenChat).toHaveBeenCalled();
-    expect(await menu()).toEqual(["Find guilds", "Leave the guild"]);
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await menu()).toEqual(["Invite a player", "Find guilds", "Leave the guild"]);
+    // Find guilds: its view in the menu's place, Back to the menu, Back to the page.
+    await userEvent.click(item("Find guilds"));
+    expect(await viewTitle("Find guilds")).toBeInTheDocument();
+    expect(screen.getByText("The guild search")).toBeInTheDocument();
+    await goBack();
+    expect(await screen.findByRole("list", { name: "Guild menu" })).toBeInTheDocument();
+    await goBack();
+    expect(await screen.findByRole("heading", { level: 2, name: "The Quarrymen" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Guild menu" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     await tab("Announcements");
     expect(screen.getByRole("region", { name: "Announcements" })).toBeInTheDocument();
     expect(button(/Post/)).toBeNull();
@@ -71,31 +85,46 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
   });
 
   it("an Officer: the Requests tab badged, the requests then the invitations sent; Post, their own announcements only; Invite in the menu, no settings", async () => {
-    const onInvite = vi.fn();
-    render(wrap(<GuildPage {...GUILD_PAGE.officer} onInvite={onInvite} onFindGuilds={vi.fn()} />));
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} invite={<p>The player search</p>} />));
     expect(tabNames()).toEqual(["Announcements", "Members", "Requests2", "Log"]);
     await tab("Requests");
-    expect(within(screen.getByRole("region", { name: "Requests" })).getByRole("heading")).toHaveTextContent("Requests2");
-    expect(within(screen.getByRole("region", { name: "Invitations sent" })).getByRole("heading")).toHaveTextContent("Invitations sent1");
+    expect(within(screen.getByRole("region", { name: "Requests" })).getAllByRole("listitem")).toHaveLength(2);
+    const sent = screen.getByRole("region", { name: "Invitations sent" });
+    expect(within(sent).getAllByRole("listitem")).toHaveLength(1);
+    // No Cancel: the guild source has no way to take an invitation back; when it lapses stands in its place.
+    expect(within(sent).queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(sent).toHaveTextContent(/Lapses in \d+d/);
     await tab("Announcements");
     expect(button(/Post/)).toBeInTheDocument();
     // The officer wrote the second announcement only: one Edit.
     expect(screen.getAllByRole("button", { name: /Edit/ })).toHaveLength(1);
     expect(await menu()).toEqual(["Invite a player", "Find guilds", "Leave the guild"]);
     await userEvent.click(item("Invite a player"));
-    expect(onInvite).toHaveBeenCalled();
+    expect(await viewTitle("Invite a player")).toBeInTheDocument();
+    expect(screen.getByText("The player search")).toBeInTheDocument();
   });
 
   it("the Leader: every announcement's Edit and Delete; the menu's Guild settings; Leave waits for another leader", async () => {
-    render(wrap(<GuildPage {...GUILD_PAGE.leader} defaultTab="announcements" onInvite={vi.fn()} onFindGuilds={vi.fn()} />));
+    const onAction = vi.fn(async () => {});
+    render(wrap(<GuildPage {...GUILD_PAGE.leader} defaultTab="announcements" onAction={onAction} />));
     expect(screen.getAllByRole("button", { name: /Edit/ })).toHaveLength(GUILD_PAGE.leader.guild.announcements!.length);
     expect(screen.getAllByRole("button", { name: /Delete/ })).toHaveLength(GUILD_PAGE.leader.guild.announcements!.length);
     const items = await menu();
     expect(items.slice(0, 3)).toEqual(["Invite a player", "Guild settings", "Find guilds"]);
     expect(item("Leave the guild")).toBeDisabled();
-    expect(within(screen.getByRole("dialog", { name: "Guild menu" })).getByText(REFUSALS["leader-must-transfer"])).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Guild menu" })).getByText(REFUSALS["leader-must-transfer"])).toBeInTheDocument();
+    // Guild settings: the form in its view; saved, the page again.
     await userEvent.click(item("Guild settings"));
-    expect(await screen.findByRole("dialog", { name: /settings/i })).toBeInTheDocument();
+    expect(await viewTitle("Guild settings")).toBeInTheDocument();
+    // The emblem's twenty charges, Codex's (GUILD-PAGE), the guild's own picked.
+    const charges = within(screen.getByRole("radiogroup", { name: "Icon" })).getAllByRole("radio");
+    expect(charges).toHaveLength(GUILD_EMBLEM_ICONS);
+    expect(charges[GUILD_PAGE.leader.guild.emblem.icon]).toHaveAttribute("aria-checked", "true");
+    // Its colour, a third row: Silver for an emblem that names none.
+    expect(within(screen.getByRole("radiogroup", { name: "Charge colour" })).getByRole("radio", { name: "Charge: Silver" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onAction).toHaveBeenCalledWith(expect.objectContaining({ type: "settings" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "The Quarrymen" })).toBeInTheDocument();
   });
 
   it("a leader alone disbands the guild from the menu, after confirming", async () => {
@@ -116,43 +145,72 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     expect(rows[0]).toHaveTextContent("Leader");
     const roster = GUILD_PAGE.member.guild.roster;
     expect(roster.map((m) => m.rank)).toEqual([...roster.map((m) => m.rank)].sort((a, b) => b - a));
-    // A Member on the Leader: the Profile only.
+    // A Member on the Leader: the Profile only, in the member's view (GUILD-PAGE: in the page's place, never a sheet).
     await userEvent.click(rows[0]!);
-    let sheet = await screen.findByRole("dialog", { name: roster[0]!.profile.name! });
-    expect(within(sheet).queryByRole("button", { name: /Promote|Demote|Kick|Make leader/ })).toBeNull();
-    await userEvent.click(within(sheet).getByRole("button", { name: "Profile" }));
+    expect(await viewTitle(roster[0]!.profile.name!)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(button(/Promote|Demote|Kick|Make leader/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Profile" }));
     expect(onOpenPlayer).toHaveBeenCalledWith(roster[0]!.profile.address);
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     unmount();
 
-    // The Leader on a Member: Promote, Make leader, Kick; on an Officer: Demote instead of Promote.
+    // The Leader on a Member: Promote, Demote, Make leader, Kick; on an Officer: Demote, no Promote (only Make leader raises them).
     const leader = GUILD_PAGE.leader.guild.roster;
     const member = leader.find((m) => m.rank === GUILD_RANK.member)!;
     const officer = leader.find((m) => m.rank === GUILD_RANK.officer)!;
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildPage {...GUILD_PAGE.leader} onAction={onAction} />));
-    const members = screen.getByRole("region", { name: "Members" });
-    await userEvent.click(within(members).getAllByRole("button").find((b) => b.textContent?.includes(officer.profile.name!))!);
-    sheet = await screen.findByRole("dialog", { name: officer.profile.name! });
-    expect(within(sheet).getAllByRole("button").map((b) => b.textContent)).toEqual(expect.arrayContaining(["Profile", "Demote to Member", "Make leader", "Kick"]));
-    expect(within(sheet).queryByRole("button", { name: "Promote to Officer" })).toBeNull();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await userEvent.click(within(members).getAllByRole("button").find((b) => b.textContent?.includes(member.profile.name!))!);
-    sheet = await screen.findByRole("dialog", { name: member.profile.name! });
-    await userEvent.click(within(sheet).getByRole("button", { name: "Promote to Officer" }));
+    const rowOf = (name: string) => within(screen.getByRole("region", { name: "Members" })).getAllByRole("button").find((b) => b.textContent?.includes(name))!;
+    await userEvent.click(rowOf(officer.profile.name!));
+    expect(await viewTitle(officer.profile.name!)).toBeInTheDocument();
+    const view = document.querySelector<HTMLElement>("[data-slot=guild-member-view]")!;
+    expect(within(view).getAllByRole("button").map((b) => b.textContent)).toEqual(expect.arrayContaining(["Profile", "Demote to Veteran", "Make leader", "Kick"]));
+    expect(within(view).queryByRole("button", { name: /^Promote/ })).toBeNull();
+    await goBack();
+    await userEvent.click(rowOf(member.profile.name!));
+    await userEvent.click(await screen.findByRole("button", { name: "Promote to Veteran" }));
     const confirm = await screen.findByRole("dialog", { name: /^Promote / });
-    await userEvent.click(within(confirm).getByRole("button", { name: "Promote to Officer" }));
+    await userEvent.click(within(confirm).getByRole("button", { name: "Promote to Veteran" }));
     expect(onAction).toHaveBeenCalledWith({ type: "member", target: member.profile.address, action: { type: "promote" } });
-    // Done, the row's sheet closes.
+    // Done, back to the page.
+    expect(await screen.findByRole("region", { name: "Members" })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("an Officer's row of a Member: Profile and Kick only", async () => {
+  it("an Officer's row of a Member: Profile, Promote to Veteran, Demote to Recruit, Kick; of a Veteran: no Promote", async () => {
     const member = GUILD_PAGE.officer.guild.roster.find((m) => m.rank === GUILD_RANK.member)!;
-    render(wrap(<GuildPage {...GUILD_PAGE.officer} initialMember={member.profile.address} />));
-    const sheet = await screen.findByRole("dialog", { name: member.profile.name! });
-    expect(within(sheet).getAllByRole("button", { name: /Profile|Promote|Demote|Kick|Make leader/ }).map((b) => b.textContent)).toEqual(["Profile", "Kick"]);
+    const { unmount } = render(wrap(<GuildPage {...GUILD_PAGE.officer} initialView={{ member: member.profile.address }} />));
+    let view = document.querySelector<HTMLElement>("[data-slot=guild-member-view]")!;
+    expect(within(view).getAllByRole("button", { name: /Profile|Promote|Demote|Kick|Make leader/ }).map((b) => b.textContent)).toEqual(["Profile", "Promote to Veteran", "Demote to Recruit", "Kick"]);
+    // Painted icons, on raised rows (GUILD-PAGE): the bust, Codex's chevrons, the removed member.
+    expect([...view.querySelectorAll("[data-slot=drawer-row] img[data-icon]")].map((i) => i.getAttribute("data-icon"))).toEqual(["user", "promote", "demote", "kicked"]);
+    unmount();
+    const veteran = GUILD_PAGE.officer.guild.roster.find((m) => m.rank === GUILD_RANK.veteran)!;
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} initialView={{ member: veteran.profile.address }} />));
+    view = document.querySelector<HTMLElement>("[data-slot=guild-member-view]")!;
+    expect(within(view).getAllByRole("button", { name: /Profile|Promote|Demote|Kick|Make leader/ }).map((b) => b.textContent)).toEqual(["Profile", "Demote to Member", "Kick"]);
+  });
+
+  it("each rank's painted icon and name in the header: the Recruit's sprout, the Veteran's medal", () => {
+    for (const [data, icon, name] of [
+      [GUILD_PAGE.recruit, "sprout", "Recruit"],
+      [GUILD_PAGE.veteran, "medal", "Veteran"],
+    ] as const) {
+      const { unmount } = render(wrap(<GuildPage {...data} />));
+      const rank = document.querySelector("[data-slot=guild-rank]")!;
+      expect(rank).toHaveTextContent(name);
+      expect(rank.querySelector(`[data-icon=${icon}]`)).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it("a Recruit's menu has no Invite; a Veteran sees the Requests tab and Post", async () => {
+    const { unmount } = render(wrap(<GuildPage {...GUILD_PAGE.recruit} />));
+    expect(await menu()).toEqual(["Find guilds", "Leave the guild"]);
+    unmount();
+    render(wrap(<GuildPage {...GUILD_PAGE.veteran} defaultTab="announcements" />));
+    expect(tabNames()).toEqual(["Announcements", "Members", "Requests2", "Log"]);
+    expect(button(/Post/)).toBeInTheDocument();
   });
 
   it("posts an announcement through its dialog, and keeps the dialog with why when refused", async () => {
@@ -174,6 +232,111 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     const first = within(screen.getByRole("region", { name: "Requests" })).getAllByRole("listitem")[0]!;
     await userEvent.click(within(first).getByRole("button", { name: "Accept" }));
     expect(onAction).toHaveBeenCalledWith({ type: "answer-request", applicant: GUILD_PAGE.officer.guild.requests![0]!.profile.address, accept: true });
+  });
+});
+
+describe("GUILD-PAGE: the Paved UX Book's guild in the HUD drawer", () => {
+  it("draws the page in the HUD's drawer titled Guild, Back closing it on a phone", async () => {
+    const onBack = vi.fn();
+    render(wrap(<GuildScene onBack={onBack}>{<GuildPage {...GUILD_PAGE.member} />}</GuildScene>));
+    const drawer = screen.getByRole("dialog", { name: "Guild" });
+    expect(drawer).toHaveAttribute("data-hud-drawer", "guild");
+    expect(within(drawer).getByRole("heading", { level: 2, name: "The Quarrymen" })).toBeInTheDocument();
+    await userEvent.click(within(drawer).getByRole("button", { name: "Back" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it("the menu is a view in the drawer: its title on the header, Back to the page, the red cross to leave, on a phone too", async () => {
+    const onBack = vi.fn();
+    render(wrap(<GuildScene onBack={onBack}>{<GuildPage {...GUILD_PAGE.member} />}</GuildScene>));
+    await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
+    const drawer = await screen.findByRole("dialog", { name: "Guild menu" });
+    expect(drawer).toHaveAttribute("data-hud-drawer", "guild");
+    expect(within(drawer).getByRole("list", { name: "Guild menu" })).toBeInTheDocument();
+    // One Back, the drawer's (in a drawer the page draws none of its own), and the red cross.
+    expect(within(drawer).getAllByRole("button", { name: "Back" })).toHaveLength(1);
+    expect(drawer.querySelector("[data-slot=hud-drawer-close]")).not.toBeNull();
+    await userEvent.click(within(drawer).getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("dialog", { name: "Guild" })).toBeInTheDocument();
+    expect(onBack).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Guild menu" })).getByRole("button", { name: "Close" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it("the menu's rows carry their painted icons (Codex's): Invite a player, Guild settings, Find guilds, then Leave", async () => {
+    render(wrap(<GuildPage {...GUILD_PAGE.leader} />));
+    await menu();
+    const list = screen.getByRole("list", { name: "Guild menu" });
+    expect([...list.querySelectorAll("[data-slot=drawer-row] img[data-icon]")].map((i) => i.getAttribute("data-icon"))).toEqual(["invite-player", "settings", "find", "leave"]);
+  });
+
+  it("the header: the viewer's rank; the members out of 50, the score and the join type on the figures' band; Chat badged with the guild chat's unread", () => {
+    const { guild } = GUILD_PAGE.leader;
+    render(wrap(<GuildPage {...GUILD_PAGE.leader} chatUnread={3} />));
+    const header = screen.getByRole("heading", { level: 2, name: "The Quarrymen" }).closest("header")!;
+    expect(within(header).getByText("Leader")).toBeInTheDocument();
+    const band = header.querySelector<HTMLElement>("[data-slot=guild-figures]")!;
+    expect([...band.querySelectorAll("dt")].map((t) => t.textContent)).toEqual(["Members", "Score", "Join"]);
+    expect([...band.querySelectorAll("dd")].map((d) => d.textContent)).toEqual([`${guild.members}/50`, formatInteger(guild.score), "Request"]);
+    expect(within(header).getByRole("button", { name: "Chat, 3 unread" })).toBeInTheDocument();
+  });
+
+  it("the emblem bears its charge (Codex's silhouette) by the emblem's index, in its colour, Silver when it names none", () => {
+    const { guild } = GUILD_PAGE.member;
+    const { unmount } = render(wrap(<GuildPage {...GUILD_PAGE.member} />));
+    const charge = () => screen.getByRole("heading", { level: 2, name: guild.name }).closest("header")!.querySelector<HTMLElement>("[data-slot=guild-emblem] [data-charge]")!;
+    expect(charge()).toHaveAttribute("data-charge", GUILD_EMBLEM_CHARGES[guild.emblem.icon]);
+    expect(charge().style.backgroundColor).toBe(`var(--emblem-${GUILD_EMBLEM_SILVER})`);
+    unmount();
+    render(wrap(<GuildPage {...GUILD_PAGE.member} guild={{ ...guild, emblem: { ...guild.emblem, charge: 1 } }} />));
+    expect(charge().style.backgroundColor).toBe("var(--emblem-1)");
+  });
+
+  it("the viewer's rank carries its painted icon: the Leader's crown, the Officer's star, the Member's bust", () => {
+    for (const [data, icon] of [
+      [GUILD_PAGE.leader, "crown"],
+      [GUILD_PAGE.officer, "star"],
+      [GUILD_PAGE.member, "user"],
+    ] as const) {
+      const { unmount } = render(wrap(<GuildPage {...data} />));
+      expect(document.querySelector(`[data-slot=guild-rank] [data-icon=${icon}]`)).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it("Members: each portrait in its league's rim, the viewer's own row in the chosen gold with \"You\", each row's rank and crowns", () => {
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} />));
+    const rows = within(screen.getByRole("region", { name: "Members" })).getAllByRole("button");
+    expect(rows).toHaveLength(GUILD_PAGE.officer.guild.roster.length);
+    const own = rows.filter((r) => r.hasAttribute("data-own"));
+    expect(own).toHaveLength(1);
+    expect(own[0]).toHaveTextContent("You");
+    expect(own[0]).toHaveTextContent("Officer");
+    for (const row of rows) {
+      expect(row.querySelector("[data-slot=league-rim]")).not.toBeNull();
+      expect(within(row).getByRole("img", { name: /crowns?$/ })).toBeInTheDocument();
+    }
+  });
+
+  it("Announcements: the newest pinned, under the book's pin; an officer's Post", () => {
+    render(wrap(<GuildPage {...GUILD_PAGE.officer} defaultTab="announcements" />));
+    const items = within(screen.getByRole("region", { name: "Announcements" })).getAllByRole("listitem");
+    expect(items[0]).toHaveAttribute("data-pinned");
+    expect(within(items[0]!).getByRole("img", { name: "Pinned" })).toBeInTheDocument();
+    expect(items.slice(1).every((i) => !i.hasAttribute("data-pinned"))).toBe(true);
+    expect(screen.getByRole("button", { name: "Post" })).toBeInTheDocument();
+  });
+
+  it("Log: each line under its painted icon, newest first, Show all past the lines shown", async () => {
+    render(wrap(<GuildPage {...GUILD_PAGE.member} defaultTab="log" logShown={3} />));
+    const lines = within(screen.getByRole("region", { name: "Log" })).getAllByRole("listitem");
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line.querySelector("[data-slot=ui-icon], svg, [aria-hidden]")).not.toBeNull();
+    const log = GUILD_PAGE.member.guild.log!;
+    expect(lines[0]).toHaveTextContent(logLine(log.at(-1)!));
+    await userEvent.click(screen.getByRole("button", { name: `Show all ${log.length}` }));
+    expect(within(screen.getByRole("region", { name: "Log" })).getAllByRole("listitem")).toHaveLength(log.length);
   });
 });
 
@@ -275,7 +438,9 @@ describe("GuildFinder and GuildCard (#953)", () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildFinder {...GUILD_FINDER.guildless} onAction={onAction} />));
     await userEvent.click(button("Create a guild")!);
-    const sheet = await screen.findByRole("dialog", { name: "Create a guild" });
+    // GUILD-PAGE: a view in the drawer (here outside one: its own title and Back).
+    expect(await viewTitle("Create a guild")).toBeInTheDocument();
+    const sheet = document.querySelector<HTMLElement>("[data-slot=guild-form]")!;
     const create = within(sheet).getByRole("button", { name: "Create the guild" });
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "Ab");
     expect(create).toBeDisabled();
@@ -285,14 +450,15 @@ describe("GuildFinder and GuildCard (#953)", () => {
     await userEvent.click(within(sheet).getByRole("radio", { name: "castle" }));
     await userEvent.click(create);
     expect(onAction).toHaveBeenCalledWith({ type: "create", draft: expect.objectContaining({ name: "Abbey Road", joinType: "invite", emblem: expect.objectContaining({ icon: 5 }) }) });
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("heading", { level: 2, name: "Create a guild" })).toBeNull());
   });
 
   it("takes any whole number of crowns as a requirement, not only multiples of 50", async () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildFinder {...GUILD_FINDER.guildless} onAction={onAction} />));
     await userEvent.click(button("Create a guild")!);
-    const sheet = await screen.findByRole("dialog", { name: "Create a guild" });
+    await viewTitle("Create a guild");
+    const sheet = document.querySelector<HTMLElement>("[data-slot=guild-form]")!;
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "Review Guild");
     const crowns = within(sheet).getByRole("spinbutton", { name: "Minimum crowns" }) as HTMLInputElement;
     await userEvent.clear(crowns);
@@ -320,7 +486,7 @@ describe("GuildFinder and GuildCard (#953)", () => {
     const onFiltersChange = vi.fn();
     const { unmount } = render(wrap(<GuildFinder {...GUILD_FINDER.guildless} onFiltersChange={onFiltersChange} />));
     expect(screen.getAllByRole("button", { name: /#/ }).length).toBe(GUILD_FINDER.guildless.suggested.guilds!.length);
-    await userEvent.click(screen.getByRole("radio", { name: /Ranking/ }));
+    await userEvent.click(screen.getByRole("tab", { name: "Ranking" }));
     expect(screen.getAllByRole("button", { name: /#/ }).length).toBe(GUILD_FINDER.guildless.ranking.guilds!.length);
     await userEvent.click(screen.getByRole("radio", { name: "By request" }));
     expect(onFiltersChange).toHaveBeenCalledWith({ joinType: "request", meets: false, size: "any" });
@@ -346,9 +512,9 @@ describe("the profile's guild parts (#953)", () => {
   const names = () => screen.queryAllByRole("button").map((b) => b.textContent);
   it("shows each rank only the actions it allows", () => {
     const cases: [keyof typeof GUILD_ACTIONS, string[]][] = [
-      ["leaderOnMember", ["Promote to Officer", "Make leader", "Kick"]],
-      ["leaderOnOfficer", ["Demote to Member", "Make leader", "Kick"]],
-      ["officerOnMember", ["Kick"]],
+      ["leaderOnMember", ["Promote to Veteran", "Demote to Recruit", "Make leader", "Kick"]],
+      ["leaderOnOfficer", ["Demote to Veteran", "Make leader", "Kick"]],
+      ["officerOnMember", ["Promote to Veteran", "Demote to Recruit", "Kick"]],
       ["officerOnLeader", []],
       ["memberOnMember", []],
       ["invite", ["Invite to The Quarrymen"]],

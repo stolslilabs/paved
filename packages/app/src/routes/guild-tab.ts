@@ -1,4 +1,4 @@
-// The guild page's tabs (#973): Announcements, Members, Requests (officers and the leader) and Log, and the last one used on this
+// The guild page's tabs (#973): Announcements, Members, Requests (a Veteran and above) and Log, and the last one used on this
 // device. Plain literals and functions, in the guild page's chunks only.
 
 /** The guild page's tabs, left to right (#973). */
@@ -41,7 +41,7 @@ export function resetGuildTabForTests(): void {
 
 /**
  * Where the guild page opens (#973): on Announcements while one is unread, else on the last tab used, the first time on Members.
- * Requests is an officer's and the leader's: anyone else stored there opens on Members.
+ * Requests is for the ranks that answer them (a Veteran and above, GUILD-PAGE): anyone else stored there opens on Members.
  */
 export function openingGuildTab(unread: number, officer: boolean, stored: GuildTab | null = guildTabStored()): GuildTab {
   if (unread > 0) return "announcements";
