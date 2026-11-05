@@ -1,6 +1,6 @@
 import { slotsOf } from "@paved/game-core";
 import type { PvpPlayer, PvpVillage } from "../lib/pvp-rules";
-import { ATTACK_STAR_PERCENTS, attackStars } from "../lib/pvp-v2-rules";
+import { attackStars } from "../lib/pvp-v2-rules";
 import type { MatchView, PvpMatchSceneProps } from "../components/scenes/pvp-match-scene";
 import { ME } from "./pvp";
 import { RIVAL_V2, RIVAL_V2_VILLAGE, V2_ATTACK_STEPS } from "./pvp-v2";
@@ -29,10 +29,12 @@ interface MatchFake {
   attacker: PvpPlayer;
   village: PvpVillage;
   steps: readonly AttackStep[];
+  /** The player's crowns from it: the book's +30 for the attack, a defence lost for 12. */
+  crowns: number;
 }
 
-export const MATCH_ATTACK: MatchFake = { side: "attack", rival: RIVAL_V2, attacker: ME, village: RIVAL_V2_VILLAGE, steps: V2_ATTACK_STEPS };
-export const MATCH_DEFENCE: MatchFake = { side: "defence", rival: DEFENCE_RIVAL, attacker: DEFENCE_RIVAL, village: MY_V2_VILLAGE, steps: DEFENCE_STEPS };
+export const MATCH_ATTACK: MatchFake = { side: "attack", rival: RIVAL_V2, attacker: ME, village: RIVAL_V2_VILLAGE, steps: V2_ATTACK_STEPS, crowns: 30 };
+export const MATCH_DEFENCE: MatchFake = { side: "defence", rival: DEFENCE_RIVAL, attacker: DEFENCE_RIVAL, village: MY_V2_VILLAGE, steps: DEFENCE_STEPS, crowns: -12 };
 
 /** The match scene of `m` on `view`, the replay at `move` (the build's last by default). */
 export function matchAt(m: MatchFake, view: MatchView, move = m.steps.length - 1, playing = false): Data<PvpMatchSceneProps> {
@@ -46,13 +48,8 @@ export function matchAt(m: MatchFake, view: MatchView, move = m.steps.length - 1
     view,
     target: m.village.score,
     final: { score: last.score, stars: attackStars(last.score, m.village.score) },
-    starPercents: ATTACK_STAR_PERCENTS,
+    crowns: m.crowns,
     tiles: view === "village" ? [...m.village.tiles] : step.tiles,
-    score: step.score,
-    delta: step.delta,
-    lastScored: step.lastScored,
-    remaining: 0,
-    hand: { tile: null, state: "empty" },
     replay: { attacker: m.attacker, move: at, total, playing },
   };
 }
@@ -60,8 +57,8 @@ export function matchAt(m: MatchFake, view: MatchView, move = m.steps.length - 1
 export const PVP_MATCH = {
   attackVillage: matchAt(MATCH_ATTACK, "village"),
   attackBuild: matchAt(MATCH_ATTACK, "build"),
-  /** The build halfway through the replay, playing. */
-  attackMidway: matchAt(MATCH_ATTACK, "build", 11, true),
+  /** The build part way through the replay, playing: the book's move 14 of 23. */
+  attackMidway: matchAt(MATCH_ATTACK, "build", 14, true),
   defenceVillage: matchAt(MATCH_DEFENCE, "village"),
   defenceBuild: matchAt(MATCH_DEFENCE, "build"),
 } satisfies Record<string, Data<PvpMatchSceneProps>>;

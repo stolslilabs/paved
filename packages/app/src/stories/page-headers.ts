@@ -1,7 +1,8 @@
 /**
  * HEADER-HEIGHT (#676): the stories of `Pages/Headers` (by story id, after `pages-headers--`) and the routes each renders.
  * Together they cover every route of the route map but the game scenes' (`routes/pages.ts`: the boards, and the ends of a game
- * whose bar is the board's HUD since #720, and the home, the village's game scene since #753); a test keeps them in step, and
+ * whose bar is the board's HUD since #720, and the home, the village's game scene since #753; a match's page has the pages' header
+ * since MATCH-PAGE); a test keeps them in step, and
  * `scripts/header-sweep.ts` fails on a page listed here without its story, or a story not listed.
  */
 export const PAGE_HEADER_STORIES = {
@@ -15,6 +16,7 @@ export const PAGE_HEADER_STORIES = {
   "village-shop": ["village/shop"],
   "pvp-result": ["pvp/result/:id"],
   "pvp-league": ["pvp/league"],
+  "pvp-match": ["pvp/match/:id"],
   "story-campaigns": ["story"],
   missions: ["missions"],
   vault: ["vault"],

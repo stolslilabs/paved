@@ -18,6 +18,8 @@ export interface PvpReplay {
   onPause?: () => void;
   /** One move back (-1) or on (+1). */
   onStep?: (by: -1 | 1) => void;
+  /** To a move of the timeline (a match's, MATCH-PAGE): 0 the start to `total`. */
+  onSeek?: (move: number) => void;
 }
 
 /** What the attack takes of the board scene: all of it but what the attack sets itself (the mode, the title, the clock) or has not (a Challenge's expiry and reward, a Story level's deck and coach, Surrender and Restart). */
