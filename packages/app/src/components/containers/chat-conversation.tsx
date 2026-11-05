@@ -419,10 +419,6 @@ export function ChatConversation({
     setAtBottom(true);
   };
 
-  // With the keyboard open, the field stays in view: the box shrinks with the visual viewport, and the field is brought back.
-  useEffect(() => {
-    if (viewport !== null && document.activeElement === field.current) field.current?.scrollIntoView({ block: "nearest" });
-  }, [viewport]);
 
   const c = head?.conversation;
   const name = c ? conversationName(c, shortAddress) : "";
@@ -476,9 +472,10 @@ export function ChatConversation({
       .finally(() => setAnswering(null));
   };
 
-  // On the chat page (`fill`, CHAT-PAGE: the HUD's drawer), as tall as what the drawer leaves under its tabs; with a phone's keyboard
-  // open, no taller than what is left above it (its top measured, the visual viewport's foot less a small gap). Elsewhere, a tall box
-  // on a phone, the field at its foot.
+  // On the chat page (`fill`, CHAT-PAGE: the HUD's drawer), as tall as what the drawer leaves under its tabs, 20rem at least; with a
+  // phone's keyboard open, no taller than what is left above it (its top measured, the visual viewport's foot less a small gap), its
+  // minimum too (#1025: a 20rem floor kept the field under the keyboard, and the drawer's body, which fits, cannot scroll it back): the
+  // composer stays whole at its foot, the messages scroll in what is left. Elsewhere, a tall box on a phone, the field at its foot.
   const tall = viewport !== null ? `${Math.round(viewport)}px` : "100dvh";
   const box = useRef<HTMLElement>(null);
   const [room, setRoom] = useState<number | null>(null);
@@ -486,9 +483,17 @@ export function ChatConversation({
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     if (!fill || !box.current || !vv || viewport === null) return;
     const top = box.current.getBoundingClientRect().top;
-    setRoom(top > 0 ? Math.round(vv.offsetTop + vv.height - top - KEYBOARD_GAP_PX) : null);
+    setRoom(top > 0 ? Math.max(0, Math.round(vv.offsetTop + vv.height - top - KEYBOARD_GAP_PX)) : null);
   }, [fill, viewport]);
-  const style = fill ? (room !== null ? { maxHeight: `max(20rem, ${room}px)` } : undefined) : { height: `min(44rem, max(20rem, ${tall} - 9rem))` };
+  // With the keyboard open, the field stays in view: the box shrinks with the visual viewport, and the field is brought back.
+  useEffect(() => {
+    if (viewport !== null && document.activeElement === field.current) field.current?.scrollIntoView({ block: "nearest" });
+  }, [viewport, room]);
+  const style = fill
+    ? room !== null
+      ? { maxHeight: `${room}px`, minHeight: `min(20rem, ${room}px)` }
+      : undefined
+    : { height: `min(44rem, max(20rem, ${tall} - 9rem))` };
   const nearLimit = length >= CHAT_MESSAGE_MAX * COUNT_FROM;
   const placeholder = c?.kind === "world" ? "Message the World" : c?.kind === "guild" ? "Message the guild" : "Message";
 
@@ -502,7 +507,8 @@ export function ChatConversation({
         className={cn("drawer-carved flex min-w-0 flex-col overflow-hidden rounded-2xl", fill && "min-h-80 flex-1")}
         style={style}
       >
-        {(isPrivate || (head === undefined && onBack)) && (
+        {/* A private conversation's head; with Back, also while it loads and once it is not there any more (#1025: its way back to the list). */}
+        {(isPrivate || (onBack && head == null)) && (
           <header className="flex min-w-0 items-center gap-1 border-b border-border p-1.5">
             {onBack && (
               <button type="button" aria-label="Back to the conversations" onClick={onBack} className="state-layer grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none">
@@ -515,6 +521,8 @@ export function ChatConversation({
                 <PlayerName name={c.other.name} address={c.other.address} className="text-outline min-w-0 text-base leading-snug font-bold" />
                 <LevelStar level={c.other.level} />
               </button>
+            ) : head === null ? (
+              <span className="flex-1" />
             ) : (
               <Skeleton className="h-6 flex-1 rounded" />
             )}

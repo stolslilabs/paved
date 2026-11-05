@@ -51,6 +51,8 @@ export const PrivateEmpty: Story = { args: { tab: "private", badges: CHAT_BADGES
 export const PrivateConversation: Story = { args: { tab: "private", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.private, true) } };
 /** The player's first private conversation, empty: it opens on what is encrypted, the notice above the field, until the first message. */
 export const PrivateFirst: Story = { args: { tab: "private", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.empty, true) } };
+/** A private conversation not there any more, open over the list: its message, and Back to the list (#1025). */
+export const PrivateGone: Story = { args: { tab: "private", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.gone, true) } };
 /** A stranger's request open: Accept or Decline. */
 export const RequestOpen: Story = { args: { tab: "private", badges: CHAT_BADGES.request, children: conversation(CHAT_CONVERSATION.request, true) } };
 /** New message, open over the Private tab: the friends, the guildmates, then the player search. */
