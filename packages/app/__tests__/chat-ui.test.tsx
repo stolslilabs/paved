@@ -8,6 +8,7 @@ import { ChatList } from "../src/components/containers/chat-list";
 import { ChatMenu } from "../src/components/containers/chat-menu";
 import { ChatNewMessage } from "../src/components/containers/chat-new-message";
 import { ChatTabs } from "../src/components/containers/chat-tabs";
+import { ChatScene } from "../src/components/scenes/chat-scene";
 import { chatBadges } from "../src/routes/social/chat-content";
 import { ChatRefusedError, type ChatMessage } from "../src/data/social-source";
 import { CHAT_BADGES, CHAT_CONVERSATION, CHAT_LIST, CHAT_MENU, CHAT_NEW_MESSAGE } from "../src/mocks/chat";
@@ -328,5 +329,59 @@ describe("CHAT-PAGE: the Paved UX Book's chat", () => {
     expect(onSend).toHaveBeenCalledWith("Hello, world!");
     fireEvent.change(field, { target: { value: "x".repeat(170) } });
     expect(screen.getByText("170/200")).toBeInTheDocument();
+  });
+});
+
+describe("CHAT-DRAWER-KEYBOARD (#1025)", () => {
+  it("fits the drawer's conversation to the room the keyboard leaves, its 20rem minimum too, and gives it back once closed", () => {
+    // The review's figures: a 700 px layout viewport, the keyboard leaving 360 px. jsdom has neither a visual viewport nor a
+    // layout: the conversation's top is the World's in the drawer at 360 px (136 px, measured in `e2e/chat-keyboard.e2e.ts`).
+    const vv = { height: 700, offsetTop: 0, onresize: null as null | (() => void) };
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return { top: this.dataset.slot === "chat-conversation" ? 136 : 0 } as DOMRect;
+    });
+    try {
+      render(
+        wrap(
+          <ChatScene tab="world" badges={CHAT_BADGES.conversations}>
+            <ChatConversation {...CHAT_CONVERSATION.world} fill onSend={async () => {}} />
+          </ChatScene>,
+        ),
+      );
+      const box = screen.getByRole("region", { name: "World conversation" });
+      // The keyboard closed: as tall as the drawer leaves it, never under 20rem.
+      expect(box.style.maxHeight).toBe("556px");
+      expect(box.style.minHeight).toBe("min(20rem, 556px)");
+      screen.getByRole("textbox", { name: /^Message/ }).focus();
+      act(() => {
+        vv.height = 360;
+        vv.onresize?.();
+      });
+      // Open: 360 - 136 - 8 px of gap, the minimum included (a 20rem floor kept the field under the keyboard).
+      expect(box.style.maxHeight).toBe("216px");
+      expect(box.style.minHeight).toBe("min(20rem, 216px)");
+      expect(within(box).getByRole("log", { name: "Messages" })).toBeInTheDocument();
+      act(() => {
+        vv.height = 700;
+        vv.onresize?.();
+      });
+      expect(box.style.maxHeight).toBe("556px");
+    } finally {
+      rect.mockRestore();
+      delete (window as { visualViewport?: unknown }).visualViewport;
+    }
+  });
+
+  it("keeps Back to the list on a private conversation that is not there any more", async () => {
+    const onBack = vi.fn();
+    render(wrap(<ChatConversation {...CHAT_CONVERSATION.gone} onBack={onBack} fill />));
+    expect(screen.getByText("This conversation is not there any more.")).toBeInTheDocument();
+    // No skeleton for a title that will not come, and no field.
+    const box = screen.getByRole("region", { name: "Conversation" });
+    expect(box.querySelector("header [data-slot=skeleton]")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Back to the conversations" }));
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

@@ -210,6 +210,8 @@ export const CHAT_CONVERSATION = {
    * above the field (CHAT-PAGE: both until the first message).
    */
   empty: conversation({ head: head(summary({ id: DM_FRIEND, kind: "private", other: FRIEND }), { standing: "open" }), messages: [], noticeSeen: false }),
+  /** A private conversation the read no longer finds (#1025): "not there any more", with Back to the list. */
+  gone: conversation({ head: null, messages: [] }),
   loading: conversation({ head: undefined, messages: [] }),
   failed: conversation({ head: undefined, messages: [], error: "The chat did not answer: try again in a moment." }),
   /** End-to-end encryption (#997): the Encryption sheet of a private conversation, with the safety code. */

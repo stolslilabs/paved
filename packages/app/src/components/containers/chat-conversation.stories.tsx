@@ -54,6 +54,8 @@ export const Unavailable: Story = { args: CHAT_CONVERSATION.unavailable };
 export const Report: Story = { args: CHAT_CONVERSATION.report };
 /** The first private conversation, empty: it opens on what is encrypted, the notice that Paved never asks for a key or a password above the field. */
 export const Empty: Story = { args: CHAT_CONVERSATION.empty };
+/** A private conversation not there any more (the read found none): its message, and Back to the list (#1025). */
+export const Gone: Story = { args: CHAT_CONVERSATION.gone };
 export const Loading: Story = { args: CHAT_CONVERSATION.loading };
 export const Failed: Story = { args: CHAT_CONVERSATION.failed };
 /** With reduced motion: the dialogs open, and new messages appear, without motion. */
