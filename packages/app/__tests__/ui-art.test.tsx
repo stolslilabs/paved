@@ -6,19 +6,20 @@ import { UiIcon } from "../src/components/elements/ui-icon";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, uiFrameSources, uiIconSources } from "../src/components/elements/ui-art";
 import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS, medallionSources, missionPartImage, missionPartSlice, missionPartSources } from "../src/components/elements/medallion-art";
 import { PILES, RARITY_END, SHOP_PARTS, UI_SHOP_PARTS, shopPartImage, shopPartSources } from "../src/components/elements/shop-art";
+import { FRIENDS_PARTS, GOLD_PILL_END, UI_FRIENDS_PARTS, friendsPartImage } from "../src/components/elements/friends-art";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES, emblemChargeMask } from "../src/components/elements/emblem-art";
 import { GUILD_EMBLEM_ICONS } from "@paved/game-core";
 import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts";
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + GUILD_EMBLEM_CHARGES.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
     const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
-    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("emblems/"));
+    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/"));
     // GUILD-PAGE (2026-11-05): raised by exactly the measured growth over main, the copies of the guild's icons (each in line with the
     // others): 39,462 bytes for the guild's menu and a member's view (invite-player, find, leave, disband, promote, demote), 29,790
     // for the join types, the members and the new ranks (unlock, letter, members, sprout, medal), 14,600 for Post's pencil and the
@@ -32,6 +33,12 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     expect(EMBLEM_FRAME).toMatchObject({ width: 256, height: 256, sizes: [64, 128] });
     for (const name of GUILD_EMBLEM_CHARGES) for (const s of EMBLEM_FRAME.sizes) expect(statSync(join(OUT, "emblems", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 128 ? 5 * 1024 : 2 * 1024);
     expect(emblemChargeMask("wolf")).toBe('image-set(url("/ui-art/emblems/64/wolf.webp") 1x, url("/ui-art/emblems/128/wolf.webp") 2x)');
+  });
+
+  it("ships the friends page's pieces (FRIENDS-PAGE): two icons and the gold pill, 3-sliced, its ends under half its width, each copy light", () => {
+    for (const name of UI_FRIENDS_PARTS) for (const s of FRIENDS_PARTS[name].sizes) expect(statSync(join(OUT, "friends", String(s), `${name}.webp`)).size, name).toBeLessThan(name === "gold-pill" ? 4 * 1024 : 12 * 1024);
+    expect(GOLD_PILL_END * 2).toBeLessThan(FRIENDS_PARTS["gold-pill"].width);
+    expect(friendsPartImage("gold-pill")).toBe('image-set(url("/ui-art/friends/32/gold-pill.webp") 1x, url("/ui-art/friends/64/gold-pill.webp") 2x)');
   });
 
   it("ships the Shop's pieces (SHOP-PAGE): the rarity pills, 3-sliced, and a pile a pack, each copy light", () => {

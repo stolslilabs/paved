@@ -352,7 +352,6 @@ function MemberView({ member, guild, me, now, onOpenPlayer, onAction }: { member
       <DrawerRow art="user" label="Profile" next onClick={() => onOpenPlayer?.(p.address)} />
       {!own && me !== null && guild.rank !== null && (
         <GuildMemberActions
-          layout="rows"
           viewer={{ address: me, guild: { id: guild.id, name: guild.name, members: guild.members }, rank: guild.rank, nextKickAt: guild.nextKickAt }}
           target={{ address: p.address, name: p.name, guild: guild.id, rank: member.rank, invited: false }}
           now={now}

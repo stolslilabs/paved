@@ -226,7 +226,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     }, T(8_000));
     await userEvent.click(await within(profile).findByRole("button", { name: "Kick" }, T(5_000)));
     await confirm(/^Kick /, "Kick", "Never plays");
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Back" }));
     await waitFor(onlyTheDrawer, T(5_000));
     await tab("Log");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Log" })).getByRole("list")).toHaveTextContent("“Never plays”"), T(8_000));
@@ -245,7 +245,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await userEvent.click(await within(profile).findByRole("button", { name: "Invite to Gate Ward" }, T(5_000)));
     await confirm(`Invite ${target.name} to Gate Ward?`, "Invite");
     expect(await within(profile).findByRole("button", { name: "Invited to Gate Ward" }, T(5_000))).toBeDisabled();
-    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
     // Back from the search to the menu, then to the page.
     await waitFor(onlyTheDrawer, T(5_000));
     await back();
