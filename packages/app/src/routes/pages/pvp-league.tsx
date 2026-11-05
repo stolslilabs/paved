@@ -1,34 +1,35 @@
-import { lazy, Suspense, useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { TabFrame } from "../../components/containers/tab-frame";
 import type { MatchCardData } from "../../components/containers/match-list";
 import { PvpLeagueScene, type PvpLeagueSceneProps } from "../../components/scenes/pvp-league-scene";
-import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { LEAGUES, type PvpPlayer } from "../../lib/pvp-rules";
 import { addressKey, queryKeys } from "../../data/keys";
 import { layoutBoard, useMatchesV2 } from "../../data/matches";
 import { useAttackV2 } from "../../data/free-attack";
 import { isUnranked, lastAttack } from "../../data/pvp-standing";
 import { pvpKeys, useAttackLog, useDefenceLog, usePvpStatus, useSeasonSpan } from "../../data/pvp";
-import { RENDERER_ASSETS } from "../../data/renderer-manifest";
-import { useTileRenders } from "../../data/tile-renders";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
+import { useDrawerRoute } from "../drawer-route";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useAppNavigate, useBack } from "../ref";
 import { useOpenPlayer } from "../open-player";
-import { useSidePanel } from "../../lib/side-panel";
-import { DESKTOP_QUERY } from "../home-layout";
 
 /**
  * `/pvp/league` (#647 PR 2): the player's crowns, league and season from `Matchmaker.league` (#644), the season's end from
- * `season_start(season + 1)`; no Attack on the page (#833: the phone's bar has it). The latest attacks and defences are cards in the page (#786, in
+ * `season_start(season + 1)`; no Attack on the page (#833: the phone's bar has it). The latest attacks and defences are rows in the page (#786, in
  * place of the defence log; its old link, `/pvp/defence`, lands here), each opening its match (`/pvp/match/:id`, v2) or its
  * replay (`/pvp/replay/:attacker/:id`, v1), whose Back comes up here. No shield on the page (#859): the home's overlay shows it.
+ * LEAGUE-PAGE: drawn in the HUD's drawer over the home at every width (`PageDef.drawer`, `home-hosts.tsx`), its waits and refusals
+ * in it; the rivals' profiles (#952) are the home's host's, the home mounted under the drawer.
  */
 export default function Page() {
-  const onBack = useBack();
+  // The HUD's drawer over the home (`home-hosts.tsx`), shown while its route is the current one; alone (a story's route), open, its
+  // Back up to the village.
+  const drawer = useDrawerRoute();
+  const back = useBack();
+  const onBack = drawer?.onClose ?? back;
   const now = useNow();
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? null;
@@ -38,50 +39,30 @@ export default function Page() {
   const league = status.data?.league ?? null;
   const span = useSeasonSpan(league?.season ?? null);
   const matches = useMatches(me);
-  const desktop = useSidePanel(DESKTOP_QUERY);
-  const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  // Its waits and refusals in the League tab's frame too (#763). In the side panel from
-  // `desktop` (#762) a click outside it or Escape closes it (#782).
-  const wait = (scene: ReactNode) => (
-    <TabFrame>
-      {scene}
-    </TabFrame>
-  );
-  if (me === null) return wait(<PvpSearchScene state="error" player={self} error="Connect to see your league." onRetry={() => void wallet.connect()} onCancel={onBack} className="h-full" />);
-  if (status.data === null) return wait(<PvpSearchScene state="error" player={self} error="PvP is not on this network yet." onCancel={onBack} className="h-full" />);
+  const client = useQueryClient();
+  const frame = { now, onBack, open: drawer?.open ?? true, returnFocus: drawer?.returnFocus, crowns: 0, season: null };
+  if (me === null) return <PvpLeagueScene {...frame} wait={{ kind: "connect", onConnect: () => void wallet.connect() }} />;
+  if (status.data === null) return <PvpLeagueScene {...frame} wait={{ kind: "unavailable" }} />;
   const error = status.error ?? span.error;
   if (!league || span.data === undefined) {
-    return wait(
-      <PvpSearchScene state={error ? "error" : "searching"} player={self} error={error?.message} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} className="h-full" />,
-    );
+    // The chain's PvP reads again (the standing, the season's span).
+    const retry = () => void client.invalidateQueries({ queryKey: ["chain", "pvp"] });
+    return <PvpLeagueScene {...frame} wait={error ? { kind: "error", message: error.message, detail: errorDetail(error), onRetry: retry } : { kind: "loading" }} />;
   }
   // Season 0 is before the owner's clock (#644): no season, no end.
   const season = league.season > 0 && span.data && span.data.end > 0 ? { name: `Season ${league.season}`, endsAt: span.data.end } : null;
   const last = lastAttack(status.data?.attack, v2.data);
   return (
-    <>
-      <PvpLeagueScene
-        crowns={league.crowns}
-        league={league.league}
-        season={season}
-        now={now}
-        unranked={last ? isUnranked(league, last) : false}
-        attacks={season ? league.attacks : undefined}
-        onBack={onBack}
-        {...matches}
-      />
-      {/* The rivals' profiles (#952), from the battle logs' cards; from `desktop` the home's host, under this panel, serves. */}
-      {!desktop && (
-        <Suspense fallback={null}>
-          <PlayerProfileHost />
-        </Suspense>
-      )}
-    </>
+    <PvpLeagueScene
+      {...frame}
+      crowns={league.crowns}
+      league={league.league}
+      season={season}
+      unranked={last ? isUnranked(league, last) : false}
+      {...matches}
+    />
   );
 }
-
-/** The public profile's host (#952), loaded with the first league below `desktop`: the home's first load keeps it alone. */
-const PlayerProfileHost = lazy(() => import("../player-profile-host"));
 
 /** A match card's player: its address, and its name, level and avatar (a decimal look) where known. */
 const playerOf = (address: string, name: string | null = null, level = 0, look: string | null = null): PvpPlayer => ({ name, address, level, crowns: 0, look: look ? BigInt(look) : null });
@@ -100,8 +81,6 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
   const v1 = v2.data === null;
   const defences = useDefenceLog(v1 ? me : null);
   const attacks = useAttackLog(v1 ? me : null);
-  // The cards' backgrounds (#857): the build's renders, as the Story campaigns'.
-  const renders = useTileRenders(RENDERER_ASSETS);
   const shown = useMemo<{ cards: MatchCardData[]; paths: Map<string, string> } | null>(() => {
     if (v2.data) {
       const cards = v2.data.map(
@@ -151,7 +130,6 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
       matches: shown?.cards ?? null,
       error: error?.message ?? null,
       errorDetail: error ? errorDetail(error) : undefined,
-      renders,
       onOpenPlayer: openPlayer,
     },
     onOpenMatch: (id) => {

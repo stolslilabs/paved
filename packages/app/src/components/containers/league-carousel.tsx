@@ -4,8 +4,6 @@ import { cn } from "../../lib/utils";
 import { LEAGUES, type League } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "../ui/carousel";
-import { CarouselDots } from "../ui/carousel-dots";
-import { Icon } from "../ui/icon";
 
 /**
  * The carousel's slides: Unranked first (a player who has not entered the leagues, a client state, `null` as `tierOf` reads it,
@@ -24,17 +22,35 @@ export interface LeagueCarouselProps {
   mine: number;
   /** A league's card (`LeagueCard`), Unranked's as `null`, the same height for every one (#833). */
   children: (league: League | null, current: boolean) => ReactNode;
-  /** The carousel's whole block (the arrows, the card, the dots): the League control brings it into view (#859). */
+  /** The carousel's whole block (the arrows, the card): the League control brings it into view (#859). */
   ref?: Ref<HTMLDivElement>;
   className?: string;
 }
 
-const SCROLL_MARGIN = { scrollMarginTop: "calc(var(--header-h) + env(safe-area-inset-top) + 1rem)" };
+/** An arrow's button: a 44 px target at the carousel's edge, muted until hovered. */
+const ARROW = "size-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground";
 
 /**
- * The leagues one per view (#785), Unranked then Wood to Grand Master, each card standing alone (#859): the arrows on each side of it, a swipe, the arrow keys and the dots under it (#833, one
- * per league, the current one widened, a tap jumps there) move through them, and stop at both ends. The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's landing. Only the
- * league in view is in the accessibility tree.
+ * An arrow's glyph (the owner's ask of 2026-11-05: subtle arrows rather than the book's chunky chevrons): a thin arrow, its shaft and
+ * its head with rounded ends, in the muted text colour, the foreground's under the pointer.
+ */
+function Arrow({ to }: { to: "left" | "right" }) {
+  const d = to === "left" ? "M19 12H5m6-6-6 6 6 6" : "M5 12h14m-6-6 6 6-6 6";
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="size-6">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Brought into view in the drawer's body (LEAGUE-PAGE), under its header band, with the body's own top padding. */
+const SCROLL_MARGIN = { scrollMarginTop: "1rem" };
+
+/**
+ * The leagues one per view (#785), Unranked then Wood to Grand Master, each card standing alone (#859): the arrows on each side of
+ * it (thin arrows), a swipe and the arrow keys move through them, and stop at both ends. No dots (the owner's ask of
+ * 2026-11-05: 24 were too many). The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's
+ * landing. Only the league in view is in the accessibility tree.
  */
 export function LeagueCarousel({ ref, selected, onSelect, mine, children, className }: LeagueCarouselProps) {
   const [api, setApi] = useState<CarouselApi>();
@@ -52,7 +68,7 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
     };
   }, [api, onSelect]);
 
-  // An arrow, a key, a dot or the header's League control (#859): Embla glides there, or cuts under reduced motion.
+  // An arrow, a key or the header's League control (#859): Embla glides there, or cuts under reduced motion.
   useEffect(() => {
     if (api && api.selectedScrollSnap() !== selected) api.scrollTo(selected, Boolean(reduced));
   }, [api, selected, reduced]);
@@ -66,12 +82,11 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
   };
 
   return (
-    // Brought into view under the sticky header (`--header-h`, the notch's inset), with the bar's own gap (`TopBar`'s `mb-4`). Inline,
-    // not a class: an arbitrary value costs the stylesheet's budget.
+    // Inline, not a class: an arbitrary value costs the stylesheet's budget.
     <div ref={ref} style={SCROLL_MARGIN} className={cn("flex w-full min-w-0 flex-col items-center gap-2", className)}>
-      <div className="flex w-full items-center gap-2">
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Previous league" disabled={selected === 0} onClick={() => step(-1)}>
-          <Icon name="chevron-left" size="md" />
+      <div className="flex w-full items-center gap-1">
+        <Button variant="ghost" size="icon" className={ARROW} aria-label="Previous league" disabled={selected === 0} onClick={() => step(-1)}>
+          <Arrow to="left" />
         </Button>
         <Carousel
           aria-label="Leagues"
@@ -96,14 +111,13 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
             ))}
           </CarouselContent>
         </Carousel>
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Next league" disabled={selected === last} onClick={() => step(1)}>
-          <Icon name="chevron-right" size="md" />
+        <Button variant="ghost" size="icon" className={ARROW} aria-label="Next league" disabled={selected === last} onClick={() => step(1)}>
+          <Arrow to="right" />
         </Button>
       </div>
       <p aria-live="polite" className="sr-only">
         {slideName(LEAGUE_SLIDES[selected]!)}
       </p>
-      <CarouselDots aria-label="Go to a league" count={LEAGUE_SLIDES.length} current={selected} onSelect={onSelect} label={(i) => `Go to ${slideName(LEAGUE_SLIDES[i]!)}`} />
     </div>
   );
 }

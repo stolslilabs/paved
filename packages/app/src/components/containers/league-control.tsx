@@ -11,7 +11,6 @@ import { LeagueRim } from "../elements/league-rim";
 import { divisionOf, tierOf, type LeagueTier } from "../elements/league-standards";
 import { Plate, plateBareIconClass, PLATE_FIGURE, plateHudIconClass, plateHudIconPx, type PlateSize } from "../elements/plate";
 import { UiIcon } from "../elements/ui-icon";
-import { Icon } from "../ui/icon";
 
 /** The promotion's ring in its league's colour (#787's, on the crest since #829); Wood a neutral grey. */
 const RING: Record<LeagueId, string> = {
@@ -220,8 +219,9 @@ function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size
             </span>
           }
         >
+          {/* LEAGUE-PAGE: the painted crown (the book's, the profile's), not the font's. */}
           <span aria-hidden className="flex items-center gap-1">
-            <Icon name="crown" size="xs" className="text-crown" />
+            <UiIcon name="crown" px={20} className="drawer-icon size-5" />
             <span className={PLATE_FIGURE}>{formatInteger(crowns)}</span>
           </span>
         </Plate>

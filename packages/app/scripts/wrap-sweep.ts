@@ -81,8 +81,11 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die|slots)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die|slots)/, kind: "overflow", element: 'div "×', why: "carousel track" },
   // The League page's carousel of Unranked and the 23 leagues (#785, #917), one per view: its window clips its track, by design.
-  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^(scenes-pvp-league--|scenes-home-panels--league$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "overflow", element: 'div "Before the first attackNo season rewardUnranked', why: "carousel track" },
+  { story: /^(scenes-pvp-league--|scenes-home-panels--league(-phone)?$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  // LEAGUE-PAGE: each card's name first (the book's), and the HUD drawer's body (`overflow-x-hidden`, down only) an ancestor of the
+  // same track, holding it too.
+  { story: /^(scenes-pvp-league--|scenes-home-panels--league(-phone)?$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "overflow", element: 'div "UnrankedBefore the first attack', why: "carousel track" },
+  { story: /^(scenes-pvp-league--|scenes-home-panels--league(-phone)?$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "clip", element: 'div[scroll-region] "UnrankedBefore the first attack', why: "the drawer's body over the carousel track" },
   // The same village board in the PvP result's reward dialog (#647), opened by Choose.
   { story: "scenes-pvp-result--reward-sheet-open", kind: "scroll", element: "div[scroll-region]", why: "village plan scroller" },
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with

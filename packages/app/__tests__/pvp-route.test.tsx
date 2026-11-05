@@ -94,7 +94,8 @@ afterEach(() => {
 describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
   it("from the league to the search, searches a village, scouts it, opens the attack and places a tile", async () => {
     const s = await open("/pvp/league");
-    expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
+    // LEAGUE-PAGE: the HUD's drawer over the home.
+    expect(await screen.findByRole("dialog", { name: "League" }, WAIT)).toHaveAttribute("data-hud-drawer", "league");
     // A new player has never attacked: the carousel opens on Unranked's card, before Wood's (#917).
     expect(await screen.findByRole("heading", { name: "Unranked" }, WAIT)).toBeInTheDocument();
     // The search draws as the page opens: the village found (held `FOUND_MS`, 1.2 s), then its scout. The wait starts before
@@ -209,7 +210,7 @@ describe("/pvp/result/:id", { timeout: slow(30_000) }, () => {
 describe("Back never cycles (BACK-RULE #783)", { timeout: slow(45_000) }, () => {
   it("the league, a result, its replay: Back, Back reaches the village and never shows a page twice", async () => {
     const s = await open("/pvp/league", attacked);
-    await screen.findByRole("heading", { level: 1, name: "League" }, WAIT);
+    await screen.findByRole("dialog", { name: "League" }, WAIT);
     await s.router.navigate("/pvp/result/1");
     await screen.findByRole("heading", { name: /Defeat|Victory|Triumph/ }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Replay/ }));
@@ -220,7 +221,7 @@ describe("Back never cycles (BACK-RULE #783)", { timeout: slow(45_000) }, () => 
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/pvp/league"), WAIT);
     expect(s.router.state.historyAction).toBe("POP");
-    await screen.findByRole("heading", { level: 1, name: "League" }, WAIT);
+    await screen.findByRole("dialog", { name: "League" }, WAIT);
     await waitFor(async () => {
       if (s.router.state.location.pathname === "/pvp/league") await userEvent.click(screen.getByRole("button", { name: "Back" }));
       expect(s.router.state.location.pathname).toBe("/");
@@ -297,7 +298,8 @@ describe("the other answers", { timeout: slow(30_000) }, () => {
   it("/pvp/league: its matches (#786), none yet (a section, not a page); the League control in the header, no balance, no shield (#859)", async () => {
     await open("/pvp/league");
     expect(await screen.findByText(/No match yet/, {}, WAIT)).toBeInTheDocument();
-    const header = screen.getByRole("heading", { level: 1, name: "League" }).closest("header")!;
+    // The League control at the drawer's header band's end (LEAGUE-PAGE), in the balances' place.
+    const header = screen.getByRole("dialog", { name: "League" }).querySelector<HTMLElement>("[data-slot=sheet-header]")!;
     expect(within(header).getByRole("button", { name: /^Your league: \w[\w ]*, [\d,]+ crowns?\. Show it$/ })).toBeInTheDocument();
     expect(within(header).queryAllByRole("region", { name: "Balances" })).toEqual([]);
     expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();

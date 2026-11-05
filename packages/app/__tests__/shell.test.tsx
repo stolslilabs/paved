@@ -50,10 +50,12 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
   it.each(PAGES.filter((p) => p.nav && p.path !== "").map((p) => [p.path, p] as const))("%s carries no dock", async (_path, page) => {
     open(concrete(page.path));
     // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
-    if (page.path === "pvp/league") await screen.findByText("Connect to see your league.", undefined, { timeout: slow(5000) });
-    // A drawer's page (MISSIONS-PAGE) is the HUD's drawer over the home, named by its title.
-    else if (page.drawer) await screen.findByRole("dialog", { name: page.title }, { timeout: slow(5000) });
-    else await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
+    // A drawer's page (MISSIONS-PAGE, LEAGUE-PAGE) is the HUD's drawer over the home, named by its title; the League's asks a guest
+    // to connect in it.
+    if (page.drawer) {
+      await screen.findByRole("dialog", { name: page.title }, { timeout: slow(5000) });
+      if (page.path === "pvp/league") await screen.findByText("Connect to see your league", undefined, { timeout: slow(5000) });
+    } else await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
     const dock = screen.queryByRole("navigation", { name: "Main", hidden: true });
     if (page.drawer) expect(within(screen.getByRole("dialog", { name: page.title })).queryByRole("navigation", { name: "Main", hidden: true })).toBeNull();
     else expect(dock).toBeNull();

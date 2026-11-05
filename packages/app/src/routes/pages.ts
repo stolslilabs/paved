@@ -43,7 +43,8 @@ export interface PageDef {
    * MISSIONS-PAGE (the owner's pattern of 2026-11-02, the profile's: a page is a side panel on a large screen and a full page with
    * Back on a phone): the page is the HUD's drawer over the home at every width (`containers/hud-drawer.tsx`, `routes/home-hosts.tsx`),
    * the home's village kept under it: a full page sliding in on a phone, a side panel docked at the edge of its HUD control from
-   * `tablet` (the right; `panelSide` names another). Its route is a child of the home's (`panel`), never in the desktop's panel.
+   * `tablet` (Missions at the right, the League at the left, LEAGUE-PAGE: the scene names its side). Its route is a child of the
+   * home's (`panel`), never in the desktop's panel.
    */
   drawer?: true;
 }
@@ -68,7 +69,8 @@ export const PAGES: readonly PageDef[] = [
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
   // A match of the League's list (#786): the attacked village from its snapshot and the attack's build. Back goes up to the League.
   { path: "pvp/match/:id", title: "Match", nav: null, parent: "/pvp/league" },
-  { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left" },
+  // The HUD's drawer at every width, docked at the left from `tablet`, under the HUD's crowns (LEAGUE-PAGE).
+  { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left", drawer: true },
   { path: "training", title: "Training", nav: null },
   // Story's campaigns, a sheet over Play's mode choice (BACK-RULE #783); a level is a full-screen flow.
   { path: "story", title: "Story", nav: null, parent: "/play", sheet: true, panel: true },

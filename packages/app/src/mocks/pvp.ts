@@ -1,7 +1,7 @@
 import { CENTER, levelStatus, pvpXp } from "@paved/game-core";
 import { sideSettings } from "../data/board-side";
 import { BOARD_FOG, squareGridSettings } from "../data/settings";
-import { APP_ASSETS, appRenders } from "./assets";
+import { APP_ASSETS } from "./assets";
 import type { CrownStakes, PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE, crownsFor, leagueOf, stakesOf, starsFor } from "../lib/pvp-rules";
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
@@ -277,12 +277,12 @@ const MANY: MatchCardData[] = Array.from({ length: 26 }, (_, i) => {
   return { ...m, id: `${m.id}-${i}`, at: MOCK_NOW - (i + 1) * 3 * HOUR };
 });
 
-/** The League page's matches (a section of the page, BACK-RULE #783), on the page's clock, the cards' backgrounds the app's renders (#857). */
+/** The League page's matches (a section of the page, BACK-RULE #783), on the page's clock. */
 export const PVP_MATCHES = {
-  latest: { matches: MATCHES, renders: appRenders },
-  many: { matches: MANY, renders: appRenders },
-  /** v1 (the chain before step 3): no snapshot is kept, so no village behind the cards, and no rewards nor rival's league known. */
-  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, league: _league, ...m }) => ({ ...m, village: null })), renders: appRenders },
+  latest: { matches: MATCHES },
+  many: { matches: MANY },
+  /** v1 (the chain before step 3): no snapshot is kept (the match page has no village), and no rewards nor rival's league known. */
+  noSnapshot: { matches: MATCHES.map(({ xp: _xp, chest: _chest, league: _league, ...m }) => ({ ...m, village: null })) },
   empty: { matches: [] },
   loading: { matches: null },
   error: { matches: null, error: "The matches could not load.", errorDetail: { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 30) } },
@@ -294,10 +294,6 @@ const SEASON = { name: "Season 3", endsAt: MOCK_NOW + 4 * DAY + 3 * HOUR };
 
 export const PVP_LEAGUE = {
   bronze: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.latest },
-  // The season's reward (#859): the attacks still needed below `MIN_SEASON_ATTACKS` (5), none past it.
-  attacksBelow: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 2, matches: PVP_MATCHES.latest },
-  attacksOneLeft: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 4 },
-  attacksAbove: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, attacks: 7, matches: PVP_MATCHES.latest },
   // The matches' states (#786), a section of the page (BACK-RULE #783).
   matchesMany: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.many },
   matchesNoSnapshot: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, matches: PVP_MATCHES.noSnapshot },

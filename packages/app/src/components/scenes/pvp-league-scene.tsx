@@ -1,18 +1,20 @@
 import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { useReducedMotionConfig } from "motion/react";
-import { formatInteger, formatRelative } from "@paved/game-core";
+import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { LEAGUES, leagueOf, type League } from "../../lib/pvp-rules";
+import { Button } from "../ui/button";
+import { Skeleton } from "../ui/skeleton";
 import { Cobbles } from "../elements/cobbles";
 import { Countdown } from "../elements/countdown";
-import { LeagueCrestIcon } from "../elements/league-crest-art";
-import { divisionOf, tierOf } from "../elements/league-standards";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
+import { Notice } from "../elements/notice";
+import { UiIcon } from "../elements/ui-icon";
+import { HudDrawer } from "../containers/hud-drawer";
 import { LeagueCard } from "../containers/league-card";
 import { LeagueCarousel, slideOf } from "../containers/league-carousel";
 import { LeagueControl } from "../containers/league-control";
 import { MatchList, type MatchListProps } from "../containers/match-list";
-import { TabFrame } from "../containers/tab-frame";
-import { TopBar } from "../containers/top-bar";
 
 export interface PvpSeason {
   /** "Season 3". */
@@ -20,6 +22,16 @@ export interface PvpSeason {
   /** Seconds since the epoch. */
   endsAt: number;
 }
+
+/**
+ * What stands in the page's place while it has no standing to show (the route's waits and refusals, in the drawer): no account,
+ * PvP not on this network, the standing on its way, or its read failed.
+ */
+export type LeagueWait =
+  | { kind: "connect"; onConnect?: () => void }
+  | { kind: "unavailable" }
+  | { kind: "loading" }
+  | { kind: "error"; message: string; detail?: ErrorDetail; onRetry?: () => void };
 
 export interface PvpLeagueSceneProps {
   crowns: number;
@@ -34,13 +46,12 @@ export interface PvpLeagueSceneProps {
    * Left out, the league of `crowns`.
    */
   league?: number;
-  /** The attacks settled this season: its reward needs `MIN_SEASON_ATTACKS` (#644). */
-  attacks?: number;
   /** The league the carousel opens on (`LEAGUES`' index), for the stories; the player's by default. */
   opensOn?: number;
+  /** The drawer's close: Back on a phone, the cross from `tablet`, Escape, a tap on the village. */
   onBack?: () => void;
   /**
-   * The latest attacks and defences as cards (#786, in place of the defence log; no shield since #859); none when omitted. A section
+   * The latest attacks and defences as rows (#786, in place of the defence log; no shield since #859); none when omitted. A section
    * of the page (BACK-RULE #783: no page opens another page).
    */
   matches?: Omit<MatchListProps, "now" | "onOpen" | "onRetry">;
@@ -48,33 +59,39 @@ export interface PvpLeagueSceneProps {
   onOpenMatch?: (id: string) => void;
   /** The matches' read again, after its failure. */
   onRetryMatches?: () => void;
+  /** In the standing's place: a wait or a refusal (`LeagueWait`); the header keeps its title. */
+  wait?: LeagueWait;
+  /** Whether the drawer is shown (LEAGUE-PAGE): its route is the current one; false while it slides out. Omitted, shown. */
+  open?: boolean;
+  /** Where the focus goes back as the drawer closes (the HUD's crowns, which opened it); omitted, Radix's own. */
+  returnFocus?: () => HTMLElement | null;
 }
-
-/** The attacks a village settles in a season to earn its reward (`MIN_SEASON_ATTACKS`). */
-const MIN_SEASON_ATTACKS = 5;
 
 /** A season's last day: its timer turns to the warning colour (the countdown's own rule is the last hour). */
 const LAST_DAY_S = 86_400;
 
+/** A press outside the drawer that is no tap on the village: on a dialog drawn over the drawer (a rival's profile, #952). */
+function keepForDialogs(event: Event) {
+  if (event.target instanceof Element && event.target.closest('[role="dialog"]')) event.preventDefault();
+}
+
 /**
- * The league (#647): the League control in the header (#859, in the balances' place: the crowns and the crest; a tap brings the
- * carousel back to the player's league), a carousel of Unranked and the 23 leagues opening on the player's (#785, Unranked's
- * before the first attack, #917), its card standing alone
- * between the arrows and over the dots (#833, #859: the range of crowns, the season's Cobbles, the first-time bonus's icon), then
- * the season's end and, in one line, what the player's league gives at it (#644's rewards, #859), and the latest attacks and
- * defences as cards (#786), each opening its match. No Attack button (#833): it is in the phone's bar, and the panel closes on
- * desktop.
+ * The league (#647). LEAGUE-PAGE (the Paved UX Book's League, the owner's approved mockups of 2026-11-02): the HUD's drawer, as the
+ * profile and the Missions (`HudDrawer`): a full page with Back on a phone, a side panel docked at the left from `tablet` (the
+ * HUD's crowns, at the home's top left, open it), its close the red cross. The header's end holds the League control (#859: the
+ * crowns and the crest; a tap brings the carousel back to the player's league). Under it, in the drawer's carved surfaces: the
+ * leagues' carousel, Unranked and the 23 leagues opening on the player's (#785, #917), each card the crest beside its name and its
+ * range of crowns between two thin arrows (no dots); the season in one row (its calendar, what the player's league gives at its
+ * end, #644, #859, its time left); then the battle logs (#786), each row opening its match. No Attack button (#833).
  */
 export function PvpLeagueScene(props: PvpLeagueSceneProps) {
-  const { crowns, season, now, unranked, attacks, league: index, opensOn, onBack, matches, onOpenMatch, onRetryMatches } = props;
+  const { crowns, season, now, unranked, league: index, opensOn, onBack, matches, onOpenMatch, onRetryMatches, wait } = props;
   const league = (index !== undefined ? LEAGUES[index] : undefined) ?? leagueOf(crowns);
   // Below Iron III (400 crowns) a village is in Wood on chain, as one that never attacked.
   const outside = unranked || league.id === "wood";
   const mine = outside ? LEAGUES[0]! : league;
-  const left = season ? season.endsAt - now : 0;
-  const ended = season !== null && left <= 0;
   const browser = useRef<LeagueBrowserHandle>(null);
-  const control = (
+  const control = wait ? null : (
     <LeagueControl
       crowns={crowns}
       league={mine}
@@ -85,67 +102,115 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
     />
   );
   return (
-    <TabFrame>
-      <TopBar title="League" onBack={onBack} end={control} />
-      <main className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div className="flex min-w-0 flex-col gap-4">
+    <HudDrawer
+      open={props.open ?? true}
+      onOpenChange={(next) => {
+        if (!next) onBack?.();
+      }}
+      title="League"
+      side="left"
+      slot="league"
+      returnFocus={props.returnFocus}
+      end={control}
+      // A press on a dialog over it (a rival's profile) is no tap on the village.
+      onInteractOutside={keepForDialogs}
+    >
+      {wait ? (
+        <Waiting wait={wait} />
+      ) : (
+        <>
           <LeagueBrowser ref={browser} mine={unranked ? null : mine} opensOn={opensOn} />
-
-          {season === null ? (
-            <section aria-label="Season" className="flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3">
-              <h2 className="font-semibold">Before the first season</h2>
-              <p className="text-sm text-muted-foreground">The seasons start soon: attack now, your crowns count from the first day.</p>
-            </section>
-          ) : (
-            <section aria-label="Season" data-ended={ended} className={cn("flex flex-col gap-2 rounded-xl border px-4 py-3", !ended && left < LAST_DAY_S ? "border-warning/40 bg-warning/10" : "border-border bg-card")}>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-semibold">{season.name}</h2>
-                {ended ? (
-                  <span className="text-xs text-muted-foreground">Ended {formatRelative(left)}</span>
-                ) : left < LAST_DAY_S ? (
-                  <Countdown expiresAt={season.endsAt} now={now} label="Ends in" className="text-warning" />
-                ) : (
-                  <span className="text-xs text-muted-foreground">Ends {formatRelative(left)}</span>
-                )}
-              </div>
-              {ended ? <p className="text-sm text-muted-foreground">Its rewards are on their way.</p> : <SeasonReward league={mine} outside={outside} attacks={attacks} />}
-            </section>
-          )}
-
+          <SeasonBand season={season} now={now} league={mine} outside={outside} />
           {matches && <MatchList {...matches} now={now} onOpen={onOpenMatch} onRetry={onRetryMatches} />}
-        </div>
-      </main>
-    </TabFrame>
+        </>
+      )}
+    </HudDrawer>
+  );
+}
+
+/** The page's waits and refusals, in the drawer's body. */
+function Waiting({ wait }: { wait: LeagueWait }) {
+  if (wait.kind === "connect")
+    return (
+      <Notice title="Connect to see your league" action={wait.onConnect && <Button size="sm" onClick={wait.onConnect}>Connect</Button>}>
+        Your crowns, your league and your battles need an account.
+      </Notice>
+    );
+  if (wait.kind === "unavailable") return <Notice title="No league here yet">PvP is not on this network yet.</Notice>;
+  if (wait.kind === "error")
+    return (
+      <InlineError
+        title="Could not load your league"
+        message={wait.message}
+        detail={wait.detail}
+        action={
+          wait.onRetry && (
+            <Button size="sm" variant="outline" onClick={wait.onRetry}>
+              Retry
+            </Button>
+          )
+        }
+      />
+    );
+  return (
+    <div role="status" aria-label="Loading your league" className="flex flex-col gap-3">
+      <Skeleton className="h-40 rounded-xl" />
+      <Skeleton className="h-12 rounded-xl" />
+      <Skeleton className="h-64 rounded-xl" />
+    </div>
   );
 }
 
 /**
- * What the player's league gives at the season's end, in one line (#859): "Bronze II: +20 Cobbles at the season's end", the crest
- * before it; the attacks still needed under it, below `MIN_SEASON_ATTACKS`. Wood gives nothing: the way to the first league that
- * does. Paid at the season's roll, with no claim (#859, open point 2).
+ * The season in one carved row (the book's, the owner's asks of 2026-11-05): the book's calendar and the season's name; in the
+ * middle what the player's league gives at its end (#644's Cobbles, paid at the season's roll with no claim, #859), Wood and Unranked
+ * the way to the first league that does; at its end the time left in a carved chip, as the Missions' rows' resets (`Countdown`),
+ * in the warning colour on its last day. Once it ended, "Ended" there and its rewards on their way; before the first season, one
+ * line says so.
  */
-function SeasonReward({ league, outside, attacks }: { league: League; outside: boolean; attacks?: number }) {
-  if (outside)
+function SeasonBand({ season, now, league, outside }: { season: PvpSeason | null; now: number; league: League; outside: boolean }) {
+  const emblem = <UiIcon name="season" px={32} className="drawer-icon size-8" />;
+  // Gaps of 6 px: the reward keeps its room between the name and the chip on a 320 px phone ("+250", "46d 22h").
+  const row = "drawer-carved flex items-center gap-1.5 rounded-xl px-2.5 py-2";
+  const chip = "drawer-carved h-7 shrink-0 rounded-full px-2.5";
+  if (season === null)
     return (
-      <p data-testid="season-reward" className="text-sm text-muted-foreground">
-        Reach <span className="font-semibold text-foreground">{LEAGUES[1]!.name}</span> to earn Cobbles at the season's end
-      </p>
+      <section aria-label="Season" className={row}>
+        {emblem}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h2 className="text-outline text-lg leading-tight font-bold">Before the first season</h2>
+          <p className="text-xs font-semibold text-muted-foreground">The seasons start soon: attack now, your crowns count from the first day.</p>
+        </div>
+      </section>
     );
-  const missing = attacks === undefined ? 0 : Math.max(0, MIN_SEASON_ATTACKS - attacks);
+  const left = season.endsAt - now;
+  const ended = left <= 0;
   return (
-    <>
-      {/* Inline, so a narrow card wraps it as text, after a word. */}
-      <p data-testid="season-reward" className="text-sm text-muted-foreground">
-        <LeagueCrestIcon tier={tierOf(league)} division={divisionOf(league)} size="sm" className="mr-1.5" style={{ verticalAlign: "-0.3em" }} />
-        <span className="font-semibold whitespace-nowrap text-foreground">{league.name}</span>:{" "}
-        <Cobbles value={league.seasonCobbles} sign="+" className="align-[-0.125em]" /> Cobbles at the season's end
-      </p>
-      {missing > 0 && (
-        <p data-testid="season-attacks" className="text-xs text-muted-foreground">
-          Attack <span className="numeric font-semibold text-foreground">{missing}</span> more {missing === 1 ? "time" : "times"} this season to earn it
-        </p>
+    <section aria-label="Season" data-ended={ended} className={row}>
+      {emblem}
+      {/* A step smaller on a 320 px phone: the reward between the name and the chip keeps its room. */}
+      <h2 className="text-outline shrink-0 text-base leading-tight font-bold whitespace-nowrap mobile:text-lg">{season.name}</h2>
+      <span className="flex min-w-0 flex-1 items-center justify-center text-center">
+        {ended ? (
+          <span className="text-xs font-semibold text-muted-foreground">Its rewards are on their way</span>
+        ) : outside ? (
+          <span data-testid="season-reward" className="text-xs font-semibold text-muted-foreground">
+            Reach <span className="font-bold text-foreground">{LEAGUES[1]!.name}</span> to earn Cobbles
+          </span>
+        ) : (
+          // A flex box, not a line: the cube and its figure centred on the row's middle, as the calendar and the chip.
+          <span data-testid="season-reward" className="text-outline flex items-center font-bold">
+            <span className="sr-only">{league.name} at the season's end: </span>
+            <Cobbles value={league.seasonCobbles} sign="+" size="md" className="text-sm leading-none font-bold mobile:text-base" />
+          </span>
+        )}
+      </span>
+      {ended ? (
+        <span className={cn(chip, "inline-flex items-center text-xs font-semibold text-muted-foreground")}>Ended</span>
+      ) : (
+        <Countdown expiresAt={season.endsAt} now={now} label="Season ends in" short className={cn(chip, left < LAST_DAY_S ? "text-warning" : "text-foreground")} />
       )}
-    </>
+    </section>
   );
 }
 
@@ -161,8 +226,8 @@ interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "opensOn"> {
 }
 
 /**
- * The carousel and its cards, with the league in view as their own state: moving through the leagues redraws the carousel alone,
- * never the season or the matches below, nor the header (its League control calls `showMine`).
+ * The carousel and its cards, on the drawer's face (no carved panel: the owner's ask of 2026-11-05), with the league in view as their own state: moving through the
+ * leagues redraws the carousel alone, never the season or the matches below, nor the header (its League control calls `showMine`).
  */
 function LeagueBrowser({ ref, mine, opensOn }: LeagueBrowserProps) {
   const [selected, setSelected] = useState(slideOf(opensOn !== undefined ? LEAGUES[opensOn]! : mine));
@@ -178,7 +243,7 @@ function LeagueBrowser({ ref, mine, opensOn }: LeagueBrowserProps) {
     },
   }));
   return (
-    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={slideOf(mine)}>
+    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={slideOf(mine)} className="py-1">
       {(l) => <LeagueCard league={l} />}
     </LeagueCarousel>
   );

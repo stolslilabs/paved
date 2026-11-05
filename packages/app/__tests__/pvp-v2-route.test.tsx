@@ -104,7 +104,8 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(screen.queryByRole("button", { name: /Open chest/ })).toBeNull();
     expect((await s.ledger.attackV2(s.me)).attack!.status).toBe("finished");
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
+    // LEAGUE-PAGE: the HUD's drawer over the home.
+    expect(await screen.findByRole("dialog", { name: "League" }, WAIT)).toBeInTheDocument();
   });
 
   it("shows a finished attack's end again on a reload of its route: a surrender, said with what it cost", async () => {
@@ -119,7 +120,8 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(screen.getByRole("heading", { level: 1, name: "Attack over" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Crowns" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /League/ }));
-    expect(await screen.findByRole("heading", { level: 1, name: "League" }, WAIT)).toBeInTheDocument();
+    // LEAGUE-PAGE: the HUD's drawer over the home.
+    expect(await screen.findByRole("dialog", { name: "League" }, WAIT)).toBeInTheDocument();
   });
 
   it("keeps a result's link good after the next attack starts: the attack of that id, not the last", async () => {

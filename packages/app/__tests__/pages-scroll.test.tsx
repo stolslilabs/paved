@@ -37,7 +37,6 @@ const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
   ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onBuy={no()} onGetCobbles={no()} />],
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
-  ["League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={no()} onOpenMatch={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />],
   ["Vault", <VaultScene {...VAULT.position} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onUse={no()} onOpen={no()} />],
@@ -136,22 +135,35 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
       expect(el.className).not.toMatch(/(^|\s)(overflow-(y-)?(auto|scroll|hidden|clip)|h-dvh|h-screen|h-full)(\s|$)/);
   });
 
-  it("the League and the Chests draw their content in the region: the leagues' carousel and season, the day's slots", () => {
-    const { unmount } = draw(PAGES[2]![1], false, "League");
-    const region = document.querySelector("[data-slot=page-scroll]")!;
-    // The carousel of Unranked and the 23 leagues (#785, #917), then the season, all under the sticky header; no Attack button (#833).
-    expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
-    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-slot='carousel-item']").length).toBe(24);
-    expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
-    expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
-    // The latest attacks and defences (#786), a section of the page, in the same region.
-    expect(region).toContainElement(screen.getByRole("heading", { level: 2, name: "Battle logs" }));
-    unmount();
+  it("the Chests draw their content in the region: the day's slots", () => {
     draw(PAGES[1]![1], false, "Chests");
     // The page with the chest modal closed (#784): the day's three slots, under the sticky header.
     const slots = screen.getByRole("list", { name: "Today's PvP slots" });
     expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(slots);
     expect(slots.querySelectorAll(":scope > li")).toHaveLength(3);
+  });
+
+  it("the League (#647) draws its carousel, its season and its battle logs in the HUD drawer's body (LEAGUE-PAGE), to the last row", () => {
+    draw(<PvpLeagueScene {...PVP_LEAGUE.matchesMany} onBack={no()} onOpenMatch={no()} />, false, "League");
+    const drawer = screen.getByRole("dialog", { name: "League" });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    expect(region.className).toContain("overscroll-contain");
+    // The carousel of Unranked and the 23 leagues (#785, #917), then the season; no Attack button (#833).
+    expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
+    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-slot='carousel-item']").length).toBe(24);
+    expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
+    expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
+    // The latest attacks and defences (#786), a section of the page, in the same region, to its last row and its Show more.
+    expect(region).toContainElement(screen.getByRole("heading", { name: "Battle logs" }));
+    const rows = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
+    expect(region).toContainElement(rows.at(-1)!);
+    expect(region).toContainElement(screen.getByRole("button", { name: "Show more" }));
+    // The body is the one element that scrolls; no fixed height or clip between the last row and it.
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    for (let el: HTMLElement | null = rows.at(-1)!.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 
   it("Missions (#832) draws its card and its sections of medallions in the HUD drawer's body (MISSIONS-PAGE), to its last one; no part of it takes the finger", () => {

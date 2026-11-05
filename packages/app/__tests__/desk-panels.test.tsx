@@ -98,8 +98,9 @@ describe("the route map (#762)", () => {
     ]);
     // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
-    // MISSIONS-PAGE: Missions is the HUD's drawer over the home at every width, never the side panel; a child of the home's route.
-    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["missions"]);
+    // MISSIONS-PAGE, LEAGUE-PAGE: the League and Missions are the HUD's drawer over the home at every width, never the side panel;
+    // children of the home's route.
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["pvp/league", "missions"]);
     expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
@@ -164,12 +165,26 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^Missions/ })).toHaveFocus());
   });
 
-  it("the League control under the profile opens the League's panel from the left (#829)", async () => {
+  it("the League control under the profile opens the League's HUD drawer at the left (#829, LEAGUE-PAGE), not the panel: the red cross, the focus back on the control", async () => {
+    // From `tablet` the drawer is a side panel (`hud-drawer.tsx`'s query): every width query matches here.
+    wide();
     const router = open("/");
     await userEvent.click(await screen.findByRole("button", { name: /^League: / }, { timeout: slow(5000) }));
-    const dialog = await panel("League");
+    const drawer = await panel("League");
     expect(router.state.location.pathname).toBe("/pvp/league");
-    expect(dialog).toHaveAttribute("data-side", "left");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "league");
+    expect(drawer).toHaveAttribute("data-side", "left");
+    expect(village()).toBeInTheDocument();
+    // One dialog: the side panel stays closed under it.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    // The title first, the close last (the League control between them once the standing is read); no Back.
+    const header = [...drawer.querySelector<HTMLElement>('[data-slot="sheet-header"]')!.children].map((el) => el.getAttribute("data-slot"));
+    expect([header[0], header.at(-1)]).toEqual(["hud-drawer-title", "hud-drawer-close"]);
+    expect(within(drawer).queryByRole("button", { name: "Back" })).toBeNull();
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^League: / })).toHaveFocus());
   });
 
   it("the dock's Settings opens Settings in the panel, and its Play the mode choice (HOME-DOCK)", async () => {

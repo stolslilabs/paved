@@ -101,6 +101,8 @@ describe("every page's scene draws the one header (#781)", () => {
     if (PAGES.find((p) => p.path === route)?.drawer) {
       const band = (await screen.findByRole("dialog")).querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
       expect(within(band).getByRole("heading").textContent).not.toBe("");
+      // The League's (LEAGUE-PAGE): no balance, its League control in their place.
+      if (none) return expect(within(band).queryAllByRole("region", { name: "Balances" })).toHaveLength(0);
       const plates = await within(band).findAllByRole("region", { name: "Balances" }, { timeout: slow(5000) });
       expect(plates).toHaveLength(1);
       const names = kinds.map((kind) => (kind === "usdc" ? "USDC" : kind === "paved" ? "PAVED" : kind === "vpaved" ? "vPAVED" : "Cobbles"));

@@ -21,7 +21,6 @@ import {
   MY_VILLAGE,
   PVP_ATTACK,
   PVP_LEAGUE,
-  PVP_MATCHES,
   PVP_REPLAY,
   PVP_RESULT,
   PVP_SCOUT,
@@ -275,16 +274,44 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("button", { name: /Choose/ })).toBeNull();
   });
 
-  it("league's battle logs without the build's renders (#857): the cards keep their own colour, no image behind", () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} matches={{ ...PVP_MATCHES.latest, renders: undefined }} />));
-    const cards = within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
-    expect(cards.every((c) => c.querySelector("[data-slot=match-art]") !== null && c.querySelector("[data-slot=match-art] img") === null)).toBe(true);
+  it("league (LEAGUE-PAGE): the HUD's drawer, its title, the League control at the header's end, the carousel, the season and the battle logs", () => {
+    const onBack = vi.fn();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={onBack} />));
+    const drawer = screen.getByRole("dialog", { name: "League" });
+    expect(drawer).toHaveAttribute("data-hud-drawer", "league");
+    const band = drawer.querySelector<HTMLElement>("[data-slot=sheet-header]")!;
+    expect(within(band).getByRole("button", { name: "Your league: Bronze II, 1,172 crowns. Show it" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("region", { name: "Leagues" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("region", { name: "Season" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("heading", { name: "Battle logs" })).toBeInTheDocument();
   });
 
-  it("league's battle logs (#786, #834): attacks and defences as cards, newest first, each opening its match; no shield (#859)", async () => {
+  it("league's waits and refusals (LEAGUE-PAGE): in the drawer, its title kept, no League control", async () => {
+    const onConnect = vi.fn();
+    const onRetry = vi.fn();
+    const base = { crowns: 0, season: null, now: PVP_LEAGUE.bronze.now };
+    render(wrap(<PvpLeagueScene {...base} wait={{ kind: "connect", onConnect }} />));
+    expect(screen.getByRole("dialog", { name: "League" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Your league/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onConnect).toHaveBeenCalledOnce();
+    cleanup();
+    render(wrap(<PvpLeagueScene {...base} wait={{ kind: "unavailable" }} />));
+    expect(screen.getByText("PvP is not on this network yet.")).toBeInTheDocument();
+    cleanup();
+    render(wrap(<PvpLeagueScene {...base} wait={{ kind: "loading" }} />));
+    expect(screen.getByRole("status", { name: "Loading your league" })).toBeInTheDocument();
+    cleanup();
+    render(wrap(<PvpLeagueScene {...base} wait={{ kind: "error", message: "No RPC", onRetry }} />));
+    expect(screen.getByText("No RPC")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  it("league's battle logs (#786, #834; LEAGUE-PAGE): attacks and defences as rows, newest first, each opening its match; no shield (#859)", async () => {
     const onOpenMatch = vi.fn();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} onOpenMatch={onOpenMatch} />));
-    expect(screen.getByRole("heading", { level: 2, name: "Battle logs" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Battle logs" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Defence log" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
     expect(screen.queryByText(/shield/i)).toBeNull();
@@ -294,13 +321,14 @@ describe("PvP scenes (#647)", () => {
     expect(cards.map((c) => c.dataset.side)).toEqual(MATCHES.map((m) => m.side));
     expect(cards[0]).toHaveAccessibleName(`Your attack on ${RIVAL.name}: ${MATCHES[0]!.stars} of 3 stars`);
     expect(cards[1]).toHaveAccessibleName(`Vael's attack on your village: ${MATCHES[1]!.stars} of 3 stars`);
-    // A card (#834): its side's background behind (#857: the build's render, at each of its widths), no plan view; the other
-    // player, the stars, the score alone, the crowns, an attack's XP and chest, the time in its largest unit.
+    // A row (the book's): the side's badge and name, the rival in their league's rim, the crowns, the stars, the time in its largest
+    // unit; behind a vertical rule the score, an attack's XP and its chest's icon, no label; no background art.
     expect(cards[0]!.querySelector("[inert]")).toBeNull();
-    const art = (card: HTMLElement) => card.querySelector("[data-slot=match-art] img");
-    expect(art(cards[0]!)).toHaveAttribute("srcset", expect.stringMatching(/battle-attack-720\.0\.\w+\.webp 720w, .*battle-attack-1040\.0\.\w+\.webp 1040w, .*battle-attack-2000\.0\.\w+\.webp 2000w$/));
-    expect(art(cards[1]!)).toHaveAttribute("src", expect.stringMatching(/battle-defence-2000\.0\.\w+\.webp$/));
+    expect(cards[0]!.querySelector("[data-slot=match-art]")).toBeNull();
     expect(within(cards[0]!).getByText("Attack")).toBeInTheDocument();
+    expect(cards[0]!.querySelector("[data-icon=attack]")).not.toBeNull();
+    expect(cards[1]!.querySelector("[data-icon=shield]")).not.toBeNull();
+    expect(cards[0]!.querySelector("[data-slot=rival-rim]")).toHaveAttribute("data-tier", MATCHES[0]!.league!.id);
     expect(within(cards[0]!).getByRole("img", { name: `${MATCHES[0]!.stars} of 3 stars` })).toBeInTheDocument();
     expect(within(cards[0]!).getByRole("img", { name: `+${MATCHES[0]!.crowns} crowns` })).toBeInTheDocument();
     expect(within(cards[0]!).getByTestId("match-score")).toHaveTextContent(/^[\d,]+$/);
@@ -308,16 +336,19 @@ describe("PvP scenes (#647)", () => {
     expect(within(cards[0]!).getByText("40min ago")).toBeInTheDocument();
     expect(within(cards[1]!).getByText("2h ago")).toBeInTheDocument();
     expect(within(cards[0]!).getByTestId("match-xp")).toHaveTextContent(`+${MATCHES[0]!.xp} XP`);
-    expect(within(cards[0]!).getByTestId("match-rewards")).toHaveTextContent("Rare chest");
+    expect(within(within(cards[0]!).getByTestId("match-rewards")).getByRole("img", { name: "Rare chest" })).toBeInTheDocument();
+    expect(within(cards[0]!).queryByText("Rare chest")).toBeNull();
+    expect(within(cards[0]!).getByTestId("match-rewards")).toContainElement(within(cards[0]!).getByTestId("match-score"));
     expect(within(cards[1]!).getByText("Defence")).toBeInTheDocument();
     expect(within(cards[1]!).getByRole("img", { name: `${MATCHES[1]!.crowns} crowns` })).toBeInTheDocument();
     expect(within(cards[1]!).queryByTestId("match-xp")).toBeNull();
-    expect(within(cards[1]!).queryByTestId("match-rewards")).toBeNull();
-    // In colour when crowns were won (or a draw), in grayscale when they were lost.
+    expect(within(cards[1]!).getByTestId("match-rewards").querySelector("img")).toBeNull();
+    // Lost crowns in the loss colour, won ones in the gain colour.
     expect(cards.map((c) => c.dataset.lost)).toEqual(MATCHES.map((m) => String(m.crowns < 0)));
-    for (const c of cards) expect(c.querySelector("[data-slot=match-art]")!.classList.contains("grayscale")).toBe(c.dataset.lost === "true");
-    // Every card one height (open point 3), 112 px (#857).
-    expect(new Set(cards.map((c) => c.className.match(/\bh-\S+/)?.[0]))).toEqual(new Set(["h-28"]));
+    for (const c of cards) {
+      const figure = c.querySelector("[data-slot=match-crowns] > span[aria-hidden]")!;
+      expect(figure.classList.contains("text-warning")).toBe(c.dataset.lost === "true");
+    }
     await userEvent.click(cards[1]!);
     expect(onOpenMatch).toHaveBeenCalledWith(MATCHES[1]!.id);
     cleanup();
@@ -326,7 +357,7 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
   });
 
-  it("league's matches: the latest 20, then 20 more with Show more (open point 3); v1's cards have no rewards", async () => {
+  it("league's matches: the latest 20, then 20 more with Show more (open point 3); v1's rows have no XP nor chest, a plain ring", async () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.matchesMany} />));
     const list = () => within(screen.getByRole("list", { name: "Matches" })).getAllByRole("button");
     expect(list()).toHaveLength(20);
@@ -335,17 +366,23 @@ describe("PvP scenes (#647)", () => {
     expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
     cleanup();
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.matchesNoSnapshot} />));
-    expect(list().every((c) => c.querySelector("[data-slot=match-art]") !== null)).toBe(true);
-    expect(screen.queryByTestId("match-rewards")).toBeNull();
+    expect(list().every((c) => c.querySelector("[data-slot=rival-rim]:not([data-tier])") !== null)).toBe(true);
     expect(screen.queryByTestId("match-xp")).toBeNull();
+    expect(screen.getAllByTestId("match-rewards").every((r) => r.querySelector("img") === null)).toBe(true);
   });
 
-  it("league: the crowns in the header, the season's end and its reward in one line (#859)", () => {
+  it("league: the crowns in the header; the season in one row, its calendar, its reward, its countdown (#859, LEAGUE-PAGE)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
     expect(screen.getByRole("button", { name: "Your league: Bronze II, 1,172 crowns. Show it" })).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).toBeNull();
-    expect(screen.getByText(/Ends in 4 d 3 h/)).toBeInTheDocument();
-    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II:\s*\+20\s*Cobbles at the season's end$/);
+    const season = screen.getByRole("region", { name: "Season" });
+    expect(season.querySelector("[data-icon=season]")).not.toBeNull();
+    expect(within(season).getByRole("heading")).toHaveTextContent(/^Season 3$/);
+    expect(within(season).getByRole("timer")).toHaveTextContent("4d 3h");
+    expect(within(season).getByRole("timer")).toHaveClass("drawer-carved", "text-foreground");
+    expect(within(season).queryByText(/attacks/)).toBeNull();
+    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II at the season's end:\s*\+20$/);
+    expect(within(screen.getByTestId("season-reward")).getByRole("img", { name: "+20 Cobbles" })).toBeInTheDocument();
     expect(screen.queryByText(/claim/i)).toBeNull();
     expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Bronze II");
     cleanup();
@@ -364,31 +401,28 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Iron III");
     // The header's control and the season's reward follow the chain's league, not the count shown.
     expect(screen.getByRole("button", { name: "Your league: Iron III, 380 crowns. Show it" })).toHaveAttribute("data-league", "iron");
-    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Iron III:\s*\+10\s*Cobbles at the season's end$/);
+    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Iron III at the season's end:\s*\+10$/);
   });
 
-  it("league's season reward (#859): the attacks still needed below 5, none past it; Wood's way to a reward; the end", () => {
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.attacksBelow} />));
-    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II:\s*\+20\s*Cobbles at the season's end$/);
-    expect(screen.getByTestId("season-attacks")).toHaveTextContent("Attack 3 more times this season to earn it");
-    cleanup();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.attacksOneLeft} />));
-    expect(screen.getByTestId("season-attacks")).toHaveTextContent("Attack 1 more time this season to earn it");
-    cleanup();
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.attacksAbove} />));
-    expect(screen.getByTestId("season-reward")).toHaveTextContent(/^Bronze II:\s*\+20\s*Cobbles at the season's end$/);
-    expect(screen.queryByTestId("season-attacks")).toBeNull();
+  it("league's season (#859): its last day in the warning colour; Wood's way to a reward; the end; before the first", () => {
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.lastDay} />));
+    expect(within(screen.getByRole("region", { name: "Season" })).getByRole("timer")).toHaveClass("text-warning");
+    expect(within(screen.getByRole("region", { name: "Season" })).getByRole("timer")).toHaveTextContent("5h 20m");
     cleanup();
     for (const wood of [PVP_LEAGUE.unranked, PVP_LEAGUE.wood, PVP_LEAGUE.demoted]) {
-      render(wrap(<PvpLeagueScene {...wood} attacks={1} />));
-      expect(screen.getByTestId("season-reward")).toHaveTextContent("Reach Iron III to earn Cobbles at the season's end");
-      expect(screen.queryByTestId("season-attacks")).toBeNull();
+      render(wrap(<PvpLeagueScene {...wood} />));
+      expect(screen.getByTestId("season-reward")).toHaveTextContent("Reach Iron III to earn Cobbles");
       cleanup();
     }
-    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.ended} attacks={2} />));
-    expect(screen.getByText("Its rewards are on their way.")).toBeInTheDocument();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.ended} />));
+    const season = screen.getByRole("region", { name: "Season" });
+    expect(within(season).getByText("Its rewards are on their way")).toBeInTheDocument();
+    expect(within(season).getByText("Ended")).toBeInTheDocument();
+    expect(within(season).queryByRole("timer")).toBeNull();
     expect(screen.queryByTestId("season-reward")).toBeNull();
-    expect(screen.queryByTestId("season-attacks")).toBeNull();
+    cleanup();
+    render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} season={null} />));
+    expect(within(screen.getByRole("region", { name: "Season" })).getByRole("heading")).toHaveTextContent("Before the first season");
   });
 });
 

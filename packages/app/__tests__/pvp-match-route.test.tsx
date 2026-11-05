@@ -70,31 +70,20 @@ afterEach(() => {
 });
 
 describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, () => {
-  it("lists the attack and the defence as cards, newest first; a card opens its match, whose Back lands on the League", async () => {
-    // The manifest: the battle logs' backgrounds (#857), the build's renders as the Story's.
-    resetTileRenders();
-    resetManifestBodies();
-    const renders = { "0": { "battle-attack-720": "renders/battle-attack-720.0.a.webp", "battle-attack-1040": "renders/battle-attack-1040.0.b.webp", "battle-defence-1040": "renders/battle-defence-1040.0.c.webp" } };
-    vi.stubGlobal("fetch", (url: string) => Promise.resolve(String(url).endsWith("manifest.json") ? new Response(JSON.stringify({ models: {}, renders, themes: {} })) : new Response("", { status: 404 })));
+  it("lists the attack and the defence as rows, newest first; a row opens its match, whose Back lands on the League", async () => {
     const s = await open("/pvp/league");
+    // LEAGUE-PAGE: the HUD's drawer over the home, its battle logs a carved list of rows.
     const list = await screen.findByRole("list", { name: "Matches" }, WAIT);
-    // Each card holds the match's control and the rival's profile's (#952).
+    expect(screen.getByRole("dialog", { name: "League" })).toContainElement(list);
+    // Each row holds the match's control and the rival's profile's (#952).
     const cards = [...list.querySelectorAll<HTMLElement>("[data-slot=match-card]")];
     expect(cards.map((c) => c.dataset.side)).toEqual(["defence", "attack"]);
     const opens = within(list).getAllByRole("button", { name: /stars$/ });
     expect(opens[1]).toHaveAccessibleName(`Your attack on ${s.rival.name}: ${s.attack.stars} of 3 stars`);
     expect(within(cards[1]!).getByRole("button", { name: `${s.rival.name}'s profile` })).toBeInTheDocument();
-    // No shield's card (#859): the home's overlay shows the shield.
+    // No shield's row (#859): the home's overlay shows the shield. No background art behind a row (the book's rows).
     expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
-    // Each card on its side's background (#834), the build's render at each width it has (#857), no plan view behind it.
-    await waitFor(
-      () =>
-        expect(cards.map((c) => c.querySelector("[data-slot=match-art] img")?.getAttribute("srcset"))).toEqual([
-          expect.stringMatching(/^\S*battle-defence-1040\.0\.c\.webp 1040w$/),
-          expect.stringMatching(/^\S*battle-attack-720\.0\.a\.webp 720w, \S*battle-attack-1040\.0\.b\.webp 1040w$/),
-        ]),
-      WAIT,
-    );
+    expect(cards.every((c) => c.querySelector("[data-slot=match-art]") === null)).toBe(true);
     expect(cards.every((c) => c.querySelector("[inert]") === null)).toBe(true);
 
     await userEvent.click(opens[1]!);
