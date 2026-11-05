@@ -5,7 +5,6 @@ import type { BoardTile } from "@paved/chain";
 import { AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
 import { PvpMatchScene, type MatchView } from "../../components/scenes/pvp-match-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
-import { ATTACK_STAR_PERCENTS } from "../../lib/pvp-v2-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { queryKeys } from "../../data/keys";
 import { layoutBoard, matchBoardSide, useMatchesV2, type MatchRecord } from "../../data/matches";
@@ -22,19 +21,19 @@ const STEP_MS = 700;
 const PLANS = Object.values(PlanType);
 const ORIENTATIONS = Object.values(OrientationType);
 
-/** The build after `move` moves of `match`: its board (from the starter, an unbounded board) and the last move's result. */
+/** The build after `move` moves of `match`: its board, from the starter, an unbounded board. */
 function buildAt(match: MatchRecord, move: number) {
   const codes = match.moves.slice(0, move).map((m) => (m.discard ? { plan: m.plan, discard: true as const } : { plan: m.plan, discard: false as const, orientation: m.orientation, cell: m.cell }));
-  const run = AttackRun.replay({ territory: null }, codes.slice(0, -1));
-  const last = codes.length > 0 ? run.apply(codes.at(-1)!) : null;
+  const run = AttackRun.replay({ territory: null }, codes);
   const tiles: BoardTile[] = run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y }));
-  return { run, last, tiles };
+  return { tiles };
 }
 
 /**
  * `/pvp/match/:id` (#786): a match of the League page's list, `a<id>` the player's attack, `d<id>` an attack on their village.
  * One board, two views: the attacked village from the snapshot kept at the attack's start, whatever its owner changed since, and
  * the attack's build stepped through as a replay. A full-screen flow opened from the League: Back goes up to it (BACK-RULE #783).
+ * MATCH-PAGE: the page titled "Battle log", the views as tabs, the replay's timeline (`PvpMatchScene`).
  */
 export default function Page() {
   const { id } = useParams();
@@ -91,6 +90,7 @@ function Match({ id }: { id: string }) {
   // The record keeps a look as a decimal string (#834); the screens' player takes it as a value.
   const rival = { ...match.rival, crowns: 0, look: match.rival.look ? BigInt(match.rival.look) : null };
   const attacker = side === "attack" ? self : rival;
+  const board = scene({ tiles: view === "village" ? village : build.tiles, bubble: null });
   return (
     <PvpMatchScene
       side={side}
@@ -99,13 +99,9 @@ function Match({ id }: { id: string }) {
       onView={setView}
       target={match.target}
       final={{ score: match.score, stars: match.stars }}
-      starPercents={ATTACK_STAR_PERCENTS}
-      {...scene({ tiles: view === "village" ? village : build.tiles, bubble: null })}
-      score={build.run.score}
-      delta={build.last?.delta ?? null}
-      lastScored={[]}
-      remaining={0}
-      hand={{ tile: null, state: "empty" }}
+      crowns={match.crowns}
+      tiles={board.tiles}
+      canvas={board.canvas}
       replay={{
         attacker,
         move: shown,
@@ -119,6 +115,10 @@ function Match({ id }: { id: string }) {
         onStep: (by) => {
           setPlaying(false);
           setMove(Math.max(0, Math.min(total, shown + by)));
+        },
+        onSeek: (to) => {
+          setPlaying(false);
+          setMove(Math.max(0, Math.min(total, to)));
         },
       }}
       onBack={onBack}

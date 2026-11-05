@@ -54,6 +54,17 @@
  * darkened to the outline's colour), the largest drawing kept alone (the badge's label under it dropped), checked side by side
  * with the book, then trimmed and put on the icons' frame.
  *
+ * MATCH-PAGE (2026-11-05): the replay's gold Play and Pause buttons and the match's gold star, the Paved UX Book's own pixels again
+ * (Codex's built-in image tool was still unavailable: its `imagegen` skill offered only a CLI on the OpenAI API, which the brief rules
+ * out). Play: cropped from the book's "Battle log" phone screen (about 100 px), its navy panel keyed out as the League's badge was.
+ * The star: the middle one of the book's result screen (about 170 px), cut from its glow and sparkles by a flood fill of its face from
+ * its centre over the pixels lighter than its outline, then its near-black outline grown outward from the face through darker pixels
+ * (at most 10 px), the outline's outer ring faded by its lightness. Each fitted to the 240 px box by a premultiplied bicubic scale (no
+ * navy bleeds into the edge) and centred on the icons' frame, checked side by side with its crop. Pause, which the book does not
+ * draw: the Play master with its triangle (measured on the master, and 7 px round it for its shade) erased by interpolating the disc
+ * row by row from either side, then two rounded bars painted where it stood, centred on the disc, in the triangle's own colours (its
+ * face's at each row, its dark shade along their right and lower edges, its light rim along their left).
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.

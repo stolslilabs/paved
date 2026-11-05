@@ -16,9 +16,9 @@ const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-/;
 /**
  * The game scenes: the boards (`Shell.tsx`) and the ends of a game (#720), whose bar is the board's HUD, no page header. So do
  * the PvP attack's (#647: the search's sky, the scout's and the attack's board) and its replay's, and the home, the village's
- * scene with its overlays (#753).
+ * scene with its overlays (#753). A match's page (#786) left them with MATCH-PAGE: its board in a panel under the pages' header.
  */
-const BOARD = ["", "game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/replay/:attacker/:id", "pvp/match/:id"];
+const BOARD = ["", "game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "pvp", "pvp/replay/:attacker/:id"];
 
 function header(container: HTMLElement): HTMLElement {
   const found = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');

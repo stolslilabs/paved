@@ -88,26 +88,32 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
 
     await userEvent.click(opens[1]!);
     await waitFor(() => expect(s.router.state.location.pathname).toBe(`/pvp/match/a${s.attack.id}`), WAIT);
-    expect(await screen.findByRole("heading", { name: `Attack on ${s.rival.name}` }, WAIT)).toBeInTheDocument();
-    const views = screen.getByRole("radiogroup", { name: "Match view" });
-    expect(within(views).getAllByRole("radio")[0]).toHaveAccessibleName(`Village, ${formatInteger(s.rival.score)} points`);
+    // MATCH-PAGE: titled "Battle log", the views as two tabs, the book's labels.
+    expect(await screen.findByRole("heading", { name: "Battle log" }, WAIT)).toBeInTheDocument();
+    const views = () => screen.getByRole("tablist", { name: "Match view" });
+    expect(within(views()).getAllByRole("tab")[0]).toHaveAccessibleName(`Rival, ${formatInteger(s.rival.score)} points`);
+    const caption = document.querySelector<HTMLElement>("[data-slot=match-caption]")!;
+    expect(caption).toHaveTextContent(`Attack·${s.rival.name}·${formatInteger(s.attack.score)}·`);
     // The village's view: the snapshot, the starter and the rival's tiles; the build's: the attack's placed tiles and the starter.
     const board = () => document.querySelector<HTMLElement>("[data-view]")!;
     expect(board()).toHaveAttribute("data-view", "village");
     expect(within(board()).getByRole("img", { name: `Board of ${s.rival.tiles.length + 1} tiles` })).toBeInTheDocument();
-    await userEvent.click(within(views).getAllByRole("radio")[1]!);
+    await userEvent.click(within(views()).getAllByRole("tab")[1]!);
     expect(board()).toHaveAttribute("data-view", "build");
     const placed = s.attack.moves.filter((m) => !m.discard).length;
     expect(within(board()).getByRole("img", { name: `Board of ${placed + 1} tiles` })).toBeInTheDocument();
-    expect(within(screen.getByRole("group", { name: "Replay" })).getByText(`${s.attack.moves.length}/${s.attack.moves.length}`)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Previous move" }));
-    expect(within(screen.getByRole("group", { name: "Replay" })).getByText(`${s.attack.moves.length - 1}/${s.attack.moves.length}`)).toBeInTheDocument();
+    const total = s.attack.moves.length;
+    const replay = () => screen.getByRole("region", { name: "Replay" });
+    expect(replay()).toHaveTextContent(`Move ${total} / ${total}`);
+    // The timeline: a key steps one move back, Home goes to the start.
+    within(replay()).getByRole("slider", { name: "Move" }).focus();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(replay()).toHaveTextContent(`Move ${total - 1} / ${total}`);
+    await userEvent.keyboard("{End}");
     // The build opens whole: Play replays it from the start, move by move (open point 2).
-    await userEvent.click(screen.getByRole("button", { name: "Next move" }));
-    const replay = () => screen.getByRole("group", { name: "Replay" });
     await userEvent.click(within(replay()).getByRole("button", { name: "Play from the start" }));
-    await waitFor(() => expect(within(replay()).getByText(`1/${s.attack.moves.length}`)).toBeInTheDocument(), WAIT);
-    await waitFor(() => expect(within(replay()).getByText(`2/${s.attack.moves.length}`)).toBeInTheDocument(), WAIT);
+    await waitFor(() => expect(replay()).toHaveTextContent(`Move 1 / ${total}`), WAIT);
+    await waitFor(() => expect(replay()).toHaveTextContent(`Move 2 / ${total}`), WAIT);
     await userEvent.click(within(replay()).getByRole("button", { name: "Pause" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -117,8 +123,10 @@ describe("the League's matches and a match (#786)", { timeout: slow(60_000) }, (
 
   it("a defence's page: the player's village as it was, the rival's attack; opened by a link, Back goes up to the League", async () => {
     const s = await open("/pvp/match/d1");
-    expect(await screen.findByRole("heading", { name: `Defence: ${s.rival.name}` }, WAIT)).toBeInTheDocument();
-    expect(within(screen.getByRole("radiogroup", { name: "Match view" })).getByText("Your village")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Battle log" }, WAIT)).toBeInTheDocument();
+    const tabs = within(screen.getByRole("tablist", { name: "Match view" })).getAllByRole("tab");
+    expect(tabs.map((t) => t.textContent)).toEqual(["You", "Rival"]);
+    expect(document.querySelector("[data-slot=match-caption]")).toHaveTextContent(`Defence·${s.rival.name}·`);
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/pvp/league"), WAIT);
   });
