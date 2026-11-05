@@ -1,19 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { LevelStar } from "./level-star";
 
-/** A player's level in the HUD's blue star (FRIENDS-PAGE: the friends' lists, in place of "Lv 12"). One story per state. */
+/** A player's level in the HUD's blue star (CHAT-PAGE): the level bar's star, still, beside a name in the chat. */
 const meta = {
-  title: "Elements/LevelStar",
+  title: "Elements/Level star",
   component: LevelStar,
-  parameters: { layout: "centered" },
+  parameters: { layout: "padded" },
   args: { level: 7 },
 } satisfies Meta<typeof LevelStar>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** One figure. */
-export const OneFigure: Story = {};
-/** Two figures: the level cap (20) and below. */
-export const TwoFigures: Story = { args: { level: 18 } };
-/** Past two figures: "99+". */
-export const Capped: Story = { args: { level: 1_234 } };
+export const Default: Story = {};
+/** Two figures, the most the star holds. */
+export const TwoFigures: Story = { args: { level: 42 } };
+/** Past 99: "99+". */
+export const Capped: Story = { args: { level: 1_000 } };

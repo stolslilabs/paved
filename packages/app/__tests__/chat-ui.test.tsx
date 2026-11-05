@@ -29,21 +29,34 @@ function geometry(el: HTMLElement, sizes: { content: number; view: number }) {
 }
 
 describe("the chat page's Private tab (#973)", () => {
-  it("lists the private conversations with their unread counts, then the requests, and New message", async () => {
+  it("lists the requests, each with its check and cross, then the private conversations with their unread counts, and New message", async () => {
     const onOpen = vi.fn();
+    const onAnswer = vi.fn(async () => {});
     const onNewMessage = vi.fn();
-    render(wrap(<ChatList {...CHAT_LIST.request} onOpen={onOpen} onNewMessage={onNewMessage} />));
+    render(wrap(<ChatList {...CHAT_LIST.request} onOpen={onOpen} onAnswer={onAnswer} onNewMessage={onNewMessage} />));
     const rows = within(screen.getByRole("region", { name: "Conversations" })).getAllByRole("button");
     // The World and the guild have their own tabs: only the three private conversations here.
     expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.getAttribute("aria-label"))).not.toContain("World, 14 unread");
     expect(rows[1]!.getAttribute("aria-label")).toMatch(/, 2 unread$/);
+    // CHAT-PAGE: every avatar in its league's rim, with the level in the profile's blue star.
+    expect(rows.every((r) => r.querySelector("[data-slot=league-portrait][data-tier]") !== null)).toBe(true);
+    expect(within(rows[0]!).getByRole("img", { name: /^Level \d+$/ })).toBeInTheDocument();
     const requests = screen.getByRole("region", { name: "Requests" });
-    expect(within(requests).getAllByRole("button")).toHaveLength(1);
-    // The requests come after the conversations.
-    expect(rows[0]!.compareDocumentPosition(requests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const request = CHAT_LIST.request.overview!.requests[0]!;
+    const [open, accept, decline] = within(requests).getAllByRole("button");
+    expect(within(requests).getByText("Wants to chat")).toBeInTheDocument();
+    // The book's order: the requests first, then the conversations.
+    expect(requests.compareDocumentPosition(rows[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(rows[0]!);
     expect(onOpen).toHaveBeenCalledWith(CHAT_LIST.request.overview!.conversations[2]!.id);
+    await userEvent.click(open!);
+    expect(onOpen).toHaveBeenLastCalledWith(request.id);
+    expect(accept).toHaveAccessibleName(`Accept ${request.other!.name}`);
+    await userEvent.click(accept!);
+    expect(onAnswer).toHaveBeenCalledWith(request.id, true);
+    await userEvent.click(decline!);
+    expect(onAnswer).toHaveBeenLastCalledWith(request.id, false);
     await userEvent.click(screen.getByRole("button", { name: "New message" }));
     expect(onNewMessage).toHaveBeenCalled();
   });
@@ -124,13 +137,17 @@ describe("the chat page's tabs (#973)", () => {
 describe("a conversation (#955)", () => {
   const props = (over: Partial<ChatConversationProps> = {}): ChatConversationProps => ({ ...CHAT_CONVERSATION.world, onSend: vi.fn(async () => {}), onAction: vi.fn(async () => {}), ...over });
 
-  it("keeps links and addresses as plain text, and shows a deleted message as such", () => {
-    render(wrap(<ChatConversation {...props()} />));
+  it("keeps links and addresses as plain text, and shows a message the data says deleted as such, with no menu", () => {
+    // The page offers no Delete (CHAT-PAGE); a message the source marks deleted still reads "Message deleted".
+    const first = CHAT_CONVERSATION.world.messages[0]!;
+    const gone = { ...first, id: "gone", text: "", deleted: true, mayReport: false };
+    render(wrap(<ChatConversation {...props({ messages: [...CHAT_CONVERSATION.world.messages, gone] })} />));
     const log = screen.getByRole("log", { name: "Messages" });
     expect(within(log).getByText(/paved-gifts\.example\/claim/)).toBeInTheDocument();
     expect(within(log).getByText(/0x04a3c9d2e1f0b7a6958473625140f3e2d1c0b9a8f7e6d5c4b3a2918070605091fe/)).toBeInTheDocument();
     expect(log.querySelectorAll("a")).toHaveLength(0);
-    expect(within(log).getByText("Message deleted")).toBeInTheDocument();
+    const deleted = within(log).getByText("Message deleted").closest("li")!;
+    expect(within(deleted).queryByRole("button", { name: /^More for / })).toBeNull();
   });
 
   it("sends the trimmed text, counts the characters, and refuses over 200", async () => {
@@ -160,20 +177,17 @@ describe("a conversation (#955)", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("lets an officer delete a member's message once confirmed, and reports or mutes another's", async () => {
+  it("offers no Delete, even to an officer (a message stays on the ledger), and reports or mutes another's", async () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<ChatConversation {...CHAT_CONVERSATION.guild} onAction={onAction} />));
     const spam = CHAT_CONVERSATION.guild.messages.find((m) => m.text.startsWith("Spam"))!;
     const row = screen.getByText(spam.text).closest("li") as HTMLElement;
     await userEvent.click(within(row).getByRole("button", { name: /^More for / }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    const dialog = await screen.findByRole("dialog", { name: "Delete this message?" });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
-    await waitFor(() => expect(onAction).toHaveBeenCalledWith({ type: "delete", id: spam.id }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    // Report, with a reason.
-    await userEvent.click(within(row).getByRole("button", { name: /^More for / }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Report" }));
+    // Report, with a reason; no Delete beside it, though the data lets an officer delete.
+    expect(spam.mayDelete).toBe(true);
+    const reportItem = await screen.findByRole("menuitem", { name: "Report" });
+    expect(screen.queryByRole("menuitem", { name: "Delete" })).toBeNull();
+    await userEvent.click(reportItem);
     const report = await screen.findByRole("dialog", { name: /^Report / });
     expect(within(report).getByRole("button", { name: "Report" })).toBeDisabled();
     await userEvent.click(within(report).getByRole("radio", { name: /^Spam/ }));
@@ -229,11 +243,90 @@ describe("a conversation (#955)", () => {
     expect(screen.queryByRole("button", { name: "New messages" })).toBeNull();
   });
 
-  it("shows the first private conversation's notice until Got it", async () => {
+  it("shows the first private conversation's notice before its first message only, until Got it", async () => {
+    const NOTICE = "Your private messages are end-to-end encrypted. Paved never asks for your key or your password.";
     const onSeeNotice = vi.fn();
-    render(wrap(<ChatConversation {...CHAT_CONVERSATION.private} onSeeNotice={onSeeNotice} />));
-    expect(screen.getByText("Your private messages are end-to-end encrypted. Paved never asks for your key or your password.")).toBeInTheDocument();
+    const { rerender } = render(wrap(<ChatConversation {...CHAT_CONVERSATION.empty} onSeeNotice={onSeeNotice} />));
+    expect(screen.getByText(NOTICE)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(onSeeNotice).toHaveBeenCalled();
+    // The first message hides it, though not seen yet (CHAT-PAGE, the owner's ask).
+    rerender(wrap(<ChatConversation {...CHAT_CONVERSATION.private} noticeSeen={false} onSeeNotice={onSeeNotice} />));
+    expect(screen.queryByText(NOTICE)).toBeNull();
+  });
+});
+
+describe("CHAT-PAGE: the Paved UX Book's chat", () => {
+  it("draws every author in their league's rim, with the level in the blue star and no guild's tag; the player's own at the right", () => {
+    const data = CHAT_CONVERSATION.guild;
+    render(wrap(<ChatConversation {...data} fill />));
+    const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-slot=chat-message]"));
+    expect(rows.length).toBe(data.messages.filter((m) => m.kind === "message").length);
+    for (const row of rows) {
+      const author = data.messages.find((m) => m.kind === "message" && row.textContent?.includes(m.author!.name ?? "\u0000"))!.author!;
+      expect(row.querySelector("[data-slot=league-portrait]")).toHaveAttribute("data-tier");
+      expect(within(row).getByRole("img", { name: `Level ${author.level}` })).toBeInTheDocument();
+      // The owner's ask: no tag beside the level (the name opens the profile).
+      expect(within(row).queryByText(author.guildTag!)).toBeNull();
+    }
+    const mine = rows.filter((r) => r.dataset.mine !== undefined);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toHaveClass("flex-row-reverse");
+  });
+
+  it("draws a rule between two messages only where the day changes, the day in its middle", () => {
+    const { unmount } = render(wrap(<ChatConversation {...CHAT_CONVERSATION.world} />));
+    // The World's lines are all of today: no rule between them.
+    expect(document.querySelectorAll("[data-slot=chat-day]")).toHaveLength(0);
+    unmount();
+    const data = CHAT_CONVERSATION.private;
+    render(wrap(<ChatConversation {...data} />));
+    const rules = Array.from(document.querySelectorAll<HTMLElement>("[data-slot=chat-day]"));
+    // Two messages yesterday, then today's: one rule, before the first of today.
+    expect(rules).toHaveLength(1);
+    expect(rules[0]).toHaveTextContent("Today");
+    const today = screen.getByText(data.messages[2]!.text).closest("li")!;
+    expect(rules[0]!.nextElementSibling).toBe(today);
+  });
+
+  it("pins the guild's announcement above its conversation, a tap away from the guild's page; with none, the guild's name", async () => {
+    const onOpenTitle = vi.fn();
+    const { unmount } = render(wrap(<ChatConversation {...CHAT_CONVERSATION.guild} onOpenTitle={onOpenTitle} fill />));
+    const pinned = document.querySelector<HTMLElement>("[data-slot=chat-pinned]")!;
+    expect(pinned).toHaveTextContent(/Raid night is Thursday/);
+    expect(within(pinned).getByRole("img", { name: "Pinned announcement" })).toBeInTheDocument();
+    // Above the conversation's panel, not in it.
+    expect(screen.getByRole("region", { name: /conversation$/ }).contains(pinned)).toBe(false);
+    await userEvent.click(pinned);
+    expect(onOpenTitle).toHaveBeenCalled();
+    unmount();
+    render(wrap(<ChatConversation {...CHAT_CONVERSATION.guildUnpinned} onOpenTitle={onOpenTitle} fill />));
+    expect(document.querySelector("[data-slot=chat-pinned]")).toHaveTextContent(CHAT_CONVERSATION.guildUnpinned.head!.conversation.guild!.name);
+  });
+
+  it("heads a private conversation with Back and the other player in their rim and their level", async () => {
+    const onBack = vi.fn();
+    const onOpenTitle = vi.fn();
+    const data = CHAT_CONVERSATION.private;
+    render(wrap(<ChatConversation {...data} onBack={onBack} onOpenTitle={onOpenTitle} fill />));
+    const region = screen.getByRole("region", { name: /conversation$/ });
+    const header = region.querySelector("header")!;
+    const other = data.head!.conversation.other!;
+    expect(header.querySelector("[data-slot=league-portrait]")).toHaveAttribute("data-tier");
+    expect(within(header).getByRole("img", { name: `Level ${other.level}` })).toBeInTheDocument();
+    await userEvent.click(within(header).getByRole("button", { name: "Back to the conversations" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it("sends with the book's gold button and shows the count only near the limit", async () => {
+    const onSend = vi.fn(async () => {});
+    render(wrap(<ChatConversation {...CHAT_CONVERSATION.world} onSend={onSend} />));
+    const field = screen.getByRole("textbox", { name: "Message World" });
+    expect(field).toHaveAttribute("placeholder", "Message the World");
+    expect(screen.queryByText(/\/200$/)).toBeNull();
+    await userEvent.type(field, "Hello, world!{enter}");
+    expect(onSend).toHaveBeenCalledWith("Hello, world!");
+    fireEvent.change(field, { target: { value: "x".repeat(170) } });
+    expect(screen.getByText("170/200")).toBeInTheDocument();
   });
 });

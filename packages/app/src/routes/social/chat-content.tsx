@@ -7,7 +7,7 @@ import { ChatList } from "../../components/containers/chat-list";
 import { ChatMenu } from "../../components/containers/chat-menu";
 import { ChatNewMessage } from "../../components/containers/chat-new-message";
 import { ChatGuildless, type ChatBadges } from "../../components/containers/chat-tabs";
-import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
+import { SocialUnavailable } from "../../components/containers/social-empty";
 import { ChatScene } from "../../components/scenes/chat-scene";
 import { Skeleton } from "../../components/ui/skeleton";
 import { chatKeys, useChatMutes, useChatOverview, useChatWrites, useConversation, type ChatOverview, type ChatWrites } from "../../data/chat";
@@ -28,9 +28,9 @@ import { useAppNavigate } from "../ref";
 // the URL (`/chat/<tab>`, `/chat/private/<player>`, `chat-param.ts`), on the social source's chat part (the mock's ledger today, a
 // service later, #956).
 
-/** A message's menu as a write of the source. */
+/** A message's menu as a write of the source (no Delete: the source's `deleteMessage` is not offered, CHAT-PAGE). */
 const actionWrite = (id: ConversationId, a: ChatMessageAction) => (writes: ChatWrites) =>
-  writes.run((c, p) => (a.type === "delete" ? c.deleteMessage(p, id, a.id) : a.type === "report" ? c.report(p, id, a.id, a.reason) : c.mute(p, a.address)));
+  writes.run((c, p) => (a.type === "report" ? c.report(p, id, a.id, a.reason) : c.mute(p, a.address)));
 
 interface ConversationViewProps {
   me: string;
@@ -62,14 +62,16 @@ function ConversationView({ me, id, now, noticeSeen, onBack }: ConversationViewP
       .catch(() => undefined);
   }, [chat, me, id, unread, lastId, client]);
 
-  // The notice of the first private conversation shows once: seen when the player taps Got it, or leaves the conversation.
-  const showsNotice = head?.conversation.kind === "private" && !noticeSeen;
+  // The notice of the first private conversation shows once, before its first message (CHAT-PAGE, the owner's ask): seen when the
+  // player taps Got it, or leaves a conversation where it showed (the first message hides it, the leaving still counts).
+  const showsNotice = head?.conversation.kind === "private" && !noticeSeen && read.messages.length === 0;
   const { run } = writes;
   const seeNotice = useCallback(() => void run((c, p) => c.seeNotice(p)).catch(() => undefined), [run]);
   const leaving = useRef<(() => void) | null>(null);
   useEffect(() => {
-    leaving.current = showsNotice ? seeNotice : null;
-  }, [showsNotice, seeNotice]);
+    if (noticeSeen) leaving.current = null;
+    else if (showsNotice) leaving.current = seeNotice;
+  }, [noticeSeen, showsNotice, seeNotice]);
   useEffect(() => () => leaving.current?.(), []);
 
   const c = head?.conversation;
@@ -140,8 +142,12 @@ function NewMessage({ me, open, onOpenChange, onPick }: { me: string; open: bool
 }
 
 export interface ChatContentProps {
-  /** Back, up to the village (BACK-RULE #783). */
+  /** Back, up to the village (BACK-RULE #783): the drawer's close. */
   onBack?: () => void;
+  /** Whether the drawer is shown (CHAT-PAGE): false while it slides out. Omitted, shown. */
+  open?: boolean;
+  /** Where the focus goes back as the drawer closes (the home's Chat tab). */
+  returnFocus?: () => HTMLElement | null;
 }
 
 /**
@@ -150,7 +156,7 @@ export interface ChatContentProps {
  * private conversation opened from the list is a new entry, so Back returns to the list. An old link to a conversation
  * (`?chat=<id>`) lands on its tab.
  */
-export function ChatContent({ onBack }: ChatContentProps) {
+export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
   const now = useNow();
@@ -206,13 +212,14 @@ export function ChatContent({ onBack }: ChatContentProps) {
     go(chatTabPath("private"), { replace: true });
   }, [location.state, navigate, go]);
 
+  const frame = { onBack, open, returnFocus };
   if (overview.unavailable)
     return (
-      <ChatScene onBack={onBack}>
+      <ChatScene {...frame}>
         <SocialUnavailable>Messages are not on this network yet.</SocialUnavailable>
       </ChatScene>
     );
-  if (me === null) return <ChatScene onBack={onBack} />;
+  if (me === null) return <ChatScene {...frame} />;
 
   const tab = target !== null ? null : urlTab;
   const noticeSeen = data?.noticeSeen ?? true;
@@ -240,6 +247,7 @@ export function ChatContent({ onBack }: ChatContentProps) {
             onRetry={overview.refetch}
             now={now}
             onOpen={openConversation}
+            onAnswer={(id, accept) => writes.run((c, p) => c.answerRequest(p, id, accept))}
             onNewMessage={() => setComposing(true)}
           />
           <NewMessage me={me} open={composing} onOpenChange={setComposing} onPick={openPrivate} />
@@ -248,12 +256,11 @@ export function ChatContent({ onBack }: ChatContentProps) {
 
   return (
     <ChatScene
+      {...frame}
       tab={tab}
       onTabChange={(next) => go(chatTabPath(next), { replace: true })}
       badges={chatBadges(data)}
       menu={<ChatMenu mutes={mutes.data ?? null} onUnmute={(address) => writes.run((c, p) => c.unmute(p, address))} onOpenPlayer={openPlayer} />}
-      onBack={onBack}
-     
     >
       {body}
     </ChatScene>

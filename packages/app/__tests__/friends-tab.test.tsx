@@ -9,6 +9,7 @@ import { followBackDelay } from "../src/data/mock/follows";
 import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { memoryStore } from "./data-fakes";
 import { queryClient } from "../src/lib/query-client";
+import { PlayerProfileHost } from "../src/routes/player-profile";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
@@ -32,6 +33,8 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
             element: (
               <main>
                 <Outlet />
+                {/* The home's profile host, as the app's (FRIENDS-PAGE: the drawers' pages mount none of their own). */}
+                <PlayerProfileHost />
               </main>
             ),
           }

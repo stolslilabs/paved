@@ -28,9 +28,21 @@ describe("what a conversation's encryption is (#997, point 8)", () => {
     expect(line()).toHaveTextContent("End-to-end encrypted for the guild's members");
     expect(screen.queryByText("Messages from before you joined are not shown")).toBeNull();
     guild.unmount();
-    render(wrap(<ChatConversation {...CHAT_CONVERSATION.private} />));
-    const other = CHAT_CONVERSATION.private.head!.conversation.other!.name!;
+    const empty = render(wrap(<ChatConversation {...CHAT_CONVERSATION.empty} />));
+    const other = CHAT_CONVERSATION.empty.head!.conversation.other!.name!;
     expect(line()).toHaveTextContent(`End-to-end encrypted: only you and ${other} can read these messages`);
+    empty.unmount();
+    // In private, the line opens the conversation, in its log, until the first message (CHAT-PAGE, the owner's ask).
+    render(wrap(<ChatConversation {...CHAT_CONVERSATION.private} />));
+    expect(line()).toBeNull();
+  });
+
+  it("opens an empty private conversation with the line, in the log; World and guild keep theirs under the title", () => {
+    const { unmount } = render(wrap(<ChatConversation {...CHAT_CONVERSATION.empty} />));
+    expect(screen.getByRole("log", { name: "Messages" }).contains(line())).toBe(true);
+    unmount();
+    render(wrap(<ChatConversation {...CHAT_CONVERSATION.world} />));
+    expect(screen.getByRole("log", { name: "Messages" }).contains(line())).toBe(false);
   });
 
   it("tells a joiner that the guild's messages from before are not shown", () => {
@@ -54,7 +66,7 @@ describe("the Encryption sheet (#997, point 9)", () => {
   });
 
   it("opens from the private line too", async () => {
-    render(wrap(<ChatConversation {...CHAT_CONVERSATION.private} />));
+    render(wrap(<ChatConversation {...CHAT_CONVERSATION.empty} />));
     await userEvent.click(line()!);
     expect(await screen.findByRole("dialog", { name: "Encryption" })).toBeInTheDocument();
   });

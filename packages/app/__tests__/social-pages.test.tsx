@@ -15,6 +15,7 @@ import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { mockRivalsV2 } from "../src/data/mock/v2";
 import { queryClient } from "../src/lib/query-client";
 import { FRIENDS_SEARCH } from "../src/mocks/social";
+import { PlayerProfileHost } from "../src/routes/player-profile";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
@@ -39,7 +40,7 @@ describe("the social pages' scenes (#973)", () => {
       [<FriendsScene {...FRIENDS_SEARCH.idle} onBack={onBack} />, "Friends", "No friends yet"],
     ] as const) {
       const { unmount } = render(wrap(scene));
-      // A page's title (h1), or the HUD's drawer's (FRIENDS-PAGE: its Sheet's title, an h2).
+      // The page's title: the header's h1, or the HUD's drawer's (CHAT-PAGE, FRIENDS-PAGE: a drawer's title is the dialog's, an h2).
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
       expect(screen.getByText(empty)).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -84,6 +85,8 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
             element: (
               <main>
                 <Outlet />
+                {/* The home's profile host, as the app's (FRIENDS-PAGE: the drawers' pages mount none of their own). */}
+                <PlayerProfileHost />
               </main>
             ),
           }
@@ -117,7 +120,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
   it("opens the chat page on the World's tab for a player in no guild", async () => {
     const { router } = open("/chat");
-    expect(await screen.findByRole("heading", { level: 1, name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(await screen.findByRole("tab", { name: "World" }, { timeout: slow(8000) })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(router.state.location.pathname).toBe("/chat/world"), { timeout: slow(8000) });
     expect(await screen.findByRole("region", { name: "World conversation" }, { timeout: slow(8000) })).toBeInTheDocument();
@@ -190,7 +193,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
     it("with ?chat= opens that conversation's tab on the chat page", async () => {
       const { router } = open("/social?chat=world&ref=abc");
-      expect(await screen.findByRole("heading", { level: 1, name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
       await waitFor(() => expect(router.state.location.pathname).toBe("/chat/world"), { timeout: slow(8000) });
       expect(new URLSearchParams(router.state.location.search).get("chat")).toBeNull();
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");

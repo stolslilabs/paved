@@ -13,12 +13,11 @@ import { useOpenPlayer } from "../open-player";
 import { PLAYER_PARAM } from "../player-param";
 import { useBack } from "../ref";
 import { FriendsContent } from "../social/friends-content";
-import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
 
 /**
  * A profile the URL names on arrival (`/friends?player=`, an old `/social?player=` link, a reload) opens over the drawer: both are
  * dialogs, and the one that mounts last is on top, so a profile that came first would be under the drawer. The parameter is dropped
- * as the page arrives and put back a frame later, once the drawer is on screen: the profile's host opens it then, over the drawer.
+ * as the page arrives and put back once the drawer is on screen and reachable: the profile's host opens it then, over the drawer.
  */
 function useProfileOverDrawer() {
   const navigate = useNavigate();
@@ -39,28 +38,22 @@ function useProfileOverDrawer() {
       void navigate({ pathname, search: query ? `?${query}` : "", hash }, { replace: true, preventScrollReset: true });
     };
     to(null);
-    // Two frames: the drawer painted once, its own effects (the dialog's focus and its hiding of the rest) run before the profile's.
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() => to(arrival));
-    });
+    // Put back once the drawer is on screen and reachable (its dialog's hiding of the rest done) and a profile opened before it is
+    // gone (its slide out over): frame by frame, two seconds at most, then put back all the same.
+    let frame = 0;
+    let frames = 0;
+    const ready = () => {
+      const drawer = document.querySelector('[data-hud-drawer="friends"]');
+      return drawer !== null && drawer.getAttribute("aria-hidden") !== "true" && document.querySelector('[data-hud-drawer="public-profile"]') === null;
+    };
+    const wait = () => {
+      frames += 1;
+      if ((ready() && frames > 1) || frames > 120) to(arrival);
+      else frame = requestAnimationFrame(wait);
+    };
+    frame = requestAnimationFrame(wait);
     return () => cancelAnimationFrame(frame);
   }, [arrival, navigate]);
-}
-
-/**
- * Alone (a story's or a test's route: no home, so no home's profile host), the page mounts its own host once its drawer is on screen
- * (two frames after it mounts), so a profile, a dialog too, always comes over the drawer, never under it.
- */
-function useHostAfterDrawer(alone: boolean): boolean {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!alone) return;
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() => setReady(true));
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [alone]);
-  return alone && ready;
 }
 
 /**
@@ -69,7 +62,7 @@ function useHostAfterDrawer(alone: boolean): boolean {
  * profile (`?player=`, `useOpenPlayer`) and with Follow (#954); then the three tabs, Friends, Following and Followers, the
  * suggestions and the blocked players (#954). Any other old `/social` link lands here (`router.tsx`). Its own chunk.
  * FRIENDS-PAGE: drawn in the HUD's drawer over the home at every width (`PageDef.drawer`, `home-hosts.tsx`), so the home's profile
- * host serves its `?player=`; alone (a story's or a test's route, no home under it) it mounts its own.
+ * host serves its `?player=` (as the chat's, CHAT-PAGE): the page mounts none of its own.
  */
 export default function Page() {
   // The HUD's drawer over the home (`home-hosts.tsx`), shown while its route is the current one; alone, open, its Back up to the village.
@@ -77,7 +70,6 @@ export default function Page() {
   const back = useBack();
   const onBack = drawer?.onClose ?? back;
   useProfileOverDrawer();
-  const ownHost = useHostAfterDrawer(drawer === null);
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? wallet.address ?? null;
   // Follow on each result of the search, as the player stands with them.
@@ -122,7 +114,6 @@ export default function Page() {
       >
         <FriendsContent />
       </FriendsScene>
-      {ownHost && <ProfilesBelowDesktop />}
     </>
   );
 }

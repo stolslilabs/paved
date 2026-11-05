@@ -4,14 +4,15 @@ import { CHAT_LIST } from "../../mocks/chat";
 import { ChatList } from "./chat-list";
 
 /**
- * The chat page's Private tab (#973; the Social page's Chat tab of #955 before): New message, then the private conversations by
- * their last message, each with its unread count, then a stranger's requests. On the mock community.
+ * The chat page's Private tab (#973; CHAT-PAGE, the Paved UX Book's "chat-private"): New message at the top right, then a stranger's
+ * requests with their check and cross, then the private conversations by their last message, each in its league's rim with its
+ * level, guild's tag and unread count. On the mock community.
  */
 const meta = {
   title: "Containers/ChatList",
   component: ChatList,
   parameters: { layout: "padded" },
-  args: { ...CHAT_LIST.conversations, onOpen: fn(), onRetry: fn(), onNewMessage: fn() },
+  args: { ...CHAT_LIST.conversations, onOpen: fn(), onAnswer: fn(async () => {}), onRetry: fn(), onNewMessage: fn() },
   decorators: [(Story) => <div className="mx-auto max-w-xl">{Story()}</div>],
 } satisfies Meta<typeof ChatList>;
 export default meta;
@@ -21,7 +22,7 @@ type Story = StoryObj<typeof meta>;
 export const Conversations: Story = {};
 /** No private conversation yet. */
 export const Empty: Story = { args: CHAT_LIST.guildless };
-/** A stranger's request, waiting under the conversations. */
+/** A stranger's request over the conversations: "Wants to chat", the check and the cross. */
 export const Request: Story = { args: CHAT_LIST.request };
 export const Loading: Story = { args: CHAT_LIST.loading };
 export const Failed: Story = { args: CHAT_LIST.failed };

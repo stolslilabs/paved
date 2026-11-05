@@ -139,7 +139,7 @@ export function FollowPlayerRow({ profile, guild, isNew, variant = "list", onOpe
           <PlayerName name={profile.name} address={profile.address} className={cn("text-outline max-w-full min-w-0 pr-0.5 text-base font-bold", profile.name ? "leading-snug" : "leading-normal")} />
           {variant === "list" && (
             <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm leading-tight font-bold whitespace-nowrap">
-              <LevelStar level={profile.level} />
+              <LevelStar level={profile.level} className="size-6" />
               <span className="inline-flex items-center gap-1">
                 <UiIcon name="crown" px={20} className="size-5" />
                 <span className="text-outline tabular-nums">{formatPoints(profile.crowns)}</span>

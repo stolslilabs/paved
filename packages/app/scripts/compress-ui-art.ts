@@ -77,6 +77,14 @@
  * it and by us beside its crop; the pills kept at their size (their rounded ends measured, `RARITY_END`), the piles at the book's
  * scale on one 256 x 160 frame, their foot 4 px above its bottom.
  *
+ * CHAT-PAGE (2026-11-05): the chat's Send arrow (the book's desktop World screen), its pinned post's pin (the desktop Guild chat)
+ * and a request's check and cross (the tablet Private screen), each cropped at its button's inside (55 to 110 px) and redrawn by
+ * Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`) from its crop, with four shipped icons
+ * (close, plus, play, lock) as the style's reference: the object alone, on a transparent 1254 px square. Each trimmed to its opaque
+ * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked side by side with its crop
+ * on navy and on gold. They replace the same day's cuts of the book's pixels (made while Codex listed no image tool), blurred at
+ * the icons' size.
+ *
  * FRIENDS-PAGE (2026-11-05): a player's profile's followers (three people, also its Following) and Block's no-entry sign, the Paved UX
  * Book's own pixels as the League's (Codex listed no image tool that day): each cropped from the book's phone "friend-profile" screen
  * (60 to 100 px), upscaled 4x by a bicubic scale, its navy keyed out by a flood fill from the crop's edges over the pixels near the
