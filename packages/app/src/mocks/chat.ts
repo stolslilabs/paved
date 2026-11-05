@@ -21,8 +21,8 @@ export const CHAT_ME = "0x5eed00c0ffee";
 
 /** The community's member at `index`, seen `ago` seconds before `MOCK_NOW`. */
 const member = (index: number, ago = 60): PublicProfile => ({ ...communityProfile(community()[index]!.address, MOCK_NOW)!, lastSeen: MOCK_NOW - ago });
-const authorOf = (p: PublicProfile, guild: string | null = null): ChatAuthor => ({ address: p.address, name: p.name, look: p.look, level: Math.max(2, p.level), guildTag: guild });
-const ME_AUTHOR: ChatAuthor = { address: CHAT_ME, name: "builder_ada", look: generatedLook(CHAT_ME), level: 7, guildTag: GUILD_BADGE.member.tag };
+const authorOf = (p: PublicProfile, guild: string | null = null): ChatAuthor => ({ address: p.address, name: p.name, look: p.look, level: Math.max(2, p.level), league: p.league, guildTag: guild });
+const ME_AUTHOR: ChatAuthor = { address: CHAT_ME, name: "builder_ada", look: generatedLook(CHAT_ME), level: 7, league: 4, guildTag: GUILD_BADGE.member.tag };
 
 let serial = 0;
 /** A message of `author` in `conversation`, `ago` seconds before `MOCK_NOW`. */
@@ -49,7 +49,6 @@ const WORLD_MESSAGES: ChatMessage[] = [
   msg(WORLD_CONVERSATION, ME_AUTHOR, 18 * 60, "Thanks. Reported it."),
   msg(WORLD_CONVERSATION, authorOf(P[4]!, tag(4)), 12 * 60, "My player ID is 0x04a3c9d2e1f0b7a6958473625140f3e2d1c0b9a8f7e6d5c4b3a2918070605091fe if anyone wants a friendly raid."),
   msg(WORLD_CONVERSATION, authorOf(P[5]!, tag(5)), 8 * 60, "Is the Challenge harder this week or is it just me?"),
-  msg(WORLD_CONVERSATION, authorOf(P[6]!, tag(6)), 5 * 60, "", { deleted: true, mayReport: false }),
   msg(WORLD_CONVERSATION, authorOf(P[7]!, tag(7)), 2 * 60, "Three stars on a Silver village with a city still open. Lucky draw. 🎉"),
   msg(WORLD_CONVERSATION, authorOf(P[8]!, tag(8)), 30, "Fields first, roads later. That's the whole secret."),
 ];
@@ -67,7 +66,7 @@ const GUILD_MESSAGES: ChatMessage[] = [
   msg(GUILD_ID, ME_AUTHOR, 30 * 60, "Me! After dinner."),
   event(GUILD_ID, { kind: "left", actor: P[6]!.address, actorName: P[6]!.name, target: null, targetName: null }, 20 * 60),
   msg(GUILD_ID, guildAuthor(3), 10 * 60, "Spam spam spam ••• spam", { mayDelete: true }),
-  msg(GUILD_ID, guildAuthor(4), 4 * 60, "Ignore that one, an officer will tidy it up.", { mayDelete: true }),
+  msg(GUILD_ID, guildAuthor(4), 4 * 60, "Ignore that one, I reported it.", { mayDelete: true }),
 ];
 
 const FRIEND = member(3, 40);
@@ -81,7 +80,6 @@ const PRIVATE_MESSAGES: ChatMessage[] = [
   msg(DM_FRIEND, FRIEND_AUTHOR, DAY + 2 * HOUR, "Hey, nice raid yesterday."),
   msg(DM_FRIEND, ME_AUTHOR, DAY + HOUR, "Thanks! Your walls were tough."),
   msg(DM_FRIEND, FRIEND_AUTHOR, 15 * 60, "Want to join the Quarrymen? We have room."),
-  msg(DM_FRIEND, ME_AUTHOR, 12 * 60, "", { deleted: true, mayDelete: false }),
   msg(DM_FRIEND, ME_AUTHOR, 11 * 60, "Sure, send me an invitation."),
 ];
 const REQUEST_MESSAGES: ChatMessage[] = [msg(DM_STRANGER, STRANGER_AUTHOR, 5 * 60, "Hi! Saw you in the World. Want to trade tips on the Challenge?")];
@@ -100,11 +98,11 @@ const overview = (o: Partial<ChatOverview>): ChatOverview => ({ conversations: [
 /** WRAP360: the longest name and address, the largest counts, a message at the limit of one long word. */
 const STRESS_PROFILE: PublicProfile = { address: LONG_ADDRESS, name: LONG_NAME, look: generatedLook(LONG_ADDRESS), level: 20, crowns: 5_320, league: 22, score: 123_456_789, lastSeen: MOCK_NOW - 400 * DAY };
 const STRESS_NONAME: PublicProfile = { ...STRESS_PROFILE, address: `${LONG_ADDRESS.slice(0, -1)}9`, name: null };
-const STRESS_AUTHOR: ChatAuthor = { address: LONG_ADDRESS, name: LONG_NAME, look: STRESS_PROFILE.look, level: 1_000, guildTag: GUILD_BADGE.stress.tag };
+const STRESS_AUTHOR: ChatAuthor = { address: LONG_ADDRESS, name: LONG_NAME, look: STRESS_PROFILE.look, level: 1_000, league: 22, guildTag: GUILD_BADGE.stress.tag };
 const STRESS_TEXT = `${LONG_WORD}${LONG_WORD}${LONG_WORD}${LONG_WORD}`.slice(0, CHAT_MESSAGE_MAX);
 
-type ListData = Omit<ChatListProps, "onOpen" | "onRetry" | "onNewMessage">;
-const list = (l: Partial<ListData>): ListData => ({ overview: overview({}), now: MOCK_NOW, ...l });
+type ListData = Omit<ChatListProps, "onOpen" | "onAnswer" | "onRetry" | "onNewMessage">;
+const list = (l: Partial<ListData>): ListData => ({ overview: overview({}), now: MOCK_NOW, timeZone: MOCK_TIME_ZONE, ...l });
 
 /** The Private tab's states (#973; the Chat tab's of #955 before): its list reads the private conversations of the overview. */
 export const CHAT_LIST = {
@@ -187,16 +185,18 @@ const conversation = (c: Partial<ConversationData> & Pick<ConversationData, "hea
 
 /** A conversation's states (#955). */
 export const CHAT_CONVERSATION = {
-  /** The World: a guild's tag beside each name; a link and an address kept as plain text; a deleted message. */
+  /** The World: a link and an address kept as plain text. No deleted message: the page offers no Delete (CHAT-PAGE). */
   world: conversation({ head: head(WORLD), messages: WORLD_MESSAGES, hasOlder: true }),
   /** Below level 2: the World is read, not written. */
   worldLevelLow: conversation({ head: head(WORLD, { writeRefusal: "level-low" }), messages: WORLD_MESSAGES }),
   /** The rate limit: the player just wrote in the World; Send counts down the 5 seconds. */
   rateLimited: conversation({ head: head(WORLD, { nextSendAt: MOCK_NOW + CHAT_WORLD_INTERVAL_S }), messages: [...WORLD_MESSAGES, msg(WORLD_CONVERSATION, ME_AUTHOR, 0, "Good luck in the league today!")], initialDraft: "And one more" }),
-  /** The guild: its announcement pinned, the log's joins, promotions, kicks and leaves among the messages; an Officer may delete. */
+  /** The guild: its announcement pinned, the log's joins, promotions, kicks and leaves among the messages. */
   guild: conversation({ head: head(GUILD_SUMMARY, { pinned: ANNOUNCEMENT }), messages: GUILD_MESSAGES }),
-  /** A private conversation with a friend; the first one shows the notice. */
-  private: conversation({ head: head(FRIEND_SUMMARY, { standing: "open" }), messages: PRIVATE_MESSAGES, noticeSeen: false }),
+  /** The guild with no announcement: its emblem, name and tag above the conversation, the way to its page (CHAT-PAGE). */
+  guildUnpinned: conversation({ head: head(GUILD_SUMMARY), messages: GUILD_MESSAGES }),
+  /** A private conversation with a friend: no encryption line or notice once it has messages (CHAT-PAGE). */
+  private: conversation({ head: head(FRIEND_SUMMARY, { standing: "open" }), messages: PRIVATE_MESSAGES }),
   /** A stranger's request: Accept or Decline; replying accepts it too. */
   request: conversation({ head: head(REQUEST, { standing: "request" }), messages: REQUEST_MESSAGES }),
   /** The player's own request to a stranger, waiting in their Requests. */
@@ -205,8 +205,11 @@ export const CHAT_CONVERSATION = {
   unavailable: conversation({ head: head(summary({ id: DM_STRANGER, kind: "private", other: STRANGER }), { standing: "none", writeRefusal: "blocked" }), messages: [] }),
   /** The report dialog open on a scam. */
   report: conversation({ head: head(WORLD), messages: WORLD_MESSAGES, initialReport: WORLD_MESSAGES[2]!.id }),
-  /** An empty conversation: a friend with no message yet. */
-  empty: conversation({ head: head(summary({ id: DM_FRIEND, kind: "private", other: FRIEND }), { standing: "open" }), messages: [] }),
+  /**
+   * An empty conversation, the player's first private one: a friend with no message yet; it opens on what is encrypted, the notice
+   * above the field (CHAT-PAGE: both until the first message).
+   */
+  empty: conversation({ head: head(summary({ id: DM_FRIEND, kind: "private", other: FRIEND }), { standing: "open" }), messages: [], noticeSeen: false }),
   loading: conversation({ head: undefined, messages: [] }),
   failed: conversation({ head: undefined, messages: [], error: "The chat did not answer: try again in a moment." }),
   /** End-to-end encryption (#997): the Encryption sheet of a private conversation, with the safety code. */

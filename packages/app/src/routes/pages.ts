@@ -89,9 +89,10 @@ export const PAGES: readonly PageDef[] = [
   // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
   // The chat's tabs (#973): `/chat` opens on the last one used, `/chat/<tab>` names one, `/chat/private/<player>` a private
   // conversation over the Private tab's list; one component (`page-loaders.ts`), so a move between them keeps the page.
-  { path: "chat", title: "Chat", nav: "chat", panel: true },
-  { path: "chat/private/:player", title: "Chat", nav: "chat", panel: true },
-  { path: "chat/:tab", title: "Chat", nav: "chat", panel: true },
+  // CHAT-PAGE: the HUD's drawer at every width, docked at the left from `tablet`, beside the home's Chat tab (the League's rule).
+  { path: "chat", title: "Chat", nav: "chat", panel: true, drawer: true },
+  { path: "chat/private/:player", title: "Chat", nav: "chat", panel: true, drawer: true },
+  { path: "chat/:tab", title: "Chat", nav: "chat", panel: true, drawer: true },
   { path: "guild", title: "Guild", nav: "guild", panel: true },
   { path: "friends", title: "Friends", nav: "friends", panel: true },
   // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it. A theme's tiles are the Shop's (SHOP-PAGE).

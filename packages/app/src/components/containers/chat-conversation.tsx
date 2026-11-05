@@ -1,10 +1,11 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import * as m from "motion/react-m";
 import { useReducedMotionConfig } from "motion/react";
 import { CHAT_MESSAGE_MAX, CHAT_REPORT_REASONS, chatLength, formatDate, formatInteger, type ChatReportReason } from "@paved/game-core";
-import { ChatRefusedError, type ChatMessage, type ChatPageHead } from "../../data/social-source";
+import { ChatRefusedError, type ChatMessage, type ChatPageHead, type ConversationSummary } from "../../data/social-source";
 import { CHAT_REFUSALS, PRIVATE_NOTICE, REPORT_REASONS, REPORT_REVEAL, UNREADABLE_MESSAGE, chatErrorText, conversationName } from "../../lib/chat-text";
 import { logLine } from "../../lib/guild-text";
+import { LEAGUES } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { useVisualViewportHeight } from "../../lib/visual-viewport";
 import { Button } from "../ui/button";
@@ -13,33 +14,78 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { Skeleton } from "../ui/skeleton";
+import { GuildEmblem } from "../elements/guild-emblem";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { shortAddress } from "../elements/short-address";
-import { formatPoints } from "../elements/score";
+import { LevelStar } from "../elements/level-star";
+import { UiIcon } from "../elements/ui-icon";
 import { EncryptionLine, EncryptionSheet, JoinerLine, KeyChangeLine } from "./chat-encryption";
 import { useGuildActions } from "./guild-sheets";
+import { LeaguePortrait } from "./league-control";
 
 /** A write on one message or its author, from the message's menu. */
-export type ChatMessageAction = { type: "delete"; id: string } | { type: "report"; id: string; reason: ChatReportReason } | { type: "mute"; address: string };
+/** A message's action. No Delete (the owner, 2026-11-05: a message is published on the ledger, and deleting it would be one more event
+ * that does not make it invisible): Report and Mute. */
+export type ChatMessageAction = { type: "report"; id: string; reason: ChatReportReason } | { type: "mute"; address: string };
 
 /** How near the bottom (px) the reader counts as reading the latest messages: a new one then scrolls into view. */
 const AT_BOTTOM_PX = 48;
 /** How near the top (px) the older page is loaded. */
 const NEAR_TOP_PX = 120;
 
+/** The room (px) kept under the chat page's conversation when a phone's keyboard shrinks the visual viewport. */
+const KEYBOARD_GAP_PX = 8;
+
 /**
- * What the chat page (#973) draws above and under its conversation: the header (`--header-h` and the notch), the content's top
- * padding, the tabs and their gap, the content's bottom padding (`TabPage`, `ChatTabs`). No bottom bar on that page.
+ * The chat's gold buttons raised as the drawer's pressables are (the owner's ask of 2026-11-05: Send and Accept as raised as
+ * Decline, `drawer-raised`): the gold lit along its top and deeper at its foot (the book's), the near-black outline and lip, the
+ * hover and press layers over it. A style, as the Shop's price (`shop-card.tsx`): in the page's chunk, not the one stylesheet.
  */
-const CHAT_PAGE_CHROME = "var(--header-h) - env(safe-area-inset-top) - 5.75rem";
+export const GOLD_RAISED: CSSProperties = {
+  backgroundImage: "linear-gradient(var(--layer, transparent), var(--layer, transparent)), linear-gradient(var(--primary), var(--accent-scale-400))",
+  boxShadow: "inset 0 1px 0 color-mix(in oklab, var(--primary) 55%, var(--foreground)), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline)",
+};
+/** The share of the limit past which the draft's count shows (CHAT-PAGE: the book's composer has none until then). */
+const COUNT_FROM = 0.8;
+
+/** A league by its index on chain (0 Wood to 22 Grand Master), for the rim round a portrait; unknown, none. */
+export const chatLeague = (index: number | undefined) => (index === undefined ? undefined : LEAGUES[index]);
 
 /** A message's time: the hour today, else the day and the hour. */
-function messageTime(at: number, now: number, timeZone?: string): string {
+export function messageTime(at: number, now: number, timeZone?: string): string {
   const today = formatDate(now * 1000, { day: "numeric", month: "short", timeZone }) === formatDate(at * 1000, { day: "numeric", month: "short", timeZone });
   return formatDate(at * 1000, today ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
+}
+
+/** A time's day in the viewer's zone (or the stories'), to tell two days apart. */
+const dayOf = (at: number, timeZone?: string): string => formatDate(at * 1000, { year: "numeric", month: "numeric", day: "numeric", timeZone });
+
+/** A day's divider's words: "Today", else the day and the month, and the year when it is not this one. */
+function dayLabel(at: number, now: number, timeZone?: string): string {
+  if (dayOf(at, timeZone) === dayOf(now, timeZone)) return "Today";
+  const sameYear = formatDate(at * 1000, { year: "numeric", timeZone }) === formatDate(now * 1000, { year: "numeric", timeZone });
+  return formatDate(at * 1000, sameYear ? { day: "numeric", month: "short", timeZone } : { day: "numeric", month: "short", year: "numeric", timeZone });
+}
+
+/**
+ * The rule between two lines of different days (the owner's ask of 2026-11-05: no rule between the messages of one day), its day in
+ * its middle.
+ */
+function DayDivider({ at, now, timeZone }: { at: number; now: number; timeZone?: string }) {
+  const label = dayLabel(at, now, timeZone);
+  // A separator, not a line of the conversation: its day is its name.
+  return (
+    <li role="separator" aria-label={label} data-slot="chat-day" className="flex items-center gap-3 px-3 py-2">
+      <span aria-hidden className="h-px flex-1 bg-border" />
+      <span aria-hidden className="shrink-0 text-xs font-semibold text-muted-foreground">
+        {label}
+      </span>
+      <span aria-hidden className="h-px flex-1 bg-border" />
+    </li>
+  );
 }
 
 /** Who wrote a message, in words. */
@@ -49,113 +95,122 @@ interface MessageRowProps {
   message: ChatMessage;
   now: number;
   timeZone?: string;
-  /** The World shows each author's guild tag. */
-  showTag: boolean;
   /** The author may be muted here (the World and the guild, not in private). */
   mayMute: boolean;
   /** It came while the conversation was shown: it fades in (no motion with reduced motion). */
   arrived: boolean;
   onOpenPlayer?: (address: string) => void;
-  onDelete: (m: ChatMessage) => void;
   onReport: (m: ChatMessage) => void;
   onMute: (m: ChatMessage) => void;
 }
 
 /**
- * One line of a conversation: a player's message (avatar, name, level, the guild's tag in the World, the time, then the text,
- * plain: a link or an address is never made clickable), "Message deleted", one this device cannot open (#997), or an event of the
- * guild's log, centred.
+ * A message's bubble (the book's): a soft slate pill, flat, no outline or drop (the owner's ask of 2026-11-05: softer than the
+ * drawer's raised plates); the player's own in a faint gold with its tail toward their avatar.
  */
-function MessageRow({ message: msg, now, timeZone, showTag, mayMute, arrived, onOpenPlayer, onDelete, onReport, onMute }: MessageRowProps) {
+const BUBBLE = "relative w-fit max-w-full min-w-0 rounded-2xl px-3.5 py-2 text-base leading-snug";
+const OTHER_BUBBLE = "bg-secondary font-semibold text-foreground";
+/** The player's own: a discreet gold, the gold faint over the panel (the owner's ask of 2026-11-05: the book's full gold too strong). */
+const MINE_BUBBLE =
+  "bg-primary/20 font-semibold text-foreground after:absolute after:top-1/2 after:-right-1.5 after:-translate-y-1/2 after:border-y-[6px] after:border-l-[7px] after:border-y-transparent after:border-l-primary/20";
+/** A deleted (the data's state; the page offers no Delete) or unreadable message: the bubble fainter, its words in italics. */
+const QUIET_BUBBLE = "bg-secondary/50 text-sm text-muted-foreground italic";
+
+/**
+ * One line of a conversation (CHAT-PAGE, the Paved UX Book's chat): a player's message, its author's avatar in the rim of their
+ * league with its crest, then their name, their level in the profile's blue star and the time over the text in a bubble (plain: a
+ * link or an address is never made clickable; no guild's tag, the owner's ask of 2026-11-05: the name opens the profile); the player's own at the right, in a gold bubble. "Message deleted", one this device cannot
+ * open (#997), or an event of the guild's log, centred.
+ */
+function MessageRow({ message: msg, now, timeZone, mayMute, arrived, onOpenPlayer, onReport, onMute }: MessageRowProps) {
   const reduced = useReducedMotionConfig();
   const motion = arrived && !reduced ? { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2 } } : {};
   if (msg.kind === "event" && msg.event)
     return (
-      <m.li {...motion} data-slot="chat-event" className="flex justify-center px-2 py-1">
-        <span className="flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1 text-center text-xs text-muted-foreground">
+      <m.li {...motion} data-slot="chat-event" className="flex justify-center px-2 py-2">
+        <span className="flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1 text-center text-xs font-semibold text-muted-foreground">
           <Icon name="shield-halved" size="xs" />
           <span className="min-w-0 wrap-anywhere">{logLine(msg.event)}</span>
-          <span className="numeric shrink-0">· {messageTime(msg.at, now, timeZone)}</span>
+          <span className="shrink-0 tabular-nums">· {messageTime(msg.at, now, timeZone)}</span>
         </span>
       </m.li>
     );
   const author = msg.author;
   const name = authorName(msg);
-  const hasMenu = !msg.deleted && (msg.mayDelete || msg.mayReport || (mayMute && !msg.mine && author !== null));
+  const mine = msg.mine;
+  const hasMenu = !msg.deleted && (msg.mayReport || (mayMute && !mine && author !== null));
+  const menu = hasMenu && (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button size="icon" variant="ghost" className="shrink-0 text-muted-foreground" aria-label={`More for ${name}'s message`}>
+          <Icon name="ellipsis" size="sm" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {author && !mine && (
+          <DropdownMenuItem onSelect={() => onOpenPlayer?.(author.address)}>
+            <Icon name="user" size="xs" fixedWidth />
+            Profile
+          </DropdownMenuItem>
+        )}
+        {mayMute && !mine && author && (
+          <DropdownMenuItem onSelect={() => onMute(msg)}>
+            <Icon name="volume-xmark" size="xs" fixedWidth />
+            Mute
+          </DropdownMenuItem>
+        )}
+        {msg.mayReport && (
+          <DropdownMenuItem onSelect={() => onReport(msg)}>
+            <Icon name="flag" size="xs" fixedWidth />
+            Report
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+  let text: ReactNode;
+  if (msg.deleted) text = <p className={cn(BUBBLE, QUIET_BUBBLE)}>Message deleted</p>;
+  else if (msg.unreadable)
+    text = (
+      <p data-slot="chat-unreadable" className={cn(BUBBLE, QUIET_BUBBLE, "flex min-w-0 items-start gap-1.5")}>
+        <Icon name="lock" size="xs" className="mt-1 shrink-0" />
+        <span className="min-w-0 wrap-anywhere">{UNREADABLE_MESSAGE}</span>
+      </p>
+    );
+  else text = <p className={cn(BUBBLE, "whitespace-pre-wrap wrap-break-word", mine ? MINE_BUBBLE : OTHER_BUBBLE)}>{msg.text}</p>;
   return (
-    <m.li {...motion} data-slot="chat-message" data-mine={msg.mine || undefined} className={cn("flex min-w-0 gap-2 rounded-xl px-2 py-1.5", msg.mine && "bg-primary/10")}>
+    <m.li {...motion} data-slot="chat-message" data-mine={mine || undefined} className={cn("flex min-w-0 items-start gap-2.5 px-2 py-2", mine && "flex-row-reverse")}>
       <button
         type="button"
         aria-label={author ? `${name}'s profile` : name}
         disabled={!author}
         onClick={() => author && onOpenPlayer?.(author.address)}
-        className="state-layer h-fit shrink-0 rounded-full outline-none"
+        className="state-layer shrink-0 rounded-full outline-none"
       >
-        <PlayerAvatar player={author ? { name: author.name, address: author.address } : null} look={author?.look ?? null} />
+        {author ? (
+          <LeaguePortrait player={{ name: author.name, address: author.address }} look={author.look} league={chatLeague(author.league)} className="text-[3rem]" />
+        ) : (
+          <PlayerAvatar player={null} />
+        )}
       </button>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+      <div className={cn("flex min-w-0 flex-1 flex-col gap-1", mine && "items-end")}>
+        <div className={cn("flex min-h-6 w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5", mine && "justify-end")}>
           {author ? (
-            <button type="button" onClick={() => onOpenPlayer?.(author.address)} className="min-w-0 max-w-full rounded text-left text-sm font-semibold outline-none">
-              {msg.mine ? "You" : <PlayerName name={author.name} address={author.address} className="block" />}
+            <button type="button" onClick={() => onOpenPlayer?.(author.address)} className="text-outline max-w-full min-w-0 rounded text-left text-sm font-bold outline-none">
+              <PlayerName name={author.name} address={author.address} className="block" />
             </button>
           ) : (
-            <span className="text-sm font-semibold">{name}</span>
+            <span className="text-outline text-sm font-bold">{name}</span>
           )}
-          {author && (
-            <span className="text-xs text-muted-foreground">
-              Lv <span className="numeric">{formatPoints(author.level)}</span>
-            </span>
-          )}
-          {showTag && author?.guildTag && <span className="numeric text-xs text-muted-foreground">{author.guildTag}</span>}
-          <span className="numeric text-xs text-muted-foreground">{messageTime(msg.at, now, timeZone)}</span>
+          {author && <LevelStar level={author.level} />}
+          <span className="shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">{messageTime(msg.at, now, timeZone)}</span>
         </div>
-        {msg.deleted ? (
-          <p className="text-sm text-muted-foreground italic">Message deleted</p>
-        ) : msg.unreadable ? (
-          <p data-slot="chat-unreadable" className="flex min-w-0 items-start gap-1.5 text-sm text-muted-foreground italic">
-            <Icon name="lock" size="xs" className="mt-1 shrink-0" />
-            <span className="min-w-0 wrap-anywhere">{UNREADABLE_MESSAGE}</span>
-          </p>
-        ) : (
-          <p className="text-sm whitespace-pre-wrap wrap-break-word">{msg.text}</p>
-        )}
+        {/* The message's menu beside its bubble, on the side away from the avatar: the name's line keeps its room (the book's). */}
+        <div className={cn("flex max-w-full min-w-0 items-center gap-1", mine && "flex-row-reverse")}>
+          {text}
+          {menu}
+        </div>
       </div>
-      {hasMenu && (
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="-my-1 shrink-0" aria-label={`More for ${name}'s message`}>
-              <Icon name="ellipsis" size="sm" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {author && !msg.mine && (
-              <DropdownMenuItem onSelect={() => onOpenPlayer?.(author.address)}>
-                <Icon name="user" size="xs" fixedWidth />
-                Profile
-              </DropdownMenuItem>
-            )}
-            {mayMute && !msg.mine && author && (
-              <DropdownMenuItem onSelect={() => onMute(msg)}>
-                <Icon name="volume-xmark" size="xs" fixedWidth />
-                Mute
-              </DropdownMenuItem>
-            )}
-            {msg.mayReport && (
-              <DropdownMenuItem onSelect={() => onReport(msg)}>
-                <Icon name="flag" size="xs" fixedWidth />
-                Report
-              </DropdownMenuItem>
-            )}
-            {msg.mayDelete && (
-              <DropdownMenuItem variant="destructive" onSelect={() => onDelete(msg)}>
-                <Icon name="trash" size="xs" fixedWidth />
-                Delete
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
     </m.li>
   );
 }
@@ -276,9 +331,10 @@ export interface ChatConversationProps {
  * the top, the messages, the latest at the bottom, the older ones loaded on scrolling up (the reading place kept), a "New messages"
  * pill when one comes while the player reads older ones; then the field, which stays above a phone's keyboard (its height follows
  * `visualViewport`). In private: the notice of the first conversation, a request's Accept and Decline, and a note while the
- * player's own request waits. Each message's menu: Profile, Mute (the World and the guild), Report, Delete. A write refused by
- * the rules says why; the rate limits count down to when the player may send again. End-to-end encryption (#997): a line under the
- * title says what is encrypted (the World is public), a joiner's line in the guild, the other's key changes among the messages,
+ * player's own request waits. Each message's menu: Profile, Mute (the World and the guild), Report (no Delete: on the ledger, a message
+ * stays). A write refused by the rules says why; the rate limits count down to when the player may send again. End-to-end
+ * encryption (#997): a line under the title says what is encrypted (the World is public; in private, the conversation's opening, until
+ * its first message, as the notice), a joiner's line in the guild, the other's key changes among the messages,
  * a message this device cannot open in place of its text, what a report reveals, and in private the Encryption sheet with the
  * safety code, from the conversation's menu or its line.
  */
@@ -420,183 +476,240 @@ export function ChatConversation({
       .finally(() => setAnswering(null));
   };
 
-  // A tall box on a phone, the field at its foot; with a keyboard open, no taller than what is left above it.
-  // On the chat page (`fill`), the page's header, its tabs and their gaps (`CHAT_PAGE_CHROME`) are all there is above and under it.
+  // On the chat page (`fill`, CHAT-PAGE: the HUD's drawer), as tall as what the drawer leaves under its tabs; with a phone's keyboard
+  // open, no taller than what is left above it (its top measured, the visual viewport's foot less a small gap). Elsewhere, a tall box
+  // on a phone, the field at its foot.
   const tall = viewport !== null ? `${Math.round(viewport)}px` : "100dvh";
-  const height = fill ? `max(20rem, ${tall} - ${CHAT_PAGE_CHROME})` : `min(44rem, max(20rem, ${tall} - 9rem))`;
+  const box = useRef<HTMLElement>(null);
+  const [room, setRoom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!fill || !box.current || !vv || viewport === null) return;
+    const top = box.current.getBoundingClientRect().top;
+    setRoom(top > 0 ? Math.round(vv.offsetTop + vv.height - top - KEYBOARD_GAP_PX) : null);
+  }, [fill, viewport]);
+  const style = fill ? (room !== null ? { maxHeight: `max(20rem, ${room}px)` } : undefined) : { height: `min(44rem, max(20rem, ${tall} - 9rem))` };
+  const nearLimit = length >= CHAT_MESSAGE_MAX * COUNT_FROM;
+  const placeholder = c?.kind === "world" ? "Message the World" : c?.kind === "guild" ? "Message the guild" : "Message";
 
   return (
-    <section aria-label={name ? `${name} conversation` : "Conversation"} data-slot="chat-conversation" className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card" style={{ height }}>
-      <header className="flex min-w-0 items-center gap-2 border-b border-border p-2">
-        {onBack && (
-          <Button size="icon" variant="ghost" aria-label="Back to the conversations" onClick={onBack}>
-            <Icon name="chevron-left" size="sm" />
-          </Button>
-        )}
-        {c ? (
-          <button
-            type="button"
-            disabled={!onOpenTitle || c.kind === "world"}
-            onClick={onOpenTitle}
-            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left outline-none"
-          >
-            {c.kind === "world" && <Icon name="users" size="sm" className="text-primary" />}
-            {c.kind === "guild" && <Icon name="shield-halved" size="sm" className="text-primary" />}
-            {c.kind === "private" && c.other ? (
-              <PlayerName name={c.other.name} address={c.other.address} className="min-w-0 font-semibold" />
-            ) : (
-              <span title={name} className="min-w-0 truncate font-semibold">
-                {name}
-              </span>
+    <>
+      {c?.kind === "guild" && <GuildBanner name={name} guild={c.guild} pinned={head?.pinned ?? null} onOpen={onOpenTitle} />}
+      <section
+        ref={box}
+        aria-label={name ? `${name} conversation` : "Conversation"}
+        data-slot="chat-conversation"
+        className={cn("drawer-carved flex min-w-0 flex-col overflow-hidden rounded-2xl", fill && "min-h-80 flex-1")}
+        style={style}
+      >
+        {(isPrivate || (head === undefined && onBack)) && (
+          <header className="flex min-w-0 items-center gap-1 border-b border-border p-1.5">
+            {onBack && (
+              <button type="button" aria-label="Back to the conversations" onClick={onBack} className="state-layer grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none">
+                <Icon name="chevron-left" className="drawer-icon" />
+              </button>
             )}
-            {c.kind === "guild" && c.guild && <span className="numeric shrink-0 text-xs text-muted-foreground">{c.guild.tag}</span>}
-          </button>
-        ) : (
-          <Skeleton className="h-6 flex-1 rounded" />
+            {c?.other ? (
+              <button type="button" disabled={!onOpenTitle} onClick={onOpenTitle} className="state-layer flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl px-1 py-0.5 text-left outline-none">
+                <LeaguePortrait player={{ name: c.other.name, address: c.other.address }} look={c.other.look} league={chatLeague(c.other.league)} className="text-[2.75rem]" />
+                <PlayerName name={c.other.name} address={c.other.address} className="text-outline min-w-0 text-base leading-snug font-bold" />
+                <LevelStar level={c.other.level} />
+              </button>
+            ) : (
+              <Skeleton className="h-6 flex-1 rounded" />
+            )}
+            {isPrivate && encryption && (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon" variant="ghost" className="shrink-0" aria-label={`Menu of the conversation with ${name}`}>
+                    <Icon name="ellipsis" size="sm" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setEncryptionOpen(true)}>
+                    <Icon name="lock" size="xs" fixedWidth />
+                    Encryption
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </header>
         )}
-        {isPrivate && encryption && (
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="shrink-0" aria-label={`Menu of the conversation with ${name}`}>
-                <Icon name="ellipsis" size="sm" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setEncryptionOpen(true)}>
-                <Icon name="lock" size="xs" fixedWidth />
-                Encryption
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </header>
-      {encryption && (
-        <div className="border-b border-border">
-          <EncryptionLine mode={encryption.mode} otherName={name} onOpen={isPrivate ? () => setEncryptionOpen(true) : undefined} />
-        </div>
-      )}
-
-      {head?.pinned && (
-        <div data-slot="chat-pinned" className="flex min-w-0 gap-2 border-b border-border bg-secondary/40 px-3 py-2 text-sm">
-          <Icon name="scroll" size="xs" className="mt-1 shrink-0 text-primary" label="Pinned announcement" />
-          <div className="flex min-w-0 flex-col">
-            <span className="text-xs text-muted-foreground">
-              <span className="font-semibold">{head.pinned.authorName ?? shortAddress(head.pinned.author)}</span> · <span className="numeric">{messageTime(head.pinned.at, now, timeZone)}</span>
-            </span>
-            <ScrollRegion className="max-h-20">
-              <p className="whitespace-pre-wrap wrap-break-word">{head.pinned.text}</p>
-            </ScrollRegion>
-          </div>
-        </div>
-      )}
-
-      <div className="relative min-h-0 flex-1">
-        <ScrollRegion ref={scroller} onScroll={onScroll} role="log" aria-label="Messages" aria-busy={head === undefined || loadingOlder} className="size-full overscroll-contain px-1 py-2 [overflow-anchor:none]">
-          {hasOlder && (
-            <div className="flex justify-center py-1">
-              <Button size="sm" variant="ghost" loading={loadingOlder} onClick={onLoadOlder}>
-                Older messages
-              </Button>
-            </div>
-          )}
-          {head === undefined && !error && (
-            <div className="flex flex-col gap-3 p-2">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 rounded-xl" />
-              ))}
-            </div>
-          )}
-          {head === null && <p className="px-4 py-8 text-center text-sm text-muted-foreground">This conversation is not there any more.</p>}
-          {encryption?.joinedAt != null && !hasOlder && <JoinerLine />}
-          {head && messages.length === 0 && <p className="px-4 py-8 text-center text-sm text-muted-foreground">No messages yet: say hello.</p>}
-          {messages.length > 0 && (
-            <ul className="flex flex-col gap-0.5">
-              {messages.map((msg, i) => [
-                ...keyChangeRows(i),
-                <MessageRow
-                  key={msg.id}
-                  message={msg}
-                  now={now}
-                  timeZone={timeZone}
-                  showTag={c?.kind === "world"}
-                  mayMute={c?.kind !== "private"}
-                  arrived={baseline !== null && msg.at > baseline}
-                  onOpenPlayer={onOpenPlayer}
-                  onDelete={(x) => actions.ask({ title: "Delete this message?", text: x.mine ? "Everyone sees “Message deleted” in its place." : `${authorName(x)}'s message shows “Message deleted” for everyone.`, confirm: "Delete", destructive: true }, () => ({ type: "delete", id: x.id }))}
-                  onReport={setReporting}
-                  onMute={(x) => void actions.run({ type: "mute", address: x.author!.address })}
-                />,
-              ])}
-              {keyChangeRows(messages.length)}
-            </ul>
-          )}
-        </ScrollRegion>
-        {unseen > 0 && (
-          <Button size="sm" className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full shadow-md" onClick={toBottom}>
-            New messages
-          </Button>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 border-t border-border p-2">
-        <InlineError title="Chat" message={error ?? actions.error} detail={error ? errorDetail : undefined} action={error && onRetry ? <Button size="sm" variant="secondary" onClick={onRetry}>Try again</Button> : undefined} />
-        {c?.kind === "private" && !noticeSeen && (
-          <Notice tone="warning" icon="lock" action={onSeeNotice && <Button size="sm" variant="secondary" onClick={onSeeNotice}>Got it</Button>}>
-            {PRIVATE_NOTICE}
-          </Notice>
-        )}
-        {request && c?.other && (
-          <div data-slot="chat-request" className="flex flex-col gap-2 rounded-lg border border-border bg-secondary/40 p-2">
-            <p className="text-sm">
-              <PlayerName name={c.other.name} address={c.other.address} className="font-semibold whitespace-normal wrap-anywhere" /> wants to message you. Reply or accept to let them write to you; decline and they cannot write again.
-            </p>
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button size="sm" variant="outline" loading={answering === false} disabled={answering !== null} onClick={() => answer(false)}>
-                Decline
-              </Button>
-              <Button size="sm" loading={answering === true} disabled={answering !== null} onClick={() => answer(true)}>
-                Accept
-              </Button>
-            </div>
-            <InlineError title="Request" message={answerError} />
+        {encryption && !isPrivate && (
+          <div className="border-b border-border">
+            <EncryptionLine mode={encryption.mode} otherName={name} onOpen={isPrivate ? () => setEncryptionOpen(true) : undefined} />
           </div>
         )}
-        {head?.awaitsReply && !refusal && <p className="text-xs text-muted-foreground">Your messages wait in their Requests until they reply or accept.</p>}
-        {refusal ? (
-          <Notice icon={refusal === "level-low" ? "lock" : undefined}>{CHAT_REFUSALS[refusal]}</Notice>
-        ) : (
-          head && (
-            <form className="flex min-w-0 items-end gap-2" onSubmit={send}>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <input
-                  ref={field}
-                  type="text"
-                  aria-label={`Message ${name}`}
-                  placeholder={c?.kind === "world" ? "Message the World" : "Message"}
-                  enterKeyHint="send"
-                  autoComplete="off"
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    if (sendError) setSendError(null);
-                  }}
-                  className="min-h-11 w-full min-w-0 rounded-lg border border-input bg-secondary/60 px-3 py-2 text-base outline-none placeholder:text-muted-foreground tablet:text-sm"
-                />
-                <span aria-live="polite" className={cn("numeric self-end text-xs", tooLong ? "text-warning" : "text-muted-foreground")}>
-                  {formatInteger(length)}/{formatInteger(CHAT_MESSAGE_MAX)}
-                </span>
+
+        <div className="relative min-h-0 flex-1">
+          <ScrollRegion ref={scroller} onScroll={onScroll} role="log" aria-label="Messages" aria-busy={head === undefined || loadingOlder} className="size-full overscroll-contain px-1 py-1 [overflow-anchor:none]">
+            {hasOlder && (
+              <div className="flex justify-center py-1">
+                <Button size="sm" variant="ghost" loading={loadingOlder} onClick={onLoadOlder}>
+                  Older messages
+                </Button>
               </div>
-              <Button type="submit" className="mb-5 shrink-0" loading={sending} disabled={draft.trim() === "" || tooLong || wait > 0} aria-label={wait > 0 ? `Send, in ${formatInteger(wait)} s` : "Send"}>
-                {wait > 0 ? <span className="numeric">{formatInteger(wait)} s</span> : "Send"}
-              </Button>
-            </form>
-          )
-        )}
-        <InlineError title="Send" message={sendError} />
-      </div>
+            )}
+            {head === undefined && !error && (
+              <div className="flex flex-col gap-3 p-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-14 rounded-xl" />
+                ))}
+              </div>
+            )}
+            {head === null && <p className="px-4 py-8 text-center text-sm text-muted-foreground">This conversation is not there any more.</p>}
+            {encryption?.joinedAt != null && !hasOlder && <JoinerLine />}
+            {head && messages.length === 0 && (
+              // The conversation's opening (the owner's ask of 2026-11-05): in private, what is encrypted, until the first message.
+              <div data-slot="chat-opening" className="flex flex-col items-center gap-3 px-3 py-6">
+                {isPrivate && encryption && (
+                  <EncryptionLine mode={encryption.mode} otherName={name} onOpen={() => setEncryptionOpen(true)} className="w-auto max-w-full rounded-2xl bg-secondary/60 px-3.5 py-2" />
+                )}
+                <p className="text-center text-sm text-muted-foreground">No messages yet: say hello.</p>
+              </div>
+            )}
+            {messages.length > 0 && (
+              <ul className="flex flex-col">
+                {messages.map((msg, i) => [
+                  // A rule only where the day changes from the line before (none above the first line read).
+                  i > 0 && dayOf(messages[i - 1]!.at, timeZone) !== dayOf(msg.at, timeZone) ? <DayDivider key={`day-${msg.id}`} at={msg.at} now={now} timeZone={timeZone} /> : null,
+                  ...keyChangeRows(i),
+                  <MessageRow
+                    key={msg.id}
+                    message={msg}
+                    now={now}
+                    timeZone={timeZone}
+                    mayMute={c?.kind !== "private"}
+                    arrived={baseline !== null && msg.at > baseline}
+                    onOpenPlayer={onOpenPlayer}
+                    onReport={setReporting}
+                    onMute={(x) => void actions.run({ type: "mute", address: x.author!.address })}
+                  />,
+                ])}
+                {keyChangeRows(messages.length)}
+              </ul>
+            )}
+          </ScrollRegion>
+          {unseen > 0 && (
+            <Button size="sm" className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full shadow-md" onClick={toBottom}>
+              New messages
+            </Button>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2 p-2.5">
+          <InlineError title="Chat" message={error ?? actions.error} detail={error ? errorDetail : undefined} action={error && onRetry ? <Button size="sm" variant="secondary" onClick={onRetry}>Try again</Button> : undefined} />
+          {/* The first private conversation's notice, before its first message only (the owner's ask of 2026-11-05). */}
+          {c?.kind === "private" && !noticeSeen && messages.length === 0 && (
+            <Notice tone="warning" icon="lock" action={onSeeNotice && <Button size="sm" variant="secondary" onClick={onSeeNotice}>Got it</Button>}>
+              {PRIVATE_NOTICE}
+            </Notice>
+          )}
+          {request && c?.other && (
+            <div data-slot="chat-request" className="drawer-raised flex flex-col gap-2 rounded-xl p-3">
+              <p className="text-sm">
+                <PlayerName name={c.other.name} address={c.other.address} className="font-bold whitespace-normal wrap-anywhere" /> wants to message you. Reply or accept to let them write to you; decline and they cannot write again.
+              </p>
+              {/* The book's check and cross alone (the owner's ask of 2026-11-05: no words on them), as the list's request row. */}
+              <div className="flex justify-end gap-2">
+                <Button aria-label="Accept" className="size-11 shrink-0 rounded-xl px-0" style={GOLD_RAISED} loading={answering === true} disabled={answering !== null} onClick={() => answer(true)}>
+                  <UiIcon name="check" px={28} className="drawer-icon size-7" />
+                </Button>
+                <Button aria-label="Decline" variant="secondary" className="drawer-raised size-11 shrink-0 rounded-xl px-0" loading={answering === false} disabled={answering !== null} onClick={() => answer(false)}>
+                  <UiIcon name="cross" px={24} className="drawer-icon size-6" />
+                </Button>
+              </div>
+              <InlineError title="Request" message={answerError} />
+            </div>
+          )}
+          {head?.awaitsReply && !refusal && <p className="text-xs text-muted-foreground">Your messages wait in their Requests until they reply or accept.</p>}
+          {refusal ? (
+            <Notice icon={refusal === "level-low" ? "lock" : undefined}>{CHAT_REFUSALS[refusal]}</Notice>
+          ) : (
+            head && (
+              <form className="flex min-w-0 items-center gap-2" onSubmit={send}>
+                <div className="relative flex min-w-0 flex-1">
+                  <input
+                    ref={field}
+                    type="text"
+                    aria-label={`Message ${name}`}
+                    placeholder={placeholder}
+                    enterKeyHint="send"
+                    autoComplete="off"
+                    value={draft}
+                    onChange={(e) => {
+                      setDraft(e.target.value);
+                      if (sendError) setSendError(null);
+                    }}
+                    className={cn("min-h-12 w-full min-w-0 rounded-xl border border-input bg-secondary px-4 py-2 text-base font-semibold outline-none placeholder:text-muted-foreground", nearLimit && "pr-20")}
+                  />
+                  {/* The count past 80 % of the limit only (the book's field has none), inside the field's end; read out as it changes. */}
+                  <span aria-live="polite" className={cn("numeric pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-bold", tooLong ? "text-warning" : "text-muted-foreground")}>
+                    {nearLimit && `${formatInteger(length)}/${formatInteger(CHAT_MESSAGE_MAX)}`}
+                  </span>
+                </div>
+                <Button
+                  type="submit"
+                  className="h-12 w-16 shrink-0 rounded-xl"
+                  style={GOLD_RAISED}
+                  loading={sending}
+                  disabled={draft.trim() === "" || tooLong || wait > 0}
+                  aria-label={wait > 0 ? `Send, in ${formatInteger(wait)} s` : "Send"}
+                >
+                  {wait > 0 ? <span className="numeric text-outline font-bold text-foreground">{formatInteger(wait)} s</span> : <UiIcon name="send" px={32} className="drawer-icon size-8" />}
+                </Button>
+              </form>
+            )
+          )}
+          <InlineError title="Send" message={sendError} />
+        </div>
       <ReportDialog message={reporting} encrypted={encrypted} onCancel={() => setReporting(null)} onReport={(reason) => onAction?.({ type: "report", id: reporting!.id, reason }) ?? Promise.resolve()} />
-      {isPrivate && encryption && <EncryptionSheet open={encryptionOpen} onOpenChange={setEncryptionOpen} otherName={name} safetyCode={encryption.safetyCode} />}
-      {actions.dialog}
-    </section>
+        {isPrivate && encryption && <EncryptionSheet open={encryptionOpen} onOpenChange={setEncryptionOpen} otherName={name} safetyCode={encryption.safetyCode} />}
+      </section>
+    </>
+  );
+}
+
+interface GuildBannerProps {
+  /** The guild's name in words. */
+  name: string;
+  guild: ConversationSummary["guild"];
+  pinned: ChatPageHead["pinned"];
+  /** The guild's page. */
+  onOpen?: () => void;
+}
+
+/**
+ * Above the guild's conversation (CHAT-PAGE, the book's "chat": its pinned post on a gold plate): the latest announcement with the
+ * book's pin, on two lines at most; with none, the guild's emblem, name and tag. Either way a tap opens the guild's page, where the
+ * announcements are whole, with their author and time.
+ */
+function GuildBanner({ name, guild, pinned, onOpen }: GuildBannerProps) {
+  return (
+    <button
+      type="button"
+      data-slot="chat-pinned"
+      disabled={!onOpen}
+      onClick={onOpen}
+      className="state-layer flex min-h-14 w-full min-w-0 shrink-0 cursor-pointer items-center gap-3 rounded-2xl border-2 border-primary/70 bg-linear-to-b from-primary/40 to-primary/15 px-3 py-2 text-left outline-none disabled:cursor-default"
+    >
+      {pinned ? (
+        <>
+          <UiIcon name="pin" px={36} label="Pinned announcement" className="drawer-icon size-9" />
+          <span title={pinned.text} className="text-outline line-clamp-2 min-w-0 flex-1 text-base leading-snug font-bold wrap-anywhere">
+            {pinned.text}
+          </span>
+        </>
+      ) : (
+        <>
+          {guild && <GuildEmblem emblem={guild.emblem} size="sm" className="drawer-icon" />}
+          <span title={name} className="text-outline min-w-0 flex-1 truncate text-base leading-snug font-bold">
+            {name}
+          </span>
+          {guild && <span className="shrink-0 text-xs font-bold text-info">{guild.tag}</span>}
+        </>
+      )}
+      {onOpen && <Icon name="chevron-right" size="sm" className="drawer-icon shrink-0" label={`Open ${name}`} />}
+    </button>
   );
 }

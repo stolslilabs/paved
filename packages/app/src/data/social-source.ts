@@ -304,13 +304,15 @@ export interface GuildSource {
 
 // --- The messages (#955), on the same source (`chat`) ------------------------------------------------------------------
 
-/** A message's author as the conversation shows them: avatar, name, level and, in the World, their guild's tag. */
+/** A message's author as the conversation shows them: avatar in their league's rim (CHAT-PAGE), name, level, and their guild's tag. */
 export interface ChatAuthor {
   address: string;
   /** Null: they have none (shown by their short address). */
   name: string | null;
   look: bigint | null;
   level: number;
+  /** Their league on chain (0 Wood to 22 Grand Master, `PublicProfile.league`): the rim round their avatar (CHAT-PAGE). */
+  league: number;
   /** Their guild's tag (game-core's `guildTag`), or null: in no guild. */
   guildTag: string | null;
 }
