@@ -17,7 +17,7 @@ import { SectionTitle } from "../elements/section-title";
 import { shortAddress } from "../elements/short-address";
 import type { PlayerProgress } from "../elements/xp-ring";
 import { HudDrawer } from "./hud-drawer";
-import { Figure, FigureBand, HallAndStats, ProfileRim, TrophiesBand, type PlayerRecords, type SeasonStanding } from "./profile-sheet";
+import { Figure, FigureBand, HallAndStats, ProfileRim, TrophiesBand, XpLeft, type PlayerRecords, type SeasonStanding } from "./profile-sheet";
 
 /** What the sheet shows: the profile read, still read, no player of that ID, a failed read, or no social source on this network. */
 export type PublicProfileState =
@@ -163,6 +163,8 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
               <SectionTitle>Level</SectionTitle>
               <LevelBar progress={progress ?? undefined} variant="profile" className="mx-auto max-w-66" />
               <span className="sr-only">Level {formatPoints(progress?.level ?? profile.level)}</span>
+              {/* The bar is a picture (`aria-hidden`): its XP made and required, or the cap, said as on the own profile (#1026). */}
+              <XpLeft progress={progress ?? undefined} />
             </div>
             <section aria-label="League" className="flex flex-col gap-2">
               <SectionTitle>League</SectionTitle>

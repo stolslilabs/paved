@@ -19,6 +19,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { MATCH_CARDS } from "../src/mocks/pvp";
 import { MOCK_NOW } from "../src/mocks/clock";
+import { PROGRESS } from "../src/mocks/players";
 import { PUBLIC_PROFILE, PUBLIC_PROFILES, SEARCH } from "../src/mocks/social";
 import { HALL_OF_FAME, RECORDS } from "../src/mocks/profile-records";
 import { mockImplementation } from "./mock-fakes";
@@ -64,6 +65,20 @@ describe("PublicProfileSheet (#952)", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Copy player ID" }));
     expect(onCopy).toHaveBeenCalledWith(PUBLIC_PROFILE.online.address);
     expect(await within(dialog).findByRole("button", { name: "Player ID copied" })).toBeInTheDocument();
+  });
+
+  it("says the level's XP to screen readers, the bar being a picture (#1026)", () => {
+    const { rerender } = sheet({ progress: PROGRESS.partWay });
+    const level = document.querySelector<HTMLElement>("[data-slot=player-level]")!;
+    expect(level.querySelector("[data-slot=level-bar]")).toHaveAttribute("aria-hidden");
+    expect(within(level).getByText(/XP made/)).toHaveTextContent("120 XP made of 300, 180 XP to level 4 · 420 XP in all");
+    expect(level).toHaveTextContent("Level 3");
+    rerender(wrap(<PublicProfileSheet state={{ status: "ready", profile: PUBLIC_PROFILE.online }} now={MOCK_NOW} open onOpenChange={() => {}} progress={PROGRESS.maxLevel} />));
+    expect(within(level).getByText(/XP made/)).toHaveTextContent(/Max level/);
+    // Still read: the level from the profile, no XP said.
+    rerender(wrap(<PublicProfileSheet state={{ status: "ready", profile: PUBLIC_PROFILE.online }} now={MOCK_NOW} open onOpenChange={() => {}} />));
+    expect(within(level).queryByText(/XP made/)).toBeNull();
+    expect(level).toHaveTextContent("Level 7");
   });
 
   it("shows when an offline player was last seen", () => {
@@ -215,6 +230,13 @@ describe("/player/:id on the mock (#952)", { timeout: slow(20_000) }, () => {
     const { router } = open(`/player/${rival.address}`);
     expect(await screen.findByRole("dialog", { name: rival.name }, { timeout: slow(8000) })).toBeInTheDocument();
     await act(() => router.navigate("/?player=0xdead"));
+    expect(await screen.findByRole("dialog", { name: "Player not found" }, { timeout: slow(8000) })).toBeInTheDocument();
+  });
+
+  it("says Player not found for a malformed player link, without crashing (#1026)", async () => {
+    const { router } = open("/player/not-a-player");
+    expect(await screen.findByRole("dialog", { name: "Player not found" }, { timeout: slow(8000) })).toHaveTextContent("No player has this ID.");
+    await act(() => router.navigate("/?player=0xzz%20!"));
     expect(await screen.findByRole("dialog", { name: "Player not found" }, { timeout: slow(8000) })).toBeInTheDocument();
   });
 
