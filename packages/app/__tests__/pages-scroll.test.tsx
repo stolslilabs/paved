@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import PagePanel from "../src/components/containers/page-panel";
 import { CobblesScene } from "../src/components/scenes/cobbles-scene";
-import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
+import { TilesScene } from "../src/components/scenes/tiles-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { CreditsScene } from "../src/components/scenes/credits-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
@@ -16,7 +16,7 @@ import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
 import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
-import { COBBLES, MISSIONS, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
+import { COBBLES, MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../src/mocks/scenes";
 import { VILLAGE_CHESTS } from "../src/mocks/village-v2";
 import { SHOP } from "../src/mocks/shop";
 import { ShopScene } from "../src/components/scenes/shop-scene";
@@ -26,7 +26,7 @@ import { TRACKS } from "../src/lib/music/tracks";
 /**
  * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, the Vault and the second-level pages
  * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body); Missions in the HUD's
- * drawer's body at every width (MISSIONS-PAGE). The page is drawn
+ * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE). The page is drawn
  * straight in that region: its sticky header and its content are the region's own (no column of its own between them and the
  * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing out, so this test
  * reads the structure that lets a page scroll, not its overflow: the overflow itself (content taller than a 375 x 812 phone and
@@ -39,7 +39,6 @@ const PAGES: readonly [string, ReactNode][] = [
   ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />],
   ["Vault", <VaultScene {...VAULT.position} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onUse={no()} onOpen={no()} />],
-  ["My tiles", <MyTilesScene {...MY_TILES.owned} onBack={no()} />],
   ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
   ["Credits", <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no()} />],
 ];
@@ -205,5 +204,26 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     const touchy = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)touch-(none|pan-x|pinch-zoom)(\s|$)/.test(el.getAttribute("class") ?? ""));
     expect(touchy).toEqual([]);
     for (let el: HTMLElement | null = icons.at(-1)!; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
+  });
+
+  it("Tiles draws its stage, its skins and its 19 tiles in the HUD drawer's body (COLLECTION-PAGE), to the last tile", () => {
+    draw(<TilesScene {...TILES.owned} onBack={no()} />, false, "Tiles");
+    const drawer = screen.getByRole("dialog", { name: "Tiles" });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    expect(region.className).toContain("overscroll-contain");
+    expect(region).toContainElement(screen.getByRole("region", { name: "Selected tile" }));
+    expect(region).toContainElement(screen.getByRole("list", { name: "Tile 7: skins" }));
+    const tiles = within(screen.getByRole("list", { name: "Tiles" })).getAllByRole("button");
+    expect(tiles).toHaveLength(19);
+    expect(region).toContainElement(tiles.at(-1)!);
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    // Nothing of the page sets its own touch action: a vertical drag on the grid or the skins scrolls the region (the 3D tile's canvas
+    // takes the finger to turn it, OrbitControls' own style, in the browser only).
+    const touchy = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)touch-(none|pan-x|pinch-zoom)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(touchy).toEqual([]);
+    for (let el: HTMLElement | null = tiles.at(-1)!; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 });

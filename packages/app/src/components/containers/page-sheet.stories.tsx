@@ -5,10 +5,9 @@ import { titleOf } from "../../lib/music/track-info";
 import { TRACKS } from "../../lib/music/tracks";
 import { CAMPAIGNS, EMPTY_PROGRESS } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
-import { COBBLES, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME } from "../../mocks/scenes";
+import { COBBLES, PLAY, REFERRAL, SETTINGS, THEME } from "../../mocks/scenes";
 import { CobblesScene } from "../scenes/cobbles-scene";
 import { CreditsScene } from "../scenes/credits-scene";
-import { MyTilesScene } from "../scenes/my-tiles-scene";
 import { PlayScene } from "../scenes/play-scene";
 import { ReferralScene } from "../scenes/referral-scene";
 import { SettingsScene } from "../scenes/settings-scene";
@@ -68,18 +67,15 @@ const sheet = (title: string, page: ReactNode, wide = false, under?: { page: Rea
 });
 
 const themes = <ThemeScene {...THEME.mixed} onBack={fn()} onUse={fn()} onOpen={fn()} onMyTiles={fn()} />;
-const tiles = <MyTilesScene {...MY_TILES.owned} onBack={fn()} onPick={fn()} onSave={fn()} onDiscard={fn()} onOpenShop={fn()} />;
 const credits = <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} />;
 const referral = <ReferralScene {...REFERRAL.earned} onBack={fn()} onCopy={fn()} />;
 
 /** The themes over Settings at 375 px: the sheet from the bottom, its grab bar, Settings dimmed behind it. */
 export const ThemesPhone: Story = sheet("Themes", themes);
-export const MyTilesPhone: Story = sheet("My tiles", tiles);
 export const CreditsPhone: Story = sheet("Credits", credits);
 export const ReferralPhone: Story = sheet("Referral", referral);
 /** At 1440 px: the sheet from the right, over Settings' side panel and the village. */
 export const ThemesWide: Story = sheet("Themes", themes, true);
-export const MyTilesWide: Story = sheet("My tiles", tiles, true);
 export const CreditsWide: Story = sheet("Credits", credits, true);
 export const ReferralWide: Story = sheet("Referral", referral, true);
 const story = <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} onCampaign={fn()} onLevel={fn()} />;

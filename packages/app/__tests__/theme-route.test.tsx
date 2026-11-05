@@ -13,7 +13,7 @@ import { fakeSources } from "./data-fakes";
 import { FOREST_PRICES, FakeSkinWriter } from "./skin-fakes";
 import { preloadPages } from "./route-helpers";
 
-// Themes, a theme's shop and My tiles (THEMES-RENDERS) on `@paved/chain`'s fakes: Forest's prices, the player's owned and
+// Themes, a theme's shop and Tiles (THEMES-RENDERS, COLLECTION-PAGE) on `@paved/chain`'s fakes: Forest's prices, the player's owned and
 // active skins and the balance on `FakeGameViews`, the writes on `FakeSkinWriter`, through the app's own query client.
 
 const FOREST = 1;
@@ -43,7 +43,7 @@ const forestActive = (s: ReturnType<typeof setup>) => s.skins.active.flatMap((t,
 
 // Settings too: the theme's pages are sheets drawn over it (BACK-RULE #783), so the first test loaded it cold. And the hosts:
 // Settings is the home's panel (#762), each sheet in its own chunk.
-preloadPages("settings", "theme", "shop", "my-tiles", "welcome", "home-panel", "page-sheets");
+preloadPages("settings", "theme", "shop", "tiles", "welcome", "home-panel", "page-sheets");
 
 beforeEach(() => {
   queryClient.clear();
@@ -129,11 +129,11 @@ describe("/settings/theme: the themes", () => {
     expect(router.state.location.search).toBe("?tab=themes&theme=forest");
   });
 
-  it("opens My tiles", async () => {
+  it("opens My tiles, now Tiles, the HUD's drawer (COLLECTION-PAGE)", async () => {
     const router = open(setup(), "/settings/theme");
     await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
     await userEvent.click(screen.getByRole("button", { name: /^My tiles/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/tiles"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/tiles"));
   });
 });
 
@@ -219,14 +219,26 @@ describe("the Shop's view of Forest (SHOP-PAGE; `/settings/theme/forest` before)
   });
 });
 
-describe("/settings/tiles: My tiles", () => {
-  const row = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: slow(5000) });
-  const pick = async (plan: number, name: string) => userEvent.click(within(await row(plan)).getByRole("radio", { name: `Tile ${plan}: ${name}` }));
+describe("/tiles: Tiles (COLLECTION-PAGE)", () => {
+  const tile = async (plan: number) =>
+    within(await screen.findByRole("list", { name: "Tiles" }, { timeout: slow(5000) })).getByRole("button", { name: new RegExp(`^Tile ${plan}(,|$)`) });
+  const skin = (name: string) => screen.getByRole("listitem", { name: new RegExp(`^${name}: `) });
+  /** A tile selected in the grid, then the skin's Use. */
+  const pick = async (plan: number, name: string) => {
+    await userEvent.click(await tile(plan));
+    await userEvent.click(within(skin(name)).getByRole("button", { name: `Use ${name}` }));
+  };
+
+  it("lands the old link of Settings' sheet on the drawer", async () => {
+    const router = open(setup(), "/settings/tiles");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/tiles"));
+    expect(await screen.findByRole("dialog", { name: "Tiles" }, { timeout: slow(5000) })).toBeInTheDocument();
+  });
 
   it("changes one tile only: Save sends the plans that changed, in one set_skins", async () => {
     const s = setup();
     s.skins.owned.set(FOREST, (1 << 7) | (1 << 8) | (1 << 13));
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await pick(8, "Forest"); // on, then back to the saved value: not sent
     await pick(8, "Default");
@@ -242,7 +254,7 @@ describe("/settings/tiles: My tiles", () => {
     let release!: () => void;
     s.writer.gate = new Promise((done) => (release = done));
     s.writer.failNext = new SkinRefusedError("not-owned", "0x9");
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("button", { name: "Saving…" })).toBeDisabled();
@@ -256,7 +268,7 @@ describe("/settings/tiles: My tiles", () => {
 
   it("a save whose receipt cannot be read: once the active set is read again, the changes it already holds are dropped", async () => {
     const s = setup();
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await pick(13, "Default");
     expect(await screen.findByRole("region", { name: "Unsaved changes" })).toHaveTextContent("2 changes to save");
@@ -267,12 +279,13 @@ describe("/settings/tiles: My tiles", () => {
     };
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Unsaved changes" })).toBeNull(), { timeout: slow(3000) });
-    expect(within(await row(7)).getByRole("radio", { name: "Tile 7: Forest" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(await tile(7));
+    expect(skin("Forest")).toHaveAccessibleName("Forest: active");
   });
 
   it("Discard drops the batch", async () => {
     const s = setup();
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await userEvent.click(await screen.findByRole("button", { name: "Discard" }));
     expect(screen.queryByRole("region", { name: "Unsaved changes" })).toBeNull();

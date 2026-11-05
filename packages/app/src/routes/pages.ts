@@ -81,6 +81,9 @@ export const PAGES: readonly PageDef[] = [
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`
   // land on it (`router.tsx`). The HUD's drawer at every width, docked at the right from `tablet` (MISSIONS-PAGE).
   { path: "missions", title: "Missions", nav: "quests", panel: true, drawer: true },
+  // Tiles (COLLECTION-PAGE, the book's Collection, named after the home's button): the skin each tile wears. The HUD's drawer at every
+  // width, docked at the right from `tablet`, under the right column's Tiles; its old Settings sheet `/settings/tiles` lands on it.
+  { path: "tiles", title: "Tiles", nav: null, panel: true, drawer: true },
   { path: "vault", title: "Vault", nav: "vault", panel: true },
   // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
   // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
@@ -94,7 +97,6 @@ export const PAGES: readonly PageDef[] = [
   // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it. A theme's tiles are the Shop's (SHOP-PAGE).
   { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/tiles", title: "My tiles", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings", title: "Settings", nav: "settings", panel: true },
 ] as const;

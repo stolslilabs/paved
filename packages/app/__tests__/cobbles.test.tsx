@@ -16,13 +16,13 @@ import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ShopTheme, ShopThemes } from "../src/components/containers/shop-themes";
 import { ShopPacks } from "../src/components/containers/shop-packs";
-import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
+import { TilesScene } from "../src/components/scenes/tiles-scene";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { DAILY_QUESTS, WEEKLY_QUESTS } from "@paved/game-core";
 import { QUEST_DEFINITIONS, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, questsTodayDone } from "../src/mocks/quests";
 import { TODAY } from "../src/mocks/players";
 import { isLiveOnDay, questPeriod } from "../src/lib/quest-window";
-import { COBBLES, MISSIONS, MY_TILES, PLAY, PURCHASE, THEME_SHOP } from "../src/mocks/scenes";
+import { COBBLES, MISSIONS, PLAY, PURCHASE, THEME_SHOP, TILES } from "../src/mocks/scenes";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
@@ -297,53 +297,86 @@ describe("A theme's tiles (SHOP-PAGE: the Shop's Themes tab and a theme's view)"
   });
 });
 
-describe("My tiles", () => {
-  const row = (plan: number) => screen.getByRole("listitem", { name: `Tile ${plan}` });
+describe("Tiles (COLLECTION-PAGE)", () => {
+  const skin = (name: string) => screen.getByRole("listitem", { name: new RegExp(`^${name}: `) });
+  const grid = () => within(screen.getByRole("list", { name: "Tiles" }));
 
-  it("offers each owned tile Default and the themes it is owned in, the active one picked; the others on Default, together", () => {
-    render(wrap(<MyTilesScene {...MY_TILES.owned} />));
-    expect(within(screen.getByRole("list", { name: "Tiles" })).getAllByRole("listitem")).toHaveLength(4);
-    expect(within(screen.getByRole("list", { name: "Default only" })).getAllByRole("listitem")).toHaveLength(15);
-    expect(within(row(13)).getByRole("radio", { name: "Tile 13: Forest" })).toHaveAttribute("aria-checked", "true");
-    expect(within(row(7)).getByRole("radio", { name: "Tile 7: Default" })).toHaveAttribute("aria-checked", "true");
-    expect(within(row(1)).queryByRole("radio")).not.toBeInTheDocument();
+  it("shows the selected tile, the five skins it can wear and the 19 tiles, each section titled as the profile's", () => {
+    render(wrap(<TilesScene {...TILES.owned} />));
+    expect(screen.getByRole("heading", { level: 2, name: "Tile 7" })).toBeInTheDocument();
+    // Default and Forest owned of the five.
+    expect(screen.getByRole("heading", { level: 3, name: /^Skins\s*2\/5$/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "All tiles" })).toBeInTheDocument();
+    // Its Description, read from the plan (Tile 7, FFFFCCCFF): one sentence, then its figures.
+    const description = screen.getByRole("region", { name: "Description" });
+    expect(description).toHaveTextContent("A city open on two sides and a forest.");
+    const figures = within(description).getAllByRole("definition").map((d) => d.textContent);
+    expect(within(description).getAllByRole("term").map((t) => t.textContent)).toEqual(["Cities", "Roads", "Forests", "Wonders", "In deck"]);
+    expect(figures).toEqual(["1", "0", "1", "0", "5"]);
+    expect(within(screen.getByRole("list", { name: "Tile 7: skins" })).getAllByRole("listitem")).toHaveLength(5);
+    expect(skin("Default")).toHaveAccessibleName("Default: active");
+    expect(skin("Default")).toHaveTextContent("Active");
+    expect(skin("Forest")).toHaveAccessibleName("Forest: owned");
+    // Coming soon: locked, nothing to press.
+    for (const name of ["Snow", "Desert", "Volcano"]) {
+      expect(skin(name)).toHaveAccessibleName(`${name}: coming soon`);
+      expect(within(skin(name)).queryByRole("button")).not.toBeInTheDocument();
+    }
+    expect(grid().getAllByRole("button")).toHaveLength(19);
+    expect(grid().getByRole("button", { name: "Tile 7" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });
 
-  it("picks one tile's skin", async () => {
+  it("uses an owned skin, and opens the shop for one not owned", async () => {
     const onPick = vi.fn();
-    render(wrap(<MyTilesScene {...MY_TILES.owned} onPick={onPick} />));
-    await userEvent.click(within(row(7)).getByRole("radio", { name: "Tile 7: Forest" }));
+    const onOpenShop = vi.fn();
+    render(wrap(<TilesScene {...TILES.owned} onPick={onPick} onOpenShop={onOpenShop} />));
+    await userEvent.click(within(skin("Forest")).getByRole("button", { name: "Use Forest" }));
     expect(onPick).toHaveBeenCalledWith(7, 1);
+    // Tile 1 is owned in no theme: Forest is the shop's.
+    await userEvent.click(grid().getByRole("button", { name: "Tile 1" }));
+    expect(screen.getByRole("heading", { level: 2, name: "Tile 1" })).toBeInTheDocument();
+    expect(skin("Forest")).toHaveAccessibleName("Forest: not owned");
+    await userEvent.click(within(skin("Forest")).getByRole("button", { name: "Shop Forest" }));
+    expect(onOpenShop).toHaveBeenCalledWith("forest");
   });
 
   it("batches the picks and saves them in one write", async () => {
     const onSave = vi.fn();
-    render(wrap(<MyTilesScene {...MY_TILES.changed} onSave={onSave} />));
+    render(wrap(<TilesScene {...TILES.changed} onSave={onSave} />));
     const bar = screen.getByRole("region", { name: "Unsaved changes" });
     expect(bar).toHaveTextContent("2 changes to save");
-    expect(row(7)).toHaveAttribute("data-changed", "true");
-    expect(within(row(13)).getByRole("radio", { name: "Tile 13: Default" })).toHaveAttribute("aria-checked", "true");
+    expect(skin("Forest")).toHaveAccessibleName("Forest: active, not saved");
+    expect(skin("Forest")).toHaveTextContent("Active");
+    expect(grid().getByRole("button", { name: "Tile 7, skin not saved" })).toBeInTheDocument();
+    expect(grid().getByRole("button", { name: "Tile 13, skin not saved" })).toBeInTheDocument();
     await userEvent.click(within(bar).getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledOnce();
   });
 
-  it("locks the picks while saving, then says saved", () => {
-    const { unmount } = render(wrap(<MyTilesScene {...MY_TILES.saving} />));
+  it("locks Use while saving, then says saved", () => {
+    const { unmount } = render(wrap(<TilesScene {...TILES.saving} />));
     expect(within(screen.getByRole("region", { name: "Unsaved changes" })).getByRole("button", { name: /Saving/ })).toBeDisabled();
-    expect(screen.getAllByRole("radio").every((r) => (r as HTMLButtonElement).disabled)).toBe(true);
+    expect(within(skin("Default")).getByRole("button", { name: "Use Default" })).toBeDisabled();
     unmount();
-    render(wrap(<MyTilesScene {...MY_TILES.saved} />));
+    render(wrap(<TilesScene {...TILES.saved} />));
     expect(screen.getByRole("status")).toHaveTextContent("Tiles saved");
   });
 
-  it("with no skin owned, every tile is on Default and the shop is a tap away", async () => {
-    const onOpenShop = vi.fn();
-    render(wrap(<MyTilesScene {...MY_TILES.none} onOpenShop={onOpenShop} />));
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-    expect(within(screen.getByRole("list", { name: "Default only" })).getAllByRole("listitem")).toHaveLength(19);
-    await userEvent.click(screen.getByRole("button", { name: "Open the Forest shop" }));
-    expect(onOpenShop).toHaveBeenCalledWith("forest");
+  it("presents the tile alone, the finger its only control: no zoom, no arrows; without WebGL its image; the grid top-down", () => {
+    render(wrap(<TilesScene {...TILES.owned} />));
+    expect(screen.getByRole("img", { name: "Tile 7" })).toBeInTheDocument();
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Turn |^Zoom / })).not.toBeInTheDocument();
+    // The grid shows each tile from above (its `-top` render).
+    expect(grid().getByRole("button", { name: "Tile 7" }).querySelector("img")?.getAttribute("src")).toMatch(/-top\./);
+  });
+
+  it("with no skin owned, every tile wears Default and Forest is the shop's", () => {
+    render(wrap(<TilesScene {...TILES.none} />));
+    expect(skin("Default")).toHaveAccessibleName("Default: active");
+    expect(skin("Forest")).toHaveAccessibleName("Forest: not owned");
+    expect(grid().queryByRole("button", { name: /not saved/ })).not.toBeInTheDocument();
   });
 });
 

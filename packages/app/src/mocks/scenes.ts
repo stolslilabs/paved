@@ -13,7 +13,7 @@ import type { Preferences, SettingsSceneProps } from "../components/scenes/setti
 import type { OwnedSkins, ThemeSceneProps } from "../components/scenes/theme-scene";
 import type { ShopThemesProps, ThemeSkinsData } from "../components/containers/shop-themes";
 import type { SkinThemeId } from "../components/containers/theme-card";
-import type { MyTiles, MyTilesSceneProps } from "../components/scenes/my-tiles-scene";
+import type { TilesSceneProps, TilesSkins } from "../components/scenes/tiles-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import { CategoryType, emptyTutorialCounts, type TutorialTask } from "@paved/game-core";
 import { APP_ASSETS, FOREST_VARIANTS, SOURCE_ASSETS, appRenders, originalTileArt } from "./assets";
@@ -333,31 +333,33 @@ export const THEME_SHOP = {
   stress: { ...shopBase, skins: { ...forestShop, balance: BIG_NUMBER } },
 } satisfies Record<string, Data<ShopThemesProps & { theme: SkinThemeId }>>;
 
-const myTiles: MyTiles = { ...ownedSkins, changes: {} };
-const tilesBase = { renders: appRenders } as const;
+const tilesSkins: TilesSkins = { ...ownedSkins, changes: {} };
+const tilesBase = { renders: appRenders, basePath: APP_ASSETS } as const;
 
-export const MY_TILES = {
-  /** Four Forest tiles owned (plans 7, 8, 10, 13), 10 and 13 wearing it: those four rows offer Default and Forest. */
-  owned: { ...tilesBase, skins: myTiles },
+export const TILES = {
+  /** Four Forest tiles owned (plans 7, 8, 10, 13), 10 and 13 wearing it; Tile 7 shown: Default in use, Forest owned (Use). */
+  owned: { ...tilesBase, skins: tilesSkins, initialPlan: 7 },
+  /** Tile 1, owned in no theme: Default in use, Forest locked (Shop). */
+  locked: { ...tilesBase, skins: tilesSkins, initialPlan: 1 },
   /** Two picks changed, not saved: Save sends them in one `set_skins`. */
-  changed: { ...tilesBase, skins: { ...myTiles, changes: { 7: FOREST, 13: 0 } } },
+  changed: { ...tilesBase, skins: { ...tilesSkins, changes: { 7: FOREST, 13: 0 } }, initialPlan: 7 },
   /** The write on its way. */
-  saving: { ...tilesBase, skins: { ...myTiles, changes: { 7: FOREST, 13: 0 }, save: "saving" } },
+  saving: { ...tilesBase, skins: { ...tilesSkins, changes: { 7: FOREST, 13: 0 }, save: "saving" }, initialPlan: 7 },
   /** Saved: the picks are the chain's again. */
-  saved: { ...tilesBase, skins: { ...myTiles, active: activeOn(FOREST, 7, 10), save: "saved" } },
+  saved: { ...tilesBase, skins: { ...tilesSkins, active: activeOn(FOREST, 7, 10), save: "saved" }, initialPlan: 7 },
   /** The save refused, the batch kept. */
-  refused: { ...tilesBase, skins: { ...myTiles, changes: { 7: FOREST }, refusal: "A skin in this change is not yours: buy it before using it. Nothing was saved." } },
-  /** No skin owned: every tile on Default, the shop to open. */
-  none: { ...tilesBase, skins: { ...myTiles, owned: { [FOREST]: 0 }, active: activeOn(FOREST) } },
-  /** The whole Forest set. */
-  allForest: { ...tilesBase, skins: { ...myTiles, owned: { [FOREST]: ownedPlans(...ALL_PLANS) }, active: activeOn(FOREST, ...ALL_PLANS) } },
+  refused: { ...tilesBase, skins: { ...tilesSkins, changes: { 7: FOREST }, refusal: "A skin in this change is not yours: buy it before using it. Nothing was saved." }, initialPlan: 7 },
+  /** No skin owned: every tile on Default, each skin's Shop. */
+  none: { ...tilesBase, skins: { ...tilesSkins, owned: { [FOREST]: 0 }, active: activeOn(FOREST) } },
+  /** The whole Forest set, worn. */
+  allForest: { ...tilesBase, skins: { ...tilesSkins, owned: { [FOREST]: ownedPlans(...ALL_PLANS) }, active: activeOn(FOREST, ...ALL_PLANS) } },
   /** A guest: Connect. */
   guest: { ...tilesBase, skinsStatus: { kind: "guest" } },
   /** The reads on their way. */
   loading: { ...tilesBase, skinsStatus: { kind: "loading" } },
   /** A failed read, with Retry. */
   error: { ...tilesBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
-} satisfies Record<string, Data<MyTilesSceneProps>>;
+} satisfies Record<string, Data<TilesSceneProps>>;
 
 // Missions (#832): one page, today only, Cobbles only
 

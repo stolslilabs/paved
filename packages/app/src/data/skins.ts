@@ -80,11 +80,11 @@ export function useThemeSkins(playerId: string | null, code: number | null): { d
   });
 }
 
-/** The ids of the themes on sale and read (Forest today): the ones whose owned words Themes and My tiles read. */
+/** The ids of the themes on sale and read (Forest today): the ones whose owned words Themes and Tiles read. */
 const SKIN_CODES: readonly number[] = SKIN_THEMES.map((t) => THEME_CODES[t.id]);
 
 /**
- * The player's skins across the themes on sale (Themes and My tiles, THEMES-RENDERS): the balance, the active set and each
+ * The player's skins across the themes on sale (Themes and Tiles, THEMES-RENDERS): the balance, the active set and each
  * theme's owned word by its id, the same keys as `useThemeSkins`'s, so a purchase or a save moves both pages. Null without
  * the Cobbles or skins views; disabled without a player.
  */

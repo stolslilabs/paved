@@ -104,7 +104,7 @@ export function chooseTheme(active: readonly number[], owned: Readonly<Record<nu
   return { changes, overridesChoice: !chosenWhole && Object.keys(changes).length > 0 };
 }
 
-/** The batch after picking `theme` for `plan` (My tiles): a pick back to the saved value leaves the batch. */
+/** The batch after picking `theme` for `plan` (Tiles): a pick back to the saved value leaves the batch. */
 export function pickSkin(active: readonly number[], changes: Readonly<Record<number, number>>, plan: number, theme: number): Record<number, number> {
   const rest = { ...changes };
   delete rest[plan];

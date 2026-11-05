@@ -15,7 +15,7 @@ import { BalancesProvider } from "../../src/components/containers/balances-conte
 import PagePanel from "../../src/components/containers/page-panel";
 import { PlayScene } from "../../src/components/scenes/play-scene";
 import { CreditsScene } from "../../src/components/scenes/credits-scene";
-import { MyTilesScene } from "../../src/components/scenes/my-tiles-scene";
+import { TilesScene } from "../../src/components/scenes/tiles-scene";
 import { PvpLeagueScene } from "../../src/components/scenes/pvp-league-scene";
 import { MissionsScene } from "../../src/components/scenes/missions-scene";
 import { ReferralScene } from "../../src/components/scenes/referral-scene";
@@ -27,7 +27,7 @@ import { ShopScene } from "../../src/components/scenes/shop-scene";
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
-import { MISSIONS, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, VAULT } from "../../src/mocks/scenes";
+import { MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../../src/mocks/scenes";
 import { SHOP } from "../../src/mocks/shop";
 import { VILLAGE_CHESTS } from "../../src/mocks/village-v2";
 
@@ -66,7 +66,7 @@ function TickingMissions() {
 /**
  * The pages of the pass, by id: the title its header shows, its scene with long content. `flow`: a full-screen flow below
  * `desktop` (Play: no tab frame, the document scrolls), a page of the side panel from it. `drawer`: the HUD's drawer
- * (MISSIONS-PAGE, LEAGUE-PAGE) at every width, its own panel: never in the page panel.
+ * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE) at every width, its own panel: never in the page panel.
  */
 export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true; drawer?: true }> = {
   // The Shop (SHOP-PAGE), the HUD's drawer: Forest's view, its 19 tiles in the Shop's cards.
@@ -80,7 +80,8 @@ export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true
   // The League with a long list of attacks and defences (#786, in place of the defence log): 20 rows and Show more.
   defence: { title: "League", drawer: true, page: <PvpLeagueScene {...PVP_LEAGUE.bronze} matches={{ ...PVP_MATCHES.latest, matches: PVP_MATCHES.many.matches }} onBack={no} onOpenMatch={no} /> },
   themes: { title: "Themes", page: <ThemeScene {...THEME.mixed} onBack={no} onNavigate={no} onUse={no} onOpen={no} /> },
-  tiles: { title: "My tiles", page: <MyTilesScene {...MY_TILES.owned} onBack={no} onNavigate={no} /> },
+  // Tiles (COLLECTION-PAGE): the HUD's drawer, its 3D stage, its skins and the 19 tiles.
+  tiles: { title: "Tiles", drawer: true, page: <TilesScene {...TILES.owned} onBack={no} /> },
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },
   play: { title: "Choose a mode", flow: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
   credits: { title: "Credits", page: <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no} onNavigate={no} /> },

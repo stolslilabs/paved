@@ -69,6 +69,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "game/:gameId/over": over,
   "training/over": over,
   missions: () => import("./pages/missions"),
+  tiles: () => import("./pages/tiles"),
   vault: () => import("./pages/vault"),
   // The social pages (#973, the Social page's tabs of #952 before), a chunk each.
   chat,
@@ -78,7 +79,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   friends: () => import("./pages/friends"),
   referral: () => import("./pages/referral"),
   "settings/theme": () => import("./pages/theme"),
-  "settings/tiles": () => import("./pages/my-tiles"),
   "settings/credits": () => import("./pages/credits"),
   settings: () => import("./pages/settings"),
 };

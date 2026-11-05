@@ -60,7 +60,7 @@ export default function Page() {
       onUse={use}
       // A theme's tiles are the Shop's (SHOP-PAGE): its Themes tab, that theme's view.
       onOpen={(theme) => go(`/village/shop?tab=themes&theme=${theme}`, { state: { opened: true } })}
-      onMyTiles={() => go("/settings/tiles", { replace: true })}
+      onMyTiles={() => go("/tiles", { replace: true })}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });

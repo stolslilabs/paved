@@ -195,8 +195,8 @@ function useShopThemes(onGetCobbles: () => void, onOpenTheme: (theme: SkinThemeI
       writes.buy(code, plan, price).then(
         () =>
           toast.success("Tile bought", {
-            description: "Use the theme on Themes, or choose it in My tiles.",
-            action: { label: "My tiles", onClick: () => go("/settings/tiles") },
+            description: "Use the theme on Themes, or choose it in Tiles.",
+            action: { label: "Tiles", onClick: () => go("/tiles") },
           }),
         () => undefined,
       );

@@ -64,7 +64,7 @@ export interface EdgeTilesProps {
   className?: string;
 }
 
-/** The right column (the book's): Missions, Vault, Friends and Tiles (My tiles), one under the other, each with its count. */
+/** The right column (the book's): Missions, Vault, Friends and Tiles (the skins owned, `/tiles`), one under the other, each with its count. */
 export function EdgeTiles({ missions = 0, friends = 0, onMissions, onVault, onFriends, onTiles, className }: EdgeTilesProps) {
   return (
     <nav aria-label="Village" className={className}>
