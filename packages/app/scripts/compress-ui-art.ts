@@ -6,7 +6,7 @@
  * Reads `ui-sources/icons/<name>.webp` (`UI_ICONS`, each on `ICON_FRAME`) and `ui-sources/frames/<name>.webp` (`FRAME_ART`), in
  * `src/components/elements/ui-art.ts`, `ui-sources/medallions/<name>.webp` (`UI_MEDALLIONS` and `UI_RINGS`, on `MEDALLION_FRAME`, in
  * `medallion-art.ts`), `ui-sources/missions/<name>.webp` (`MISSION_PARTS`, there too) and `ui-sources/shop/<name>.webp` (`SHOP_PARTS`,
- * in `shop-art.ts`), transparent lossless WebP left untouched
+ * in `shop-art.ts`) and `ui-sources/friends/<name>.webp` (`FRIENDS_PARTS`, in `friends-art.ts`), transparent lossless WebP left untouched
  * and never shipped (not in `public/`), and writes
  * `public/ui-art/icons/<size>/<name>.webp` and `public/ui-art/frames/<size>/<name>.webp` for each size. Each run removes the copies
  * of an earlier one. `--check` encodes nothing and fails when a master is missing, extra or not of its frame, or a copy is missing,
@@ -77,6 +77,20 @@
  * it and by us beside its crop; the pills kept at their size (their rounded ends measured, `RARITY_END`), the piles at the book's
  * scale on one 256 x 160 frame, their foot 4 px above its bottom.
  *
+ * FRIENDS-PAGE (2026-11-05): a player's profile's followers (three people, also its Following) and Block's no-entry sign, the Paved UX
+ * Book's own pixels as the League's (Codex listed no image tool that day): each cropped from the book's phone "friend-profile" screen
+ * (60 to 100 px), upscaled 4x by a bicubic scale, its navy keyed out by a flood fill from the crop's edges over the pixels near the
+ * panel's colour (Block's two halves inside its ring from a seed each), the edge next to it ramped and darkened to the outline's
+ * colour, the largest drawing kept alone, then trimmed and put on the icons' frame, checked side by side with the book on navy and on
+ * a light ground. Then, on the owner's ask of the same day, the gold pill of Follow back (`ui-sources/friends/`, `FRIENDS_PARTS`): cropped
+ * from the book's phone "friends-followers" screen, upscaled 2x, its words (their white, outline and shadow: whatever is not the
+ * pill's orange face in their box) filled by a harmonic inpainting from the face round them, the navy keyed out the same way, trimmed,
+ * and every column between its rounded ends replaced by their mean, so the 3-slice stretches a clean profile. Then, on the owner's
+ * ask of the same day, the guild's rank actions on a player's profile (`guild-promote`, `guild-demote`, `guild-leader`, `guild-kick`),
+ * which the book does not draw: drawn by Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`, the
+ * user's ChatGPT login, no API key), one prompt each, with the HUD's shield, crown, player and guild icons as its style references,
+ * on a transparent background; checked on navy and on a light ground, trimmed, fitted to the 240 px box and centred on the icons' frame.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.
@@ -88,6 +102,7 @@ import { fileURLToPath } from "node:url";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, copySize } from "../src/components/elements/ui-art.ts";
 import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS } from "../src/components/elements/medallion-art.ts";
 import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.ts";
+import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -95,13 +110,14 @@ export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
 /** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat, the medallions are paintings. */
-const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82 } as const;
+const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),
   ...UI_FRAMES.map((name) => ({ kind: "frames" as const, name, frame: FRAME_ART[name] })),
   ...[...UI_MEDALLIONS, ...UI_RINGS].map((name) => ({ kind: "medallions" as const, name, frame: MEDALLION_FRAME })),
   ...UI_MISSION_PARTS.map((name) => ({ kind: "missions" as const, name, frame: MISSION_PARTS[name] })),
   ...UI_SHOP_PARTS.map((name) => ({ kind: "shop" as const, name, frame: SHOP_PARTS[name] })),
+  ...UI_FRIENDS_PARTS.map((name) => ({ kind: "friends" as const, name, frame: FRIENDS_PARTS[name] })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */
@@ -153,7 +169,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`public/ui-art/ holds the ${expected().length} copies, each a WebP of its size.`);
   } else {
     rmSync(OUT, { recursive: true, force: true });
-    for (const kind of ["icons", "frames", "medallions", "missions", "shop"] as const) {
+    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends"] as const) {
       let before = 0;
       const after = new Map<number, number>();
       const images = IMAGES.filter((i) => i.kind === kind);

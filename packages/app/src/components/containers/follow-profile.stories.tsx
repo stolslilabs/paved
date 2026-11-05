@@ -14,7 +14,8 @@ const meta = {
   component: FollowProfileActions,
   parameters: { layout: "padded" },
   args: { ...FOLLOW_ACTIONS.follow, onAction: fn(async () => {}) },
-  decorators: [(Story) => <div className="mx-auto flex max-w-sm flex-col gap-3">{Story()}</div>],
+  // The profile's row (FRIENDS-PAGE): the actions stand in it side by side, wrapping when they do not fit.
+  decorators: [(Story) => <div className="mx-auto flex max-w-sm flex-wrap gap-2">{Story()}</div>],
 } satisfies Meta<typeof FollowProfileActions>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -31,7 +32,7 @@ export const Blocking: Story = { args: FOLLOW_ACTIONS.blocking };
 export const Refused: Story = { args: { onAction: fn(async () => Promise.reject(new Error("This is not available."))) } };
 /** WRAP360: the longest name in the confirmations. */
 export const Stress: Story = { args: FOLLOW_ACTIONS.stress };
-/** The marks: Follows you, and Friend. */
+/** The marks: Follows you, and Friends (the book's handshake). */
 export const Marks: Story = {
   render: () => (
     <div className="flex flex-wrap gap-2">

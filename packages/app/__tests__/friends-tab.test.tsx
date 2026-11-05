@@ -104,7 +104,7 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     await count("Following", 1);
     await userEvent.click(screen.getByRole("tab", { name: /^Following/ }));
     expect(list("Following")).toHaveTextContent(name);
-    await userEvent.click(within(list("Following")).getByRole("button", { name: `Unfollow ${name}` }));
+    await userEvent.click(within(list("Following")).getByRole("button", { name: `Following ${name}: unfollow` }));
     await confirm(`Unfollow ${name}?`, "Unfollow");
     await count("Following", 0);
   });
@@ -119,7 +119,7 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     await count("Following", 1);
   });
 
-  it("follows from a profile; the follow back makes a friend, marked new until seen, then removed as a follower", async () => {
+  it("follows from a profile; the follow back makes a friend, marked new until seen, then unfollowed from the Followers", async () => {
     const { router, later, backer, delay } = open();
     await lists();
     await act(() => router.navigate(`/friends?player=${backer.address}`));
@@ -128,23 +128,24 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     expect(await within(profile).findByRole("button", { name: `Following ${backer.name}: unfollow` }, T(8_000))).toBeInTheDocument();
     // The follow back, once due: a friend, and a new follower on the badges.
     await later(delay + 1);
-    expect(await within(profile).findByText("Friend", undefined, T(8_000))).toBeInTheDocument();
-    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    expect(await within(profile).findByText("Friends", undefined, T(8_000))).toBeInTheDocument();
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: backer.name })).toBeNull(), T(5_000));
     await count("Friends", 1);
     expect(list("Friends")).toHaveTextContent(backer.name);
     expect(screen.getByRole("tab", { name: "Followers, 1, 1 new" })).toBeInTheDocument();
     // Seen: the badges go, the New mark stays while the list is shown.
     await userEvent.click(screen.getByRole("tab", { name: /^Followers, 1, 1 new/ }));
-    expect(within(list("Followers")).getByText("New")).toBeInTheDocument();
+    expect(list("Followers").querySelector("[data-slot=new-dot]")).not.toBeNull();
     await waitFor(() => expect(screen.getByRole("tab", { name: "Followers, 1" })).toBeInTheDocument(), T(8_000));
-    expect(within(list("Followers")).getByText("New")).toBeInTheDocument();
-    // Removed: they no longer follow; the player still follows them.
-    await userEvent.click(within(list("Followers")).getByRole("button", { name: `Remove ${backer.name}` }));
-    await confirm(`Remove ${backer.name}?`, "Remove");
-    await count("Followers", 0);
+    expect(list("Followers").querySelector("[data-slot=new-dot]")).not.toBeNull();
+    // Unfollowed from their row's Following (FRIENDS-PAGE: the book's rows have no Remove): no longer friends; they still follow.
+    await userEvent.click(within(list("Followers")).getByRole("button", { name: `Following ${backer.name}: unfollow` }));
+    await confirm(`Unfollow ${backer.name}?`, "Unfollow");
     await count("Friends", 0);
-    await count("Following", 1);
+    await count("Following", 0);
+    await count("Followers", 1);
+    expect(within(list("Followers")).getByRole("button", { name: `Follow back ${backer.name}` })).toBeInTheDocument();
   });
 
   it("blocks from a profile, which ends the follows, and unblocks from the blocked players", async () => {
@@ -154,13 +155,13 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     const profile = await screen.findByRole("dialog", { name: backer.name }, T(8_000));
     await userEvent.click(await within(profile).findByRole("button", { name: "Follow" }, T(8_000)));
     await later(delay + 1);
-    expect(await within(profile).findByText("Friend", undefined, T(8_000))).toBeInTheDocument();
+    expect(await within(profile).findByText("Friends", undefined, T(8_000))).toBeInTheDocument();
     await userEvent.click(within(profile).getByRole("button", { name: "Block" }));
     await confirm(`Block ${backer.name}?`, "Block");
     expect(await within(profile).findByRole("button", { name: "Unblock" }, T(8_000))).toBeInTheDocument();
     expect(within(profile).queryByRole("button", { name: "Follow" })).toBeNull();
-    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: backer.name })).toBeNull(), T(5_000));
     await count("Friends", 0);
     await count("Following", 0);
     await count("Followers", 0);
@@ -171,9 +172,44 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     await waitFor(() => expect(sheet).toHaveTextContent("You block no one"), T(8_000));
     // The follows the block ended do not come back.
     await userEvent.click(within(sheet).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Blocked players" })).toBeNull(), T(5_000));
     await count("Following", 0);
     await count("Followers", 0);
+  });
+
+  it("is the HUD's drawer over the home (FRIENDS-PAGE): a row opens the player's profile over it, its close back to the list", async () => {
+    const { router } = open("/friends", { home: true });
+    const drawer = await screen.findByRole("dialog", { name: "Friends" }, T(10_000));
+    expect(drawer).toHaveAttribute("data-hud-drawer", "friends");
+    const suggested = within(drawer).getByRole("region", { name: "Suggested players" });
+    const row = (await within(suggested).findAllByRole("button", { name: /, level \d+, / }, T(8_000)))[0]!;
+    const name = row.getAttribute("aria-label")!.split(",")[0]!;
+    await userEvent.click(row);
+    // The home's host draws it (the drawer's page mounts none of its own), over the drawer: the Profile's page (a full page on a phone).
+    const profile = await screen.findByRole("dialog", { name }, T(8_000));
+    expect(profile).toHaveAttribute("data-hud-drawer", "public-profile");
+    expect(within(profile).getByRole("heading", { name })).toHaveTextContent("Profile");
+    expect(screen.getAllByRole("dialog", { name })).toHaveLength(1);
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name })).toBeNull(), T(5_000));
+    expect(router.state.location.pathname).toBe("/friends");
+    expect(screen.getByRole("dialog", { name: "Friends" })).toBe(drawer);
+  });
+
+  it("opens a profile the URL names on arrival over the drawer, not under it (FRIENDS-PAGE: the old `/social?player=` links)", async () => {
+    const player = SEEDED_PLAYERS[3]!;
+    const { router } = open(`/friends?player=${player.address}`, { home: true });
+    // Once the drawer is there: the profile reachable, on top, the drawer and the home hidden under it.
+    await waitFor(() => {
+      expect(document.querySelector('[data-hud-drawer="friends"]')).toHaveAttribute("aria-hidden", "true");
+      expect(screen.getByRole("dialog", { name: player.name })).toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Friends" })).toBeNull();
+    }, T(10_000));
+    const profile = screen.getByRole("dialog", { name: player.name });
+    expect(new URLSearchParams(router.state.location.search).get("player")).toBe(player.address);
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("dialog", { name: "Friends" }, T(5_000))).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/friends");
   });
 
   it("counts a new follower on the home's Friends button (#973)", async () => {

@@ -93,7 +93,8 @@ export const PAGES: readonly PageDef[] = [
   { path: "chat/private/:player", title: "Chat", nav: "chat", panel: true },
   { path: "chat/:tab", title: "Chat", nav: "chat", panel: true },
   { path: "guild", title: "Guild", nav: "guild", panel: true },
-  { path: "friends", title: "Friends", nav: "friends", panel: true },
+  // FRIENDS-PAGE: the HUD's drawer at every width, docked at the right from `tablet`, as the home's Friends button.
+  { path: "friends", title: "Friends", nav: "friends", panel: true, drawer: true },
   // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it. A theme's tiles are the Shop's (SHOP-PAGE).
   { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },

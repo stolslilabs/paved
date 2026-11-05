@@ -39,7 +39,8 @@ describe("the social pages' scenes (#973)", () => {
       [<FriendsScene {...FRIENDS_SEARCH.idle} onBack={onBack} />, "Friends", "No friends yet"],
     ] as const) {
       const { unmount } = render(wrap(scene));
-      expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+      // A page's title (h1), or the HUD's drawer's (FRIENDS-PAGE: its Sheet's title, an h2).
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
       expect(screen.getByText(empty)).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Back" }));
       unmount();
@@ -130,7 +131,8 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
   it("opens the friends page on its three tabs, Friends selected, under the search", async () => {
     open("/friends");
-    expect(await screen.findByRole("heading", { level: 1, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
+    // FRIENDS-PAGE: the HUD's drawer, its title the Sheet's (an h2).
+    expect(await screen.findByRole("heading", { level: 2, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Name or player ID" })).toBeInTheDocument();
     const tabs = within(await screen.findByRole("tablist", { name: "Lists" }, { timeout: slow(8000) })).getAllByRole("tab");
     expect(tabs.map((t) => t.getAttribute("aria-label")?.split(",")[0])).toEqual(["Friends", "Following", "Followers"]);
@@ -153,8 +155,8 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
       await userEvent.click(result);
       expect(await screen.findByRole("dialog", { name: player.name }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(new URLSearchParams(router.state.location.search).get("player")).toBe(player.address);
-      await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await userEvent.click(within(screen.getByRole("dialog", { name: player.name })).getByRole("button", { name: "Back" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: player.name })).toBeNull());
     }
     expect(router.state.location.pathname).toBe("/friends");
   });
@@ -162,7 +164,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
   describe("an old /social link (#973)", () => {
     it("lands on the friends page", async () => {
       const { router } = open("/social?ref=abc");
-      expect(await screen.findByRole("heading", { level: 1, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 2, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/friends");
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
     });

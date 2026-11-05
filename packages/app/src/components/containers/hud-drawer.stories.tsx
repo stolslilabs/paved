@@ -48,3 +48,9 @@ export const RightWithEnd: Story = {
     end: <span className="drawer-carved rounded-full px-3 py-1 text-sm font-bold tabular-nums">640</span>,
   },
 };
+
+/**
+ * A phone's sheet (`phone="sheet"`, FRIENDS-PAGE: another player's profile, the blocked players): from the bottom on a phone, as tall
+ * as its content, its top rounded under the grab bar, the red close at its header's end; from `tablet` the side panel at its edge.
+ */
+export const PhoneSheet: Story = { args: { title: "Wren of Hollowmere", side: "right", phone: "sheet" } };

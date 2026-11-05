@@ -96,9 +96,9 @@ describe("the route map (#762)", () => {
     ]);
     // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE: the League, Missions and Tiles are the HUD's drawer over the home at every width, never the side panel;
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, FRIENDS-PAGE: the League, Missions, Tiles and Friends are the HUD's drawer over the home at every width, never the side panel;
     // children of the home's route.
-    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles"]);
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles", "friends"]);
     expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
@@ -178,6 +178,25 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await userEvent.click(within(drawer).getByRole("tab", { name: "Cobbles" }));
     await waitFor(() => expect(router.state.location.search).toBe("?tab=cobbles"));
     expect(router.state.historyAction).toBe("REPLACE");
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("POP");
+  });
+
+  it("the right column's Friends opens the HUD's drawer at the right (FRIENDS-PAGE), not the panel: the search, the red cross", async () => {
+    wide();
+    const router = open("/");
+    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await userEvent.click(within(column).getByRole("button", { name: /^Friends/ }));
+    const drawer = await panel("Friends");
+    expect(router.state.location.pathname).toBe("/friends");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "friends");
+    expect(drawer).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+    // One dialog: the side panel stays closed under it.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(within(drawer).getByRole("searchbox", { name: "Name or player ID" })).toHaveAttribute("placeholder", "Find a player by name or ID");
+    expect(within(drawer).queryByRole("button", { name: "Back" })).toBeNull();
     await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");

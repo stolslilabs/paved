@@ -186,7 +186,7 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     const confirm = await screen.findByRole("dialog", { name: `Block ${name}?` }, T(5_000));
     await userEvent.click(within(confirm).getByRole("button", { name: "Block" }));
     expect(await within(profile).findByRole("button", { name: "Unblock" }, T(8_000))).toBeInTheDocument();
-    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
     // The conversation stayed open under the profile: no reload, and the blocked player's messages are gone.
     expect(screen.getByRole("log", { name: "Messages" })).toBe(log);
@@ -228,7 +228,10 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     await social.follows!.follow(me, friend.address);
     await later(followBackDelay(me, friend.address)! + 1);
     await act(() => router.navigate("/friends"));
-    await userEvent.click(await screen.findByRole("button", { name: `Message ${friend.name}` }, T(10_000)));
+    // FRIENDS-PAGE: Message is on the friend's profile (the book's rows have no button), opened from their row.
+    await userEvent.click(await screen.findByRole("button", { name: new RegExp(`^${friend.name}, level`) }, T(10_000)));
+    const profile = await screen.findByRole("dialog", { name: friend.name }, T(8_000));
+    await userEvent.click(await within(profile).findByRole("button", { name: `Message ${friend.name}` }, T(8_000)));
     await conversation(friend.name);
     expect(screen.getByText("Your private messages are end-to-end encrypted. Paved never asks for your key or your password.")).toBeInTheDocument();
     await send(friend.name, "hello friend");
