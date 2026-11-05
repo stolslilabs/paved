@@ -7,7 +7,6 @@ import PagePanel from "../src/components/containers/page-panel";
 import { CobblesScene } from "../src/components/scenes/cobbles-scene";
 import { MyTilesScene } from "../src/components/scenes/my-tiles-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
-import { ThemeShopScene } from "../src/components/scenes/theme-shop-scene";
 import { CreditsScene } from "../src/components/scenes/credits-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { MissionsScene } from "../src/components/scenes/missions-scene";
@@ -16,10 +15,11 @@ import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
 import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
-import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
-import { COBBLES, MISSIONS, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
-import { VILLAGE_CHESTS, VILLAGE_SHOP } from "../src/mocks/village-v2";
+import { COBBLES, MISSIONS, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, VAULT } from "../src/mocks/scenes";
+import { VILLAGE_CHESTS } from "../src/mocks/village-v2";
+import { SHOP } from "../src/mocks/shop";
+import { ShopScene } from "../src/components/scenes/shop-scene";
 import { titleOf } from "../src/lib/music/track-info";
 import { TRACKS } from "../src/lib/music/tracks";
 
@@ -35,24 +35,21 @@ import { TRACKS } from "../src/lib/music/tracks";
  */
 const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
-  ["Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} onBack={no()} onBuy={no()} onGetCobbles={no()} />],
   ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
   ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />],
   ["Vault", <VaultScene {...VAULT.position} />],
   ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onUse={no()} onOpen={no()} />],
-  ["Forest", <ThemeShopScene {...THEME_SHOP.forest} onBuy={no()} onBuyCobbles={no()} onMyTiles={no()} onBack={no()} />],
   ["My tiles", <MyTilesScene {...MY_TILES.owned} onBack={no()} />],
   ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
   ["Credits", <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no()} />],
 ];
 
 /**
- * The full-screen flows below `desktop` (Play, Cobbles): no tab frame, the document scrolls under their sticky top bar; from
- * `desktop` pages of the side panel, in its body as every other.
+ * The full-screen flows below `desktop` (Play): no tab frame, the document scrolls under their sticky top bar; from `desktop`
+ * pages of the side panel, in its body as every other.
  */
 const FLOWS: readonly [string, ReactNode][] = [
   ["Choose a mode", <PlayScene {...PLAY.connected} onBack={no()} onChallenge={no()} onTraining={no()} onStory={no()} onAttack={no()} />],
-  ["Cobbles", <CobblesScene {...COBBLES.referred} onBack={no()} onSelectPack={no()} onBuyPack={no()} />],
 ];
 
 const BALANCES = { state: { status: "ready", usdc: 0n, paved: 0n, cobbles: 640 }, faucet: false, show: { phone: true, desktop: "all" } } as const;
@@ -136,11 +133,31 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
   });
 
   it("the Chests draw their content in the region: the day's slots", () => {
-    draw(PAGES[1]![1], false, "Chests");
+    draw(PAGES.find(([title]) => title === "Chests")![1], false, "Chests");
     // The page with the chest modal closed (#784): the day's three slots, under the sticky header.
     const slots = screen.getByRole("list", { name: "Today's PvP slots" });
     expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(slots);
     expect(slots.querySelectorAll(":scope > li")).toHaveLength(3);
+  });
+
+  it("the packs' sheet (SHOP-PAGE: the Shop's Cobbles tab over a page) scrolls in the sheet's region", () => {
+    draw(<CobblesScene {...COBBLES.referred} onBack={no()} onSelectPack={no()} onBuyPack={no()} />, true, "Cobbles");
+    expectOneRegion("Cobbles");
+    expect(screen.getByRole("dialog", { name: "Cobbles" })).toContainElement(document.querySelector<HTMLElement>("[data-slot=page-scroll]"));
+  });
+
+  it("the Shop (SHOP-PAGE) draws a theme's 19 tiles in the HUD drawer's body, to the last one", () => {
+    draw(<ShopScene {...SHOP.forest} onBack={no()} />, false, "Forest");
+    const drawer = screen.getByRole("dialog", { name: "Forest" });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    const cells = within(screen.getByRole("list", { name: "Forest tiles" })).getAllByRole("listitem");
+    expect(cells).toHaveLength(19);
+    expect(region).toContainElement(cells.at(-1)!);
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    for (let el: HTMLElement | null = cells.at(-1)!.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 
   it("the League (#647) draws its carousel, its season and its battle logs in the HUD drawer's body (LEAGUE-PAGE), to the last row", () => {

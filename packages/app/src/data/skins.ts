@@ -4,7 +4,7 @@ import type { CobbleAccount, DecodedEvent, GameViews, PavedWriter, SkinChange, S
 import { PLANS } from "../components/containers/cobble-types";
 import { SKIN_THEMES, THEME_CODES } from "../components/containers/theme-card";
 import type { OwnedSkins } from "../components/scenes/theme-scene";
-import type { ThemeSkinsData } from "../components/scenes/theme-shop-scene";
+import type { ThemeSkinsData } from "../components/containers/shop-themes";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { createDeviceStore, useDeviceStore } from "./device-store";
 import { addressKey } from "./keys";

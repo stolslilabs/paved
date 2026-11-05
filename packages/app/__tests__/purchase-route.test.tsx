@@ -203,7 +203,7 @@ const u256 = (low: string, high: string) => BigInt(low) + (BigInt(high) << 128n)
 // The board a spawn opens is not under test here (these tests assert the route it opens; `challenge-route.test.tsx` runs the
 // board on a challenge): a stand-in keeps the renderer and three out of this file.
 vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule);
-preloadPages("purchase", "cobbles", "home");
+preloadPages("purchase", "cobbles", "shop", "home");
 
 beforeEach(() => {
   queryClient.clear();
@@ -471,44 +471,40 @@ describe("/play/challenge: the game's stake", () => {
   });
 });
 
-describe("/cobbles: the packs, a page of their own (#621)", () => {
+describe("/cobbles: the packs (#621), the Shop's Cobbles tab (SHOP-PAGE)", () => {
   it("the Challenge's purchase shows the game alone: no tabs, no packs", async () => {
     const s = setup();
     open("/play/challenge", s);
     expect(await screen.findByRole("heading", { name: "Stake" }, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Challenge" })).toBeInTheDocument();
     expect(screen.queryByRole("tab")).toBeNull();
-    expect(screen.queryByRole("radiogroup", { name: "Cobble packs" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Cobble packs" })).toBeNull();
   });
 
-  it("the old /play/challenge?tab=cobbles lands on /cobbles, its ?ref= kept", async () => {
+  // SHOP-PAGE: the packs are the Shop's Cobbles tab; `/cobbles` lands there.
+  it("the old /play/challenge?tab=cobbles lands on the Shop's Cobbles tab, its ?ref= kept", async () => {
     const s = setup();
     const { router } = open(`/play/challenge?tab=cobbles&ref=${REF}`, s);
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Cobbles" })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/cobbles");
+    expect(await screen.findByRole("list", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Shop" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Cobbles" })).toHaveAttribute("aria-selected", "true");
+    expect(router.state.location.pathname).toBe("/village/shop");
     expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(REF);
-    expect(new URLSearchParams(router.state.location.search).get("tab")).toBeNull();
+    expect(new URLSearchParams(router.state.location.search).get("tab")).toBe("cobbles");
   });
 
-  it("shows the packs on sale from Setup.pack, with the price, the reference struck through and the discount", async () => {
+  it("shows the packs on sale from Setup.pack, each its Cobbles and its price", async () => {
     const s = setup();
     open("/cobbles", s);
-    const group = await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) });
-    const packs = within(group).getAllByRole("radio");
-    expect(packs.map((p) => p.getAttribute("aria-label"))).toEqual([
-      "50 Cobbles for $5, 50% off",
-      "100 Cobbles for $9, 55% off",
-      "500 Cobbles for $40, 60% off",
-      "1000 Cobbles for $70, 65% off",
-    ]);
-    expect(within(packs[1]).getByText("$20")).toBeInTheDocument();
+    const group = await screen.findByRole("list", { name: "Cobble packs" }, { timeout: slow(3000) });
+    const packs = within(group).getAllByRole("button");
+    expect(packs.map((p) => p.getAttribute("aria-label"))).toEqual(["50 Cobbles for $5", "100 Cobbles for $9", "500 Cobbles for $40", "1,000 Cobbles for $70"]);
   });
 
   it("a pack bought with a referrer: approve Setup for its price, buy_pack(id, referrer, min_out), the balance from PackBought", async () => {
     const s = setup();
     open(`/cobbles?ref=${REF}`, s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$9 for/));
     expect(await screen.findByText("Pack bought", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     const [calls] = s.sent;
@@ -526,7 +522,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("not enough USDC disables Buy, with the reason", async () => {
     const s = setup({ usdc: 6n * USDC_UNIT });
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /1000 Cobbles/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^1,000 Cobbles/ }, { timeout: slow(3000) }));
     expect(await screen.findByText("Not enough USDC")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Pay \$70 for/ })).toBeDisabled();
   });
@@ -534,7 +530,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("refused: a pack off sale at send is shown, nothing moved", async () => {
     const s = setup({ revert: "Setup: pack not on sale" });
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$5 for/));
     expect(await screen.findByText("Purchase refused", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(screen.getByText(/not on sale any more/)).toBeInTheDocument();
@@ -544,7 +540,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("a price that changed since the confirm sends nothing and says so", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
     const button = await enabledPay(/Pay \$5 for/);
     s.views.packs.set(1, { ...PACKS[0], price: 6_000_000n });
     await userEvent.click(button);
@@ -555,7 +551,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("an unknown outcome holds Buy until the Cobbles and USDC are read again, then offers Buy again only once the player confirms", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     const button = await enabledPay(/Pay \$9 for/);
     s.state.noEvents = true;
     let release = () => {};
@@ -585,7 +581,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
     open("/cobbles", s);
     expect(await screen.findByText("Reading the packs…", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     release();
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("a failed packs' read shows why, and Retry reads them again", async () => {
@@ -596,7 +592,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
     s.views.cobblesFail = null;
     // The page's Retry (the header's balances, failed as well, have their own, #918).
     await userEvent.click(within(why.closest<HTMLElement>("[role=alert]")!).getByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("radiogroup", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Cobble packs" }, { timeout: slow(3000) })).toBeInTheDocument();
   });
 
   it("no pack on sale: says so", async () => {
@@ -604,13 +600,13 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
     s.views.packs.clear();
     open("/cobbles", s);
     expect(await screen.findByText("No packs on sale", undefined, { timeout: slow(3000) })).toBeInTheDocument();
-    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Cobble packs" })).toBeNull();
   });
 
   it("a ?ref= the pack's split ignores (the Vault) is shown as no referrer, and sent as 0x0 with the whole price swapped", async () => {
     const s = setup();
     open(`/cobbles?ref=${ECON.vault}`, s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
     expect(await screen.findByText(/This referral link cannot be used/)).toBeInTheDocument();
     expect(screen.queryByText(/Your referrer gets/)).toBeNull();
     await userEvent.click(await enabledPay(/Pay \$5 for/));
@@ -623,7 +619,7 @@ describe("/cobbles: the packs, a page of their own (#621)", () => {
   it("a guest connects first", async () => {
     const s = setup({ signer: false });
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
     expect(screen.getByRole("button", { name: "Connect to buy" })).toBeEnabled();
   });
 });
@@ -633,7 +629,7 @@ describe("the scene's selected pack (SC3's review note)", () => {
     const empty = { packId: 9, cobbles: 0, price: 0n, active: true };
     const shop = { ...COBBLES.packs.cobbles, packs: [...COBBLES.packs.cobbles.packs, empty], selected: 9 };
     render(wrap(<CobblesScene {...COBBLES.packs} cobbles={shop} />));
-    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(within(screen.getByRole("list", { name: "Cobble packs" })).getAllByRole("button")).toHaveLength(4);
     expect(screen.getByRole("button", { name: "Pick a pack" })).toBeDisabled();
   });
 });
@@ -782,7 +778,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
   it("a pack's unknown outcome survives a reload too", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
     const button = await enabledPay(/Pay \$5 for/);
     s.state.noEvents = true;
     await userEvent.click(button);
@@ -791,7 +787,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     expect(await screen.findByText("Outcome unknown", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     // The packs wait while the check runs; once it cannot tell, the player confirms, then picks.
     await confirmNone();
-    await userEvent.click(await screen.findByRole("radio", { name: /50 Cobbles/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
     expect(await screen.findByRole("button", { name: "Buy again" }, { timeout: slow(3000) })).toBeInTheDocument();
     expect(s.sent).toHaveLength(1);
   });
@@ -1061,7 +1057,7 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
       const wallet = fakeWallet({ address: PLAYER });
       const view = render(<App router={router} sources={s.sources} connector={wallet.load} />);
       const as = (signer: GameSigner | null) => view.rerender(<App router={router} sources={{ ...s.sources, signer }} connector={wallet.load} />);
-      await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
+      await userEvent.click(await screen.findByRole("button", { name: /^100 Cobbles for \$9/ }, { timeout: slow(3000) }));
       let release = () => {};
       s.state.gate = new Promise<void>((r) => (release = r));
       await userEvent.click(await enabledPay(/Pay \$9 for/));
@@ -1077,7 +1073,7 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
       release();
       await waitFor(() => expect(screen.queryByRole("button", { name: /Confirm in your wallet/ })).toBeNull(), { timeout: slow(3000) });
       expect(s.sent).toHaveLength(1);
-      expect(router.state.location.pathname).toBe("/cobbles");
+      expect(router.state.location.pathname).toBe("/village/shop");
     });
   }
 });
@@ -1658,7 +1654,7 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
     const s = setup();
     s.state.decline = () => undefined;
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$9 for/));
     expect(await screen.findByText("You declined in your wallet: nothing was sent.", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     expect(stored("pack")).toBeNull();
@@ -1668,7 +1664,7 @@ describe("SESSION-NOAPPROVE (P-65): one prompt per paid entry; the hold written 
   it("an answer in time clears the record written at send; a pack's too", async () => {
     const s = setup();
     open("/cobbles", s);
-    await userEvent.click(await screen.findByRole("radio", { name: /100 Cobbles for \$9/ }, { timeout: slow(3000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^100 Cobbles for \$9/ }, { timeout: slow(3000) }));
     await userEvent.click(await enabledPay(/Pay \$9 for/));
     expect(await screen.findByText("Pack bought", undefined, { timeout: slow(3000) })).toBeInTheDocument();
     await waitFor(() => expect(s.sent).toHaveLength(1));

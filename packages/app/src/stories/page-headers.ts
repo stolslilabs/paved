@@ -9,7 +9,6 @@ export const PAGE_HEADER_STORIES = {
   welcome: ["welcome"],
   play: ["play"],
   purchase: ["play/challenge"],
-  cobbles: ["cobbles"],
   avatar: ["avatar"],
   village: ["village/:player"],
   "village-chests": ["village/chests"],
@@ -25,7 +24,6 @@ export const PAGE_HEADER_STORIES = {
   friends: ["friends"],
   referral: ["referral"],
   themes: ["settings/theme"],
-  "theme-shop": ["settings/theme/:theme"],
   "my-tiles": ["settings/tiles"],
   credits: ["settings/credits"],
   settings: ["settings"],
@@ -38,4 +36,4 @@ export const HERO_PAGES: readonly string[] = ["welcome"];
  * The pages drawn as the HUD's drawer (MISSIONS-PAGE, `PageDef.drawer`): their header is the drawer's band (its title, the page's
  * balances at its end), not `PageHeader`, and its height is the band's own, not `--header-h`.
  */
-export const DRAWER_PAGES: readonly string[] = ["pvp-league", "missions"];
+export const DRAWER_PAGES: readonly string[] = ["pvp-league", "missions", "village-shop"];
