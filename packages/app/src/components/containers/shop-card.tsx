@@ -63,10 +63,10 @@ const FADE: CSSProperties = { maskImage: "radial-gradient(closest-side, var(--ba
 /** The render's tile fills about two thirds of its square: drawn larger, as the book's, its margin cut by the fade. */
 const LARGER: CSSProperties = { transform: "scale(1.3)" };
 
-/** A tile's art in a card: its render (`TileRender`), larger and faded at its edges. */
+/** A tile's art in a card: its render (`TileRender`), larger and faded at its edges, clipped to its box (what the fade hides takes no room). */
 export function ShopTileArt({ children }: { children: ReactNode }) {
   return (
-    <span className="block size-full" style={FADE}>
+    <span className="block size-full overflow-hidden" style={FADE}>
       <span className="block size-full" style={LARGER}>
         {children}
       </span>
