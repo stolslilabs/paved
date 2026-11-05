@@ -15,6 +15,8 @@ import { ShopScene } from "../components/scenes/shop-scene";
 import { SHOP } from "../mocks/shop";
 import { VILLAGE_CHESTS, VILLAGE_LAYOUT } from "../mocks/village-v2";
 import { PvpLeagueScene } from "../components/scenes/pvp-league-scene";
+import { PvpMatchScene } from "../components/scenes/pvp-match-scene";
+import { PVP_MATCH } from "../mocks/pvp-match";
 import { PvpResultScene } from "../components/scenes/pvp-result-scene";
 import { PVP_LEAGUE, PVP_RESULT } from "../mocks/pvp";
 import { CreditsScene } from "../components/scenes/credits-scene";
@@ -90,5 +92,6 @@ export const VillageChests: Story = { render: () => <VillageChestsScene {...VILL
 export const VillageShop: Story = { render: () => <ShopScene {...SHOP.picked} onBack={fn()} /> };
 export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.twoStars} /> };
 export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} /> };
+export const PvpMatch: Story = { render: () => <PvpMatchScene {...PVP_MATCH.attackBuild} onBack={fn()} /> };
 export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
 export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} onBack={fn()} /> };

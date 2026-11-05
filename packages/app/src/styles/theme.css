@@ -289,6 +289,9 @@
   --sky-search-top: var(--color-river-900);
   --sky-search-bottom: var(--color-river-500);
   --crown: var(--color-gold-300);
+  /* The match's board panel (MATCH-PAGE, the Paved UX Book's "Battle log"): its bright blue rim and glow (`match-frame`). */
+  --match-rim: var(--color-river-500);
+  --match-glow: var(--color-river-400);
   /*
    * The player card (HOME-UI-CARD, docs/design/home.webp): its see-through dark grey face (the interface's neutral scale: the navy
    * ink is the night sky's, #537), its frame and its XP bar being images; the XP fill's light cyan, its level up's flash.
@@ -713,6 +716,19 @@
 }
 @utility drawer-icon {
   filter: drop-shadow(0 2px 0 var(--background));
+}
+/* The match's board panel (MATCH-PAGE): the book's blue rim, its glow outside and, over the board, inside (`::after`). */
+@utility match-frame {
+  border: 2px solid var(--match-rim);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--match-glow) 45%, transparent);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 10px color-mix(in oklab, var(--match-glow) 40%, transparent), inset 0 0 0 1px var(--match-glow);
+  }
 }
 /* Light text on the player badge's art (its name, its level): a dark outline, the background's colour a pixel each way, and a soft drop. */
 @utility text-outline {

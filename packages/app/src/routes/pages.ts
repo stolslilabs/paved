@@ -68,6 +68,7 @@ export const PAGES: readonly PageDef[] = [
   { path: "pvp/result/:id", title: "Result", nav: null },
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
   // A match of the League's list (#786): the attacked village from its snapshot and the attack's build. Back goes up to the League.
+  // MATCH-PAGE: its scene draws its header, "Battle log" (the Paved UX Book's); this title, shown nowhere, stays short (first load).
   { path: "pvp/match/:id", title: "Match", nav: null, parent: "/pvp/league" },
   // The HUD's drawer at every width, docked at the left from `tablet`, under the HUD's crowns (LEAGUE-PAGE).
   { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left", drawer: true },
