@@ -20,6 +20,7 @@ import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { MATCH_CARDS } from "../src/mocks/pvp";
 import { MOCK_NOW } from "../src/mocks/clock";
 import { PUBLIC_PROFILE, PUBLIC_PROFILES, SEARCH } from "../src/mocks/social";
+import { HALL_OF_FAME, RECORDS } from "../src/mocks/profile-records";
 import { mockImplementation } from "./mock-fakes";
 import { fakeWallet } from "./wallet-fakes";
 
@@ -48,13 +49,18 @@ describe("PublicProfileSheet (#952)", () => {
 
   it("shows the avatar, the name, online, the league, the level, the crowns and the village score, and copies the player ID", async () => {
     const onCopy = vi.fn(async () => {});
-    sheet({ onCopy });
+    sheet({ onCopy, hallOfFame: HALL_OF_FAME, records: RECORDS });
     const dialog = screen.getByRole("dialog", { name: PUBLIC_PROFILE.online.name! });
     expect(within(dialog).getByText("Online")).toBeInTheDocument();
+    // FRIENDS-PAGE: the Profile's page: the League's crowns and league, the village score; the level said under its bar.
     expect(within(dialog).getByText("Iron III")).toBeInTheDocument();
     const figures = within(dialog).getAllByRole("definition").map((d) => d.textContent);
-    expect(figures).toEqual(["7", "838"]);
-    expect(within(dialog).getByRole("img", { name: "420 crowns" })).toBeInTheDocument();
+    expect(figures.slice(0, 3)).toEqual(["420", "Iron III", "838"]);
+    expect(dialog).toHaveTextContent("Level 7");
+    // The owner's asks of 2026-11-05: Back at every width (to the page under it), the Hall of Fame and the Stats as on the Profile.
+    expect(within(dialog).getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("region", { name: "Hall of Fame" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("region", { name: "Stats" })).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Copy player ID" }));
     expect(onCopy).toHaveBeenCalledWith(PUBLIC_PROFILE.online.address);
     expect(await within(dialog).findByRole("button", { name: "Player ID copied" })).toBeInTheDocument();
@@ -65,10 +71,10 @@ describe("PublicProfileSheet (#952)", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent("Last seen 2d ago");
   });
 
-  it("holds the actions the social features give, and the guild line, above Copy player ID", () => {
+  it("holds the actions the social features give, and the guild line", () => {
     sheet({ actions: <button type="button">Follow</button>, guild: <span>The Masons</span> });
     const actions = document.querySelector("[data-slot=profile-actions]")!;
-    expect(within(actions as HTMLElement).getAllByRole("button").map((b) => b.textContent)).toEqual(["Follow", "Copy ID"]);
+    expect(within(actions as HTMLElement).getAllByRole("button").map((b) => b.textContent)).toEqual(["Follow"]);
     expect(document.querySelector("[data-slot=profile-guild]")).toHaveTextContent("The Masons");
   });
 
@@ -199,7 +205,7 @@ describe("/player/:id on the mock (#952)", { timeout: slow(20_000) }, () => {
     expect(router.state.location.pathname).toBe("/");
     expect(new URLSearchParams(router.state.location.search).get("player")).toBe(seeded.address);
     expect(within(dialog).getByText(/Online|Last seen/)).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.search).toBe(""));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
@@ -260,7 +266,7 @@ describe("/player/:id on the mock (#952)", { timeout: slow(20_000) }, () => {
     await screen.findByRole("heading", { level: 1, name: "Home" });
     await act(() => router.navigate(`/?player=${seeded.address}`, { state: { playerSheet: true } }));
     const dialog = await screen.findByRole("dialog", { name: seeded.name }, { timeout: slow(8000) });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.historyAction).toBe("POP"));
     expect(router.state.location.search).toBe("");
   });

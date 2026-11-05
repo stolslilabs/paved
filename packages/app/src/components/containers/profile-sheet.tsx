@@ -1,8 +1,11 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
 import { formatCompact, type ScoringCategory } from "@paved/game-core";
 import { useContext, useState, type ReactNode } from "react";
+import { useInRouterContext } from "react-router";
 import { playerRecords } from "../../data/player-records";
+import { useGuildBadge } from "../../data/guilds";
 import { useFollowStatus } from "../../data/social";
+import { useOpenGuild } from "../../routes/open-guild";
 import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
 import { DataContext, type DataSources } from "../../data/sources";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
@@ -25,7 +28,9 @@ import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 import { isMaxLevel, xpLeft } from "../elements/xp-level";
 import type { PlayerProgress } from "../elements/xp-ring";
+import { GuildLine } from "./guild-profile";
 import { HudDrawer } from "./hud-drawer";
+import { ActionTile } from "./profile-action";
 
 /** The connected player as the indexer gives them: the profile and their Challenge figures. */
 export interface PlayerStatusData {
@@ -96,6 +101,11 @@ export interface ProfileSheetProps {
   onOpenTiles?: () => void;
   /** Opens the referral (the USDC a friend's games earn); omitted, Invite is not offered. */
   onOpenInvite?: () => void;
+  /**
+   * The player's guild line (FRIENDS-PAGE, the owner's ask of 2026-11-05: as on another player's profile, before the actions), as given
+   * (a story); left out, read where the app's sources are (`useGuildBadge`), a tap opening the guild's page; none without a guild.
+   */
+  guild?: ReactNode;
   /** The player's counts of followers and following (#954), as given (a story); left out, read from the follow source. */
   follows?: { followers: number; followed: number };
   /**
@@ -137,7 +147,7 @@ function WithLeague({ league, playerId, children }: { league: PlayerLeague | nul
 }
 
 /** A standing's tier, division and name: Unranked's, or its league's ("Bronze II"). */
-function standingOf({ league, crowns, unranked }: { league: number; crowns: number; unranked?: boolean }) {
+export function standingOf({ league, crowns, unranked }: { league: number; crowns: number; unranked?: boolean }) {
   const shown = LEAGUES[league] ?? leagueOf(crowns);
   return unranked ? { tier: "unranked" as const, division: null, name: "Unranked" } : { tier: tierOf(shown), division: divisionOf(shown), name: shown.name };
 }
@@ -149,7 +159,7 @@ const PORTRAIT_INSET = { inset: `${((1 - RIM_PORTRAIT) / 2) * 100}%` };
  * The avatar in the rim of the player's league with its crest at its lower left (the player card's, larger: 112 px, the crest placed alike); no league known,
  * a plain grey ring round the same hole.
  */
-function ProfileRim({ league, children }: { league: PlayerLeague | null; children: ReactNode }) {
+export function ProfileRim({ league, children }: { league: PlayerLeague | null; children: ReactNode }) {
   if (!league) {
     return (
       <span data-slot="profile-rim" className="relative block size-[1em] shrink-0 rounded-full border-4 border-border">
@@ -178,7 +188,7 @@ const COMPACT_FROM = 1_000_000;
  * (these figures do not tick). `small`, a structure type's, a step under the total's. A short figure keeps its whole number in its
  * tooltip and for screen readers.
  */
-function Figure({ term, value, small = false }: { term: string; value: number; small?: boolean }) {
+export function Figure({ term, value, small = false }: { term: string; value: number; small?: boolean }) {
   const whole = formatPoints(value);
   const short = value >= COMPACT_FROM;
   return (
@@ -199,11 +209,27 @@ function Figure({ term, value, small = false }: { term: string; value: number; s
 }
 
 /** Figures side by side on a carved band: information, never pressed (the owner's rule of 2026-11-04: raised presses, carved informs). */
-function FigureBand({ slot, children }: { slot: string; children: ReactNode }) {
+export function FigureBand({ slot, children }: { slot: string; children: ReactNode }) {
   return (
     <dl data-slot={slot} className="drawer-carved drawer-rule flex rounded-xl">
       {children}
     </dl>
+  );
+}
+
+/** The player's own guild (#953), read from the guild source: its line, a tap opening its page (the profile closed first); none, nothing. */
+function ReadGuildLine({ playerId, onOpened }: { playerId: string; onOpened: () => void }) {
+  const badge = useGuildBadge(playerId).data;
+  const openGuild = useOpenGuild();
+  if (!badge) return null;
+  return (
+    <GuildLine
+      badge={badge}
+      onOpen={(id) => {
+        onOpened();
+        openGuild(id);
+      }}
+    />
   );
 }
 
@@ -219,26 +245,6 @@ function FollowCounts({ counts }: { counts: { followers: number; followed: numbe
       <Figure term="Followers" value={counts.followers} />
       <Figure term="Following" value={counts.followed} />
     </>
-  );
-}
-
-/** One of the profile's actions: its icon over its name, on a raised tile; `children` over the icon (Invite's USDC). */
-function ActionTile({ art, label, name, onClick, children }: { art: UiIconName; label: string; name?: string; onClick: () => void; children?: ReactNode }) {
-  return (
-    <button
-      type="button"
-      data-slot="profile-action"
-      aria-label={name}
-      onClick={onClick}
-      className="state-layer drawer-tile flex min-w-0 flex-1 basis-0 cursor-pointer flex-col items-center gap-1 rounded-2xl px-0.5 pt-2.5 pb-2 outline-none"
-    >
-      <span className="relative">
-        <UiIcon name={art} px={44} className="drawer-icon size-11" />
-        {children}
-      </span>
-      {/* 12 px, tight: each name holds on one line in a 360 px phone's quarter; narrower, it wraps between its words. */}
-      <span className="text-outline max-w-full text-center text-xs leading-tight font-bold tracking-tight">{label}</span>
-    </button>
   );
 }
 
@@ -264,7 +270,7 @@ function XpLeft({ progress }: { progress: PlayerProgress | undefined }) {
  */
 const LEAGUE_CHIP = "drawer-carved flex min-w-34 flex-auto items-center justify-center gap-2 rounded-xl px-3 py-2.5";
 
-function TrophiesBand({ league }: { league: PlayerLeague }) {
+export function TrophiesBand({ league }: { league: PlayerLeague }) {
   const { tier, division, name } = standingOf(league);
   return (
     <dl data-slot="profile-trophies" className="flex flex-wrap gap-1.5">
@@ -400,12 +406,43 @@ function RecordsSection({ records, span, onSpan }: { records: PlayerRecords; spa
 }
 
 /**
+ * The Hall of Fame (each season's banner and crowns, the filter of the Stats: the current season picked first, a tap on it again for
+ * all time) and the Stats (the totals, a section per structure type): the player's own profile's, and another player's (FRIENDS-PAGE,
+ * the owner's ask of 2026-11-05). The span picked is its own state, back on the current season each time the profile opens.
+ */
+export function HallAndStats({ hallOfFame, records }: { hallOfFame?: readonly SeasonStanding[]; records?: PlayerRecords }) {
+  const [span, setSpan] = useState<Span>(records?.season ?? "all");
+  return (
+    <>
+      {hallOfFame && hallOfFame.length > 0 && (
+        <section aria-label="Hall of Fame" className="flex flex-col gap-2">
+          <SectionTitle>Hall of Fame</SectionTitle>
+          <ol data-slot="hall-of-fame" className="grid grid-cols-4 gap-1.5 pt-2">
+            {hallOfFame.map((standing) => (
+              <SeasonCard
+                key={standing.season}
+                standing={standing}
+                current={standing.season === (records?.season ?? hallOfFame.at(-1)!.season)}
+                picked={records !== undefined && span === standing.season}
+                onPick={records && setSpan}
+              />
+            ))}
+          </ol>
+        </section>
+      )}
+      {records && <RecordsSection records={records} span={span} onSpan={setSpan} />}
+    </>
+  );
+}
+
+/**
  * What a tap on the player card opens (#624), redrawn after the profile's mockups (PROFILE-DRAWER, `docs/design/profile.webp`; PROFILE-PAGE,
  * the owner's rounds of 2026-11-04): the HUD's drawer, a full page with Back on a phone, a side panel docked at the left from `tablet`
  * (`HudDrawer`), one layout, titled "Profile". The presentation: the avatar in the rim of the player's league and its crest (#917),
- * the name with its pencil, the address under it (a tap copies it, no button's look); then the level and its bar ("90 /
+ * the name with its pencil, the address under it (a tap copies it, no button's look); under them the actions as raised tiles (Battle
+ * logs #834, Avatar #626, Tiles, Invite; under the avatar since the owner's ask of 2026-11-05); then the level and its bar ("90 /
  * 150 XP"; the XP left and in all, #830, said to screen readers only), League (the crowns and the league, carved chips that wrap), Games and the follow
- * counts (#954), the actions as raised tiles (Battle logs #834, Avatar #626, Tiles, Invite), the Hall of Fame (each season's
+ * counts (#954), the Hall of Fame (each season's
  * banner and crowns, the filter of the Stats: the current season picked first, a tap on it again for all time) and the Stats (the
  * totals, a section per structure type). What informs is carved, what presses is raised. Disconnect is Settings' (the owner's ask of
  * 2026-11-04). A guest gets the Training line and Connect.
@@ -424,17 +461,18 @@ export function ProfileSheet({
   onOpenLeague,
   onOpenTiles,
   onOpenInvite,
+  guild,
   follows,
   hallOfFame: givenFame,
   records: givenRecords,
   returnFocus,
 }: ProfileSheetProps) {
   const sources = useContext(DataContext);
+  // The guild line opens the guild's page: read only in a router (the app), not in a bare render.
+  const routed = useInRouterContext();
   // Neither given (the app): read where the app's sources are.
   const { hallOfFame, records } = sources && givenFame === undefined && givenRecords === undefined ? playerRecords() : { hallOfFame: givenFame, records: givenRecords };
   const [copied, setCopied] = useState(false);
-  // The Stats' span: the current season until a card of the Hall of Fame picks another, or lets go of it (all time).
-  const [span, setSpan] = useState<Span>(records?.season ?? "all");
   const connected = state.status === "connected" ? state.data : null;
   const portrait = (
     <PlayerAvatar
@@ -451,7 +489,6 @@ export function ProfileSheet({
       onOpenChange={(next) => {
         if (!next) {
           setCopied(false);
-          setSpan(records?.season ?? "all");
         }
         onOpenChange(next);
       }}
@@ -463,7 +500,8 @@ export function ProfileSheet({
         <WithLeague league={league} playerId={connected.player.playerId}>
           {(shown) => (
             <>
-              <div data-slot="profile-identity" className="flex items-center gap-3">
+              {/* Room under the avatar: the crest runs past the rim's foot (the owner's ask of 2026-11-05). */}
+              <div data-slot="profile-identity" className="flex items-center gap-3 pb-3">
                 <span className="text-[7rem]">
                   <ProfileRim league={shown}>{portrait}</ProfileRim>
                 </span>
@@ -499,6 +537,25 @@ export function ProfileSheet({
                   </button>
                 </div>
               </div>
+              {/* The player's guild, then the actions, under the avatar (the owner's asks of 2026-11-05), not after the League. */}
+              {(guild ?? (sources && routed)) && (
+                <div data-slot="profile-guild" className="empty:hidden">
+                  {guild ?? <ReadGuildLine playerId={connected.player.playerId} onOpened={() => onOpenChange(false)} />}
+                </div>
+              )}
+              {(onOpenLeague || onEditAvatar || onOpenTiles || onOpenInvite) && (
+                <div data-slot="profile-actions" className="flex gap-1.5">
+                  {onOpenLeague && <ActionTile art="swords" label="Battle logs" onClick={onOpenLeague} />}
+                  {onEditAvatar && <ActionTile art="avatar" label="Avatar" name="Edit avatar" onClick={onEditAvatar} />}
+                  {onOpenTiles && <ActionTile art="collection" label="Tiles" onClick={onOpenTiles} />}
+                  {onOpenInvite && (
+                    <ActionTile art="invite" label="Invite" onClick={onOpenInvite}>
+                      {/* What an invitation earns: USDC (the referral's share of a friend's games). */}
+                      <TokenIcon kind="usdc" px={20} className="absolute -right-1.5 -bottom-1 size-5" />
+                    </ActionTile>
+                  )}
+                </div>
+              )}
               <div data-slot="player-level" className="flex flex-col gap-1">
                 {/* The level's number is the bar's star's (the owner's ask of 2026-11-04): the title alone. */}
                 <SectionTitle>Level</SectionTitle>
@@ -516,36 +573,7 @@ export function ProfileSheet({
                 <Figure term="Games" value={connected.stats.challengeFinished} />
                 {follows ? <FollowCounts counts={follows} /> : sources && <ReadFollowCounts playerId={connected.player.playerId} />}
               </FigureBand>
-              {(onOpenLeague || onEditAvatar || onOpenTiles || onOpenInvite) && (
-                <div data-slot="profile-actions" className="flex gap-1.5">
-                  {onOpenLeague && <ActionTile art="swords" label="Battle logs" onClick={onOpenLeague} />}
-                  {onEditAvatar && <ActionTile art="avatar" label="Avatar" name="Edit avatar" onClick={onEditAvatar} />}
-                  {onOpenTiles && <ActionTile art="collection" label="Tiles" onClick={onOpenTiles} />}
-                  {onOpenInvite && (
-                    <ActionTile art="invite" label="Invite" onClick={onOpenInvite}>
-                      {/* What an invitation earns: USDC (the referral's share of a friend's games). */}
-                      <TokenIcon kind="usdc" px={20} className="absolute -right-1.5 -bottom-1 size-5" />
-                    </ActionTile>
-                  )}
-                </div>
-              )}
-              {hallOfFame && hallOfFame.length > 0 && (
-                <section aria-label="Hall of Fame" className="flex flex-col gap-2">
-                  <SectionTitle>Hall of Fame</SectionTitle>
-                  <ol data-slot="hall-of-fame" className="grid grid-cols-4 gap-1.5 pt-2">
-                    {hallOfFame.map((standing) => (
-                      <SeasonCard
-                        key={standing.season}
-                        standing={standing}
-                        current={standing.season === (records?.season ?? hallOfFame.at(-1)!.season)}
-                        picked={records !== undefined && span === standing.season}
-                        onPick={records && setSpan}
-                      />
-                    ))}
-                  </ol>
-                </section>
-              )}
-              {records && <RecordsSection records={records} span={span} onSpan={setSpan} />}
+              <HallAndStats hallOfFame={hallOfFame} records={records} />
             </>
           )}
         </WithLeague>
