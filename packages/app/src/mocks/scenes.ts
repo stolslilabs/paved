@@ -11,7 +11,8 @@ import type { MissionsSceneProps } from "../components/scenes/missions-scene";
 import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
 import type { OwnedSkins, ThemeSceneProps } from "../components/scenes/theme-scene";
-import type { ThemeShopSceneProps, ThemeSkinsData } from "../components/scenes/theme-shop-scene";
+import type { ShopThemesProps, ThemeSkinsData } from "../components/containers/shop-themes";
+import type { SkinThemeId } from "../components/containers/theme-card";
 import type { MyTiles, MyTilesSceneProps } from "../components/scenes/my-tiles-scene";
 import type { VaultSceneProps } from "../components/scenes/vault-scene";
 import { CategoryType, emptyTutorialCounts, type TutorialTask } from "@paved/game-core";
@@ -330,7 +331,7 @@ export const THEME_SHOP = {
   error: { ...shopBase, skinsStatus: { kind: "error", message: "The node did not answer: Failed to fetch" } },
   /** WRAP360: the largest Cobble balance. */
   stress: { ...shopBase, skins: { ...forestShop, balance: BIG_NUMBER } },
-} satisfies Record<string, Data<ThemeShopSceneProps>>;
+} satisfies Record<string, Data<ShopThemesProps & { theme: SkinThemeId }>>;
 
 const myTiles: MyTiles = { ...ownedSkins, changes: {} };
 const tilesBase = { renders: appRenders } as const;

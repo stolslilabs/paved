@@ -62,7 +62,7 @@ describe("useTabNavigate", () => {
 });
 
 describe("a pick in the home's dock", () => {
-  preloadPages("home", "village-shop");
+  preloadPages("home", "shop");
   beforeEach(() => {
     localStorage.clear();
     resetWelcomedForTests();
@@ -73,11 +73,12 @@ describe("a pick in the home's dock", () => {
     resetWelcomedForTests();
   });
 
+  // SHOP-PAGE: the Shop is the HUD's drawer over the home, as Missions; the dock under it, out of reach (DOCK-UNDER-PAGES).
   it("opens its page, which carries no dock", async () => {
     const router = createTestRouter("/");
     render(<App router={router} sources={fakeSources().sources} connector={fakeWallet().load} />);
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: "Shop" }));
-    await screen.findByRole("heading", { level: 1, name: "Tile shop" });
+    await screen.findByRole("dialog", { name: "Shop" });
     expect(router.state.location.pathname).toBe("/village/shop");
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });

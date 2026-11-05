@@ -59,6 +59,9 @@ export const UI_ICONS = [
   "exit",
   "attack",
   "season",
+  "theme-forest",
+  "theme-snow",
+  "theme-desert",
 ] as const;
 export type UiIconName = (typeof UI_ICONS)[number];
 

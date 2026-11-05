@@ -5,7 +5,7 @@ import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PVP_LEAGUE } from "../../mocks/pvp";
 import { COBBLES, HALL_OF_FAME, MISSIONS, PLAY, PLAYER_STATUS, RECORDS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
-import { HOME_VILLAGE, VILLAGE_CHESTS, VILLAGE_SHOP } from "../../mocks/village-v2";
+import { HOME_VILLAGE, VILLAGE_CHESTS } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import PagePanel from "../containers/page-panel";
 import PageSheet from "../containers/page-sheet";
@@ -15,11 +15,12 @@ import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-sce
 import { PlayScene } from "./play-scene";
 import { PvpLeagueScene } from "./pvp-league-scene";
 import { MissionsScene } from "./missions-scene";
+import { ShopScene } from "./shop-scene";
+import { SHOP } from "../../mocks/shop";
 import { SettingsScene } from "./settings-scene";
 import { ThemeScene } from "./theme-scene";
 import { VaultScene } from "./vault-scene";
 import { VillageChestsScene } from "./village-chests-scene";
-import { VillageShopScene } from "./village-shop-scene";
 import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
 
@@ -106,10 +107,14 @@ const missions = () => <MissionsScene {...MISSIONS.daily} onBack={fn()} onClaimQ
  * selected mission's card, the Tutorial, Daily, Weekly and Achievements medallions, the Cobbles they earn at the header's end.
  */
 export const Missions: Story = { render: (args) => <HomeWith args={args}>{missions()}</HomeWith> };
+
+/** The Shop's drawer over the home (SHOP-PAGE): Tiles, Cobbles and Themes as tabs, the HUD's drawer at the right, as Missions. */
+const shop = (state: keyof typeof SHOP = "tiles") => <ShopScene {...SHOP[state]} onBack={fn()} onTab={fn()} onThemeBack={fn()} />;
+export const Shop: Story = { render: (args) => <HomeWith args={args}>{shop()}</HomeWith> };
+export const ShopCobbles: Story = { render: (args) => <HomeWith args={args}>{shop("picked")}</HomeWith> };
+export const ShopThemes: Story = { render: (args) => <HomeWith args={args}>{shop("themes")}</HomeWith> };
 /** The Chests: the slots, the chest to open, the Cobbles. */
 export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
-/** The day's tile shop, the Cobbles in the header. */
-export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} tileArt={tileArt} onBack={fn()} onBuy={fn()} onGetCobbles={fn()} />);
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
 export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} />);
 /** The League's drawer over the home (LEAGUE-PAGE): the HUD's drawer, as the profile's and the Missions', at every width. */
@@ -219,6 +224,15 @@ export const LeaguePhone: Story = {
   render: (args) => <HomeWith args={args}>{league()}</HomeWith>,
   play: async ({ canvasElement }) => {
     const page = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "League" });
+    expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
+  },
+};
+
+export const ShopPhone: Story = {
+  ...PHONE_375,
+  render: (args) => <HomeWith args={args}>{shop()}</HomeWith>,
+  play: async ({ canvasElement }) => {
+    const page = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "Shop" });
     expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
   },
 };

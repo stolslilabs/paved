@@ -5,7 +5,7 @@ import { titleOf } from "../../lib/music/track-info";
 import { TRACKS } from "../../lib/music/tracks";
 import { CAMPAIGNS, EMPTY_PROGRESS } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
-import { COBBLES, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME, THEME_SHOP } from "../../mocks/scenes";
+import { COBBLES, MY_TILES, PLAY, REFERRAL, SETTINGS, THEME } from "../../mocks/scenes";
 import { CobblesScene } from "../scenes/cobbles-scene";
 import { CreditsScene } from "../scenes/credits-scene";
 import { MyTilesScene } from "../scenes/my-tiles-scene";
@@ -14,7 +14,6 @@ import { ReferralScene } from "../scenes/referral-scene";
 import { SettingsScene } from "../scenes/settings-scene";
 import { StoryScene } from "../scenes/story-scene";
 import { ThemeScene } from "../scenes/theme-scene";
-import { ThemeShopScene } from "../scenes/theme-shop-scene";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { BalancesProvider } from "./balances-context";
 import { BalancesOf } from "./balances-of";
@@ -69,21 +68,17 @@ const sheet = (title: string, page: ReactNode, wide = false, under?: { page: Rea
 });
 
 const themes = <ThemeScene {...THEME.mixed} onBack={fn()} onUse={fn()} onOpen={fn()} onMyTiles={fn()} />;
-const shop = <ThemeShopScene {...THEME_SHOP.forest} onBack={fn()} onBuy={fn()} onBuyCobbles={fn()} onMyTiles={fn()} />;
 const tiles = <MyTilesScene {...MY_TILES.owned} onBack={fn()} onPick={fn()} onSave={fn()} onDiscard={fn()} onOpenShop={fn()} />;
 const credits = <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} />;
 const referral = <ReferralScene {...REFERRAL.earned} onBack={fn()} onCopy={fn()} />;
 
 /** The themes over Settings at 375 px: the sheet from the bottom, its grab bar, Settings dimmed behind it. */
 export const ThemesPhone: Story = sheet("Themes", themes);
-/** A theme's shop, opened from the themes in the same sheet (its entry replaced): the close still goes to Settings. */
-export const ThemePhone: Story = sheet("Theme", shop);
 export const MyTilesPhone: Story = sheet("My tiles", tiles);
 export const CreditsPhone: Story = sheet("Credits", credits);
 export const ReferralPhone: Story = sheet("Referral", referral);
 /** At 1440 px: the sheet from the right, over Settings' side panel and the village. */
 export const ThemesWide: Story = sheet("Themes", themes, true);
-export const ThemeWide: Story = sheet("Theme", shop, true);
 export const MyTilesWide: Story = sheet("My tiles", tiles, true);
 export const CreditsWide: Story = sheet("Credits", credits, true);
 export const ReferralWide: Story = sheet("Referral", referral, true);

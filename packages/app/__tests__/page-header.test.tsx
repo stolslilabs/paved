@@ -104,7 +104,8 @@ describe("every page's scene draws the one header (#781)", () => {
       // The League's (LEAGUE-PAGE): no balance, its League control in their place.
       if (none) return expect(within(band).queryAllByRole("region", { name: "Balances" })).toHaveLength(0);
       const plates = await within(band).findAllByRole("region", { name: "Balances" }, { timeout: slow(5000) });
-      expect(plates).toHaveLength(1);
+      // The Shop's Cobbles tab (SHOP-PAGE) has a second set for a phone under 360 px, USDC alone; the first is the page's.
+      expect(plates).toHaveLength(route === "village/shop" ? 2 : 1);
       const names = kinds.map((kind) => (kind === "usdc" ? "USDC" : kind === "paved" ? "PAVED" : kind === "vpaved" ? "vPAVED" : "Cobbles"));
       return expect(within(plates[0]!).getAllByRole("button").map((b) => b.getAttribute("aria-label")!.replace(/^[\d.,]+ ([A-Za-z]+).*$/, "$1"))).toEqual(names);
     }

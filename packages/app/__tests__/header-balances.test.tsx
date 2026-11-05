@@ -8,9 +8,8 @@ import { BalancesProvider } from "../src/components/containers/balances-context"
 import { TopBar } from "../src/components/containers/top-bar";
 import { HOME_BALANCES, HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { VillageScene } from "../src/components/scenes/village-scene";
-import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
 import { VILLAGE } from "../src/mocks/village";
-import { HOME_VILLAGE, VILLAGE_SHOP } from "../src/mocks/village-v2";
+import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { BALANCE_PAGES } from "../src/routes/balance-pages";
 import { DESTINATION as HOST_DESTINATION } from "../src/routes/balances-host";
 import { DESTINATION, HEADER_BALANCES, hereOf } from "../src/routes/header-balances";
@@ -24,13 +23,12 @@ import { fakeSources } from "./data-fakes";
 /** The issue's table, row by row: each route's balances, in their order on screen. */
 const TABLE: Record<string, readonly string[]> = {
   "": ["cobbles", "paved", "vpaved-held"],
-  cobbles: ["cobbles", "usdc"],
   "play/challenge": ["usdc"],
-  "village/shop": ["cobbles"],
+  // SHOP-PAGE: the packs are the Shop's Cobbles tab, paid in USDC; the scene shows the tab's own set.
+  "village/shop": ["cobbles", "usdc"],
   "village/chests": ["cobbles"],
   missions: ["cobbles"],
   "settings/theme": ["cobbles"],
-  "settings/theme/:theme": ["cobbles"],
   avatar: ["cobbles"],
   "village/:player": ["cobbles"],
   "pvp/league": [],
@@ -88,15 +86,16 @@ describe("the balances by page (#855)", () => {
   it("the shell's pages with balances are the rule's, and the plates lead where the shell sends them", () => {
     expect([...BALANCE_PAGES].sort()).toEqual(Object.keys(TABLE).filter((path) => TABLE[path]!.length > 0).sort());
     expect(HOST_DESTINATION).toEqual(DESTINATION);
-    expect(hereOf("/cobbles")).toEqual(["cobbles"]);
+    // The packs are a tab of the Shop (SHOP-PAGE): on the Shop, whatever its tab, the plate leads nowhere (its tabs are in view).
+    expect(hereOf("/village/shop")).toEqual(["cobbles"]);
     // #871: PAVED leads to the Challenge's purchase (which shows USDC alone), vPAVED to the Vault.
-    expect(DESTINATION).toEqual({ paved: "/play/challenge", vpaved: "/vault", cobbles: "/cobbles" });
+    expect(DESTINATION).toEqual({ paved: "/play/challenge", vpaved: "/vault", cobbles: "/village/shop?tab=cobbles" });
     expect(hereOf("/vault")).toEqual(["vpaved"]);
     expect(hereOf("/play/challenge")).toEqual(["paved"]);
   });
 
   it("USDC only on the Cobbles' packs and the Challenge's purchase; the Vault's PAVED and vPAVED, never the Cobbles", () => {
-    expect(Object.entries(HEADER_BALANCES).filter(([, kinds]) => kinds.includes("usdc")).map(([path]) => path).sort()).toEqual(["cobbles", "play/challenge"]);
+    expect(Object.entries(HEADER_BALANCES).filter(([, kinds]) => kinds.includes("usdc")).map(([path]) => path).sort()).toEqual(["play/challenge", "village/shop"]);
     expect(HEADER_BALANCES.vault).not.toContain("cobbles");
   });
 
@@ -238,7 +237,6 @@ describe("the Cobbles of the pages that spend them (#781, #855)", () => {
   it.each([
     ["the own village", () => <VillageScene {...VILLAGE.growing} onBack={() => {}} />],
     ["a visit to another's village", () => <VillageScene {...VILLAGE.visitProfile} onBack={() => {}} />],
-    ["the tile shop", () => <VillageShopScene {...VILLAGE_SHOP.today} onBack={() => {}} />],
   ])("%s: no plate of its own, the header's Cobbles and Buy packs, on a phone and from desktop", async (_, page) => {
     withBalances(page());
     const bar = screen.getAllByRole("heading", { level: 1 })[0]!.closest("header")!;

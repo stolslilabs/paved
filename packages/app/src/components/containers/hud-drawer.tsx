@@ -40,6 +40,11 @@ export interface HudDrawerProps {
   side?: "left" | "right";
   /** What the header holds at its outer end, opposite its control (the page's balance: the Missions' Cobbles). */
   end?: ReactNode;
+  /**
+   * A view of the page drawn in its place (SHOP-PAGE: a theme's tiles, never a sheet over the drawer): its Back at the header's start
+   * at every width, back to the page; the side panel keeps its close.
+   */
+  onBack?: () => void;
   /** A press outside it (the Missions': on a dialog over it, the Cobbles' packs). Prevented, the drawer stays open. */
   onInteractOutside?: (event: Event) => void;
   /** Where the focus goes back on close, when the opener is not a Radix trigger. */
@@ -64,7 +69,7 @@ export interface HudDrawerProps {
  * Inside, the phone's layout whatever the width (`data-page-panel`). The village beside the side panel is veiled lightly and blurred,
  * Escape or a tap on it closing the drawer. It takes the focus itself as it opens. The slide is the Sheet's (Motion).
  */
-export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
+export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
   const side = useSidePanel(SIDE_QUERY);
   // The phone's Back at the top left, the title right after it; the side panel's close at the header's right end, after what the page
   // shows there (the owner's ask of 2026-11-04: the title on the left, the balance at the top right).
@@ -78,6 +83,12 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end,
       <Icon name="chevron-left" className="drawer-icon" />
       <span className="sr-only">Back</span>
     </SheetClose>
+  );
+  const back = onBack && (
+    <button type="button" data-slot="hud-drawer-back" className={CONTROL} onClick={onBack}>
+      <Icon name="chevron-left" className="drawer-icon" />
+      <span className="sr-only">Back</span>
+    </button>
   );
   const ends = end ? <span data-slot="hud-drawer-end" className="flex min-w-0 items-center">{end}</span> : null;
   return (
@@ -105,8 +116,8 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", end,
       >
         {/* One row: Back (a phone's), the title on the left, what the page shows at the end, the close (a side panel's) last. */}
         <SheetHeader className="drawer-band flex shrink-0 flex-row items-center gap-1 px-2 py-2.5">
-          {!side && control}
-          <SheetTitle data-slot="hud-drawer-title" className={cn("text-outline min-w-0 flex-1 truncate text-left font-display text-2xl leading-tight tracking-wide", side ? "pl-2" : TITLE_AFTER_BACK)}>
+          {back || (!side && control)}
+          <SheetTitle data-slot="hud-drawer-title" className={cn("text-outline min-w-0 flex-1 truncate text-left font-display text-2xl leading-tight tracking-wide", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
             {title}
           </SheetTitle>
           {ends}
