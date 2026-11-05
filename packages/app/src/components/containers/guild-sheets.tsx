@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import {
   GUILD_DESCRIPTION_MAX,
   GUILD_EMBLEM_SILVER,
@@ -26,7 +26,9 @@ import { UiIcon } from "../elements/ui-icon";
 
 /** A field written into, carved (the drawer's: carved informs, and holds what is typed). */
 const FIELD = "drawer-carved w-full min-w-0 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none placeholder:text-muted-foreground";
-/** A cell of the emblem's grids, six to a row (the owner's ask of 2026-11-05: the charges and colours fill the width). */
+/** The emblem's grids, six to a row (the owner's ask of 2026-11-05: the charges and colours fill the width); inline, no CSS of its own. */
+const SIX: CSSProperties = { gridTemplateColumns: "repeat(6, minmax(0, 1fr))" };
+/** A cell of the emblem's grids. */
 const CELL = "aspect-square h-auto w-full min-w-0 rounded-xl bg-transparent px-0";
 
 /** A section of the form, the drawer's: its engraved title in the display font, what it holds at the title's end, then its content. */
@@ -133,7 +135,7 @@ export function GuildForm({ mode, initial, onSubmit, pending, error }: GuildForm
 
       <FormSection title="Emblem">
         <div className="drawer-carved flex flex-col gap-3 rounded-xl p-2">
-          <ToggleGroup type="single" aria-label="Icon" className="grid w-full grid-cols-6 gap-1" value={String(draft.emblem.icon)} onValueChange={(v) => v && set({ emblem: { ...draft.emblem, icon: Number(v) } })}>
+          <ToggleGroup type="single" aria-label="Icon" className="grid w-full gap-1" style={SIX} value={String(draft.emblem.icon)} onValueChange={(v) => v && set({ emblem: { ...draft.emblem, icon: Number(v) } })}>
             {GUILD_EMBLEM_CHARGES.map((charge, i) => (
               <ToggleGroupItem key={charge} value={String(i)} aria-label={charge} className={CELL}>
                 <EmblemCharge name={charge} className="size-7" />
@@ -148,7 +150,7 @@ export function GuildForm({ mode, initial, onSubmit, pending, error }: GuildForm
               <ToggleGroup
                 type="single"
                 aria-label={`${PART_NAMES[part]} colour`}
-                className="grid w-full grid-cols-6 gap-1"
+                className="grid w-full gap-1" style={SIX}
                 value={String(draft.emblem[part] ?? GUILD_EMBLEM_SILVER)}
                 onValueChange={(v) => v && set({ emblem: { ...draft.emblem, [part]: Number(v) } })}
               >
