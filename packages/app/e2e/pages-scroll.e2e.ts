@@ -19,7 +19,7 @@ import { join } from "node:path";
  *   flows below `desktop`: there the document is what scrolls (`FLOWS`), under their sticky top bar. Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
- * - Missions is the HUD's drawer at every width (MISSIONS-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
+ * - Missions and the League are the HUD's drawer at every width (MISSIONS-PAGE, LEAGUE-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
  *   stays put; from `tablet` its side panel has its close, by design.
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
@@ -53,7 +53,7 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
 const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play", "cobbles"]);
 
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["missions"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });
@@ -63,15 +63,14 @@ const scopeOf = (page: Page, id: (typeof PAGES)[number], panel: boolean) => (pan
 const REGION = (id: (typeof PAGES)[number]) => (DRAWERS.has(id) ? "[data-hud-drawer-body]" : "[data-slot=page-scroll]");
 
 /**
- * The pages whose content has a fixed length (no list to grow: the league's carousel and season, the referral's link and earnings), shorter
+ * The pages whose content has a fixed length (no list to grow: the league as it opens, the referral's link and earnings), shorter
  * than a 1440 x 900 panel (and, the referral, than a 375 x 812 phone): they are measured on a shorter screen of the same width,
  * an iPhone SE's 667 px, a 720 px laptop (the referral's panel: 667 px), where that content is taller than the region.
  */
 const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: number }>> = {
-  // The league's carousel (#785) and its season: one card each, shorter than a phone since the ladder left, and shorter again
-  // since #833 (one card size, no Attack button), and again since #859 (the card alone, no crowns' line): it fits a 500 px
-  // window, so a shorter one.
-  league: { phone: 420, desktop: 340 },
+  // The league as it opens (LEAGUE-PAGE): its carousel, its season and the latest battle logs (eight rows), about a phone's
+  // height: an iPhone SE's 667 px, a 720 px laptop.
+  league: { phone: 667, desktop: 720 },
   referral: { phone: 667, desktop: 667 },
   // The Chests page with its modal closed (#784): the day's slots and the tile kept, no list since the modal took the chests.
   chests: { phone: 548, desktop: 560 },
@@ -251,9 +250,10 @@ describe("the app's side panel at 1440 x 900: no close button, a click outside o
     await leagueControl().click({ timeout: 30_000 });
     const dialog = page.getByRole("dialog", { name: "League" });
     await dialog.waitFor();
-    expect(await dialog.getByRole("button", { name: "Close" }).count()).toBe(0);
-    // Outside the panel: the League's opens on the left since #829 (28 rem wide), so the click lands on the
-    // sky right of the board (a click on the board would take the focus once the panel is gone).
+    // The HUD's drawer (LEAGUE-PAGE): its close the red cross; a click outside closes it too.
+    expect(await dialog.getByRole("button", { name: "Close" }).count()).toBe(1);
+    // Outside the drawer: the League's docks at the left since #829 (28 rem wide), so the click lands on the
+    // sky right of the board (a click on the board would take the focus once the drawer is gone).
     await page.mouse.click(1200, 700);
     await dialog.waitFor({ state: "detached", timeout: 5000 });
     expect(new URL(page.url()).pathname).toBe("/");

@@ -112,11 +112,14 @@ export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHE
 export const Shop: Story = panel("Tile shop", <VillageShopScene {...VILLAGE_SHOP.today} tileArt={tileArt} onBack={fn()} onBuy={fn()} onGetCobbles={fn()} />);
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
 export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} />);
+/** The League's drawer over the home (LEAGUE-PAGE): the HUD's drawer, as the profile's and the Missions', at every width. */
+const league = () => <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onOpenMatch={fn()} />;
+
 /**
- * The League, its defence log in place under Attack (BACK-RULE, #783). Its panel slides in from the left (#829, the owner's
- * decision of 2026-10-27), as the profile's sheet: its button is on the home's left, under the profile.
+ * The League (#647; LEAGUE-PAGE, the Paved UX Book's): the HUD's drawer docked at the left (#829: under the HUD's crowns, at the
+ * home's top left), the leagues' carousel, the season's row, the battle logs; the crowns and the crest at the header's end.
  */
-export const League: Story = panel("League", <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onOpenMatch={fn()} />, { side: "left" });
+export const League: Story = { render: (args) => <HomeWith args={args}>{league()}</HomeWith> };
 /** Settings, from the gear. */
 export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onChange={fn()} />);
 /** The themes, from Settings: a sheet over its panel (BACK-RULE, #783), its close up to Settings, the Cobbles they cost in its header. */
@@ -210,6 +213,16 @@ export const DockUnderMissionsDesktop1024: Story = {
 };
 
 /** On a phone, Missions is a full page with Back over the home (MISSIONS-PAGE, the profile's pattern), covering the dock. */
+/** On a phone, the League is a full page with Back over the home (LEAGUE-PAGE, the profile's pattern), covering the dock. */
+export const LeaguePhone: Story = {
+  ...PHONE_375,
+  render: (args) => <HomeWith args={args}>{league()}</HomeWith>,
+  play: async ({ canvasElement }) => {
+    const page = await within(canvasElement.ownerDocument.body).findByRole("dialog", { name: "League" });
+    expect(within(page).getByRole("button", { name: "Back" })).toBeInTheDocument();
+  },
+};
+
 export const MissionsPhone: Story = {
   ...PHONE_375,
   render: (args) => <HomeWith args={args}>{missions()}</HomeWith>,

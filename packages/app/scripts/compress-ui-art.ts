@@ -47,6 +47,13 @@
  * milestones' rail (its steel and its gold) and nodes (the orb, the bead), the waiting gift's halo and the done badge's green check,
  * each extracted alone from the book's Missions screens by Codex, checked side by side with them, trimmed to its opaque box.
  *
+ * LEAGUE-PAGE (2026-11-05): the battle logs' Attack badge (the crossed swords on the gold shield) and the season row's calendar with
+ * its crown, the Paved UX Book's League's own pixels (Codex's image tool was not available that day: its models listed no
+ * `image_gen`): each cropped from the book's phone screen (about 80 px), upscaled 3x, its navy panel keyed out by a flood fill from the
+ * crop's edges over the pixels bluer than they are red (the drawing's near-black outline stops it, the ring next to it ramped and
+ * darkened to the outline's colour), the largest drawing kept alone (the badge's label under it dropped), checked side by side
+ * with the book, then trimmed and put on the icons' frame.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.
