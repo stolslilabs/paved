@@ -23,6 +23,8 @@ const LAYOUT_H = 700;
 const KEYBOARD_VV_H = 360;
 const WIDTHS = [320, 360, 375] as const;
 const TABS = ["world", "guild"] as const;
+/** Each check's ceiling: a load and three layouts take seconds; a stall fails here, not at the job's 15 minutes. */
+const TEST_MS = 90_000;
 
 let vite: ViteDevServer | null = null;
 let base = process.env.PAVED_E2E_URL ?? "";
@@ -124,10 +126,10 @@ describe("the chat drawer with a phone's keyboard open (#1025)", () => {
       for (const tab of TABS)
         it(`keeps the ${tab}'s composer above the keyboard, the messages scrolling`, async () => {
           const page = await context.newPage();
-          await page.goto(`${base}/e2e/chat-keyboard/index.html?tab=${tab}`, { waitUntil: "networkidle" });
+          await page.goto(`${base}/e2e/chat-keyboard/index.html?tab=${tab}`, { waitUntil: "load", timeout: TEST_MS });
           await page.evaluate(() => document.fonts.ready);
           const field = page.locator("[data-slot=chat-conversation] form input");
-          await field.waitFor();
+          await field.waitFor({ timeout: TEST_MS });
           const open = await figures(page);
           await field.focus();
           await page.evaluate((h) => (window as unknown as { __keyboard: (h: number) => void }).__keyboard(h), KEYBOARD_VV_H);
@@ -151,6 +153,6 @@ describe("the chat drawer with a phone's keyboard open (#1025)", () => {
           expect(closed.boxHeight).toBeGreaterThanOrEqual(320);
           expect(closed.fieldBottom).toBe(open.fieldBottom);
           await page.close();
-        });
+        }, TEST_MS);
     });
 });
