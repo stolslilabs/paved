@@ -796,7 +796,7 @@ function viewOf(chat: StoredChat, w: ChatWorld, id: ConversationId, kind: ChatKi
     id: l.id,
     conversation: id,
     kind: "message",
-    author: { address: profile.address, name: profile.name, look: profile.look, level: profile.level, guildTag: authorGuild ? guildTag(authorGuild.id) : null },
+    author: { address: profile.address, name: profile.name, look: profile.look, level: profile.level, league: profile.league, guildTag: authorGuild ? guildTag(authorGuild.id) : null },
     text: l.deleted || l.unreadable ? "" : l.text,
     at: l.at,
     deleted: l.deleted,

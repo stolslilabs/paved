@@ -1,14 +1,15 @@
 import { formatInteger } from "@paved/game-core";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { DataContext, type DataSources } from "../../data/sources";
 import { isUnranked, usePvpLastAttack } from "../../data/pvp-standing";
 import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
 import { LeagueRim } from "../elements/league-rim";
-import { divisionOf, tierOf, type LeagueTier } from "../elements/league-standards";
+import { divisionOf, RIM_PORTRAIT, tierOf, type LeagueTier } from "../elements/league-standards";
+import { PlayerAvatar, type AvatarPlayer } from "../elements/player-avatar";
 import { Plate, plateBareIconClass, PLATE_FIGURE, plateHudIconClass, plateHudIconPx, type PlateSize } from "../elements/plate";
 import { UiIcon } from "../elements/ui-icon";
 
@@ -227,5 +228,49 @@ function ControlView({ crowns = 0, league: shownLeague, unranked, onLeague, size
         </Plate>
       )}
     </m.button>
+  );
+}
+
+/** The portrait in the rim's hole (a plain ring's too): the same box either way. */
+const PORTRAIT_INSET_STYLE: CSSProperties = { inset: `${((1 - RIM_PORTRAIT) / 2) * 100}%` };
+
+export interface LeaguePortraitProps {
+  player: AvatarPlayer;
+  /** The avatar they saved; null or omitted, their initial. */
+  look?: bigint | null;
+  /** Their league: its rim round the portrait, its crest at its lower left. Omitted, a plain ring. */
+  league?: League;
+  /** The box's `data-slot` (the League's rows' `rival-rim`). */
+  slot?: string;
+  className?: string;
+  /** The box's size, as a font size (a 1em square): `{ fontSize: "3.75rem" }`. */
+  style?: CSSProperties;
+}
+
+/**
+ * Another player's portrait in the rim of their league with its crest at its lower left, as the player card and the profile draw the
+ * player's own (`PlayerRim`): the League's battle logs (LEAGUE-PAGE) and the chat's avatars (CHAT-PAGE, the Paved UX Book's "every
+ * avatar in its league rim"). No league known, a plain ring of the same box. A 1em square, the size its font size; decorative, the
+ * control that holds it names the player. Here, beside `PlayerRim`, so the pages that draw it share this chunk (the home loads it at
+ * once) rather than one more of their own: the first load's preload map stays as it was.
+ */
+export function LeaguePortrait({ player, look = null, league, slot = "league-portrait", className, style }: LeaguePortraitProps) {
+  const portrait = <PlayerAvatar player={player} look={look} className="size-full p-0" />;
+  if (!league)
+    return (
+      <span data-slot={slot} className={cn("relative block size-[1em] shrink-0 rounded-full border-4 border-border", className)} style={style}>
+        <span className="absolute overflow-hidden rounded-full" style={PORTRAIT_INSET_STYLE}>
+          {portrait}
+        </span>
+      </span>
+    );
+  const tier = tierOf(league);
+  return (
+    <span data-slot={slot} data-tier={tier} className={cn("relative block size-[1em] shrink-0", className)} style={style}>
+      <LeagueRim tier={tier} size="inherit" className="block">
+        {portrait}
+      </LeagueRim>
+      <LeagueCrestIcon tier={tier} division={divisionOf(league)} size="inherit" className="absolute -bottom-[10%] -left-[10%]" style={{ width: "44%", height: "44%" }} />
+    </span>
   );
 }

@@ -19,10 +19,11 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
     const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("emblems/"));
-    // GUILD-PAGE (2026-11-05): raised by exactly the measured growth, the copies of the icons the owner asked for (each in line with
-    // the others): 39,462 bytes for the guild's menu and a member's view (invite-player, find, leave, disband, promote, demote), then
-    // 29,790 for the join types, the members and the new ranks (unlock, letter, members, sprout, medal).
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790);
+    // GUILD-PAGE (2026-11-05): raised by exactly the measured growth over main, the copies of the guild's icons (each in line with the
+    // others): 39,462 bytes for the guild's menu and a member's view (invite-player, find, leave, disband, promote, demote), 29,790
+    // for the join types, the members and the new ranks (unlock, letter, members, sprout, medal), 14,600 for Post's pencil and the
+    // log's door and removed member (pencil, joined, kicked); its pin is the chat's.
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600);
   });
 
   it("ships the guild emblems' charges (GUILD-PAGE): as many as game-core's emblems, each a light mask", () => {

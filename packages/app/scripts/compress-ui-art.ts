@@ -78,8 +78,16 @@
  * it and by us beside its crop; the pills kept at their size (their rounded ends measured, `RARITY_END`), the piles at the book's
  * scale on one 256 x 160 frame, their foot 4 px above its bottom.
  *
- * GUILD-PAGE (2026-11-05): the guild's pin (its pinned announcement), Post's pencil and the log's door (joined) and removed member
- * (kicked), after the Paved UX Book: first cut from the book's own pixels (about 35 to 70 px, the Codex CLI's configured provider
+ * CHAT-PAGE (2026-11-05): the chat's Send arrow (the book's desktop World screen), its pinned post's pin (the desktop Guild chat)
+ * and a request's check and cross (the tablet Private screen), each cropped at its button's inside (55 to 110 px) and redrawn by
+ * Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`) from its crop, with four shipped icons
+ * (close, plus, play, lock) as the style's reference: the object alone, on a transparent 1254 px square. Each trimmed to its opaque
+ * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked side by side with its crop
+ * on navy and on gold. They replace the same day's cuts of the book's pixels (made while Codex listed no image tool), blurred at
+ * the icons' size.
+ *
+ * GUILD-PAGE (2026-11-05): Post's pencil and the log's door (joined) and removed member (kicked), after the Paved UX Book (its pinned
+ * announcement's pin is the chat's, CHAT-PAGE's, the same drawing): first cut from the book's own pixels (about 35 to 70 px, the Codex CLI's configured provider
  * listing no image tool), then redrawn the same day by the Codex CLI's built-in image tool (`image_gen`, its OpenAI provider), from
  * those crops (what to draw) and two contact sheets of the HUD's icons (how), each on a flat magenta ground (1254 px square), keyed out
  * as below and checked beside its crop. The log's speech bubble (posted) is the HUD's Chat icon, the same drawing. Then, on the owner's

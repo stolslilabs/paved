@@ -4,7 +4,8 @@
  * after its mockup of 2026-11-02), the four structures and the profile's totals (City, Road, Forest, Wonder, Stats; PROFILE-PAGE, 2026-11-04),
  * the mission's hammer (HOME-EDGES, 2026-11-04), the Camera mode's village in orbit and its way out (Explore, Exit; CAMERA-EXPLORE),
  * the League's Attack badge and season calendar (LEAGUE-PAGE, 2026-11-05), the match's gold Play, Pause and star (MATCH-PAGE, 2026-11-05),
- * the guild's pin, Post's pencil and the log's joined and kicked, its menu's Invite a player, Find guilds, Leave and Disband and a
+ * the chat's Send arrow, its pinned post's pin and a request's check and cross (CHAT-PAGE, 2026-11-05),
+ * the guild's Post's pencil and the log's joined and kicked, its menu's Invite a player, Find guilds, Leave and Disband and a
  * member's Promote and Demote, the join types' open padlock and sealed letter, the members' busts, the Recruit's sprout and the
  * Veteran's medal (GUILD-PAGE, 2026-11-05),
  * and the frames the home draws with them: the XP bar's track and fill, and the dock's wood, parchment, divider and PLAY medallion
@@ -68,7 +69,10 @@ export const UI_ICONS = [
   "theme-forest",
   "theme-snow",
   "theme-desert",
+  "send",
   "pin",
+  "check",
+  "cross",
   "pencil",
   "joined",
   "kicked",

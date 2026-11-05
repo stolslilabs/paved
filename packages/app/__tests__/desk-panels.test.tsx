@@ -96,9 +96,9 @@ describe("the route map (#762)", () => {
     ]);
     // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, GUILD-PAGE: the League, Missions, Tiles and the Guild are the HUD's drawer over the home at every width, never the side panel;
-    // children of the home's route.
-    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles", "guild"]);
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, GUILD-PAGE: the League, Missions, Tiles, the Chat and the Guild are the HUD's
+    // drawer over the home at every width, never the side panel; children of the home's route.
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles", "chat", "chat/private/:player", "chat/:tab", "guild"]);
     expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
