@@ -18,13 +18,15 @@ export interface EncryptionLineProps {
   otherName: string;
   /** A private conversation: the line opens the Encryption sheet. */
   onOpen?: () => void;
+  /** Its place's look (CHAT-PAGE: a private conversation's opening draws it as a pill). */
+  className?: string;
 }
 
 /**
  * What a conversation's encryption is, in a line at its top (#997, point 8): a lock and who can read it (private, the guild), or
  * that the World is public. In private it is a button that opens the Encryption sheet. A long name wraps rather than being cut.
  */
-export function EncryptionLine({ mode, otherName, onOpen }: EncryptionLineProps) {
+export function EncryptionLine({ mode, otherName, onOpen, className }: EncryptionLineProps) {
   // The icon in the text's flow, so that it stays beside the first words when the line wraps, centred with them.
   const body = (
     <span className="min-w-0 wrap-anywhere">
@@ -32,7 +34,7 @@ export function EncryptionLine({ mode, otherName, onOpen }: EncryptionLineProps)
       {encryptionLine(mode, otherName)}
     </span>
   );
-  const cls = "block w-full min-w-0 px-3 py-1.5 text-center text-xs text-muted-foreground";
+  const cls = cn("block w-full min-w-0 px-3 py-1.5 text-center text-xs text-muted-foreground", className);
   if (mode === "private" && onOpen)
     return (
       <button type="button" data-slot="chat-encryption-line" data-mode={mode} onClick={onOpen} className={cn(cls, "state-layer outline-none")}>

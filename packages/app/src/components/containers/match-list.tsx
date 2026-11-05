@@ -7,15 +7,12 @@ import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
 import { ChestIcon } from "../elements/chest-icon";
-import { LeagueCrestIcon } from "../elements/league-crest-art";
-import { LeagueRim } from "../elements/league-rim";
-import { divisionOf, RIM_PORTRAIT, tierOf } from "../elements/league-standards";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
-import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { SectionTitle } from "../elements/section-title";
 import { StarRow } from "../elements/star-row";
 import { UiIcon } from "../elements/ui-icon";
+import { LeaguePortrait } from "./league-control";
 
 /** One match on the League page (#786): an attack the player made, or one on their village. */
 export interface MatchCardData {
@@ -67,31 +64,12 @@ function cardName(m: MatchCardData): string {
 /** Lost crowns (#834): the row's figure in the loss colour; a win or a draw (0) is not a loss (open point 2). */
 const matchLost = (m: Pick<MatchCardData, "crowns">): boolean => m.crowns < 0;
 
-/** The portrait in the rim's hole (a plain ring's too): the same box either way. */
-const PORTRAIT_INSET: CSSProperties = { inset: `${((1 - RIM_PORTRAIT) / 2) * 100}%` };
 /** The rival's portrait with its rim: 60 px, the height of the three lines beside it (the owner's ask of 2026-11-05). */
 const RIM_BOX: CSSProperties = { fontSize: "3.75rem" };
 
 /** The rival's portrait in the rim of their league with its crest at its lower left (the player card's, the profile's); no league known, a plain ring. */
 function RivalPortrait({ rival, league }: { rival: PvpPlayer; league?: League }) {
-  const portrait = <PlayerAvatar player={rival} look={rival.look} className="size-full p-0" />;
-  if (!league)
-    return (
-      <span data-slot="rival-rim" className="relative block size-[1em] shrink-0 rounded-full border-4 border-border" style={RIM_BOX}>
-        <span className="absolute overflow-hidden rounded-full" style={PORTRAIT_INSET}>
-          {portrait}
-        </span>
-      </span>
-    );
-  const tier = tierOf(league);
-  return (
-    <span data-slot="rival-rim" data-tier={tier} className="relative block size-[1em] shrink-0" style={RIM_BOX}>
-      <LeagueRim tier={tier} size="inherit" className="block">
-        {portrait}
-      </LeagueRim>
-      <LeagueCrestIcon tier={tier} division={divisionOf(league)} size="inherit" className="absolute -bottom-[10%] -left-[10%]" style={{ width: "44%", height: "44%" }} />
-    </span>
-  );
+  return <LeaguePortrait player={rival} look={rival.look} league={league} slot="rival-rim" style={RIM_BOX} />;
 }
 
 /** The crowns won or lost: the painted crown and the signed figure, in the gain colour, the loss colour (`Crowns`'), or plain for a draw. */

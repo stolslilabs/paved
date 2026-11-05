@@ -77,6 +77,14 @@
  * it and by us beside its crop; the pills kept at their size (their rounded ends measured, `RARITY_END`), the piles at the book's
  * scale on one 256 x 160 frame, their foot 4 px above its bottom.
  *
+ * CHAT-PAGE (2026-11-05): the chat's Send arrow (the book's desktop World screen), its pinned post's pin (the desktop Guild chat)
+ * and a request's check and cross (the tablet Private screen), each cropped at its button's inside (55 to 110 px) and redrawn by
+ * Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`) from its crop, with four shipped icons
+ * (close, plus, play, lock) as the style's reference: the object alone, on a transparent 1254 px square. Each trimmed to its opaque
+ * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked side by side with its crop
+ * on navy and on gold. They replace the same day's cuts of the book's pixels (made while Codex listed no image tool), blurred at
+ * the icons' size.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.

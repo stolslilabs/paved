@@ -1,19 +1,19 @@
+import { useDrawerRoute } from "../drawer-route";
 import { useBack } from "../ref";
 import { ChatContent } from "../social/chat-content";
-import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
 
 /**
  * `/chat` (#973, PvP v2 step 1 on the mock): the chat page, in place of the Social page's Chat tab. Three tabs, World, Guild and
  * Private (`/chat/<tab>`), a private conversation over the Private tab's list at `/chat/private/<player>` (the profile's Message
  * and the friends' rows open it), and New message (#973); the old `/chat?chat=` and `/social?chat=` links land on their tab
  * (`router.tsx`, `chat-content.tsx`). Its own chunk, its content with it.
+ * CHAT-PAGE: drawn in the HUD's drawer over the home at every width (`PageDef.drawer`, `home-hosts.tsx`); the players' profiles
+ * (`?player=`, #952) are the home's host's, the home mounted under the drawer.
  */
 export default function Page() {
-  const onBack = useBack();
-  return (
-    <>
-      <ChatContent onBack={onBack} />
-      <ProfilesBelowDesktop />
-    </>
-  );
+  // The HUD's drawer over the home (`home-hosts.tsx`), shown while its route is the current one; alone (a story's or a test's
+  // route), open, its Back up to the village.
+  const drawer = useDrawerRoute();
+  const back = useBack();
+  return <ChatContent onBack={drawer?.onClose ?? back} open={drawer?.open ?? true} returnFocus={drawer?.returnFocus} />;
 }
