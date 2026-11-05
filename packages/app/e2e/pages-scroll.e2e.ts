@@ -15,11 +15,11 @@ import { join } from "node:path";
  *
  * - Each page's scene, with content taller than the screen (`pages-scroll/harness.tsx`: a long defence
  *   log, ...), at 375 x 812 in the tab frame (a phone: touch, dragged by a finger) and at 1440 x 900 in the home's side panel
- *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Play and Cobbles are full-screen
- *   flows below `desktop`: there the document is what scrolls (`FLOWS`), under their sticky top bar. Per page and width: its
+ *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Play is a full-screen
+ *   flow below `desktop`: there the document is what scrolls (`FLOWS`), under its sticky top bar. Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
- * - Missions and the League are the HUD's drawer at every width (MISSIONS-PAGE, LEAGUE-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
+ * - Missions, the League and the Shop are the HUD's drawer at every width (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
  *   stays put; from `tablet` its side panel has its close, by design.
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
@@ -28,9 +28,9 @@ import { join } from "node:path";
  * prints its line (page, width, figures): the pass's list of the PR.
  */
 
-const PAGES = ["shop", "chests", "league", "settings", "missions", "vault", "defence", "themes", "theme", "tiles", "referral", "credits", "play", "cobbles"] as const;
+const PAGES = ["shop", "chests", "league", "settings", "missions", "vault", "defence", "themes", "tiles", "referral", "credits", "play"] as const;
 const TITLES: Record<(typeof PAGES)[number], string> = {
-  shop: "Tile shop",
+  shop: "Forest",
   chests: "Chests",
   league: "League",
   settings: "Settings",
@@ -41,19 +41,17 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
   tiles: "Tiles",
   referral: "Referral",
   credits: "Credits",
-  theme: "Forest",
   play: "Choose a mode",
-  cobbles: "Cobbles",
 };
 
 /**
- * The full-screen flows below `desktop` (Play, Cobbles: no tab frame, the document scrolls, under their sticky top bar); in the
+ * The full-screen flows below `desktop` (Play: no tab frame, the document scrolls, under their sticky top bar); in the
  * side panel from `desktop` they scroll in its body as every other page.
  */
-const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play", "cobbles"]);
+const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play"]);
 
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "tiles"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });
@@ -74,10 +72,9 @@ const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: nu
   referral: { phone: 667, desktop: 667 },
   // The Chests page with its modal closed (#784): the day's slots and the tile kept, no list since the modal took the chests.
   chests: { phone: 548, desktop: 560 },
-  // The mode choice's five rows and the Cobbles' packs, of fixed length too: an iPhone SE's view under Safari's bars (548 px),
+  // The mode choice's five rows, of fixed length too: an iPhone SE's view under Safari's bars (548 px),
   // a 560 px browser window.
   play: { phone: 548, desktop: 560 },
-  cobbles: { phone: 548, desktop: 560 },
 };
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));

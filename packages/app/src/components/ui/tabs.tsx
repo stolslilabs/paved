@@ -46,7 +46,7 @@ export function Tabs({ className, value, defaultValue, onValueChange, rememberAs
  * the text spill over its neighbours. The indicator is placed on the active trigger by measure (its left and width),
  * then moved with a transform transition (section 3.2); the first placement, a resize and reduced motion have none.
  */
-export function TabsList({ className, children, ref, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
+export function TabsList({ className, indicatorClassName, children, ref, ...props }: ComponentProps<typeof TabsPrimitive.List> & { indicatorClassName?: string }) {
   const { value, rememberAs } = useContext(TabsContext);
   const reduced = useReducedMotionConfig() ?? false;
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -116,7 +116,7 @@ export function TabsList({ className, children, ref, ...props }: ComponentProps<
         ref={indicatorRef}
         data-slot="tabs-indicator"
         aria-hidden
-        className="pointer-events-none absolute top-1 bottom-1 left-0 rounded-md bg-state-selected opacity-0"
+        className={cn("pointer-events-none absolute top-1 bottom-1 left-0 rounded-md bg-state-selected opacity-0", indicatorClassName)}
       />
       {children}
     </TabsPrimitive.List>

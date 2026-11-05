@@ -55,11 +55,11 @@ export const PAGES: readonly PageDef[] = [
   { path: "play", title: "Play", nav: null, panel: true },
   // A flow opened from Play: Back goes up to it.
   { path: "play/challenge", title: "Purchase", nav: null, parent: "/play" },
-  { path: "cobbles", title: "Cobbles", nav: null, panel: true },
   { path: "avatar", title: "Avatar", nav: null },
   // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
   { path: "village/chests", title: "Chests", nav: "chests", panel: true },
-  { path: "village/shop", title: "Tile shop", nav: "shop", panel: true },
+  // The Shop (SHOP-PAGE): Tiles, Cobbles and Themes as tabs (`?tab=`), the HUD's drawer docked at the right from `tablet`.
+  { path: "village/shop", title: "Shop", nav: "shop", panel: true, drawer: true },
   { path: "village/:player", title: "Village", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
   // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, a match (#786), the league. The defence log's
@@ -94,10 +94,9 @@ export const PAGES: readonly PageDef[] = [
   { path: "chat/:tab", title: "Chat", nav: "chat", panel: true },
   { path: "guild", title: "Guild", nav: "guild", panel: true },
   { path: "friends", title: "Friends", nav: "friends", panel: true },
-  // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it, a theme's too.
+  // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it. A theme's tiles are the Shop's (SHOP-PAGE).
   { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/theme/:theme", title: "Theme", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings", title: "Settings", nav: "settings", panel: true },
 ] as const;

@@ -53,8 +53,8 @@ describe("app", () => {
   });
 
   // 28 since BACK-RULE (#783): the defence log is a section of the League, no longer a page; 29 with a match's page (#786); 28 since Missions is one page (#832); 29 with the Social page (#952); 31 with Chat, Guild and Friends in its place (#973); 33 with the chat's tab and private conversation paths (#973).
-  it("keeps the section 6.1 route map: 33 pages, each path once", () => {
-    expect(PAGES).toHaveLength(33);
+  it("keeps the section 6.1 route map: 31 pages, each path once (SHOP-PAGE: the packs' page and a theme's shop became the Shop's tabs)", () => {
+    expect(PAGES).toHaveLength(31);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 

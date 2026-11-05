@@ -25,7 +25,7 @@ import {
 } from "../src/components/containers/layout-rules";
 import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
-import { VillageShopScene } from "../src/components/scenes/village-shop-scene";
+import { ShopTiles } from "../src/components/containers/shop-tiles";
 import { PLAN } from "../src/mocks/village";
 import { INVENTORY, KEY_TILE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, MOVED_SPOT, OUTER_TILE, SHOP_PRICE, VILLAGE_CHESTS, VILLAGE_LAYOUT, VILLAGE_SHOP, fakeScore, lay } from "../src/mocks/village-v2";
 
@@ -437,26 +437,30 @@ describe("the chests' slots (#759, #784)", () => {
   });
 });
 
-describe("the daily shop (#739)", () => {
-  it("offers 3 plans with their rarity and price, bought once each", async () => {
+describe("the daily shop (#739; SHOP-PAGE: the Shop's Tiles tab)", () => {
+  it("offers 3 plans with their rarity, held and price, bought once each", async () => {
     const onBuy = vi.fn();
-    const { unmount } = render(wrap(<VillageShopScene {...VILLAGE_SHOP.today} onBuy={onBuy} />));
-    const offers = within(screen.getByRole("list", { name: "Today's offers" })).getAllByRole("listitem");
+    const { unmount } = render(wrap(<ShopTiles {...VILLAGE_SHOP.today} onBuy={onBuy} />));
+    const offers = within(screen.getByRole("list", { name: "Today's tiles" })).getAllByRole("listitem");
     expect(offers).toHaveLength(3);
-    expect(screen.getByText("Mythic")).toBeInTheDocument();
+    expect(screen.getByText("Mythic")).toHaveAttribute("data-rarity", "mythic");
     expect(screen.getByRole("timer", { name: /New tiles in/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: `Buy Tile 17 for ${SHOP_PRICE.mythic} Cobbles` }));
     expect(onBuy).toHaveBeenCalledWith(2);
     unmount();
-    render(wrap(<VillageShopScene {...VILLAGE_SHOP.oneBought} />));
-    expect(screen.getByText("Bought today")).toBeInTheDocument();
+    render(wrap(<ShopTiles {...VILLAGE_SHOP.oneBought} />));
+    expect(screen.getByRole("listitem", { name: "Tile 10" })).toHaveAttribute("data-state", "bought");
+    expect(screen.getByRole("listitem", { name: "Tile 10" })).toHaveTextContent("Bought");
     expect(screen.queryByRole("button", { name: /Buy Tile 10/ })).toBeNull();
   });
 
-  it("says what is missing when short of Cobbles", () => {
-    render(wrap(<VillageShopScene {...VILLAGE_SHOP.short} onGetCobbles={() => undefined} />));
+  it("says what is missing when short of Cobbles, and Get Cobbles opens the Cobbles tab", async () => {
+    const onGetCobbles = vi.fn();
+    render(wrap(<ShopTiles {...VILLAGE_SHOP.short} onGetCobbles={onGetCobbles} />));
     expect(screen.getByRole("button", { name: /Buy Tile 17/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Get Cobbles/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy Tile 17/ })).toHaveAccessibleDescription(/^Need \d+ more$/);
+    await userEvent.click(screen.getByRole("button", { name: /Get Cobbles/ }));
+    expect(onGetCobbles).toHaveBeenCalledOnce();
   });
 });
 
@@ -465,7 +469,6 @@ describe("the v2 stories", () => {
     for (const [file, name, fixtures] of [
       ["village-layout-scene", "VILLAGE_LAYOUT", VILLAGE_LAYOUT],
       ["village-chests-scene", "VILLAGE_CHESTS", VILLAGE_CHESTS],
-      ["village-shop-scene", "VILLAGE_SHOP", VILLAGE_SHOP],
     ] as const) {
       const text = readFileSync(join(__dirname, `../src/components/scenes/${file}.stories.tsx`), "utf8");
       const stories = [...text.matchAll(new RegExp(`^export const (\\w+): Story = \\{ args: ${name}\\.(\\w+) \\};$`, "gm"))].map((m) => m[2]);

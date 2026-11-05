@@ -6,7 +6,6 @@
 export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "",
   "play/challenge",
-  "cobbles",
   "avatar",
   "village/:player",
   "village/chests",
@@ -15,5 +14,4 @@ export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "tiles",
   "vault",
   "settings/theme",
-  "settings/theme/:theme",
 ]);

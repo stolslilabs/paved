@@ -66,10 +66,10 @@ const PAGES = {
   friends: () => Promise.all([import("../src/routes/pages/friends"), import("../src/routes/player-profile-host")]),
   settings: () => import("../src/routes/pages/settings"),
   theme: () => import("../src/routes/pages/theme"),
-  "theme-shop": () => import("../src/routes/pages/theme-shop"),
   credits: () => import("../src/routes/pages/credits"),
   welcome: () => import("../src/routes/pages/welcome"),
-  "village-shop": () => import("../src/routes/pages/village-shop"),
+  // The Shop is the HUD's drawer over the home (SHOP-PAGE): its host comes with it.
+  shop: () => Promise.all([import("../src/routes/pages/shop"), import("../src/routes/home-hosts")]),
   "village-chests": () => import("../src/routes/pages/village-chests"),
   "pvp-league": () => import("../src/routes/pages/pvp-league"),
   // The hosts pages open in, their own chunks: the home's side panel (#762), a sheet over its page (BACK-RULE #783), the

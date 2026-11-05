@@ -58,8 +58,9 @@ export default function Page() {
       refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
       onDismissRefusal={writes.reset}
       onUse={use}
-      onOpen={(theme) => go(`/settings/theme/${theme}`, { replace: true })}
-      onMyTiles={() => go("/settings/tiles", { replace: true })}
+      // A theme's tiles are the Shop's (SHOP-PAGE): its Themes tab, that theme's view.
+      onOpen={(theme) => go(`/village/shop?tab=themes&theme=${theme}`, { state: { opened: true } })}
+      onMyTiles={() => go("/tiles", { replace: true })}
       onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });
