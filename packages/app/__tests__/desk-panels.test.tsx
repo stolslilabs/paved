@@ -96,9 +96,9 @@ describe("the route map (#762)", () => {
     ]);
     // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, FRIENDS-PAGE: the League, Missions, Tiles, the Chat and Friends are the HUD's
-    // drawer over the home at every width, never the side panel; children of the home's route.
-    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles", "chat", "chat/private/:player", "chat/:tab", "friends"]);
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE: the League, Missions, Tiles, the Chat, the Guild and
+    // Friends are the HUD's drawer over the home at every width, never the side panel; children of the home's route.
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles", "chat", "chat/private/:player", "chat/:tab", "guild", "friends"]);
     expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
@@ -119,11 +119,10 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
 
   it.each([
     ["Chests", "Main", "/village/chests", "Chests", "right"],
-    ["Guild", "Main", "/guild", "Guild", "right"],
     ["Vault", "Village", "/vault", "Vault", "right"],
   ] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, from, path, title, side) => {
     const router = open("/");
-    // The overlay's column (HOME-EDGES' tiles: Missions, Vault) or the dock (HOME-DOCK: Chests, Shop, Guild).
+    // The overlay's column (HOME-EDGES' tiles: Missions, Vault) or the dock (HOME-DOCK: Chests).
     const column = await screen.findByRole("navigation", { name: from }, { timeout: slow(5000) });
     await userEvent.click(within(column).getByRole("button", { name: new RegExp(`^${button}`) }));
     const dialog = await panel(title);
@@ -181,6 +180,26 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
+  });
+
+  it("the dock's Guild opens the HUD's drawer at the right (GUILD-PAGE), not the panel: the red cross, the focus back on the dock's Guild", async () => {
+    wide();
+    const router = open("/");
+    const dock = await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
+    await userEvent.click(within(dock).getByRole("button", { name: /^Guild/ }));
+    const drawer = await panel("Guild");
+    expect(router.state.location.pathname).toBe("/guild");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "guild");
+    expect(drawer).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    const header = drawer.querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
+    expect([...header.children].map((el) => el.getAttribute("data-slot"))).toEqual(["hud-drawer-title", "hud-drawer-close"]);
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: /^Guild/ })).toHaveFocus());
   });
 
   it("the right column's Friends opens the HUD's drawer at the right (FRIENDS-PAGE), not the panel: the search, the red cross", async () => {

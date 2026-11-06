@@ -10,16 +10,37 @@ import { nameMatches, normalQuery } from "./search";
 // --- Ranks -----------------------------------------------------------------------------------------------------------
 
 /**
- * The ranks, as numbers in their order: the checks compare them. 3 is left free, so that a fourth rank (a Co-leader, #953
- * open point 1) can come in between Officer and Leader without changing a rule.
+ * The ranks, as numbers in their order: the checks compare them. Five since GUILD-PAGE (the owner's choice of 2026-11-05, in place of
+ * Member, Officer and Leader): a player who joins is a Recruit; a Member invites; a Veteran answers the requests and posts
+ * announcements; an Officer kicks and promotes up to Veteran; the Leader does all, the settings and the Officers' ranks with it.
  */
-export const GUILD_RANK = { member: 1, officer: 2, leader: 4 } as const;
+export const GUILD_RANK = { recruit: 0, member: 1, veteran: 2, officer: 3, leader: 4 } as const;
 
 /** A rank: one of `GUILD_RANK`'s values. */
 export type GuildRank = (typeof GUILD_RANK)[keyof typeof GUILD_RANK];
 
+/** The ranks, lowest first. */
+export const GUILD_RANKS: readonly GuildRank[] = [GUILD_RANK.recruit, GUILD_RANK.member, GUILD_RANK.veteran, GUILD_RANK.officer, GUILD_RANK.leader];
+
 /** Whether `value` is a rank. */
-export const isGuildRank = (value: unknown): value is GuildRank => value === GUILD_RANK.member || value === GUILD_RANK.officer || value === GUILD_RANK.leader;
+export const isGuildRank = (value: unknown): value is GuildRank => (GUILD_RANKS as readonly unknown[]).includes(value);
+
+/**
+ * The lowest rank each right needs (GUILD-PAGE's five ranks): inviting a player, answering the requests, posting announcements,
+ * kicking and promoting (up to the rank under the actor's), and the settings.
+ */
+export const GUILD_RIGHTS = {
+  invite: GUILD_RANK.member,
+  answer: GUILD_RANK.veteran,
+  post: GUILD_RANK.veteran,
+  kick: GUILD_RANK.officer,
+  promote: GUILD_RANK.officer,
+  settings: GUILD_RANK.leader,
+} as const satisfies Record<string, GuildRank>;
+
+/** The rank above `rank` and the one under it, or null at the top and the bottom. */
+export const rankAbove = (rank: GuildRank): GuildRank | null => GUILD_RANKS[GUILD_RANKS.indexOf(rank) + 1] ?? null;
+export const rankBelow = (rank: GuildRank): GuildRank | null => GUILD_RANKS[GUILD_RANKS.indexOf(rank) - 1] ?? null;
 
 /** Whether `actor` ranks strictly above `target`: the condition of every action on another member. */
 export const ranksAbove = (actor: GuildRank, target: GuildRank): boolean => actor > target;
@@ -51,9 +72,17 @@ export const GUILD_KICK_COOLDOWN_S = 20 * 60;
 export const GUILD_LEADER_IDLE_S = 35 * 86_400;
 /** The highest crowns a requirement may ask. */
 export const GUILD_MAX_CROWNS_REQUIRED = 10_000;
-/** The emblems (open point 7's default): a shield bearing one of `GUILD_EMBLEM_ICONS` game icons, in a pair of `GUILD_EMBLEM_COLOURS` colours. */
-export const GUILD_EMBLEM_ICONS = 12;
-export const GUILD_EMBLEM_COLOURS = 8;
+/**
+ * The emblems (open point 7's default): a shield bearing one of `GUILD_EMBLEM_ICONS` charges, in a pair of `GUILD_EMBLEM_COLOURS`
+ * colours, the charge in a third. GUILD-PAGE (the owner's asks of 2026-11-05): twenty-four charges drawn for the game in place of
+ * twelve Font Awesome icons (four rows of six in the settings), the first twelve keeping their subjects so a guild's emblem keeps its
+ * meaning; each a flat silhouette in a colour of the leader's choosing; eighteen colours (three rows of six), the first eight those of
+ * before, the ninth Silver (`GUILD_EMBLEM_SILVER`), the charge's colour before, which an emblem without one keeps.
+ */
+export const GUILD_EMBLEM_ICONS = 24;
+export const GUILD_EMBLEM_COLOURS = 18;
+/** Silver: the charge's colour of an emblem that names none (every emblem before GUILD-PAGE). */
+export const GUILD_EMBLEM_SILVER = 8;
 
 // --- Shapes ----------------------------------------------------------------------------------------------------------
 
@@ -72,6 +101,8 @@ export interface GuildEmblem {
   icon: number;
   primary: number;
   secondary: number;
+  /** The charge's colour (GUILD-PAGE); left out, `GUILD_EMBLEM_SILVER`. */
+  charge?: number;
 }
 
 /** What the leader edits. */
@@ -145,10 +176,10 @@ export type GuildRefusal =
   | "self"
   | "kick-cooldown"
   | "reason-length"
-  /** A promotion: the target is not a Member. */
-  | "not-a-member"
-  /** A demotion: the target is not an Officer. */
-  | "not-an-officer"
+  /** A promotion: the target is an Officer (only Make leader raises them) or the rank above theirs is not under the actor's. */
+  | "top-rank"
+  /** A demotion: the target is a Recruit already. */
+  | "bottom-rank"
   /** The leader leaves or accepts another guild while others remain: they make another member leader first. */
   | "leader-must-transfer"
   | "announcement-empty"
@@ -210,7 +241,8 @@ export function parseGuildTag(text: string): number | null {
 const isCount = (n: number, max: number): boolean => Number.isInteger(n) && n >= 0 && n <= max;
 
 /** Whether an emblem's indexes are in the sets. */
-export const validEmblem = (e: GuildEmblem): boolean => isCount(e.icon, GUILD_EMBLEM_ICONS - 1) && isCount(e.primary, GUILD_EMBLEM_COLOURS - 1) && isCount(e.secondary, GUILD_EMBLEM_COLOURS - 1);
+export const validEmblem = (e: GuildEmblem): boolean =>
+  isCount(e.icon, GUILD_EMBLEM_ICONS - 1) && isCount(e.primary, GUILD_EMBLEM_COLOURS - 1) && isCount(e.secondary, GUILD_EMBLEM_COLOURS - 1) && (e.charge === undefined || isCount(e.charge, GUILD_EMBLEM_COLOURS - 1));
 
 /** Whether requirements are whole numbers in range: a level up to `LEVEL_CAP`, crowns up to `GUILD_MAX_CROWNS_REQUIRED`. */
 export const validRequirements = (r: GuildRequirements): boolean => isCount(r.level, LEVEL_CAP) && isCount(r.crowns, GUILD_MAX_CROWNS_REQUIRED);
@@ -232,7 +264,7 @@ export function createGuildRefusal(player: { guild: number | null }, draft: Guil
 
 /** Editing the settings: the leader only (open point 3's default). */
 export function editSettingsRefusal(actor: GuildRank, settings: GuildSettings): GuildRefusal | null {
-  if (actor < GUILD_RANK.leader) return "rank";
+  if (actor < GUILD_RIGHTS.settings) return "rank";
   return guildSettingsInvalid(settings);
 }
 
@@ -274,26 +306,23 @@ export function requestRefusal(player: GuildCandidate & { pending: number | null
 /** Cancelling one's request: there must be one. */
 export const cancelRequestRefusal = (pending: number | null): GuildRefusal | null => (pending === null ? "no-request" : null);
 
-/** Which ranks invite and answer the requests: Officers and the Leader. */
-const RECRUITS = GUILD_RANK.officer;
-
-/** Accepting a request: an officer or the leader, while the guild has room and the applicant is still in no guild. */
+/** Accepting a request: a Veteran or above, while the guild has room and the applicant is still in no guild. */
 export function acceptRequestRefusal(actor: GuildRank, guild: Pick<GuildOpening, "members">, applicant: { guild: number | null }): GuildRefusal | null {
-  if (actor < RECRUITS) return "rank";
+  if (actor < GUILD_RIGHTS.answer) return "rank";
   if (applicant.guild !== null) return "in-guild";
   if (guildFull(guild)) return "full";
   return null;
 }
 
-/** Declining a request: an officer or the leader. */
-export const declineRequestRefusal = (actor: GuildRank): GuildRefusal | null => (actor < RECRUITS ? "rank" : null);
+/** Declining a request: a Veteran or above. */
+export const declineRequestRefusal = (actor: GuildRank): GuildRefusal | null => (actor < GUILD_RIGHTS.answer ? "rank" : null);
 
 /**
- * Inviting a player (from their profile or the search): an officer or the leader, for a player in no guild or in another one,
+ * Inviting a player (from their profile or the search): a Member or above (a Recruit does not), for a player in no guild or in another one,
  * who did not block the inviter (#954) and holds no open invitation from this guild, while the guild has room.
  */
 export function inviteRefusal(actor: GuildRank, guild: Pick<GuildOpening, "id" | "members">, target: { guild: number | null; blockedInviter: boolean; invited: boolean }): GuildRefusal | null {
-  if (actor < RECRUITS) return "rank";
+  if (actor < GUILD_RIGHTS.invite) return "rank";
   if (target.guild === guild.id) return "member-already";
   if (target.blockedInviter) return "blocked";
   if (target.invited) return "invited-already";
@@ -322,12 +351,12 @@ export function acceptInvitationRefusal(invitation: { sentAt: number }, now: num
 // --- Acting on members -----------------------------------------------------------------------------------------------
 
 /**
- * Kicking a member, with an optional reason of at most 100 characters: an officer or the leader, on a member they rank strictly
+ * Kicking a member, with an optional reason of at most 100 characters: an Officer or the Leader, on a member they rank strictly
  * above. An officer kicks once per 20 minutes (`lastKick`: when they last kicked, in seconds, or null); the leader has no wait.
  */
 export function kickRefusal(actor: GuildActor & { lastKick: number | null }, target: GuildActor, now: number, reason = ""): GuildRefusal | null {
   if (actor.address === target.address) return "self";
-  if (actor.rank < GUILD_RANK.officer) return "rank";
+  if (actor.rank < GUILD_RIGHTS.kick) return "rank";
   if (!ranksAbove(actor.rank, target.rank)) return "rank-not-above";
   if (reason.length > GUILD_KICK_REASON_MAX) return "reason-length";
   if (actor.rank < GUILD_RANK.leader && actor.lastKick !== null && now - actor.lastKick < GUILD_KICK_COOLDOWN_S) return "kick-cooldown";
@@ -338,19 +367,25 @@ export function kickRefusal(actor: GuildActor & { lastKick: number | null }, tar
 export const nextKickAt = (actor: { rank: GuildRank; lastKick: number | null }, now: number): number =>
   actor.rank >= GUILD_RANK.leader || actor.lastKick === null ? now : Math.max(now, actor.lastKick + GUILD_KICK_COOLDOWN_S);
 
-/** Promoting a Member to Officer: the leader only (open point 2's default). */
+/**
+ * Promoting a member one rank up: an Officer or the Leader, to a rank under their own (an Officer up to Veteran, the Leader up to
+ * Officer). An Officer goes no higher: only Make leader raises them.
+ */
 export function promoteRefusal(actor: GuildActor, target: GuildActor): GuildRefusal | null {
   if (actor.address === target.address) return "self";
-  if (actor.rank < GUILD_RANK.leader) return "rank";
-  if (target.rank !== GUILD_RANK.member) return "not-a-member";
+  if (actor.rank < GUILD_RIGHTS.promote) return "rank";
+  if (!ranksAbove(actor.rank, target.rank)) return "rank-not-above";
+  const next = rankAbove(target.rank);
+  if (next === null || next >= GUILD_RANK.leader || !ranksAbove(actor.rank, next)) return "top-rank";
   return null;
 }
 
-/** Demoting an Officer to Member: the leader only. */
+/** Demoting a member one rank down: an Officer or the Leader, on a member they rank strictly above, down to Recruit. */
 export function demoteRefusal(actor: GuildActor, target: GuildActor): GuildRefusal | null {
   if (actor.address === target.address) return "self";
-  if (actor.rank < GUILD_RANK.leader) return "rank";
-  if (target.rank !== GUILD_RANK.officer) return "not-an-officer";
+  if (actor.rank < GUILD_RIGHTS.promote) return "rank";
+  if (!ranksAbove(actor.rank, target.rank)) return "rank-not-above";
+  if (rankBelow(target.rank) === null) return "bottom-rank";
   return null;
 }
 
@@ -376,15 +411,15 @@ export function announcementTextRefusal(text: string): GuildRefusal | null {
   return null;
 }
 
-/** Posting an announcement: an officer or the leader. */
+/** Posting an announcement: a Veteran or above. */
 export function postAnnouncementRefusal(actor: GuildRank, text: string): GuildRefusal | null {
-  if (actor < GUILD_RANK.officer) return "rank";
+  if (actor < GUILD_RIGHTS.post) return "rank";
   return announcementTextRefusal(text);
 }
 
-/** Editing or deleting an announcement (`text` null: deleting): an officer their own, the leader all. */
+/** Editing or deleting an announcement (`text` null: deleting): a Veteran or an Officer their own, the leader all. */
 export function editAnnouncementRefusal(actor: GuildActor, author: string, text: string | null): GuildRefusal | null {
-  if (actor.rank < GUILD_RANK.officer) return "rank";
+  if (actor.rank < GUILD_RIGHTS.post) return "rank";
   if (actor.rank < GUILD_RANK.leader && actor.address !== author) return "not-author";
   return text === null ? null : announcementTextRefusal(text);
 }
@@ -418,8 +453,8 @@ export const guildScore = (members: readonly { crowns: number }[]): number => me
 
 /**
  * The leader's rotation (open point 9's default, as Clash Royale): when the leader has not played for 35 days, the
- * longest-serving officer who played within them becomes leader, or else the longest-serving such member. Null: the leader
- * stays (they played, or no one else did).
+ * longest-serving member of the highest rank who played within them becomes leader (an Officer, else a Veteran, a Member, a
+ * Recruit). Null: the leader stays (they played, or no one else did).
  */
 export function rotatedLeader(members: readonly GuildRosterEntry[], now: number): string | null {
   const leader = members.find((m) => m.rank >= GUILD_RANK.leader);
@@ -427,7 +462,11 @@ export function rotatedLeader(members: readonly GuildRosterEntry[], now: number)
   const active = members.filter((m) => m !== leader && now - m.lastSeen < GUILD_LEADER_IDLE_S);
   const first = (rank: GuildRank) =>
     active.filter((m) => m.rank === rank).sort((a, b) => a.joinedAt - b.joinedAt || (a.address < b.address ? -1 : 1))[0] ?? null;
-  return (first(GUILD_RANK.officer) ?? first(GUILD_RANK.member))?.address ?? null;
+  for (const rank of [...GUILD_RANKS].reverse()) {
+    const next = rank < GUILD_RANK.leader ? first(rank) : null;
+    if (next) return next.address;
+  }
+  return null;
 }
 
 // --- Finding guilds --------------------------------------------------------------------------------------------------

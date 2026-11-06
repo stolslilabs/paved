@@ -36,4 +36,4 @@ export const HERO_PAGES: readonly string[] = ["welcome"];
  * The pages drawn as the HUD's drawer (MISSIONS-PAGE, `PageDef.drawer`): their header is the drawer's band (its title, the page's
  * balances at its end), not `PageHeader`, and its height is the band's own, not `--header-h`.
  */
-export const DRAWER_PAGES: readonly string[] = ["pvp-league", "missions", "village-shop", "tiles", "chat", "friends"];
+export const DRAWER_PAGES: readonly string[] = ["pvp-league", "missions", "village-shop", "tiles", "chat", "guild", "friends"];

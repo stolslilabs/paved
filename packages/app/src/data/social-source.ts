@@ -157,6 +157,8 @@ export interface GuildLogEntry {
   targetName: string | null;
   /** A kick's reason, or null. */
   reason: string | null;
+  /** A promotion's or a demotion's new rank (GUILD-PAGE's five ranks); null or left out: an Officer's (promoted) or a Member's (demoted). */
+  rank?: GuildRank | null;
 }
 
 /** A join request, as the officers and the leader see it. */

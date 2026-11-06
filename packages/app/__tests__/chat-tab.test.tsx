@@ -201,7 +201,8 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     // OTHER leads the guild, the player joins and is made an officer, THIRD joins and writes.
     const gid = await social.createGuild(OTHER, draft());
     await social.joinGuild(me, gid);
-    await social.promote(OTHER, me);
+    // GUILD-PAGE's five ranks: Recruit, then Member, Veteran, Officer.
+    for (let i = 0; i < 3; i++) await social.promote(OTHER, me);
     await social.joinGuild(THIRD, gid);
     // A minute later, so that the member's line is newer than the player's join: unread.
     clock.now += 60;

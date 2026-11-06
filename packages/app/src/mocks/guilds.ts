@@ -1,4 +1,4 @@
-import { GUILD_ANNOUNCEMENT_MAX, GUILD_DESCRIPTION_MAX, GUILD_KICK_COOLDOWN_S, GUILD_NAME_MAX, GUILD_RANK } from "@paved/game-core";
+import { GUILD_ANNOUNCEMENT_MAX, GUILD_DESCRIPTION_MAX, GUILD_KICK_COOLDOWN_S, GUILD_NAME_MAX, GUILD_RANK, type GuildRank } from "@paved/game-core";
 import type { GuildFinderProps } from "../components/containers/guild-finder";
 import { NO_GUILD_FILTERS } from "../components/containers/guild-finder";
 import type { GuildPageProps } from "../components/containers/guild-page";
@@ -27,8 +27,8 @@ const masonOf = (address: string): PublicProfile | null => {
 const person: GuildPeople = (address) => communityProfile(address, GUILD_NOW) ?? masonOf(address) ?? { address, name: null, look: null, level: 1, crowns: 0, league: 0, score: 0, lastSeen: GUILD_NOW - 3_600 };
 const at = (index: number) => addressKey(community()[index]!.address);
 
-/** Community indexes in The Quarrymen (Open): its leader, an officer, a member; and players in no guild. */
-const QUARRY = { leader: 48, officer: 24, member: 21 };
+/** Community indexes in The Quarrymen (Open): its leader, an officer, a veteran, a member, a recruit; and players in no guild. */
+const QUARRY = { leader: 48, officer: 24, veteran: 22, member: 21, recruit: 23 };
 const GUILDLESS = [5, 6, 8, 13, 14, 16];
 
 const byName = (w: GuildWorld, name: string) => w.guilds.find((g) => g.name === name)!;
@@ -44,6 +44,12 @@ function storyWorld(): GuildWorld {
   requestToJoinIn(write(GUILDLESS[3]!), byName(w, "The Quarrymen").id, "");
   inviteIn({ ...write(QUARRY.officer), now: GUILD_NOW - 86_400 }, at(GUILDLESS[4]!));
   inviteIn({ ...write(19), now: GUILD_NOW - 3_600 }, at(GUILDLESS[0]!));
+  // GUILD-PAGE's five ranks on the roster: a Veteran, and the last two who joined still Recruits.
+  const quarry = byName(w, "The Quarrymen");
+  const rank = (index: number, r: GuildRank) => (quarry.members.find((m) => m.address === at(index))!.rank = r);
+  rank(QUARRY.veteran, GUILD_RANK.veteran);
+  rank(QUARRY.recruit, GUILD_RANK.recruit);
+  rank(4, GUILD_RANK.recruit);
   return w;
 }
 
@@ -90,8 +96,12 @@ function visitor(name: string, index: number, w: GuildWorld = WORLD, candidate: 
 
 /** The guild page's states (#953). */
 export const GUILD_PAGE = {
-  /** A Member of The Quarrymen: the announcements, the members, the log, Leave; no officer's part. */
+  /** A Recruit of The Quarrymen (GUILD-PAGE's five ranks): the announcements, the members, the log, Leave; no Invite. */
+  recruit: { guild: view("The Quarrymen", at(QUARRY.recruit)), me: at(QUARRY.recruit), now: GUILD_NOW },
+  /** A Member of The Quarrymen: the announcements, the members, the log, Invite a player, Leave; no Requests. */
   member: { guild: view("The Quarrymen", at(QUARRY.member)), me: at(QUARRY.member), now: GUILD_NOW },
+  /** A Veteran: the requests and the invitations sent, Post; no kick or promotion. */
+  veteran: { guild: view("The Quarrymen", at(QUARRY.veteran)), me: at(QUARRY.veteran), now: GUILD_NOW },
   /** An Officer: the requests and the invitations sent, Post. */
   officer: { guild: view("The Quarrymen", at(QUARRY.officer)), me: at(QUARRY.officer), now: GUILD_NOW },
   /** The Leader: every announcement's Edit and Delete, the settings; Leave waits for a new leader. */
@@ -168,12 +178,14 @@ const targetOf = (index: number, v: GuildView | null, invited = false) => {
 
 /** The profile's guild actions (#953), per rank of the viewer and of the player shown. */
 export const GUILD_ACTIONS = {
-  /** The Leader on a Member: Promote, Make leader, Kick. */
+  /** The Leader on a Member: Promote to Veteran, Demote to Recruit, Make leader, Kick. */
   leaderOnMember: { viewer: viewerOf(GUILD_PAGE.leader.guild, at(QUARRY.leader)), target: targetOf(QUARRY.member, GUILD_PAGE.leader.guild), now: GUILD_NOW },
-  /** The Leader on an Officer: Demote, Make leader, Kick. */
+  /** The Leader on an Officer: Demote to Veteran, Make leader, Kick. */
   leaderOnOfficer: { viewer: viewerOf(GUILD_PAGE.leader.guild, at(QUARRY.leader)), target: targetOf(QUARRY.officer, GUILD_PAGE.leader.guild), now: GUILD_NOW },
-  /** An Officer on a Member: Kick only. */
+  /** An Officer on a Member (GUILD-PAGE's five ranks): Promote to Veteran, Demote to Recruit, Kick. */
   officerOnMember: { viewer: viewerOf(GUILD_PAGE.officer.guild, at(QUARRY.officer)), target: targetOf(QUARRY.member, GUILD_PAGE.officer.guild), now: GUILD_NOW },
+  /** An Officer on a Veteran (GUILD-PAGE's five ranks): Demote to Member, Kick; no Promote (Officer is not under their rank). */
+  officerOnVeteran: { viewer: viewerOf(GUILD_PAGE.officer.guild, at(QUARRY.officer)), target: targetOf(QUARRY.veteran, GUILD_PAGE.officer.guild), now: GUILD_NOW },
   /** An Officer who kicked 15 minutes ago: the next kick waits 5 more. */
   officerCooldown: { viewer: viewerOf(GUILD_PAGE.officer.guild, at(QUARRY.officer), GUILD_NOW - 15 * 60 + GUILD_KICK_COOLDOWN_S), target: targetOf(QUARRY.member, GUILD_PAGE.officer.guild), now: GUILD_NOW },
   /** An Officer on the Leader: nothing (they do not rank above). */
