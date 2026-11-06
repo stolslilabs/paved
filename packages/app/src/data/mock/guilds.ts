@@ -140,10 +140,10 @@ export interface StoredGuildPlayer {
 }
 
 /**
- * The stored world's version: 2 since GUILD-PAGE's five ranks (Recruit 0, Member 1, Veteran 2, Officer 3, Leader 4). Version 1
- * held three (Member 1, Officer 2, Leader 4): `parseGuildWorld` upgrades it once, its Officers to 3.
+ * The stored world's version: 3 since GUILD-PAGE's five ranks (Recruit 0, Member 1, Veteran 2, Officer 3, Leader 4) and their upgrade
+ * (#1030). Versions 1 and 2 go through `parseGuildWorld`'s upgrade once (`upgradeGuildWorld`); every world written since says 3.
  */
-export const GUILD_WORLD_VERSION = 2;
+export const GUILD_WORLD_VERSION = 3;
 
 export interface GuildWorld {
   version: typeof GUILD_WORLD_VERSION;
@@ -268,36 +268,24 @@ export const seededGuildWorld = (): GuildWorld => ({ version: GUILD_WORLD_VERSIO
 const LEGACY_OFFICER = 2;
 
 /**
- * Whether a member stored at 2 in a version-1 world is an Officer of version 1's three ranks (Member 1, Officer 2, Leader 4) rather
- * than a Veteran of GUILD-PAGE's five. The client of GUILD-PAGE (#1027) wrote the five ranks under version 1 until the version came
- * (#1030), on top of the worlds the devices held: one world, one guild even, can hold both, so each member is judged on their own.
- * What tells them apart, every write of the five ranks coming after every write of the three:
- * - the five ranks bring a member to 2 only by a promotion or a demotion logged with its new rank; a joining gives 0, a change of
- *   leader 3 or 4. Version 1 logged its promotions and demotions without a rank, and its leaders stepped down to 2;
- * - so the member's latest retained change decides: a promotion or a demotion logged with rank 2, a Veteran; one logged without a
- *   rank, an Officer; their founding or a change of leader naming them (the leader stepping down to 2 since), an Officer;
- * - none retained (the log keeps its last `GUILD_LOG_KEPT`, oldest out first): when the log still holds a promotion or a demotion
- *   without a rank, it reaches back into version 1's time, so the member's change is older still, an Officer;
- * - else nothing tells: they stay at 2, a Veteran, the lower rank. Never an Officer's rights on a guess; a leader promotes again.
+ * Whether a member stored at 2 in a world of version 1 or 2 is a Veteran of GUILD-PAGE's five ranks, by vintage (#1030, the
+ * Overseer's ruling): the Veteran did not exist before GUILD-PAGE (#1027, merged 2026-11-06 06:42 UTC), and its client logged every
+ * promotion and demotion with its new rank. A Veteran in such a world was made one after that merge, so their change is recent and
+ * still in the log: a 2 with a promotion or a demotion to Veteran logged is a Veteran. Any other 2 (version 1's Officers, their
+ * changes logged without a rank, aged out of the log or never logged) is version 1's Officer. GUILD-PAGE's client stored its worlds
+ * under version 1 still; version 2 is this upgrade's first form: both read the same.
  */
-function legacyOfficerAtTwo(g: StoredGuild, address: string): boolean {
-  const changes = g.log.filter((e) => e.kind === "promoted" || e.kind === "demoted");
-  const theirs = g.log.filter(
-    (e) => ((e.kind === "promoted" || e.kind === "demoted") && e.target === address) || (e.kind === "created" && e.actor === address) || (e.kind === "leader" && (e.actor === address || e.target === address)),
-  );
-  const last = theirs.at(-1);
-  if (last) return last.kind === "created" || last.kind === "leader" || last.rank === undefined;
-  return changes.some((e) => e.rank === undefined);
-}
+const veteranAtTwo = (g: StoredGuild, address: string): boolean =>
+  g.log.some((e) => (e.kind === "promoted" || e.kind === "demoted") && e.target === address && e.rank === GUILD_RANK.veteran);
 
 /**
- * A version-1 world upgraded to the current version (a copy): its Officers (2) keep their rank, now 3, so they keep their kicks and
- * promotions instead of reading back as Veterans (#1030); its Veterans (2, written by GUILD-PAGE's client) stay Veterans
- * (`legacyOfficerAtTwo`). Done once: the upgraded world says version 2 and is stored so at the next write.
+ * A world of version 1 or 2 upgraded to the current version (a copy): its Officers (2) keep their rank, now 3, so they keep their kicks
+ * and promotions instead of reading back as Veterans (#1030); its Veterans (2, `veteranAtTwo`) stay Veterans. Done once: the upgraded
+ * world says version 3 and is stored so at the next write, and a world of version 3 is never upgraded.
  */
 function upgradeGuildWorld(stored: Omit<GuildWorld, "version">): GuildWorld {
   const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };
-  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && legacyOfficerAtTwo(g, m.address)) m.rank = GUILD_RANK.officer;
+  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && !veteranAtTwo(g, m.address)) m.rank = GUILD_RANK.officer;
   return w;
 }
 
@@ -306,7 +294,7 @@ export function parseGuildWorld(stored: unknown): GuildWorld | null {
   const w = stored as { version?: unknown; guilds?: unknown; players?: unknown } | null | undefined;
   if (!w || typeof w !== "object" || !Array.isArray(w.guilds) || typeof w.players !== "object" || w.players === null) return null;
   if (w.version === GUILD_WORLD_VERSION) return w as GuildWorld;
-  return w.version === 1 ? upgradeGuildWorld(w as unknown as Omit<GuildWorld, "version">) : null;
+  return w.version === 1 || w.version === 2 ? upgradeGuildWorld(w as unknown as Omit<GuildWorld, "version">) : null;
 }
 
 // --- Lookups ---------------------------------------------------------------------------------------------------------
