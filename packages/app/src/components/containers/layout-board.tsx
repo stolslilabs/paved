@@ -55,6 +55,8 @@ export interface LayoutBoardProps {
   /** The tile under the bubble tapped: let go, it stays where it is. */
   onPending?: () => void;
   className?: string;
+  /** Room kept at the plan's left inside its scroll region, CSS px (edit mode's points over it, #1033): the plan scrolls out from under it. */
+  padLeft?: number;
 }
 
 /**
@@ -79,6 +81,10 @@ const MIN_CELL = 46;
 /** The empty rings around the tiles: room for the plates while editing, the fog's roll-off in the view. */
 const RINGS = 2;
 
+/** The plan's padding (`p-4`), CSS px; `safe center`: a board wider than the screen scrolls from its edge, not from a centre cut off. */
+const PAD_PX = 16;
+const PLACE = { placeItems: "safe center" } as const;
+
 /** How far a press may move and stay a press, px (the renderer's click threshold): past it, it is a pan or a scroll. */
 const PRESS_SLOP_PX = 5;
 
@@ -89,7 +95,7 @@ const PRESS_SLOP_PX = 5;
  * (plates, `data-cell`), a tap places it on one (ringed, under the bubble, #756), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onPlate, onPending, className }: LayoutBoardProps) {
+function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onPlate, onPending, className, padLeft = 0 }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is: before its first paint, then after each paint
   // that changed its size, where the layout is read already (read in the commit, it forced one: a long task for a whole new
@@ -234,7 +240,7 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
 
   return (
     // `safe center`: a board wider than the screen scrolls from its edge, not from a centre cut off on both sides.
-    <ScrollRegion orientation="both" className={cn("grid size-full bg-board p-4", className)} style={{ placeItems: "safe center" }}>
+    <ScrollRegion orientation="both" className={cn("grid size-full bg-board p-4", className)} style={padLeft ? { placeItems: "safe center", paddingLeft: padLeft + PAD_PX } : PLACE}>
       <div
         ref={grid}
         role={editing || presses.shown ? "group" : "img"}

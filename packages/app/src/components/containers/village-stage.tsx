@@ -108,34 +108,63 @@ const BUBBLE_ROOM_DESKTOP_PX = 132;
 /** The gap kept between the village and the HUD's sides and the panel, CSS px. */
 const FRAME_GAP_PX = 8;
 
+/** The plan view's still bubble over the panel (`EditPanel`'s `above`: 44 px buttons, its padding and its 12 px gap), CSS px. */
+const STILL_BUBBLE_PX = 64;
+
 /**
- * Edit mode's room for the 3D village (EDIT-VILLAGE): from the box's top to under the bar with the bubble's room, and from the panel's
- * edge to the box's (a phone's drawer at the foot, the side menu at the right), measured as they draw (the drawer folds and opens, a
- * refusal grows the panel), the camera framed once they settle; null in view (the renderer's own insets).
+ * What edit mode's overlays cover of the scene's box, CSS px from its edges: the floating bar at the top (0 docked in the side menu's
+ * head), a phone's sheet at the foot, the side menu at the right, the points' column at the top left (`points`: its right edge);
+ * `wide`: from `desktop`.
  */
-function useEditFrame(box: RefObject<HTMLDivElement | null>, editing: boolean): FrameInsets | null {
-  const [frame, setFrame] = useState<FrameInsets | null>(null);
+interface EditCover {
+  top: number;
+  bottom: number;
+  right: number;
+  points: number;
+  wide: boolean;
+}
+
+/** The 3D village's frame in the room the overlays leave (EDIT-VILLAGE): under the bar the room for the tile's bubble, a gap elsewhere. */
+function frameOf(cover: EditCover | null): FrameInsets | null {
+  if (!cover) return null;
+  return {
+    top: cover.top + (cover.wide ? BUBBLE_ROOM_DESKTOP_PX : BUBBLE_ROOM_PX),
+    bottom: cover.bottom + FRAME_GAP_PX,
+    left: FRAME_GAP_PX,
+    right: cover.right + FRAME_GAP_PX,
+  };
+}
+
+/**
+ * What edit mode's bar and panel cover of the scene (EDIT-VILLAGE): from the box's top to under the bar, and from the panel's edge to
+ * the box's (a phone's drawer at the foot, the side menu at the right), measured as they draw (the drawer folds and opens, a refusal
+ * grows the panel), told once they settle; null in view. The 3D village frames its camera in the rest (`frameOf`); the plan view, which
+ * has no camera, is confined to it (#1033), so no tile sits under them.
+ */
+function useEditCover(box: RefObject<HTMLDivElement | null>, editing: boolean): EditCover | null {
+  const [cover, setCover] = useState<EditCover | null>(null);
   useLayoutEffect(() => {
     const el = box.current;
-    if (!editing || !el || typeof ResizeObserver === "undefined") return setFrame(null);
+    if (!editing || !el || typeof ResizeObserver === "undefined") return setCover(null);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const measure = () => {
       const b = el.getBoundingClientRect();
       const bar = el.querySelector("[data-edit-bar] header")?.getBoundingClientRect();
       const panel = el.querySelector("[data-edit-panel] > div")?.getBoundingClientRect();
       if (!bar || !panel || !(b.height > 0)) return;
-      const room = b.width >= 1024 ? BUBBLE_ROOM_DESKTOP_PX : BUBBLE_ROOM_PX;
       // The panel a side menu at the right (from `tablet`), not a phone's sheet; the bar docked in its head: nothing over the village
       // but the room for the tile's actions. Read from their marks, not their places (a tablet's menu is half the screen, to the pixel).
       const aside = el.querySelector("[data-edit-panel]")?.getAttribute("data-edit-panel") === "side";
       const docked = el.querySelector("[data-edit-bar]")?.getAttribute("data-edit-bar") === "docked";
-      const next = {
-        top: Math.round((docked ? 0 : bar.bottom - b.top) + room),
-        bottom: aside ? FRAME_GAP_PX : Math.round(b.bottom - panel.top + FRAME_GAP_PX),
-        left: FRAME_GAP_PX,
-        right: aside ? Math.round(b.right - panel.left + FRAME_GAP_PX) : FRAME_GAP_PX,
+      const points = el.querySelector("[data-edit-points]")?.getBoundingClientRect();
+      const next: EditCover = {
+        top: docked ? 0 : Math.max(0, Math.round(bar.bottom - b.top)),
+        bottom: aside ? 0 : Math.max(0, Math.round(b.bottom - panel.top)),
+        right: aside ? Math.max(0, Math.round(b.right - panel.left)) : 0,
+        points: points ? Math.max(0, Math.round(points.right - b.left)) : 0,
+        wide: b.width >= 1024,
       };
-      setFrame((f) => (f && f.top === next.top && f.bottom === next.bottom && f.right === next.right ? f : next));
+      setCover((f) => (f && f.top === next.top && f.bottom === next.bottom && f.right === next.right && f.points === next.points && f.wide === next.wide ? f : next));
     };
     // The first measure at once; then once the drawer's fold or a resize has settled.
     const settle = () => {
@@ -148,7 +177,7 @@ function useEditFrame(box: RefObject<HTMLDivElement | null>, editing: boolean): 
     // The bar and the panel, observed as they come (the panel is a chunk of its own, after the first measure).
     const seen = new Set<Element>();
     const watch = () => {
-      for (const part of el.querySelectorAll("[data-edit-bar] header, [data-edit-panel] > div")) {
+      for (const part of el.querySelectorAll("[data-edit-bar] header, [data-edit-panel] > div, [data-edit-points]")) {
         if (seen.has(part)) continue;
         seen.add(part);
         observer.observe(part);
@@ -164,7 +193,7 @@ function useEditFrame(box: RefObject<HTMLDivElement | null>, editing: boolean): 
       arrivals.disconnect();
     };
   }, [box, editing]);
-  return frame;
+  return cover;
 }
 
 export default function VillageStage({ village, editable, ...props }: VillageStageProps) {
@@ -237,7 +266,8 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   // The home's bubble is the book's (EDIT-VILLAGE): the village page keeps the boards'.
   const bubble = useMemo(() => (scene && editor.bubble ? { ...editor.bubble, look: "village" as const } : null), [scene, editor.bubble]);
   const boxRef = useRef<HTMLDivElement>(null);
-  const frame = useEditFrame(boxRef, editing && scene);
+  const cover = useEditCover(boxRef, editing && !!village);
+  const frame = useMemo(() => (scene ? frameOf(cover) : null), [scene, cover]);
   // From `desktop` the bar is the side menu's head (the owner's asks of 2026-11-05).
   const docked = useDocked();
   const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press, camera, frame }), [editor.view, bubble, lit, press, camera, frame]);
@@ -285,6 +315,11 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
         }
       : undefined;
   const still = !scene && editor.bubble;
+  // The plan view in edit mode (#1033): its scroll region the room the bar and the panel leave, and above the still bubble over a
+  // phone's sheet while a tile is in hand; the points' column (at the top left, over it) its padding, so the plan scrolls out from under it too. Every tile and
+  // every lit cell can be scrolled into view and tapped.
+  const planBox = editing && cover ? { top: cover.top, right: cover.right, bottom: cover.bottom + (still && !cover.right ? STILL_BUBBLE_PX : 0) } : undefined;
+  const planPad = editing && cover ? cover.points : 0;
   return (
     <>
       {/*
@@ -300,8 +335,13 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
           ) : props.renderCanvas ? (
             props.renderCanvas(view, onDrawn)
           ) : (
-            // In view nothing on the plan is tapped: it fits the screen. The editor keeps the touch floor, and scrolls past it.
-            <LayoutBoard {...view} fit={!editing} tileArt={props.tileArt} className="absolute inset-0 bg-board" />
+            // In view nothing on the plan is tapped: it fits the screen. The editor keeps the touch floor, and scrolls past it, in the room
+            // its bar and panel leave (#1033).
+            <div className="absolute inset-0 bg-board">
+              <div data-plan-room className="absolute inset-0" style={planBox}>
+                <LayoutBoard {...view} fit={!editing} tileArt={props.tileArt} padLeft={planPad} />
+              </div>
+            </div>
           )}
         </div>
         {/* Over the canvas and under the editor's bar: the box alone, never the overlays nor the editor's panel. */}
