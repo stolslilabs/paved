@@ -12,7 +12,7 @@ import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { discardTile, preloadPages } from "./route-helpers";
 
-preloadPages("home", "play", "story", "story-board", "missions", "vault", "settings", "credits", "referral", "theme", "welcome");
+preloadPages("home", "play", "story", "story-board", "missions", "vault", "settings", "referral", "theme", "welcome");
 
 beforeEach(() => {
   localStorage.clear();
@@ -84,7 +84,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     const progress = recordRun(EMPTY_PROGRESS, TUTORIAL.levels[0]!, { campaignId: 1, levelIndex: 1, moves: [] }, TUTORIAL.levels[0]!.target);
     const router = open("/story/1/1", memoryStore({ [STORY_KEY]: JSON.stringify(progress), [PRESENTED_KEY]: JSON.stringify(["1-1"]) }));
     const end = await finishLevelOne();
-    await userEvent.click(within(end).getByRole("button", { name: "Next level" }));
+    await userEvent.click(within(end).getByRole("button", { name: "Next" }));
     await waitFor(() => expect(at(router)).toBe("/story/1/2"));
     // Level 2's deck presentation (the Story intro): its Back goes up.
     await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });
@@ -109,8 +109,8 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     ["/settings", "Settings", "/"],
   ])("%s opened directly: Back lands on %s's parent", async (path, title, parent) => {
     const router = open(path);
-    if (title === "Missions") {
-      // MISSIONS-PAGE: the HUD's drawer over the village, its Back the header band's first control, before the title.
+    if (title === "Missions" || title === "Settings") {
+      // MISSIONS-PAGE, SETTINGS-PAGE: the HUD's drawer over the village, its Back the header band's first control, before the title.
       const drawer = await screen.findByRole("dialog", { name: title }, { timeout: slow(5000) });
       expect(drawer.querySelector('[data-slot="sheet-header"] button')).toHaveAccessibleName("Back");
     } else {
@@ -137,7 +137,7 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
     // A link from the Vault's page (no page carries the dock, DOCK-UNDER-PAGES).
     await act(() => router.navigate("/settings"));
-    await screen.findByRole("heading", { level: 1, name: "Settings" }, { timeout: slow(5000) });
+    await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
     await back();
     await waitFor(() => expect(at(router)).toBe("/"));
   });

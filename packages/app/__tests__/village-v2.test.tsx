@@ -23,11 +23,10 @@ import {
   takeOffTile,
   trayOf,
 } from "../src/components/containers/layout-rules";
-import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
 import { ShopTiles } from "../src/components/containers/shop-tiles";
 import { PLAN } from "../src/mocks/village";
-import { INVENTORY, KEY_TILE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, MOVED_SPOT, OUTER_TILE, SHOP_PRICE, VILLAGE_CHESTS, VILLAGE_LAYOUT, VILLAGE_SHOP, fakeScore, lay } from "../src/mocks/village-v2";
+import { INVENTORY, KEY_TILE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, MOVED_SPOT, OUTER_TILE, SHOP_PRICE, VILLAGE_LAYOUT, VILLAGE_SHOP, fakeScore, lay } from "../src/mocks/village-v2";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 afterEach(cleanup);
@@ -120,15 +119,13 @@ describe("the v2 village's rules (#739)", () => {
 });
 
 describe("the v2 village scene (#739)", () => {
-  it("shows the score, the level and the slots used, with Edit, Chests and Shop", async () => {
-    const onOpenChests = vi.fn();
+  it("shows the score, the level and the slots used, with Edit and Shop (no Chests: they open where they are won, END-CHEST)", async () => {
     const onOpenShop = vi.fn();
-    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.growing} onOpenChests={onOpenChests} onOpenShop={onOpenShop} />));
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.growing} onOpenShop={onOpenShop} />));
     expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
     expect(screen.getByText("Village score")).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole("button", { name: "Chests, 2 waiting" })[0]!);
+    expect(screen.queryByRole("button", { name: /^Chests/ })).toBeNull();
     await userEvent.click(screen.getAllByRole("button", { name: /Shop/ })[0]!);
-    expect(onOpenChests).toHaveBeenCalledTimes(1);
     expect(onOpenShop).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("list", { name: "Inventory tiles" })).toBeNull();
   });
@@ -138,14 +135,14 @@ describe("the v2 village scene (#739)", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]!);
     expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
     const inventory = screen.getByRole("region", { name: "Inventory tiles" });
-    await userEvent.click(within(inventory).getByRole("button", { name: /^Tile 10, 4 left$/ }));
+    await userEvent.click(within(inventory).getByRole("button", { name: /^Long road, 4 left$/ }));
     // The board's cells by their marks: a role query over a few hundred cells is slow in jsdom.
     const plates = document.querySelectorAll<HTMLButtonElement>('[data-kind="plate"]');
     expect(plates.length).toBe(legalSpots(LAYOUT_GROWING.tiles, PLAN.road).length);
     await userEvent.click(plates[0]!);
     // Placed by the tap: the slot taken, the card counted, Save enabled, the score moved.
     expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
-    expect(within(inventory).getByRole("button", { name: /^Tile 10, 3 left$/ })).toBeInTheDocument();
+    expect(within(inventory).getByRole("button", { name: /^Long road, 3 left$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
     const bubble = screen.getByRole("toolbar", { name: "Tile" });
     expect(within(bubble).queryByRole("button", { name: "Hold to place the tile" })).toBeNull();
@@ -161,7 +158,7 @@ describe("the v2 village scene (#739)", () => {
     // Plan 9 on a cell where it grows the score.
     const spot = legalSpots(LAYOUT_GROWING.tiles, 9).find((c) => layoutScore(placeTile(LAYOUT_GROWING.tiles, 9, c.orientations.includes(1) ? 1 : c.orientations[0]!, c)) !== LAYOUT_GROWING.score)!;
     const placed = placeTile(LAYOUT_GROWING.tiles, 9, spot.orientations.includes(1) ? 1 : spot.orientations[0]!, spot);
-    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Tile 9, 2 left$/ }));
+    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Town road, 2 left$/ }));
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-kind="plate"][data-cell="${spot.x},${spot.y}"]`)!);
     expect(screen.getByText(/^saved/)).toBeInTheDocument();
     expect(screen.getByText("Layout score").closest("div")).toHaveTextContent(formatInteger(layoutScore(placed)));
@@ -186,10 +183,10 @@ describe("the v2 village scene (#739)", () => {
     expect(document.querySelector(`[data-cell="${to}"]`)).toHaveAttribute("data-kind", "tile");
     // The card again: the next copy in hand, placed by its own tap.
     const inventory = screen.getByRole("region", { name: "Inventory tiles" });
-    await userEvent.click(within(inventory).getByRole("button", { name: /^Tile 10, 3 left$/ }));
+    await userEvent.click(within(inventory).getByRole("button", { name: /^Long road, 3 left$/ }));
     await userEvent.click(plates()[0]!);
     expect(screen.getAllByLabelText("23 of 28 slots used").length).toBeGreaterThan(0);
-    expect(within(inventory).getByRole("button", { name: /^Tile 10, 2 left$/ })).toBeInTheDocument();
+    expect(within(inventory).getByRole("button", { name: /^Long road, 2 left$/ })).toBeInTheDocument();
   });
 
   it("Back to the inventory frees the slot; Escape sends an inventory tile back too", async () => {
@@ -293,7 +290,7 @@ describe("the v2 village scene (#739)", () => {
     // Sent back: a slot is free, one inventory tile can go down, and then the slots are full again.
     await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
     expect(screen.getAllByLabelText("19 of 20 slots used").length).toBeGreaterThan(0);
-    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Tile 10, \d+ left$/ }));
+    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Long road, \d+ left$/ }));
     await userEvent.click(document.querySelector<HTMLButtonElement>('[data-kind="plate"]')!);
     expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
     for (const card of cards()) expect(card).toHaveAttribute("aria-disabled", "true");
@@ -313,130 +310,6 @@ describe("the v2 village scene (#739)", () => {
   });
 });
 
-describe("the chests (#739, #784)", () => {
-  it("opens a ready chest in the modal on arrival: Tap to open", async () => {
-    const onOpen = vi.fn();
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.waiting} onOpen={onOpen} />));
-    const modal = screen.getByRole("dialog", { name: "Epic chest" });
-    expect(within(modal).getByText("Tap to open")).toBeInTheDocument();
-    await userEvent.click(within(modal).getByRole("button", { name: /Open the epic chest: one of 3 tiles/ }));
-    expect(onOpen).toHaveBeenCalledWith(41);
-  });
-
-  it("keeps one of an epic chest's 3 tiles, chosen first", async () => {
-    const onTake = vi.fn();
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.epic} onTake={onTake} />));
-    const tiles = within(screen.getByRole("list", { name: "Chest tiles" })).getAllByRole("button");
-    expect(tiles).toHaveLength(3);
-    expect(screen.getByRole("button", { name: "Choose a tile" })).toBeDisabled();
-    await userEvent.click(tiles[1]!);
-    await userEvent.click(screen.getByRole("button", { name: /^Keep Tile 18$/ }));
-    expect(onTake).toHaveBeenCalledWith(41, 1);
-  });
-
-  it("gives a basic chest's one tile as it is, and says the Cobbles a chest held", async () => {
-    const onTake = vi.fn();
-    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.basic} onTake={onTake} />));
-    await userEvent.click(screen.getByRole("button", { name: /^Keep Tile 7$/ }));
-    expect(onTake).toHaveBeenCalledWith(39, 0);
-    unmount();
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.cobbles} />));
-    expect(screen.getByText("Cobbles in the chest!")).toBeInTheDocument();
-    expect(screen.getByLabelText("+50 Cobbles")).toBeInTheDocument();
-  });
-
-  it("says the tile taken, the day capped, and none waiting", () => {
-    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.taken} />));
-    expect(screen.getByRole("dialog", { name: "Added to your inventory" })).toBeInTheDocument();
-    unmount();
-    const { unmount: kept } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.kept} />));
-    expect(screen.getByText("Added to your inventory")).toBeInTheDocument();
-    kept();
-    const { unmount: capped } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.capped} />));
-    expect(screen.getByLabelText("0 of 3 left today")).toBeInTheDocument();
-    expect(screen.getByRole("timer", { name: /More chests in/ })).toBeInTheDocument();
-    capped();
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.empty} />));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByText("No chest waiting")).toBeInTheDocument();
-  });
-});
-
-describe("the chests' slots (#759, #784)", () => {
-  const slots = () => within(screen.getByRole("list", { name: "Today's PvP slots" })).getAllByRole("listitem").map((li) => li.getAttribute("aria-label"));
-
-  it("shows the day's three slots first: free outlines, then the chests won, with the reset ticking; no Waiting list", () => {
-    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.free} />));
-    expect(slots()).toEqual(["Slot 1: free", "Slot 2: free", "Slot 3: free"]);
-    expect(screen.getByRole("timer", { name: "Slots reset in 9:00:00" })).toBeInTheDocument();
-    unmount();
-    const { rerender } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.closed} />));
-    expect(slots()).toEqual(["Slot 1: won, epic chest", "Slot 2: won, rare chest", "Slot 3: free"]);
-    expect(screen.queryByRole("region", { name: /Waiting/ })).toBeNull();
-    expect(screen.getByLabelText("1 of 3 left today")).toBeInTheDocument();
-    // The clock ticks: the countdown follows `now`.
-    rerender(wrap(<VillageChestsScene {...VILLAGE_CHESTS.closed} now={VILLAGE_CHESTS.closed.now + 1} />));
-    expect(screen.getByRole("timer", { name: "Slots reset in 8:59:59" })).toBeInTheDocument();
-  });
-
-  it("says a won slot with no rank as won, and the rules in one line", () => {
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.noRanks} />));
-    expect(slots()).toEqual(["Slot 1: won", "Slot 2: won", "Slot 3: free"]);
-    expect(screen.getByText(/Basic: one tile · Rare: one of 2 · Epic: one of 3 · A chest may hold Cobbles\./)).toBeInTheDocument();
-  });
-
-  it("puts the countdown at the centre once the three are won, and pulses it in the last minute", () => {
-    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.capped} />));
-    const hero = screen.getByRole("region", { name: "Today's PvP chests" });
-    expect(hero).toHaveAttribute("data-state", "full");
-    // The countdown comes before the slots.
-    expect(screen.getByRole("timer").compareDocumentPosition(screen.getByRole("list", { name: "Today's PvP slots" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(hero.querySelector("[data-pulse]")).toBeNull();
-    unmount();
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.lastMinute} />));
-    expect(screen.getByRole("timer", { name: "More chests in 0:00:42" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Today's PvP chests" }).querySelector("[data-pulse]")).not.toBeNull();
-  });
-
-  it("keeps every frame still under reduced motion", () => {
-    render(
-      <MotionConfig reducedMotion="always">
-        {wrap(<VillageChestsScene {...VILLAGE_CHESTS.lastMinute} chests={VILLAGE_CHESTS.waiting.chests} initialModalOpen />)}
-      </MotionConfig>,
-    );
-    expect(screen.getByRole("dialog", { name: "Epic chest" })).toBeInTheDocument();
-    expect(document.querySelector("[data-pulse]")).toBeNull();
-    expect(document.querySelector("[data-shake]")).toBeNull();
-  });
-
-  it("says Ready at the reset, given or reached on the scene's clock", () => {
-    const { unmount } = render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.ready} />));
-    expect(within(screen.getByRole("region", { name: "Today's PvP chests" })).getByRole("status")).toHaveTextContent("Ready");
-    expect(slots()).toEqual(["Slot 1: free, ready", "Slot 2: free, ready", "Slot 3: free, ready"]);
-    expect(screen.queryByRole("timer")).toBeNull();
-    unmount();
-    // The read still says yesterday's 3: the clock at the reset frees the slots all the same.
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.capped} now={VILLAGE_CHESTS.capped.resetsAt} />));
-    expect(screen.getByLabelText("3 of 3 left today")).toBeInTheDocument();
-    expect(screen.getByText(/3 new chests to win today/)).toBeInTheDocument();
-  });
-
-  it("invites to attack when no chest waits: a button to the mode choice", async () => {
-    const onPlay = vi.fn();
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.empty} onPlay={onPlay} />));
-    expect(screen.getByText(/Win stars to fill a slot/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Choose a mode" }));
-    expect(onPlay).toHaveBeenCalledTimes(1);
-  });
-
-  it("draws the dial direction with the same slots and countdown", () => {
-    render(wrap(<VillageChestsScene {...VILLAGE_CHESTS.capped} look="dial" />));
-    expect(screen.getByRole("region", { name: "Today's PvP chests" })).toHaveAttribute("data-look", "dial");
-    expect(slots()).toHaveLength(3);
-    expect(screen.getByRole("timer", { name: /More chests in/ })).toBeInTheDocument();
-  });
-});
-
 describe("the daily shop (#739; SHOP-PAGE: the Shop's Tiles tab)", () => {
   it("offers 3 plans with their rarity, held and price, bought once each", async () => {
     const onBuy = vi.fn();
@@ -445,20 +318,20 @@ describe("the daily shop (#739; SHOP-PAGE: the Shop's Tiles tab)", () => {
     expect(offers).toHaveLength(3);
     expect(screen.getByText("Mythic")).toHaveAttribute("data-rarity", "mythic");
     expect(screen.getByRole("timer", { name: /New tiles in/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: `Buy Tile 17 for ${SHOP_PRICE.mythic} Cobbles` }));
+    await userEvent.click(screen.getByRole("button", { name: `Buy Crossroads for ${SHOP_PRICE.mythic} Cobbles` }));
     expect(onBuy).toHaveBeenCalledWith(2);
     unmount();
     render(wrap(<ShopTiles {...VILLAGE_SHOP.oneBought} />));
-    expect(screen.getByRole("listitem", { name: "Tile 10" })).toHaveAttribute("data-state", "bought");
-    expect(screen.getByRole("listitem", { name: "Tile 10" })).toHaveTextContent("Bought");
-    expect(screen.queryByRole("button", { name: /Buy Tile 10/ })).toBeNull();
+    expect(screen.getByRole("listitem", { name: "Long road" })).toHaveAttribute("data-state", "bought");
+    expect(screen.getByRole("listitem", { name: "Long road" })).toHaveTextContent("Bought");
+    expect(screen.queryByRole("button", { name: /Buy Long road/ })).toBeNull();
   });
 
   it("says what is missing when short of Cobbles, and Get Cobbles opens the Cobbles tab", async () => {
     const onGetCobbles = vi.fn();
     render(wrap(<ShopTiles {...VILLAGE_SHOP.short} onGetCobbles={onGetCobbles} />));
-    expect(screen.getByRole("button", { name: /Buy Tile 17/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Buy Tile 17/ })).toHaveAccessibleDescription(/^Need \d+ more$/);
+    expect(screen.getByRole("button", { name: /Buy Crossroads/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Buy Crossroads/ })).toHaveAccessibleDescription(/^Need \d+ more$/);
     await userEvent.click(screen.getByRole("button", { name: /Get Cobbles/ }));
     expect(onGetCobbles).toHaveBeenCalledOnce();
   });
@@ -468,7 +341,6 @@ describe("the v2 stories", () => {
   it("have one story per state of their fixtures", () => {
     for (const [file, name, fixtures] of [
       ["village-layout-scene", "VILLAGE_LAYOUT", VILLAGE_LAYOUT],
-      ["village-chests-scene", "VILLAGE_CHESTS", VILLAGE_CHESTS],
     ] as const) {
       const text = readFileSync(join(__dirname, `../src/components/scenes/${file}.stories.tsx`), "utf8");
       const stories = [...text.matchAll(new RegExp(`^export const (\\w+): Story = \\{ args: ${name}\\.(\\w+) \\};$`, "gm"))].map((m) => m[2]);

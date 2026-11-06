@@ -26,12 +26,13 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     // for the join types, the members and the new ranks (unlock, letter, members, sprout, medal), 14,600 for Post's pencil and the
     // log's door and removed member (pencil, joined, kicked); its pin is the chat's. EDIT-VILLAGE (2026-11-06): raised by exactly the
     // measured size of edit mode's copies, 40,932 bytes: the die, the bubble's Rotate, Back to the inventory and Cancel, the Layouts'
-    // padlock, the bar's Save and Erase (64 and 128 px each) and Use's gold pill (the frame `save-pill`, 48 and 128 px). PLAY-PAGE
-    // (2026-11-06): raised by exactly the measured size of its icons' copies (64 and 128 px): 6,970 bytes for the open gift
-    // (`gift-open`), 42,700 for the stake's burned coin, Vault, referral, top win and break even (`flow-burn`, `flow-vault`,
-    // `flow-referral`, `max-gain`: 31,500; `break-even`: 11,200), 8,392 for the split's coin and arrows (`money-flow`), 8,196 for the stake's money bag
-    // (`stake`).
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 6_970 + 42_700 + 8_392 + 8_196);
+    // padlock, the bar's Save and Erase (64 and 128 px each) and Use's gold pill (the frame `save-pill`, 48 and 128 px).
+    // SETTINGS-PAGE (2026-11-06): raised by exactly the copies of the Settings' eight row icons (graphics, ambient, skins, music,
+    // sound, tile-preview, highlight, grid), 49,176 bytes. PLAY-PAGE (2026-11-06): raised by exactly the measured size of its icons'
+    // copies (64 and 128 px): 6,970 bytes for the open gift (`gift-open`), 42,700 for the stake's burned coin, Vault, referral, top
+    // win and break even (`flow-burn`, `flow-vault`, `flow-referral`, `max-gain`: 31,500; `break-even`: 11,200), 8,392 for the
+    // split's coin and arrows (`money-flow`), 8,196 for the stake's money bag (`stake`).
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196);
   });
 
   it("ships the guild emblems' charges (GUILD-PAGE): as many as game-core's emblems, each a light mask", () => {

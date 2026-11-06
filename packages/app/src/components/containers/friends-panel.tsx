@@ -7,7 +7,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { FRIENDS_PARTS, GOLD_PILL_END, friendsPartImage } from "../elements/friends-art";
+import { goldPillStyle } from "../elements/friends-art";
 import { FriendsArt } from "../elements/friends-art-image";
 import { GuildEmblem } from "../elements/guild-emblem";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
@@ -67,19 +67,7 @@ export const GOLD_PILL = cn(PILL, "text-outline px-1 text-foreground");
 /** The gold pill's height in CSS px (`PILL`'s), its painted ends following it, never stretched. */
 const GOLD_PILL_PX = 32;
 /** The book's gold pill (`friends-art.ts`, the owner's ask of 2026-11-05) as a 3-slice: its rounded ends whole, its middle stretched. */
-export const GOLD_PILL_STYLE: CSSProperties = (() => {
-  const { width, height } = FRIENDS_PARTS["gold-pill"];
-  const end = `${((GOLD_PILL_END * GOLD_PILL_PX) / height).toFixed(2)}px`;
-  return {
-    borderStyle: "solid",
-    borderColor: "transparent",
-    borderWidth: `0 ${end}`,
-    borderImageSource: friendsPartImage("gold-pill"),
-    borderImageSlice: `0 ${((GOLD_PILL_END / width) * 100).toFixed(2)}% fill`,
-    borderImageWidth: `0 ${end}`,
-    borderImageRepeat: "stretch",
-  };
-})();
+export const GOLD_PILL_STYLE: CSSProperties = goldPillStyle(GOLD_PILL_PX);
 
 export interface PlayerPortraitProps {
   profile: Pick<PublicProfile, "name" | "address" | "look" | "league" | "crowns">;

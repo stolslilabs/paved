@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DeviceSettingsPanel, type DevicePreferences } from "../src/components/containers/device-settings-panel";
 import { DeviceSettingsSheet } from "../src/components/containers/device-settings-sheet";
 import { GameHud } from "../src/components/containers/game-hud";
-import { VolumeSlider, volumeIcon } from "../src/components/elements/volume-slider";
+import { VolumeSlider } from "../src/components/elements/volume-slider";
 import { closingSounds } from "../src/components/containers/board-sounds";
 import { createAudioEngine } from "../src/lib/audio/engine";
 import { SFX_NAMES, sfxUrl } from "../src/lib/audio/sfx";
@@ -22,12 +22,15 @@ const WAIT = { timeout: slow(1000) };
 /** A `VolumeSlider` on a state of its own, the way the parent keeps one number and the level before the mute. */
 function Harness({ start = 0.4 }: { start?: number }) {
   const [s, set] = useState({ ...DEFAULT_SETTINGS, musicVolume: start, musicBefore: start || 0.4 });
-  return <VolumeSlider label="Music" value={s.musicVolume} before={s.musicBefore} onChange={(v) => set(withVolume(s, "music", v))} />;
+  return <VolumeSlider label="Music" art="music" value={s.musicVolume} before={s.musicBefore} onChange={(v) => set(withVolume(s, "music", v))} />;
 }
 
 describe("VolumeSlider", () => {
-  it("steps the icon: crossed at 0, one wave below a half, two from a half", () => {
-    expect([0, 0.2, 0.49, 0.5, 1].map(volumeIcon)).toEqual(["volume-xmark", "volume-low", "volume-low", "volume-high", "volume-high"]);
+  it("crosses the painted icon while muted (SETTINGS-PAGE: the book's note and speaker in place of the waves)", async () => {
+    const { container } = render(<Harness start={0.4} />);
+    expect(container.querySelector('[data-icon="close"]')).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Mute music" }));
+    expect(container.querySelector('[data-icon="close"]')).not.toBeNull();
   });
 
   it("mutes on the icon and brings back the level before the mute", async () => {

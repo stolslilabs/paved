@@ -11,7 +11,7 @@ import { join } from "node:path";
  * this package (or `PAVED_E2E_URL`, a server already up with the same env):
  *
  *   bunx playwright-core install chromium-headless-shell   (once)
- *   bun run e2e -- pages-scroll   [PAVED_E2E_SHOTS=<folder>: the League and the Chests at 375 px, scrolled to their end]
+ *   bun run e2e -- pages-scroll   [PAVED_E2E_SHOTS=<folder>: the League at 375 px, scrolled to its end]
  *
  * - Each page's scene, with content taller than the screen (`pages-scroll/harness.tsx`: a long defence
  *   log, ...), at 375 x 812 in the tab frame (a phone: touch, dragged by a finger) and at 1440 x 900 in the home's side panel
@@ -19,7 +19,8 @@ import { join } from "node:path";
  *   flow below `desktop`: there the document is what scrolls (`FLOWS`), under its sticky top bar. Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
- * - Missions, the League and the Shop are the HUD's drawer at every width (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
+ * - Missions, the League, the Shop, Tiles and Settings (its Themes and Credits) are the HUD's drawer at every width (MISSIONS-PAGE,
+ *   LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
  *   stays put; from `tablet` its side panel has its close, by design.
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
@@ -28,10 +29,9 @@ import { join } from "node:path";
  * prints its line (page, width, figures): the pass's list of the PR.
  */
 
-const PAGES = ["shop", "chests", "league", "settings", "missions", "vault", "defence", "themes", "tiles", "referral", "credits", "play"] as const;
+const PAGES = ["shop", "league", "settings", "missions", "vault", "defence", "themes", "tiles", "referral", "credits", "play"] as const;
 const TITLES: Record<(typeof PAGES)[number], string> = {
   shop: "Forest",
-  chests: "Chests",
   league: "League",
   settings: "Settings",
   missions: "Missions",
@@ -51,7 +51,7 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
 const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play"]);
 
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });
@@ -70,8 +70,6 @@ const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: nu
   // height: an iPhone SE's 667 px, a 720 px laptop.
   league: { phone: 667, desktop: 720 },
   referral: { phone: 667, desktop: 667 },
-  // The Chests page with its modal closed (#784): the day's slots and the tile kept, no list since the modal took the chests.
-  chests: { phone: 548, desktop: 560 },
   // The mode choice's five rows, of fixed length too: an iPhone SE's view under Safari's bars (548 px),
   // a 560 px browser window.
   play: { phone: 548, desktop: 560 },
@@ -197,7 +195,7 @@ describe("at 375 x 812, every page scrolls in the tab frame to its last element 
     await page.setViewportSize({ width: 375, height });
     const result = await scrollPage(page, id, false, () => drag(cdp, 187, height - 200, 150));
     expectScrolled(`375 x ${height} ${id}${FLOWS.has(id) ? " (flow, the document)" : DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, FLOWS.has(id), DRAWERS.has(id));
-    if (shots && (id === "league" || id === "chests")) await page.screenshot({ path: join(shots, `375-${id}.png`) });
+    if (shots && id === "league") await page.screenshot({ path: join(shots, `375-${id}.png`) });
   });
 });
 
@@ -222,7 +220,7 @@ describe("at 1440 x 900, every side panel scrolls to its page's last element (#7
     expectScrolled(`1440 x ${height} ${id}${DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, false, DRAWERS.has(id));
     // The page panel has no close; the HUD's drawer has its own, by design (MISSIONS-PAGE).
     if (!DRAWERS.has(id)) expect(await page.getByRole("dialog").getByRole("button", { name: "Close" }).count()).toBe(0);
-    if (shots && (id === "league" || id === "chests")) await page.screenshot({ path: join(shots, `1440-${id}.png`) });
+    if (shots && id === "league") await page.screenshot({ path: join(shots, `1440-${id}.png`) });
   });
 });
 

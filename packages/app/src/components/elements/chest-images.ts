@@ -14,11 +14,18 @@ export type ChestLayer =
   | "body"
   | "icon";
 
-/** The opening's effects, shared by the ranks (white, so the code tints the light in the rank's colour). */
+/**
+ * The opening's effects, shared by the ranks (white, so the code tints the light in the rank's colour); and the games' ends' (END-SCREENS,
+ * the owner's ask of 2026-11-06, by Codex's image tool after the book's `attack-end`): the light behind a full star (its heart, its fine
+ * rays and three sparkles, extracted from the book's stars on black, the black turned to transparency) and the sparkle round it, gold,
+ * in their own colours.
+ */
 export type ChestEffect =
   | "rays"
   | "sparkle"
-  | "dust";
+  | "dust"
+  | "star-light"
+  | "glint";
 
 interface Frame {
   /** The master's size: an image takes its box before it loads. */
@@ -49,6 +56,8 @@ export const CHEST_EFFECTS = {
   rays: { width: 1024, height: 1024, side: "width", sizes: [320, 640] },
   sparkle: { width: 512, height: 512, side: "width", sizes: [64, 128] },
   dust: { width: 1024, height: 512, side: "width", sizes: [256, 512] },
+  "star-light": { width: 1024, height: 1024, side: "width", sizes: [384, 768] },
+  glint: { width: 256, height: 256, side: "width", sizes: [48, 96] },
 } as const satisfies Record<ChestEffect, Frame>;
 
 /**

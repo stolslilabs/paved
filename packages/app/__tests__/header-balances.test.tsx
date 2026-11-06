@@ -1,6 +1,6 @@
 import { routeOf } from "./route-helpers";
 import { slow } from "../test-slow";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
@@ -26,7 +26,6 @@ const TABLE: Record<string, readonly string[]> = {
   "play/challenge": ["usdc"],
   // SHOP-PAGE: the packs are the Shop's Cobbles tab, paid in USDC; the scene shows the tab's own set.
   "village/shop": ["cobbles", "usdc"],
-  "village/chests": ["cobbles"],
   missions: ["cobbles"],
   tiles: ["cobbles"],
   "settings/theme": ["cobbles"],
@@ -146,16 +145,16 @@ describe("the balances by page (#855)", () => {
   });
 });
 
-// A page under its sheet (BACK-RULE #783) keeps its own balances (#855): Settings shows none under Themes, whose sheet shows the
-// Cobbles. The shell's balances are the open sheet's; the page under it is drawn with its own route.
-it("Settings under the Themes sheet shows none, the sheet its own", async () => {
-  render(<App router={createTestRouter("/settings/theme")} sources={fakeSources().sources} />);
-  const sheet = (await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(20_000) })).closest("header")!;
-  // Under the modal sheet, the page is hidden from assistive technology.
-  const settings = (await screen.findByRole("heading", { level: 1, name: "Settings", hidden: true }, { timeout: slow(20_000) })).closest("header")!;
-  await waitFor(() => expect(within(sheet).getAllByRole("region", { name: "Balances" })).toHaveLength(2), { timeout: slow(5000) });
-  expect(within(settings).queryAllByRole("region", { name: "Balances", hidden: true })).toEqual([]);
-  expect(settings.querySelector("[data-slot=page-header-end]")!.children).toHaveLength(0);
+// SETTINGS-PAGE: Themes is a view of Settings' drawer; its header's end holds the Cobbles (its row's), Settings' own none.
+it("Settings' Themes view shows the Cobbles at its drawer's header end, Settings none", async () => {
+  const router = createTestRouter("/settings/theme");
+  render(<App router={router} sources={fakeSources().sources} />);
+  const drawer = await screen.findByRole("dialog", { name: "Themes" }, { timeout: slow(20_000) });
+  const end = () => drawer.querySelector<HTMLElement>("[data-slot=hud-drawer-end]");
+  await waitFor(() => expect(within(end()!).getAllByRole("region", { name: "Balances" }).length).toBeGreaterThan(0), { timeout: slow(5000) });
+  await act(() => router.navigate("/settings"));
+  await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
+  expect(end()).toBeNull();
 }, slow(30_000));
 
 // A test per row (#855): the page's header renders exactly its row's balances, a connected player's (vPAVED held), at 375 px (the

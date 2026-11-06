@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Icon } from "../ui/icon";
+import { UiIcon } from "../elements/ui-icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import type { TileRenders } from "../elements/tile-render";
 import { PLANS, chooseTheme, ownedCount, themeInUse } from "../containers/cobble-types";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
-import { TabPage } from "../containers/tab-page";
 import { THEMES, THEME_CODES, ThemeCard, type SkinThemeId, type ThemeId } from "../containers/theme-card";
 
 export type { SkinsStatus } from "../containers/skins-status";
@@ -41,16 +41,16 @@ export interface ThemeSceneProps {
   onMyTiles?: () => void;
   onConnect?: () => void;
   onRetry?: () => void;
-  onBack?: () => void;
 }
 
 /**
- * Themes (`/settings/theme`, from Settings): a card per theme with real tiles (Default, Forest), Snow, Desert and Volcano
+ * Themes (`/settings/theme`, from Settings › More; SETTINGS-PAGE: a view of the Settings drawer, which draws its header, Back to
+ * Settings and the red cross, and the Cobbles at its end; this is its body): a card per theme with real tiles (Default, Forest), Snow, Desert and Volcano
  * coming soon under a blur. Use puts every owned tile of a theme on the player's boards at once, the others on Default (the
  * owner's ruling of 2026-10-18), and asks first when that replaces a choice made tile by tile; a theme's Tiles is its shop;
  * My tiles chooses tile by tile.
  */
-export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, refusalDetail, onDismissRefusal, onUse, onOpen, onMyTiles, onConnect, onRetry, onBack }: ThemeSceneProps) {
+export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, refusalDetail, onDismissRefusal, onUse, onOpen, onMyTiles, onConnect, onRetry }: ThemeSceneProps) {
   const [confirm, setConfirm] = useState<{ theme: ThemeId; changes: Record<number, number> } | null>(null);
   const busy = applying != null;
   const use = (theme: ThemeId) => {
@@ -64,7 +64,7 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
   const activeSkins = skins ? skins.active.filter((t) => t !== 0).length : 0;
   const confirmName = confirm ? THEMES.find((t) => t.id === confirm.theme)!.name : "";
   return (
-    <TabPage title="Themes" onBack={onBack}>
+    <div data-slot="themes" className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">How your tiles look on the board.</p>
       {!skins && skinsStatus && skinsStatus.kind !== "loading" && (
         <SkinsStatusView status={skinsStatus} guestTitle="Connect to use themes" guestText="Themes are tiles bought with the Cobbles of your account, and kept on it." onConnect={onConnect} onRetry={onRetry} />
@@ -85,17 +85,18 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
         <button
           type="button"
           onClick={onMyTiles}
-          className="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors outline-none state-layer"
+          className="drawer-raised state-layer flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none"
         >
-          <Icon name="table-cells-large" size="md" className="text-primary" fixedWidth />
+          {/* The drawer's raised row (a press), Tiles' own painted icon: Tiles is where each tile's skin is chosen. */}
+          <UiIcon name="collection" px={32} className="drawer-icon size-8" />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-sm font-semibold">My tiles</span>
+            <span className="text-outline font-semibold">My tiles</span>
             <span className="text-xs text-muted-foreground">
               {custom ? "Your own mix: " : ""}
               <span className="numeric">{activeSkins}</span> of <span className="numeric">{PLANS}</span> tiles wear a skin. Choose tile by tile.
             </span>
           </span>
-          <Icon name="chevron-right" size="sm" className="text-muted-foreground" />
+          <Icon name="chevron-right" className="drawer-icon" />
         </button>
       )}
       <section aria-label="Themes" aria-busy={skinsStatus?.kind === "loading" || undefined} className="grid grid-cols-1 gap-3 tablet:grid-cols-2">
@@ -145,6 +146,6 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </TabPage>
+    </div>
   );
 }

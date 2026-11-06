@@ -42,7 +42,6 @@ const meta = {
     onEditingChange: fn(),
     onPlay: fn(),
     onMissions: fn(),
-    onChests: fn(),
     onShop: fn(),
     onVault: fn(),
     onFriends: fn(),

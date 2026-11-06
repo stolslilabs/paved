@@ -73,5 +73,8 @@ export const appRenders = (theme: number, key: string): string | null => {
   return path ? `${APP_ASSETS}/${path}` : null;
 };
 
+/** The chests' tile pictures in the stories and mocks (CHESTS-PAGE): each plan's angled render, the base theme's, by plan key. */
+export const angledTileArt = (key: string): string | null => appRenders(0, key);
+
 /** Forest's models per plan key (1 to 9), as `useThemeVariants` reads them. */
 export const FOREST_VARIANTS: Readonly<Record<string, number>> = Object.fromEntries(Object.entries(APP_MANIFEST.themes["1"] ?? {}).map(([key, files]) => [key, files.length]));

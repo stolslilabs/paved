@@ -23,7 +23,6 @@ vi.mock("../src/routes/page-loaders", () => {
       vault: loader("vault"),
       settings: loader("settings"),
       "village/shop": loader("shop"),
-      "village/chests": loader("chests"),
       "pvp/league": loader("league"),
     },
   };
@@ -107,10 +106,10 @@ describe("the idle prefetch of the tab pages", () => {
     expect(loads).toEqual([]);
     vi.advanceTimersByTime(200);
     expect(loads).toEqual(["home"]);
-    vi.advanceTimersByTime(200 * 7);
-    expect(loads).toEqual(["home", "missions", "vault", "shop", "chests", "play", "league", "settings"]);
+    vi.advanceTimersByTime(200 * 6);
+    expect(loads).toEqual(["home", "missions", "vault", "shop", "play", "league", "settings"]);
     vi.advanceTimersByTime(5000);
-    expect(loads).toHaveLength(8);
+    expect(loads).toHaveLength(7);
   });
 
   it("stops when cancelled", () => {

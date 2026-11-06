@@ -7,26 +7,22 @@ import PagePanel from "../src/components/containers/page-panel";
 import { CobblesScene } from "../src/components/scenes/cobbles-scene";
 import { TilesScene } from "../src/components/scenes/tiles-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
-import { CreditsScene } from "../src/components/scenes/credits-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ReferralScene } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
-import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
 import { COBBLES, MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../src/mocks/scenes";
-import { VILLAGE_CHESTS } from "../src/mocks/village-v2";
 import { SHOP } from "../src/mocks/shop";
 import { ShopScene } from "../src/components/scenes/shop-scene";
-import { titleOf } from "../src/lib/music/track-info";
-import { TRACKS } from "../src/lib/music/tracks";
 
 /**
  * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, the Vault and the second-level pages
  * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body); Missions in the HUD's
- * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE), and Play (PLAY-PAGE; no full-screen flow left). The page is drawn
+ * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE), the Shop (SHOP-PAGE), Settings with its views
+ * (SETTINGS-PAGE) and Play (PLAY-PAGE; no full-screen flow left). The page is drawn
  * straight in that region: its sticky header and its content are the region's own (no column of its own between them and the
  * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing out, so this test
  * reads the structure that lets a page scroll, not its overflow: the overflow itself (content taller than a 375 x 812 phone and
@@ -35,12 +31,8 @@ import { TRACKS } from "../src/lib/music/tracks";
  */
 const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
-  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
-  ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />],
   ["Vault", <VaultScene {...VAULT.position} />],
-  ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onUse={no()} onOpen={no()} />],
   ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
-  ["Credits", <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no()} />],
 ];
 
 const BALANCES = { state: { status: "ready", usdc: 0n, paved: 0n, cobbles: 640 }, faucet: false, show: { phone: true, desktop: "all" } } as const;
@@ -105,18 +97,27 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });
 
-  it("the Chests draw their content in the region: the day's slots", () => {
-    draw(PAGES.find(([title]) => title === "Chests")![1], false, "Chests");
-    // The page with the chest modal closed (#784): the day's three slots, under the sticky header.
-    const slots = screen.getByRole("list", { name: "Today's PvP slots" });
-    expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(slots);
-    expect(slots.querySelectorAll(":scope > li")).toHaveLength(3);
-  });
-
   it("the packs' sheet (SHOP-PAGE: the Shop's Cobbles tab over a page) scrolls in the sheet's region", () => {
     draw(<CobblesScene {...COBBLES.referred} onBack={no()} onSelectPack={no()} onBuyPack={no()} />, true, "Cobbles");
     expectOneRegion("Cobbles");
     expect(screen.getByRole("dialog", { name: "Cobbles" })).toContainElement(document.querySelector<HTMLElement>("[data-slot=page-scroll]"));
+  });
+
+  it.each([
+    ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />, "More"],
+    ["Credits", <SettingsScene {...SETTINGS.credits} />, "Music"],
+    ["Themes", <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} onUse={no()} onOpen={no()} />} />, "Themes"],
+  ] as const)("%s (SETTINGS-PAGE) is drawn in the HUD drawer's body, to its last section, nothing else scrolling", (title, page, last) => {
+    draw(page, false, title);
+    const drawer = screen.getByRole("dialog", { name: title });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    const end = screen.getByRole("region", { name: last });
+    expect(region).toContainElement(end);
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    for (let el: HTMLElement | null = end.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 
   it("the Shop (SHOP-PAGE) draws a theme's 19 tiles in the HUD drawer's body, to the last one", () => {
@@ -203,7 +204,7 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
     expect(region.className).toContain("overscroll-contain");
     expect(region).toContainElement(screen.getByRole("region", { name: "Selected tile" }));
-    expect(region).toContainElement(screen.getByRole("list", { name: "Tile 7: skins" }));
+    expect(region).toContainElement(screen.getByRole("list", { name: "City corner: skins" }));
     const tiles = within(screen.getByRole("list", { name: "Tiles" })).getAllByRole("button");
     expect(tiles).toHaveLength(19);
     expect(region).toContainElement(tiles.at(-1)!);

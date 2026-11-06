@@ -5,10 +5,9 @@ import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PVP_LEAGUE } from "../../mocks/pvp";
 import { COBBLES, HALL_OF_FAME, MISSIONS, PLAY, PLAYER_STATUS, RECORDS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
-import { HOME_VILLAGE, VILLAGE_CHESTS } from "../../mocks/village-v2";
+import { HOME_VILLAGE } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import PagePanel from "../containers/page-panel";
-import PageSheet from "../containers/page-sheet";
 import { ProfileProvider, type ProfileValue } from "../containers/profile-context";
 import { CobblesScene } from "./cobbles-scene";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
@@ -20,7 +19,6 @@ import { SHOP } from "../../mocks/shop";
 import { SettingsScene } from "./settings-scene";
 import { ThemeScene } from "./theme-scene";
 import { VaultScene } from "./vault-scene";
-import { VillageChestsScene } from "./village-chests-scene";
 import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
 
@@ -44,7 +42,6 @@ const meta = {
     onEditingChange: fn(),
     onPlay: fn(),
     onMissions: fn(),
-    onChests: fn(),
     onShop: fn(),
     onVault: fn(),
     onLeague: fn(),
@@ -113,8 +110,6 @@ const shop = (state: keyof typeof SHOP = "tiles") => <ShopScene {...SHOP[state]}
 export const Shop: Story = { render: (args) => <HomeWith args={args}>{shop()}</HomeWith> };
 export const ShopCobbles: Story = { render: (args) => <HomeWith args={args}>{shop("picked")}</HomeWith> };
 export const ShopThemes: Story = { render: (args) => <HomeWith args={args}>{shop("themes")}</HomeWith> };
-/** The Chests: the slots, the chest to open, the Cobbles. */
-export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
 export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} />);
 /** The League's drawer over the home (LEAGUE-PAGE): the HUD's drawer, as the profile's and the Missions', at every width. */
@@ -125,18 +120,24 @@ const league = () => <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onOpen
  * home's top left), the leagues' carousel, the season's row, the battle logs; the crowns and the crest at the header's end.
  */
 export const League: Story = { render: (args) => <HomeWith args={args}>{league()}</HomeWith> };
-/** Settings, from the gear. */
-export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onChange={fn()} />);
-/** The themes, from Settings: a sheet over its panel (BACK-RULE, #783), its close up to Settings, the Cobbles they cost in its header. */
-export const Themes: Story = panel(
-  "Settings",
-  <>
-    <SettingsScene {...SETTINGS.connected} onChange={fn()} />
-    <PageSheet open title="Themes" side="right" onClose={fn()}>
-      <ThemeScene {...THEME.mixed} onBack={fn()} onUse={fn()} onOpen={fn()} />
-    </PageSheet>
-  </>,
+/**
+ * Settings' drawer over the home (SETTINGS-PAGE, the Paved UX Book's Settings): the HUD's drawer at the right, as the Shop; its views
+ * (the quality's choice, Credits, Themes) open in it.
+ */
+const settings = (view?: "credits" | "themes") => (
+  <SettingsScene
+    {...SETTINGS.connected}
+    view={view}
+    themes={view === "themes" && <ThemeScene {...THEME.mixed} onUse={fn()} onOpen={fn()} />}
+    onChange={fn()}
+    onView={fn()}
+    onViewBack={fn()}
+    onBack={fn()}
+  />
 );
+export const Settings: Story = { render: (args) => <HomeWith args={args}>{settings()}</HomeWith> };
+/** More › Themes, a view of the drawer: Back to Settings, the red cross, the Cobbles at the header's end. */
+export const Themes: Story = { render: (args) => <HomeWith args={args}>{settings("themes")}</HomeWith> };
 /** Play's mode choice (the games themselves open full screen). */
 export const Play: Story = panel("Play", <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onTraining={fn()} onStory={fn()} onAttack={fn()} />);
 /** The Cobble packs, from the balances. */

@@ -4,12 +4,12 @@
  * no tabs).
  */
 /**
- * The navigation's destinations. The dock holds Shop, Chests, Play, Guild, Settings (`NAV_TABS` of `containers/app-nav.tsx`, #763,
+ * The navigation's destinations. The dock holds Shop, Ranking, Play, Guild, Settings (`NAV_TABS` of `containers/app-nav.tsx`, #763,
  * HOME-DOCK), on the home alone (DOCK-UNDER-PAGES, the owner's ask of 2026-11-04: no page carries it). `play` opens the mode choice
- * (`nav: null`); the others are tabs of pages. The home, Missions, the Vault, League, Chat and Friends are not in the dock: the home's
+ * (`nav: null`); Ranking has no page yet (the Leaderboard to come); the others are tabs of pages. The home, Missions, the Vault, League, Chat and Friends are not in the dock: the home's
  * overlay leads to them, the pages' Back to the home (#760).
  */
-export type Tab = "home" | "quests" | "vault" | "shop" | "chests" | "play" | "league" | "settings" | "chat" | "guild" | "friends";
+export type Tab = "home" | "quests" | "vault" | "shop" | "ranking" | "play" | "league" | "settings" | "chat" | "guild" | "friends";
 
 export interface PageDef {
   /** The route path, relative to the root. */
@@ -57,8 +57,8 @@ export const PAGES: readonly PageDef[] = [
   { path: "play", title: "Play", nav: null, panel: true, drawer: true },
   { path: "play/challenge", title: "Challenge", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "avatar", title: "Avatar", nav: null },
-  // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
-  { path: "village/chests", title: "Chests", nav: "chests", panel: true },
+  // The v2 village's daily shop (#739), before `village/:player`: `prefetch` matches in table order. Its chests open where they are
+  // won (END-CHEST, the owner's ask of 2026-11-06: the Chests page gone).
   // The Shop (SHOP-PAGE): Tiles, Cobbles and Themes as tabs (`?tab=`), the HUD's drawer docked at the right from `tablet`.
   { path: "village/shop", title: "Shop", nav: "shop", panel: true, drawer: true },
   { path: "village/:player", title: "Village", nav: null },
@@ -98,11 +98,15 @@ export const PAGES: readonly PageDef[] = [
   { path: "guild", title: "Guild", nav: "guild", panel: true, drawer: true },
   // FRIENDS-PAGE: the HUD's drawer at every width, docked at the right from `tablet`, as the home's Friends button.
   { path: "friends", title: "Friends", nav: "friends", panel: true, drawer: true },
-  // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it. A theme's tiles are the Shop's (SHOP-PAGE).
-  { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings", title: "Settings", nav: "settings", panel: true },
+  // Referral (P10): the player's link, reached from the profile's Invite (the Paved UX Book's), no longer a sheet over Settings
+  // (SETTINGS-PAGE): a page of its own, in the right panel from `desktop`, Back to the village.
+  { path: "referral", title: "Referral", nav: "settings", panel: true },
+  // Settings (SETTINGS-PAGE): the HUD's drawer at every width, docked at the right from `tablet` (the dock's right-most button). Its
+  // Themes and Credits are views in it, each its own URL, one component (`page-loaders.ts`), so a move between them keeps the drawer.
+  // A theme's tiles are the Shop's (SHOP-PAGE).
+  { path: "settings/theme", title: "Themes", nav: "settings", panel: true, drawer: true },
+  { path: "settings/credits", title: "Credits", nav: "settings", panel: true, drawer: true },
+  { path: "settings", title: "Settings", nav: "settings", panel: true, drawer: true },
 ] as const;
 
 export const TABS: readonly { id: Tab; label: string; to: string }[] = [
@@ -110,7 +114,6 @@ export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "quests", label: "Missions", to: "/missions" },
   { id: "vault", label: "Vault", to: "/vault" },
   { id: "shop", label: "Shop", to: "/village/shop" },
-  { id: "chests", label: "Chests", to: "/village/chests" },
   { id: "play", label: "Play", to: "/play" },
   { id: "league", label: "League", to: "/pvp/league" },
   { id: "settings", label: "Settings", to: "/settings" },

@@ -178,7 +178,10 @@ export interface GuildSentInvitation {
   expiresAt: number;
 }
 
-/** A guild's page: its card, its members; for its members, the announcements and the log; for officers and the leader, the requests and invitations. */
+/**
+ * A guild's page: its card, its members; for its members, the announcements and the log; for the ranks that invite, the invitations
+ * sent; for the ranks that answer them, the requests.
+ */
 export interface GuildView extends GuildSummary {
   /** By rank, then by crowns (game-core's `sortGuildMembers`). */
   roster: GuildMember[];
@@ -188,9 +191,9 @@ export interface GuildView extends GuildSummary {
   announcements: GuildAnnouncement[] | null;
   /** Oldest first, the last `GUILD_LOG_KEPT`; null for a viewer outside the guild. */
   log: GuildLogEntry[] | null;
-  /** Oldest first; null below Officer. */
+  /** Oldest first; null below the rank that answers them (`GUILD_RIGHTS.answer`, Veteran). */
   requests: GuildRequest[] | null;
-  /** Newest first; null below Officer. */
+  /** Newest first; null below the rank that invites (`GUILD_RIGHTS.invite`, Member). */
   invitations: GuildSentInvitation[] | null;
   /** When the viewer may kick next (an officer's 20 minutes), in seconds; null when they may not kick. */
   nextKickAt: number | null;

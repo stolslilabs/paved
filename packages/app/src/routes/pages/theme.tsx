@@ -10,11 +10,11 @@ import { skinChanges, skinKeys, useOwnedSkins, useSkinWrites } from "../../data/
 import { useDataSources } from "../../data/sources";
 import { useTileRenders } from "../../data/tile-renders";
 import { useAccount } from "../../wallet/wallet";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate } from "../ref";
 import { skinsStatus } from "../skins-status";
 
 /**
- * `/settings/theme` (THEMES-RENDERS): the themes, each card a build-time render of its real tiles (`useTileRenders`) and the
+ * `/settings/theme`'s view (THEMES-RENDERS; SETTINGS-PAGE: a view of the Settings drawer, which loads this chunk with it): the themes, each card a build-time render of its real tiles (`useTileRenders`) and the
  * tiles owned of 19 (`useOwnedSkins`). Use sends one `set_skins` of every plan that changes, so every tile the player owns in
  * that theme wears it and the others go back to Default (the owner's ruling of 2026-10-18); the scene asks first when that
  * replaces a choice made tile by tile. The receipt moves the cache (`useSkinWrites`), so the board, My tiles and the shop
@@ -22,7 +22,6 @@ import { skinsStatus } from "../skins-status";
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onBack = useBack();
   useAccount();
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
@@ -66,8 +65,6 @@ export default function Page() {
         void client.invalidateQueries({ queryKey: skinKeys.all });
         void client.invalidateQueries({ queryKey: cobbleKeys.all });
       }}
-      onBack={onBack}
-     
     />
   );
 }

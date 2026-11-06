@@ -4,23 +4,14 @@ import * as m from "motion/react-m";
 import { formatInteger, type Stars } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { StarRow } from "../elements/star-row";
-import { planCode } from "../elements/tile-chip";
+import { planCode, type TileArt } from "../elements/tile-chip";
 import { StoryBackground, TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
-import { useSfx } from "./audio-provider";
+import { EndChestPanel, EndLink, GameEnd, ShowScores, type EndChest } from "./game-end";
 
 const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
-
-/** A short buzz where the device has one (`navigator.vibrate`); refused or absent, nothing. */
-function buzz(ms: number) {
-  try {
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(ms);
-  } catch {
-    // A browser that refuses it (no user gesture, a policy): no buzz.
-  }
-}
 
 /** The whole presentation's entrance, seconds: the tiles land one after another within it, however many there are. */
 const PRESENT_SECONDS = 0.9;
@@ -179,6 +170,12 @@ export interface StoryEndProps {
   /** The next level; none after the last level, or while it is locked. */
   onNext?: () => void;
   onLevels?: () => void;
+  /** The chest the run won (3 stars the first time), opened here (END-CHEST): its panel's state; none, no panel. */
+  chest?: EndChest;
+  /** Seconds since the epoch (a capped chest's wait; a Story chest is never capped). */
+  now?: number;
+  tileArt?: TileArt;
+  onOpenChest?: () => void;
   /** More under the result: Tutorial level 1's First Stone claim. */
   children?: ReactNode;
   className?: string;
@@ -191,61 +188,13 @@ const FILL = { lead: 0.35, gap: 0.5, pop: 0.45 } as const;
 export const resultDelay = (stars: number) => FILL.lead + Math.max(0, stars - 1) * FILL.gap + FILL.pop;
 
 /**
- * The stars earned, filled one by one (#593): each lands with a pop, a sound (`place`, the last of three the `wonder`) and a
- * buzz where the device has one. `instant` (reduced motion, or a tap to skip) shows them at once, with one sound.
+ * A finished level (#593, #546; END-SCREENS, the owner's ask of 2026-11-06, in the book's window of `attack-end`, `GameEnd`): over the
+ * board, blurred, the window crowned by its three painted stars filling one by one, "Level complete" and the level's title, the score,
+ * a new best, how many points the next star was missing (never the thresholds); the chest the run won, opened here (`EndChestPanel`);
+ * then Retry and Next (the owner's words of 2026-11-06; Levels when no level follows), Levels under them. A tap skips the stars; under
+ * reduced motion they are there at once. The window's cross shows the finished board, the gold Scores pill bringing the result back.
  */
-export function StarFill({ stars, instant: skip = false, className }: { stars: Stars; instant?: boolean; className?: string }) {
-  const play = useSfx();
-  const reduced = useReducedMotionConfig() ?? false;
-  const instant = skip || reduced;
-  useEffect(() => {
-    if (stars === 0) return;
-    if (instant) {
-      play(stars === 3 ? "wonder" : "place");
-      buzz(40);
-      return;
-    }
-    const timers = Array.from({ length: stars }, (_, i) =>
-      setTimeout(
-        () => {
-          play(i === 2 ? "wonder" : "place");
-          buzz(i === 2 ? 80 : 30);
-        },
-        (FILL.lead + i * FILL.gap) * 1000,
-      ),
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [stars, instant, play]);
-  return (
-    <span role="img" aria-label={`${stars} of 3 stars`} data-stars={stars} data-testid="star-fill" className={cn("inline-flex items-end gap-2", className)}>
-      {[1, 2, 3].map((n) => {
-        const earned = n <= stars;
-        return (
-          <span key={n} className="relative inline-flex">
-            <Icon name="star" className="text-5xl! text-muted-foreground/40" />
-            {earned && (
-              <m.span
-                className="absolute inset-0 inline-flex text-primary"
-                initial={instant ? false : { scale: 0, rotate: -40, opacity: 0 }}
-                animate={{ scale: [0, 1.35, 1], rotate: 0, opacity: 1 }}
-                transition={{ delay: FILL.lead + (n - 1) * FILL.gap, duration: FILL.pop, ease: "easeOut" }}
-              >
-                <Icon name="star" className="text-5xl!" />
-              </m.span>
-            )}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
-/**
- * A finished level (#593, #546): over the board, the stars fill one by one, then the score screen: the score, a new best,
- * how many points the next star was missing (never the thresholds), Next, Replay and Levels. A tap skips the stars; under
- * reduced motion they are there at once. "Board" shows the finished board under a small bar that brings the result back.
- */
-export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousBest, beatsTarget, onReplay, onNext, onLevels, children, className }: StoryEndProps) {
+export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousBest, beatsTarget, onReplay, onNext, onLevels, chest, now = 0, tileArt, onOpenChest, children, className }: StoryEndProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const [skipped, setSkipped] = useState(false);
   const [settled, setSettled] = useState(reduced);
@@ -258,75 +207,77 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
     return () => clearTimeout(timer);
   }, [settled, stars]);
   const record = previousBest != null && score > previousBest;
-  if (peek) {
-    return (
-      <div className="pointer-events-auto fixed inset-x-0 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-50 flex justify-center px-4">
-        <Button onClick={() => setPeek(false)} className="shadow-lg">
-          <Icon name="star" size="sm" /> Show the result
-        </Button>
-      </div>
-    );
-  }
+  // The scores closed on the board (the window's cross, the Board's place, the owner's ask of 2026-11-06), the gold Scores pill to
+  // bring them back, at once.
+  if (peek) return <ShowScores onClick={() => setPeek(false)} />;
+  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
   return (
-    <div className={cn("pointer-events-auto fixed inset-0 z-50 bg-background/80 backdrop-blur-sm", !settled && "cursor-pointer")} onClick={() => {
+    <div
+      className={cn("pointer-events-auto fixed inset-0 z-50 bg-background/40 backdrop-blur-sm", !settled && "cursor-pointer")}
+      onClick={() => {
         if (settled) return;
         setSkipped(true);
         setSettled(true);
       }}
     >
       <ScrollRegion className="h-full">
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
-          <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={cn(CARD, "items-center gap-4 py-6 text-center", className)}>
-            <h2 className="font-display text-lg font-semibold wrap-anywhere">{title}: complete</h2>
-            <StarFill key={instant ? "stars-instant" : "stars-fill"} stars={stars} instant={instant} />
-            <m.div
-              key={instant ? "result-instant" : "result-fill"}
-              className="flex w-full flex-col items-center gap-3"
-              initial={instant ? false : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: resultDelay(stars), duration: 0.35 }}
+        {/* Clipped across: the stars' light spreads past a phone's edges, and the region must not scroll sideways (WRAP360). */}
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center overflow-x-clip px-4 py-6">
+          <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={className}>
+            <GameEnd
+              stars={stars}
+              instant={instant}
+              timing={FILL}
+              verdict="Level complete"
+              subtitle={<span className="wrap-anywhere">{title}</span>}
+              score={formatInteger(score)}
+              notes={
+                <m.div
+                  key={instant ? "result-instant" : "result-fill"}
+                  className="flex w-full flex-col items-center gap-1.5 text-sm font-semibold"
+                  initial={instant ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: resultDelay(stars), duration: 0.35 }}
+                >
+                  {record && <span className="text-primary">A new best for you.</span>}
+                  {toNextStar != null && toNextStar > 0 && stars < 3 && (
+                    <p data-testid="to-next-star" className="flex items-center gap-1.5 text-muted-foreground">
+                      <Icon name="star" size="xs" className="text-primary" />
+                      <span>
+                        <span className="numeric text-foreground">{formatInteger(toNextStar)}</span> {toNextStar === 1 ? "point" : "points"} short of the next star.
+                      </span>
+                    </p>
+                  )}
+                  {stars === 3 && !beatsTarget && <p className="text-primary">{bestKnown ? "Three stars: the best score known for this level." : "Three stars: the best score there is."}</p>}
+                  {beatsTarget && (
+                    <p role="status" className="text-primary">
+                      You beat the best score known for this level. It was found by a search, not proven: yours is better.
+                    </p>
+                  )}
+                </m.div>
+              }
+              chest={
+                chest && chest.state !== "none" ? (
+                  <section aria-label="Chest" data-state={chest.state} className="w-full" onClick={stop}>
+                    <EndChestPanel chest={chest} now={now} tileArt={tileArt} onOpen={onOpenChest} />
+                  </section>
+                ) : undefined
+              }
+              secondary={{ label: "Retry", onClick: onReplay }}
+              primary={onNext ? { label: "Next", onClick: onNext } : { label: "Levels", onClick: onLevels }}
+              links={onNext && <EndLink onClick={onLevels}>Levels</EndLink>}
+              onClose={() => {
+                setSkipped(true);
+                setSettled(true);
+                setPeek(true);
+              }}
             >
-              <p className="flex flex-col items-center gap-1">
-                <span className="text-xs text-muted-foreground">Score</span>
-                <span className="numeric font-display text-3xl font-semibold">{formatInteger(score)}</span>
-                {record && <span className="text-primary">A new best for you.</span>}
-              </p>
-              {toNextStar != null && toNextStar > 0 && stars < 3 && (
-                <p data-testid="to-next-star" className="flex items-center gap-1.5 text-muted-foreground">
-                  <Icon name="star" size="xs" className="text-primary" />
-                  <span>
-                    <span className="numeric text-foreground">{formatInteger(toNextStar)}</span> {toNextStar === 1 ? "point" : "points"} short of the next star.
-                  </span>
-                </p>
-              )}
-              {stars === 3 && !beatsTarget && <p className="text-primary">{bestKnown ? "Three stars: the best score known for this level." : "Three stars: the best score there is."}</p>}
-              {beatsTarget && (
-                <p role="status" className="text-primary">
-                  You beat the best score known for this level. It was found by a search, not proven: yours is better.
-                </p>
-              )}
               {children && (
-                <div className="w-full text-left" onClick={(e) => e.stopPropagation()}>
+                <div className="w-full text-left" onClick={stop}>
                   {children}
                 </div>
               )}
-              <div className="flex flex-wrap justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {onNext && (
-                  <Button size="sm" onClick={onNext}>
-                    Next level
-                  </Button>
-                )}
-                <Button size="sm" variant="secondary" onClick={onReplay}>
-                  Replay
-                </Button>
-                <Button size="sm" variant="ghost" onClick={onLevels}>
-                  Levels
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setPeek(true)}>
-                  Board
-                </Button>
-              </div>
-            </m.div>
+            </GameEnd>
           </section>
         </div>
       </ScrollRegion>

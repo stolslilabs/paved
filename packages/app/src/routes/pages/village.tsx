@@ -10,7 +10,7 @@ import type { VillageLayout } from "../../components/containers/layout-rules";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { cobbleKeys } from "../../data/cobbles";
-import { useChests, useFreeVillage, useFreeVillageWrites } from "../../data/free-village";
+import { useFreeVillage, useFreeVillageWrites } from "../../data/free-village";
 import { usePlayerStatus } from "../../data/indexer";
 import { addressKey, queryKeys } from "../../data/keys";
 import { useDataSources } from "../../data/sources";
@@ -30,11 +30,11 @@ const VillageVisitBoard = lazy(() => import("../village-visit-board"));
 
 /**
  * `/village` and `/village/:player` (#739, PvP v2 step 1): the player's own village, or anyone's, read-only. The free layout,
- * its score, the level and slots, and the inventory from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting
- * from `useChests`, the Cobbles from the ledger. The own village founds itself (its starter layout) and saves the editor's whole
+ * its score, the level and slots, and the inventory from `useFreeVillage` (the mock ledger in step 1, #741), the Cobbles from the
+ * ledger. The own village founds itself (its starter layout) and saves the editor's whole
  * layout at once (`useFreeVillageWrites`); the score shown once saved is game-core's (`layoutScore`). Leaving the page with
- * unsaved changes, by any way (a reload and a closed tab too, through the browser's prompt), asks first. Chests and Shop
- * lead to `/village/chests` and `/village/shop`. A source that does not serve the v2 village (its read answers null) keeps
+ * unsaved changes, by any way (a reload and a closed tab too, through the browser's prompt), asks first. Shop leads to
+ * `/village/shop`. A source that does not serve the v2 village (its read answers null) keeps
  * the v1 village (`village-v1.tsx`) until step 3 wires the chain.
  */
 export default function Page() {
@@ -56,7 +56,6 @@ function Village({ player }: { player: string | null }) {
   const profile = usePlayerStatus(own ? null : playerId);
   const owner = own ? (wallet.username ?? (me ? shortAddress(me) : "")) : (profile.data?.player.name ?? (playerId ? shortAddress(playerId) : ""));
   const read = useFreeVillage(playerId);
-  const chests = useChests(own ? playerId : null);
   const writes = useFreeVillageWrites(own ? playerId : null);
   const tileArt = useVillageArt(playerId);
   const [saved, setSaved] = useState<LayoutSaved | null>(null);
@@ -131,7 +130,6 @@ function Village({ player }: { player: string | null }) {
         founded={data?.founded ?? true}
         founding={pending === "found"}
         inventory={inventory}
-        chests={(chests.data?.pending.length ?? 0) + (chests.data?.open ? 1 : 0)}
         saving={pending === "save"}
         saved={saved}
         refusal={writes.error ? refusalText(writes.error) : null}
@@ -157,7 +155,6 @@ function Village({ player }: { player: string | null }) {
         onDirtyChange={onDirtyChange}
         onDismissSaved={() => setSaved(null)}
         onDismissRefusal={writes.reset}
-        onOpenChests={() => go("/village/chests")}
         onOpenShop={() => go("/village/shop")}
       />
       {guarded && <LeaveGuard when={dirty} />}

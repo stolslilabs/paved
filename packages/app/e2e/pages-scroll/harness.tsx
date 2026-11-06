@@ -14,7 +14,6 @@ import "../../src/styles/theme.css";
 import { BalancesProvider } from "../../src/components/containers/balances-context";
 import PagePanel from "../../src/components/containers/page-panel";
 import { PlayScene } from "../../src/components/scenes/play-scene";
-import { CreditsScene } from "../../src/components/scenes/credits-scene";
 import { TilesScene } from "../../src/components/scenes/tiles-scene";
 import { PvpLeagueScene } from "../../src/components/scenes/pvp-league-scene";
 import { MissionsScene } from "../../src/components/scenes/missions-scene";
@@ -22,16 +21,16 @@ import { ReferralScene } from "../../src/components/scenes/referral-scene";
 import { SettingsScene } from "../../src/components/scenes/settings-scene";
 import { ThemeScene } from "../../src/components/scenes/theme-scene";
 import { VaultScene } from "../../src/components/scenes/vault-scene";
-import { VillageChestsScene } from "../../src/components/scenes/village-chests-scene";
 import { ShopScene } from "../../src/components/scenes/shop-scene";
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
 import { MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../../src/mocks/scenes";
 import { SHOP } from "../../src/mocks/shop";
-import { VILLAGE_CHESTS } from "../../src/mocks/village-v2";
 
 const no = () => {};
+/** The Settings drawer's callbacks (SETTINGS-PAGE), none of which the pass presses. */
+const settingsActions = { onChange: no, onVolumeChange: no, onConnect: no, onDisconnect: no, onReset: no, onView: no, onViewBack: no, onBack: no };
 /** `list` made `n` long, each copy with its own `key` number. */
 function long<T>(list: readonly T[], n: number, key?: keyof T): T[] {
   return Array.from({ length: n }, (_, i) => {
@@ -66,25 +65,29 @@ function TickingMissions() {
 /**
  * The pages of the pass, by id: the title its header shows, its scene with long content. `flow`: a full-screen flow below
  * `desktop` (Play: no tab frame, the document scrolls), a page of the side panel from it. `drawer`: the HUD's drawer
- * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE) at every width, its own panel: never in the page panel.
+ * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE) at every width, its own panel: never in the page panel.
  */
 export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true; drawer?: true }> = {
   // The Shop (SHOP-PAGE), the HUD's drawer: Forest's view, its 19 tiles in the Shop's cards.
   shop: { title: "Forest", drawer: true, page: <ShopScene {...SHOP.forest} onBack={no} onTab={no} onThemeBack={no} /> },
-  chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.kept} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
   // The League as it opens (LEAGUE-PAGE): the carousel, the season's last day, the latest battle logs.
   league: { title: "League", drawer: true, page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} matches={PVP_MATCHES.latest} onBack={no} onOpenMatch={no} /> },
-  settings: { title: "Settings", page: <SettingsScene {...SETTINGS.connected} onNavigate={no} onChange={no} /> },
+  // Settings (SETTINGS-PAGE): the HUD's drawer, its groups; Themes and Credits are views of the same drawer.
+  settings: { title: "Settings", drawer: true, page: <SettingsScene {...SETTINGS.connected} {...settingsActions} /> },
   missions: { title: "Missions", drawer: true, page: <TickingMissions /> },
   vault: { title: "Vault", page: <VaultScene {...VAULT.stress} onNavigate={no} /> },
   // The League with a long list of attacks and defences (#786, in place of the defence log): 20 rows and Show more.
   defence: { title: "League", drawer: true, page: <PvpLeagueScene {...PVP_LEAGUE.bronze} matches={{ ...PVP_MATCHES.latest, matches: PVP_MATCHES.many.matches }} onBack={no} onOpenMatch={no} /> },
-  themes: { title: "Themes", page: <ThemeScene {...THEME.mixed} onBack={no} onNavigate={no} onUse={no} onOpen={no} /> },
+  themes: {
+    title: "Themes",
+    drawer: true,
+    page: <SettingsScene {...SETTINGS.connected} {...settingsActions} view="themes" themes={<ThemeScene {...THEME.mixed} onUse={no} onOpen={no} onMyTiles={no} />} />,
+  },
   // Tiles (COLLECTION-PAGE): the HUD's drawer, its 3D stage, its skins and the 19 tiles.
   tiles: { title: "Tiles", drawer: true, page: <TilesScene {...TILES.owned} onBack={no} /> },
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },
   play: { title: "Choose a mode", flow: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
-  credits: { title: "Credits", page: <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no} onNavigate={no} /> },
+  credits: { title: "Credits", drawer: true, page: <SettingsScene {...SETTINGS.connected} {...settingsActions} view="credits" credits={{ tracks: TRACKS.map(titleOf) }} /> },
 };
 
 const params = new URLSearchParams(location.search);

@@ -327,9 +327,6 @@ const END_BOARD = {
   settings: sideSettings("rival", squareGridSettings(true, ""), BOARD_FOG),
 } as const;
 
-/** Every closing of the stories' attack, with the move that closed it. */
-const END_CLOSINGS = ATTACK_STEPS.flatMap((s, i) => s.lastScored.map((c) => ({ ...c, move: i })));
-
 /** The player's XP after an attack that gave `gained`: level 5, near 6. */
 function endXp(gained: number, xp = 1_480) {
   const after = levelStatus(xp);
@@ -347,7 +344,6 @@ function end(stars: number, percent: number, crowns: number, extra: Partial<Data
     crownsAfter: ME.crowns + crowns,
     xp: endXp(pvpXp(stars)),
     chest: rank ? { state: "won", rank } : { state: "none" },
-    closings: END_CLOSINGS,
     board: END_BOARD,
     now: MOCK_NOW,
     ...extra,

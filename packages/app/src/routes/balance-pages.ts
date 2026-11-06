@@ -8,7 +8,6 @@ export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "play/challenge",
   "avatar",
   "village/:player",
-  "village/chests",
   "village/shop",
   "missions",
   "tiles",

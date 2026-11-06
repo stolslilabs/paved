@@ -20,6 +20,40 @@ export type ChestArtSize = keyof typeof CHEST_ART_REM;
 /** The opened chest, grey and dimmed: inline, so the stylesheet gains nothing. */
 export const CHEST_SPENT = { filter: "grayscale(1)", opacity: 0.6 } as const;
 
+/**
+ * CHESTS-PAGE: the book's gold card, the tile chosen or kept (the owner's ask of 2026-11-06: the book's clear linear gradient and its
+ * shine): pale gold at its top to deep amber at its foot, a gloss across its upper corner, lit along its top, a gold glow around it
+ * and a soft shadow under it (diffuse: no lip, the card has no thickness, the owner's ask of the same day), no outline (the book's
+ * rule inside a page). Inline, on the theme's tokens.
+ */
+export const GOLD_FILL = {
+  backgroundImage:
+    "linear-gradient(160deg, color-mix(in oklab, var(--foreground) 26%, transparent), transparent 36%), linear-gradient(color-mix(in oklab, var(--primary) 85%, var(--foreground)), var(--primary) 32%, var(--accent-scale-400) 68%, color-mix(in oklab, var(--accent-scale-400) 45%, var(--warning)))",
+  boxShadow:
+    "inset 0 2px 0 color-mix(in oklab, var(--foreground) 70%, transparent), 0 0 16px color-mix(in oklab, var(--primary) 45%, transparent), 0 10px 22px -6px color-mix(in oklab, var(--hud-outline) 75%, transparent)",
+} as const;
+
+/**
+ * CHESTS-PAGE: a card not chosen, the book's (its navy the house's grey, the owner's ask of 2026-11-06): a linear gradient from a lit
+ * grey at its top to the drawer's dark at its foot, lit along its top, a soft shadow under it (no lip: no thickness).
+ */
+export const CARD_GREY = {
+  backgroundImage: "linear-gradient(color-mix(in oklab, var(--drawer-raised) 82%, var(--foreground)), var(--drawer-raised) 40%, var(--secondary))",
+  boxShadow: "inset 0 1px 0 color-mix(in oklab, var(--drawer-bevel) 80%, transparent), 0 10px 22px -6px color-mix(in oklab, var(--hud-outline) 75%, transparent)",
+} as const;
+
+/**
+ * CHESTS-PAGE: the gold of a won slot on the Chests page, see-through (the owner's ask of 2026-11-06: the full gold stood out too much
+ * on the panel; the book's slots are a warm amber): the primary gold at about 60 %, toward amber at its foot, over the carved panel, lit at its heart, its top
+ * edge in gold, a soft shadow under it (no lip: no thickness).
+ */
+export const GOLD_SOFT = {
+  backgroundImage:
+    "radial-gradient(closest-side at 50% 45%, color-mix(in oklab, var(--primary) 50%, transparent), transparent), linear-gradient(color-mix(in oklab, var(--primary) 60%, transparent), color-mix(in oklab, var(--warning) 42%, transparent))",
+  boxShadow:
+    "inset 0 1px 0 color-mix(in oklab, var(--primary) 70%, transparent), 0 10px 22px -6px color-mix(in oklab, var(--hud-outline) 75%, transparent)",
+} as const;
+
 /** The modal's chest drops in from above and lands (s): its shake waits for it (`ChestArt`'s `drop`). */
 export const CHEST_DROP_S = 0.6;
 

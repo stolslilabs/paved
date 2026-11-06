@@ -6,14 +6,16 @@ import { UiIcon } from "../elements/ui-icon";
 
 /**
  * The dock, left to right (HOME-DOCK, the owner's asks of 2026-11-03, the mockup's footer: Shop, Chests,
- * Play, Guild, Settings, Guild in League's place, League reached by the crowns' capsule), with the mockup's icons. Its own list, not
+ * Play, Guild, Settings, Guild in League's place, League reached by the crowns' capsule; END-CHEST, the owner's ask of 2026-11-06:
+ * Ranking in the Chests' place, the Chests page gone, with the HUD's trophy and no page yet), with the mockup's icons. Its own list, not
  * the route map's: the bar's chunk stays apart from the route map's (the home loads it lazily). Play (#623) is the main action, in
  * the dock's centre: the PLAY medallion.
  */
 // `art`, not `icon`: the Font Awesome subset's guard reads an `icon` key as a Font Awesome name; these are the HUD's images.
-export const NAV_TABS: readonly { id: Tab; label: string; art: UiIconName }[] = [
+export const NAV_TABS: readonly { id: Tab; label: string; art: UiIconName; soon?: true }[] = [
   { id: "shop", label: "Shop", art: "shop" },
-  { id: "chests", label: "Chests", art: "chests" },
+  // The Leaderboard to come: no page yet, the item leads nowhere.
+  { id: "ranking", label: "Ranking", art: "trophy", soon: true },
   { id: "play", label: "Play", art: "swords" },
   { id: "guild", label: "Guild", art: "guild" },
   { id: "settings", label: "Settings", art: "settings" },
@@ -64,7 +66,7 @@ const OUTLINE: CSSProperties = {
 
 export interface AppNavProps {
   onNavigate?: (tab: Tab) => void;
-  /** Counts on the bar's items (the chests waiting on Chests); none or 0: no badge. */
+  /** Counts on the bar's items (the guild's on Guild); none or 0: no badge. */
   badges?: Partial<Record<Tab, number>>;
   className?: string;
 }
@@ -77,7 +79,7 @@ export interface AppNavProps {
  * for the five), and Play in the centre, a gold medallion rising above the band, the swords and PLAY on it. Full width on a phone;
  * centred, 34 rem wide, from `tablet`, the band and the plank stretched; shown on the home from `desktop` too (the home's overlay
  * keeps Missions and the Vault, the dock has the rest). Badges: the mockup's red squares at a column's top right.
- * The labels stay shown (the mockup's). The chests waiting on Chests and the guild's count on Guild (`badges`, PHONE-NAV #763);
+ * The labels stay shown (the mockup's). The guild's count on Guild (`badges`, PHONE-NAV #763); Ranking leads nowhere yet (`soon`);
  * Missions and the Vault are the home's overlay's.
  * DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): only the home draws it, under the pages it opens; no page carries one (`TabFrame`).
  * So no item is ever the current page: the sliding highlight (TAB-SWIPE #726), the swipe between pages (SWIPE-DISC #780) and the
@@ -137,8 +139,9 @@ export function AppNav({ onNavigate, badges, className }: AppNavProps) {
               <button
                 key={tab.id}
                 type="button"
-                aria-label={badge > 0 ? `${tab.label}, ${badge} waiting` : tab.label}
-                onClick={() => onNavigate?.(tab.id)}
+                aria-label={tab.soon ? `${tab.label}, coming soon` : badge > 0 ? `${tab.label}, ${badge} waiting` : tab.label}
+                aria-disabled={tab.soon || undefined}
+                onClick={tab.soon ? undefined : () => onNavigate?.(tab.id)}
                 // `relative`: the badge's box. The icon alone in the band's middle below `mobile`.
                 className="relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center pb-1.5 text-foreground outline-none transition-transform active:scale-95 motion-reduce:transition-none mobile:justify-start mobile:pb-0"
               >

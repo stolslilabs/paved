@@ -21,6 +21,13 @@ describe("haptic", () => {
     expect(HAPTIC_MS.light).toBeLessThan(HAPTIC_MS.firm);
   });
 
+  it("plays the reward's pattern (a chest's tile kept, CHESTS-PAGE) as an array", () => {
+    const vibrate = vi.fn(() => true);
+    define(navigator, "vibrate", vibrate);
+    haptic("reward");
+    expect(vibrate.mock.calls).toEqual([[[...HAPTIC_MS.reward]]]);
+  });
+
   it("without the Vibration API (iOS Safari) does nothing: no hidden switch is toggled, the iOS 18 workaround is not used unproven", () => {
     define(HTMLInputElement.prototype, "switch", false);
     const click = vi.spyOn(HTMLElement.prototype, "click");

@@ -78,6 +78,8 @@ export interface LevelBarProps {
   /** Undefined while it is read: the empty track, the star blank. */
   progress: PlayerProgress | undefined;
   variant?: LevelBarVariant;
+  /** The star over the bar's left end; false when the caller draws the level larger beside it (a game's end, END-SCREENS). */
+  star?: boolean;
   className?: string;
 }
 
@@ -88,7 +90,7 @@ export interface LevelBarProps {
  * and a "+N XP" rises at its end; a level up completes it, flashes it, turns the level over, then fills the new one (`useXpMotion`).
  * Under reduced motion the values change at once with a brief flash. Decorative: the card says the level and the XP left.
  */
-export function LevelBar({ progress, variant = "card", className }: LevelBarProps) {
+export function LevelBar({ progress, variant = "card", star = true, className }: LevelBarProps) {
   const { share, level, gain, setGain, burst, setBurst, flash, setFlash } = useXpMotion(progress);
   const capped = progress ? isMaxLevel(progress) : false;
   // The cap's bar is full whatever the share (its span is 0): a motion value too, so a level up into the cap redraws it.
@@ -103,7 +105,7 @@ export function LevelBar({ progress, variant = "card", className }: LevelBarProp
     <span
       data-slot="level-bar"
       aria-hidden
-      className={cn("relative flex h-7 max-w-full items-center pl-3.5", variant === "card" ? "w-36 tablet:w-40" : "w-full", className)}
+      className={cn("relative flex h-7 max-w-full items-center", star && "pl-3.5", variant === "card" ? "w-36 tablet:w-40" : "w-full", className)}
     >
       {/*
         The mockup's track (`xp-track`: a near-black outline, a silver bevel, a dark recess) with its drop shadow, and over it, inside
@@ -136,7 +138,7 @@ export function LevelBar({ progress, variant = "card", className }: LevelBarProp
         </span>
       </span>
       {/* The star over the bar's left end, the level in it. */}
-      <span className="absolute top-0 left-0 grid size-7 place-items-center perspective-[200px]">
+      {star && <span className="absolute top-0 left-0 grid size-7 place-items-center perspective-[200px]">
         <UiIcon name="level-star" px={28} className="absolute inset-0 size-full [filter:drop-shadow(0_1px_0_var(--background))]" />
         <span data-slot="level" className="numeric text-outline relative text-xs leading-none font-bold text-foreground">
           {progress && level !== undefined ? (
@@ -147,7 +149,7 @@ export function LevelBar({ progress, variant = "card", className }: LevelBarProp
             levelText(undefined)
           )}
         </span>
-      </span>
+      </span>}
       {gain && (
         <m.span
           key={gain.id}

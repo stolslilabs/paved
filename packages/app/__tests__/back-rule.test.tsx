@@ -12,11 +12,11 @@ import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { preloadPages } from "./route-helpers";
 
-// BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page (Settings' pages are sheets over it, the
-// lifetime missions on the Missions page (#832), the defence log a section of the League), and Back never cycles: it goes up toward the
+// BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page (Settings' pages are views of its drawer since
+// SETTINGS-PAGE, the lifetime missions on the Missions page (#832), the defence log a section of the League), and Back never cycles: it goes up toward the
 // village and ends there, in two steps at most from any page.
 
-preloadPages("home", "missions", "settings", "theme", "shop", "tiles", "credits", "referral", "play", "story", "board", "cobbles");
+preloadPages("home", "missions", "settings", "theme", "shop", "tiles", "referral", "play", "story", "board", "cobbles");
 
 const WAIT = { timeout: slow(5000) };
 
@@ -39,13 +39,13 @@ function open(path: string, wallet = fakeWallet()) {
   return router;
 }
 
-/** The sheet over Settings, a modal dialog named after its page. */
+/** A sheet over its page (Story over Play, the Cobbles' packs), a modal dialog named after its page. */
 const sheet = (name: string) => screen.findByRole("dialog", { name }, WAIT);
-/** Settings' own heading, under the sheet (hidden from assistive technology while the sheet is open). */
-const settingsUnder = () => screen.getByRole("heading", { level: 1, name: "Settings", hidden: true });
+/** The HUD's drawer (Settings, SETTINGS-PAGE), a modal dialog named after the view it shows. */
+const drawer = sheet;
 
 describe("the route map", () => {
-  it("names a parent only for a sheet, a view of its drawer or a flow, so Back reaches the village in two steps at most", () => {
+  it("names a parent only for a sheet over Play, Play's stake (a view of its drawer) or a flow, so Back reaches the village in two steps at most", () => {
     for (const page of PAGES) {
       if (!page.parent) continue;
       const parent = PAGES.find((p) => `/${p.path}` === page.parent);
@@ -55,29 +55,48 @@ describe("the route map", () => {
       const view = page.drawer === true && parent?.drawer === true && PAGE_LOADERS[page.path] === PAGE_LOADERS[parent.path];
       if (page.panel) expect(page.sheet === true || view, page.path).toBe(true);
     }
-    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story", "referral", "settings/theme", "settings/credits"]);
+    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story"]);
     expect(PAGES.some((p) => p.path === "pvp/defence")).toBe(false);
   });
 });
 
-describe("Settings' pages are sheets over it", { timeout: slow(30_000) }, () => {
+describe("Settings' views are in its drawer (SETTINGS-PAGE)", { timeout: slow(30_000) }, () => {
   it.each([
-    ["Themes", "/settings/theme", "Themes"],
-    ["Referral", "/referral", "Referral"],
-    ["Credits", "/settings/credits", "Credits"],
-  ])("%s opens in a sheet over Settings; its Back goes back to Settings, whose Back is the village", async (row, path, title) => {
+    ["Themes", "/settings/theme"],
+    ["Credits", "/settings/credits"],
+  ])("%s opens in Settings' drawer, in its place; its Back goes back to Settings, whose Back is the village", async (row, path) => {
     const router = open("/settings");
-    await screen.findByRole("heading", { level: 1, name: "Settings" }, WAIT);
-    await userEvent.click(screen.getByRole("button", { name: new RegExp(`^${row}`) }));
-    const dialog = await sheet(title);
+    const settings = await drawer("Settings");
+    await userEvent.click(await within(settings).findByRole("button", { name: new RegExp(`^${row}`) }, WAIT));
+    // The same drawer, named after the view.
+    const view = await drawer(row);
+    expect(view).toBe(settings);
     expect(router.state.location.pathname).toBe(path);
-    expect(settingsUnder()).toBeInTheDocument();
-    // A sheet's header has Back, which closes it (no close button since PAGES-SCROLL, #782).
-    await userEvent.click(await within(dialog).findByRole("button", { name: "Back" }, WAIT));
+    // A view's header has Back to Settings and the red cross that leaves.
+    expect(within(view).getByRole("button", { name: "Close" })).toBeInTheDocument();
+    await userEvent.click(within(view).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     // Back through the history to Settings' own entry: never a push of it.
     expect(router.state.historyAction).toBe("POP");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
+    await drawer("Settings");
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  });
+
+  it("a view's red cross leaves the drawer at once, up to the village", async () => {
+    const router = open("/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
+    await router.navigate("/settings");
+    await userEvent.click(await within(await drawer("Settings")).findByRole("button", { name: /^Credits/ }, WAIT));
+    const view = await drawer("Credits");
+    await userEvent.click(within(view).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("POP");
+  });
+
+  it("the referral is a page of its own (the profile's Invite, the book's), no longer a sheet over Settings: its Back is the village", async () => {
+    const router = open("/referral");
+    await screen.findByRole("heading", { level: 1, name: "Referral" }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
@@ -99,9 +118,8 @@ describe("Settings' pages are sheets over it", { timeout: slow(30_000) }, () => 
 
   it("from Settings' themes to a theme's tiles in the Shop: its Back goes back to the themes", async () => {
     const router = open("/settings");
-    await screen.findByRole("heading", { level: 1, name: "Settings" }, WAIT);
-    await userEvent.click(screen.getByRole("button", { name: /^Themes/ }));
-    const themes = await sheet("Themes");
+    await userEvent.click(await within(await drawer("Settings")).findByRole("button", { name: /^Themes/ }, WAIT));
+    const themes = await drawer("Themes");
     await userEvent.click(await within(themes).findByRole("button", { name: "Forest tiles" }, WAIT));
     const view = await screen.findByRole("dialog", { name: "Forest" }, WAIT);
     expect(router.state.location.pathname).toBe("/village/shop");

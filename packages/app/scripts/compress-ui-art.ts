@@ -165,6 +165,12 @@
  * 1024 RGBA); checked on the drawer's navy and on the Challenge card's gold beside its crop, then trimmed to its opaque box, fitted to
  * the 3:2 frame (384 x 256, a 4 px margin) by a premultiplied area average, centred across and standing on its foot. Stored as
  * lossless WebP.
+ * SETTINGS-PAGE (2026-11-06): the Settings' rows (graphics, ambient, skins, music, sound, tile-preview, highlight, grid), each cropped
+ * from the Paved UX Book's tablet Settings screen (about 70 px), upscaled 4x and redrawn by Codex's built-in image tool (`codex exec
+ * -c model_provider=openai`, its `image_gen`) from its crop, with four shipped icons (missions, settings, sun, collection) as the
+ * style's reference: the object alone, on a transparent 1254 px square. Each trimmed to its opaque box, fitted to the 240 px box by a
+ * premultiplied area average and centred on the icons' frame, checked beside the shipped icons on the drawer's charcoal. The book's
+ * sun and scroll are the shipped `sun` and `missions`.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

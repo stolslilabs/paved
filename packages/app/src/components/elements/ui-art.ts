@@ -9,8 +9,9 @@
  * member's Promote and Demote, the join types' open padlock and sealed letter, the members' busts, the Recruit's sprout and the
  * Veteran's medal (GUILD-PAGE, 2026-11-05),
  * edit mode's die, its bubble's Rotate, Back to the inventory and Cancel, the Layouts' padlock, Use's gold pill (a frame) and the
- * bar's Save and Erase (EDIT-VILLAGE, 2026-11-05), the Play page's open gift under a mode's rewards and the Challenge's stake's
- * burned coin, Vault, referral, break even and top win (PLAY-PAGE, 2026-11-06),
+ * bar's Save and Erase (EDIT-VILLAGE, 2026-11-05),
+ * the Settings' rows (SETTINGS-PAGE, 2026-11-06), the Play page's open gift under a mode's rewards and the Challenge's stake's
+ * burned coin, Vault, referral, break even, top win, split and money bag (PLAY-PAGE, 2026-11-06),
  * and the frames the home draws with them: the XP bar's track and fill, and the dock's wood, parchment, divider and PLAY medallion
  * (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width, its pieces cut from the mockup's footer decomposed and
  * checked against it: `DOCK_ART`). The season dial's frame and the
@@ -61,6 +62,15 @@ export const UI_ICONS = [
   "forest",
   "wonder",
   "stats",
+  // SETTINGS-PAGE: the Settings' rows, redrawn by Codex from the Paved UX Book's (the day and night cycle takes `sun`, Credits `missions`).
+  "graphics",
+  "ambient",
+  "skins",
+  "music",
+  "sound",
+  "tile-preview",
+  "highlight",
+  "grid",
   "hammer",
   "explore",
   "exit",
