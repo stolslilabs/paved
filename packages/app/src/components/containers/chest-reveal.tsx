@@ -3,6 +3,7 @@ import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
+import { BLACK_OUTLINE } from "../elements/black-outline";
 import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
 import { CARD_GREY, GOLD_FILL } from "../elements/chest-designs";
 import { CHEST_EFFECTS, chestEffectUrl, pickSize } from "../elements/chest-images";
@@ -42,24 +43,6 @@ export const TILE_GAP_S = 0.14;
 
 /** The reveal's heading, the book's: "Choose 1 of 3"; a basic chest's one tile, "Your new tile". */
 export const revealTitle = (draw: ChestDraw): string => (draw.plans.length > 1 ? `Choose 1 of ${draw.plans.length}` : "Your new tile");
-
-/**
- * The gold pill's word outlined thick in the HUD's black (the owner's ask of 2026-11-06, as the book's Take): the dock labels' outline
- * (`app-nav.tsx`), 2 px, a drop under it.
- */
-export const BLACK_OUTLINE = [
-  [-2, 0],
-  [2, 0],
-  [0, -2],
-  [0, 2],
-  [-1.5, -1.5],
-  [1.5, -1.5],
-  [-1.5, 1.5],
-  [1.5, 1.5],
-]
-  .map(([x, y]) => `${x}px ${y}px var(--hud-outline)`)
-  .concat("0 3px 2px var(--hud-outline)")
-  .join(", ");
 
 /**
  * Take and Claim (the owner's ask of 2026-11-06: more appealing): the book's gold pill (Follow back's, `friends-art.ts`) at 52 px,

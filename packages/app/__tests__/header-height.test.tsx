@@ -67,8 +67,8 @@ describe("the page headers", () => {
     expect([...covered].sort()).toEqual(PAGES.map((p) => p.path).filter((p) => !BOARD.includes(p)).sort());
   });
 
-  it("names the drawers' pages for the header sweep: those whose route is the HUD's drawer (MISSIONS-PAGE)", () => {
-    const drawers = Object.entries(PAGE_HEADER_STORIES).filter(([, routes]) => routes.some((r) => PAGES.find((p) => p.path === r)?.drawer));
+  it("names the drawers' pages for the header sweep: those whose route is the HUD's drawer (MISSIONS-PAGE), not a sheet over one (Story's, PLAY-PAGE)", () => {
+    const drawers = Object.entries(PAGE_HEADER_STORIES).filter(([, routes]) => routes.some((r) => PAGES.find((p) => p.path === r && !p.sheet)?.drawer));
     expect([...DRAWER_PAGES].sort()).toEqual(drawers.map(([id]) => id).sort());
   });
 

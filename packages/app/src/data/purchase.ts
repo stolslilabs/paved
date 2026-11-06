@@ -104,11 +104,14 @@ function useMinOut(swapIn: bigint | null): Confirmable & { poolOut: bigint | nul
  * rate, boosted by the stake, times `F` (`estimatedReference`). Null until the stake's own quote, its pool quote and the rate
  * are read; the confirm never waits for it. `referenceError` is why it cannot be estimated: the guard's rate or the pool's
  * quote failed (after its retry), or the pool cannot fill the swap. `R` then stays null without being pending.
+ *
+ * `priceInPaved` (PLAY-PAGE: the score that wins the price back) is what the stake's price is worth in PAVED at the guard's rate
+ * (`Economy.rate`, PAVED base units per USDC base unit x 1e18), the economy's own price; null until the quote and the rate are read.
  */
 export function useStakeQuote(
   stake: number,
   referred: boolean,
-): { quote: UseQueryResult<QuoteView | null>; reference: bigint | null; referenceError: Error | null } & Confirmable {
+): { quote: UseQueryResult<QuoteView | null>; reference: bigint | null; referenceError: Error | null; priceInPaved: bigint | null } & Confirmable {
   const { economy } = useDataSources();
   const quote = useQuery({
     queryKey: queryKeys.chain.quote(stake),
@@ -128,7 +131,8 @@ export function useStakeQuote(
       ? null
       : (rate.error ??
         (swapIn === null ? null : (confirmable.error ?? (!confirmable.isPending && poolOut === null ? new Error(REFERENCE_POOL_EMPTY) : null))));
-  return { quote, ...confirmable, reference, referenceError, minOut: current ? confirmable.minOut : null, isPending: quote.isPlaceholderData || confirmable.isPending };
+  const priceInPaved = current && rate.data != null ? (current.price * rate.data) / 10n ** 18n : null;
+  return { quote, ...confirmable, reference, referenceError, priceInPaved, minOut: current ? confirmable.minOut : null, isPending: quote.isPlaceholderData || confirmable.isPending };
 }
 
 /** The pool's `quote_swap` answered 0: the swap cannot fill now, so no `R` can be estimated from it. */

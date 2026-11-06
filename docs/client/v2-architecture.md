@@ -449,9 +449,10 @@ WebGL on a machine with no GPU) and committed as the masters in `src/directions/
 |---|---|---|
 | `wordmark.webp` | 840 x 240, 14,352 B | `Wordmark` (Home, the nav header, Welcome, Loading) |
 | `hero-tall.webp` / `hero-wide.webp` | 750 x 1000, 122,366 B / 1440 x 720, 112,264 B | `BoardHero` (Home, Welcome); one of the two is fetched |
-| `mode-challenge.webp`, `mode-training.webp`, `mode-tutorial.webp` | 320 x 200; 21,056, 7,878 and 5,550 B | the mode cards, the game to resume |
 
-Total 283,466 B (the over screen's banner, `score-wide.webp`, left with #720: the final board is that screen's background). Each is its own file in `dist/assets` (no JavaScript chunk grows), fetched when its `<img>` is drawn
+Total 248,982 B (the over screen's banner, `score-wide.webp`, left with #720: the final board is that screen's background; the mode
+cards' three, `mode-challenge.webp`, `mode-training.webp` and `mode-tutorial.webp`, left with PLAY-PAGE: the Play page draws the Paved
+UX Book's paintings, `public/ui-art/play/`). Each is its own file in `dist/assets` (no JavaScript chunk grows), fetched when its `<img>` is drawn
 (`loading="lazy"` below the fold), with its width and height set; nothing is fetched from another host.
 
 ### 2.3 Fonts

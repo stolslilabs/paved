@@ -4,6 +4,7 @@ import * as m from "motion/react-m";
 import { formatInteger } from "@paved/game-core";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
+import { BLACK_OUTLINE } from "../elements/black-outline";
 import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
 import { CHEST_ART_REM, CHEST_SPENT, GOLD_SOFT } from "../elements/chest-designs";
 import { ChestIcon } from "../elements/chest-icon";
@@ -21,7 +22,7 @@ import { tileName } from "../elements/tile-render";
 import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
 import { useSfx } from "./audio-provider";
-import { BLACK_OUTLINE, TilePicture } from "./chest-reveal";
+import { TilePicture } from "./chest-reveal";
 
 /**
  * A game's chest on its end (END-CHEST, the owner's ask of 2026-11-06: every chest opens where it is won, the Chests page gone): `won`

@@ -35,10 +35,6 @@ export const RENDERS: Record<string, BoardSpec | WordmarkSpec> = {
   "hud-wide": { kind: "board", board: "38", theme: 1, width: 1440, height: 900, zoom: 1.6, offset: [-1, 0], polar: 45, azimuth: 30, hand: true, keyed: true },
   // The score screen's banner: the finished 38-tile game, close on its west half.
   "score-wide": { kind: "board", board: "38", theme: 1, width: 1200, height: 560, zoom: 2.6, offset: [-1, 0], polar: 48, azimuth: 35, keyed: true },
-  // The mode cards.
-  "mode-challenge": { kind: "board", board: "72", theme: 1, width: 640, height: 400, zoom: 3.2, polar: 50, azimuth: 35, offset: [-2, 1], keyed: true },
-  "mode-training": { kind: "board", board: "tiles", tiles: strip(["rfrfffffr", "rfffrfffr", "ffcfffcff", "sfrfrfrfr", "wffffffff", "rfrfrfcff"], 3), theme: 0, width: 640, height: 400, zoom: 3.6, polar: 50, azimuth: 35, keyed: true },
-  "mode-tutorial": { kind: "board", board: "tiles", tiles: strip(["rfffrfffr", "cccccfrfc"], 2), theme: 1, width: 640, height: 400, zoom: 4.6, polar: 50, azimuth: 35, keyed: true },
   // The tile themes, as Settings offers them: the base models and Forest.
   "theme-0": { kind: "board", board: "tiles", tiles: strip(["cccccfrfc", "rfrfffffr", "wffffffff", "ccccccccc"], 2), theme: 0, width: 480, height: 360, zoom: 4.2, polar: 45, azimuth: 35, keyed: true },
   "theme-1": { kind: "board", board: "tiles", tiles: strip(["cccccfrfc", "rfrfffffr", "wffffffff", "ccccccccc"], 2), theme: 1, width: 480, height: 360, zoom: 4.2, polar: 45, azimuth: 35, keyed: true },

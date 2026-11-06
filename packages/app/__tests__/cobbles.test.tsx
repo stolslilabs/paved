@@ -200,7 +200,7 @@ describe("Cobble packs (#621; SHOP-PAGE: the Shop's Cobbles tab, and its sheet o
 
   it("leaves the Challenge's purchase to the game alone: no tab, no pack", () => {
     render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
-    expect(screen.getByRole("heading", { level: 1, name: "Challenge" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Stake: 2 USDC" })).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Cobble packs" })).not.toBeInTheDocument();
   });
@@ -441,7 +441,7 @@ describe("Missions: Cobbles only (#832)", () => {
 });
 
 describe("Home and Play: Cobbles", () => {
-  it("leaves the free game to Play: the home's village has no free-game card (#753)", async () => {
+  it("the home's village has no free-game card (#753)", async () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
     expect(screen.queryByText("Daily")).not.toBeInTheDocument();
     expect(screen.queryByText(/Free game/)).not.toBeInTheDocument();
@@ -449,11 +449,9 @@ describe("Home and Play: Cobbles", () => {
     expect(await screen.findByRole("button", { name: /^League:/ })).toBeInTheDocument();
   });
 
-  it("offers a free game on Play that spends a credit", async () => {
-    const onPlayFree = vi.fn();
-    render(wrap(<PlayScene {...PLAY.freeGame} onPlayFree={onPlayFree} />));
-    await userEvent.click(screen.getByRole("button", { name: /Free Challenge/ }));
-    expect(onPlayFree).toHaveBeenCalledTimes(1);
+  it("offers no free game on Play either (PLAY-PAGE, the owner's ask of 2026-11-06: Free Challenge left)", () => {
+    render(wrap(<PlayScene {...PLAY.connected} />));
+    expect(screen.queryByRole("button", { name: /Free Challenge/ })).toBeNull();
   });
 });
 

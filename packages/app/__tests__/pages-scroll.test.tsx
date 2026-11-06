@@ -21,8 +21,8 @@ import { ShopScene } from "../src/components/scenes/shop-scene";
 /**
  * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, the Vault and the second-level pages
  * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body); Missions in the HUD's
- * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE), the Shop (SHOP-PAGE) and Settings with its views
- * (SETTINGS-PAGE). The page is drawn
+ * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE), the Shop (SHOP-PAGE), Settings with its views
+ * (SETTINGS-PAGE) and Play (PLAY-PAGE; no full-screen flow left). The page is drawn
  * straight in that region: its sticky header and its content are the region's own (no column of its own between them and the
  * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing out, so this test
  * reads the structure that lets a page scroll, not its overflow: the overflow itself (content taller than a 375 x 812 phone and
@@ -33,14 +33,6 @@ const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
   ["Vault", <VaultScene {...VAULT.position} />],
   ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
-];
-
-/**
- * The full-screen flows below `desktop` (Play): no tab frame, the document scrolls under their sticky top bar; from `desktop`
- * pages of the side panel, in its body as every other.
- */
-const FLOWS: readonly [string, ReactNode][] = [
-  ["Choose a mode", <PlayScene {...PLAY.connected} onBack={no()} onChallenge={no()} onTraining={no()} onStory={no()} onAttack={no()} />],
 ];
 
 const BALANCES = { state: { status: "ready", usdc: 0n, paved: 0n, cobbles: 640 }, faucet: false, show: { phone: true, desktop: "all" } } as const;
@@ -103,24 +95,6 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(screen.getByRole("dialog", { name: title })).toContainElement(region);
     // The phone's bar is not drawn in the panel.
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
-  });
-
-  it.each(FLOWS)("%s from desktop: the side panel's body, the flow's full-screen height dropped", (title, page) => {
-    draw(page, true, title);
-    expectOneRegion(title);
-    expect(screen.getByRole("dialog", { name: title })).toContainElement(document.querySelector<HTMLElement>("[data-slot=page-scroll]"));
-  });
-
-  it.each(FLOWS)("%s below desktop: a flow, the document scrolls under its sticky bar (no region, no clipping column)", (title, page) => {
-    draw(page, false, title);
-    expect(document.querySelector("[data-slot=page-scroll]")).toBeNull();
-    const header = screen.getByRole("heading", { level: 1, name: title }).closest<HTMLElement>("[data-slot=page-header]")!;
-    expect(header.className).toMatch(/(^|\s)sticky(\s|$)/);
-    // Its column fills the viewport at least (`min-h-dvh`) and never clips or scrolls: the document does.
-    const column = header.parentElement!;
-    expect(column.className).toMatch(/(^|\s)min-h-dvh(\s|$)/);
-    for (let el: HTMLElement | null = column; el && el !== document.body; el = el.parentElement)
-      expect(el.className).not.toMatch(/(^|\s)(overflow-(y-)?(auto|scroll|hidden|clip)|h-dvh|h-screen|h-full)(\s|$)/);
   });
 
   it("the packs' sheet (SHOP-PAGE: the Shop's Cobbles tab over a page) scrolls in the sheet's region", () => {
@@ -205,6 +179,21 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     const touchy = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)touch-(none|pan-x|pinch-zoom)(\s|$)/.test(el.getAttribute("class") ?? ""));
     expect(touchy).toEqual([]);
     for (let el: HTMLElement | null = icons.at(-1)!; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
+  });
+
+  it("Play draws its groups in the HUD drawer's body (PLAY-PAGE), to Limited's last card; no part of it scrolls on its own", () => {
+    draw(<PlayScene {...PLAY.connected} onBack={no()} onChallenge={no()} onTraining={no()} onStory={no()} onAttack={no()} />, false, "Play");
+    const drawer = screen.getByRole("dialog", { name: "Play" });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    expect(region.className).toContain("overscroll-contain");
+    for (const group of ["Ranked", "Paid", "Free", "Limited"]) expect(region).toContainElement(screen.getByRole("heading", { name: group }));
+    const last = screen.getByRole("button", { name: "Coming soon" });
+    expect(region).toContainElement(last);
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    for (let el: HTMLElement | null = last.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 
   it("Tiles draws its stage, its skins and its 19 tiles in the HUD drawer's body (COLLECTION-PAGE), to the last tile", () => {

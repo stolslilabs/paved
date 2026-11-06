@@ -292,6 +292,9 @@
   --sky-search-top: var(--color-river-900);
   --sky-search-bottom: var(--color-river-500);
   --crown: var(--color-gold-300);
+  /* USDC's own logo (PLAY-PAGE, the owner's ask: the token's native mark, not the painted coin): Circle's blue and its white. */
+  --usdc-blue: #2775ca;
+  --usdc-white: #ffffff;
   /* The match's board panel (MATCH-PAGE, the Paved UX Book's "Battle log"): its bright blue rim and glow (`match-frame`). */
   --match-rim: var(--color-river-500);
   --match-glow: var(--color-river-400);

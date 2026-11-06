@@ -1,87 +1,85 @@
+import { useState, type ReactNode } from "react";
+import * as m from "motion/react-m";
+import { BalancesSlot } from "../containers/balances-context";
+import type { ShownBalance } from "../containers/balances";
+import { HudDrawer } from "../containers/hud-drawer";
+import { PlayModes, type PlayModesProps } from "../containers/play-modes";
 import { Notice } from "../elements/notice";
-import { ModeCard } from "../containers/mode-card";
-import { TopBar } from "../containers/top-bar";
-import modeChallenge from "../../assets/renders/mode-challenge.webp";
-import modeTraining from "../../assets/renders/mode-training.webp";
-import modeTutorial from "../../assets/renders/mode-tutorial.webp";
-import { useInPageRegion } from "../containers/page-region";
-import { cn } from "../../lib/utils";
 
-export interface PlaySceneProps {
-  /** A wallet is connected: the Challenge can be bought. */
-  connected: boolean;
-  /** `Challenge.spawn_paused`. */
-  spawnPaused: boolean;
-  /** Free Challenge games from the quests (P-61, `AccountView.credits`); none when omitted. */
-  credits?: number;
+export interface PlaySceneProps extends PlayModesProps {
+  /** The drawer is open (its route the current one); omitted, open. */
+  open?: boolean;
+  /** Where the focus goes back on close: the HUD's control that opened it (the dock's Play). */
+  returnFocus?: () => HTMLElement | null;
+  /**
+   * The Challenge's stake (`/play/challenge`): its body (`PurchaseScene`, or its price being read), the panel's view in the modes' place.
+   * Null or omitted: the modes.
+   */
+  challenge?: ReactNode;
+  /** Play's close, back to the village. */
   onBack?: () => void;
-  /** Spends a free game (`Challenge.spawn_free`). */
-  onPlayFree?: () => void;
-  onChallenge?: () => void;
-  onTraining?: () => void;
-  onStory?: () => void;
-  /** The PvP attack (#647, #740): a rival village; a guest's tap connects first. Omitted: no Attack. */
-  onAttack?: () => void;
-  onConnect?: () => void;
+  /** The stake's Back, to the modes. */
+  onChallengeBack?: () => void;
 }
 
+/** The stake's balance at the header's end (the drawers' rule: the page's balance at the top right), USDC, what it spends. */
+const USDC: readonly ShownBalance[] = ["usdc"];
+
+/** A press on a dialog over the drawer (a wallet's, Story's sheet) is no tap on the village. */
+const keepForDialogs = (event: Event) => {
+  if ((event.target as Element | null)?.closest?.("[role=dialog], [role=alertdialog]")) event.preventDefault();
+};
+
 /**
- * The mode choice (`/play`, opened by the home's Play, #753): Challenge, Training, Story, Attack, and Multiplayer disabled ("coming soon", owner D-4). Direction D
- * (#537): each mode a row with a render of its board on the left, as the mockups' Play list.
+ * Play (`/play`, PLAY-PAGE, the Paved UX Book's "modes", "modes-resume" and "challenge"), opened by the dock's Play: the HUD's drawer, as
+ * Missions and the Shop (`HudDrawer`): a full page with Back on a phone, a side panel docked at the right from `tablet` (the book draws a
+ * centred window, which no drawer is: docked as the Shop). In it the modes (`PlayModes`): Ranked, Paid, Free, Limited. The Challenge's stake
+ * (`/play/challenge`) is a panel of its own in the modes' place at every width (the owner's ask of 2026-11-06: no sheet from the bottom;
+ * Guild's menu pattern), sliding in from the right, its Back to the modes and the red cross out to the village, the USDC balance at its
+ * header's end (the drawers' rule, where the book writes it under the title). A pause says so under
+ * the modes: Training and Story stay open.
  */
-export function PlayScene({ connected, spawnPaused, credits = 0, onBack, onChallenge, onTraining, onStory, onAttack, onConnect, onPlayFree }: PlaySceneProps) {
-  // A full-screen flow fills the viewport; in a scrolling region (the side panel, #782) the page takes its content's height.
-  const inRegion = useInPageRegion();
-  // A guest's tap on the Challenge connects first; a pause disables it.
+export function PlayScene({ open = true, returnFocus, challenge = null, onBack, onChallengeBack, ...modes }: PlaySceneProps) {
+  const view = challenge !== null ? "challenge" : "modes";
+  // The first view comes with the drawer's own slide; only a move between views slides.
+  const [last, setLast] = useState(view);
+  const [moved, setMoved] = useState(false);
+  if (last !== view) {
+    setLast(view);
+    setMoved(true);
+  }
   return (
-    <div className={cn("flex flex-col bg-background text-foreground", !inRegion && "min-h-dvh")}>
-      <TopBar title="Choose a mode" onBack={onBack} />
-      <main className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-8 tablet:max-w-2xl tablet:grid tablet:grid-cols-2 tablet:gap-4">
-        <ModeCard
-          featured
-          art={spawnPaused ? undefined : modeChallenge}
-          icon="trophy"
-          title="Challenge"
-          description="Stake 1 to 10, beat the threshold, earn PAVED."
-          badge="Paid"
-          disabled={spawnPaused}
-          reason="Purchases are paused for now."
-          onSelect={connected ? onChallenge : onConnect}
-          className="tablet:col-span-2"
-        >
-          {!connected && !spawnPaused && <p className="text-xs text-primary">Connect a wallet to enter: tap to connect.</p>}
-        </ModeCard>
-        {connected && credits > 0 && (
-          <ModeCard
-            icon="ticket"
-            title="Free Challenge"
-            description={`${credits} free ${credits === 1 ? "game" : "games"} from your missions: no PAVED at stake.`}
-            badge="Free"
-            disabled={spawnPaused}
-            reason="New games are paused for now."
-            onSelect={onPlayFree}
-            className="tablet:col-span-2"
-          />
+    <HudDrawer
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onBack?.();
+      }}
+      title={view === "challenge" ? "Challenge" : "Play"}
+      side="right"
+      slot="play"
+      returnFocus={returnFocus}
+      // The title, the plate and both controls do not fit a phone under 360 px (the Shop's rule): there the title keeps the row.
+      end={view === "challenge" ? <BalancesSlot layout="pill" kinds={USDC} className="hidden mobile:flex" /> : undefined}
+      onBack={view === "challenge" ? onChallengeBack : undefined}
+      onInteractOutside={keepForDialogs}
+    >
+      <m.div
+        key={view}
+        // The stake comes in from the right, the modes back from the left (no slide under reduced motion: `MotionConfig`).
+        initial={moved && { x: view === "challenge" ? 48 : -48, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="flex flex-col gap-4"
+      >
+        {view === "challenge" ? (
+          challenge
+        ) : (
+          <>
+            <PlayModes {...modes} />
+            {modes.spawnPaused && <Notice tone="warning">New Challenge games are paused. Training and Story mode stay open.</Notice>}
+          </>
         )}
-        <ModeCard art={modeTraining} icon="play" title="Training" description="A full game for free." badge="Free" onSelect={onTraining} />
-        <ModeCard art={modeTutorial} icon="book-open" title="Story" description="Learn the rules level by level, then earn three stars on fixed decks." badge="Free" onSelect={onStory} />
-        {onAttack && (
-          <ModeCard icon="swords" title="Attack" description="Raid a rival village for stars, crowns and chests." badge="PvP" onSelect={connected ? onAttack : onConnect} className="tablet:col-span-2" />
-        )}
-        <ModeCard
-          icon="user-group"
-          title="Multiplayer"
-          description="Play with your friends in real time."
-          badge="Coming soon"
-          disabled
-          className="tablet:col-span-2"
-        />
-        {spawnPaused && (
-          <Notice tone="warning" className="tablet:col-span-2">
-            New Challenge games are paused. Training and Story mode stay open.
-          </Notice>
-        )}
-      </main>
-    </div>
+      </m.div>
+    </HudDrawer>
   );
 }

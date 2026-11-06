@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { MAX_STAKE, SendUnconfirmedError, boostBps } from "@paved/chain";
 import { PurchaseScene } from "../../components/scenes/purchase-scene";
-import { TopBar } from "../../components/containers/top-bar";
 import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
@@ -17,10 +16,11 @@ import { errorDetail } from "../error-detail";
 import { heldRefusal, newRefusal, quoteProblem, withDetail } from "../purchase-refusal";
 import { useChainClock } from "../../data/clock";
 import { useNow } from "../now";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate } from "../ref";
 
 /**
- * `/play/challenge` (P7b): the Challenge purchase, on the chain's data (section 6.4). It reads `entry_price` through
+ * `/play/challenge` (P7b), the body of Play's stake (PLAY-PAGE: a panel of its own in Play's drawer, in the modes' place, framed by
+ * `PlayScene`; this module is its own chunk, loaded with the stake): the Challenge purchase, on the chain's data (section 6.4). It reads `entry_price` through
  * `Economy.quote(stake)`, the split, the pool's `quote_swap` for `min_out`, the USDC balance and `spawn_paused`; Pay sends the
  * approve and `Challenge.spawn(stake, referrer, min_out)` in one multicall (`EconomyWriter.purchase`, which reads them all
  * again, with the router, the seller and the rate), which the wallet prompts for once (no approve is a session policy, P-65),
@@ -32,9 +32,8 @@ import { useAppNavigate, useBack } from "../ref";
  * (Retry), and until the player confirms that their balance and games show no purchase; then only a deliberate Buy again
  * sends. An unread USDC balance is unknown, not 0: Pay waits for it.
  */
-export default function Page() {
+export default function ChallengeStake() {
   const go = useAppNavigate();
-  const onBack = useBack();
   const [params] = useSearchParams();
   const wallet = useAccount();
   useConnectError(wallet.error);
@@ -56,12 +55,15 @@ export default function Page() {
   const purchase = usePurchase(playerId);
 
   const quote = stakeQuote.quote;
+  // The stake the quote shown is for: the last one read, while the new stake's is read (the previous quote kept meanwhile).
+  const [quotedStake, setQuotedStake] = useState(stake);
+  if (quote.data && !quote.isPlaceholderData && quotedStake !== stake) setQuotedStake(stake);
   const error = quote.error ?? split.error;
   if (error || quote.data === null || split.data === null) {
     const retry = () => void client.invalidateQueries({ queryKey: ["chain", "economy"] });
-    return <PurchaseStatus error={error?.message ?? "Purchases are off: the economy is not deployed on this network."} detail={errorDetail(error)} onBack={onBack} onRetry={retry} />;
+    return <PurchaseStatus error={error?.message ?? "Purchases are off: the economy is not deployed on this network."} detail={errorDetail(error)} onRetry={retry} />;
   }
-  if (quote.data === undefined || split.data === undefined) return <PurchaseStatus error={null} onBack={onBack} />;
+  if (quote.data === undefined || split.data === undefined) return <PurchaseStatus error={null} />;
 
   const gameHold = purchase.hold;
   // A Buy again that sent nothing (busy, declined) puts the released record back: its own refusal is what the player reads.
@@ -101,7 +103,9 @@ export default function Page() {
       stake={stake}
       maxStake={MAX_STAKE}
       quote={quote.data}
+      quotedStake={quotedStake}
       reference={stakeQuote.reference}
+      priceInPaved={stakeQuote.priceInPaved}
       referenceError={stakeQuote.referenceError?.message ?? null}
       referenceErrorDetail={stakeQuote.referenceError ? errorDetail(stakeQuote.referenceError) : undefined}
       onRetryReference={() => void client.invalidateQueries({ queryKey: ["chain", "economy"] })}
@@ -144,29 +148,25 @@ export default function Page() {
         if (id !== null) go(`/game/${id}`);
       }}
       onCheckGames={() => go("/")}
-      onBack={onBack}
     />
   );
 }
 
 /**
- * The page before its scene: the price being read (`error` null), or why it cannot be read (the economy not deployed, a
- * failed read), with Retry. The top bar keeps Back, as on every full-screen flow.
+ * The stake before its body: the price being read (`error` null), or why it cannot be read (the economy not deployed, a failed read),
+ * with Retry. The drawer's header keeps Back and the red cross.
  */
-function PurchaseStatus({ error, detail, onBack, onRetry }: { error: string | null; detail?: ErrorDetail; onBack: () => void; onRetry?: () => void }) {
+function PurchaseStatus({ error, detail, onRetry }: { error: string | null; detail?: ErrorDetail; onRetry?: () => void }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <TopBar title="Challenge" onBack={onBack} />
-      <main aria-busy={error === null} className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 tablet:max-w-2xl">
-        {error === null ? (
-          <Notice title="Reading the price…">The stake's price, its split and your balance.</Notice>
-        ) : (
-          <>
-            <InlineError title="The price cannot be read" message={error} detail={detail} />
-            <Button onClick={onRetry}>Retry</Button>
-          </>
-        )}
-      </main>
+    <div aria-busy={error === null} className="flex flex-col gap-4">
+      {error === null ? (
+        <Notice title="Reading the price…">The stake's price, its split and your balance.</Notice>
+      ) : (
+        <>
+          <InlineError title="The price cannot be read" message={error} detail={detail} />
+          <Button onClick={onRetry}>Retry</Button>
+        </>
+      )}
     </div>
   );
 }

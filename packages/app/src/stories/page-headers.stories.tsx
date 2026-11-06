@@ -89,5 +89,6 @@ export const VillageShop: Story = { render: () => <ShopScene {...SHOP.picked} on
 export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.twoStars} /> };
 export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} /> };
 export const PvpMatch: Story = { render: () => <PvpMatchScene {...PVP_MATCH.attackBuild} onBack={fn()} /> };
-export const Purchase: Story = { render: () => <PurchaseScene {...PURCHASE.stake1} onBack={fn()} /> };
+// Play's stake (PLAY-PAGE): a panel of its own in the drawer, in the modes' place.
+export const Purchase: Story = { render: () => <PlayScene {...PLAY.connected} challenge={<PurchaseScene {...PURCHASE.stake1} />} onBack={fn()} onChallengeBack={fn()} /> };
 export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} onBack={fn()} /> };

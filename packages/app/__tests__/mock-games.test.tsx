@@ -242,7 +242,7 @@ describe("a Challenge game on the mock, in the app (#927)", () => {
     const router = createTestRouter("/play/challenge");
     render(<App router={router} sources={{ ...s.sources, signer: null }} connector={async () => mockConnector(wallet.connector, s.ledger)} />);
 
-    const pay = await screen.findByRole("button", { name: /Pay .*2\.00.* and play/ }, WAIT);
+    const pay = await screen.findByRole("button", { name: /Confirm, pay 2 USDC and play/ }, WAIT);
     await waitFor(() => expect(pay).toBeEnabled(), WAIT);
     await userEvent.click(pay);
     await waitFor(() => expect(router.state.location.pathname).toBe("/game/1"), WAIT);

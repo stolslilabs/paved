@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import { BalancesOf } from "../components/containers/balances-of";
 import { useRoutePage } from "./handle";
 
@@ -13,8 +13,12 @@ const PageSheetHost = lazy(() => import("./page-sheet-host"));
  */
 export default function PageWithSheets({ page, path }: { page: ReactNode; path: string }) {
   const sheet = useRoutePage()?.sheet === true;
-  const [hosted, setHosted] = useState(sheet);
-  if (sheet && !hosted) setHosted(true);
+  // The host comes a commit after the page (PLAY-PAGE): a page drawn as a modal of its own (Play's drawer) takes its layer first, so
+  // the sheet over it is the top one; mounted in the same commit, each would hide the other from assistive technology.
+  const [hosted, setHosted] = useState(false);
+  useEffect(() => {
+    if (sheet) setHosted(true);
+  }, [sheet]);
   return (
     <>
       <BalancesOf page={path}>{page}</BalancesOf>

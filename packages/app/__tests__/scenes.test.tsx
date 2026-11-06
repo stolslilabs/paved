@@ -22,7 +22,7 @@ import type { LayoutBoardView } from "../src/components/containers/layout-board"
 import { LoadingScene } from "../src/components/scenes/loading-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
-import { PurchaseScene } from "../src/components/scenes/purchase-scene";
+import { PurchaseScene, breakEvenScore } from "../src/components/scenes/purchase-scene";
 import { rewardMarks } from "../src/components/containers/reward-estimate";
 import { GameHud } from "../src/components/containers/game-hud";
 import { MOCK_MARK_TEXT, MockMarkProvider } from "../src/components/containers/mock-mark";
@@ -625,28 +625,75 @@ describe("Home's points by structure (#758)", () => {
 });
 
 describe("Play", () => {
-  it("lists the four modes, Multiplayer disabled", async () => {
+  // PLAY-PAGE: the Paved UX Book's "modes", then the owner's asks of 2026-11-06: Ranked before Paid, each mode's gift of what it pays,
+  // no Free Challenge, a Limited section to come.
+  it("lists the groups in the owner's order, each mode with its gift of rewards", async () => {
     const onChallenge = vi.fn();
-    render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} />));
-    await userEvent.click(screen.getByRole("button", { name: /^Challenge/ }));
+    render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} onAttack={() => {}} />));
+    expect(screen.getByRole("dialog", { name: "Play" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Ranked", "Paid", "Free", "Limited"]);
+    const challenge = screen.getByRole("button", { name: /^Challenge/ });
+    expect(challenge).toHaveTextContent(/^ChallengeBeat the threshold$/);
+    await userEvent.click(challenge);
     expect(onChallenge).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: /Training/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /Story/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /^Multiplayer/ })).toBeDisabled();
+    expect(screen.getByRole("img", { name: "Rewards: PAVED, XP, chests" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Attack/ })).toHaveTextContent("Raid a rival village");
+    expect(screen.getByRole("img", { name: "Rewards: crowns, XP, chests" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Training/ })).toHaveTextContent("TrainingA full game, just for practice");
+    expect(screen.getByRole("button", { name: /^Training/ })).not.toHaveAccessibleName(/Rewards/);
+    expect(screen.getByRole("button", { name: /^Story/ })).toHaveTextContent(/^StoryLearn the rules, level by level/);
+    expect(screen.getByRole("button", { name: /^Story/ })).toHaveAccessibleName(/Rewards: XP, chests$/);
+    expect(screen.getByRole("button", { name: "Coming soon" })).toBeDisabled();
+    // No price tag, no free game, no Multiplayer.
+    expect(screen.queryByText(/USDC|earn PAVED/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Free Challenge/ })).toBeNull();
+    expect(screen.queryByText(/Multiplayer/)).toBeNull();
   });
 
-  it("connects a guest who picks the Challenge", async () => {
+  it("shows a running Challenge's time left and score in place of its gift, and resumes it", async () => {
+    const onResume = vi.fn();
+    const onChallenge = vi.fn();
+    render(wrap(<PlayScene {...PLAY.running} onResume={onResume} onChallenge={onChallenge} />));
+    expect(screen.queryByRole("img", { name: "Rewards: PAVED, XP, chests" })).toBeNull();
+    expect(screen.getByText("19h 0m")).toBeInTheDocument();
+    expect(screen.getByLabelText(`Score ${pts(PLAY.running.running.score)}`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: `Resume Challenge #${PLAY.running.running.id}` }));
+    expect(onResume).toHaveBeenCalledWith(PLAY.running.running.id);
+    expect(onChallenge).not.toHaveBeenCalled();
+  });
+
+  it("connects a guest who picks the Challenge or Attack", async () => {
     const onConnect = vi.fn();
     const onChallenge = vi.fn();
-    render(wrap(<PlayScene {...PLAY.guest} onConnect={onConnect} onChallenge={onChallenge} />));
+    const onAttack = vi.fn();
+    render(wrap(<PlayScene {...PLAY.guest} onConnect={onConnect} onChallenge={onChallenge} onAttack={onAttack} />));
     await userEvent.click(screen.getByRole("button", { name: /^Challenge/ }));
-    expect(onConnect).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: /^Attack/ }));
+    expect(onConnect).toHaveBeenCalledTimes(2);
     expect(onChallenge).not.toHaveBeenCalled();
+    expect(onAttack).not.toHaveBeenCalled();
   });
 
   it("disables the Challenge while purchases are paused", () => {
     render(wrap(<PlayScene {...PLAY.paused} />));
     expect(screen.getByRole("button", { name: /^Challenge/ })).toBeDisabled();
+    expect(screen.getByText("New Challenge games are paused. Training and Story mode stay open.")).toBeInTheDocument();
+  });
+
+  // The owner's ask of 2026-11-06: no sheet from the bottom; the stake is a panel of its own in the modes' place, at every width.
+  it("opens the stake as the drawer's own panel in the modes' place, its Back to them and its cross out", async () => {
+    const onBack = vi.fn();
+    const onChallengeBack = vi.fn();
+    render(wrap(<PlayScene {...PLAY.connected} challenge={<PurchaseScene {...PURCHASE.stake1} />} onBack={onBack} onChallengeBack={onChallengeBack} />));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    const panel = screen.getByRole("dialog", { name: "Challenge" });
+    expect(panel).toHaveAttribute("data-hud-drawer", "play");
+    expect(within(panel).queryByRole("heading", { name: "Paid" })).toBeNull();
+    expect(within(panel).getByRole("button", { name: /Confirm, pay .* and play/ })).toBeEnabled();
+    await userEvent.click(within(panel).getByRole("button", { name: "Back" }));
+    expect(onChallengeBack).toHaveBeenCalledOnce();
+    await userEvent.click(within(panel).getByRole("button", { name: "Close" }));
+    expect(onBack).toHaveBeenCalledOnce();
   });
 });
 
@@ -948,15 +995,14 @@ describe("Over", () => {
 });
 
 describe("Purchase", () => {
-  it("prices the stake, its boost and split, the 24 h validity and the threshold", async () => {
+  // PLAY-PAGE, the owner's asks of 2026-11-06: the stake in USDC between the League's arrows, the break-even score and the max gain
+  // under it, the reward by score, the split of the USDC, Confirm.
+  it("prices the stake in USDC, its boost and split, the 24 h validity and what it can win", async () => {
     const onStakeChange = vi.fn();
     render(wrap(<PurchaseScene {...PURCHASE.stake3Referred} onStakeChange={onStakeChange} />));
-    const slider = screen.getByRole("slider", { name: "Stake" });
-    expect(slider).toHaveAttribute("aria-valuenow", "3");
-    expect(slider).toHaveAttribute("aria-valuemin", "1");
-    expect(slider).toHaveAttribute("aria-valuemax", "10");
-    expect(screen.getByTestId("stake-value")).toHaveTextContent("3");
-    expect(screen.getByTestId("stake-price")).toHaveTextContent("6.00");
+    const stake = screen.getByRole("region", { name: "Stake" });
+    expect(within(stake).getByRole("status", { name: "Stake: 6 USDC" })).toBeInTheDocument();
+    expect(screen.getByTestId("stake-value")).toHaveTextContent("6");
     expect(screen.getByText("+3%")).toBeInTheDocument();
     // The referrer's address is cut in the middle, whole in its title (WRAP360).
     const referrer = screen.getByTitle("0x0456bb00000000000000000000000000000000000000000000000000000beef");
@@ -964,44 +1010,79 @@ describe("Purchase", () => {
     expect(referrer.parentElement).toHaveTextContent(/^To 0x0456…beef/);
     // split_bps 7,368 / 2,632 / 500 of 6 USDC: the referral comes out of the Vault's part, and the parts shown add up
     // to the price shown (4.42 + 1.28 + 0.30 = 6.00).
-    const price = screen.getByRole("region", { name: "Price" });
-    expect(within(price).getByText("Burned").closest("div")).toHaveTextContent("4.42");
-    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("1.28");
-    expect(within(price).getByText("Referral").closest("div")).toHaveTextContent("0.30");
+    const flow = screen.getByRole("region", { name: "Split" });
+    expect(within(flow).getByText("Burned").closest("li")).toHaveTextContent("4.42");
+    expect(within(flow).getByText("Vault").closest("li")).toHaveTextContent("1.28");
+    expect(within(flow).getByText("Referral").closest("li")).toHaveTextContent("0.30");
+    expect(within(flow).getByRole("img", { name: "Burned 73.68%, Vault 21.32%, Referral 5%" })).toBeInTheDocument();
     // The deadline is UTC with its label, under the Paris process zone too, the relative time first.
     const expiry = document.querySelector("time")!;
     expect(expiry).toHaveTextContent("in 24 h · Thu, Oct 15, 15:00 UTC");
     expect(expiry).toHaveAttribute("dateTime", "2026-10-15T15:00:00.000Z");
-    expect(screen.getByText("Score to beat").nextElementSibling).toHaveTextContent(pts(1150));
-    expect(screen.getByRole("button", { name: /Pay.*6\.00.*USDC.*and play/ })).toBeEnabled();
-    // Keyboard: the value is the scene's (a prop), so each key moves one step from 3.
-    slider.focus();
-    await userEvent.keyboard("{ArrowRight}");
+    // What the table means, out of its box, a line each.
+    const rules = within(screen.getByRole("region", { name: "Rewards" })).getByRole("list", { name: "How the reward works" });
+    expect(within(rules).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      `Under ${pts(1150)} points, the stake is lost.`,
+      expect.stringMatching(/^Estimates: your purchase sets the PAVED per point, and the day's scores set the winning score when it closes \(today's average: [\d,]+\)\.$/),
+    ]);
+    expect(screen.getByRole("button", { name: "Confirm, pay 6 USDC and play" })).toBeEnabled();
+    // The arrows: the value is the scene's (a prop), so each moves one step from 3.
+    await userEvent.click(within(stake).getByRole("button", { name: "Raise the stake" }));
     expect(onStakeChange).toHaveBeenLastCalledWith(4);
-    await userEvent.keyboard("{End}");
-    expect(onStakeChange).toHaveBeenLastCalledWith(10);
-    await userEvent.keyboard("{Home}");
-    expect(onStakeChange).toHaveBeenLastCalledWith(1);
+    await userEvent.click(within(stake).getByRole("button", { name: "Lower the stake" }));
+    expect(onStakeChange).toHaveBeenLastCalledWith(2);
+  });
+
+  it("stops each arrow at its end: no lower than one stake, no higher than the highest", () => {
+    const { unmount } = render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
+    expect(screen.getByRole("button", { name: "Lower the stake" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Raise the stake" })).toBeEnabled();
+    unmount();
+    render(wrap(<PurchaseScene {...PURCHASE.stake10} />));
+    expect(screen.getByRole("status", { name: "Stake: 20 USDC" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Raise the stake" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Lower the stake" })).toBeEnabled();
+  });
+
+  // The score whose reward wins the price back at the guard's rate (stake 1: 2 USDC is 160 PAVED at 80 a USDC, R = 113.11 PAVED,
+  // c 1.222: R x c x score / 1,150 reaches 160 PAVED at 1,332 points), and the cap's R x H; both tiles alike, score and gain.
+  it("shows break even and max gain alike, the score to make and its PAVED, and one PAVED's price in USD", () => {
+    render(wrap(<PurchaseScene {...PURCHASE.stake1} />));
+    const even = breakEvenScore(PURCHASE.stake1.quote, PURCHASE.stake1.reference, PURCHASE.stake1.priceInPaved);
+    expect(even).toBe(1332);
+    expect(screen.getByRole("group", { name: "Break even" })).toHaveTextContent(new RegExp(`^Break even${pts(1332)}16\\d$`));
+    expect(screen.getByRole("group", { name: "Max gain" })).toHaveTextContent(`Max gain${pts(4706)}565`);
+    // 80 PAVED a USDC: one PAVED is 0.0125 USDC.
+    expect(screen.getByText("$0.0125")).toBeInTheDocument();
+  });
+
+  it("says so when even the cap does not win the price back, and waits for the price's worth", () => {
+    const { unmount } = render(wrap(<PurchaseScene {...PURCHASE.stake1} priceInPaved={10n ** 24n} />));
+    expect(screen.getByRole("group", { name: "Break even" })).toHaveTextContent("Break even——");
+    unmount();
+    render(wrap(<PurchaseScene {...PURCHASE.stake1} priceInPaved={null} />));
+    expect(screen.getByRole("group", { name: "Break even" })).toHaveTextContent("Break even……");
+    expect(screen.queryByText(/1 PAVED ≈/)).toBeNull();
   });
 
   it("boosts the burn by 10% at the highest stake", () => {
     render(wrap(<PurchaseScene {...PURCHASE.stake10} />));
     expect(screen.getByText("+10%")).toBeInTheDocument();
     expect(screen.getByText(/No referrer: the Vault keeps it/)).toBeInTheDocument();
-    const price = screen.getByRole("region", { name: "Price" });
-    expect(within(price).getByText("Burned").closest("div")).toHaveTextContent("14.73");
-    expect(within(price).getByText("Vault").closest("div")).toHaveTextContent("5.27");
-    expect(within(price).getByText("Referral").closest("div")).toHaveTextContent("0.00");
+    const flow = screen.getByRole("region", { name: "Split" });
+    expect(within(flow).getByText("Burned").closest("li")).toHaveTextContent("14.73");
+    expect(within(flow).getByText("Vault").closest("li")).toHaveTextContent("5.27");
+    expect(within(flow).getByText("Referral").closest("li")).toHaveTextContent("0.00");
   });
 
   it("refuses to pay with too little USDC, or while purchases are paused", () => {
     const { unmount } = render(wrap(<PurchaseScene {...PURCHASE.short} />));
     expect(screen.getByRole("alert")).toHaveTextContent("Not enough USDC");
-    expect(screen.getByRole("button", { name: /Pay/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Confirm/ })).toBeDisabled();
     unmount();
     render(wrap(<PurchaseScene {...PURCHASE.paused} />));
     expect(screen.getByText("Purchases paused")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Pay/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Confirm/ })).toBeDisabled();
   });
 
   it("is busy while the purchase is on its way", () => {
@@ -1020,9 +1101,11 @@ describe("Purchase", () => {
       `${pts(1438)}172.84PAVED`,
       `${pts(1725)}207.33PAVED`,
       `${pts(2300)}276.44PAVED`,
-      `${pts(4706)}+max565.56PAVED`,
+      `${pts(4706)}+565.56PAVED`,
     ]);
-    expect(screen.getByText(/Estimates at today's threshold/)).toBeInTheDocument();
+    // Its meaning sits under its box, not in it.
+    expect(table.closest(".drawer-carved")).not.toHaveTextContent(/Estimates/);
+    expect(screen.getByRole("list", { name: "How the reward works" })).toHaveTextContent(/^Under .*Estimates: your purchase sets the PAVED per point/);
   });
 
   it("scales the reward by score with the stake", () => {
@@ -1039,7 +1122,7 @@ describe("Purchase", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(6);
     expect(within(table).queryByText("PAVED")).not.toBeInTheDocument();
     // Pay never waits for the estimate.
-    expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^Confirm/ })).toBeEnabled();
     expect(screen.queryByText("The reward cannot be estimated")).toBeNull();
   });
 
@@ -1052,7 +1135,7 @@ describe("Purchase", () => {
     expect(screen.getByText("The reward cannot be estimated")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetryReference).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: /Pay/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^Confirm/ })).toBeEnabled();
   });
 });
 

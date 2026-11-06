@@ -15,13 +15,13 @@ import { join } from "node:path";
  *
  * - Each page's scene, with content taller than the screen (`pages-scroll/harness.tsx`: a long defence
  *   log, ...), at 375 x 812 in the tab frame (a phone: touch, dragged by a finger) and at 1440 x 900 in the home's side panel
- *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Play is a full-screen
- *   flow below `desktop`: there the document is what scrolls (`FLOWS`), under its sticky top bar. Per page and width: its
+ *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
- * - Missions, the League, the Shop, Tiles and Settings (its Themes and Credits) are the HUD's drawer at every width (MISSIONS-PAGE,
- *   LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
- *   stays put; from `tablet` its side panel has its close, by design.
+ * - Missions, the League, the Shop, Tiles, Settings (its Themes and Credits) and Play are the HUD's drawer at every width
+ *   (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, `DRAWERS`): its body is its region, under the
+ *   drawer's band, which stays put; from `tablet` its side panel has its close, by design. No full-screen flow is left (Play was
+ *   the last).
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
  *
@@ -41,17 +41,11 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
   tiles: "Tiles",
   referral: "Referral",
   credits: "Credits",
-  play: "Choose a mode",
+  play: "Play",
 };
 
-/**
- * The full-screen flows below `desktop` (Play: no tab frame, the document scrolls, under their sticky top bar); in the
- * side panel from `desktop` they scroll in its body as every other page.
- */
-const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play"]);
-
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits", "play"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });
@@ -70,8 +64,8 @@ const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: nu
   // height: an iPhone SE's 667 px, a 720 px laptop.
   league: { phone: 667, desktop: 720 },
   referral: { phone: 667, desktop: 667 },
-  // The mode choice's five rows, of fixed length too: an iPhone SE's view under Safari's bars (548 px),
-  // a 560 px browser window.
+  // Play's four groups (PLAY-PAGE), of fixed length too (669 px of content, about the drawer's body on a 375 x 812 phone): an
+  // iPhone SE's view under Safari's bars (548 px), a 560 px browser window.
   play: { phone: 548, desktop: 560 },
 };
 
@@ -124,9 +118,7 @@ interface Measure {
 /** The region's figures; the page's last element and its header against the region's box; every vertical scroller of the page. */
 function measure(region: Locator): Promise<Measure> {
   return region.evaluate((el: HTMLElement) => {
-    // The document (a flow's): its box is the viewport.
-    const doc = el === document.scrollingElement;
-    const box = doc ? { top: 0, bottom: innerHeight } : el.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
     const header = el.querySelector("[data-slot=page-header]")?.getBoundingClientRect();
     // A drawer's band sits right above its body, out of it: it stays at the body's top.
     const band = el.closest("[data-hud-drawer]")?.querySelector("[data-slot=sheet-header]")?.getBoundingClientRect();
@@ -139,7 +131,7 @@ function measure(region: Locator): Promise<Measure> {
     return {
       scrollTop: Math.round(el.scrollTop),
       scrollHeight: el.scrollHeight,
-      clientHeight: doc ? innerHeight : el.clientHeight,
+      clientHeight: el.clientHeight,
       scrollers,
       lastInView: !!end && end.bottom <= box.bottom + 1 && end.top >= box.top - 1,
       headerAtTop: header ? Math.abs(header.top - box.top) < 1 : !!band && Math.abs(band.bottom - box.top) < 1,
@@ -154,10 +146,7 @@ async function scrollPage(page: Page, id: (typeof PAGES)[number], panel: boolean
   await titled(scope, id).waitFor({ timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
   await pause(400);
-  const flow = !panel && FLOWS.has(id);
-  // A flow has no region: the document scrolls, and it must hold none.
-  if (flow) expect(await page.locator("[data-slot=page-scroll]").count()).toBe(0);
-  const region = flow ? page.locator("html") : scope.locator(REGION(id));
+  const region = scope.locator(REGION(id));
   const before = await measure(region);
   for (let i = 0; i < 20; i++) {
     const m = await measure(region);
@@ -167,13 +156,13 @@ async function scrollPage(page: Page, id: (typeof PAGES)[number], panel: boolean
   return { before, after: await measure(region) };
 }
 
-function expectScrolled(label: string, { before, after }: { before: Measure; after: Measure }, flow = false, drawer = false) {
+function expectScrolled(label: string, { before, after }: { before: Measure; after: Measure }, drawer = false) {
   const overflow = before.scrollHeight - before.clientHeight;
   console.log(`${label}: content ${before.scrollHeight} px in a ${before.clientHeight} px region, scrolled ${after.scrollTop} of ${overflow} px, last element ${after.lastInView ? "in view" : "NOT in view"}, header ${after.headerAtTop ? "sticky" : "NOT at the top"}, scrollers [${before.scrollers.join(", ")}]`);
   // The content is taller than the screen's region: otherwise the pass proves nothing.
   expect(overflow, `${label}: the content must be taller than its region`).toBeGreaterThan(40);
-  // A flow's document scrolls, no element in it; a page's region is the one element that scrolls.
-  expect(before.scrollers, `${label}: the region is the one element that scrolls`).toEqual(flow ? [] : [drawer ? "scroll-region" : "page-scroll"]);
+  // A page's region is the one element that scrolls.
+  expect(before.scrollers, `${label}: the region is the one element that scrolls`).toEqual([drawer ? "scroll-region" : "page-scroll"]);
   expect(after.scrollTop + after.clientHeight).toBeGreaterThanOrEqual(after.scrollHeight - 1);
   expect(after.lastInView, `${label}: the last element is in view at the end`).toBe(true);
   expect(after.headerAtTop, `${label}: the header stays at the top`).toBe(true);
@@ -194,7 +183,7 @@ describe("at 375 x 812, every page scrolls in the tab frame to its last element 
     const height = SHORT[id]?.phone ?? 812;
     await page.setViewportSize({ width: 375, height });
     const result = await scrollPage(page, id, false, () => drag(cdp, 187, height - 200, 150));
-    expectScrolled(`375 x ${height} ${id}${FLOWS.has(id) ? " (flow, the document)" : DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, FLOWS.has(id), DRAWERS.has(id));
+    expectScrolled(`375 x ${height} ${id}${DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, DRAWERS.has(id));
     if (shots && id === "league") await page.screenshot({ path: join(shots, `375-${id}.png`) });
   });
 });
@@ -217,7 +206,7 @@ describe("at 1440 x 900, every side panel scrolls to its page's last element (#7
       await page.mouse.wheel(0, 600);
       await pause(250);
     });
-    expectScrolled(`1440 x ${height} ${id}${DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, false, DRAWERS.has(id));
+    expectScrolled(`1440 x ${height} ${id}${DRAWERS.has(id) ? " (the HUD's drawer)" : ""}`, result, DRAWERS.has(id));
     // The page panel has no close; the HUD's drawer has its own, by design (MISSIONS-PAGE).
     if (!DRAWERS.has(id)) expect(await page.getByRole("dialog").getByRole("button", { name: "Close" }).count()).toBe(0);
     if (shots && id === "league") await page.screenshot({ path: join(shots, `1440-${id}.png`) });
@@ -300,10 +289,8 @@ describe("at 375, 800 and 1440 px, no page draws a scroll bar (#835)", () => {
       it.each(PAGES)("%s", async (id) => {
         const panel = w.width >= 1024;
         // A page of fixed length on its shorter screen (`SHORT`), where it has more than the screen: the phone's below `desktop`
-        // (the tab frame, or a flow's document), the panel's from it.
-        // At 800 px the mode choice's rows sit wider and fit even 548 px: a 420 px window (a laptop's, its browser docked low).
-        const narrow = w.width === 800 && id === "play" ? 420 : undefined;
-        await page.setViewportSize({ width: w.width, height: narrow ?? (panel ? SHORT[id]?.desktop : SHORT[id]?.phone) ?? w.height });
+        // (the tab frame), the panel's from it.
+        await page.setViewportSize({ width: w.width, height: (panel ? SHORT[id]?.desktop : SHORT[id]?.phone) ?? w.height });
         await page.goto(`${base}/e2e/pages-scroll/index.html?page=${id}${panel ? "&panel=1" : ""}`, { waitUntil: "networkidle" });
         await titled(scopeOf(page, id, panel), id).waitFor({ timeout: 20_000 });
         await page.evaluate(() => document.fonts.ready);

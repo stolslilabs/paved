@@ -16,7 +16,7 @@ import { APP_MANIFEST } from "../../mocks/assets";
 import { PLAYER_ID } from "../../mocks/players";
 import BoardPageRoute from "../../routes/pages/board";
 import OverPageRoute from "../../routes/pages/over";
-import PurchasePageRoute from "../../routes/pages/purchase";
+import PlayPageRoute from "../../routes/pages/play";
 import { PAGES } from "../../routes/pages";
 import { WalletProvider, useAccount, type LoadConnector } from "../../wallet/wallet";
 
@@ -134,7 +134,8 @@ function GamePages({ store, route }: { store: KeyValueStore; route: string }) {
   const [router] = useState(() =>
     createMemoryRouter(
       [
-        { path: "/play/challenge", element: <PurchasePageRoute />, handle: handle("play/challenge") },
+        // PLAY-PAGE: the stake is Play's own panel (one component for `/play` and `/play/challenge`).
+        { path: "/play/challenge", element: <PlayPageRoute />, handle: handle("play/challenge") },
         { path: "/game/:gameId", element: <BoardPageRoute />, handle: handle("game/:gameId") },
         { path: "/game/:gameId/over", element: <OverPageRoute />, handle: handle("game/:gameId/over") },
       ],

@@ -53,7 +53,17 @@ const PAGES = {
       import("../src/components/containers/board-season-wheel"),
     ]),
   over: () => import("../src/routes/pages/over"),
-  play: () => import("../src/routes/pages/play"),
+  // Play is the HUD's drawer over the home (PLAY-PAGE), its route a page with sheets (Story's): its host and the sheets' come with
+  // it, and the stake's chunk (`pages/purchase`), which the page fetches as soon as a pointer passes over it or a control takes the
+  // focus. Left to the test, that import fell inside back-targets' wait for Story's levels on CI and outlasted it.
+  play: () =>
+    Promise.all([
+      import("../src/routes/pages/play"),
+      import("../src/routes/pages/purchase"),
+      import("../src/routes/home-hosts"),
+      import("../src/routes/page-sheets"),
+      import("../src/routes/page-sheet-host"),
+    ]),
   purchase: () => import("../src/routes/pages/purchase"),
   cobbles: () => import("../src/routes/pages/cobbles"),
   // Missions is the HUD's drawer over the home (MISSIONS-PAGE): its host comes with it.

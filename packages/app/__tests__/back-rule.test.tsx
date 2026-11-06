@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import { queryClient } from "../src/lib/query-client";
+import { PAGE_LOADERS } from "../src/routes/page-loaders";
 import { PAGES } from "../src/routes/pages";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -44,13 +45,15 @@ const sheet = (name: string) => screen.findByRole("dialog", { name }, WAIT);
 const drawer = sheet;
 
 describe("the route map", () => {
-  it("names a parent only for a sheet over Play or a flow, so Back reaches the village in two steps at most", () => {
+  it("names a parent only for a sheet over Play, Play's stake (a view of its drawer) or a flow, so Back reaches the village in two steps at most", () => {
     for (const page of PAGES) {
       if (!page.parent) continue;
       const parent = PAGES.find((p) => `/${p.path}` === page.parent);
       // The parent is a page of its own that goes up to the village.
       expect(parent?.parent, page.path).toBeUndefined();
-      if (page.panel) expect(page.sheet, page.path).toBe(true);
+      // A panel's page under a parent is a sheet over it, or a view of the parent's drawer (PLAY-PAGE: the stake, one loader with Play).
+      const view = page.drawer === true && parent?.drawer === true && PAGE_LOADERS[page.path] === PAGE_LOADERS[parent.path];
+      if (page.panel) expect(page.sheet === true || view, page.path).toBe(true);
     }
     expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story"]);
     expect(PAGES.some((p) => p.path === "pvp/defence")).toBe(false);
@@ -156,15 +159,19 @@ describe("Play's modes (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
     await router.navigate("/play");
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, WAIT);
-    await userEvent.click(await screen.findByText("Learn the rules level by level, then earn three stars on fixed decks.", {}, WAIT));
+    // PLAY-PAGE: Play is the HUD's drawer; Story's sheet opens over it, the drawer kept under it.
+    const play = await screen.findByRole("dialog", { name: "Play" }, WAIT);
+    await userEvent.click(await within(play).findByRole("button", { name: /^Story/ }, WAIT));
     const dialog = await sheet("Story");
     expect(router.state.location.pathname).toBe("/story");
-    expect(screen.getByRole("heading", { level: 1, name: "Choose a mode", hidden: true })).toBeInTheDocument();
+    // Play's drawer stays under the sheet (hidden from assistive technology while the sheet is open).
+    expect(document.querySelector('[data-hud-drawer="play"]')).toBeInTheDocument();
     await userEvent.click(await within(dialog).findByRole("button", { name: "Back" }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
     expect(router.state.historyAction).toBe("POP");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Story" })).toBeNull(), WAIT);
+    // Play's drawer, under the sheet all along, is within reach again once the sheet has slid out.
+    expect(await screen.findByRole("dialog", { name: "Play" }, WAIT)).toBeInTheDocument();
     await waitFor(async () => {
       if (router.state.location.pathname === "/play") await userEvent.click(screen.getByRole("button", { name: "Back" }));
       expect(router.state.location.pathname).toBe("/");
@@ -173,13 +180,13 @@ describe("Play's modes (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
 
   it("Training opened from Play goes back to Play, the page it was opened from", async () => {
     const router = open("/play");
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, WAIT);
-    await userEvent.click(screen.getByRole("button", { name: /Training/ }));
+    await screen.findByRole("dialog", { name: "Play" }, WAIT);
+    await userEvent.click(screen.getByRole("button", { name: /^Training/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
     await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
     await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
     expect(router.state.historyAction).toBe("POP");
-    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Play" }, WAIT)).toBeInTheDocument();
   });
 
   it("Training opened by a link goes up to the village", async () => {

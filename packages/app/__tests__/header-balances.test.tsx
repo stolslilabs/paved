@@ -104,17 +104,19 @@ describe("the balances by page (#855)", () => {
   it.each(PAGES.map((p) => [p.path || "/", p.path] as const))("%s", async (_, path) => {
     const router = createTestRouter(concrete(path), (routes) => {
       const route = routeOf(routes, path);
+      // A page under its sheets (BACK-RULE #783), or a view of it (PLAY-PAGE: Play's stake), has no element of its own: their route
+      // draws it, which holds it: the stand-in goes there.
+      const drawn = route.element === undefined;
       route.element = <TopBar title="Stand-in" />;
-      // A page under its sheets (BACK-RULE #783) is drawn by their route, which holds it: the stand-in goes there.
       const holder = (rs: typeof routes): (typeof routes)[number] | undefined => {
         for (const r of rs) {
-          if (route.path && !r.path && r.children?.[0] === route) return r;
+          if (route.path && !r.path && r.children?.includes(route)) return r;
           const found = r.children && holder(r.children);
           if (found) return found;
         }
         return undefined;
       };
-      const sheets = holder(routes);
+      const sheets = drawn ? holder(routes) : undefined;
       if (sheets) sheets.element = route.element;
       route.loader = undefined;
       // The home's welcome loader is its index's (#762).

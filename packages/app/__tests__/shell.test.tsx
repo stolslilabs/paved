@@ -89,7 +89,8 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: "Play" }));
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) });
+    // PLAY-PAGE: Play is the HUD's drawer over the village.
+    await screen.findByRole("dialog", { name: "Play" }, { timeout: slow(5000) });
     expect(router.state.location.pathname).toBe("/play");
   });
 
@@ -102,9 +103,9 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
     expect(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).toBeInTheDocument();
   });
 
-  it("has no tab on a full-screen flow", async () => {
+  it("has no tab within reach under a page (DOCK-UNDER-PAGES): Play's drawer covers the village's dock", async () => {
     open("/play");
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
+    await screen.findByRole("dialog", { name: "Play" }, { timeout: slow(5000) });
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
   });
 });
@@ -412,7 +413,7 @@ describe("Back after a reload (the tracked entries, BACK-RULE #783)", () => {
     await screen.findByRole("button", { name: "Back" });
     await act(() => router.navigate(-1));
     await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
-    await screen.findByRole("heading", { level: 1, name: "Choose a mode" });
+    await screen.findByRole("dialog", { name: "Play" });
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     router.dispose();
