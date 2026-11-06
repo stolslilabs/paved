@@ -8,7 +8,7 @@ import { slow } from "../test-slow";
 import { GUILD_INVITE_TTL_S, GUILD_KICK_COOLDOWN_S, GUILD_LEADER_IDLE_S, GUILD_LOG_KEPT, GUILD_RANK, guildTag, keepLog, kickRefusal, promoteRefusal, type GuildDraft } from "@paved/game-core";
 import { guildKeys, guildRefusal, useGuild, useGuildBadge, useGuildRanking, useGuildSearch, useGuildWrites, usePlayerGuild, useSuggestedGuilds } from "../src/data/guilds";
 import { community } from "../src/data/mock/community";
-import { FIVE_RANKS_FROM, GUILD_WORLD_VERSION, MOCK_ACCEPT_S, MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, parseGuildWorld, seededGuildWorld, type GuildWorld } from "../src/data/mock/guilds";
+import { GUILD_WORLD_VERSION, MOCK_ACCEPT_S, MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, parseGuildWorld, seededGuildWorld, type GuildWorld } from "../src/data/mock/guilds";
 import { MockLedger, MOCK_KEY } from "../src/data/mock/ledger";
 import { mockSocial } from "../src/data/mock/overlay";
 import { GuildRefusedError, guildSource, type GuildSource, type SocialSource } from "../src/data/social-source";
@@ -536,8 +536,8 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
 
   describe("the acceptance criterion (the Overseer's ruling, least privilege): an undecidable 2 is a Veteran, never an Officer", () => {
     type Stored = GuildWorld["guilds"][number];
-    /** After GUILD-PAGE (#1027) merged: when its client wrote. */
-    const AFTER = FIVE_RANKS_FROM + 3_600;
+    /** An hour after GUILD-PAGE (#1027) merged (2026-11-06 06:42 UTC): when its client wrote, on a right clock. */
+    const AFTER = 1_793_947_320 + 3_600;
     /** The Quarrymen as stored, its leader and a Member. */
     function quarry(w: GuildWorld) {
       const g = w.guilds[0]!;
@@ -557,29 +557,30 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
       return [kickRefusal({ address: a.address, rank: a.rank, lastKick: null }, recruit, AFTER), promoteRefusal(a, recruit)];
     };
     const stored = (w: unknown, version: number) => ({ ...JSON.parse(JSON.stringify(w)), version });
-    /** A world as GUILD-PAGE's client stored it (version 1 still): a Member promoted to Veteran after its merge, the promotion logged. */
-    function promotedByGuildPage() {
-      const w = seededGuildWorld();
+    /**
+     * A world as GUILD-PAGE's client stored it (version 1 still): a Member promoted to Veteran, the promotion logged with its rank, at
+     * `at` (the device's clock: it may lag behind the merge). From a legacy world when `legacy` (its Officers 2, nothing else of #1027).
+     */
+    function promotedByGuildPage(at = AFTER, legacy = false) {
+      const w = legacy ? (legacyWorld(seededGuildWorld()) as GuildWorld) : seededGuildWorld();
       const { g, leader, member } = quarry(w);
       g.members.find((m) => m.address === member)!.rank = GUILD_RANK.veteran;
-      g.log = keepLog([...g.log, { kind: "promoted", at: AFTER, actor: leader, target: member, reason: null, rank: GUILD_RANK.veteran }]);
+      g.log = keepLog([...g.log, { kind: "promoted", at, actor: leader, target: member, reason: null, rank: GUILD_RANK.veteran }]);
       return { w, g, leader, member };
     }
 
-    it("(a) v1 Officer kept: in a world from before #1027 every 2 is an Officer, their history kept or pruned; the world says version 3", () => {
+    it("(a) v1 Officer kept: an old Officer, their promotion logged as version 1 logged it (no rank), becomes 3; the world says version 3", () => {
       const w = legacyWorld(seededGuildWorld()) as GuildWorld;
       const { g, leader } = quarry(w);
       const officers = g.members.filter((m) => m.rank === 2).map((m) => m.address);
       expect(officers.length).toBeGreaterThan(0);
-      const kept = parseGuildWorld(stored(w, 1))!;
-      announce(g, leader, GUILD_LOG_KEPT, T0);
-      expect(g.log.every((e) => e.kind === "announcement")).toBe(true);
-      const aged = parseGuildWorld(stored(w, 1))!;
-      for (const parsed of [kept, aged]) {
-        expect(parsed.version).toBe(3);
-        for (const o of officers) expect(rankIn(parsed, o)).toBe(GUILD_RANK.officer);
-        expect(rights(parsed, officers[0]!)).toEqual([null, null]);
-      }
+      // Newer entries after them, whatever the clock, as long as the promotions are kept.
+      announce(g, leader, GUILD_LOG_KEPT - g.log.length, T0);
+      expect(officers.every((o) => g.log.some((e) => e.kind === "promoted" && e.target === o && e.rank === undefined))).toBe(true);
+      const parsed = parseGuildWorld(stored(w, 1))!;
+      expect(parsed.version).toBe(3);
+      for (const o of officers) expect(rankIn(parsed, o)).toBe(GUILD_RANK.officer);
+      expect(rights(parsed, officers[0]!)).toEqual([null, null]);
     });
 
     it("(b) v2 Veteran with event kept: a 2 #1027 promoted, the promotion in the log, stays a Veteran (stored as #1027 did, version 1, or as 2)", () => {
@@ -602,21 +603,28 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
         expect(rankIn(parsed, member)).toBe(GUILD_RANK.veteran);
         expect(rights(parsed, member)).toEqual(["rank", "rank"]);
       }
-      // Its only trace a late time: a legacy world GUILD-PAGE's client posted to, then promoted in, its promotion gone.
-      const legacy = legacyWorld(seededGuildWorld()) as GuildWorld;
-      const q = quarry(legacy);
-      q.g.members.find((m) => m.address === q.member)!.rank = 2;
-      announce(q.g, q.leader, GUILD_LOG_KEPT, AFTER);
-      expect(rankIn(parseGuildWorld(stored(legacy, 1))!, q.member)).toBe(GUILD_RANK.veteran);
+      // Review 7's reproduction: a legacy world #1027 re-saved on a device whose clock was a day behind the merge, its promotion pushed
+      // out: no trace of #1027 left, not even a late time, and still a Veteran.
+      const lagging = AFTER - 3_600 - 86_400;
+      const late = promotedByGuildPage(lagging, true);
+      announce(late.g, late.leader, GUILD_LOG_KEPT, lagging + 1);
+      expect(late.g.log.every((e) => e.at < AFTER - 3_600 && e.rank === undefined)).toBe(true);
+      const parsed = parseGuildWorld(stored(late.w, 1))!;
+      expect(parsed.version).toBe(3);
+      expect(rankIn(parsed, late.member)).toBe(GUILD_RANK.veteran);
+      expect(rights(parsed, late.member)).toEqual(["rank", "rank"]);
     });
 
-    it("(b) the accepted residual case: version 1's Officer whose history left the log of a world #1027 re-saved reads as a Veteran", () => {
+    it("(b) the accepted residual case: version 1's Officer whose whole history left the log reads as a Veteran, whatever the clock", () => {
       const w = legacyWorld(seededGuildWorld()) as GuildWorld;
       const { g, leader } = quarry(w);
       const officers = g.members.filter((m) => m.rank === 2).map((m) => m.address);
-      announce(g, leader, GUILD_LOG_KEPT, AFTER);
-      const parsed = parseGuildWorld(stored(w, 1))!;
-      for (const o of officers) expect(rankIn(parsed, o)).toBe(GUILD_RANK.veteran);
+      for (const at of [T0, AFTER]) {
+        const pruned = structuredClone(w);
+        announce(quarry(pruned).g, leader, GUILD_LOG_KEPT, at);
+        const parsed = parseGuildWorld(stored(pruned, 1))!;
+        for (const o of officers) expect(rankIn(parsed, o)).toBe(GUILD_RANK.veteran);
+      }
       // Their promotion still logged (without a rank, as version 1 did): an Officer.
       const kept = legacyWorld(seededGuildWorld()) as GuildWorld;
       announce(quarry(kept).g, leader, 3, AFTER);

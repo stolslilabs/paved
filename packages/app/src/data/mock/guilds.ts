@@ -268,67 +268,40 @@ export const seededGuildWorld = (): GuildWorld => ({ version: GUILD_WORLD_VERSIO
 const LEGACY_OFFICER = 2;
 
 /**
- * When GUILD-PAGE's five ranks came (#1027 merged, 2026-11-06 06:41:59 UTC), in seconds. The mock's clock is the device's: a world
- * whose every time is before it was written by version 1's client alone.
+ * Whether a member stored at 2 in a version-1 world is version 1's Officer, on proof only (least privilege, #1030):
+ * - their latest change kept in the log decides: a promotion or a demotion logged without a rank (version 1's client wrote none with
+ *   one; GUILD-PAGE's always did), an Officer; one logged with rank 2, a Veteran; their founding or a change of leader naming them, an
+ *   Officer (version 1's leaders stepped down to 2, GUILD-PAGE's to 3, and a demotion since would be logged after it);
+ * - none kept (the log keeps its last `GUILD_LOG_KEPT` entries, by count): nothing proves an Officer, so a Veteran. Nothing stored
+ *   proves either that GUILD-PAGE's code never wrote the world: its promotion to Veteran can have left the log, and the device's clock
+ *   is no witness (it may lag), so no trace of the world, or none missing, makes it an Officer.
  */
-export const FIVE_RANKS_FROM = 1_793_947_319;
-
-/**
- * Whether GUILD-PAGE's client (#1027) may have written a version-1 world: it stored its five ranks under version 1 still, on top of the
- * worlds the devices held. Its traces: a Recruit (0) or an Officer (3), a promotion or a demotion logged with its rank, or any time
- * from `FIVE_RANKS_FROM` on (a member's joining, a log entry, an announcement, a request, an invitation). A world with none was written
- * before the five ranks existed: no Veteran can be in it.
- */
-function fiveRanksMayHaveWritten(w: { guilds: StoredGuild[] }): boolean {
-  const late = (at: number) => at >= FIVE_RANKS_FROM;
-  return w.guilds.some(
-    (g) =>
-      g.members.some((m) => m.rank === GUILD_RANK.recruit || m.rank === GUILD_RANK.officer || late(m.joinedAt)) ||
-      g.log.some((e) => e.rank !== undefined || late(e.at)) ||
-      g.announcements.some((a) => late(a.at)) ||
-      g.requests.some((r) => late(r.sentAt)) ||
-      g.invitations.some((i) => late(i.sentAt)),
-  );
-}
-
-/**
- * Whether a member stored at 2 in a version-1 world is version 1's Officer (the Overseer's ruling, #1030), by what is stored:
- * 1. their latest change kept in the log: a promotion or a demotion logged with rank 2 (GUILD-PAGE's), a Veteran; one logged without a
- *    rank (version 1's), an Officer; their founding or a change of leader naming them (version 1's leaders stepped down to 2; the
- *    five ranks' to 3), an Officer;
- * 2. none kept (the log keeps its last `GUILD_LOG_KEPT` entries, by count): in a world GUILD-PAGE's client never wrote, an Officer
- *    (the Veteran did not exist); in one it may have written, a Veteran, the less privileged rank. A leader promotes them again; a
- *    kick or a promotion given wrongly cannot be undone. The residual case: version 1's Officer whose history left the log of a world
- *    GUILD-PAGE's client re-saved (between its merge and this upgrade) reads as a Veteran.
- */
-function legacyOfficerAtTwo(g: StoredGuild, address: string, touched: boolean): boolean {
+function legacyOfficerAtTwo(g: StoredGuild, address: string): boolean {
   const theirs = g.log.filter(
     (e) => ((e.kind === "promoted" || e.kind === "demoted") && e.target === address) || (e.kind === "created" && e.actor === address) || (e.kind === "leader" && (e.actor === address || e.target === address)),
   );
   const last = theirs.at(-1);
-  if (last) return last.kind === "created" || last.kind === "leader" || last.rank === undefined;
-  return !touched;
+  return last !== undefined && (last.kind === "created" || last.kind === "leader" || last.rank === undefined);
 }
 
 /**
  * A stored world upgraded to the current version (a copy), once (#1030; the rule the Overseer set on 2026-11-06, least privilege):
- * - a world from before GUILD-PAGE (#1027) holds no Veteran, the rank did not exist: every 2 in it is version 1's Officer, now 3;
- * - a world GUILD-PAGE's code re-saved: a 2 whose promotion or demotion to Veteran is in the log is a Veteran; a 2 whose history is
- *   absent or pruned (the log keeps its last `GUILD_LOG_KEPT` entries, by count) is undecidable and reads as a Veteran, the less
- *   privileged rank: a leader promotes again, whereas a kick or a promotion granted wrongly cannot be undone;
+ * - a 2 is version 1's Officer, now 3, on proof in the log (`legacyOfficerAtTwo`): their latest change logged without a rank, as
+ *   version 1's client logged every change, or a change of leader that stepped them down;
+ * - a 2 whose promotion or demotion to Veteran is in the log is a Veteran;
+ * - a 2 whose history is absent or pruned is undecidable and reads as a Veteran, the less privileged rank: a leader promotes again,
+ *   whereas a kick or a promotion granted wrongly cannot be undone;
  * - every upgraded or new world says version 3, is stored so at the next write and is never upgraded again: from then on the stored
  *   `rank` is the rank, read from no log.
- * The two kinds of world as they are stored: GUILD-PAGE's code kept writing `version: 1` (it never raised the version), so a
- * version-1 world is told by its traces (`fiveRanksMayHaveWritten`); version 2 is this upgrade's first form, from its pull request
- * only, whose ranks are the five already and are kept. A member's own change kept in the log decides first (`legacyOfficerAtTwo`).
- * The accepted residual case, not a defect: version 1's Officer whose history left the log of a world GUILD-PAGE's code re-saved
- * (between 2026-11-06 06:42 UTC and this upgrade) reads as a Veteran.
+ * The stored version does not tell a world's vintage: GUILD-PAGE's code (#1027) kept writing `version: 1`, and nothing else stored
+ * proves a world it never re-saved (its promotion can leave the log, a device's clock can lag), so version 1 is judged member by
+ * member. Version 2 is this upgrade's first form, from its pull request only, whose ranks are the five already and are kept.
+ * The accepted residual case, not a defect: version 1's Officer whose whole history left the log reads as a Veteran.
  */
 function upgradeGuildWorld(stored: Omit<GuildWorld, "version">, from: 1 | 2): GuildWorld {
   const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };
   if (from === 2) return w;
-  const touched = fiveRanksMayHaveWritten(w);
-  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && legacyOfficerAtTwo(g, m.address, touched)) m.rank = GUILD_RANK.officer;
+  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && legacyOfficerAtTwo(g, m.address)) m.rank = GUILD_RANK.officer;
   return w;
 }
 
