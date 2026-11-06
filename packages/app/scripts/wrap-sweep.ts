@@ -52,6 +52,8 @@ interface Allowed {
   element: string;
 }
 
+/** The home's stories in edit mode (#753, EDIT-VILLAGE). */
+const EDITOR_STORIES = /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die|slots|edit-)/;
 /**
  * Deliberate exceptions. Each entry says why; none is a blanket skip of a story, a kind or a width.
  */
@@ -77,9 +79,12 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^(scenes-village-v2-layout|containers-inventorytray)--/, kind: "overflow", element: 'div "×', why: "carousel track" },
   // The home's edit mode (#753) is the v2 village's editor in the home's scene: its plan keeps the touch floor and scrolls both
   // ways, its inventory is the same carousel. The home's view fits its plan to the screen: no scroller there.
-  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die|slots)/, kind: "scroll", element: "div[scroll-region]", why: "v2 village scroller" },
-  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die|slots)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^scenes-home--(editing|holding|placing|lifted|moved|reset-holding|changed|leaving|refused|scene-editing|scene-placed|scene-moved|press-into-edit|scene-press-into-edit|die|slots)/, kind: "overflow", element: 'div "×', why: "carousel track" },
+  // EDIT-VILLAGE: the inventory's carousel is the edit panel's (`edit-panel.tsx`, its track `carousel-track`), and the scene's box
+  // (`overflow-hidden`, `village-scene`) an ancestor of the same track, holding it too, as the League drawer's body.
+  { story: EDITOR_STORIES, kind: "scroll", element: "div[scroll-region]", why: "v2 village scroller" },
+  { story: EDITOR_STORIES, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: EDITOR_STORIES, kind: "overflow", element: "div[carousel-track]", why: "carousel track" },
+  { story: EDITOR_STORIES, kind: "clip", element: "div[village-scene]", why: "the scene's box over the carousel track" },
   // The League page's carousel of Unranked and the 23 leagues (#785, #917), one per view: its window clips its track, by design.
   { story: /^(scenes-pvp-league--|scenes-home-panels--league(-phone)?$|pages-pvp--league(-matches)?(-phone|-wide)?$|pages-headers--pvp-league$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   // LEAGUE-PAGE: each card's name first (the book's), and the HUD drawer's body (`overflow-x-hidden`, down only) an ancestor of the

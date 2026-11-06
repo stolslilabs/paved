@@ -36,6 +36,11 @@ describe("the village's capsule (HOME-UI-2)", () => {
     expect(onEdit).toHaveBeenCalledOnce();
   });
 
+  it("after a save, says it in the book's notice, the change beside the new total (EDIT-VILLAGE)", async () => {
+    render(wrap(<VillageScore score={874} saved={{ score: 874, previous: 838 }} />));
+    expect(await screen.findByText((_, el) => el?.getAttribute("data-slot") === "saved-notice" && el.textContent === "Layout saved · 874 (+36)", {}, { timeout: slow(5000) })).toBeInTheDocument();
+  });
+
   it("without a way into edit mode, the total alone, not a button", () => {
     render(wrap(<VillageScore score={838} />));
     expect(screen.queryByRole("button")).toBeNull();

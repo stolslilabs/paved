@@ -1,5 +1,8 @@
 import { formatInteger } from "@paved/game-core";
-import type { ReactNode } from "react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
 import { ChangeFloat, ChangePop, changeTone, useAmountChange } from "./amount-change";
 import { NumberTicker } from "./number-ticker";
@@ -12,7 +15,7 @@ import { NumberTicker } from "./number-ticker";
  * colour of the change, the "+N" or "−N", the icon's pop. Equal, or no `from`: the score, still. A later change of `value`
  * plays again. Assistive technology reads the score alone, never the counting figure.
  */
-export function ScoreCount({ value, from, icon, className }: { value: number; from?: number; icon?: ReactNode; className?: string }) {
+export function CountedScore({ value, from, icon, className }: { value: number; from?: number; icon?: ReactNode; className?: string }) {
   const { start, target, format, change, flash, moving } = useAmountChange({
     amount: BigInt(Math.round(value)),
     decimals: 0,
@@ -30,5 +33,52 @@ export function ScoreCount({ value, from, icon, className }: { value: number; fr
       <ChangeFloat change={change} moving={moving} below className="drop-shadow-sm" />
       <span className="sr-only">{formatInteger(value)}</span>
     </span>
+  );
+}
+
+/** The notice's place: under the HUD's top row (the profile, the balances), centred (a style: the stylesheet's budget). */
+const NOTICE_TOP = { top: "calc(var(--hud-inset-top) + 5.5rem)" } as const;
+
+/** How long the save's notice stays, ms. */
+const NOTICE_MS = 3_500;
+
+/**
+ * The home's score after a save (EDIT-VILLAGE, the Paved UX Book's "Edit my village": back home, "the score counts up to the new
+ * total"): the capsule's count (`CountedScore`), and the book's notice, "Layout saved · 874 (+36)" (the change only when there is one),
+ * on the HUD's face, for a few seconds, centred under the HUD's top row (the book's place between the profile and the balances has no
+ * room in ours on a phone). In this chunk, loaded by a save alone, the notice drawn over the screen (a portal):
+ * nothing of it in the home's first load. Assistive technology hears the scene's own status ("Village saved: score 874").
+ */
+export function ScoreCount({ value, from, className }: { value: number; from?: number; className?: string }) {
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(false), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [value]);
+  const change = from === undefined ? 0 : Math.round(value - from);
+  return (
+    <>
+      <CountedScore value={value} from={from} className={className} />
+      {createPortal(
+        <AnimatePresence>
+          {shown && (
+            <m.p
+              aria-hidden
+              data-slot="saved-notice"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="pointer-events-none fixed left-1/2 z-30 -translate-x-1/2 rounded-full bg-hud-card/80 px-3 py-1 text-xs font-bold whitespace-nowrap text-foreground shadow-lg backdrop-blur-sm text-outline"
+              style={NOTICE_TOP}
+            >
+              Layout saved · <span className="numeric">{formatInteger(value)}</span>
+              {change !== 0 && <span className="numeric"> ({change > 0 ? "+" : "−"}{formatInteger(Math.abs(change))})</span>}
+            </m.p>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
   );
 }
