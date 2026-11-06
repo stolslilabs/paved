@@ -39,6 +39,34 @@ const VEIL: CSSProperties = {
   maskImage: "radial-gradient(ellipse at center, black 62%, transparent 100%)",
 };
 
+/** A part of the screen the bubble keeps clear of: its box, and whether it is the side menu (#1033). */
+export interface BubbleAvoid {
+  rect: DOMRect;
+  side: boolean;
+}
+
+/** An element marked `data-bubble-avoid` as the bubble keeps clear of it: the side menu by its marks, not its place or size. */
+export const avoidOf = (e: Element): BubbleAvoid => ({
+  rect: e.getBoundingClientRect(),
+  side: e.getAttribute("data-edit-panel") === "side" || e.getAttribute("data-edit-bar") === "docked",
+});
+
+/**
+ * The bubble's room in `box` (#1033): the side menu from `tablet` (`data-edit-panel="side"`, its bar docked in its head:
+ * `data-edit-bar="docked"`) narrows it from the right, wherever its edge falls (half a tablet's screen to the pixel, or its 22 rem
+ * past the half of a narrow one); the floating bar and a phone's sheet from the top and the foot (`bubbleLimits`).
+ */
+export function villageBubbleRoom(box: DOMRect, avoid: readonly BubbleAvoid[], x: number, width: number) {
+  const room = bubbleLimits(
+    box,
+    avoid.filter((a) => !a.side).map((a) => a.rect),
+    x,
+    width,
+  );
+  for (const a of avoid) if (a.side) room.right = Math.min(room.right, a.rect.left - box.left - MARGIN_PX);
+  return room;
+}
+
 /** One of the bubble's buttons: the book's painted icon alone (its name for assistive technology and a desktop's tooltip). */
 function BubbleButton({ art, label, title, disabled, onClick }: { art: UiIconName; label: string; title: string; disabled?: boolean; onClick: () => void }) {
   return (
@@ -85,11 +113,7 @@ export function VillageBubble({ rotations, onRotate, onReturn, onClose, cancelBu
       y: Math.min(Math.max(y, l.top), Math.max(l.top, l.bottom - size.height)),
     });
     const rough = clamp(want.x, want.y, free);
-    const avoid = Array.from(document.querySelectorAll("[data-bubble-avoid]"), (e) => e.getBoundingClientRect());
-    // The side menu (tall, at the right) narrows the room from the right; the bar and a phone's drawer from the top and the foot.
-    const tall = (r: DOMRect) => r.height > box.height / 2 && r.left > box.left + box.width / 2;
-    const room = bubbleLimits(box, avoid.filter((r) => !tall(r)), rough.x, size.width);
-    for (const r of avoid.filter(tall)) room.right = Math.min(room.right, r.left - box.left - MARGIN_PX);
+    const room = villageBubbleRoom(box, Array.from(document.querySelectorAll("[data-bubble-avoid]"), avoidOf), rough.x, size.width);
     const at = clamp(want.x, want.y, room);
     el.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`;
     el.style.visibility = "visible";

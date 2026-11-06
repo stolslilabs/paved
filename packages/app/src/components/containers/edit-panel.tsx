@@ -88,7 +88,8 @@ export function EditPanel({ editor, tileArt, refusal, above, layouts }: EditPane
         )}
         style={docked ? undefined : SHEET_FACE}
       >
-        {above && <div className="absolute inset-x-0 bottom-full mb-3 flex justify-center">{above}</div>}
+        {/* Over a phone's sheet; at the side menu's top from `tablet` (above it is the docked bar's band, #1033). */}
+        {above && <div className={cn("flex justify-center", !docked && "absolute inset-x-0 bottom-full mb-3")}>{above}</div>}
         {refusal}
         <InlineError
           title="No random village"
@@ -236,7 +237,7 @@ export const EditPoints = memo(function EditPoints({ breakdown, change, selected
   const { lines, other, score } = breakdown;
   const docked = useDocked();
   return (
-    <section aria-label="Village points" className="pointer-events-none absolute flex w-40 flex-col items-start gap-1.5" style={docked ? POINTS_BOX_DOCKED : POINTS_BOX}>
+    <section aria-label="Village points" data-edit-points className="pointer-events-none absolute flex w-40 flex-col items-start gap-1.5" style={docked ? POINTS_BOX_DOCKED : POINTS_BOX}>
       <span role="img" aria-label={`Score ${formatInteger(score)}${change ? `, ${signed(change)} on the saved` : ""}`} className="pointer-events-auto flex min-h-11 items-center">
         <Plate side="left" size="auto" frame="hud" end={<UiIcon name="village" px={plateHudIconPx("auto")} className={plateHudIconClass("auto")} />}>
           <span aria-hidden className="flex items-baseline gap-1">
