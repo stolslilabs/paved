@@ -268,21 +268,26 @@ export const seededGuildWorld = (): GuildWorld => ({ version: GUILD_WORLD_VERSIO
 const LEGACY_OFFICER = 2;
 
 /**
- * Whether a version-1 world was written with the five ranks already: the client of GUILD-PAGE (#1027) stored them under version 1
- * until the version came (#1030). Its seeded Officers are 3, its promotions and demotions log their new rank, and only its ranks
- * hold a Recruit (0) or an Officer (3); version 1's three ranks did neither.
+ * Whether a member stored at 2 in a version-1 world is a Veteran (GUILD-PAGE's five ranks) rather than an Officer (version 1's three).
+ * The client of GUILD-PAGE (#1027) wrote the five ranks under version 1 until the version came (#1030), on top of the worlds the
+ * devices held: one world can hold both. Judged member by member, never for the whole world: under the five ranks a member reaches 2
+ * only by a promotion or a demotion logged with its new rank (2), and every write of the five ranks came after every write of the
+ * three; a joining gives 0 and a change of leader 3 or 4. So a 2 is a Veteran when the member's latest promotion or demotion logged
+ * rank 2, and an Officer otherwise (logged without a rank, as version 1 did, or its entry gone past the log's last `GUILD_LOG_KEPT`).
  */
-const wroteFiveRanks = (w: { guilds: StoredGuild[] }): boolean =>
-  w.guilds.some((g) => g.members.some((m) => m.rank === GUILD_RANK.recruit || m.rank === GUILD_RANK.officer) || g.log.some((e) => e.rank !== undefined));
+function veteranAtTwo(g: StoredGuild, address: string): boolean {
+  const last = g.log.filter((e) => (e.kind === "promoted" || e.kind === "demoted") && e.target === address).at(-1);
+  return last?.rank === GUILD_RANK.veteran;
+}
 
 /**
  * A version-1 world upgraded to the current version (a copy): its Officers (2) keep their rank, now 3, so they keep their kicks and
- * promotions instead of reading back as Veterans (#1030). Done once: the upgraded world says version 2 and is stored so at the next write.
+ * promotions instead of reading back as Veterans (#1030); its Veterans (2, written by GUILD-PAGE's client) stay Veterans. Done once:
+ * the upgraded world says version 2 and is stored so at the next write.
  */
 function upgradeGuildWorld(stored: Omit<GuildWorld, "version">): GuildWorld {
   const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };
-  if (wroteFiveRanks(w)) return w;
-  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER) m.rank = GUILD_RANK.officer;
+  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && !veteranAtTwo(g, m.address)) m.rank = GUILD_RANK.officer;
   return w;
 }
 
