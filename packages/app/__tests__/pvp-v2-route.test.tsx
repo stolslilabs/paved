@@ -147,7 +147,7 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     });
     const chest = await screen.findByRole("region", { name: "Chest" }, WAIT);
     const before = (await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0);
-    await userEvent.click(within(chest).getByRole("button", { name: /^Open the rare chest/ }));
+    await userEvent.click(await within(chest).findByRole("button", { name: /^Open the rare chest/ }, WAIT));
     // The reveal over the end: its first card chosen, Take keeps it.
     const reveal = await screen.findByRole("dialog", { name: "Choose 1 of 2" }, WAIT);
     await userEvent.click(within(reveal).getByRole("button", { name: /^Take / }));
@@ -160,6 +160,98 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(screen.getByRole("region", { name: "Chest" })).toHaveTextContent("Added to your inventory");
     expect((await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0)).toBe(before + 1);
     expect((await s.ledger.chests(s.me)).pending).toEqual([]);
+  }, slow(30_000));
+
+  it("opens a revisited result's own chest after a later win of the same rank that day (#1038): its slot, not the newest", async () => {
+    const s = await open("/pvp/result/1", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      for (let i = 0; i < 2; i++) {
+        await writes.drawOpponentV2("search");
+        await writes.startAttackV2();
+        await writes.surrenderAttackV2();
+      }
+      // Two finished attacks of two stars the same day, each a rare chest: slot 0 (attack 1), then slot 1 (attack 2).
+      const state = JSON.parse(s.store.getItem(MOCK_KEY)!);
+      for (const p of Object.values(state.players as Record<string, { v2: { attacks: { finishedAt: number }[]; chests: { pending: unknown[] } } }>)) {
+        p.v2.attacks.forEach((attack, slot) => {
+          Object.assign(attack, { status: "finished", stars: 2, chest: "rare", chestSlot: slot });
+          p.v2.chests.pending.push({ rank: "rare", league: 0, origin: { source: "pvp", day: dayOf(attack.finishedAt), slot } });
+        });
+      }
+      s.store.setItem(MOCK_KEY, JSON.stringify(state));
+    });
+    const day = dayOf((await s.ledger.attackV2Of(s.me, 1))!.finishedAt);
+    const chest = await screen.findByRole("region", { name: "Chest" }, WAIT);
+    await userEvent.click(await within(chest).findByRole("button", { name: /^Open the rare chest/ }, WAIT));
+    // The first attack's chest is drawn (slot 0); the second's still waits, for its own result.
+    await screen.findByRole("dialog", { name: "Choose 1 of 2" }, WAIT);
+    const read = await s.ledger.chests(s.me);
+    expect(read.openOrigin).toEqual({ source: "pvp", day, slot: 0 });
+    expect(read.origins).toEqual([{ source: "pvp", day, slot: 1 }]);
+  }, slow(30_000));
+
+  it("opens the own chest of a result saved before its slot was recorded (#1038): the slot read from the day's earlier wins", async () => {
+    const s = await open("/pvp/result/1", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      for (let i = 0; i < 2; i++) {
+        await writes.drawOpponentV2("search");
+        await writes.startAttackV2();
+        await writes.surrenderAttackV2();
+      }
+      // Two rare wins the same day, slots 0 and 1; attack 1 in the save's shape from before `chestSlot`, attack 2 with it.
+      const state = JSON.parse(s.store.getItem(MOCK_KEY)!);
+      for (const p of Object.values(state.players as Record<string, { v2: { attacks: { finishedAt: number }[]; chests: { pending: unknown[] } } }>)) {
+        p.v2.attacks.forEach((attack, slot) => {
+          Object.assign(attack, { status: "finished", stars: 2, chest: "rare", ...(slot > 0 && { chestSlot: slot }) });
+          p.v2.chests.pending.push({ rank: "rare", league: 0, origin: { source: "pvp", day: dayOf(attack.finishedAt), slot } });
+        });
+      }
+      s.store.setItem(MOCK_KEY, JSON.stringify(state));
+    });
+    expect(await s.ledger.attackV2Of(s.me, 1)).toMatchObject({ chestSlot: 0 });
+    const day = dayOf((await s.ledger.attackV2Of(s.me, 1))!.finishedAt);
+    const chest = await screen.findByRole("region", { name: "Chest" }, WAIT);
+    await userEvent.click(await within(chest).findByRole("button", { name: /^Open the rare chest/ }, WAIT));
+    await screen.findByRole("dialog", { name: "Choose 1 of 2" }, WAIT);
+    const read = await s.ledger.chests(s.me);
+    expect(read.openOrigin).toEqual({ source: "pvp", day, slot: 0 });
+    expect(read.origins).toEqual([{ source: "pvp", day, slot: 1 }]);
+  }, slow(30_000));
+
+  it("says a failed chests' read on the end with Retry, the chest disabled until the read is back (#1038)", async () => {
+    let failing = true;
+    await open("/pvp/result/1", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      await writes.drawOpponentV2("search");
+      await writes.startAttackV2();
+      await writes.surrenderAttackV2();
+      const state = JSON.parse(s.store.getItem(MOCK_KEY)!);
+      for (const p of Object.values(state.players as Record<string, { v2: { attacks: { finishedAt: number }[]; chests: { pending: unknown[] } } }>)) {
+        const attack = p.v2.attacks[0];
+        if (!attack) continue;
+        Object.assign(attack, { status: "finished", stars: 2, chest: "rare", chestSlot: 0 });
+        p.v2.chests.pending.push({ rank: "rare", league: 0, origin: { source: "pvp", day: dayOf(attack.finishedAt), slot: 0 } });
+      }
+      s.store.setItem(MOCK_KEY, JSON.stringify(state));
+      // The chests' read refused while `failing`, the ledger's after.
+      const views = s.sources.views;
+      const chests = (playerId: string) => (failing ? Promise.reject(new Error("The RPC did not answer.")) : s.ledger.chests(playerId));
+      s.sources.views = new Proxy(views, { get: (t, key) => (key === "chests" ? chests : Reflect.get(t, key)) });
+    });
+    const chest = await screen.findByRole("region", { name: "Chest" }, WAIT);
+    // The read refused (its retry too): its message and Retry, no chest to tap.
+    const alert = await within(chest).findByRole("alert", {}, WAIT);
+    expect(alert).toHaveTextContent("Could not load your rare chest");
+    expect(alert).toHaveTextContent("The RPC did not answer.");
+    expect(chest).toHaveAttribute("data-state", "error");
+    expect(within(chest).queryByRole("button", { name: /^Open the / })).toBeNull();
+    // Retry reads the chests again: the chest is there to open.
+    failing = false;
+    await userEvent.click(within(chest).getByRole("button", { name: "Retry" }));
+    expect(await within(screen.getByRole("region", { name: "Chest" })).findByRole("button", { name: /^Open the rare chest/ }, WAIT)).toBeEnabled();
   }, slow(30_000));
 
   it("keeps a result's link good after the next attack starts: the attack of that id, not the last", async () => {

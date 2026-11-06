@@ -166,7 +166,7 @@ export function PvpEndScene(props: PvpEndSceneProps) {
               ]}
               chest={
                 chest.state !== "none" && (
-                  <section aria-label="Chest" data-state={chest.state} aria-disabled={chest.state === "capped" || undefined} className="w-full">
+                  <section aria-label="Chest" data-state={chest.state} aria-disabled={chest.state === "capped" || chest.state === "unavailable" || undefined} className="w-full">
                     <EndChestPanel chest={chest} now={props.now} tileArt={props.tileArt} onOpen={props.onOpenChest} />
                   </section>
                 )

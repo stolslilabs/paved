@@ -46,6 +46,11 @@ export interface AttackV2 {
   /** What the end gave: the XP, the chest (null: none, or the day's cap reached) and the crowns. */
   xp: number;
   chest: ChestRank | null;
+  /**
+   * The PvP slot of its day the chest fills (0 to 2; `ChestOrigin.slot`), its identity among the day's chests of a rank: null with no
+   * chest, unset when the read does not say (the end then takes no chest that has a slot; the mock derives it for a save from before it).
+   */
+  chestSlot?: number | null;
   gained: number;
   lost: number;
   openedAt: number;

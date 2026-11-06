@@ -4,7 +4,7 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { describe, expect, it, vi } from "vitest";
 import { DAY_S } from "@paved/game-core";
 import { PvpEndScene, starFills, type PvpEndSceneProps } from "../src/components/scenes/pvp-end-scene";
-import { attackEnd, endChest, endXp } from "../src/routes/pvp-v2-end";
+import { attackChestOrigin, attackEnd, endChest, endXp } from "../src/routes/pvp-v2-end";
 import { PVP_END } from "../src/mocks/pvp";
 
 // The end screen of a PvP v2 attack (#790; END-SCREENS, the book's `attack-end`): each state on the fakes, the chest opened here
@@ -72,6 +72,26 @@ describe("PvpEndScene (#790)", () => {
     expect(screen.queryByRole("button", { name: /^Open the / })).toBeNull();
   });
 
+  it("the chests' read not there: loading disabled; a failed read its message and Retry; unavailable carved, nothing to open (#1038)", async () => {
+    show({ ...PVP_END.threeStars, chest: { state: "loading", rank: "epic" } });
+    expect(screen.getByRole("button", { name: "Epic chest: loading" })).toBeDisabled();
+    expect(screen.getByRole("region", { name: "Chest" })).toHaveTextContent("Loading…");
+    cleanup();
+    const onRetry = vi.fn();
+    show({ ...PVP_END.threeStars, chest: { state: "error", rank: "epic", message: "The RPC did not answer.", onRetry } });
+    let chest = screen.getByRole("region", { name: "Chest" });
+    expect(within(chest).getByRole("alert")).toHaveTextContent("Could not load your epic chest: The RPC did not answer.");
+    expect(within(chest).queryByRole("button", { name: /^Open the / })).toBeNull();
+    await userEvent.click(within(chest).getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+    cleanup();
+    show({ ...PVP_END.threeStars, chest: { state: "unavailable", rank: "epic" } });
+    chest = screen.getByRole("region", { name: "Chest" });
+    expect(chest).toHaveAttribute("aria-disabled", "true");
+    expect(chest).toHaveTextContent("No chests here yetChests are not on this network yet.");
+    expect(screen.queryByRole("button", { name: /^Open the / })).toBeNull();
+  });
+
   it("no star: no chest", () => {
     show(PVP_END.zeroStars);
     expect(screen.queryByRole("region", { name: "Chest" })).toBeNull();
@@ -134,6 +154,20 @@ describe("the end's reading of the record (#790)", () => {
     expect(endChest({ chest: null, stars: 3, status: "finished", finishedAt })).toEqual({ state: "capped", rank: "epic", resetsAt: 20_001 * DAY_S });
     expect(endChest({ chest: null, stars: 0, status: "finished", finishedAt })).toEqual({ state: "none" });
     expect(endChest({ chest: null, stars: 0, status: "surrendered", finishedAt })).toEqual({ state: "none" });
+  });
+
+  it("a chest's origin is the attack's: its day and the slot it filled; an origin unknown passes, an attack's slot unknown takes no slotted chest (#1038)", () => {
+    const finishedAt = 20_000 * DAY_S + 19 * 3_600;
+    const attack = { finishedAt, chestSlot: 1 };
+    expect(attackChestOrigin(attack, { source: "pvp", day: 20_000, slot: 1 })).toBe(true);
+    expect(attackChestOrigin(attack, { source: "pvp", day: 20_000, slot: 0 })).toBe(false);
+    expect(attackChestOrigin(attack, { source: "pvp", day: 19_999, slot: 1 })).toBe(false);
+    expect(attackChestOrigin(attack, { source: "story" })).toBe(false);
+    expect(attackChestOrigin(attack, null)).toBe(true);
+    expect(attackChestOrigin(attack, { source: "pvp", day: 20_000 })).toBe(true);
+    // An attack that does not know its slot never takes a chest that has one: it could be another attack's.
+    expect(attackChestOrigin({ finishedAt }, { source: "pvp", day: 20_000, slot: 0 })).toBe(false);
+    expect(attackChestOrigin({ finishedAt }, { source: "pvp", day: 20_000 })).toBe(true);
   });
 
   it("a capped chest's deadline does not roll forward at midnight: past it, the slots are said to be open again", () => {

@@ -37,6 +37,38 @@ export const TwoStars: Story = {
 };
 /** The chest tapped: its draw on its way, the chest shaking over "Opening…". */
 export const ChestOpening: Story = { args: { ...PVP_END.twoStars, chest: { state: "opening", rank: "rare" } } };
+/** The chests' read not there yet: the panel disabled over "Loading…", nothing to tap. */
+export const ChestLoading: Story = {
+  args: { ...PVP_END.twoStars, chest: { state: "loading", rank: "rare" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Rare chest: loading" })).toBeDisabled();
+    await expect(canvas.queryByRole("button", { name: /^Open the / })).toBeNull();
+  },
+};
+const retryChest = fn();
+/** The chests' read failed: its message and Retry, which reads them again; no chest to tap until it comes back. */
+export const ChestError: Story = {
+  args: { ...PVP_END.twoStars, chest: { state: "error", rank: "rare", message: "The RPC did not answer.", onRetry: retryChest } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Could not load your rare chest");
+    await userEvent.click(canvas.getByRole("button", { name: "Retry" }));
+    await expect(retryChest).toHaveBeenCalled();
+    await expect(canvas.queryByRole("button", { name: /^Open the / })).toBeNull();
+  },
+};
+/** Retry on its way: its button busy. */
+export const ChestRetrying: Story = { args: { ...PVP_END.twoStars, chest: { state: "error", rank: "rare", message: "The RPC did not answer.", retrying: true, onRetry: fn() } } };
+/** The network serves no chests: carved, the chest grey, nothing to open here. */
+export const ChestUnavailable: Story = {
+  args: { ...PVP_END.twoStars, chest: { state: "unavailable", rank: "rare" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("No chests here yet")).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: /^Open the / })).toBeNull();
+  },
+};
 /** The chest's tile taken (Claim): the panel says it, carved. */
 export const ChestKept: Story = { args: { ...PVP_END.twoStars, chest: { state: "kept", rank: "rare", plan: PLAN.wonder } } };
 /** Past the village's score: "Triumph", an epic chest, and the crowns carry the attacker into Bronze I. */
@@ -85,6 +117,12 @@ export const DroppedPhone: Story = { ...Dropped, ...PHONE_375 };
 export const DroppedWide: Story = { ...Dropped, ...WIDE_1440 };
 export const ChestCappedPhone: Story = { ...ChestCapped, ...PHONE_375 };
 export const ChestCappedWide: Story = { ...ChestCapped, ...WIDE_1440 };
+export const ChestLoadingPhone: Story = { ...ChestLoading, ...PHONE_375 };
+export const ChestLoadingWide: Story = { ...ChestLoading, ...WIDE_1440 };
+export const ChestErrorPhone: Story = { ...ChestError, ...PHONE_375 };
+export const ChestErrorWide: Story = { ...ChestError, ...WIDE_1440 };
+export const ChestUnavailablePhone: Story = { ...ChestUnavailable, ...PHONE_375 };
+export const ChestUnavailableWide: Story = { ...ChestUnavailable, ...WIDE_1440 };
 export const ChestKeptPhone: Story = { ...ChestKept, ...PHONE_375 };
 export const ChestKeptWide: Story = { ...ChestKept, ...WIDE_1440 };
 export const SurrenderedPhone: Story = { ...Surrendered, ...PHONE_375 };

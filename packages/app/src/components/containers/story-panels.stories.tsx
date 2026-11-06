@@ -4,7 +4,8 @@ import { CAMPAIGNS, PlanType } from "@paved/game-core";
 import { angledTileArt, appRenders } from "../../mocks/assets";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { Button } from "../ui/button";
-import { CampaignCard, DeckPresentation, StarFill, StoryCoach, StoryEnd, type CampaignCardProps } from "./story-panels";
+import { EndStars } from "./game-end";
+import { CampaignCard, DeckPresentation, StoryCoach, StoryEnd, type CampaignCardProps } from "./story-panels";
 
 /**
  * The panels of a Story level (#546, #593, #721): the deck presentation that opens it (with the level's tip, its tiles in the
@@ -56,15 +57,16 @@ export const Coach: Story = {
 
 const END = { title: "First stone", onReplay: fn(), onNext: fn(), onLevels: fn() };
 
-/** The stars alone, filling one by one (#593): 0 to 3, each with its sound and a buzz where the device has one. */
+/** The stars alone, the Story end's own (`EndStars`), filling one by one: 0 to 3, each with its sound and a buzz where the device has one. */
 export const StarFills: Story = {
   args: TUTORIAL_1,
   render: () => (
     <div className="flex flex-col gap-6">
       {([0, 1, 2, 3] as const).map((n) => (
-        <div key={n} className="flex items-center gap-4">
-          <span className="numeric w-16 text-sm text-muted-foreground">{n} {n === 1 ? "star" : "stars"}</span>
-          <StarFill stars={n} />
+        // The label over the stars, their light clipped to the row as the end's window clips it: they fit at 320 px.
+        <div key={n} className="flex flex-col items-center gap-2 overflow-hidden pt-6 pb-2">
+          <span className="numeric text-sm text-muted-foreground">{n} {n === 1 ? "star" : "stars"}</span>
+          <EndStars stars={n} />
         </div>
       ))}
     </div>
@@ -110,6 +112,15 @@ export const EndReduced: Story = { ...EndTwoStars, parameters: { reducedMotion: 
 export const EndChestWon: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={321} stars={3} chest={{ state: "won", rank: "epic" }} onOpenChest={fn()} /> };
 /** Its tile taken (Claim): the panel says it. */
 export const EndChestKept: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={321} stars={3} chest={{ state: "kept", rank: "epic", plan: 18 }} tileArt={angledTileArt} /> };
+/** The chests' read not there yet: the panel disabled over "Loading…". */
+export const EndChestLoading: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={321} stars={3} chest={{ state: "loading", rank: "epic" }} onOpenChest={fn()} /> };
+/** The chests' read failed: its message and Retry, which reads them again. */
+export const EndChestError: Story = {
+  args: TUTORIAL_1,
+  render: () => <StoryEnd {...END} score={321} stars={3} chest={{ state: "error", rank: "epic", message: "The RPC did not answer.", onRetry: fn() }} onOpenChest={fn()} />,
+};
+/** The network serves no chests: carved, nothing to open here. */
+export const EndChestUnavailable: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={321} stars={3} chest={{ state: "unavailable", rank: "epic" }} onOpenChest={fn()} /> };
 
 const plansOf = (index: number) => [...new Set(CAMPAIGNS[index]!.levels.flatMap((l) => l.deck))].map((p) => PLAN_IDS.indexOf(p));
 const CARD: CampaignCardProps = {

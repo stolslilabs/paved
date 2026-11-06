@@ -20,13 +20,6 @@ export type ChestArtSize = keyof typeof CHEST_ART_REM;
 /** The opened chest, grey and dimmed: inline, so the stylesheet gains nothing. */
 export const CHEST_SPENT = { filter: "grayscale(1)", opacity: 0.6 } as const;
 
-/** CHESTS-PAGE (the Paved UX Book's Chests): each rank's word over its gold slot, EPIC pink-violet, RARE cyan, BASIC white. */
-export const RANK_WORD: Readonly<Record<ChestRank, { label: string; color: string }>> = {
-  basic: { label: "Basic", color: "var(--foreground)" },
-  rare: { label: "Rare", color: "var(--rank-rare)" },
-  epic: { label: "Epic", color: "var(--rank-epic)" },
-};
-
 /**
  * CHESTS-PAGE: the book's gold card, the tile chosen or kept (the owner's ask of 2026-11-06: the book's clear linear gradient and its
  * shine): pale gold at its top to deep amber at its foot, a gloss across its upper corner, lit along its top, a gold glow around it
@@ -59,12 +52,6 @@ export const GOLD_SOFT = {
     "radial-gradient(closest-side at 50% 45%, color-mix(in oklab, var(--primary) 50%, transparent), transparent), linear-gradient(color-mix(in oklab, var(--primary) 60%, transparent), color-mix(in oklab, var(--warning) 42%, transparent))",
   boxShadow:
     "inset 0 1px 0 color-mix(in oklab, var(--primary) 70%, transparent), 0 10px 22px -6px color-mix(in oklab, var(--hud-outline) 75%, transparent)",
-} as const;
-
-/** CHESTS-PAGE: the dark tile of what holds nothing or is not chosen (a free slot, a card left): the drawer's raised face, its shadow under it. */
-export const DARK_FILL = {
-  backgroundImage: "linear-gradient(var(--drawer-raised), var(--secondary))",
-  boxShadow: "inset 0 1px 0 color-mix(in oklab, var(--drawer-bevel) 70%, transparent), 0 3px 8px color-mix(in oklab, var(--hud-outline) 70%, transparent)",
 } as const;
 
 /** The modal's chest drops in from above and lands (s): its shake waits for it (`ChestArt`'s `drop`). */

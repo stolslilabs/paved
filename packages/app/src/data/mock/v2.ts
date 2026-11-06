@@ -38,6 +38,8 @@ export interface StoredAttackV2 {
   stars: number;
   xp: number;
   chest: ChestRank | null;
+  /** The day's PvP slot the chest fills (its pending chest's `origin.slot`); unset with none, or in a save from before it. */
+  chestSlot?: number;
   gained: number;
   lost: number;
   finishedAt: number;
