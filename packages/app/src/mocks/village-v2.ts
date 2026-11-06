@@ -250,13 +250,13 @@ export const LAYOUT_SLOTS = {
   buying: { ...SLOTS_ONE, initialSelected: 1, busy: { kind: "buy", slot: 1 } },
   /** Bought: slot 2 open and empty, the draft can be saved there. */
   bought: { ...SLOTS_ONE, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, null), slot(2, null, false)], cobbles: 540, initialSelected: 1 },
-  /** Not enough Cobbles for slot 3. */
-  short: { ...SLOTS_ONE, cobbles: 40, initialSelected: 2 },
-  /** A saved slot picked: Load, Save here, Make active. */
+  /** Not enough Cobbles for slot 3: its unlock asked, off. */
+  short: { ...SLOTS_ONE, cobbles: 40, initialSelected: 2, initialAsk: "buy" },
+  /** A saved layout shown (layout 2): Use in the bar. */
   saved: { ...SLOTS_THREE, initialSelected: 1 },
   /** Load over changes kept nowhere: asked first. */
   load: { ...SLOTS_THREE, initialSelected: 1, initialAsk: "load" },
-  /** Make active: asked first (attackers face it). */
+  /** Use: asked first (attackers face it). */
   activate: { ...SLOTS_THREE, initialSelected: 1, initialAsk: "activate" },
   /** Slot 2 made active: the village is the die's. */
   activated: { ...SLOTS_THREE, active: 1, initialSelected: 1 },
@@ -333,7 +333,7 @@ export const HOME_VILLAGE = {
   dieLarge: { ...home, editing: true, randomizer: mainThreadRandomizer(), randomSeed: seedsOf(7, 8, 9), initialRolling: true },
   /** The saved layouts (#804): one slot, the next two locked with their prices. */
   slotsOne: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.one },
-  /** Three slots, the die's village in slot 2 picked: Load, Save here, Make active. */
+  /** Three slots, the die's village in slot 2 shown: Use in the bar. */
   slotsThree: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.saved },
   /** A locked slot picked: Buy at its price. */
   slotsLocked: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.locked },
@@ -347,7 +347,7 @@ export const HOME_VILLAGE = {
   slotsShort: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.short },
   /** Load over changes kept nowhere: asked first. */
   slotsLoad: { ...home, editing: true, initialDraft: DRAFT_VALID, layoutSlots: LAYOUT_SLOTS.load },
-  /** Make active: asked first. */
+  /** Use: asked first. */
   slotsActivate: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.activate },
   /** Slot 2 active: the village is its layout. */
   slotsActivated: { ...home, village: { ...LAYOUT_GROWING, tiles: DIE_SLOT, score: fakeScore(DIE_SLOT) }, editing: true, layoutSlots: LAYOUT_SLOTS.activated },

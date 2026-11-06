@@ -167,8 +167,10 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * Book's main screen), at every width: the right column's four tiles (Missions, Vault, Friends, Tiles) with their counts,
  * centred under the balances; at the bottom left the season dial, the Chat tab on the screen's edge and the mission in
  * progress, just above the dock; no Edit button (the village score's capsule opens edit mode). Edit mode switches the
- * overlays to the editor's (#739) in the same scene: its bar (Back, the live score, the slots, Reset all held), the inventory and
- * Save, the bubble by the tile in hand (#756); Back with changes asks first. A long press on a tile of the village opens edit mode
+ * overlays to the editor's (#739) in the same scene, after the Paved UX Book's "Edit my village" (EDIT-VILLAGE): its bar (Back, the
+ * title, the die, Erase held, Save, Use; from `desktop` the side menu's band), the points at the top left, its panel (a phone's bottom
+ * sheet, a side menu from `tablet`: the layouts' carousel above the inventory), the tile's actions by the tile in hand (#756); Back
+ * with changes asks first. A long press on a tile of the village opens edit mode
  * too, through a bubble by the tile with Edit and the hold's ring (LONGPRESS-EDIT, #799, the stage's `onEdit`).
  * The dock (#763, HOME-DOCK: Shop, Chests with its count, Play, Guild, Settings; no item current) at every width; the bottom
  * overlays sit above it (its measured `--app-nav-h`). Edit mode has no dock: the editor's panel takes the bottom.

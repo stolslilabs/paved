@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
-import type { GameScene, LitTile } from "@paved/renderer";
+import type { FrameInsets, GameScene, LitTile, RendererSettingsInput } from "@paved/renderer";
 import type { BoardBubble, BoardGhost, BoardViewportProps } from "./board-viewport";
 import type { LayoutBoardView, LayoutPending } from "./layout-board";
 import { cellKey, isStarter, type Cell } from "./layout-rules";
@@ -126,4 +126,18 @@ export function useLayoutCanvas(view: LayoutBoardView, { onScene, onReady, onErr
     onCellClick,
     onError,
   };
+}
+
+/**
+ * The renderer's settings with the HUD's room of `frame` (EDIT-VILLAGE: edit mode's bar and panel over the village): the camera frames
+ * the village in what is left, re-framed as the room changes while the player has not moved it. Unset: the settings as they are.
+ */
+export function useFramedSettings(settings: RendererSettingsInput | undefined, frame: FrameInsets | null | undefined): RendererSettingsInput | undefined {
+  const key = frame ? `${frame.top},${frame.bottom},${frame.left},${frame.right}` : "";
+  return useMemo(
+    () => (key ? { ...settings, cameraFit: { ...settings?.cameraFit, insets: frame! } } : settings),
+    // The insets by value: a new object with the same room frames nothing again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [settings, key],
+  );
 }

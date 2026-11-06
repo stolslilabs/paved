@@ -3,6 +3,9 @@ import { type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { HudFrame } from "./hud-frame";
 
+/** The HUD's frame, for the editor's parts (EDIT-VILLAGE): taken from here, it stays in this module's chunk (the first load's), never one of its own. */
+export { HudFrame };
+
 const boxVariants = cva("relative flex items-center", {
   variants: {
     // Issue 828: a 32 px box under a 40 px disc on a phone, 36 under 44 from `desktop` (the balances' `rail`; their bare icon, issue

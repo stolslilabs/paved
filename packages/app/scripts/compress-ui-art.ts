@@ -54,6 +54,22 @@
  * darkened to the outline's colour), the largest drawing kept alone (the badge's label under it dropped), checked side by side
  * with the book, then trimmed and put on the icons' frame.
  *
+ * EDIT-VILLAGE (2026-11-05), the Paved UX Book's "Edit my village" own pixels (Codex listed no image tool that day either): edit mode's
+ * die (`die`, since redrawn, below), its bubble's three (Rotate's blue arrows, `rotate-tile`; Back to the inventory's crate and green arrow,
+ * `to-inventory`; Cancel's red cross, `cancel`), the Layouts' padlock (`padlock`) and Use's gold pill (the frame `save-pill`; the book's
+ * Save pill). The book's reset arrow was cut too, then left out: Erase took the eraser (the owner's ask of 2026-11-05). The owner's ask: Codex decomposed the book's screens (each part's layers, measures and colours sampled from the pixels)
+ * and cut them from the screen that draws each largest (the tablet's, 50 to 130 px): each crop upscaled so the drawing's longer side
+ * is 240 px, keyed out of its navy as the League's (Rotate's arrows, blue themselves, by a flood held under the navy's lightness and
+ * the navy trapped between them cleared; the padlock, over a coloured plan, by its own outline, the plan seen through its shackle
+ * cleared), trimmed and put on the icons' frame; the pill at 4x, its word painted out row by row with the pill's own gold (a
+ * retouch: the app writes the word over it). Each checked side by side with its crop of the book; Cancel is the first cut, by script,
+ * which Codex found faithful. The bar's Save (`save`, a floppy disk) and Erase (`erase`, a two-tone eraser), which the book does not
+ * draw: painted by Codex's built-in image tool (`image_gen`, the owner's ask, later the same day: it is listed under the provider
+ * `openai`), in the rendering of `build`, `chat` and `hammer` given as references, on a transparent background (1254 px RGBA); then,
+ * at the owner's asks, the die redrawn by it (the book's cut, about 80 px enlarged, was blurry: its design given as the reference,
+ * a real die's faces, four on top at the corners of its rhombus as the book's, two and six on the sides) and the eraser redrawn chunky,
+ * its silhouette about square (the first, long and thin, sat small on its disc), in neutral greys. Each kept among two or three attempts, checked beside those icons at 128, 32 and 24 px on the HUD's disc, then trimmed and put on the icons' frame.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.

@@ -395,9 +395,9 @@ describe("Home (#753): the village with its overlays", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Edit village, score/ }));
     expect(onEditingChange).toHaveBeenCalledWith(true);
     rerender(wrap(<HomeVillageScene {...HOME_VILLAGE.view} editing onEditingChange={onEditingChange} />));
-    // The bar's title: "Edit village", its second word shown from `tablet` (#803).
-    expect(screen.getByText((_, el) => el?.tagName === "SPAN" && el.classList.contains("font-display") && el.textContent === "Edit village")).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Editor" })).toBeInTheDocument();
+    // The bar's title: "Edit" on a phone; "Edit village" in the side menu's head from `tablet` (its second word from `desktop`).
+    expect(await screen.findByRole("heading", { name: "Edit" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("complementary", { name: "Editor" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Village" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Play/ })).not.toBeInTheDocument();
     // Edit mode has no bar (#763): the editor's panel takes the bottom.
@@ -407,11 +407,54 @@ describe("Home (#753): the village with its overlays", () => {
     expect(onEditingChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("holds the inventory alone in a phone's bottom sheet, the points at the top left, no tab and no fold (EDIT-VILLAGE)", async () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.editing} />));
+    // jsdom has no wide screen: a phone's sheet, the inventory under its title, the slots used at its end.
+    const panel = await screen.findByRole("complementary", { name: "Editor" }, { timeout: slow(5000) });
+    expect(panel).toHaveAttribute("data-edit-panel", "sheet");
+    // The floating bar's title: "Edit" at every phone's width (the owner's ask: room down to 320 px).
+    expect(screen.getByRole("heading", { name: "Edit" })).not.toHaveClass("hidden");
+    expect(within(panel).getByRole("heading", { name: "Inventory" })).toBeInTheDocument();
+    expect(within(panel).getByRole("img", { name: /^\d+ of \d+ slots used$/ })).toBeInTheDocument();
+    expect(within(panel).getByRole("region", { name: "Inventory tiles" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByRole("button", { name: /editor/i })).toBeNull();
+    // The points: the live score and its lines, out of the sheet.
+    const points = screen.getByRole("region", { name: "Village points" });
+    expect(panel).not.toContainElement(points);
+    expect(within(points).getByRole("img", { name: /^Score [\d,]+$/ })).toBeInTheDocument();
+  });
+
+  it("from tablet, docks the bar in the side menu's head, the drawers' close at its end, the inventory under it (EDIT-VILLAGE, the owner's asks)", async () => {
+    // A tablet's window: the tablet's width query matches, not the desktop's.
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("min-width: 40rem"), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    try {
+      render(wrap(<HomeVillageScene {...HOME_VILLAGE.editing} />));
+      const panel = await screen.findByRole("complementary", { name: "Editor" }, { timeout: slow(5000) });
+      expect(panel).toHaveAttribute("data-edit-panel", "side");
+      const bar = screen.getByRole("button", { name: "Leave edit mode" }).closest("[data-edit-bar]")!;
+      expect(bar).toHaveAttribute("data-edit-bar", "docked");
+      expect(within(bar as HTMLElement).getByRole("heading", { name: "Edit village" })).toBeInTheDocument();
+      expect(within(bar as HTMLElement).getByRole("button", { name: /^Save$/ })).toBeInTheDocument();
+      // The close last, as the drawers' side panel's: no Back before the title.
+      const controls = within(bar as HTMLElement).getAllByRole("button");
+      expect(controls[controls.length - 1]).toHaveAccessibleName("Leave edit mode");
+      // The drawers' body under their band.
+      expect(panel.firstElementChild).toHaveClass("bg-secondary");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("asks before leaving edit mode with changes, and keeps them on Keep editing", async () => {
     const onEditingChange = vi.fn();
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.changed} onEditingChange={onEditingChange} />));
     await userEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
-    expect(await screen.findByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Leave without saving?" });
+    // In the HUD drawers' look (EDIT-VILLAGE): their red close keeps editing, Leave with the way out, nothing else.
+    expect(within(dialog).getByRole("button", { name: "Keep editing" }).querySelector("[data-slot=ui-icon][data-icon=close]")).not.toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Leave" }).querySelector("[data-slot=ui-icon][data-icon=exit]")).not.toBeNull();
+    expect(within(dialog).getAllByRole("button")).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(onEditingChange).not.toHaveBeenCalled();
     // The dialog's exit over, the scene is reachable again.
@@ -436,7 +479,11 @@ describe("Home (#753): the village with its overlays", () => {
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
     expect(screen.getByRole("complementary", { name: "Editor" })).toHaveAttribute("data-bubble-avoid");
     expect(screen.getByRole("button", { name: "Leave edit mode" }).closest("[data-bubble-avoid]")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Leave edit mode" }).closest("header")).toContainElement(screen.getByRole("button", { name: /^Hold to reset all/ }));
+    expect(screen.getByRole("button", { name: "Leave edit mode" }).closest("header")).toContainElement(screen.getByRole("button", { name: /^Hold to erase the layout/ }));
+    // Erase and Save painted as the die (EDIT-VILLAGE): the eraser and the floppy disk on the HUD's disc, no Font Awesome glyph.
+    expect(screen.getByRole("button", { name: /^Hold to erase the layout/ }).querySelector("[data-slot=ui-icon][data-icon=erase]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Save" }).querySelector("[data-slot=ui-icon][data-icon=save]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Save" }).querySelector(".fa-floppy-disk, svg")).toBeNull();
     expect(screen.queryByRole("button", { name: "Discard changes" })).toBeNull();
     unmount();
     // The plan view keeps the still bubble in the panel.
@@ -500,9 +547,10 @@ describe("Home's points by structure (#758)", () => {
     expect([...plan.querySelectorAll("[data-lit]")].map((c) => c.getAttribute("data-cell"))).toEqual([`${centre!.x},${centre!.y}`]);
   });
 
-  it("in edit mode, the fold follows the draft live: the light stays while its structure does, else goes off", async () => {
+  it("in edit mode, the points follow the draft live: the light stays while its structure does, else goes off", async () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.editingPoints} />));
     const plan = await screen.findByRole("group", { name: /^Village layout of/ }, { timeout: slow(5000) });
+    await screen.findByRole("list", { name: "Points by structure" }, { timeout: slow(5000) });
     const line = HOME_POINTS.lines[1]!;
     const litCells = () => [...plan.querySelectorAll("[data-lit]")].map((c) => c.getAttribute("data-cell")).sort();
     const cells = line.areas.map((a) => `${a.x},${a.y}`).sort();
@@ -513,10 +561,12 @@ describe("Home's points by structure (#758)", () => {
     const placed = (s: (typeof spots)[number]) => [...LAYOUT_GROWING.tiles, { id: 999, plan: PLAN.road, orientation: s.orientations.includes(1) ? 1 : s.orientations[0]!, x: s.x, y: s.y }];
     const spot = spots.find((s) => layoutPoints(placed(s)).lines.some((l) => l.key === line.key))!;
     const next = layoutPoints(placed(spot));
+    // The tile from the inventory: the light stays.
     await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Tile 10, \d+ left$/ }));
     await userEvent.click(plan.querySelector<HTMLButtonElement>(`[data-kind="plate"][data-cell="${spot.x},${spot.y}"]`)!);
+    expect(litCells()).toEqual(cells);
     expect(lineButtons()).toHaveLength(next.lines.length);
-    expect(screen.getByRole("button", { name: /^Points/ })).toHaveTextContent(formatPoints(next.score));
+    expect(await screen.findByRole("img", { name: new RegExp(`^Score ${formatPoints(next.score)}(,|$)`) })).toBeInTheDocument();
     expect(litCells()).toEqual(cells);
     // A tile of the lit structure sent back to the inventory: the structure is gone, the light with it.
     const tile = LAYOUT_GROWING.tiles.find((t) => cells.includes(`${t.x},${t.y}`) && canLift(placed(spot), t.id))!;
@@ -552,23 +602,21 @@ describe("Home's points by structure (#758)", () => {
     expect(sceneTilesOf(last()).tiles.some((t) => t.id === tile.id)).toBe(false);
   });
 
-  it("in edit mode, the fold is folded on a phone, the bar's score unfolds it; folding or leaving turns the light off", async () => {
+  it("in edit mode, every structure's line stands at the top left, nothing lit first; the lit line's tap or leaving turns the light off", async () => {
     const { renderCanvas, last } = canvas();
     const onEditingChange = vi.fn();
     const props = { ...HOME_VILLAGE.editing, renderCanvas, onEditingChange };
     const { rerender } = render(wrap(<HomeVillageScene {...props} />));
     await screen.findByTestId("canvas", {}, { timeout: slow(5000) });
-    // jsdom has no wide screen: a phone's fold, the total alone.
-    const fold = screen.getByRole("button", { name: /^Points/ });
-    expect(fold).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("list", { name: "Points by structure" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: /^Score .*: show the points$/ }));
-    expect(fold).toHaveAttribute("aria-expanded", "true");
+    // The lines always shown (EDIT-VILLAGE, the owner's choice of 2026-11-05), none lit.
+    await screen.findByRole("list", { name: "Points by structure" }, { timeout: slow(5000) });
+    expect(lineButtons()).toHaveLength(HOME_POINTS.lines.length);
+    expect(last().lit).toBeNull();
     await userEvent.click(lineButtons()[0]!);
     expect(last().lit).toEqual(HOME_POINTS.lines[0]!.areas);
-    await userEvent.click(fold);
+    // The lit line's tap turns it off.
+    await userEvent.click(lineButtons()[0]!);
     expect(last().lit).toBeNull();
-    await userEvent.click(fold);
     await userEvent.click(lineButtons()[0]!);
     expect(last().lit).not.toBeNull();
     rerender(wrap(<HomeVillageScene {...props} editing={false} />));

@@ -1,6 +1,6 @@
 import type { GameScene, RendererSettingsInput, TileSkins } from "@paved/renderer";
 import type { LayoutBoardView } from "../components/containers/layout-board";
-import { useLayoutCanvas, type LayoutCanvasSignals } from "../components/containers/village-layout-canvas";
+import { useFramedSettings, useLayoutCanvas, type LayoutCanvasSignals } from "../components/containers/village-layout-canvas";
 import { BoardCanvas } from "./board-canvas";
 
 export interface VillageCanvasProps {
@@ -24,5 +24,7 @@ export interface VillageCanvasProps {
  */
 export default function VillageCanvas({ view, settings, skins, onScene, onReady, onError }: VillageCanvasProps) {
   const { onScene: handleScene, ...board } = useLayoutCanvas(view, { onScene, onReady, onError });
-  return <BoardCanvas {...board} board={{ renderer: settings, onScene: handleScene }} skins={skins} />;
+  // Edit mode's room (EDIT-VILLAGE): the village framed between the bar and the panel.
+  const renderer = useFramedSettings(settings, view.frame);
+  return <BoardCanvas {...board} board={{ renderer, onScene: handleScene }} skins={skins} />;
 }
