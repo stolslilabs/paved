@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useRef, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { HOLD_MS, useHold, type Hold, type HoldState } from "../../lib/use-hold";
 import { Button } from "../ui/button";
@@ -30,6 +30,8 @@ export interface HoldButtonProps {
   label: string;
   /** A Font Awesome name drawn in the ring. */
   icon?: string;
+  /** Drawn in place of the plain Font Awesome icon (EDIT-VILLAGE: the edit bar's painted eraser in the HUD's look). */
+  glyph?: ReactNode;
   /** The hold's length, ms. */
   holdMs?: number;
   disabled?: boolean;
@@ -58,7 +60,7 @@ export interface HoldButtonProps {
  * (hold Enter or Space). An activation with no press before it, as a screen reader's double tap sends, acts at once: the
  * hold guards a slip of the finger, which that activation is not.
  */
-export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", hold: shared, className }: HoldButtonProps) {
+export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", hold: shared, className }: HoldButtonProps) {
   const off = disabled || busy;
   const own = useHold({ onComplete, holdMs, holdKey, disabled: off });
   const hold = shared ?? own;
@@ -129,7 +131,7 @@ export function HoldButton({ onComplete, label, icon = "check", holdMs = HOLD_MS
       onClick={onClick}
       className={cn("relative touch-none select-none [-webkit-touch-callout:none]", className)}
     >
-      {!busy && <Icon name={icon} size="md" />}
+      {!busy && (glyph ?? <Icon name={icon} size="md" />)}
       <HoldRing state={state} holdMs={hold.holdMs} tone={tone} />
     </Button>
   );

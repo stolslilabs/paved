@@ -158,7 +158,7 @@ describe("the die in the editor", () => {
     fireEvent.click(die);
     // The saved village is 9 / 9 already: the die's village is another layout of the same 8 tiles, which Save takes.
     await waitFor(() => expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled());
-    expect(screen.getByLabelText("9 of 9 slots used")).toBeTruthy();
+    expect(await screen.findByLabelText("9 of 9 slots used")).toBeTruthy();
     expect(onSave).not.toHaveBeenCalled();
     const tilesShown = () => screen.getAllByRole("button", { name: /: lift it$/ }).map((el) => el.getAttribute("aria-label")).join();
     const before = tilesShown();
@@ -193,20 +193,20 @@ describe("the die in the editor", () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} />));
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
     fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
-    expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
+    expect((await screen.findAllByLabelText("1 of 28 slots used")).length).toBeGreaterThan(0);
     // The edit stopped the build: the die is idle, the worker told to stop.
     expect(randomizer.cancel).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Random village from your tiles" }).getAttribute("aria-busy")).toBeNull();
     await act(async () => late[0]!({ tiles: build(STOCK, 28, 1).tiles }));
-    expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
+    expect((await screen.findAllByLabelText("1 of 28 slots used")).length).toBeGreaterThan(0);
 
     // The same with a tile chosen and placed while it builds.
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
     fireEvent.click(screen.getAllByRole("button", { name: /, \d+ left$/ })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: /^Place it at/ })[0]!);
-    expect(screen.getAllByLabelText("2 of 28 slots used").length).toBeGreaterThan(0);
+    expect((await screen.findAllByLabelText("2 of 28 slots used")).length).toBeGreaterThan(0);
     await act(async () => late[1]!({ tiles: build(STOCK, 28, 2).tiles }));
-    expect(screen.getAllByLabelText("2 of 28 slots used").length).toBeGreaterThan(0);
+    expect((await screen.findAllByLabelText("2 of 28 slots used")).length).toBeGreaterThan(0);
   });
 
   it("ends its worker when the editor goes, a build done or not", async () => {
@@ -236,10 +236,10 @@ describe("the die in the editor", () => {
     expect(screen.queryByText(ROLL_FAILED)).toBeNull();
   });
 
-  it("stands in the home's edit bar beside Reset all", async () => {
+  it("stands in the home's edit bar beside Erase (#756's Reset all, EDIT-VILLAGE)", async () => {
     render(wrap(<VillageStage village={LAYOUT_GROWING} inventory={INVENTORY} editable editing randomizer={mainThreadRandomizer()} randomSeed={seedsOf(4)} />));
     const die = screen.getByRole("button", { name: "Random village from your tiles" });
-    expect(die.closest("header")?.contains(screen.getByRole("button", { name: /^Hold to reset all/ }))).toBe(true);
+    expect(die.closest("header")?.contains(screen.getByRole("button", { name: /^Hold to erase the layout/ }))).toBe(true);
     fireEvent.click(die);
     await waitFor(() => expect(screen.getByLabelText("28 of 28 slots used")).toBeTruthy());
   });

@@ -19,7 +19,7 @@ import type { VillageLayout } from "../containers/layout-rules";
 import { ProfileProvider } from "../containers/profile-context";
 import { BoardViewport } from "../containers/board-viewport";
 import type { LayoutBoardView } from "../containers/layout-board";
-import { useLayoutCanvas } from "../containers/village-layout-canvas";
+import { useFramedSettings, useLayoutCanvas } from "../containers/village-layout-canvas";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
 import { CentreGuide, expectIconCentred } from "../../stories/centre-guide";
 import { HudInsetGuide, SimulatedNotch, expectHudInset } from "../../stories/hud-inset-guide";
@@ -310,6 +310,8 @@ export const SavedReducedMotion: Story = { args: HOME_VILLAGE.saved, parameters:
 /** The save at 375 px and 1440 px: the chip in view, nothing over it. */
 export const SavedPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.saved, parameters: { ...PHONE_375.parameters, reducedMotion: "never" } };
 export const SavedWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.saved, parameters: { reducedMotion: "never" } };
+/** The same at 320 px: the notice "Layout saved · 1,960 (+1,122)" under the profile (EDIT-VILLAGE). */
+export const SavedPhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.saved, parameters: { ...PHONE_320.parameters, reducedMotion: "never" } };
 /** Edit mode: the editor's bar (Back, the score, the slots, Reset all), the inventory and Save. */
 export const Editing: Story = { args: HOME_VILLAGE.editing };
 /** Edit mode's points unfolded above the inventory (#758), a line lit. */
@@ -326,11 +328,11 @@ export const Placing: Story = { args: HOME_VILLAGE.placing };
 export const Lifted: Story = { args: HOME_VILLAGE.lifted };
 /** The lifted tile moved to another lit cell: Cancel puts it back. */
 export const Moved: Story = { args: HOME_VILLAGE.moved };
-/** Reset all held, beside the slots: the red ring fills around the eraser (a 6 s hold here, so it can be looked at). */
+/** Erase held (#756's Reset all): the red ring fills around the eraser (a 6 s hold here, so it can be looked at). */
 export const ResetHolding: Story = {
   args: { ...HOME_VILLAGE.editing, holdMs: 6000 },
   play: async ({ canvasElement }) => {
-    fireEvent.pointerDown(await within(canvasElement).findByRole("button", { name: /^Hold to reset all/ }), { button: 0 });
+    fireEvent.pointerDown(await within(canvasElement).findByRole("button", { name: /^Hold to erase the layout/ }), { button: 0 });
   },
 };
 /** Three tiles more than saved: the live score against the saved one, Save and Discard enabled. */
@@ -365,44 +367,44 @@ export const EditingFullWide: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.ed
 export const EditingFullPhone: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.editing, village: LAYOUT_FULL, inventory: INVENTORY_LONG } };
 
 /**
- * A home state with the saved layouts' strip (#804): the page's stage reads them itself (`routes/layout-slots.ts`); the stories hand
- * the scene's own stage the fixture's.
+ * A home state with the saved layouts (#804; EDIT-VILLAGE: the carousel above the inventory, Use in the bar): the page's stage reads
+ * them itself (`routes/layout-slots.ts`); the stories hand the scene's own stage the fixture's.
  */
 function slots<A extends { layoutSlots: LayoutSlotsProps }>({ layoutSlots, ...args }: A) {
   return { args, render: (story: HomeVillageSceneProps) => <HomeVillageScene {...story} renderStage={(stage) => <VillageStage {...stage} layoutSlots={layoutSlots} />} /> };
 }
 
-/** The saved layouts (#804) above the inventory: one slot (the village's, Active), the next two locked with their prices. */
+/** The saved layouts (#804) in the carousel above the inventory: layout 1 (the village's, Active), the right arrow layout 2's Purchase. */
 export const SlotsOne: Story = { ...slots(HOME_VILLAGE.slotsOne) };
 export const SlotsOnePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsOne) };
 export const SlotsOneWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsOne) };
-/** Three slots, the die's village in slot 2 picked: Load, Save here, Make active. */
+/** Three layouts, the die's village in layout 2 shown and loaded: Use in the bar, both arrows on. */
 export const SlotsThree: Story = { ...slots(HOME_VILLAGE.slotsThree) };
 export const SlotsThreePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsThree) };
 export const SlotsThreeWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsThree) };
-/** A locked slot picked: Buy at its price. */
+/** Layout 2 locked: the right arrow its Purchase, the padlock, the Cobbles and its price. */
 export const SlotsLocked: Story = { ...slots(HOME_VILLAGE.slotsLocked) };
-/** Buy asked first: the price and the Cobbles held. */
+/** A locked layout tapped: unlock asked first, the price and the Cobbles held. */
 export const SlotsBuy: Story = { ...slots(HOME_VILLAGE.slotsBuy) };
-/** The purchase on its way. */
+/** The purchase on its way: the carousel waits. */
 export const SlotsBuying: Story = { ...slots(HOME_VILLAGE.slotsBuying) };
-/** Slot 2 bought: open and empty, Save here. */
+/** Layout 2 bought: open and empty, shown on the village as it was: Save keeps it there, the village unchanged. */
 export const SlotsBought: Story = { ...slots(HOME_VILLAGE.slotsBought) };
-/** Too few Cobbles for slot 3: Buy off, and why. */
+/** Too few Cobbles for layout 3: its unlock asked, off, and why. */
 export const SlotsShort: Story = { ...slots(HOME_VILLAGE.slotsShort) };
 /** Load over changes kept nowhere: asked first. */
 export const SlotsLoad: Story = { ...slots(HOME_VILLAGE.slotsLoad) };
-/** Make active: asked first, attackers will face it. */
+/** Use: asked first, attackers will face it. */
 export const SlotsActivate: Story = { ...slots(HOME_VILLAGE.slotsActivate) };
-/** Slot 2 active: the village is its layout. */
+/** Layout 2 active: the village is its layout. */
 export const SlotsActivated: Story = { ...slots(HOME_VILLAGE.slotsActivated) };
-/** A saved layout that no longer fits (#804 open point 4): it needs tiles first, never made active. */
+/** A saved layout that no longer fits (#804 open point 4), edited: it needs tiles first, never made active. */
 export const SlotsNeedsTiles: Story = { ...slots(HOME_VILLAGE.slotsNeedsTiles) };
-/** A slot write refused: what happened, above the slots. */
+/** A slot write refused: what happened, above the carousel. */
 export const SlotsRefused: Story = { ...slots(HOME_VILLAGE.slotsRefused) };
 
 /**
- * The slots at work, as the mock ledger answers them: buy slot 2 (the Cobbles follow), press the die, Save here, Make active (the
+ * The slots at work, as the mock ledger answers them: buy slot 2 (the Cobbles follow), press the die, Save here, Use (the
  * village changes), then slot 1 active again. Each write lands after 400 ms.
  */
 function SlotsLive(args: HomeVillageSceneProps) {
@@ -461,7 +463,7 @@ function StoryVillageCanvas({
   onReady?: () => void;
   onScene?: (scene: GameScene | null) => void;
 }) {
-  return <BoardViewport {...useLayoutCanvas(view, { onScene, onReady })} basePath={APP_ASSETS} settings={board.renderer} />;
+  return <BoardViewport {...useLayoutCanvas(view, { onScene, onReady })} basePath={APP_ASSETS} settings={useFramedSettings(board.renderer, view.frame)} />;
 }
 
 /**
@@ -519,6 +521,32 @@ export const ScenePlacedPhone: Story = { ...ScenePlaced, ...PHONE_375 };
 export const ScenePlacedWide: Story = { ...ScenePlaced, ...WIDE_1440 };
 export const SceneMovedPhone: Story = { ...SceneMoved, ...PHONE_375 };
 export const SceneMovedWide: Story = { ...SceneMoved, ...WIDE_1440 };
+
+/*
+ * EDIT-VILLAGE (after the Paved UX Book's "Edit my village", 2026-11-05): the editor's bar (Back, "Edit", the die, Erase held, Save
+ * and Use on the book's gold pill; from `tablet` the side menu's band, as the HUD drawers', their close at its end), the tile's
+ * actions on a soft veil, the points at the top left, and the inventory with the layouts above it (a phone's bottom sheet, a side
+ * menu from `tablet`), at 320, 375, 768, 1024 and 1440 px.
+ */
+/** A lifted tile moved, at 320 px: the bar with "Edit", the tile's actions with Cancel, the inventory's sheet. */
+export const EditScenePhone320: Story = { ...SceneMoved, ...PHONE_320 };
+/** At 768 px: the bar as the side menu's band ("Edit", the menu half the screen), the inventory as a grid, the village framed beside it. */
+export const EditSceneTablet768: Story = { ...SceneMoved, ...TABLET_768 };
+/** From `desktop` (1024 px): the bar as the side menu's band (the HUD drawers' band, width, body and close), the inventory under it. */
+export const EditSceneDesktop1024: Story = { ...SceneMoved, globals: { viewport: { value: "desktop", isRotated: false } } };
+/**
+ * The layouts' carousel above the inventory: Layout 1 shown and active ("Active" in the bar in Use's place), the right arrow layout 2's
+ * Purchase (the padlock, the Cobbles, 100); at 1440 px in the side menu.
+ */
+export const EditLayoutsPhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsOne) };
+export const EditLayoutsPhone320: Story = { ...PHONE_320, ...slots(HOME_VILLAGE.slotsOne) };
+export const EditLayoutsWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsOne) };
+/** Three layouts saved: a tap loads one into the editor and saves into it; Use makes another the village. */
+export const EditLayoutsThreePhone320: Story = { ...PHONE_320, ...slots(HOME_VILLAGE.slotsThree) };
+/** The points at the top left under the bar, every structure's line shown, one lit. */
+export const EditScorePhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.editingPoints };
+export const EditScorePhone320: Story = { ...PHONE_320, args: HOME_VILLAGE.editingPoints };
+export const EditScoreWide1440: Story = { ...WIDE_1440, args: HOME_VILLAGE.editingPoints };
 export const SceneEditingPointsWonderPhone: Story = { ...SceneEditingPointsWonder, ...PHONE_375 };
 export const SceneEditingPointsWonderWide: Story = { ...SceneEditingPointsWonder, ...WIDE_1440 };
 export const SceneEditingPointsPhone: Story = { ...SceneEditingPoints, ...PHONE_375 };
@@ -713,14 +741,14 @@ const pressScene = async (canvasElement: HTMLElement, letGo = false) => {
 /** The press held on the starter: Edit by it, its ring filling (a 6 s hold here, so it can be looked at). */
 export const PressHolding: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement) };
 /** Let go early: the ring rewinds, Edit stays tappable about 3 s, then fades. */
-export const PressLetGo: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement, true) };
+export const PressLetGo: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement) };
 /** Held to its end (`HOLD_MS`): edit mode opens, as from the Edit button. */
 export const PressIntoEdit: Story = { args: { ...HOME_VILLAGE.view, holdMs: 800 }, render: (args) => <Playground {...args} />, play: ({ canvasElement }) => pressPlan(canvasElement) };
 /** The same on the scene at 375 px (touch) and 1440 px (mouse): the bubble by the pressed tile, following it. */
 export const ScenePressPhone: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, render: (args) => <InScene {...args} />, play: ({ canvasElement }) => pressScene(canvasElement), ...PHONE_375 };
 export const ScenePressWide: Story = { ...ScenePressPhone, ...WIDE_1440 };
 /** Let go early on the scene: Edit lingers by the tile, then fades. */
-export const ScenePressLetGoPhone: Story = { ...ScenePressPhone, play: ({ canvasElement }) => pressScene(canvasElement, true) };
+export const ScenePressLetGoPhone: Story = { ...ScenePressPhone, play: ({ canvasElement }) => pressScene(canvasElement) };
 /** A long press into edit mode on the scene at 375 px (the GIF of #799 plays this one). */
 export const ScenePressIntoEditPhone: Story = {
   args: { ...HOME_VILLAGE.view, holdMs: 800 },

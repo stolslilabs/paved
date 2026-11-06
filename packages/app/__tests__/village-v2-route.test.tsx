@@ -107,12 +107,14 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     const index = village.tiles.findIndex((t) => t.x === outer.x && t.y === outer.y);
     // The scene's ids: the starter 1, then the saved tiles in order from 2.
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${index + 2}"]`)!);
-    await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
-    expect(screen.getByLabelText("8 of 9 slots used")).toBeInTheDocument();
+    // The tile's actions: their own chunk, as the inventory's.
+    await userEvent.click(within(await screen.findByRole("toolbar", { name: "Tile" }, WAIT)).getByRole("button", { name: "Back to the inventory" }));
+    expect(await screen.findByLabelText("8 of 9 slots used")).toBeInTheDocument();
     draft.lift(outer.x, outer.y);
-    expect(screen.getByRole("button", { name: `Score ${draft.score.toLocaleString("en-US")}: show the points` })).toBeInTheDocument();
+    // The live score at the top left, against the saved one.
+    expect(await screen.findByRole("img", { name: new RegExp(`^Score ${draft.score.toLocaleString("en-US")}(,|$)`) })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Save/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/ }));
     // No notice (#802): the polite message, and the score chip on the new score.
     expect(await screen.findByText(`Village saved: score ${draft.score.toLocaleString("en-US")}`, {}, WAIT)).toBeInTheDocument();
     expect(screen.queryByText("Layout saved")).toBeNull();
@@ -151,8 +153,8 @@ describe("/: the player's village is the home (#753), on the mock", () => {
   it("leaving edit mode with unsaved changes asks first, by any way out, a reload too", async () => {
     const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
     await userEvent.click(await editButton());
-    fireEvent.click(await screen.findByRole("button", { name: /^Hold to reset all/ }, WAIT));
-    expect(screen.getByLabelText("1 of 9 slots used")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /^Hold to erase the layout/ }, WAIT));
+    expect(await screen.findByLabelText("1 of 9 slots used")).toBeInTheDocument();
     // A reload or a closed tab: the browser's prompt is asked for.
     const unload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(unload);
@@ -162,7 +164,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     const dialog = await screen.findByRole("dialog", { name: "Leave without saving?" }, WAIT);
     await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
     expect(s.router.state.location.search).toBe("?edit");
-    expect(screen.getByLabelText("1 of 9 slots used")).toBeInTheDocument();
+    expect(await screen.findByLabelText("1 of 9 slots used")).toBeInTheDocument();
     // The editor's own Back: asked too; Leave goes back to the view, on the village.
     await userEvent.click(await screen.findByRole("button", { name: "Leave edit mode" }, WAIT));
     await userEvent.click(within(await screen.findByRole("dialog", { name: "Leave without saving?" }, WAIT)).getByRole("button", { name: "Leave" }));

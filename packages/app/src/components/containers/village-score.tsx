@@ -6,7 +6,7 @@ import { Plate, PLATE_FIGURE, plateHudIconClass, plateHudIconPx } from "../eleme
 import { UiIcon } from "../elements/ui-icon";
 import type { LayoutSaved } from "./layout-editor";
 
-// The score's count after a save (#802, the balances' change): its own chunk, loaded by a save alone.
+// The score's count after a save (#802, the balances' change) and the save's notice (EDIT-VILLAGE): their own chunk, loaded by a save alone.
 const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
 
 export interface VillageScoreProps {

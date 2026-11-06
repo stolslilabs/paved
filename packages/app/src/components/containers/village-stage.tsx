@@ -1,18 +1,26 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useReducedMotionConfig } from "motion/react";
 import type { BoardTile } from "@paved/chain";
-import { formatInteger, type LayoutBreakdown } from "@paved/game-core";
-import { useSidePanel } from "../../lib/side-panel";
+import type { LayoutBreakdown } from "@paved/game-core";
+import type { FrameInsets } from "@paved/renderer";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { type TileArt } from "../elements/tile-chip";
 import { VillageFog, type VillageArrival } from "../elements/village-fog";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { LayoutBoard, type LayoutBoardView } from "./layout-board";
-import { LayoutEditorPanel, LeaveEditDialog, RandomDie, ResetAllHold, useLayoutEditor, type LayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "./layout-editor";
-import { layoutPoints, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
-import { LayoutSlotsStrip, type LayoutSlotsProps } from "./layout-slots-strip";
-import { PointsFold } from "./points-breakdown";
+import { EditBar, useDocked, type EditBarUse } from "./edit-bar";
+import { LeaveEditDialog, useLayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "./layout-editor";
+import { layoutPoints, sameLayout, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
+import { LayoutSlotsStrip, SlotDialog, type LayoutSlotsProps } from "./layout-slots-strip";
+import { LazyVillageBubble } from "./lazy-tile-bubble";
+
+/**
+ * Edit mode's panel and its points (EDIT-VILLAGE), their own chunk, loaded as edit mode opens: the stage's chunk, which the home names in
+ * its first load, stays as it was.
+ */
+const loadEditPanel = () => import("./edit-panel");
+const LazyEditPanel = lazy(() => loadEditPanel().then((m) => ({ default: m.EditPanel })));
+const LazyEditPoints = lazy(() => loadEditPanel().then((m) => ({ default: m.EditPoints })));
 
 /** The home's left column takes its edge hint from this chunk, which carries it already (HOME-OVERLAYS, #856). */
 export { scrollHintRef } from "../../lib/scroll-hint";
@@ -43,7 +51,7 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
   initialHand?: { plan: number } | { lift: number } | null;
   initialPending?: Spot | null;
   initialLeaving?: boolean;
-  /** Where the stories start: the editor's points unfolded (on a phone; open from `desktop` anyway), a line lit. */
+  /** Where the stories start: a line lit (the points at the top left are always shown since EDIT-VILLAGE; `initialPointsOpen` is kept for the mocks). */
   initialPointsOpen?: boolean;
   initialLit?: string | null;
   /**
@@ -71,15 +79,18 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
   onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
-  /** The saved layouts (#804): their strip above the inventory in edit mode. Unset (not served): no strip. */
+  /** The saved layouts (#804): the panel's carousel above the inventory, Use in the editor's bar. Unset (not served): neither. */
   layoutSlots?: LayoutSlotsProps;
 }
 
 /**
- * The home's village (#753): the scene's box (the 3D canvas, else the plan view) and, in edit mode, the editor's overlays (#739):
- * its bar (Back, the live score, the slots, Reset all), its panel (the saved layouts' strip, #804; the hint, the inventory, Save)
- * beside or under the box, and the leave dialog. The bubble of the tile in hand stands by the tile on the 3D scene, clear of the bar and the panel; the plan view
- * stands it still in the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the board, the engine) arrives.
+ * The home's village (#753): the scene's box (the 3D canvas, else the plan view) and, in edit mode, the editor's overlays (#739), after
+ * the Paved UX Book's "Edit my village" (EDIT-VILLAGE): its bar (`EditBar`, Save and its layouts' picker, #804), the points at the top
+ * left (`EditPoints`), the inventory over the village (`EditPanel`: a phone's bottom sheet, a side menu from `tablet`) and the leave
+ * dialog. The book's bubble of the tile in
+ * hand stands by the tile on the 3D scene, clear of the bar and the panel, the camera framing the village in the room they leave; the
+ * plan view stands it still over the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the
+ * board, the engine) arrives.
  */
 const NONE: VillageLayout = { owner: "", level: 1, tiles: [], score: 0 };
 /** The points in view: none computed, nothing lit (the structure lines are edit mode's, #831). */
@@ -88,10 +99,73 @@ const NO_POINTS: LayoutBreakdown = { lines: [], other: 0, score: 0 };
 /** The Edit of the press bubble (#799): the hammer, as the home's Edit since #807. */
 const EDIT_ICON = "hammer";
 
-/** The editor's points open from this width (`--breakpoint-desktop`), folded under it. */
-const DESKTOP_QUERY = "(min-width: 64rem)";
 
 const NO_LAYOUTS: readonly (readonly BoardTile[])[] = [];
+
+/** The room kept over the village under edit mode's bar for the tile's bubble (its height and tail), CSS px; from `desktop`, larger. */
+const BUBBLE_ROOM_PX = 116;
+const BUBBLE_ROOM_DESKTOP_PX = 132;
+/** The gap kept between the village and the HUD's sides and the panel, CSS px. */
+const FRAME_GAP_PX = 8;
+
+/**
+ * Edit mode's room for the 3D village (EDIT-VILLAGE): from the box's top to under the bar with the bubble's room, and from the panel's
+ * edge to the box's (a phone's drawer at the foot, the side menu at the right), measured as they draw (the drawer folds and opens, a
+ * refusal grows the panel), the camera framed once they settle; null in view (the renderer's own insets).
+ */
+function useEditFrame(box: RefObject<HTMLDivElement | null>, editing: boolean): FrameInsets | null {
+  const [frame, setFrame] = useState<FrameInsets | null>(null);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!editing || !el || typeof ResizeObserver === "undefined") return setFrame(null);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const measure = () => {
+      const b = el.getBoundingClientRect();
+      const bar = el.querySelector("[data-edit-bar] header")?.getBoundingClientRect();
+      const panel = el.querySelector("[data-edit-panel] > div")?.getBoundingClientRect();
+      if (!bar || !panel || !(b.height > 0)) return;
+      const room = b.width >= 1024 ? BUBBLE_ROOM_DESKTOP_PX : BUBBLE_ROOM_PX;
+      // The panel a side menu at the right (from `tablet`), not a phone's sheet; the bar docked in its head: nothing over the village
+      // but the room for the tile's actions. Read from their marks, not their places (a tablet's menu is half the screen, to the pixel).
+      const aside = el.querySelector("[data-edit-panel]")?.getAttribute("data-edit-panel") === "side";
+      const docked = el.querySelector("[data-edit-bar]")?.getAttribute("data-edit-bar") === "docked";
+      const next = {
+        top: Math.round((docked ? 0 : bar.bottom - b.top) + room),
+        bottom: aside ? FRAME_GAP_PX : Math.round(b.bottom - panel.top + FRAME_GAP_PX),
+        left: FRAME_GAP_PX,
+        right: aside ? Math.round(b.right - panel.left + FRAME_GAP_PX) : FRAME_GAP_PX,
+      };
+      setFrame((f) => (f && f.top === next.top && f.bottom === next.bottom && f.right === next.right ? f : next));
+    };
+    // The first measure at once; then once the drawer's fold or a resize has settled.
+    const settle = () => {
+      clearTimeout(timer);
+      timer = setTimeout(measure, 150);
+    };
+    measure();
+    const observer = new ResizeObserver(settle);
+    observer.observe(el);
+    // The bar and the panel, observed as they come (the panel is a chunk of its own, after the first measure).
+    const seen = new Set<Element>();
+    const watch = () => {
+      for (const part of el.querySelectorAll("[data-edit-bar] header, [data-edit-panel] > div")) {
+        if (seen.has(part)) continue;
+        seen.add(part);
+        observer.observe(part);
+        settle();
+      }
+    };
+    watch();
+    const arrivals = new MutationObserver(watch);
+    arrivals.observe(el, { childList: true, subtree: true });
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      arrivals.disconnect();
+    };
+  }, [box, editing]);
+  return frame;
+}
 
 export default function VillageStage({ village, editable, ...props }: VillageStageProps) {
   const slotList = props.layoutSlots?.slots;
@@ -106,7 +180,8 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     saved: props.saved,
     editing: editable && (props.editing ?? false),
     onEditingChange: props.onEditingChange,
-    initialDraft: props.initialDraft,
+    // A story starting on another saved layout (`initialSelected`) edits that layout's tiles.
+    initialDraft: props.initialDraft ?? props.layoutSlots?.slots.find((s) => s.slot === props.layoutSlots?.initialSelected && s.open)?.tiles ?? undefined,
     initialHand: props.initialHand,
     initialPending: props.initialPending,
     initialLeaving: props.initialLeaving,
@@ -131,14 +206,24 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   // under the bubble included.
   const points = useMemo(() => (editing ? layoutPoints(editor.shown) : NO_POINTS), [editing, editor.shown]);
   const [editLit, setEditLit] = useState<string | null>(props.initialLit ?? null);
-  const [pointsOpen, setPointsOpen] = useState<boolean | null>(props.initialPointsOpen ?? null);
-  const wide = useSidePanel(DESKTOP_QUERY);
-  // Leaving edit mode (or entering it) turns the editor's light off and folds the points back to the width's default.
+  const layoutSlots = props.layoutSlots;
+  const active = layoutSlots?.active ?? 0;
+  // The layout edited (EDIT-VILLAGE): the one the draft came from, Save's target; the active one until another is picked (a story's
+  // open slot picked first, `initialSelected`).
+  const [picked, setEdited] = useState<number | null>(() => {
+    const first = layoutSlots?.initialSelected;
+    return first != null && layoutSlots!.slots.some((s) => s.slot === first && s.open) ? first : null;
+  });
+  const edited = picked ?? active;
+  // Use asked (#804's Make active; a story may start on it).
+  const [using, setUsing] = useState(layoutSlots?.initialAsk === "activate");
+  // Leaving edit mode (or entering it) turns the editor's light off and edits the active layout again.
   const [wasEditing, setWasEditing] = useState(editing);
   if (wasEditing !== editing) {
     setWasEditing(editing);
     setEditLit(null);
-    setPointsOpen(null);
+    setEdited(null);
+    setUsing(false);
   }
   const litKey = editing ? editLit : null;
   const litLine = litKey === null ? null : (points.lines.find((l) => l.key === litKey) ?? null);
@@ -146,107 +231,140 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   useEffect(() => {
     if (editing && editLit !== null && !points.lines.some((l) => l.key === editLit)) setEditLit(null);
   }, [editing, editLit, points]);
-  const open = pointsOpen ?? wide;
-  const foldPoints = useCallback((next: boolean) => {
-    setPointsOpen(next);
-    // Leaving the list turns the light off.
-    if (!next) setEditLit(null);
-  }, []);
   const onEdit = props.onEdit;
   const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", icon: EDIT_ICON, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
   const lit = litLine?.lit ?? null;
-  const bubble = scene ? editor.bubble : null;
-  const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press, camera }), [editor.view, bubble, lit, press, camera]);
+  // The home's bubble is the book's (EDIT-VILLAGE): the village page keeps the boards'.
+  const bubble = useMemo(() => (scene && editor.bubble ? { ...editor.bubble, look: "village" as const } : null), [scene, editor.bubble]);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const frame = useEditFrame(boxRef, editing && scene);
+  // From `desktop` the bar is the side menu's head (the owner's asks of 2026-11-05).
+  const docked = useDocked();
+  const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press, camera, frame }), [editor.view, bubble, lit, press, camera, frame]);
+  // Save into the layout edited: the active one is the village (the editor's Save, which closes edit mode on its way back); another
+  // keeps the draft there, the village unchanged (#804's Save here), edit mode open.
+  const target = layoutSlots?.slots.find((s) => s.slot === edited && s.open) ?? null;
+  const intoActive = !layoutSlots || !target || edited === active;
+  const slotBusy = !!layoutSlots?.busy;
+  const save = intoActive
+    ? { onSave: editor.save, disabled: !editor.changed || editor.over || editor.saving || editor.blocked, busy: editor.saving }
+    : {
+        onSave: () => {
+          editor.cancelRoll();
+          layoutSlots!.onSaveTo?.(edited, editor.draft);
+        },
+        disabled: (!!target!.tiles && sameLayout(editor.draft, target!.tiles)) || editor.over || editor.saving || slotBusy || editor.rolling,
+        busy: layoutSlots!.busy?.kind === "save-to" && layoutSlots!.busy.slot === edited,
+      };
+  // Another layout edited (the carousel): the scene slides in from its side, the carousel's way (the owner's ask of 2026-11-05; not under
+  // reduced motion). A transform on the scene's layer: the canvas stays as it is.
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const calm = useReducedMotionConfig() ?? false;
+  const pick = useCallback(
+    (slot: number) => {
+      const el = sceneRef.current;
+      if (slot !== edited && el && !calm && typeof el.animate === "function") {
+        const way = slot > edited ? 1 : -1;
+        el.animate([{ transform: `translateX(${way * 18}%)`, opacity: 0 }, { transform: "translateX(0)", opacity: 1 }], { duration: 360, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      }
+      setEdited(slot);
+    },
+    [edited, calm],
+  );
+  const picker = layoutSlots && <LayoutSlotsStrip editor={editor} {...layoutSlots} picked={edited} onPick={pick} />;
+  // Use (#804's Make active): the layout edited as saved, made the village attackers face, asked first; off while it is empty, needs
+  // tiles the player no longer holds, or holds changes not saved (Use takes the saved layout).
+  const editedSlot = layoutSlots?.slots.find((s) => s.slot === edited && s.open) ?? null;
+  const use: EditBarUse | undefined =
+    layoutSlots && editedSlot
+      ? {
+          active: edited === active,
+          disabled: !editedSlot.tiles || !editedSlot.fits || !sameLayout(editor.draft, editedSlot.tiles) || slotBusy || editor.saving || editor.rolling,
+          busy: layoutSlots.busy?.kind === "activate" && layoutSlots.busy.slot === edited,
+          onUse: () => setUsing(true),
+        }
+      : undefined;
+  const still = !scene && editor.bubble;
   return (
     <>
-      {/* The scene's box: the whole screen in view, what the editor's panel leaves in edit mode. Its place in the tree never changes, so the canvas stays up across the modes. */}
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        {/* The village not read yet: a placeholder sky under the overlays (they paint first). */}
-        {!village ? (
-          <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-background/40 to-board" />
-        ) : props.renderCanvas ? (
-          props.renderCanvas(view, onDrawn)
-        ) : (
-          // In view nothing on the plan is tapped: it fits the screen. The editor keeps the touch floor, and scrolls past it.
-          <LayoutBoard {...view} fit={!editing} tileArt={props.tileArt} className="absolute inset-0 bg-board" />
-        )}
+      {/*
+        The scene's box: the whole screen, in view and in edit mode (EDIT-VILLAGE: the editor's bar and panel float over the village,
+        as the book's). Its place in the tree never changes, so the canvas stays up across the modes.
+      */}
+      <div ref={boxRef} data-slot="village-scene" className="relative min-h-0 flex-1 overflow-hidden">
+        {/* The scene's layer (the carousel's slide moves it alone). */}
+        <div ref={sceneRef} className="absolute inset-0">
+          {/* The village not read yet: a placeholder sky under the overlays (they paint first). */}
+          {!village ? (
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-background/40 to-board" />
+          ) : props.renderCanvas ? (
+            props.renderCanvas(view, onDrawn)
+          ) : (
+            // In view nothing on the plan is tapped: it fits the screen. The editor keeps the touch floor, and scrolls past it.
+            <LayoutBoard {...view} fit={!editing} tileArt={props.tileArt} className="absolute inset-0 bg-board" />
+          )}
+        </div>
         {/* Over the canvas and under the editor's bar: the box alone, never the overlays nor the editor's panel. */}
         {props.arrival && props.renderCanvas && <VillageFog arrival={props.arrival} cleared={drawn} />}
-        {editing && village && <EditBar editor={editor} village={village} holdMs={props.holdMs} onPoints={() => setPointsOpen(true)} />}
-      </div>
-      {editing && (
-        <aside
-          aria-label="Editor"
-          data-bubble-avoid
-          className="flex shrink-0 flex-col gap-2 border-t border-border bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur desktop:w-96 desktop:border-t-0 desktop:border-l desktop:p-4"
-        >
-          {props.refusal && (
-            <InlineError
-              title="Not saved"
-              message={props.refusal}
-              detail={props.refusalDetail}
-              action={
-                props.onDismissRefusal && (
-                  <Button size="sm" variant="ghost" onClick={props.onDismissRefusal}>
-                    Dismiss
-                  </Button>
+        {editing && village && <EditBar editor={editor} holdMs={props.holdMs} save={save} use={use} docked={docked} />}
+        {editing && village && (
+          <Suspense fallback={null}>
+            <LazyEditPoints breakdown={points} change={editor.score - (editedSlot?.tiles ? editedSlot.score : village.score)} selected={editLit} onSelect={setEditLit} />
+          </Suspense>
+        )}
+        {editing && (
+          <Suspense fallback={null}>
+            <LazyEditPanel
+              editor={editor}
+              layouts={picker}
+              tileArt={props.tileArt}
+              refusal={
+                props.refusal && (
+                  <InlineError
+                    title="Not saved"
+                    message={props.refusal}
+                    detail={props.refusalDetail}
+                    action={
+                      props.onDismissRefusal && (
+                        <Button size="sm" variant="ghost" onClick={props.onDismissRefusal}>
+                          Dismiss
+                        </Button>
+                      )
+                    }
+                  />
+                )
+              }
+              above={
+                // The plan view's bubble: still, over the panel (the 3D scene's follows the tile); its own chunk, as the scene's.
+                still && (
+                  <Suspense fallback={null}>
+                    <LazyVillageBubble
+                      rotations={still.rotations}
+                      onRotate={still.onRotate}
+                      onReturn={still.onReturn!}
+                      onClose={still.onClose}
+                      cancelButton={still.cancelButton}
+                      busy={still.busy}
+                    />
+                  </Suspense>
                 )
               }
             />
-          )}
-          <PointsFold breakdown={points} selected={editLit} onSelect={setEditLit} open={open} onOpenChange={foldPoints} />
-          {props.layoutSlots && <LayoutSlotsStrip editor={editor} {...props.layoutSlots} />}
-          <LayoutEditorPanel editor={editor} tileArt={props.tileArt} bubble={scene ? "scene" : "panel"} />
-        </aside>
+          </Suspense>
+        )}
+      </div>
+      <LeaveEditDialog editor={editor} look="hud" />
+      {layoutSlots && editedSlot && (
+        <SlotDialog
+          ask={using ? "activate" : null}
+          slot={editedSlot}
+          onCancel={() => setUsing(false)}
+          onConfirm={() => {
+            setUsing(false);
+            layoutSlots.onActivate?.(edited);
+          }}
+        />
       )}
-      <LeaveEditDialog editor={editor} />
     </>
   );
 }
-
-/**
- * Edit mode's bar over the scene: Back (out of edit mode, asking first with changes: it is the way to drop a draft), the live
- * score against the saved one (a tap unfolds the points, #758), the slots, and the die (#803) and Reset all held beside them (#756).
- */
-function EditBar({ editor, village, holdMs, onPoints }: { editor: LayoutEditor; village: VillageLayout; holdMs?: number; onPoints: () => void }) {
-  return (
-    <div data-bubble-avoid className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] tablet:p-4">
-      <header className="pointer-events-auto flex w-full max-w-2xl items-center gap-2 rounded-xl border border-border bg-card/90 px-2 py-2 shadow-lg backdrop-blur">
-        <Button size="icon" variant="ghost" onClick={editor.back} aria-label="Leave edit mode">
-          <Icon name="chevron-left" size="md" />
-        </Button>
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* On a phone the die and Reset all leave the title "Edit" (#803); "Edit village" from `tablet`. */}
-          <span className="truncate font-display text-lg leading-tight">
-            Edit<span className="hidden tablet:inline"> village</span>
-          </span>
-          <button
-            type="button"
-            onClick={onPoints}
-            aria-label={`Score ${formatInteger(editor.score)}: show the points`}
-            className="self-start rounded-sm text-left text-xs text-muted-foreground underline-offset-2 outline-none hover:underline"
-          >
-            Score <span className="numeric font-semibold text-foreground">{formatInteger(editor.score)}</span>
-            {editor.score !== village.score && (
-              <>
-                {" "}
-                · saved <span className="numeric">{formatInteger(village.score)}</span>
-              </>
-            )}
-          </button>
-        </div>
-        <Badge variant="secondary" aria-label={`${editor.used} of ${editor.slots} slots used`}>
-          <span className="hidden tablet:contents">
-            <Icon name="table-cells-large" size="xs" />
-          </span>
-          <span className="numeric">
-            {editor.used} / {editor.slots}
-          </span>
-        </Badge>
-        <RandomDie editor={editor} />
-        <ResetAllHold editor={editor} holdMs={holdMs} />
-      </header>
-    </div>
-  );
-}
-
