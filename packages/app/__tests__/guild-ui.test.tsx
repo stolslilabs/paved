@@ -415,6 +415,29 @@ describe("GuildFinder and GuildCard (#953)", () => {
     await waitFor(() => expect(screen.queryByRole("heading", { level: 2, name: "Create a guild" })).toBeNull());
   });
 
+  it("opens Create from a scrolled finder at the top of the drawer, the focus on its view, and gives it back to the Create row (#1030)", async () => {
+    render(wrap(<GuildScene>{<GuildFinder {...GUILD_FINDER.invited} />}</GuildScene>));
+    const drawer = screen.getByRole("dialog", { name: "Guild" });
+    const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    // jsdom lays nothing out: the body keeps the scroll it is given (the review's 351 px at 320 x 568, the invitation scrolled past).
+    Object.defineProperty(body, "scrollTop", { value: 351, writable: true, configurable: true });
+    const row = within(drawer).getByRole("button", { name: "Create a guild" });
+    row.focus();
+    await userEvent.keyboard("{Enter}");
+    const createDrawer = await screen.findByRole("dialog", { name: "Create a guild" });
+    expect(body.scrollTop).toBe(0);
+    expect(document.activeElement).toBe(createDrawer.querySelector("[data-slot=guild-finder-view][data-view=create]"));
+    // The next Tab goes into the form, not to the drawer's Back.
+    await userEvent.tab();
+    expect(createDrawer.querySelector("[data-slot=guild-form]")!.contains(document.activeElement)).toBe(true);
+    // Back to the finder, scrolled again meanwhile: the top, the focus on the Create row it left from.
+    body.scrollTop = 200;
+    await userEvent.click(within(createDrawer).getByRole("button", { name: "Back" }));
+    await screen.findByRole("dialog", { name: "Guild" });
+    expect(body.scrollTop).toBe(0);
+    expect(document.activeElement).toBe(within(drawer).getByRole("button", { name: "Create a guild" }));
+  });
+
   it("takes any whole number of crowns as a requirement, not only multiples of 50", async () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildFinder {...GUILD_FINDER.guildless} onAction={onAction} />));

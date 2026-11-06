@@ -1,12 +1,18 @@
-import { act, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LazyMotion, MotionConfig, domMax } from "motion/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { GUILD_INVITE_TTL_S, GUILD_KICK_COOLDOWN_S, GUILD_LEADER_IDLE_S, GUILD_LOG_KEPT, GUILD_RANK, guildTag, type GuildDraft } from "@paved/game-core";
 import { guildKeys, guildRefusal, useGuild, useGuildBadge, useGuildRanking, useGuildSearch, useGuildWrites, usePlayerGuild, useSuggestedGuilds } from "../src/data/guilds";
 import { community } from "../src/data/mock/community";
-import { MOCK_ACCEPT_S, MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, seededGuildWorld } from "../src/data/mock/guilds";
+import { GUILD_WORLD_VERSION, MOCK_ACCEPT_S, MOCK_INVITATION_S, MOCK_INVITE_ANSWER_S, MOCK_SEED_REQUEST_S, parseGuildWorld, seededGuildWorld, type GuildWorld } from "../src/data/mock/guilds";
 import { MockLedger, MOCK_KEY } from "../src/data/mock/ledger";
 import { mockSocial } from "../src/data/mock/overlay";
 import { GuildRefusedError, guildSource, type GuildSource, type SocialSource } from "../src/data/social-source";
+import { DataProvider } from "../src/data/sources";
+import { ProfileGuildActions } from "../src/routes/profile-guild";
 import { fakeSources, memoryStore, renderData } from "./data-fakes";
 
 // The guilds on the mock (#953): the seeded world, the flows of the acceptance on the ledger (create, join, request, invite,
@@ -281,6 +287,54 @@ describe("invitations on the mock (#953)", () => {
   });
 });
 
+describe("a Member's invitations (#1030): the rank that invites sees them sent, the requests stay a Veteran's", () => {
+  /** ME leads an Open guild; OTHER joins and is promoted to Member, the lowest rank that invites. */
+  async function memberOf() {
+    const w = world();
+    const id = await w.guilds.createGuild(ME, draft());
+    await w.guilds.joinGuild(OTHER, id);
+    await w.guilds.promote(ME, OTHER);
+    expect((await w.guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.member);
+    return { ...w, id };
+  }
+
+  it("serves a Member the invitations sent, not the requests", async () => {
+    const { guilds } = await memberOf();
+    expect((await guilds.playerGuild(OTHER)).guild).toMatchObject({ invitations: [], requests: null });
+    await guilds.invite(OTHER, "0xabc003");
+    const mine = (await guilds.playerGuild(OTHER)).guild!;
+    expect(mine.invitations!.map((i) => [i.profile.address, i.inviter])).toEqual([["0xabc003", OTHER]]);
+    expect(mine.requests).toBeNull();
+    // A Recruit invites no one, and sees neither.
+    await guilds.joinGuild("0xabc004", (await guilds.guildOf(ME))!.id);
+    expect((await guilds.playerGuild("0xabc004")).guild).toMatchObject({ rank: GUILD_RANK.recruit, invitations: null, requests: null });
+  });
+
+  it("turns the Member's profile tile to Invited after a successful invitation", async () => {
+    const { guilds } = await memberOf();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <DataProvider sources={fakeSources({ social: guilds }).sources}>
+          <MemoryRouter>
+            <LazyMotion features={domMax}>
+              <MotionConfig reducedMotion="always">
+                <ProfileGuildActions address="0xabc003" name="Pebble" me={OTHER} now={T0} />
+              </MotionConfig>
+            </LazyMotion>
+          </MemoryRouter>
+        </DataProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Invite to Stone Road" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite Pebble to Stone Road?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Invite" }));
+    expect(await screen.findByRole("button", { name: "Invited to Stone Road" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Invite to Stone Road" })).toBeNull();
+    expect((await guilds.playerGuild(ME)).guild!.invitations!.map((i) => i.profile.address)).toEqual(["0xabc003"]);
+  });
+});
+
 /** ME leads a guild with OTHER and two more device players, all Recruits (GUILD-PAGE: a player who joins is one). */
 async function guildOfFour() {
   const w = world();
@@ -368,6 +422,82 @@ describe("ranks and kicks on the mock (#953)", () => {
     expect((await guilds.guildOf(ME))!.rank).toBe(GUILD_RANK.officer);
     expect((await guilds.guildOf("0xabc004"))!.rank).toBe(GUILD_RANK.leader);
     expect((await guilds.playerGuild(OTHER)).guild!.log!.at(-1)).toMatchObject({ kind: "leader", actor: "0xabc004" });
+  });
+});
+
+/** The stored state's guilds, as the ledger wrote them. */
+const storedGuilds = (store: Storage): GuildWorld => JSON.parse(store.getItem(MOCK_KEY)!).guilds as GuildWorld;
+
+/** Rewrites the stored state's guilds. */
+function storeGuilds(store: Storage, guilds: unknown): void {
+  const state = JSON.parse(store.getItem(MOCK_KEY)!);
+  store.setItem(MOCK_KEY, JSON.stringify({ ...state, guilds }));
+}
+
+/**
+ * A world as the client before GUILD-PAGE stored it (version 1, three ranks): Member 1, Officer 2, Leader 4, and promotions and
+ * demotions logged without their rank. Its Recruits and Veterans were Members, its Officers 2.
+ */
+function legacyWorld(w: GuildWorld): unknown {
+  const old = JSON.parse(JSON.stringify(w));
+  old.version = 1;
+  for (const g of old.guilds) {
+    for (const m of g.members) m.rank = m.rank === GUILD_RANK.leader ? 4 : m.rank === GUILD_RANK.officer ? 2 : 1;
+    for (const e of g.log) delete e.rank;
+  }
+  return old;
+}
+
+describe("the stored world's upgrade from three ranks to five (#1030)", () => {
+  it("keeps a version-1 Officer an Officer, with their kicks and promotions, and upgrades the world once", async () => {
+    const { guilds, store } = await guildOfFour();
+    await promoteTo(guilds, OTHER, GUILD_RANK.officer);
+    storeGuilds(store, legacyWorld(storedGuilds(store)));
+    // Read back: the Officer (2 then) is the Officer (3), the Members are Members, the seeded guilds' Officers too.
+    expect((await guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.officer);
+    expect((await guilds.guildOf("0xabc003"))!.rank).toBe(GUILD_RANK.member);
+    expect((await guilds.guildOf(ME))!.rank).toBe(GUILD_RANK.leader);
+    const seededOfficer = byName("Hollow Oak").members.find((m) => m.rank === GUILD_RANK.officer)!.address;
+    expect((await guilds.guildOf(seededOfficer))!.rank).toBe(GUILD_RANK.officer);
+    // Legacy promotions read as an Officer's (no rank logged).
+    expect((await guilds.playerGuild(ME)).guild!.log!.filter((e) => e.kind === "promoted").map((e) => e.rank)).toEqual([null, null, null]);
+    // The Officer promotes and kicks: neither is refused with "rank".
+    await guilds.promote(OTHER, "0xabc003");
+    expect((await guilds.guildOf("0xabc003"))!.rank).toBe(GUILD_RANK.veteran);
+    await guilds.kick(OTHER, "0xabc004", "");
+    expect(await guilds.guildOf("0xabc004")).toBeNull();
+    // The write stored the upgraded world: version 2, upgraded no more, so a Veteran (2) stays a Veteran.
+    expect(storedGuilds(store).version).toBe(GUILD_WORLD_VERSION);
+    expect((await guilds.guildOf("0xabc003"))!.rank).toBe(GUILD_RANK.veteran);
+    await guilds.demote(ME, OTHER);
+    expect((await guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.veteran);
+    expect(storedGuilds(store).guilds.flatMap((g) => g.members).find((m) => m.address === OTHER)!.rank).toBe(GUILD_RANK.veteran);
+  });
+
+  it("parses the current version as stored, upgrades version 1 into a copy, and refuses any other", () => {
+    const current = seededGuildWorld();
+    expect(parseGuildWorld(current)).toBe(current);
+    const legacy = legacyWorld(current);
+    const upgraded = parseGuildWorld(legacy)!;
+    expect(upgraded).not.toBe(legacy);
+    expect((legacy as { version: number }).version).toBe(1);
+    expect(upgraded.version).toBe(GUILD_WORLD_VERSION);
+    expect(upgraded.guilds.map((g) => g.members.map((m) => m.rank))).toEqual(current.guilds.map((g) => g.members.map((m) => m.rank)));
+    // Twice: the upgraded world parses as it is.
+    expect(parseGuildWorld(JSON.parse(JSON.stringify(upgraded)))).toEqual(upgraded);
+    expect(parseGuildWorld({ ...current, version: 3 })).toBeNull();
+    expect(parseGuildWorld({ version: 1, guilds: null, players: {} })).toBeNull();
+    expect(parseGuildWorld(null)).toBeNull();
+  });
+
+  it("leaves a version-1 world the five ranks wrote (GUILD-PAGE before the version came) as it is: its Veterans stay Veterans", () => {
+    const w = seededGuildWorld();
+    const veteran = w.guilds[0]!.members.find((m) => m.rank === GUILD_RANK.member)!;
+    veteran.rank = GUILD_RANK.veteran;
+    const stored = { ...JSON.parse(JSON.stringify(w)), version: 1 };
+    const parsed = parseGuildWorld(stored)!;
+    expect(parsed.version).toBe(GUILD_WORLD_VERSION);
+    expect(parsed.guilds).toEqual(w.guilds);
   });
 });
 

@@ -139,8 +139,14 @@ export interface StoredGuildPlayer {
   seenAt?: number;
 }
 
+/**
+ * The stored world's version: 2 since GUILD-PAGE's five ranks (Recruit 0, Member 1, Veteran 2, Officer 3, Leader 4). Version 1
+ * held three (Member 1, Officer 2, Leader 4): `parseGuildWorld` upgrades it once, its Officers to 3.
+ */
+export const GUILD_WORLD_VERSION = 2;
+
 export interface GuildWorld {
-  version: 1;
+  version: typeof GUILD_WORLD_VERSION;
   nextId: number;
   guilds: StoredGuild[];
   /** By address key. */
@@ -256,12 +262,36 @@ function seededGuild(seed: GuildSeed, i: number): StoredGuild {
 }
 
 /** The seeded world: the same on every device, before any write. */
-export const seededGuildWorld = (): GuildWorld => ({ version: 1, nextId: FIRST_GUILD_ID + SEEDS.length, guilds: SEEDS.map(seededGuild), players: {} });
+export const seededGuildWorld = (): GuildWorld => ({ version: GUILD_WORLD_VERSION, nextId: FIRST_GUILD_ID + SEEDS.length, guilds: SEEDS.map(seededGuild), players: {} });
 
-/** A stored world, or null when it is not one this version wrote (then the seeded one serves). */
+/** Version 1's Officer rank (Member 1, Officer 2, Leader 4): GUILD-PAGE's Veteran since. */
+const LEGACY_OFFICER = 2;
+
+/**
+ * Whether a version-1 world was written with the five ranks already: the client of GUILD-PAGE (#1027) stored them under version 1
+ * until the version came (#1030). Its seeded Officers are 3, its promotions and demotions log their new rank, and only its ranks
+ * hold a Recruit (0) or an Officer (3); version 1's three ranks did neither.
+ */
+const wroteFiveRanks = (w: { guilds: StoredGuild[] }): boolean =>
+  w.guilds.some((g) => g.members.some((m) => m.rank === GUILD_RANK.recruit || m.rank === GUILD_RANK.officer) || g.log.some((e) => e.rank !== undefined));
+
+/**
+ * A version-1 world upgraded to the current version (a copy): its Officers (2) keep their rank, now 3, so they keep their kicks and
+ * promotions instead of reading back as Veterans (#1030). Done once: the upgraded world says version 2 and is stored so at the next write.
+ */
+function upgradeGuildWorld(stored: Omit<GuildWorld, "version">): GuildWorld {
+  const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };
+  if (wroteFiveRanks(w)) return w;
+  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER) m.rank = GUILD_RANK.officer;
+  return w;
+}
+
+/** A stored world, the current version or an upgraded older one, or null when it is not one a version wrote (then the seeded one serves). */
 export function parseGuildWorld(stored: unknown): GuildWorld | null {
-  const w = stored as GuildWorld | null | undefined;
-  return w && w.version === 1 && Array.isArray(w.guilds) && typeof w.players === "object" && w.players !== null ? w : null;
+  const w = stored as { version?: unknown; guilds?: unknown; players?: unknown } | null | undefined;
+  if (!w || typeof w !== "object" || !Array.isArray(w.guilds) || typeof w.players !== "object" || w.players === null) return null;
+  if (w.version === GUILD_WORLD_VERSION) return w as GuildWorld;
+  return w.version === 1 ? upgradeGuildWorld(w as unknown as Omit<GuildWorld, "version">) : null;
 }
 
 // --- Lookups ---------------------------------------------------------------------------------------------------------
@@ -464,8 +494,10 @@ const nameOf = (people: GuildPeople, address: string | null): string | null => (
 function viewOf(g: StoredGuild, people: GuildPeople, now: number, viewer: string | null): GuildView {
   const me = viewer === null ? null : memberOf(g, viewer);
   const rank = me?.rank ?? null;
-  // The requests and the invitations sent: for the ranks that answer them (a Veteran and above).
+  // The requests: for the ranks that answer them (a Veteran and above). The invitations sent: for the ranks that invite (a Member
+  // and above, #1030), so a Member sees their invitation went out (the profile's Invited) instead of being refused a second one.
   const officer = rank !== null && rank >= GUILD_RIGHTS.answer;
+  const inviter = rank !== null && rank >= GUILD_RIGHTS.invite;
   const roster = sortGuildMembers(g.members.map((m) => ({ ...m, crowns: people(m.address).crowns }))).map((m) => ({ profile: people(m.address), rank: m.rank, joinedAt: m.joinedAt }));
   return {
     ...summaryOf(g, people, now),
@@ -474,7 +506,7 @@ function viewOf(g: StoredGuild, people: GuildPeople, now: number, viewer: string
     announcements: me ? g.announcements.map((a) => ({ id: a.id, author: a.author, authorName: nameOf(people, a.author), text: a.text, at: a.at, editedAt: a.editedAt })) : null,
     log: me ? g.log.map((e) => ({ kind: e.kind, at: e.at, actor: e.actor, actorName: nameOf(people, e.actor), target: e.target, targetName: nameOf(people, e.target), reason: e.reason, rank: e.rank ?? null })) : null,
     requests: officer ? g.requests.map((r) => ({ profile: people(r.address), message: r.message, sentAt: r.sentAt })) : null,
-    invitations: officer ? [...g.invitations].sort((a, b) => b.sentAt - a.sentAt).map((i) => ({ profile: people(i.address), inviter: i.inviter, sentAt: i.sentAt, expiresAt: i.sentAt + GUILD_INVITE_TTL_S })) : null,
+    invitations: inviter ? [...g.invitations].sort((a, b) => b.sentAt - a.sentAt).map((i) => ({ profile: people(i.address), inviter: i.inviter, sentAt: i.sentAt, expiresAt: i.sentAt + GUILD_INVITE_TTL_S })) : null,
     nextKickAt: officer ? nextKickAt(me!, now) : null,
   };
 }

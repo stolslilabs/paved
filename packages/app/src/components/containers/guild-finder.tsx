@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import * as m from "motion/react-m";
 import { GUILD_JOIN_TYPES, formatAgo, formatInteger, type GuildCandidate, type GuildDraft, type GuildJoinType } from "@paved/game-core";
 import type { GuildInvitation, GuildSummary, PlayerGuild } from "../../data/social-source";
@@ -192,15 +192,30 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
     setCreating(next);
   };
   const inDrawer = useDrawerView(creating ? "Create a guild" : null, () => open(false));
+  // A move between the finder and Create starts at the top of the drawer's body, as the guild page's views (#1030): Create takes the
+  // focus on its view, the finder gives it back to the Create row it left from (else the focus falls to the drawer, the next Tab to Back).
+  const shown = useRef<HTMLDivElement>(null);
+  const createRow = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    if (!moved) return;
+    const region = shown.current?.closest("[data-hud-drawer-body]");
+    if (region) region.scrollTop = 0;
+    if (creating) shown.current?.focus({ preventScroll: true });
+    else createRow.current?.focus();
+  }, [creating, moved]);
   return (
     <div data-slot="guild-finder" className="flex flex-col gap-5">
       {!inDrawer && creating && <ViewHeader title="Create a guild" onBack={() => open(false)} />}
       <m.div
         key={creating ? "create" : "finder"}
+        ref={shown}
+        tabIndex={-1}
+        data-slot="guild-finder-view"
+        data-view={creating ? "create" : "finder"}
         initial={moved && { x: creating ? 48 : -48, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.22, ease: "easeOut" }}
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-5 outline-none"
       >
         {creating ? (
           <>
@@ -231,7 +246,7 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
                 <p className="text-outline font-display text-xl leading-tight tracking-wide">You are in no guild</p>
                 <p className="text-sm font-semibold text-muted-foreground">Join one to share announcements and climb its ranking, or found your own.</p>
               </div>
-              <DrawerRow art="plus" label="Create a guild" next onClick={() => open(true)} />
+              <DrawerRow ref={createRow} art="plus" label="Create a guild" next onClick={() => open(true)} />
             </div>
 
             <GuildBrowse
