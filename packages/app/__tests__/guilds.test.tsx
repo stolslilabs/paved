@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
+import { slow } from "../test-slow";
 import { GUILD_INVITE_TTL_S, GUILD_KICK_COOLDOWN_S, GUILD_LEADER_IDLE_S, GUILD_LOG_KEPT, GUILD_RANK, guildTag, keepLog, kickRefusal, promoteRefusal, type GuildDraft } from "@paved/game-core";
 import { guildKeys, guildRefusal, useGuild, useGuildBadge, useGuildRanking, useGuildSearch, useGuildWrites, usePlayerGuild, useSuggestedGuilds } from "../src/data/guilds";
 import { community } from "../src/data/mock/community";
@@ -153,7 +154,9 @@ describe("joining on the mock (#953)", () => {
     await expect(guilds.joinGuild(ME, byName("Ashford Lanterns").id)).rejects.toEqual(refused("in-guild"));
   });
 
-  it("refuses a full guild", async () => {
+  // 50 ledger writes, each the whole world parsed, settled and stored: 4.6 to 8 s on the machine under load (the same on main), past
+  // 15 s once on CI's runner (#1032). Its own ceiling, as the load-bound route files' (`slow()`).
+  it("refuses a full guild", { timeout: slow(40_000) }, async () => {
     const { guilds } = world();
     const id = await guilds.createGuild(ME, draft());
     // 49 device players join: 50 members.
