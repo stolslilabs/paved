@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { PlanType } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { TileChip, planCode } from "./tile-chip";
 
@@ -8,8 +9,39 @@ import { TileChip, planCode } from "./tile-chip";
  */
 export type TileRenders = (theme: number, key: string) => string | null;
 
-/** A tile's name for the player: its plan number (1 to 19), as the shop and Tiles show it. */
-export const tileName = (plan: number): string => `Tile ${plan}`;
+/**
+ * The tiles' names (CHESTS-PAGE, the owner's ask of 2026-11-06, in place of "Tile 7"; the book names its cards "City corner", "Shrine
+ * road"): each read from what its plan holds (`tileFeatures`), by its code, the centre then the edges clockwise from the north-west.
+ * Short on purpose: at most `TILE_NAME_MAX` characters, so a card's name stands on one line (the owner's ask of the same day; a test
+ * holds it). A new plan without one fails the type check.
+ */
+const TILE_NAMES = {
+  CCCCCCCCC: "Capital",
+  CCCCCFFFC: "Old town",
+  CCCCCFRFC: "City gate",
+  CFFFCFFFC: "City street",
+  FFCFFFCFF: "Facing towns",
+  FFCFFFFFC: "Twin towns",
+  FFFFCCCFF: "City corner",
+  FFFFFFCFF: "City edge",
+  RFFFRFCFR: "Town road",
+  RFFFRFFFR: "Long road",
+  RFRFCCCFR: "Walled bend",
+  RFRFFFCFR: "Town bend",
+  RFRFFFFFR: "Road bend",
+  RFRFRFCFF: "Town curve",
+  SFRFRFCFR: "Town fork",
+  SFRFRFFFR: "Three ways",
+  SFRFRFRFR: "Crossroads",
+  WFFFFFFFF: "Grove shrine",
+  WFFFFFFFR: "Shrine road",
+} as const satisfies Record<Exclude<`${PlanType}`, "None">, string>;
+
+/** The longest a tile's name may be: one line on the chests' cards at 320 px. */
+export const TILE_NAME_MAX = 12;
+
+/** A tile's name for the player (`TILE_NAMES`); a plan with none, its number. */
+export const tileName = (plan: number): string => (TILE_NAMES as Readonly<Record<string, string>>)[planCode(plan)] ?? `Tile ${plan}`;
 
 export interface TileRenderProps {
   plan: number;

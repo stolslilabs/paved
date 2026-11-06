@@ -38,11 +38,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   // A visit to a village (#646 PR 2), its own chunk; its tile art reads the renderer's manifest, asked for with the code. The own
   // village is the home (#753).
   "village/:player": village,
-  // The v2 village's chests and daily shop (#739), a chunk each; their tile cards read the renderer's manifest too.
-  "village/chests": () => {
-    void manifestBody(RENDERER_ASSETS).catch(() => {});
-    return import("./pages/village-chests");
-  },
+  // The v2 village's daily shop (#739), its own chunk; its tile cards read the renderer's manifest too.
   "village/shop": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
     return import("./pages/shop");

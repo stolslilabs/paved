@@ -20,15 +20,14 @@ import { PLAN } from "../../mocks/village";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "../../components/scenes/viewports";
 import HomePageRoute from "../../routes/pages/home";
 import VillagePageRoute from "../../routes/pages/village";
-import ChestsPageRoute from "../../routes/pages/village-chests";
 import ShopPageRoute from "../../routes/pages/shop";
 import { ProfileHost } from "../../routes/profile-host";
 import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
 
 /**
  * The v2 village's pages (#739; the own village is the home since #753) as the app wires them, on the mock data source (Sepolia's, MOCK-FIRST, #741): the pages' own
- * hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and their writes go to the ledger, so Found, Save, a
- * chest's opening and claim and a purchase all complete here. Each story seeds the ledger's state, then mounts the route. The
+ * hooks read the mock ledger (`data/mock/ledger.ts`) through its overlay, and their writes go to the ledger, so Found, Save and a
+ * purchase all complete here. Each story seeds the ledger's state, then mounts the route. The
  * player is connected (a stand-in for the controller); the visit reads one of the mock's rival villages.
  */
 const meta = { title: "Pages/Village", parameters: { layout: "fullscreen" } } satisfies Meta;
@@ -134,7 +133,6 @@ function VillagePages({ seed = SEED, connected }: { seed?: Seed; connected?: boo
             <ProfileHost>
               <Routes>
                 <Route path="/" element={<HomePageRoute />} />
-                <Route path="/village/chests" element={<ChestsPageRoute />} />
                 <Route path="/village/shop" element={<ShopPageRoute />} />
                 <Route path="/village/:player?" element={<VillagePageRoute />} />
               </Routes>
@@ -180,8 +178,6 @@ export const NewPlayerProfile: Story = {
 };
 export const NewPlayerProfilePhone320: Story = at(NewPlayerProfile, PHONE_320);
 export const NewPlayerProfileWide1440: Story = at(NewPlayerProfile, WIDE_1440);
-/** The chests waiting, oldest first: an epic (1 of 3) and a rare (1 of 2) won today, a Story basic (one tile): the modal opens on arrival. */
-export const Chests: Story = { parameters: { route: "/village/chests", sfx: 0.8 }, render: () => <VillagePages /> };
 /** The day's shop: 3 base plans, each bought once a day. */
 export const Shop: Story = { parameters: { route: "/village/shop" }, render: () => <VillagePages seed={{ ...SEED, cobbles: 120 }} /> };
 /** A rival's village: read-only, their score and level. */

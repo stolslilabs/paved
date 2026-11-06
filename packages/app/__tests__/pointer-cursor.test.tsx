@@ -5,7 +5,7 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { compile } from "tailwindcss";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { ChestSlots } from "../src/components/containers/chest-slots";
+import { EndChestPanel } from "../src/components/containers/game-end";
 import { ChatTab, EdgeTiles, MissionTab } from "../src/components/containers/home-edges";
 import { LeagueControl } from "../src/components/containers/league-control";
 import { MatchCard } from "../src/components/containers/match-list";
@@ -14,7 +14,7 @@ import { CarouselDots } from "../src/components/ui/carousel-dots";
 import { Slider } from "../src/components/ui/slider";
 import { MOCK_NOW } from "../src/mocks/clock";
 import { MATCH_CARDS } from "../src/mocks/pvp";
-import { HOME_VILLAGE, TOMORROW } from "../src/mocks/village-v2";
+import { HOME_VILLAGE } from "../src/mocks/village-v2";
 
 // V4-POINTER-CURSOR (#880): on desktop every clickable control shows the pointer, a disabled one the default cursor. The theme's
 // base rule does it (Tailwind 4 leaves a button with the arrow), so the raw buttons need no class. Read from the compiled
@@ -58,7 +58,7 @@ const wrap = (ui: ReactNode) => (
 );
 
 describe("the pointer cursor (#880)", () => {
-  it("every edge button (HOME-EDGES), the League control, the village's capsule, a battle log card, a carousel dot and a chest slot", () => {
+  it("every edge button (HOME-EDGES), the League control, the village's capsule, a battle log card, a carousel dot and a game's chest to open", () => {
     render(
       wrap(
         <>
@@ -69,7 +69,7 @@ describe("the pointer cursor (#880)", () => {
           <VillageScore score={HOME_VILLAGE.view.village.score} onEdit={() => {}} />
           <MatchCard match={MATCH_CARDS.attackWon} now={MOCK_NOW} onOpen={() => {}} />
           <CarouselDots count={3} current={0} onSelect={() => {}} />
-          <ChestSlots won={1} ranks={["epic"]} resetsAt={TOMORROW} now={MOCK_NOW} onOpenSlot={() => {}} />
+          <EndChestPanel chest={{ state: "won", rank: "epic" }} now={MOCK_NOW} onOpen={() => {}} />
         </>,
       ),
     );

@@ -1,20 +1,23 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
+import { angledTileArt } from "../../mocks/assets";
 import { PVP_END } from "../../mocks/pvp";
+import { PLAN } from "../../mocks/village";
 import { PvpEndScene } from "./pvp-end-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
- * The end of a PvP v2 attack (#790, `/pvp/result/:id`): over the attack's final board in the rival's red void, the stars won
- * (animated in one by one), the score against the village's, the crowns and the league, the XP and the level bar, the chest won
- * or disabled when the day's slots are full, every closing, then Open chest, Attack again and League. On fakes; each state at
- * 375 and 1440 px.
+ * The end of a PvP v2 attack (#790, `/pvp/result/:id`; END-SCREENS, after the Paved UX Book's `attack-end`): over the attack's
+ * final board, blurred, the book's window: the stars won (painted, popping in one by one), the verdict, the score against the
+ * village's, the crowns and the league, the XP and the level's bar, the chest won (a tap opens it here) or disabled with the slots'
+ * reset when the day's slots are full, Home and Again; the cross shows the board, the Scores pill brings the scores back. On fakes;
+ * each state at 375 and 1440 px.
  */
 const meta = {
   title: "Scenes/PvP/End",
   component: PvpEndScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_END.twoStars, onOpenChest: fn(), onAgain: fn(), onLeague: fn(), onBack: fn() },
+  args: { ...PVP_END.twoStars, tileArt: angledTileArt, onOpenChest: fn(), onVillage: fn(), onAgain: fn() },
 } satisfies Meta<typeof PvpEndScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -23,28 +26,42 @@ type Story = StoryObj<typeof meta>;
 export const ZeroStars: Story = { args: PVP_END.zeroStars };
 /** 80 %: a basic chest. */
 export const OneStar: Story = { args: PVP_END.oneStar };
-/** 95 %: a rare chest; Open chest leads to the Chests page. */
+/** 95 %: a rare chest, "Tap to open": a tap opens it here (END-CHEST). */
 export const TwoStars: Story = {
   args: PVP_END.twoStars,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /Open chest/ })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: /^Open the rare chest/ })).toBeEnabled();
   },
 };
+/** The chest tapped: its draw on its way, the chest shaking over "Opening…". */
+export const ChestOpening: Story = { args: { ...PVP_END.twoStars, chest: { state: "opening", rank: "rare" } } };
+/** The chest's tile taken (Claim): the panel says it, carved. */
+export const ChestKept: Story = { args: { ...PVP_END.twoStars, chest: { state: "kept", rank: "rare", plan: PLAN.wonder } } };
 /** Past the village's score: "Triumph", an epic chest, and the crowns carry the attacker into Bronze I. */
 export const ThreeStars: Story = { args: PVP_END.threeStars };
 /** A promotion said in words (three stars over the league's floor). */
 export const Promoted: Story = { args: PVP_END.threeStars };
 /** A defeat that drops the attacker out of Bronze II. */
 export const Dropped: Story = { args: PVP_END.dropped };
-/** Stars won, but the day's three PvP slots are full: the chest grey and disabled, with the wait; no Open chest. */
+/** Stars won, but the day's three PvP slots are full: the chest grey and disabled, the slots' reset counting down; nothing to open. */
 export const ChestCapped: Story = {
   args: PVP_END.chestCapped,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText(/No slot left today, next in 5 h/)).toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: /Open chest/ })).toBeNull();
+    await expect(canvas.getByText("No slot left today")).toBeInTheDocument();
+    await expect(canvas.getByRole("timer", { name: /^Slots reset in / })).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: /^Open the / })).toBeNull();
+  },
+};
+/** The scores closed by the window's cross: the board, clear, and the gold Scores pill that brings them back. */
+export const ScoresClosed: Story = {
+  args: PVP_END.threeStars,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Close the scores" }));
+    await expect(canvas.getByRole("button", { name: "Show the scores" })).toBeInTheDocument();
   },
 };
 /** The attack's XP reaches a level: "Level up". */
@@ -68,5 +85,7 @@ export const DroppedPhone: Story = { ...Dropped, ...PHONE_375 };
 export const DroppedWide: Story = { ...Dropped, ...WIDE_1440 };
 export const ChestCappedPhone: Story = { ...ChestCapped, ...PHONE_375 };
 export const ChestCappedWide: Story = { ...ChestCapped, ...WIDE_1440 };
+export const ChestKeptPhone: Story = { ...ChestKept, ...PHONE_375 };
+export const ChestKeptWide: Story = { ...ChestKept, ...WIDE_1440 };
 export const SurrenderedPhone: Story = { ...Surrendered, ...PHONE_375 };
 export const SurrenderedWide: Story = { ...Surrendered, ...WIDE_1440 };

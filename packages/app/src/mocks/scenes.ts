@@ -337,9 +337,9 @@ const tilesSkins: TilesSkins = { ...ownedSkins, changes: {} };
 const tilesBase = { renders: appRenders, basePath: APP_ASSETS } as const;
 
 export const TILES = {
-  /** Four Forest tiles owned (plans 7, 8, 10, 13), 10 and 13 wearing it; Tile 7 shown: Default in use, Forest owned (Use). */
+  /** Four Forest tiles owned (plans 7, 8, 10, 13), 10 and 13 wearing it; City corner (plan 7) shown: Default in use, Forest owned (Use). */
   owned: { ...tilesBase, skins: tilesSkins, initialPlan: 7 },
-  /** Tile 1, owned in no theme: Default in use, Forest locked (Shop). */
+  /** Capital (plan 1), owned in no theme: Default in use, Forest locked (Shop). */
   locked: { ...tilesBase, skins: tilesSkins, initialPlan: 1 },
   /** Two picks changed, not saved: Save sends them in one `set_skins`. */
   changed: { ...tilesBase, skins: { ...tilesSkins, changes: { 7: FOREST, 13: 0 } }, initialPlan: 7 },

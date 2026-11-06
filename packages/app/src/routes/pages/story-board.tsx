@@ -9,6 +9,7 @@ import {
   levelProgress,
   levelResult,
   levelUnlocked,
+  type ChestRank,
   type StoryCampaign,
   type StoryLevel,
 } from "@paved/game-core";
@@ -28,6 +29,8 @@ import { remainingOf } from "../../data/training";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
 import { useGameBoard } from "../game-board";
+import { useEndChest } from "../end-chest";
+import { useNow } from "../now";
 import { useAppNavigate, useUpTo } from "../ref";
 
 /**
@@ -90,7 +93,7 @@ export default function Page() {
 /**
  * A Story level on the board (#546, #593): the presentation of its deck first, the first time this device opens it (the
  * deck sheet shows it again on request) with the level's tip, then the board on the level's `StoryRun`, every tile in the
- * campaign's theme, with the coach mark of the control it introduces, then its end (the stars filling one by one, the score, the points short of the next star, Replay and Next).
+ * campaign's theme, with the coach mark of the control it introduces, then its end (the stars filling one by one, the score, the points short of the next star, Retry and Next).
  * The star thresholds are never shown. The run is played as Training's (lit slots, the bubble, Place, Discard); a finished run is recorded on the device.
  * Tutorial level 1 offers the claim of First Stone (D-21).
  */
@@ -137,12 +140,24 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const v2 = useFreeVillageWrites(sources.signer?.address ?? null);
   const report = useRef<typeof v2.reportStory | null>(null);
   report.current = v2.signer ? v2.reportStory : null;
+  // The chest the run won (3 stars the first time, the report's `StoryReported`), opened on the end (END-CHEST, the owner's ask of
+  // 2026-11-06: the Chests page gone).
+  const [wonChest, setWonChest] = useState<{ attempt: number; rank: ChestRank } | null>(null);
+  const end = useEndChest(sources.signer?.address ?? null, wonChest && wonChest.attempt === attempt ? { rank: wonChest.rank, mine: (o) => o == null || o.source === "story" } : null);
+  const now = useNow();
   useEffect(() => {
     if (!over || recorded.current === attempt) return;
     recorded.current = attempt;
     setPreviousBest(levelProgress(progress, campaign.id, level.id)?.best ?? null);
     record(level, run.submission(), run.score);
-    report.current?.({ campaign: campaign.id, level: level.id, stars: levelResult(level, run.score).stars }).catch(() => undefined);
+    const ran = attempt;
+    report.current?.({ campaign: campaign.id, level: level.id, stars: levelResult(level, run.score).stars }).then(
+      (result) => {
+        const rank = result.events.find((e) => e.name === "StoryReported")?.fields.chest;
+        if (rank === "basic" || rank === "rare" || rank === "epic") setWonChest({ attempt: ran, rank });
+      },
+      () => undefined,
+    );
   }, [over, attempt, progress, campaign.id, level, record, run]);
 
   const confirm = useCallback(() => {
@@ -204,6 +219,10 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         // Both replace the finished level's entry: the system Back never reopens it as a new game (#614).
         onNext={nextOpen && next ? () => go(levelPath(next.campaignId, next.levelIndex), { replace: true }) : undefined}
         onLevels={() => go(levels, { replace: true })}
+        chest={end.chest}
+        now={now}
+        tileArt={end.tileArt}
+        onOpenChest={end.open}
       >
         {campaign.id === 1 && level.id === 1 && <FirstStone />}
       </StoryEnd>
@@ -230,38 +249,41 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         }
       : null;
   return (
-    <BoardScene
-      mode="story"
-      title={`${campaign.name} ${level.id}: ${level.title}`}
-      deckOrder={deckOrder}
-      onPresentDeck={over ? undefined : () => setPresenting(true)}
-      coach={coachTarget}
-      score={state.game?.score ?? 0}
-      delta={snapshot.delta}
-      remaining={state.game ? remainingOf(state.game) : 0}
-      discardedPlans={state.discardedPlans}
-      now={0}
-      hand={{
-        tile: hand && { plan: hand.plan, orientation },
-        state: handState,
-        // The next two of the level's order (#701).
-        coming: hand ? state.coming : [],
-        slotChosen: placement.canConfirm && preview !== null,
-        cellChosen: placement.chosen !== null,
-        fitsNowhere: hand !== null && phase === "play" && slots?.length === 0,
-        preview,
-        error: state.writeError,
-        errorDetail: handErrorDetail,
-      }}
-      lastScored={state.lastScored}
-      {...scene({ tiles: state.tiles, closed: state.closed, bubble })}
-      storageDisabled={!saved}
-      readOnly={phase === "intro" || over}
-      notices={notices}
-      onBack={onBack}
-      onDiscard={discard}
-      onRestart={replay}
-    />
+    <>
+      <BoardScene
+        mode="story"
+        title={`${campaign.name} ${level.id}: ${level.title}`}
+        deckOrder={deckOrder}
+        onPresentDeck={over ? undefined : () => setPresenting(true)}
+        coach={coachTarget}
+        score={state.game?.score ?? 0}
+        delta={snapshot.delta}
+        remaining={state.game ? remainingOf(state.game) : 0}
+        discardedPlans={state.discardedPlans}
+        now={0}
+        hand={{
+          tile: hand && { plan: hand.plan, orientation },
+          state: handState,
+          // The next two of the level's order (#701).
+          coming: hand ? state.coming : [],
+          slotChosen: placement.canConfirm && preview !== null,
+          cellChosen: placement.chosen !== null,
+          fitsNowhere: hand !== null && phase === "play" && slots?.length === 0,
+          preview,
+          error: state.writeError,
+          errorDetail: handErrorDetail,
+        }}
+        lastScored={state.lastScored}
+        {...scene({ tiles: state.tiles, closed: state.closed, bubble })}
+        storageDisabled={!saved}
+        readOnly={phase === "intro" || over}
+        notices={notices}
+        onBack={onBack}
+        onDiscard={discard}
+        onRestart={replay}
+      />
+      {end.modal}
+    </>
   );
 }
 

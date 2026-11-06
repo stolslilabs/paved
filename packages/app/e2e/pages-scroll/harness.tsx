@@ -22,14 +22,12 @@ import { ReferralScene } from "../../src/components/scenes/referral-scene";
 import { SettingsScene } from "../../src/components/scenes/settings-scene";
 import { ThemeScene } from "../../src/components/scenes/theme-scene";
 import { VaultScene } from "../../src/components/scenes/vault-scene";
-import { VillageChestsScene } from "../../src/components/scenes/village-chests-scene";
 import { ShopScene } from "../../src/components/scenes/shop-scene";
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
 import { MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../../src/mocks/scenes";
 import { SHOP } from "../../src/mocks/shop";
-import { VILLAGE_CHESTS } from "../../src/mocks/village-v2";
 
 const no = () => {};
 /** `list` made `n` long, each copy with its own `key` number. */
@@ -71,7 +69,6 @@ function TickingMissions() {
 export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true; drawer?: true }> = {
   // The Shop (SHOP-PAGE), the HUD's drawer: Forest's view, its 19 tiles in the Shop's cards.
   shop: { title: "Forest", drawer: true, page: <ShopScene {...SHOP.forest} onBack={no} onTab={no} onThemeBack={no} /> },
-  chests: { title: "Chests", page: <VillageChestsScene {...VILLAGE_CHESTS.kept} onBack={no} onNavigate={no} onPlay={no} onOpen={no} onTake={no} /> },
   // The League as it opens (LEAGUE-PAGE): the carousel, the season's last day, the latest battle logs.
   league: { title: "League", drawer: true, page: <PvpLeagueScene {...PVP_LEAGUE.lastDay} matches={PVP_MATCHES.latest} onBack={no} onOpenMatch={no} /> },
   settings: { title: "Settings", page: <SettingsScene {...SETTINGS.connected} onNavigate={no} onChange={no} /> },

@@ -77,7 +77,6 @@ describe("the route map (#762)", () => {
   it("puts the overlay's pages and the pages reached from them in the panel; the games, the purchase, the avatar and the visits stay full screen", () => {
     expect(PAGES.filter((p) => p.panel).map((p) => p.path)).toEqual([
       "play",
-      "village/chests",
       "village/shop",
       "pvp/league",
       "story",
@@ -106,7 +105,7 @@ describe("the route map (#762)", () => {
 describe("from desktop, the overlay's pages open in the side panel over the village (#762)", () => {
   beforeEach(() => media(true));
 
-  it("the overlay's column holds Missions, Vault, Friends and Tiles, no League (#856, HOME-EDGES); the dock has Shop, Chests, Play, Guild and Settings (HOME-DOCK)", async () => {
+  it("the overlay's column holds Missions, Vault, Friends and Tiles, no League (#856, HOME-EDGES); the dock has Shop, Ranking, Play, Guild and Settings (HOME-DOCK; END-CHEST: Ranking in the Chests' place)", async () => {
     open("/");
     const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Missions", "Vault", "Friends", "Tiles"]);
@@ -114,15 +113,12 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     expect(screen.getAllByRole("button", { name: "Play" }).filter((b) => !b.closest("nav"))).toHaveLength(0);
     const dock = await screen.findByRole("navigation", { name: "Main" });
     expect(dock.parentElement).not.toHaveClass("desktop:hidden");
-    expect(within(dock).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Shop", "Chests", "Play", "Guild", "Settings"]);
+    expect(within(dock).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Shop", "Ranking", "Play", "Guild", "Settings"]);
   });
 
-  it.each([
-    ["Chests", "Main", "/village/chests", "Chests", "right"],
-    ["Vault", "Village", "/vault", "Vault", "right"],
-  ] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, from, path, title, side) => {
+  it.each([["Vault", "Village", "/vault", "Vault", "right"]] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, from, path, title, side) => {
     const router = open("/");
-    // The overlay's column (HOME-EDGES' tiles: Missions, Vault) or the dock (HOME-DOCK: Chests).
+    // The overlay's column (HOME-EDGES' tiles: the Vault).
     const column = await screen.findByRole("navigation", { name: from }, { timeout: slow(5000) });
     await userEvent.click(within(column).getByRole("button", { name: new RegExp(`^${button}`) }));
     const dialog = await panel(title);

@@ -74,7 +74,6 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
     // The Shop and the Guild are the HUD's drawer over the home (SHOP-PAGE, GUILD-PAGE), named by their title; the others' headings are pages'.
     for (const [name, path, heading] of [
       ["Shop", "/village/shop", "Shop"],
-      ["Chests", "/village/chests", "Chests"],
       ["Guild", "/guild", "Guild"],
       ["Settings", "/settings", "Settings"],
     ] as const) {

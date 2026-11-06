@@ -41,10 +41,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Four Forest tiles owned, two wearing it; Tile 7 shown: Default in use, Forest owned. */
+/** Four Forest tiles owned, two wearing it; City corner (plan 7) shown: Default in use, Forest owned. */
 export const Owned: Story = { args: TILES.owned };
 
-/** Tile 1, owned in no theme: Forest locked, its shop a tap away. */
+/** Capital (plan 1), owned in no theme: Forest locked, its shop a tap away. */
 export const Locked: Story = { args: TILES.locked };
 
 /** Two picks changed: Save sends them in one write, Discard drops them. */

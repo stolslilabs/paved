@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import { AppNav } from "../src/components/containers/app-nav";
 import { useTabNavigate } from "../src/routes/ref";
@@ -16,13 +16,13 @@ import { preloadPages } from "./route-helpers";
 // (SWIPE-DISC #780) and the re-tap that closed the current page (TAB-RETAP #800) left with the pages' bars.
 
 describe("the dock", () => {
-  it("holds Shop, Chests, Play, Guild, Settings in that order, at every width (#763, HOME-DOCK), none of them current", () => {
+  it("holds Shop, Ranking, Play, Guild, Settings in that order, at every width (#763, HOME-DOCK; END-CHEST: Ranking in the Chests' place), none of them current", () => {
     render(<AppNav />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests", "Play", "Guild", "Settings"]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking, coming soon", "Play", "Guild", "Settings"]);
     expect(screen.queryByRole("button", { current: "page" })).toBeNull();
     expect(screen.getByRole("navigation", { name: "Main" })).not.toHaveClass("desktop:hidden");
     // The labels from `mobile` (a 320 px phone too narrow for the five).
-    for (const name of ["Shop", "Chests", "Guild", "Settings"]) {
+    for (const name of ["Shop", "Ranking, coming soon", "Guild", "Settings"]) {
       expect(screen.getByRole("button", { name }).querySelector('[data-slot="app-nav-label"]')!.className).toContain("mobile:block");
     }
     // The painted wood and parchment under it (the mockup's pieces, 9-slices), and the four dividers between its columns.
@@ -30,10 +30,15 @@ describe("the dock", () => {
     expect(document.querySelectorAll('[data-slot="dock-divider"]')).toHaveLength(4);
   });
 
-  it("on the home, shows the chests waiting on Chests and the guild's count on Guild", () => {
-    render(<AppNav badges={{ chests: 2, guild: 1 }} />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "Guild, 1 waiting", "Settings"]);
-    expect([...document.querySelectorAll('[data-slot="app-nav-badge"]')].map((b) => b.textContent)).toEqual(["2", "1"]);
+  it("on the home, shows the guild's count on Guild; Ranking leads nowhere yet (the Leaderboard to come)", async () => {
+    const onNavigate = vi.fn();
+    render(<AppNav badges={{ guild: 1 }} onNavigate={onNavigate} />);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking, coming soon", "Play", "Guild, 1 waiting", "Settings"]);
+    expect([...document.querySelectorAll('[data-slot="app-nav-badge"]')].map((b) => b.textContent)).toEqual(["1"]);
+    const ranking = screen.getByRole("button", { name: "Ranking, coming soon" });
+    expect(ranking).toHaveAttribute("aria-disabled", "true");
+    ranking.click();
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,6 @@
 import type { BoardTile } from "@paved/chain";
 import { CategoryType } from "@paved/game-core";
-import type { Chest, VillageChestsSceneProps } from "../components/scenes/village-chests-scene";
+import type { Chest } from "../components/containers/chest-modal";
 import type { ShopOffer, ShopTilesProps } from "../components/containers/shop-tiles";
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
@@ -103,9 +103,9 @@ type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
 
 /** One fixture per state of the v2 village (`Scenes/Village v2/Layout`). */
 export const VILLAGE_LAYOUT = {
-  start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, chests: 1 },
-  growing: { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2 },
-  editing: { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, initialEditing: true },
+  start: { village: LAYOUT_START, inventory: INVENTORY_EMPTY },
+  growing: { village: LAYOUT_GROWING, inventory: INVENTORY },
+  editing: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true },
   holding: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialHand: { plan: P.road } },
   placing: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialHand: { plan: P.road }, initialPending: legalSpots(LAYOUT_GROWING.tiles, P.road)[0]! },
   lifted: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialHand: { lift: OUTER_TILE.id } },
@@ -115,11 +115,11 @@ export const VILLAGE_LAYOUT = {
   full: { village: LAYOUT_FULL, inventory: INVENTORY, initialEditing: true },
   leaving: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, initialLeaving: true },
   saving: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, saving: true },
-  saved: { village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, inventory: { ...INVENTORY, [P.road]: 3, [P.forestCity]: 1, [P.roadBend]: 1 }, chests: 2, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
+  saved: { village: { ...LAYOUT_GROWING, tiles: DRAFT_VALID, score: fakeScore(DRAFT_VALID) }, inventory: { ...INVENTORY, [P.road]: 3, [P.forestCity]: 1, [P.roadBend]: 1 }, saved: { score: fakeScore(DRAFT_VALID), previous: LAYOUT_GROWING.score } },
   /** A save that lowered the score (#802): it counts down to it, a "−N" drops. */
-  savedLower: { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, saved: { score: LAYOUT_GROWING.score, previous: fakeScore(DRAFT_VALID) } },
+  savedLower: { village: LAYOUT_GROWING, inventory: INVENTORY, saved: { score: LAYOUT_GROWING.score, previous: fakeScore(DRAFT_VALID) } },
   /** A save that left the score as it was (#802): nothing plays. */
-  savedSame: { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, saved: { score: LAYOUT_GROWING.score, previous: LAYOUT_GROWING.score } },
+  savedSame: { village: LAYOUT_GROWING, inventory: INVENTORY, saved: { score: LAYOUT_GROWING.score, previous: LAYOUT_GROWING.score } },
   refused: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, refusal: "The layout changed on another device: read it again. Nothing was saved." },
   emptyInventory: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, initialEditing: true },
   loading: { status: { kind: "loading" } },
@@ -131,63 +131,12 @@ export const VILLAGE_LAYOUT = {
 /** The next UTC day after the mocks' clock: the day's chests and the shop reset then. */
 export const TOMORROW = (Math.floor(MOCK_NOW / DAY) + 1) * DAY;
 
-/** Today's two PvP chests (slots 1 and 2) and a Story chest, which takes no slot. */
+/** Two PvP chests won today and a Story chest (the opening's stories, `ChestModal`). */
 export const CHESTS: readonly Chest[] = [
   { id: 41, rank: "epic", source: "pvp", label: "3 stars against Rook of Ashford", slot: 0 },
   { id: 40, rank: "rare", source: "pvp", label: "2 stars against Mira", slot: 1 },
   { id: 39, rank: "basic", source: "story", label: "The Old Road, level 2" },
 ];
-
-const EPIC_DRAW = { rank: "epic", plans: [P.road, P.wonder, P.cityEdge], cobbles: null } as const;
-const day = { resetsAt: TOMORROW, now: MOCK_NOW } as const;
-/** The page alone, the modal closed (#784): what the slots say. */
-const page = { initialModalOpen: false } as const;
-
-/**
- * One fixture per state of the chests (`Scenes/Village v2/Chests`). With a chest ready the modal opens on arrival (#784): the
- * chest shaking (`waiting`), its draw on its way, its tiles (`epic`, `rare`, `basic`), the tile kept with Next chest or Done.
- * The states of the page alone (`initialModalOpen: false`) say the slots: free, won in the rank's colour, opened and grey.
- */
-export const VILLAGE_CHESTS = {
-  /** Arrival with 3 chests ready: the epic one shakes at the centre of the modal, "Tap to open". */
-  waiting: { chests: CHESTS, pvpToday: 2, ...day },
-  /** Its draw on its way (the VRF): it shakes on, "Opening…". */
-  opening: { chests: CHESTS, pvpToday: 2, ...day, opening: 41 },
-  /** The lid burst: keep one of 3 tiles, each with its rarity and how many are held. */
-  epic: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: EPIC_DRAW }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  epicChosen: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: EPIC_DRAW }, owned: ownedOf(LAYOUT_GROWING, INVENTORY), initialChoice: 1 },
-  rare: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day, opened: { chestId: 40, draw: { rank: "rare", plans: [P.roadCross, P.stopRoads], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  basic: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: [0, 1], ...day, opened: { chestId: 39, draw: { rank: "basic", plans: [P.forestCity], cobbles: null } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  cobbles: { chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 41, draw: { ...EPIC_DRAW, cobbles: 50 } }, owned: ownedOf(LAYOUT_GROWING, INVENTORY) },
-  taking: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day, opened: { chestId: 40, draw: { rank: "rare", plans: [P.roadCross, P.stopRoads], cobbles: null } }, initialChoice: 1, busy: true },
-  /** The tile kept, two chests still waiting: Next chest, or Later. */
-  taken: { chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day, taken: { plan: P.wonder, cobbles: 50 } },
-  /** The last chest's tile kept: Done, Edit layout. */
-  takenLast: { chests: [], pvpToday: 2, pvpOpened: [0, 1], ...day, taken: { plan: P.forestCity, cobbles: null } },
-  /** A Story chest, which takes no slot, through the same modal after the PvP ones. */
-  story: { chests: CHESTS.slice(2), pvpToday: 2, pvpOpened: [0, 1], ...day },
-  /** The chain refused: what happened, in the modal, until dismissed. */
-  refused: { chests: CHESTS, pvpToday: 2, ...day, refusal: "This chest was opened already. Nothing was taken." },
-  /** The page, the modal closed: slot 1 opened (grey), slot 2 won (rare, a tap opens it), slot 3 free; "Open your chests". */
-  slots: { ...page, chests: CHESTS.slice(1), pvpToday: 2, pvpOpened: [0], ...day },
-  /** The rare chest drawn and the modal closed before its choice: no other slot opens until a tile is kept, as the page says. */
-  openPending: { ...page, chests: CHESTS, pvpToday: 2, ...day, opened: { chestId: 40, draw: { rank: "rare", plans: [P.roadCross, P.stopRoads], cobbles: null } } },
-  /** The modal closed with 3 chests ready: the two won slots in their ranks' colours. */
-  closed: { ...page, chests: CHESTS, pvpToday: 2, ...day },
-  /** The page after the last choice: the tile kept said, Edit layout. */
-  kept: { ...page, chests: [], pvpToday: 2, pvpOpened: [0, 1], ...day, taken: { plan: P.wonder, cobbles: 50 } },
-  /** The day's 3 slots free: their outlines alone; a Story chest waits. */
-  free: { ...page, chests: CHESTS.slice(2), pvpToday: 0, ...day },
-  /** Two slots won, the read giving no ranks: each won slot shows a chest of no rank. */
-  noRanks: { ...page, chests: CHESTS.map(({ slot: _, ...c }) => c), pvpToday: 2, ...day },
-  /** Today's 3 slots are won and opened: the countdown takes the hero's centre, the slots under it. */
-  capped: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: [0, 1, 2], ...day },
-  lastMinute: { ...page, chests: CHESTS.slice(2), pvpToday: 3, pvpOpened: [0, 1, 2], resetsAt: TOMORROW, now: TOMORROW - 42 },
-  ready: { ...page, chests: CHESTS.slice(2), pvpToday: 0, ready: true, resetsAt: TOMORROW + DAY, now: TOMORROW + 3 },
-  empty: { chests: [], pvpToday: 0, ...day },
-  loading: { status: { kind: "loading" } },
-  guest: { status: { kind: "guest" } },
-} satisfies Record<string, Data<VillageChestsSceneProps>>;
 
 /** The shop's prices by rarity (a proposal, #737 decides): round values, the mythic four times the common. */
 export const SHOP_PRICE: Readonly<Record<Rarity, number>> = { common: 20, uncommon: 40, mythic: 80 };
@@ -209,10 +158,10 @@ export const VILLAGE_SHOP = {
   guest: { status: { kind: "guest" } },
 } satisfies Record<string, Data<ShopTilesProps>>;
 
-/** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock. */
+/** The home's base (#753): the growing village, its inventory, 3 missions waiting, 1,240 crowns, at the mocks' clock. */
 /** The mission in progress on the home (HOME-EDGES, the Paved UX Book's): the day's Public Works, half done. */
 export const HOME_MISSION = { questId: 6, title: "Public Works", task: "Score roads and cities in a day", done: 4, total: 8 };
-const home = { village: LAYOUT_GROWING, inventory: INVENTORY, chests: 2, missions: 3, mission: HOME_MISSION, chat: 3, guild: 1, friends: 2, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
+const home = { village: LAYOUT_GROWING, inventory: INVENTORY, missions: 3, mission: HOME_MISSION, chat: 3, guild: 1, friends: 2, league: { crowns: 1_240 }, now: MOCK_NOW } as const;
 /** The home village's points (#758): its line of the most points, lit in the stories. */
 export const HOME_POINTS = layoutPoints(LAYOUT_GROWING.tiles);
 /** A tile of the second line's structure that can be lifted: under the bubble, the structure stays lit whole. */

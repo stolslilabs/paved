@@ -70,7 +70,6 @@ const PAGES = {
   welcome: () => import("../src/routes/pages/welcome"),
   // The Shop is the HUD's drawer over the home (SHOP-PAGE): its host comes with it.
   shop: () => Promise.all([import("../src/routes/pages/shop"), import("../src/routes/home-hosts")]),
-  "village-chests": () => import("../src/routes/pages/village-chests"),
   "pvp-league": () => import("../src/routes/pages/pvp-league"),
   // The hosts pages open in, their own chunks: the home's side panel (#762), a sheet over its page (BACK-RULE #783), the
   // Cobbles' sheet (#621), the search.

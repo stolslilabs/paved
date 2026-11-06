@@ -17,6 +17,7 @@ import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ShopTheme, ShopThemes } from "../src/components/containers/shop-themes";
 import { ShopPacks } from "../src/components/containers/shop-packs";
 import { TilesScene } from "../src/components/scenes/tiles-scene";
+import { tileName } from "../src/components/elements/tile-render";
 import { ACHIEVEMENT_COBBLES, PACKS, PLAN_COUNTS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans, skinPrice } from "../src/mocks/cobbles";
 import { DAILY_QUESTS, WEEKLY_QUESTS } from "@paved/game-core";
 import { QUEST_DEFINITIONS, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, questsTodayDone } from "../src/mocks/quests";
@@ -211,7 +212,7 @@ describe("Cobble packs (#621; SHOP-PAGE: the Shop's Cobbles tab, and its sheet o
 });
 
 describe("A theme's tiles (SHOP-PAGE: the Shop's Themes tab and a theme's view)", () => {
-  const cell = (plan: number) => screen.getByRole("listitem", { name: `Tile ${plan}` });
+  const cell = (plan: number) => screen.getByRole("listitem", { name: tileName(plan) });
 
   it("draws the 19 tiles as rendered, with their price, state and models, and counts the owned ones", () => {
     render(wrap(<ShopTheme {...THEME_SHOP.forest} />));
@@ -223,16 +224,16 @@ describe("A theme's tiles (SHOP-PAGE: the Shop's Themes tab and a theme's view)"
     expect(cell(7)).toHaveAttribute("data-state", "owned");
     expect(cell(7)).toHaveTextContent("Owned");
     expect(cell(1)).toHaveAttribute("data-state", "none");
-    expect(within(cell(1)).getByRole("button", { name: "Buy Tile 1 for 100 Cobbles" })).toHaveTextContent("100");
+    expect(within(cell(1)).getByRole("button", { name: "Buy Capital for 100 Cobbles" })).toHaveTextContent("100");
     // The real render of the plan in Forest, never a tinted chip.
-    expect(within(cell(1)).getByRole("img", { name: "Tile 1" })).toHaveAttribute("src", expect.stringMatching(/\/renders\/ccccccccc\.1\.[0-9a-f]{10}\.webp$/));
+    expect(within(cell(1)).getByRole("img", { name: "Capital" })).toHaveAttribute("src", expect.stringMatching(/\/renders\/ccccccccc\.1\.[0-9a-f]{10}\.webp$/));
     expect(within(cell(13)).getByLabelText(/^\d models: the board picks one per tile$/)).toBeInTheDocument();
   });
 
   it("buys a tile; an owned one has no button", async () => {
     const onBuy = vi.fn();
     render(wrap(<ShopTheme {...THEME_SHOP.forest} onBuy={onBuy} />));
-    await userEvent.click(screen.getByRole("button", { name: "Buy Tile 1 for 100 Cobbles" }));
+    await userEvent.click(screen.getByRole("button", { name: "Buy Capital for 100 Cobbles" }));
     expect(onBuy).toHaveBeenCalledWith(1);
     expect(within(cell(7)).queryByRole("button")).not.toBeInTheDocument();
   });
@@ -289,7 +290,7 @@ describe("A theme's tiles (SHOP-PAGE: the Shop's Themes tab and a theme's view)"
   it("the Themes tab: the first tiles not owned, All tiles, and the themes to come", async () => {
     const onOpenTheme = vi.fn();
     render(wrap(<ShopThemes {...THEME_SHOP.forest} onOpenTheme={onOpenTheme} />));
-    expect(within(screen.getByRole("list", { name: "Forest tiles" })).getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["Tile 1", "Tile 2", "Tile 3"]);
+    expect(within(screen.getByRole("list", { name: "Forest tiles" })).getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["Capital", "Old town", "City gate"]);
     expect(screen.getByRole("region", { name: "Forest" })).toHaveTextContent("4/19 owned");
     await userEvent.click(screen.getByRole("button", { name: "All Forest tiles" }));
     expect(onOpenTheme).toHaveBeenCalledWith("forest");
@@ -303,17 +304,17 @@ describe("Tiles (COLLECTION-PAGE)", () => {
 
   it("shows the selected tile, the five skins it can wear and the 19 tiles, each section titled as the profile's", () => {
     render(wrap(<TilesScene {...TILES.owned} />));
-    expect(screen.getByRole("heading", { level: 2, name: "Tile 7" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "City corner" })).toBeInTheDocument();
     // Default and Forest owned of the five.
     expect(screen.getByRole("heading", { level: 3, name: /^Skins\s*2\/5$/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "All tiles" })).toBeInTheDocument();
-    // Its Description, read from the plan (Tile 7, FFFFCCCFF): one sentence, then its figures.
+    // Its Description, read from the plan (City corner, FFFFCCCFF): one sentence, then its figures.
     const description = screen.getByRole("region", { name: "Description" });
     expect(description).toHaveTextContent("A city open on two sides and a forest.");
     const figures = within(description).getAllByRole("definition").map((d) => d.textContent);
     expect(within(description).getAllByRole("term").map((t) => t.textContent)).toEqual(["Cities", "Roads", "Forests", "Wonders", "In deck"]);
     expect(figures).toEqual(["1", "0", "1", "0", "5"]);
-    expect(within(screen.getByRole("list", { name: "Tile 7: skins" })).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(screen.getByRole("list", { name: "City corner: skins" })).getAllByRole("listitem")).toHaveLength(5);
     expect(skin("Default")).toHaveAccessibleName("Default: active");
     expect(skin("Default")).toHaveTextContent("Active");
     expect(skin("Forest")).toHaveAccessibleName("Forest: owned");
@@ -323,7 +324,7 @@ describe("Tiles (COLLECTION-PAGE)", () => {
       expect(within(skin(name)).queryByRole("button")).not.toBeInTheDocument();
     }
     expect(grid().getAllByRole("button")).toHaveLength(19);
-    expect(grid().getByRole("button", { name: "Tile 7" })).toHaveAttribute("aria-pressed", "true");
+    expect(grid().getByRole("button", { name: "City corner" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });
 
@@ -333,9 +334,9 @@ describe("Tiles (COLLECTION-PAGE)", () => {
     render(wrap(<TilesScene {...TILES.owned} onPick={onPick} onOpenShop={onOpenShop} />));
     await userEvent.click(within(skin("Forest")).getByRole("button", { name: "Use Forest" }));
     expect(onPick).toHaveBeenCalledWith(7, 1);
-    // Tile 1 is owned in no theme: Forest is the shop's.
-    await userEvent.click(grid().getByRole("button", { name: "Tile 1" }));
-    expect(screen.getByRole("heading", { level: 2, name: "Tile 1" })).toBeInTheDocument();
+    // Capital is owned in no theme: Forest is the shop's.
+    await userEvent.click(grid().getByRole("button", { name: "Capital" }));
+    expect(screen.getByRole("heading", { level: 2, name: "Capital" })).toBeInTheDocument();
     expect(skin("Forest")).toHaveAccessibleName("Forest: not owned");
     await userEvent.click(within(skin("Forest")).getByRole("button", { name: "Shop Forest" }));
     expect(onOpenShop).toHaveBeenCalledWith("forest");
@@ -348,8 +349,8 @@ describe("Tiles (COLLECTION-PAGE)", () => {
     expect(bar).toHaveTextContent("2 changes to save");
     expect(skin("Forest")).toHaveAccessibleName("Forest: active, not saved");
     expect(skin("Forest")).toHaveTextContent("Active");
-    expect(grid().getByRole("button", { name: "Tile 7, skin not saved" })).toBeInTheDocument();
-    expect(grid().getByRole("button", { name: "Tile 13, skin not saved" })).toBeInTheDocument();
+    expect(grid().getByRole("button", { name: "City corner, skin not saved" })).toBeInTheDocument();
+    expect(grid().getByRole("button", { name: "Road bend, skin not saved" })).toBeInTheDocument();
     await userEvent.click(within(bar).getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledOnce();
   });
@@ -365,11 +366,11 @@ describe("Tiles (COLLECTION-PAGE)", () => {
 
   it("presents the tile alone, the finger its only control: no zoom, no arrows; without WebGL its image; the grid top-down", () => {
     render(wrap(<TilesScene {...TILES.owned} />));
-    expect(screen.getByRole("img", { name: "Tile 7" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "City corner" })).toBeInTheDocument();
     expect(screen.queryByRole("slider")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Turn |^Zoom / })).not.toBeInTheDocument();
     // The grid shows each tile from above (its `-top` render).
-    expect(grid().getByRole("button", { name: "Tile 7" }).querySelector("img")?.getAttribute("src")).toMatch(/-top\./);
+    expect(grid().getByRole("button", { name: "City corner" }).querySelector("img")?.getAttribute("src")).toMatch(/-top\./);
   });
 
   it("with no skin owned, every tile wears Default and Forest is the shop's", () => {

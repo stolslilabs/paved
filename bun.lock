@@ -15,6 +15,8 @@
       "dependencies": {
         "@fontsource-variable/rubik": "5.3.0",
         "@fontsource/almendra": "5.3.0",
+        "@fontsource/fredoka": "5.3.0",
+        "@fontsource/lilita-one": "5.3.0",
         "@fontsource/space-mono": "5.3.0",
         "@paved/chain": "workspace:*",
         "@paved/game-core": "workspace:*",
@@ -358,6 +360,10 @@
     "@fontsource-variable/rubik": ["@fontsource-variable/rubik@5.3.0", "", {}, "sha512-yQUf8qle24MJYA+EuauyF+cqjjN6I715nGjitt3sGmwZA0XfA4fWJcLq1C/diREZl4Qzn1E80nLMc0ipC/a4Lg=="],
 
     "@fontsource/almendra": ["@fontsource/almendra@5.3.0", "", {}, "sha512-edtEANMc9SKccDhYmtcxmlrvzzjHTQ/enLiOgWc4ODQDjdMf6zfoUdwpBHPPw+0pekeI7PyBsP4JqjyviiIuGg=="],
+
+    "@fontsource/fredoka": ["@fontsource/fredoka@5.3.0", "", {}, "sha512-s2IhjQ50wDnKkkaKmjhtL0rxQg6ITsVusiipM3m7zUwVZZbbCKsscNDkngwp28xVzfIt7neWrkgU1qKqyTycQg=="],
+
+    "@fontsource/lilita-one": ["@fontsource/lilita-one@5.3.0", "", {}, "sha512-bNW3tD+m5pOsAQpW/NvtRbFthFe+B73hDJK2DLLCFCtF+1p+UMBgo7ibxdcb9Sftr06LKAVbt080wiMdSqGbOg=="],
 
     "@fontsource/space-mono": ["@fontsource/space-mono@5.3.0", "", {}, "sha512-FrpBMOVWn3PRdRHlrZWC55X3kZG/2BTH7SM5ZyS/bky3iKya2BturI5lk+t0RoDQL2JyHzURsVq/EisCsxpI5A=="],
 

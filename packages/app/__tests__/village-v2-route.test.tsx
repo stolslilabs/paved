@@ -2,13 +2,11 @@ import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { DAY_S, VillageDraft, dayOf, layoutScore, starterLayout } from "@paved/game-core";
+import { VillageDraft, layoutScore, starterLayout } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { MOCK_KEY } from "../src/data/mock/ledger";
 import { queryClient } from "../src/lib/query-client";
-import { READY_S } from "../src/components/containers/chest-slots";
-import { markChestsSeen, resetChestsSeenForTests } from "../src/routes/chests-seen";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
@@ -16,7 +14,7 @@ import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // The v2 village's routes (#739, PvP v2 step 1) on the mock ledger (#741), whose rules are game-core's: on the home (`/`, #753),
-// found the village, edit it (`?edit`) and save its whole layout (the score shown is game-core's), leave with changes only after asking, open the chests by rank, and
+// found the village, edit it (`?edit`) and save its whole layout (the score shown is game-core's), leave with changes only after asking, open the chests left over the home, and
 // buy from the daily shop once per offer. The chain path (no v2 views) keeps the v1 village: `village-route.test.tsx`.
 
 const WAIT = { timeout: slow(8000) };
@@ -42,14 +40,13 @@ function editPlayer(store: ReturnType<typeof mockImplementation>["store"], chang
 
 // The overlay pages and the home's panel host (Missions, Vault and Settings are its panels, #762) too: the Back tests open
 // them, each cold in its own wait otherwise.
-preloadPages("home", "home-panel", "missions", "vault", "settings", "play", "village-chests", "shop", "pvp-league", "page-sheets");
+preloadPages("home", "home-panel", "missions", "vault", "settings", "play", "shop", "pvp-league", "page-sheets");
 beforeAll(async () => {
-  await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/shop")]);
+  await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/shop"), import("../src/routes/chest-prompt")]);
 }, slow(60_000));
 beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
-  resetChestsSeenForTests();
   resetWelcomedForTests();
   markWelcomed();
 });
@@ -183,7 +180,6 @@ describe("/: the player's village is the home (#753), on the mock", () => {
   // One test per trip, each with its own ceiling, as the own Back's below: the eight trips in one test outlasted one ceiling
   // under a check's load.
   it.each([
-    [/^Chests/, "/village/chests"],
     ["Shop", "/village/shop"],
     [/^Missions/, "/missions"],
     ["Vault", "/vault"],
@@ -198,7 +194,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     // the home, once at a time, until the page opens.
     await waitFor(() => {
       if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
-        // The overlay's column, else the dock (#763, HOME-DOCK: Chests, Shop, Play, Guild and Settings are the dock's).
+        // The overlay's column, else the dock (#763, HOME-DOCK: Shop, Play, Guild and Settings are the dock's).
         const column = screen.queryByRole("navigation", { name: "Village" });
         const bar = screen.queryByRole("navigation", { name: "Main" });
         fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
@@ -207,7 +203,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     }, WAIT);
     await s.router.navigate(-1);
     await waitFor(() => expect(s.router.state.location.pathname).toBe("/"), WAIT);
-    // The home is back, not the page left behind (the chests' page has a Shop of its own). Under a check's load the page left
+    // The home is back, not the page left behind. Under a check's load the page left
     // behind stayed in place past 48 s after the League control's trip: the home's return has a wait of its own, as Settings'
     // Back below.
     expect(await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(20_000) })).toBeInTheDocument();
@@ -215,7 +211,6 @@ describe("/: the player's village is the home (#753), on the mock", () => {
 
   // One test per page, each with its own ceiling: the seven trips in one test outlasted a single ceiling on a loaded machine.
   it.each([
-    [/^Chests/, "/village/chests"],
     ["Shop", "/village/shop"],
     [/^Guild/, "/guild"],
     [/^League: /, "/pvp/league"],
@@ -228,7 +223,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     await screen.findByRole("heading", { level: 1, name: "Home" }, WAIT);
     await waitFor(() => {
       if (s.router.state.location.pathname === "/" && s.router.state.navigation.state === "idle") {
-        // The overlay's column, else the dock (#763, HOME-DOCK: Chests, Shop, Play, Guild and Settings are the dock's).
+        // The overlay's column, else the dock (#763, HOME-DOCK: Shop, Play, Guild and Settings are the dock's).
         const column = screen.queryByRole("navigation", { name: "Village" });
         const bar = screen.queryByRole("navigation", { name: "Main" });
         fireEvent.click((column && within(column).queryByRole("button", { name })) ?? (bar && within(bar).queryByRole("button", { name })) ?? screen.getByRole("button", { name }));
@@ -256,152 +251,61 @@ describe("/: the player's village is the home (#753), on the mock", () => {
   }, slow(30_000));
 });
 
-describe("/village/chests", () => {
-  it("opens the chests in the modal on arrival, oldest first: keeps the tile chosen, greys its slot, brings the next (#784)", async () => {
-    const today = dayOf(Date.now() / 1000);
-    const s = await open("/village/chests", async (s, me) => {
+describe("a chest left to open, asked over the home (END-CHEST)", () => {
+  it("comes back over the home when the app runs again, until a tile is taken", async () => {
+    const s = await open("/", async (s, me) => {
       const w = s.ledger.writesFor(me);
       await w.foundFreeVillage();
-      // Story: 3 stars the first time on a campaign's last level is an epic chest (it takes no slot).
+      // A Story epic chest, opened (its draw in) and its tile not taken: the app was closed during its reveal.
       await w.reportStory({ campaign: 2, level: 12, stars: 3 });
-      // A rare chest won in PvP today, before it: the day's first slot.
-      editPlayer(s.store, (p) => {
-        const v2 = p.v2 as unknown as { pvpChests: Record<string, number>; chests: { pending: unknown[] } };
-        v2.pvpChests = { [today]: 1 };
-        v2.chests.pending.unshift({ rank: "rare", league: 0, origin: { source: "pvp", day: today, slot: 0 } });
-      });
+      await w.openChest(0);
     });
-    const rare = await screen.findByRole("dialog", { name: "Rare chest" }, WAIT);
-    await userEvent.click(within(rare).getByRole("button", { name: /^Open the rare chest: one of 2 tiles/ }));
-    const tiles = within(await screen.findByRole("list", { name: "Chest tiles" }, WAIT)).getAllByRole("button");
-    expect(tiles).toHaveLength(2);
+    const reveal = await screen.findByRole("dialog", { name: "Choose 1 of 3" }, WAIT);
+    expect(reveal).toHaveAttribute("data-phase", "reveal");
+    expect(s.router.state.location.pathname).toBe("/");
+    // No way out but a tile: Escape keeps it.
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Choose 1 of 3" })).toBeInTheDocument();
     const before = (await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0);
-    await userEvent.click(tiles[1]!);
-    await userEvent.click(screen.getByRole("button", { name: /^Keep / }));
+    await userEvent.click(within(screen.getByRole("list", { name: "Chest tiles" })).getAllByRole("button")[2]!);
+    await userEvent.click(screen.getByRole("button", { name: /^Take / }));
     const kept = await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT);
     expect((await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0)).toBe(before + 1);
-    // The Story epic one is next, in the same modal.
-    await userEvent.click(within(kept).getByRole("button", { name: /Next chest/ }));
-    expect(await screen.findByRole("dialog", { name: "Epic chest" }, WAIT)).toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    // The page: the slot opened is grey, no Waiting list, the epic one a tap away.
-    const slots = within(screen.getByRole("list", { name: "Today's PvP slots" })).getAllByRole("listitem");
-    expect(slots.map((li) => li.getAttribute("aria-label"))).toEqual(["Slot 1: opened", "Slot 2: free", "Slot 3: free"]);
-    expect(screen.queryByRole("heading", { name: /Waiting/ })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: /Open your chests/ }));
-    expect(await screen.findByRole("dialog", { name: "Epic chest" }, WAIT)).toBeInTheDocument();
+    expect((await s.ledger.chests(s.me)).open).toBeNull();
+    // Claim: the home again, nothing left to open (END-CHEST: the Chests page gone).
+    await userEvent.click(within(kept).getByRole("button", { name: "Claim" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Added to your inventory" })).toBeNull(), WAIT);
+    expect(s.router.state.location.pathname).toBe("/");
+    expect(screen.queryByRole("dialog", { name: /^Choose / })).toBeNull();
   }, slow(30_000));
 
-  it("shows today's PvP chests before an older Story one, and opens the chest of the slot tapped (#784)", async () => {
-    const today = dayOf(Date.now() / 1000);
-    const s = await open("/village/chests", async (s, me) => {
+  it("asks a chest won and not opened (its game's end left before the tap) over the home: Tap to open, the reveal, Take, Claim, the next", async () => {
+    const s = await open("/", async (s, me) => {
       const w = s.ledger.writesFor(me);
       await w.foundFreeVillage();
-      // A Story basic chest won first, then two PvP chests today: an epic one (slot 1), a rare one (slot 2).
-      await w.reportStory({ campaign: 2, level: 1, stars: 3 });
-      editPlayer(s.store, (p) => {
-        const v2 = p.v2 as unknown as { pvpChests: Record<string, number>; chests: { pending: unknown[] } };
-        v2.pvpChests = { [today]: 2 };
-        v2.chests.pending.push({ rank: "epic", league: 0, origin: { source: "pvp", day: today, slot: 0 } });
-        v2.chests.pending.push({ rank: "rare", league: 0, origin: { source: "pvp", day: today, slot: 1 } });
-      });
+      // Two Story chests won, neither opened: the ends were left before their tap.
+      await w.reportStory({ campaign: 2, level: 12, stars: 3 });
+      await w.reportStory({ campaign: 1, level: 1, stars: 3 });
     });
-    // On arrival: the PvP epic one, not the Story basic one won before it.
-    const first = await screen.findByRole("dialog", { name: "Epic chest" }, WAIT);
-    expect(within(first).getByText("PvP")).toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    // Slot 2's rare chest, tapped: it is the one shown, and the one drawn.
-    await userEvent.click(screen.getByRole("button", { name: "Open the rare chest of slot 2" }));
-    const rare = await screen.findByRole("dialog", { name: "Rare chest" }, WAIT);
-    await userEvent.click(within(rare).getByRole("button", { name: /^Open the rare chest: one of 2 tiles/ }));
-    expect(within(await screen.findByRole("list", { name: "Chest tiles" }, WAIT)).getAllByRole("button")).toHaveLength(2);
-    await waitFor(async () => expect((await s.ledger.chests(s.me)).open?.rank).toBe("rare"), WAIT);
-    expect((await s.ledger.chests(s.me)).pending).toEqual(["basic", "epic"]);
-    // Closed before the choice: slot 1's epic chest does not open (the rare one waits for its tile, as the page says).
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    expect(screen.queryByRole("button", { name: "Open the epic chest of slot 1" })).toBeNull();
-    expect(screen.getByText("Your rare chest is open: keep one of its tiles before the next chest.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Back to the open chest/ }));
-    expect(await screen.findByRole("dialog", { name: "Rare chest" }, WAIT)).toBeInTheDocument();
-    // Kept, then Later: slot 2 is grey while slot 1 still waits, and slot 1's tap shows its epic chest, not the tile kept.
-    await userEvent.click(within(screen.getByRole("list", { name: "Chest tiles" })).getAllByRole("button")[0]!);
-    await userEvent.click(screen.getByRole("button", { name: /^Keep / }));
-    await userEvent.click(within(await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT)).getByRole("button", { name: "Later" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    const slots = within(screen.getByRole("list", { name: "Today's PvP slots" })).getAllByRole("listitem");
-    expect(slots.map((li) => li.getAttribute("aria-label"))).toEqual(["Slot 1: won, epic chest", "Slot 2: opened", "Slot 3: free"]);
-    await userEvent.click(screen.getByRole("button", { name: "Open the epic chest of slot 1" }));
-    const epic = await screen.findByRole("dialog", { name: "Epic chest" }, WAIT);
-    expect(within(epic).getByText("Tap to open")).toBeInTheDocument();
-    // Closed again, Open your chests: the queue's first, the PvP epic one, before the Story basic.
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
-    await userEvent.click(screen.getByRole("button", { name: /Open your chests/ }));
-    expect(await screen.findByRole("dialog", { name: "Epic chest" }, WAIT)).toBeInTheDocument();
-  }, slow(30_000));
-});
-
-/** The home's Chests: the dock's (#763, HOME-DOCK), which carries the count. */
-async function homeChests(name: string) {
-  const bar = await screen.findByRole("navigation", { name: "Main" }, WAIT);
-  return waitFor(() => within(bar).getByRole("button", { name }), WAIT);
-}
-
-describe("the home's Chests badge (#759)", () => {
-  it("counts the day's free slots until the Chests page is seen that day", async () => {
-    const s = await open("/", async (s, me) => {
-      await s.ledger.writesFor(me).foundFreeVillage();
-      editPlayer(s.store, (p) => void (p.v2.pvpChests = { [dayOf(Date.now() / 1000)]: 1 }));
-    });
-    // No chest waiting, 2 of the day's 3 slots free, the page not seen today.
-    await userEvent.click(await homeChests("Chests, 2 waiting"));
-    await waitFor(() => expect(s.router.state.location.pathname).toBe("/village/chests"), WAIT);
-    expect(await screen.findByLabelText("2 of 3 left today", {}, WAIT)).toBeInTheDocument();
-    await s.router.navigate(-1);
-    expect(await homeChests("Chests")).toBeInTheDocument();
-  }, slow(30_000));
-});
-
-describe("the home's Chests badge across midnight (#759)", () => {
-  it("a home left open across the reset counts the new day's free slots", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    const today = dayOf(Date.now() / 1000);
-    vi.setSystemTime((today + 1) * DAY_S * 1000 - 3_000);
-    // Today's 3 slots won and the page seen today: no badge.
-    markChestsSeen(today);
-    await open("/", async (s, me) => {
-      await s.ledger.writesFor(me).foundFreeVillage();
-      editPlayer(s.store, (p) => void (p.v2.pvpChests = { [today]: 3 }));
-    });
-    expect(await homeChests("Chests")).toBeInTheDocument();
-    // Midnight: the 3 slots are free again, and the page is not seen on the new day.
-    vi.setSystemTime((today + 1) * DAY_S * 1000 + 2_000);
-    expect(await homeChests("Chests, 3 waiting")).toBeInTheDocument();
-  }, slow(30_000));
-});
-
-describe("/village/chests across midnight", () => {
-  it("a new UTC day reads the day's PvP chests again: yesterday's 3 no longer count", async () => {
-    // Only the clock is faked: the page's tick (each second) and the ledger both read it.
-    vi.useFakeTimers({ toFake: ["Date"] });
-    const today = dayOf(Date.now() / 1000);
-    vi.setSystemTime((today + 1) * DAY_S * 1000 - 3_000);
-    await open("/village/chests", async (s, me) => {
-      await s.ledger.writesFor(me).foundFreeVillage();
-      editPlayer(s.store, (p) => void (p.v2.pvpChests = { [today]: 3 }));
-    });
-    expect(await screen.findByLabelText("0 of 3 left today", {}, WAIT)).toBeInTheDocument();
-    vi.setSystemTime((today + 1) * DAY_S * 1000 + 2_000);
-    expect(await screen.findByLabelText("3 of 3 left today", {}, WAIT)).toBeInTheDocument();
-    expect(screen.queryByText(/Today's PvP chests are won/)).toBeNull();
-    // The reset reached on the page: "Ready" for a short while (#759), then the next day's countdown.
-    expect(screen.getByText(/3 new chests to win today/)).toBeInTheDocument();
-    vi.setSystemTime((today + 1) * DAY_S * 1000 + (READY_S + 2) * 1000);
-    expect(await screen.findByRole("timer", { name: /^Slots reset in 23:59:/ }, WAIT)).toBeInTheDocument();
-    expect(screen.queryByText(/3 new chests to win today/)).toBeNull();
+    const waiting = (await s.ledger.chests(s.me)).pending.length;
+    expect(waiting).toBeGreaterThan(0);
+    const first = await screen.findByRole("dialog", { name: /chest$/ }, WAIT);
+    expect(first).toHaveAttribute("data-phase", "closed");
+    expect(within(first).getByText("Tap to open")).toBeInTheDocument();
+    await userEvent.click(within(first).getByRole("button", { name: /^Open the / }));
+    await screen.findByRole("list", { name: "Chest tiles" }, WAIT);
+    await userEvent.click(screen.getByRole("button", { name: /^Take / }));
+    const kept = await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT);
+    await userEvent.click(within(kept).getByRole("button", { name: "Claim" }));
+    expect((await s.ledger.chests(s.me)).pending).toHaveLength(waiting - 1);
+    if (waiting > 1) {
+      // The next waits at once; its cross puts it off until the app runs again.
+      const next = await screen.findByRole("dialog", { name: /chest$/ }, WAIT);
+      expect(next).toHaveAttribute("data-phase", "closed");
+      await userEvent.click(within(next).getByRole("button", { name: "Close" }));
+    }
+    await waitFor(() => expect(screen.queryAllByRole("dialog").filter((d) => d.dataset.phase)).toEqual([]), WAIT);
+    expect(s.router.state.location.pathname).toBe("/");
   }, slow(30_000));
 });
 

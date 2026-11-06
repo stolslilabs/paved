@@ -5,7 +5,7 @@ import { RENDERER_ASSETS } from "../data/renderer-manifest";
 import { useTileArt } from "../data/tile-art";
 import { useTileRenders } from "../data/tile-renders";
 
-// What the v2 village's pages (#739: `/village`, `/village/chests`, `/village/shop`) share: the shapes between the hooks
+// What the v2 village's pages (#739: `/village`, `/village/shop`) share: the shapes between the hooks
 // (`data/free-village.ts`, game-core's codes, the starter left out) and the scenes (`BoardTile`s, the starter included), the
 // tile art in the owner's skins, and a refusal in words. The shapes and the words are `village-shapes.ts`, which the home reads
 // without the art (#753).

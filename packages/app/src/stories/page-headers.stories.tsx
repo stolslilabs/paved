@@ -9,11 +9,10 @@ import { AVATAR_CREATOR, MISSIONS, PLAY, PROFILE, PURCHASE, REFERRAL, SETTINGS, 
 import { BalancesProvider } from "../components/containers/balances-context";
 import { ProfileProvider } from "../components/containers/profile-context";
 import { AvatarCreatorScene } from "../components/scenes/avatar-creator-scene";
-import { VillageChestsScene } from "../components/scenes/village-chests-scene";
 import { VillageLayoutScene } from "../components/scenes/village-layout-scene";
 import { ShopScene } from "../components/scenes/shop-scene";
 import { SHOP } from "../mocks/shop";
-import { VILLAGE_CHESTS, VILLAGE_LAYOUT } from "../mocks/village-v2";
+import { VILLAGE_LAYOUT } from "../mocks/village-v2";
 import { PvpLeagueScene } from "../components/scenes/pvp-league-scene";
 import { PvpMatchScene } from "../components/scenes/pvp-match-scene";
 import { PVP_MATCH } from "../mocks/pvp-match";
@@ -87,7 +86,6 @@ export const Referral: Story = { render: () => <ReferralScene {...REFERRAL.earne
 export const Credits: Story = { render: () => <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} /> };
 export const Avatar: Story = { render: () => <AvatarCreatorScene {...AVATAR_CREATOR.saved} onBack={fn()} /> };
 export const Village: Story = { render: () => <VillageLayoutScene {...VILLAGE_LAYOUT.growing} onBack={fn()} /> };
-export const VillageChests: Story = { render: () => <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={fn()} /> };
 // The Shop (SHOP-PAGE) on its Cobbles tab, which shows the page's whole set, the Cobbles and USDC.
 export const VillageShop: Story = { render: () => <ShopScene {...SHOP.picked} onBack={fn()} /> };
 export const PvpResult: Story = { render: () => <PvpResultScene {...PVP_RESULT.twoStars} /> };

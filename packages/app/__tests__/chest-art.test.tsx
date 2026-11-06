@@ -25,8 +25,11 @@ describe("the chests' images (the owner's direction of 2026-10-31)", () => {
       "fx/dust.webp",
       "fx/rays.webp",
       "fx/sparkle.webp",
+      // END-SCREENS (2026-11-06): the light behind a full star and the sparkle round it.
+      "fx/glint.webp",
+      "fx/star-light.webp",
     ].sort());
-    expect(expected()).toHaveLength(3 * (3 * 4 + 3) + 3 * 2);
+    expect(expected()).toHaveLength(3 * (3 * 4 + 3) + 5 * 2);
     expect(problems()).toEqual([]);
     // The closed chest, the lid and the body share one square frame, so the open chest's body stands where the closed chest stood.
     expect(new Set([CHEST_LAYERS.closed, CHEST_LAYERS.lid, CHEST_LAYERS.body]).size).toBe(1);
