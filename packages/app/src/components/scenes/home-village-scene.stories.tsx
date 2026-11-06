@@ -374,7 +374,7 @@ function slots<A extends { layoutSlots: LayoutSlotsProps }>({ layoutSlots, ...ar
   return { args, render: (story: HomeVillageSceneProps) => <HomeVillageScene {...story} renderStage={(stage) => <VillageStage {...stage} layoutSlots={layoutSlots} />} /> };
 }
 
-/** The saved layouts (#804) in the carousel above the inventory: layout 1 (the village's, Active), the right arrow layout 2's Purchase. */
+/** The saved layouts (#804) in the carousel above the inventory: layout 1 (the village's, Active), Next on to locked layout 2. */
 export const SlotsOne: Story = { ...slots(HOME_VILLAGE.slotsOne) };
 export const SlotsOnePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsOne) };
 export const SlotsOneWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsOne) };
@@ -382,8 +382,11 @@ export const SlotsOneWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slo
 export const SlotsThree: Story = { ...slots(HOME_VILLAGE.slotsThree) };
 export const SlotsThreePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsThree) };
 export const SlotsThreeWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsThree) };
-/** Layout 2 locked: the right arrow its Purchase, the padlock, the Cobbles and its price. */
+/** Layout 2 locked, shown: its Purchase in its word's place (the padlock, the Cobbles and its price), Next on to layout 3. */
 export const SlotsLocked: Story = { ...slots(HOME_VILLAGE.slotsLocked) };
+/** Layout 3 bought before layout 2 (#1033): layout 2 shown with its Purchase, the arrows going on past it to layout 3. */
+export const SlotsGap: Story = { ...slots(HOME_VILLAGE.slotsGap) };
+export const SlotsGapPhone320: Story = { ...PHONE_320, ...slots(HOME_VILLAGE.slotsGap) };
 /** A locked layout tapped: unlock asked first, the price and the Cobbles held. */
 export const SlotsBuy: Story = { ...slots(HOME_VILLAGE.slotsBuy) };
 /** The purchase on its way: the carousel waits. */
