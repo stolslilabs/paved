@@ -63,11 +63,11 @@ function TickingMissions() {
 }
 
 /**
- * The pages of the pass, by id: the title its header shows, its scene with long content. `flow`: a full-screen flow below
- * `desktop` (Play: no tab frame, the document scrolls), a page of the side panel from it. `drawer`: the HUD's drawer
- * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE) at every width, its own panel: never in the page panel.
+ * The pages of the pass, by id: the title its header shows, its scene with long content. `drawer`: the HUD's drawer
+ * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE) at every width, its own panel: never in the
+ * page panel.
  */
-export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true; drawer?: true }> = {
+export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: true }> = {
   // The Shop (SHOP-PAGE), the HUD's drawer: Forest's view, its 19 tiles in the Shop's cards.
   shop: { title: "Forest", drawer: true, page: <ShopScene {...SHOP.forest} onBack={no} onTab={no} onThemeBack={no} /> },
   // The League as it opens (LEAGUE-PAGE): the carousel, the season's last day, the latest battle logs.
@@ -86,7 +86,8 @@ export const PAGES: Record<string, { title: string; page: ReactNode; flow?: true
   // Tiles (COLLECTION-PAGE): the HUD's drawer, its 3D stage, its skins and the 19 tiles.
   tiles: { title: "Tiles", drawer: true, page: <TilesScene {...TILES.owned} onBack={no} /> },
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },
-  play: { title: "Choose a mode", flow: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
+  // Play (PLAY-PAGE): the HUD's drawer, its four groups of modes (no full-screen flow left).
+  play: { title: "Play", drawer: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
   credits: { title: "Credits", drawer: true, page: <SettingsScene {...SETTINGS.connected} {...settingsActions} view="credits" credits={{ tracks: TRACKS.map(titleOf) }} /> },
 };
 
