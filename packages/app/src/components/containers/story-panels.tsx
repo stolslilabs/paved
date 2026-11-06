@@ -281,7 +281,8 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
       }}
     >
       <ScrollRegion className="h-full">
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-6">
+        {/* Clipped across: the stars' light spreads past a phone's edges, and the region must not scroll sideways (WRAP360). */}
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center overflow-x-clip px-4 py-6">
           <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={className}>
             <GameEnd
               stars={stars}

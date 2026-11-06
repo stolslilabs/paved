@@ -111,7 +111,8 @@ export function PvpEndScene(props: PvpEndSceneProps) {
   const verdict = props.surrendered ? "Surrendered" : VERDICT[Math.min(Math.max(stars, 0), 3)];
   const xp = props.xp;
   return (
-    <div className="relative min-h-dvh bg-board text-foreground">
+    // Clipped across: the stars' light spreads past a phone's edges, and the page must not scroll sideways (WRAP360).
+    <div className="relative min-h-dvh overflow-x-clip bg-board text-foreground">
       {board && finalBoard && (
         // The board under the results takes no input, and its ambient effects stop (#572).
         <div data-testid="final-board" aria-hidden inert className="pointer-events-none fixed inset-0">
