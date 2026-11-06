@@ -35,6 +35,24 @@ export function friendsPartImage(name: FriendsPart): string {
   return `image-set(url("${friendsPartUrl(name, small)}") 1x, url("${friendsPartUrl(name, large)}") 2x)`;
 }
 
+/**
+ * The book's gold pill as a 3-slice under a button's words, `px` CSS pixels tall (Follow back's 32, the chests' Take 44): its rounded ends
+ * whole, its middle stretched. Inline: the one stylesheet has no room to spare.
+ */
+export function goldPillStyle(px: number) {
+  const { width, height } = FRIENDS_PARTS["gold-pill"];
+  const end = `${((GOLD_PILL_END * px) / height).toFixed(2)}px`;
+  return {
+    borderStyle: "solid",
+    borderColor: "transparent",
+    borderWidth: `0 ${end}`,
+    borderImageSource: friendsPartImage("gold-pill"),
+    borderImageSlice: `0 ${((GOLD_PILL_END / width) * 100).toFixed(2)}% fill`,
+    borderImageWidth: `0 ${end}`,
+    borderImageRepeat: "stretch",
+  } as const;
+}
+
 /** An `<img>`'s sources for a piece shown `px` CSS pixels wide: its copies with their widths, the screen picking the one it needs. */
 export function friendsPartSources(name: FriendsPart, px: number) {
   const { sizes } = FRIENDS_PARTS[name];

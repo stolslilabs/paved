@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SKIN_REFUSAL_TEXT, SkinRefusedError, WriteError } from "@paved/chain";
 import { App } from "../src/App";
+import { tileName } from "../src/components/elements/tile-render";
 import type { GameSigner } from "../src/data";
 import { queryClient } from "../src/lib/query-client";
 import { PLAYER_ID } from "../src/mocks/players";
@@ -142,8 +143,8 @@ describe("/settings/theme: the themes", () => {
 const FOREST_VIEW = "/village/shop?tab=themes&theme=forest";
 
 describe("the Shop's view of Forest (SHOP-PAGE; `/settings/theme/forest` before)", () => {
-  const cell = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: slow(5000) });
-  const buyButton = async (plan: number) => within(await cell(plan)).getByRole("button", { name: `Buy Tile ${plan} for ${FOREST_PRICES[plan - 1]} Cobbles` });
+  const cell = (plan: number) => screen.findByRole("listitem", { name: tileName(plan) }, { timeout: slow(5000) });
+  const buyButton = async (plan: number) => within(await cell(plan)).getByRole("button", { name: `Buy ${tileName(plan)} for ${FOREST_PRICES[plan - 1]} Cobbles` });
 
   it("reserves no skin to a tier any more: Buy reads no tier (#739)", async () => {
     const s = setup();
@@ -222,7 +223,7 @@ describe("the Shop's view of Forest (SHOP-PAGE; `/settings/theme/forest` before)
 
 describe("/tiles: Tiles (COLLECTION-PAGE)", () => {
   const tile = async (plan: number) =>
-    within(await screen.findByRole("list", { name: "Tiles" }, { timeout: slow(5000) })).getByRole("button", { name: new RegExp(`^Tile ${plan}(,|$)`) });
+    within(await screen.findByRole("list", { name: "Tiles" }, { timeout: slow(5000) })).getByRole("button", { name: new RegExp(`^${tileName(plan)}(,|$)`) });
   const skin = (name: string) => screen.getByRole("listitem", { name: new RegExp(`^${name}: `) });
   /** A tile selected in the grid, then the skin's Use. */
   const pick = async (plan: number, name: string) => {

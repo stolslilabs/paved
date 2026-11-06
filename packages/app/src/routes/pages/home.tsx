@@ -11,12 +11,11 @@ import { HomeVillageScene, type SocialCounts } from "../../components/scenes/hom
 import { useBoardSettings } from "../../data/board-settings";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { cobbleKeys } from "../../data/cobbles";
-import { useChests, useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
+import { useFreeVillageHeld, useFreeVillageWrites } from "../../data/free-village-base";
 import { queryKeys } from "../../data/keys";
 import { usePvpLeague, usePvpShield } from "../../data/pvp-league";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
-import { chestsBadge, chestsSeenDay, utcDay } from "../chests-seen";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
@@ -41,7 +40,7 @@ const EDIT = "edit";
 
 /**
  * `/` (#753, PvP v2 step 1): the player's own village full screen, the home of the game. The village, its inventory and the
- * level from `useFreeVillage` (the mock ledger in step 1, #741), the chests waiting, today's missions to claim, the crowns and
+ * level from `useFreeVillage` (the mock ledger in step 1, #741), today's missions to claim, the crowns and
  * league (`Matchmaker.league`, Wood before any PvP: the badge is the home's way to the league, #755), the active
  * Challenge game and the spawn pause. The overlays paint first; the stage (`home-stage.tsx`: the editor, the engine, the tile art)
  * and then the 3D scene (`home-canvas.tsx`) load lazily under them, the plan view where WebGL is
@@ -63,20 +62,6 @@ export default function Page() {
   const client = useQueryClient();
   const me = sources.signer?.address ?? wallet.address ?? null;
   const read = useFreeVillageHeld(me);
-  const chests = useChests(me);
-  // Read at each render: the home is drawn again on the way back from the Chests page, which marks the day seen.
-  const seenDay = chestsSeenDay();
-  // The day's slots count from 0 at each UTC day (#759): a home left open across midnight reads the chests again, and until that
-  // read is in, a read of yesterday counts none of today's slots as won.
-  const day = utcDay(now);
-  const chestsKey = queryKeys.chain.v2.chests(me ?? "0x0");
-  const chestsReadDay = utcDay((client.getQueryState(chestsKey)?.dataUpdatedAt ?? 0) / 1000);
-  const shownDay = useRef(day);
-  useEffect(() => {
-    if (shownDay.current === day) return;
-    shownDay.current = day;
-    if (me) void client.invalidateQueries({ queryKey: chestsKey });
-  }, [day, me, client, chestsKey]);
   const writes = useFreeVillageWrites(me);
   const active = useActiveGame(wallet.address);
   const paused = useSpawnPaused();
@@ -157,7 +142,7 @@ export default function Page() {
 
   const failed = readOnly ? null : read.error;
   return (
-    <PrefetchOnIntent routes={["/play", "/chat", "/guild", "/friends", "/missions", "/village/chests", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
+    <PrefetchOnIntent routes={["/play", "/chat", "/guild", "/friends", "/missions", "/village/shop", "/vault", "/pvp/league", "/settings"]}>
       <HomeVillageScene
         village={village}
         error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
@@ -171,18 +156,6 @@ export default function Page() {
         saved={saved}
         refusal={writes.error ? refusalText(writes.error) : null}
         refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
-        chests={
-          chests.data
-            ? chestsBadge({
-                waiting: chests.data.pending.length + (chests.data.open ? 1 : 0),
-                pvpToday: chests.data.pvpToday,
-                pvpCap: chests.data.pvpCap,
-                readDay: chestsReadDay,
-                day,
-                seenDay,
-              })
-            : 0
-        }
         missions={missions}
         mission={mission}
         chat={social.chat}
@@ -200,7 +173,6 @@ export default function Page() {
         onGuild={() => go("/guild")}
         onFriends={() => go("/friends")}
         onMissions={() => go("/missions")}
-        onChests={() => go("/village/chests")}
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
         onTiles={() => go("/tiles")}

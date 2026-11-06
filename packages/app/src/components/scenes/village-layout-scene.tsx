@@ -31,14 +31,12 @@ export interface VillageLayoutSceneProps extends Pick<LayoutEditorOptions, "rand
   status?: VillageLayoutStatus | null;
   /** The collected tiles off the saved layout, per plan (own village). */
   inventory?: Inventory;
-  /** The player's own village (edit, chests, shop), or someone else's, read-only. */
+  /** The player's own village (edit, shop), or someone else's, read-only. */
   mode?: "own" | "visit";
   /** The own village is founded; false: the starter alone, and Found (its starter layout comes with it). */
   founded?: boolean;
   /** The founding on its way. */
   founding?: boolean;
-  /** The chests waiting to be opened (own village): a count on Chests. */
-  chests?: number;
   /** The save on its way: the editor waits. */
   saving?: boolean;
   /** The last save landed: the editor closes, and back in view the score counts to the new one (#802), until edit mode opens again. */
@@ -71,14 +69,13 @@ export interface VillageLayoutSceneProps extends Pick<LayoutEditorOptions, "rand
   onDirtyChange?: (dirty: boolean) => void;
   onDismissSaved?: () => void;
   onDismissRefusal?: () => void;
-  onOpenChests?: () => void;
   onOpenShop?: () => void;
 }
 
 /**
  * The v2 village (#739, part of #732): a free layout of the player's collected tiles, rearranged at any time, capped by the
  * slots unlocked (8 + level). The view shows the layout under the fog, which lifts around its tiles, the score, the level
- * and the slots used ("21 / 28"), and leads to the chests and the shop. Edit opens the editor, where placing works as on the
+ * and the slots used ("21 / 28"), and leads to the shop. Edit opens the editor, where placing works as on the
  * board with no validation (#756): a card of the inventory's carousel puts its tile in hand, its legal cells light up, a tap
  * places it on one, and the bubble rotates it or sends it back to the inventory (in the bin's place); a tap on another lit cell
  * moves it. A placed tile is lifted with a tap, to move, turn or send back (Cancel puts it back where it was); a tile that
@@ -121,7 +118,6 @@ function LayoutView({
   inventory = {},
   founded = true,
   founding = false,
-  chests = 0,
   saving = false,
   saved = null,
   refusal = null,
@@ -140,7 +136,6 @@ function LayoutView({
   onDirtyChange,
   onDismissSaved,
   onDismissRefusal,
-  onOpenChests,
   onOpenShop,
   ...die
 }: Omit<VillageLayoutSceneProps, "village" | "status" | "onConnect" | "onRetry"> & { village: VillageLayout }) {
@@ -249,7 +244,7 @@ function LayoutView({
           )}
           {own && !editing && founded && (
             <div className="grid grid-cols-3 gap-2 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] desktop:hidden">
-              <ViewActions chests={chests} onEdit={open} onOpenChests={onOpenChests} onOpenShop={onOpenShop} />
+              <ViewActions onEdit={open} onOpenShop={onOpenShop} />
             </div>
           )}
         </div>
@@ -272,7 +267,7 @@ function LayoutView({
                   <span className="numeric">{used}</span> of your <span className="numeric">{slots}</span> slots hold a tile; each level unlocks one more, up to 28.
                 </p>
                 <div className="grid grid-cols-3 gap-2">
-                  <ViewActions chests={chests} onEdit={open} onOpenChests={onOpenChests} onOpenShop={onOpenShop} />
+                  <ViewActions onEdit={open} onOpenShop={onOpenShop} />
                 </div>
               </>
             )}
@@ -301,19 +296,11 @@ function FoundNotice({ founding, onFound }: { founding: boolean; onFound?: () =>
   );
 }
 
-/** The view's three ways on: edit the layout, open the chests (their count), the shop. */
-function ViewActions({ chests, onEdit, onOpenChests, onOpenShop }: { chests: number; onEdit: () => void; onOpenChests?: () => void; onOpenShop?: () => void }) {
+/** The view's ways on: edit the layout, the shop (the chests open where they are won: END-CHEST). */
+function ViewActions({ onEdit, onOpenShop }: { onEdit: () => void; onOpenShop?: () => void }) {
   return (
     <>
       <Button onClick={onEdit}>Edit</Button>
-      <Button variant="outline" onClick={onOpenChests} aria-label={chests > 0 ? `Chests, ${chests} waiting` : "Chests"} className="relative">
-        <Icon name="treasure-chest" size="sm" /> Chests
-        {chests > 0 && (
-          <span aria-hidden className="numeric absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
-            {chests}
-          </span>
-        )}
-      </Button>
       <Button variant="outline" onClick={onOpenShop}>
         Shop
       </Button>

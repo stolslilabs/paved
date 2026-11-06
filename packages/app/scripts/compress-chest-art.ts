@@ -5,7 +5,7 @@
  *
  * Reads `chest-sources/<rank>/<layer>.webp` (`CHEST_LAYERS` in `src/components/elements/chest-images.ts`: the closed chest, the
  * raised lid and the body on one square frame of 800 px, the icon on its 560 by 448 frame) and `chest-sources/fx/<effect>.webp`
- * (`CHEST_EFFECTS`: the rays, the sparkle, the dust puff), transparent lossless WebP left untouched and never shipped (not in
+ * (`CHEST_EFFECTS`: the rays, the sparkle, the dust puff; the games' ends' star light and glint), transparent lossless WebP left untouched and never shipped (not in
  * `public/`), and writes `public/chest-art/<rank>/<layer>/<size>.webp` and `public/chest-art/fx/<effect>/<size>.webp` for each size.
  * Each run removes the copies of an earlier one. `--check` encodes nothing and fails when a master is missing, extra or not of its
  * frame, or a copy is missing, extra, not a WebP, or not of its size.
@@ -15,7 +15,11 @@
  * the effects (`docs/design/chests.webp`), then each asset generated again alone from its cell, the open chest from its closed one
  * (same body, same camera, the lid swung up on its hinges), aligned on the closed chest's body, and cut in two along the body's
  * back rim with exact masks (Pillow, NumPy), so the lid then the body give the open chest back. The rays and the sparkle are white
- * with their light as alpha (from black), so the client tints them. Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
+ * with their light as alpha (from black), so the client tints them. The glint (END-SCREENS, 2026-11-06) was drawn by Codex's built-in
+ * image tool (`codex exec -c model_provider=openai`, the crops of the book's `attack-end` and `chest-reveal` attached) as the sparkle
+ * round a won star, gold, transparent. The star light was extracted by the same tool from the book's `attack-end` crop (the light of
+ * one star alone, on pure black), the black then turned to transparency (alpha from the brightest channel, the colour unpremultiplied),
+ * so it keeps its own gold. Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
  *
  * Per copy: resized and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv`, no metadata) at the quality and the
  * alpha quality of `IMAGES`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install webp`, `apt install webp`),

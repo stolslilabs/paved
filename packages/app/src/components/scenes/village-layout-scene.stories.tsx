@@ -24,7 +24,6 @@ const meta = {
     onSave: fn(),
     onDismissSaved: fn(),
     onDismissRefusal: fn(),
-    onOpenChests: fn(),
     onOpenShop: fn(),
   },
 } satisfies Meta<typeof VillageLayoutScene>;

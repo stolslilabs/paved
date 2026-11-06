@@ -162,12 +162,12 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(await screen.findByText("Claimed: First Stone is yours.")).toBeInTheDocument();
     expect(wallet.calls.filter((c) => c === "claimTutorial")).toHaveLength(1);
 
-    await userEvent.click(within(end).getByRole("button", { name: "Next level" }));
+    await userEvent.click(within(end).getByRole("button", { name: "Next" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/story/1/2"));
     expect(await screen.findByTestId("deck-presentation")).toHaveTextContent(TUTORIAL.levels[1]!.title);
   });
 
-  it("a discard-only run finishes with 1 star and the points short of the next; Replay goes straight to the board", async () => {
+  it("a discard-only run finishes with 1 star and the points short of the next; Retry goes straight to the board", async () => {
     const store = memoryStore();
     const level = TUTORIAL.levels[0]!;
     const first = render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
@@ -184,7 +184,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(within(end).getByTestId("to-next-star")).toHaveTextContent(`${Math.ceil(level.target * 0.7)} points short of the next star.`);
     expect(end).not.toHaveTextContent(String(level.target));
     expect(JSON.parse(store.getItem(STORY_KEY)!).levels["1-1"]).toMatchObject({ best: 0, stars: 1 });
-    await userEvent.click(within(end).getByRole("button", { name: "Replay" }));
+    await userEvent.click(within(end).getByRole("button", { name: "Retry" }));
     expect(screen.queryByTestId("story-end")).toBeNull();
     expect(screen.queryByTestId("deck-presentation")).toBeNull();
     expect(within(hand()).getByRole("button", { name: /^Hold to discard/ })).toBeEnabled();

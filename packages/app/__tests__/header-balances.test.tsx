@@ -26,7 +26,6 @@ const TABLE: Record<string, readonly string[]> = {
   "play/challenge": ["usdc"],
   // SHOP-PAGE: the packs are the Shop's Cobbles tab, paid in USDC; the scene shows the tab's own set.
   "village/shop": ["cobbles", "usdc"],
-  "village/chests": ["cobbles"],
   missions: ["cobbles"],
   tiles: ["cobbles"],
   "settings/theme": ["cobbles"],

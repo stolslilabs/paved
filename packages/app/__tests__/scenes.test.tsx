@@ -112,7 +112,7 @@ describe("Home (#753): the village with its overlays", () => {
   // Load-bound: the stage's cold chunk, then ten overlay clicks. Measured 6.7 to 15.4 s on a loaded machine (2026-11-01, after
   // #974's currency icons), past the 15 s default: the ceiling is twice the slowest.
   it("shows the village full screen with the right column, the Chat tab and the mission in progress, the rest the dock's", { timeout: slow(30_000) }, async () => {
-    const on = { onPlay: vi.fn(), onChat: vi.fn(), onGuild: vi.fn(), onFriends: vi.fn(), onMissions: vi.fn(), onChests: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onTiles: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn(), onEditingChange: vi.fn() };
+    const on = { onPlay: vi.fn(), onChat: vi.fn(), onGuild: vi.fn(), onFriends: vi.fn(), onMissions: vi.fn(), onShop: vi.fn(), onVault: vi.fn(), onTiles: vi.fn(), onLeague: vi.fn(), onSettings: vi.fn(), onEditingChange: vi.fn() };
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
     // The stage (the board, the editor) is its own chunk: it arrives after the overlays. The file's first test imports it cold:
@@ -121,9 +121,9 @@ describe("Home (#753): the village with its overlays", () => {
     // HOME-EDGES (the Paved UX Book's main screen): the right column's four tiles, their own chunk, Missions and Friends with their counts.
     const column = await screen.findByRole("navigation", { name: "Village" });
     expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault", "Friends, 2 waiting", "Tiles"]);
-    // The overlays outside the dock (the dock's own are tested below): no Chests, Shop, Guild, Settings or Play of their own.
+    // The overlays outside the dock (the dock's own are tested below): no Ranking, Shop, Guild, Settings or Play of their own.
     const overlay = (name: string | RegExp) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
-    for (const name of ["Chests, 2 waiting", "Shop", "Guild, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
+    for (const name of ["Ranking, coming soon", "Shop", "Guild, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
     for (const [name, handler] of [
       ["Chat, 3 waiting", on.onChat],
       ["Friends, 2 waiting", on.onFriends],
@@ -144,7 +144,7 @@ describe("Home (#753): the village with its overlays", () => {
     expect(on.onEditingChange).toHaveBeenCalledWith(true);
   });
 
-  it("has the dock at every width (#763, HOME-DOCK): Shop, Chests, Play, Guild, Settings, each reaching its page", async () => {
+  it("has the dock at every width (#763, HOME-DOCK): Shop, Ranking (no page yet, END-CHEST), Play, Guild, Settings, each reaching its page", async () => {
     const onNavigate = vi.fn();
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onNavigate={onNavigate} />));
     // The dock is its own chunk on the home: a stand-in of its size holds its place until it comes.
@@ -154,13 +154,13 @@ describe("Home (#753): the village with its overlays", () => {
     expect(nav.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["pointer-events-none", "[&>*]:pointer-events-auto"]));
     expect(nav.parentElement!.className).not.toContain("desktop:hidden");
     const items = within(nav).getAllByRole("button");
-    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Chests, 2 waiting", "Play", "Guild, 1 waiting", "Settings"]);
-    // No item current on the home; the chests waiting on Chests, the guild's count on Guild.
+    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking, coming soon", "Play", "Guild, 1 waiting", "Settings"]);
+    // No item current on the home; the guild's count on Guild; Ranking leads nowhere yet (the Leaderboard to come).
     expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
-    expect(within(within(nav).getByRole("button", { name: "Chests, 2 waiting" })).getByText("2")).toBeInTheDocument();
     expect(within(within(nav).getByRole("button", { name: "Guild, 1 waiting" })).getByText("1")).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Ranking, coming soon" })).toHaveAttribute("aria-disabled", "true");
     for (const item of items) await userEvent.click(item);
-    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "chests", "play", "guild", "settings"]);
+    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "play", "guild", "settings"]);
   });
 
   it("HOME-EDGES: the right column at every width; the dial, the Chat tab and the mission stacked at the bottom left, above the dock", async () => {
@@ -562,7 +562,7 @@ describe("Home's points by structure (#758)", () => {
     const spot = spots.find((s) => layoutPoints(placed(s)).lines.some((l) => l.key === line.key))!;
     const next = layoutPoints(placed(spot));
     // The tile from the inventory: the light stays.
-    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Tile 10, \d+ left$/ }));
+    await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Long road, \d+ left$/ }));
     await userEvent.click(plan.querySelector<HTMLButtonElement>(`[data-kind="plate"][data-cell="${spot.x},${spot.y}"]`)!);
     expect(litCells()).toEqual(cells);
     expect(lineButtons()).toHaveLength(next.lines.length);
@@ -1198,9 +1198,9 @@ describe("Element feedback (EL)", () => {
     expect(screen.getByRole("timer", { name: "Closes in 9:00:00" })).toBeInTheDocument();
   });
 
-  it("draws the Chests tab with the mockup's chest (HOME-DOCK), and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
+  it("draws Ranking with the HUD's trophy (END-CHEST: in the Chests' place), and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
     render(wrap(<AppNav />));
-    expect(screen.getByRole("button", { name: "Chests" }).querySelector("img[data-slot='ui-icon'][data-icon='chests']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Ranking, coming soon" }).querySelector("img[data-slot='ui-icon'][data-icon='trophy']")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
   });
 
@@ -1215,7 +1215,7 @@ describe("Element feedback (EL)", () => {
 
   it("draws the dock's icons as the mockup's (HOME-DOCK), its own colours", () => {
     render(wrap(<AppNav />));
-    for (const [tab, icon] of [["Shop", "shop"], ["Chests", "chests"], ["Play", "swords"], ["Guild", "guild"], ["Settings", "settings"]]) {
+    for (const [tab, icon] of [["Shop", "shop"], ["Ranking", "trophy"], ["Play", "swords"], ["Guild", "guild"], ["Settings", "settings"]]) {
       expect(screen.getByRole("button", { name: new RegExp(`^${tab}`) }).querySelector(`[data-slot=ui-icon][data-icon=${icon}]`), tab).not.toBeNull();
     }
   });

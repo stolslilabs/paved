@@ -2,10 +2,11 @@ import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { attackDeckSize } from "@paved/game-core";
+import { attackDeckSize, dayOf } from "@paved/game-core";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
 import { queryClient } from "../src/lib/query-client";
+import { MOCK_KEY } from "../src/data/mock/ledger";
 import { mockRivalV2 } from "../src/data/mock/v2";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
@@ -83,7 +84,7 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(screen.getByRole("button", { name: /^Tiles left/ })).toHaveTextContent(String(attackDeckSize(rival.slots) - 1));
   });
 
-  it("resumes an open attack, and its last tile ends it on its end screen; Back goes to the league", async () => {
+  it("resumes an open attack, and its last tile ends it on its end screen; League goes to the league", async () => {
     const s = await open("/pvp", async (s, me) => {
       const writes = s.ledger.writesFor(me);
       await writes.foundFreeVillage();
@@ -99,13 +100,14 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Attack over" }, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "0 of 3 stars" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Defeat" })).toBeInTheDocument();
-    // No star: no chest, and no Open chest.
+    // No star: no chest to open.
     expect(screen.queryByRole("region", { name: "Chest" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Open chest/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Open the / })).toBeNull();
     expect((await s.ledger.attackV2(s.me)).attack!.status).toBe("finished");
-    await userEvent.click(screen.getByRole("button", { name: "Back" }));
-    // LEAGUE-PAGE: the HUD's drawer over the home.
-    expect(await screen.findByRole("dialog", { name: "League" }, WAIT)).toBeInTheDocument();
+    // No League on the window (the owner's ask of 2026-11-06): Home goes home.
+    expect(screen.queryByRole("button", { name: "League" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { level: 1, name: "Attack over" })).toBeNull(), WAIT);
   });
 
   it("shows a finished attack's end again on a reload of its route: a surrender, said with what it cost", async () => {
@@ -119,10 +121,46 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(await screen.findByRole("heading", { name: "Surrendered" }, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Attack over" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Crowns" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /League/ }));
-    // LEAGUE-PAGE: the HUD's drawer over the home.
-    expect(await screen.findByRole("dialog", { name: "League" }, WAIT)).toBeInTheDocument();
+    // The cross shows the board, the Scores pill brings the scores back (the Board's place, the owner's ask of 2026-11-06).
+    await userEvent.click(screen.getByRole("button", { name: "Close the scores" }));
+    expect(screen.queryByRole("heading", { name: "Surrendered" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Show the scores" }));
+    expect(screen.getByRole("heading", { name: "Surrendered" })).toBeInTheDocument();
   });
+
+  it("opens the attack's chest on its end (END-CHEST, the Chests page gone): Tap to open, the reveal, Take, Claim, the tile kept said", async () => {
+    const s = await open("/pvp/result/1", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      await writes.drawOpponentV2("search");
+      await writes.startAttackV2();
+      await writes.surrenderAttackV2();
+      // The attack made a finished one of two stars that won a rare chest: the chest waits, a PvP chest of the attack's day.
+      const state = JSON.parse(s.store.getItem(MOCK_KEY)!);
+      for (const p of Object.values(state.players as Record<string, { v2: { attacks: { status: string; stars: number; chest: string | null; finishedAt: number }[]; chests: { pending: unknown[] } } }>)) {
+        const attack = p.v2.attacks[0];
+        if (!attack) continue;
+        Object.assign(attack, { status: "finished", stars: 2, chest: "rare" });
+        p.v2.chests.pending.push({ rank: "rare", league: 0, origin: { source: "pvp", day: dayOf(attack.finishedAt), slot: 0 } });
+      }
+      s.store.setItem(MOCK_KEY, JSON.stringify(state));
+    });
+    const chest = await screen.findByRole("region", { name: "Chest" }, WAIT);
+    const before = (await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0);
+    await userEvent.click(within(chest).getByRole("button", { name: /^Open the rare chest/ }));
+    // The reveal over the end: its first card chosen, Take keeps it.
+    const reveal = await screen.findByRole("dialog", { name: "Choose 1 of 2" }, WAIT);
+    await userEvent.click(within(reveal).getByRole("button", { name: /^Take / }));
+    const kept = await screen.findByRole("dialog", { name: "Added to your inventory" }, WAIT);
+    expect(within(kept).getAllByRole("button").map((b) => b.textContent)).toEqual(["Claim"]);
+    await userEvent.click(within(kept).getByRole("button", { name: "Claim" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Added to your inventory" })).toBeNull(), WAIT);
+    // The end again, its panel saying the tile kept; the inventory holds it, no chest waits.
+    expect(screen.getByRole("region", { name: "Chest" })).toHaveAttribute("data-state", "kept");
+    expect(screen.getByRole("region", { name: "Chest" })).toHaveTextContent("Added to your inventory");
+    expect((await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0)).toBe(before + 1);
+    expect((await s.ledger.chests(s.me)).pending).toEqual([]);
+  }, slow(30_000));
 
   it("keeps a result's link good after the next attack starts: the attack of that id, not the last", async () => {
     const s = await open("/pvp/result/1", async (s, me) => {

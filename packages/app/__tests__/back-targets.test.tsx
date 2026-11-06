@@ -84,7 +84,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     const progress = recordRun(EMPTY_PROGRESS, TUTORIAL.levels[0]!, { campaignId: 1, levelIndex: 1, moves: [] }, TUTORIAL.levels[0]!.target);
     const router = open("/story/1/1", memoryStore({ [STORY_KEY]: JSON.stringify(progress), [PRESENTED_KEY]: JSON.stringify(["1-1"]) }));
     const end = await finishLevelOne();
-    await userEvent.click(within(end).getByRole("button", { name: "Next level" }));
+    await userEvent.click(within(end).getByRole("button", { name: "Next" }));
     await waitFor(() => expect(at(router)).toBe("/story/1/2"));
     // Level 2's deck presentation (the Story intro): its Back goes up.
     await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });

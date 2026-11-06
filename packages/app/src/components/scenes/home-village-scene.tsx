@@ -87,8 +87,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   initialLit?: string | null;
   /** Where the stories start: in the Camera mode (#875), once the 3D village is drawn. */
   initialCamera?: boolean;
-  /** Chests waiting, missions to claim: the badges of the dock (Chests) and of the right column (Missions). */
-  chests?: number;
+  /** Missions to claim: the right column's badge (Missions). */
   missions?: number;
   /** Today's first daily mission not done (HOME-EDGES): its tab above the dock, at the left; none, no tab. */
   mission?: MissionProgress | null;
@@ -137,7 +136,6 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   onGuild?: () => void;
   onFriends?: () => void;
   onMissions?: () => void;
-  onChests?: () => void;
   onShop?: () => void;
   onVault?: () => void;
   /** The right column's Tiles (HOME-EDGES): the player's tiles. */
@@ -575,7 +573,7 @@ function ViewOverlays({
       </div>
       {/* The dock (#763, HOME-DOCK): its height on the scene (`--app-nav-h`), which the bottom overlays clear below `desktop`. */}
       <HomeBar>
-        <LazyAppNav badges={{ chests: props.chests, guild: props.guild }} onNavigate={props.onNavigate} className="relative" />
+        <LazyAppNav badges={{ guild: props.guild }} onNavigate={props.onNavigate} className="relative" />
       </HomeBar>
     </div>
   );

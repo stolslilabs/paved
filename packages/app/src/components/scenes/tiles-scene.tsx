@@ -1,4 +1,4 @@
-import { Suspense, lazy, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Suspense, lazy, useRef, useState, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import { formatNumber } from "@paved/game-core";
 import * as m from "motion/react-m";
@@ -9,6 +9,7 @@ import { Skeleton } from "../ui/skeleton";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { SectionTitle } from "../elements/section-title";
 import { tileFeatures } from "../elements/tile-features";
+import { TILE_CUT } from "../elements/tile-cut";
 import { TileRender, tileName, type TileRenders } from "../elements/tile-render";
 import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
@@ -61,16 +62,6 @@ export interface TilesSceneProps {
 const TileShowcase = lazy(() => import("../containers/tile-showcase").then((mod) => ({ default: mod.TileShowcase })));
 
 const ALL_PLANS = Array.from({ length: PLANS }, (_, i) => i + 1);
-
-/**
- * The stage's image while its 3D view comes: the tile's angled render cut to the tile (inline: the one stylesheet has no room to spare).
- * The build's renders keep a navy backdrop behind the tile, and every render has the same framing, so one outline cuts it: the hull of
- * the 38 renders' silhouettes (the backdrop's own shades left out), drawn 3.5 % in toward the tile's middle so its drop shadow on the
- * navy and its anti-aliased rim stay outside.
- */
-const TILE_CUT: CSSProperties = {
-  clipPath: "polygon(6.6% 46.6%, 9.6% 41.5%, 13.5% 36.3%, 37.1% 11.3%, 44.6% 7.7%, 56.7% 7.7%, 81.9% 24.6%, 92.3% 35.1%, 91.9% 43.9%, 89.2% 48%, 58.1% 83.3%, 57.2% 83.3%, 7.4% 55.9%, 6.9% 53.1%)",
-};
 
 /** The gold of what is chosen (the book's wash, the profile's ring on the Hall of Fame's picked season). */
 const CHOSEN = "bg-linear-to-b from-primary/40 to-primary/5 ring-2 ring-medal-1 ring-inset";

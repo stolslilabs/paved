@@ -40,7 +40,7 @@ describe("the tiles' renders", () => {
 
   it("draws the render as one lazy image, and the plan's chip without one", () => {
     const { unmount } = render(<TileRender plan={1} theme={1} renders={() => `${BASE}/${RENDER}`} />);
-    const img = screen.getByRole("img", { name: "Tile 1" });
+    const img = screen.getByRole("img", { name: "Capital" });
     expect(img).toHaveAttribute("src", `${BASE}/${RENDER}`);
     expect(img).toHaveAttribute("loading", "lazy");
     expect(img).toHaveAttribute("draggable", "false");

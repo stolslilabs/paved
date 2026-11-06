@@ -4,12 +4,12 @@
  * no tabs).
  */
 /**
- * The navigation's destinations. The dock holds Shop, Chests, Play, Guild, Settings (`NAV_TABS` of `containers/app-nav.tsx`, #763,
+ * The navigation's destinations. The dock holds Shop, Ranking, Play, Guild, Settings (`NAV_TABS` of `containers/app-nav.tsx`, #763,
  * HOME-DOCK), on the home alone (DOCK-UNDER-PAGES, the owner's ask of 2026-11-04: no page carries it). `play` opens the mode choice
- * (`nav: null`); the others are tabs of pages. The home, Missions, the Vault, League, Chat and Friends are not in the dock: the home's
+ * (`nav: null`); Ranking has no page yet (the Leaderboard to come); the others are tabs of pages. The home, Missions, the Vault, League, Chat and Friends are not in the dock: the home's
  * overlay leads to them, the pages' Back to the home (#760).
  */
-export type Tab = "home" | "quests" | "vault" | "shop" | "chests" | "play" | "league" | "settings" | "chat" | "guild" | "friends";
+export type Tab = "home" | "quests" | "vault" | "shop" | "ranking" | "play" | "league" | "settings" | "chat" | "guild" | "friends";
 
 export interface PageDef {
   /** The route path, relative to the root. */
@@ -56,8 +56,8 @@ export const PAGES: readonly PageDef[] = [
   // A flow opened from Play: Back goes up to it.
   { path: "play/challenge", title: "Purchase", nav: null, parent: "/play" },
   { path: "avatar", title: "Avatar", nav: null },
-  // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
-  { path: "village/chests", title: "Chests", nav: "chests", panel: true },
+  // The v2 village's daily shop (#739), before `village/:player`: `prefetch` matches in table order. Its chests open where they are
+  // won (END-CHEST, the owner's ask of 2026-11-06: the Chests page gone).
   // The Shop (SHOP-PAGE): Tiles, Cobbles and Themes as tabs (`?tab=`), the HUD's drawer docked at the right from `tablet`.
   { path: "village/shop", title: "Shop", nav: "shop", panel: true, drawer: true },
   { path: "village/:player", title: "Village", nav: null },
@@ -113,7 +113,6 @@ export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "quests", label: "Missions", to: "/missions" },
   { id: "vault", label: "Vault", to: "/vault" },
   { id: "shop", label: "Shop", to: "/village/shop" },
-  { id: "chests", label: "Chests", to: "/village/chests" },
   { id: "play", label: "Play", to: "/play" },
   { id: "league", label: "League", to: "/pvp/league" },
   { id: "settings", label: "Settings", to: "/settings" },

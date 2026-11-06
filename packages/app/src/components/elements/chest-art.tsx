@@ -34,6 +34,12 @@ const SHAKE = {
 
 /** The rays' and the flash's spans, in the art's box (1em). */
 const RAYS_EM = 1.6;
+/**
+ * The light gushing out once open (CHESTS-PAGE, the owner's ask of 2026-11-06: alive, not still): waves of rays springing from the
+ * chest's mouth one after the other, growing and fading (`GUSH_S` each, `GUSHES` at once), each fan turned a little from the last.
+ */
+const GUSH_S = 1.6;
+const GUSHES = [0, 1, 2, 3] as const;
 const FLASH_EM = 1.2;
 
 /** The sparks: their directions (degrees from straight up), their reach and their size, in the art's box. */
@@ -142,15 +148,27 @@ export function ChestArt({ rank, state = "rest", size = "md", shake = true, drop
         />
       )}
 
-      {/* The light from inside: two fans of rays turning either way behind the chest, the glow. */}
+      {/* The light from inside: two fans of rays turning either way behind the chest and breathing, waves of light gushing out of its
+          mouth, the glow pulsing (the owner's ask of 2026-11-06); under reduced motion the fans and the glow alone, still. */}
       {lit && (
         <span data-part="burst">
+          {!reduced &&
+            GUSHES.map((i) => (
+              <m.span
+                key={i}
+                data-part="gush"
+                style={{ ...at(mouth.x, mouth.y, RAYS_EM), ...masked(rays), backgroundColor: `color-mix(in oklab, ${light} 40%, var(--foreground))`, rotate: `${i * 15}deg` }}
+                initial={{ opacity: 0, scale: 0.35 }}
+                animate={{ opacity: [0, 0.95, 0], scale: [0.3, 1.1, 1.8] }}
+                transition={{ duration: GUSH_S, times: [0, 0.3, 1], ease: "easeOut", repeat: Infinity, delay: (animateIn ? POP_S + 0.35 : 0) + (i * GUSH_S) / GUSHES.length }}
+              />
+            ))}
           <m.span data-part="rays" style={{ ...at(mouth.x, mouth.y, RAYS_EM), ...masked(rays), backgroundColor: light }} {...lightIn(0.85)}>
             <m.span
               className="absolute inset-0"
-              style={{ ...masked(rays), backgroundColor: "var(--foreground)", opacity: 0.35 }}
-              animate={reduced ? { rotate: 0 } : { rotate: -360 }}
-              transition={{ duration: 16, repeat: Infinity, ease: "linear" }}
+              style={{ ...masked(rays), backgroundColor: "var(--foreground)", opacity: 0.4 }}
+              animate={reduced ? { rotate: 0 } : { rotate: -360, scale: [1, 1.1, 1] }}
+              transition={reduced ? { duration: 0 } : { rotate: { duration: 9, repeat: Infinity, ease: "linear" }, scale: { duration: 1.6, repeat: Infinity, ease: "easeInOut" } }}
             />
           </m.span>
           <m.span
@@ -158,6 +176,15 @@ export function ChestArt({ rank, state = "rest", size = "md", shake = true, drop
             style={{ ...at(mouth.x, mouth.y, 1.1), borderRadius: "50%", background: `radial-gradient(closest-side, var(--foreground), ${light} 35%, transparent)` }}
             {...lightIn(0.6)}
           />
+          {!reduced && (
+            <m.span
+              data-part="pulse"
+              style={{ ...at(mouth.x, mouth.y, 1.1), borderRadius: "50%", background: `radial-gradient(closest-side, var(--foreground), ${light} 40%, transparent)` }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: [0, 0.7, 0], scale: [0.9, 1.25, 0.9] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: animateIn ? POP_S + 0.5 : 0 }}
+            />
+          )}
         </span>
       )}
 

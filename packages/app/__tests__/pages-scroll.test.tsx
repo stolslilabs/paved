@@ -13,10 +13,8 @@ import { ReferralScene } from "../src/components/scenes/referral-scene";
 import { SettingsScene } from "../src/components/scenes/settings-scene";
 import { ThemeScene } from "../src/components/scenes/theme-scene";
 import { VaultScene } from "../src/components/scenes/vault-scene";
-import { VillageChestsScene } from "../src/components/scenes/village-chests-scene";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
 import { COBBLES, MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../src/mocks/scenes";
-import { VILLAGE_CHESTS } from "../src/mocks/village-v2";
 import { SHOP } from "../src/mocks/shop";
 import { ShopScene } from "../src/components/scenes/shop-scene";
 
@@ -33,7 +31,6 @@ import { ShopScene } from "../src/components/scenes/shop-scene";
  */
 const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
-  ["Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} onBack={no()} onPlay={no()} onOpen={no()} onTake={no()} />],
   ["Vault", <VaultScene {...VAULT.position} />],
   ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
 ];
@@ -124,14 +121,6 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(column.className).toMatch(/(^|\s)min-h-dvh(\s|$)/);
     for (let el: HTMLElement | null = column; el && el !== document.body; el = el.parentElement)
       expect(el.className).not.toMatch(/(^|\s)(overflow-(y-)?(auto|scroll|hidden|clip)|h-dvh|h-screen|h-full)(\s|$)/);
-  });
-
-  it("the Chests draw their content in the region: the day's slots", () => {
-    draw(PAGES.find(([title]) => title === "Chests")![1], false, "Chests");
-    // The page with the chest modal closed (#784): the day's three slots, under the sticky header.
-    const slots = screen.getByRole("list", { name: "Today's PvP slots" });
-    expect(document.querySelector("[data-slot=page-scroll]")).toContainElement(slots);
-    expect(slots.querySelectorAll(":scope > li")).toHaveLength(3);
   });
 
   it("the packs' sheet (SHOP-PAGE: the Shop's Cobbles tab over a page) scrolls in the sheet's region", () => {
@@ -226,7 +215,7 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
     expect(region.className).toContain("overscroll-contain");
     expect(region).toContainElement(screen.getByRole("region", { name: "Selected tile" }));
-    expect(region).toContainElement(screen.getByRole("list", { name: "Tile 7: skins" }));
+    expect(region).toContainElement(screen.getByRole("list", { name: "City corner: skins" }));
     const tiles = within(screen.getByRole("list", { name: "Tiles" })).getAllByRole("button");
     expect(tiles).toHaveLength(19);
     expect(region).toContainElement(tiles.at(-1)!);

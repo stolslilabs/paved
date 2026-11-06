@@ -14,20 +14,20 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * The dock (HOME-DOCK, the owner's asks of 2026-11-03, the mockup's footer): the painted ribbon with its wooden posts, Shop, Chests,
+ * The dock (HOME-DOCK, the owner's asks of 2026-11-03, the mockup's footer): the painted ribbon with its wooden posts, Shop, Ranking,
  * Play, Guild, Settings, each the mockup's icon over its label, Play the gold medallion rising above it (the swords over PLAY). Full
  * width on a phone, centred from `tablet`. Only the home draws it, under the pages it opens (DOCK-UNDER-PAGES): no item is ever the
  * current page.
  */
 export const Default: Story = {};
 
-/** 3 chests waiting: Chests' badge. */
-export const ChestsWaiting: Story = { args: { badges: { chests: 3 } } };
-export const ChestsWaitingPhone375: Story = { ...ChestsWaiting, ...PHONE_375 };
-export const ChestsWaitingPhone320: Story = { ...ChestsWaiting, ...PHONE_320 };
+/** 3 waiting on Guild: its badge. */
+export const GuildWaiting: Story = { args: { badges: { guild: 3 } } };
+export const GuildWaitingPhone375: Story = { ...GuildWaiting, ...PHONE_375 };
+export const GuildWaitingPhone320: Story = { ...GuildWaiting, ...PHONE_320 };
 
-/** On the home (#763): the chests waiting on Chests, the guild's count on Guild. */
-export const Home: Story = { args: { badges: { chests: 2, guild: 1 } } };
+/** On the home (#763): the guild's count on Guild; Ranking leads nowhere yet. */
+export const Home: Story = { args: { badges: { guild: 1 } } };
 
 /** A tap on an item asks for its page (the home's `useTabNavigate`). */
 export const Pick: Story = {

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { CAMPAIGNS, PlanType } from "@paved/game-core";
-import { appRenders } from "../../mocks/assets";
+import { angledTileArt, appRenders } from "../../mocks/assets";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { Button } from "../ui/button";
 import { CampaignCard, DeckPresentation, StarFill, StoryCoach, StoryEnd, type CampaignCardProps } from "./story-panels";
@@ -106,6 +106,10 @@ export const EndBeatsBestKnown: Story = {
 
 /** The end under reduced motion: the stars and the result at once. */
 export const EndReduced: Story = { ...EndTwoStars, parameters: { reducedMotion: "always" } };
+/** Three stars the first time on a campaign's last level: the epic chest it won, "Tap to open", opened here (END-CHEST). */
+export const EndChestWon: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={321} stars={3} chest={{ state: "won", rank: "epic" }} onOpenChest={fn()} /> };
+/** Its tile taken (Claim): the panel says it. */
+export const EndChestKept: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={321} stars={3} chest={{ state: "kept", rank: "epic", plan: 18 }} tileArt={angledTileArt} /> };
 
 const plansOf = (index: number) => [...new Set(CAMPAIGNS[index]!.levels.flatMap((l) => l.deck))].map((p) => PLAN_IDS.indexOf(p));
 const CARD: CampaignCardProps = {

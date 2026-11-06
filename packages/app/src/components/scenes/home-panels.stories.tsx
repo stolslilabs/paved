@@ -5,7 +5,7 @@ import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PVP_LEAGUE } from "../../mocks/pvp";
 import { COBBLES, HALL_OF_FAME, MISSIONS, PLAY, PLAYER_STATUS, RECORDS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
-import { HOME_VILLAGE, VILLAGE_CHESTS } from "../../mocks/village-v2";
+import { HOME_VILLAGE } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import PagePanel from "../containers/page-panel";
 import { ProfileProvider, type ProfileValue } from "../containers/profile-context";
@@ -19,7 +19,6 @@ import { SHOP } from "../../mocks/shop";
 import { SettingsScene } from "./settings-scene";
 import { ThemeScene } from "./theme-scene";
 import { VaultScene } from "./vault-scene";
-import { VillageChestsScene } from "./village-chests-scene";
 import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
 
@@ -43,7 +42,6 @@ const meta = {
     onEditingChange: fn(),
     onPlay: fn(),
     onMissions: fn(),
-    onChests: fn(),
     onShop: fn(),
     onVault: fn(),
     onLeague: fn(),
@@ -112,8 +110,6 @@ const shop = (state: keyof typeof SHOP = "tiles") => <ShopScene {...SHOP[state]}
 export const Shop: Story = { render: (args) => <HomeWith args={args}>{shop()}</HomeWith> };
 export const ShopCobbles: Story = { render: (args) => <HomeWith args={args}>{shop("picked")}</HomeWith> };
 export const ShopThemes: Story = { render: (args) => <HomeWith args={args}>{shop("themes")}</HomeWith> };
-/** The Chests: the slots, the chest to open, the Cobbles. */
-export const Chests: Story = panel("Chests", <VillageChestsScene {...VILLAGE_CHESTS.closed} tileArt={tileArt} onBack={fn()} onPlay={fn()} onOpen={fn()} onTake={fn()} />);
 /** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
 export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} />);
 /** The League's drawer over the home (LEAGUE-PAGE): the HUD's drawer, as the profile's and the Missions', at every width. */

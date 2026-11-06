@@ -24,7 +24,6 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "play/challenge": ["usdc"],
   avatar: COBBLES,
   "village/:player": COBBLES,
-  "village/chests": COBBLES,
   "village/shop": ["cobbles", "usdc"],
   "game/:gameId": NONE,
   training: NONE,
