@@ -34,11 +34,11 @@ export function GuildTabs({ tab, onTabChange, tabs, badges, children }: GuildTab
   const shown = GUILD_TABS.filter((t) => tabs.includes(t.id));
   return (
     <Tabs value={tab} onValueChange={(v) => shown.some((t) => t.id === v) && onTabChange?.(v as GuildTab)} rememberAs="guild" className="gap-3">
-      <TabsList aria-label="Guild" className="h-auto w-full auto-cols-auto justify-between bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
+      <TabsList aria-label="Guild" className="h-auto w-full auto-cols-auto justify-between gap-0 bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
         {shown.map(({ id, label }) => {
           const count = id === "announcements" || id === "requests" ? (badges?.[id] ?? 0) : 0;
           return (
-            <TabsTrigger key={id} value={id} aria-label={`${label}${count > 0 ? `, ${formatInteger(count)} waiting` : ""}`} className="text-outline h-11 px-1.5 text-xs font-bold mobile:text-sm">
+            <TabsTrigger key={id} value={id} aria-label={`${label}${count > 0 ? `, ${formatInteger(count)} waiting` : ""}`} className="text-outline h-11 px-1 text-xs font-bold mobile:text-sm">
               {label}
               {count > 0 && (
                 <span aria-hidden data-slot="guild-tab-badge" className="numeric absolute -top-0.5 right-0 grid h-4 min-w-4 place-items-center rounded-[0.3rem] bg-dock-badge px-0.5 text-xs leading-none font-bold text-foreground ring-2 ring-background">
