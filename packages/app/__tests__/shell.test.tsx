@@ -71,7 +71,7 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
   });
 
   it("each item of the home's dock reaches its page (#763), which carries no dock", async () => {
-    // The Shop and the Guild are the HUD's drawer over the home (SHOP-PAGE, GUILD-PAGE), named by their title; the others' headings are pages'.
+    // The Shop, the Guild and Settings are the HUD's drawer over the home (SHOP-PAGE, GUILD-PAGE, SETTINGS-PAGE), named by their title; the others' headings are pages'.
     for (const [name, path, heading] of [
       ["Shop", "/village/shop", "Shop"],
       ["Chests", "/village/chests", "Chests"],
@@ -82,7 +82,7 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
       await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
       await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: new RegExp(`^${name}`) }));
       await waitFor(() => expect(router.state.location.pathname).toBe(path), { timeout: slow(5000) });
-      if (name === "Shop" || name === "Guild") await screen.findByRole("dialog", { name: heading }, { timeout: slow(5000) });
+      if (name === "Shop" || name === "Guild" || name === "Settings") await screen.findByRole("dialog", { name: heading }, { timeout: slow(5000) });
       else await screen.findByRole("heading", { level: 1, name: heading }, { timeout: slow(5000) });
       expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
       cleanup();

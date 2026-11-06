@@ -29,6 +29,9 @@ import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_VAULT } from "./stress";
 import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
+import { titleOf } from "../lib/music/track-info";
+import { TRACKS } from "../lib/music/tracks";
+import { leagueOf } from "../lib/pvp-rules";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
@@ -267,11 +270,21 @@ export const VAULT = {
 
 export const PREFERENCES: Preferences = { quality: "high", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true, showSkins: true };
 
+/** What Credits names: the album's titles and two sound effects' credits. */
+const CREDITS = { tracks: TRACKS.map(titleOf), sounds: ["Tile placed", "Road closed"] };
+/** The book's account: the player in their league's rim (1,240 crowns, the book's figure). */
+const SETTINGS_CONNECTED = { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name, league: leagueOf(1240) }, autoQuality: "medium", version: "0.1.0", credits: CREDITS } as const;
+
+/** SETTINGS-PAGE: the drawer's states and its views (Themes, whose body is the route's, is a story of its own). */
 export const SETTINGS = {
-  connected: { preferences: PREFERENCES, account: { address: PLAYER_ID, name: PLAYER.name }, autoQuality: "medium", version: "0.1.0" },
-  guest: { preferences: { ...PREFERENCES, quality: "auto", sfxVolume: 0, showSkins: false }, account: null, version: "0.1.0" },
+  connected: SETTINGS_CONNECTED,
+  guest: { preferences: { ...PREFERENCES, quality: "auto", sfxVolume: 0, showSkins: false }, account: null, version: "0.1.0", credits: CREDITS },
   /** WRAP360: the longest username and a full address beside Disconnect; a long version. */
-  stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, version: "0.1.0-rc.12+build.20261015.abcdef0" },
+  stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, version: "0.1.0-rc.12+build.20261015.abcdef0", credits: CREDITS },
+  /** The Visuals' pill's view: the four qualities, High chosen and its cost said. */
+  quality: { ...SETTINGS_CONNECTED, view: "quality" },
+  /** More › Credits, a view of the drawer. */
+  credits: { ...SETTINGS_CONNECTED, view: "credits" },
 } satisfies Record<string, Data<SettingsSceneProps>>;
 
 const FOREST = 1;

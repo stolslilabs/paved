@@ -19,7 +19,8 @@ import { join } from "node:path";
  *   flow below `desktop`: there the document is what scrolls (`FLOWS`), under its sticky top bar. Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
- * - Missions, the League and the Shop are the HUD's drawer at every width (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
+ * - Missions, the League, the Shop, Tiles and Settings (its Themes and Credits) are the HUD's drawer at every width (MISSIONS-PAGE,
+ *   LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, `DRAWERS`): its body is its region, under the drawer's band, which
  *   stays put; from `tablet` its side panel has its close, by design.
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
@@ -51,7 +52,7 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
 const FLOWS: ReadonlySet<(typeof PAGES)[number]> = new Set(["play"]);
 
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });

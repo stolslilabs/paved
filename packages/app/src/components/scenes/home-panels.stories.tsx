@@ -8,7 +8,6 @@ import { PROGRESS } from "../../mocks/players";
 import { HOME_VILLAGE, VILLAGE_CHESTS } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
 import PagePanel from "../containers/page-panel";
-import PageSheet from "../containers/page-sheet";
 import { ProfileProvider, type ProfileValue } from "../containers/profile-context";
 import { CobblesScene } from "./cobbles-scene";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
@@ -125,18 +124,24 @@ const league = () => <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onOpen
  * home's top left), the leagues' carousel, the season's row, the battle logs; the crowns and the crest at the header's end.
  */
 export const League: Story = { render: (args) => <HomeWith args={args}>{league()}</HomeWith> };
-/** Settings, from the gear. */
-export const Settings: Story = panel("Settings", <SettingsScene {...SETTINGS.connected} onChange={fn()} />);
-/** The themes, from Settings: a sheet over its panel (BACK-RULE, #783), its close up to Settings, the Cobbles they cost in its header. */
-export const Themes: Story = panel(
-  "Settings",
-  <>
-    <SettingsScene {...SETTINGS.connected} onChange={fn()} />
-    <PageSheet open title="Themes" side="right" onClose={fn()}>
-      <ThemeScene {...THEME.mixed} onBack={fn()} onUse={fn()} onOpen={fn()} />
-    </PageSheet>
-  </>,
+/**
+ * Settings' drawer over the home (SETTINGS-PAGE, the Paved UX Book's Settings): the HUD's drawer at the right, as the Shop; its views
+ * (the quality's choice, Credits, Themes) open in it.
+ */
+const settings = (view?: "credits" | "themes") => (
+  <SettingsScene
+    {...SETTINGS.connected}
+    view={view}
+    themes={view === "themes" && <ThemeScene {...THEME.mixed} onUse={fn()} onOpen={fn()} />}
+    onChange={fn()}
+    onView={fn()}
+    onViewBack={fn()}
+    onBack={fn()}
+  />
 );
+export const Settings: Story = { render: (args) => <HomeWith args={args}>{settings()}</HomeWith> };
+/** More › Themes, a view of the drawer: Back to Settings, the red cross, the Cobbles at the header's end. */
+export const Themes: Story = { render: (args) => <HomeWith args={args}>{settings("themes")}</HomeWith> };
 /** Play's mode choice (the games themselves open full screen). */
 export const Play: Story = panel("Play", <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onTraining={fn()} onStory={fn()} onAttack={fn()} />);
 /** The Cobble packs, from the balances. */

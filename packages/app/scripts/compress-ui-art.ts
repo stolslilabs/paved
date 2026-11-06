@@ -138,6 +138,13 @@
  * a real die's faces, four on top at the corners of its rhombus as the book's, two and six on the sides) and the eraser redrawn chunky,
  * its silhouette about square (the first, long and thin, sat small on its disc), in neutral greys. Each kept among two or three attempts, checked beside those icons at 128, 32 and 24 px on the HUD's disc, then trimmed and put on the icons' frame.
  *
+ * SETTINGS-PAGE (2026-11-06): the Settings' rows (graphics, ambient, skins, music, sound, tile-preview, highlight, grid), each cropped
+ * from the Paved UX Book's tablet Settings screen (about 70 px), upscaled 4x and redrawn by Codex's built-in image tool (`codex exec
+ * -c model_provider=openai`, its `image_gen`) from its crop, with four shipped icons (missions, settings, sun, collection) as the
+ * style's reference: the object alone, on a transparent 1254 px square. Each trimmed to its opaque box, fitted to the 240 px box by a
+ * premultiplied area average and centred on the icons' frame, checked beside the shipped icons on the drawer's charcoal. The book's
+ * sun and scroll are the shipped `sun` and `missions`.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.

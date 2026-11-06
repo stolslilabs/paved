@@ -26,7 +26,9 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     // log's door and removed member (pencil, joined, kicked); its pin is the chat's. EDIT-VILLAGE (2026-11-06): raised by exactly the
     // measured size of edit mode's copies, 40,932 bytes: the die, the bubble's Rotate, Back to the inventory and Cancel, the Layouts'
     // padlock, the bar's Save and Erase (64 and 128 px each) and Use's gold pill (the frame `save-pill`, 48 and 128 px).
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932);
+    // SETTINGS-PAGE (2026-11-06): raised by exactly the copies of the Settings' eight row icons (graphics, ambient, skins, music,
+    // sound, tile-preview, highlight, grid), 49,176 bytes.
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176);
   });
 
   it("ships the guild emblems' charges (GUILD-PAGE): as many as game-core's emblems, each a light mask", () => {

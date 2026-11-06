@@ -725,6 +725,12 @@
     border-left: 1px solid var(--hud-outline);
   }
 }
+/* A carved list's near-black rules between its rows (SETTINGS-PAGE: the settings' groups, one row under the other). */
+@utility drawer-rows {
+  & > * + * {
+    border-top: 1px solid var(--hud-outline);
+  }
+}
 @utility drawer-icon {
   filter: drop-shadow(0 2px 0 var(--background));
 }

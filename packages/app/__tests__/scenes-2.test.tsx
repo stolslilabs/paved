@@ -186,12 +186,13 @@ describe("Vault", () => {
 });
 
 describe("Settings", () => {
-  it("sets the graphics, the day and night cycle, the volumes, tile preview and placement highlight", async () => {
+  it("sets the graphics in the pill's view, the day and night cycle, the volumes, tile preview and placement highlight", async () => {
     const onChange = vi.fn();
-    render(wrap(<SettingsScene {...SETTINGS.connected} onChange={onChange} />));
-    expect(screen.getByRole("radio", { name: "High" })).toHaveAttribute("data-state", "on");
-    await userEvent.click(screen.getByRole("radio", { name: "Low" }));
-    expect(onChange).toHaveBeenCalledWith("quality", "low");
+    const onView = vi.fn();
+    render(wrap(<SettingsScene {...SETTINGS.connected} onChange={onChange} onView={onView} />));
+    // SETTINGS-PAGE: the book's pill says the quality in use, its choice a view of the drawer.
+    await userEvent.click(screen.getByRole("button", { name: "Graphics quality: High" }));
+    expect(onView).toHaveBeenCalledWith("quality");
     expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
     await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
     expect(onChange).toHaveBeenCalledWith("dayNight", false);
@@ -209,20 +210,45 @@ describe("Settings", () => {
     expect(onChange).toHaveBeenCalledWith("placementHighlight", false);
   });
 
-  it("shows the connected account, and links to theme and referral", async () => {
+  it("chooses the quality in its view: the one in use checked, High's cost said, Back to Settings", async () => {
+    const onChange = vi.fn();
+    const onViewBack = vi.fn();
+    render(wrap(<SettingsScene {...SETTINGS.quality} onChange={onChange} onViewBack={onViewBack} />));
+    expect(screen.getByRole("dialog", { name: "Graphics quality" })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual(["Auto (Medium)", "Low", "Medium", "High"]);
+    expect(screen.getByRole("radio", { name: "High" })).toHaveAttribute("data-state", "on");
+    expect(screen.getByText(/High is heavier/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "Low" }));
+    expect(onChange).toHaveBeenCalledWith("quality", "low");
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(onViewBack).toHaveBeenCalledOnce();
+    // The red cross leaves from a view too (the Guild's menu's pattern).
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
+  it("shows the connected account in its league's rim, and opens Themes and Credits; no Referral (the profile's Invite)", async () => {
     const onDisconnect = vi.fn();
-    const onOpenTheme = vi.fn();
-    const onOpenReferral = vi.fn();
-    render(wrap(<SettingsScene {...SETTINGS.connected} onDisconnect={onDisconnect} onOpenTheme={onOpenTheme} onOpenReferral={onOpenReferral} />));
+    const onView = vi.fn();
+    render(wrap(<SettingsScene {...SETTINGS.connected} onDisconnect={onDisconnect} onView={onView} />));
     const account = screen.getByRole("region", { name: "Account" });
     expect(account).toHaveTextContent("bal7hazar");
-    expect(account).toHaveTextContent("Connected 0x05f1…6e7f");
+    expect(account).toHaveTextContent("Connected0x05f1…6e7f");
+    // The drawer is a portal: its rim is in the document, not the render's container.
+    expect(account.querySelector("[data-slot=league-portrait]")).toHaveAttribute("data-tier");
     await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
     await userEvent.click(screen.getByRole("button", { name: /^Themes/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Referral/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Credits/ }));
     expect(onDisconnect).toHaveBeenCalledOnce();
-    expect(onOpenTheme).toHaveBeenCalledOnce();
-    expect(onOpenReferral).toHaveBeenCalledOnce();
+    expect(onView.mock.calls).toEqual([["themes"], ["credits"]]);
+    expect(screen.queryByRole("button", { name: /Referral/ })).toBeNull();
+  });
+
+  it("shows Credits in the drawer: the notices link, the music's titles and the sound effects'", () => {
+    render(wrap(<SettingsScene {...SETTINGS.credits} />));
+    expect(screen.getByRole("dialog", { name: "Credits" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Third-party notices" })).toHaveAttribute("target", "_blank");
+    for (const name of ["Licences", "Fonts", "Icons", "Token icons", "Music", "Sound effects"]) expect(screen.getByRole("region", { name })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Sound effects" })).getByText("Road closed")).toBeInTheDocument();
   });
 
   it("asks a guest to connect", async () => {
