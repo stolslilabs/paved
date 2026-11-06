@@ -89,6 +89,18 @@ export interface StoredGuildMember {
   rank: GuildRank;
   joinedAt: number;
   lastKick: number | null;
+  /**
+   * The member's last rank change, kept with the member and not in the log (which keeps only its last `GUILD_LOG_KEPT` entries): the
+   * rank they got and when, written at the joining, the founding and every promotion, demotion and change of leader since version 3
+   * (#1030). Absent on a member upgraded from version 1 or 2 with no change since: their rank is the one the upgrade gave.
+   */
+  rankChange?: { rank: GuildRank; at: number };
+}
+
+/** Sets a member's rank and keeps the change with them (`rankChange`), at `at`. */
+function setRank(m: StoredGuildMember, rank: GuildRank, at: number): void {
+  m.rank = rank;
+  m.rankChange = { rank, at };
 }
 
 export interface StoredAnnouncement {
@@ -243,16 +255,16 @@ function seededGuild(seed: GuildSeed, i: number): StoredGuild {
   const people = community();
   const at = (index: number) => key(people[index]!.address);
   const createdAt = SEED_T0 + i * 2 * 86_400;
-  const members: StoredGuildMember[] = [{ address: at(seed.leader), rank: GUILD_RANK.leader, joinedAt: createdAt, lastKick: null }];
+  const members: StoredGuildMember[] = [{ address: at(seed.leader), rank: GUILD_RANK.leader, joinedAt: createdAt, lastKick: null, rankChange: { rank: GUILD_RANK.leader, at: createdAt } }];
   const log: StoredLogEntry[] = [{ kind: "created", at: createdAt, actor: at(seed.leader), target: null, reason: null }];
   [...seed.officers, ...seed.members].forEach((index, n) => {
     const joinedAt = createdAt + 3_600 * (5 + n * 7);
-    members.push({ address: at(index), rank: GUILD_RANK.member, joinedAt, lastKick: null });
+    members.push({ address: at(index), rank: GUILD_RANK.member, joinedAt, lastKick: null, rankChange: { rank: GUILD_RANK.member, at: joinedAt } });
     log.push({ kind: "joined", at: joinedAt, actor: at(index), target: null, reason: null });
   });
   seed.officers.forEach((index, n) => {
     const promotedAt = createdAt + 86_400 * (3 + n);
-    members.find((m) => m.address === at(index))!.rank = GUILD_RANK.officer;
+    setRank(members.find((m) => m.address === at(index))!, GUILD_RANK.officer, promotedAt);
     log.push({ kind: "promoted", at: promotedAt, actor: at(seed.leader), target: at(index), reason: null, rank: GUILD_RANK.officer });
   });
   const announcements = seed.announcements.map((a, n) => ({ id: n + 1, author: at(a.by), text: a.text, at: SEED_T0 + a.day * 3_600 * 24 - 3_600 * (i + 1), editedAt: null }));
@@ -268,40 +280,20 @@ export const seededGuildWorld = (): GuildWorld => ({ version: GUILD_WORLD_VERSIO
 const LEGACY_OFFICER = 2;
 
 /**
- * Whether a member stored at 2 in a version-1 world is version 1's Officer, on proof only (least privilege, #1030):
- * - their latest change kept in the log decides: a promotion or a demotion logged without a rank (version 1's client wrote none with
- *   one; GUILD-PAGE's always did), an Officer; one logged with rank 2, a Veteran; their founding or a change of leader naming them, an
- *   Officer (version 1's leaders stepped down to 2, GUILD-PAGE's to 3, and a demotion since would be logged after it);
- * - none kept (the log keeps its last `GUILD_LOG_KEPT` entries, by count): nothing proves an Officer, so a Veteran. Nothing stored
- *   proves either that GUILD-PAGE's code never wrote the world: its promotion to Veteran can have left the log, and the device's clock
- *   is no witness (it may lag), so no trace of the world, or none missing, makes it an Officer.
- */
-function legacyOfficerAtTwo(g: StoredGuild, address: string): boolean {
-  const theirs = g.log.filter(
-    (e) => ((e.kind === "promoted" || e.kind === "demoted") && e.target === address) || (e.kind === "created" && e.actor === address) || (e.kind === "leader" && (e.actor === address || e.target === address)),
-  );
-  const last = theirs.at(-1);
-  return last !== undefined && (last.kind === "created" || last.kind === "leader" || last.rank === undefined);
-}
-
-/**
- * A stored world upgraded to the current version (a copy), once (#1030; the rule the Overseer set on 2026-11-06, least privilege):
- * - a 2 is version 1's Officer, now 3, on proof in the log (`legacyOfficerAtTwo`): their latest change logged without a rank, as
- *   version 1's client logged every change, or a change of leader that stepped them down;
- * - a 2 whose promotion or demotion to Veteran is in the log is a Veteran;
- * - a 2 whose history is absent or pruned is undecidable and reads as a Veteran, the less privileged rank: a leader promotes again,
- *   whereas a kick or a promotion granted wrongly cannot be undone;
- * - every upgraded or new world says version 3, is stored so at the next write and is never upgraded again: from then on the stored
- *   `rank` is the rank, read from no log.
- * The stored version does not tell a world's vintage: GUILD-PAGE's code (#1027) kept writing `version: 1`, and nothing else stored
- * proves a world it never re-saved (its promotion can leave the log, a device's clock can lag), so version 1 is judged member by
- * member. Version 2 is this upgrade's first form, from its pull request only, whose ranks are the five already and are kept.
- * The accepted residual case, not a defect: version 1's Officer whose whole history left the log reads as a Veteran.
+ * A stored world upgraded to the current version (a copy), once (#1030; the rule the Overseer set on 2026-11-06, final). It reads the
+ * stored world only: no clock, no time, the same result whenever it runs.
+ * - version 1: every rank 2 is version 1's Officer, now 3 (the stored version is the only witness of a world's vintage);
+ * - version 2: a rank 2 is a Veteran, with or without a promotion-to-Veteran record in its log. With one it is a Veteran; with none
+ *   it is undecidable and reads as a Veteran too, the less privileged rank (least privilege, the accepted residual case: a leader
+ *   promotes again, whereas a kick or a promotion granted wrongly cannot be undone). So only version 1 ever makes an Officer of a 2;
+ * - the upgraded world says version 3, is stored so at the next write and is never upgraded again. From version 3 each member keeps
+ *   their last rank change with them (`rankChange`), outside the pruned log: no reading needs the log or the clock again.
+ * Known consequence, by the ruling: GUILD-PAGE's code (#1027) kept writing `version: 1`, so a Veteran it promoted in a world it stored
+ * so is read as an Officer.
  */
 function upgradeGuildWorld(stored: Omit<GuildWorld, "version">, from: 1 | 2): GuildWorld {
   const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };
-  if (from === 2) return w;
-  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && legacyOfficerAtTwo(g, m.address)) m.rank = GUILD_RANK.officer;
+  if (from === 1) for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER) m.rank = GUILD_RANK.officer;
   return w;
 }
 
@@ -339,7 +331,7 @@ function addLog(g: StoredGuild, kind: GuildLogKind, at: number, actor: string, t
 function enter(world: GuildWorld, g: StoredGuild, address: string, at: number): void {
   for (const other of world.guilds) other.requests = other.requests.filter((r) => r.address !== address);
   g.invitations = g.invitations.filter((i) => i.address !== address);
-  g.members.push({ address, rank: GUILD_RANK.recruit, joinedAt: at, lastKick: null });
+  g.members.push({ address, rank: GUILD_RANK.recruit, joinedAt: at, lastKick: null, rankChange: { rank: GUILD_RANK.recruit, at } });
   addLog(g, "joined", at, address);
 }
 
@@ -482,8 +474,8 @@ export function settle(world: GuildWorld, people: GuildPeople, now: number, bloc
       const roster = g.members.map((m) => ({ ...m, crowns: 0, lastSeen: Math.min(lastSeen(world, m.address, at), at) }));
       const next = rotatedLeader(roster, at);
       if (!next) break;
-      old.rank = GUILD_RANK.officer;
-      memberOf(g, next)!.rank = GUILD_RANK.leader;
+      setRank(old, GUILD_RANK.officer, at);
+      setRank(memberOf(g, next)!, GUILD_RANK.leader, at);
       addLog(g, "leader", at, next, next);
     }
   }
@@ -604,7 +596,7 @@ export function createGuildIn(w: GuildWrite, draft: GuildDraft): number {
     name: normalGuildName(draft.name),
     settings: { emblem: { ...draft.emblem }, description: draft.description, joinType: draft.joinType, requirements: { ...draft.requirements } },
     createdAt: w.now,
-    members: [{ address: w.player, rank: GUILD_RANK.leader, joinedAt: w.now, lastKick: null }],
+    members: [{ address: w.player, rank: GUILD_RANK.leader, joinedAt: w.now, lastKick: null, rankChange: { rank: GUILD_RANK.leader, at: w.now } }],
     announcements: [],
     log: [{ kind: "created", at: w.now, actor: w.player, target: null, reason: null }],
     requests: [],
@@ -687,7 +679,7 @@ export function promoteIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(promoteRefusal(me, t));
-  t.rank = rankAbove(t.rank)!;
+  setRank(t, rankAbove(t.rank)!, w.now);
   addLog(g, "promoted", w.now, w.player, t.address, null, t.rank);
 }
 
@@ -695,7 +687,7 @@ export function demoteIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(demoteRefusal(me, t));
-  t.rank = rankBelow(t.rank)!;
+  setRank(t, rankBelow(t.rank)!, w.now);
   addLog(g, "demoted", w.now, w.player, t.address, null, t.rank);
 }
 
@@ -703,8 +695,8 @@ export function makeLeaderIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(makeLeaderRefusal(me, t));
-  t.rank = GUILD_RANK.leader;
-  me.rank = GUILD_RANK.officer;
+  setRank(t, GUILD_RANK.leader, w.now);
+  setRank(me, GUILD_RANK.officer, w.now);
   addLog(g, "leader", w.now, w.player, t.address);
 }
 

@@ -448,7 +448,10 @@ function legacyWorld(w: GuildWorld): unknown {
   const old = JSON.parse(JSON.stringify(w));
   old.version = 1;
   for (const g of old.guilds) {
-    for (const m of g.members) m.rank = m.rank === GUILD_RANK.leader ? 4 : m.rank === GUILD_RANK.officer ? 2 : 1;
+    for (const m of g.members) {
+      m.rank = m.rank === GUILD_RANK.leader ? 4 : m.rank === GUILD_RANK.officer ? 2 : 1;
+      delete m.rankChange;
+    }
     for (const e of g.log) delete e.rank;
   }
   return old;
@@ -496,26 +499,19 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
     expect(parseGuildWorld(null)).toBeNull();
   });
 
-  it("upgrades the Officers of a legacy world GUILD-PAGE's client wrote on since (a Recruit joined, still version 1), member by member", async () => {
+  it("upgrades an Officer of a version-1 world #1027's client wrote on since (a Recruit joined): every 2 there is an Officer", async () => {
     const { guilds, store } = await guildOfFour();
     await promoteTo(guilds, OTHER, GUILD_RANK.officer);
     storeGuilds(store, legacyWorld(storedGuilds(store)));
-    // GUILD-PAGE's client (#1027) wrote on that world under version 1: a Recruit joins (0), an old Member (1) is promoted to Veteran (2).
     const mixed = JSON.parse(JSON.stringify(storedGuilds(store)));
     const g = mixed.guilds.find((x: GuildWorld["guilds"][number]) => x.members.some((m) => m.address === ME));
     g.members.push({ address: "0xabc005", rank: GUILD_RANK.recruit, joinedAt: T0 + 60, lastKick: null });
     g.log.push({ kind: "joined", at: T0 + 60, actor: "0xabc005", target: null, reason: null });
-    g.members.find((m: { address: string }) => m.address === "0xabc003").rank = GUILD_RANK.veteran;
-    g.log.push({ kind: "promoted", at: T0 + 120, actor: ME, target: "0xabc003", reason: null, rank: GUILD_RANK.veteran });
     expect(mixed.version).toBe(1);
-    expect(g.members.find((m: { address: string }) => m.address === OTHER).rank).toBe(2);
     storeGuilds(store, mixed);
-    // The old Officer (2, promoted without a logged rank) is the Officer; the Veteran (2, logged so) stays one; the Recruit stays one.
     expect((await guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.officer);
-    expect((await guilds.guildOf("0xabc003"))!.rank).toBe(GUILD_RANK.veteran);
     expect((await guilds.guildOf("0xabc005"))!.rank).toBe(GUILD_RANK.recruit);
     expect((await guilds.guildOf(seededOfficerOf("Hollow Oak")))!.rank).toBe(GUILD_RANK.officer);
-    // The Officer kicks and promotes; the write stores version 3 with the Officer at 3.
     await guilds.promote(OTHER, "0xabc004");
     await guilds.kick(OTHER, "0xabc005", "");
     const stored = storedGuilds(store);
@@ -523,21 +519,8 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
     expect(stored.guilds.flatMap((x) => x.members).find((m) => m.address === OTHER)!.rank).toBe(GUILD_RANK.officer);
   });
 
-  it("upgrades an Officer whose promotion GUILD-PAGE's world logged without a rank, through the parser, after a join (#1030 review)", () => {
-    const legacy = legacyWorld(seededGuildWorld()) as { guilds: { members: { address: string; rank: number }[]; log: object[] }[] };
-    const quarry = legacy.guilds[0]!;
-    const officer = quarry.members.find((m) => m.rank === 2)!.address;
-    quarry.members.push({ address: "0xabc005", rank: GUILD_RANK.recruit } as never);
-    const parsed = parseGuildWorld(JSON.parse(JSON.stringify(legacy)))!;
-    expect(parsed.version).toBe(GUILD_WORLD_VERSION);
-    expect(parsed.guilds[0]!.members.find((m) => m.address === officer)!.rank).toBe(GUILD_RANK.officer);
-    expect(parsed.guilds[0]!.members.find((m) => m.address === "0xabc005")!.rank).toBe(GUILD_RANK.recruit);
-  });
-
-  describe("the acceptance criterion (the Overseer's ruling, least privilege): an undecidable 2 is a Veteran, never an Officer", () => {
+  describe("the final rule (the Overseer's ruling): only version 1 makes an Officer of a 2; version 2 reads every 2 as a Veteran", () => {
     type Stored = GuildWorld["guilds"][number];
-    /** An hour after GUILD-PAGE (#1027) merged (2026-11-06 06:42 UTC): when its client wrote, on a right clock. */
-    const AFTER = 1_793_947_320 + 3_600;
     /** The Quarrymen as stored, its leader and a Member. */
     function quarry(w: GuildWorld) {
       const g = w.guilds[0]!;
@@ -554,114 +537,118 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
     const rights = (w: GuildWorld, actor: string) => {
       const a = w.guilds[0]!.members.find((m) => m.address === actor)!;
       const recruit = { address: "0xabc005", rank: GUILD_RANK.recruit };
-      return [kickRefusal({ address: a.address, rank: a.rank, lastKick: null }, recruit, AFTER), promoteRefusal(a, recruit)];
+      return [kickRefusal({ address: a.address, rank: a.rank, lastKick: null }, recruit, T0), promoteRefusal(a, recruit)];
     };
     const stored = (w: unknown, version: number) => ({ ...JSON.parse(JSON.stringify(w)), version });
-    /**
-     * A world as GUILD-PAGE's client stored it (version 1 still): a Member promoted to Veteran, the promotion logged with its rank, at
-     * `at` (the device's clock: it may lag behind the merge). From a legacy world when `legacy` (its Officers 2, nothing else of #1027).
-     */
-    function promotedByGuildPage(at = AFTER, legacy = false) {
-      const w = legacy ? (legacyWorld(seededGuildWorld()) as GuildWorld) : seededGuildWorld();
+    /** A five-rank world: a Member promoted to Veteran, the promotion logged with its rank (`logged`), or no record of it. */
+    function withVeteran(logged: boolean) {
+      const w = seededGuildWorld();
       const { g, leader, member } = quarry(w);
       g.members.find((m) => m.address === member)!.rank = GUILD_RANK.veteran;
-      g.log = keepLog([...g.log, { kind: "promoted", at, actor: leader, target: member, reason: null, rank: GUILD_RANK.veteran }]);
+      if (logged) g.log = keepLog([...g.log, { kind: "promoted", at: T0, actor: leader, target: member, reason: null, rank: GUILD_RANK.veteran }]);
       return { w, g, leader, member };
     }
 
-    it("(a) v1 Officer kept: an old Officer, their promotion logged as version 1 logged it (no rank), becomes 3; the world says version 3", () => {
+    it("(1) v1 Officer kept: every 2 of a version-1 world is an Officer, its history kept or pruned; the world says version 3", () => {
       const w = legacyWorld(seededGuildWorld()) as GuildWorld;
       const { g, leader } = quarry(w);
       const officers = g.members.filter((m) => m.rank === 2).map((m) => m.address);
       expect(officers.length).toBeGreaterThan(0);
-      // Newer entries after them, whatever the clock, as long as the promotions are kept.
-      announce(g, leader, GUILD_LOG_KEPT - g.log.length, T0);
-      expect(officers.every((o) => g.log.some((e) => e.kind === "promoted" && e.target === o && e.rank === undefined))).toBe(true);
-      const parsed = parseGuildWorld(stored(w, 1))!;
-      expect(parsed.version).toBe(3);
-      for (const o of officers) expect(rankIn(parsed, o)).toBe(GUILD_RANK.officer);
-      expect(rights(parsed, officers[0]!)).toEqual([null, null]);
-    });
-
-    it("(b) v2 Veteran with event kept: a 2 #1027 promoted, the promotion in the log, stays a Veteran (stored as #1027 did, version 1, or as 2)", () => {
-      const { w, member } = promotedByGuildPage();
-      for (const version of [1, 2]) {
-        const parsed = parseGuildWorld(stored(w, version))!;
+      const kept = parseGuildWorld(stored(w, 1))!;
+      announce(g, leader, GUILD_LOG_KEPT, T0);
+      expect(g.log.every((e) => e.kind === "announcement")).toBe(true);
+      const pruned = parseGuildWorld(stored(w, 1))!;
+      for (const parsed of [kept, pruned]) {
         expect(parsed.version).toBe(3);
-        expect(rankIn(parsed, member)).toBe(GUILD_RANK.veteran);
-        expect(rights(parsed, member)).toEqual(["rank", "rank"]);
+        for (const o of officers) expect(rankIn(parsed, o)).toBe(GUILD_RANK.officer);
+        expect(rights(parsed, officers[0]!)).toEqual([null, null]);
       }
     });
 
-    it("(b) v2 rank 2 with pruned log reads Veteran, without an Officer's rights, in a world #1027 re-saved (review 5's reproduction)", () => {
-      // The review's reproduction: the promotion, then GUILD_LOG_KEPT announcements a second apart push it out.
-      const { w, g, leader, member } = promotedByGuildPage();
-      announce(g, leader, GUILD_LOG_KEPT, AFTER + 1);
-      expect(g.log.some((e) => e.target === member)).toBe(false);
-      for (const version of [1, 2]) {
-        const parsed = parseGuildWorld(stored(w, version))!;
-        expect(rankIn(parsed, member)).toBe(GUILD_RANK.veteran);
-        expect(rights(parsed, member)).toEqual(["rank", "rank"]);
-      }
-      // Review 7's reproduction: a legacy world #1027 re-saved on a device whose clock was a day behind the merge, its promotion pushed
-      // out: no trace of #1027 left, not even a late time, and still a Veteran.
-      const lagging = AFTER - 3_600 - 86_400;
-      const late = promotedByGuildPage(lagging, true);
-      announce(late.g, late.leader, GUILD_LOG_KEPT, lagging + 1);
-      expect(late.g.log.every((e) => e.at < AFTER - 3_600 && e.rank === undefined)).toBe(true);
-      const parsed = parseGuildWorld(stored(late.w, 1))!;
+    it("(1) the ruling's known consequence: a 2 #1027 promoted to Veteran in a world it stored as version 1 reads as an Officer", () => {
+      const { w, member } = withVeteran(true);
+      expect(rankIn(parseGuildWorld(stored(w, 1))!, member)).toBe(GUILD_RANK.officer);
+    });
+
+    it("(2) v2 Veteran kept: a 2 with its promotion-to-Veteran record stays a Veteran, without an Officer's rights", () => {
+      const { w, member } = withVeteran(true);
+      const parsed = parseGuildWorld(stored(w, 2))!;
       expect(parsed.version).toBe(3);
-      expect(rankIn(parsed, late.member)).toBe(GUILD_RANK.veteran);
-      expect(rights(parsed, late.member)).toEqual(["rank", "rank"]);
+      expect(rankIn(parsed, member)).toBe(GUILD_RANK.veteran);
+      expect(rights(parsed, member)).toEqual(["rank", "rank"]);
     });
 
-    it("(b) the accepted residual case: version 1's Officer whose whole history left the log reads as a Veteran, whatever the clock", () => {
-      const w = legacyWorld(seededGuildWorld()) as GuildWorld;
-      const { g, leader } = quarry(w);
-      const officers = g.members.filter((m) => m.rank === 2).map((m) => m.address);
-      for (const at of [T0, AFTER]) {
-        const pruned = structuredClone(w);
-        announce(quarry(pruned).g, leader, GUILD_LOG_KEPT, at);
-        const parsed = parseGuildWorld(stored(pruned, 1))!;
-        for (const o of officers) expect(rankIn(parsed, o)).toBe(GUILD_RANK.veteran);
+    it("(2) v2 rank 2 without record reads Veteran (the accepted residual case): its record pruned or never written", () => {
+      const pruned = withVeteran(true);
+      announce(pruned.g, pruned.leader, GUILD_LOG_KEPT, T0 + 1);
+      expect(pruned.g.log.some((e) => e.target === pruned.member)).toBe(false);
+      const none = withVeteran(false);
+      // Version 1's Officers stored at 2 under version 2 too: no record, a Veteran.
+      const legacy = legacyWorld(seededGuildWorld()) as GuildWorld;
+      const legacyTwos = quarry(legacy).g.members.filter((m) => m.rank === 2).map((m) => m.address);
+      for (const [w, twos] of [
+        [pruned.w, [pruned.member]],
+        [none.w, [none.member]],
+        [legacy, legacyTwos],
+      ] as const) {
+        const parsed = parseGuildWorld(stored(w, 2))!;
+        expect(parsed.version).toBe(3);
+        for (const t of twos) {
+          expect(rankIn(parsed, t)).toBe(GUILD_RANK.veteran);
+          expect(rights(parsed, t)).toEqual(["rank", "rank"]);
+        }
       }
-      // Their promotion still logged (without a rank, as version 1 did): an Officer.
-      const kept = legacyWorld(seededGuildWorld()) as GuildWorld;
-      announce(quarry(kept).g, leader, 3, AFTER);
-      for (const o of officers) expect(rankIn(parseGuildWorld(stored(kept, 1))!, o)).toBe(GUILD_RANK.officer);
     });
 
-    it("(c) v3 untouched: a 2 with nothing logged stays a Veteran, the upgrade never runs twice", () => {
-      const w = seededGuildWorld();
-      const { g, member } = quarry(w);
-      g.members.find((m) => m.address === member)!.rank = GUILD_RANK.veteran;
-      expect(g.log.some((e) => e.target === member && e.kind === "promoted")).toBe(false);
+    it("(3) v3 untouched: returned as stored, a 2 with nothing logged a Veteran; the upgrade never runs twice", () => {
+      const { w, member } = withVeteran(false);
       const v3 = stored(w, 3);
       const parsed = parseGuildWorld(v3)!;
       expect(parsed).toBe(v3);
       expect(rankIn(parsed, member)).toBe(GUILD_RANK.veteran);
+      const upgraded = parseGuildWorld(stored(legacyWorld(seededGuildWorld()), 1))!;
+      expect(parseGuildWorld(JSON.parse(JSON.stringify(upgraded)))).toEqual(upgraded);
     });
 
-    it("upgrades a version-1 leader who stepped down to 2 (Make leader), their promotion never logged, to Officer", () => {
-      const w = legacyWorld(seededGuildWorld()) as GuildWorld;
-      const { g, leader, member } = quarry(w);
-      g.members.find((m) => m.address === leader)!.rank = 2;
-      g.members.find((m) => m.address === member)!.rank = GUILD_RANK.leader;
-      g.log = keepLog([...g.log, { kind: "leader", at: AFTER, actor: leader, target: member, reason: null }]);
-      expect(rankIn(parseGuildWorld(stored(w, 1))!, leader)).toBe(GUILD_RANK.officer);
+    it("gives the same result whatever the clock says: two runs, fake clocks a century apart", () => {
+      const inputs = [stored(legacyWorld(seededGuildWorld()), 1), stored(withVeteran(true).w, 2), stored(withVeteran(false).w, 2), stored(seededGuildWorld(), 3)];
+      const run = () => inputs.map((x) => parseGuildWorld(structuredClone(x)));
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date("2000-01-01T00:00:00Z"));
+        const early = run();
+        vi.setSystemTime(new Date("2100-01-01T00:00:00Z"));
+        const late = run();
+        expect(late).toEqual(early);
+        expect(early.map((w) => w!.version)).toEqual([3, 3, 3, 3]);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
-  it("leaves a version-1 world the five ranks wrote (GUILD-PAGE before the version came) as it is: its Veterans stay Veterans", () => {
-    const w = seededGuildWorld();
-    const veteran = w.guilds[0]!.members.find((m) => m.rank === GUILD_RANK.member)!;
-    veteran.rank = GUILD_RANK.veteran;
-    // As GUILD-PAGE's client promotes: one rank at a time, each logged with its new rank.
-    for (const rank of [GUILD_RANK.member, GUILD_RANK.veteran]) w.guilds[0]!.log.push({ kind: "promoted", at: T0, actor: w.guilds[0]!.members[0]!.address, target: veteran.address, reason: null, rank });
-    const stored = { ...JSON.parse(JSON.stringify(w)), version: 1 };
-    const parsed = parseGuildWorld(stored)!;
-    expect(parsed.version).toBe(GUILD_WORLD_VERSION);
-    expect(parsed.guilds).toEqual(w.guilds);
+  it("keeps each member's last rank change with them from version 3 (#1030), outside the pruned log", async () => {
+    const { guilds, store, id } = await guildOfFour();
+    const member = (address: string) => storedGuilds(store).guilds.find((g) => g.id === id)!.members.find((m) => m.address === address)!;
+    expect(member(ME).rankChange).toEqual({ rank: GUILD_RANK.leader, at: T0 });
+    expect(member(OTHER).rankChange).toEqual({ rank: GUILD_RANK.recruit, at: T0 });
+    await promoteTo(guilds, OTHER, GUILD_RANK.veteran);
+    expect(member(OTHER).rankChange).toEqual({ rank: GUILD_RANK.veteran, at: T0 });
+    await guilds.demote(ME, OTHER);
+    expect(member(OTHER).rankChange).toEqual({ rank: GUILD_RANK.member, at: T0 });
+    await guilds.makeLeader(ME, OTHER);
+    expect([member(ME).rankChange, member(OTHER).rankChange]).toEqual([
+      { rank: GUILD_RANK.officer, at: T0 },
+      { rank: GUILD_RANK.leader, at: T0 },
+    ]);
+    // The log pruned of every one of those changes: the members still hold theirs.
+    const w = storedGuilds(store);
+    const g = w.guilds.find((x) => x.id === id)!;
+    g.log = keepLog([...g.log, ...Array.from({ length: GUILD_LOG_KEPT }, (_, i) => ({ kind: "announcement" as const, at: T0 + 1 + i, actor: ME, target: null, reason: null }))]);
+    storeGuilds(store, w);
+    expect(g.log.some((e) => e.kind === "promoted" || e.kind === "demoted" || e.kind === "leader")).toBe(false);
+    expect(member(OTHER).rankChange).toEqual({ rank: GUILD_RANK.leader, at: T0 });
+    expect((await guilds.guildOf(OTHER))!.rank).toBe(GUILD_RANK.leader);
   });
 });
 
