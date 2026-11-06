@@ -48,6 +48,8 @@ async function pinch(cdp: CDPSession, x: number, y: number, scaleFactor: number)
 
 async function main(): Promise<void> {
   const given = process.argv.indexOf("--url") >= 0 ? process.argv[process.argv.indexOf("--url") + 1] : "";
+  // The mock, as the PAGES-SCROLL pass: the connected Vault below reads no chain, its writes go to the device's ledger only.
+  if (!given) process.env.VITE_DATA_SOURCE ??= "mock";
   const vite = given
     ? null
     : await createVite({ root: fileURLToPath(new URL("..", import.meta.url)), logLevel: "error", server: { port: 0, host: "127.0.0.1" } });
@@ -64,8 +66,8 @@ async function main(): Promise<void> {
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
 
-    // The chrome: Settings is text and rows, no board.
-    await page.goto(`${base}/settings`, { waitUntil: "networkidle" });
+    // The chrome: the Vault is text and rows, no board (Settings, the HUD's drawer since SETTINGS-PAGE, draws the village under it).
+    await page.goto(`${base}/vault`, { waitUntil: "networkidle" });
     await page.getByRole("heading").first().waitFor();
     const meta = await page.evaluate(() => document.querySelector('meta[name="viewport"]')?.getAttribute("content") ?? "");
     check("viewport meta forbids zoom", /maximum-scale=1/.test(meta) && /user-scalable=no/.test(meta) && /viewport-fit=cover/.test(meta), meta);
@@ -87,6 +89,19 @@ async function main(): Promise<void> {
 
     // FOOTER-FIXED (#611): the document never scrolls or bounces; the page scrolls in its own region, its header sticking to
     // the viewport's top through a scroll. DOCK-UNDER-PAGES (2026-11-04): a page carries no dock, its way out is its Back.
+    // The tab page is the Vault, connected (the mock's device key, nothing sent): its form and an empty wallet's Play, 743 px,
+    // taller than its region on an iPhone SE's view under Safari's bars (548 px, the PAGES-SCROLL pass's short screen) at the
+    // Pixel 7's width. Settings, which was taller than a phone even for a guest, is the HUD's drawer (SETTINGS-PAGE), not a tab page.
+    await page.getByRole("button", { name: "Connect" }).first().click();
+    const play = page.getByRole("button", { name: "Play", exact: true });
+    await play.waitFor();
+    const phone = page.viewportSize()!;
+    await page.setViewportSize({ width: phone.width, height: 548 });
+    // The session's change draws the page again: its region is waited for, not assumed.
+    await page.waitForLoadState("networkidle");
+    await page.locator("[data-slot=page-scroll]").first().waitFor();
+    await play.waitFor();
+    await page.waitForTimeout(500);
     const header = page.locator("[data-slot=page-header]").first();
     const headerTop = async () => (await header.boundingBox())!.y;
     const docStyles = await page.evaluate(() => ({
@@ -107,35 +122,33 @@ async function main(): Promise<void> {
     const region = page.locator("[data-slot=page-scroll]").first();
     const left = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
     await page.waitForTimeout(300);
-    await page.getByRole("button", { name: /Credits/ }).click();
-    await page.waitForURL(/credits/);
+    await play.click();
+    await page.waitForURL(/\/play$/);
     await page.goBack();
-    await page.getByRole("button", { name: /Credits/ }).waitFor();
+    await play.waitFor();
     await page.waitForTimeout(500);
     const back = await region.evaluate((el) => el.scrollTop);
     check("tab page: Back restores the page's scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
     await region.evaluate((el) => (el.scrollTop = 0));
     await page.waitForTimeout(300);
-    // Back to an entry left at the top returns to the top: Settings left at 0, the Credits' sheet over it scrolled, then Back.
-    // A dispatched click: a pointer's would first scroll the region to the link, at its foot.
-    await page.getByRole("button", { name: /Credits/ }).dispatchEvent("click");
-    await page.waitForURL(/credits/);
-    const sheet = page.getByRole("dialog").locator("[data-slot=page-scroll]");
-    await sheet.waitFor();
-    await page.waitForTimeout(300);
-    await sheet.evaluate((el) => (el.scrollTop = 500));
+    // Back to an entry left at the top returns to the top: the Vault left at 0, Play (a full-screen flow below `desktop`: its
+    // document scrolls) scrolled, then Back. A dispatched click: a pointer's would first scroll the region to Play, at its foot.
+    await play.dispatchEvent("click");
+    await page.waitForURL(/\/play$/);
+    await page.waitForTimeout(500);
+    await page.evaluate(() => (document.scrollingElement!.scrollTop = 500));
     await page.waitForTimeout(300);
     await page.goBack();
-    await page.getByRole("button", { name: /Credits/ }).waitFor();
+    await play.waitFor();
     await page.waitForTimeout(500);
     const backToTop = await region.evaluate((el) => el.scrollTop);
     check("tab page: Back to an entry left at the top returns to the top", backToTop === 0, `scrollTop ${backToTop}`);
-    await page.goto(`${base}/settings`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/vault`, { waitUntil: "networkidle" });
     await region.waitFor();
     // A fresh document (a typed URL) opens at the top: its first entry never takes another page's offset.
     await region.evaluate((el) => (el.scrollTop = el.scrollHeight));
     await page.waitForTimeout(300);
-    for (const path of ["/vault", "/settings"]) {
+    for (const path of ["/referral", "/vault"]) {
       await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
       await region.waitFor();
       await page.waitForTimeout(500);
@@ -145,14 +158,15 @@ async function main(): Promise<void> {
     // The first entry of that fresh document keeps its offset across a reload of a later entry.
     const kept = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
     await page.waitForTimeout(300);
-    await page.getByRole("button", { name: /Credits/ }).click();
-    await page.waitForURL(/credits/);
+    await play.click();
+    await page.waitForURL(/\/play$/);
     await page.reload({ waitUntil: "networkidle" });
     await page.goBack();
-    await page.getByRole("button", { name: /Credits/ }).waitFor();
+    await play.waitFor();
     await page.waitForTimeout(500);
     const afterReload = await region.evaluate((el) => el.scrollTop);
     check("tab page: Back after a reload of the next page restores the first entry's offset", kept > 0 && Math.abs(afterReload - kept) < 2, `left at ${kept}, back at ${afterReload}`);
+    await page.setViewportSize(phone);
 
     // iOS Safari ignores the meta: its pinch is the page's `gesturestart` and `gesturechange`, which must be cancelled.
     const cancelled = await page.evaluate(() =>
