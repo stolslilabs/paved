@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
-import { artSources, RIM_PORTRAIT, type LeagueTier } from "./league-standards";
+import { RIM_PORTRAIT } from "./league-rim-geometry";
+import { artSources, type LeagueTier } from "./league-standards";
 
 /** The rim's widths (its em): 40, 56 and 96 px; `inherit` takes the parent's font size. */
 const RIM_REM = { sm: 2.5, md: 3.5, lg: 6, inherit: null } as const;

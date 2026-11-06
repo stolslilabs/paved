@@ -57,7 +57,7 @@ interface Frame {
 /**
  * Each part's frame, every tier's file of a part put on it by one rule, so they swap without a layout change. The crest, the icon and
  * the rim on a square: the shield centred at 98% of its height in its own proportions (the owner's, 2026-11-01, in place of the 1:1
- * stretch of 2026-10-30: about 0.87 of its height wide), the rim's hole the same on every tier (`RIM_HOLE`). The plate and the banner
+ * stretch of 2026-10-30: about 0.87 of its height wide), the rim's hole the same on every tier (`RIM_HOLE`, `league-rim-geometry.ts`). The plate and the banner
  * on frames of their own shape (not square, the owner's, 2026-11-01): the plate's end caps kept and its middle sized to the frame's
  * width; the banner's plain cloth sized to the frame, its numeral or emblem laid over it unstretched, at one size and place on every
  * tier. The copies cover 16 px icons to a 314 px crest on a 2x screen.
@@ -75,13 +75,6 @@ const divided = (part: LeaguePart, tier: LeagueTier) => LEAGUE_ART[part].divisio
 
 /** A part's versions for a tier: its plain one (none), and one per division where the part and the tier have them. */
 export const versionsOf = (part: LeaguePart, tier: LeagueTier): readonly (Division | null)[] => (divided(part, tier) ? [null, "I", "II", "III"] : [null]);
-
-/**
- * The rim's hole: the share of the frame's width inside the ring, the same on every tier. The portrait under it is a disc a little
- * wider (`RIM_PORTRAIT`), so its edge always hides under the ring.
- */
-export const RIM_HOLE = 0.664;
-export const RIM_PORTRAIT = 0.694;
 
 /**
  * The plate's dark face: the share of the plate's width the name may take, inside the frame's end caps. The plates of 2026-11-01 have

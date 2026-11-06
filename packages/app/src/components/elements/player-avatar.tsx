@@ -23,9 +23,10 @@ const LiveSavedAvatar = lazy(() => import("./live-avatar"));
 
 /**
  * The still's side in CSS px at each size: the disc's (the box less its band), `lg` at the largest it is drawn (the home's profile
- * at the season dial's size, 144 px from `tablet`, issue 856; the profile sheet's 88 px disc shares that still).
+ * at the season dial's size, 144 px from `tablet`, issue 856; the profile sheet's 88 px disc shares that still). `md` at the largest
+ * disc it fills in a league rim: the League's battle logs' 60 px rim, its portrait 0.834 of it (`RIM_PORTRAIT`), 50 px.
  */
-const DISC_PX = { md: 40, lg: 128 } as const;
+const DISC_PX = { md: 50, lg: 128 } as const;
 
 /** Who the avatar shows: the name the screens give the player (`PlayerName`) and the address their initial falls back to. */
 export interface AvatarPlayer {

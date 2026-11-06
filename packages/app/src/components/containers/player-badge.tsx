@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { cn } from "../../lib/utils";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { HudFrame } from "../elements/hud-frame";
+import { RIM_PORTRAIT } from "../elements/league-rim-geometry";
 import { levelLabel } from "../elements/xp-level";
 import { avatarPlayer, profileLabel, profileName, useProfileOpener } from "./profile-context";
 
@@ -13,8 +14,8 @@ const LazyPlayerRim = lazy(() => import("./league-control").then((m) => ({ defau
 /** The level's star and bar and their motion in their own chunk, as the ring's were (#625): meanwhile an empty box of their size. */
 const LazyLevelBar = lazy(() => import("../elements/level-bar").then((m) => ({ default: m.LevelBar })));
 
-/** The portrait's inset in the rim's square: the rim's hole (`RIM_PORTRAIT`), so nothing moves when the rim comes. */
-const PORTRAIT_INSET = "inset-[15%]";
+/** The portrait's inset in the rim's square: the rim's portrait disc (`RIM_PORTRAIT`), so nothing moves when the rim comes. */
+const PORTRAIT_INSET = { inset: `${((1 - RIM_PORTRAIT) / 2) * 100}%` };
 
 export interface PlayerBadgeProps {
   /** The player's crowns and attacks settled this season (the home's read): the rim's league. Left out: Wood, 0 crowns. */
@@ -76,7 +77,9 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
           <Suspense
             fallback={
               <span className="relative block size-[1em] rounded-full border-2 border-border">
-                <span className={cn("absolute overflow-hidden rounded-full", PORTRAIT_INSET)}>{portrait}</span>
+                <span className="absolute overflow-hidden rounded-full" style={PORTRAIT_INSET}>
+                  {portrait}
+                </span>
               </span>
             }
           >
