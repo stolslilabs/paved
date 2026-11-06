@@ -62,7 +62,8 @@ describe("/settings/theme: the themes", () => {
 
   it("counts the tiles owned per theme, and none is in use over a mix", async () => {
     open(setup(), "/settings/theme");
-    expect(await screen.findByRole("heading", { level: 1, name: "Themes" }, { timeout: slow(10_000) })).toBeInTheDocument();
+    // SETTINGS-PAGE: a view of Settings' drawer, named after it.
+    expect(await screen.findByRole("dialog", { name: "Themes" }, { timeout: slow(10_000) })).toBeInTheDocument();
     await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
     expect(within(await card("Forest")).getByRole("button", { name: "Use Forest" })).toBeEnabled();
     expect(within(await card("Default")).getByRole("button", { name: "Use Default" })).toBeEnabled();

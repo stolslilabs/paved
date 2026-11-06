@@ -1,38 +1,45 @@
 import { useId } from "react";
 import { cn } from "../../lib/utils";
-import { Icon } from "../ui/icon";
 import { Switch } from "../ui/switch";
+import type { UiIconName } from "./ui-art";
+import { UiIcon } from "./ui-icon";
+
+/**
+ * A setting's row (SETTINGS-PAGE, the Paved UX Book's Settings): its painted icon, its name in the drawer's outlined words, and what
+ * sits at its end (a switch, the quality's pill), one line, 48 px tall at least, on the group's carved surface.
+ */
+export const SETTING_ROW = "flex min-h-12 items-center gap-3 px-3 py-1.5";
+/** The row's name: the drawer's light words, outlined, wrapping at 320 px rather than pushing its control off (WRAP360). */
+export const SETTING_LABEL = "text-outline min-w-0 flex-1 font-semibold wrap-anywhere";
 
 export interface SettingSwitchProps {
   label: string;
-  /** A second line under the label. */
+  /** What it does, read out with the switch: the book's rows show their name alone. */
   hint?: string;
-  icon?: string;
+  /** Its painted icon (`UI_ICONS`). */
+  art?: UiIconName;
   checked: boolean;
   disabled?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   className?: string;
 }
 
-/** One on/off setting of the settings page (the mockups' rows): its label, a hint, the switch on the right. */
-export function SettingSwitch({ label, hint, icon, checked, disabled, onCheckedChange, className }: SettingSwitchProps) {
+/** One on/off setting (the book's rows): the icon, the name, the book's green switch at its end. */
+export function SettingSwitch({ label, hint, art, checked, disabled, onCheckedChange, className }: SettingSwitchProps) {
   const id = useId();
   return (
-    // The icon and the switch sit on the label's first line (20 px boxes, `items-start`): a label or hint that wraps grows
-    // downwards, nothing centres on the block (WRAP360).
-    <div className={cn("flex items-start gap-3 py-2.5", className)}>
-      {icon && (
-        <span className="inline-flex h-5 items-center">
-          <Icon name={icon} className="text-muted-foreground" size="sm" fixedWidth />
+    <div data-slot="setting-row" className={cn(SETTING_ROW, className)}>
+      {art && <UiIcon name={art} px={32} className="drawer-icon size-8" />}
+      <label htmlFor={id} className={cn(SETTING_LABEL, "cursor-pointer")}>
+        {label}
+      </label>
+      {/* Hidden, read as the switch's description: a description may point at a hidden element. */}
+      {hint && (
+        <span id={`${id}-hint`} hidden>
+          {hint}
         </span>
       )}
-      <label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer flex-col wrap-anywhere">
-        <span className="text-sm leading-5">{label}</span>
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-      </label>
-      <span className="inline-flex h-5 items-center">
-        <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
-      </span>
+      <Switch id={id} tone="success" aria-describedby={hint ? `${id}-hint` : undefined} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
     </div>
   );
 }
@@ -43,7 +50,7 @@ export function ShowSkinsSwitch({ checked, onCheckedChange, className }: { check
     <SettingSwitch
       label="Show other players' skins"
       hint="Off saves data and graphics work: other players' boards use the base tiles. Your own tiles keep your skins."
-      icon="shirt"
+      art="skins"
       checked={checked}
       onCheckedChange={onCheckedChange}
       className={className}

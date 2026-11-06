@@ -39,8 +39,8 @@ vi.mock("@paved/renderer/react", () => ({
 
 // The pages these tests open, imported before the first test: a cold page import ran inside the first `findBy` that reached it
 // (the defaults 2.9 to 5.1 s, the theme page 2.9 to 5.4 s, under load), against that lookup's 5 s.
-// The hosts too: Settings is the home's panel (#762), the theme page a sheet over it (BACK-RULE #783), each a chunk of its own.
-preloadPages("settings", "theme", "referral", "home", "board", "home-panel", "page-sheets");
+// The hosts too: Settings is the HUD's drawer over the home (SETTINGS-PAGE), its Themes a view loaded with it, each a chunk of its own.
+preloadPages("settings", "theme", "referral", "home", "board", "home-panel");
 
 const lastBoard = () => drawn.board.at(-1);
 const key = (plan: number) => getPlanKey(Plan.from(plan).value);
@@ -60,6 +60,14 @@ beforeEach(() => {
 afterEach(() => resetWelcomedForTests());
 
 const stored = () => JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
+/** The Visuals' pill (SETTINGS-PAGE): the quality in use, its choice a view of the drawer. */
+const qualityPill = (quality: string | RegExp, timeout = slow(5000)) =>
+  screen.findByRole("button", { name: typeof quality === "string" ? `Graphics quality: ${quality}` : new RegExp(`^Graphics quality: ${quality.source}$`) }, { timeout });
+/** The pill's view, opened: the four qualities as radios. */
+const openQuality = async () => {
+  await userEvent.click(await qualityPill(/.+/));
+  return screen.findByRole("radio", { name: "Low" });
+};
 const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
   const router = createTestRouter(path);
   const fakes = fakeSources({ signer: null });
@@ -70,7 +78,7 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
 describe("/settings", () => {
   it("shows the defaults: Auto with what it resolves to, the day and night cycle on, music at 40 %, sound effects at 70 %, preview and highlight on, skins shown", async () => {
     open();
-    expect(await screen.findByRole("radio", { name: /^Auto \((Low|Medium)\)$/ }, { timeout: slow(5000) })).toHaveAttribute("data-state", "on");
+    await qualityPill(/Auto \((Low|Medium)\)/);
     expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
     expect(screen.getByRole("slider", { name: "Music volume" })).toHaveAttribute("aria-valuenow", "40");
     expect(screen.getByRole("slider", { name: "Sound effects volume" })).toHaveAttribute("aria-valuenow", "70");
@@ -79,23 +87,30 @@ describe("/settings", () => {
     expect(screen.getByRole("switch", { name: /Placement highlight/ })).toBeChecked();
     expect(screen.getByRole("switch", { name: /Show other players' skins/ })).toBeChecked();
     expect(screen.queryByText(/High is heavier/)).not.toBeInTheDocument();
+    await openQuality();
+    expect(screen.getByRole("radio", { name: /^Auto \((Low|Medium)\)$/ })).toHaveAttribute("data-state", "on");
   });
 
   it("changes each setting and keeps it on the device", async () => {
     open();
-    await userEvent.click(await screen.findByRole("radio", { name: "Low" }));
+    await openQuality();
+    await userEvent.click(screen.getByRole("radio", { name: "Low" }));
+    expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("data-state", "on");
+    // Back to Settings, in the drawer: the pill says the choice.
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await qualityPill("Low");
     await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
     await userEvent.click(screen.getByRole("switch", { name: /Ambient effects/ }));
     await userEvent.click(screen.getByRole("button", { name: "Mute sound effects" }));
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));
     expect(stored()).toEqual({ quality: "low", dayNight: false, ambient: false, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0, sfxBefore: 0.7, tilePreview: false, placementHighlight: false, squareGrid: true });
-    expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("data-state", "on");
   });
 
-  it("warns that High is heavier, in the row, once High is picked", async () => {
+  it("warns that High is heavier, in the quality's view, once High is picked", async () => {
     open();
-    await userEvent.click(await screen.findByRole("radio", { name: "High" }));
+    await openQuality();
+    await userEvent.click(screen.getByRole("radio", { name: "High" }));
     expect(screen.getByText(/High is heavier/)).toBeInTheDocument();
     expect(stored().quality).toBe("high");
   });
@@ -104,7 +119,7 @@ describe("/settings", () => {
     // The first shape: the Sound switch off is a muted sound effects slider.
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ quality: "medium", sound: false }));
     open();
-    expect(await screen.findByRole("radio", { name: "Medium" })).toHaveAttribute("data-state", "on");
+    await qualityPill("Medium");
     expect(screen.getByRole("button", { name: "Mute sound effects" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("slider", { name: "Sound effects volume" })).toHaveAttribute("aria-valuenow", "0");
   });
@@ -172,15 +187,31 @@ describe("/settings", () => {
     await waitFor(() => expect(wallet.calls).toContain("connect"));
   });
 
-  it("links to Theme and Referral, keeping ?ref=", async () => {
+  it("opens Themes and Credits as views of the drawer, keeping ?ref=; a view's Back goes back to Settings; no Referral (the profile's Invite)", async () => {
     const { router } = open("/settings?ref=abc");
-    await userEvent.click(await screen.findByRole("button", { name: /^Themes/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Themes/ }, { timeout: slow(5000) }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings/theme"));
     expect(router.state.location.search).toBe("?ref=abc");
-    await act(() => router.navigate("/settings?ref=abc"));
-    await userEvent.click(await screen.findByRole("button", { name: /Referral/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/referral"));
+    expect(await screen.findByRole("region", { name: "Themes" }, { timeout: slow(10_000) })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    await userEvent.click(await screen.findByRole("button", { name: /^Credits/ }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/credits"));
     expect(router.state.location.search).toBe("?ref=abc");
+    expect(await screen.findByRole("link", { name: "Third-party notices" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Credits" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    expect(await screen.findByRole("region", { name: "Account" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Referral/ })).not.toBeInTheDocument();
+  }, slow(30_000));
+
+  it("lands a link to a view on it, and its Back on Settings in its place", async () => {
+    const { router } = open("/settings/credits");
+    expect(await screen.findByRole("link", { name: "Third-party notices" }, { timeout: slow(10_000) })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    expect(router.state.historyAction).toBe("REPLACE");
   });
 
   it("shows the app's version from the build", async () => {
