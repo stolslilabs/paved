@@ -311,10 +311,18 @@ function legacyOfficerAtTwo(g: StoredGuild, address: string, touched: boolean): 
 }
 
 /**
- * A stored world upgraded to the current version (a copy), once: the upgraded world says version 3 and is stored so at the next write,
- * and a version-3 world is never upgraded, so no rank depends on the log's retention again. Version 1 (three ranks, then GUILD-PAGE's
- * five on top): its Officers (2) become 3, so they keep their kicks and promotions (#1030), its Veterans stay (`legacyOfficerAtTwo`).
- * Version 2 (this upgrade's first form, in its pull request only): its ranks are the five already, kept as they are.
+ * A stored world upgraded to the current version (a copy), once (#1030; the rule the Overseer set on 2026-11-06, least privilege):
+ * - a world from before GUILD-PAGE (#1027) holds no Veteran, the rank did not exist: every 2 in it is version 1's Officer, now 3;
+ * - a world GUILD-PAGE's code re-saved: a 2 whose promotion or demotion to Veteran is in the log is a Veteran; a 2 whose history is
+ *   absent or pruned (the log keeps its last `GUILD_LOG_KEPT` entries, by count) is undecidable and reads as a Veteran, the less
+ *   privileged rank: a leader promotes again, whereas a kick or a promotion granted wrongly cannot be undone;
+ * - every upgraded or new world says version 3, is stored so at the next write and is never upgraded again: from then on the stored
+ *   `rank` is the rank, read from no log.
+ * The two kinds of world as they are stored: GUILD-PAGE's code kept writing `version: 1` (it never raised the version), so a
+ * version-1 world is told by its traces (`fiveRanksMayHaveWritten`); version 2 is this upgrade's first form, from its pull request
+ * only, whose ranks are the five already and are kept. A member's own change kept in the log decides first (`legacyOfficerAtTwo`).
+ * The accepted residual case, not a defect: version 1's Officer whose history left the log of a world GUILD-PAGE's code re-saved
+ * (between 2026-11-06 06:42 UTC and this upgrade) reads as a Veteran.
  */
 function upgradeGuildWorld(stored: Omit<GuildWorld, "version">, from: 1 | 2): GuildWorld {
   const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };

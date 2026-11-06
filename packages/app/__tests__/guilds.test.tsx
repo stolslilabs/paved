@@ -534,7 +534,7 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
     expect(parsed.guilds[0]!.members.find((m) => m.address === "0xabc005")!.rank).toBe(GUILD_RANK.recruit);
   });
 
-  describe("by vintage and least privilege (the Overseer's ruling): an undecidable 2 is a Veteran, never an Officer", () => {
+  describe("the acceptance criterion (the Overseer's ruling, least privilege): an undecidable 2 is a Veteran, never an Officer", () => {
     type Stored = GuildWorld["guilds"][number];
     /** After GUILD-PAGE (#1027) merged: when its client wrote. */
     const AFTER = FIVE_RANKS_FROM + 3_600;
@@ -566,7 +566,7 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
       return { w, g, leader, member };
     }
 
-    it("version 1 before the five ranks: every 2 is an Officer, their history kept or aged out, and the world says version 3", () => {
+    it("(a) v1 Officer kept: in a world from before #1027 every 2 is an Officer, their history kept or pruned; the world says version 3", () => {
       const w = legacyWorld(seededGuildWorld()) as GuildWorld;
       const { g, leader } = quarry(w);
       const officers = g.members.filter((m) => m.rank === 2).map((m) => m.address);
@@ -582,7 +582,7 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
       }
     });
 
-    it("a Veteran GUILD-PAGE's client promoted, the promotion in the log, stays a Veteran (stored as version 1 or 2)", () => {
+    it("(b) v2 Veteran with event kept: a 2 #1027 promoted, the promotion in the log, stays a Veteran (stored as #1027 did, version 1, or as 2)", () => {
       const { w, member } = promotedByGuildPage();
       for (const version of [1, 2]) {
         const parsed = parseGuildWorld(stored(w, version))!;
@@ -592,7 +592,7 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
       }
     });
 
-    it("a 2 whose history the log pruned reads as a Veteran, without an Officer's rights, in a world GUILD-PAGE's client wrote (#1030 review 5)", () => {
+    it("(b) v2 rank 2 with pruned log reads Veteran, without an Officer's rights, in a world #1027 re-saved (review 5's reproduction)", () => {
       // The review's reproduction: the promotion, then GUILD_LOG_KEPT announcements a second apart push it out.
       const { w, g, leader, member } = promotedByGuildPage();
       announce(g, leader, GUILD_LOG_KEPT, AFTER + 1);
@@ -610,7 +610,7 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
       expect(rankIn(parseGuildWorld(stored(legacy, 1))!, q.member)).toBe(GUILD_RANK.veteran);
     });
 
-    it("the residual case, documented: version 1's Officer whose history left the log of a world GUILD-PAGE's client re-saved reads as a Veteran", () => {
+    it("(b) the accepted residual case: version 1's Officer whose history left the log of a world #1027 re-saved reads as a Veteran", () => {
       const w = legacyWorld(seededGuildWorld()) as GuildWorld;
       const { g, leader } = quarry(w);
       const officers = g.members.filter((m) => m.rank === 2).map((m) => m.address);
@@ -623,7 +623,7 @@ describe("the stored world's upgrade from three ranks to five (#1030)", () => {
       for (const o of officers) expect(rankIn(parseGuildWorld(stored(kept, 1))!, o)).toBe(GUILD_RANK.officer);
     });
 
-    it("version 3: untouched, a 2 with nothing logged stays a Veteran: the upgrade never runs twice", () => {
+    it("(c) v3 untouched: a 2 with nothing logged stays a Veteran, the upgrade never runs twice", () => {
       const w = seededGuildWorld();
       const { g, member } = quarry(w);
       g.members.find((m) => m.address === member)!.rank = GUILD_RANK.veteran;
