@@ -8,7 +8,7 @@ import type { PvpPlayer } from "../lib/pvp-rules";
 import { useBoardSkins } from "../data/board-skins";
 import { sideSettings } from "../data/board-side";
 import { attackV2Board, type AttackV2 } from "../data/free-attack";
-import { useFreeVillage } from "../data/free-village";
+import { useFreeVillage, type ChestOrigin } from "../data/free-village";
 import { usePlayerStatus } from "../data/indexer";
 import { usePvpLeague } from "../data/pvp-league";
 import { RENDERER_ASSETS } from "../data/renderer-manifest";
@@ -42,6 +42,17 @@ export function endChest(attack: Pick<AttackV2, "chest" | "stars" | "status" | "
   if (attack.chest) return { state: "won", rank: attack.chest };
   const rank = attack.status === "surrendered" ? null : pvpChestRank(attack.stars);
   return rank ? { state: "capped", rank, resetsAt: (dayOf(attack.finishedAt) + 1) * DAY_S } : { state: "none" };
+}
+
+/**
+ * Whether a chest's origin is the attack's: a PvP chest of the attack's day in the slot it filled (`chestSlot`), so a result
+ * revisited after a later win of the same rank that day opens its own chest, not the later one. An origin the read does not say,
+ * or a slot unknown on either side (a save from before it), passes.
+ */
+export function attackChestOrigin(attack: Pick<AttackV2, "finishedAt" | "chestSlot">, origin: ChestOrigin | null | undefined): boolean {
+  if (origin == null) return true;
+  if (origin.source !== "pvp" || origin.day !== dayOf(attack.finishedAt)) return false;
+  return attack.chestSlot == null || origin.slot == null || origin.slot === attack.chestSlot;
 }
 
 /** The XP the attack gave and the level it leaves, from the player's XP now. */
@@ -86,8 +97,7 @@ function End({ me, attack }: { me: string; attack: AttackV2 }) {
   const xp = village.data ? endXp(village.data.xp, attack.xp) : null;
   // The chest won opens here (END-CHEST, the owner's ask of 2026-11-06): this attack's, a PvP chest of its day.
   const base = endChest(attack);
-  const day = dayOf(attack.finishedAt);
-  const end = useEndChest(me, base.state === "won" ? { rank: base.rank, mine: (o) => o == null || (o.source === "pvp" && o.day === day) } : null);
+  const end = useEndChest(me, base.state === "won" ? { rank: base.rank, mine: (o) => attackChestOrigin(attack, o) } : null);
   return (
     <>
       <PvpEndScene

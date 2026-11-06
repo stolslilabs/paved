@@ -11,6 +11,7 @@ import { CHEST_EFFECTS, chestEffectUrl, pickSize } from "../elements/chest-image
 import { Countdown } from "../elements/countdown";
 import { goldPillStyle } from "../elements/friends-art";
 import { HudFrame } from "../elements/hud-frame";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LazyChestArt } from "../elements/lazy-chest-art";
 import { LevelBar } from "../elements/level-bar";
 import { missionPartImage } from "../elements/medallion-art";
@@ -25,10 +26,15 @@ import { BLACK_OUTLINE, TilePicture } from "./chest-reveal";
 /**
  * A game's chest on its end (END-CHEST, the owner's ask of 2026-11-06: every chest opens where it is won, the Chests page gone): `won`
  * (tap to open), `opening` (its draw on its way), `kept` (its tile taken: `plan`, or null when the end does not know it), `capped`
- * (stars won but the day's PvP slots full: disabled, the slots' reset counting down), `none` (nothing shown).
+ * (stars won but the day's PvP slots full: disabled, the slots' reset counting down), `none` (nothing shown). While the chests' read
+ * is not there: `loading` (the panel disabled, "Loading…"), `error` (the read failed: the message and Retry, which reads it again;
+ * `retrying` while it does), `unavailable` (the network serves no chests: nothing to open here).
  */
 export type EndChest =
   | { state: "won"; rank: ChestRank }
+  | { state: "loading"; rank: ChestRank }
+  | { state: "error"; rank: ChestRank; message: string; detail?: ErrorDetail; retrying?: boolean; onRetry?: () => void }
+  | { state: "unavailable"; rank: ChestRank }
   | { state: "opening"; rank: ChestRank }
   | { state: "kept"; rank: ChestRank; plan: number | null }
   | { state: "capped"; rank: ChestRank; resetsAt: number }
@@ -452,7 +458,8 @@ export function XpRow({ gained, progress, levelUp }: { gained: number; progress:
 
 /**
  * The chest's panel on a game's end (END-CHEST): won, the book's gold panel, its chest shaking over "Tap to open" (a tap opens it in
- * the reveal, `ChestModal`); opening, the chest over "Opening…"; kept, carved, the tile taken and its name (or the chest's icon, grey);
+ * the reveal, `ChestModal`); opening, the chest over "Opening…"; loading, the same panel disabled over "Loading…"; a failed read, its
+ * message and Retry (`InlineError`); unavailable, carved, the chest's icon grey and no chests on the network; kept, carved, the tile taken and its name (or the chest's icon, grey);
  * capped, carved, the chest's icon grey, no slot left today and the slots' reset counting down in a carved chip (the Missions'
  * resets'). The reveal is the caller's.
  */
@@ -460,14 +467,32 @@ export function EndChestPanel({ chest, now, tileArt, onOpen }: { chest: EndChest
   const reduced = useReducedMotionConfig() ?? false;
   if (chest.state === "none") return null;
   const name = CHEST_NAME[chest.rank];
-  if (chest.state === "won" || chest.state === "opening") {
-    const opening = chest.state === "opening";
+  if (chest.state === "error") {
+    return (
+      <InlineError
+        title={`Could not load your ${name.toLowerCase()}`}
+        message={chest.message}
+        detail={chest.detail}
+        action={
+          chest.onRetry && (
+            <Button size="sm" variant="outline" loading={chest.retrying} onClick={chest.onRetry}>
+              Retry
+            </Button>
+          )
+        }
+        className="w-full"
+      />
+    );
+  }
+  if (chest.state === "won" || chest.state === "opening" || chest.state === "loading") {
+    // Opening (its draw on its way) or loading (the chests' read not there yet): disabled until the chest can be opened.
+    const busy = chest.state !== "won";
     return (
       <button
         type="button"
-        aria-label={opening ? `${name}: opening` : `Open the ${name.toLowerCase()}`}
-        aria-busy={opening || undefined}
-        disabled={opening}
+        aria-label={chest.state === "opening" ? `${name}: opening` : chest.state === "loading" ? `${name}: loading` : `Open the ${name.toLowerCase()}`}
+        aria-busy={busy || undefined}
+        disabled={busy}
         onClick={onOpen}
         style={GOLD_SOFT}
         data-chest={chest.state}
@@ -479,7 +504,7 @@ export function EndChestPanel({ chest, now, tileArt, onOpen }: { chest: EndChest
           <LazyChestArt rank={chest.rank} state="ready" size="md" label={null} />
           <Glints px={CHEST_PX} spots={CHEST_GLINTS} delay={0.4} still={reduced} />
         </span>
-        <span className="text-outline text-lg font-bold text-foreground italic">{opening ? "Opening…" : "Tap to open"}</span>
+        <span className="text-outline text-lg font-bold text-foreground italic">{chest.state === "opening" ? "Opening…" : chest.state === "loading" ? "Loading…" : "Tap to open"}</span>
       </button>
     );
   }
@@ -498,6 +523,19 @@ export function EndChestPanel({ chest, now, tileArt, onOpen }: { chest: EndChest
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-outline text-base leading-tight font-bold">{chest.plan != null ? "Added to your inventory" : `${name} opened`}</span>
           {chest.plan != null && <span className="text-sm font-semibold text-muted-foreground">{tileName(chest.plan)}</span>}
+        </span>
+      </section>
+    );
+  }
+  if (chest.state === "unavailable") {
+    return (
+      <section aria-label={name} aria-disabled data-chest="unavailable" className="drawer-carved flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left">
+        <span className="grid size-14 shrink-0 place-items-center" style={CHEST_SPENT}>
+          <ChestIcon rank={chest.rank} size="xl" label={null} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+          <span className="text-outline text-base leading-tight font-bold text-muted-foreground">No chests here yet</span>
+          <span className="text-xs font-semibold text-muted-foreground">Chests are not on this network yet.</span>
         </span>
       </section>
     );

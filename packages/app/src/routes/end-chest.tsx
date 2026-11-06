@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import type { ChestRank } from "@paved/game-core";
 import {
   ChestModal,
@@ -12,19 +13,23 @@ import {
   useFreeVillageWrites,
   type ChestOrigin,
 } from "../data/free-village";
+import { queryKeys } from "../data/keys";
 import { haptic } from "../lib/haptics";
 import { useAngledArt } from "./angled-art";
 import { errorDetail } from "./error-detail";
 import { refusalText } from "./village-v2";
 
-/** The chest a game won: its rank, and which of the read's origins are its (a PvP day's, a Story level's; unknown origins pass). */
+/**
+ * The chest a game won: its rank, and which of the read's origins are its (a PvP day's slot, a Story level's; unknown origins pass),
+ * for the chests waiting and the one drawn alike.
+ */
 export interface WonChest {
   rank: ChestRank;
   mine: (origin: ChestOrigin | null | undefined) => boolean;
 }
 
 export interface EndChestControl {
-  /** The panel's state: won (waiting), opening, kept (taken here, or opened before). */
+  /** The panel's state: won (waiting), opening, kept (taken here, or opened before); loading, error or unavailable while the read is not there. */
   chest: EndChest;
   /** A tap on the panel: the chest opens (its draw), then its reveal. */
   open: () => void;
@@ -47,13 +52,17 @@ function lastIndex<T>(
  * the chest `won` found in the read, waiting (the last of its rank and origin in `pending`) or drawn already (`open`); a tap draws
  * it (`openChest`, a firm buzz), its reveal comes over the end (`ChestModal`), Take keeps a tile (`claimChest`) and Claim brings the
  * end back, its panel saying the tile kept. A chest of the game neither waiting nor drawn was opened before: "opened". A refused
- * draw is said in a toast (the end has no place for it); a refused choice in the reveal.
+ * draw is said in a toast (the end has no place for it); a refused choice in the reveal. Until the chests' read is there the panel
+ * cannot open: loading, a failed read (its message and Retry, which reads the chests again), or unavailable (no chests served).
  */
 export function useEndChest(
   me: string | null,
   won: WonChest | null,
 ): EndChestControl {
   const read = useChests(me);
+  const client = useQueryClient();
+  const chestsKey = queryKeys.chain.v2.chests(me ?? "0x0");
+  const retrying = useIsFetching({ queryKey: chestsKey }) > 0;
   const writes = useFreeVillageWrites(me);
   // The tiles' art only once a chest is won: a game without one reads no skins (a Story level in its own theme reads none).
   const tileArt = useAngledArt(won ? me : null);
@@ -80,11 +89,23 @@ export function useEndChest(
   else if (taken) chest = { state: "kept", rank: won.rank, plan: taken.plan };
   else if (drawn || pending?.kind === "open")
     chest = { state: "opening", rank: won.rank };
-  else if (!view || index >= 0) chest = { state: "won", rank: won.rank };
+  else if (view === undefined)
+    chest = read.error
+      ? {
+          state: "error",
+          rank: won.rank,
+          message: read.error.message,
+          detail: errorDetail(read.error),
+          retrying,
+          onRetry: () => void client.refetchQueries({ queryKey: chestsKey }),
+        }
+      : { state: "loading", rank: won.rank };
+  else if (view === null) chest = { state: "unavailable", rank: won.rank };
+  else if (index >= 0) chest = { state: "won", rank: won.rank };
   else chest = { state: "kept", rank: won.rank, plan: null };
 
   const open = () => {
-    if (index < 0 || pending) return;
+    if (chest.state !== "won" || index < 0 || pending) return;
     haptic("firm");
     writes.reset();
     writes

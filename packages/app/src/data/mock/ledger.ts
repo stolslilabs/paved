@@ -2843,6 +2843,7 @@ export class MockLedger {
       stars: a.stars,
       xp: a.xp,
       chest: a.chest,
+      chestSlot: a.chest ? (a.chestSlot ?? undefined) : null,
       gained: a.gained,
       lost: a.lost,
       openedAt: a.openedAt,
@@ -2913,14 +2914,15 @@ export class MockLedger {
     v2.xp = xp.xp;
     const today = dayOf(this.now());
     const rank = pvpChestRank(stars);
-    const granted = rank !== null && pvpChestGranted(v2.pvpChests[today] ?? 0);
+    const slot = v2.pvpChests[today] ?? 0;
+    const granted = rank !== null && pvpChestGranted(slot);
     if (granted) {
-      v2.chests.pending.push({ rank, league: this.leagueOf(p), origin: { source: "pvp", day: today, slot: v2.pvpChests[today] ?? 0 } });
-      v2.pvpChests = { [today]: (v2.pvpChests[today] ?? 0) + 1 };
+      v2.chests.pending.push({ rank, league: this.leagueOf(p), origin: { source: "pvp", day: today, slot } });
+      v2.pvpChests = { [today]: slot + 1 };
     }
     countTutorial(p, "attack-settled");
     if (stars > 0) countTutorial(p, "attack-won");
-    Object.assign(a, { status: surrendered ? "surrendered" : "finished", score, stars, xp: xp.gained, chest: granted ? rank : null, gained, lost, finishedAt: Math.floor(this.now()) });
+    Object.assign(a, { status: surrendered ? "surrendered" : "finished", score, stars, xp: xp.gained, chest: granted ? rank : null, ...(granted && { chestSlot: slot }), gained, lost, finishedAt: Math.floor(this.now()) });
     return [this.event("AttackFinished", { attacker: account, defender: a.defender, id: a.id, score, stars, surrendered, gained, lost, xp: xp.gained, chest: granted ? rank : "" })];
   }
 

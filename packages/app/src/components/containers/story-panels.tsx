@@ -9,19 +9,9 @@ import { StoryBackground, TileMosaic, TileRender, type TileRenders } from "../el
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
-import { useSfx } from "./audio-provider";
 import { EndChestPanel, EndLink, GameEnd, ShowScores, type EndChest } from "./game-end";
 
 const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
-
-/** A short buzz where the device has one (`navigator.vibrate`); refused or absent, nothing. */
-function buzz(ms: number) {
-  try {
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(ms);
-  } catch {
-    // A browser that refuses it (no user gesture, a policy): no buzz.
-  }
-}
 
 /** The whole presentation's entrance, seconds: the tiles land one after another within it, however many there are. */
 const PRESENT_SECONDS = 0.9;
@@ -196,56 +186,6 @@ const FILL = { lead: 0.35, gap: 0.5, pop: 0.45 } as const;
 
 /** When the result under the stars comes in, seconds. */
 export const resultDelay = (stars: number) => FILL.lead + Math.max(0, stars - 1) * FILL.gap + FILL.pop;
-
-/**
- * The stars earned, filled one by one (#593): each lands with a pop, a sound (`place`, the last of three the `wonder`) and a
- * buzz where the device has one. `instant` (reduced motion, or a tap to skip) shows them at once, with one sound.
- */
-export function StarFill({ stars, instant: skip = false, className }: { stars: Stars; instant?: boolean; className?: string }) {
-  const play = useSfx();
-  const reduced = useReducedMotionConfig() ?? false;
-  const instant = skip || reduced;
-  useEffect(() => {
-    if (stars === 0) return;
-    if (instant) {
-      play(stars === 3 ? "wonder" : "place");
-      buzz(40);
-      return;
-    }
-    const timers = Array.from({ length: stars }, (_, i) =>
-      setTimeout(
-        () => {
-          play(i === 2 ? "wonder" : "place");
-          buzz(i === 2 ? 80 : 30);
-        },
-        (FILL.lead + i * FILL.gap) * 1000,
-      ),
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [stars, instant, play]);
-  return (
-    <span role="img" aria-label={`${stars} of 3 stars`} data-stars={stars} data-testid="star-fill" className={cn("inline-flex items-end gap-2", className)}>
-      {[1, 2, 3].map((n) => {
-        const earned = n <= stars;
-        return (
-          <span key={n} className="relative inline-flex">
-            <Icon name="star" className="text-5xl! text-muted-foreground/40" />
-            {earned && (
-              <m.span
-                className="absolute inset-0 inline-flex text-primary"
-                initial={instant ? false : { scale: 0, rotate: -40, opacity: 0 }}
-                animate={{ scale: [0, 1.35, 1], rotate: 0, opacity: 1 }}
-                transition={{ delay: FILL.lead + (n - 1) * FILL.gap, duration: FILL.pop, ease: "easeOut" }}
-              >
-                <Icon name="star" className="text-5xl!" />
-              </m.span>
-            )}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
 
 /**
  * A finished level (#593, #546; END-SCREENS, the owner's ask of 2026-11-06, in the book's window of `attack-end`, `GameEnd`): over the
