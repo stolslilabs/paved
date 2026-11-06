@@ -268,26 +268,36 @@ export const seededGuildWorld = (): GuildWorld => ({ version: GUILD_WORLD_VERSIO
 const LEGACY_OFFICER = 2;
 
 /**
- * Whether a member stored at 2 in a version-1 world is a Veteran (GUILD-PAGE's five ranks) rather than an Officer (version 1's three).
- * The client of GUILD-PAGE (#1027) wrote the five ranks under version 1 until the version came (#1030), on top of the worlds the
- * devices held: one world can hold both. Judged member by member, never for the whole world: under the five ranks a member reaches 2
- * only by a promotion or a demotion logged with its new rank (2), and every write of the five ranks came after every write of the
- * three; a joining gives 0 and a change of leader 3 or 4. So a 2 is a Veteran when the member's latest promotion or demotion logged
- * rank 2, and an Officer otherwise (logged without a rank, as version 1 did, or its entry gone past the log's last `GUILD_LOG_KEPT`).
+ * Whether a member stored at 2 in a version-1 world is an Officer of version 1's three ranks (Member 1, Officer 2, Leader 4) rather
+ * than a Veteran of GUILD-PAGE's five. The client of GUILD-PAGE (#1027) wrote the five ranks under version 1 until the version came
+ * (#1030), on top of the worlds the devices held: one world, one guild even, can hold both, so each member is judged on their own.
+ * What tells them apart, every write of the five ranks coming after every write of the three:
+ * - the five ranks bring a member to 2 only by a promotion or a demotion logged with its new rank; a joining gives 0, a change of
+ *   leader 3 or 4. Version 1 logged its promotions and demotions without a rank, and its leaders stepped down to 2;
+ * - so the member's latest retained change decides: a promotion or a demotion logged with rank 2, a Veteran; one logged without a
+ *   rank, an Officer; their founding or a change of leader naming them (the leader stepping down to 2 since), an Officer;
+ * - none retained (the log keeps its last `GUILD_LOG_KEPT`, oldest out first): when the log still holds a promotion or a demotion
+ *   without a rank, it reaches back into version 1's time, so the member's change is older still, an Officer;
+ * - else nothing tells: they stay at 2, a Veteran, the lower rank. Never an Officer's rights on a guess; a leader promotes again.
  */
-function veteranAtTwo(g: StoredGuild, address: string): boolean {
-  const last = g.log.filter((e) => (e.kind === "promoted" || e.kind === "demoted") && e.target === address).at(-1);
-  return last?.rank === GUILD_RANK.veteran;
+function legacyOfficerAtTwo(g: StoredGuild, address: string): boolean {
+  const changes = g.log.filter((e) => e.kind === "promoted" || e.kind === "demoted");
+  const theirs = g.log.filter(
+    (e) => ((e.kind === "promoted" || e.kind === "demoted") && e.target === address) || (e.kind === "created" && e.actor === address) || (e.kind === "leader" && (e.actor === address || e.target === address)),
+  );
+  const last = theirs.at(-1);
+  if (last) return last.kind === "created" || last.kind === "leader" || last.rank === undefined;
+  return changes.some((e) => e.rank === undefined);
 }
 
 /**
  * A version-1 world upgraded to the current version (a copy): its Officers (2) keep their rank, now 3, so they keep their kicks and
- * promotions instead of reading back as Veterans (#1030); its Veterans (2, written by GUILD-PAGE's client) stay Veterans. Done once:
- * the upgraded world says version 2 and is stored so at the next write.
+ * promotions instead of reading back as Veterans (#1030); its Veterans (2, written by GUILD-PAGE's client) stay Veterans
+ * (`legacyOfficerAtTwo`). Done once: the upgraded world says version 2 and is stored so at the next write.
  */
 function upgradeGuildWorld(stored: Omit<GuildWorld, "version">): GuildWorld {
   const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };
-  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && !veteranAtTwo(g, m.address)) m.rank = GUILD_RANK.officer;
+  for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER && legacyOfficerAtTwo(g, m.address)) m.rank = GUILD_RANK.officer;
   return w;
 }
 
