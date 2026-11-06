@@ -156,7 +156,7 @@ describe("the end's reading of the record (#790)", () => {
     expect(endChest({ chest: null, stars: 0, status: "surrendered", finishedAt })).toEqual({ state: "none" });
   });
 
-  it("a chest's origin is the attack's: its day and the slot it filled; an origin or a slot unknown passes (#1038)", () => {
+  it("a chest's origin is the attack's: its day and the slot it filled; an origin unknown passes, an attack's slot unknown takes no slotted chest (#1038)", () => {
     const finishedAt = 20_000 * DAY_S + 19 * 3_600;
     const attack = { finishedAt, chestSlot: 1 };
     expect(attackChestOrigin(attack, { source: "pvp", day: 20_000, slot: 1 })).toBe(true);
@@ -165,7 +165,9 @@ describe("the end's reading of the record (#790)", () => {
     expect(attackChestOrigin(attack, { source: "story" })).toBe(false);
     expect(attackChestOrigin(attack, null)).toBe(true);
     expect(attackChestOrigin(attack, { source: "pvp", day: 20_000 })).toBe(true);
-    expect(attackChestOrigin({ finishedAt }, { source: "pvp", day: 20_000, slot: 0 })).toBe(true);
+    // An attack that does not know its slot never takes a chest that has one: it could be another attack's.
+    expect(attackChestOrigin({ finishedAt }, { source: "pvp", day: 20_000, slot: 0 })).toBe(false);
+    expect(attackChestOrigin({ finishedAt }, { source: "pvp", day: 20_000 })).toBe(true);
   });
 
   it("a capped chest's deadline does not roll forward at midnight: past it, the slots are said to be open again", () => {

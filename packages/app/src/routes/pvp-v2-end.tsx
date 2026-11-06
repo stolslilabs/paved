@@ -46,13 +46,15 @@ export function endChest(attack: Pick<AttackV2, "chest" | "stars" | "status" | "
 
 /**
  * Whether a chest's origin is the attack's: a PvP chest of the attack's day in the slot it filled (`chestSlot`), so a result
- * revisited after a later win of the same rank that day opens its own chest, not the later one. An origin the read does not say,
- * or a slot unknown on either side (a save from before it), passes.
+ * revisited after a later win of the same rank that day opens its own chest, not the later one. An origin the read does not say
+ * passes (nothing to tell the chests apart); a slot the attack does not know never takes a chest that has one: it could be another
+ * attack's (the end then says the chest opened rather than open the wrong one).
  */
 export function attackChestOrigin(attack: Pick<AttackV2, "finishedAt" | "chestSlot">, origin: ChestOrigin | null | undefined): boolean {
   if (origin == null) return true;
   if (origin.source !== "pvp" || origin.day !== dayOf(attack.finishedAt)) return false;
-  return attack.chestSlot == null || origin.slot == null || origin.slot === attack.chestSlot;
+  if (origin.slot == null) return true;
+  return attack.chestSlot != null && origin.slot === attack.chestSlot;
 }
 
 /** The XP the attack gave and the level it leaves, from the player's XP now. */

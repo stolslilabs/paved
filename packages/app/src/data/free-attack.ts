@@ -48,7 +48,7 @@ export interface AttackV2 {
   chest: ChestRank | null;
   /**
    * The PvP slot of its day the chest fills (0 to 2; `ChestOrigin.slot`), its identity among the day's chests of a rank: null with no
-   * chest, unset when the read does not say (a save from before it).
+   * chest, unset when the read does not say (the end then takes no chest that has a slot; the mock derives it for a save from before it).
    */
   chestSlot?: number | null;
   gained: number;

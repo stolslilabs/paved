@@ -1052,14 +1052,15 @@ export class MockLedger {
     const rival = v2.match ? mockRivalV2(v2.match.opponent) : null;
     const match = v2.match && rival ? { opponent: rival.address, name: rival.name, level: rival.level, slots: rival.slots, target: rival.score, deck: rival.deck, offer: v2.match.offer, cost: v2.match.cost, crowns: rival.crowns } : null;
     const a = v2.attacks.at(-1);
-    return { match, attack: a ? this.attackView(a) : null };
+    return { match, attack: a ? this.attackView(a, v2.attacks) : null };
   }
 
   /** The attacker's v2 attack `id`, open or ended, or null: every attack stays in the record, so a result's link stays good. */
   async attackV2Of(attacker: string, id: number): Promise<AttackV2 | null> {
     this.sync();
-    const a = (this.peek(attacker).v2 ?? freshV2()).attacks.find((x) => x.id === id);
-    return a ? this.attackView(a) : null;
+    const attacks = (this.peek(attacker).v2 ?? freshV2()).attacks;
+    const a = attacks.find((x) => x.id === id);
+    return a ? this.attackView(a, attacks) : null;
   }
 
   /**
@@ -2828,7 +2829,24 @@ export class MockLedger {
   }
 
   /** An attack as `attackV2` shows it: the deck only as far as the tile in hand and the next two. */
-  private attackView(a: StoredAttackV2): AttackV2 {
+  /**
+   * The day's PvP slot an attack's chest fills: the one recorded at its end, or, for an attack saved before it was recorded, the
+   * count of the earlier attacks that won a chest the same UTC day. `finishV2` alone grants PvP chests, one slot after the other,
+   * and one attack is open at a time, so the record's order is the grants' order. Null with no chest.
+   */
+  private chestSlotOf(a: StoredAttackV2, attacks: readonly StoredAttackV2[]): number | null {
+    if (!a.chest) return null;
+    if (a.chestSlot !== undefined) return a.chestSlot;
+    const day = dayOf(a.finishedAt);
+    let slot = 0;
+    for (const x of attacks) {
+      if (x === a) return slot;
+      if (x.chest && x.status !== "open" && dayOf(x.finishedAt) === day) slot++;
+    }
+    return slot;
+  }
+
+  private attackView(a: StoredAttackV2, attacks: readonly StoredAttackV2[]): AttackV2 {
     const open = a.status === "open";
     return {
       id: a.id,
@@ -2843,7 +2861,7 @@ export class MockLedger {
       stars: a.stars,
       xp: a.xp,
       chest: a.chest,
-      chestSlot: a.chest ? (a.chestSlot ?? undefined) : null,
+      chestSlot: this.chestSlotOf(a, attacks),
       gained: a.gained,
       lost: a.lost,
       openedAt: a.openedAt,

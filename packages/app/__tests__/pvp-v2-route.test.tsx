@@ -191,6 +191,35 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(read.origins).toEqual([{ source: "pvp", day, slot: 1 }]);
   }, slow(30_000));
 
+  it("opens the own chest of a result saved before its slot was recorded (#1038): the slot read from the day's earlier wins", async () => {
+    const s = await open("/pvp/result/1", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      for (let i = 0; i < 2; i++) {
+        await writes.drawOpponentV2("search");
+        await writes.startAttackV2();
+        await writes.surrenderAttackV2();
+      }
+      // Two rare wins the same day, slots 0 and 1; attack 1 in the save's shape from before `chestSlot`, attack 2 with it.
+      const state = JSON.parse(s.store.getItem(MOCK_KEY)!);
+      for (const p of Object.values(state.players as Record<string, { v2: { attacks: { finishedAt: number }[]; chests: { pending: unknown[] } } }>)) {
+        p.v2.attacks.forEach((attack, slot) => {
+          Object.assign(attack, { status: "finished", stars: 2, chest: "rare", ...(slot > 0 && { chestSlot: slot }) });
+          p.v2.chests.pending.push({ rank: "rare", league: 0, origin: { source: "pvp", day: dayOf(attack.finishedAt), slot } });
+        });
+      }
+      s.store.setItem(MOCK_KEY, JSON.stringify(state));
+    });
+    expect(await s.ledger.attackV2Of(s.me, 1)).toMatchObject({ chestSlot: 0 });
+    const day = dayOf((await s.ledger.attackV2Of(s.me, 1))!.finishedAt);
+    const chest = await screen.findByRole("region", { name: "Chest" }, WAIT);
+    await userEvent.click(await within(chest).findByRole("button", { name: /^Open the rare chest/ }, WAIT));
+    await screen.findByRole("dialog", { name: "Choose 1 of 2" }, WAIT);
+    const read = await s.ledger.chests(s.me);
+    expect(read.openOrigin).toEqual({ source: "pvp", day, slot: 0 });
+    expect(read.origins).toEqual([{ source: "pvp", day, slot: 1 }]);
+  }, slow(30_000));
+
   it("says a failed chests' read on the end with Retry, the chest disabled until the read is back (#1038)", async () => {
     let failing = true;
     await open("/pvp/result/1", async (s, me) => {
