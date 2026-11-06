@@ -14,7 +14,7 @@ function open(path: string) {
   render(<App router={createTestRouter(path)} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
 }
 
-preloadPages("board", "play", "credits");
+preloadPages("board", "play", "settings");
 
 beforeEach(() => {
   localStorage.clear();
@@ -62,8 +62,9 @@ describe("no footer, no Cartridge notice outside the Credits page (#536)", () =>
 
   it("/settings/credits: the notices link, and no Cartridge Controller notice since it left the client (#918)", async () => {
     open("/settings/credits");
-    expect(await screen.findByRole("heading", { level: 1, name: "Credits" }, { timeout: slow(5000) })).toBeInTheDocument();
+    // SETTINGS-PAGE: a view of Settings' drawer, named after it.
+    expect(await screen.findByRole("dialog", { name: "Credits" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByText(/Cartridge Controller/)).toBeNull();
-    expect(screen.getByRole("link", { name: "Third-party notices" })).toHaveAttribute("href", "/THIRD_PARTY_NOTICES.txt");
+    expect(await screen.findByRole("link", { name: "Third-party notices" })).toHaveAttribute("href", "/THIRD_PARTY_NOTICES.txt");
   });
 });

@@ -27,6 +27,8 @@ const pvp: PageLoader = () => {
 
 /** The chat page and its tabs' paths (#973): one loader, so one component, kept across a tab change. */
 const chat: PageLoader = () => import("./pages/chat");
+/** Settings and its views' paths (SETTINGS-PAGE): one loader, so one drawer, kept across a move to Credits or Themes. */
+const settings: PageLoader = () => import("./pages/settings");
 
 export const PAGE_LOADERS: Record<string, PageLoader> = {
   welcome: () => import("./pages/welcome"),
@@ -74,7 +76,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   guild: () => import("./pages/guild"),
   friends: () => import("./pages/friends"),
   referral: () => import("./pages/referral"),
-  "settings/theme": () => import("./pages/theme"),
-  "settings/credits": () => import("./pages/credits"),
-  settings: () => import("./pages/settings"),
+  "settings/theme": settings,
+  "settings/credits": settings,
+  settings,
 };

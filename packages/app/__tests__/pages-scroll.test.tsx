@@ -7,7 +7,6 @@ import PagePanel from "../src/components/containers/page-panel";
 import { CobblesScene } from "../src/components/scenes/cobbles-scene";
 import { TilesScene } from "../src/components/scenes/tiles-scene";
 import { PlayScene } from "../src/components/scenes/play-scene";
-import { CreditsScene } from "../src/components/scenes/credits-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { MissionsScene } from "../src/components/scenes/missions-scene";
 import { ReferralScene } from "../src/components/scenes/referral-scene";
@@ -18,13 +17,12 @@ import { PVP_LEAGUE } from "../src/mocks/pvp";
 import { COBBLES, MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../src/mocks/scenes";
 import { SHOP } from "../src/mocks/shop";
 import { ShopScene } from "../src/components/scenes/shop-scene";
-import { titleOf } from "../src/lib/music/track-info";
-import { TRACKS } from "../src/lib/music/tracks";
 
 /**
  * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, the Vault and the second-level pages
  * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body); Missions in the HUD's
- * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE). The page is drawn
+ * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE), the Shop (SHOP-PAGE) and Settings with its views
+ * (SETTINGS-PAGE). The page is drawn
  * straight in that region: its sticky header and its content are the region's own (no column of its own between them and the
  * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing out, so this test
  * reads the structure that lets a page scroll, not its overflow: the overflow itself (content taller than a 375 x 812 phone and
@@ -33,11 +31,8 @@ import { TRACKS } from "../src/lib/music/tracks";
  */
 const no = () => vi.fn();
 const PAGES: readonly [string, ReactNode][] = [
-  ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />],
   ["Vault", <VaultScene {...VAULT.position} />],
-  ["Themes", <ThemeScene {...THEME.mixed} onBack={no()} onUse={no()} onOpen={no()} />],
   ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
-  ["Credits", <CreditsScene tracks={TRACKS.map(titleOf)} onBack={no()} />],
 ];
 
 /**
@@ -132,6 +127,23 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     draw(<CobblesScene {...COBBLES.referred} onBack={no()} onSelectPack={no()} onBuyPack={no()} />, true, "Cobbles");
     expectOneRegion("Cobbles");
     expect(screen.getByRole("dialog", { name: "Cobbles" })).toContainElement(document.querySelector<HTMLElement>("[data-slot=page-scroll]"));
+  });
+
+  it.each([
+    ["Settings", <SettingsScene {...SETTINGS.connected} onChange={no()} />, "More"],
+    ["Credits", <SettingsScene {...SETTINGS.credits} />, "Music"],
+    ["Themes", <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} onUse={no()} onOpen={no()} />} />, "Themes"],
+  ] as const)("%s (SETTINGS-PAGE) is drawn in the HUD drawer's body, to its last section, nothing else scrolling", (title, page, last) => {
+    draw(page, false, title);
+    const drawer = screen.getByRole("dialog", { name: title });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    const end = screen.getByRole("region", { name: last });
+    expect(region).toContainElement(end);
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    for (let el: HTMLElement | null = end.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 
   it("the Shop (SHOP-PAGE) draws a theme's 19 tiles in the HUD drawer's body, to the last one", () => {

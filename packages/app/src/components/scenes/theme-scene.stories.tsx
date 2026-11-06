@@ -4,13 +4,13 @@ import { THEME } from "../../mocks/scenes";
 import { ThemeScene } from "./theme-scene";
 
 /**
- * Themes (`/settings/theme`): a card per theme with its real tiles (build-time renders), the tiles owned, Use and the shop;
+ * Themes (`/settings/theme`, the body of the Settings drawer's view, SETTINGS-PAGE): a card per theme with its real tiles (build-time renders), the tiles owned, Use and the shop;
  * Snow, Desert and Volcano under a blur. One story per state; the viewport is the toolbar's (VP).
  */
 const meta = {
   title: "Scenes/Theme",
   component: ThemeScene,
-  args: { onUse: fn(), onOpen: fn(), onMyTiles: fn(), onBack: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
+  args: { onUse: fn(), onOpen: fn(), onMyTiles: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
 } satisfies Meta<typeof ThemeScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

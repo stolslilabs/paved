@@ -89,6 +89,18 @@ export interface StoredGuildMember {
   rank: GuildRank;
   joinedAt: number;
   lastKick: number | null;
+  /**
+   * The member's last rank change, kept with the member and not in the log (which keeps only its last `GUILD_LOG_KEPT` entries): the
+   * rank they got and when, written at the joining, the founding and every promotion, demotion and change of leader since version 3
+   * (#1030). Absent on a member upgraded from version 1 or 2 with no change since: their rank is the one the upgrade gave.
+   */
+  rankChange?: { rank: GuildRank; at: number };
+}
+
+/** Sets a member's rank and keeps the change with them (`rankChange`), at `at`. */
+function setRank(m: StoredGuildMember, rank: GuildRank, at: number): void {
+  m.rank = rank;
+  m.rankChange = { rank, at };
 }
 
 export interface StoredAnnouncement {
@@ -139,8 +151,14 @@ export interface StoredGuildPlayer {
   seenAt?: number;
 }
 
+/**
+ * The stored world's version: 3 since GUILD-PAGE's five ranks (Recruit 0, Member 1, Veteran 2, Officer 3, Leader 4) and their upgrade
+ * (#1030). Versions 1 and 2 go through `parseGuildWorld`'s upgrade once (`upgradeGuildWorld`); every world written since says 3.
+ */
+export const GUILD_WORLD_VERSION = 3;
+
 export interface GuildWorld {
-  version: 1;
+  version: typeof GUILD_WORLD_VERSION;
   nextId: number;
   guilds: StoredGuild[];
   /** By address key. */
@@ -237,16 +255,16 @@ function seededGuild(seed: GuildSeed, i: number): StoredGuild {
   const people = community();
   const at = (index: number) => key(people[index]!.address);
   const createdAt = SEED_T0 + i * 2 * 86_400;
-  const members: StoredGuildMember[] = [{ address: at(seed.leader), rank: GUILD_RANK.leader, joinedAt: createdAt, lastKick: null }];
+  const members: StoredGuildMember[] = [{ address: at(seed.leader), rank: GUILD_RANK.leader, joinedAt: createdAt, lastKick: null, rankChange: { rank: GUILD_RANK.leader, at: createdAt } }];
   const log: StoredLogEntry[] = [{ kind: "created", at: createdAt, actor: at(seed.leader), target: null, reason: null }];
   [...seed.officers, ...seed.members].forEach((index, n) => {
     const joinedAt = createdAt + 3_600 * (5 + n * 7);
-    members.push({ address: at(index), rank: GUILD_RANK.member, joinedAt, lastKick: null });
+    members.push({ address: at(index), rank: GUILD_RANK.member, joinedAt, lastKick: null, rankChange: { rank: GUILD_RANK.member, at: joinedAt } });
     log.push({ kind: "joined", at: joinedAt, actor: at(index), target: null, reason: null });
   });
   seed.officers.forEach((index, n) => {
     const promotedAt = createdAt + 86_400 * (3 + n);
-    members.find((m) => m.address === at(index))!.rank = GUILD_RANK.officer;
+    setRank(members.find((m) => m.address === at(index))!, GUILD_RANK.officer, promotedAt);
     log.push({ kind: "promoted", at: promotedAt, actor: at(seed.leader), target: at(index), reason: null, rank: GUILD_RANK.officer });
   });
   const announcements = seed.announcements.map((a, n) => ({ id: n + 1, author: at(a.by), text: a.text, at: SEED_T0 + a.day * 3_600 * 24 - 3_600 * (i + 1), editedAt: null }));
@@ -256,12 +274,35 @@ function seededGuild(seed: GuildSeed, i: number): StoredGuild {
 }
 
 /** The seeded world: the same on every device, before any write. */
-export const seededGuildWorld = (): GuildWorld => ({ version: 1, nextId: FIRST_GUILD_ID + SEEDS.length, guilds: SEEDS.map(seededGuild), players: {} });
+export const seededGuildWorld = (): GuildWorld => ({ version: GUILD_WORLD_VERSION, nextId: FIRST_GUILD_ID + SEEDS.length, guilds: SEEDS.map(seededGuild), players: {} });
 
-/** A stored world, or null when it is not one this version wrote (then the seeded one serves). */
+/** Version 1's Officer rank (Member 1, Officer 2, Leader 4): GUILD-PAGE's Veteran since. */
+const LEGACY_OFFICER = 2;
+
+/**
+ * A stored world upgraded to the current version (a copy), once (#1030; the rule the Overseer set on 2026-11-06, final). It reads the
+ * stored world only: no clock, no time, the same result whenever it runs.
+ * - version 1: every rank 2 is version 1's Officer, now 3 (the stored version is the only witness of a world's vintage);
+ * - version 2: a rank 2 is a Veteran, with or without a promotion-to-Veteran record in its log. With one it is a Veteran; with none
+ *   it is undecidable and reads as a Veteran too, the less privileged rank (least privilege, the accepted residual case: a leader
+ *   promotes again, whereas a kick or a promotion granted wrongly cannot be undone). So only version 1 ever makes an Officer of a 2;
+ * - the upgraded world says version 3, is stored so at the next write and is never upgraded again. From version 3 each member keeps
+ *   their last rank change with them (`rankChange`), outside the pruned log: no reading needs the log or the clock again.
+ * Known consequence, by the ruling: GUILD-PAGE's code (#1027) kept writing `version: 1`, so a Veteran it promoted in a world it stored
+ * so is read as an Officer.
+ */
+function upgradeGuildWorld(stored: Omit<GuildWorld, "version">, from: 1 | 2): GuildWorld {
+  const w: GuildWorld = { ...structuredClone(stored), version: GUILD_WORLD_VERSION };
+  if (from === 1) for (const g of w.guilds) for (const m of g.members) if (m.rank === LEGACY_OFFICER) m.rank = GUILD_RANK.officer;
+  return w;
+}
+
+/** A stored world, the current version or an upgraded older one, or null when it is not one a version wrote (then the seeded one serves). */
 export function parseGuildWorld(stored: unknown): GuildWorld | null {
-  const w = stored as GuildWorld | null | undefined;
-  return w && w.version === 1 && Array.isArray(w.guilds) && typeof w.players === "object" && w.players !== null ? w : null;
+  const w = stored as { version?: unknown; guilds?: unknown; players?: unknown } | null | undefined;
+  if (!w || typeof w !== "object" || !Array.isArray(w.guilds) || typeof w.players !== "object" || w.players === null) return null;
+  if (w.version === GUILD_WORLD_VERSION) return w as GuildWorld;
+  return w.version === 1 || w.version === 2 ? upgradeGuildWorld(w as unknown as Omit<GuildWorld, "version">, w.version) : null;
 }
 
 // --- Lookups ---------------------------------------------------------------------------------------------------------
@@ -290,7 +331,7 @@ function addLog(g: StoredGuild, kind: GuildLogKind, at: number, actor: string, t
 function enter(world: GuildWorld, g: StoredGuild, address: string, at: number): void {
   for (const other of world.guilds) other.requests = other.requests.filter((r) => r.address !== address);
   g.invitations = g.invitations.filter((i) => i.address !== address);
-  g.members.push({ address, rank: GUILD_RANK.recruit, joinedAt: at, lastKick: null });
+  g.members.push({ address, rank: GUILD_RANK.recruit, joinedAt: at, lastKick: null, rankChange: { rank: GUILD_RANK.recruit, at } });
   addLog(g, "joined", at, address);
 }
 
@@ -433,8 +474,8 @@ export function settle(world: GuildWorld, people: GuildPeople, now: number, bloc
       const roster = g.members.map((m) => ({ ...m, crowns: 0, lastSeen: Math.min(lastSeen(world, m.address, at), at) }));
       const next = rotatedLeader(roster, at);
       if (!next) break;
-      old.rank = GUILD_RANK.officer;
-      memberOf(g, next)!.rank = GUILD_RANK.leader;
+      setRank(old, GUILD_RANK.officer, at);
+      setRank(memberOf(g, next)!, GUILD_RANK.leader, at);
       addLog(g, "leader", at, next, next);
     }
   }
@@ -464,8 +505,10 @@ const nameOf = (people: GuildPeople, address: string | null): string | null => (
 function viewOf(g: StoredGuild, people: GuildPeople, now: number, viewer: string | null): GuildView {
   const me = viewer === null ? null : memberOf(g, viewer);
   const rank = me?.rank ?? null;
-  // The requests and the invitations sent: for the ranks that answer them (a Veteran and above).
+  // The requests: for the ranks that answer them (a Veteran and above). The invitations sent: for the ranks that invite (a Member
+  // and above, #1030), so a Member sees their invitation went out (the profile's Invited) instead of being refused a second one.
   const officer = rank !== null && rank >= GUILD_RIGHTS.answer;
+  const inviter = rank !== null && rank >= GUILD_RIGHTS.invite;
   const roster = sortGuildMembers(g.members.map((m) => ({ ...m, crowns: people(m.address).crowns }))).map((m) => ({ profile: people(m.address), rank: m.rank, joinedAt: m.joinedAt }));
   return {
     ...summaryOf(g, people, now),
@@ -474,7 +517,7 @@ function viewOf(g: StoredGuild, people: GuildPeople, now: number, viewer: string
     announcements: me ? g.announcements.map((a) => ({ id: a.id, author: a.author, authorName: nameOf(people, a.author), text: a.text, at: a.at, editedAt: a.editedAt })) : null,
     log: me ? g.log.map((e) => ({ kind: e.kind, at: e.at, actor: e.actor, actorName: nameOf(people, e.actor), target: e.target, targetName: nameOf(people, e.target), reason: e.reason, rank: e.rank ?? null })) : null,
     requests: officer ? g.requests.map((r) => ({ profile: people(r.address), message: r.message, sentAt: r.sentAt })) : null,
-    invitations: officer ? [...g.invitations].sort((a, b) => b.sentAt - a.sentAt).map((i) => ({ profile: people(i.address), inviter: i.inviter, sentAt: i.sentAt, expiresAt: i.sentAt + GUILD_INVITE_TTL_S })) : null,
+    invitations: inviter ? [...g.invitations].sort((a, b) => b.sentAt - a.sentAt).map((i) => ({ profile: people(i.address), inviter: i.inviter, sentAt: i.sentAt, expiresAt: i.sentAt + GUILD_INVITE_TTL_S })) : null,
     nextKickAt: officer ? nextKickAt(me!, now) : null,
   };
 }
@@ -553,7 +596,7 @@ export function createGuildIn(w: GuildWrite, draft: GuildDraft): number {
     name: normalGuildName(draft.name),
     settings: { emblem: { ...draft.emblem }, description: draft.description, joinType: draft.joinType, requirements: { ...draft.requirements } },
     createdAt: w.now,
-    members: [{ address: w.player, rank: GUILD_RANK.leader, joinedAt: w.now, lastKick: null }],
+    members: [{ address: w.player, rank: GUILD_RANK.leader, joinedAt: w.now, lastKick: null, rankChange: { rank: GUILD_RANK.leader, at: w.now } }],
     announcements: [],
     log: [{ kind: "created", at: w.now, actor: w.player, target: null, reason: null }],
     requests: [],
@@ -636,7 +679,7 @@ export function promoteIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(promoteRefusal(me, t));
-  t.rank = rankAbove(t.rank)!;
+  setRank(t, rankAbove(t.rank)!, w.now);
   addLog(g, "promoted", w.now, w.player, t.address, null, t.rank);
 }
 
@@ -644,7 +687,7 @@ export function demoteIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(demoteRefusal(me, t));
-  t.rank = rankBelow(t.rank)!;
+  setRank(t, rankBelow(t.rank)!, w.now);
   addLog(g, "demoted", w.now, w.player, t.address, null, t.rank);
 }
 
@@ -652,8 +695,8 @@ export function makeLeaderIn(w: GuildWrite, target: string): void {
   const { g, me } = mine(w);
   const t = targetIn(g, target);
   check(makeLeaderRefusal(me, t));
-  t.rank = GUILD_RANK.leader;
-  me.rank = GUILD_RANK.officer;
+  setRank(t, GUILD_RANK.leader, w.now);
+  setRank(me, GUILD_RANK.officer, w.now);
   addLog(g, "leader", w.now, w.player, t.address);
 }
 

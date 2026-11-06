@@ -1,8 +1,6 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { CAMPAIGNS, EMPTY_PROGRESS } from "@paved/game-core";
-import { titleOf } from "../lib/music/track-info";
-import { TRACKS } from "../lib/music/tracks";
 import { appRenders } from "../mocks/assets";
 import { PROGRESS } from "../mocks/players";
 import { AVATAR_CREATOR, MISSIONS, PLAY, PROFILE, PURCHASE, REFERRAL, SETTINGS, THEME, TILES, VAULT, WELCOME } from "../mocks/scenes";
@@ -18,7 +16,6 @@ import { PvpMatchScene } from "../components/scenes/pvp-match-scene";
 import { PVP_MATCH } from "../mocks/pvp-match";
 import { PvpResultScene } from "../components/scenes/pvp-result-scene";
 import { PVP_LEAGUE, PVP_RESULT } from "../mocks/pvp";
-import { CreditsScene } from "../components/scenes/credits-scene";
 import { TilesScene } from "../components/scenes/tiles-scene";
 import { PlayScene } from "../components/scenes/play-scene";
 import { PurchaseScene } from "../components/scenes/purchase-scene";
@@ -81,9 +78,10 @@ export const StoryCampaigns: Story = {
   name: "Story",
   render: () => <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} />,
 };
-export const Themes: Story = { render: () => <ThemeScene {...THEME.mixed} onBack={fn()} /> };
+// Settings' views (SETTINGS-PAGE): Themes and Credits in its drawer, its band's Back and red cross.
+export const Themes: Story = { render: () => <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} />} /> };
 export const Referral: Story = { render: () => <ReferralScene {...REFERRAL.earned} onBack={fn()} /> };
-export const Credits: Story = { render: () => <CreditsScene tracks={TRACKS.map(titleOf)} onBack={fn()} /> };
+export const Credits: Story = { render: () => <SettingsScene {...SETTINGS.credits} /> };
 export const Avatar: Story = { render: () => <AvatarCreatorScene {...AVATAR_CREATOR.saved} onBack={fn()} /> };
 export const Village: Story = { render: () => <VillageLayoutScene {...VILLAGE_LAYOUT.growing} onBack={fn()} /> };
 // The Shop (SHOP-PAGE) on its Cobbles tab, which shows the page's whole set, the Cobbles and USDC.

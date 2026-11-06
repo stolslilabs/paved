@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { seededRandom } from "@paved/renderer";
@@ -216,14 +216,16 @@ describe("the mock's wallet in the app (#927)", () => {
     cleanup();
     queryClient.clear();
     visit("/settings");
-    expect(await screen.findByTitle(name, {}, WAIT)).toHaveTextContent(name);
+    // SETTINGS-PAGE: the HUD's drawer over the home, whose profile card names the player too: the account's own.
+    const account = await screen.findByRole("region", { name: "Account" }, WAIT);
+    expect(await within(account).findByTitle(name, {}, WAIT)).toHaveTextContent(name);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Reset" }, WAIT));
+    await userEvent.click(await within(account).findByRole("button", { name: "Reset" }, WAIT));
     await waitFor(() => expect(localKey(storage.items.get(DEVICE_KEY)!).address).not.toBe(first), WAIT);
     const fresh = localKey(storage.items.get(DEVICE_KEY)!).address;
     const freshName = (await s.ledger.name(fresh))!;
     expect(freshName).not.toBe(name);
-    expect(await screen.findByTitle(freshName, {}, WAIT)).toHaveTextContent(freshName);
+    expect(await within(account).findByTitle(freshName, {}, WAIT)).toHaveTextContent(freshName);
     // The old account is gone from the ledger with its key.
     expect(await s.ledger.name(first)).toBeNull();
     expect((await s.ledger.freeVillage(first)).founded).toBe(false);
