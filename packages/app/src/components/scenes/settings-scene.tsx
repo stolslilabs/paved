@@ -170,7 +170,7 @@ function AccountGroup({ account, connecting, onConnect, onDisconnect, onReset }:
         // The pill goes under the words at 320 px rather than squeezing them (WRAP360).
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3">
           <LeaguePortrait player={account} look={account.look} league={account.league} className="text-[3rem]" />
-          <span className="flex min-w-0 flex-1 basis-28 flex-col">
+          <span className="flex min-w-32 flex-1 basis-0 flex-col">
             <PlayerName name={account.name} address={account.address} className="text-outline text-lg leading-tight font-bold" />
             <span className="text-outline text-sm font-bold text-success">Connected</span>
             <ShortAddress address={account.address} className="text-sm text-muted-foreground" />
@@ -184,7 +184,7 @@ function AccountGroup({ account, connecting, onConnect, onDisconnect, onReset }:
           <span className="grid size-12 shrink-0 place-items-center rounded-full border-4 border-border">
             <UiIcon name="user" px={32} className="drawer-icon size-8" />
           </span>
-          <span className="flex min-w-0 flex-1 basis-28 flex-col">
+          <span className="flex min-w-32 flex-1 basis-0 flex-col">
             <span className="text-outline text-lg leading-tight font-bold">Guest</span>
             <span className="text-sm wrap-anywhere text-muted-foreground">Story progress is saved on this device only.</span>
           </span>

@@ -67,7 +67,7 @@ export function VolumeSlider({ label, art, value, before, onChange, className }:
         className="state-layer relative grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none"
       >
         <UiIcon name={art} px={32} className={cn("drawer-icon size-8 transition-opacity", muted && "opacity-40")} />
-        {muted && <UiIcon name="close" px={20} className="drawer-icon absolute right-0.5 bottom-0.5 size-5" />}
+        {muted && <UiIcon name="close" px={20} className="drawer-icon absolute right-0 bottom-0 size-5" />}
       </button>
       <span className={cn(SETTING_LABEL, "w-28 flex-none")}>{label}</span>
       <Slider

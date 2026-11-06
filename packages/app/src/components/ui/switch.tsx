@@ -5,11 +5,12 @@ import { cn } from "../../lib/utils";
 
 /**
  * Off is the `input` track (3.11:1 on the page). On, by tone: `primary` with the thumb in `primary-foreground` (the default), or
- * `success` with the thumb kept in `foreground` (SETTINGS-PAGE: the Paved UX Book's green switch and its light knob).
+ * `success` with the thumb kept in `foreground` (SETTINGS-PAGE: the Paved UX Book's green switch and its light knob). `success` is the
+ * plain `bg-success`: off, `data-[state=unchecked]:bg-input` outranks it (a class and an attribute), so no rule of its own is added.
  */
 const switchVariants = cva(
   "state-layer peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors outline-none disabled:cursor-not-allowed disabled:opacity-50 data-[state=unchecked]:bg-input motion-reduce:transition-none",
-  { variants: { tone: { primary: "data-[state=checked]:bg-primary", success: "data-[state=checked]:bg-success" } }, defaultVariants: { tone: "primary" } },
+  { variants: { tone: { primary: "data-[state=checked]:bg-primary", success: "bg-success" } }, defaultVariants: { tone: "primary" } },
 );
 const thumbVariants = cva(
   "pointer-events-none block size-5 rounded-full bg-foreground shadow-sm transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0.5 motion-reduce:transition-none",
