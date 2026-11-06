@@ -55,11 +55,11 @@ export const PAGES: readonly PageDef[] = [
   { path: "play", title: "Play", nav: null, panel: true },
   // A flow opened from Play: Back goes up to it.
   { path: "play/challenge", title: "Purchase", nav: null, parent: "/play" },
-  { path: "cobbles", title: "Cobbles", nav: null, panel: true },
   { path: "avatar", title: "Avatar", nav: null },
   // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
   { path: "village/chests", title: "Chests", nav: "chests", panel: true },
-  { path: "village/shop", title: "Tile shop", nav: "shop", panel: true },
+  // The Shop (SHOP-PAGE): Tiles, Cobbles and Themes as tabs (`?tab=`), the HUD's drawer docked at the right from `tablet`.
+  { path: "village/shop", title: "Shop", nav: "shop", panel: true, drawer: true },
   { path: "village/:player", title: "Village", nav: null },
   { path: "game/:gameId", title: "Board", nav: null },
   // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, a match (#786), the league. The defence log's
@@ -68,6 +68,7 @@ export const PAGES: readonly PageDef[] = [
   { path: "pvp/result/:id", title: "Result", nav: null },
   { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
   // A match of the League's list (#786): the attacked village from its snapshot and the attack's build. Back goes up to the League.
+  // MATCH-PAGE: its scene draws its header, "Battle log" (the Paved UX Book's); this title, shown nowhere, stays short (first load).
   { path: "pvp/match/:id", title: "Match", nav: null, parent: "/pvp/league" },
   // The HUD's drawer at every width, docked at the left from `tablet`, under the HUD's crowns (LEAGUE-PAGE).
   { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left", drawer: true },
@@ -80,21 +81,25 @@ export const PAGES: readonly PageDef[] = [
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`
   // land on it (`router.tsx`). The HUD's drawer at every width, docked at the right from `tablet` (MISSIONS-PAGE).
   { path: "missions", title: "Missions", nav: "quests", panel: true, drawer: true },
+  // Tiles (COLLECTION-PAGE, the book's Collection, named after the home's button): the skin each tile wears. The HUD's drawer at every
+  // width, docked at the right from `tablet`, under the right column's Tiles; its old Settings sheet `/settings/tiles` lands on it.
+  { path: "tiles", title: "Tiles", nav: null, panel: true, drawer: true },
   { path: "vault", title: "Vault", nav: "vault", panel: true },
   // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
   // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
   // The chat's tabs (#973): `/chat` opens on the last one used, `/chat/<tab>` names one, `/chat/private/<player>` a private
   // conversation over the Private tab's list; one component (`page-loaders.ts`), so a move between them keeps the page.
-  { path: "chat", title: "Chat", nav: "chat", panel: true },
-  { path: "chat/private/:player", title: "Chat", nav: "chat", panel: true },
-  { path: "chat/:tab", title: "Chat", nav: "chat", panel: true },
-  { path: "guild", title: "Guild", nav: "guild", panel: true },
-  { path: "friends", title: "Friends", nav: "friends", panel: true },
-  // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it, a theme's too.
+  // CHAT-PAGE: the HUD's drawer at every width, docked at the left from `tablet`, beside the home's Chat tab (the League's rule).
+  { path: "chat", title: "Chat", nav: "chat", panel: true, drawer: true },
+  { path: "chat/private/:player", title: "Chat", nav: "chat", panel: true, drawer: true },
+  { path: "chat/:tab", title: "Chat", nav: "chat", panel: true, drawer: true },
+  // The Guild (GUILD-PAGE, the book's "Run my guild"): the HUD's drawer at every width, docked at the right from `tablet`, as the Shop.
+  { path: "guild", title: "Guild", nav: "guild", panel: true, drawer: true },
+  // FRIENDS-PAGE: the HUD's drawer at every width, docked at the right from `tablet`, as the home's Friends button.
+  { path: "friends", title: "Friends", nav: "friends", panel: true, drawer: true },
+  // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it. A theme's tiles are the Shop's (SHOP-PAGE).
   { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/theme/:theme", title: "Theme", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/tiles", title: "My tiles", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings", sheet: true, panel: true },
   { path: "settings", title: "Settings", nav: "settings", panel: true },
 ] as const;

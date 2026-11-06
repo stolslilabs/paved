@@ -15,6 +15,7 @@ import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { mockRivalsV2 } from "../src/data/mock/v2";
 import { queryClient } from "../src/lib/query-client";
 import { FRIENDS_SEARCH } from "../src/mocks/social";
+import { PlayerProfileHost } from "../src/routes/player-profile";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
@@ -39,7 +40,8 @@ describe("the social pages' scenes (#973)", () => {
       [<FriendsScene {...FRIENDS_SEARCH.idle} onBack={onBack} />, "Friends", "No friends yet"],
     ] as const) {
       const { unmount } = render(wrap(scene));
-      expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+      // The page's title: the header's h1, or the HUD's drawer's (CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE: a drawer's title is the dialog's, an h2).
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
       expect(screen.getByText(empty)).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Back" }));
       unmount();
@@ -83,6 +85,8 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
             element: (
               <main>
                 <Outlet />
+                {/* The home's profile host, as the app's (FRIENDS-PAGE: the drawers' pages mount none of their own). */}
+                <PlayerProfileHost />
               </main>
             ),
           }
@@ -116,7 +120,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
   it("opens the chat page on the World's tab for a player in no guild", async () => {
     const { router } = open("/chat");
-    expect(await screen.findByRole("heading", { level: 1, name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(await screen.findByRole("tab", { name: "World" }, { timeout: slow(8000) })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(router.state.location.pathname).toBe("/chat/world"), { timeout: slow(8000) });
     expect(await screen.findByRole("region", { name: "World conversation" }, { timeout: slow(8000) })).toBeInTheDocument();
@@ -124,13 +128,14 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
   it("opens the guild page on the finder of a player in no guild", async () => {
     open("/guild");
-    expect(await screen.findByRole("heading", { level: 1, name: "Guild" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Guild" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(await screen.findByText("You are in no guild", undefined, { timeout: slow(8000) })).toBeInTheDocument();
   });
 
   it("opens the friends page on its three tabs, Friends selected, under the search", async () => {
     open("/friends");
-    expect(await screen.findByRole("heading", { level: 1, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
+    // FRIENDS-PAGE: the HUD's drawer, its title the Sheet's (an h2).
+    expect(await screen.findByRole("heading", { level: 2, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Name or player ID" })).toBeInTheDocument();
     const tabs = within(await screen.findByRole("tablist", { name: "Lists" }, { timeout: slow(8000) })).getAllByRole("tab");
     expect(tabs.map((t) => t.getAttribute("aria-label")?.split(",")[0])).toEqual(["Friends", "Following", "Followers"]);
@@ -153,8 +158,8 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
       await userEvent.click(result);
       expect(await screen.findByRole("dialog", { name: player.name }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(new URLSearchParams(router.state.location.search).get("player")).toBe(player.address);
-      await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await userEvent.click(within(screen.getByRole("dialog", { name: player.name })).getByRole("button", { name: "Back" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: player.name })).toBeNull());
     }
     expect(router.state.location.pathname).toBe("/friends");
   });
@@ -162,33 +167,41 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
   describe("an old /social link (#973)", () => {
     it("lands on the friends page", async () => {
       const { router } = open("/social?ref=abc");
-      expect(await screen.findByRole("heading", { level: 1, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 2, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/friends");
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
     });
 
     it("with ?guild= opens that guild on the guild page", async () => {
       const { router } = open("/social?guild=2");
-      // The guild's sheet is modal: the page under it is hidden from assistive technology while it is open.
-      expect(await screen.findByRole("heading", { level: 1, name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
+      // The guild's sheet is modal: the page's drawer under it is hidden from assistive technology while it is open.
+      expect(await screen.findByRole("dialog", { name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
-      expect(await screen.findByRole("dialog", undefined, { timeout: slow(8000) })).toBeInTheDocument();
+      // The guild's sheet over the drawer: the one dialog left in the accessibility tree.
+      await waitFor(() => expect(screen.getByRole("dialog")).not.toHaveAttribute("data-hud-drawer"), { timeout: slow(8000) });
     });
 
     it("a guild's link, /guild/<id>, opens that guild's page over the guild page, the ?ref= kept", async () => {
       const { router } = open("/guild/2?ref=abc");
-      expect(await screen.findByRole("heading", { level: 1, name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
-      const sheet = await screen.findByRole("dialog", undefined, { timeout: slow(8000) });
+      const sheet = await waitFor(
+        () => {
+          const dialog = screen.getByRole("dialog");
+          expect(dialog).not.toHaveAttribute("data-hud-drawer");
+          return dialog;
+        },
+        { timeout: slow(8000) },
+      );
       expect(await within(sheet).findByRole("heading", { level: 2 }, { timeout: slow(8000) })).toBeInTheDocument();
     });
 
     it("with ?chat= opens that conversation's tab on the chat page", async () => {
       const { router } = open("/social?chat=world&ref=abc");
-      expect(await screen.findByRole("heading", { level: 1, name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: "Chat" }, { timeout: slow(8000) })).toBeInTheDocument();
       await waitFor(() => expect(router.state.location.pathname).toBe("/chat/world"), { timeout: slow(8000) });
       expect(new URLSearchParams(router.state.location.search).get("chat")).toBeNull();
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");

@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { FollowProfileActions } from "../src/components/containers/follow-profile";
 import { FollowResultButton } from "../src/components/containers/follow-result-button";
+import { GuildMemberActions } from "../src/components/containers/guild-profile";
+import { GUILD_ACTIONS } from "../src/mocks/guilds";
 import { FriendsPanel } from "../src/components/containers/friends-panel";
 import { PublicProfileSheet } from "../src/components/containers/public-profile-sheet";
 import { FollowRefusedError } from "../src/data/social-source";
@@ -60,16 +62,31 @@ describe("the profile's follow actions (#954)", () => {
     expect(document.body.textContent?.replace(/Block/g, "")).not.toMatch(/block/i);
   });
 
-  it("shows the Friend or Follows you mark and both counts on the profile", () => {
+  it("shows the Friends or Follows you mark and both counts on the profile", () => {
     const { rerender } = render(wrap(<PublicProfileSheet state={PUBLIC_PROFILES.online} now={MOCK_NOW} open onOpenChange={() => {}} follow={FOLLOW_STATUS.friend} />));
     const sheet = screen.getByRole("dialog");
-    expect(within(sheet).getByText("Friend")).toBeInTheDocument();
+    // FRIENDS-PAGE: the book's "Friends" beside the painted handshake.
+    expect(within(sheet).getByText("Friends")).toBeInTheDocument();
     expect(within(sheet).getByText("Followers").nextSibling).toHaveTextContent("15");
     expect(within(sheet).getByText("Following").nextSibling).toHaveTextContent("5");
     rerender(wrap(<PublicProfileSheet state={PUBLIC_PROFILES.online} now={MOCK_NOW} open onOpenChange={() => {}} follow={FOLLOW_STATUS.followsYou} />));
     expect(within(screen.getByRole("dialog")).getByText("Follows you")).toBeInTheDocument();
     rerender(wrap(<PublicProfileSheet state={PUBLIC_PROFILES.online} now={MOCK_NOW} open onOpenChange={() => {}} />));
     expect(within(screen.getByRole("dialog")).queryByText("Followers")).toBeNull();
+  });
+});
+
+describe("the guild's actions on a profile, as the Profile's tiles (FRIENDS-PAGE)", () => {
+  it("names each tile as its button (Promote to Veteran, Demote to Recruit, Make leader, Kick: GUILD-PAGE's five ranks), its word short under the icon", async () => {
+    const onAction = vi.fn(async () => {});
+    render(wrap(<GuildMemberActions {...GUILD_ACTIONS.leaderOnMember} look="tiles" onAction={onAction} />));
+    const tiles = screen.getAllByRole("button");
+    expect(tiles.map((b) => b.getAttribute("aria-label"))).toEqual(["Promote to Veteran", "Demote to Recruit", "Make leader", "Kick"]);
+    expect(tiles.map((b) => b.textContent)).toEqual(["Promote", "Demote", "Leader", "Kick"]);
+    await userEvent.click(tiles[2]!);
+    const dialog = await screen.findByRole("dialog", { name: /the leader\?$/ });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Make leader" }));
+    await waitFor(() => expect(onAction).toHaveBeenLastCalledWith({ type: "make-leader" }));
   });
 });
 
@@ -88,7 +105,7 @@ describe("the search's Follow (#954)", () => {
 });
 
 describe("the friends page's panel (#954, #973)", () => {
-  it("counts each list, marks the new followers, and offers Follow back and Remove only to followers", async () => {
+  it("counts each list, marks the new followers, and offers Follow back or Following, as the book's rows (FRIENDS-PAGE)", async () => {
     const onAction = vi.fn(async () => {});
     const onListChange = vi.fn();
     const { rerender } = render(wrap(<FriendsPanel {...FRIENDS_TAB.friends} onAction={onAction} onListChange={onListChange} />));
@@ -96,26 +113,46 @@ describe("the friends page's panel (#954, #973)", () => {
     expect(screen.getByRole("tab", { name: "Friends, 4" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Following, 6" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Followers, 7, 2 new" })).toBeInTheDocument();
+    // The book's tabs: each word with its count.
+    expect(screen.getByRole("tab", { name: "Friends, 4" })).toHaveTextContent("Friends4");
     const friends = screen.getByRole("region", { name: "Friends" });
-    expect(within(friends).getAllByRole("button", { name: /^Unfollow / })).toHaveLength(4);
-    expect(within(friends).queryByRole("button", { name: /^Remove / })).toBeNull();
+    // The book's Friends rows: online or when last seen at their end, no button (Message and Following are on the profile).
+    expect(within(friends).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(friends).getAllByRole("button").every((b) => /, level \d+, .+ league/.test(b.getAttribute("aria-label") ?? ""))).toBe(true);
     // Online first: the first two rows say Online.
     expect(within(friends).getAllByRole("listitem").slice(0, 2).every((li) => li.textContent?.includes("Online"))).toBe(true);
+    expect(within(friends).getAllByRole("listitem")[2]).toHaveTextContent("3h ago");
     await userEvent.click(screen.getByRole("tab", { name: /^Followers/ }));
     expect(onListChange).toHaveBeenLastCalledWith("followers");
     rerender(wrap(<FriendsPanel {...FRIENDS_TAB.newFollowers} onAction={onAction} onListChange={onListChange} />));
     const followers = screen.getByRole("region", { name: "Followers" });
-    expect(within(followers).getAllByText("New")).toHaveLength(2);
-    expect(within(followers).getAllByRole("button", { name: /^Remove / })).toHaveLength(7);
+    // The owner's red dot on a new follower's portrait (in place of the book's New), said in the row's name.
+    expect(followers.querySelectorAll("[data-slot=new-dot]")).toHaveLength(2);
+    expect(within(followers).getAllByRole("button", { name: /, new follower$/ })).toHaveLength(2);
+    // No Remove (the book's rows have none).
+    expect(within(followers).queryByRole("button", { name: /^Remove / })).toBeNull();
     // Follow back only for those the player does not follow: the three followers who are not friends.
     const back = within(followers).getAllByRole("button", { name: /^Follow back / });
     expect(back).toHaveLength(3);
-    // The four friends among them: Unfollow, beside Remove.
-    expect(within(followers).getAllByRole("button", { name: /^Unfollow / })).toHaveLength(4);
+    // The four friends among them: Following, which unfollows.
+    expect(within(followers).getAllByRole("button", { name: /^Following .*: unfollow$/ })).toHaveLength(4);
     // The new ones first.
-    expect(within(followers).getAllByRole("listitem").slice(0, 2).every((li) => li.textContent?.includes("New"))).toBe(true);
+    expect(within(followers).getAllByRole("listitem").slice(0, 2).every((li) => li.querySelector("[data-slot=new-dot]"))).toBe(true);
     await userEvent.click(back[0]!);
     expect(onAction).toHaveBeenLastCalledWith("follow", expect.any(String));
+  });
+
+  it("unfollows from the Following list once confirmed", async () => {
+    const onAction = vi.fn(async () => {});
+    render(wrap(<FriendsPanel {...FRIENDS_TAB.following} onAction={onAction} />));
+    const following = screen.getByRole("region", { name: "Following" });
+    const buttons = within(following).getAllByRole("button", { name: /^Following .*: unfollow$/ });
+    expect(buttons).toHaveLength(6);
+    await userEvent.click(buttons[0]!);
+    const dialog = await screen.findByRole("dialog", { name: /^Unfollow / });
+    expect(dialog).toHaveTextContent("You stop being friends");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Unfollow" }));
+    await waitFor(() => expect(onAction).toHaveBeenLastCalledWith("unfollow", FRIENDS_TAB.following.lists!.following[0]!.profile.address));
   });
 
   it("lists the blocked players in the tab's menu, with Unblock", async () => {

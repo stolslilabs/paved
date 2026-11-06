@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { PublicProfile } from "../../data/social-source";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
@@ -26,8 +26,21 @@ export interface PlayerSearchProps {
   unavailable?: boolean;
   /** A result's action beside it (the follows' Follow, #954); none: the row only opens the profile. */
   renderAction?: (player: PublicProfile) => ReactNode;
+  /**
+   * The look: `plain` (the default, the chat's and the guild's), or `drawer` (FRIENDS-PAGE, the HUD's drawer: the book's carved field
+   * "Find a player by name or ID" with no hint under it, the results as rows of one carved panel, `renderResult`'s).
+   */
+  look?: "plain" | "drawer";
+  /** A result's row in the `drawer` look (the friends page's own row, its action in it); left out, `PlayerResult`. */
+  renderResult?: (player: PublicProfile) => ReactNode;
   className?: string;
 }
+
+/** Rows on one carved panel (FRIENDS-PAGE, the book's lists): the drawer's carved surface, each row after the first under `rowRule`. */
+export const CARVED_ROWS = "drawer-carved flex flex-col rounded-xl px-3";
+
+/** The faint rule over a carved panel's row after its first (the Shop's: the bevel's grey, half see-through), inline: no new class. */
+export const rowRule = (index: number): CSSProperties | undefined => (index > 0 ? { borderTop: "1px solid color-mix(in oklab, var(--drawer-bevel) 45%, transparent)" } : undefined);
 
 /** One player found: the avatar, the name, the level and the league; a tap opens their profile. Its action (Follow) beside it. */
 export function PlayerResult({ player, onOpen, action }: { player: PublicProfile; onOpen?: (address: string) => void; action?: ReactNode }) {
@@ -70,23 +83,27 @@ export function PlayerResult({ player, onOpen, action }: { player: PublicProfile
  * The player search (#952): a field, and the players it finds by name (from the start of a word, whatever the case) or by
  * player ID, each opening their public profile. The follows (#954) and the guilds (#953) use it.
  */
-export function PlayerSearch({ query, onQueryChange, results, error, errorDetail, onRetry, onOpen, unavailable, renderAction, className }: PlayerSearchProps) {
+export function PlayerSearch({ query, onQueryChange, results, error, errorDetail, onRetry, onOpen, unavailable, renderAction, look = "plain", renderResult, className }: PlayerSearchProps) {
   const typed = query.trim() !== "";
+  const drawer = look === "drawer";
   return (
     <section aria-label="Find a player" className={cn("flex flex-col gap-3", className)}>
-      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3">
-        <Icon name="magnifying-glass" size="xs" className="shrink-0 text-muted-foreground" />
+      <label className={cn("flex min-h-11 items-center gap-2 px-3", drawer ? "drawer-carved rounded-xl" : "rounded-lg border border-input bg-secondary/60")}>
+        <Icon name="magnifying-glass" size={drawer ? "sm" : "xs"} className="shrink-0 text-muted-foreground" />
         <input
           type="search"
           aria-label="Name or player ID"
-          placeholder="Name or player ID"
+          placeholder={drawer ? "Find a player by name or ID" : "Name or player ID"}
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="search"
           value={query}
           disabled={unavailable}
           onChange={(e) => onQueryChange?.(e.target.value)}
-          className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed [&::-webkit-search-cancel-button]:appearance-none"
+          className={cn(
+            "min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed [&::-webkit-search-cancel-button]:appearance-none",
+            drawer && "text-base font-semibold",
+          )}
         />
         {typed && !unavailable && (
           <Button size="icon" variant="ghost" className="-mr-3 shrink-0" aria-label="Clear the search" onClick={() => onQueryChange?.("")}>
@@ -97,7 +114,7 @@ export function PlayerSearch({ query, onQueryChange, results, error, errorDetail
       {unavailable ? (
         <p className="text-sm text-muted-foreground">The player search is not on this network yet.</p>
       ) : !typed ? (
-        <p className="text-sm text-muted-foreground">Search a name, or paste a player ID.</p>
+        !drawer && <p className="text-sm text-muted-foreground">Search a name, or paste a player ID.</p>
       ) : (
         <>
           <InlineError
@@ -119,12 +136,14 @@ export function PlayerSearch({ query, onQueryChange, results, error, errorDetail
               ))}
             </div>
           )}
-          {results?.length === 0 && !error && <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">No player found.</p>}
+          {results?.length === 0 && !error && (
+            <p className={cn("px-4 py-6 text-center text-sm text-muted-foreground", drawer ? "drawer-carved rounded-xl font-semibold" : "rounded-xl border border-dashed border-border")}>No player found.</p>
+          )}
           {results && results.length > 0 && (
-            <ul aria-label="Players found" className="flex flex-col gap-2">
-              {results.map((p) => (
-                <li key={p.address}>
-                  <PlayerResult player={p} onOpen={onOpen} action={renderAction?.(p)} />
+            <ul aria-label="Players found" className={drawer ? CARVED_ROWS : "flex flex-col gap-2"}>
+              {results.map((p, i) => (
+                <li key={p.address} style={drawer ? rowRule(i) : undefined}>
+                  {drawer && renderResult ? renderResult(p) : <PlayerResult player={p} onOpen={onOpen} action={renderAction?.(p)} />}
                 </li>
               ))}
             </ul>

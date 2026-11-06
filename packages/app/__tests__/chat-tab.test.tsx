@@ -14,6 +14,7 @@ import { freshV2 } from "../src/data/mock/v2";
 import type { ChatSource, GuildSource, SocialSource } from "../src/data/social-source";
 import { memoryStore } from "./data-fakes";
 import { queryClient } from "../src/lib/query-client";
+import { PlayerProfileHost } from "../src/routes/player-profile";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { resetChatTabForTests } from "../src/routes/chat-tab";
@@ -30,7 +31,10 @@ const T0 = 1_793_448_000;
 const OTHER = "0xabc002";
 const THIRD = "0xabc003";
 
-/** The routes with a plain home: the panels' pages drawn as full pages (below `desktop`). */
+/**
+ * The routes with a plain home: the panels' pages drawn as full pages (below `desktop`). The players' profiles (`?player=`) are the
+ * home's host's, as the home's is: the chat is the HUD's drawer over the home (CHAT-PAGE), which keeps it mounted under it.
+ */
 const plainHome = (routes: RouteObject[]): RouteObject[] =>
   routes.map((r) => ({
     ...r,
@@ -41,6 +45,7 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
             element: (
               <main>
                 <Outlet />
+                <PlayerProfileHost />
               </main>
             ),
           }
@@ -117,7 +122,7 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     expect(within(log).queryAllByRole("link")).toEqual([]);
   });
 
-  it("writes in the World from level 2, deletes the message, and refuses a second one within 5 seconds with the countdown", async () => {
+  it("writes in the World from level 2, with no Delete on the message, and refuses a second one within 5 seconds with the countdown", async () => {
     // The page's countdown reads the wall clock, as the mock does outside the tests: both held at T0, so the 5 seconds do not
     // run out however slow the machine.
     vi.spyOn(Date, "now").mockReturnValue(T0 * 1000);
@@ -130,14 +135,9 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     // The rate limit: Send waits, counting down.
     await userEvent.type(await field("World"), "again");
     expect(await screen.findByRole("button", { name: "Send, in 5 s" }, T(5_000))).toBeDisabled();
-    // Delete one's own message: "Message deleted" in its place.
-    const row = mine.closest("li")!;
-    await userEvent.click(within(row as HTMLElement).getByRole("button", { name: "More for You's message" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }, T(5_000)));
-    const dialog = await screen.findByRole("dialog", { name: "Delete this message?" }, T(5_000));
-    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
-    expect(await within(log).findByText("Message deleted", undefined, T(8_000))).toBeInTheDocument();
-    expect(within(log).queryByText("hello builders, see paved-gifts.example and 0x04a3")).toBeNull();
+    // No Delete (CHAT-PAGE: a message stays on the ledger): one's own message has no menu at all.
+    const row = mine.closest("li") as HTMLElement;
+    expect(within(row).queryByRole("button", { name: "More for You's message" })).toBeNull();
   });
 
   it("reports a message, mutes its author (their messages go), and unmutes them from the page's menu", async () => {
@@ -155,7 +155,7 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     const dialog = await screen.findByRole("dialog", { name: `Report ${author}'s message?` }, T(5_000));
     await userEvent.click(within(dialog).getByRole("radio", { name: /^Scam/ }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Report" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: `Report ${author}'s message?` })).toBeNull(), T(5_000));
     // Mute: their messages are hidden.
     await userEvent.click(within(log).getAllByRole("button", { name: `More for ${author}'s message` }).at(-1)!);
     expect(screen.queryByRole("menuitem", { name: "Report" })).toBeNull();
@@ -186,21 +186,23 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     const confirm = await screen.findByRole("dialog", { name: `Block ${name}?` }, T(5_000));
     await userEvent.click(within(confirm).getByRole("button", { name: "Block" }));
     expect(await within(profile).findByRole("button", { name: "Unblock" }, T(8_000))).toBeInTheDocument();
-    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    // The profile closed; the chat's drawer (CHAT-PAGE) stays.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name })).toBeNull(), T(5_000));
     // The conversation stayed open under the profile: no reload, and the blocked player's messages are gone.
     expect(screen.getByRole("log", { name: "Messages" })).toBe(log);
     await waitFor(() => expect(shown()).toBe(0), T(8_000));
   });
 
-  it("writes in the guild, where the log's lines show; an officer deletes a member's message", async () => {
+  it("writes in the guild, where the log's lines show; an officer has no Delete on a member's message", async () => {
     // On the World: at `/chat` the page opens on Guild for a member, and so reads the line the test wants unread, whenever its
     // first read comes after the join (a loaded machine): the badge then never shows.
     const { me, social, chat, clock } = open("/chat/world");
     // OTHER leads the guild, the player joins and is made an officer, THIRD joins and writes.
     const gid = await social.createGuild(OTHER, draft());
     await social.joinGuild(me, gid);
-    await social.promote(OTHER, me);
+    // GUILD-PAGE's five ranks: Recruit, then Member, Veteran, Officer.
+    for (let i = 0; i < 3; i++) await social.promote(OTHER, me);
     await social.joinGuild(THIRD, gid);
     // A minute later, so that the member's line is newer than the player's join: unread.
     clock.now += 60;
@@ -213,29 +215,33 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     expect(await within(log).findByText(/promoted .* to Officer/, undefined, T(8_000))).toBeInTheDocument();
     await send("Stone Road", "officer here");
     expect(await within(log).findByText("officer here", undefined, T(8_000))).toBeInTheDocument();
-    // The member's message: Delete in its menu, for the officer.
+    // The member's message: Report in its menu, no Delete, though the source lets an officer delete (CHAT-PAGE).
     const row = within(log).getByText("a member's line").closest("li") as HTMLElement;
     await userEvent.click(within(row).getByRole("button", { name: /^More for .+'s message$/ }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }, T(5_000)));
-    await userEvent.click(within(await screen.findByRole("dialog", { name: "Delete this message?" }, T(5_000))).getByRole("button", { name: "Delete" }));
-    await waitFor(() => expect(within(log).queryByText("a member's line")).toBeNull(), T(8_000));
-    expect(within(log).getByText("Message deleted")).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Report" }, T(5_000))).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Delete" })).toBeNull();
   });
 
-  it("opens a private conversation with a friend from the friends page's Message, with the notice once", async () => {
-    const { router, me, social, later } = open("/chat");
+  it("opens a private conversation with a friend from the friends page's Message, with the notice once, until the first message", async () => {
+    const { router, me, social, chat, later } = open("/chat");
     const friend = SEEDED_PLAYERS.find((p) => followBackDelay(me, p.address) !== null)!;
     await social.follows!.follow(me, friend.address);
     await later(followBackDelay(me, friend.address)! + 1);
     await act(() => router.navigate("/friends"));
-    await userEvent.click(await screen.findByRole("button", { name: `Message ${friend.name}` }, T(10_000)));
+    // FRIENDS-PAGE: Message is on the friend's profile (the book's rows have no button), opened from their row.
+    await userEvent.click(await screen.findByRole("button", { name: new RegExp(`^${friend.name}, level`) }, T(10_000)));
+    const profile = await screen.findByRole("dialog", { name: friend.name }, T(8_000));
+    await userEvent.click(await within(profile).findByRole("button", { name: `Message ${friend.name}` }, T(8_000)));
     await conversation(friend.name);
     expect(screen.getByText("Your private messages are end-to-end encrypted. Paved never asks for your key or your password.")).toBeInTheDocument();
     await send(friend.name, "hello friend");
     expect(await within(screen.getByRole("log", { name: "Messages" })).findByText("hello friend", undefined, T(8_000))).toBeInTheDocument();
     expect(screen.queryByText(/wait in their Requests/)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Got it" }));
+    // The first message hides it (CHAT-PAGE, the owner's ask); leaving the conversation where it showed counts it seen.
     await waitFor(() => expect(screen.queryByText("Your private messages are end-to-end encrypted. Paved never asks for your key or your password.")).toBeNull(), T(8_000));
+    expect((await chat.overview(me)).noticeSeen).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Back to the conversations" }));
+    await waitFor(async () => expect((await chat.overview(me)).noticeSeen).toBe(true), T(8_000));
   });
 
   it("says a private conversation is end-to-end encrypted, shows the friend's key change and its new safety code (#997)", async () => {
@@ -249,6 +255,8 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     await send(friend.name, "hello friend");
     const log = within(box).getByRole("log", { name: "Messages" });
     await within(log).findByText("hello friend", undefined, T(8_000));
+    // The line opens the conversation until its first message (CHAT-PAGE, the owner's ask); the menu keeps Encryption.
+    expect(within(box).queryByText(`End-to-end encrypted: only you and ${friend.name} can read these messages`)).toBeNull();
     const before = (await chat.conversation(me, privateConversation(me, friend.address)))!.encryption.safetyCode!;
     // The friend's key changes: a line in the conversation, whose View code shows the new code.
     await (chat as ChatSource & { rotateKeys(player: string): Promise<void> }).rotateKeys(friend.address);
@@ -295,7 +303,10 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
 
   it("opens a private conversation from a stranger's profile (Message): the player's messages wait in their Requests", async () => {
     const stranger = SEEDED_PLAYERS[5]!;
-    open(`/chat?player=${stranger.address}`);
+    // The profile over the chat's drawer (CHAT-PAGE), as a tap on a player opens it: the drawer first, then `?player=`.
+    const { router } = open("/chat/world");
+    await conversation("World");
+    await act(() => router.navigate(`/chat/world?player=${stranger.address}`));
     const profile = await screen.findByRole("dialog", { name: stranger.name }, T(10_000));
     await userEvent.click(await within(profile).findByRole("button", { name: `Message ${stranger.name}` }, T(8_000)));
     await conversation(stranger.name);

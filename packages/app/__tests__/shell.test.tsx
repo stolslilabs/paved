@@ -17,8 +17,8 @@ import { preloadPages, routeOf } from "./route-helpers";
 
 // A player id is an address (P8): the page of anything else is not found.
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:id/g, "0x1").replace(/:theme/g, "forest").replace(/:(\w+)/g, "1");
-/** A page whose heading is not its route's title: a theme's shop is titled with the theme's name. */
-const HEADING: Record<string, string> = { "settings/theme/:theme": "Forest" };
+/** A page whose heading is not its route's title (none since a theme's shop became the Shop's, SHOP-PAGE). */
+const HEADING: Record<string, string> = {};
 
 /** The app on the chain's and indexer's fakes, with a wallet in memory that connects (P6). */
 function open(path: string, wallet = fakeWallet()) {
@@ -71,8 +71,9 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
   });
 
   it("each item of the home's dock reaches its page (#763), which carries no dock", async () => {
+    // The Shop and the Guild are the HUD's drawer over the home (SHOP-PAGE, GUILD-PAGE), named by their title; the others' headings are pages'.
     for (const [name, path, heading] of [
-      ["Shop", "/village/shop", "Tile shop"],
+      ["Shop", "/village/shop", "Shop"],
       ["Chests", "/village/chests", "Chests"],
       ["Guild", "/guild", "Guild"],
       ["Settings", "/settings", "Settings"],
@@ -81,7 +82,8 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
       await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
       await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: new RegExp(`^${name}`) }));
       await waitFor(() => expect(router.state.location.pathname).toBe(path), { timeout: slow(5000) });
-      await screen.findByRole("heading", { level: 1, name: heading }, { timeout: slow(5000) });
+      if (name === "Shop" || name === "Guild") await screen.findByRole("dialog", { name: heading }, { timeout: slow(5000) });
+      else await screen.findByRole("heading", { level: 1, name: heading }, { timeout: slow(5000) });
       expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
       cleanup();
     }
@@ -94,7 +96,7 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
 
   it("a page's Back lands on the village, its dock back", async () => {
     const router = open("/village/shop");
-    await screen.findByRole("heading", { level: 1, name: "Tile shop" }, { timeout: slow(5000) });
+    await screen.findByRole("dialog", { name: "Shop" }, { timeout: slow(5000) });
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     expect(router.state.location.pathname).toBe("/");
@@ -120,6 +122,18 @@ describe("redirects of the old links", () => {
     const router = open(from);
     await waitFor(() => expect(router.state.location.pathname).toBe(to));
     expect(router.state.location.search).toBe("");
+  });
+
+  // SHOP-PAGE: the packs' page and a theme's shop are the Shop's tabs now.
+  it.each([
+    ["/cobbles", "?tab=cobbles"],
+    ["/cobbles?ref=0xabc", "?tab=cobbles&ref=0xabc"],
+    ["/settings/theme/forest", "?tab=themes&theme=forest"],
+    ["/play/challenge?tab=cobbles", "?tab=cobbles"],
+  ])("%s goes to the Shop's tab, %s", async (from, search) => {
+    const router = open(from);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/village/shop"));
+    expect(router.state.location.search).toBe(search);
   });
 
   it("/player/:id goes to / with that player's public profile asked for (#952)", async () => {

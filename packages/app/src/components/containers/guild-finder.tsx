@@ -1,16 +1,23 @@
-import { useState } from "react";
-import { GUILD_JOIN_TYPES, formatAgo, type GuildCandidate, type GuildDraft, type GuildJoinType } from "@paved/game-core";
+import { useState, type ReactNode } from "react";
+import * as m from "motion/react-m";
+import { GUILD_JOIN_TYPES, formatAgo, formatInteger, type GuildCandidate, type GuildDraft, type GuildJoinType } from "@paved/game-core";
 import type { GuildInvitation, GuildSummary, PlayerGuild } from "../../data/social-source";
 import { JOIN_TYPES } from "../../lib/guild-text";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { Switch } from "../ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+import { DrawerRow } from "../elements/drawer-row";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { PlayerName } from "../elements/player-name";
+import { SectionTitle } from "../elements/section-title";
+import { UiIcon } from "../elements/ui-icon";
 import { GuildCard } from "./guild-card";
-import { GuildFormSheet, NEW_GUILD, useGuildActions } from "./guild-sheets";
+import { GuildForm, NEW_GUILD, useGuildActions } from "./guild-sheets";
+import { ViewHeader, useDrawerView } from "./hud-drawer";
 
 /** The search's member-count filter: any, small (under 10), mid (10 to 29), large (30 and more). */
 export type GuildSizeFilter = "any" | "small" | "mid" | "large";
@@ -41,6 +48,25 @@ export interface GuildList {
 /** The Guild tab's actions outside a guild page: create, answer an invitation, cancel the request. */
 export type GuildFinderAction = { type: "create"; draft: GuildDraft } | { type: "answer-invitation"; guild: number; accept: boolean; leaving: boolean } | { type: "cancel-request" };
 
+/** An empty list's line, in the panel's place (the battle logs', the guild page's). */
+const EMPTY = "drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semibold text-muted-foreground";
+/** A raised button of the finder (Accept, Decline, Cancel): the drawer's raised grey, its words outlined. */
+const RAISED_BUTTON = "state-layer drawer-raised text-outline h-10 cursor-pointer gap-1.5 rounded-xl px-4 text-sm font-bold";
+
+/** A section of the finder, the drawer's: its engraved title in the display font and a count at its end, then its content. */
+function FinderSection({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-2">
+      <SectionTitle>
+        {title}
+        {count !== undefined && <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(count)}</span>}
+      </SectionTitle>
+      {children}
+    </section>
+  );
+}
+
+/** A list of guilds, the drawer's carved list (a rule between its rows), its states: read, still read, empty, failed. */
 function Cards({ list, player, ranked, empty, onOpen }: { list: GuildList; player: Pick<GuildCandidate, "level" | "crowns"> | null; ranked?: boolean; empty: string; onOpen?: (id: number) => void }) {
   return (
     <>
@@ -63,11 +89,11 @@ function Cards({ list, player, ranked, empty, onOpen }: { list: GuildList; playe
           ))}
         </div>
       )}
-      {list.guilds?.length === 0 && <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">{empty}</p>}
+      {list.guilds?.length === 0 && <p className={EMPTY}>{empty}</p>}
       {list.guilds && list.guilds.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="drawer-carved flex flex-col rounded-xl">
           {list.guilds.map((g, i) => (
-            <li key={g.id}>
+            <li key={g.id} className={cn("flex", i > 0 && "border-t border-border")}>
               <GuildCard guild={g} place={ranked ? i + 1 : undefined} player={player} onOpen={onOpen} />
             </li>
           ))}
@@ -86,25 +112,26 @@ export interface GuildInvitationsProps {
   onOpenGuild?: (id: number) => void;
 }
 
-/** The invitations a player holds (#953), newest first: each guild's card, who sent it and when it lapses; Accept or Decline. */
+/**
+ * The invitations a player holds (#953), newest first: each guild's card, who sent it and when it lapses; Accept or Decline. GUILD-PAGE:
+ * under the drawer's engraved title, each on a carved panel, Accept and Decline raised.
+ */
 export function GuildInvitations({ invitations, current, now, onAction, onOpenGuild }: GuildInvitationsProps) {
   const { run, ask, dialog, pending, error } = useGuildActions(onAction);
   if (invitations.length === 0) return null;
   return (
-    <section aria-label="Invitations" className="flex flex-col gap-2">
-      <h3 className="font-semibold">
-        Invitations <span className="numeric ml-1 text-sm text-muted-foreground">{invitations.length}</span>
-      </h3>
+    <FinderSection title="Invitations" count={invitations.length}>
       <ul className="flex flex-col gap-2">
         {invitations.map((inv) => (
-          <li key={inv.guild.id} data-slot="guild-invitation" className="flex flex-col gap-2 rounded-xl border border-primary/60 bg-secondary/60 p-2">
+          <li key={inv.guild.id} data-slot="guild-invitation" className="drawer-carved flex flex-col gap-2 rounded-xl pb-3">
             <GuildCard guild={inv.guild} onOpen={onOpenGuild} />
-            <p className="px-1 text-xs wrap-anywhere text-muted-foreground">
-              From <PlayerName name={inv.inviterName} address={inv.inviter} className="font-semibold whitespace-normal text-foreground" />, {formatAgo(inv.sentAt - now)}. Lapses in {Math.max(1, Math.ceil((inv.expiresAt - now) / 86_400))}d; no requirement applies.
+            <p className="px-3 text-xs font-semibold wrap-anywhere text-muted-foreground">
+              From <PlayerName name={inv.inviterName} address={inv.inviter} className="font-bold whitespace-normal text-foreground" />, {formatAgo(inv.sentAt - now)}. Lapses in {Math.max(1, Math.ceil((inv.expiresAt - now) / 86_400))}d; no requirement applies.
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 px-3">
               <Button
-                size="sm"
+                variant="ghost"
+                className={RAISED_BUTTON}
                 disabled={pending}
                 onClick={() =>
                   current
@@ -112,10 +139,10 @@ export function GuildInvitations({ invitations, current, now, onAction, onOpenGu
                     : void run({ type: "answer-invitation", guild: inv.guild.id, accept: true, leaving: false })
                 }
               >
-                <Icon name="check" size="xs" />
+                <Icon name="check" size="xs" className="text-success" />
                 Accept
               </Button>
-              <Button size="sm" variant="outline" disabled={pending} onClick={() => void run({ type: "answer-invitation", guild: inv.guild.id, accept: false, leaving: false })}>
+              <Button variant="ghost" className={RAISED_BUTTON} disabled={pending} onClick={() => void run({ type: "answer-invitation", guild: inv.guild.id, accept: false, leaving: false })}>
                 <Icon name="xmark" size="xs" />
                 Decline
               </Button>
@@ -125,7 +152,7 @@ export function GuildInvitations({ invitations, current, now, onAction, onOpenGu
       </ul>
       <InlineError title="Invitation" message={error} />
       {dialog}
-    </section>
+    </FinderSection>
   );
 }
 
@@ -145,71 +172,82 @@ export interface GuildFinderProps {
   ranking: GuildList;
   onOpenGuild?: (id: number) => void;
   onAction?: (action: GuildFinderAction) => Promise<unknown> | void;
+  /** Where it starts: the finder, or Create a guild's view (its story). */
+  initialCreating?: boolean;
 }
 
 /**
- * The Guild tab of a player in no guild (#953): the invitations they hold, their waiting request, Create, and the search by
+ * The Guild page of a player in no guild (#953): the invitations they hold, their waiting request, Create, and the search by
  * name or `#` tag with its filters (join type, requirements met, size); without a query, the guilds suggested to them (those
- * they may join, the most active first) or the ranking by score. Each card opens the guild's page.
+ * they may join, the most active first) or the ranking by score. Each card opens the guild's page. GUILD-PAGE: in the drawer's style
+ * (the owner's ask of 2026-11-05), each part under its engraved title, on carved panels; Create a guild a raised row opening its view in
+ * the drawer (the form, `GuildForm`), Back to the finder.
  */
-export function GuildFinder({ player, now, candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, onAction }: GuildFinderProps) {
-  const [creating, setCreating] = useState(false);
-  const [opening, setOpening] = useState(0);
+export function GuildFinder({ player, now, candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, onAction, initialCreating = false }: GuildFinderProps) {
+  const [creating, setCreating] = useState(initialCreating);
+  const [moved, setMoved] = useState(false);
   const { run, pending, error } = useGuildActions(onAction);
+  const open = (next: boolean) => {
+    setMoved(true);
+    setCreating(next);
+  };
+  const inDrawer = useDrawerView(creating ? "Create a guild" : null, () => open(false));
   return (
     <div data-slot="guild-finder" className="flex flex-col gap-5">
-      <GuildInvitations invitations={player.invitations} current={null} now={now} onAction={onAction} onOpenGuild={onOpenGuild} />
+      {!inDrawer && creating && <ViewHeader title="Create a guild" onBack={() => open(false)} />}
+      <m.div
+        key={creating ? "create" : "finder"}
+        initial={moved && { x: creating ? 48 : -48, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="flex flex-col gap-5"
+      >
+        {creating ? (
+          <>
+            <p className="text-sm font-semibold text-muted-foreground">Free for now. You become its Leader.</p>
+            <GuildForm mode="create" initial={NEW_GUILD} pending={pending} error={error} onSubmit={(draft) => void run({ type: "create", draft }).then((done) => done && open(false))} />
+          </>
+        ) : (
+          <>
+            <GuildInvitations invitations={player.invitations} current={null} now={now} onAction={onAction} onOpenGuild={onOpenGuild} />
 
-      {player.request && (
-        <section aria-label="Your request" className="flex flex-col gap-2">
-          <h3 className="font-semibold">Your request</h3>
-          <GuildCard guild={player.request.guild} onOpen={onOpenGuild} />
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">Sent {formatAgo(player.request.sentAt - now)}; waiting for an officer.</span>
-            <Button size="sm" variant="outline" loading={pending} onClick={() => void run({ type: "cancel-request" })}>
-              Cancel
-            </Button>
-          </div>
-          <InlineError title="Request" message={creating ? null : error} />
-        </section>
-      )}
+            {player.request && (
+              <FinderSection title="Your request">
+                <div className="drawer-carved flex flex-col gap-2 rounded-xl pb-3">
+                  <GuildCard guild={player.request.guild} onOpen={onOpenGuild} />
+                  <div className="flex items-center justify-between gap-2 px-3">
+                    <span className="text-xs font-semibold text-muted-foreground">Sent {formatAgo(player.request.sentAt - now)}; waiting for an answer.</span>
+                    <Button variant="ghost" className={RAISED_BUTTON} loading={pending} onClick={() => void run({ type: "cancel-request" })}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+                <InlineError title="Request" message={error} />
+              </FinderSection>
+            )}
 
-      <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
-        <p className="font-semibold">You are in no guild</p>
-        <p className="text-sm text-muted-foreground">Join one to share announcements and climb its ranking, or found your own.</p>
-        <Button
-          onClick={() => {
-            setOpening(opening + 1);
-            setCreating(true);
-          }}
-        >
-          <Icon name="plus" size="xs" />
-          Create a guild
-        </Button>
-      </div>
+            <div data-slot="guild-none" className="drawer-carved flex flex-col gap-3 rounded-xl p-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-outline font-display text-xl leading-tight tracking-wide">You are in no guild</p>
+                <p className="text-sm font-semibold text-muted-foreground">Join one to share announcements and climb its ranking, or found your own.</p>
+              </div>
+              <DrawerRow art="plus" label="Create a guild" next onClick={() => open(true)} />
+            </div>
 
-      <GuildBrowse
-        candidate={candidate}
-        query={query}
-        onQueryChange={onQueryChange}
-        filters={filters}
-        onFiltersChange={onFiltersChange}
-        results={results}
-        suggested={suggested}
-        ranking={ranking}
-        onOpenGuild={onOpenGuild}
-      />
-
-      <GuildFormSheet
-        key={opening}
-        open={creating}
-        onOpenChange={setCreating}
-        mode="create"
-        initial={NEW_GUILD}
-        pending={pending}
-        error={creating ? error : null}
-        onSubmit={(draft) => void run({ type: "create", draft }).then((done) => done && setCreating(false))}
-      />
+            <GuildBrowse
+              candidate={candidate}
+              query={query}
+              onQueryChange={onQueryChange}
+              filters={filters}
+              onFiltersChange={onFiltersChange}
+              results={results}
+              suggested={suggested}
+              ranking={ranking}
+              onOpenGuild={onOpenGuild}
+            />
+          </>
+        )}
+      </m.div>
     </div>
   );
 }
@@ -220,18 +258,23 @@ export type GuildBrowseProps = Pick<GuildFinderProps, "candidate" | "query" | "o
   suggestedEmpty?: string;
 };
 
+/** A filter's choice, on the filters' carved panel: no key face, the one on lit (the white 15% and the gold words). */
+const FILTER = "bg-transparent font-bold";
+
 /**
  * The search by name or `#` tag with its filters (join type, requirements met, size); without a query, the guilds suggested to the
- * player (those they may join, the most active first) or the ranking by score. Each card opens the guild's page.
+ * player (those they may join, the most active first) or the ranking by score. Each card opens the guild's page. GUILD-PAGE: under the
+ * drawer's engraved title; the search carved with the painted magnifier; the filters on a carved panel, the join types under their
+ * painted icons; Suggested and Ranking the Shop's word tabs; the guilds the drawer's carved list.
  */
 export function GuildBrowse({ candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, suggestedEmpty = "No guild you can join right now: search one, or create yours." }: GuildBrowseProps) {
   const [list, setList] = useState<"suggested" | "ranking">("suggested");
   const searching = query.trim() !== "" || filtered(filters);
   const set = (change: Partial<GuildFinderFilters>) => onFiltersChange?.({ ...filters, ...change });
   return (
-    <section aria-label="Find a guild" className="flex flex-col gap-3">
-      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-input bg-secondary/60 px-3">
-        <Icon name="magnifying-glass" size="xs" className="shrink-0 text-muted-foreground" />
+    <FinderSection title="Find a guild">
+      <label className="drawer-carved flex min-h-11 items-center gap-2 rounded-xl px-3">
+        <UiIcon name="find" px={24} className="size-6" />
         <input
           type="search"
           aria-label="Guild name or tag"
@@ -241,7 +284,7 @@ export function GuildBrowse({ candidate, query, onQueryChange, filters, onFilter
           enterKeyHint="search"
           value={query}
           onChange={(e) => onQueryChange?.(e.target.value)}
-          className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
+          className="min-w-0 flex-1 bg-transparent py-2.5 text-sm font-semibold outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
         />
         {query !== "" && (
           <Button size="icon" variant="ghost" className="-mr-3 shrink-0" aria-label="Clear the search" onClick={() => onQueryChange?.("")}>
@@ -249,23 +292,26 @@ export function GuildBrowse({ candidate, query, onQueryChange, filters, onFilter
           </Button>
         )}
       </label>
-      <div data-slot="guild-filters" className="flex flex-col gap-2">
-        <ToggleGroup type="single" size="sm" aria-label="Join type" className="flex-wrap" value={filters.joinType ?? "all"} onValueChange={(v) => v && set({ joinType: v === "all" ? null : (v as GuildJoinType) })}>
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
+      <div data-slot="guild-filters" className="drawer-carved flex flex-col gap-1 rounded-xl p-2">
+        <ToggleGroup type="single" size="sm" aria-label="Join type" className="flex-wrap gap-1" value={filters.joinType ?? "all"} onValueChange={(v) => v && set({ joinType: v === "all" ? null : (v as GuildJoinType) })}>
+          <ToggleGroupItem value="all" className={FILTER}>
+            All
+          </ToggleGroupItem>
           {GUILD_JOIN_TYPES.map((t) => (
-            <ToggleGroupItem key={t} value={t}>
+            <ToggleGroupItem key={t} value={t} className={cn(FILTER, "gap-1")}>
+              <UiIcon name={JOIN_TYPES[t].art} px={16} className="size-4" />
               {JOIN_TYPES[t].label}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        <ToggleGroup type="single" size="sm" aria-label="Members" className="flex-wrap" value={filters.size} onValueChange={(v) => v && set({ size: v as GuildSizeFilter })}>
+        <ToggleGroup type="single" size="sm" aria-label="Members" className="flex-wrap gap-1" value={filters.size} onValueChange={(v) => v && set({ size: v as GuildSizeFilter })}>
           {(Object.keys(GUILD_SIZES) as GuildSizeFilter[]).map((s) => (
-            <ToggleGroupItem key={s} value={s}>
+            <ToggleGroupItem key={s} value={s} className={FILTER}>
               {GUILD_SIZES[s].label}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
+        <label className="flex min-h-11 items-center justify-between gap-3 px-2 text-sm font-bold">
           Requirements I meet
           <Switch checked={filters.meets} onCheckedChange={(meets) => set({ meets })} aria-label="Requirements I meet" />
         </label>
@@ -273,24 +319,23 @@ export function GuildBrowse({ candidate, query, onQueryChange, filters, onFilter
       {searching ? (
         <Cards list={results} player={candidate} empty="No guild found." onOpen={onOpenGuild} />
       ) : (
-        <>
-          <ToggleGroup type="single" aria-label="Guilds" className="w-full" value={list} onValueChange={(v) => v && setList(v as typeof list)}>
-            <ToggleGroupItem value="suggested" className="flex-1">
-              <Icon name="star" size="xs" />
+        <Tabs value={list} onValueChange={(v) => setList(v as typeof list)} className="gap-3">
+          <TabsList aria-label="Guilds" className="h-auto w-full bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
+            <TabsTrigger value="suggested" className="text-outline h-11 text-lg font-bold">
               Suggested
-            </ToggleGroupItem>
-            <ToggleGroupItem value="ranking" className="flex-1">
-              <Icon name="ranking-star" size="xs" />
+            </TabsTrigger>
+            <TabsTrigger value="ranking" className="text-outline h-11 text-lg font-bold">
               Ranking
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {list === "suggested" ? (
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="suggested" className="flex flex-col gap-2">
             <Cards list={suggested} player={candidate} empty={suggestedEmpty} onOpen={onOpenGuild} />
-          ) : (
+          </TabsContent>
+          <TabsContent value="ranking" className="flex flex-col gap-2">
             <Cards list={ranking} player={candidate} ranked empty="No guild yet." onOpen={onOpenGuild} />
-          )}
-        </>
+          </TabsContent>
+        </Tabs>
       )}
-    </section>
+    </FinderSection>
   );
 }

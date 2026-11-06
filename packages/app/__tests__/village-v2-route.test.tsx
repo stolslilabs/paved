@@ -42,9 +42,9 @@ function editPlayer(store: ReturnType<typeof mockImplementation>["store"], chang
 
 // The overlay pages and the home's panel host (Missions, Vault and Settings are its panels, #762) too: the Back tests open
 // them, each cold in its own wait otherwise.
-preloadPages("home", "home-panel", "missions", "vault", "settings", "play", "village-chests", "village-shop", "pvp-league", "page-sheets");
+preloadPages("home", "home-panel", "missions", "vault", "settings", "play", "village-chests", "shop", "pvp-league", "page-sheets");
 beforeAll(async () => {
-  await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/village-shop")]);
+  await Promise.all([import("../src/routes/pages/village"), import("../src/routes/pages/village-chests"), import("../src/routes/pages/shop")]);
 }, slow(60_000));
 beforeEach(() => {
   queryClient.clear();
@@ -405,17 +405,17 @@ describe("/village/chests across midnight", () => {
   }, slow(30_000));
 });
 
-describe("/village/shop", () => {
+describe("/village/shop: the Shop's Tiles tab (SHOP-PAGE)", () => {
   it("buys each of the day's offers once", async () => {
     const s = await open("/village/shop", async (s, me) => {
       await s.ledger.writesFor(me).foundFreeVillage();
       editPlayer(s.store, (p) => void (p.cobbles = 200));
     });
-    const offers = within(await screen.findByRole("list", { name: "Today's offers" }, WAIT)).getAllByRole("listitem");
+    const offers = within(await screen.findByRole("list", { name: "Today's tiles" }, WAIT)).getAllByRole("listitem");
     expect(offers).toHaveLength(3);
     const buy = within(offers[0]!).getByRole("button", { name: /^Buy / });
     await userEvent.click(buy);
-    expect(await within(offers[0]!).findByText("Bought today", {}, WAIT)).toBeInTheDocument();
+    expect(await within(offers[0]!).findByText("Bought", {}, WAIT)).toBeInTheDocument();
     expect(within(offers[0]!).queryByRole("button", { name: /^Buy / })).toBeNull();
     expect((await s.ledger.inventory(s.me)).reduce((a, b) => a + b, 0)).toBe(9);
   }, slow(30_000));

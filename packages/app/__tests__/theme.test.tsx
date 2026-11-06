@@ -131,11 +131,11 @@ describe("theme.css", () => {
     for (const variant of ["default", "destructive", "outline", "secondary", "ghost", "link"] as const) {
       expect(buttonVariants({ variant }), variant).toMatch(/\bstate-layer\b/);
     }
-    // A pack is a radio (`aria-checked`): its selected layer is the same 15% as a toggle's.
+    // A checked control (`aria-checked`, a switch): its selected layer is the same 15% as a toggle's.
     const css = await build(["state-layer"]);
     expect(css).toMatch(/aria-checked="true"/);
     const dir = resolve(import.meta.dirname, "../src/components");
-    for (const f of ["containers/cobble-packs.tsx", "containers/board-map.tsx", "ui/dialog.tsx", "ui/sheet.tsx", "ui/switch.tsx", "ui/tabs.tsx"]) {
+    for (const f of ["containers/board-map.tsx", "ui/dialog.tsx", "ui/sheet.tsx", "ui/switch.tsx", "ui/tabs.tsx"]) {
       expect(readFileSync(resolve(dir, f), "utf8"), f).toMatch(/\bstate-layer\b/);
     }
   });

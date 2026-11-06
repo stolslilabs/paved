@@ -1,7 +1,7 @@
 import type { BoardTile } from "@paved/chain";
 import { CategoryType } from "@paved/game-core";
 import type { Chest, VillageChestsSceneProps } from "../components/scenes/village-chests-scene";
-import type { ShopOffer, VillageShopSceneProps } from "../components/scenes/village-shop-scene";
+import type { ShopOffer, ShopTilesProps } from "../components/containers/shop-tiles";
 import type { VillageLayoutSceneProps } from "../components/scenes/village-layout-scene";
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import type { LayoutSlot, LayoutSlotsProps } from "../components/containers/layout-slots-strip";
@@ -207,7 +207,7 @@ export const VILLAGE_SHOP = {
   refused: { offers: SHOP_TODAY, cobbles: 240, owned: ownedOf(LAYOUT_GROWING, INVENTORY), resetsAt: TOMORROW, now: MOCK_NOW, refusal: "This tile was bought today already. No Cobbles were spent." },
   loading: { status: { kind: "loading" } },
   guest: { status: { kind: "guest" } },
-} satisfies Record<string, Data<VillageShopSceneProps>>;
+} satisfies Record<string, Data<ShopTilesProps>>;
 
 /** The home's base (#753): the growing village, its inventory, 2 chests and 3 missions waiting, 1,240 crowns, at the mocks' clock. */
 /** The mission in progress on the home (HOME-EDGES, the Paved UX Book's): the day's Public Works, half done. */

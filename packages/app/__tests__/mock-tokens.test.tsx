@@ -119,7 +119,7 @@ describe("the mock's tokens (#927)", () => {
   });
 });
 
-preloadPages("cobbles");
+preloadPages("cobbles", "shop");
 
 beforeEach(() => {
   localStorage.clear();

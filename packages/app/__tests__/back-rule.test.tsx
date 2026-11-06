@@ -15,7 +15,7 @@ import { preloadPages } from "./route-helpers";
 // lifetime missions on the Missions page (#832), the defence log a section of the League), and Back never cycles: it goes up toward the
 // village and ends there, in two steps at most from any page.
 
-preloadPages("home", "missions", "settings", "theme", "theme-shop", "my-tiles", "credits", "referral", "play", "story", "board", "cobbles");
+preloadPages("home", "missions", "settings", "theme", "shop", "tiles", "credits", "referral", "play", "story", "board", "cobbles");
 
 const WAIT = { timeout: slow(5000) };
 
@@ -52,7 +52,7 @@ describe("the route map", () => {
       expect(parent?.parent, page.path).toBeUndefined();
       if (page.panel) expect(page.sheet, page.path).toBe(true);
     }
-    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story", "referral", "settings/theme", "settings/theme/:theme", "settings/tiles", "settings/credits"]);
+    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story", "referral", "settings/theme", "settings/credits"]);
     expect(PAGES.some((p) => p.path === "pvp/defence")).toBe(false);
   });
 });
@@ -79,31 +79,31 @@ describe("Settings' pages are sheets over it", { timeout: slow(30_000) }, () => 
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
 
-  it("a link to a theme opens its sheet over Settings: close, then Back, reach the village", async () => {
+  // SHOP-PAGE: a theme's tiles are the Shop's, its Themes tab's view of the theme, never a sheet over a sheet (the owner's ask).
+  it("a theme's old link lands on the Shop's view of it: its Back is the Themes tab, the Shop's the village", async () => {
     const router = open("/settings/theme/forest");
-    const dialog = await sheet("Theme");
-    expect(await within(dialog).findByRole("heading", { level: 1, name: "Forest" }, WAIT)).toBeInTheDocument();
-    expect(settingsUnder()).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
-    // No earlier entry of Settings: it takes the sheet's place.
+    const view = await screen.findByRole("dialog", { name: "Forest" }, WAIT);
+    expect(router.state.location.pathname).toBe("/village/shop");
+    expect(router.state.location.search).toBe("?tab=themes&theme=forest");
+    await userEvent.click(within(view).getByRole("button", { name: "Back" }));
+    // No earlier entry: the tab takes the view's place.
+    await screen.findByRole("dialog", { name: "Shop" }, WAIT);
+    expect(router.state.location.search).toBe("?tab=themes");
     expect(router.state.historyAction).toBe("REPLACE");
-    await screen.findByRole("heading", { level: 1, name: "Settings" }, WAIT);
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), WAIT);
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
 
-  it("from the themes to a theme in the same sheet: its entry replaced, the close still lands on Settings", async () => {
+  it("from Settings' themes to a theme's tiles in the Shop: its Back goes back to the themes", async () => {
     const router = open("/settings");
     await screen.findByRole("heading", { level: 1, name: "Settings" }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /^Themes/ }));
     const themes = await sheet("Themes");
     await userEvent.click(await within(themes).findByRole("button", { name: "Forest tiles" }, WAIT));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/theme/forest"));
-    expect(router.state.historyAction).toBe("REPLACE");
-    await userEvent.click(within(await sheet("Theme")).getByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
+    const view = await screen.findByRole("dialog", { name: "Forest" }, WAIT);
+    expect(router.state.location.pathname).toBe("/village/shop");
+    await userEvent.click(within(view).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/theme"));
     expect(router.state.historyAction).toBe("POP");
   });
 });

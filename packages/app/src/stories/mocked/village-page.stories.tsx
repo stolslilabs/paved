@@ -21,7 +21,7 @@ import { PHONE_320, PHONE_375, WIDE_1440 } from "../../components/scenes/viewpor
 import HomePageRoute from "../../routes/pages/home";
 import VillagePageRoute from "../../routes/pages/village";
 import ChestsPageRoute from "../../routes/pages/village-chests";
-import ShopPageRoute from "../../routes/pages/village-shop";
+import ShopPageRoute from "../../routes/pages/shop";
 import { ProfileHost } from "../../routes/profile-host";
 import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
 

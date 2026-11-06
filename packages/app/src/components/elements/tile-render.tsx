@@ -8,7 +8,7 @@ import { TileChip, planCode } from "./tile-chip";
  */
 export type TileRenders = (theme: number, key: string) => string | null;
 
-/** A tile's name for the player: its plan number (1 to 19), as the shop and My tiles show it. */
+/** A tile's name for the player: its plan number (1 to 19), as the shop and Tiles show it. */
 export const tileName = (plan: number): string => `Tile ${plan}`;
 
 export interface TileRenderProps {

@@ -19,7 +19,7 @@ import { useAppNavigate } from "./ref";
  * The packs open as the village's page from the village, and in place, in a sheet over any other page (BACK-RULE #783). The
  * rule's `DESTINATION` says the same for the plates on those pages (header-balances.test checks both agree).
  */
-export const DESTINATION = { paved: "/play/challenge", vpaved: "/vault", cobbles: "/cobbles" } as const;
+export const DESTINATION = { paved: "/play/challenge", vpaved: "/vault", cobbles: "/village/shop?tab=cobbles" } as const;
 
 /**
  * Devnet and Sepolia deploy the Faucet (`FAUCET_NETWORKS` of `@paved/chain`, kept out of the first bundle); mainnet has none.

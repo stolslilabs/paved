@@ -4,7 +4,7 @@ import type { CobbleAccount, DecodedEvent, GameViews, PavedWriter, SkinChange, S
 import { PLANS } from "../components/containers/cobble-types";
 import { SKIN_THEMES, THEME_CODES } from "../components/containers/theme-card";
 import type { OwnedSkins } from "../components/scenes/theme-scene";
-import type { ThemeSkinsData } from "../components/scenes/theme-shop-scene";
+import type { ThemeSkinsData } from "../components/containers/shop-themes";
 import { cobbleKeys, cobbleViews } from "./cobbles";
 import { createDeviceStore, useDeviceStore } from "./device-store";
 import { addressKey } from "./keys";
@@ -80,11 +80,11 @@ export function useThemeSkins(playerId: string | null, code: number | null): { d
   });
 }
 
-/** The ids of the themes on sale and read (Forest today): the ones whose owned words Themes and My tiles read. */
+/** The ids of the themes on sale and read (Forest today): the ones whose owned words Themes and Tiles read. */
 const SKIN_CODES: readonly number[] = SKIN_THEMES.map((t) => THEME_CODES[t.id]);
 
 /**
- * The player's skins across the themes on sale (Themes and My tiles, THEMES-RENDERS): the balance, the active set and each
+ * The player's skins across the themes on sale (Themes and Tiles, THEMES-RENDERS): the balance, the active set and each
  * theme's owned word by its id, the same keys as `useThemeSkins`'s, so a purchase or a save moves both pages. Null without
  * the Cobbles or skins views; disabled without a player.
  */

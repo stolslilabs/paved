@@ -18,7 +18,7 @@ import { VaultScene } from "../src/components/scenes/vault-scene";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
 import { PLAYER_ID, TODAY } from "../src/mocks/players";
 import { REFERRAL_LINK } from "../src/mocks/referral";
-import { MISSIONS, MY_TILES, REFERRAL, SETTINGS, THEME, THEME_SHOP, VAULT } from "../src/mocks/scenes";
+import { MISSIONS, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../src/mocks/scenes";
 import { PREVIEW_WITHDRAW_500, VAULT_HELD } from "../src/mocks/vault";
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
@@ -617,8 +617,8 @@ describe("Referral", () => {
 });
 
 describe("SC2 stories", () => {
-  const fixtures = { vault: VAULT, settings: SETTINGS, theme: THEME, "theme-shop": THEME_SHOP, "my-tiles": MY_TILES, missions: MISSIONS, referral: REFERRAL };
-  const names = { vault: "VAULT", settings: "SETTINGS", theme: "THEME", "theme-shop": "THEME_SHOP", "my-tiles": "MY_TILES", missions: "MISSIONS", referral: "REFERRAL" } as const;
+  const fixtures = { vault: VAULT, settings: SETTINGS, theme: THEME, tiles: TILES, missions: MISSIONS, referral: REFERRAL };
+  const names = { vault: "VAULT", settings: "SETTINGS", theme: "THEME", tiles: "TILES", missions: "MISSIONS", referral: "REFERRAL" } as const;
 
   // One story per state (the owner, through the PM, 2026-10-14): the viewport is the toolbar's global (VP), never a story each.
   it.each(Object.keys(fixtures) as (keyof typeof fixtures)[])("tells every state of %s in one story, at no fixed viewport", (scene) => {

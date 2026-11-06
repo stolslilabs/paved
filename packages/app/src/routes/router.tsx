@@ -60,9 +60,11 @@ function socialRedirect({ request }: LoaderFunctionArgs) {
   return replace((searchParams.has("guild") ? "/guild" : searchParams.has("chat") ? "/chat" : "/friends") + search);
 }
 
-/** The Cobble packs left the Challenge's purchase for a page of their own (#621): the old tab's links land there. */
+/** The Cobble packs left the Challenge's purchase (#621), then their page for the Shop's tab (SHOP-PAGE): the old links land there. */
+const SHOP_COBBLES = "/village/shop?tab=cobbles";
+
 function challengeLoader({ request }: LoaderFunctionArgs) {
-  return new URL(request.url).searchParams.get("tab") === "cobbles" ? to("/cobbles", request) : null;
+  return new URL(request.url).searchParams.get("tab") === "cobbles" ? to(SHOP_COBBLES, request) : null;
 }
 
 const LOADERS: Record<string, RouteObject["loader"]> = { welcome: welcomeLoader, "play/challenge": challengeLoader };
@@ -120,6 +122,8 @@ export const routes: RouteObject[] = [
       { path: "missions/:day", loader: ({ request }) => to("/missions", request) },
       { path: "quests/:day?", loader: ({ request }) => to("/missions", request) },
       { path: "achievements", loader: ({ request }) => to("/missions", request) },
+      // My tiles left Settings for the HUD's drawer (COLLECTION-PAGE): its old link lands on Tiles.
+      { path: "settings/tiles", loader: ({ request }) => to("/tiles", request) },
       // The defence log became a section of the league (BACK-RULE #783), then its matches (#786): its old link lands there.
       { path: "pvp/defence", loader: ({ request }) => to("/pvp/league", request) },
       { path: "social", loader: socialRedirect },
@@ -133,6 +137,9 @@ export const routes: RouteObject[] = [
       { path: "guild/:id", loader: ({ request, params }) => to(`/guild?guild=${encodeURIComponent(params.id!)}`, request) },
       // The own village is the home (#753): its old link lands there; a visit (`village/:player`) stays.
       { path: "village", loader: ({ request }) => to("/", request) },
+      // The packs' page and a theme's shop became the Shop's tabs (SHOP-PAGE), the link's `?ref=` kept.
+      { path: "cobbles", loader: ({ request }) => to(SHOP_COBBLES, request) },
+      { path: "settings/theme/:theme", loader: ({ request, params }) => to(`/village/shop?tab=themes&theme=${encodeURIComponent(params.theme!)}`, request) },
       // The scripted tutorial gave way to Story mode (#546), whose first campaign teaches the rules.
       { path: "tutorial", loader: ({ request }) => to("/story", request) },
       { path: "*", element: <NotFound />, errorElement: <RouteError /> },

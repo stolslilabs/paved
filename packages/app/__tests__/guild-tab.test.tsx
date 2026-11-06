@@ -44,6 +44,8 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
 const guildless = () => community().filter((m) => !seededGuildWorld().guilds.some((g) => g.members.some((x) => BigInt(x.address) === BigInt(m.address))));
 
 const T = (ms: number) => ({ timeout: slow(ms) });
+/** No dialog over the page: the Guild's HUD drawer (GUILD-PAGE) is the only one left. */
+const onlyTheDrawer = () => expect(screen.getAllByRole("dialog").map((d) => d.getAttribute("data-hud-drawer"))).toEqual(["guild"]);
 
 describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000) }, () => {
   preloadPages("guild");
@@ -89,20 +91,28 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
 
   /** Shows a tab of the guild page. */
   const tab = (name: string) => userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
-  /** Picks an item of the guild page's menu. */
+  /** Picks an item of the guild page's menu (GUILD-PAGE: a view in the drawer, in the page's place). */
   async function menuItem(name: string | RegExp) {
     await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
-    const sheet = await screen.findByRole("dialog", { name: "Guild menu" }, T(5_000));
-    await userEvent.click(within(sheet).getByRole("button", { name }));
+    const list = await screen.findByRole("list", { name: "Guild menu" }, T(5_000));
+    await userEvent.click(within(list).getByRole("button", { name }));
   }
-  /** The member's row's sheet gone, its slide out included. */
-  const sheetGone = () => waitFor(() => expect(document.querySelector("[data-sheet=guild-member-sheet]")).toBeNull(), T(5_000));
-  /** Taps a member's row, the `index`-th of the Members tab: their sheet. */
-  async function memberSheet(index: number) {
-    await sheetGone();
-    const members = screen.getByRole("region", { name: "Members" });
+  /** The drawer's Back: one view back. */
+  const back = () => userEvent.click(within(document.querySelector<HTMLElement>("[data-hud-drawer=guild]")!).getByRole("button", { name: "Back" }));
+  /** Taps a member's row, the `index`-th of the Members tab: their profile (FRIENDS-PAGE's drawer) over the guild's. */
+  async function profileOf(index: number) {
+    const members = await screen.findByRole("region", { name: "Members" }, T(5_000));
     await userEvent.click(within(members).getAllByRole("button")[index]!);
-    return screen.findByRole("dialog", undefined, T(5_000));
+    return waitFor(() => {
+      const profile = screen.getAllByRole("dialog").find((d) => d.getAttribute("data-hud-drawer") !== "guild");
+      expect(profile).toBeDefined();
+      return profile!;
+    }, T(8_000));
+  }
+  /** The profile's Back: the guild's drawer alone again. */
+  async function closeProfile(profile: HTMLElement) {
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    await waitFor(onlyTheDrawer, T(5_000));
   }
 
   async function confirm(title: string | RegExp, button: string, text?: string) {
@@ -122,7 +132,8 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     ] as const) {
       await create(name, type);
       const header = screen.getByRole("heading", { level: 2, name }).closest("header")!;
-      expect(header).toHaveTextContent(type);
+      // The figures' band names the join type short (GUILD-PAGE: "Request", not "By request").
+      expect(header).toHaveTextContent(type === "By request" ? "Request" : type);
       expect(header).toHaveTextContent("Leader");
       // The first visit opens on Members; the next guilds, on the last tab used.
       expect(screen.getByRole("tab", { name: name === "Stone Road" ? "Members" : "Announcements" })).toHaveAttribute("aria-selected", "true");
@@ -146,7 +157,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     expect(new URLSearchParams(router.state.location.search).get("guild")).not.toBeNull();
     await userEvent.click(within(sheet).getByRole("button", { name: "Join" }));
     await ownPage("Ashford Lanterns");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    await waitFor(onlyTheDrawer, T(5_000));
     expect(screen.getByRole("heading", { level: 2, name: "Ashford Lanterns" }).closest("header")).toHaveTextContent("Member");
     // A Member sees no officer's part.
     expect(screen.queryByRole("tab", { name: /^Requests/ })).toBeNull();
@@ -165,7 +176,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
   it("shows why a guild's requirements keep a new player out", async () => {
     open();
     await finder();
-    await userEvent.click(screen.getByRole("radio", { name: /Ranking/ }));
+    await userEvent.click(screen.getByRole("tab", { name: "Ranking" }));
     await userEvent.click(await screen.findByRole("button", { name: /^Thistle Watch/ }, T(5_000)));
     const sheet = await screen.findByRole("dialog", { name: "Thistle Watch" }, T(8_000));
     expect(within(sheet).getByText("Your level is below the guild's requirement.")).toBeInTheDocument();
@@ -181,24 +192,24 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await waitFor(() => expect(screen.getByRole("tab", { name: "Requests, 1 waiting" })).toBeInTheDocument(), T(5_000));
     await tab("Requests");
     const requests = screen.getByRole("region", { name: "Requests" });
-    expect(within(requests).getByRole("heading")).toHaveTextContent("Requests1");
+    expect(within(requests).getAllByRole("listitem")).toHaveLength(1);
     await userEvent.click(within(requests).getByRole("button", { name: "Accept" }));
     await waitFor(() => expect(screen.getByRole("tab", { name: "Requests" })).toBeInTheDocument(), T(5_000));
     await tab("Members");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")).toHaveLength(2), T(5_000));
-    // Their row: the Leader's actions on a Member; each done, the sheet closes.
-    await userEvent.click(await within(await memberSheet(1)).findByRole("button", { name: "Promote to Officer" }, T(5_000)));
-    await confirm(/^Promote /, "Promote to Officer");
-    await userEvent.click(await within(await memberSheet(1)).findByRole("button", { name: "Demote to Member" }, T(5_000)));
-    await confirm(/^Demote /, "Demote to Member");
-    await userEvent.click(await within(await memberSheet(1)).findByRole("button", { name: "Make leader" }, T(5_000)));
+    // Their row: their profile, the Leader's actions on a Recruit (GUILD-PAGE: who joins is one) as its tiles (FRIENDS-PAGE).
+    const profile = await profileOf(1);
+    await userEvent.click(await within(profile).findByRole("button", { name: "Promote to Member" }, T(5_000)));
+    await confirm(/^Promote /, "Promote to Member");
+    await userEvent.click(await within(profile).findByRole("button", { name: "Demote to Recruit" }, T(5_000)));
+    await confirm(/^Demote /, "Demote to Recruit");
+    await userEvent.click(await within(profile).findByRole("button", { name: "Make leader" }, T(5_000)));
     await confirm(/^Make .* the leader\?$/, "Make leader");
-    await sheetGone();
-    // Now an Officer: on the new Leader, the Profile only.
+    await closeProfile(profile);
+    // Now an Officer: on the new Leader, no rank action.
     await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: "Mill Lane" }).closest("header")).toHaveTextContent("Officer"), T(5_000));
-    const sheet = await memberSheet(0);
-    expect(within(sheet).getByRole("button", { name: "Profile" })).toBeInTheDocument();
-    expect(within(sheet).queryByRole("button", { name: /Kick|Demote|Make leader/ })).toBeNull();
+    const leader = await profileOf(0);
+    expect(within(leader).queryByRole("button", { name: /Kick|Demote|Make leader/ })).toBeNull();
   });
 
   it("kicks a member with a reason, which the log shows", async () => {
@@ -211,13 +222,12 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await userEvent.click(await within(screen.getByRole("region", { name: "Requests" })).findByRole("button", { name: "Accept" }, T(5_000)));
     await tab("Members");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")).toHaveLength(2), T(5_000));
-    // The profile keeps the rank actions: from the row's Profile.
-    await userEvent.click(within(await memberSheet(1)).getByRole("button", { name: "Profile" }));
-    await sheetGone();
-    await userEvent.click(await within(await screen.findByRole("dialog", undefined, T(8_000))).findByRole("button", { name: "Kick" }, T(5_000)));
+    // Their row: their profile, its Kick.
+    const profile = await profileOf(1);
+    await userEvent.click(await within(profile).findByRole("button", { name: "Kick" }, T(5_000)));
     await confirm(/^Kick /, "Kick", "Never plays");
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), T(5_000));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Back" }));
+    await waitFor(onlyTheDrawer, T(5_000));
     await tab("Log");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Log" })).getByRole("list")).toHaveTextContent("“Never plays”"), T(8_000));
   });
@@ -235,7 +245,12 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await userEvent.click(await within(profile).findByRole("button", { name: "Invite to Gate Ward" }, T(5_000)));
     await confirm(`Invite ${target.name} to Gate Ward?`, "Invite");
     expect(await within(profile).findByRole("button", { name: "Invited to Gate Ward" }, T(5_000))).toBeDisabled();
-    await userEvent.click(within(profile).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+    // Back from the search to the menu, then to the page.
+    await waitFor(onlyTheDrawer, T(5_000));
+    await back();
+    await screen.findByRole("list", { name: "Guild menu" }, T(5_000));
+    await back();
     await later(MOCK_INVITE_ANSWER_S + 1);
     await waitFor(() => expect(screen.getByRole("region", { name: "Members" })).toHaveTextContent(target.name), T(8_000));
   });

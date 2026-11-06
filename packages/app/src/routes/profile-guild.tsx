@@ -43,6 +43,8 @@ export function ProfileGuildActions({ address, name, me, now }: { address: strin
       target={{ address: target, name, guild: badge?.id ?? null, rank: badge?.rank ?? null, invited: mine.invitations?.some((i) => keyOf(i.profile.address) === target) ?? false }}
       now={now}
       onAction={(a) => writes.run(memberWrite(a, target))}
+      // FRIENDS-PAGE: the Profile's tiles, as the profile's other actions.
+      look="tiles"
     />
   );
 }

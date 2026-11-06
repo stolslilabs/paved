@@ -323,7 +323,8 @@ describe("a guild's conversation on the mock (#955)", () => {
     const id = guildConversation(gid);
     await social.joinGuild(OTHER, gid);
     await social.joinGuild(THIRD, gid);
-    await social.promote(ME, OTHER);
+    // GUILD-PAGE's five ranks: Recruit, then Member, Veteran, Officer.
+    for (let i = 0; i < 3; i++) await social.promote(ME, OTHER);
     const lead = await chat.send(ME, id, "from the leader");
     const officer = await chat.send(OTHER, id, "from the officer");
     const member = await chat.send(THIRD, id, "from a member");

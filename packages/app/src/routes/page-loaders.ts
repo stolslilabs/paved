@@ -33,7 +33,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "": () => import("./pages/home"),
   play: () => import("./pages/play"),
   "play/challenge": () => import("./pages/purchase"),
-  cobbles: () => import("./pages/cobbles"),
   // The avatar creator (#626 PR 2), its own chunk; its 3D preview and stills are the renderer's avatar chunk, loaded by the page.
   avatar: () => import("./pages/avatar"),
   // A visit to a village (#646 PR 2), its own chunk; its tile art reads the renderer's manifest, asked for with the code. The own
@@ -46,7 +45,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   },
   "village/shop": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
-    return import("./pages/village-shop");
+    return import("./pages/shop");
   },
   // The PvP flow (#647 PR 2), its own chunks: the attack (its board's tile art reads the renderer's manifest, asked for with
   // the code), the result, a replay, a match, the league.
@@ -70,6 +69,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "game/:gameId/over": over,
   "training/over": over,
   missions: () => import("./pages/missions"),
+  tiles: () => import("./pages/tiles"),
   vault: () => import("./pages/vault"),
   // The social pages (#973, the Social page's tabs of #952 before), a chunk each.
   chat,
@@ -79,8 +79,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   friends: () => import("./pages/friends"),
   referral: () => import("./pages/referral"),
   "settings/theme": () => import("./pages/theme"),
-  "settings/theme/:theme": () => import("./pages/theme-shop"),
-  "settings/tiles": () => import("./pages/my-tiles"),
   "settings/credits": () => import("./pages/credits"),
   settings: () => import("./pages/settings"),
 };

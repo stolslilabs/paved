@@ -9,20 +9,22 @@ import { ChatGuildless } from "../containers/chat-tabs";
 import { ChatScene } from "./chat-scene";
 
 /**
- * The chat page (`/chat`, #973, the Social page's Chat tab of #955 before): three tabs, World, Guild and Private, each with its
- * badge (the World none); the World's and the guild's conversation in their tab, the private ones listed with the requests, one
- * open over the list; New message; the page's menu (the muted players). No bottom bar: the conversation gets the height. One story
- * per state; the viewport is the toolbar's (VP).
+ * The chat page (`/chat`, #973; CHAT-PAGE, the Paved UX Book's "Chat" flow): the HUD's drawer, a full page with Back on a phone, a
+ * side panel docked at the left from `tablet`. The book's three tabs, World, Guild and Private, each with its red badge (the World
+ * none); the World's and the guild's conversation in their tab (the guild's pinned post above it), every avatar in its league's rim
+ * with the level and the guild's tag; the private ones listed under the requests, one open over the list; New message; the page's
+ * menu (the muted players). One story per state; the viewport is the toolbar's (VP).
  */
 const meta = {
   title: "Scenes/Chat",
   component: ChatScene,
+  parameters: { layout: "fullscreen" },
   args: { onBack: fn(), onTabChange: fn(), menu: <ChatMenu mutes={[]} onUnmute={fn(async () => {})} onOpenPlayer={fn()} /> },
 } satisfies Meta<typeof ChatScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const list = (data: (typeof CHAT_LIST)[keyof typeof CHAT_LIST]) => <ChatList {...data} onOpen={fn()} onNewMessage={fn()} />;
+const list = (data: (typeof CHAT_LIST)[keyof typeof CHAT_LIST]) => <ChatList {...data} onOpen={fn()} onAnswer={fn(async () => {})} onNewMessage={fn()} />;
 const conversation = (data: (typeof CHAT_CONVERSATION)[keyof typeof CHAT_CONVERSATION], back = false) => (
   <ChatConversation {...data} fill onBack={back ? fn() : undefined} onSend={fn(async () => {})} onAction={fn(async () => {})} onAnswer={fn(async () => {})} onOpenPlayer={fn()} />
 );
@@ -37,14 +39,20 @@ export const World: Story = { args: { tab: "world", badges: CHAT_BADGES.conversa
 export const WorldLevelLow: Story = { args: { tab: "world", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.worldLevelLow) } };
 /** The guild: its announcement pinned, the log's lines among the messages. */
 export const Guild: Story = { args: { tab: "guild", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.guild) } };
+/** The guild with no announcement: its emblem, name and tag above the conversation, the way to its page. */
+export const GuildUnpinned: Story = { args: { tab: "guild", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.guildUnpinned) } };
 /** A player in no guild: the Guild tab's empty state, with the way to the guild page. */
 export const Guildless: Story = { args: { tab: "guild", badges: CHAT_BADGES.guildless, children: <ChatGuildless onFindGuild={fn()} /> } };
 /** Private: the conversations by their last message, then a stranger's request; New message on top. */
 export const PrivateWithRequest: Story = { args: { tab: "private", badges: CHAT_BADGES.request, children: list(CHAT_LIST.request) } };
 /** Private, for a player with no private conversation yet. */
 export const PrivateEmpty: Story = { args: { tab: "private", badges: CHAT_BADGES.guildless, children: list(CHAT_LIST.guildless) } };
-/** A private conversation open over the list, its notice shown the first time; Back returns to the list. */
+/** A private conversation open over the list; Back returns to the list. Past its first message, no encryption line or notice. */
 export const PrivateConversation: Story = { args: { tab: "private", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.private, true) } };
+/** The player's first private conversation, empty: it opens on what is encrypted, the notice above the field, until the first message. */
+export const PrivateFirst: Story = { args: { tab: "private", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.empty, true) } };
+/** A private conversation not there any more, open over the list: its message, and Back to the list (#1025). */
+export const PrivateGone: Story = { args: { tab: "private", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.gone, true) } };
 /** A stranger's request open: Accept or Decline. */
 export const RequestOpen: Story = { args: { tab: "private", badges: CHAT_BADGES.request, children: conversation(CHAT_CONVERSATION.request, true) } };
 /** New message, open over the Private tab: the friends, the guildmates, then the player search. */

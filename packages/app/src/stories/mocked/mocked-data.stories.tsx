@@ -12,7 +12,7 @@ import { MockMarkProvider } from "../../components/containers/mock-mark";
 import { CobblesScene, type CobblesSceneProps } from "../../components/scenes/cobbles-scene";
 import { PurchaseScene } from "../../components/scenes/purchase-scene";
 import { MissionsScene, type MissionsSceneProps } from "../../components/scenes/missions-scene";
-import { ThemeShopScene, type ThemeShopSceneProps } from "../../components/scenes/theme-shop-scene";
+import { ShopTheme, type ShopThemesProps } from "../../components/containers/shop-themes";
 import { VaultScene, type VaultSceneProps } from "../../components/scenes/vault-scene";
 
 /**
@@ -167,13 +167,13 @@ export const SkinBoughtAndSet: Story = {
       await writes.buyPack({ packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null });
       await writes.buySkin({ theme: 1, plan: 13, confirmedPrice: 50 });
       await writes.setSkins([{ plan: 13, theme: 1 }]);
-      const props: ThemeShopSceneProps = {
+      const props: ShopThemesProps & { theme: "forest" } = {
         ...THEME_SHOP.forest,
-        ...{ onBack: fn(), onBuy: fn(), onBuyCobbles: fn(), onMyTiles: fn() },
+        ...{ onBuy: fn(), onGetCobbles: fn() },
         skins: { balance: (await l.account(PLAYER_ID)).cobbles, prices: await l.skinPrices(1), owned: await l.ownedSkins(PLAYER_ID, 1), active: await l.activeSkins(PLAYER_ID) },
       };
       return { props };
     },
   ],
-  render: (_args, { loaded }) => <ThemeShopScene {...(loaded.props as ThemeShopSceneProps)} />,
+  render: (_args, { loaded }) => <ShopTheme {...(loaded.props as ShopThemesProps & { theme: "forest" })} />,
 };

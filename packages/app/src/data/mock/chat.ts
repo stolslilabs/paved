@@ -780,6 +780,8 @@ const logEntryOf = (w: ChatWorld, e: StoredLogEntry): GuildLogEntry => ({
   target: e.target,
   targetName: e.target === null ? null : w.people(e.target).name,
   reason: e.reason,
+  // A promotion's or a demotion's new rank (GUILD-PAGE's five ranks), for its line.
+  rank: e.rank ?? null,
 });
 
 /** A line as `viewer` sees it. */
@@ -794,7 +796,7 @@ function viewOf(chat: StoredChat, w: ChatWorld, id: ConversationId, kind: ChatKi
     id: l.id,
     conversation: id,
     kind: "message",
-    author: { address: profile.address, name: profile.name, look: profile.look, level: profile.level, guildTag: authorGuild ? guildTag(authorGuild.id) : null },
+    author: { address: profile.address, name: profile.name, look: profile.look, level: profile.level, league: profile.league, guildTag: authorGuild ? guildTag(authorGuild.id) : null },
     text: l.deleted || l.unreadable ? "" : l.text,
     at: l.at,
     deleted: l.deleted,

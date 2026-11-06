@@ -13,7 +13,7 @@ import { fakeSources } from "./data-fakes";
 import { FOREST_PRICES, FakeSkinWriter } from "./skin-fakes";
 import { preloadPages } from "./route-helpers";
 
-// Themes, a theme's shop and My tiles (THEMES-RENDERS) on `@paved/chain`'s fakes: Forest's prices, the player's owned and
+// Themes, a theme's shop and Tiles (THEMES-RENDERS, COLLECTION-PAGE) on `@paved/chain`'s fakes: Forest's prices, the player's owned and
 // active skins and the balance on `FakeGameViews`, the writes on `FakeSkinWriter`, through the app's own query client.
 
 const FOREST = 1;
@@ -43,7 +43,7 @@ const forestActive = (s: ReturnType<typeof setup>) => s.skins.active.flatMap((t,
 
 // Settings too: the theme's pages are sheets drawn over it (BACK-RULE #783), so the first test loaded it cold. And the hosts:
 // Settings is the home's panel (#762), each sheet in its own chunk.
-preloadPages("settings", "theme", "theme-shop", "my-tiles", "welcome", "home-panel", "page-sheets");
+preloadPages("settings", "theme", "shop", "tiles", "welcome", "home-panel", "page-sheets");
 
 beforeEach(() => {
   queryClient.clear();
@@ -122,55 +122,50 @@ describe("/settings/theme: the themes", () => {
     await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
   });
 
-  it("opens Forest's shop", async () => {
+  it("opens Forest's tiles in the Shop (SHOP-PAGE)", async () => {
     const router = open(setup(), "/settings/theme");
     await userEvent.click(within(await card("Forest")).getByRole("button", { name: "Forest tiles" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/theme/forest"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/village/shop"));
+    expect(router.state.location.search).toBe("?tab=themes&theme=forest");
   });
 
-  it("opens My tiles", async () => {
+  it("opens My tiles, now Tiles, the HUD's drawer (COLLECTION-PAGE)", async () => {
     const router = open(setup(), "/settings/theme");
     await waitFor(async () => expect(await card("Forest")).toHaveTextContent("2 / 19 tiles"));
     await userEvent.click(screen.getByRole("button", { name: /^My tiles/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/tiles"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/tiles"));
   });
 });
 
-describe("/settings/theme/forest: the shop", () => {
+/** Forest's tiles: the Shop's view of the theme (SHOP-PAGE), where `/settings/theme/forest` lands. */
+const FOREST_VIEW = "/village/shop?tab=themes&theme=forest";
+
+describe("the Shop's view of Forest (SHOP-PAGE; `/settings/theme/forest` before)", () => {
   const cell = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: slow(5000) });
   const buyButton = async (plan: number) => within(await cell(plan)).getByRole("button", { name: `Buy Tile ${plan} for ${FOREST_PRICES[plan - 1]} Cobbles` });
 
   it("reserves no skin to a tier any more: Buy reads no tier (#739)", async () => {
     const s = setup();
     s.views.skinTierTable.set(`${FOREST}:10`, 1);
-    open(s, "/settings/theme/forest");
+    open(s, FOREST_VIEW);
     expect(await buyButton(10)).toBeEnabled();
     expect(within(await cell(10)).queryByLabelText(/Reserved to/)).toBeNull();
     expect(s.views.calls.filter((c) => c.startsWith("skin_tiers") || c.startsWith("copies"))).toEqual([]);
   });
 
-  it("Get Cobbles opens the packs in place, over the theme's sheet (BACK-RULE #783); their close leaves the theme open", async () => {
-    const router = open(setup(), "/settings/theme/forest");
-    const theme = await screen.findByRole("dialog", { name: "Theme" }, { timeout: slow(5000) });
-    await userEvent.click((await within(theme).findAllByRole("button", { name: /Get Cobbles/ }, { timeout: slow(5000) }))[0]!);
-    await screen.findByRole("dialog", { name: "Cobbles" }, { timeout: slow(5000) });
-    expect(router.state.location.pathname).toBe("/settings/theme/forest");
-    // The packs' header may still swap its nodes as they load: the close is pressed again until the sheet goes.
-    await waitFor(
-      async () => {
-        const packs = screen.queryByRole("dialog", { name: "Cobbles" });
-        if (packs) await userEvent.click(within(packs).getByRole("button", { name: "Back" }));
-        expect(screen.queryByRole("dialog", { name: "Cobbles" })).toBeNull();
-      },
-      { timeout: slow(5000) },
-    );
-    expect(router.state.location.pathname).toBe("/settings/theme/forest");
-    expect(screen.getByRole("dialog", { name: "Theme" })).toBeInTheDocument();
+  it("Get Cobbles opens the Shop's Cobbles tab in place: never a sheet over the Shop (the owner's ask)", async () => {
+    const router = open(setup({ cobbles: 0 }), FOREST_VIEW);
+    const theme = await screen.findByRole("dialog", { name: "Forest" }, { timeout: slow(5000) });
+    await userEvent.click(await within(theme).findByRole("button", { name: "Get Cobbles" }, { timeout: slow(5000) }));
+    await waitFor(() => expect(router.state.location.search).toBe("?tab=cobbles"));
+    expect(router.state.location.pathname).toBe("/village/shop");
+    expect(await screen.findByRole("tab", { name: "Cobbles" }, { timeout: slow(5000) })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
 
   it("shows each tile's price, owned and active state", async () => {
-    open(setup(), "/settings/theme/forest");
-    expect(await screen.findByRole("heading", { level: 1, name: "Forest" }, { timeout: slow(5000) })).toBeInTheDocument();
+    open(setup(), FOREST_VIEW);
+    expect(await screen.findByRole("dialog", { name: "Forest" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect((await cell(13)).dataset.state).toBe("active");
     expect((await cell(7)).dataset.state).toBe("owned");
     expect((await cell(10)).dataset.state).toBe("none");
@@ -178,7 +173,7 @@ describe("/settings/theme/forest: the shop", () => {
   });
 
   it("disables Buy with the reason when the Cobbles are short", async () => {
-    open(setup({ cobbles: 60 }), "/settings/theme/forest");
+    open(setup({ cobbles: 60 }), FOREST_VIEW);
     const plan1 = await buyButton(1);
     expect(plan1).toBeDisabled();
     expect(plan1).toHaveAccessibleDescription("Need 40 more");
@@ -187,16 +182,17 @@ describe("/settings/theme/forest: the shop", () => {
 
   it("buys a tile with Cobbles: the balance follows the receipt, the tile turns owned, not active", async () => {
     const s = setup();
-    open(s, "/settings/theme/forest");
+    open(s, FOREST_VIEW);
     await userEvent.click(await buyButton(10));
-    expect((await screen.findAllByRole("button", { name: "185 Cobbles: Buy packs" }, { timeout: slow(10_000) })).length).toBeGreaterThan(0);
+    // The Shop's Cobbles plate leads nowhere in the Shop (its Cobbles tab is in view): its name is the figure alone.
+    expect((await screen.findAllByRole("button", { name: /^185 Cobbles$/ }, { timeout: slow(10_000) })).length).toBeGreaterThan(0);
     await waitFor(async () => expect((await cell(10)).dataset.state).toBe("owned"));
     expect(s.writer.sent).toEqual([{ buy: { theme: FOREST, plan: 10 } }]);
   });
 
   it("a tile whose price changed since the card was read: nothing is sent, the refusal is said, the card reads the new price", async () => {
     const s = setup();
-    open(s, "/settings/theme/forest");
+    open(s, FOREST_VIEW);
     const buy = await buyButton(10);
     s.views.skinPriceTable.set(`${FOREST}:10`, 70);
     await userEvent.click(buy);
@@ -206,30 +202,43 @@ describe("/settings/theme/forest: the shop", () => {
   });
 
   it("keeps the owned tiles of a theme withdrawn from sale; the others are not for sale", async () => {
-    open(setup({ priced: false }), "/settings/theme/forest");
+    open(setup({ priced: false }), FOREST_VIEW);
     expect((await cell(13)).dataset.state).toBe("active");
-    expect(within(await cell(10)).getByText("Not for sale")).toBeInTheDocument();
+    expect(within(await cell(10)).getByText("Not sold")).toBeInTheDocument();
     expect(within(await cell(10)).queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("shows Snow as coming soon, without reading it; a path that names no theme is not found", async () => {
+  it("shows Snow as coming soon, without reading it; a theme that sells nothing is the Themes tab", async () => {
     const s = setup();
     const router = open(s, "/settings/theme/snow");
     expect(await screen.findByText("Snow tiles: coming soon", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect(s.views.calls.filter((c) => c.startsWith("skin_price 2 ") || (c.startsWith("skins ") && c.endsWith(" 2")))).toEqual([]);
-    await router.navigate("/settings/theme/default");
-    expect(await screen.findByTestId("not-found", undefined, { timeout: slow(5000) })).toBeInTheDocument();
+    await router.navigate("/village/shop?tab=themes&theme=default");
+    expect(await screen.findByRole("tab", { name: "Themes" }, { timeout: slow(5000) })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("dialog", { name: "Shop" })).toBeInTheDocument();
   });
 });
 
-describe("/settings/tiles: My tiles", () => {
-  const row = (plan: number) => screen.findByRole("listitem", { name: `Tile ${plan}` }, { timeout: slow(5000) });
-  const pick = async (plan: number, name: string) => userEvent.click(within(await row(plan)).getByRole("radio", { name: `Tile ${plan}: ${name}` }));
+describe("/tiles: Tiles (COLLECTION-PAGE)", () => {
+  const tile = async (plan: number) =>
+    within(await screen.findByRole("list", { name: "Tiles" }, { timeout: slow(5000) })).getByRole("button", { name: new RegExp(`^Tile ${plan}(,|$)`) });
+  const skin = (name: string) => screen.getByRole("listitem", { name: new RegExp(`^${name}: `) });
+  /** A tile selected in the grid, then the skin's Use. */
+  const pick = async (plan: number, name: string) => {
+    await userEvent.click(await tile(plan));
+    await userEvent.click(within(skin(name)).getByRole("button", { name: `Use ${name}` }));
+  };
+
+  it("lands the old link of Settings' sheet on the drawer", async () => {
+    const router = open(setup(), "/settings/tiles");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/tiles"));
+    expect(await screen.findByRole("dialog", { name: "Tiles" }, { timeout: slow(5000) })).toBeInTheDocument();
+  });
 
   it("changes one tile only: Save sends the plans that changed, in one set_skins", async () => {
     const s = setup();
     s.skins.owned.set(FOREST, (1 << 7) | (1 << 8) | (1 << 13));
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await pick(8, "Forest"); // on, then back to the saved value: not sent
     await pick(8, "Default");
@@ -245,7 +254,7 @@ describe("/settings/tiles: My tiles", () => {
     let release!: () => void;
     s.writer.gate = new Promise((done) => (release = done));
     s.writer.failNext = new SkinRefusedError("not-owned", "0x9");
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("button", { name: "Saving…" })).toBeDisabled();
@@ -259,7 +268,7 @@ describe("/settings/tiles: My tiles", () => {
 
   it("a save whose receipt cannot be read: once the active set is read again, the changes it already holds are dropped", async () => {
     const s = setup();
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await pick(13, "Default");
     expect(await screen.findByRole("region", { name: "Unsaved changes" })).toHaveTextContent("2 changes to save");
@@ -270,12 +279,13 @@ describe("/settings/tiles: My tiles", () => {
     };
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Unsaved changes" })).toBeNull(), { timeout: slow(3000) });
-    expect(within(await row(7)).getByRole("radio", { name: "Tile 7: Forest" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(await tile(7));
+    expect(skin("Forest")).toHaveAccessibleName("Forest: active");
   });
 
   it("Discard drops the batch", async () => {
     const s = setup();
-    open(s, "/settings/tiles");
+    open(s, "/tiles");
     await pick(7, "Forest");
     await userEvent.click(await screen.findByRole("button", { name: "Discard" }));
     expect(screen.queryByRole("region", { name: "Unsaved changes" })).toBeNull();
