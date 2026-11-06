@@ -4,7 +4,8 @@
  * after its mockup of 2026-11-02), the four structures and the profile's totals (City, Road, Forest, Wonder, Stats; PROFILE-PAGE, 2026-11-04),
  * the mission's hammer (HOME-EDGES, 2026-11-04), the Camera mode's village in orbit and its way out (Explore, Exit; CAMERA-EXPLORE),
  * the League's Attack badge and season calendar (LEAGUE-PAGE, 2026-11-05), the match's gold Play, Pause and star (MATCH-PAGE, 2026-11-05),
- * the chat's Send arrow, its pinned post's pin and a request's check and cross (CHAT-PAGE, 2026-11-05),
+ * the chat's Send arrow, its pinned post's pin and a request's check and cross (CHAT-PAGE, 2026-11-05), the Settings' rows (SETTINGS-PAGE,
+ * 2026-11-06),
  * and the frames the home draws with them: the XP bar's track and fill, and the dock's wood, parchment, divider and PLAY medallion
  * (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width, its pieces cut from the mockup's footer decomposed and
  * checked against it: `DOCK_ART`). The season dial's frame and the
@@ -55,6 +56,15 @@ export const UI_ICONS = [
   "forest",
   "wonder",
   "stats",
+  // SETTINGS-PAGE: the Settings' rows, redrawn by Codex from the Paved UX Book's (the day and night cycle takes `sun`, Credits `missions`).
+  "graphics",
+  "ambient",
+  "skins",
+  "music",
+  "sound",
+  "tile-preview",
+  "highlight",
+  "grid",
   "hammer",
   "explore",
   "exit",

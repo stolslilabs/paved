@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { animate } from "motion";
 import { cn } from "../../lib/utils";
-import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { Slider } from "../ui/slider";
+import { SETTING_LABEL } from "./setting-switch";
+import type { UiIconName } from "./ui-art";
+import { UiIcon } from "./ui-icon";
 
 export interface VolumeSliderProps {
   /** What the slider is for: "Music", "Sound effects". It names the button and the slider. */
   label: string;
+  /** Its painted icon (the book's note, its speaker): the mute. */
+  art: UiIconName;
   /** 0 to 1; 0 is muted. */
   value: number;
   /** The level the icon returns to when it unmutes (above 0). */
@@ -18,17 +21,16 @@ export interface VolumeSliderProps {
 
 const MUTE_ANIMATION_S = 0.22;
 
-/** The icon at this level: a cross when muted, one wave up to a half, two above. */
-export const volumeIcon = (value: number): "volume-xmark" | "volume-low" | "volume-high" => (value <= 0 ? "volume-xmark" : value < 0.5 ? "volume-low" : "volume-high");
-
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * A volume slider with its mute: an icon button and a slider, 44 px tall. The icon mutes (the slider runs down to 0, the
- * icon is crossed) and unmutes (it runs back to the level before the mute). Dragging to 0 mutes, dragging up from 0 unmutes: the
- * muted state is "the value is 0", so the parent keeps one number and the level to return to. The percent is read out beside it.
+ * A volume slider with its mute, one row (SETTINGS-PAGE, the Paved UX Book's Sound): the painted icon, the name, the slider, the
+ * sliders of a group starting at one line (the name's column). The icon mutes (the slider runs down to 0, the icon dims under the red
+ * cross) and unmutes (it runs back to the level before the mute). Dragging to 0 mutes, dragging up from 0 unmutes: the muted state is
+ * "the value is 0", so the parent keeps one number and the level to return to. The percent is read out, not shown (the book's).
+ * The slider is the book's: a carved track, the gold fill, a gold knob outlined.
  */
-export function VolumeSlider({ label, value, before, onChange, className }: VolumeSliderProps) {
+export function VolumeSlider({ label, art, value, before, onChange, className }: VolumeSliderProps) {
   const muted = value <= 0;
   // The thumb's position: the value, except for the quarter second after a click on the icon, when it runs to the new value.
   const [shown, setShown] = useState(value);
@@ -52,31 +54,36 @@ export function VolumeSlider({ label, value, before, onChange, className }: Volu
 
   const toggle = () => onChange?.(muted ? before : 0);
   const percent = Math.round(value * 100);
+  const name = label.toLowerCase();
   return (
-    <div className={cn("flex flex-col py-1.5", className)}>
-      <div className="flex items-baseline justify-between gap-2 pl-1">
-        <span className="text-sm leading-5">{label}</span>
-        <span className="text-xs text-muted-foreground tabular-nums" aria-hidden>
-          {muted ? "Muted" : `${percent}%`}
-        </span>
-      </div>
-      <div className="flex min-h-11 items-center gap-2">
-        <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0" aria-label={`Mute ${label.toLowerCase()}`} aria-pressed={muted} title={muted ? `Unmute ${label.toLowerCase()}` : `Mute ${label.toLowerCase()}`} onClick={toggle}>
-          <Icon name={volumeIcon(value)} fixedWidth />
-        </Button>
-        <Slider
-          className="h-11"
-          aria-label={`${label} volume`}
-          aria-valuetext={muted ? "Muted" : `${percent}%`}
-          min={0}
-          max={100}
-          step={1}
-          value={[Math.round(shown * 100)]}
-          onPointerDown={() => void (dragging.current = true)}
-          onValueCommit={() => void (dragging.current = false)}
-          onValueChange={([v]) => onChange?.((v ?? 0) / 100)}
-        />
-      </div>
+    // At 320 px the slider goes under the name rather than shrinking past use (WRAP360).
+    <div data-slot="volume-row" className={cn("flex min-h-12 flex-wrap items-center gap-x-2 py-1 pr-3 pl-1.5", className)}>
+      <button
+        type="button"
+        aria-label={`Mute ${name}`}
+        aria-pressed={muted}
+        title={muted ? `Unmute ${name}` : `Mute ${name}`}
+        onClick={toggle}
+        className="state-layer relative grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none"
+      >
+        <UiIcon name={art} px={32} className={cn("drawer-icon size-8 transition-opacity", muted && "opacity-40")} />
+        {muted && <UiIcon name="close" px={20} className="drawer-icon absolute right-0.5 bottom-0.5 size-5" />}
+      </button>
+      <span className={cn(SETTING_LABEL, "w-28 flex-none")}>{label}</span>
+      <Slider
+        className="h-11 min-w-32 flex-1"
+        trackClassName="drawer-carved bg-card"
+        thumbClassName="size-6 border-background bg-primary"
+        aria-label={`${label} volume`}
+        aria-valuetext={muted ? "Muted" : `${percent}%`}
+        min={0}
+        max={100}
+        step={1}
+        value={[Math.round(shown * 100)]}
+        onPointerDown={() => void (dragging.current = true)}
+        onValueCommit={() => void (dragging.current = false)}
+        onValueChange={([v]) => onChange?.((v ?? 0) / 100)}
+      />
     </div>
   );
 }

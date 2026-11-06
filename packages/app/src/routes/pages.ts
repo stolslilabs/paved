@@ -96,11 +96,15 @@ export const PAGES: readonly PageDef[] = [
   { path: "guild", title: "Guild", nav: "guild", panel: true },
   // FRIENDS-PAGE: the HUD's drawer at every width, docked at the right from `tablet`, as the home's Friends button.
   { path: "friends", title: "Friends", nav: "friends", panel: true, drawer: true },
-  // Settings' sheets (BACK-RULE #783): drawn over Settings, each closing to it. A theme's tiles are the Shop's (SHOP-PAGE).
-  { path: "referral", title: "Referral", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/theme", title: "Themes", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings/credits", title: "Credits", nav: "settings", parent: "/settings", sheet: true, panel: true },
-  { path: "settings", title: "Settings", nav: "settings", panel: true },
+  // Referral (P10): the player's link, reached from the profile's Invite (the Paved UX Book's), no longer a sheet over Settings
+  // (SETTINGS-PAGE): a page of its own, in the right panel from `desktop`, Back to the village.
+  { path: "referral", title: "Referral", nav: "settings", panel: true },
+  // Settings (SETTINGS-PAGE): the HUD's drawer at every width, docked at the right from `tablet` (the dock's right-most button). Its
+  // Themes and Credits are views in it, each its own URL, one component (`page-loaders.ts`), so a move between them keeps the drawer.
+  // A theme's tiles are the Shop's (SHOP-PAGE).
+  { path: "settings/theme", title: "Themes", nav: "settings", panel: true, drawer: true },
+  { path: "settings/credits", title: "Credits", nav: "settings", panel: true, drawer: true },
+  { path: "settings", title: "Settings", nav: "settings", panel: true, drawer: true },
 ] as const;
 
 export const TABS: readonly { id: Tab; label: string; to: string }[] = [

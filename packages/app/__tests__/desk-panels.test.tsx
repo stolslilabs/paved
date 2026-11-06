@@ -94,11 +94,23 @@ describe("the route map (#762)", () => {
       "settings/credits",
       "settings",
     ]);
-    // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
-    expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, FRIENDS-PAGE: the League, Missions, Tiles, the Chat and Friends are the HUD's
-    // drawer over the home at every width, never the side panel; children of the home's route.
-    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles", "chat", "chat/private/:player", "chat/:tab", "friends"]);
+    // No page opens another (BACK-RULE #783): only the sheets over Play name a parent (Settings' are views of its drawer, SETTINGS-PAGE).
+    expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && p.parent === "/play")).toBe(true);
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, FRIENDS-PAGE, SETTINGS-PAGE: the League, Missions, Tiles, the Chat, Friends
+    // and Settings (its Themes and Credits) are the HUD's drawer over the home at every width, never the side panel; children of the home's route.
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual([
+      "village/shop",
+      "pvp/league",
+      "missions",
+      "tiles",
+      "chat",
+      "chat/private/:player",
+      "chat/:tab",
+      "friends",
+      "settings/theme",
+      "settings/credits",
+      "settings",
+    ]);
     expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
@@ -224,16 +236,24 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(screen.getByRole("button", { name: /^League: / })).toHaveFocus());
   });
 
-  it("the dock's Settings opens Settings in the panel, and its Play the mode choice (HOME-DOCK)", async () => {
+  it("the dock's Settings opens the HUD's drawer at the right (SETTINGS-PAGE), not the panel, and its Play the mode choice (HOME-DOCK)", async () => {
+    wide();
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Settings" }));
-    await panel("Settings");
+    const drawer = await panel("Settings");
     expect(router.state.location.pathname).toBe("/settings");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "settings");
+    expect(drawer).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+    // One dialog: the side panel stays closed under it.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(within(drawer).queryByRole("button", { name: "Back" })).toBeNull();
     await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-    // The village takes the pointer and assistive technology back once the panel has slid out.
+    // The village takes the pointer and assistive technology back once the drawer has slid out.
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: "Settings" })).toHaveFocus());
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Play" }));
     const play = await panel("Play");
     expect(await within(play).findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) })).toBeInTheDocument();
@@ -307,50 +327,47 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
   });
 
-  it("the themes open in a sheet over Settings' panel (BACK-RULE #783): its close goes back to Settings, the panel's to the village", async () => {
+  it("Settings' Themes opens in its drawer, in its place (SETTINGS-PAGE): Back goes back to Settings, the red cross to the village", async () => {
+    wide();
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Settings" }));
-    await userEvent.click((await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) })));
+    const settings = await panel("Settings");
+    await userEvent.click(await within(settings).findByRole("button", { name: /^Themes/ }, { timeout: slow(5000) }));
     const themes = await panel("Themes");
+    expect(themes).toBe(settings);
     expect(router.state.location.pathname).toBe("/settings/theme");
-    // Settings stays in its panel under the sheet; the sheet's Back closes it, back to Settings.
-    expect(screen.getByRole("dialog", { name: "Settings", hidden: true })).toBeInTheDocument();
-    await userEvent.click(await within(themes).findByRole("button", { name: "Back" }, { timeout: slow(5000) }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    await userEvent.click(within(themes).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
     expect(router.state.historyAction).toBe("POP");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Themes" })).toBeNull(), { timeout: slow(5000) });
-    // The panel has no close button (#782): a click on the village outside it.
-    await panel("Settings");
-    await clickOutside();
+    await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: /^Themes/ }));
+    await userEvent.click(within(await panel("Themes")).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
   });
 
-  it("a sheet reopened by Forward closes back to Settings, and the panel to the home's entry: Back then never reopens it", async () => {
+  it("a view reopened by Forward goes back to Settings on Escape's close, and the drawer to the home's entry: Back then never reopens it", async () => {
+    wide();
     const router = open("/");
     await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Settings" }));
-    await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: /Themes/ }, { timeout: slow(5000) }));
-    await panel("Themes");
+    await userEvent.click(await within(await panel("Settings")).findByRole("button", { name: /^Credits/ }, { timeout: slow(5000) }));
+    await panel("Credits");
     await act(() => router.navigate(-2));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-    // Forward, Forward: Settings, then the themes over it, again.
+    // Forward, Forward: Settings, then its Credits, again.
     await act(() => router.navigate(1));
     await panel("Settings");
     await act(() => router.navigate(1));
-    expect(router.state.location.pathname).toBe("/settings/theme");
-    // Escape closes the sheet (back to Settings), then the panel (to the home's entry).
-    await panel("Themes");
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings"));
-    expect(router.state.historyAction).toBe("POP");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Themes" })).toBeNull(), { timeout: slow(5000) });
-    await panel("Settings");
+    expect(router.state.location.pathname).toBe("/settings/credits");
+    await panel("Credits");
+    // Escape leaves the drawer, view and all, to the home's own entry.
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
-    // The entries before are the home's alone: nothing of the panel's is behind it.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    // The entries before are the home's alone: nothing of the drawer's is behind it.
     await act(() => router.navigate(-1));
     expect(router.state.location.pathname).not.toMatch(/^\/settings/);
   });

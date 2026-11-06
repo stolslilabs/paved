@@ -1,49 +1,51 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
+import { SectionTitle } from "../elements/section-title";
+import { SETTING_LABEL, SETTING_ROW } from "../elements/setting-switch";
+import type { UiIconName } from "../elements/ui-art";
+import { UiIcon } from "../elements/ui-icon";
 
 export interface SettingsGroupProps {
   title: string;
   children: ReactNode;
+  /**
+   * The rows' surface: carved (`list`, the default: settings, information and their controls, one under the other between near-black
+   * rules), or none (`links`: raised rows of their own, each a press, the owner's rule of 2026-11-04).
+   */
+  surface?: "list" | "links";
   className?: string;
 }
 
-/** A titled card of setting rows, as the mockups group them (Visuals, Gameplay, Account): direction D titles each in the display font. */
-export function SettingsGroup({ title, children, className }: SettingsGroupProps) {
+/**
+ * A titled group of setting rows (SETTINGS-PAGE, the Paved UX Book's Visuals, Sound, Gameplay, Account, More): the drawer's section
+ * title (`SectionTitle`, the Profile's and the Missions'), then its rows on one carved surface between near-black rules, or the links'
+ * raised rows.
+ */
+export function SettingsGroup({ title, children, surface = "list", className }: SettingsGroupProps) {
   const id = `settings-${title.toLowerCase().replace(/\W+/g, "-")}`;
   return (
-    <section aria-labelledby={id} data-slot="card" className={cn("flex flex-col rounded-xl border border-border bg-card px-4 py-2", className)}>
-      <h2 id={id} className="pt-2 pb-1 font-display text-xl tracking-wide wrap-anywhere">{title}</h2>
-      <div className="flex flex-col divide-y divide-border">{children}</div>
+    <section aria-labelledby={id} data-slot="settings-group" className={cn("flex flex-col gap-2", className)}>
+      <SectionTitle id={id}>{title}</SectionTitle>
+      <div className={surface === "list" ? "drawer-carved drawer-rows flex flex-col rounded-xl" : "flex flex-col gap-2"}>{children}</div>
     </section>
   );
 }
 
 export interface SettingsLinkProps {
   label: string;
-  hint?: string;
-  icon: string;
-  /** What the row shows on its right before the chevron: the theme's name. */
-  value?: string;
+  /** Its painted icon (`UI_ICONS`). */
+  art: UiIconName;
   onClick?: () => void;
 }
 
-/** A row that opens another page (theme, referral): the mockups' "Connected >" row. */
-export function SettingsLink({ label, hint, icon, value, onClick }: SettingsLinkProps) {
+/** A row that opens a view (the book's More › Credits): raised, as every press of the drawer, its painted icon, the chevron at its end. */
+export function SettingsLink({ label, art, onClick }: SettingsLinkProps) {
   return (
-    <button type="button" onClick={onClick} className="state-layer -mx-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors outline-none">
-      {/* Icons and the value sit on the label's first line (20 px boxes); label and hint wrap (WRAP360). */}
-      <span className="inline-flex h-5 items-center">
-        <Icon name={icon} className="text-primary" size="sm" fixedWidth />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
-        <span className="text-sm leading-5">{label}</span>
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-      </span>
-      {value && <span className="max-w-[45%] text-right text-sm leading-5 wrap-anywhere text-muted-foreground">{value}</span>}
-      <span className="inline-flex h-5 items-center">
-        <Icon name="chevron-right" className="text-muted-foreground" size="sm" />
-      </span>
+    <button type="button" onClick={onClick} className={cn(SETTING_ROW, "drawer-raised state-layer cursor-pointer rounded-xl text-left outline-none")}>
+      <UiIcon name={art} px={32} className="drawer-icon size-8" />
+      <span className={SETTING_LABEL}>{label}</span>
+      <Icon name="chevron-right" className="drawer-icon" />
     </button>
   );
 }

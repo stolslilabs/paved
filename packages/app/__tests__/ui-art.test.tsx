@@ -18,7 +18,8 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
     const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/"));
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024);
+    // SETTINGS-PAGE: raised by exactly its eight icons' copies, 49,176 bytes (measured 451,886 with them, 402,710 on main).
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 49_176);
   });
 
   it("ships the friends page's pieces (FRIENDS-PAGE): two icons and the gold pill, 3-sliced, its ends under half its width, each copy light", () => {
