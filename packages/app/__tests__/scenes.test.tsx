@@ -674,6 +674,38 @@ describe("Play", () => {
     expect(onAttack).not.toHaveBeenCalled();
   });
 
+  // #1041: the gift is drawn above the card's stretched button (`after:inset-0`); it takes no pointer, so a tap on it is the button's.
+  // jsdom has no layout: `tapAt` stands in for the browser's hit test, the topmost element under the point that takes pointers.
+  it("a tap on Attack's or the Challenge's gift chooses that mode; Resume stays its own control", async () => {
+    const tapAt = async (el: HTMLElement) => {
+      const through = el.closest(".pointer-events-none");
+      const beneath = through ? through.closest(".drawer-tile")!.querySelector<HTMLElement>("button[class*='after:inset-0']")! : el;
+      await userEvent.click(beneath);
+    };
+    const onChallenge = vi.fn();
+    const onAttack = vi.fn();
+    const { unmount } = render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} onAttack={onAttack} />));
+    const gifts = [screen.getByRole("img", { name: "Rewards: crowns, XP, chests" }), screen.getByRole("img", { name: "Rewards: PAVED, XP, chests" })];
+    for (const gift of gifts) {
+      expect(gift).toHaveClass("pointer-events-none");
+      // Each of its images too: none takes a tap of its own.
+      for (const img of gift.querySelectorAll<HTMLElement>("*")) expect(img.closest(".pointer-events-none")).toBe(gift);
+    }
+    await tapAt(gifts[0]!.querySelector("img") ?? gifts[0]!);
+    expect(onAttack).toHaveBeenCalledOnce();
+    await tapAt(gifts[1]!.querySelector("img") ?? gifts[1]!);
+    expect(onChallenge).toHaveBeenCalledOnce();
+    unmount();
+
+    const onResume = vi.fn();
+    render(wrap(<PlayScene {...PLAY.running} onResume={onResume} onChallenge={onChallenge} />));
+    const resume = screen.getByRole("button", { name: `Resume Challenge #${PLAY.running.running.id}` });
+    expect(resume.closest(".pointer-events-none")).toBeNull();
+    await tapAt(resume);
+    expect(onResume).toHaveBeenCalledOnce();
+    expect(onChallenge).toHaveBeenCalledOnce();
+  });
+
   it("disables the Challenge while purchases are paused", () => {
     render(wrap(<PlayScene {...PLAY.paused} />));
     expect(screen.getByRole("button", { name: /^Challenge/ })).toBeDisabled();
