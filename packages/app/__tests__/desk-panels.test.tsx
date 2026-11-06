@@ -58,7 +58,7 @@ const clickOutside = async () => userEvent.click(document.querySelector<HTMLElem
 /** The home's village stays mounted under the panel (hidden behind the modal). */
 const village = () => screen.getByRole("navigation", { name: "Village", hidden: true });
 
-preloadPages("home", "chat", "guild", "friends", "missions", "vault", "settings", "theme", "play");
+preloadPages("home", "chat", "guild", "friends", "missions", "vault", "settings", "theme", "play", "purchase");
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
@@ -77,6 +77,7 @@ describe("the route map (#762)", () => {
   it("puts the overlay's pages and the pages reached from them in the panel; the games, the purchase, the avatar and the visits stay full screen", () => {
     expect(PAGES.filter((p) => p.panel).map((p) => p.path)).toEqual([
       "play",
+      "play/challenge",
       "village/chests",
       "village/shop",
       "pvp/league",
@@ -94,12 +95,14 @@ describe("the route map (#762)", () => {
       "settings/credits",
       "settings",
     ]);
-    // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play name a parent.
-    expect(PAGES.filter((p) => p.panel && p.parent).every((p) => p.sheet && ["/settings", "/play"].includes(p.parent!))).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE: the League, Missions, Tiles, the Chat, the Guild and
-    // Friends are the HUD's drawer over the home at every width, never the side panel; children of the home's route.
-    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["village/shop", "pvp/league", "missions", "tiles", "chat", "chat/private/:player", "chat/:tab", "guild", "friends"]);
-    expect(PAGES.filter((p) => p.drawer).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
+    // No page opens another (BACK-RULE #783): only the sheets over Settings and over Play, and Play's stake (a view of its drawer,
+    // PLAY-PAGE), name a parent.
+    expect(PAGES.filter((p) => p.panel && p.parent).every((p) => (p.sheet || p.drawer) && ["/settings", "/play"].includes(p.parent!))).toBe(true);
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE, PLAY-PAGE: the League, Missions, Tiles, the Chat, the
+    // Guild, Friends and Play are the HUD's drawer over the home at every width, never the side panel; children of the home's route. Play's
+    // stake is a view of its drawer, Story's campaigns a sheet over it (the drawer kept under the sheet).
+    expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual(["play", "play/challenge", "village/shop", "pvp/league", "story", "missions", "tiles", "chat", "chat/private/:player", "chat/:tab", "guild", "friends"]);
+    expect(PAGES.filter((p) => p.drawer && !["play/challenge", "story"].includes(p.path)).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
 
@@ -254,9 +257,32 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     // The village takes the pointer and assistive technology back once the panel has slid out.
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) })).getByRole("button", { name: "Play" }));
+    // PLAY-PAGE: Play is the HUD's drawer, not the panel.
     const play = await panel("Play");
-    expect(await within(play).findByRole("heading", { level: 1, name: "Choose a mode" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(play).toHaveAttribute("data-hud-drawer", "play");
+    expect(await within(play).findByRole("heading", { name: "Paid" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/play");
+  });
+
+  it("the dock's Play opens the HUD's drawer at the right (PLAY-PAGE); the Challenge's stake is a view of it, its Back to the modes, the red cross out", async () => {
+    wide();
+    const router = open("/play/challenge");
+    const drawer = await panel("Challenge");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "play");
+    expect(drawer).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+    // One dialog: the stake is the drawer's own panel, not a sheet over it.
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    const header = drawer.querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
+    // Back, the title, the stake's USDC at the end (the drawers' rule), the red cross.
+    expect([...header.children].map((el) => el.getAttribute("data-slot"))).toEqual(["hud-drawer-back", "hud-drawer-title", "hud-drawer-end", "hud-drawer-close"]);
+    expect(await within(drawer).findByRole("button", { name: "Raise the stake" }, { timeout: slow(5000) })).toBeInTheDocument();
+    await userEvent.click(within(drawer).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
+    expect(await panel("Play")).toBe(drawer);
+    expect(within(drawer).getByRole("heading", { name: "Paid" })).toBeInTheDocument();
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
 
   it("the dock stays under the panel (DOCK-UNDER-PAGES, the owner's ask of 2026-11-04): veiled and blurred, the page leaving it no room", async () => {

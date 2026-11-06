@@ -4,10 +4,12 @@ import { fn } from "storybook/test";
 import { PURCHASE, purchaseAt } from "../../mocks/scenes";
 import { PurchaseScene } from "./purchase-scene";
 
-/** The Challenge purchase (`/play/challenge`): stake 1 to 10, price and boost, split, 24 h validity, threshold and reward by score, confirm. One story per state; the Viewport control reframes it. */
 /**
- * The slider moves the stake in every story: the price, boost, split and reward by score follow it. The state's own stake is
- * where it starts, with the state's own quote and `R` (a stress or a wait keeps them until the slider moves).
+ * The Challenge's stake (`/play/challenge`, PLAY-PAGE): the body Play's drawer frames (a panel of its own in the modes' place;
+ * `Scenes/Play`'s Stake story shows it framed): the balance, the stake 1 to 10, the score to beat and the
+ * reward's range, the 24 h validity, Price details (price and boost, split, reward by score, the deadline), Pay. One story per state.
+ * The arrows move the stake in every story: the price, boost, split and reward follow it. The state's own stake is where it
+ * starts, with the state's own quote and `R` (a stress or a wait keeps them until the stake moves).
  */
 function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof PurchaseScene>) {
   const [current, setCurrent] = useState(stake);
@@ -24,13 +26,13 @@ function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof
   );
 }
 
-const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn() } } satisfies Meta<typeof PurchaseScene>;
+const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onConnect: fn() }, decorators: [(Story) => <div className="mx-auto flex max-w-md flex-col p-4"><Story /></div>] } satisfies Meta<typeof PurchaseScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const StakeOne: Story = { args: PURCHASE.stake1 };
 
-/** A referrer from `?ref=`: the referral share names them. */
+/** A referrer from `?ref=`: the referral share names them, in Price details (open). */
 export const StakeThreeReferred: Story = { args: PURCHASE.stake3Referred };
 
 /** The highest stake and boost. */

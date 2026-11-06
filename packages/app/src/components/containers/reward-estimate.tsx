@@ -1,7 +1,9 @@
 import { capScore, rewardOf, winningScore } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import { Amount } from "../elements/amount";
+import { amountFigure } from "../elements/amount";
 import { formatPoints } from "../elements/score";
+import { TOKEN_GAP, TokenIcon } from "../elements/token-icon";
+import { UiIcon } from "../elements/ui-icon";
 
 /** What `curve::payout` pays a score against (#705): a purchase's quote, or a bought game's terms and its day's threshold. */
 export interface RewardCurve {
@@ -44,8 +46,9 @@ export function rewardMarks(threshold: number, slopeBps: number, cap: number): {
  * the figures wait.
  *
  * A table by its roles on `StatRow`'s grid: the score and reward columns take their content's width while it fits, the bar
- * the rest (2.5rem at least); in a narrow column "max" goes under its score and the symbol under its figure, and a reward
- * from 10,000 PAVED is compact (WRAP360). The bars are decorative: the table reads as score and reward.
+ * the rest (2.5rem at least); a reward from 10,000 PAVED is compact (WRAP360). The bars are decorative: the table reads as score
+ * and reward. PLAY-PAGE (the owner's asks of 2026-11-06): each score after the star (the scores' mark), each reward before PAVED's
+ * coin in place of its symbol (still read out), the cap's row its score and a "+" (no "max": the "+" says it).
  */
 export function RewardEstimate({ reference, unavailable = false, threshold, slopeBps, cap, className }: RewardEstimateProps) {
   const marks = rewardMarks(threshold, slopeBps, cap);
@@ -69,12 +72,12 @@ export function RewardEstimate({ reference, unavailable = false, threshold, slop
         const width = ceiling === 0n ? 0 : Number((share * 1_000n) / ceiling) / 10;
         return (
           <div key={score} role="row" data-capped={capped || undefined} className="contents">
-            <span role="cell" className="flex flex-wrap items-baseline gap-x-1.5">
-              <span className="numeric">
+            <span role="cell" className="flex items-center gap-1.5">
+              <UiIcon name="star" px={16} className="size-4 shrink-0" />
+              <span className="numeric whitespace-nowrap">
                 {formatPoints(score)}
                 {capped && "+"}
               </span>
-              {capped && <span className="text-xs text-primary">max</span>}
             </span>
             <span aria-hidden className="block h-1.5 overflow-hidden rounded-full bg-secondary">
               <span className="block h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
@@ -83,7 +86,11 @@ export function RewardEstimate({ reference, unavailable = false, threshold, slop
               {reference === null ? (
                 <span className="numeric text-muted-foreground">{unavailable ? "—" : "…"}</span>
               ) : (
-                <Amount value={rewardOf(reference, score, threshold, slopeBps, cap)} token="paved" icon={false} compact className="justify-end" />
+                <span className={cn("inline-flex items-center justify-end", TOKEN_GAP)}>
+                  <span className="numeric font-semibold whitespace-nowrap">{amountFigure(rewardOf(reference, score, threshold, slopeBps, cap), "paved", true)}</span>
+                  <TokenIcon kind="paved" size="em" />
+                  <span className="sr-only">PAVED</span>
+                </span>
               )}
             </span>
           </div>

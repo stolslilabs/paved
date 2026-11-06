@@ -32,9 +32,6 @@ export const COPIES: readonly Copy[] = [
   { name: "wordmark", width: 840, height: 240, quality: 0.86 },
   { name: "hero-tall", width: 750, height: 1000, quality: 0.7 },
   { name: "hero-wide", width: 1440, height: 720, quality: 0.7 },
-  { name: "mode-challenge", width: 320, height: 200, quality: 0.8 },
-  { name: "mode-training", width: 320, height: 200, quality: 0.8 },
-  { name: "mode-tutorial", width: 320, height: 200, quality: 0.8 },
 ];
 
 async function run(): Promise<void> {

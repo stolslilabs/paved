@@ -52,9 +52,10 @@ export interface PageDef {
 export const PAGES: readonly PageDef[] = [
   { path: "welcome", title: "Welcome", nav: null },
   { path: "", title: "Home", nav: "home" },
-  { path: "play", title: "Play", nav: null, panel: true },
-  // A flow opened from Play: Back goes up to it.
-  { path: "play/challenge", title: "Purchase", nav: null, parent: "/play" },
+  // Play (PLAY-PAGE): the HUD's drawer at every width, docked at the right from `tablet`, as the Shop. Its stake is a view of the same page
+  // (one loader, `page-loaders.ts`), its Back up to the modes.
+  { path: "play", title: "Play", nav: null, panel: true, drawer: true },
+  { path: "play/challenge", title: "Challenge", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "avatar", title: "Avatar", nav: null },
   // The v2 village's chests and daily shop (#739), before `village/:player`: `prefetch` matches in table order.
   { path: "village/chests", title: "Chests", nav: "chests", panel: true },
@@ -73,8 +74,8 @@ export const PAGES: readonly PageDef[] = [
   // The HUD's drawer at every width, docked at the left from `tablet`, under the HUD's crowns (LEAGUE-PAGE).
   { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left", drawer: true },
   { path: "training", title: "Training", nav: null },
-  // Story's campaigns, a sheet over Play's mode choice (BACK-RULE #783); a level is a full-screen flow.
-  { path: "story", title: "Story", nav: null, parent: "/play", sheet: true, panel: true },
+  // Story's campaigns, a sheet over Play's mode choice (BACK-RULE #783), Play's drawer kept under it (PLAY-PAGE); a level is a full-screen flow.
+  { path: "story", title: "Story", nav: null, parent: "/play", sheet: true, panel: true, drawer: true },
   { path: "story/:campaign/:level", title: "Story", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },

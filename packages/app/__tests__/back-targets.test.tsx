@@ -48,7 +48,7 @@ async function finishLevelOne() {
 describe("back targets (#614): a back button never lands in a game", { timeout: slow(30_000) }, () => {
   it("Levels after a level, then Back: the Play page, never a new game; Play's Back is Home", async () => {
     const router = open("/play", memoryStore({ [PRESENTED_KEY]: JSON.stringify(["1-1"]) }));
-    await userEvent.click(await screen.findByText("Learn the rules level by level, then earn three stars on fixed decks.", {}, { timeout: slow(5000) }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Story/ }, { timeout: slow(5000) }));
     await waitFor(() => expect(at(router)).toBe("/story"));
     await userEvent.click(await screen.findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: slow(5000) }));
     await waitFor(() => expect(at(router)).toBe("/story/1/1"));
@@ -60,7 +60,7 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     await close("Story");
     await waitFor(() => expect(at(router)).toBe("/play"));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Story" })).toBeNull(), { timeout: slow(5000) });
-    expect(await screen.findByRole("heading", { level: 1, name: "Choose a mode" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Play" })).toBeInTheDocument();
 
     // Back went back through the history to Play's own entry (BACK-RULE #783): the level and the lists after it are skipped,
     // never shown, and nothing before Play is the village, so its Back goes up in place.

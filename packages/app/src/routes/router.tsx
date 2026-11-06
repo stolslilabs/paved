@@ -78,23 +78,31 @@ function pageRoute(page: PageDef): RouteObject {
 /**
  * BACK-RULE (#783): a page and the sheets drawn over it (`PageDef.sheet`), one route without a path of its own. The page stays
  * mounted under its sheets (`PageWithSheets`), so a link to a sheet opens it over the page and its close finds the page as it was.
+ * Its views (PLAY-PAGE: Play's stake) are paths of that route too, so the page and its sheets stay mounted across them.
  */
-function pageWithSheets(page: PageDef, sheets: readonly PageDef[]): RouteObject {
+function pageWithSheets(page: PageDef, sheets: readonly PageDef[], views: readonly PageDef[]): RouteObject {
   const Page = pageComponent(page.path);
+  const path = (p: PageDef): RouteObject => ({ path: p.path, handle: { page: p }, loader: LOADERS[p.path] });
   return {
     element: <PageWithSheets page={<Page />} path={page.path} />,
     errorElement: <RouteError />,
-    children: [{ path: page.path, handle: { page }, loader: LOADERS[page.path] }, ...sheets.map(pageRoute)],
+    children: [path(page), ...views.map(path), ...sheets.map(pageRoute)],
   };
 }
 
-/** The routes of `pages`: each page, its sheets under it. */
+/**
+ * The routes of `pages`: each page, its sheets under it. A view of a page (PLAY-PAGE: a path under it that shares its loader, so one
+ * component draws both) goes with the page's route when the page has sheets.
+ */
 function pageRoutes(pages: readonly PageDef[]): RouteObject[] {
+  const sheetsOf = (page: PageDef) => pages.filter((s) => s.sheet && s.parent === `/${page.path}`);
+  const viewsOf = (page: PageDef) => pages.filter((v) => !v.sheet && v.parent === `/${page.path}` && PAGE_LOADERS[v.path] === PAGE_LOADERS[page.path]);
+  const grouped = new Set(pages.filter((page) => !page.sheet && sheetsOf(page).length > 0).flatMap(viewsOf));
   return pages
-    .filter((page) => !page.sheet)
+    .filter((page) => !page.sheet && !grouped.has(page))
     .map((page) => {
-      const sheets = pages.filter((s) => s.sheet && s.parent === `/${page.path}`);
-      return sheets.length > 0 ? pageWithSheets(page, sheets) : pageRoute(page);
+      const sheets = sheetsOf(page);
+      return sheets.length > 0 ? pageWithSheets(page, sheets, viewsOf(page)) : pageRoute(page);
     });
 }
 

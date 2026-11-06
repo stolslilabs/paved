@@ -1,4 +1,5 @@
-import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { UiIcon } from "../elements/ui-icon";
@@ -40,6 +41,21 @@ interface DrawerView {
 }
 
 const DrawerViewContext = createContext<((view: DrawerView | null) => void) | null>(null);
+
+/** The drawer's foot, where a page's footer is drawn (`DrawerFooter`); null outside a drawer. */
+const DrawerFooterContext = createContext<HTMLElement | null>(null);
+
+/**
+ * A footer a page draws at the drawer's foot (PLAY-PAGE: the Challenge's total and Confirm), out of its scroll, edge to edge: the
+ * header's band turned over (the card's charcoal, its near-black line along its top), the safe area under it. Outside a drawer (a
+ * story, a test) it is drawn in place.
+ */
+export function DrawerFooter({ children }: { children: ReactNode }) {
+  const foot = useContext(DrawerFooterContext);
+  return foot ? createPortal(children, foot) : <>{children}</>;
+}
+/** The footer's band: the header's (`drawer-band`) with its line on top; empty, it takes no room. */
+const FOOT: CSSProperties = { backgroundColor: "var(--card)", boxShadow: "0 -1px 0 var(--hud-outline)", paddingBottom: "env(safe-area-inset-bottom)" };
 
 /**
  * A view a page opens in the drawer, in its place (GUILD-PAGE, the owner's ask of 2026-11-05: what a page opens beyond itself opens in
@@ -128,6 +144,8 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", phon
   const side = wide || sheet;
   // A view a page opened in its place (`useDrawerView`): its title and its Back, over the drawer's own.
   const [view, setView] = useState<DrawerView | null>(null);
+  // The foot a page's `DrawerFooter` is drawn into.
+  const [foot, setFoot] = useState<HTMLElement | null>(null);
   const toBack = view?.onBack ?? onBack;
   // The phone's Back at the top left, the title right after it; the side panel's close at the header's right end, after what the page
   // shows there (the owner's ask of 2026-11-04: the title on the left, the balance at the top right).
@@ -186,8 +204,11 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", phon
         </SheetHeader>
         {/* Down only: what glows past the content's edge (a waiting gift's halo at a row's end) is cut at the drawer's, never scrolled to. */}
         <ScrollRegion data-hud-drawer-body="" className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overscroll-contain px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <DrawerViewContext.Provider value={setView}>{children}</DrawerViewContext.Provider>
+          <DrawerViewContext.Provider value={setView}>
+            <DrawerFooterContext.Provider value={foot}>{children}</DrawerFooterContext.Provider>
+          </DrawerViewContext.Provider>
         </ScrollRegion>
+        <div ref={setFoot} data-slot="hud-drawer-footer" style={FOOT} className="shrink-0 empty:hidden" />
       </SheetContent>
     </Sheet>
   );

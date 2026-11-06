@@ -7,7 +7,8 @@
  * `src/components/elements/ui-art.ts`, `ui-sources/medallions/<name>.webp` (`UI_MEDALLIONS` and `UI_RINGS`, on `MEDALLION_FRAME`, in
  * `medallion-art.ts`), `ui-sources/missions/<name>.webp` (`MISSION_PARTS`, there too), `ui-sources/shop/<name>.webp` (`SHOP_PARTS`,
  * in `shop-art.ts`), `ui-sources/friends/<name>.webp` (`FRIENDS_PARTS`, in `friends-art.ts`) and `ui-sources/emblems/<name>.webp`
- * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`), transparent lossless WebP left untouched
+ * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`) and `ui-sources/play/<name>.webp` (`PLAY_ART`, on `PLAY_ART_FRAME`, in
+ * `play-art.ts`), transparent lossless WebP left untouched
  * and never shipped (not in `public/`), and writes
  * `public/ui-art/icons/<size>/<name>.webp` and `public/ui-art/frames/<size>/<name>.webp` for each size. Each run removes the copies
  * of an earlier one. `--check` encodes nothing and fails when a master is missing, extra or not of its frame, or a copy is missing,
@@ -138,6 +139,33 @@
  * a real die's faces, four on top at the corners of its rhombus as the book's, two and six on the sides) and the eraser redrawn chunky,
  * its silhouette about square (the first, long and thin, sat small on its disc), in neutral greys. Each kept among two or three attempts, checked beside those icons at 128, 32 and 24 px on the HUD's disc, then trimmed and put on the icons' frame.
  *
+ * PLAY-PAGE (2026-11-06): the Play page's four mode paintings (`ui-sources/play/`, `PLAY_ART`), the Paved UX Book's "modes" screens:
+ * the Challenge's trophy and coins, Attack's castle and crossed swords, Training's target, Story's book and stars (Free Challenge's
+ * scroll, drawn too, left with the mode on the owner's ask). Then, on the owner's ask of the same day (the book's bushes and grass add
+ * nothing), Attack, Training and Story redrawn by the same tool without any foliage, from the first drawings (what to draw) and the
+ * Challenge's trophy (how, the one kept): Training's target now on a wooden easel, an arrow in its bullseye. And the HUD's gift
+ * opened (`gift-open`, under a mode's rewards), drawn by the same tool from the closed gift (`invite`) and the icons' sheet, on a
+ * transparent 1254 px square, trimmed and fitted to the icons' frame. And the Challenge's stake's icons (the owner's ask of the same
+ * day: colourful icons for where the USDC goes and what a stake can win): the burned coin (`flow-burn`, a PAVED coin in flames), the
+ * Vault (`flow-vault`, the HUD's piggy bank fed a vPAVED coin), the referral (`flow-referral`, a handshake under a coin), the top
+ * win (`max-gain`, a pile of PAVED) and break even (`break-even`, a level scale, USDC's coin against PAVED's), drawn by the same tool from a prompt each with the HUD's vault, friends, PAVED, vPAVED, trophy and
+ * crown as references, fitted the same way; and the split's title (`money-flow`, the owner's asks of the same day: a money flow, then
+ * simpler), USDC's coin and three short straight arrows, fire, silver and green (the burn's, the Vault's and the referral's colours on
+ * the bar), and the stake's (`stake`, a mark other than USDC's), a money bag with USDC coins at its foot, drawn and fitted the
+ * same way. And the stake's ten paintings (`STAKE_ART`, the owner's asks of the same day: a painting per stake, as many coins as
+ * its USDC, a stake being 2 USDC, in the look of the tool's first sheet of growing piles, the owner's pick): stakes 1, 2 and 5 are
+ * that sheet's own piles (2, 4 and 10 coins), the seven others drawn one pile at a time by the same tool, each edited from the
+ * sheet's nearest pile (6 from its stack of five, 8 and 12 from its two stacks, 14 and 16 from its pyramid, 18 and 20 from the
+ * counted 16, loose coins added); each pile's coins counted (each stack's edges, a hidden foot read from the stack's height beside
+ * its neighbour's, each loose face) and redrawn until right; then cut by their opaque parts, brought to one coin size (the coin's
+ * width read on a stack's side), fitted to the 3:2 frame (384 x 256, a 6 px margin) at the largest pile's scale, standing on the
+ * frame's foot. The mode paintings: each cropped from the book's tablet "modes-resume" screen (about 200 x 120 px) and redrawn by Codex's built-in image tool
+ * (`codex exec -c model_provider=openai`, its `image_gen`, the user's ChatGPT login, no API key) from that crop, with a sheet of the
+ * HUD's icons (trophy, swords, the Forest leaf, sprout, crown, Attack) as its rendering's reference, on a transparent ground (1536 x
+ * 1024 RGBA); checked on the drawer's navy and on the Challenge card's gold beside its crop, then trimmed to its opaque box, fitted to
+ * the 3:2 frame (384 x 256, a 4 px margin) by a premultiplied area average, centred across and standing on its foot. Stored as
+ * lossless WebP.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.
@@ -151,6 +179,7 @@ import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RIN
 import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.ts";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
 import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
+import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -158,7 +187,7 @@ export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
 /** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat, the medallions are paintings. */
-const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82 } as const;
+const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),
   ...UI_FRAMES.map((name) => ({ kind: "frames" as const, name, frame: FRAME_ART[name] })),
@@ -167,6 +196,8 @@ const IMAGES = [
   ...UI_SHOP_PARTS.map((name) => ({ kind: "shop" as const, name, frame: SHOP_PARTS[name] })),
   ...UI_FRIENDS_PARTS.map((name) => ({ kind: "friends" as const, name, frame: FRIENDS_PARTS[name] })),
   ...GUILD_EMBLEM_CHARGES.map((name) => ({ kind: "emblems" as const, name, frame: EMBLEM_FRAME })),
+  ...PLAY_ART.map((name) => ({ kind: "play" as const, name, frame: PLAY_ART_FRAME })),
+  ...STAKE_ART.map((name) => ({ kind: "play" as const, name, frame: STAKE_ART_FRAME })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */
@@ -218,7 +249,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`public/ui-art/ holds the ${expected().length} copies, each a WebP of its size.`);
   } else {
     rmSync(OUT, { recursive: true, force: true });
-    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems"] as const) {
+    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play"] as const) {
       let before = 0;
       const after = new Map<number, number>();
       const images = IMAGES.filter((i) => i.kind === kind);

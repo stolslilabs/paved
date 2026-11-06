@@ -25,14 +25,17 @@ const pvp: PageLoader = () => {
   return import("./pages/pvp");
 };
 
+/** Play and its stake (PLAY-PAGE): one loader, so one component, the drawer kept as the stake opens. */
+const play: PageLoader = () => import("./pages/play");
+
 /** The chat page and its tabs' paths (#973): one loader, so one component, kept across a tab change. */
 const chat: PageLoader = () => import("./pages/chat");
 
 export const PAGE_LOADERS: Record<string, PageLoader> = {
   welcome: () => import("./pages/welcome"),
   "": () => import("./pages/home"),
-  play: () => import("./pages/play"),
-  "play/challenge": () => import("./pages/purchase"),
+  play,
+  "play/challenge": play,
   // The avatar creator (#626 PR 2), its own chunk; its 3D preview and stills are the renderer's avatar chunk, loaded by the page.
   avatar: () => import("./pages/avatar"),
   // A visit to a village (#646 PR 2), its own chunk; its tile art reads the renderer's manifest, asked for with the code. The own

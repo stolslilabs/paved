@@ -19,7 +19,7 @@ import { CategoryType, emptyTutorialCounts, type TutorialTask } from "@paved/gam
 import { APP_ASSETS, FOREST_VARIANTS, SOURCE_ASSETS, appRenders, originalTileArt } from "./assets";
 import { BOARD_38, BOARD_72, CLOSINGS_38, LAST_SCORED, STATS_38, mockStats } from "./board";
 import { DAY, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
-import { BALANCE_LOW, BALANCE_RICH, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
+import { BALANCE_LOW, BALANCE_RICH, GUARD_RATE, MAX_STAKE, PAVED_BALANCE, SPLIT_BPS, boostBps, quote, referenceAt } from "./economy";
 import { CURVE_PLAYING, GAME_EXPIRED, GAME_OVER, GAME_PLAYING, THRESHOLD_MILLI } from "./games";
 import { PLAYER, PLAYER_ID, PLAYER_STATS, TODAY } from "./players";
 import { ACHIEVEMENTS_ALL, ACHIEVEMENTS_MIXED, ACHIEVEMENTS_NEW, QUESTS_NONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE, QUESTS_TODAY_FRESH, GAME_MISSIONS, questsTodayDone, questsWeekDone } from "./quests";
@@ -80,12 +80,15 @@ export { HALL_OF_FAME, RECORDS } from "./profile-records";
 
 // Play
 
+/** PLAY-PAGE: the mocks' clock, for a running game's time left. */
+const playBase = { spawnPaused: false, now: MOCK_NOW };
+
 export const PLAY = {
-  connected: { connected: true, spawnPaused: false },
-  guest: { connected: false, spawnPaused: false },
-  paused: { connected: true, spawnPaused: true },
-  /** P-61: two free games: Free Challenge spends one. */
-  freeGame: { connected: true, spawnPaused: false, credits: 2 },
+  connected: { ...playBase, connected: true },
+  guest: { ...playBase, connected: false },
+  paused: { ...playBase, connected: true, spawnPaused: true },
+  /** The book's "modes-resume": a Challenge game still open, 19 h left, its score, Resume. */
+  running: { ...playBase, connected: true, running: GAME_PLAYING },
 } satisfies Record<string, Data<PlaySceneProps>>;
 
 // Board
@@ -206,13 +209,14 @@ export const OVER = {
 // Purchase
 
 const purchaseBase = { maxStake: MAX_STAKE, split: SPLIT_BPS, referrer: null, balance: BALANCE_RICH, spawnPaused: false, now: MOCK_NOW, timeZone: MOCK_TIME_ZONE };
-/** The stake, its quote, its boost and its estimated `R`: a story that moves the slider calls it again. */
-export const purchaseAt = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake), reference: referenceAt(stake) });
+/** The stake, its quote, its boost and its estimated `R`: a story that moves the stake calls it again. */
+export const purchaseAt = (stake: number) => ({ stake, quote: quote(stake), boostBps: boostBps(stake), reference: referenceAt(stake), priceInPaved: (quote(stake).price * GUARD_RATE) / 10n ** 18n });
 const at = purchaseAt;
 const cobbleShop = { balance: ACCOUNT.gems, packs: PACKS, selected: null };
 
 export const PURCHASE = {
   stake1: { ...purchaseBase, ...at(1) },
+  /** A referrer from `?ref=`: the referral's tile names them. */
   stake3Referred: { ...purchaseBase, ...at(3), referrer: "0x0456bb00000000000000000000000000000000000000000000000000000beef" },
   stake10: { ...purchaseBase, ...at(10) },
   short: { ...purchaseBase, ...at(5), balance: BALANCE_LOW },

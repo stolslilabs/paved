@@ -1,49 +1,71 @@
-import { toastError } from "../../components/containers/error-toast";
+import { Suspense, lazy } from "react";
+import { useLocation } from "react-router";
 import { PlayScene } from "../../components/scenes/play-scene";
-import { useSpawnPaused } from "../../data/chain";
-import { useFreeCredits } from "../../data/cobbles";
-import { freeGameMessage, usePlayFree } from "../../data/play-free";
+import { Notice } from "../../components/elements/notice";
+import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
-import { errorDetail } from "../error-detail";
-import { PrefetchOnIntent } from "../prefetch";
+import { useDrawerRoute } from "../drawer-route";
+import { useNow } from "../now";
+import { prefetchAllowed } from "../prefetch";
 import { useAppNavigate, useUpTo } from "../ref";
 
+/** The Challenge's stake (`/play/challenge`): its reads and its purchase, a chunk of their own, fetched as the Challenge is pointed at. */
+const loadStake = () => import("./purchase");
+const ChallengeStake = lazy(loadStake);
+
 /**
- * `/play`, the mode choice (P6): the Challenge is bought on `/play/challenge` (P7b) once a wallet is connected, a guest's
- * tap connects first; `spawn_paused` disables it. Training and Story mode need no wallet; Attack opens the PvP flow (`/pvp`); Multiplayer is "coming soon".
- * An unread pause counts as not paused: the purchase page reads it again. "Free Challenge" is there for a connected player
- * with a credit: it spends it (`Challenge.spawn_free`) and opens the new game's board. Back goes Home, never through the
- * history: a level list's Back opens this page, so the entry before it may be that list, or a game's (#614).
+ * `/play` and `/play/challenge` (PLAY-PAGE, the Paved UX Book's "modes" and "challenge", then the owner's asks of 2026-11-06): one page,
+ * the HUD's drawer over the home (`PageDef.drawer`, `home-hosts.tsx`), its two paths one component (`page-loaders.ts`), so the drawer
+ * stays as the stake opens and closes. The modes (P6): Attack opens the PvP flow (`/pvp`), a guest's tap connecting first; the Challenge
+ * is bought on its stake (P7b, `./purchase`) once a wallet is connected, a guest's tap connects first; `spawn_paused` disables it. The
+ * player's newest Challenge game still open (`useActiveGame`, the home's) shows its time left and its score, Resume opening its board.
+ * Training and Story need no wallet (Story a sheet over this page). Free Challenge (a free game from the missions' credits) left with
+ * the owner's ask of 2026-11-06. An unread pause counts as not paused: the stake reads it again. Play's close goes back along the pages
+ * walked from the home, else to it; the stake's Back up to the modes.
  */
 export default function Page() {
   const go = useAppNavigate();
-  const onBack = useUpTo("/");
+  const drawer = useDrawerRoute();
+  const home = useUpTo("/");
+  const onBack = drawer?.onClose ?? home;
+  const onChallengeBack = useUpTo("/play");
+  const { pathname } = useLocation();
   const wallet = useAccount();
   const paused = useSpawnPaused();
   useConnectError(wallet.error);
-  const credits = useFreeCredits(wallet.address);
-  const free = usePlayFree(wallet.address);
-  const playFree = () => {
-    free
-      .spend()
-      .then((id) => id !== null && go(`/game/${id}`))
-      .catch((e: unknown) => toastError({ title: "The free game did not start", message: freeGameMessage(e), detail: errorDetail(e) }));
+  const active = useActiveGame(wallet.address);
+  const now = useNow();
+  const running = wallet.address ? (active.data ?? null) : null;
+  // The stake's chunk as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its events here).
+  const warm = () => {
+    if (prefetchAllowed()) void loadStake().catch(() => {});
   };
   return (
-    <PrefetchOnIntent routes={["/play/challenge"]}>
+    <div className="contents" onPointerOver={warm} onFocus={warm}>
       <PlayScene
+        open={drawer?.open ?? true}
+        returnFocus={drawer?.returnFocus}
         connected={wallet.address !== null}
         spawnPaused={paused.data ?? false}
-        credits={free.available ? (credits.data ?? 0) : 0}
-        onPlayFree={playFree}
+        running={running}
+        now={now}
+        challenge={
+          pathname === "/play/challenge" ? (
+            <Suspense fallback={<Notice title="Reading the price…">The stake's price, its split and your balance.</Notice>}>
+              <ChallengeStake />
+            </Suspense>
+          ) : null
+        }
         onBack={onBack}
+        onChallengeBack={onChallengeBack}
         onChallenge={() => go("/play/challenge")}
+        onResume={(id) => go(`/game/${id}`)}
         onTraining={() => go("/training")}
         onStory={() => go("/story")}
         onAttack={() => go("/pvp")}
         onConnect={() => void wallet.connect()}
       />
-    </PrefetchOnIntent>
+    </div>
   );
 }

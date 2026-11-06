@@ -98,7 +98,8 @@ describe("every page's scene draws the one header (#781)", () => {
     const { container } = none ? render(<LazyMotion features={domMax}>{page}</LazyMotion>) : withBalances(page, kinds);
     // A drawer's page (MISSIONS-PAGE) has the HUD drawer's header band: its title, and the page's balances at its end, the phone's
     // plates alone (the drawer keeps the phone's layout at every width).
-    if (PAGES.find((p) => p.path === route)?.drawer) {
+    // A sheet over a drawer's page (Story's over Play, PLAY-PAGE) keeps the sheet's own header.
+    if (PAGES.find((p) => p.path === route && !p.sheet)?.drawer) {
       const band = (await screen.findByRole("dialog")).querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
       expect(within(band).getByRole("heading").textContent).not.toBe("");
       // The League's (LEAGUE-PAGE): no balance, its League control in their place.
