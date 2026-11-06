@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { GUILD_EMBLEM_COLOUR_NAMES, GUILD_EMBLEM_ICON_NAMES, GuildEmblem } from "./guild-emblem";
+import { GUILD_EMBLEM_CHARGES, GUILD_EMBLEM_COLOUR_NAMES, GuildEmblem } from "./guild-emblem";
 
-/** A guild's emblem (#953, open point 7's default): a shield in two of eight colours, bearing one of twelve icons. */
+/**
+ * A guild's emblem (#953, open point 7's default): a shield in two of nine colours, bearing one of twenty charges in a third (GUILD-PAGE:
+ * Codex's flat silhouettes in place of Font Awesome's icons, Silver unless the emblem names a colour).
+ */
 const meta = {
   title: "Elements/GuildEmblem",
   component: GuildEmblem,
@@ -20,13 +23,18 @@ export const Sizes: Story = {
     </div>
   ),
 };
-/** Every icon, and every colour as the shield over each band. */
+/** Every charge, in a colour of its own then in Silver, and every colour as the shield over each band. */
 export const Sets: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
-        {GUILD_EMBLEM_ICON_NAMES.map((name, i) => (
-          <GuildEmblem key={name} emblem={{ icon: i, primary: i % 8, secondary: (i + 3) % 8 }} label={name} />
+        {GUILD_EMBLEM_CHARGES.map((name, i) => (
+          <GuildEmblem key={name} size="lg" emblem={{ icon: i, primary: i % 9, secondary: (i + 3) % 9, charge: (i + 6) % 9 }} label={name} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {GUILD_EMBLEM_CHARGES.map((name, i) => (
+          <GuildEmblem key={name} emblem={{ icon: i, primary: (i + 5) % 9, secondary: (i + 1) % 9 }} label={name} />
         ))}
       </div>
       {GUILD_EMBLEM_COLOUR_NAMES.map((name, p) => (

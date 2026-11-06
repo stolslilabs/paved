@@ -77,13 +77,13 @@ describe("the profile's follow actions (#954)", () => {
 });
 
 describe("the guild's actions on a profile, as the Profile's tiles (FRIENDS-PAGE)", () => {
-  it("names each tile as its button (Promote to Officer, Make leader, Kick), its word short under the icon", async () => {
+  it("names each tile as its button (Promote to Veteran, Demote to Recruit, Make leader, Kick: GUILD-PAGE's five ranks), its word short under the icon", async () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildMemberActions {...GUILD_ACTIONS.leaderOnMember} look="tiles" onAction={onAction} />));
     const tiles = screen.getAllByRole("button");
-    expect(tiles.map((b) => b.getAttribute("aria-label"))).toEqual(["Promote to Officer", "Make leader", "Kick"]);
-    expect(tiles.map((b) => b.textContent)).toEqual(["Promote", "Leader", "Kick"]);
-    await userEvent.click(tiles[1]!);
+    expect(tiles.map((b) => b.getAttribute("aria-label"))).toEqual(["Promote to Veteran", "Demote to Recruit", "Make leader", "Kick"]);
+    expect(tiles.map((b) => b.textContent)).toEqual(["Promote", "Demote", "Leader", "Kick"]);
+    await userEvent.click(tiles[2]!);
     const dialog = await screen.findByRole("dialog", { name: /the leader\?$/ });
     await userEvent.click(within(dialog).getByRole("button", { name: "Make leader" }));
     await waitFor(() => expect(onAction).toHaveBeenLastCalledWith({ type: "make-leader" }));

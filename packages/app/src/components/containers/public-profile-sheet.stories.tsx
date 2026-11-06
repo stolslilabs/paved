@@ -49,7 +49,7 @@ export const WithActions: Story = {
     actions: <Button variant="outline">Action</Button>,
   },
 };
-/** A Member of the viewer's guild, seen by its Leader (#953): the guild line, and the tiles Promote, Leader and Kick after the others. */
+/** A Member of the viewer's guild, seen by its Leader (#953): the guild line, and the tiles Promote, Demote, Leader and Kick after the others (GUILD-PAGE's five ranks). */
 export const GuildMember: Story = {
   args: {
     follow: FOLLOW_STATUS.none,

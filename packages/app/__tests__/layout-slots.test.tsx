@@ -1,8 +1,13 @@
-/** The saved layouts' strip in the editor (#804): three slots, Load, Save here, Make active, Buy, and nothing lost unasked. */
+/**
+ * The saved layouts in the editor (#804; EDIT-VILLAGE, the owner's asks of 2026-11-05): a carousel of one above the inventory, its
+ * arrows loading a layout into the editor (Save's target), the right one a Purchase where the next layout is locked; Use in the bar
+ * (#804's Make active), Save on its floppy disc; nothing lost unasked.
+ */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { slow } from "../test-slow";
 import { formatInteger, randomLayout } from "@paved/game-core";
 import { layoutScore, stockOf } from "../src/components/containers/layout-rules";
 import type { LayoutSlotsProps } from "../src/components/containers/layout-slots-strip";
@@ -17,137 +22,210 @@ const stage = (layoutSlots: LayoutSlotsProps, props: Partial<ComponentProps<type
     <VillageStage village={LAYOUT_GROWING} inventory={INVENTORY} editable editing randomizer={null} layoutSlots={layoutSlots} {...props} />
   </LazyMotion>
 );
-const card = (name: RegExp) => within(screen.getByRole("group", { name: "Layout slots" })).getByRole("button", { name });
-/** The bar's live score: the panel's view of the draft follows a render behind (`useDeferredValue`). */
-const scoreShown = (n: number) => screen.findByRole("button", { name: `Score ${formatInteger(n)}: show the points` });
+/** The stage rendered, its panel in (its own chunk, EDIT-VILLAGE). */
+const mount = async (ui: ReturnType<typeof stage>) => {
+  const view = render(ui);
+  await screen.findByRole("complementary", { name: "Editor" }, { timeout: slow(5000) });
+  return view;
+};
+/** The carousel. */
+const carousel = () => within(screen.getByRole("group", { name: "Layouts" }));
+/** The layout shown (edited). */
+const shown = (n: number) => waitFor(() => expect(carousel().getByText(`Layout ${n}`)).toBeInTheDocument());
+const arrow = (way: "Previous" | "Next") => carousel().getByRole("button", { name: `${way} layout` });
+const purchase = (n: number, price: number) => carousel().getByRole("button", { name: `Purchase layout ${n} for ${formatInteger(price)} Cobbles` });
+/** One of the layouts' questions. */
+const question = () => screen.queryByRole("dialog");
+/** The live score at the top left: the panel's view of the draft follows a render behind (`useDeferredValue`). */
+const scoreShown = (n: number) => screen.findByRole("img", { name: new RegExp(`^Score ${formatInteger(n)}(,|$)`) });
+const save = () => screen.getByRole("button", { name: /^Save$/ });
+/** Start on the active layout, not a story's pick. */
+const unpicked = (slots: LayoutSlotsProps): LayoutSlotsProps => ({ ...slots, initialSelected: undefined });
 
-describe("the saved layouts' strip (#804)", () => {
-  it("shows the three slots above the inventory: the active one's score, the locked ones' prices", () => {
-    render(stage(LAYOUT_SLOTS.one));
-    expect(card(/^Slot 1, active: score/)).toHaveAttribute("aria-pressed", "true");
-    expect(card(/^Slot 2, locked: 100 Cobbles/)).toBeTruthy();
-    expect(card(/^Slot 3, locked: 250 Cobbles/)).toBeTruthy();
-    expect(screen.getByText("Active")).toBeTruthy();
-    // The active slot: Load only (its layout is the draft), Save is the panel's
-    expect(screen.getByRole("button", { name: /Load/ })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /Save here/ })).toBeNull();
+describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
+  it("shows the active layout above the inventory, the previous arrow off, the next layout's Purchase, Active in the bar", async () => {
+    await mount(stage(LAYOUT_SLOTS.one));
+    const panel = screen.getByRole("complementary", { name: "Editor" });
+    expect(within(panel).getByRole("group", { name: "Layouts" })).toBeInTheDocument();
+    expect(within(panel).getAllByRole("heading").map((h) => h.textContent)).toEqual(["Layouts", expect.stringMatching(/^Inventory/)]);
+    await shown(1);
+    expect(carousel().getByText("Active")).toBeInTheDocument();
+    expect(arrow("Previous")).toBeDisabled();
+    expect(purchase(2, 100)).toBeEnabled();
+    expect(carousel().queryByRole("button", { name: "Next layout" })).toBeNull();
+    // The bar: Save on its disc; the layout the village's: Use pressed in and off ("Active" is the carousel's alone).
+    const bar = screen.getByRole("button", { name: "Leave edit mode" }).closest("header")!;
+    expect(within(bar).getByRole("button", { name: /^Save$/ })).toBeInTheDocument();
+    const use = within(bar).getByRole("button", { name: "Use" });
+    expect(use).toHaveAttribute("aria-pressed", "true");
+    expect(use).toBeDisabled();
+    expect(within(bar).queryByText("Active")).toBeNull();
+    expect(screen.getByText(/The village attackers face/)).toBeInTheDocument();
   });
 
-  it("buys a locked slot after asking, at its price", () => {
+  it("unlocks the next layout after asking, at its price; bought, the carousel moves on to it, the draft kept", async () => {
     const onBuy = vi.fn();
-    render(stage({ ...LAYOUT_SLOTS.one, onBuy }));
-    fireEvent.click(card(/^Slot 2/));
-    fireEvent.click(screen.getByRole("button", { name: /Buy slot 2/ }));
-    const dialog = screen.getByRole("dialog", { name: "Buy slot 2?" });
+    const onSaveTo = vi.fn();
+    const props = { ...unpicked(LAYOUT_SLOTS.one), onBuy, onSaveTo };
+    const { rerender } = await mount(stage(props, { initialDraft: DRAFT_VALID }));
+    fireEvent.click(purchase(2, 100));
+    const dialog = screen.getByRole("dialog", { name: "Unlock layout 2?" });
     expect(onBuy).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Buy" }));
+    // In the HUD's look: one answer, the price as the Shop writes it; the drawers' red close is the cancel (no Cancel beside it); the
+    // Cobbles held under the price, the icon and the figure on one line.
+    const unlock = within(dialog).getByRole("button", { name: "Unlock layout 2 for 100 Cobbles" });
+    expect(unlock).toHaveTextContent(/^100$/);
+    expect(within(dialog).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Cancel", "Unlock layout 2 for 100 Cobbles"]);
+    expect(within(dialog).getByRole("img", { name: "640 Cobbles" }).parentElement).toHaveClass("flex", "items-center");
+    fireEvent.click(unlock);
     expect(onBuy).toHaveBeenCalledWith(1, 100);
+    // On its way: the carousel waits.
+    rerender(stage({ ...props, busy: { kind: "buy", slot: 1 } }, { initialDraft: DRAFT_VALID }));
+    await shown(1);
+    // (the question's exit over: the page is reachable again)
+    await waitFor(() => expect(purchase(2, 100)).toBeDisabled());
+    // Bought: layout 2 open and empty, shown, the draft kept; Save keeps it there.
+    rerender(stage({ ...props, slots: LAYOUT_SLOTS.bought.slots, cobbles: LAYOUT_SLOTS.bought.cobbles }, { initialDraft: DRAFT_VALID }));
+    await shown(2);
+    expect(carousel().getByText("Empty")).toBeInTheDocument();
+    await scoreShown(layoutScore(DRAFT_VALID));
+    fireEvent.click(save());
+    expect(onSaveTo).toHaveBeenCalledWith(1, DRAFT_VALID);
   });
 
-  it("does not offer a slot the player cannot pay for", () => {
-    render(stage(LAYOUT_SLOTS.short));
-    expect(screen.getByRole("button", { name: /Buy slot 3/ })).toBeDisabled();
-    expect(screen.getByText("Not enough Cobbles yet.")).toBeTruthy();
+  it("does not offer a layout the player cannot pay for", async () => {
+    // Layout 3 (250 Cobbles, 40 held): its question has Unlock off and says why.
+    await mount(stage({ ...LAYOUT_SLOTS.short, slots: LAYOUT_SLOTS.bought.slots, initialSelected: 1, initialAsk: null }));
+    await shown(2);
+    fireEvent.click(purchase(3, 250));
+    const dialog = screen.getByRole("dialog", { name: "Unlock layout 3?" });
+    expect(within(dialog).getByRole("button", { name: "Unlock layout 3 for 250 Cobbles" })).toBeDisabled();
+    expect(within(dialog).getByText("Not enough Cobbles yet.")).toBeInTheDocument();
   });
 
-  it("saves the die's village into another slot, and then leaving does not ask: it is kept", async () => {
+  it("saves the die's village into another layout through Save, and then leaving does not ask: it is kept", async () => {
     const tiles = randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), 28, 1, STILL).tiles;
     const randomizer = { run: async () => ({ tiles }), cancel: () => {}, dispose: () => {} };
     const onSaveTo = vi.fn();
+    const onSave = vi.fn();
     const onEditingChange = vi.fn();
-    const { rerender } = render(stage({ ...LAYOUT_SLOTS.bought, onSaveTo }, { randomizer, onEditingChange }));
+    const slots = unpicked(LAYOUT_SLOTS.bought);
+    const { rerender } = await mount(stage({ ...slots, onSaveTo }, { randomizer, onEditingChange, onSave }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" })));
-    fireEvent.click(screen.getByRole("button", { name: /Save here/ }));
+    // To the empty layout 2: nothing asked, the die's village kept; Save keeps it there.
+    fireEvent.click(arrow("Next"));
+    expect(question()).toBeNull();
+    await shown(2);
+    fireEvent.click(save());
+    expect(onSave).not.toHaveBeenCalled();
     expect(onSaveTo).toHaveBeenCalledTimes(1);
     expect(onSaveTo.mock.calls[0]![0]).toBe(1);
     const saved = onSaveTo.mock.calls[0]![1];
     expect(saved).toHaveLength(28);
     // Kept nowhere yet: Back asks
     fireEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
-    expect(screen.getByRole("dialog", { name: "Leave without saving?" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    // The save landed: slot 2 keeps it, the village unchanged; Back leaves at once
-    const slots = LAYOUT_SLOTS.bought.slots.map((s) => (s.slot === 1 ? { ...s, tiles: saved, score: layoutScore(saved) } : s));
-    rerender(stage({ ...LAYOUT_SLOTS.bought, slots, onSaveTo }, { randomizer, onEditingChange }));
-    expect(screen.getByRole("button", { name: /Save here/ })).toBeDisabled();
+    await waitFor(() => expect(question()).toBeNull());
+    // The save landed: layout 2 keeps it, the village unchanged; Save has nothing new to keep, Back leaves at once
+    const after = slots.slots.map((s) => (s.slot === 1 ? { ...s, tiles: saved, score: layoutScore(saved) } : s));
+    rerender(stage({ ...slots, slots: after, onSaveTo }, { randomizer, onEditingChange, onSave }));
+    expect(save()).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
     expect(screen.queryByRole("dialog", { name: "Leave without saving?" })).toBeNull();
     expect(onEditingChange).toHaveBeenCalledWith(false);
   });
 
-  it("loads a slot into the draft, asking first over changes kept nowhere", async () => {
-    render(stage(LAYOUT_SLOTS.saved, { initialDraft: DRAFT_VALID }));
+  it("loads the next saved layout, asking first over changes kept nowhere", async () => {
+    await mount(stage(unpicked(LAYOUT_SLOTS.saved), { initialDraft: DRAFT_VALID }));
     const target = LAYOUT_SLOTS.saved.slots[1]!.tiles!;
     await scoreShown(layoutScore(DRAFT_VALID));
-    fireEvent.click(screen.getByRole("button", { name: /Load/ }));
-    const dialog = screen.getByRole("dialog", { name: "Load slot 2?" });
+    fireEvent.click(arrow("Next"));
+    const dialog = screen.getByRole("dialog", { name: "Load layout 2?" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
     await scoreShown(layoutScore(DRAFT_VALID));
-    fireEvent.click(screen.getByRole("button", { name: /Load/ }));
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Load slot 2?" })).getByRole("button", { name: "Load" }));
+    await shown(1);
+    fireEvent.click(arrow("Next"));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Load layout 2?" })).getByRole("button", { name: "Load" }));
     await scoreShown(layoutScore(target));
-    expect(screen.getByRole("button", { name: /Load/ })).toBeDisabled();
+    await shown(2);
   });
 
-  it("loads at once when the draft is the village's", async () => {
-    render(stage(LAYOUT_SLOTS.saved));
-    fireEvent.click(screen.getByRole("button", { name: /Load/ }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+  it("loads at once when the draft is a saved layout's, both ways", async () => {
+    await mount(stage(unpicked(LAYOUT_SLOTS.saved)));
+    fireEvent.click(arrow("Next"));
+    expect(question()).toBeNull();
     await scoreShown(layoutScore(LAYOUT_SLOTS.saved.slots[1]!.tiles!));
+    await shown(2);
+    fireEvent.click(arrow("Previous"));
+    expect(question()).toBeNull();
+    await scoreShown(layoutScore(LAYOUT_GROWING.tiles));
+    await shown(1);
   });
 
-  it("makes a slot active after asking: attackers will face it", () => {
+  it("uses the layout shown after asking: attackers will face it", async () => {
     const onActivate = vi.fn();
-    render(stage({ ...LAYOUT_SLOTS.saved, onActivate }));
-    fireEvent.click(screen.getByRole("button", { name: /Make active/ }));
-    const dialog = screen.getByRole("dialog", { name: "Make slot 2 active?" });
-    expect(within(dialog).getByText(/Attackers will face this layout/)).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Make active" }));
+    await mount(stage(unpicked({ ...LAYOUT_SLOTS.saved, onActivate })));
+    fireEvent.click(arrow("Next"));
+    await shown(2);
+    expect(screen.getByRole("button", { name: "Use" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Use" }));
+    const dialog = screen.getByRole("dialog", { name: "Use layout 2?" });
+    expect(within(dialog).getByText(/Attackers will face this layout/)).toBeInTheDocument();
+    expect(onActivate).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Use" }));
     expect(onActivate).toHaveBeenCalledWith(1);
   });
 
-  it("never makes active a layout that needs tiles the player no longer holds", () => {
-    render(stage(LAYOUT_SLOTS.needsTiles));
-    expect(screen.getByRole("button", { name: /Make active/ })).toBeDisabled();
-    expect(screen.getByText(/Needs tiles you no longer hold/)).toBeTruthy();
+  it("waits for a save before Use: it takes the saved layout", async () => {
+    await mount(stage(LAYOUT_SLOTS.saved, { initialDraft: DRAFT_VALID }));
+    await shown(2);
+    expect(screen.getByRole("button", { name: "Use" })).toBeDisabled();
+    expect(screen.getByText("Save first: Use takes the saved layout.")).toBeInTheDocument();
   });
 
-  it("says a refused slot write above the slots, and waits while a write is on its way", () => {
-    render(stage(LAYOUT_SLOTS.refused));
-    expect(screen.getByText("The price changed: check it and buy again.")).toBeTruthy();
+  it("never uses a layout that needs tiles the player no longer holds", async () => {
+    await mount(stage(LAYOUT_SLOTS.needsTiles));
+    await shown(3);
+    expect(screen.getByRole("button", { name: "Use" })).toBeDisabled();
+    expect(screen.getByText(/Needs tiles you no longer hold/)).toBeInTheDocument();
+  });
+
+  it("says a refused slot write above the carousel, and waits while a write is on its way", async () => {
+    await mount(stage(LAYOUT_SLOTS.refused));
+    expect(screen.getByText("The price changed: check it and buy again.")).toBeInTheDocument();
     cleanup();
-    render(stage(LAYOUT_SLOTS.buying));
-    expect(screen.getByRole("button", { name: /Buy slot 2/ })).toBeDisabled();
+    await mount(stage(LAYOUT_SLOTS.buying));
+    expect(purchase(2, 100)).toBeDisabled();
+    expect(arrow("Previous")).toBeDisabled();
   });
 
   it("saves into the slot shown active, and waits while a slot write is on its way (no Save racing an activation)", async () => {
     const onSave = vi.fn();
-    const { rerender } = render(stage({ ...LAYOUT_SLOTS.saved, busy: { kind: "activate", slot: 1 } }, { initialDraft: DRAFT_VALID, onSave }));
-    const save = screen.getByRole("button", { name: /^Save$/ });
-    expect(save).toBeDisabled();
-    fireEvent.click(save);
+    const slots = unpicked(LAYOUT_SLOTS.saved);
+    const { rerender } = await mount(stage({ ...slots, busy: { kind: "activate", slot: 1 } }, { initialDraft: DRAFT_VALID, onSave }));
+    expect(save()).toBeDisabled();
+    fireEvent.click(save());
     expect(onSave).not.toHaveBeenCalled();
     // The activation answered (refused here: slot 1 still active): Save goes to slot 1, by its index
-    rerender(stage({ ...LAYOUT_SLOTS.saved, busy: null }, { initialDraft: DRAFT_VALID, onSave }));
-    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+    rerender(stage({ ...slots, busy: null }, { initialDraft: DRAFT_VALID, onSave }));
+    fireEvent.click(save());
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave.mock.calls[0]![2]).toBe(0);
   });
 
-  it("shows no strip where the slots are not served", () => {
-    render(
+  it("keeps Use in its place, off, where the slots are not served (no carousel): the bar's buttons never move", async () => {
+    await mount(
       <LazyMotion features={domMax}>
-        <VillageStage village={LAYOUT_GROWING} inventory={INVENTORY} editable editing randomizer={null} />
+        <VillageStage village={LAYOUT_GROWING} inventory={INVENTORY} editable editing randomizer={null} initialDraft={DRAFT_VALID} />
       </LazyMotion>,
     );
-    expect(screen.queryByRole("group", { name: "Layout slots" })).toBeNull();
+    expect(save()).toBeEnabled();
+    expect(screen.queryByRole("group", { name: "Layouts" })).toBeNull();
+    const use = screen.getByRole("button", { name: "Use" });
+    expect(use).toBeDisabled();
+    expect(use).toHaveAttribute("aria-pressed", "false");
+    // Last in the bar, after Save, as with the layouts.
+    expect(save().compareDocumentPosition(use) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
-});
-
-it("draws each slot's small plan, a square per tile", () => {
-  const { container } = render(stage(LAYOUT_SLOTS.three));
-  const plans = container.querySelectorAll('[aria-label="Layout slots"] svg');
-  expect(plans).toHaveLength(3);
-  expect(plans[0]!.querySelectorAll("rect")).toHaveLength(LAYOUT_GROWING.tiles.length);
 });

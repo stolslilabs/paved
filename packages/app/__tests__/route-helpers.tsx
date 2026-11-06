@@ -62,7 +62,7 @@ const PAGES = {
   referral: () => import("../src/routes/pages/referral"),
   vault: () => import("../src/routes/pages/vault"),
   chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/player-profile-host")]),
-  guild: () => Promise.all([import("../src/routes/pages/guild"), import("../src/routes/social/guild-view"), import("../src/routes/player-profile-host")]),
+  guild: () => Promise.all([import("../src/routes/pages/guild"), import("../src/routes/social/guild-view"), import("../src/routes/player-profile-host"), import("../src/routes/home-hosts")]),
   friends: () => Promise.all([import("../src/routes/pages/friends"), import("../src/routes/player-profile-host")]),
   // Settings is the HUD's drawer over the home (SETTINGS-PAGE), Credits and Themes its views: its host comes with it.
   settings: () => Promise.all([import("../src/routes/pages/settings"), import("../src/routes/home-hosts")]),

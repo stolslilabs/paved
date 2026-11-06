@@ -8,10 +8,12 @@ import { HoldButton } from "../elements/hold-button";
 import { InlineError } from "../elements/inline-error";
 import { type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
+import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Icon } from "../ui/icon";
 import type { BoardBubble } from "./board-viewport";
+import { HudDialog } from "./hud-dialog";
 import { InventoryTray } from "./inventory-tray";
 import type { LayoutBoardView, LayoutPending } from "./layout-board";
 import { STARTER, canLift, draftOf, fittingAt, layoutScore, legalSpots, placeTile, rememberPoints, sameLayout, slotsFor, stockOf, trayOf, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
@@ -498,22 +500,33 @@ export function useLayoutEditor({
 export type LayoutEditor = ReturnType<typeof useLayoutEditor>;
 
 /**
- * Reset all (#756): the eraser held, in the style of the board's discard (a grey circle whose ring fills red). Only its look
- * changed: held, it brings the village back to the starter alone, every tile in the inventory, as before. Its place is the
- * edit bar, beside the slots.
+ * The edit bar's look of its round buttons: `plain`, the app's grey circle; `hud` (EDIT-VILLAGE, the Paved UX Book's "Edit my
+ * village"), the HUD's raised disc, 36 px, inside the 44 px target, the die painted.
  */
-export function ResetAllHold({ editor, holdMs, className }: { editor: LayoutEditor; holdMs?: number; className?: string }) {
-  return (
-    <HoldButton
-      label="Hold to reset all: the starter alone, every tile back in the inventory"
-      title="Hold to reset all"
-      icon="eraser"
-      tone="destructive"
-      holdMs={holdMs}
-      disabled={editor.saving || editor.draft.length <= 1}
-      onComplete={editor.reset}
-      className={cn("size-11 rounded-full", className)}
-    />
+export type EditButtonLook = "plain" | "hud";
+
+/** The HUD's raised disc drawn under a 44 px round button's content, 4 px in (its ring, a hold's, around it). */
+const HUD_DISC = "hud-disc bg-transparent";
+
+/**
+ * Reset all (#756): held, in the style of the board's discard (a grey circle whose ring fills red), it brings the village back to
+ * the starter alone, every tile in the inventory. Its place is the edit bar, beside the slots: the eraser on the village page; on the
+ * home's (`look="hud"`, EDIT-VILLAGE) the eraser on the HUD's disc, as Erase (the owner's ask of 2026-11-05: the whole layout erased).
+ */
+export function ResetAllHold({ editor, holdMs, look = "plain", className }: { editor: LayoutEditor; holdMs?: number; look?: EditButtonLook; className?: string }) {
+  const hud = look === "hud";
+  const common = {
+    label: hud ? "Hold to erase the layout: the starter alone, every tile back in the inventory" : "Hold to reset all: the starter alone, every tile back in the inventory",
+    title: hud ? "Hold to erase" : "Hold to reset all",
+    tone: "destructive",
+    holdMs,
+    disabled: editor.saving || editor.draft.length <= 1,
+    onComplete: editor.reset,
+  } as const;
+  return hud ? (
+    <HoldButton {...common} glyph={<UiIcon name="erase" size="sm" className="drawer-icon" px={24} />} className={cn("size-11 rounded-full", HUD_DISC, className)} />
+  ) : (
+    <HoldButton {...common} icon="eraser" className={cn("size-11 rounded-full", className)} />
   );
 }
 
@@ -523,11 +536,14 @@ export function ResetAllHold({ editor, holdMs, className }: { editor: LayoutEdit
  * builds (not under reduced motion); past a second it says "Still building…" with a cancel, under it. Hidden where Web Workers
  * are missing.
  */
-export function RandomDie({ editor, className }: { editor: LayoutEditor; className?: string }) {
+export function RandomDie({ editor, look = "plain", className }: { editor: LayoutEditor; look?: EditButtonLook; className?: string }) {
   const still = useReducedMotionConfig() ?? false;
   if (!editor.canRoll) return null;
+  const hud = look === "hud";
   return (
-    <div className={cn("relative shrink-0", className)}>
+    // In the edit bar (`hud`) the wrapper is not the status's box: "Still building…" hangs from the bar's right end, clear of the
+    // points at the top left (from the die, it ran under the score).
+    <div className={cn(hud ? "shrink-0" : "relative shrink-0", className)}>
       <Button
         size="icon"
         variant="secondary"
@@ -536,7 +552,7 @@ export function RandomDie({ editor, className }: { editor: LayoutEditor; classNa
         aria-busy={editor.rolling || undefined}
         aria-label={editor.rolling ? "Building a random village: press for another" : "Random village from your tiles"}
         title="Random village"
-        className="size-11 rounded-full"
+        className={cn("size-11 rounded-full", hud && HUD_DISC)}
       >
         <m.span
           key={editor.rolls}
@@ -546,7 +562,7 @@ export function RandomDie({ editor, className }: { editor: LayoutEditor; classNa
           animate={{ rotate: editor.rolls > 0 && !still ? 360 : 0 }}
           transition={editor.rolling ? { duration: 0.6, ease: "linear", repeat: Infinity } : { duration: 0.5, ease: "easeOut" }}
         >
-          <Icon name="dice" size="md" />
+          {hud ? <UiIcon name="die" size="sm" className="drawer-icon" px={24} /> : <Icon name="dice" size="md" />}
         </m.span>
       </Button>
       {editor.slowRoll && (
@@ -605,8 +621,23 @@ export function LayoutEditorPanel({ editor, tileArt, bubble = "panel", className
   );
 }
 
-/** Back with unsaved changes: asked first. */
-export function LeaveEditDialog({ editor }: { editor: LayoutEditor }) {
+/**
+ * Back with unsaved changes: asked first. On the home's edit mode (`look="hud"`, EDIT-VILLAGE, the owner's ask of 2026-11-05) in the
+ * HUD drawers' look (`HudDialog`): its red close keeps editing, Leave in red with the way out (it drops the changes); the village page
+ * keeps the app's card.
+ */
+export function LeaveEditDialog({ editor, look = "plain" }: { editor: LayoutEditor; look?: EditButtonLook }) {
+  if (look === "hud")
+    return (
+      <HudDialog
+        open={editor.leaving}
+        onCancel={() => editor.setLeaving(false)}
+        title="Leave without saving?"
+        description="Your changes to the layout are lost; the village stays as it was saved."
+        cancel="Keep editing"
+        action={{ label: "Leave", art: "exit", onClick: editor.close, tone: "destructive" }}
+      />
+    );
   return (
     <Dialog open={editor.leaving} onOpenChange={editor.setLeaving}>
       <DialogContent>

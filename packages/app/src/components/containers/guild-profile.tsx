@@ -5,12 +5,14 @@ import {
   kickRefusal,
   makeLeaderRefusal,
   promoteRefusal,
+  rankAbove,
+  rankBelow,
   type GuildRank,
 } from "@paved/game-core";
 import type { ReactNode } from "react";
 import type { GuildWriteRun } from "../../data/guilds";
 import type { GuildBadge } from "../../data/social-source";
-import { REFUSALS, rankName } from "../../lib/guild-text";
+import { RANK_RIGHTS, REFUSALS, rankName } from "../../lib/guild-text";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { GuildEmblem } from "../elements/guild-emblem";
@@ -90,7 +92,7 @@ export interface GuildMemberActionsProps {
   now: number;
   onAction?: (action: GuildMemberAction) => Promise<unknown> | void;
   /**
-   * `buttons` (the default: the guild page's member sheet), or `tiles` (FRIENDS-PAGE, the owner's ask of 2026-11-05: another player's
+   * `buttons` (the default), or `tiles` (FRIENDS-PAGE, the owner's ask of 2026-11-05: another player's
    * profile, the Profile's raised tiles, a row of three columns under its own).
    */
   look?: "buttons" | "tiles";
@@ -126,18 +128,21 @@ export function GuildMemberActions({ viewer, target, now, onAction, look = "butt
     if (refused !== null && refused !== "rank" && refused !== "invited-already") buttons.push(<p key="why" className="text-center text-xs text-muted-foreground">{REFUSALS[refused]}</p>);
   } else {
     const t = { address: target.address, rank: target.rank! };
-    if (promoteRefusal(actor, t) === null)
+    // GUILD-PAGE's five ranks: one rank up or down, named.
+    const up = rankAbove(t.rank);
+    const down = rankBelow(t.rank);
+    if (up !== null && promoteRefusal(actor, t) === null)
       buttons.push(
-        <Button key="promote" variant="outline" onClick={() => ask({ title: `Promote ${who}?`, text: "Officers recruit, answer requests, post announcements and kick Members.", confirm: "Promote to Officer" }, () => ({ type: "promote" }))}>
+        <Button key="promote" variant="outline" onClick={() => ask({ title: `Promote ${who}?`, text: RANK_RIGHTS[up], confirm: `Promote to ${rankName(up)}` }, () => ({ type: "promote" }))}>
           <Icon name="arrow-trend-up" size="xs" />
-          Promote to Officer
+          Promote to {rankName(up)}
         </Button>,
       );
-    if (demoteRefusal(actor, t) === null)
+    if (down !== null && demoteRefusal(actor, t) === null)
       buttons.push(
-        <Button key="demote" variant="outline" onClick={() => ask({ title: `Demote ${who}?`, text: "They become a Member again.", confirm: "Demote to Member" }, () => ({ type: "demote" }))}>
+        <Button key="demote" variant="outline" onClick={() => ask({ title: `Demote ${who}?`, text: `They become a ${rankName(down)}.`, confirm: `Demote to ${rankName(down)}` }, () => ({ type: "demote" }))}>
           <Icon name="chevron-left" size="xs" />
-          Demote to Member
+          Demote to {rankName(down)}
         </Button>,
       );
     if (makeLeaderRefusal(actor, t) === null)
@@ -218,13 +223,16 @@ function GuildActionTiles({ viewer, target, now, who, actor, same, ask, dialog, 
     if (refused !== null && refused !== "rank" && refused !== "invited-already") notes.push(<p key="why" className="col-span-3 text-center text-xs text-muted-foreground">{REFUSALS[refused]}</p>);
   } else {
     const t = { address: target.address, rank: target.rank! };
-    if (promoteRefusal(actor, t) === null)
+    // GUILD-PAGE's five ranks: one rank up or down, named.
+    const up = rankAbove(t.rank);
+    const down = rankBelow(t.rank);
+    if (up !== null && promoteRefusal(actor, t) === null)
       tiles.push(
-        <ActionTile key="promote" art="guild-promote" label="Promote" name="Promote to Officer" onClick={() => ask({ title: `Promote ${who}?`, text: "Officers recruit, answer requests, post announcements and kick Members.", confirm: "Promote to Officer" }, () => ({ type: "promote" }))} />,
+        <ActionTile key="promote" art="guild-promote" label="Promote" name={`Promote to ${rankName(up)}`} onClick={() => ask({ title: `Promote ${who}?`, text: RANK_RIGHTS[up], confirm: `Promote to ${rankName(up)}` }, () => ({ type: "promote" }))} />,
       );
-    if (demoteRefusal(actor, t) === null)
+    if (down !== null && demoteRefusal(actor, t) === null)
       tiles.push(
-        <ActionTile key="demote" art="guild-demote" label="Demote" name="Demote to Member" onClick={() => ask({ title: `Demote ${who}?`, text: "They become a Member again.", confirm: "Demote to Member" }, () => ({ type: "demote" }))} />,
+        <ActionTile key="demote" art="guild-demote" label="Demote" name={`Demote to ${rankName(down)}`} onClick={() => ask({ title: `Demote ${who}?`, text: `They become a ${rankName(down)}.`, confirm: `Demote to ${rankName(down)}` }, () => ({ type: "demote" }))} />,
       );
     if (makeLeaderRefusal(actor, t) === null)
       tiles.push(<ActionTile key="leader" art="guild-leader" label="Leader" name="Make leader" onClick={() => ask({ title: `Make ${who} the leader?`, text: "They lead the guild; you become an Officer.", confirm: "Make leader" }, () => ({ type: "make-leader" }))} />);

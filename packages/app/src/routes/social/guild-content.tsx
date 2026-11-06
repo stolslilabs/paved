@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { GUILD_SIZES, GuildFinder, GuildInvitations, NO_GUILD_FILTERS, type GuildFinderAction, type GuildFinderFilters } from "../../components/containers/guild-finder";
-import { GuildFindSheet } from "../../components/containers/guild-page-sheets";
+import { GUILD_SIZES, GuildBrowse, GuildFinder, GuildInvitations, NO_GUILD_FILTERS, type GuildFinderAction, type GuildFinderFilters } from "../../components/containers/guild-finder";
 import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
@@ -57,8 +56,6 @@ export function GuildContent() {
   const candidate = me !== null && level !== undefined && league ? { level, crowns: league.crowns } : null;
 
   const [query, setQuery] = useState("");
-  // The member's Find guilds (#973): the finder's search and lists, in a sheet over their guild.
-  const [finding, setFinding] = useState(false);
   const [filters, setFilters] = useState<GuildFinderFilters>(NO_GUILD_FILTERS);
   const size = GUILD_SIZES[filters.size];
   const results = useGuildSearch({ query, joinType: filters.joinType ?? undefined, meetsFor: filters.meets && me ? me : undefined, minMembers: size.min, maxMembers: size.max });
@@ -111,20 +108,22 @@ export function GuildContent() {
             unread={state.unread}
             writes={writes}
             onOpenPlayer={openPlayer}
-            onFindGuilds={() => setFinding(true)}
-          />
-          <GuildFindSheet
-            open={finding}
-            onOpenChange={setFinding}
-            candidate={candidate}
-            query={query}
-            onQueryChange={setQuery}
-            filters={filters}
-            onFiltersChange={setFilters}
-            results={listOf(results)}
-            suggested={listOf(suggested)}
-            ranking={listOf(ranking)}
-            onOpenGuild={openGuild}
+            // The member's Find guilds (#973): the finder's search and lists, in its view in the drawer (GUILD-PAGE); a guild found
+            // opens in its sheet over it.
+            find={
+              <GuildBrowse
+                candidate={candidate}
+                query={query}
+                onQueryChange={setQuery}
+                filters={filters}
+                onFiltersChange={setFilters}
+                results={listOf(results)}
+                suggested={listOf(suggested)}
+                ranking={listOf(ranking)}
+                onOpenGuild={openGuild}
+                suggestedEmpty="No other guild to suggest right now: search one, or see the ranking."
+              />
+            }
           />
         </>
       ) : (

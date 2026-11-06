@@ -28,7 +28,8 @@ it("saves the die's draft with that draft's own score while the panel still show
     </LazyMotion>,
   );
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" })));
-  expect(screen.getAllByLabelText("28 of 28 slots used").length).toBeGreaterThan(0);
+  // The slots stand in the editor's panel on a phone (EDIT-VILLAGE), its own chunk.
+  expect((await screen.findAllByLabelText("28 of 28 slots used")).length).toBeGreaterThan(0);
   // The panel a render behind: the bar still shows the saved village's score.
   expect(screen.queryByText("12,345")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /^Save/ }));

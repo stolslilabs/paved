@@ -44,6 +44,8 @@ import {
   parseGuildTag,
   postAnnouncementRefusal,
   promoteRefusal,
+  rankAbove,
+  rankBelow,
   rankGuilds,
   ranksAbove,
   requestRefusal,
@@ -60,7 +62,7 @@ import {
 
 // The guild rules (#953): every row of the proposal's table and every limit, allowed and refused.
 
-const { member: M, officer: O, leader: L } = GUILD_RANK;
+const { recruit: R, member: M, veteran: V, officer: O, leader: L } = GUILD_RANK;
 const NOW = 1_793_448_000;
 
 const actor = (address: string, rank: GuildRank) => ({ address, rank });
@@ -76,11 +78,10 @@ const opening = (over: Partial<GuildListing> = {}): GuildListing => ({ id: 7, na
 const guildless = { level: 5, crowns: 300, guild: null };
 
 describe("the ranks (#953)", () => {
-  it("are numbers in order, with room for a fourth between Officer and Leader", () => {
-    expect(M < O && O < L).toBe(true);
-    expect(L - O).toBeGreaterThan(1);
-    expect([M, O, L].every(isGuildRank)).toBe(true);
-    expect(isGuildRank(3)).toBe(false);
+  it("are five numbers in order (GUILD-PAGE): Recruit, Member, Veteran, Officer, Leader", () => {
+    expect(R < M && M < V && V < O && O < L).toBe(true);
+    expect([R, M, V, O, L].every(isGuildRank)).toBe(true);
+    expect(isGuildRank(5)).toBe(false);
     expect(isGuildRank("1")).toBe(false);
   });
 
@@ -114,6 +115,9 @@ describe("creating a guild (#953)", () => {
     expect(createGuildRefusal({ guild: null }, draft({ description: "x".repeat(GUILD_DESCRIPTION_MAX + 1) }))).toBe("description-length");
     expect(createGuildRefusal({ guild: null }, draft({ emblem: { icon: GUILD_EMBLEM_ICONS - 1, primary: GUILD_EMBLEM_COLOURS - 1, secondary: 0 } }))).toBeNull();
     expect(createGuildRefusal({ guild: null }, draft({ emblem: { icon: GUILD_EMBLEM_ICONS, primary: 0, secondary: 0 } }))).toBe("emblem");
+    // The charge's colour (GUILD-PAGE): left out, or one of the colours.
+    expect(createGuildRefusal({ guild: null }, draft({ emblem: { icon: 0, primary: 0, secondary: 0, charge: GUILD_EMBLEM_COLOURS - 1 } }))).toBeNull();
+    expect(createGuildRefusal({ guild: null }, draft({ emblem: { icon: 0, primary: 0, secondary: 0, charge: GUILD_EMBLEM_COLOURS } }))).toBe("emblem");
     expect(createGuildRefusal({ guild: null }, draft({ emblem: { icon: 0, primary: -1, secondary: 0 } }))).toBe("emblem");
     expect(createGuildRefusal({ guild: null }, draft({ joinType: "closed" as never }))).toBe("join-type");
     expect(createGuildRefusal({ guild: null }, draft({ requirements: { level: LEVEL_CAP, crowns: 500 } }))).toBeNull();
@@ -192,10 +196,10 @@ describe("joining (#953)", () => {
 
 describe("invitations (#953)", () => {
   const target = { guild: null, blockedInviter: false, invited: false };
-  it("are sent by officers and the leader, to a player in no guild or in another one", () => {
-    for (const rank of [O, L]) expect(inviteRefusal(rank, { id: 7, members: 10 }, target)).toBeNull();
+  it("are sent by a Member or above, to a player in no guild or in another one", () => {
+    for (const rank of [M, V, O, L]) expect(inviteRefusal(rank, { id: 7, members: 10 }, target)).toBeNull();
     expect(inviteRefusal(O, { id: 7, members: 10 }, { ...target, guild: 3 })).toBeNull();
-    expect(inviteRefusal(M, { id: 7, members: 10 }, target)).toBe("rank");
+    expect(inviteRefusal(R, { id: 7, members: 10 }, target)).toBe("rank");
     expect(inviteRefusal(O, { id: 7, members: 10 }, { ...target, guild: 7 })).toBe("member-already");
     expect(inviteRefusal(O, { id: 7, members: 10 }, { ...target, blockedInviter: true })).toBe("blocked");
     expect(inviteRefusal(O, { id: 7, members: 10 }, { ...target, invited: true })).toBe("invited-already");
@@ -250,20 +254,40 @@ describe("kicks (#953)", () => {
   });
 });
 
-describe("promotions, demotions and the leadership (#953)", () => {
-  it("let the leader alone promote a Member to Officer", () => {
-    expect(promoteRefusal(actor("0xa", L), actor("0xd", M))).toBeNull();
-    expect(promoteRefusal(actor("0xa", L), actor("0xd", O))).toBe("not-a-member");
-    expect(promoteRefusal(actor("0xb", O), actor("0xd", M))).toBe("rank");
-    expect(promoteRefusal(actor("0xc", M), actor("0xd", M))).toBe("rank");
+describe("promotions, demotions and the leadership (#953; GUILD-PAGE's five ranks)", () => {
+  it("promote one rank up, to a rank under the actor's: an Officer up to Veteran, the Leader up to Officer", () => {
+    expect(promoteRefusal(actor("0xb", O), actor("0xd", R))).toBeNull();
+    expect(promoteRefusal(actor("0xb", O), actor("0xd", M))).toBeNull();
+    expect(promoteRefusal(actor("0xb", O), actor("0xd", V))).toBe("top-rank");
+    expect(promoteRefusal(actor("0xa", L), actor("0xd", V))).toBeNull();
+    expect(promoteRefusal(actor("0xa", L), actor("0xd", O))).toBe("top-rank");
+    expect(promoteRefusal(actor("0xb", O), actor("0xe", O))).toBe("rank-not-above");
+    expect(promoteRefusal(actor("0xc", V), actor("0xd", R))).toBe("rank");
     expect(promoteRefusal(actor("0xa", L), actor("0xa", L))).toBe("self");
+    expect([R, M, V, O, L].map(rankAbove)).toEqual([M, V, O, L, null]);
   });
 
-  it("let the leader alone demote an Officer", () => {
+  it("demote one rank down, down to Recruit, a member the actor ranks above", () => {
     expect(demoteRefusal(actor("0xa", L), actor("0xd", O))).toBeNull();
-    expect(demoteRefusal(actor("0xa", L), actor("0xd", M))).toBe("not-an-officer");
-    expect(demoteRefusal(actor("0xb", O), actor("0xd", O))).toBe("rank");
-    expect(demoteRefusal(actor("0xc", M), actor("0xd", O))).toBe("rank");
+    expect(demoteRefusal(actor("0xb", O), actor("0xd", V))).toBeNull();
+    expect(demoteRefusal(actor("0xb", O), actor("0xd", M))).toBeNull();
+    expect(demoteRefusal(actor("0xb", O), actor("0xd", R))).toBe("bottom-rank");
+    expect(demoteRefusal(actor("0xb", O), actor("0xe", O))).toBe("rank-not-above");
+    expect(demoteRefusal(actor("0xc", V), actor("0xd", M))).toBe("rank");
+    expect([R, M, V, O, L].map(rankBelow)).toEqual([null, R, M, V, O]);
+  });
+
+  it("give each right to its lowest rank: a Member invites, a Veteran answers and posts, an Officer kicks", () => {
+    const room = { id: 1, members: 10 };
+    const outsider = { guild: null, blockedInviter: false, invited: false };
+    expect(inviteRefusal(R, room, outsider)).toBe("rank");
+    expect(inviteRefusal(M, room, outsider)).toBeNull();
+    expect(declineRequestRefusal(M)).toBe("rank");
+    expect(declineRequestRefusal(V)).toBeNull();
+    expect(postAnnouncementRefusal(M, "Hi")).toBe("rank");
+    expect(postAnnouncementRefusal(V, "Hi")).toBeNull();
+    expect(kickRefusal({ ...actor("0xc", V), lastKick: null }, actor("0xd", R), NOW)).toBe("rank");
+    expect(kickRefusal({ ...actor("0xb", O), lastKick: null }, actor("0xd", V), NOW)).toBeNull();
   });
 
   it("let the leader alone make another member leader", () => {

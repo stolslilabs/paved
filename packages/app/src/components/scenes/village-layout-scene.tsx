@@ -18,7 +18,7 @@ import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
 
 // The score's count after a save (issue 802, the balances' change): its own chunk, loaded by a save alone.
-const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.ScoreCount })));
+const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.CountedScore })));
 
 /** Why the village is not shown: a guest (Connect), the reads on their way, a failed read (Retry). */
 export type VillageLayoutStatus = SkinsStatus;

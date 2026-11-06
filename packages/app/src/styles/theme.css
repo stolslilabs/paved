@@ -332,8 +332,10 @@
   --league-wood: var(--color-charcoal-400);
 }
 
-/* 3d'. The guilds' emblems (#953, `elements/guild-emblem.tsx`): a shield in a pair of these eight colours, by index (game-core's
-   `GUILD_EMBLEM_COLOURS`). Its icon is drawn in `--emblem-charge`, over a dark rim, so any pair reads. */
+/* 3d'. The guilds' emblems (#953, `elements/guild-emblem.tsx`): a shield in a pair of these eighteen colours, by index (game-core's
+   `GUILD_EMBLEM_COLOURS`), under a dark rim; its charge a flat silhouette in a third (GUILD-PAGE, `emblem-art.ts`), Silver (8) by
+   default, its edge drawn in the rim's colour, so any three read. The first eight are those of #953; 9 to 17 came with GUILD-PAGE
+   (the owner's ask of three rows of six), Rose, Plum, Violet and Teal outside the palettes, the heraldry's own. */
 :root {
   --emblem-0: var(--color-gold-500);
   --emblem-1: var(--color-ember-600);
@@ -343,7 +345,16 @@
   --emblem-5: var(--color-river-900);
   --emblem-6: var(--color-amber-600);
   --emblem-7: var(--color-gold-800);
-  --emblem-charge: var(--color-charcoal-50);
+  --emblem-8: var(--color-charcoal-50);
+  --emblem-9: var(--color-charcoal-900);
+  --emblem-10: var(--color-ember-800);
+  --emblem-11: var(--color-ember-400);
+  --emblem-12: oklch(0.66 0.16 358);
+  --emblem-13: oklch(0.42 0.13 330);
+  --emblem-14: oklch(0.55 0.16 295);
+  --emblem-15: var(--color-meadow-400);
+  --emblem-16: var(--color-meadow-900);
+  --emblem-17: oklch(0.6 0.1 192);
   --emblem-rim: var(--color-charcoal-950);
 }
 
@@ -722,6 +733,39 @@
 }
 @utility drawer-icon {
   filter: drop-shadow(0 2px 0 var(--background));
+}
+/*
+ * EDIT-VILLAGE (the Paved UX Book's "Edit my village"), one rule each where the editor's classes would be many: the book's gold pill
+ * (its image in `--save-pill`, `save-pill` of ui-art.ts) under a white word outlined in black; the HUD's raised disc under a round
+ * button's icon, 4 px in its 44 px target.
+ */
+@utility gold-pill {
+  position: relative;
+  isolation: isolate;
+  color: var(--foreground);
+  font-weight: 900;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px var(--background);
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 4px 0;
+    z-index: -1;
+    background: var(--save-pill) 0 0 / 100% 100%;
+  }
+}
+@utility hud-disc {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    z-index: -1;
+    border-radius: 9999px;
+    background-color: var(--drawer-raised);
+    box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+  }
 }
 /* The match's board panel (MATCH-PAGE): the book's blue rim, its glow outside and, over the board, inside (`::after`). */
 @utility match-frame {

@@ -1,3 +1,4 @@
+import type { FrameInsets } from "@paved/renderer";
 import { Suspense, memo, useEffect, useLayoutEffect, useRef, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import type { BoardTile } from "@paved/chain";
 import type { CellAreas } from "@paved/game-core";
@@ -65,6 +66,11 @@ export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing
     bubble?: BoardBubble | null;
     /** The home's Camera mode (#875): the 3D village's camera free (the plan view has none). */
     camera?: boolean;
+    /**
+     * The room the HUD leaves the 3D village, CSS px from each edge of the scene's box (EDIT-VILLAGE: edit mode's bar, with room
+     * for the bubble, and its panel over the village): the camera frames the village in the rest. Unset: the renderer's own.
+     */
+    frame?: FrameInsets | null;
   };
 
 /** A cell's least width with its gap: the 44 px touch floor and the grid's 2 px gap. */

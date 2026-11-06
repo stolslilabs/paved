@@ -209,6 +209,68 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   grid's tiles (the owner's choice: no data for it); the book's centred window from `tablet` gave way to the side panel (the owner's
   choice, the drawers' pattern); the house's greys and gold in place of the book's blue panel and buttons (as Profile and Missions);
   a skin coming soon has no Shop (nothing to buy). No painted asset was made.
+  GUILD-PAGE (2026-11-05), after the Paved UX Book's "Run my guild" (`guild`, `guild-announcements`, `guild-requests`, `guild-log`),
+  in the house style of the profile, the Missions, the League and the Shop (the owner's ask of the same day, after a first pass too
+  close to the book's gold): the Guild (`/guild`) is the HUD's drawer as the Shop, the dock's other page: a full page with Back on a
+  phone, from `tablet` a side panel docked at the right (the book's tablet and desktop draw a centred window, which the Shop's rule
+  docks at the right). The identity on the drawer's face, as the profile's: the guild's emblem; its name in the profile's name's
+  weight and the menu ("…") a small raised square beside it, as the profile's Edit name; the tag under it; the player's rank in a
+  carved pill in the medal's gold (the Leader's crown, the Officer's star, the Member's bust: the HUD's painted user, the owner's ask
+  of an icon for each rank). Then the profile's carved band of figures parted by the
+  drawer's rules: Members ("9/50"), Score (the painted crown, the sum of the crowns), Join (Open, Request, Invite only: "Request", the
+  owner's word, in place of "By request"). Then the
+  description folded to two lines, and at its right Chat, a raised tile as the profile's actions (the HUD's chat icon over its word),
+  the dock's red count on it for the guild chat's unread messages (the chat's overview). The tabs are the Shop's (the book's words, the
+  current one underlined in gold), the dock's red count on Announcements (unread) and Requests (waiting). Each list is the battle logs'
+  carved list, a rule between its rows. Members: each portrait in the rim of the member's league with its crest, the name, the rank's
+  carved pill, the painted crown and the crowns; the player's own row on a discreet wash of the primary gold, no ring (the owner's
+  ask), with a "You" tag as the Hall of Fame's "Now". Announcements: the newest pinned, on the same wash under the book's pin; an
+  officer's raised Post (the book's pencil); Edit and Delete two small raised squares on what the viewer may change. Requests (officers
+  and the leader): under the drawer's engraved title and its count, each request's portrait, name, level and crowns and message, a
+  raised Accept (its check in the success green) and Decline; then "Invitations sent", each invitation's player and when it lapses in a
+  carved pill. Log: newest first, each line under the book's painted icon (joined: its door; promoted: the star; removed: its member
+  with a red minus; posted: the speech bubble, the HUD's Chat), the HUD's crown, user, gear and banners for a new leader, a demotion,
+  the settings and the founding, the menu's Leave door for a member who left; "Show all 42" the battle logs' "Show more" button. The menu
+  and what it opens are views in the drawer, never sheets over it (the owner's ask of the same day: the navigation stays in the side
+  sheets, Back goes back, the red cross or a tap on the village leaves): the menu's view, titled "Guild menu" on the drawer's header,
+  holds raised rows, each a painted icon, its words outlined and the chevron of a view (Invite a player, Guild settings, Find guilds),
+  Leave or Disband apart in the destructive colour, dimmed with why when refused; each of those opens its view in turn (the player
+  search, the settings' form, the guild search), Back one view back. A member's row tapped opens their profile, FRIENDS-PAGE's drawer over the
+  guild's (the owner's ask of the same day: straight to it, no view between), the rank's actions its tiles (Promote, Demote, Leader,
+  Kick, named by the rank they give: "Promote to Veteran"); one's own row, one's own profile. The views slide in from the right and back from the left, as the Shop's theme's. On a phone a view's header has the red cross at its end
+  besides Back (`HudDrawer`, every drawer's views: the Shop's theme's too), so one press leaves. The icons of Invite a player, Find
+  guilds, Leave, Disband, Promote and Demote (the log's promotions and demotions) were drawn by the Codex CLI's image tool, in the HUD icons' style
+  (`scripts/compress-ui-art.ts`). Kept as they were: the finder for a player in no guild, the confirmations (Leave, Disband, a rank's
+  action), another guild in its sheet (`?guild=`, the
+  same identity and figures), the link to the chat, the profiles (the home's host, over the drawer). Removed from the page, the book
+  drawing none: a member row's level and last seen (on their profile, a tap away), the menu's sheets (their descriptions are the
+  views' first lines, the menu's guild name is the page's), the member header's requirements (a visitor's keeps them), a request's age, the tabs' icons. Gaps
+  from the book: the house's greys, raised and carved surfaces and the medal's gold in place of the book's blue panels, gold rows and
+  gold buttons (as Profile, Missions, League and Shop); the guild's own emblem in place of the book's banners (the emblem is the
+  guild's, its settings choose it); the score, members and join type on the profile's band, not the book's corner of the card; a
+  request's crowns beside its level, not in a column (no room for the name on a phone, and the drawer keeps the phone's layout at
+  every width); an invitation sent has no Cancel (the guild source cannot take one back), when it lapses in its place; Post above the
+  list, not in the tabs' row (no room on a phone); the times as the formatter writes them ("2h ago", the book's "2 h"); the log's lines
+  in the app's words; 44 px targets; the settings' form keeps the app's fields and its gold Save (shared with Create a guild). The pencil,
+  the door and the removed member were first cut from the book's pixels, then redrawn the same day by the Codex CLI's image tool from
+  those crops, in the HUD icons' style (the pinned announcement's pin is the chat's, CHAT-PAGE's, the same drawing) (`scripts/compress-ui-art.ts`). The guilds' emblems bear twenty-four charges drawn by
+  Codex in place of twelve Font Awesome icons (the owner's asks of the same day: original ones; flat silhouettes, no detail but their
+  cut-outs, so their colour is chosen; four rows of six): the first twelve keep the subjects they replace (hammer, crossed swords,
+  crown, tree, star, castle, tower, cogwheel, trophy, eye, flag, flame), so a guild's emblem keeps its meaning; twelve are new (lantern,
+  windmill, anchor, thistle, wolf, key, mountain, wheat, pickaxe, bridge, horseshoe, owl). The charge is tinted in a third colour of the
+  emblem (`charge`, optional), edged in the shield's dark rim. Eighteen colours, three rows of six (the metals and greys, the reds and
+  purples, the greens and blues): the first eight those of #953, Silver (the charge's colour before, its default), then Coal, Crimson,
+  Coral, Rose, Plum, Violet, Lime, Forest and Teal (Rose, Plum, Violet and Teal outside the palettes). Game-core: `GUILD_EMBLEM_ICONS`
+  24, `GUILD_EMBLEM_COLOURS` 18, `GUILD_EMBLEM_SILVER` (`elements/emblem-art.ts`, `GUILD_EMBLEM_PALETTE` for the picker's order).
+  Five ranks in place of three (the owner's choice of the same day): Recruit (who joins), Member (invites), Veteran (answers the
+  requests, posts announcements), Officer (kicks, once per 20 minutes, and promotes up to Veteran), Leader (the settings, the Officers'
+  ranks, Make leader, disband); a promotion or a demotion is one rank, to a rank under the actor's; the rotation takes the highest rank
+  who played. Each rank has its painted icon (the Recruit's sprout and the Veteran's medal by Codex; the HUD's bust, star and crown);
+  the log says the new rank. The settings and Create a guild (a view in the drawer too, no more a sheet) and the finder in the drawer's
+  style: the engraved titles in the display font, carved panels and fields, the charges and colours six to a row, the join types raised
+  tiles under Codex's open padlock and sealed letter and the HUD's padlock, Save a raised button; the finder's invitations, request and
+  lists on carved panels, the search carved under Codex's magnifier, Suggested and Ranking the Shop's word tabs, each card a row of the
+  carved list with the painted busts, crown and join type, its place in the medal's gold for the first three.
   CHAT-PAGE (2026-11-05), after the Paved UX Book's Chat ("chat-world", "chat", "chat-private": every avatar in its league's rim,
   with the level and the guild's tag), the Missions' method: the chat (`/chat`, `/chat/<tab>`, `/chat/private/<player>`) is the
   HUD's drawer (`PageDef.drawer`), a full page with Back on a phone, from `tablet` a side panel docked at the left beside the home's
@@ -260,6 +322,46 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   mock's, the same for every player, as the own profile's. Painted assets: the followers and Block icons cut from the book's pixels;
   the gold pill from them; the guild's Promote, Demote, Leader and Kick drawn by Codex's built-in image tool in the HUD's rendering
   (`packages/app/ui-sources/friends/`, `scripts/compress-ui-art.ts`).
+  EDIT-VILLAGE (2026-11-05), after the Paved UX Book's "Edit my village" (the owner's approved mockups: the village score's tap opens
+  edit mode, tiles moved from the inventory, three layouts, the save's return home), the Missions' method and the owner's asks of the
+  same day, each step shown as screenshots at 320, 375, 768 and 1440 px. The bar (`containers/edit-bar.tsx`): one band in the HUD's
+  frame, Back as the HUD drawers' chevron (in place of the book's gold disc), "Edit" (at every phone's width, the owner's ask), the
+  book's die on the HUD's raised disc, Erase held (#756's Reset all, the whole layout back to the starter: the eraser, the
+  owner's ask, in place of the book's reset arrow), Save on a disc as a floppy disk and Use on the book's gold pill: the layout
+  shown made the village attackers face, asked first (#804's Make active), pressed in and off on the village's own, off until the
+  layouts are served, never hidden, so the bar's buttons keep their places (the owner's asks: Use in Save's place, Save an icon,
+  "Active" the carousel's alone). From `tablet` the bar is the side menu's band (the owner's asks: floating, it was out of place
+  there, first on desktop, then on tablet), as the HUD drawers' (the Missions', the profile's, the League's): their band over their
+  lighter body, their width where there is room (half the screen on a tablet, at least 22 rem), "Edit village" ("Edit" under `desktop`)
+  on the left in their title's display font, their red close at the end in Back's place. Edit mode's questions
+  (`containers/hud-dialog.tsx`: the layouts' load, use and unlock, and Leave without saving) in the drawers' look too (the owner's
+  asks: the old card did not match; the book draws no such popup): their band, title and red close (it cancels: no Cancel beside it),
+  their body, one answer the body's width as the Shop's raised button with its icon (Unlock as the Shop's price, the Cobble and the
+  figure, the Cobbles held under it; Leave in red with the way out: it drops the changes; the village page keeps the app's card). The layouts (`containers/layout-slots-strip.tsx`) are a carousel of one above the inventory at every width (the owner's ask:
+  in place of the book's cards): ‹ Layout N, "Active" or "Empty" ›; an arrow loads the next layout into the editor (asked first over
+  changes kept nowhere; an empty one keeps the draft, Save keeps it there) and the scene slides in from that side (not under reduced
+  motion); where the next layout is locked the right arrow is its Purchase (the book's padlock, the Cobbles and #804's price), asked
+  first, and once bought the carousel moves on to it. Use waits for a save (it takes the saved layout).
+  The points (`EditPoints`, `containers/edit-panel.tsx`) at the top left, under the bar (at the top from `tablet`): the live score as the home's village capsule
+  (the village tile, not the book's crown; its change against the saved beside it) and every structure's line under it on the home's
+  soft veil, a tap lighting the structure (#758), its line ringed inside its edge. The tile's actions (`containers/village-bubble.tsx`): the book's Rotate, Back to the
+  inventory and Cancel, icons alone on the soft veil of the home's mission preview, above the tile (the owner's ask, in place of the
+  book's speech bubble and words). The inventory (`containers/edit-panel.tsx`, in place of the book's floating window and its tabs, at
+  the owner's asks): on a phone a plain bottom sheet at the foot (square corners, no grabber, one height, a carousel with no scroll
+  bar), from `tablet` a side menu at the right under the docked bar, the screen's height (a grid); "Inventory" in the display font, the drawers' engraved rule up
+  to the slots used with the slabs (`deck`); the cards the tiles' top-down art (the owner's choice over the book's angled renders,
+  whose images carry a slate square) with the dock's red count. The camera frames the village between the bar, with room for the
+  tile's actions, and the inventory. Back home after a save, the capsule counts up (#802) and the book's notice, "Layout saved · 874
+  (+36)", shows for a few seconds (under the profile on a phone: our HUD has no room between the profile and the balances). Gaps
+  kept: the HUD's grey rim and charcoal faces in place of the book's blue and navy; the tile in hand sits on its cell in the boards'
+  placed tint rather than floating over a glowing cyan cell (a renderer change); the book's 25 px round buttons at the 44 px touch
+  floor; one size at every width, not the book's larger desktop bar (the stylesheet's budget: the editor's looks are two utilities,
+  `gold-pill` and `hud-disc`, and styles). The inventory, the points and the tile's actions are chunks of their own, so the home's
+  first load does not grow. Rotate, the crate, the padlock and the book's Save pill (Use's) were decomposed and cut from the book's
+  own pixels by Codex (its image tool unavailable), Cancel by script, each checked side by side with the book; the floppy disk and
+  the eraser (chunky, about square, in neutral greys: the owner's asks), which the book does not draw, painted by Codex's built-in
+  image tool after the HUD's icons, and the book's die redrawn by it with a real die's faces (its cut, enlarged, was blurry: the
+  owner's ask), each checked beside them at 128, 32 and 24 px (`scripts/compress-ui-art.ts`).
   SETTINGS-PAGE (2026-11-06), after the Paved UX Book's Settings (`settings`: "the page scrolls"; Credits under More), the Missions'
   method: `/settings` is the HUD's drawer, a full page with Back on a phone, from `tablet` a side panel docked at the right (the book
   centres a two-column window at those widths, which no drawer does; Settings is the dock's right-most button, the Shop's rule). Its
