@@ -194,6 +194,7 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
   const inDrawer = useDrawerView(creating ? "Create a guild" : null, () => open(false));
   // A move between the finder and Create starts at the top of the drawer's body, as the guild page's views (#1030): Create takes the
   // focus on its view, the finder gives it back to the Create row it left from (else the focus falls to the drawer, the next Tab to Back).
+  // Neither focus scrolls (`preventScroll`): a Create row under several invitations would otherwise pull the finder off its top.
   const shown = useRef<HTMLDivElement>(null);
   const createRow = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
@@ -201,7 +202,7 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
     const region = shown.current?.closest("[data-hud-drawer-body]");
     if (region) region.scrollTop = 0;
     if (creating) shown.current?.focus({ preventScroll: true });
-    else createRow.current?.focus();
+    else createRow.current?.focus({ preventScroll: true });
   }, [creating, moved]);
   return (
     <div data-slot="guild-finder" className="flex flex-col gap-5">

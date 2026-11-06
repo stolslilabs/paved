@@ -430,12 +430,23 @@ describe("GuildFinder and GuildCard (#953)", () => {
     // The next Tab goes into the form, not to the drawer's Back.
     await userEvent.tab();
     expect(createDrawer.querySelector("[data-slot=guild-form]")!.contains(document.activeElement)).toBe(true);
-    // Back to the finder, scrolled again meanwhile: the top, the focus on the Create row it left from.
-    body.scrollTop = 200;
-    await userEvent.click(within(createDrawer).getByRole("button", { name: "Back" }));
-    await screen.findByRole("dialog", { name: "Guild" });
-    expect(body.scrollTop).toBe(0);
-    expect(document.activeElement).toBe(within(drawer).getByRole("button", { name: "Create a guild" }));
+    // Back to the finder, scrolled again meanwhile: the top, the focus on the Create row it left from. A browser scrolls a focused element
+    // into view unless asked not to (`preventScroll`): jsdom does not, so the focus does it here, as Chromium did under four invitations
+    // (#1032 review: scrollTop 811 at 320 x 568).
+    const focus = HTMLElement.prototype.focus;
+    const spy = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (this: HTMLElement, options?: FocusOptions) {
+      focus.call(this, options);
+      if (!options?.preventScroll && body.contains(this)) body.scrollTop = 811;
+    });
+    try {
+      body.scrollTop = 200;
+      await userEvent.click(within(createDrawer).getByRole("button", { name: "Back" }));
+      await screen.findByRole("dialog", { name: "Guild" });
+      expect(body.scrollTop).toBe(0);
+      expect(document.activeElement).toBe(within(drawer).getByRole("button", { name: "Create a guild" }));
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("takes any whole number of crowns as a requirement, not only multiples of 50", async () => {
