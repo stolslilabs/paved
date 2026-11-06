@@ -21,8 +21,8 @@ function InEditor({ changed, ...props }: LayoutSlotsProps & { changed?: boolean 
 
 /**
  * The saved layouts' carousel (#804; EDIT-VILLAGE, the owner's ask of 2026-11-05): one layout at a time between two arrows, above the
- * inventory; an arrow loads the next (asked first over changes kept nowhere; an empty one keeps the draft), the right one the next
- * layout's Purchase where it is locked. One story per state of `LAYOUT_SLOTS`; the home's stories (`Scenes/Home`, `Slots…`,
+ * inventory; an arrow loads the next (asked first over changes kept nowhere; an empty one keeps the draft), a locked layout shown with its
+ * Purchase in its word's place, the arrows going on past it (#1033). One story per state of `LAYOUT_SLOTS`; the home's stories (`Scenes/Home`, `Slots…`,
  * `EditLayouts…`) show it in the editor, Use in its bar, at 320, 375 and 1440 px.
  */
 const meta = {
@@ -39,7 +39,7 @@ type Story = StoryObj<typeof meta>;
 export const One: Story = {};
 /** Three slots: the village, the die's village, a Wonder village. */
 export const Three: Story = { args: LAYOUT_SLOTS.three };
-/** A locked slot picked: Buy at its price. */
+/** A locked layout shown: its Purchase at its price, the arrows going on past it. */
 export const Locked: Story = { args: LAYOUT_SLOTS.locked };
 /** Buy asked first: the price and the Cobbles held. */
 export const Buy: Story = { args: LAYOUT_SLOTS.buy };
@@ -59,5 +59,7 @@ export const Activate: Story = { args: LAYOUT_SLOTS.activate };
 export const Activated: Story = { args: LAYOUT_SLOTS.activated };
 /** A saved layout that needs tiles first (open point 4). */
 export const NeedsTiles: Story = { args: LAYOUT_SLOTS.needsTiles };
+/** Layout 3 bought, layout 2 locked (#1033): layout 2 shown, its Purchase, Next going on to layout 3. */
+export const Gap: Story = { args: { ...LAYOUT_SLOTS.gap, initialSelected: 1 } };
 /** A slot write refused. */
 export const Refused: Story = { args: LAYOUT_SLOTS.refused };

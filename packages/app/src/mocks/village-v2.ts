@@ -262,6 +262,8 @@ export const LAYOUT_SLOTS = {
   activated: { ...SLOTS_THREE, active: 1, initialSelected: 1 },
   /** A saved layout that no longer fits (open point 4): it needs tiles first, never made active. */
   needsTiles: { ...SLOTS_THREE, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, DIE_SLOT), slot(2, LAYOUT_WONDER.tiles, true, false)], initialSelected: 2 },
+  /** Layout 3 bought, layout 2 still locked (#1033: the slots are bought in any order): the arrows go past layout 2 to layout 3. */
+  gap: { ...SLOTS_ONE, slots: [slot(0, LAYOUT_GROWING.tiles), slot(1, null, false), slot(2, LAYOUT_WONDER.tiles)] },
   /** A slot write refused: what happened, above the slots. */
   refused: { ...SLOTS_THREE, initialSelected: 1, error: "The price changed: check it and buy again." },
 } satisfies Record<string, LayoutSlotsProps>;
@@ -353,6 +355,8 @@ export const HOME_VILLAGE = {
   slotsActivated: { ...home, village: { ...LAYOUT_GROWING, tiles: DIE_SLOT, score: fakeScore(DIE_SLOT) }, editing: true, layoutSlots: LAYOUT_SLOTS.activated },
   /** A saved layout that needs tiles first. */
   slotsNeedsTiles: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.needsTiles },
+  /** Layout 3 bought, layout 2 locked: shown on layout 2, its Purchase, the arrows going on to layout 3. */
+  slotsGap: { ...home, editing: true, layoutSlots: { ...LAYOUT_SLOTS.gap, initialSelected: 1 } },
   /** A slot write refused. */
   slotsRefused: { ...home, editing: true, layoutSlots: LAYOUT_SLOTS.refused },
 } satisfies Record<string, Data<HomeVillageSceneProps & { layoutSlots?: LayoutSlotsProps }>>;

@@ -340,8 +340,10 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   figure, the Cobbles held under it; Leave in red with the way out: it drops the changes; the village page keeps the app's card). The layouts (`containers/layout-slots-strip.tsx`) are a carousel of one above the inventory at every width (the owner's ask:
   in place of the book's cards): ‹ Layout N, "Active" or "Empty" ›; an arrow loads the next layout into the editor (asked first over
   changes kept nowhere; an empty one keeps the draft, Save keeps it there) and the scene slides in from that side (not under reduced
-  motion); where the next layout is locked the right arrow is its Purchase (the book's padlock, the Cobbles and #804's price), asked
-  first, and once bought the carousel moves on to it. Use waits for a save (it takes the saved layout).
+  motion); a locked layout is a step of its own (#1033: the layouts are bought in any order, and a locked layout 2 must not wall off
+  an owned layout 3): shown, its word is its Purchase (the book's padlock, the Cobbles and #804's price), asked first, the draft and
+  Save's layout unchanged (said under it), the arrows going on past it; once bought the carousel moves on to it. Use waits for a save
+  (it takes the saved layout).
   The points (`EditPoints`, `containers/edit-panel.tsx`) at the top left, under the bar (at the top from `tablet`): the live score as the home's village capsule
   (the village tile, not the book's crown; its change against the saved beside it) and every structure's line under it on the home's
   soft veil, a tap lighting the structure (#758), its line ringed inside its edge. The tile's actions (`containers/village-bubble.tsx`): the book's Rotate, Back to the
@@ -351,7 +353,10 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   bar), from `tablet` a side menu at the right under the docked bar, the screen's height (a grid); "Inventory" in the display font, the drawers' engraved rule up
   to the slots used with the slabs (`deck`); the cards the tiles' top-down art (the owner's choice over the book's angled renders,
   whose images carry a slate square) with the dock's red count. The camera frames the village between the bar, with room for the
-  tile's actions, and the inventory. Back home after a save, the capsule counts up (#802) and the book's notice, "Layout saved · 874
+  tile's actions, and the inventory; the plan view (no WebGL, or the renderer failed) scrolls in the room the bar and the inventory
+  leave, padded past the points' column, so every tile and lit cell can be tapped (#1033, `e2e/edit-plan.e2e.ts`); its still tile
+  actions stand over a phone's sheet, at the side menu's top from `tablet`. The tile's actions on the scene keep left of the side menu,
+  told by its mark (`data-edit-panel="side"`), not its place. Back home after a save, the capsule counts up (#802) and the book's notice, "Layout saved · 874
   (+36)", shows for a few seconds (under the profile on a phone: our HUD has no room between the profile and the balances). Gaps
   kept: the HUD's grey rim and charcoal faces in place of the book's blue and navy; the tile in hand sits on its cell in the boards'
   placed tint rather than floating over a glowing cyan cell (a renderer change); the book's 25 px round buttons at the 44 px touch

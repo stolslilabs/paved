@@ -1,6 +1,6 @@
 /**
  * The saved layouts in the editor (#804; EDIT-VILLAGE, the owner's asks of 2026-11-05): a carousel of one above the inventory, its
- * arrows loading a layout into the editor (Save's target), the right one a Purchase where the next layout is locked; Use in the bar
+ * arrows loading a layout into the editor (Save's target), a locked layout a step of its own with its Purchase (#1033); Use in the bar
  * (#804's Make active), Save on its floppy disc; nothing lost unasked.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -43,7 +43,7 @@ const save = () => screen.getByRole("button", { name: /^Save$/ });
 const unpicked = (slots: LayoutSlotsProps): LayoutSlotsProps => ({ ...slots, initialSelected: undefined });
 
 describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
-  it("shows the active layout above the inventory, the previous arrow off, the next layout's Purchase, Active in the bar", async () => {
+  it("shows the active layout above the inventory, the previous arrow off, Next on to the locked layout, Active in the bar", async () => {
     await mount(stage(LAYOUT_SLOTS.one));
     const panel = screen.getByRole("complementary", { name: "Editor" });
     expect(within(panel).getByRole("group", { name: "Layouts" })).toBeInTheDocument();
@@ -51,8 +51,8 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     await shown(1);
     expect(carousel().getByText("Active")).toBeInTheDocument();
     expect(arrow("Previous")).toBeDisabled();
-    expect(purchase(2, 100)).toBeEnabled();
-    expect(carousel().queryByRole("button", { name: "Next layout" })).toBeNull();
+    expect(arrow("Next")).toBeEnabled();
+    expect(carousel().queryByRole("button", { name: /^Purchase/ })).toBeNull();
     // The bar: Save on its disc; the layout the village's: Use pressed in and off ("Active" is the carousel's alone).
     const bar = screen.getByRole("button", { name: "Leave edit mode" }).closest("header")!;
     expect(within(bar).getByRole("button", { name: /^Save$/ })).toBeInTheDocument();
@@ -68,6 +68,12 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     const onSaveTo = vi.fn();
     const props = { ...unpicked(LAYOUT_SLOTS.one), onBuy, onSaveTo };
     const { rerender } = await mount(stage(props, { initialDraft: DRAFT_VALID }));
+    // Layout 2 shown, locked: its Purchase in its word's place, the draft and Save's layout unchanged.
+    fireEvent.click(arrow("Next"));
+    expect(question()).toBeNull();
+    await shown(2);
+    expect(screen.getByText("Locked: unlock it to keep another layout. Save keeps your changes in layout 1.")).toBeInTheDocument();
+    await scoreShown(layoutScore(DRAFT_VALID));
     fireEvent.click(purchase(2, 100));
     const dialog = screen.getByRole("dialog", { name: "Unlock layout 2?" });
     expect(onBuy).not.toHaveBeenCalled();
@@ -81,7 +87,7 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     expect(onBuy).toHaveBeenCalledWith(1, 100);
     // On its way: the carousel waits.
     rerender(stage({ ...props, busy: { kind: "buy", slot: 1 } }, { initialDraft: DRAFT_VALID }));
-    await shown(1);
+    await shown(2);
     // (the question's exit over: the page is reachable again)
     await waitFor(() => expect(purchase(2, 100)).toBeDisabled());
     // Bought: layout 2 open and empty, shown, the draft kept; Save keeps it there.
@@ -97,6 +103,9 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     // Layout 3 (250 Cobbles, 40 held): its question has Unlock off and says why.
     await mount(stage({ ...LAYOUT_SLOTS.short, slots: LAYOUT_SLOTS.bought.slots, initialSelected: 1, initialAsk: null }));
     await shown(2);
+    fireEvent.click(arrow("Next"));
+    await shown(3);
+    expect(screen.getByText(/^Not enough Cobbles yet\./)).toBeInTheDocument();
     fireEvent.click(purchase(3, 250));
     const dialog = screen.getByRole("dialog", { name: "Unlock layout 3?" });
     expect(within(dialog).getByRole("button", { name: "Unlock layout 3 for 250 Cobbles" })).toBeDisabled();
@@ -134,6 +143,57 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
     expect(screen.queryByRole("dialog", { name: "Leave without saving?" })).toBeNull();
     expect(onEditingChange).toHaveBeenCalledWith(false);
+  });
+
+  it("goes past a locked layout 2 to an owned layout 3, and buys either independently (ownership [0, 2], #1033)", async () => {
+    const onBuy = vi.fn();
+    const wonder = LAYOUT_SLOTS.gap.slots[2]!.tiles!;
+    await mount(stage({ ...unpicked(LAYOUT_SLOTS.gap), onBuy }));
+    await shown(1);
+    // On to layout 2, locked: shown with its Purchase, nothing loaded, Use still layout 1's.
+    fireEvent.click(arrow("Next"));
+    expect(question()).toBeNull();
+    await shown(2);
+    expect(purchase(2, 100)).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Use" })).toHaveAttribute("aria-pressed", "true");
+    // Its purchase asked, then cancelled: still on layout 2, the arrows on both ways.
+    fireEvent.click(purchase(2, 100));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Unlock layout 2?" })).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(question()).toBeNull());
+    expect(onBuy).not.toHaveBeenCalled();
+    await shown(2);
+    expect(arrow("Previous")).toBeEnabled();
+    // Past it to layout 3, owned: loaded at once (the draft is the village's, kept in layout 1), Use on it.
+    fireEvent.click(arrow("Next"));
+    expect(question()).toBeNull();
+    await shown(3);
+    await scoreShown(layoutScore(wonder));
+    expect(arrow("Next")).toBeDisabled();
+    expect(carousel().queryByRole("button", { name: /^Purchase/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Use" })).toBeEnabled();
+    // Back through layout 2 (its Purchase again, layout 3 still edited) to layout 1.
+    fireEvent.click(arrow("Previous"));
+    await shown(2);
+    expect(screen.getByText("Locked: unlock it to keep another layout. Save keeps your changes in layout 3.")).toBeInTheDocument();
+    fireEvent.click(purchase(2, 100));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Unlock layout 2?" })).getByRole("button", { name: "Unlock layout 2 for 100 Cobbles" }));
+    expect(onBuy).toHaveBeenCalledWith(1, 100);
+    await waitFor(() => expect(question()).toBeNull());
+    fireEvent.click(arrow("Previous"));
+    await shown(1);
+    await scoreShown(layoutScore(LAYOUT_GROWING.tiles));
+  });
+
+  it("buys layout 3 first, past a locked layout 2 (ownership [0])", async () => {
+    const onBuy = vi.fn();
+    await mount(stage({ ...unpicked(LAYOUT_SLOTS.one), onBuy }));
+    fireEvent.click(arrow("Next"));
+    await shown(2);
+    fireEvent.click(arrow("Next"));
+    await shown(3);
+    fireEvent.click(purchase(3, 250));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Unlock layout 3?" })).getByRole("button", { name: "Unlock layout 3 for 250 Cobbles" }));
+    expect(onBuy).toHaveBeenCalledWith(2, 250);
   });
 
   it("loads the next saved layout, asking first over changes kept nowhere", async () => {
@@ -198,6 +258,7 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     await mount(stage(LAYOUT_SLOTS.buying));
     expect(purchase(2, 100)).toBeDisabled();
     expect(arrow("Previous")).toBeDisabled();
+    expect(arrow("Next")).toBeDisabled();
   });
 
   it("saves into the slot shown active, and waits while a slot write is on its way (no Save racing an activation)", async () => {
