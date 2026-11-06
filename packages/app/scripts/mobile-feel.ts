@@ -50,9 +50,17 @@ async function main(): Promise<void> {
   const given = process.argv.indexOf("--url") >= 0 ? process.argv[process.argv.indexOf("--url") + 1] : "";
   // The mock, as the PAGES-SCROLL pass: the connected Vault below reads no chain, its writes go to the device's ledger only.
   if (!given) process.env.VITE_DATA_SOURCE ??= "mock";
+  // The scan from the app's page only, as the Training e2e's: crawling `scripts/` fails on a render page's bare `three`, Vite
+  // then skips the pre-bundling and reloads the page each time it finds a dependency at run time, which on a cold cache (CI)
+  // lands in the middle of the tab page's checks (the connected Vault's `zustand`: its scroll offset lost to the reload).
   const vite = given
     ? null
-    : await createVite({ root: fileURLToPath(new URL("..", import.meta.url)), logLevel: "error", server: { port: 0, host: "127.0.0.1" } });
+    : await createVite({
+        root: fileURLToPath(new URL("..", import.meta.url)),
+        logLevel: "error",
+        server: { port: 0, host: "127.0.0.1" },
+        optimizeDeps: { entries: ["index.html"] },
+      });
   if (vite) await vite.listen();
   const addr = vite?.httpServer?.address();
   const base = given || (addr && typeof addr === "object" ? `http://127.0.0.1:${addr.port}` : "");
