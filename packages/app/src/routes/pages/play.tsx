@@ -1,11 +1,11 @@
 import { Suspense, lazy } from "react";
-import { useLocation } from "react-router";
 import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { useDrawerRoute } from "../drawer-route";
+import { useRoutePage } from "../handle";
 import { useNow } from "../now";
 import { prefetchAllowed } from "../prefetch";
 import { useAppNavigate, useUpTo } from "../ref";
@@ -30,7 +30,8 @@ export default function Page() {
   const home = useUpTo("/");
   const onBack = drawer?.onClose ?? home;
   const onChallengeBack = useUpTo("/play");
-  const { pathname } = useLocation();
+  // The stake by the matched route's page, never by the path's text: the router matches `/PLAY/CHALLENGE/` as `/play/challenge`.
+  const staking = useRoutePage()?.path === "play/challenge";
   const wallet = useAccount();
   const paused = useSpawnPaused();
   useConnectError(wallet.error);
@@ -51,7 +52,7 @@ export default function Page() {
         running={running}
         now={now}
         challenge={
-          pathname === "/play/challenge" ? (
+          staking ? (
             <Suspense fallback={<Notice title="Reading the price…">The stake's price, its split and your balance.</Notice>}>
               <ChallengeStake />
             </Suspense>
