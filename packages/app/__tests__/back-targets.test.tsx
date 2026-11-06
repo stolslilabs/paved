@@ -37,6 +37,20 @@ const back = () => userEvent.click(screen.getByRole("button", { name: "Back" }))
 /** The Back of the sheet over a page, which closes it (BACK-RULE #783): Story's campaigns are a sheet over Play. */
 const close = async (sheet: string) => userEvent.click(within(await screen.findByRole("dialog", { name: sheet }, { timeout: slow(5000) })).getByRole("button", { name: "Back" }));
 
+/**
+ * A timeout's error with the open dialogs (Play's drawer, Story's sheet): each one's title, whether it is hidden from assistive
+ * technology, and the start of its text. The default dump stops inside the home, before the dialogs' portals.
+ */
+function withDialogs(error: Error): Error {
+  const dialogs = [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].map((d) => {
+    const title = document.getElementById(d.getAttribute("aria-labelledby") ?? "")?.textContent ?? d.getAttribute("aria-label");
+    const hidden = d.closest('[aria-hidden="true"], [inert]') !== null;
+    return `- "${title}"${hidden ? " (hidden)" : ""}: ${(d.textContent ?? "").replace(/\s+/g, " ").slice(0, 400)}`;
+  });
+  error.message = `${error.message.split("\n")[0]}\n${dialogs.length} dialog(s):\n${dialogs.join("\n")}`;
+  return error;
+}
+
 /** Discards every tile of Tutorial level 1 (its deck presented already): the level's end. */
 async function finishLevelOne() {
   await screen.findByRole("region", { name: "Your tile" }, { timeout: slow(5000) });
@@ -50,7 +64,9 @@ describe("back targets (#614): a back button never lands in a game", { timeout: 
     const router = open("/play", memoryStore({ [PRESENTED_KEY]: JSON.stringify(["1-1"]) }));
     await userEvent.click(await screen.findByRole("button", { name: /^Story/ }, { timeout: slow(5000) }));
     await waitFor(() => expect(at(router)).toBe("/story"));
-    await userEvent.click(await screen.findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: slow(5000) }));
+    // Story's levels in its sheet over Play's drawer (PLAY-PAGE): a sheet left under the drawer fails here, with the dialogs' state.
+    const story = await screen.findByRole("dialog", { name: "Story" }, { timeout: slow(5000), onTimeout: withDialogs });
+    await userEvent.click(await within(story).findByRole("button", { name: /^Level 1, First stone$/ }, { timeout: slow(5000), onTimeout: withDialogs }));
     await waitFor(() => expect(at(router)).toBe("/story/1/1"));
 
     const end = await finishLevelOne();
