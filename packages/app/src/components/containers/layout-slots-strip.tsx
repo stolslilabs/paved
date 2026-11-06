@@ -18,8 +18,10 @@ import { sameLayout } from "./layout-rules";
 // The saved layouts (#804, as Clash of Clans' layouts) as a carousel of one (EDIT-VILLAGE, the owner's ask of 2026-11-05), above the
 // inventory at every width: the layout edited, "Layout 1" to "Layout 3", between two arrows. An arrow moves to the next layout and
 // loads it into the editor (#804's Load, asked first over changes kept nowhere; an empty one keeps the draft, Save keeps it there,
-// #804's Save here); the scene slides the same way (the stage). Where the next layout is locked, the right arrow is its Purchase
-// (#804's Buy with Cobbles, asked first): bought, the carousel moves on to it. Using a layout (#804's Make active) is the editor's bar's.
+// #804's Save here); the scene slides the same way (the stage). A locked layout is a step of its own (#1033: the slots are bought in
+// any order, `rules/layout-slots.ts`): shown, its word is its Purchase (#804's Buy with Cobbles, asked first), the draft and Save's
+// layout unchanged, and the arrows go on past it; bought, the carousel moves on to it. Using a layout (#804's Make active) is the
+// editor's bar's.
 
 /** One slot as the strip shows it. */
 export interface LayoutSlot {
@@ -85,32 +87,38 @@ const SWIPE_AREA = { touchAction: "pan-y" } as const;
 
 /**
  * The layouts' carousel (EDIT-VILLAGE): ‹ Layout N and its word (Active on the village's, Empty) › (its score is the top left's, the
- * layout loaded); the right arrow a
- * raised Purchase (the padlock, the Cobbles' stone and the price) where the next layout is locked. Swiped left or right too. Under it,
- * what to know about the layout edited.
+ * layout loaded); a locked layout's word a raised Purchase (the padlock, the Cobbles' stone and the price), the arrows going on past it
+ * (#1033). Swiped left or right too. Under it, what to know about the layout shown.
  */
 export function LayoutSlotsStrip({ editor, picked, onPick, className, ...props }: LayoutSlotsProps & LayoutPickerProps & { editor: LayoutEditor; className?: string }) {
   const { active, slots, busy, cobbles } = props;
   const still = useReducedMotionConfig() ?? false;
   const [ask, setAsk] = useState<LayoutSlotAsk | null>(props.initialAsk === "activate" ? null : (props.initialAsk ?? null));
   const [asked, setAsked] = useState(props.initialSelected ?? picked);
-  const at = Math.max(0, slots.findIndex((s) => s.slot === picked));
-  const edited = slots[at] ?? slots[active]!;
+  // The layout shown: the one edited, or a locked one stepped onto (a story's locked slot picked first, `initialSelected`). Another
+  // layout edited (a load, a purchase landed) is shown at once.
+  const [view, setView] = useState(props.initialSelected ?? picked);
+  const [seen, setSeen] = useState(picked);
+  if (seen !== picked) {
+    setSeen(picked);
+    setView(picked);
+  }
+  const edited = slots.find((s) => s.slot === picked) ?? slots[active]!;
+  const shown = slots.find((s) => s.slot === view && !s.open) ?? edited;
+  const at = Math.max(0, slots.indexOf(shown));
   const before = slots[at - 1];
   const after = slots[at + 1];
-  const target = slots.find((s) => s.slot === asked) ?? edited;
+  const target = slots.find((s) => s.slot === asked) ?? shown;
   const working = !!busy || editor.saving;
   const short = cobbles != null && cobbles < target.price;
   // The way the layout shown came: its name slides in from that side.
-  const [shown, setShown] = useState({ slot: picked, way: 0 });
-  if (shown.slot !== picked) setShown({ slot: picked, way: picked > shown.slot ? 1 : -1 });
+  const [came, setCame] = useState({ slot: shown.slot, way: 0 });
+  if (came.slot !== shown.slot) setCame({ slot: shown.slot, way: shown.slot > came.slot ? 1 : -1 });
 
   const go = (slot: LayoutSlot) => {
     if (working) return;
-    if (!slot.open) {
-      setAsked(slot.slot);
-      return setAsk("buy");
-    }
+    // A locked layout, or back to the one edited: shown, nothing loaded.
+    if (!slot.open || slot.slot === picked) return setView(slot.slot);
     if (slot.tiles && !sameLayout(editor.draft, slot.tiles)) {
       if (editor.unkept) {
         setAsked(slot.slot);
@@ -118,7 +126,13 @@ export function LayoutSlotsStrip({ editor, picked, onPick, className, ...props }
       }
       editor.load(slot.tiles);
     }
+    setView(slot.slot);
     onPick(slot.slot);
+  };
+  const purchase = () => {
+    if (working) return;
+    setAsked(shown.slot);
+    setAsk("buy");
   };
   // A layout bought: the carousel moves on to it once it is open, the draft kept.
   const [bought, setBought] = useState<number | null>(null);
@@ -131,6 +145,7 @@ export function LayoutSlotsStrip({ editor, picked, onPick, className, ...props }
     setAsk(null);
     if (ask === "load" && target.tiles) {
       editor.load(target.tiles);
+      setView(target.slot);
       onPick(target.slot);
     } else if (ask === "buy") {
       setBought(target.slot);
@@ -139,9 +154,13 @@ export function LayoutSlotsStrip({ editor, picked, onPick, className, ...props }
   };
   const from = useRef<number | null>(null);
 
-  const name = slotName(edited.slot);
-  const hint =
-    edited.tiles && !edited.fits
+  const name = slotName(shown.slot);
+  const locked = !shown.open;
+  const hint = locked
+    ? cobbles != null && cobbles < shown.price
+      ? `Not enough Cobbles yet. Save keeps your changes in ${slotName(edited.slot).toLowerCase()}.`
+      : `Locked: unlock it to keep another layout. Save keeps your changes in ${slotName(edited.slot).toLowerCase()}.`
+    : edited.tiles && !edited.fits
       ? null
       : edited.slot === active
         ? "The village attackers face. Save keeps your changes here."
@@ -183,44 +202,42 @@ export function LayoutSlotsStrip({ editor, picked, onPick, className, ...props }
             else if (travel >= SWIPE_PX && before) go(before);
           }}
         >
-          <m.p
-            key={edited.slot}
+          <m.div
+            key={shown.slot}
             aria-live="polite"
-            initial={still || shown.way === 0 ? false : { x: shown.way * 32, opacity: 0 }}
+            initial={still || came.way === 0 ? false : { x: came.way * 32, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.24, ease: "easeOut" }}
             className="flex min-w-0 items-center gap-2 whitespace-nowrap"
           >
             <span className="text-base font-black text-outline">{name}</span>
-            {edited.slot === active ? (
+            {locked ? (
+              <button
+                type="button"
+                aria-label={`Purchase ${name.toLowerCase()} for ${formatInteger(shown.price)} Cobbles`}
+                disabled={working}
+                onClick={purchase}
+                className="grid h-11 shrink-0 cursor-pointer place-items-center outline-none disabled:cursor-default disabled:opacity-50"
+              >
+                <span className={cn(PILL, "drawer-raised gap-1 text-outline", busy?.kind === "buy" && busy.slot === shown.slot && "pending-pulse")}>
+                  <UiIcon name="padlock" size="xs" px={20} className="size-4" />
+                  <TokenIcon kind="cobbles" size="em" />
+                  <span className="numeric">{formatInteger(shown.price)}</span>
+                </span>
+              </button>
+            ) : edited.slot === active ? (
               <span className={cn(PILL, "drawer-carved text-medal-1")}>Active</span>
             ) : (
               !edited.tiles && <span className={cn(PILL, "drawer-carved text-muted-foreground")}>Empty</span>
             )}
-          </m.p>
+          </m.div>
         </div>
-        {after && !after.open ? (
-          <button
-            type="button"
-            aria-label={`Purchase ${slotName(after.slot).toLowerCase()} for ${formatInteger(after.price)} Cobbles`}
-            disabled={working}
-            onClick={() => go(after)}
-            className="grid h-11 shrink-0 cursor-pointer place-items-center outline-none disabled:cursor-default disabled:opacity-50"
-          >
-            <span className={cn(PILL, "drawer-raised gap-1 text-outline", busy?.kind === "buy" && busy.slot === after.slot && "pending-pulse")}>
-              <UiIcon name="padlock" size="xs" px={20} className="size-4" />
-              <TokenIcon kind="cobbles" size="em" />
-              <span className="numeric">{formatInteger(after.price)}</span>
-            </span>
-          </button>
-        ) : (
-          <button type="button" aria-label="Next layout" disabled={!after || working} onClick={() => after && go(after)} className={ARROW}>
-            <Icon name="chevron-right" className="drawer-icon" />
-          </button>
-        )}
+        <button type="button" aria-label="Next layout" disabled={!after || working} onClick={() => after && go(after)} className={ARROW}>
+          <Icon name="chevron-right" className="drawer-icon" />
+        </button>
       </div>
       {hint ? (
-        <p className="px-1 text-center text-xs text-muted-foreground">{hint}</p>
+        <p className={cn("px-1 text-center text-xs", locked && cobbles != null && cobbles < shown.price ? "text-warning" : "text-muted-foreground")}>{hint}</p>
       ) : (
         <p className="px-1 text-center text-xs text-warning">Needs tiles you no longer hold: edit it before it can be used.</p>
       )}

@@ -374,7 +374,7 @@ function slots<A extends { layoutSlots: LayoutSlotsProps }>({ layoutSlots, ...ar
   return { args, render: (story: HomeVillageSceneProps) => <HomeVillageScene {...story} renderStage={(stage) => <VillageStage {...stage} layoutSlots={layoutSlots} />} /> };
 }
 
-/** The saved layouts (#804) in the carousel above the inventory: layout 1 (the village's, Active), the right arrow layout 2's Purchase. */
+/** The saved layouts (#804) in the carousel above the inventory: layout 1 (the village's, Active), Next on to locked layout 2. */
 export const SlotsOne: Story = { ...slots(HOME_VILLAGE.slotsOne) };
 export const SlotsOnePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsOne) };
 export const SlotsOneWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsOne) };
@@ -382,8 +382,11 @@ export const SlotsOneWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slo
 export const SlotsThree: Story = { ...slots(HOME_VILLAGE.slotsThree) };
 export const SlotsThreePhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsThree) };
 export const SlotsThreeWide1440: Story = { ...WIDE_1440, ...slots(HOME_VILLAGE.slotsThree) };
-/** Layout 2 locked: the right arrow its Purchase, the padlock, the Cobbles and its price. */
+/** Layout 2 locked, shown: its Purchase in its word's place (the padlock, the Cobbles and its price), Next on to layout 3. */
 export const SlotsLocked: Story = { ...slots(HOME_VILLAGE.slotsLocked) };
+/** Layout 3 bought before layout 2 (#1033): layout 2 shown with its Purchase, the arrows going on past it to layout 3. */
+export const SlotsGap: Story = { ...slots(HOME_VILLAGE.slotsGap) };
+export const SlotsGapPhone320: Story = { ...PHONE_320, ...slots(HOME_VILLAGE.slotsGap) };
 /** A locked layout tapped: unlock asked first, the price and the Cobbles held. */
 export const SlotsBuy: Story = { ...slots(HOME_VILLAGE.slotsBuy) };
 /** The purchase on its way: the carousel waits. */
@@ -535,8 +538,8 @@ export const EditSceneTablet768: Story = { ...SceneMoved, ...TABLET_768 };
 /** From `desktop` (1024 px): the bar as the side menu's band (the HUD drawers' band, width, body and close), the inventory under it. */
 export const EditSceneDesktop1024: Story = { ...SceneMoved, globals: { viewport: { value: "desktop", isRotated: false } } };
 /**
- * The layouts' carousel above the inventory: Layout 1 shown and active ("Active" in the bar in Use's place), the right arrow layout 2's
- * Purchase (the padlock, the Cobbles, 100); at 1440 px in the side menu.
+ * The layouts' carousel above the inventory: Layout 1 shown and active ("Active" in the bar in Use's place), Next on to locked
+ * layout 2 (its Purchase: the padlock, the Cobbles, 100); at 1440 px in the side menu.
  */
 export const EditLayoutsPhone375: Story = { ...PHONE_375, ...slots(HOME_VILLAGE.slotsOne) };
 export const EditLayoutsPhone320: Story = { ...PHONE_320, ...slots(HOME_VILLAGE.slotsOne) };
@@ -737,18 +740,35 @@ const pressScene = async (canvasElement: HTMLElement, letGo = false) => {
   }
   if (letGo) el.dispatchEvent(new PointerEvent("pointerup", at));
 };
+/** Let go before the hold's end: the bubble lingers (no longer holding), its Edit still there to tap. */
+const expectLingering = async (canvasElement: HTMLElement) => {
+  await waitFor(() => expect(canvasElement.querySelector("[data-press-bubble]")?.getAttribute("data-press-bubble")).toBe("lingering"));
+  expect(within(canvasElement).getByRole("button", { name: "Edit village" })).toBeInTheDocument();
+};
 
 /** The press held on the starter: Edit by it, its ring filling (a 6 s hold here, so it can be looked at). */
 export const PressHolding: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement) };
 /** Let go early: the ring rewinds, Edit stays tappable about 3 s, then fades. */
-export const PressLetGo: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement) };
+export const PressLetGo: Story = {
+  args: { ...HOME_VILLAGE.view, holdMs: 6000 },
+  play: async ({ canvasElement }) => {
+    await pressPlan(canvasElement, true);
+    await expectLingering(canvasElement);
+  },
+};
 /** Held to its end (`HOLD_MS`): edit mode opens, as from the Edit button. */
 export const PressIntoEdit: Story = { args: { ...HOME_VILLAGE.view, holdMs: 800 }, render: (args) => <Playground {...args} />, play: ({ canvasElement }) => pressPlan(canvasElement) };
 /** The same on the scene at 375 px (touch) and 1440 px (mouse): the bubble by the pressed tile, following it. */
 export const ScenePressPhone: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, render: (args) => <InScene {...args} />, play: ({ canvasElement }) => pressScene(canvasElement), ...PHONE_375 };
 export const ScenePressWide: Story = { ...ScenePressPhone, ...WIDE_1440 };
 /** Let go early on the scene: Edit lingers by the tile, then fades. */
-export const ScenePressLetGoPhone: Story = { ...ScenePressPhone, play: ({ canvasElement }) => pressScene(canvasElement) };
+export const ScenePressLetGoPhone: Story = {
+  ...ScenePressPhone,
+  play: async ({ canvasElement }) => {
+    await pressScene(canvasElement, true);
+    await expectLingering(canvasElement);
+  },
+};
 /** A long press into edit mode on the scene at 375 px (the GIF of #799 plays this one). */
 export const ScenePressIntoEditPhone: Story = {
   args: { ...HOME_VILLAGE.view, holdMs: 800 },
