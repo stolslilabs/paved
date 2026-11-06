@@ -11,7 +11,8 @@ import { LeagueCrestArt, LeagueCrestIcon } from "../src/components/elements/leag
 import { LeaguePlate } from "../src/components/elements/league-plate";
 import { LeagueRim } from "../src/components/elements/league-rim";
 import { LeagueStandard } from "../src/components/elements/league-standard";
-import { artName, artSources, artUrl, DIVIDED, divisionOf, LEAGUE_ART, LEAGUE_TIERS, PLATE_FACE, RIM_HOLE, RIM_PORTRAIT, tierOf, versionsOf } from "../src/components/elements/league-standards";
+import { artName, artSources, artUrl, DIVIDED, divisionOf, LEAGUE_ART, LEAGUE_TIERS, PLATE_FACE, tierOf, versionsOf } from "../src/components/elements/league-standards";
+import { RIM_HOLE, RIM_PORTRAIT } from "../src/components/elements/league-rim-geometry";
 import { LEAGUES } from "../src/lib/pvp-rules";
 import { expected, masters, OUT, problems } from "../scripts/compress-league-art.ts";
 
