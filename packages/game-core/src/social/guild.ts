@@ -448,7 +448,7 @@ export interface GuildRosterEntry extends GuildActor {
 export const sortGuildMembers = <T extends Omit<GuildRosterEntry, "lastSeen">>(members: readonly T[]): T[] =>
   [...members].sort((a, b) => b.rank - a.rank || b.crowns - a.crowns || a.joinedAt - b.joinedAt || (a.address < b.address ? -1 : a.address > b.address ? 1 : 0));
 
-/** A guild's score: the sum of its members' crowns. */
+/** A guild's score: the sum of its members' crowns, the points the players' ranking counts (`rankPlayers`, LEADERBOARD-PAGE). */
 export const guildScore = (members: readonly { crowns: number }[]): number => members.reduce((sum, m) => sum + m.crowns, 0);
 
 /**

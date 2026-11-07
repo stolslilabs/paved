@@ -92,7 +92,7 @@ describe("Home (#753): the village with its overlays", () => {
     expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault", "Friends, 2 waiting", "Tiles"]);
     // The overlays outside the dock (the dock's own are tested below): no Ranking, Shop, Guild, Settings or Play of their own.
     const overlay = (name: string | RegExp) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
-    for (const name of ["Ranking, coming soon", "Shop", "Guild, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
+    for (const name of ["Ranking", "Shop", "Guild, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
     for (const [name, handler] of [
       ["Chat, 3 waiting", on.onChat],
       ["Friends, 2 waiting", on.onFriends],
@@ -123,13 +123,13 @@ describe("Home (#753): the village with its overlays", () => {
     expect(nav.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["pointer-events-none", "[&>*]:pointer-events-auto"]));
     expect(nav.parentElement!.className).not.toContain("desktop:hidden");
     const items = within(nav).getAllByRole("button");
-    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking, coming soon", "Play", "Guild, 1 waiting", "Settings"]);
-    // No item current on the home; the guild's count on Guild; Ranking leads nowhere yet (the Leaderboard to come).
+    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild, 1 waiting", "Settings"]);
+    // No item current on the home; the guild's count on Guild; Ranking opens the Leaderboard (LEADERBOARD-PAGE).
     expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
     expect(within(within(nav).getByRole("button", { name: "Guild, 1 waiting" })).getByText("1")).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: "Ranking, coming soon" })).toHaveAttribute("aria-disabled", "true");
+    expect(within(nav).getByRole("button", { name: "Ranking" })).not.toHaveAttribute("aria-disabled");
     for (const item of items) await userEvent.click(item);
-    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "play", "guild", "settings"]);
+    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "ranking", "play", "guild", "settings"]);
   });
 
   it("HOME-EDGES: the right column at every width; the dial, the Chat tab and the mission stacked at the bottom left, above the dock", async () => {
@@ -1283,7 +1283,7 @@ describe("Element feedback (EL)", () => {
 
   it("draws Ranking with the HUD's trophy (END-CHEST: in the Chests' place), and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
     render(wrap(<AppNav />));
-    expect(screen.getByRole("button", { name: "Ranking, coming soon" }).querySelector("img[data-slot='ui-icon'][data-icon='trophy']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Ranking" }).querySelector("img[data-slot='ui-icon'][data-icon='trophy']")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
   });
 

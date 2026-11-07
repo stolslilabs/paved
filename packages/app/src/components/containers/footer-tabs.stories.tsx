@@ -16,6 +16,7 @@ interface Tab {
   label: string;
   art: ReactNode;
   badge?: number;
+  soon?: boolean;
 }
 
 const art = (name: Painted) => <UiIcon name={name} px={36} className="drawer-icon size-9" />;
@@ -39,7 +40,7 @@ function Sheet({ tabs, disabled, action }: { tabs: readonly Tab[]; disabled?: bo
         {action}
         <FooterTabsList aria-label="Sheet">
           {tabs.map((t) => (
-            <FooterTab key={t.id} value={t.id} label={t.label} art={t.art} badge={t.badge} disabled={disabled} />
+            <FooterTab key={t.id} value={t.id} label={t.label} art={t.art} badge={t.badge} soon={t.soon} disabled={disabled} />
           ))}
         </FooterTabsList>
       </div>
@@ -85,6 +86,17 @@ export const Badges: Story = {
       { id: "members", label: "Members", art: art("members") },
       { id: "requests", label: "Requests", art: art("invite-player"), badge: 120 },
       { id: "log", label: "Log", art: art("missions") },
+    ],
+  },
+};
+
+/** A tab not in the game yet (the Leaderboard's Alliances): in its place, disabled, a carved "Soon" where a count would be (a count waiting on it is not shown). */
+export const Soon: Story = {
+  args: {
+    tabs: [
+      { id: "players", label: "Players", art: art("user") },
+      { id: "guilds", label: "Guilds", art: art("guild") },
+      { id: "alliances", label: "Alliances", art: art("friends"), badge: 5, soon: true },
     ],
   },
 };

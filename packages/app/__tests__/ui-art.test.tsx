@@ -11,18 +11,19 @@ import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES, emblemChargeMask } from "../src/com
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME, playArtSources, stakeArtName, stakeArtSources } from "../src/components/elements/play-art";
 import { AVATAR_ART, AVATAR_ART_FRAME, avatarArtSources } from "../src/components/elements/avatar-art";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME, vaultArtSources } from "../src/components/elements/vault-art";
+import { RANKING_ART, RANKING_ART_FRAME, rankingArtSources } from "../src/components/elements/ranking-art";
 import { GUILD_EMBLEM_ICONS } from "@paved/game-core";
 import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts";
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length + AVATAR_ART.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length + AVATAR_ART.length + RANKING_ART.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
     const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length + 2 * AVATAR_ART.length);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length + 2 * AVATAR_ART.length + 2 * RANKING_ART.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
-    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/") && !f.startsWith("vault/") && !f.startsWith("avatar/"));
+    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/") && !f.startsWith("vault/") && !f.startsWith("avatar/") && !f.startsWith("ranking/"));
     // GUILD-PAGE (2026-11-05): raised by exactly the measured growth over main, the copies of the guild's icons (each in line with the
     // others): 39,462 bytes for the guild's menu and a member's view (invite-player, find, leave, disband, promote, demote), 29,790
     // for the join types, the members and the new ranks (unlock, letter, members, sprout, medal), 14,600 for Post's pencil and the
@@ -35,6 +36,20 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     // win and break even (`flow-burn`, `flow-vault`, `flow-referral`, `max-gain`: 31,500; `break-even`: 11,200), 8,392 for the
     // split's coin and arrows (`money-flow`), 8,196 for the stake's money bag (`stake`).
     expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196);
+  });
+
+  it("ships the ranking's gold and silver medals and its Alliances and Guilds tabs' icons (LEADERBOARD-PAGE): the icons' frame, two light copies each", () => {
+    expect(RANKING_ART_FRAME).toMatchObject({ width: 256, height: 256, sizes: [64, 128] });
+    // Measured on 2026-11-07: 2.1, 1.7, 2.6 and 1.6 KiB at 64 px, 4.7, 4.0, 6.0 and 3.4 KiB at 128 px (gold, silver, alliances,
+    // guilds; the bronze `medal`'s 1.9 and 4.2).
+    for (const name of RANKING_ART) for (const s of RANKING_ART_FRAME.sizes) expect(statSync(join(OUT, "ranking", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 128 ? 6 * 1024 : 3 * 1024);
+    expect(rankingArtSources("medal-gold", 28)).toEqual({
+      src: "/ui-art/ranking/128/medal-gold.webp",
+      srcSet: "/ui-art/ranking/64/medal-gold.webp 64w, /ui-art/ranking/128/medal-gold.webp 128w",
+      sizes: "28px",
+      width: 256,
+      height: 256,
+    });
   });
 
   it("ships the guild emblems' charges (GUILD-PAGE): as many as game-core's emblems, each a light mask", () => {

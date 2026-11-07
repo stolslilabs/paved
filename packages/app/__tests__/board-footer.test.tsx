@@ -14,7 +14,8 @@ function open(path: string) {
   render(<App router={createTestRouter(path)} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
 }
 
-preloadPages("board", "play", "settings");
+// "home": /play and /settings/credits are the HUD's drawers over it; loaded here, its chunk is not still on its way when a test ends.
+preloadPages("home", "board", "play", "settings");
 
 beforeEach(() => {
   localStorage.clear();

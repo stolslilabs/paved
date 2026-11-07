@@ -14,12 +14,15 @@ import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
 import type { PvpSearchSceneProps } from "../components/scenes/pvp-search-scene";
 import type { PlayerSearchProps } from "../components/containers/player-search";
 import type { PublicProfileState } from "../components/containers/public-profile-sheet";
+import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
 import type * as avatar from "./avatar";
 import type * as avatarCatalogue from "./avatar-catalogue";
 import type * as avatarOffers from "./avatar-offers";
 import type * as chain from "./chain";
+import type * as guilds from "./guilds";
 import type * as indexer from "./indexer";
 import type * as playerProgress from "./player-progress";
+import type * as playerRanking from "./player-ranking";
 import type * as purchase from "./purchase";
 import type * as pvp from "./pvp";
 import type * as social from "./social";
@@ -71,4 +74,8 @@ export type SceneTypes = [
   // the social base (#952): another player's public profile (null: no player of that ID), the player search's results
   Expect<Equal<NonNullable<Data<typeof social.usePublicProfile>>, Extract<PublicProfileState, { status: "ready" }>["profile"]>>,
   Expect<Equal<Data<typeof social.usePlayerSearch>, Exclude<PlayerSearchProps["results"], null>>>,
+  // the Leaderboard (LEADERBOARD-PAGE): the players by crowns and the viewer's place, the guilds by score
+  Expect<Equal<Data<typeof playerRanking.usePlayerRanking>, NonNullable<LeaderboardSceneProps["players"]["data"]>>>,
+  Expect<Equal<Data<typeof playerRanking.useFriendsRanking>, NonNullable<LeaderboardSceneProps["friends"]["data"]>>>,
+  Expect<Equal<Data<typeof guilds.useGuildRanking>, NonNullable<LeaderboardSceneProps["guilds"]["data"]>>>,
 ];
