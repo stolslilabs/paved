@@ -1,5 +1,5 @@
 import { formatInteger } from "@paved/game-core";
-import type { PlayerProgress } from "./xp-ring";
+import type { PlayerProgress } from "./xp-motion";
 
 /**
  * At the level cap (20, issue 734): the view's next level is its floor (`levelStatus`), so nothing is left to make. Read from the

@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LEAGUES } from "../src/lib/pvp-rules";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
-import { dotsWindow } from "../src/components/ui/carousel-dots";
 import { crownRange } from "../src/components/containers/league-card";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
 
@@ -164,12 +163,5 @@ describe("League carousel (#785, #833, #859)", () => {
     expect(inView()).toHaveAccessibleName("Grand Master");
     await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
     expect(inView()).toHaveAccessibleName("Master I");
-  });
-
-  it("the dots' window holds inside the row (open point 2)", () => {
-    expect(dotsWindow(23, 0, 23)).toBe(0);
-    expect(dotsWindow(23, 0, 9)).toBe(0);
-    expect(dotsWindow(23, 11, 9)).toBe(7);
-    expect(dotsWindow(23, 22, 9)).toBe(14);
   });
 });

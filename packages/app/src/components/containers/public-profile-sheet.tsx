@@ -15,7 +15,7 @@ import { Presence } from "../elements/presence";
 import { formatPoints } from "../elements/score";
 import { SectionTitle } from "../elements/section-title";
 import { shortAddress } from "../elements/short-address";
-import type { PlayerProgress } from "../elements/xp-ring";
+import type { PlayerProgress } from "../elements/xp-motion";
 import { HudDrawer } from "./hud-drawer";
 import { Figure, FigureBand, HallAndStats, ProfileRim, TrophiesBand, XpLeft, type PlayerRecords, type SeasonStanding } from "./profile-sheet";
 

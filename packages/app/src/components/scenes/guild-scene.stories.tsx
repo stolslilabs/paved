@@ -79,13 +79,6 @@ export const LeaderSettings: Story = { args: { children: page(GUILD_PAGE.leader,
 /** A leader alone: the menu's Disband. */
 export const LeaderAlone: Story = { args: { children: page(GUILD_PAGE.alone, { initialView: "menu" }) } };
 
-/** Another guild (its sheet over the page): its header and its members, with Join; no tab. */
-export const AnotherGuild: Story = { args: { children: page(GUILD_PAGE.join) } };
-/** Another guild the player cannot join: why (here, full). */
-export const AnotherGuildFull: Story = { args: { children: page(GUILD_PAGE.full) } };
-/** Another guild's invitation: Accept or Decline. */
-export const AnotherGuildInvited: Story = { args: { children: page(GUILD_PAGE.invited) } };
-
 /** With reduced motion: the page opens without motion. */
 export const ReducedMotion: Story = { args: { children: page(GUILD_PAGE.member) }, parameters: { reducedMotion: "always" } };
 /** WRAP360: the longest names and the largest figures, the description unfolded, on Members. */

@@ -6,7 +6,7 @@ import { cn } from "../../lib/utils";
 import { FRAME_ART, uiFrameImageSet, uiFrameUrl, XP_TRACK_SLICE } from "./ui-art";
 import { UiIcon } from "./ui-icon";
 import { isMaxLevel } from "./xp-level";
-import { levelShare, useXpMotion, type PlayerProgress } from "./xp-ring";
+import { levelShare, useXpMotion, type PlayerProgress } from "./xp-motion";
 
 /** The level as the star shows it: two figures at most ("99+" past them). */
 export const levelText = (level: number | undefined): string => (level === undefined ? "" : level > 99 ? "99+" : formatInteger(level));

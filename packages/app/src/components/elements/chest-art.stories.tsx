@@ -2,8 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { ChestArt, type ChestArtState } from "./chest-art";
-import { CHEST_NAME, ChestBadge, type ChestRank } from "./chest-badge";
-import { CHEST_ART_REM, CHEST_RANKS } from "./chest-designs";
+import { CHEST_ART_REM, CHEST_NAME, CHEST_RANKS, type ChestRank } from "./chest-designs";
 import { chestImageUrl } from "./chest-images";
 import { ChestIcon, type ChestIconSize } from "./chest-icon";
 
@@ -11,7 +10,7 @@ import { ChestIcon, type ChestIconSize } from "./chest-icon";
  * The chests (the owner's direction of 2026-10-31, `docs/design/chests.webp`): images in a Supercell-like mobile game's rendering,
  * basic oak and iron, rare silver and sapphire, epic gold, crown and rubies, in two versions, the icon (`ChestIcon`) and the art that
  * opens (`ChestArt`): it crouches, springs and pops its lid on its hinges in a flash, the light bursts in the rank's colour, it lands in
- * a puff of dust. The app draws the icon in `ChestBadge` and the battle logs, the art in the chest slots and the opening's modal.
+ * a puff of dust. The app draws the icon in the battle logs and a game's end, the art in the opening's modal.
  */
 const meta = {
   title: "Elements/ChestArt",
@@ -227,35 +226,3 @@ export const Icons: Story = {
   ),
 };
 
-/** `ChestBadge` on the icons, in its four sizes, and the icons in a line of text, as the battle logs and the explanations show them. */
-export const InBadgesAndText: Story = {
-  render: () => (
-    <div className="flex flex-col gap-3">
-      <Caption>ChestBadge</Caption>
-      <div className="flex flex-wrap items-end gap-2">
-        {(["sm", "md", "lg", "xl"] as const).map((size) => (
-          <span key={size} className="inline-flex flex-wrap items-end gap-2">
-            {CHEST_RANKS.map((rank) => (
-              <ChestBadge key={rank} rank={rank} size={size} glow={size === "xl"} />
-            ))}
-          </span>
-        ))}
-      </div>
-      <Caption>Opened</Caption>
-      <div className="flex flex-wrap gap-2">
-        {CHEST_RANKS.map((rank) => (
-          <ChestBadge key={rank} rank={rank} size="sm" open />
-        ))}
-      </div>
-      <Caption>In a line of text</Caption>
-      <p className="m-0 flex flex-wrap gap-x-3 gap-y-1 text-sm text-foreground">
-        {CHEST_RANKS.map((rank) => (
-          <span key={rank} className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <ChestIcon rank={rank} size="sm" label={null} />
-            {CHEST_NAME[rank]} won
-          </span>
-        ))}
-      </p>
-    </div>
-  ),
-};
