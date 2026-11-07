@@ -38,6 +38,17 @@ export interface PublicProfile {
   lastSeen: number;
 }
 
+/**
+ * The players' ranking (LEADERBOARD-PAGE, the dock's Ranking): the players by crowns (game-core's `rankPlayers`, the first
+ * `PLAYER_RANKING_LIMIT`), the points a guild's score sums (`GuildSummary.score`), and the viewer's own place, past the list too.
+ */
+export interface PlayerRanking {
+  /** The first players by crowns, then level, then ID: the first is first. */
+  players: PublicProfile[];
+  /** The viewer: their place (1 first) and their profile; null without a viewer, or when the source knows no player of that ID. */
+  me: { place: number; profile: PublicProfile } | null;
+}
+
 /** A player on one of the follow lists (#954): their public profile, and since when (the follow, the friendship or the block). */
 export interface FollowRow {
   profile: PublicProfile;
@@ -489,6 +500,8 @@ export interface SocialSource {
    * one player of an ID. The source may answer the connected player too: `usePlayerSearch` leaves them out.
    */
   searchPlayers(query: string): Promise<PublicProfile[]>;
+  /** The players by crowns and `viewer`'s place (LEADERBOARD-PAGE); left out, its hook answers `unavailable`. */
+  playerRanking?(viewer: string | null): Promise<PlayerRanking>;
   /** The follows, friends and blocks (#954); left out, their hooks answer `unavailable`. */
   follows?: FollowSource;
   /** The messages (#955); left out, their hooks answer `unavailable`. */

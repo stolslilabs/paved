@@ -23,11 +23,13 @@ import { SettingsScene } from "../../src/components/scenes/settings-scene";
 import { ThemeScene } from "../../src/components/scenes/theme-scene";
 import { VaultScene } from "../../src/components/scenes/vault-scene";
 import { ShopScene } from "../../src/components/scenes/shop-scene";
+import { LeaderboardScene } from "../../src/components/scenes/leaderboard-scene";
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
 import { AVATAR_CREATOR, MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../../src/mocks/scenes";
 import { SHOP } from "../../src/mocks/shop";
+import { LEADERBOARD } from "../../src/mocks/ranking";
 
 const no = () => {};
 /** The Settings drawer's callbacks (SETTINGS-PAGE), none of which the pass presses. */
@@ -65,7 +67,7 @@ function TickingMissions() {
 
 /**
  * The pages of the pass, by id: the title its header shows, its scene with long content. `drawer`: the HUD's drawer
- * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE) at every width, its own panel: never in the
+ * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, LEADERBOARD-PAGE) at every width, its own panel: never in the
  * page panel.
  */
 export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: true }> = {
@@ -94,6 +96,9 @@ export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: tr
   credits: { title: "Credits", drawer: true, page: <SettingsScene {...SETTINGS.connected} {...settingsActions} view="credits" credits={{ tracks: TRACKS.map(titleOf) }} /> },
   // The avatar editor (AVATAR-PAGE): the HUD's drawer, Headwear's eleven options and the one on sale tried on.
   avatar: { title: "Avatar", drawer: true, page: <AvatarCreatorScene {...AVATAR_CREATOR.priced} onBack={no} onClose={no} /> },
+  // The Leaderboard (LEADERBOARD-PAGE): the HUD's drawer, the community's fifty players by crowns, the viewer's row pinned over the
+  // footer's tabs.
+  ranking: { title: "Ranking", drawer: true, page: <LeaderboardScene {...LEADERBOARD.playersOutOfView} onBack={no} /> },
 };
 
 const params = new URLSearchParams(location.search);

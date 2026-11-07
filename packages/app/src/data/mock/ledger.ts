@@ -171,9 +171,9 @@ import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
 import { communityMember, communityProfile, community, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
-import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PublicProfile } from "../social-source";
+import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PlayerRanking, type PublicProfile } from "../social-source";
 import { forgetFollows, freshFollows, graphOf, listsOf, seededFollows, settleFollows, type StoredFollows } from "./follows";
-import type { GuildDraft, GuildSettings } from "@paved/game-core";
+import { playerPlace, rankPlayers, type GuildDraft, type GuildSettings } from "@paved/game-core";
 import * as guilds from "./guilds";
 import * as chat from "./chat";
 import type { ChatEvent, ChatSource } from "../social-source";
@@ -1127,6 +1127,21 @@ export class MockLedger {
   /** The community's players a query finds (game-core's `searchPlayers`), last seen by the ledger's clock. */
   async searchPlayers(query: string): Promise<PublicProfile[]> {
     return searchCommunity(query, this.now());
+  }
+
+  /**
+   * The players' ranking (LEADERBOARD-PAGE): the community's players, the device's and the guilds' members, by crowns (game-core's
+   * `rankPlayers`), each as the guilds read them (`personOf`, whose crowns a guild's score sums: every crown of a score is a ranked
+   * player's), and the viewer's place among all of them.
+   */
+  async playerRanking(viewer: string | null): Promise<PlayerRanking> {
+    return this.guildRead((world, people) => {
+      const members = world.guilds.flatMap((g) => g.members.map((m) => m.address));
+      const keys = new Set([...community().map((m) => m.address), ...Object.keys(this.state.players), ...members].map(addressKey));
+      const all = [...keys].map(people);
+      const place = viewer === null ? null : playerPlace(all, viewer);
+      return { players: rankPlayers(all), me: place === null ? null : { place, profile: people(addressKey(viewer!)) } };
+    });
   }
 
   // --- The follows (#954) ----------------------------------------------------------------------------------------------
