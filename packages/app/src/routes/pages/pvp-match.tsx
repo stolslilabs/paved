@@ -5,6 +5,7 @@ import type { BoardTile } from "@paved/chain";
 import { AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
 import { PvpMatchScene, type MatchView } from "../../components/scenes/pvp-match-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
+import { SearchVoid } from "../search-void";
 import { useBoardSkins } from "../../data/board-skins";
 import { queryKeys } from "../../data/keys";
 import { layoutBoard, matchBoardSide, useMatchesV2, type MatchRecord } from "../../data/matches";
@@ -72,12 +73,13 @@ function Match({ id }: { id: string }) {
 
   const client = useQueryClient();
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  if (me === null) return <PvpSearchScene state="error" player={self} error="Connect to see your matches." onRetry={() => void wallet.connect()} onCancel={onBack} />;
+  if (me === null) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="Connect to see your matches." onRetry={() => void wallet.connect()} onCancel={onBack} />;
   if (!match || !build) {
     const missing = matches.data === null ? "Matches are not on this network yet." : matches.data ? "This match is not recorded on this device." : null;
     const error = matches.error;
     return (
       <PvpSearchScene
+        canvas={<SearchVoid />}
         state={missing || error ? "error" : "searching"}
         player={self}
         error={missing ?? error?.message}

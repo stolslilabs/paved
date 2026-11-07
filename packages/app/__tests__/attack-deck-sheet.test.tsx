@@ -83,28 +83,36 @@ describe("the unknown tile (#789)", () => {
 });
 
 describe("the deck sheet's attack mode (#789)", () => {
-  it("shows the village's tiles by plan, the extras as unknown cards, the played ones crossed out and the tiles left", () => {
+  /** A grid's figures, summed over its plans. */
+  const sum = (list: HTMLElement, key: "left" | "played" | "discarded") => [...list.querySelectorAll("li")].reduce((n, li) => n + Number(li.getAttribute(`data-${key}`)), 0);
+  /** The extras out of the deck (played or discarded). */
+  const extrasOut = (list: HTMLElement) => list.querySelectorAll('[data-card-state="placed"], [data-card-state="discarded"]').length;
+
+  it("shows the village's tiles by plan, the extras as unknown tiles, the played ones out and the tiles left", () => {
     const attack = attackV2Deck(10);
-    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "attack", attack }} side="bottom" />);
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "attack", attack }} />);
     const village = screen.getByTestId("deck-plans");
     const extras = screen.getByTestId("deck-extras");
-    expect(within(village).getAllByRole("img")).toHaveLength(V2_DECK_SIZE - attack.extras.length);
+    expect(village.querySelectorAll("li")).toHaveLength(attack.plans.length);
+    expect(sum(village, "left") + sum(village, "played") + sum(village, "discarded")).toBe(V2_DECK_SIZE - attack.extras.length);
     expect(within(extras).getAllByRole("img")).toHaveLength(attack.extras.length);
     const unknown = attack.extras.filter((e) => e.plan === null).length;
     expect(within(extras).queryAllByRole("img", { name: "Unknown tile" })).toHaveLength(unknown);
-    const sheet = screen.getByRole("dialog", { name: "Deck" });
-    expect(sheet.querySelectorAll("[data-out='true']")).toHaveLength(10);
-    expect(sheet.querySelectorAll("[data-state='selected']")).toHaveLength(1);
-    expect(sheet.querySelectorAll("[data-next='true']")).toHaveLength(2);
-    expect(screen.getByText(new RegExp(`^${V2_DECK_SIZE - 10} tiles left of ${V2_DECK_SIZE}`))).toBeInTheDocument();
-    expect(screen.getByTestId("deck-summary")).toHaveTextContent(`${attack.placed} played, ${attack.discarded} discarded (dashed), ${V2_DECK_SIZE - 10} not yet.`);
+    expect(sum(village, "played") + sum(village, "discarded") + extrasOut(extras)).toBe(10);
+    // The tile in hand in gold, the next two ringed: on their plans, or on the extras drawn.
+    const page = screen.getByRole("dialog", { name: "Deck" });
+    expect(page.querySelectorAll('[data-hand], [data-card-state="hand"]')).toHaveLength(1);
+    expect(village.querySelectorAll("[data-next]")).toHaveLength(attack.plans.filter((p) => p.cards.includes("next")).length);
+    expect(screen.getByTestId("deck-summary")).toHaveTextContent(`Left${V2_DECK_SIZE - 10}Played${attack.placed}Discarded${attack.discarded}`);
   });
 
-  it("reveals an extra once drawn: at the end every card is out, none unknown", () => {
-    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "attack", attack: attackV2Deck(V2_DECK.length) }} side="bottom" />);
+  it("reveals an extra once drawn: at the end every tile is out, none unknown", () => {
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "attack", attack: attackV2Deck(V2_DECK.length) }} />);
     expect(screen.queryAllByRole("img", { name: "Unknown tile" })).toHaveLength(0);
-    expect(screen.getByRole("dialog", { name: "Deck" }).querySelectorAll("[data-out='true']")).toHaveLength(V2_DECK_SIZE);
-    expect(screen.getByText(new RegExp(`^0 tiles left of ${V2_DECK_SIZE}`))).toBeInTheDocument();
+    const village = screen.getByTestId("deck-plans");
+    expect(sum(village, "left")).toBe(0);
+    expect(sum(village, "played") + sum(village, "discarded") + extrasOut(screen.getByTestId("deck-extras"))).toBe(V2_DECK_SIZE);
+    expect(screen.getByTestId("deck-summary")).toHaveTextContent(/^Left0/);
   });
 
   it("opens from the attack's stack, as in the other modes", async () => {

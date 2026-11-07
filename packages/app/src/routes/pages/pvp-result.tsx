@@ -7,6 +7,7 @@ import { toastError } from "../../components/containers/error-toast";
 import { shortAddress } from "../../components/elements/short-address";
 import { PvpResultScene, type PvpReward } from "../../components/scenes/pvp-result-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
+import { SearchVoid } from "../search-void";
 import { starsFor } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
@@ -54,11 +55,11 @@ function Pick({ id }: { id: number }) {
   if (me === null || v2.data === null) return <Result id={id} />;
   const self = { name: wallet.username ?? null, address: me, level: 0, crowns: 0 };
   if (!v2.data) {
-    if (v2.error) return <PvpSearchScene state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
-    return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
+    if (v2.error) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
   }
   return (
-    <Suspense fallback={<PvpSearchScene state="searching" player={self} onCancel={onBack} />}>
+    <Suspense fallback={<PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />}>
       <PvpV2End me={me} attack={v2.data} self={self} />
     </Suspense>
   );
@@ -94,8 +95,8 @@ function Result({ id }: { id: number }) {
   const error = status.error ?? settled.error ?? defender.error;
   const target = last?.target ?? settled.data?.target;
   const score = settled.data?.score ?? last?.score;
-  if (me === null) return <PvpSearchScene state="error" player={self} error="Connect to see your attack's result." onRetry={() => void wallet.connect()} onCancel={onBack} />;
-  if (status.data === null) return <PvpSearchScene state="error" player={self} error="PvP is not on this network yet." onCancel={onBack} />;
+  if (me === null) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="Connect to see your attack's result." onRetry={() => void wallet.connect()} onCancel={onBack} />;
+  if (status.data === null) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="PvP is not on this network yet." onCancel={onBack} />;
   if (!status.data || !settled.data || !defender.data || target === undefined || score === undefined) {
     // Not the attacker's last attack: its target and defender are the indexer's row's. Read and absent (a cached receipt alone,
     // the indexer behind), the result cannot show yet: said, with Retry, never an endless wait.
@@ -103,6 +104,7 @@ function Result({ id }: { id: number }) {
     const missing = settled.data === null || unrecorded ? "This attack is not recorded yet: its result shows once the indexer has it." : (error?.message ?? null);
     return (
       <PvpSearchScene
+        canvas={<SearchVoid />}
         state={missing ? "error" : "searching"}
         player={self}
         error={missing}

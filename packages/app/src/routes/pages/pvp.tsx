@@ -7,6 +7,7 @@ import type { BoardGhost } from "../../components/containers/board-viewport";
 import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../../components/scenes/pvp-scout-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
+import { SearchVoid } from "../search-void";
 import { NEXT_PRICE, type PvpPlayer } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
@@ -14,6 +15,7 @@ import { usePlayerStatus } from "../../data/indexer";
 import { useAttackV2 } from "../../data/free-attack";
 import { ATTACK_OPEN, noOpponent, pvpKeys, usePvpAttack, usePvpPlayer, usePvpScout, usePvpStatus, usePvpWrites } from "../../data/pvp";
 import { useDataSources } from "../../data/sources";
+import { useGuildBadge } from "../../data/guilds";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { fromBoard, useAttackLegality, useScoutCanvas } from "../attack-board";
@@ -43,11 +45,11 @@ export default function Page() {
   const self = player.data ?? { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
   if (me === null || v2.data === null) return <PvpV1 />;
   if (!v2.data) {
-    if (v2.error) return <PvpSearchScene state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
-    return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
+    if (v2.error) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
   }
   return (
-    <Suspense fallback={<PvpSearchScene state="searching" player={self} onCancel={onBack} />}>
+    <Suspense fallback={<PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />}>
       <PvpV2 me={me} self={self} state={v2.data} onBack={onBack} />
     </Suspense>
   );
@@ -100,11 +102,12 @@ function PvpV1() {
   }, [found]);
 
   const self = player.data ?? { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  if (me === null) return <PvpSearchScene state="error" player={self} error="Connect to attack another village." onRetry={() => void wallet.connect()} onCancel={onBack} />;
-  if (status.data === null) return <PvpSearchScene state="error" player={self} error="PvP is not on this network yet: no village can be attacked here." onCancel={onBack} />;
+  // No account: the search's waiting screen, no Connect (the user's decision of 2026-11-07, no guest state anywhere).
+  if (me === null) return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
+  if (status.data === null) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="PvP is not on this network yet: no village can be attacked here." onCancel={onBack} />;
   if (!s) {
-    if (status.error) return <PvpSearchScene state="error" player={self} error={status.error.message} errorDetail={errorDetail(status.error)} onRetry={() => void client.invalidateQueries({ queryKey: pvpKeys.all })} onCancel={onBack} />;
-    return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
+    if (status.error) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error={status.error.message} errorDetail={errorDetail(status.error)} onRetry={() => void client.invalidateQueries({ queryKey: pvpKeys.all })} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
   }
   if (found !== null || phase === "search") {
     return <Search me={self} joined={s.joined} found={found} writes={writes} onRetry={() => (searched.current = false)} onBack={onBack} />;
@@ -123,17 +126,17 @@ function Search({ me, joined, found, writes, onRetry, onBack }: { me: PvpPlayer;
     writes.reset();
     onRetry();
   };
-  if (!joined) return <PvpSearchScene state="error" player={me} error="Found your village first: a village joins the matchmaker once it is founded." onCancel={onBack} />;
-  if (found !== null && opponent) return <PvpSearchScene state="found" player={me} opponent={opponent} />;
+  if (!joined) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={me} error="Found your village first: a village joins the matchmaker once it is founded." onCancel={onBack} />;
+  if (found !== null && opponent) return <PvpSearchScene canvas={<SearchVoid />} state="found" player={me} opponent={opponent} />;
   if (writes.error) {
     const none = (writes.error as { reason?: string }).reason === "no-opponent";
     return none ? (
-      <PvpSearchScene state="none" player={me} onRetry={retry} onCancel={onBack} />
+      <PvpSearchScene canvas={<SearchVoid />} state="none" player={me} onRetry={retry} onCancel={onBack} />
     ) : (
-      <PvpSearchScene state="error" player={me} error={writes.error.message} errorDetail={errorDetail(writes.error)} onRetry={retry} onCancel={onBack} />
+      <PvpSearchScene canvas={<SearchVoid />} state="error" player={me} error={writes.error.message} errorDetail={errorDetail(writes.error)} onRetry={retry} onCancel={onBack} />
     );
   }
-  return <PvpSearchScene state="searching" player={me} onCancel={onBack} />;
+  return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={me} onCancel={onBack} />;
 }
 
 /** The scout of the drawn opponent: its village, the crowns at stake, Next for a Cobble, Attack. */
@@ -144,6 +147,8 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
   const name = usePlayerStatus(match.opponent).data?.player.name ?? scout.data?.npc?.title ?? null;
   const defender = usePvpPlayer(match.opponent, scout.data?.npc?.title ?? name);
   const account = useCobbleAccount(me);
+  // The rival's guild beside their level (the user's ask of 2026-11-07): their profile's badge, null for none (an NPC village has none).
+  const guild = useGuildBadge(match.opponent).data ?? null;
   const tiles = useMemo(() => (scout.data ? [...scout.data.village.tiles] : NO_TILES), [scout.data]);
   const canvas = useScoutCanvas(match.opponent, tiles);
   const pending = writes.pending?.kind === "next" ? "next" : writes.pending?.kind === "start" ? "attacking" : null;
@@ -163,11 +168,12 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
   if (!scout.data || !defender.data) {
     const error = scout.error ?? defender.error;
     const message = scout.data === null || defender.data === null ? "This village cannot be read on this network." : error?.message;
-    return <PvpSearchScene state={message ? "error" : "searching"} player={{ name: null, address: me, level: 0, crowns: 0 }} error={message} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state={message ? "error" : "searching"} player={{ name: null, address: me, level: 0, crowns: 0 }} error={message} onCancel={onBack} />;
   }
   return (
     <PvpScoutScene
       defender={defender.data}
+      guild={guild}
       village={scout.data.village}
       canvas={canvas}
       stakes={scout.data.stakes}
@@ -205,7 +211,7 @@ function AttackView({ me, attack, deck, writes, onBack }: { me: string; attack: 
   const { placement, scene } = useGameBoard({ skins, side: "rival", resetKey: attack.id, placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: data?.remaining } });
   if (!data || !run) {
     const message = data === null ? "This attack cannot be read on this network." : read.error?.message;
-    return <PvpSearchScene state={message ? "error" : "searching"} player={defender} error={message} errorDetail={read.error ? errorDetail(read.error) : undefined} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state={message ? "error" : "searching"} player={defender} error={message} errorDetail={read.error ? errorDetail(read.error) : undefined} onCancel={onBack} />;
   }
   const { orientation, move } = placement;
   const pending = writes.pending?.kind === "play";
