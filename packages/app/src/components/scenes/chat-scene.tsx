@@ -34,8 +34,8 @@ function keepForDialogs(event: Event) {
  * The chat page (`/chat`, #973). CHAT-PAGE (the Paved UX Book's "Chat" flow, the owner's approved mockups): the HUD's drawer, as the
  * profile, the Missions and the League (`HudDrawer`): a full page with Back on a phone, a side panel docked at the left from `tablet`,
  * the side of the home's Chat tab that opens it (the book draws it centred, so the League's rule decides), its close the red cross.
- * The header's end holds the page's menu (the muted players). Under it the book's three tabs, World, Guild and Private, as words
- * underlined in gold, then the tab's content as tall as the drawer leaves it: the World's and the guild's conversation in a carved
+ * The header's end holds the page's menu (the muted players). The book's three tabs, World, Guild and Private, at its foot as the
+ * footer's tabs (FOOTER-TABS, #1062); over them the tab's content as tall as the drawer leaves it: the World's and the guild's conversation in a carved
  * panel, the composer at its foot, every avatar in its league's rim with the level and the guild's tag; the Private tab's requests and
  * conversations, one opened over them.
  */
