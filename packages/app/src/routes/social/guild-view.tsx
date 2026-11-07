@@ -2,18 +2,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import { GUILD_RIGHTS, type GuildCandidate } from "@paved/game-core";
 import { GuildPage, type GuildPageAction } from "../../components/containers/guild-page";
 import { PlayerSearch } from "../../components/containers/player-search";
-import { ScrollRegion } from "../../components/ui/scroll-region";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
+import { HudDrawer } from "../../components/containers/hud-drawer";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
 import { useChatOverview } from "../../data/chat-overview";
 import { useGuild, type GuildWrites, type GuildWriteRun } from "../../data/guilds";
 import { usePlayerSearch } from "../../data/social";
 import type { GuildView, PlayerGuild } from "../../data/social-source";
-import { useSidePanel } from "../../lib/side-panel";
 import { errorDetail } from "../error-detail";
 import { openingGuildTab, storeGuildTab, type GuildTab } from "../guild-tab";
-import { DESKTOP_QUERY } from "../home-layout";
 import { useAppNavigate } from "../ref";
 import { guildApply } from "./guild-apply";
 
@@ -134,39 +131,47 @@ export interface GuildSheetProps {
 }
 
 /**
- * Another guild's page, over the guild page (`?guild=`): read as the connected player sees it, with Join, Request, Cancel or
- * the invitation's answer, or why not. Joined, the sheet closes on their own guild, now the page's.
+ * Another guild's page (`?guild=`): read as the connected player sees it, with Join, Request, Cancel or the invitation's answer, or
+ * why not. Joined, it closes on the page it covered. DRAWER-NAV-IN-PLACE (#1064): opened from a drawer (the guild page, the ranking,
+ * a profile's guild line, the chat), in that drawer's place, with Back; with none open, its own drawer.
  */
 export function GuildSheet({ id, me, player, candidate, now, open, onClose, writes, onOpenPlayer }: GuildSheetProps) {
-  const desktop = useSidePanel(DESKTOP_QUERY);
   const read = useGuild(id, me);
   const guild = read.data;
   const apply = guild && player && me !== null && guild.rank === null ? guildApply(guild, player, candidate) : undefined;
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="guild-sheet" className="max-h-[92dvh] desktop:max-w-md">
-        <SheetHeader className={guild ? "sr-only" : undefined}>
-          <SheetTitle>{guild ? guild.name : guild === null ? "Guild not found" : "Guild"}</SheetTitle>
-          <SheetDescription>{guild ? `${guild.tag}, ${guild.members} members` : guild === null ? "No guild has this tag any more." : read.unavailable ? "Guilds are not on this network yet." : "Looking for this guild…"}</SheetDescription>
-        </SheetHeader>
-        <ScrollRegion className="-mx-6 flex min-h-0 flex-col gap-4 px-6">
-          {guild === undefined && read.isPending && <Skeleton aria-busy className="h-48 rounded-xl" />}
-          <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />
-          {guild && (
-            <GuildPage
-              guild={guild}
-              me={me}
-              now={now}
-              apply={apply}
-              onOpenPlayer={onOpenPlayer}
-              onAction={async (a) => {
-                await writes.run(pageWrite(a, guild.id));
-                if ((a.type === "join" || (a.type === "answer-invitation" && a.accept)) && guild.rank === null) onClose();
-              }}
-            />
-          )}
-        </ScrollRegion>
-      </SheetContent>
-    </Sheet>
+    <HudDrawer open={open} onOpenChange={(next) => !next && onClose()} title={
+        guild ? (
+          // The page names the guild under it: the header says what it is, screen readers hear its name.
+          <>
+            <span aria-hidden>Guild</span>
+            <span className="sr-only">{guild.name}</span>
+          </>
+        ) : guild === null ? (
+          "Guild not found"
+        ) : (
+          "Guild"
+        )
+      } side="right" slot="guild-sheet" inPlace>
+      <div data-slot="guild-sheet" className="flex flex-col gap-4">
+        {guild === null && <p className="text-sm font-semibold text-muted-foreground">No guild has this tag any more.</p>}
+        {guild === undefined && read.unavailable && <p className="text-sm font-semibold text-muted-foreground">Guilds are not on this network yet.</p>}
+        {guild === undefined && read.isPending && <Skeleton aria-busy className="h-48 rounded-xl" />}
+        <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />
+        {guild && (
+          <GuildPage
+            guild={guild}
+            me={me}
+            now={now}
+            apply={apply}
+            onOpenPlayer={onOpenPlayer}
+            onAction={async (a) => {
+              await writes.run(pageWrite(a, guild.id));
+              if ((a.type === "join" || (a.type === "answer-invitation" && a.accept)) && guild.rank === null) onClose();
+            }}
+          />
+        )}
+      </div>
+    </HudDrawer>
   );
 }

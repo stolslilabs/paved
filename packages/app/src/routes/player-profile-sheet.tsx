@@ -52,7 +52,7 @@ export default function PlayerProfile({ playerId, open, onClose }: { playerId: s
   const onOpenChange = (next: boolean) => {
     if (!next) onClose();
   };
-  if (self) return <ProfileSheet {...own} open={open} onOpenChange={onOpenChange} />;
+  if (self) return <ProfileSheet {...own} open={open} onOpenChange={onOpenChange} inPlace />;
   const state: PublicProfileState = restoring
     ? { status: "loading" }
     : read.unavailable
