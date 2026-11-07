@@ -201,6 +201,10 @@ export class RpcEconomyViews implements EconomyViews {
     return (await this.call("Vault", "preview_deposit", [assets])) as bigint;
   }
 
+  async previewMint(shares: bigint): Promise<bigint> {
+    return (await this.call("Vault", "preview_mint", [shares])) as bigint;
+  }
+
   async previewWithdraw(assets: bigint): Promise<bigint> {
     return (await this.call("Vault", "preview_withdraw", [assets])) as bigint;
   }

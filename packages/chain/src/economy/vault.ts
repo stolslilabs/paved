@@ -16,6 +16,8 @@ export interface VaultViews {
   maxRedeem(account: string): Promise<bigint>;
   /** `Vault.preview_deposit(assets)`: the vPAVED a deposit of `assets` PAVED mints now (0 is refused by the contract). */
   previewDeposit(assets: bigint): Promise<bigint>;
+  /** `Vault.preview_mint(shares)`: the PAVED a mint of `shares` vPAVED takes now, rounded up (no entry fee). */
+  previewMint(shares: bigint): Promise<bigint>;
   /** `Vault.preview_withdraw(assets)`: the vPAVED a withdraw of `assets` PAVED burns now, the exit fee included. */
   previewWithdraw(assets: bigint): Promise<bigint>;
   /** `Vault.preview_redeem(shares)`: the PAVED a redeem of `shares` pays now, the exit fee taken. */

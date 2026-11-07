@@ -192,9 +192,10 @@ export class VaultExitFeeChangedError extends Error {
 // The reverts a client's Vault write can meet: the Vault's own (`vault.cairo`, `errors`), OpenZeppelin's ERC4626
 // (`openzeppelin_token` 4.0.1, `erc4626.cairo`, `Errors`) and PAVED's ERC20 (`ERC20Component`, `Errors`). The others are
 // out of the client's reach: the constructor's (`'Vault: zero address'`, `'ERC4626: asset address set to 0'`), the
-// owner's (`'Vault: fee too high'`), and `'ERC4626: exceeds max mint'` (the client sends no `mint`).
+// owner's (`'Vault: fee too high'`). A `mint` above `max_mint` reads as a deposit above `max_deposit` (the Vault sets neither).
 const ZERO_SHARES = "Vault: zero shares";
 const OVER_MAX_DEPOSIT = "ERC4626: exceeds max deposit";
+const OVER_MAX_MINT = "ERC4626: exceeds max mint";
 const OVER_MAX_WITHDRAW = "ERC4626: exceeds max withdraw";
 const OVER_MAX_REDEEM = "ERC4626: exceeds max redeem";
 const NO_ALLOWANCE = "ERC20: insufficient allowance";
@@ -283,7 +284,7 @@ export class VaultAllowanceError extends WriteError {
 function vaultRevert(error: unknown): unknown {
   if (!(error instanceof WriteError) || error instanceof VaultOverMaxWithdrawError || error instanceof VaultZeroSharesError || error instanceof VaultBalanceError) return error;
   if (revertNames(error.message, ZERO_SHARES)) return new VaultZeroSharesError(error.transactionHash);
-  if (revertNames(error.message, OVER_MAX_DEPOSIT)) return new VaultOverMaxDepositError(error.transactionHash);
+  if (revertNames(error.message, OVER_MAX_DEPOSIT) || revertNames(error.message, OVER_MAX_MINT)) return new VaultOverMaxDepositError(error.transactionHash);
   if (revertNames(error.message, OVER_MAX_WITHDRAW)) return new VaultOverMaxWithdrawError(null, error.transactionHash);
   if (revertNames(error.message, OVER_MAX_REDEEM)) return new VaultOverMaxRedeemError(error.transactionHash);
   if (revertNames(error.message, NO_ALLOWANCE)) return new VaultAllowanceError(error.transactionHash);
@@ -544,6 +545,39 @@ export class EconomyWriter {
       if (shares === 0n) throw new VaultZeroSharesError();
       const { Vault } = this.options.deployment.addresses;
       return { calls: [this.call("PavedToken", "approve", [Vault, amount]), this.call("Vault", "deposit", [amount, this.address])], events: this.vaultEvents() };
+    });
+  }
+
+  /**
+   * Mints exactly `shares` vPAVED (VAULT-PAGE: a deposit with its output fixed): reads `preview_mint(shares)`, the PAVED it takes,
+   * then approves exactly that and sends `mint(shares, self)`, in one multicall. A wallet short of it sends nothing
+   * (`VaultBalanceError`); so does a rate risen between the read and the send, the approve then short (`VaultAllowanceError`).
+   */
+  mint(shares: bigint, options: { confirmedShares: bigint }): Promise<WriteResult> {
+    return this.sendVault(async () => {
+      this.checkAmount(shares, options.confirmedShares);
+      const [balance, assets] = await Promise.all([
+        this.read(() => this.options.views.pavedBalance(this.address), "PAVED balance"),
+        this.read(() => this.options.views.previewMint(shares), "Vault rate"),
+      ]);
+      if (balance < assets) throw new VaultBalanceError(balance);
+      const { Vault } = this.options.deployment.addresses;
+      return { calls: [this.call("PavedToken", "approve", [Vault, assets]), this.call("Vault", "mint", [shares, this.address])], events: this.vaultEvents() };
+    });
+  }
+
+  /**
+   * Redeems exactly `shares` vPAVED (VAULT-PAGE: a withdraw with its input fixed): `redeem(shares, self, self)`, for their PAVED
+   * less the exit fee. More than the vPAVED held, read just before, sends nothing (`VaultOverMaxRedeemError`); so does an exit fee
+   * other than `confirmedExitFeeBps`, when given (`VaultExitFeeChangedError`).
+   */
+  redeem(shares: bigint, options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult> {
+    return this.sendVault(async () => {
+      this.checkAmount(shares, options.confirmedShares);
+      const position = await this.read(() => this.options.views.vault(this.address), "Vault position");
+      this.checkFee(position.exitFeeBps, options.confirmedExitFeeBps);
+      if (shares > position.shares) throw new VaultOverMaxRedeemError();
+      return { calls: [this.call("Vault", "redeem", [shares, this.address, this.address])], events: this.vaultEvents() };
     });
   }
 

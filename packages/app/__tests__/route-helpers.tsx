@@ -70,7 +70,8 @@ const PAGES = {
   missions: () => Promise.all([import("../src/routes/pages/missions"), import("../src/routes/home-hosts")]),
   tiles: () => Promise.all([import("../src/routes/pages/tiles"), import("../src/routes/home-hosts")]),
   referral: () => import("../src/routes/pages/referral"),
-  vault: () => import("../src/routes/pages/vault"),
+  // The Vault is the HUD's drawer over the home (VAULT-PAGE): its host comes with it.
+  vault: () => Promise.all([import("../src/routes/pages/vault"), import("../src/routes/home-hosts")]),
   chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/player-profile-host")]),
   guild: () => Promise.all([import("../src/routes/pages/guild"), import("../src/routes/social/guild-view"), import("../src/routes/player-profile-host"), import("../src/routes/home-hosts")]),
   friends: () => Promise.all([import("../src/routes/pages/friends"), import("../src/routes/player-profile-host")]),

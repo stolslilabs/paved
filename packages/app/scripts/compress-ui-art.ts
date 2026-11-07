@@ -172,6 +172,16 @@
  * premultiplied area average and centred on the icons' frame, checked beside the shipped icons on the drawer's charcoal. The book's
  * sun and scroll are the shipped `sun` and `missions`.
  *
+ * VAULT-PAGE (2026-11-06): the Vault's footer tabs and exit fee (`ui-sources/vault/<name>.webp`, `VAULT_ART` in `vault-art.ts`): Deposit,
+ * Withdraw and the exit fee, drawn by Codex's built-in image tool (`codex exec -c model_provider=openai`) in the HUD icons' rendering, the
+ * Vault's piggy bank and the PAVED and vPAVED coins as its references, three variants each on a transparent square; the owner's set
+ * chosen beside the shipped icons at 28 px. Each trimmed to its opaque box, fitted to the 240 px box and centred on the icons' frame.
+ * The owner's asks of 2026-11-06 and -07: Deposit and Withdraw redrawn as a gold coin turning into the silver one and back (one of four
+ * pairs: vault door, chest, coin exchange, hand), a Position tab's icon in the same rendering (their silver coins' blue rings and casts
+ * then turned to a neutral grey of the same lightness, the owner's ask: no blue on them), and the vPAVED coin's silver light
+ * (`VAULT_LIGHTS`: broad rays and a fine starburst, painted on pure black, the black turned to alpha by the brightest channel, then
+ * each pixel turned to the neutral grey of its luminance, Rec. 709, the alpha kept: no blue, 512 px).
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.
@@ -186,6 +196,7 @@ import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.t
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
 import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
+import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME } from "../src/components/elements/vault-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -193,7 +204,7 @@ export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
 /** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat, the medallions are paintings. */
-const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82 } as const;
+const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82, vault: 82 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),
   ...UI_FRAMES.map((name) => ({ kind: "frames" as const, name, frame: FRAME_ART[name] })),
@@ -204,6 +215,8 @@ const IMAGES = [
   ...GUILD_EMBLEM_CHARGES.map((name) => ({ kind: "emblems" as const, name, frame: EMBLEM_FRAME })),
   ...PLAY_ART.map((name) => ({ kind: "play" as const, name, frame: PLAY_ART_FRAME })),
   ...STAKE_ART.map((name) => ({ kind: "play" as const, name, frame: STAKE_ART_FRAME })),
+  ...VAULT_ART.map((name) => ({ kind: "vault" as const, name, frame: VAULT_ART_FRAME })),
+  ...VAULT_LIGHTS.map((name) => ({ kind: "vault" as const, name, frame: VAULT_LIGHT_FRAME })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */
@@ -255,7 +268,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`public/ui-art/ holds the ${expected().length} copies, each a WebP of its size.`);
   } else {
     rmSync(OUT, { recursive: true, force: true });
-    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play"] as const) {
+    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play", "vault"] as const) {
       let before = 0;
       const after = new Map<number, number>();
       const images = IMAGES.filter((i) => i.kind === kind);

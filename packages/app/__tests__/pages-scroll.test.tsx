@@ -19,10 +19,10 @@ import { SHOP } from "../src/mocks/shop";
 import { ShopScene } from "../src/components/scenes/shop-scene";
 
 /**
- * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar, the Vault and the second-level pages
+ * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar and the second-level pages
  * scroll in one region, below `desktop` (`TabFrame`'s) and in the side panel from it (the panel's body); Missions in the HUD's
  * drawer's body at every width (MISSIONS-PAGE), and Tiles (COLLECTION-PAGE), the Shop (SHOP-PAGE), Settings with its views
- * (SETTINGS-PAGE) and Play (PLAY-PAGE; no full-screen flow left). The page is drawn
+ * (SETTINGS-PAGE), Play (PLAY-PAGE; no full-screen flow left) and the Vault (VAULT-PAGE). The page is drawn
  * straight in that region: its sticky header and its content are the region's own (no column of its own between them and the
  * region, one viewport tall at least), so the region is the one element that scrolls. jsdom lays nothing out, so this test
  * reads the structure that lets a page scroll, not its overflow: the overflow itself (content taller than a 375 x 812 phone and
@@ -30,10 +30,7 @@ import { ShopScene } from "../src/components/scenes/shop-scene";
  * `e2e/pages-scroll.e2e.ts` (`bun run e2e -- pages-scroll`).
  */
 const no = () => vi.fn();
-const PAGES: readonly [string, ReactNode][] = [
-  ["Vault", <VaultScene {...VAULT.position} />],
-  ["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />],
-];
+const PAGES: readonly [string, ReactNode][] = [["Referral", <ReferralScene {...REFERRAL.earned} onBack={no()} />]];
 
 const BALANCES = { state: { status: "ready", usdc: 0n, paved: 0n, cobbles: 640 }, faucet: false, show: { phone: true, desktop: "all" } } as const;
 
@@ -115,6 +112,23 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
     const end = screen.getByRole("region", { name: last });
     expect(region).toContainElement(end);
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
+    for (let el: HTMLElement | null = end.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
+  });
+
+  it("the Vault (VAULT-PAGE) draws its position and its tab's form in the HUD drawer's body, to its notes; its tabs at the foot", () => {
+    draw(<VaultScene {...VAULT.position} onBack={no()} />, false, "Vault");
+    const drawer = screen.getByRole("dialog", { name: "Vault" });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    expect(region).toContainElement(screen.getByRole("region", { name: "Position" }));
+    const end = screen.getByRole("list", { name: "How the Vault works" });
+    expect(region).toContainElement(end);
+    // The tabs and the gold action are the drawer's foot, out of the region that scrolls.
+    expect(drawer).toContainElement(screen.getByRole("tablist", { name: "Vault" }));
+    expect(region).not.toContainElement(screen.getByRole("tablist", { name: "Vault" }));
     const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
     expect(scrollers).toEqual([]);
     for (let el: HTMLElement | null = end.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);

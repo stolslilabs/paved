@@ -142,6 +142,12 @@ export class FakeEconomy implements EconomyViews {
     return (assets * (this.vaultSupply + 1n)) / (this.vaultAssets + 1n);
   }
 
+  /** `convert_to_assets` rounded up, as OpenZeppelin's `preview_mint` (no entry fee). */
+  async previewMint(shares: bigint): Promise<bigint> {
+    this.check(`preview_mint ${shares}`);
+    return ceilDiv(shares * (this.vaultAssets + 1n), this.vaultSupply + 1n);
+  }
+
   async previewWithdraw(assets: bigint): Promise<bigint> {
     this.check(`preview_withdraw ${assets}`);
     const total = assets + ceilDiv(assets * BigInt(this.exitFeeBps), BPS);

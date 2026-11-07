@@ -9,18 +9,19 @@ import { PILES, RARITY_END, SHOP_PARTS, UI_SHOP_PARTS, shopPartImage, shopPartSo
 import { FRIENDS_PARTS, GOLD_PILL_END, UI_FRIENDS_PARTS, friendsPartImage } from "../src/components/elements/friends-art";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES, emblemChargeMask } from "../src/components/elements/emblem-art";
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME, playArtSources, stakeArtName, stakeArtSources } from "../src/components/elements/play-art";
+import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME, vaultArtSources } from "../src/components/elements/vault-art";
 import { GUILD_EMBLEM_ICONS } from "@paved/game-core";
 import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts";
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
     const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
-    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/"));
+    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/") && !f.startsWith("vault/"));
     // GUILD-PAGE (2026-11-05): raised by exactly the measured growth over main, the copies of the guild's icons (each in line with the
     // others): 39,462 bytes for the guild's menu and a member's view (invite-player, find, leave, disband, promote, demote), 29,790
     // for the join types, the members and the new ranks (unlock, letter, members, sprout, medal), 14,600 for Post's pencil and the
@@ -70,6 +71,16 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
       width: 384,
       height: 256,
     });
+  });
+
+  it("ships the Vault's icons (VAULT-PAGE) apart from the HUD's: Deposit, Withdraw and the exit fee, on the icons' frame, each copy light", () => {
+    expect(VAULT_ART_FRAME).toMatchObject({ width: ICON_FRAME.width, height: ICON_FRAME.height, sizes: ICON_FRAME.sizes });
+    for (const name of VAULT_ART) for (const s of VAULT_ART_FRAME.sizes) expect(statSync(join(OUT, "vault", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 128 ? 7 * 1024 : 3 * 1024);
+    // The vPAVED coin's silver light, two layers (VAULT-PAGE, the owner's ask of 2026-11-07): measured 7.6 to 10.9 KiB at 160 px,
+    // 22.4 to 36.0 KiB at 320 px.
+    expect(VAULT_LIGHT_FRAME).toMatchObject({ width: 512, height: 512, sizes: [160, 320] });
+    for (const name of VAULT_LIGHTS) for (const s of VAULT_LIGHT_FRAME.sizes) expect(statSync(join(OUT, "vault", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 320 ? 40 * 1024 : 14 * 1024);
+    expect(vaultArtSources("deposit", 32)).toEqual({ src: "/ui-art/vault/128/deposit.webp", srcSet: "/ui-art/vault/64/deposit.webp 64w, /ui-art/vault/128/deposit.webp 128w", sizes: "32px" });
   });
 
   it("ships the friends page's pieces (FRIENDS-PAGE): two icons and the gold pill, 3-sliced, its ends under half its width, each copy light", () => {
