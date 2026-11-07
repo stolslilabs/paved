@@ -1,14 +1,30 @@
 import { useMutation, useQueries, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { CobbleAccount, DecodedEvent, PavedWriter, WriteResult } from "@paved/chain";
-import { avatarKeys, nameViews, orNone } from "./avatar";
-import { cobbleKeys, cobbleViews } from "./cobbles";
+import type { CobbleAccount, DecodedEvent, GameViews, NameViews, PavedWriter, WriteResult } from "@paved/chain";
+import { avatarKeys, orNone } from "./avatar";
 import { addressKey } from "./keys";
+import { cobbleKeys, cobbleViews } from "./cobbles";
 import { useDataSources, type DataSources } from "./sources";
 
 // The player's name (PLAYER-RENAME, `docs/architecture/avatar-chain.md`, "The name"): what the profile's name view reads (the name
 // set on chain, the changes made, the rename price and the Cobbles) and its one write, `Avatar.rename` through the signer. Its
 // receipt's `Renamed` goes into the cache (`setQueryData`), then the reads it touched are invalidated, the indexer's and the
 // social source's too: every list that shows a name reads it again. The profile sheet's chunk only: the menus read `avatar.ts`.
+
+/** The keys of the name view's reads beside the name (`avatarKeys.name`, the menus'), `[domain, read, ...args]` as `keys.ts`'s. */
+export const renameKeys = {
+  /** `renames(player_id)`: the changes the player has made. */
+  renames: (playerId: string) => ["chain", "avatar", "renames", addressKey(playerId)] as const,
+  /** `rename_price()`. */
+  price: ["chain", "avatar", "renamePrice"] as const,
+};
+
+/** The sources' name views (PLAYER-RENAME), or null (a views double without them). Probed as `avatarViews` is. */
+export function nameViews(views: GameViews): NameViews | null {
+  const v = views as GameViews & Partial<NameViews>;
+  return typeof v.playerName === "function" && typeof v.renameCount === "function" && typeof v.renamePrice === "function" && typeof v.nameOwner === "function"
+    ? (v as NameViews)
+    : null;
+}
 
 /** The rename write: `PavedWriter`'s. */
 export type RenameSigner = Pick<PavedWriter, "address" | "rename">;
@@ -42,8 +58,8 @@ export function useRename(playerId: string | null): { data: RenameData | null | 
   return useQueries({
     queries: [
       { queryKey: avatarKeys.name(id), queryFn: () => orNone(() => names!.playerName(id)), enabled },
-      { queryKey: avatarKeys.renames(id), queryFn: () => orNone(() => names!.renameCount(id)), enabled },
-      { queryKey: avatarKeys.renamePrice, queryFn: () => orNone(() => names!.renamePrice()), enabled },
+      { queryKey: renameKeys.renames(id), queryFn: () => orNone(() => names!.renameCount(id)), enabled },
+      { queryKey: renameKeys.price, queryFn: () => orNone(() => names!.renamePrice()), enabled },
       { queryKey: cobbleKeys.account(id), queryFn: () => (ledger ? ledger.account(id) : null), enabled },
     ],
     combine: ([name, count, price, account]) => {
@@ -71,7 +87,7 @@ export function applyRenameEvents(client: QueryClient, playerId: string, sent: s
   for (const { name, fields } of events) {
     if (name === "Renamed") {
       client.setQueryData<string | null>(avatarKeys.name(playerId), sent);
-      client.setQueryData<number | null>(avatarKeys.renames(playerId), Number(fields.count));
+      client.setQueryData<number | null>(renameKeys.renames(playerId), Number(fields.count));
     } else if (name === "CobblesSpent") {
       client.setQueryData<CobbleAccount | null>(cobbleKeys.account(playerId), (a) => (a ? { ...a, cobbles: Number(fields.balance) } : a));
     }
@@ -137,8 +153,8 @@ export function useRenameWrite(playerId: string | null) {
     onSettled: () => {
       if (!playerId) return;
       void client.invalidateQueries({ queryKey: avatarKeys.name(playerId) });
-      void client.invalidateQueries({ queryKey: avatarKeys.renames(playerId) });
-      void client.invalidateQueries({ queryKey: avatarKeys.renamePrice });
+      void client.invalidateQueries({ queryKey: renameKeys.renames(playerId) });
+      void client.invalidateQueries({ queryKey: renameKeys.price });
       void client.invalidateQueries({ queryKey: cobbleKeys.account(playerId) });
       for (const queryKey of NAMED_READS) void client.invalidateQueries({ queryKey });
     },

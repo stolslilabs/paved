@@ -22,10 +22,6 @@ export const avatarKeys = {
   look: (playerId: string) => ["chain", "avatar", "look", addressKey(playerId)] as const,
   /** `name(player_id)` (PLAYER-RENAME): the name set on chain, null: none. */
   name: (playerId: string) => ["chain", "avatar", "name", addressKey(playerId)] as const,
-  /** `renames(player_id)`: the changes the player has made. */
-  renames: (playerId: string) => ["chain", "avatar", "renames", addressKey(playerId)] as const,
-  /** `rename_price()`. */
-  renamePrice: ["chain", "avatar", "renamePrice"] as const,
   /** Every read of the avatar: what a write's receipt invalidates. */
   all: ["chain", "avatar"] as const,
 };
@@ -35,14 +31,6 @@ export function avatarViews(views: GameViews): AvatarViews | null {
   const v = views as GameViews & Partial<AvatarViews>;
   return typeof v.avatar === "function" && typeof v.avatarParts === "function" && typeof v.avatarItems === "function" && typeof v.ownedAvatarItems === "function"
     ? (v as AvatarViews)
-    : null;
-}
-
-/** The sources' name views (PLAYER-RENAME), or null (a views double without them). Probed as `avatarViews` is. */
-export function nameViews(views: GameViews): NameViews | null {
-  const v = views as GameViews & Partial<NameViews>;
-  return typeof v.playerName === "function" && typeof v.renameCount === "function" && typeof v.renamePrice === "function" && typeof v.nameOwner === "function"
-    ? (v as NameViews)
     : null;
 }
 
@@ -116,7 +104,8 @@ const avatarData = (look: bigint, parts: number): AvatarData => ({ look, ids: lo
  */
 export function usePlayerName(playerId: string | null): string | null | undefined {
   const { views } = useDataSources();
-  const names = nameViews(views);
+  // The one view the menus read; the name's other views are the name view's (`data/rename.ts`, its own chunk).
+  const names = typeof (views as Partial<NameViews>).playerName === "function" ? (views as unknown as Pick<NameViews, "playerName">) : null;
   const enabled = playerId !== null && names !== null;
   const { data } = useQuery({ queryKey: avatarKeys.name(playerId ?? "0x0"), queryFn: () => orNone(() => names!.playerName(playerId!)), enabled });
   return enabled ? data : null;
