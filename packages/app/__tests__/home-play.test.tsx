@@ -80,16 +80,12 @@ describe("/ (#753): the village home on its data", () => {
     expect(wallet.calls).not.toContain("disconnect");
   });
 
-  it("no wallet: a starter village to look at, Connect, no game to resume, no Edit; Connect connects", async () => {
+  it("a device with no account (NO-GUEST): the account made at start, no Connect, no guest's line; its game to resume", async () => {
     const { wallet } = open("/", { guest: true });
-    expect(await screen.findByText("Playing as a guest: connect to build your village", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(await screen.findByRole("img", { name: /^Village layout of 9 tiles/ }, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: resume })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Edit village" })).toBeNull();
-    // Connect is the header's, with the balances.
-    await userEvent.click((await screen.findAllByRole("button", { name: "Connect" }))[0]!);
-    expect(await screen.findByRole("button", { name: resume })).toBeInTheDocument();
-    expect(wallet.calls).toContain("connect");
+    expect(await screen.findByRole("button", { name: resume }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"]));
+    expect(screen.queryByText(/Playing as a guest/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
   });
 
   it("spawn_paused: the notice; the running game still resumes", async () => {
@@ -102,21 +98,19 @@ describe("/ (#753): the village home on its data", () => {
 describe("/play (P6, PLAY-PAGE): the modes, the HUD's drawer", () => {
   const challenge = () => screen.getByText("Beat the threshold");
 
-  it("a guest: the Challenge connects first; no Multiplayer (the book has none), Limited's mode to come is off", async () => {
-    const { router, wallet } = open("/play", { guest: true });
-    expect(await screen.findByText("Connect a wallet to enter: tap to connect.", {}, { timeout: slow(5000) })).toBeInTheDocument();
+  it("no Connect first (NO-GUEST): the Challenge opens the stake; no Multiplayer (the book has none), Limited's mode to come is off", async () => {
+    const { router } = open("/play", { guest: true });
+    await screen.findByRole("dialog", { name: "Play" }, { timeout: slow(5000) });
+    expect(screen.queryByText(/Connect a wallet/)).toBeNull();
     expect(screen.queryByText(/Multiplayer/)).toBeNull();
     expect(screen.getByRole("button", { name: "Coming soon" })).toBeDisabled();
     await userEvent.click(challenge());
-    await waitFor(() => expect(wallet.calls).toContain("connect"));
-    expect(router.state.location.pathname).toBe("/play");
-    await waitFor(() => expect(screen.queryByText("Connect a wallet to enter: tap to connect.")).toBeNull());
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
   });
 
   it("connected: the Challenge opens the stake", async () => {
     const { router } = open("/play");
-    await waitFor(() => expect(screen.queryByText("Connect a wallet to enter: tap to connect.")).toBeNull(), { timeout: slow(5000) });
-    await screen.findByRole("dialog", { name: "Play" });
+    await screen.findByRole("dialog", { name: "Play" }, { timeout: slow(5000) });
     await userEvent.click(challenge());
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/challenge"));
   });

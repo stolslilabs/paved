@@ -304,9 +304,10 @@ describe("the v2 village scene (#739)", () => {
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
   });
 
-  it("says why the village is not shown", () => {
-    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.guest} />));
-    expect(screen.getByText("Connect to build your village")).toBeInTheDocument();
+  it("loads while the account is read: no Connect (NO-GUEST)", () => {
+    render(wrap(<VillageLayoutScene status={{ kind: "loading" }} />));
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
+    expect(screen.queryByText("Connect to build your village")).toBeNull();
   });
 });
 

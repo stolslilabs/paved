@@ -144,8 +144,8 @@ function gamesCursor(value: string | undefined) {
   };
 }
 
-/** The `before` of a player's pack purchases: `<block>:<tx>:<idx>`, the position of the last one served. */
-function packsCursor(value: string | undefined) {
+/** The `before` of a player's pack purchases or Vault claims: `<block>:<tx>:<idx>`, the position of the last one served. */
+function positionCursor(value: string | undefined) {
   if (value === undefined) return undefined;
   const match = /^(0|[1-9]\d{0,15}):(0|[1-9]\d{0,9}):(0|[1-9]\d{0,9})$/.exec(value);
   if (!match) throw new BadRequest("before must be <block>:<tx>:<idx>");
@@ -268,7 +268,7 @@ function route(url: URL): Read | null {
         const player = playerId(a);
         const p = parameters(url, [], ["limit", "before"]);
         const limit = limitOf(p.limit);
-        const before = packsCursor(p.before);
+        const before = positionCursor(p.before);
         return (queries, served) => ({
           player_id: player,
           ...queries.playerPacks(served.number, player, limit, before),
@@ -292,6 +292,14 @@ function route(url: URL): Read | null {
         // Without `day`: the UTC day of the served block, as for the quests
         return (queries, served) =>
           queries.playerClaims(served.number, player, day ?? Math.floor(served.timestamp / TOURNAMENT_DURATION));
+      }
+      if (b === "vault" && c === "claims" && parts.length === 6) {
+        // D-31: the holder's claims of the Vault's USDC (`/claims` is the cobbles' claims of a day, IX-GEMS1).
+        const player = playerId(a);
+        const p = parameters(url, [], ["limit", "before"]);
+        const limit = limitOf(p.limit);
+        const before = positionCursor(p.before);
+        return (queries, served) => queries.playerVaultClaims(served.number, player, limit, before);
       }
       if (b === "achievements" && parts.length === 5) {
         const player = playerId(a);
@@ -436,6 +444,7 @@ export type HeadInfo = {
     economy: string;
     collection: string | null;
     arena?: string;
+    vault?: string;
   };
 };
 

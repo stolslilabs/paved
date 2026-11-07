@@ -9,19 +9,20 @@ import { PILES, RARITY_END, SHOP_PARTS, UI_SHOP_PARTS, shopPartImage, shopPartSo
 import { FRIENDS_PARTS, GOLD_PILL_END, UI_FRIENDS_PARTS, friendsPartImage } from "../src/components/elements/friends-art";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES, emblemChargeMask } from "../src/components/elements/emblem-art";
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME, playArtSources, stakeArtName, stakeArtSources } from "../src/components/elements/play-art";
+import { AVATAR_ART, AVATAR_ART_FRAME, avatarArtSources } from "../src/components/elements/avatar-art";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME, vaultArtSources } from "../src/components/elements/vault-art";
 import { GUILD_EMBLEM_ICONS } from "@paved/game-core";
 import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts";
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length + AVATAR_ART.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
     const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length + 2 * AVATAR_ART.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
-    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/") && !f.startsWith("vault/"));
+    const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/") && !f.startsWith("vault/") && !f.startsWith("avatar/"));
     // GUILD-PAGE (2026-11-05): raised by exactly the measured growth over main, the copies of the guild's icons (each in line with the
     // others): 39,462 bytes for the guild's menu and a member's view (invite-player, find, leave, disband, promote, demote), 29,790
     // for the join types, the members and the new ranks (unlock, letter, members, sprout, medal), 14,600 for Post's pencil and the
@@ -71,6 +72,16 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
       width: 384,
       height: 256,
     });
+  });
+
+  it("ships the avatar editor's paintings (AVATAR-PAGE): one a trait but Headwear (the HUD's crown), and Undo, on the icons' frame, each copy light", () => {
+    // Nine traits (Headwear is the HUD's crown) and the foot's Undo.
+    expect(AVATAR_ART).toHaveLength(10);
+    expect(AVATAR_ART).not.toContain("headwear");
+    expect(AVATAR_ART).toContain("undo");
+    expect(AVATAR_ART_FRAME).toMatchObject({ width: ICON_FRAME.width, height: ICON_FRAME.height, sizes: [48, 96] });
+    for (const name of AVATAR_ART) for (const s of AVATAR_ART_FRAME.sizes) expect(statSync(join(OUT, "avatar", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 96 ? 5 * 1024 : 2 * 1024);
+    expect(avatarArtSources("beard", 36)).toEqual({ src: "/ui-art/avatar/96/beard.webp", srcSet: "/ui-art/avatar/48/beard.webp 48w, /ui-art/avatar/96/beard.webp 96w", sizes: "36px" });
   });
 
   it("ships the Vault's icons (VAULT-PAGE) apart from the HUD's: Deposit, Withdraw and the exit fee, on the icons' frame, each copy light", () => {

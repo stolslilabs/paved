@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Skeleton } from "../../components/ui/skeleton";
 import { CARVED_NOTE, FriendsPanel, type FriendsList } from "../../components/containers/friends-panel";
-import { SocialEmpty } from "../../components/containers/social-empty";
 import { useGuildBadges } from "../../data/guilds";
 import { addressKey } from "../../data/keys";
 import { useFollowActions, useFollowLists, useFollowSuggestions, type FollowLists } from "../../data/social";
@@ -62,7 +62,8 @@ export function FriendsContent() {
 
   // FRIENDS-PAGE: the drawer's carved notes, not the social pages' dashed boxes.
   if (lists.unavailable) return <p className={CARVED_NOTE}>Follows are not on this network yet.</p>;
-  if (me === null) return <SocialEmpty page="friends" className="drawer-carved border-0" />;
+  // The account still read (NO-GUEST: every player has one): the lists' loading.
+  if (me === null) return <Skeleton aria-busy className="h-40 rounded-xl" />;
   return (
     <FriendsPanel
       lists={shown}

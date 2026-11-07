@@ -46,7 +46,6 @@ export interface TilesSceneProps {
   onDismissRefusal?: () => void;
   /** A theme's shop: a skin not owned is bought there. */
   onOpenShop?: (theme: SkinThemeId) => void;
-  onConnect?: () => void;
   onRetry?: () => void;
   onBack?: () => void;
   /** Whether the drawer is shown: its route is the current one; false while it slides out. Omitted, shown (a story's route). */
@@ -83,7 +82,7 @@ function Count({ done, of }: { done: number; of: number }) {
  * the themes on sale (Active, Use, or locked with Shop), then those coming soon (Soon); then All tiles, the 19 seen from above in the skin
  * each wears, the selected one in gold. The picks are batched, then saved in one `set_skins` (Save), or dropped (Discard), as the skins were (P-61).
  */
-export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath, onPick, onSave, onDiscard, onDismissRefusal, onOpenShop, onConnect, onRetry, onBack, open, returnFocus }: TilesSceneProps) {
+export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath, onPick, onSave, onDiscard, onDismissRefusal, onOpenShop, onRetry, onBack, open, returnFocus }: TilesSceneProps) {
   const [plan, setPlan] = useState(initialPlan ?? 1);
   const reduced = useReducedMotionConfig() ?? false;
   const stage = useRef<HTMLElement>(null);
@@ -116,10 +115,7 @@ export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath,
         skinsStatus && (
           <SkinsStatusView
             status={skinsStatus}
-            guestTitle="Connect to choose your tiles"
-            guestText="The skins you own are kept on your account."
             skeleton={<TilesSkeleton />}
-            onConnect={onConnect}
             onRetry={onRetry}
           />
         )

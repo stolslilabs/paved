@@ -1,3 +1,4 @@
+import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -15,7 +16,7 @@ import { fakeSources } from "./data-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
-// The avatar creator's route (#626 PR 2) on `@paved/chain`'s fakes: the catalogue of the fresh deployment on `FakeGameViews`,
+// The avatar creator's route (#626 PR 2; AVATAR-PAGE: the HUD's drawer over the home) on `@paved/chain`'s fakes: the catalogue of the fresh deployment on `FakeGameViews`,
 // the writes on `FakeAvatarWriter` (with `Avatar`'s checks), the player restored by the wallet, through the app's query client.
 
 /** One chain (the fakes) the devices share; the player with `cobbles`. */
@@ -40,7 +41,7 @@ function open(c: ReturnType<typeof chain>, path: string, options: { guest?: bool
   return { router, wallet, ...view };
 }
 
-preloadPages("home", "welcome");
+preloadPages("home", "avatar");
 
 beforeEach(async () => {
   await import("../src/routes/pages/avatar");
@@ -61,7 +62,7 @@ describe("/avatar: the creator", () => {
     const first = open(c, "/avatar");
     await userEvent.click(await screen.findByRole("tab", { name: "Headwear" }, { timeout: 5000 }));
     // A free item: picked, Save on.
-    await userEvent.click(screen.getByRole("radio", { name: "Helmet, free" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Helmet, owned" }));
     // A priced item tried on: Save waits for it, Buy at its price.
     await userEvent.click(screen.getByRole("radio", { name: "Wizard hat, 40 Cobbles" }));
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -69,10 +70,11 @@ describe("/avatar: the creator", () => {
     expect(await screen.findByRole("radio", { name: "Wizard hat, owned" })).toBeInTheDocument();
     expect(c.views.cobblePlayer(PLAYER_ID).account.cobbles).toBe(10);
     await userEvent.click(screen.getByRole("tab", { name: "Skin tone" }));
-    await userEvent.click(screen.getByRole("radio", { name: "Brown, free" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Brown, owned" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     const look = encodeTraits({ ...KING_TRAITS, headwear: "wizard", skin: "brown" });
-    expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
+    // Saved: nothing changed since, Save is off.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeDisabled());
     // Headwear is the look's part 7, the Wizard hat its item 4.
     expect(c.writer.sent).toEqual(["buy 7 4", `set ${look}`]);
     expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(look);
@@ -91,36 +93,38 @@ describe("/avatar: the creator", () => {
     c.writer.gate = new Promise<void>((resolve) => (release = resolve));
     open(c, "/avatar");
     await userEvent.click(await screen.findByRole("tab", { name: "Hair" }, { timeout: 5000 }));
-    await userEvent.click(screen.getByRole("radio", { name: "Long, free" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Long, owned" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-busy", "true"));
     // A tap on another option while the save is on its way changes nothing, and the save stays pending.
-    const other = screen.getByRole("radio", { name: "Bald, free" });
+    const other = screen.getByRole("radio", { name: "Bald, owned" });
     expect(other).toBeDisabled();
     await userEvent.click(other);
-    expect(screen.getByRole("radio", { name: "Long, free" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Long, owned" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-busy", "true");
     release();
     const look = encodeTraits({ ...KING_TRAITS, hairStyle: "long" });
-    expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
+    // Saved: nothing changed since, Save is off.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeDisabled());
     expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(look);
     expect(c.writer.sent).toEqual([`set ${look}`]);
     // Once saved, the options can be picked again.
-    await userEvent.click(screen.getByRole("radio", { name: "Bald, free" }));
-    expect(screen.getByRole("radio", { name: "Bald, free" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("radio", { name: "Bald, owned" }));
+    expect(screen.getByRole("radio", { name: "Bald, owned" })).toHaveAttribute("aria-checked", "true");
   });
 
-  it("a player with no avatar saved can save the king as he is", async () => {
+  it("a player with no avatar saved: Save waits for a change (the owner's ask of 2026-11-07), then writes the look shown", async () => {
     const c = chain();
     open(c, "/avatar");
-    const save = await screen.findByRole("button", { name: "Save" }, { timeout: 5000 });
+    await userEvent.click(await screen.findByRole("tab", { name: "Skin tone" }, { timeout: slow(5000) }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("radio", { name: "Brown, owned" }));
+    const save = screen.getByRole("button", { name: "Save" });
     await waitFor(() => expect(save).toBeEnabled());
     await userEvent.click(save);
-    expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
-    expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(encodeTraits(KING_TRAITS));
-    expect(c.writer.sent).toEqual([`set ${encodeTraits(KING_TRAITS)}`]);
+    await waitFor(() => expect(c.views.avatarPlayer(PLAYER_ID).look).toBe(encodeTraits({ ...KING_TRAITS, skin: "brown" })));
+    expect(c.writer.sent).toEqual([`set ${encodeTraits({ ...KING_TRAITS, skin: "brown" })}`]);
   });
-
   it("Edit avatar in the profile sheet opens the creator on the saved avatar", async () => {
     const c = chain();
     c.views.avatarPlayer(PLAYER_ID).look = encodeTraits({ ...KING_TRAITS, hairStyle: "long" });
@@ -131,18 +135,49 @@ describe("/avatar: the creator", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: /Edit avatar/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/avatar"));
     await userEvent.click(await screen.findByRole("tab", { name: "Hair" }, { timeout: 5000 }));
-    expect(screen.getByRole("radio", { name: "Long, free" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Long, owned" })).toHaveAttribute("aria-checked", "true");
   });
 
-  it("a returning guest connects from the creator, and stays on it", async () => {
+  it("the editor is the HUD's drawer over the village (AVATAR-PAGE): Back returns to the Profile, the red cross to the village", async () => {
     const c = chain();
-    const { router, wallet } = open(c, "/avatar", { guest: true });
-    // The creator's own Connect (the balances' strip has one too).
-    const notice = (await screen.findByText("Connect to make your avatar", {}, { timeout: 5000 })).closest<HTMLElement>("[role=status]")!;
-    await userEvent.click(within(notice).getByRole("button", { name: "Connect" }));
-    expect(wallet.calls).toContain("connect");
-    // Connected: the creator opens on the chain's catalogue, on the same page.
-    expect(await screen.findByRole("tab", { name: "Skin tone" }, { timeout: 5000 })).toBeInTheDocument();
+    const { router } = open(c, "/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
+    const profile = async () => screen.findByRole("dialog", { name: "Profile" }, { timeout: slow(5000) });
+    await userEvent.click((await screen.findAllByRole("button", { name: /^Profile: / }, { timeout: slow(5000) }))[0]!);
+    await userEvent.click(within(await profile()).getByRole("button", { name: /Edit avatar/ }));
+    const drawer = await screen.findByRole("dialog", { name: "Avatar" }, { timeout: slow(5000) });
+    expect(router.state.location.pathname).toBe("/avatar");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "avatar");
+    // The village stays mounted under it; the Profile closed (never a sheet over a sheet).
+    expect(screen.getByRole("navigation", { name: "Village", hidden: true })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Profile" })).toBeNull(), { timeout: slow(5000) });
+    // Back: the Profile again, over the village.
+    await userEvent.click(within(drawer).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await userEvent.click(within(await profile()).getByRole("button", { name: /Edit avatar/ }));
+    // The red cross: the village, no Profile.
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Avatar" }, { timeout: slow(5000) })).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+  });
+
+  it("the category is the URL's: a link opens it, a tab replaces it", async () => {
+    const c = chain();
+    const { router } = open(c, "/avatar?part=beard");
+    expect(await screen.findByRole("radiogroup", { name: "Beard" }, { timeout: slow(5000) })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Eyes" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?part=eyes"));
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("no Connect (every player has an account): while the account is restored, the editor shows its loading", async () => {
+    const c = chain();
+    const { router } = open(c, "/avatar", { guest: true });
+    const drawer = await screen.findByRole("dialog", { name: "Avatar" }, { timeout: slow(5000) });
+    // The editor's own body (the header's balances are the shell's, not this page's).
+    const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(within(body).getByRole("status", { name: "Loading" })).toBeInTheDocument();
+    expect(within(body).queryByRole("button", { name: "Connect" })).toBeNull();
     expect(router.state.location.pathname).toBe("/avatar");
   });
 

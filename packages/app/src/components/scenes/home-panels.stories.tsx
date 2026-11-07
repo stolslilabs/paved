@@ -61,7 +61,6 @@ const PROFILE_VALUE = {
   follows: { followers: 12, followed: 9 },
   hallOfFame: HALL_OF_FAME,
   records: RECORDS,
-  onConnect: fn(),
   onCopy: fn(async () => {}),
   onEditName: fn(),
   onEditAvatar: fn(),

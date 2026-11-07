@@ -123,8 +123,9 @@ function useShopTiles(onGetCobbles: () => void): ShopTilesProps {
   const failed = read.error ?? account.error ?? null;
   const waiting = data === undefined || account.data === undefined;
   const status: SkinsStatus | null =
+    // No guest (NO-GUEST): until the account is read, the shop loads.
     me === null
-      ? { kind: "guest" }
+      ? { kind: "loading" }
       : data === null
         ? { kind: "error", message: "The tile shop is not on this network yet." }
         : failed
@@ -145,7 +146,6 @@ function useShopTiles(onGetCobbles: () => void): ShopTilesProps {
     refusal: writes.error ? refusalText(writes.error) : null,
     refusalDetail: writes.error ? errorDetail(writes.error) : undefined,
     renders,
-    onConnect: () => void wallet.connect(),
     onRetry: () => {
       void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all });
       void client.invalidateQueries({ queryKey: cobbleKeys.all });
@@ -202,7 +202,6 @@ function useShopThemes(onGetCobbles: () => void, onOpenTheme: (theme: SkinThemeI
       );
     },
     onGetCobbles,
-    onConnect: () => void wallet.connect(),
     onRetry: () => {
       void client.invalidateQueries({ queryKey: skinKeys.all });
       void client.invalidateQueries({ queryKey: cobbleKeys.all });

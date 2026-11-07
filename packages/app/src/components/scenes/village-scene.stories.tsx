@@ -57,8 +57,6 @@ export const Refused: Story = { args: VILLAGE.refused };
 export const RewardFailed: Story = { args: VILLAGE.rewardFailed };
 /** The village on its way from the chain. */
 export const Loading: Story = { args: VILLAGE.loading };
-/** A guest: Connect to build a village. */
-export const Guest: Story = { args: VILLAGE.guest };
 /** A network without the village's contracts yet. */
 export const Unavailable: Story = { args: VILLAGE.unavailable };
 /** Someone else's village from their profile: read-only, their score and level. */

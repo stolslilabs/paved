@@ -37,8 +37,8 @@ const withFollow = (search: PlayerSearchProps): PlayerSearchProps => ({
   },
 });
 
-/** A guest: the search, and the empty state. */
-export const Guest: Story = {};
+/** The search, and the empty state. */
+export const Empty: Story = {};
 /** The Friends tab (the book's "friends"): friends online and offline, online or when last seen at each row's end; two new followers on the Followers tab's badge. */
 export const Friends: Story = { args: { children: panel(FRIENDS_TAB.friends) } };
 /** The Following tab: Following at each row's end, which unfollows once confirmed. */

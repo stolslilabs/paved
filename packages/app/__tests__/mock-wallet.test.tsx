@@ -172,7 +172,7 @@ describe("MockLedger.forget (#927)", () => {
   });
 });
 
-preloadPages("home", "welcome", "settings");
+preloadPages("home", "settings");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/home"), import("../src/routes/home-stage")]);
 }, slow(60_000));
@@ -190,7 +190,7 @@ afterEach(() => {
 const WAIT = { timeout: slow(8000) };
 
 describe("the mock's wallet in the app (#927)", () => {
-  it("Connect on the welcome, a reload keeps the account, and Settings' Reset starts a new one", async () => {
+  it("a first visit makes the account at start (NO-GUEST, no welcome), a reload keeps it, and Settings' Reset starts a new one", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ quality: "low" }));
     const s = mockImplementation();
     const storage = memoryStorage();
@@ -203,10 +203,10 @@ describe("the mock's wallet in the app (#927)", () => {
       return router;
     };
 
-    let router = visit("/");
-    await waitFor(() => expect(router.state.location.pathname).toBe("/welcome"), WAIT);
-    await userEvent.click(await screen.findByRole("button", { name: "Connect" }, WAIT));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"), WAIT);
+    const router = visit("/");
+    // The key and its account made at once, no prompt; the village is the first screen.
+    await waitFor(() => expect(storage.items.get(DEVICE_KEY)).toBeDefined(), WAIT);
+    expect(router.state.location.pathname).toBe("/");
     const first = localKey(storage.items.get(DEVICE_KEY)!).address;
     const name = (await s.ledger.name(first))!;
     expect(await screen.findByRole("button", { name: new RegExp(`^Profile: ${name}`) }, WAIT)).toBeInTheDocument();

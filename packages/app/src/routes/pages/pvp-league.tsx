@@ -41,7 +41,8 @@ export default function Page() {
   const matches = useMatches(me);
   const client = useQueryClient();
   const frame = { now, onBack, open: drawer?.open ?? true, returnFocus: drawer?.returnFocus, crowns: 0, season: null };
-  if (me === null) return <PvpLeagueScene {...frame} wait={{ kind: "connect", onConnect: () => void wallet.connect() }} />;
+  // No guest (NO-GUEST): until the account is in, the league loads.
+  if (me === null) return <PvpLeagueScene {...frame} wait={{ kind: "loading" }} />;
   if (status.data === null) return <PvpLeagueScene {...frame} wait={{ kind: "unavailable" }} />;
   const error = status.error ?? span.error;
   if (!league || span.data === undefined) {

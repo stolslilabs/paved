@@ -2,40 +2,24 @@ import type { ReactNode } from "react";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
-import { Notice } from "../elements/notice";
 
-/** Why the skins are not shown: a guest (Connect), the reads on their way, or a failed read (Retry). */
-export type SkinsStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string; detail?: ErrorDetail };
+/**
+ * Why the skins are not shown: the reads on their way (the account's too: every player has one, NO-GUEST, the owner's ruling of
+ * 2026-11-07, so none is asked to connect), or a failed read (Retry).
+ */
+export type SkinsStatus = { kind: "loading" } | { kind: "error"; message: string; detail?: ErrorDetail };
 
 export interface SkinsStatusViewProps {
   status: SkinsStatus;
-  /** What a guest is asked to connect for. */
-  guestTitle: string;
-  guestText: ReactNode;
   /** The heading of a failed read. */
   errorTitle?: string;
   /** The placeholder while loading; a row of tiles by default. */
   skeleton?: ReactNode;
-  onConnect?: () => void;
   onRetry?: () => void;
 }
 
-/** The skins' place for a guest (Connect), while they load, or after a failed read (Retry): shared by the three skin pages. */
-export function SkinsStatusView({ status, guestTitle, guestText, errorTitle = "The skins could not be read", skeleton, onConnect, onRetry }: SkinsStatusViewProps) {
-  if (status.kind === "guest") {
-    return (
-      <Notice
-        title={guestTitle}
-        action={
-          <Button size="sm" onClick={onConnect}>
-            Connect
-          </Button>
-        }
-      >
-        {guestText}
-      </Notice>
-    );
-  }
+/** The skins' place while they load, or after a failed read (Retry): shared by the skin pages. */
+export function SkinsStatusView({ status, errorTitle = "The skins could not be read", skeleton, onRetry }: SkinsStatusViewProps) {
   if (status.kind === "error") {
     return (
       <InlineError

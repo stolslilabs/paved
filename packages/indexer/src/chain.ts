@@ -10,7 +10,7 @@
 // Nothing a node or a transport says is logged as it is: an RPC error is its method and code, a transport error its
 // method and error code (a provider's text, or undici's, may hold the URL and its key).
 import { createHash } from "node:crypto";
-import { canonical, SOURCES, type Source } from "./events.ts";
+import { canonical, FILTERED, SELECTORS, SOURCES, type Source } from "./events.ts";
 import { RATE_LIMITED, RateLimited, Throttle, retryAfterMs } from "./throttle.ts";
 
 /** A JSON-RPC transport: the method's result, or an RpcError. */
@@ -157,13 +157,25 @@ type EventsPage = {
   continuation_token?: string;
 };
 
+/** The sources a deployment may lack. */
+type Optional = "collection" | "arena" | "vault";
+
 /**
  * `collection` is optional: without it its mints are not read (a deployment before E5b). So is `arena` (#643): without it no
- * attack is read.
+ * attack is read; and `vault` (D-31): without it no claim of the Vault's USDC is read.
  */
-export type Addresses = Record<Exclude<Source, "collection" | "arena">, string> & { collection?: string | undefined; arena?: string | undefined };
+export type Addresses = Record<Exclude<Source, Optional>, string> & { [S in Optional]?: string | undefined };
 
-type Resolved = Record<Exclude<Source, "collection" | "arena">, string> & { collection: string | undefined; arena: string | undefined };
+type Resolved = Record<Exclude<Source, Optional>, string> & { [S in Optional]: string | undefined };
+
+/**
+ * The `keys` filter of a source's `starknet_getEvents` (`FILTERED`): one list, the alternatives of the first key (the
+ * selector), canonical; undefined for a source whose every event is read.
+ */
+export function keysOf(source: Source): string[][] | undefined {
+  const names = FILTERED[source];
+  return names === undefined ? undefined : [names.map((name) => SELECTORS[name])];
+}
 
 /** Events asked per page of `starknet_getEvents`. */
 export const CHUNK_SIZE = 100;
@@ -203,7 +215,19 @@ export class Chain {
       economy: canonical(addresses.economy),
       collection: addresses.collection === undefined ? undefined : canonical(addresses.collection),
       arena: addresses.arena === undefined ? undefined : canonical(addresses.arena),
+      vault: addresses.vault === undefined ? undefined : canonical(addresses.vault),
     };
+  }
+
+  /**
+   * An event of `source` whose selector its filter did not ask for (`keysOf`): a node that does not honour `keys` would
+   * pass the Vault's other events to the decoder.
+   */
+  private static unasked(source: Source, keys: readonly string[] | undefined): boolean {
+    const asked = keysOf(source)?.[0];
+    if (asked === undefined) return false;
+    const first = keys?.[0];
+    return first === undefined || !/^0x[0-9a-fA-F]{1,64}$/.test(first) || !asked.includes(canonical(first));
   }
 
   private call(method: string, params: unknown): Promise<unknown> {
@@ -299,15 +323,17 @@ export class Chain {
   }
 
   /**
-   * The events of the four contracts in `block`, fetched by the block's hash, in block order (transaction index, then
-   * event index within the transaction). An event reported for another block (hash or number), of another contract, or
-   * without its position, is a BadAnswer.
+   * The events of the contracts in `block`, fetched by the block's hash, in block order (transaction index, then
+   * event index within the transaction); of a source with a `keys` filter (`keysOf`: the Vault), only the events asked. An
+   * event reported for another block (hash or number), of another contract, of a selector not asked, or without its
+   * position, is a BadAnswer.
    */
   async events(block: Header): Promise<RawEvent[]> {
     const events: RawEvent[] = [];
     for (const source of SOURCES) {
       const address = this.addresses[source];
       if (address === undefined) continue;
+      const keys = keysOf(source);
       let token: string | undefined;
       do {
         const page = (await this.call("starknet_getEvents", {
@@ -315,6 +341,7 @@ export class Chain {
             from_block: { block_hash: block.hash },
             to_block: { block_hash: block.hash },
             address,
+            ...(keys ? { keys } : {}),
             chunk_size: CHUNK_SIZE,
             ...(token ? { continuation_token: token } : {}),
           },
@@ -333,6 +360,9 @@ export class Chain {
             throw new BadAnswer(
               `an event of another contract in the answer for ${source}`,
             );
+          }
+          if (Chain.unasked(source, event.keys)) {
+            throw new BadAnswer(`an event of a selector not asked in the answer for ${source}`);
           }
           if (
             event.transaction_index === undefined ||
@@ -370,12 +400,12 @@ export class Chain {
   rangeChunkCeiling = RANGE_CHUNK_SIZE;
 
   /**
-   * The events of the four contracts in blocks `from` to `to` (by number), one filter per contract followed through its
+   * The events of the contracts in blocks `from` to `to` (by number), one filter per contract (with its `keys`, `keysOf`) followed through its
    * continuation tokens (a node may answer an empty page with a token: it bounds its own scan), merged in chain order:
    * block, then transaction index, then event index, the order `events` gives within a block. For final blocks only: a
    * number names one block there. A page size the node refuses (code 31, or a text that says so: RpcError.pageSizeTooBig)
-   * is halved and the read starts again; any other refusal is thrown (the caller halves the range, then the page). An event outside the range, of another contract, without its block
-   * hash or without its position, is a BadAnswer.
+   * is halved and the read starts again; any other refusal is thrown (the caller halves the range, then the page). An event outside the range, of another contract, of a selector not
+   * asked, without its block hash or without its position, is a BadAnswer.
    */
   async rangeEvents(from: number, to: number): Promise<RangedEvent[]> {
     for (;;) {
@@ -394,6 +424,7 @@ export class Chain {
     for (const source of SOURCES) {
       const address = this.addresses[source];
       if (address === undefined) continue;
+      const keys = keysOf(source);
       let token: string | undefined;
       do {
         const page = (await this.call("starknet_getEvents", {
@@ -401,6 +432,7 @@ export class Chain {
             from_block: { block_number: from },
             to_block: { block_number: to },
             address,
+            ...(keys ? { keys } : {}),
             chunk_size: this.rangeChunkSize,
             ...(token ? { continuation_token: token } : {}),
           },
@@ -412,6 +444,9 @@ export class Chain {
           }
           if (canonical(event.from_address) !== address) {
             throw new BadAnswer(`an event of another contract in the answer for ${source}`);
+          }
+          if (Chain.unasked(source, event.keys)) {
+            throw new BadAnswer(`an event of a selector not asked in the answer for ${source}`);
           }
           if (event.transaction_index === undefined || event.event_index === undefined) {
             throw new BadAnswer("an event without its position (JSON-RPC 0.10 is needed)");

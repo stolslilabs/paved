@@ -74,10 +74,11 @@ afterEach(() => {
 });
 
 describe("the route map (#762)", () => {
-  it("puts the overlay's pages and the pages reached from them in the panel; the games, the purchase, the avatar and the visits stay full screen", () => {
+  it("puts the overlay's pages and the pages reached from them in the panel; the games, the purchase and the visits stay full screen", () => {
     expect(PAGES.filter((p) => p.panel).map((p) => p.path)).toEqual([
       "play",
       "play/challenge",
+      "avatar",
       "village/shop",
       "pvp/league",
       "story",
@@ -100,10 +101,12 @@ describe("the route map (#762)", () => {
     // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, VAULT-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE, SETTINGS-PAGE, PLAY-PAGE: the League,
     // Missions, Tiles, the Vault, the Chat, the Guild, Friends, Settings (its Themes and Credits) and Play are the HUD's drawer over the
     // home at every width, never the side panel; children of the home's route. Play's stake is a view of its drawer, Story's campaigns
-    // a sheet over it (the drawer kept under the sheet).
+    // a sheet over it (the drawer kept under the sheet). AVATAR-PAGE: the avatar editor too, docked at the left as the Profile that
+    // opens it.
     expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual([
       "play",
       "play/challenge",
+      "avatar",
       "village/shop",
       "pvp/league",
       "story",
@@ -261,6 +264,9 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     // From `tablet` the drawer is a side panel (`hud-drawer.tsx`'s query): every width query matches here.
     wide();
     const router = open("/");
+    // NO-GUEST: the wallet makes the account as the app opens, and the home's overlays draw again with it; its village's score says
+    // it is in, so the tap lands on the control that stays.
+    await waitFor(() => expect(document.querySelector("[data-slot=village-score]")).not.toBeNull(), { timeout: slow(5000) });
     await userEvent.click(await screen.findByRole("button", { name: /^League: / }, { timeout: slow(5000) }));
     const drawer = await panel("League");
     expect(router.state.location.pathname).toBe("/pvp/league");

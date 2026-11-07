@@ -36,7 +36,7 @@ export function ago(seconds: number): string {
 }
 
 export interface ReferralSceneProps {
-  /** The player's link (`<origin>/?ref=<address>`); null for a guest. */
+  /** The player's link (`<origin>/?ref=<address>`); null while the account is read (NO-GUEST: every player has one). */
   link: string | null;
   /** Just copied. */
   copied?: boolean;
@@ -54,7 +54,6 @@ export interface ReferralSceneProps {
   /** The system's share sheet; left out where the browser has none (then only Copy). */
   onShare?: (link: string) => void;
   onRetry?: () => void;
-  onConnect?: () => void;
   onBack?: () => void;
 }
 
@@ -102,9 +101,8 @@ export function ReferralScene(props: ReferralSceneProps) {
                 )}
               </>
             ) : (
-              <Notice title="Connect to get your link" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
-                The link carries your address: it needs an account.
-              </Notice>
+              // The account still being read: the link's field waits in its place.
+              <Skeleton className="h-11 w-full rounded-lg" />
             )}
           </section>
 

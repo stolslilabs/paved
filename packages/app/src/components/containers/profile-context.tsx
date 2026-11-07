@@ -6,11 +6,22 @@ import { shortAddress } from "../elements/short-address";
 import type { ProfileSheetProps, ProfileState } from "./profile-sheet";
 
 /** What the shell hands the menu screens' headers: who is connected and what the sheet's actions do. Absent (stories, tests): no avatar is drawn. */
-export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus">;
+export type ProfileValue = Omit<ProfileSheetProps, "open" | "onOpenChange" | "returnFocus"> & {
+  /**
+   * AVATAR-PAGE: the profile asked open again, counted (a page it opened went Back to it: the avatar editor). Each new count opens the
+   * sheet; 0 or omitted, none asked.
+   */
+  opening?: number;
+  /** AVATAR-PAGE: asks the profile open again once the village is shown (the avatar editor's Back, before its drawer closes). */
+  reopen?: () => void;
+};
 
 /** The shell's profile, or null (stories, tests, the boards): also what `/player/:id` opens for the connected player's own ID (#952). */
 export const ProfileContext = createContext<ProfileValue | null>(null);
 export const ProfileProvider = ProfileContext.Provider;
+
+/** The Back of a page the profile opened (AVATAR-PAGE: the avatar editor): asks the profile open again; null outside the shell. */
+export const useBackToProfile = (): (() => void) | null => useContext(ProfileContext)?.reopen ?? null;
 
 /** The profile sheet in its own chunk (#624): fetched on the first tap (or when the pointer comes near), not with the page. */
 const loadSheet = () => import("./profile-sheet");
@@ -28,20 +39,17 @@ function shownAvatar(opener: HTMLElement | null): HTMLElement | null {
   return [...document.querySelectorAll<HTMLElement>("[data-slot=profile-avatar]")].find(shown) ?? opener;
 }
 
-/** Who the avatar draws: the connected player, else null (a guest's silhouette, or the loading placeholder). */
+/** Who the avatar draws: the connected player, else null (the loading placeholder while the account is read). */
 export const avatarPlayer = (state: ProfileState) => (state.status === "connected" ? { name: state.data.player.name, address: state.data.player.playerId } : null);
 
-/** The name a header shows: the player's, their short address without one, "Guest", or nothing while the wallet looks. */
-export const profileName = (state: ProfileState) =>
-  state.status === "connected" ? (state.data.player.name ?? shortAddress(state.data.player.playerId)) : state.status === "guest" ? "Guest" : "";
+/** The name a header shows: the player's, their short address without one, or nothing while the account is read. */
+export const profileName = (state: ProfileState) => (state.status === "connected" ? (state.data.player.name ?? shortAddress(state.data.player.playerId)) : "");
 
 /** The avatar's accessible name: "Profile: bal7hazar, level 3". */
 export const profileLabel = (state: ProfileState, progress: ProfileValue["progress"]) =>
   state.status === "connected"
     ? `Profile: ${state.data.player.name ?? shortAddress(state.data.player.playerId)}${progress ? `, level ${formatPoints(progress.level)}` : ""}`
-    : state.status === "guest"
-      ? "Profile: guest"
-      : "Profile";
+    : "Profile";
 
 /** The avatar's control and the sheet it opens: what `ProfileSlot` and the home's `PlayerBadge` (#787) share. */
 export interface ProfileOpener {
@@ -68,6 +76,16 @@ export function useProfileOpener(): ProfileOpener {
   const [opened, setOpened] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   const returnFocus = useCallback(() => shownAvatar(opener.current), []);
+  // Asked open again (a page the profile opened went Back to it): each new count opens it.
+  const asked = value?.opening ?? 0;
+  const [answered, setAnswered] = useState(asked);
+  if (asked !== answered) {
+    setAnswered(asked);
+    if (asked > 0) {
+      setOpened(true);
+      setOpen(true);
+    }
+  }
   // The focus back on the avatar as the sheet closes (the trap lets go at once; the panel leaves after its slide).
   const change = useCallback((next: boolean) => {
     setOpen(next);

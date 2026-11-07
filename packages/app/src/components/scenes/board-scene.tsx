@@ -159,7 +159,7 @@ export interface BoardSceneProps {
   onRestart?: () => void;
   /** The board of a game the viewer cannot play (no account, another player's game): the stack shows its tiles, nothing to play (#701). */
   readOnly?: boolean;
-  /** Lines under the header: "Connect to play", the dev-only prediction notice, a Story level's intro, tip and end. */
+  /** Lines under the header: another player's game, the dev-only prediction notice, a Story level's intro, tip and end. */
   notices?: ReactNode;
   /** Opens the Surrender dialog when it turns true: an expired Challenge game closes only by a surrender (P5). */
   promptSurrender?: boolean;

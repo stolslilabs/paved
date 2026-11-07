@@ -48,8 +48,9 @@ export default function Village({ player }: { player: string | null }) {
   const failed = read.error ?? null;
   const waiting = read.data === undefined;
   const status: VillageStatus | null =
+    // No guest (NO-GUEST): until the account is read, the village loads.
     own && me === null
-      ? { kind: "guest" }
+      ? { kind: "loading" }
       : failed && waiting
         ? { kind: "error", message: failed.message, detail: errorDetail(failed) }
         : waiting
@@ -85,7 +86,6 @@ export default function Village({ player }: { player: string | null }) {
       refusalDetail={writes.error ? errorDetail(writes.error) : undefined}
       tileArt={tileArt}
       onBack={onBack}
-      onConnect={() => void wallet.connect()}
       onRetry={() => {
         // Every read the screen joins: the village's, the Cobbles', and the owner's level (`useVillage`).
         void client.invalidateQueries({ queryKey: villageKeys.all });

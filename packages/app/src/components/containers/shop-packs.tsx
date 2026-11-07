@@ -9,7 +9,7 @@ import { TokenIcon } from "../elements/token-icon";
 import { Button } from "../ui/button";
 import { formatUsd, packsOnSale } from "./cobble-packs";
 import type { Pack } from "./cobble-types";
-import { BalanceNotice, ConnectButton, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "./purchase-notices";
+import { BalanceNotice, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "./purchase-notices";
 import { PriceButton, ShopCard, ShopGrid, cellRule } from "./shop-card";
 import { formatBps } from "./split-bar";
 
@@ -61,12 +61,11 @@ export interface ShopPacksProps {
   referrer: string | null;
   /** The link's `?ref=` is one the contracts would not pay: it is dropped, and the tab says so. */
   referrerDropped?: boolean;
-  /** A wallet is connected; a guest's Pay is "Connect to buy". Connected when omitted (the stories). */
+  /** The account is in (NO-GUEST: every player has one); until then Pay waits, off. In when omitted (the stories). */
   connected?: boolean;
   cobbles: CobbleShop;
   onSelectPack?: (packId: number) => void;
   onBuyPack?: () => void;
-  onConnect?: () => void;
   /** Read the split and the packs again after `unavailable`. */
   onRetryEconomy?: () => void;
   onRetryBalance?: () => void;
@@ -97,7 +96,7 @@ function CobblePile({ rank }: { rank: number }) {
  * the flow of #621 unchanged. Its USDC takes a game's split, said under it.
  */
 export function ShopPacks(props: ShopPacksProps) {
-  const { cobbles, balance, referrer, split, connected = true, onSelectPack, onBuyPack, onConnect } = props;
+  const { cobbles, balance, referrer, split, connected = true, onSelectPack, onBuyPack } = props;
   if (props.unavailable || !split)
     return props.unavailable ? (
       <InlineError
@@ -185,35 +184,31 @@ export function ShopPacks(props: ShopPacksProps) {
           <Cobbles value={bought.cobbles} size="sm" /> added: your balance is <Cobbles value={cobbles.balance} size="sm" />.
         </Notice>
       )}
-      {!connected ? (
-        <ConnectButton onConnect={onConnect} />
-      ) : (
-        <Button
-          size="lg"
-          className="h-14 text-base"
-          onClick={onBuyPack}
-          disabled={!pack || short || cobbles.quoting || balance === null || cobbles.checking || cobbles.checkFailed || cobbles.checkUnresolved}
-          loading={cobbles.buying}
-        >
-          {cobbles.buying ? (
-            "Confirm in your wallet…"
-          ) : !pack ? (
-            "Pick a pack"
-          ) : cobbles.checking ? (
-            "Checking your Cobbles…"
-          ) : cobbles.checkFailed ? (
-            "Could not check your Cobbles"
-          ) : cobbles.checkUnresolved ? (
-            "Check your Cobbles first"
-          ) : label ? (
-            label
-          ) : (
-            <>
-              Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.cobbles} className="text-primary-foreground" />
-            </>
-          )}
-        </Button>
-      )}
+      <Button
+        size="lg"
+        className="h-14 text-base"
+        onClick={onBuyPack}
+        disabled={!connected || !pack || short || cobbles.quoting || balance === null || cobbles.checking || cobbles.checkFailed || cobbles.checkUnresolved}
+        loading={cobbles.buying}
+      >
+        {cobbles.buying ? (
+          "Confirm in your wallet…"
+        ) : !pack ? (
+          "Pick a pack"
+        ) : cobbles.checking ? (
+          "Checking your Cobbles…"
+        ) : cobbles.checkFailed ? (
+          "Could not check your Cobbles"
+        ) : cobbles.checkUnresolved ? (
+          "Check your Cobbles first"
+        ) : label ? (
+          label
+        ) : (
+          <>
+            Pay <span className="numeric">{formatUsd(pack.price)}</span> for <Cobbles value={pack.cobbles} className="text-primary-foreground" />
+          </>
+        )}
+      </Button>
     </>
   );
 }

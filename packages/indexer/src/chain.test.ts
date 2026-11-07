@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { BadAnswer, CHUNK_SIZE, Chain, RpcError, httpRpc, parseRpcUrl, redact, sameBlock } from "./chain.ts";
 import { RateLimited, retryAfterMs } from "./throttle.ts";
-import { COLLECTION, ECONOMY, CHALLENGE, FakeNode, SETUP, ev } from "./testing/fake-node.ts";
+import { SELECTORS } from "./events.ts";
+import { COLLECTION, ECONOMY, CHALLENGE, FakeNode, SETUP, VAULT, ev } from "./testing/fake-node.ts";
 
 const chainOf = (node: FakeNode) => new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, collection: COLLECTION });
 
@@ -87,6 +88,58 @@ describe("the reader", () => {
     await expect(chain.events(block)).rejects.toBeInstanceOf(BadAnswer);
     tamper((event) => delete event.event_index);
     await expect(chain.events(block)).rejects.toBeInstanceOf(BadAnswer);
+  });
+
+  test("the Vault's filter asks for its claims only (D-31); the other sources' filters carry no keys", async () => {
+    const node = new FakeNode();
+    // One transaction of a claim among the Vault's other events, as `claim` and a purchase write them; then a collect.
+    node.mine(
+      [ev.vaultPaid(0xe, 600_000n), ev.vaultTransfer(0xa1, 0xb2, 10n ** 18n), ev.vaultClaimed(0xa1, 1_500_000n)],
+      [ev.spawned("challenge", 1, 0xa1), ev.minted(0xa1, 1), ev.vaultCollected(0xc3, 0x0e, 250_000n)],
+    );
+    const filters: { address: string; keys?: string[][]; from_block: unknown }[] = [];
+    node.beforeCall = (method, params) => {
+      if (method === "starknet_getEvents") filters.push((params as { filter: (typeof filters)[number] }).filter);
+    };
+    const chain = new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, collection: COLLECTION, vault: VAULT });
+    const vaultOf = (events: { source: string; keys: string[]; transactionIndex: number; eventIndex: number }[]) =>
+      events.filter((e) => e.source === "vault").map((e) => [e.keys[0], e.transactionIndex, e.eventIndex]);
+    // The positions are the node's: the events the filter left out still count in the transaction.
+    const expected = [
+      [SELECTORS.Claimed, 0, 2],
+      [SELECTORS.Collected, 1, 2],
+    ];
+    const events = await chain.events((await chain.header(1))!);
+    expect(vaultOf(events)).toEqual(expected);
+    // Collection's mint keeps its own Transfer: the Vault's never reaches the decoder.
+    expect(events.filter((e) => e.source === "collection")).toHaveLength(1);
+    const ranged = await chain.rangeEvents(1, 1);
+    expect(vaultOf(ranged)).toEqual(expected);
+    for (const filter of filters) {
+      if (BigInt(filter.address) === BigInt(VAULT)) expect(filter.keys).toEqual([[SELECTORS.Claimed, SELECTORS.Collected]]);
+      else expect(filter, filter.address).not.toHaveProperty("keys");
+    }
+    expect(filters.filter((f) => BigInt(f.address) === BigInt(VAULT))).toHaveLength(2);
+    expect(filters).toHaveLength(2 * 5);
+  });
+
+  test("a node that does not honour the Vault's keys is a BadAnswer", async () => {
+    const node = new FakeNode();
+    node.mine([ev.vaultClaimed(0xa1, 1n)]);
+    const chain = new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, vault: VAULT });
+    const block = (await chain.header(1))!;
+    // The node answers the Vault's other events too (here a `Paid`), or one with no key at all.
+    for (const keys of [[ev.vaultPaid(1, 1n).keys[0]!, "0x1"], [ev.vaultTransfer(1, 2, 1n).keys[0]!, "0x1", "0x2"], []]) {
+      node.tamper = (method, params, result) => {
+        const filter = (params as { filter: { address: string } }).filter;
+        if (method !== "starknet_getEvents" || BigInt(filter.address) !== BigInt(VAULT)) return result;
+        const page = structuredClone(result) as { events: Record<string, unknown>[] };
+        page.events.push({ ...page.events[0], event_index: 1, keys });
+        return page;
+      };
+      await expect(chain.events(block)).rejects.toThrow(/selector not asked in the answer for vault/);
+      await expect(chain.rangeEvents(1, 1)).rejects.toBeInstanceOf(BadAnswer);
+    }
   });
 
   test("two blocks of one hash differ by their commitments", async () => {

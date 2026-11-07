@@ -17,8 +17,8 @@ const ChallengeStake = lazy(loadStake);
 /**
  * `/play` and `/play/challenge` (PLAY-PAGE, the Paved UX Book's "modes" and "challenge", then the owner's asks of 2026-11-06): one page,
  * the HUD's drawer over the home (`PageDef.drawer`, `home-hosts.tsx`), its two paths one component (`page-loaders.ts`), so the drawer
- * stays as the stake opens and closes. The modes (P6): Attack opens the PvP flow (`/pvp`), a guest's tap connecting first; the Challenge
- * is bought on its stake (P7b, `./purchase`) once a wallet is connected, a guest's tap connects first; `spawn_paused` disables it. The
+ * stays as the stake opens and closes. The modes (P6): Attack opens the PvP flow (`/pvp`); the Challenge is bought on its stake (P7b,
+ * `./purchase`); no Connect (NO-GUEST: every player has an account); `spawn_paused` disables the Challenge. The
  * player's newest Challenge game still open (`useActiveGame`, the home's) shows its time left and its score, Resume opening its board.
  * Training and Story need no wallet (Story a sheet over this page). Free Challenge (a free game from the missions' credits) left with
  * the owner's ask of 2026-11-06. An unread pause counts as not paused: the stake reads it again. Play's close goes back along the pages
@@ -47,7 +47,6 @@ export default function Page() {
       <PlayScene
         open={drawer?.open ?? true}
         returnFocus={drawer?.returnFocus}
-        connected={wallet.address !== null}
         spawnPaused={paused.data ?? false}
         running={running}
         now={now}
@@ -65,7 +64,6 @@ export default function Page() {
         onTraining={() => go("/training")}
         onStory={() => go("/story")}
         onAttack={() => go("/pvp")}
-        onConnect={() => void wallet.connect()}
       />
     </div>
   );

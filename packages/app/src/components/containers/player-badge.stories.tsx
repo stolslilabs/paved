@@ -17,7 +17,6 @@ const value = (state: ProfileState, progress: PlayerProgress | undefined, look: 
   state,
   progress,
   look,
-  onConnect: fn(),
   hallOfFame: HALL_OF_FAME,
   records: RECORDS,
   onCopy: fn(async () => {}),
@@ -159,8 +158,6 @@ export const Leagues: Story = {
 export const ReadingXp: Story = { parameters: profile(PROFILE.connected, undefined) };
 /** WRAP360: a four-digit level (past 99: "99+", never at the cap of 20) and a name past the limit (its whole text in the title). */
 export const Stress: Story = { parameters: profile(PROFILE.stress, PROGRESS.stress) };
-/** No wallet: the silhouette, "Guest", no bar. */
-export const Guest: Story = { parameters: profile(PROFILE.guest) };
 /** The wallet still looking for a session: the avatar's placeholder, no name. */
 export const Loading: Story = { parameters: profile(PROFILE.loading) };
 /** XP gained: the bar fills to its new share, a "+N XP" rises over its end. */

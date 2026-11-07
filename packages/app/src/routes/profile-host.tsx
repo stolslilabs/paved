@@ -1,4 +1,5 @@
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useLocation } from "react-router";
 import { ProfileProvider } from "../components/containers/profile-context";
 import type { ProfileState } from "../components/containers/profile-sheet";
 import { savedLook, useAvatar } from "../data/avatar";
@@ -24,9 +25,21 @@ export function ProfileHost({ children }: { children: ReactNode }) {
   // The avatar the player saved on chain (#626): the same on every device. Drawn as a cached still, never a live canvas.
   const look = savedLook(useAvatar(address).data);
   const go = useAppNavigate();
+  // AVATAR-PAGE: asked open again by the editor's Back; opened once the village is the page (`/`), not over a drawer still sliding
+  // out. A player's link (`?player=`, the own profile opened by a link) opens it itself. The path, not the route's page: the route map's
+  // reader is a chunk of its own, and the first load would split around it.
+  const { pathname, search } = useLocation();
+  const [asked, setAsked] = useState(false);
+  const [opening, setOpening] = useState(0);
+  if (asked && pathname === "/") {
+    setAsked(false);
+    if (!new URLSearchParams(search).has("player")) setOpening(opening + 1);
+  }
+  const reopen = useCallback(() => setAsked(true), []);
   const state = useMemo<ProfileState>(() => {
     if (wallet.status === "restoring") return { status: "loading" };
-    if (!address) return { status: "guest", connecting: wallet.status === "connecting" };
+    // No guest (NO-GUEST): until the account is in (read, or made on a new device), the profile loads.
+    if (!address) return { status: "loading" };
     // The indexer's name, else the wallet's (the mock's drawn name, #926): an account made since #920 has none on the indexer.
     return {
       status: "connected",
@@ -38,16 +51,16 @@ export function ProfileHost({ children }: { children: ReactNode }) {
           },
     };
   }, [wallet.status, wallet.username, address, status.data]);
-  const onConnect = useCallback(() => void wallet.connect(), [wallet]);
   const shown = progress.isPending ? undefined : (progress.data ?? undefined);
+  // The editor is a drawer of its own (AVATAR-PAGE), its Back to the profile (`reopen`, `useBackToProfile`).
   const onEditAvatar = useCallback(() => go("/avatar"), [go]);
   const onOpenLeague = useCallback(() => go("/pvp/league"), [go]);
   // The profile's Tiles and Invite (PROFILE-DRAWER): the player's tiles and the referral, Settings' sheets.
   const onOpenTiles = useCallback(() => go("/tiles"), [go]);
   const onOpenInvite = useCallback(() => go("/referral"), [go]);
   const value = useMemo(
-    () => ({ state, progress: shown, look, onConnect, onCopy: copy, onEditAvatar, onOpenLeague, onOpenTiles, onOpenInvite }),
-    [state, shown, look, onConnect, onEditAvatar, onOpenLeague, onOpenTiles, onOpenInvite],
+    () => ({ state, progress: shown, look, onCopy: copy, onEditAvatar, onOpenLeague, onOpenTiles, onOpenInvite, opening, reopen }),
+    [state, shown, look, onEditAvatar, onOpenLeague, onOpenTiles, onOpenInvite, opening, reopen],
   );
   return <ProfileProvider value={value}>{children}</ProfileProvider>;
 }

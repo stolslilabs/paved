@@ -79,8 +79,6 @@ const settling = { ...OVER.awaiting, now: MOCK_NOW } as const;
 /** The day cannot be settled yet: "Settles in <time> (<date> UTC)". */
 export const SettlesAfter: Story = { args: { ...settling, settle: { state: "after", at: MOCK_NOW + 14 * 3600 + 5 * 60 } } };
 
-/** A guest: connect first. */
-export const ConnectToSettle: Story = { args: { ...settling, settle: { state: "connect" } } };
 
 /** The player's button, the day closed. */
 export const SettleButton: Story = { args: { ...settling, settle: { state: "ready" } } };

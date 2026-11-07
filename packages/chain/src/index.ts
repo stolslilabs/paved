@@ -247,6 +247,8 @@ export type {
   PlayerQuest,
   PlayerQuests,
   PlayerReferrals,
+  PlayerVaultClaims,
+  VaultClaim,
   IndexedAttack,
   PlayerStats,
   QuestDefinition,

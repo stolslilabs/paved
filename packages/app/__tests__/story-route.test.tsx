@@ -12,7 +12,9 @@ import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { placeTile, preloadPages, discardTile } from "./route-helpers";
 
-preloadPages("story", "story-board");
+// Story is a sheet over Play's drawer, over the home (PLAY-PAGE): their chunks too, or the file's first test loads them cold inside
+// its wait for the Tutorial's heading (5.3 s on CI, main ee23e89c and #1044, against 1.3 s here).
+preloadPages("story", "story-board", "home", "play");
 
 const PLAYER = "0x5f1";
 /** First Stone credited: the receipt of a first claim. */
@@ -156,8 +158,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(saved.levels["1-1"]).toMatchObject({ best: level.target, stars: 3, run: { campaignId: 1, levelIndex: 1 } });
     expect(saved.levels["1-1"].run.moves).toHaveLength(decodeLine(level.line).length);
 
-    // The claim needs a signer: Connect first, then one `claim_tutorial`.
-    await userEvent.click(within(end).getByRole("button", { name: "Connect" }));
+    // The claim needs the account (NO-GUEST: made at start, no Connect): one `claim_tutorial`.
+    expect(within(end).queryByRole("button", { name: "Connect" })).toBeNull();
     await userEvent.click(await within(end).findByRole("button", { name: "Claim First Stone" }));
     expect(await screen.findByText("Claimed: First Stone is yours.")).toBeInTheDocument();
     expect(wallet.calls.filter((c) => c === "claimTutorial")).toHaveLength(1);

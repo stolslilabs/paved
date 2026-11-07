@@ -176,9 +176,10 @@ describe("Cobble packs (#621; SHOP-PAGE: the Shop's Cobbles tab, and its sheet o
     expect(screen.getByRole("button", { name: /Pay \$70/ })).toBeDisabled();
   });
 
-  it("asks a guest to connect to buy", () => {
+  it("waits for the account (NO-GUEST: no Connect): Pay in its place, off", () => {
     render(wrap(<CobblesScene {...COBBLES.picked} balance={null} connected={false} />));
-    expect(screen.getByRole("button", { name: "Connect to buy" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Connect to buy" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Pay|Buy/ })).toBeDisabled();
   });
 
   it("skips a pack of 0 Cobbles or at 0 USDC", () => {
@@ -277,11 +278,10 @@ describe("A theme's tiles (SHOP-PAGE: the Shop's Themes tab and a theme's view)"
     expect(screen.queryByRole("list", { name: "Snow tiles" })).not.toBeInTheDocument();
   });
 
-  it("asks a guest to connect, and shows a failed read with Retry", async () => {
-    const onConnect = vi.fn();
-    const { unmount } = render(wrap(<ShopTheme {...THEME_SHOP.guest} onConnect={onConnect} />));
-    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
+  it("loads while the account is read (NO-GUEST: no Connect), and shows a failed read with Retry", async () => {
+    const { unmount } = render(wrap(<ShopTheme {...THEME_SHOP.forest} skins={undefined} skinsStatus={{ kind: "loading" }} />));
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     unmount();
     render(wrap(<ShopTheme {...THEME_SHOP.error} />));
     expect(screen.getByText("The skins could not be read")).toBeInTheDocument();
@@ -425,9 +425,9 @@ describe("Missions: Cobbles only (#832)", () => {
     expect(screen.getAllByRole("img", { name: /Cobbles claimed: \d (dailies|weeklies) done/ })).toHaveLength(4);
   });
 
-  it("read only: the page asks to connect, the card's claim not open", async () => {
+  it("read only (a signer that cannot claim): no Connect (NO-GUEST), the card's claim not open", async () => {
     render(wrap(<MissionsScene {...MISSIONS.readOnly} />));
-    expect(screen.getByText("Connect to claim")).toBeInTheDocument();
+    expect(screen.queryByText("Connect to claim")).toBeNull();
     await select(/^Settler II:/);
     expect(card().getByRole("button", { name: "Claim 20 Cobbles: Settler II" })).toHaveAttribute("aria-disabled", "true");
   });

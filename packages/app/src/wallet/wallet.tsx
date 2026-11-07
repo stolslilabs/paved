@@ -40,7 +40,7 @@ export interface WalletState {
   disconnect(): void;
   /** A new key and a new account, connected (for testing); resolves true once connected, false when it failed. */
   reset(): Promise<boolean>;
-  /** Looks once for the device's account (no prompt). The pages that read the account call it (`useAccount`). */
+  /** Looks once for the device's account (no prompt), and makes it when there is none (NO-GUEST). The pages that read the account call it (`useAccount`). */
   restore(): void;
 }
 
@@ -64,6 +64,8 @@ const loadAppConnector: LoadConnector = () =>
 export function WalletProvider({ sources, load = loadAppConnector, children }: { sources: DataSources; load?: LoadConnector; children: ReactNode }) {
   const loaded = useRef<Promise<WalletConnector> | null>(null);
   const restored = useRef(false);
+  const hasSigner = useRef(Boolean(sources.signer));
+  hasSigner.current = Boolean(sources.signer);
   // Each connect or disconnect bumps it: a probe or connect that answers after a newer action is dropped.
   const generation = useRef(0);
   const [status, setStatus] = useState<WalletState["status"]>("disconnected");
@@ -84,22 +86,6 @@ export function WalletProvider({ sources, load = loadAppConnector, children }: {
     setUsername(null);
     c.username().then(setUsername, () => {});
   }, []);
-
-  const restore = useCallback(() => {
-    if (restored.current) return;
-    restored.current = true;
-    const at = generation.current;
-    setStatus((s) => (s === "disconnected" ? "restoring" : s));
-    connector()
-      .then(async (c) => {
-        const found = await c.probe();
-        if (at !== generation.current) return;
-        if (found) accept(c, found);
-        else setStatus("disconnected");
-      })
-      // No connector or no session: a guest, without an error (the player did not ask).
-      .catch(() => at === generation.current && setStatus("disconnected"));
-  }, [connector, accept]);
 
   const open = useCallback(
     async (how: (c: WalletConnector) => Promise<WriteAccount>) => {
@@ -129,6 +115,32 @@ export function WalletProvider({ sources, load = loadAppConnector, children }: {
     setUsername(null);
     return open((c) => c.reset());
   }, [open]);
+
+  /**
+   * NO-GUEST (the owner's ruling of 2026-11-07: every player has an account on the L3, so no page asks to connect): the device's account
+   * is looked for once, and when there is none yet (a new device), it is made and connected at once. A connector that cannot load
+   * leaves the reason in `error` (the pages show their loading, the shell's toast says why). Sources that carry a signer of their own
+   * (a test's, a story's: the app's never do) are connected already: none is made over them.
+   */
+  const restore = useCallback(() => {
+    if (restored.current) return;
+    restored.current = true;
+    const at = generation.current;
+    setStatus((s) => (s === "disconnected" ? "restoring" : s));
+    connector()
+      .then(async (c) => {
+        const found = await c.probe();
+        if (at !== generation.current) return;
+        if (found) accept(c, found);
+        else if (hasSigner.current) setStatus("disconnected");
+        else void connect();
+      })
+      .catch((cause) => {
+        if (at !== generation.current) return;
+        setError(`Not connected: ${message(cause)}`);
+        setStatus("disconnected");
+      });
+  }, [connector, accept, connect]);
 
   const disconnect = useCallback(() => {
     generation.current += 1;

@@ -81,7 +81,7 @@ describe("the wallet (P6)", () => {
     expect(wallet.calls).toEqual(["probe"]);
   });
 
-  it("a connector that cannot load (no deployment) leaves a guest, and says why only when the player asked", async () => {
+  it("a connector that cannot load (no deployment) leaves no account, and says why at once (NO-GUEST: the account is made at start)", async () => {
     const load = () => Promise.reject(new Error("Not connected: Challenge missing"));
     render(
       <WalletProvider sources={fakeSources().sources} load={load}>
@@ -89,10 +89,20 @@ describe("the wallet (P6)", () => {
       </WalletProvider>,
     );
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("disconnected"));
-    expect(screen.queryByText(/Challenge missing/)).toBeNull();
-    await act(async () => void (await userEvent.click(screen.getByRole("button", { name: "connect" }))));
     expect(await screen.findByText(/Challenge missing/)).toBeInTheDocument();
     expect(signerOf()).toBe("none");
+  });
+
+  it("a device with no account gets one at start, no prompt (NO-GUEST, the owner's ruling of 2026-11-07)", async () => {
+    const wallet = fakeWallet({ address: "0x5f1" });
+    render(
+      <WalletProvider sources={fakeSources().sources} load={wallet.load}>
+        <RestoringProbe />
+      </WalletProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("connected"));
+    expect(wallet.calls).toEqual(["probe", "connect"]);
+    expect(signerOf()).not.toBe("none");
   });
 
   it("the wallet error keeps the time it was first shown across re-renders (P-67)", async () => {

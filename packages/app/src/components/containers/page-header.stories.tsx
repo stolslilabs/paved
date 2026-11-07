@@ -14,7 +14,7 @@ const READY: BalancesState = { status: "ready", usdc: 48_500_000n, paved: 142_35
 const shell =
   (state: BalancesState = READY): Decorator =>
   (Story) => (
-    <BalancesProvider value={{ state, onAction: fn(), onConnect: fn(), faucet: true }}>
+    <BalancesProvider value={{ state, onAction: fn(), faucet: true }}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <Story />
         <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pt-4 pb-6 tablet:max-w-2xl">
@@ -61,8 +61,6 @@ export const NoBalances: Story = { args: { title: "Attack over", balances: false
 export const WithMark: Story = { args: { title: "Vault" }, decorators: [(Story) => <MockMarkProvider value><Story /></MockMarkProvider>, ...READY_SHELL] };
 /** The balances still being read: the space is held, nothing moves when they arrive. */
 export const BalancesLoading: Story = { ...PHONE_375, parameters: { ...PHONE_375.parameters, layout: "fullscreen" }, decorators: [shell({ status: "loading" })] };
-/** A guest: Connect in the balances' place. */
-export const Guest: Story = { ...PHONE_375, parameters: { ...PHONE_375.parameters, layout: "fullscreen" }, decorators: [shell({ status: "disconnected" })] };
 /** The balances could not be read: their mark, its message in its name. */
 export const BalancesError: Story = { ...WIDE_1440, decorators: [shell({ status: "error", message: "The balances could not be read." })] };
 /** Reduced motion: the balances' count-ups are a colour flash, nothing moves. */

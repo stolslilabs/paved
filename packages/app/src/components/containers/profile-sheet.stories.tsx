@@ -27,7 +27,6 @@ const meta = {
     hallOfFame: HALL_OF_FAME,
     records: RECORDS,
     onOpenChange: fn(),
-    onConnect: fn(),
     onCopy: fn(async () => {}),
     onEditAvatar: fn(),
     onEditName: fn(),
@@ -87,9 +86,6 @@ export const NoUsername: Story = { args: { state: PROFILE.noUsername } };
 export const NewPlayer: Story = { args: { state: NEW_PLAYER_PROFILE, look: NEW_PLAYER.look, progress: PROGRESS.start } };
 /** The follow counts not read yet: Games alone. */
 export const NoFollows: Story = { args: { follows: undefined } };
-/** A guest: the Training line and Connect. */
-export const Guest: Story = { args: { state: PROFILE.guest } };
-export const Connecting: Story = { args: { state: PROFILE.connecting } };
 export const Loading: Story = { args: { state: PROFILE.loading } };
 /** WRAP360: the longest name, the largest figures. */
 export const Stress: Story = { args: { state: PROFILE.stress, progress: { ...PROGRESS.stress, total: 123_456_789 }, follows: { followers: 1_234_567, followed: 500 } } };

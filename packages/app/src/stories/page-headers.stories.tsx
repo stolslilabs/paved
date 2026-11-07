@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import { CAMPAIGNS, EMPTY_PROGRESS } from "@paved/game-core";
 import { appRenders } from "../mocks/assets";
 import { PROGRESS } from "../mocks/players";
-import { AVATAR_CREATOR, MISSIONS, PLAY, PROFILE, PURCHASE, REFERRAL, SETTINGS, THEME, TILES, VAULT, WELCOME } from "../mocks/scenes";
+import { AVATAR_CREATOR, MISSIONS, PLAY, PROFILE, PURCHASE, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../mocks/scenes";
 import { BalancesProvider } from "../components/containers/balances-context";
 import { ProfileProvider } from "../components/containers/profile-context";
 import { AvatarCreatorScene } from "../components/scenes/avatar-creator-scene";
@@ -29,7 +29,6 @@ import { ChatScene } from "../components/scenes/chat-scene";
 import { FriendsScene } from "../components/scenes/friends-scene";
 import { GuildScene } from "../components/scenes/guild-scene";
 import { FRIENDS_SEARCH } from "../mocks/social";
-import { WelcomeScene } from "../components/scenes/welcome-scene";
 import { HEADER_BALANCES, hereOf } from "../routes/header-balances";
 import { PAGE_HEADER_STORIES } from "./page-headers";
 
@@ -37,7 +36,6 @@ import { PAGE_HEADER_STORIES } from "./page-headers";
 const BALANCES = {
   state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, vpaved: 1_250_400_000_000_000_000n, cobbles: 240 },
   onAction: fn(),
-  onConnect: fn(),
   faucet: true,
 } as const;
 
@@ -49,7 +47,7 @@ const withShell: Decorator = (Story, { id }) => {
   const route = PAGE_HEADER_STORIES[id.replace("pages-headers--", "") as keyof typeof PAGE_HEADER_STORIES]?.[0];
   const story = <Story />;
   return (
-    <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onConnect: fn(), onCopy: fn(async () => {}) }}>
+    <ProfileProvider value={{ state: PROFILE.connected, progress: PROGRESS.start, onCopy: fn(async () => {}) }}>
       {route === undefined || HEADER_BALANCES[route].length === 0 ? story : <BalancesProvider value={{ ...BALANCES, kinds: HEADER_BALANCES[route], here: hereOf(`/${route}`) }}>{story}</BalancesProvider>}
     </ProfileProvider>
   );
@@ -60,7 +58,7 @@ const withShell: Decorator = (Story, { id }) => {
  * routes each covers), in the shell's providers (the avatar, the page's balances). Each page has one header at its top
  * (`PageHeader`), `--header-h` tall, one value per breakpoint (theme.css), one row at every width: Back and the title at the top
  * left, the page's balances at the top right (#855), nothing under it. The content starts at the same height on every page but the hero
- * (Welcome); the home is a game scene since #753. `scripts/header-sweep.ts` measures both at 375 and 1440 px.
+ * (none since the welcome left: NO-GUEST); the home is a game scene since #753. `scripts/header-sweep.ts` measures both at 375 and 1440 px.
  */
 const meta = { title: "Pages/Headers", decorators: [withShell], parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
@@ -91,4 +89,3 @@ export const PvpLeague: Story = { render: () => <PvpLeagueScene {...PVP_LEAGUE.b
 export const PvpMatch: Story = { render: () => <PvpMatchScene {...PVP_MATCH.attackBuild} onBack={fn()} /> };
 // Play's stake (PLAY-PAGE): a panel of its own in the drawer, in the modes' place.
 export const Purchase: Story = { render: () => <PlayScene {...PLAY.connected} challenge={<PurchaseScene {...PURCHASE.stake1} />} onBack={fn()} onChallengeBack={fn()} /> };
-export const Welcome: Story = { render: () => <WelcomeScene {...WELCOME.firstVisit} onBack={fn()} /> };

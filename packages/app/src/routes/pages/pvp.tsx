@@ -100,7 +100,8 @@ function PvpV1() {
   }, [found]);
 
   const self = player.data ?? { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  if (me === null) return <PvpSearchScene state="error" player={self} error="Connect to attack another village." onRetry={() => void wallet.connect()} onCancel={onBack} />;
+  // No guest (NO-GUEST): until the account is in, the search waits.
+  if (me === null) return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
   if (status.data === null) return <PvpSearchScene state="error" player={self} error="PvP is not on this network yet: no village can be attacked here." onCancel={onBack} />;
   if (!s) {
     if (status.error) return <PvpSearchScene state="error" player={self} error={status.error.message} errorDetail={errorDetail(status.error)} onRetry={() => void client.invalidateQueries({ queryKey: pvpKeys.all })} onCancel={onBack} />;

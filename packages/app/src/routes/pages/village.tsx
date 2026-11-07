@@ -93,8 +93,9 @@ function Village({ player }: { player: string | null }) {
   const failed = read.error ?? null;
   const waiting = data === undefined;
   const status: VillageLayoutStatus | null =
+    // No guest (NO-GUEST): until the account is read, the village loads.
     own && me === null
-      ? { kind: "guest" }
+      ? { kind: "loading" }
       : failed && waiting
         ? { kind: "error", message: failed.message, detail: errorDetail(failed) }
         : waiting
@@ -145,7 +146,6 @@ function Village({ player }: { player: string | null }) {
             : undefined
         }
         onBack={onBack}
-        onConnect={() => void wallet.connect()}
         onRetry={() => {
           void client.invalidateQueries({ queryKey: queryKeys.chain.v2.all });
           void client.invalidateQueries({ queryKey: cobbleKeys.all });

@@ -48,11 +48,11 @@ export type OverView = "scores" | "board";
 
 /**
  * What the settle area shows (P7a, a Challenge game bought with a stake, not settled): `after` (the day cannot be settled
- * yet: "Settles in <time> (<date> UTC)"), `connect` (a guest), `ready` (the player's button), `viewing` (settleable, shown to someone
+ * yet: "Settles in <time> (<date> UTC)"), `ready` (the player's button), `viewing` (settleable, shown to someone
  * who is not the player: anyone may settle, the button is the player's), `pending` (the wallet or the chain),
  * `refused` (the writer's message, the button again), `settled` (settled from this page) and `done` (settled before).
  */
-export type SettleState = "after" | "connect" | "ready" | "viewing" | "pending" | "refused" | "settled" | "done";
+export type SettleState = "after" | "ready" | "viewing" | "pending" | "refused" | "settled" | "done";
 
 export interface SettleProps {
   state: SettleState;
@@ -63,7 +63,6 @@ export interface SettleProps {
   /** `refused`: its detail for support (typed name, hash, game, version, time). */
   detail?: ErrorDetail;
   onSettle?: () => void;
-  onConnect?: () => void;
 }
 
 export interface OverSceneProps {
@@ -449,7 +448,7 @@ function When({ at, now, ended }: { at: number; now: number; ended?: boolean }) 
 }
 
 /** The settle area under the reward (P7a): when the day can be settled, then the button, its refusal and its outcome. */
-function SettleArea({ state, at, message, detail, onSettle, onConnect, now }: SettleProps & { now: number }) {
+function SettleArea({ state, at, message, detail, onSettle, now }: SettleProps & { now: number }) {
   return (
     <section aria-label="Settle" data-state={state} className="flex flex-col gap-3">
       {state === "after" && at != null && (
@@ -461,7 +460,6 @@ function SettleArea({ state, at, message, detail, onSettle, onConnect, now }: Se
         </p>
       )}
       {state === "viewing" && <p className="px-1 text-sm text-muted-foreground">This game can be settled now. The player settles it from their own account.</p>}
-      {state === "connect" && <Button onClick={onConnect}>Connect to settle</Button>}
       {(state === "ready" || state === "pending" || state === "refused") && (
         <Button onClick={onSettle} loading={state === "pending"}>
           {state === "pending" ? "Settling…" : "Settle and claim"}

@@ -388,6 +388,10 @@ export function mockIndexer(ledger: MockLedger): IndexerClient {
       if (!row) throw notFound("attack");
       return answer(row);
     },
+    // The Vault's USDC claims (D-31): the mock ledger has no Vault reward yet, so no claim (the Vault page's Earnings
+    // section brings the mock's reward).
+    playerVaultClaims: async (playerId: string | bigint) =>
+      answer({ playerId: String(playerId), claimed: "0", count: 0, collected: "0", collectedCount: 0, claims: [], next: null }),
   } satisfies { [K in keyof IndexerClient]: IndexerClient[K] };
   // `IndexerClient` is a class with private fields: the mock has its public reads only, which is all a caller can reach.
   return client as unknown as IndexerClient;

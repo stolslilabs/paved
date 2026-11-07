@@ -15,7 +15,7 @@ import { MissionsScene } from "./missions-scene";
 const meta = {
   title: "Scenes/Missions",
   component: MissionsScene,
-  args: { onClaimTutorial: fn(), onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn() },
+  args: { onClaimTutorial: fn(), onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onRetry: fn(), onBack: fn() },
   // The Cobbles at the header's top right, where a claim's stones fly.
   decorators: [withCobbles],
 } satisfies Meta<typeof MissionsScene>;
@@ -133,11 +133,9 @@ export const NoQuest: Story = { args: MISSIONS.noQuest };
 /** The Cobbles ledger unreadable: the missions without rewards. */
 export const NoRewards: Story = { args: MISSIONS.noRewards };
 
-/** P9: no wallet to sign yet (P6): the rewards show, the claim asks to connect. */
+/** P9: a signer that cannot claim: the rewards show, no claim (none asks to connect). */
 export const ReadOnly: Story = { args: MISSIONS.readOnly };
 
-/** No wallet: Connect. */
-export const Guest: Story = { args: MISSIONS.guest };
 
 /** The missions on their way. */
 export const Loading: Story = { args: MISSIONS.loading };

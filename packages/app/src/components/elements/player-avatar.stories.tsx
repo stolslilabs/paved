@@ -21,11 +21,11 @@ export const SavedAvatar: Story = { args: { look: SAVED_LOOK } };
 export const SavedAvatarLarge: Story = { args: { look: SAVED_LOOK, size: "lg" } };
 /** No username: the address's first digit. */
 export const NoUsername: Story = { args: { player: { name: null, address: PLAYER_ID } } };
-/** A guest: the silhouette that invites to connect. */
-export const Guest: Story = { args: { player: null } };
+/** No player to show: the silhouette. */
+export const NoPlayer: Story = { args: { player: null } };
 export const Loading: Story = { args: { loading: true } };
 /** The profile sheet's size. */
 export const Large: Story = { args: { size: "lg" } };
-export const LargeGuest: Story = { args: { size: "lg", player: null } };
+export const LargeNoPlayer: Story = { args: { size: "lg", player: null } };
 /** WRAP360: the initial of the longest name. */
 export const Stress: Story = { args: { player: { name: LONG_NAME, address: PLAYER_ID } } };

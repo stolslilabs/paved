@@ -62,7 +62,7 @@ const meta = {
     (Story, { args, parameters }) => (
       <ProfileProvider
         value={{
-          state: args.guest ? { status: "guest" } : { status: "connected", data: PLAYER_STATUS },
+          state: { status: "connected", data: PLAYER_STATUS },
           look: (parameters.look as bigint | undefined) ?? null,
           progress: PROGRESS.partWay,
           league: { crowns: 1_172, league: 5, unranked: false },
@@ -78,7 +78,7 @@ const meta = {
           onOpenInvite: fn(),
         }}
       >
-        <BalancesProvider value={{ state: args.guest ? { status: "disconnected" } : { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 }, faucet: false }}>
+        <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 }, faucet: false }}>
           <Story />
         </BalancesProvider>
       </ProfileProvider>
@@ -109,7 +109,7 @@ export const ShortDesktop: Story = {
 };
 /** The longest username (WRAP360) in the profile: the name under the level's line truncates beside the balances, never under them. */
 const LONG_NAME = (Story: () => React.JSX.Element) => (
-  <ProfileProvider value={{ state: PROFILE.stress, progress: PROGRESS.partWay, onConnect: fn(), onCopy: fn(async () => {}) }}>
+  <ProfileProvider value={{ state: PROFILE.stress, progress: PROGRESS.partWay, onCopy: fn(async () => {}) }}>
     <Story />
   </ProfileProvider>
 );
@@ -176,7 +176,7 @@ export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...S
  * HOME-HUD-PADDING (the owner's request of 2026-11-03): one inset at the top and on both sides (`--hud-inset` of theme.css: 8 px on a
  * phone, 16 from `tablet`, the notch's safe area added), drawn as the red bands. The profile, the balances, the crowns' and the
  * village's capsules, the right column, the dial, the mission and the bottom row stand on it (the Chat tab runs to the edge), their painted edges on one line: at 320 and
- * 375 px (a guest's Connect too), at 1440, and on a notched phone (the safe area simulated on the tokens, as `env(safe-area-inset-*)`
+ * 375 px, at 1440, and on a notched phone (the safe area simulated on the tokens, as `env(safe-area-inset-*)`
  * adds it). Their play reads the painted pixels (`expectHudInset`).
  */
 const INSET_GUIDE = (Story: () => React.JSX.Element) => (
@@ -194,8 +194,6 @@ const NOTCHED = (top: number, side: number) => (Story: () => React.JSX.Element) 
 const insetCheck = async ({ canvasElement }: { canvasElement: HTMLElement }) => expectHudInset(canvasElement);
 export const HudInsetPhone320: Story = { ...PHONE_320, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
 export const HudInsetPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: insetCheck };
-/** A guest at 375 px: Connect in the balances' place, its box on the inset (no plates, so the plates' nudge does not apply). */
-export const HudInsetGuestPhone375: Story = { ...PHONE_375, args: HOME_VILLAGE.guest, decorators: [INSET_GUIDE], play: insetCheck };
 /** From `desktop` the layout is kept: the card and the rail's column on the inset's lines (16 px), the rail not nudged. */
 export const HudInsetWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL, decorators: [INSET_GUIDE], play: async ({ canvasElement }) => expectHudInset(canvasElement, { align: false }) };
 /** An iPhone's portrait notch (a 47 px safe area at the top): the inset grows by it at the top, the same for the profile and the balances. */
@@ -289,8 +287,6 @@ export const ButtonsReachablePhone375: Story = { ...ButtonsReachable, ...PHONE_3
 export const ButtonsReachableWide1440: Story = { ...ButtonsReachable, ...WIDE_1440 };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };
-/** No wallet: a starter village to look at, Connect in the header, no Edit. */
-export const Guest: Story = { args: HOME_VILLAGE.guest };
 /** The village on its way: the overlays paint first, over the sky. */
 export const Loading: Story = { args: HOME_VILLAGE.loading };
 /** The village's read failed: Retry. */
@@ -661,8 +657,6 @@ export const CameraEnterLeaveReducedMotion: Story = {
 export const BarPhone320: Story = { ...Scene, ...PHONE_320 };
 export const BarPhone375: Story = { ...Scene, ...PHONE_375 };
 export const BarTablet768: Story = { ...Scene, ...TABLET_768 };
-/** The guest's home at 375 px: the bar as for a player, no Edit. */
-export const BarGuestPhone: Story = { args: HOME_VILLAGE.guest, render: (args) => <InScene {...args} />, ...PHONE_375 };
 
 /** The fakes played: Edit opens edit mode, Save keeps the layout (its engine score, after a short wait) and goes back to the view. */
 function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene?: boolean }) {
@@ -707,7 +701,7 @@ export const InteractiveScene: Story = { args: HOME_VILLAGE.view, render: (args)
  * LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows a bubble by the tile with Edit (the
  * hammer, as the home's Edit since #807) and its ring, which fills as the press goes on; at its end, edit mode opens as from the
  * Edit button. Let go early, the ring rewinds and Edit stays tappable about 3 s, then fades. On the plan view the bubble stands
- * by the tile; on the scene it follows it. A guest's, a read-only village and a visit show none (`Guest`).
+ * by the tile; on the scene it follows it. A read-only village and a visit show none.
  */
 const pressPlan = async (canvasElement: HTMLElement, letGo = false) => {
   const plan = await within(canvasElement).findByRole("img", { name: /^Village layout/ });

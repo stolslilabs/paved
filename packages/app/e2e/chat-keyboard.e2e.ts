@@ -32,13 +32,33 @@ let browser: Browser;
 
 beforeAll(async () => {
   if (!base) {
-    vite = await createServer({ root: fileURLToPath(new URL("..", import.meta.url)), logLevel: "error", server: { port: 0, host: "127.0.0.1" } });
+    vite = await createServer({
+      root: fileURLToPath(new URL("..", import.meta.url)),
+      logLevel: "error",
+      server: { port: 0, host: "127.0.0.1" },
+      // The scan from the harness's page only, as Training's (`training.e2e.ts`): crawling `scripts/` fails on a render page's bare
+      // `three`, and Vite then skips the pre-bundling.
+      optimizeDeps: { entries: ["e2e/chat-keyboard/index.html"] },
+    });
     await vite.listen();
     const addr = vite.httpServer?.address();
     base = addr && typeof addr === "object" ? `http://127.0.0.1:${addr.port}` : "";
   }
   browser = await chromium.launch({ headless: true });
-});
+  if (vite) {
+    // A dev server on a cold cache (CI, or after the other e2e files' servers) finds dependencies at run time and reloads the page
+    // each time: that destroyed the first test's page right after its load ("Execution context was destroyed", #1044). Each tab is
+    // loaded once to its field first, so the reloads land here and the tests find every dependency served.
+    const page = await browser.newPage();
+    for (const tab of TABS) {
+      // A reload may interrupt the load itself: the field, which a reload does not lose track of, says when the page is up.
+      await page.goto(`${base}/e2e/chat-keyboard/index.html?tab=${tab}`, { waitUntil: "load", timeout: TEST_MS }).catch(() => undefined);
+      await page.locator("[data-slot=chat-conversation] form input").waitFor({ timeout: TEST_MS });
+    }
+    await page.waitForLoadState("networkidle");
+    await page.close();
+  }
+}, 3 * TEST_MS);
 
 afterAll(async () => {
   await browser?.close();

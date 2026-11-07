@@ -11,8 +11,8 @@ function Corner({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The village's capsule (#755, HOME-UI-2): the village's icon capping its left end, the total in it; a tap opens edit mode. A guest
- * or a village to look at shows the total alone. After a save the total counts to the new score (#802).
+ * The village's capsule (#755, HOME-UI-2): the village's icon capping its left end, the total in it; a tap opens edit mode. A
+ * village to look at shows the total alone. After a save the total counts to the new score (#802).
  */
 const meta = {
   title: "Containers/VillageScore",
@@ -36,7 +36,7 @@ export const Default: Story = {
     await expect(args.onEdit).toHaveBeenCalled();
   },
 };
-/** A guest's starter village: the total alone, not a button. */
+/** A village to look at (a starter one): the total alone, not a button. */
 export const ReadOnly: Story = { args: { onEdit: undefined } };
 /** A large score: the capsule grows with its figure. */
 export const Large: Story = { args: { score: 128_450 } };

@@ -24,11 +24,10 @@ export interface PvpSeason {
 }
 
 /**
- * What stands in the page's place while it has no standing to show (the route's waits and refusals, in the drawer): no account,
- * PvP not on this network, the standing on its way, or its read failed.
+ * What stands in the page's place while it has no standing to show (the route's waits and refusals, in the drawer): PvP not on this
+ * network, the standing on its way (the account's too: NO-GUEST, none is asked to connect), or its read failed.
  */
 export type LeagueWait =
-  | { kind: "connect"; onConnect?: () => void }
   | { kind: "unavailable" }
   | { kind: "loading" }
   | { kind: "error"; message: string; detail?: ErrorDetail; onRetry?: () => void };
@@ -130,12 +129,6 @@ export function PvpLeagueScene(props: PvpLeagueSceneProps) {
 
 /** The page's waits and refusals, in the drawer's body. */
 function Waiting({ wait }: { wait: LeagueWait }) {
-  if (wait.kind === "connect")
-    return (
-      <Notice title="Connect to see your league" action={wait.onConnect && <Button size="sm" onClick={wait.onConnect}>Connect</Button>}>
-        Your crowns, your league and your battles need an account.
-      </Notice>
-    );
   if (wait.kind === "unavailable") return <Notice title="No league here yet">PvP is not on this network yet.</Notice>;
   if (wait.kind === "error")
     return (

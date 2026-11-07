@@ -8,14 +8,14 @@ import { Skeleton } from "../ui/skeleton";
 export interface ChatSceneProps {
   /**
    * The tab shown (#973); null while the page finds which one it opens on (a member's first visit opens on Guild); omitted, no
-   * tabs: a guest's empty state, or the chat not on this network.
+   * tabs: the empty state, the chat not on this network.
    */
   tab?: ChatTab | null;
   onTabChange?: (tab: ChatTab) => void;
   badges?: ChatBadges;
   /** The page's menu at the header's end (`ChatMenu`: the muted players). */
   menu?: ReactNode;
-  /** The tab's content as the app draws it (a conversation, or the Private tab's list). Unset: the empty state, as a guest sees it. */
+  /** The tab's content as the app draws it (a conversation, or the Private tab's list). Unset: the empty state. */
   children?: ReactNode;
   /** Back, up to the village (BACK-RULE #783): the drawer's Back on a phone, its close from `tablet`. */
   onBack?: () => void;
