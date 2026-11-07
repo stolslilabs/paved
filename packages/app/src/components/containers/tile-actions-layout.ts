@@ -8,6 +8,10 @@
  * each camera notification: the gap between a button and the tile is a number of screen px, the same at every zoom. (The bubble before
  * it stood on a corner projected at the tallest tile's height, 2.625 world units above the board: a height in the scene, so its gap to
  * the tile grew as the player zoomed in and shrank as they zoomed out.)
+ *
+ * `layoutTileActions` is the whole of it, as the tile's actions put their buttons: the places, the room (whose HUD limit is measured on
+ * the places as the side edges leave them, #1078), the clamp, and the close-zoom fallback that keeps the gap when the clamp would put a
+ * button on the tile.
  */
 
 export interface Point {
@@ -208,4 +212,160 @@ export function actionRoom(box: DOMRect, avoid: readonly BubbleAvoid[], x: numbe
   );
   for (const a of avoid) if (a.side) room.right = Math.min(room.right, a.rect.left - box.left - MARGIN_PX);
   return room;
+}
+
+/** The places with their left and right edges of `room` minded only: the span the HUD, the hand panel and the bar are tested on. */
+function across(places: ActionPlaces, room: Pick<BubbleLimits, "left" | "right">): ActionPlaces {
+  return clampActions(places, { ...room, top: -Infinity, bottom: Infinity });
+}
+
+/** Every button wholly inside `room`. */
+function inside(places: ActionPlaces, room: BubbleLimits): boolean {
+  return ACTION_SIDES.every((s) => {
+    const p = places[s];
+    return p.x - R >= room.left - 0.5 && p.x + R <= room.right + 0.5 && p.y - R >= room.top - 0.5 && p.y + R <= room.bottom + 0.5;
+  });
+}
+
+/** `p` is inside the convex outline (in either winding). */
+function within(p: Point, outline: readonly Point[]): boolean {
+  let sign = 0;
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i]!;
+    const b = outline[(i + 1) % outline.length]!;
+    const c = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    if (Math.abs(c) < 1e-9) continue;
+    if (sign === 0) sign = Math.sign(c);
+    else if (Math.sign(c) !== sign) return false;
+  }
+  return true;
+}
+
+/**
+ * The least gap between a button's edge and the tile's outline, screen px; negative when a button's centre is on the tile. A tile of
+ * fewer than three corners (a point, a line: far out) has no inside, only its distance.
+ */
+export function actionsClearance(places: ActionPlaces, outline: readonly Point[]): number {
+  let least = Infinity;
+  for (const side of ACTION_SIDES) {
+    const p = places[side];
+    const d = outline.length > 1 ? toOutline(p, outline) : outline.length ? Math.hypot(p.x - outline[0]!.x, p.y - outline[0]!.y) : Infinity;
+    least = Math.min(least, outline.length > 2 && within(p, outline) ? -d - R : d - R);
+  }
+  return least;
+}
+
+/**
+ * The close-zoom fallback's shapes, each button's offset from the shape's centre, in order of preference: the four in a square (each
+ * still at its corner of the group: Cancel up left, Confirm up right), then a row (the left column's two, then the right one's) for a
+ * strip above or below the tile, then a column (the top two, then the bottom two) for a strip beside it.
+ */
+const S = ACTION_SPREAD_PX;
+const SHAPES: ActionPlaces[] = [
+  { "top-left": { x: -S / 2, y: -S / 2 }, "top-right": { x: S / 2, y: -S / 2 }, "bottom-left": { x: -S / 2, y: S / 2 }, "bottom-right": { x: S / 2, y: S / 2 } },
+  { "top-left": { x: -1.5 * S, y: 0 }, "bottom-left": { x: -S / 2, y: 0 }, "top-right": { x: S / 2, y: 0 }, "bottom-right": { x: 1.5 * S, y: 0 } },
+  { "top-left": { x: 0, y: -1.5 * S }, "top-right": { x: 0, y: -S / 2 }, "bottom-left": { x: 0, y: S / 2 }, "bottom-right": { x: 0, y: 1.5 * S } },
+];
+
+/**
+ * Close in, the tile larger than the room leaves round it: the four buttons together, out of the tile's side nearest its centre that
+ * the room shows, `ACTION_GAP_PX` clear of the outline and wholly in the room. For each shape and each side of the (convex) outline,
+ * the shape's centres that keep every button beyond that side's line by the clearance and inside the room are a rectangle cut by a
+ * half-plane; the one nearest the tile's centre is kept, the nearest of all sides wins, the first shape that fits anywhere is used.
+ * Null when none fits: the tile covers the room (a centred tile at the closest distance fills a phone's screen).
+ */
+function closeZoom(outline: readonly Point[], room: BubbleLimits): ActionPlaces | null {
+  const n = outline.length;
+  const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
+  const clear = R + ACTION_GAP_PX;
+  for (const shape of SHAPES) {
+    const offs = ACTION_SIDES.map((s) => shape[s]);
+    const x0 = room.left + R - Math.min(...offs.map((o) => o.x));
+    const x1 = room.right - R - Math.max(...offs.map((o) => o.x));
+    const y0 = room.top + R - Math.min(...offs.map((o) => o.y));
+    const y1 = room.bottom - R - Math.max(...offs.map((o) => o.y));
+    if (x0 > x1 || y0 > y1) continue;
+    let best: Point | null = null;
+    let bestD = Infinity;
+    for (let i = 0; i < n; i++) {
+      const a = outline[i]!;
+      const b = outline[(i + 1) % n]!;
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 1e-6) continue;
+      let nx = (b.y - a.y) / len;
+      let ny = -(b.x - a.x) / len;
+      if (nx * (centre.x - a.x) + ny * (centre.y - a.y) > 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      // Every button beyond the side's line by the clearance: n . c >= k.
+      const k = clear + nx * a.x + ny * a.y - Math.min(...offs.map((o) => nx * o.x + ny * o.y));
+      let c: Point | null = { x: Math.min(Math.max(centre.x, x0), x1), y: Math.min(Math.max(centre.y, y0), y1) };
+      if (nx * c.x + ny * c.y < k) {
+        // On the line n . c = k, within the rectangle: c = n k + s u, u along the side.
+        const ux = -ny;
+        const uy = nx;
+        let lo = -Infinity;
+        let hi = Infinity;
+        for (const [p, u, min, max] of [
+          [nx * k, ux, x0, x1],
+          [ny * k, uy, y0, y1],
+        ] as const) {
+          if (Math.abs(u) < 1e-9) {
+            if (p < min - 1e-6 || p > max + 1e-6) lo = Infinity;
+            continue;
+          }
+          const s0 = (min - p) / u;
+          const s1 = (max - p) / u;
+          lo = Math.max(lo, Math.min(s0, s1));
+          hi = Math.min(hi, Math.max(s0, s1));
+        }
+        if (lo > hi) c = null;
+        else {
+          const s = Math.min(Math.max(ux * (centre.x - nx * k) + uy * (centre.y - ny * k), lo), hi);
+          c = { x: nx * k + s * ux, y: ny * k + s * uy };
+        }
+      }
+      if (!c) continue;
+      const d = Math.hypot(c.x - centre.x, c.y - centre.y);
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    if (best) {
+      const places = {} as ActionPlaces;
+      for (const side of ACTION_SIDES) places[side] = { x: best.x + shape[side].x, y: best.y + shape[side].y };
+      if (actionsClearance(places, outline) >= ACTION_GAP_PX - 0.5 && inside(places, room)) return places;
+    }
+  }
+  return null;
+}
+
+/**
+ * Where the buttons stand around the tile whose outline on screen is `outline`, in `box`, clear of `avoid` (`data-bubble-avoid`):
+ *
+ * 1. their places out of the tile (`tileActionPlaces`);
+ * 2. the room (`actionRoom`), its HUD and hand panel tested on the places as the box's sides and the side menu leave them: a tile
+ *    panned far to one side brings its buttons back across, under the HUD it was not over (#1078);
+ * 3. each button clamped into it (`clampActions`), the room tested again on where they ended;
+ * 4. close in, where that clamp puts a button on the tile or nearer it than `ACTION_GAP_PX` (the tile larger than the room round it,
+ *    or against an edge), the four together out of its nearest side the room shows (`closeZoom`), every part of the screen they
+ *    avoid treated as across the whole width. When the tile covers the whole room there is no such place: the clamped ones stay.
+ */
+export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid: readonly BubbleAvoid[]): ActionPlaces {
+  const free = tileActionPlaces(outline);
+  const sides = actionRoom(box, avoid.filter((a) => a.side), 0, box.width);
+  let at = across(free, sides);
+  for (let i = 0; i < 3; i++) {
+    const span = actionsSpan(at);
+    const room = actionRoom(box, avoid, span.x, span.width);
+    if (i > 0 && inside(at, room)) break;
+    at = clampActions(free, room);
+  }
+  if (outline.length > 2 && actionsClearance(at, outline) < ACTION_GAP_PX - 0.5) {
+    const fallback = closeZoom(outline, actionRoom(box, avoid, -1e6, 2e6));
+    if (fallback) at = fallback;
+  }
+  return at;
 }
