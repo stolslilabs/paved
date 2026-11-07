@@ -251,7 +251,8 @@ const COBBLES: readonly ShownBalance[] = ["cobbles"];
 
 /**
  * The name's view on the app's sources (PLAYER-RENAME): its reads (`useRename`: the cost of the next change and the Cobbles) and its
- * write (`useRenameWrite`). A network without `Avatar` (no names to set) says so, the action held.
+ * write (`useRenameWrite`). A network without `Avatar` (no names to set) says so, the action held; a failed read offers Retry
+ * beside the error (the UX Book's InlineError and Retry), which reads the failed ones again.
  */
 function ReadRenameView({ playerId, current, onBack }: { playerId: string; current: string | null; onBack: () => void }) {
   const read = useRename(playerId);
@@ -273,6 +274,7 @@ function ReadRenameView({ playerId, current, onBack }: { playerId: string; curre
       taken={reason === "taken"}
       error={read.error?.message ?? (read.data === null ? "Names cannot be set on this network yet." : null)}
       errorDetail={readDetail}
+      onRetry={read.error ? read.refetch : undefined}
       onRename={(name) => {
         if (cost !== undefined) write.rename(name, cost).catch(() => undefined);
       }}

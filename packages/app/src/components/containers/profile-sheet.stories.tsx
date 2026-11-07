@@ -60,6 +60,16 @@ export const EditName: Story = {
 /** PLAYER-RENAME: opened on the name's view, a later change (50 Cobbles). */
 export const Renaming: Story = { args: { defaultRenaming: true, renameView: (onBack) => <RenameView {...RENAME.paid} onBack={onBack} onRename={fn()} /> } };
 /** A tap on the picked season lets go of it: the Stats show all time, the badge says so and has no cross. */
+/** PLAYER-RENAME (#1080): the name's reads failed: "Names cannot be read" and Retry in the drawer, Rename held. */
+export const RenameReadFailed: Story = {
+  args: { defaultRenaming: true, renameView: (onBack) => <RenameView {...RENAME.readFailed} onBack={onBack} onRename={fn()} onRetry={fn()} /> },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByText("Names cannot be read")).toBeInTheDocument();
+    await expect(page.getByRole("button", { name: "Retry" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Rename" })).toBeDisabled();
+  },
+};
 export const AllTime: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);

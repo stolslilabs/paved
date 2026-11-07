@@ -48,6 +48,8 @@ export const Refused: Story = { args: RENAME.refused };
 export const Done: Story = { args: RENAME.done };
 /** The cost and the Cobbles on their way: an ellipsis, Rename held. */
 export const Loading: Story = { args: RENAME.loading };
+/** The reads failed: "Names cannot be read" and Retry, Rename held. */
+export const ReadFailed: Story = { args: { ...RENAME.readFailed, onRetry: fn() } };
 /** No name and no Cartridge username: the short address stands for it. */
 export const NoName: Story = { args: RENAME.noName };
 /** WRAP360: the longest name shown now, the most characters typed, a seven-figure balance. */
