@@ -46,38 +46,44 @@ const PULSE: CSSProperties = {
  * The vPAVED coin, large, in its silver light (the book's POSITION; the owner's asks of 2026-11-07: silver, and alive as the opened
  * chest's, `chest-art.tsx`): behind the coin two layers of Codex's light (`VAULT_LIGHTS`) turning either way and breathing, the broad rays
  * one way, the fine starburst and its sparkles the other, and a pulse at its heart. Under reduced motion the two layers stand still.
+ * `lit` (`position.shares > 0n`, the owner's #1053): the light runs only while the player holds a position; at zero shares the coin
+ * stands alone, no layer and no pulse. The lights are absolutely positioned, so the coin keeps its 80 px box either way.
  */
-function GlowingCoin() {
+function GlowingCoin({ lit }: { lit: boolean }) {
   const reduced = useReducedMotionConfig() ?? false;
   const layer = "pointer-events-none absolute select-none";
   return (
-    <span aria-hidden data-slot="vault-coin" className="relative size-20 shrink-0">
-      <m.img
-        {...vaultLightSources("coin-rays", LIGHT)}
-        alt=""
-        draggable={false}
-        className={layer}
-        style={{ ...LIGHT_BOX, opacity: 0.75 }}
-        animate={reduced ? { rotate: 0 } : { rotate: 360, scale: [1, 1.08, 1] }}
-        transition={reduced ? { duration: 0 } : { rotate: { duration: 14, repeat: Infinity, ease: "linear" }, scale: { duration: 2.4, repeat: Infinity, ease: "easeInOut" } }}
-      />
-      <m.img
-        {...vaultLightSources("coin-glow", LIGHT)}
-        alt=""
-        draggable={false}
-        className={layer}
-        style={LIGHT_BOX}
-        animate={reduced ? { rotate: 0 } : { rotate: -360, opacity: [0.65, 1, 0.65] }}
-        transition={reduced ? { duration: 0 } : { rotate: { duration: 22, repeat: Infinity, ease: "linear" }, opacity: { duration: 1.6, repeat: Infinity, ease: "easeInOut" } }}
-      />
-      {!reduced && (
-        <m.span
-          className="pointer-events-none absolute"
-          style={PULSE}
-          initial={{ opacity: 0, scale: 0.6 }}
-          animate={{ opacity: [0, 0.55, 0], scale: [0.6, 0.9, 0.6] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-        />
+    <span aria-hidden data-slot="vault-coin" data-lit={lit || undefined} className="relative size-20 shrink-0">
+      {lit && (
+        <>
+          <m.img
+            {...vaultLightSources("coin-rays", LIGHT)}
+            alt=""
+            draggable={false}
+            className={layer}
+            style={{ ...LIGHT_BOX, opacity: 0.75 }}
+            animate={reduced ? { rotate: 0 } : { rotate: 360, scale: [1, 1.08, 1] }}
+            transition={reduced ? { duration: 0 } : { rotate: { duration: 14, repeat: Infinity, ease: "linear" }, scale: { duration: 2.4, repeat: Infinity, ease: "easeInOut" } }}
+          />
+          <m.img
+            {...vaultLightSources("coin-glow", LIGHT)}
+            alt=""
+            draggable={false}
+            className={layer}
+            style={LIGHT_BOX}
+            animate={reduced ? { rotate: 0 } : { rotate: -360, opacity: [0.65, 1, 0.65] }}
+            transition={reduced ? { duration: 0 } : { rotate: { duration: 22, repeat: Infinity, ease: "linear" }, opacity: { duration: 1.6, repeat: Infinity, ease: "easeInOut" } }}
+          />
+          {!reduced && (
+            <m.span
+              className="pointer-events-none absolute"
+              style={PULSE}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: [0, 0.55, 0], scale: [0.6, 0.9, 0.6] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+        </>
       )}
       <TokenIcon kind="vpaved" px={COIN} className="relative size-20" />
     </span>
@@ -116,7 +122,7 @@ const CHIP = "drawer-carved flex items-center gap-1.5 rounded-full px-3 py-1.5 t
  * part of every vPAVED (`shares / total_supply`, the dead shares counted) and the supply, their worth in PAVED at the rate
  * (`convert_to_assets`, before the exit fee) and in dollars at the guard's rate; under it two tiles alike, what leaves now once the fee
  * is taken (`max_withdraw`) and the exit fee; then the rates as chips: one vPAVED in PAVED (rounded down) and one PAVED in dollars. No
- * position yet: the same box at zero, so nothing moves on the first deposit.
+ * position yet: the same box at zero, the coin unlit (no light, no pulse), so nothing moves on the first deposit.
  */
 export function VaultPosition({ position, guardRate, split, className }: VaultPositionProps) {
   const rate = vaultRate(position.totalAssets, position.totalSupply);
@@ -130,7 +136,7 @@ export function VaultPosition({ position, guardRate, split, className }: VaultPo
         Position
       </SectionTitle>
       <div className="drawer-carved flex items-center gap-4 overflow-hidden rounded-2xl p-4">
-        <GlowingCoin />
+        <GlowingCoin lit={position.shares > 0n} />
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-sm font-semibold text-muted-foreground">Your share</span>
           <span className="flex flex-wrap items-baseline gap-x-1.5">

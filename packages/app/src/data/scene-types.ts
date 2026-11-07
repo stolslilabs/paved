@@ -84,4 +84,5 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof playerRanking.usePlayerRanking>, NonNullable<LeaderboardSceneProps["players"]["data"]>>>,
   Expect<Equal<Data<typeof playerRanking.useFriendsRanking>, NonNullable<LeaderboardSceneProps["friends"]["data"]>>>,
   Expect<Equal<Data<typeof guilds.useGuildRanking>, NonNullable<LeaderboardSceneProps["guilds"]["data"]>>>,
+  Expect<Equal<Data<typeof guilds.useGuildPlace>, Exclude<LeaderboardSceneProps["myGuildPlace"], undefined>>>,
 ];

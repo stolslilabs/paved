@@ -176,7 +176,7 @@ import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
 import { communityMember, communityProfile, community, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
-import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PlayerRanking, type PublicProfile } from "../social-source";
+import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildPlace, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PlayerRanking, type PublicProfile } from "../social-source";
 import { forgetFollows, freshFollows, graphOf, listsOf, seededFollows, settleFollows, type StoredFollows } from "./follows";
 import { playerPlace, rankPlayers, type GuildDraft, type GuildSettings } from "@paved/game-core";
 import * as guilds from "./guilds";
@@ -1510,6 +1510,9 @@ export class MockLedger {
   }
   async guildRanking(): Promise<GuildSummary[]> {
     return this.guildRead((world, people, now) => guilds.guildRankingOf(world, people, now));
+  }
+  async guildPlace(id: number): Promise<GuildPlace | null> {
+    return this.guildRead((world, people, now) => guilds.guildPlaceOf(world, people, now, id));
   }
   createGuild(player: string, draft: GuildDraft): Promise<number> {
     return this.guildWrite(player, (w) => guilds.createGuildIn(w, draft));

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useSearchParams } from "react-router";
 import { LeaderboardScene, type LeaderboardTab, type RankingRead } from "../../components/scenes/leaderboard-scene";
 import type { PlayerRanking } from "../../data/player-ranking";
-import { useGuildBadge, useGuildRanking } from "../../data/guilds";
+import { useGuildBadge, useGuildPlace, useGuildRanking } from "../../data/guilds";
 import { useFriendsRanking, usePlayerRanking } from "../../data/player-ranking";
 import type { SocialRead } from "../../data/social";
 import { useDataSources } from "../../data/sources";
@@ -31,7 +31,8 @@ const rankingOf = <T,>(read: SocialRead<T>): RankingRead<T> => ({
  * `/ranking` (LEADERBOARD-PAGE, the dock's Ranking): the Leaderboard, the HUD's drawer over the home (`PageDef.drawer`,
  * `home-hosts.tsx`). Players by crowns and the viewer's place (`usePlayerRanking`), Guilds by score, the sum of their members' crowns
  * (`useGuildRanking`), Friends, the viewer among their friends by the same crowns (`useFriendsRanking`), all read from the social source
- * as the page opens, so a tab change shows its list at once; the viewer's guild from their badge (`useGuildBadge`). The tab is the URL's
+ * as the page opens, so a tab change shows its list at once; the viewer's guild from their badge (`useGuildBadge`), its place in the
+ * whole ranking (`useGuildPlace`) for its row past the list's end. The tab is the URL's
  * (`?tab=guilds`, `?tab=friends`; Players without one), a change replacing the entry, so the drawer's close still lands where it was
  * opened from. A player's row opens their profile over the drawer (`?player=`, the home's profile host); a guild's, its page
  * (`/guild?guild=`), as the guild cards do. Its own chunk.
@@ -62,6 +63,8 @@ export default function Page() {
   const guilds = useGuildRanking();
   const friends = useFriendsRanking(me);
   const myGuild = useGuildBadge(me).data?.id ?? null;
+  // The viewer's guild's place in the whole ranking: its row pinned when it ranks past the list's end.
+  const myGuildPlace = useGuildPlace(myGuild).data ?? null;
   const openPlayer = useOpenPlayer();
   const openGuild = useOpenGuild();
   return (
@@ -75,6 +78,7 @@ export default function Page() {
       guilds={rankingOf(guilds)}
       friends={friends.unavailable ? NO_FRIENDS : rankingOf(friends)}
       myGuild={myGuild}
+      myGuildPlace={myGuildPlace}
       unavailable={players.unavailable && guilds.unavailable}
       onOpenPlayer={openPlayer}
       onOpenGuild={openGuild}
