@@ -27,11 +27,10 @@ import { rewardMarks } from "../src/components/containers/reward-estimate";
 import { GameHud } from "../src/components/containers/game-hud";
 import { MOCK_MARK_TEXT, MockMarkProvider } from "../src/components/containers/mock-mark";
 import { CURVE_PLAYING } from "../src/mocks/games";
-import { WelcomeScene } from "../src/components/scenes/welcome-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
-import { BOARD, LOADING, OVER, PLAY, PURCHASE, WELCOME } from "../src/mocks/scenes";
+import { BOARD, LOADING, OVER, PLAY, PURCHASE } from "../src/mocks/scenes";
 import { DRAFT_VALID, HOME_POINTS, HOME_VILLAGE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_RIVAL, LAYOUT_START, WONDER_POINTS } from "../src/mocks/village-v2";
 import { canLift, layoutPoints, layoutScore, legalSpots } from "../src/components/containers/layout-rules";
 import { PLAN } from "../src/mocks/village";
@@ -67,36 +66,6 @@ describe("element helpers", () => {
   });
 });
 
-describe("Welcome", () => {
-  it("offers connect and Training without a wallet", async () => {
-    const onConnect = vi.fn();
-    const onTraining = vi.fn();
-    render(wrap(<WelcomeScene {...WELCOME.firstVisit} onConnect={onConnect} onTraining={onTraining} />));
-    await userEvent.click(screen.getByRole("button", { name: /connect/i }));
-    await userEvent.click(screen.getByRole("button", { name: /play training/i }));
-    expect(onConnect).toHaveBeenCalledOnce();
-    expect(onTraining).toHaveBeenCalledOnce();
-  });
-
-  it("has Back at its top left, to the village (#760)", async () => {
-    const onBack = vi.fn();
-    render(wrap(<WelcomeScene {...WELCOME.firstVisit} onBack={onBack} />));
-    const header = screen.getByRole("banner");
-    expect(header.querySelector("button")).toHaveAccessibleName("Back");
-    await userEvent.click(within(header).getByRole("button", { name: "Back" }));
-    expect(onBack).toHaveBeenCalledOnce();
-  });
-
-  it("is busy while connecting, and says why a connect failed", () => {
-    const { unmount } = render(wrap(<WelcomeScene {...WELCOME.connecting} />));
-    expect(screen.getByRole("button", { name: /connecting/i })).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("button", { name: /play training/i })).toBeDisabled();
-    unmount();
-    render(wrap(<WelcomeScene {...WELCOME.failed} />));
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not connect");
-  });
-});
-
 describe("Loading", () => {
   it("shows an indeterminate bar while booting and the percentage while assets load", () => {
     const { unmount } = render(wrap(<LoadingScene {...LOADING.booting} />));
@@ -123,7 +92,7 @@ describe("Home (#753): the village with its overlays", () => {
     expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault", "Friends, 2 waiting", "Tiles"]);
     // The overlays outside the dock (the dock's own are tested below): no Ranking, Shop, Guild, Settings or Play of their own.
     const overlay = (name: string | RegExp) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
-    for (const name of ["Ranking, coming soon", "Shop", "Guild, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
+    for (const name of ["Ranking", "Shop", "Guild, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
     for (const [name, handler] of [
       ["Chat, 3 waiting", on.onChat],
       ["Friends, 2 waiting", on.onFriends],
@@ -154,13 +123,13 @@ describe("Home (#753): the village with its overlays", () => {
     expect(nav.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["pointer-events-none", "[&>*]:pointer-events-auto"]));
     expect(nav.parentElement!.className).not.toContain("desktop:hidden");
     const items = within(nav).getAllByRole("button");
-    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking, coming soon", "Play", "Guild, 1 waiting", "Settings"]);
-    // No item current on the home; the guild's count on Guild; Ranking leads nowhere yet (the Leaderboard to come).
+    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild, 1 waiting", "Settings"]);
+    // No item current on the home; the guild's count on Guild; Ranking opens the Leaderboard (LEADERBOARD-PAGE).
     expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
     expect(within(within(nav).getByRole("button", { name: "Guild, 1 waiting" })).getByText("1")).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: "Ranking, coming soon" })).toHaveAttribute("aria-disabled", "true");
+    expect(within(nav).getByRole("button", { name: "Ranking" })).not.toHaveAttribute("aria-disabled");
     for (const item of items) await userEvent.click(item);
-    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "play", "guild", "settings"]);
+    expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "ranking", "play", "guild", "settings"]);
   });
 
   it("HOME-EDGES: the right column at every width; the dial, the Chat tab and the mission stacked at the bottom left, above the dock", async () => {
@@ -370,9 +339,10 @@ describe("Home (#753): the village with its overlays", () => {
     expect(screen.getByText("New Challenge games are paused")).toBeInTheDocument();
   });
 
-  it("shows a guest a starter village to look at and no Edit", () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.guest} />));
-    expect(screen.getByText("Playing as a guest: connect to build your village")).toBeInTheDocument();
+  it("asks no one to connect (NO-GUEST): a village to look at has no Edit and no guest's line", () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} readOnly />));
+    expect(screen.queryByText(/guest/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Edit village" })).not.toBeInTheDocument();
   });
 
@@ -662,16 +632,14 @@ describe("Play", () => {
     expect(onChallenge).not.toHaveBeenCalled();
   });
 
-  it("connects a guest who picks the Challenge or Attack", async () => {
-    const onConnect = vi.fn();
+  it("opens the Challenge and Attack on a tap, no Connect first (NO-GUEST)", async () => {
     const onChallenge = vi.fn();
     const onAttack = vi.fn();
-    render(wrap(<PlayScene {...PLAY.guest} onConnect={onConnect} onChallenge={onChallenge} onAttack={onAttack} />));
+    render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} onAttack={onAttack} />));
     await userEvent.click(screen.getByRole("button", { name: /^Challenge/ }));
     await userEvent.click(screen.getByRole("button", { name: /^Attack/ }));
-    expect(onConnect).toHaveBeenCalledTimes(2);
-    expect(onChallenge).not.toHaveBeenCalled();
-    expect(onAttack).not.toHaveBeenCalled();
+    expect([onChallenge, onAttack].map((f) => f.mock.calls.length)).toEqual([1, 1]);
+    expect(screen.queryByText(/connect/i)).toBeNull();
   });
 
   // #1041: the gift is drawn above the card's stretched button (`after:inset-0`); it takes no pointer, so a tap on it is the button's.
@@ -1315,7 +1283,7 @@ describe("Element feedback (EL)", () => {
 
   it("draws Ranking with the HUD's trophy (END-CHEST: in the Chests' place), and no Vault (the home's overlay's, #763; no header from desktop, #762)", () => {
     render(wrap(<AppNav />));
-    expect(screen.getByRole("button", { name: "Ranking, coming soon" }).querySelector("img[data-slot='ui-icon'][data-icon='trophy']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Ranking" }).querySelector("img[data-slot='ui-icon'][data-icon='trophy']")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Vault" })).toBeNull();
   });
 

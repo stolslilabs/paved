@@ -120,8 +120,8 @@ describe("the plan view: a long press on a tile into edit mode (#799)", () => {
     expect(onEditingChange).not.toHaveBeenCalled();
   });
 
-  it("a guest's, a read-only, an unfounded village and a visit (no action) show no bubble", async () => {
-    for (const props of [HOME_VILLAGE.guest, { ...HOME_VILLAGE.view, readOnly: true }, HOME_VILLAGE.unfounded]) {
+  it("a read-only, an unfounded village and a visit (no action) show no bubble", async () => {
+    for (const props of [{ ...HOME_VILLAGE.view, readOnly: true }, HOME_VILLAGE.unfounded]) {
       const onEditingChange = vi.fn();
       const { unmount } = render(wrap(<HomeVillageScene {...props} holdMs={HOLD} onEditingChange={onEditingChange} />));
       const tile = await starter();
@@ -202,7 +202,7 @@ describe("the 3D board: the renderer's presses into the action (#799)", () => {
     expect(onAct).not.toHaveBeenCalled();
   });
 
-  it("the home hands the canvas its press in view only: none in edit mode, for a guest or read only", async () => {
+  it("the home hands the canvas its press in view only: none in edit mode, nor read only", async () => {
     const views: LayoutBoardView[] = [];
     const renderCanvas = (view: LayoutBoardView) => (views.push(view), <div data-testid="canvas" />);
     const onEditingChange = vi.fn();
@@ -214,7 +214,7 @@ describe("the 3D board: the renderer's presses into the action (#799)", () => {
     expect(onEditingChange).toHaveBeenCalledWith(true);
     rerender(wrap(<HomeVillageScene {...HOME_VILLAGE.view} editing renderCanvas={renderCanvas} onEditingChange={onEditingChange} />));
     expect(views[views.length - 1]!.press).toBeNull();
-    for (const props of [HOME_VILLAGE.guest, { ...HOME_VILLAGE.view, readOnly: true }]) {
+    for (const props of [{ ...HOME_VILLAGE.view, readOnly: true }]) {
       rerender(wrap(<HomeVillageScene {...props} renderCanvas={renderCanvas} />));
       expect(views[views.length - 1]!.press).toBeNull();
     }

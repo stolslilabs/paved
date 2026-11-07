@@ -121,7 +121,6 @@ export const VILLAGE = {
   refused: { village: VILLAGE_START, reward: REWARD, refusal: "Your reward was claimed already. No Cobbles were spent." },
   rewardFailed: { village: VILLAGE_START, pending: 2, rewardError: { message: "Rewards: the node did not answer" } },
   loading: { status: { kind: "loading" } },
-  guest: { status: { kind: "guest" } },
   unavailable: { village: null },
   visitProfile: { village: VILLAGE_RIVAL, mode: "visit", from: "profile" },
   visitScout: { village: VILLAGE_RIVAL, mode: "visit", from: "scout" },

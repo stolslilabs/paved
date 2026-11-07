@@ -307,12 +307,12 @@ describe("the other answers", { timeout: slow(30_000) }, () => {
     expect(screen.queryByRole("region", { name: "Shield" })).toBeNull();
   });
 
-  it("/pvp without an account waits, no Connect (no guest state)", async () => {
+  it("/pvp with no account yet: no Connect (NO-GUEST), the account is made at start", async () => {
     const guest = fakeWallet({ restored: false });
     const s = mockImplementation();
     render(<App router={createTestRouter("/pvp")} sources={{ ...s.sources, signer: null }} connector={guest.load} />);
-    expect(await screen.findByRole("heading", { name: "Searching for a rival" }, WAIT)).toBeInTheDocument();
-    expect(screen.queryByText(/Connect/)).toBeNull();
+    await waitFor(() => expect(guest.calls).toEqual(expect.arrayContaining(["probe", "connect"])), WAIT);
+    expect(screen.queryByText(/Connect to attack another village/)).toBeNull();
   });
 
   it("/pvp/league on a network without Matchmaker", async () => {

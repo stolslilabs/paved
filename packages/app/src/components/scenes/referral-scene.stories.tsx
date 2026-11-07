@@ -4,7 +4,7 @@ import { REFERRAL } from "../../mocks/scenes";
 import { ReferralScene } from "./referral-scene";
 
 /** Referral (`/referral`): the player's link to copy, Share where the browser has a share sheet, their share of each price (500 bps, out of the Vault's part) and what it earned, games and packs. One story per state; the viewport is the toolbar's (VP). */
-const meta = { title: "Scenes/Referral", component: ReferralScene, args: { onCopy: fn(), onShare: fn(), onRetry: fn(), onConnect: fn(), onBack: fn() } } satisfies Meta<typeof ReferralScene>;
+const meta = { title: "Scenes/Referral", component: ReferralScene, args: { onCopy: fn(), onShare: fn(), onRetry: fn(), onBack: fn() } } satisfies Meta<typeof ReferralScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -23,8 +23,6 @@ export const Loading: Story = { args: REFERRAL.loading };
 /** The indexer's read failed: Retry; the link stays. */
 export const ReadError: Story = { args: REFERRAL.error };
 
-/** No wallet: no link. */
-export const Guest: Story = { args: REFERRAL.guest };
 
 /** No economy on this network: no share shown. */
 export const NotDeployed: Story = { args: REFERRAL.notDeployed };

@@ -26,8 +26,12 @@ export const Withdraw: Story = { args: { op: "withdraw", amount: "500", limit: V
 export const Redeem: Story = { args: { op: "redeem", amount: "100", limit: VAULT_HELD.shares, preview: PREVIEW_REDEEM_100 } };
 /** Nothing typed: nothing to send. */
 export const Empty: Story = { args: { amount: "", preview: null } };
-/** The preview on its way. */
-export const Previewing: Story = { args: { preview: null } };
+/** The quote on its way: an ellipsis, the Deposit held until it is shown (VAULT-QUOTE-GATE). */
+export const QuoteLoading: Story = { args: { preview: null } };
+/** The quote's read failed: the app's error with Retry over the row, a dash for the figure, the Deposit held. */
+export const QuoteFailed: Story = {
+  args: { preview: null, previewError: "The node did not answer preview_deposit.", onRetryPreview: fn() },
+};
 /** The deposit waits in the wallet: its word kept, a spinner in it. */
 export const Busy: Story = { args: { busy: "deposit" } };
 /** The page's state holds it (a read on its way or failed, no economy). */

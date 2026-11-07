@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { BalancesProvider } from "../containers/balances-context";
 import { AVATAR_CREATOR } from "../../mocks/scenes";
 import { AvatarCreatorScene } from "./avatar-creator-scene";
 
 /**
- * The avatar creator (`/avatar`, #626 PR 2, AVATAR-LIVING), from Edit avatar in the profile sheet: the living bust, the traits
- * as tabs, each trait's options as swatches with their Cobble price, Buy, Randomise and Save. One story per state; the viewport is
- * the toolbar's (VP).
+ * The avatar editor (`/avatar`, #626 PR 2, AVATAR-LIVING; AVATAR-PAGE, the Paved UX Book's "avatar-editor"), from the Profile's Avatar:
+ * the HUD's drawer docked at the left, the living avatar in its disc (no league), the categories as painted tabs, each one's options three a
+ * row with their pill, the option tried on with Buy, and Randomise, Reset and Save at the foot. One story per state; the viewport is the
+ * toolbar's (VP).
  */
 const meta = {
   title: "Scenes/AvatarCreator",
@@ -19,19 +21,28 @@ const meta = {
     onReset: fn(),
     onDismissRefusal: fn(),
     onBuyCobbles: fn(),
-    onConnect: fn(),
     onRetry: fn(),
     onBack: fn(),
+    onClose: fn(),
+    onPart: fn(),
   },
+  // The shell's balances, the Cobbles at the header's end as the app shows them: the creator's own balance.
+  decorators: [
+    (Story, { args }) => (
+      <BalancesProvider value={{ state: { status: "ready", usdc: 48_500_000n, paved: 0n, vpaved: 0n, cobbles: args.creator?.balance ?? 640 }, onAction: fn() }}>
+        <Story />
+      </BalancesProvider>
+    ),
+  ],
 } satisfies Meta<typeof AvatarCreatorScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The saved avatar, Skin open: the five tones, all free. */
+/** The saved avatar, Skin tone open: the five tones, all free. */
 export const Saved: Story = { args: AVATAR_CREATOR.saved };
-/** Headwear: one bought (Owned), four free, one on sale for the winter. */
+/** Headwear: one bought and four free (nothing under them), the others on sale (the Feathered cap for the winter). */
 export const Headwear: Story = { args: AVATAR_CREATOR.headwear };
-/** A priced option tried on: its price, its season's end and Buy; Save waits for it. */
+/** An option on sale tried on (the book's Viking helm's place): its rarity, its price, its season's end and Buy; Save waits for it. */
 export const Priced: Story = { args: AVATAR_CREATOR.priced };
 /** Accessory: one withdrawn from sale. */
 export const Accessory: Story = { args: AVATAR_CREATOR.accessory };
@@ -61,8 +72,6 @@ export const Refused: Story = { args: AVATAR_CREATOR.refused };
 export const None: Story = { args: AVATAR_CREATOR.none };
 /** Four traits in use: four tabs. */
 export const FewParts: Story = { args: AVATAR_CREATOR.fewParts };
-/** A guest: Connect. */
-export const Guest: Story = { args: AVATAR_CREATOR.guest };
 /** The reads on their way. */
 export const Loading: Story = { args: AVATAR_CREATOR.loading };
 /** A failed read, with Retry. */

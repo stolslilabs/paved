@@ -38,8 +38,8 @@ const OPENED = { opened: true } as const;
  * effects, the volumes, tile preview, placement highlight, the square grid) and the viewer's switch for the other players' skins
  * (`useShowSkins`) are kept on this device; the board reads the same stores, so a change applies to an open board. The account is the
  * wallet's (`useAccount`): the username, or the short address, the saved look and the league's rim (`usePvpLeagueOf`, unranked as the
- * profile reads it), with Disconnect (then Home, `?ref=` kept) or Connect for a guest, and Reset (a new key and account on this device,
- * for testing: #918). The two volume sliders keep the volume and the level before a mute (`withVolume`).
+ * profile reads it), and Reset (a new key and account on this device, for testing: #918). No Disconnect and no Connect (NO-GUEST, the
+ * owner's ruling of 2026-11-07): every player has an account, Reset goes from one to the next. The two volume sliders keep the volume and the level before a mute (`withVolume`).
  * Views: Credits and Themes are the URL's, each an entry of its own pushed from Settings (Back goes back in the history; reached by a
  * link or a reload, Back replaces it with Settings); the quality's choice is the page's own state. The data layer's types are the
  * chain-free ones (no value import of `@paved/chain` in this chunk).
@@ -105,11 +105,6 @@ export default function Page() {
       returnFocus={drawer?.returnFocus}
       onVolumeChange={(channel, volume) => deviceSettings.set(withVolume(deviceSettings.get(), channel, volume))}
       onChange={(key, value) => (key === "showSkins" ? setShowSkins(value as boolean) : set(key, value as never))}
-      onConnect={() => void wallet.connect()}
-      onDisconnect={() => {
-        wallet.disconnect();
-        go("/", { replace: true });
-      }}
       onReset={() => void wallet.reset()}
       onView={onView}
       onViewBack={onViewBack}

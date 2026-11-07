@@ -248,14 +248,11 @@ describe("/player/:id on the mock (#952)", { timeout: slow(20_000) }, () => {
     expect(within(dialog).queryByRole("button", { name: "Copy player ID" })).toBeNull();
   });
 
-  it("keeps a player's link through a first visit's welcome, and opens the profile after it (Back as a guest)", async () => {
+  it("opens a player's link on a first visit at once, over the village (NO-GUEST: no welcome first)", async () => {
     resetWelcomedForTests();
     localStorage.removeItem("welcomed");
     const seeded = SEEDED_PLAYERS[6]!;
     const { router } = open(`/player/${seeded.address}`);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/welcome"), { timeout: slow(8000) });
-    expect(new URLSearchParams(router.state.location.search).get("player")).toBe(seeded.address);
-    await userEvent.click(await screen.findByRole("button", { name: "Back" }, { timeout: slow(8000) }));
     expect(await screen.findByRole("dialog", { name: seeded.name }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/");
     expect(new URLSearchParams(router.state.location.search).get("player")).toBe(seeded.address);

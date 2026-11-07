@@ -39,7 +39,6 @@ export interface ThemeSceneProps {
   onOpen?: (theme: SkinThemeId) => void;
   /** My tiles: the skin of each tile. */
   onMyTiles?: () => void;
-  onConnect?: () => void;
   onRetry?: () => void;
 }
 
@@ -50,7 +49,7 @@ export interface ThemeSceneProps {
  * owner's ruling of 2026-10-18), and asks first when that replaces a choice made tile by tile; a theme's Tiles is its shop;
  * My tiles chooses tile by tile.
  */
-export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, refusalDetail, onDismissRefusal, onUse, onOpen, onMyTiles, onConnect, onRetry }: ThemeSceneProps) {
+export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, refusalDetail, onDismissRefusal, onUse, onOpen, onMyTiles, onRetry }: ThemeSceneProps) {
   const [confirm, setConfirm] = useState<{ theme: ThemeId; changes: Record<number, number> } | null>(null);
   const busy = applying != null;
   const use = (theme: ThemeId) => {
@@ -67,7 +66,7 @@ export function ThemeScene({ renders, skins, skinsStatus, applying, refusal, ref
     <div data-slot="themes" className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">How your tiles look on the board.</p>
       {!skins && skinsStatus && skinsStatus.kind !== "loading" && (
-        <SkinsStatusView status={skinsStatus} guestTitle="Connect to use themes" guestText="Themes are tiles bought with the Cobbles of your account, and kept on it." onConnect={onConnect} onRetry={onRetry} />
+        <SkinsStatusView status={skinsStatus} onRetry={onRetry} />
       )}
       <InlineError
         title="Not done"

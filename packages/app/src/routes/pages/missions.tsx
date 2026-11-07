@@ -22,8 +22,8 @@ import { useBack, useAppNavigate } from "../ref";
  * each quest's schedule) and the player's achievements from the indexer, their Cobbles from `Setup`'s ledger (`useQuestRewards`,
  * `useAchievementRewards`), today's milestones (`useDailyMilestones`, #869) and the week's (`useWeeklyMilestones`, #976). A quest's,
  * an achievement's or a milestone's claim goes through the signer; after a receipt the cache follows its events (`useClaims`,
- * `useMilestoneClaims`, `useWeeklyMilestoneClaims`). No week's bonus since #976: the week pays at its milestones. The player is the signer's address: without a signer the page is a guest's; with one
- * that cannot claim, it is read only ("Connect to claim"). A wallet approved earlier is looked for here too (`useAccount`), so a
+ * `useMilestoneClaims`, `useWeeklyMilestoneClaims`). No week's bonus since #976: the week pays at its milestones. The player is the signer's address: without one yet the page loads (NO-GUEST: every
+ * player has an account, none is asked to connect); with one that cannot claim, it is read only, its claims off. A wallet approved earlier is looked for here too (`useAccount`), so a
  * returning player can claim at once. The Tutorial's steps (#977) are the mock ledger's until #738 (`useTutorialSteps`,
  * `useTutorialClaims`); where they are not served the section does not show. The completion toasts are the app's (`routes/completion-host.tsx`).
  * `?mission=quest:12` (the home's missions tracker, #978) puts that mission on the card on arrival; a key not on the page is ignored.
@@ -107,7 +107,6 @@ export default function Page() {
       onClaimMilestone={claimMilestone}
       onClaimWeeklyMilestone={claimWeeklyMilestone}
       onClaimTutorial={claimTutorial}
-      onConnect={() => go("/welcome")}
       onRetry={retry}
       initialSelected={initialSelected}
       open={drawer?.open ?? true}

@@ -11,7 +11,6 @@ vi.mock("../src/routes/page-loaders", () => {
   const board = loader("board");
   return {
     PAGE_LOADERS: {
-      welcome: loader("welcome"),
       "": loader("home"),
       play: loader("play"),
       "play/challenge": loader("purchase"),

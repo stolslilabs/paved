@@ -27,6 +27,8 @@ import {
   type PvpAttack,
   type SkinPrice,
   type PlayerReferralsAnswer,
+  type PlayerVaultClaimsAnswer,
+  type VaultClaim,
   type PlayerInfo,
   type PlayerQuest,
   type PlayerStats,
@@ -606,6 +608,64 @@ export class Queries {
       total: String(games.total + packs.total),
       games: { count: games.count, total: String(games.total) },
       packs: { count: packs.count, total: String(packs.total) },
+    };
+  }
+
+  /**
+   * A holder's claims of the Vault's USDC at `head` (D-31), newest first, strictly before the cursor `(block, tx, idx)`; the
+   * totals are over every one of them, the claims and the collects apart. The sums are exact (u256 text added as BigInt).
+   */
+  playerVaultClaims(
+    head: number,
+    account: string,
+    limit: number,
+    before: { block: number; tx: number; idx: number } | undefined,
+  ): Omit<PlayerVaultClaimsAnswer, keyof Envelope> {
+    const totals = { claim: { count: 0, total: 0n }, collect: { count: 0, total: 0n } };
+    for (const row of this.store
+      .statement("SELECT kind, amount FROM vault_claims WHERE account = ? AND block <= ?")
+      .all(account, head) as Row[]) {
+      const kind = totals[row.kind === "collect" ? "collect" : "claim"];
+      kind.count += 1;
+      kind.total += BigInt(String(row.amount));
+    }
+    const rows = this.store
+      .statement(
+        `SELECT block, tx, idx, tx_hash, kind, recipient, amount, time FROM vault_claims
+         WHERE account = :a AND block <= :h
+           AND (:cursor = 0 OR (block, tx, idx) < (:cb, :ct, :ci))
+         ORDER BY block DESC, tx DESC, idx DESC LIMIT :n`,
+      )
+      .all({
+        a: account,
+        h: head,
+        cursor: before ? 1 : 0,
+        cb: before?.block ?? 0,
+        ct: before?.tx ?? 0,
+        ci: before?.idx ?? 0,
+        n: limit + 1,
+      }) as Row[];
+    const claims = rows.slice(0, limit).map(
+      (row): VaultClaim => ({
+        kind: row.kind === "collect" ? "collect" : "claim",
+        amount: String(row.amount),
+        recipient: row.recipient === null || row.recipient === undefined ? null : String(row.recipient),
+        block: Number(row.block),
+        tx: Number(row.tx),
+        idx: Number(row.idx),
+        transaction_hash: String(row.tx_hash),
+        claimed_at: Number(row.time),
+      }),
+    );
+    const last = claims[claims.length - 1];
+    return {
+      player_id: account,
+      claimed: String(totals.claim.total),
+      count: totals.claim.count,
+      collected: String(totals.collect.total),
+      collected_count: totals.collect.count,
+      claims,
+      next: rows.length > limit && last ? `${last.block}:${last.tx}:${last.idx}` : null,
     };
   }
 

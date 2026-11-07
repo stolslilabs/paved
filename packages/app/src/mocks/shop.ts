@@ -33,8 +33,6 @@ export const SHOP = {
   forest: { ...base, tab: "themes", theme: "forest" },
   /** Forest's view with no Cobbles and nothing owned: every price off, Get Cobbles. */
   forestNoCobbles: { ...base, tab: "themes", theme: "forest", themes: { ...forest, skins: { ...forest.skins, balance: 0, owned: ownedPlans(), active: activeOn(1) } } },
-  /** A guest: Connect, on each tab. */
-  guest: { ...base, tiles: { status: { kind: "guest" } }, packs: { ...packs, connected: false, balance: null }, themes: { ...forest, skins: undefined, skinsStatus: { kind: "guest" } } },
   /** The reads on their way. */
   loading: { ...base, tiles: { status: { kind: "loading" } }, themes: { ...forest, skins: undefined, skinsStatus: { kind: "loading" } } },
 } satisfies Record<string, Data<ShopSceneProps>>;

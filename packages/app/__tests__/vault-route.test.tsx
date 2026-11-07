@@ -24,7 +24,7 @@ import { parseUnits, withdrawFee } from "../src/components/containers/vault-form
 import type { DataSources, GameSigner } from "../src/data";
 import { queryKeys } from "../src/data/keys";
 import type { VaultWrites } from "../src/data/sources";
-import { exactUnits, positionAfter } from "../src/data/vault";
+import { exactUnits, positionAfter, vaultKeys } from "../src/data/vault";
 import { vaultWritesFor } from "../src/data/vault-client";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
@@ -72,6 +72,12 @@ const drawer = () => screen.getByRole("dialog", { name: "Vault" });
 /** A footer tab pressed (the Vault opens on its Position). */
 const openTab = (name: "Position" | "Deposit" | "Withdraw") => userEvent.click(within(drawer()).getByRole("tab", { name }));
 const field = (name: RegExp) => screen.getByRole("textbox", { name });
+/** The drawer's gold action, once its quote is shown (VAULT-QUOTE-GATE: held until then). */
+const action = async (name: "Deposit" | "Mint" | "Withdraw" | "Redeem") => {
+  const button = within(drawer()).getByRole("button", { name });
+  await waitFor(() => expect(button).toBeEnabled(), { timeout: slow(5000) });
+  return button;
+};
 
 beforeEach(() => {
   queryClient.clear();
@@ -86,14 +92,14 @@ afterEach(() => {
 });
 
 describe("/vault (P10)", { timeout: slow(20_000) }, () => {
-  it("no account yet: the page shows its loading, never a guest's Connect, and reads nothing of the Vault (the owner's ruling of 2026-11-07)", async () => {
+  it("no Connect (the owner's ruling of 2026-11-07, NO-GUEST): a device with no account gets one at start, then its position is read", async () => {
     const s = setup({ viewer: "guest" });
     const wallet = open(s);
-    await waitFor(() => expect(wallet.calls).toContain("probe"));
-    expect(await screen.findByRole("status", { name: "Reading the Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
+    await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])));
+    expect(await position()).toBeInTheDocument();
     expect(within(drawer()).queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.queryByText(/Connect to use the Vault/)).toBeNull();
-    expect(s.economy.calls.filter((c) => c.startsWith("vault"))).toEqual([]);
+    await waitFor(() => expect(s.economy.calls).toContain(`vault ${PLAYER}`));
   });
 
   it("shows the position from the chain: vPAVED, their share of the supply, their worth in PAVED and dollars, the rate, the exit fee, the wallet", async () => {
@@ -163,7 +169,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     await userEvent.type(field(/Amount to deposit/), "12.5");
     await waitFor(() => expect(screen.getByRole("group", { name: "You get" })).toHaveTextContent("12.50vPAVED"));
     expect(s.economy.calls).toContain(`preview_deposit ${125n * 10n ** 17n}`);
-    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
+    await userEvent.click(await action("Deposit"));
     await waitFor(() => expect(s.writes.deposit).toHaveBeenCalledOnce());
     expect(s.writes.deposit).toHaveBeenCalledWith(125n * 10n ** 17n, { confirmedAmount: 125n * 10n ** 17n });
     expect(await screen.findByText("Deposited")).toBeInTheDocument();
@@ -185,11 +191,90 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     vi.spyOn(s.economy, "vault").mockImplementation(async (a) => (reads.push(`vault ${a}`), await pending, vault(a)));
     vi.spyOn(s.economy, "pavedBalance").mockImplementation(async (a) => (reads.push(`paved ${a}`), await pending, paved(a)));
     await userEvent.type(field(/Amount to deposit/), "2");
-    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
+    await userEvent.click(await action("Deposit"));
     await waitFor(() => expect(queryClient.getQueryData<{ shares: bigint }>(queryKeys.chain.vault(PLAYER))?.shares).toBe(3n * P));
     expect(queryClient.getQueryData(queryKeys.chain.pavedBalance(PLAYER))).toBe(48n * P);
     await waitFor(() => expect(reads.sort()).toEqual([`paved ${PLAYER}`, `vault ${PLAYER}`]));
     release();
+  });
+
+  it("the quote gate (VAULT-QUOTE-GATE): nothing is sent while the quote is read; a failed quote has Retry, which reads it again", async () => {
+    const s = setup();
+    let release: () => void = () => {};
+    let fail = false;
+    const previewDeposit = s.economy.previewDeposit.bind(s.economy);
+    const reads = vi.spyOn(s.economy, "previewDeposit").mockImplementation(async (amount) => {
+      if (fail) throw new Error("node down");
+      await new Promise<void>((resolve) => (release = resolve));
+      return previewDeposit(amount);
+    });
+    open(s);
+    await position();
+    await openTab("Deposit");
+    // On its way: the figure an ellipsis, Deposit held, a tap sends nothing.
+    await userEvent.type(field(/Amount to deposit/), "2");
+    await waitFor(() => expect(reads).toHaveBeenCalled());
+    expect(screen.getByRole("group", { name: "You get" })).toHaveTextContent("…");
+    const deposit = within(drawer()).getByRole("button", { name: "Deposit" });
+    expect(deposit).toBeDisabled();
+    await userEvent.click(deposit);
+    expect(s.writes.deposit).not.toHaveBeenCalled();
+    release();
+    await waitFor(() => expect(deposit).toBeEnabled());
+    // A failed quote (its read and the client's one retry): the error with Retry, Deposit held.
+    fail = true;
+    await userEvent.clear(field(/Amount to deposit/));
+    await userEvent.type(field(/Amount to deposit/), "3");
+    const title = await screen.findByText("The quote cannot be read", {}, { timeout: slow(8000) });
+    expect(within(drawer()).getByRole("button", { name: "Deposit" })).toBeDisabled();
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Deposit" }));
+    expect(s.writes.deposit).not.toHaveBeenCalled();
+    fail = false;
+    const before = reads.mock.calls.length;
+    await userEvent.click(within(title.closest("[role=alert]") as HTMLElement).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(reads.mock.calls.length).toBeGreaterThan(before));
+    release();
+    await userEvent.click(await action("Deposit"));
+    await waitFor(() => expect(s.writes.deposit).toHaveBeenCalledWith(3n * P, { confirmedAmount: 3n * P }));
+  });
+
+  it("the quote gate: a shown quote whose refetch failed stays held through its Retry until the new quote is read", async () => {
+    const s = setup({ writes: { mint: async (shares) => ok([depositEvent(shares, shares)]) } });
+    let fail = false;
+    let pending = false;
+    let release: () => void = () => {};
+    const previewMint = s.economy.previewMint.bind(s.economy);
+    const reads = vi.spyOn(s.economy, "previewMint").mockImplementation(async (shares) => {
+      if (fail) throw new Error("node down");
+      if (pending) await new Promise<void>((resolve) => (release = resolve));
+      return previewMint(shares);
+    });
+    open(s);
+    await position();
+    await openTab("Deposit");
+    await userEvent.click(within(drawer()).getByRole("radio", { name: /vPAVED/ }));
+    await userEvent.type(field(/Amount to mint, in vPAVED/), "4");
+    await action("Mint");
+    // A later read of the same quote fails (a focus refetch): the old quote is kept by the cache, the action is held.
+    fail = true;
+    await queryClient.refetchQueries({ queryKey: vaultKeys.preview("mint", 4n * P) });
+    const title = await screen.findByText("The quote cannot be read", {}, { timeout: slow(8000) });
+    const mint = within(drawer()).getByRole("button", { name: "Mint" });
+    expect(mint).toBeDisabled();
+    // Retry on its way: still held, a tap sends nothing.
+    fail = false;
+    pending = true;
+    const before = reads.mock.calls.length;
+    await userEvent.click(within(title.closest("[role=alert]") as HTMLElement).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(reads.mock.calls.length).toBeGreaterThan(before));
+    expect(screen.getByRole("group", { name: "You pay" })).toHaveTextContent("…");
+    expect(mint).toBeDisabled();
+    await userEvent.click(mint);
+    expect(s.writes.mint).not.toHaveBeenCalled();
+    pending = false;
+    release();
+    await userEvent.click(await action("Mint"));
+    await waitFor(() => expect(s.writes.mint).toHaveBeenCalledWith(4n * P, { confirmedShares: 4n * P }));
   });
 
   it("not enough PAVED: a deposit above the wallet is refused before any send", async () => {
@@ -211,7 +296,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     await openTab("Deposit");
     await userEvent.click(screen.getByRole("button", { name: "Max" }));
     expect(field(/Amount to deposit/)).toHaveValue("7.000000000123456789");
-    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
+    await userEvent.click(await action("Deposit"));
     await waitFor(() => expect(s.writes.deposit).toHaveBeenCalledWith(balance, { confirmedAmount: balance }));
   });
 
@@ -226,7 +311,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     expect(screen.getByLabelText("Before you withdraw")).toHaveTextContent(/You receive\s*40.00/);
     await waitFor(() => expect(screen.getByRole("group", { name: "Uses" })).toHaveTextContent("42.00vPAVED"));
     expect(screen.getByText(/Withdraw all pays/)).toHaveTextContent("95.23");
-    await userEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    await userEvent.click(await action("Withdraw"));
     await waitFor(() => expect(s.writes.withdraw).toHaveBeenCalledWith(40n * P, { confirmedAmount: 40n * P, confirmedExitFeeBps: 500 }));
     expect(await screen.findByText("Withdrawn")).toBeInTheDocument();
   });
@@ -301,7 +386,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     await position();
     await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "1");
-    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
+    await userEvent.click(await action("Deposit"));
     // The footer's Deposit keeps its word and its place, a spinner in it; the body says what the wallet asks.
     expect(await screen.findByText(/Approve and deposit in your wallet: one transaction for both/)).toBeInTheDocument();
     const busy = screen.getByRole("button", { name: "Deposit" });
@@ -326,7 +411,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     await position();
     await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "2");
-    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
+    await userEvent.click(await action("Deposit"));
     expect(await screen.findByText("Deposit refused")).toBeInTheDocument();
     expect(screen.getByText("Deposit refused").parentElement).toHaveTextContent("Not enough PAVED: your wallet holds 1 PAVED. Nothing was sent.");
     expect(field(/Amount to deposit/)).toHaveValue("2");
@@ -334,7 +419,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     await userEvent.click(screen.getByRole("tab", { name: "Withdraw" }));
     expect(screen.queryByText("Deposit refused")).toBeNull();
     await userEvent.type(field(/Amount to withdraw/), "1");
-    await userEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    await userEvent.click(await action("Withdraw"));
     expect(await screen.findByText("Withdraw refused")).toBeInTheDocument();
     expect(screen.getByText("Withdraw refused").parentElement).toHaveTextContent("The exit fee changed: confirm again");
   });
@@ -359,7 +444,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     await position();
     await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "2");
-    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
+    await userEvent.click(await action("Deposit"));
     await waitFor(() => expect(sent).toHaveLength(2));
     expect(sent.map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([
       [BigInt(ECON.pavedToken), "approve", [ECON.vault, ...u256(2n * P)]],

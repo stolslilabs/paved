@@ -354,6 +354,43 @@ export interface IndexedAttack {
   finishedAt: number;
 }
 
+/**
+ * A claim of the Vault's USDC (D-31, `/v1/players/:id/vault/claims`): the holder's own (`claim`, paid to the holder) or the
+ * owner's collect of a contract holder's (`collect`, paid to `recipient`, the owner). Both count in the Vault's `claimed_of`.
+ */
+export interface VaultClaim {
+  kind: "claim" | "collect";
+  /** USDC base units (6 decimals), a decimal string. */
+  amount: string;
+  /** Who a collect paid; null for a claim. */
+  recipient: string | null;
+  /** The claim's position: the block, the transaction's index in it and the event's index in it. */
+  block: number;
+  tx: number;
+  idx: number;
+  /** The transaction's hash, `0x` and 64 hex digits. */
+  transactionHash: string;
+  /** Time of the block of the claim (seconds). */
+  claimedAt: number;
+}
+
+/**
+ * A holder's claims of the Vault's USDC, newest first, and its totals over every one (not only this page): `claimed` and
+ * `count` of its own claims, `collected` and `collectedCount` of the owner's collects. The earned, claimed and claimable
+ * figures are the Vault's views; its `claimed_of` is `claimed` plus `collected`. An indexer of a deployment without a
+ * Vault answers none.
+ */
+export interface PlayerVaultClaims {
+  playerId: string;
+  claimed: string;
+  count: number;
+  collected: string;
+  collectedCount: number;
+  claims: VaultClaim[];
+  /** Pass as `before` for the next page; null on the last. */
+  next: string | null;
+}
+
 export interface IndexerOptions {
   /** Base URL of the API, without the `/v1`. */
   url: string;
@@ -630,6 +667,29 @@ function parseAttack(v: unknown, what: string): IndexedAttack {
   };
 }
 
+function parseVaultClaim(v: unknown, what: string): VaultClaim {
+  const o = obj(v, what);
+  const kind = str(o, "kind", what);
+  if (kind !== "claim" && kind !== "collect") bad(`${what}.kind is not claim or collect`);
+  const recipient = orNull(o, "recipient", str, what);
+  // A collect pays the owner, named; a claim pays the holder itself.
+  if ((kind === "collect") !== (recipient !== null)) bad(`${what}.kind and recipient disagree`);
+  const amountOf = amount(o, "amount", what);
+  if (amountOf === "0") bad(`${what}.amount is 0`);
+  const hash = str(o, "transaction_hash", what);
+  if (!/^0x[0-9a-f]{64}$/.test(hash)) bad(`${what}.transaction_hash is not a hash`);
+  return {
+    kind: kind as VaultClaim["kind"],
+    amount: amountOf,
+    recipient,
+    block: num(o, "block", what),
+    tx: num(o, "tx", what),
+    idx: num(o, "idx", what),
+    transactionHash: hash,
+    claimedAt: num(o, "claimed_at", what),
+  };
+}
+
 function answerPlayer(b: Obj, asked: string, what: string): string {
   const id = str(b, "player_id", what);
   if (id !== asked) bad(`${what}.player_id is not the player asked`);
@@ -824,6 +884,34 @@ export class IndexerClient {
   async playerAttack(attacker: string | bigint, id: number): Promise<IndexerAnswer<IndexedAttack>> {
     if (!Number.isSafeInteger(id) || id < 0) throw new IndexerError("rejected", `Not an attack id: ${id}`);
     return this.get(`/v1/players/${indexerPlayerId(attacker)}/attacks/${id}`, {}, (b) => parseAttack(b.attack, "attack"));
+  }
+
+  /**
+   * A holder's claims of the Vault's USDC (D-31), newest first, with its totals over every one; `before` is a previous page's
+   * `next`. A holder that never claimed answers zeros and no claim.
+   */
+  async playerVaultClaims(playerId: string | bigint, params: { limit?: number; before?: string } = {}): Promise<IndexerAnswer<PlayerVaultClaims>> {
+    const id = indexerPlayerId(playerId);
+    return this.get(`/v1/players/${id}/vault/claims`, params, (b) => {
+      const claims = list(b, "claims", "vault claims").map((v, i) => parseVaultClaim(v, `claims[${i}]`));
+      const answer: PlayerVaultClaims = {
+        playerId: answerPlayer(b, id, "vault claims"),
+        claimed: amount(b, "claimed", "vault claims"),
+        count: num(b, "count", "vault claims"),
+        collected: amount(b, "collected", "vault claims"),
+        collectedCount: num(b, "collected_count", "vault claims"),
+        claims,
+        next: orNull(b, "next", str, "vault claims"),
+      };
+      // The whole history in one page: its rows are the totals.
+      if (params.before === undefined && answer.next === null) {
+        const sum = (kind: VaultClaim["kind"]) => claims.filter((c) => c.kind === kind).reduce((total, c) => total + BigInt(c.amount), 0n);
+        const of = (kind: VaultClaim["kind"]) => claims.filter((c) => c.kind === kind).length;
+        if (BigInt(answer.claimed) !== sum("claim") || answer.count !== of("claim")) bad("vault claims.claimed is not its claims' sum");
+        if (BigInt(answer.collected) !== sum("collect") || answer.collectedCount !== of("collect")) bad("vault claims.collected is not its collects' sum");
+      }
+      return answer;
+    });
   }
 
   private async fetchText(url: string): Promise<{ response: Response; text: string }> {

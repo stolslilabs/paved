@@ -15,7 +15,7 @@ const meta = {
   title: "Scenes/MissionsGraph",
   component: MissionsScene,
   decorators: [withCobbles],
-  args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onConnect: fn(), onRetry: fn(), onBack: fn() },
+  args: { onClaimQuest: fn(), onClaimMilestone: fn(), onClaimWeeklyMilestone: fn(), onClaimAchievement: fn(), onRetry: fn(), onBack: fn() },
 } satisfies Meta<typeof MissionsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

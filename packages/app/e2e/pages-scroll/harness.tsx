@@ -17,20 +17,23 @@ import { PlayScene } from "../../src/components/scenes/play-scene";
 import { TilesScene } from "../../src/components/scenes/tiles-scene";
 import { PvpLeagueScene } from "../../src/components/scenes/pvp-league-scene";
 import { MissionsScene } from "../../src/components/scenes/missions-scene";
+import { AvatarCreatorScene } from "../../src/components/scenes/avatar-creator-scene";
 import { ReferralScene } from "../../src/components/scenes/referral-scene";
 import { SettingsScene } from "../../src/components/scenes/settings-scene";
 import { ThemeScene } from "../../src/components/scenes/theme-scene";
 import { VaultScene } from "../../src/components/scenes/vault-scene";
 import { ShopScene } from "../../src/components/scenes/shop-scene";
+import { LeaderboardScene } from "../../src/components/scenes/leaderboard-scene";
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
-import { MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../../src/mocks/scenes";
+import { AVATAR_CREATOR, MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../../src/mocks/scenes";
 import { SHOP } from "../../src/mocks/shop";
+import { LEADERBOARD } from "../../src/mocks/ranking";
 
 const no = () => {};
 /** The Settings drawer's callbacks (SETTINGS-PAGE), none of which the pass presses. */
-const settingsActions = { onChange: no, onVolumeChange: no, onConnect: no, onDisconnect: no, onReset: no, onView: no, onViewBack: no, onBack: no };
+const settingsActions = { onChange: no, onVolumeChange: no, onReset: no, onView: no, onViewBack: no, onBack: no };
 /** `list` made `n` long, each copy with its own `key` number. */
 function long<T>(list: readonly T[], n: number, key?: keyof T): T[] {
   return Array.from({ length: n }, (_, i) => {
@@ -64,7 +67,7 @@ function TickingMissions() {
 
 /**
  * The pages of the pass, by id: the title its header shows, its scene with long content. `drawer`: the HUD's drawer
- * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE) at every width, its own panel: never in the
+ * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, LEADERBOARD-PAGE) at every width, its own panel: never in the
  * page panel.
  */
 export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: true }> = {
@@ -91,6 +94,11 @@ export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: tr
   // Play (PLAY-PAGE): the HUD's drawer, its four groups of modes (no full-screen flow left).
   play: { title: "Play", drawer: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
   credits: { title: "Credits", drawer: true, page: <SettingsScene {...SETTINGS.connected} {...settingsActions} view="credits" credits={{ tracks: TRACKS.map(titleOf) }} /> },
+  // The avatar editor (AVATAR-PAGE): the HUD's drawer, Headwear's eleven options and the one on sale tried on.
+  avatar: { title: "Avatar", drawer: true, page: <AvatarCreatorScene {...AVATAR_CREATOR.priced} onBack={no} onClose={no} /> },
+  // The Leaderboard (LEADERBOARD-PAGE): the HUD's drawer, the community's fifty players by crowns, the viewer's row pinned over the
+  // footer's tabs.
+  ranking: { title: "Ranking", drawer: true, page: <LeaderboardScene {...LEADERBOARD.playersOutOfView} onBack={no} /> },
 };
 
 const params = new URLSearchParams(location.search);

@@ -166,9 +166,10 @@ describe("Scenes/Village", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
     failed();
-    const { unmount: guest } = render(wrap(<VillageScene {...VILLAGE.guest} />));
-    expect(screen.getByText("Connect to build your village")).toBeInTheDocument();
-    guest();
+    // No Connect (NO-GUEST): the account still read is the village's loading.
+    const { unmount: loading } = render(wrap(<VillageScene status={{ kind: "loading" }} />));
+    expect(screen.queryByText("Connect to build your village")).toBeNull();
+    loading();
     render(wrap(<VillageScene {...VILLAGE.unavailable} />));
     expect(screen.getByText("Villages are coming")).toBeInTheDocument();
   });

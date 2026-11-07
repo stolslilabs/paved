@@ -50,12 +50,10 @@ const LazyChatAndMission = lazy(() => loadEdges().then((m) => ({ default: m.Chat
 export type SocialCounts = Readonly<Record<"chat" | "guild" | "friends", number>>;
 
 export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "randomizer" | "randomSeed" | "slowRollMs" | "initialRolling"> {
-  /** The village shown: the player's own, or a guest's starter village. Undefined: not read yet (the sky alone). */
+  /** The village shown: the player's own, or a starter village (a source that does not serve it yet). Undefined: not read yet (the sky alone). */
   village?: VillageLayout;
   /** The own village's read failed: Retry. */
   error?: { message: string; detail?: ErrorDetail } | null;
-  /** No wallet: the village shown is a starter one, nothing to edit (Connect is the header's, with the balances). */
-  guest?: boolean;
   /** A village to look at, not to edit (a source that does not serve the v2 village yet: a starter one). */
   readOnly?: boolean;
   /** The editor open (the page's URL, `?edit`): the editor's overlays instead of the view's. */
@@ -161,7 +159,7 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * the crowns' capsule, the crown capping it), the village score (#755, a capsule whose tap opens edit mode since HOME-UI-CAPSULES),
  * then the shield's capsule while shielded, those stacked at the top,
  * 24 px under the profile (#929), above the season dial; the balances at the top right; today's home content as chips (Resume, the
- * spawn pause, a guest's Connect); the defence log is the league page's. HOME-EDGES (the owner's asks of 2026-11-04, the Paved UX
+ * spawn pause); the defence log is the league page's. HOME-EDGES (the owner's asks of 2026-11-04, the Paved UX
  * Book's main screen), at every width: the right column's four tiles (Missions, Vault, Friends, Tiles) with their counts,
  * centred under the balances; at the bottom left the season dial, the Chat tab on the screen's edge and the mission in
  * progress, just above the dock; no Edit button (the village score's capsule opens edit mode). Edit mode switches the
@@ -180,8 +178,8 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
  * Exit, in the screen's corner, which eases the camera back to the play view and brings them back in the reverse order.
  */
 export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProps) {
-  const { village, guest = false, readOnly = false, founded = true, error, onRetry } = props;
-  const editable = !!village && !guest && !readOnly && founded;
+  const { village, readOnly = false, founded = true, error, onRetry } = props;
+  const editable = !!village && !readOnly && founded;
   const editing = editable && (props.editing ?? false);
   // The Camera mode (#875, open point 1: the home's village in view only): the 3D village's camera free, the overlays gone but Exit
   // (open point 2; CAMERA-EXPLORE). Only while the stage draws the 3D village (`onCanvasChange`).
@@ -411,7 +409,7 @@ function ViewOverlays({
   camera: boolean;
   onCameraChange?: (camera: boolean) => void;
 }) {
-  const { activeGame, now, guest, founded = true } = props;
+  const { activeGame, now, founded = true } = props;
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
   const measures = useOverlayMeasures(!!props.seasonWheel);
@@ -458,12 +456,6 @@ function ViewOverlays({
           <span role="status" className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-warning/50 bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
             <Icon name="circle-pause" size="xs" className="text-warning" />
             New Challenge games are paused
-          </span>
-        )}
-        {guest && (
-          // Connect is the header's (the balances' place): the chip says why, once.
-          <span role="status" className="pointer-events-auto rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs backdrop-blur">
-            Playing as a guest: connect to build your village
           </span>
         )}
       </>
@@ -565,7 +557,7 @@ function ViewOverlays({
           </Suspense>
         )}
         {/* Edit left with HOME-EDGES (the book's): the village score's capsule opens edit mode. */}
-        {village && !guest && !props.readOnly && !founded && (
+        {village && !props.readOnly && !founded && (
           <Button size="lg" variant="outline" data-collapse className="rounded-full bg-card/90 backdrop-blur" loading={props.founding} onClick={props.onFound}>
             <GameIcon name="house-tree" size="sm" /> Found
           </Button>

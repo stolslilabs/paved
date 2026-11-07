@@ -12,7 +12,7 @@ import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { discardTile, preloadPages } from "./route-helpers";
 
-preloadPages("home", "play", "story", "story-board", "missions", "vault", "settings", "referral", "theme", "welcome");
+preloadPages("home", "play", "story", "story-board", "missions", "vault", "settings", "ranking", "referral", "theme");
 
 beforeEach(() => {
   localStorage.clear();
@@ -123,10 +123,11 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     ["/missions/lifetime", "Missions", "/"],
     ["/vault", "Vault", "/"],
     ["/settings", "Settings", "/"],
+    ["/ranking?tab=guilds", "Ranking", "/"],
   ])("%s opened directly: Back lands on %s's parent", async (path, title, parent) => {
     const router = open(path);
-    if (title === "Missions" || title === "Settings" || title === "Vault") {
-      // MISSIONS-PAGE, SETTINGS-PAGE, VAULT-PAGE: the HUD's drawer over the village, its Back the header band's first control, before the title.
+    if (title === "Missions" || title === "Settings" || title === "Vault" || title === "Ranking") {
+      // MISSIONS-PAGE, SETTINGS-PAGE, VAULT-PAGE, LEADERBOARD-PAGE: the HUD's drawer over the village, its Back the header band's first control, before the title.
       const drawer = await screen.findByRole("dialog", { name: title }, { timeout: slow(5000) });
       expect(drawer.querySelector('[data-slot="sheet-header"] button')).toHaveAccessibleName("Back");
     } else {
@@ -136,16 +137,6 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     }
     await back();
     await waitFor(() => expect(at(router)).toBe(parent));
-  });
-
-  it("the welcome, a first visit: Back opens the village as a guest, and the welcome does not come back", async () => {
-    localStorage.clear();
-    resetWelcomedForTests();
-    const router = open("/welcome");
-    await screen.findByRole("heading", { level: 2, name: "Welcome to Paved" }, { timeout: slow(5000) });
-    expect(screen.getByRole("banner").querySelector("button")).toHaveAccessibleName("Back");
-    await back();
-    await waitFor(() => expect(at(router)).toBe("/"));
   });
 
   it("from Settings reached through the Referral, Back is the village, not the Referral", async () => {

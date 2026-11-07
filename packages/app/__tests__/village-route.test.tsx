@@ -45,7 +45,7 @@ function open(c: ReturnType<typeof chain>, path: string, options: { guest?: bool
   return { router, wallet, ...view };
 }
 
-preloadPages("home", "welcome");
+preloadPages("home");
 
 beforeEach(async () => {
   await import("../src/routes/pages/village");

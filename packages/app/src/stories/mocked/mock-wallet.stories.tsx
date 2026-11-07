@@ -20,7 +20,8 @@ import { WalletProvider, type LoadConnector } from "../../wallet/wallet";
 /**
  * The mock's wallet (#927, PR 2): the device's key in its storage and its account the ledger's, deployed nowhere and read from no
  * node (`wallet/mock-key.ts`), under the app's mock overlay (`mockConnector`: the village founded and the name and look drawn at
- * the connection). Settings as the app wires it, over a key kept in memory: Connect, Disconnect and Reset work here as in the app.
+ * the connection). Settings as the app wires it, over a key kept in memory: the account found or made at start (NO-GUEST, the owner's
+ * ruling of 2026-11-07: no Connect, no Disconnect) and Reset work here as in the app.
  */
 const meta = { title: "Pages/Settings mock wallet", parameters: { layout: "fullscreen", route: "/settings" } } satisfies Meta;
 export default meta;
@@ -74,31 +75,32 @@ function at(story: Story, viewport: { parameters?: Story["parameters"]; globals:
   return { ...story, parameters: { ...story.parameters, ...viewport.parameters }, globals: viewport.globals };
 }
 
-/** The device's key kept: a reload finds its account with no prompt, named and dressed by the ledger, with Disconnect and Reset. */
+/** The device's key kept: a reload finds its account with no prompt, named and dressed by the ledger, with Reset. */
 export const Connected: Story = {
   render: () => <SettingsPage device="kept" />,
   play: async ({ canvas }) => {
-    await canvas.findByRole("button", { name: "Disconnect" }, { timeout: 10_000 });
+    await canvas.findByText("Connected", {}, { timeout: 10_000 });
   },
 };
 export const ConnectedPhone320: Story = at(Connected, PHONE_320);
 export const ConnectedPhone375: Story = at(Connected, PHONE_375);
 export const ConnectedWide1440: Story = at(Connected, WIDE_1440);
 
-/** A new browser: no key yet, a guest with Connect; Connect makes the key and its ledger account, founded and named. */
-export const NewDevice: Story = { render: () => <SettingsPage device="new" /> };
+/** A new browser: no key yet; the app makes it at start with its ledger account, founded and named (no Connect: NO-GUEST). */
+export const NewDevice: Story = {
+  render: () => <SettingsPage device="new" />,
+  play: async ({ canvas }) => {
+    await canvas.findByText("Connected", {}, { timeout: 10_000 });
+  },
+};
 export const NewDevicePhone320: Story = at(NewDevice, PHONE_320);
-
-/** Disconnected: the key kept, no reconnect on a reload until Connect, which finds the same account. */
-export const Disconnected: Story = { render: () => <SettingsPage device="signed-out" /> };
-export const DisconnectedPhone320: Story = at(Disconnected, PHONE_320);
 
 /** Reset: the key and its ledger account forgotten, a new account connected with its own name and look. */
 export const AfterReset: Story = {
   render: () => <SettingsPage device="kept" />,
   play: async ({ canvas, userEvent }) => {
     /** The account row's text: the name, Connected and the short address. */
-    const row = async () => (await canvas.findByRole("button", { name: "Disconnect" }, { timeout: 10_000 })).parentElement?.textContent ?? "";
+    const row = async () => (await canvas.findByText("Connected", {}, { timeout: 10_000 })).parentElement?.textContent ?? "";
     const before = await row();
     await userEvent.click(await canvas.findByRole("button", { name: "Reset" }));
     // Connected again, with the new account's name and address in the row.

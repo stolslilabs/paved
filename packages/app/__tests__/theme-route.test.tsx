@@ -44,7 +44,7 @@ const forestActive = (s: ReturnType<typeof setup>) => s.skins.active.flatMap((t,
 
 // Settings too: the theme's pages are sheets drawn over it (BACK-RULE #783), so the first test loaded it cold. And the hosts:
 // Settings is the home's panel (#762), each sheet in its own chunk.
-preloadPages("settings", "theme", "shop", "tiles", "welcome", "home-panel", "page-sheets");
+preloadPages("settings", "theme", "shop", "tiles", "home-panel", "page-sheets");
 
 beforeEach(() => {
   queryClient.clear();
@@ -104,14 +104,10 @@ describe("/settings/theme: the themes", () => {
     expect(screen.queryByText(SKIN_REFUSAL_TEXT["not-owned"])).not.toBeInTheDocument();
   });
 
-  it("asks a guest to connect, and Connect goes to the welcome", async () => {
-    const router = open(setup({ signer: false }), "/settings/theme");
-    // Beside the page's own call: the rail's and the pill's Connect come first in the DOM.
-    const connect = (await screen.findAllByRole("button", { name: "Connect" }, { timeout: slow(5000) })).at(-1)!;
-    resetWelcomedForTests();
-    localStorage.clear();
-    await userEvent.click(connect);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/welcome"));
+  it("no Connect (NO-GUEST): with no account yet the themes load, none asks to connect", async () => {
+    open(setup({ signer: false }), "/settings/theme");
+    await screen.findByRole("dialog", { name: "Themes" }, { timeout: slow(5000) });
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
   });
 
   it("shows a failed read with Retry, which reads again", async () => {

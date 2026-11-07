@@ -31,7 +31,7 @@ const SIZES = [
   { width: 768, height: 1024 },
   { width: 1440, height: 900 },
 ];
-const CAPTURES = ["scene", "scene-editing", "view", "resume", "guest", "editing", "leaving"].map((state) => ({ name: state, story: `scenes-home--${state}` }));
+const CAPTURES = ["scene", "scene-editing", "view", "resume", "editing", "leaving"].map((state) => ({ name: state, story: `scenes-home--${state}` }));
 
 /** A PNG encoded as WebP by the browser (a blank page's canvas). */
 async function toWebp(png: Buffer): Promise<Buffer> {

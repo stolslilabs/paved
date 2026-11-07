@@ -101,10 +101,11 @@ describe("the earlier wallet session on /missions", () => {
     expect((await screen.findAllByRole("button", { name: "245 Cobbles: Buy packs" }, { timeout: slow(3000) })).length).toBeGreaterThan(0);
   });
 
-  it("/missions: with no earlier session the page is a guest's, and the probe ran once", async () => {
+  it("/missions: with no earlier session the account is made at start (NO-GUEST), the probe ran once, no Connect", async () => {
     const { wallet } = openClaims("/missions", { guest: true });
-    expect(await screen.findByText("Connect to see your missions", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    await waitFor(() => expect(wallet.calls.filter((c) => c === "probe")).toHaveLength(1));
+    await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])), { timeout: slow(5000) });
+    expect(wallet.calls.filter((c) => c === "probe")).toHaveLength(1);
+    expect(screen.queryByText("Connect to see your missions")).toBeNull();
   });
 
   it("/missions/lifetime, now /missions (#832): the same session is found there", async () => {

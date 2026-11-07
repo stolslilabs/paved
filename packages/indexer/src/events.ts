@@ -21,13 +21,15 @@ import { MAX_TOURNAMENT_ID } from "./api.ts";
  * (docs/architecture/economy.md, "Events"), and `collection` mints the game NFTs (economy.md, section 9). The on-chain
  * Tutorial left with D-21 and Account with D-25 (E): their addresses are no longer read. A player is a wallet address.
  */
-export type Source = "challenge" | "setup" | "economy" | "collection" | "arena";
+export type Source = "challenge" | "setup" | "economy" | "collection" | "arena" | "vault";
 
 /**
  * `arena` (#643, `docs/architecture/pvp-attacks.md`) holds the PvP attacks: who attacked whom, the stars and the crowns (the
- * defence log, #647). Optional, as `collection`: a deployment without `Arena` reads none.
+ * defence log, #647). Optional, as `collection`: a deployment without `Arena` reads none. `vault` (D-31,
+ * `docs/architecture/vault-share.md`, addendum 2) pays its holders USDC: its claims and the owner's collects are the history of
+ * the Vault page. Optional too: a deployment without `Vault` reads none.
  */
-export const SOURCES: readonly Source[] = ["challenge", "setup", "economy", "collection", "arena"];
+export const SOURCES: readonly Source[] = ["challenge", "setup", "economy", "collection", "arena", "vault"];
 
 /**
  * A past Tutorial game's token id was `TUTORIAL_OFFSET + game id`; a Challenge game's is its game id (`Collection`). The
@@ -308,6 +310,21 @@ export type Decoded =
       threshold: bigint;
       /** PAVED base units minted (u128). */
       reward: bigint;
+    }
+  | {
+      /** A holder's claim of its USDC (`Vault.claim`, D-31): paid to `account`. */
+      name: "Claimed";
+      account: bigint;
+      /** USDC base units (u256), never 0 (`Vault: nothing to claim`). */
+      amount: bigint;
+    }
+  | {
+      /** The owner's collect of a contract holder's USDC (`Vault.collect`, D-31): paid to `recipient`, the owner. */
+      name: "Collected";
+      holder: bigint;
+      recipient: bigint;
+      /** USDC base units (u256), never 0. */
+      amount: bigint;
     };
 
 /** One task of a quest or an achievement: the id the game reports, and the count that completes it. */
@@ -408,6 +425,21 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   AttackOpened: ["arena"],
   AttackFinished: ["arena"],
   AttackSkipped: ["arena"],
+  // D-31: the Vault's USDC claims, a holder's own and the owner's collect of a contract holder's (the Vault page's history).
+  // The Vault's other events are never fetched (`FILTERED`).
+  Claimed: ["vault"],
+  Collected: ["vault"],
+};
+
+/**
+ * The events fetched of a source, by the first key (`starknet_getEvents`'s `keys` filter, the alternatives of the selector);
+ * a source not listed has every event of its address fetched. The Vault (D-31) emits many events no table reads (`Paid` at
+ * every purchase, the ERC20 `Transfer` and `Approval` of its shares, ERC4626's `Deposit` and `Withdraw`, the votes, the pause,
+ * the owner's), and its `Transfer` shares a name with Collection's mint: only its claims are fetched, so none of the others
+ * reaches the decoder, and an upgrade that adds one never halts the indexer.
+ */
+export const FILTERED: Partial<Record<Source, readonly EventName[]>> = {
+  vault: ["Claimed", "Collected"],
 };
 
 /** Events of the contracts' ABIs that are not indexed in v1 (indexer.md, "Not indexed"). */
@@ -438,9 +470,9 @@ export const IGNORED = [
   "MintersSet",
   // The prize of a day (D-20 removed it): `Challenge.sponsor`, `Challenge.claim` of a rank, and a sponsor's reclaim (P-37, declared
   // by the Lobby class, emitted from Challenge's address). Past events only: the ABIs no longer declare them, and a replay of
-  // a history that holds them skips them (public-interface.md, "Past events").
+  // a history that holds them skips them (public-interface.md, "Past events"). The past `Claimed` shares its name with the
+  // Vault's (D-31), which is indexed: it is skipped from any other source (`PAST_ELSEWHERE`).
   "Sponsored",
-  "Claimed",
   "Reclaimed",
   // The owner's change of the Lobby class of Challenge or Tutorial (P-42, set_lobby_class). Past events only: D-24 removed
   // the Lobby class and its setter.
@@ -495,6 +527,12 @@ const PAST_FROM: Partial<Record<Source, readonly EventName[]>> = {
   ],
 };
 
+/**
+ * Indexed events whose name a past event of another contract had: skipped from any source that does not emit them, as they
+ * were when the name was only known (`IGNORED`). `Claimed`: Challenge's prize claim before D-20; the Vault's since D-31.
+ */
+const PAST_ELSEWHERE: readonly EventName[] = ["Claimed"];
+
 const INDEXED: readonly EventName[] = [
   "GameSpawned",
   "GameOver",
@@ -527,6 +565,8 @@ const INDEXED: readonly EventName[] = [
   "AttackOpened",
   "AttackFinished",
   "AttackSkipped",
+  "Claimed",
+  "Collected",
 ];
 
 /** Selector (a lowercase 0x hex without leading zeros) of every event name of the contracts. */
@@ -679,6 +719,7 @@ export function decode(
     );
   }
   if (PAST_FROM[source]?.includes(name)) return null;
+  if (PAST_ELSEWHERE.includes(name) && !EMITTERS[name].includes(source)) return null;
   if (!EMITTERS[name].includes(source)) {
     throw new DecodeError(`${name} emitted by ${source}, which does not emit it`);
   }
@@ -1019,5 +1060,19 @@ export function decode(
         threshold: u64(data[2], "threshold"),
         reward: uint(data[3], 128, "reward"),
       };
+    case "Claimed": {
+      // key account; data amount (u256: low, high)
+      shape(name, keys, data, 1, 2);
+      const amount = u256(data, 0, "amount");
+      if (amount === 0n) throw new DecodeError(`${name}: amount 0`);
+      return { name, account: felt(keys[1]), amount };
+    }
+    case "Collected": {
+      // key holder; data recipient, amount (u256: low, high)
+      shape(name, keys, data, 1, 3);
+      const amount = u256(data, 1, "amount");
+      if (amount === 0n) throw new DecodeError(`${name}: amount 0`);
+      return { name, holder: felt(keys[1]), recipient: felt(data[0]), amount };
+    }
   }
 }

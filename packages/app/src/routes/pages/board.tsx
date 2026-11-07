@@ -239,9 +239,10 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
   const game = state.game;
   const notices = (
     <>
-      {!playable && (
-        <Notice title={senders ? "Another player's game" : "Connect to play"} className="pointer-events-auto w-full max-w-2xl">
-          {senders ? "You are watching this game: only its player can move." : "This game is shown read only. Connect your wallet to play it."}
+      {/* Another player's game says so; the player's own waits for the account (NO-GUEST: made at start, none asked to connect). */}
+      {!playable && senders && (
+        <Notice title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
+          You are watching this game: only its player can move.
         </Notice>
       )}
       {state.stale && (

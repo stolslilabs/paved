@@ -78,8 +78,9 @@ export default function Page() {
 
   const owner = wallet.username ?? (me ? shortAddress(me) : "");
   const data = read.data;
-  // Not served (the chain before step 3), or a guest: a starter village to look at.
-  const readOnly = me === null || data === null;
+  // Not served (the chain before step 3): a starter village to look at. No guest (NO-GUEST, the owner's ruling of 2026-11-07): until
+  // the account is in (read, or made on a new device), the sky alone, as while the village is read.
+  const readOnly = me !== null && data === null;
   // A starter village is laid out and scored by the engine, loaded on demand.
   const starter = useQuery({
     queryKey: ["home", "starter", owner, me],
@@ -88,9 +89,10 @@ export default function Page() {
     staleTime: Infinity,
   });
   const village = useMemo<VillageLayout | undefined>(() => {
+    if (me === null) return undefined;
     if (readOnly) return starter.data;
     return data ? { owner, level: data.level, tiles: boardTilesOf(data.tiles), score: data.score } : undefined;
-  }, [readOnly, starter.data, data, owner]);
+  }, [me, readOnly, starter.data, data, owner]);
   const pending = writes.pending?.kind;
 
   // Edit mode's way out from the scene (Back with nothing to lose, Leave asked, a save that landed): the entry Edit pushed goes,
@@ -146,7 +148,6 @@ export default function Page() {
       <HomeVillageScene
         village={village}
         error={failed && data === undefined ? { message: failed.message, detail: errorDetail(failed) } : null}
-        guest={me === null}
         readOnly={readOnly}
         editing={editing}
         onEditingChange={onEditingChange}

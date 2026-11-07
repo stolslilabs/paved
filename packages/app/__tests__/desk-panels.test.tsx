@@ -58,7 +58,7 @@ const clickOutside = async () => userEvent.click(document.querySelector<HTMLElem
 /** The home's village stays mounted under the panel (hidden behind the modal). */
 const village = () => screen.getByRole("navigation", { name: "Village", hidden: true });
 
-preloadPages("home", "chat", "guild", "friends", "missions", "vault", "settings", "theme", "play", "purchase", "referral", "home-panel");
+preloadPages("home", "chat", "guild", "friends", "ranking", "missions", "vault", "settings", "theme", "play", "purchase", "referral", "home-panel");
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
@@ -74,10 +74,11 @@ afterEach(() => {
 });
 
 describe("the route map (#762)", () => {
-  it("puts the overlay's pages and the pages reached from them in the panel; the games, the purchase, the avatar and the visits stay full screen", () => {
+  it("puts the overlay's pages and the pages reached from them in the panel; the games, the purchase and the visits stay full screen", () => {
     expect(PAGES.filter((p) => p.panel).map((p) => p.path)).toEqual([
       "play",
       "play/challenge",
+      "avatar",
       "village/shop",
       "pvp/league",
       "story",
@@ -89,6 +90,7 @@ describe("the route map (#762)", () => {
       "chat/:tab",
       "guild",
       "friends",
+      "ranking",
       "referral",
       "settings/theme",
       "settings/credits",
@@ -97,13 +99,15 @@ describe("the route map (#762)", () => {
     // No page opens another (BACK-RULE #783): only the sheet over Play and Play's stake (a view of its drawer, PLAY-PAGE) name a
     // parent (Settings' views have none, SETTINGS-PAGE).
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => (p.sheet || p.drawer) && p.parent === "/play")).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, VAULT-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE, SETTINGS-PAGE, PLAY-PAGE: the League,
-    // Missions, Tiles, the Vault, the Chat, the Guild, Friends, Settings (its Themes and Credits) and Play are the HUD's drawer over the
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, VAULT-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE, SETTINGS-PAGE, PLAY-PAGE, LEADERBOARD-PAGE: the League,
+    // Missions, Tiles, the Vault, the Chat, the Guild, Friends, the Leaderboard, Settings (its Themes and Credits) and Play are the HUD's drawer over the
     // home at every width, never the side panel; children of the home's route. Play's stake is a view of its drawer, Story's campaigns
-    // a sheet over it (the drawer kept under the sheet).
+    // a sheet over it (the drawer kept under the sheet). AVATAR-PAGE: the avatar editor too, docked at the left as the Profile that
+    // opens it.
     expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual([
       "play",
       "play/challenge",
+      "avatar",
       "village/shop",
       "pvp/league",
       "story",
@@ -115,6 +119,7 @@ describe("the route map (#762)", () => {
       "chat/:tab",
       "guild",
       "friends",
+      "ranking",
       "settings/theme",
       "settings/credits",
       "settings",
@@ -238,6 +243,35 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: /^Guild/ })).toHaveFocus());
   });
 
+  it("the dock's Ranking opens the Leaderboard's HUD drawer at the right (LEADERBOARD-PAGE): its tabs at its foot, Alliances disabled, the tab the URL's", async () => {
+    wide();
+    const router = open("/");
+    const dock = await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
+    await userEvent.click(within(dock).getByRole("button", { name: /^Ranking/ }));
+    const drawer = await panel("Ranking");
+    expect(router.state.location.pathname).toBe("/ranking");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "ranking");
+    expect(drawer).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    // The tabs in the drawer's footer, out of its scrolling body; Alliances shown, disabled.
+    const tabs = within(drawer).getAllByRole("tab");
+    expect(tabs.map((t) => t.closest("[data-slot=hud-drawer-footer]") !== null)).toEqual([true, true, true, true]);
+    expect(within(drawer).getByRole("tab", { name: /^Alliances/ })).toBeDisabled();
+    // The chain's sources serve no social source: no ranking here (the lists: ranking.test.tsx).
+    expect(within(drawer).getByText("Rankings are not on this network yet.")).toBeInTheDocument();
+    // A tab is the URL's, its entry replaced: the close still goes back to the village's own entry.
+    await userEvent.click(within(drawer).getByRole("tab", { name: /^Guilds/ }));
+    await waitFor(() => expect(router.state.location.search).toBe("?tab=guilds"));
+    expect(router.state.historyAction).toBe("REPLACE");
+    expect(within(drawer).getByRole("tab", { name: /^Guilds/ })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: /^Ranking/ })).toHaveFocus());
+  });
+
   it("the right column's Friends opens the HUD's drawer at the right (FRIENDS-PAGE), not the panel: the search, the red cross", async () => {
     wide();
     const router = open("/");
@@ -261,6 +295,9 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     // From `tablet` the drawer is a side panel (`hud-drawer.tsx`'s query): every width query matches here.
     wide();
     const router = open("/");
+    // NO-GUEST: the wallet makes the account as the app opens, and the home's overlays draw again with it; its village's score says
+    // it is in, so the tap lands on the control that stays.
+    await waitFor(() => expect(document.querySelector("[data-slot=village-score]")).not.toBeNull(), { timeout: slow(5000) });
     await userEvent.click(await screen.findByRole("button", { name: /^League: / }, { timeout: slow(5000) }));
     const drawer = await panel("League");
     expect(router.state.location.pathname).toBe("/pvp/league");

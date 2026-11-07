@@ -102,7 +102,7 @@ function PvpV1() {
   }, [found]);
 
   const self = player.data ?? { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  // No account: the search's waiting screen, no Connect (the user's decision of 2026-11-07, no guest state anywhere).
+  // No guest (NO-GUEST): until the account is in, the search waits.
   if (me === null) return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
   if (status.data === null) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="PvP is not on this network yet: no village can be attacked here." onCancel={onBack} />;
   if (!s) {

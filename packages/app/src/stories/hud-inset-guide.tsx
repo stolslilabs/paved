@@ -110,7 +110,7 @@ const PAINT_TOLERANCE_PX = 1;
  *   card lowered onto the balances, its avatar's circle rising over both); with no plate, within its own few px under the inset;
  * - with `align` (below `desktop`): the balances' painted right and the left capsules' painted left within a pixel of the card's
  *   painted outline's left, the art's opaque pixels read from its images;
- * - without plates (a guest's Connect): its box on the inset's top and right lines;
+ * - without plates (a button alone, as the guest's Connect was before NO-GUEST): its box on the inset's top and right lines;
  * - without `align` (from `desktop`, whose layout is kept): the balances' column box on the inset's top and right lines;
  * - no page wider than the viewport.
  */
@@ -129,7 +129,7 @@ export async function expectHudInset(canvasElement: HTMLElement, { align = true 
   // The balances' column (the phone's plates and the rail), in its own chunk after the card.
   const column = await waitFor(() => {
     const found = doc.querySelector<HTMLElement>("[data-slot=home-phone-balances]")?.parentElement;
-    // Settled: plates drawn, or a button with none (a guest's Connect); the loading stand-in is not the final state.
+    // Settled: plates drawn, or a button with none (the guest's Connect before NO-GUEST); the loading stand-in is not the final state.
     const settled = found && (drawn(found, "[data-slot=hud-frame]").length > 0 || drawn(found, "button").some((el) => !el.querySelector("[data-slot=hud-frame]")));
     if (!settled) throw new Error("no balances drawn yet");
     return found;

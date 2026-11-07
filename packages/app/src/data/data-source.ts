@@ -20,4 +20,4 @@ export const MOCKED = DATA_SOURCE === "mock";
  * says so (`MOCK_MARK_TEXT`). Listed here, not read from the route map: this module is the first bundle's, and the test checks
  * the two agree.
  */
-export const MOCKED_PAGES: ReadonlySet<string> = new Set(["welcome", "", "play", "play/challenge", "avatar", "village/shop", "village/:player", "game/:gameId", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "training", "story", "story/:campaign/:level", "game/:gameId/over", "training/over", "missions", "tiles", "vault", "chat", "chat/private/:player", "chat/:tab", "guild", "friends", "referral", "settings/theme", "settings/credits", "settings"]);
+export const MOCKED_PAGES: ReadonlySet<string> = new Set(["", "play", "play/challenge", "avatar", "village/shop", "village/:player", "game/:gameId", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "training", "story", "story/:campaign/:level", "game/:gameId/over", "training/over", "missions", "tiles", "vault", "chat", "chat/private/:player", "chat/:tab", "guild", "friends", "ranking", "referral", "settings/theme", "settings/credits", "settings"]);

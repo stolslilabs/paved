@@ -147,22 +147,19 @@ describe("/settings", () => {
     expect(localStorage.getItem(THEME_KEY)).toBe("forest");
   }, slow(30_000));
 
-  it("shows the username, and Disconnect goes Home keeping ?ref=", async () => {
+  it("shows the username; no Disconnect (NO-GUEST: Reset goes from one account to the next)", async () => {
     const wallet = fakeWallet({ restored: true });
     wallet.connector.username = async () => "bal7hazar";
-    const { router } = open("/settings?ref=abc", wallet);
+    open("/settings?ref=abc", wallet);
     const account = await screen.findByRole("region", { name: "Account" });
     await within(account).findByText("bal7hazar");
-    await userEvent.click(within(account).getByRole("button", { name: "Disconnect" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-    expect(router.state.location.search).toBe("?ref=abc");
-    expect(wallet.calls).toContain("disconnect");
+    expect(within(account).queryByRole("button", { name: "Disconnect" })).toBeNull();
   });
 
   it("shows the address when the account has no username", async () => {
     open();
     const account = await screen.findByRole("region", { name: "Account" });
-    await within(account).findByRole("button", { name: "Disconnect" });
+    await within(account).findByText("Connected");
     expect(account).toHaveTextContent("0x5f1");
   });
 
@@ -170,7 +167,7 @@ describe("/settings", () => {
     const wallet = fakeWallet({ restored: true, addresses: ["0xbee"] });
     open("/settings", wallet);
     const account = await screen.findByRole("region", { name: "Account" });
-    await within(account).findByRole("button", { name: "Disconnect" });
+    await within(account).findByText("Connected");
     expect(account).toHaveTextContent("0x5f1");
     await userEvent.click(within(account).getByRole("button", { name: "Reset" }));
     await waitFor(() => expect(account).toHaveTextContent("0xbee"));
@@ -178,13 +175,14 @@ describe("/settings", () => {
     expect(account).not.toHaveTextContent("0x5f1");
   });
 
-  it("asks a guest to Connect, and Connect opens the wallet", async () => {
+  it("a device with no account gets one at start (NO-GUEST): no Guest, no Connect, the account shown", async () => {
     const wallet = fakeWallet();
     open("/settings", wallet);
     const account = await screen.findByRole("region", { name: "Account" });
-    expect(account).toHaveTextContent("Guest");
-    await userEvent.click(within(account).getByRole("button", { name: "Connect" }));
-    await waitFor(() => expect(wallet.calls).toContain("connect"));
+    await within(account).findByText("Connected");
+    expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"]));
+    expect(account).not.toHaveTextContent("Guest");
+    expect(within(account).queryByRole("button", { name: "Connect" })).toBeNull();
   });
 
   it("opens Themes and Credits as views of the drawer, keeping ?ref=; a view's Back goes back to Settings; no Referral (the profile's Invite)", async () => {

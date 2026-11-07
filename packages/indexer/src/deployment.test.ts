@@ -96,6 +96,18 @@ describe("the deployment file", () => {
     expect(() => readDeployment("/nonexistent/devnet.json")).toThrow(/cannot read/);
   });
 
+  test("the Vault (D-31) is optional: read when the file names it, canonical; a bad address is refused", () => {
+    expect(parseDeployment(FILE).vault).toBeUndefined();
+    expect(parseDeployment({ ...FILE, contracts: { ...FILE.contracts, Vault: { address: "0x00007777" } } }).vault).toBe("0x7777");
+    expect(() => parseDeployment({ ...FILE, contracts: { ...FILE.contracts, Vault: { address: "0x0" } } })).toThrow(/Vault/);
+    expect(() => parseDeployment({ ...FILE, contracts: { ...FILE.contracts, Vault: {} } })).toThrow(/Vault/);
+    // The committed devnet file names one (a Vault since E1).
+    const file = JSON.parse(readFileSync(committed, "utf8"));
+    if (file.contracts?.Vault !== undefined) {
+      expect(readDeployment(committed).vault).toBe(`0x${BigInt(file.contracts.Vault.address).toString(16)}`);
+    }
+  });
+
   test("only a local network gives a default node", () => {
     const base = parseDeployment(FILE);
     expect(defaultRpcUrl(base)).toBe("http://127.0.0.1:5050");

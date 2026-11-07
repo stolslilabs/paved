@@ -17,7 +17,7 @@ export const boardStandInModule = { default: () => <h1>Board</h1> };
 
 /**
  * The route of a page path in the route table, at any depth: the side panel's pages are the home's children (#762). The home
- * (`""`) is its layout route (`id: "home"`), which draws it; its index child holds the welcome's loader.
+ * (`""`) is its layout route (`id: "home"`), which draws it; its index child (no welcome first since NO-GUEST).
  */
 export function routeOf(routes: RouteObject[], path: string): RouteObject {
   for (const route of routes) {
@@ -69,16 +69,19 @@ const PAGES = {
   // Missions is the HUD's drawer over the home (MISSIONS-PAGE): its host comes with it.
   missions: () => Promise.all([import("../src/routes/pages/missions"), import("../src/routes/home-hosts")]),
   tiles: () => Promise.all([import("../src/routes/pages/tiles"), import("../src/routes/home-hosts")]),
+  // The avatar editor is the HUD's drawer over the home (AVATAR-PAGE), opened from the Profile (its own chunk), which its Back opens again.
+  avatar: () => Promise.all([import("../src/routes/pages/avatar"), import("../src/routes/home-hosts"), import("../src/components/containers/profile-sheet")]),
   referral: () => import("../src/routes/pages/referral"),
   // The Vault is the HUD's drawer over the home (VAULT-PAGE): its host comes with it.
   vault: () => Promise.all([import("../src/routes/pages/vault"), import("../src/routes/home-hosts")]),
   chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/player-profile-host")]),
   guild: () => Promise.all([import("../src/routes/pages/guild"), import("../src/routes/social/guild-view"), import("../src/routes/player-profile-host"), import("../src/routes/home-hosts")]),
   friends: () => Promise.all([import("../src/routes/pages/friends"), import("../src/routes/player-profile-host")]),
+  // The Leaderboard is the HUD's drawer over the home (LEADERBOARD-PAGE): its host and the profiles' come with it.
+  ranking: () => Promise.all([import("../src/routes/pages/ranking"), import("../src/routes/player-profile-host"), import("../src/routes/home-hosts")]),
   // Settings is the HUD's drawer over the home (SETTINGS-PAGE), Credits and Themes its views: its host comes with it.
   settings: () => Promise.all([import("../src/routes/pages/settings"), import("../src/routes/home-hosts")]),
   theme: () => import("../src/routes/pages/theme"),
-  welcome: () => import("../src/routes/pages/welcome"),
   // The Shop is the HUD's drawer over the home (SHOP-PAGE): its host comes with it.
   shop: () => Promise.all([import("../src/routes/pages/shop"), import("../src/routes/home-hosts")]),
   "pvp-league": () => import("../src/routes/pages/pvp-league"),

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { TRAIT_PARTS, type Trait } from "@paved/renderer";
+import { useBackToProfile } from "../../components/containers/profile-context";
 import { errorDetail } from "../error-detail";
 import { idsOfLook, lookOf, optionName, randomUsable, sameAvatar, withPart, type TraitIds } from "../../components/containers/avatar-types";
 import { AvatarCreatorScene, type AvatarCreator } from "../../components/scenes/avatar-creator-scene";
@@ -10,22 +12,31 @@ import { useAvatarCatalogue, useAvatarWrites } from "../../data/avatar-catalogue
 import { avatarOffers } from "../../data/avatar-offers";
 import { cobbleKeys } from "../../data/cobbles";
 import { useDataSources } from "../../data/sources";
-import { useAccount } from "../../wallet/wallet";
 import { useCobblesSheet } from "../cobbles-sheet";
-import { useAppNavigate, useBack } from "../ref";
+import { useDrawerRoute } from "../drawer-route";
+import { useBack } from "../ref";
 import { skinsStatus } from "../skins-status";
 
+/** The category in the URL (`/avatar?part=headwear`), so Back and a link find it again. */
+const PART_PARAM = "part";
+const isTrait = (value: string | null): value is Trait => value !== null && (TRAIT_PARTS as readonly string[]).includes(value);
+
 /**
- * `/avatar` (#626 PR 2): the avatar creator, from Edit avatar in the profile sheet. The catalogue, the player's items, their
- * saved look and their Cobbles from the chain (`useAvatarCatalogue`); the draft is the page's, from the saved look. Buy sends
- * one `buy_avatar_item` at the price the swatch showed; Save one `set_avatar` of the draft as the traits' look
- * (`encodeTraits`). The receipts' events go into the cache (`useAvatarWrites`), and the menus' avatar reads the same look.
+ * `/avatar` (#626 PR 2; AVATAR-PAGE: the HUD's drawer docked at the left, as the Profile that opens it): the avatar editor. The
+ * catalogue, the player's items, their saved look and their Cobbles from the chain (`useAvatarCatalogue`); the draft is the page's,
+ * from the saved look (no league on the avatar's pages: the owner's ask of 2026-11-06). Buy sends one
+ * `buy_avatar_item` at the price the option showed; Save one `set_avatar` of the draft as the traits' look (`encodeTraits`). The
+ * receipts' events go into the cache (`useAvatarWrites`), and the menus' avatar reads the same look. Back returns to the Profile
+ * (`useBackToProfile`, then the drawer's close), the red cross to the village. The category is the URL's (`?part=`, replaced).
  */
 export default function Page() {
-  const go = useAppNavigate();
+  const drawer = useDrawerRoute();
+  const back = useBack();
+  const onClose = drawer?.onClose ?? back;
+  const toProfile = useBackToProfile();
   const cobbles = useCobblesSheet();
-  const onBack = useBack();
-  const wallet = useAccount();
+  const [params, setParams] = useSearchParams();
+  const asked = params.get(PART_PARAM);
   const sources = useDataSources();
   const playerId = sources.signer?.address ?? null;
   const read = useAvatarCatalogue(playerId);
@@ -35,6 +46,14 @@ export default function Page() {
   const [now] = useState(() => Math.floor(Date.now() / 1000));
   // The draft: null is the saved avatar, so a save made on another device shows here until the player changes a part.
   const [changes, setChanges] = useState<TraitIds | null>(null);
+  // The drawer's page stays mounted once closed (its host keeps it): each opening starts again from the saved look, as a visit did when
+  // the editor was a page of its own (a write on its way keeps its draft until its receipt).
+  const open = drawer?.open ?? true;
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && !writes.saving && writes.buying === null) setChanges(null);
+  }
 
   const catalogue = read.data;
   const saved = catalogue ? idsOfLook(catalogue.look) : null;
@@ -101,7 +120,22 @@ export default function Page() {
     <>
       <AvatarCreatorScene
         creator={creator}
+        // No Connect (the owner's ask of 2026-11-06: every player has an account on the L3): until its signer is in (the wallet
+        // restoring it), the scene shows its loading.
         status={skinsStatus(playerId, read)}
+        part={isTrait(asked) ? asked : undefined}
+        onPart={(part) =>
+          setParams(
+            (current) => {
+              const next = new URLSearchParams(current);
+              next.set(PART_PARAM, part);
+              return next;
+            },
+            { replace: true, preventScrollReset: true },
+          )
+        }
+        open={open}
+        returnFocus={drawer?.returnFocus}
         onPick={(part, id) => draft && edit(withPart(draft, part, id))}
         onBuy={buy}
         onSave={save}
@@ -113,13 +147,16 @@ export default function Page() {
         }}
         onDismissRefusal={writes.reset}
         onBuyCobbles={cobbles.open}
-        // Connect here, as the profile sheet does: `/welcome` sends a returning visitor Home, without the wallet.
-        onConnect={() => void wallet.connect()}
         onRetry={() => {
           void client.invalidateQueries({ queryKey: avatarKeys.all });
           void client.invalidateQueries({ queryKey: cobbleKeys.all });
         }}
-        onBack={onBack}
+        onBack={() => {
+          // Back to the Profile that opened the editor: asked open again, shown once the village is (the drawer's close).
+          toProfile?.();
+          onClose();
+        }}
+        onClose={onClose}
       />
       {cobbles.sheet}
     </>

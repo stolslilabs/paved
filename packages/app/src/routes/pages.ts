@@ -6,7 +6,7 @@
 /**
  * The navigation's destinations. The dock holds Shop, Ranking, Play, Guild, Settings (`NAV_TABS` of `containers/app-nav.tsx`, #763,
  * HOME-DOCK), on the home alone (DOCK-UNDER-PAGES, the owner's ask of 2026-11-04: no page carries it). `play` opens the mode choice
- * (`nav: null`); Ranking has no page yet (the Leaderboard to come); the others are tabs of pages. The home, Missions, the Vault, League, Chat and Friends are not in the dock: the home's
+ * (`nav: null`); Ranking opens the Leaderboard (LEADERBOARD-PAGE); the others are tabs of pages. The home, Missions, the Vault, League, Chat and Friends are not in the dock: the home's
  * overlay leads to them, the pages' Back to the home (#760).
  */
 export type Tab = "home" | "quests" | "vault" | "shop" | "ranking" | "play" | "league" | "settings" | "chat" | "guild" | "friends";
@@ -50,13 +50,14 @@ export interface PageDef {
 }
 
 export const PAGES: readonly PageDef[] = [
-  { path: "welcome", title: "Welcome", nav: null },
   { path: "", title: "Home", nav: "home" },
   // Play (PLAY-PAGE): the HUD's drawer at every width, docked at the right from `tablet`, as the Shop. Its stake is a view of the same page
   // (one loader, `page-loaders.ts`), its Back up to the modes.
   { path: "play", title: "Play", nav: null, panel: true, drawer: true },
   { path: "play/challenge", title: "Challenge", nav: null, parent: "/play", panel: true, drawer: true },
-  { path: "avatar", title: "Avatar", nav: null },
+  // The avatar editor (AVATAR-PAGE, the Paved UX Book's "avatar-editor"), from the Profile's Avatar: the HUD's drawer docked at the left
+  // from `tablet`, as the Profile; its Back returns to the Profile (`useBackToProfile`), its cross to the village.
+  { path: "avatar", title: "Avatar", nav: null, panel: true, panelSide: "left", drawer: true },
   // The v2 village's daily shop (#739), before `village/:player`: `prefetch` matches in table order. Its chests open where they are
   // won (END-CHEST, the owner's ask of 2026-11-06: the Chests page gone).
   // The Shop (SHOP-PAGE): Tiles, Cobbles and Themes as tabs (`?tab=`), the HUD's drawer docked at the right from `tablet`.
@@ -100,6 +101,9 @@ export const PAGES: readonly PageDef[] = [
   { path: "guild", title: "Guild", nav: "guild", panel: true, drawer: true },
   // FRIENDS-PAGE: the HUD's drawer at every width, docked at the right from `tablet`, as the home's Friends button.
   { path: "friends", title: "Friends", nav: "friends", panel: true, drawer: true },
+  // The Leaderboard (LEADERBOARD-PAGE, the dock's Ranking): the HUD's drawer at every width, docked at the right from `tablet`, as the
+  // dock's other pages. Its tabs (Players, Guilds) are the URL's `?tab=`.
+  { path: "ranking", title: "Ranking", nav: "ranking", panel: true, drawer: true },
   // Referral (P10): the player's link, reached from the profile's Invite (the Paved UX Book's), no longer a sheet over Settings
   // (SETTINGS-PAGE): a page of its own, in the right panel from `desktop`, Back to the village.
   { path: "referral", title: "Referral", nav: "settings", panel: true },
@@ -122,5 +126,6 @@ export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "chat", label: "Chat", to: "/chat" },
   { id: "guild", label: "Guild", to: "/guild" },
   { id: "friends", label: "Friends", to: "/friends" },
+  { id: "ranking", label: "Ranking", to: "/ranking" },
 ];
 

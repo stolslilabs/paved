@@ -6,15 +6,18 @@
 // uses (JSON-RPC 0.10 shapes, as starknet-devnet 0.10.0 answers them) from blocks held in memory,
 // and it can mine, reorganise (with devnet's quirk: a replacement block keeps the replaced block's
 // hash, its commitments differ) and move the last L1-accepted block. Each block has a time: `time`,
-// the next block's, advances by `interval` at every block mined (a test sets either).
+// the next block's, advances by `interval` at every block mined (a test sets either). `starknet_getEvents` honours the
+// filter's `keys` (D-31: the Vault's filter), as a node does.
+import { hash } from "starknet";
 import { RpcError, type Rpc } from "../chain.ts";
-import { SELECTORS, type Source } from "../events.ts";
+import { canonical, SELECTORS, type Source } from "../events.ts";
 
 export const CHALLENGE = "0x1111";
 export const SETUP = "0x2222";
 export const ECONOMY = "0x4444";
 export const COLLECTION = "0x5555";
 export const ARENA = "0x6666";
+export const VAULT = "0x7777";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
   challenge: CHALLENGE,
@@ -22,6 +25,7 @@ const ADDRESS: Record<Source, string> = {
   economy: ECONOMY,
   collection: COLLECTION,
   arena: ARENA,
+  vault: VAULT,
 };
 
 export type FakeEvent = { source: Source; keys: string[]; data: string[] };
@@ -51,6 +55,14 @@ export function raw(
     keys: [SELECTORS[name], ...keys.map(hex)],
     data: data.map(hex),
   };
+}
+
+/** A u256 as its two felts, low then high. */
+const u256 = (value: bigint) => [value & (2n ** 128n - 1n), value >> 128n];
+
+/** An event of a name the decoder does not know (the Vault's events no table reads): its selector from the name. */
+export function unknownEvent(source: Source, name: string, keys: (bigint | number)[], data: (bigint | number)[]): FakeEvent {
+  return { source, keys: [canonical(hash.getSelectorFromName(name)), ...keys.map(hex)], data: data.map(hex) };
 }
 
 /** Where the quest and achievement builders emit: Setup (D-24), or Challenge for a past history (skipped). */
@@ -339,6 +351,15 @@ export const ev = {
   /** An event of the contracts that is known and not indexed. */
   built: (source: Source, gameId: number) =>
     raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6]),
+  /** The Vault's `Claimed { account; amount }` (D-31): a holder's claim of its USDC (u256: low, high). */
+  vaultClaimed: (account: bigint | number, amount: bigint) => raw("vault", "Claimed", [account], u256(amount)),
+  /** The Vault's `Collected { holder; recipient, amount }` (D-31): the owner's collect of a contract holder's USDC. */
+  vaultCollected: (holder: bigint | number, recipient: bigint | number, amount: bigint) =>
+    raw("vault", "Collected", [holder], [recipient, ...u256(amount)]),
+  /** The Vault's `Paid { payer; amount, index }` at a purchase: never fetched (the Vault's filter asks for its claims only). */
+  vaultPaid: (payer: bigint | number, amount: bigint, index = 1n) => unknownEvent("vault", "Paid", [payer], [...u256(amount), ...u256(index)]),
+  /** The Vault's ERC20 `Transfer { from, to; value }` of its shares: shares Collection's name, never fetched. */
+  vaultTransfer: (from: bigint | number, to: bigint | number, value: bigint) => raw("vault", "Transfer", [from, to], u256(value)),
 };
 
 export class FakeNode {
@@ -467,6 +488,7 @@ export class FakeNode {
           from_block: { block_hash: string } | { block_number: number };
           to_block: { block_hash: string } | { block_number: number };
           address: string;
+          keys?: string[][];
           chunk_size: number;
           continuation_token?: string;
         };
@@ -490,10 +512,17 @@ export class FakeNode {
         );
         if (!source)
           throw new RpcError(method, { code: -1, message: "unknown address" });
+        // `keys[i]`: the alternatives of the event's key i, any when empty; an event with fewer keys does not match.
+        const matches = (event: FakeEvent) =>
+          (filter.keys ?? []).every(
+            (alternatives, i) =>
+              alternatives.length === 0 ||
+              (event.keys[i] !== undefined && alternatives.some((key) => BigInt(key) === BigInt(event.keys[i]!))),
+          );
         const all = this.blocks.slice(from, to + 1).flatMap((block) =>
           block.transactions.flatMap((transaction, transactionIndex) =>
             transaction.events.flatMap((event, eventIndex) =>
-              event.source === source
+              event.source === source && matches(event)
                 ? [
                     {
                       transaction_hash: transaction.hash,

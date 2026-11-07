@@ -18,10 +18,10 @@ import { join } from "node:path";
  *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
- * - Missions, the League, the Shop, Tiles, Settings (its Themes and Credits), Play and the Vault are the HUD's drawer at every width
- *   (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, VAULT-PAGE, `DRAWERS`): its body is its region, under the
- *   drawer's band, which stays put; from `tablet` its side panel has its close, by design. No full-screen flow is left (Play was
- *   the last).
+ * - Missions, the League, the Shop, Tiles, Settings (its Themes and Credits), Play, the Vault, the avatar editor and the Leaderboard are the HUD's drawer
+ *   at every width (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, VAULT-PAGE, AVATAR-PAGE, LEADERBOARD-PAGE, `DRAWERS`):
+ *   its body is its region, under the drawer's band, which stays put; from `tablet` its side panel has its close, by design. No
+ *   full-screen flow is left (Play was the last).
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
  *   the focus back to the overlay's button that opened it; Escape closes it.
  *
@@ -29,7 +29,7 @@ import { join } from "node:path";
  * prints its line (page, width, figures): the pass's list of the PR.
  */
 
-const PAGES = ["shop", "league", "settings", "missions", "vault", "defence", "themes", "tiles", "referral", "credits", "play"] as const;
+const PAGES = ["shop", "league", "settings", "missions", "vault", "defence", "themes", "tiles", "referral", "credits", "play", "avatar", "ranking"] as const;
 const TITLES: Record<(typeof PAGES)[number], string> = {
   shop: "Forest",
   league: "League",
@@ -42,10 +42,12 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
   referral: "Referral",
   credits: "Credits",
   play: "Play",
+  avatar: "Avatar",
+  ranking: "Ranking",
 };
 
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits", "play", "vault"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits", "play", "vault", "avatar", "ranking"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });

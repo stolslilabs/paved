@@ -34,7 +34,6 @@ const chat: PageLoader = () => import("./pages/chat");
 const settings: PageLoader = () => import("./pages/settings");
 
 export const PAGE_LOADERS: Record<string, PageLoader> = {
-  welcome: () => import("./pages/welcome"),
   "": () => import("./pages/home"),
   play,
   "play/challenge": play,
@@ -78,6 +77,8 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "chat/:tab": chat,
   guild: () => import("./pages/guild"),
   friends: () => import("./pages/friends"),
+  // The Leaderboard (LEADERBOARD-PAGE), its own chunk.
+  ranking: () => import("./pages/ranking"),
   referral: () => import("./pages/referral"),
   "settings/theme": settings,
   "settings/credits": settings,
