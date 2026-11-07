@@ -43,7 +43,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Before PvP (no crown, no attack, #917): Unranked's broken planks. */
+/** Before PvP (no crown, no attack, #917): Unranked's empty slot (UNRANKED-PLACEHOLDER). */
 export const Unranked: Story = { args: { crowns: 0, unranked: true } };
 /** Wood (0 crowns after an attack): the wooden shield and its sprout, no numeral. */
 export const Wood: Story = { args: { crowns: 0 } };

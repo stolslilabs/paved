@@ -23,6 +23,19 @@
  * hole (0.664 of the width) to its own outer edge laid between the common hole of 0.804 and that edge, linearly, its inner edge
  * moved out with it; past the outer edge nothing moves. Sampled 6x6 per pixel, bilinear on premultiplied colour (`RIM_HOLE`).
  *
+ * UNRANKED-PLACEHOLDER (2026-11-07, the owner's asks): Unranked's five parts redrawn as a placeholder, an empty slot waiting for its
+ * league rather than a league of its own (the cracked, mossy stone gone). Not painted: vector shapes ("closer to an SVG than a PNG,
+ * very digital lines"), their sources in `docs/design/unranked/` (one SVG a part). Each the shipped silhouette, measured on Iron's
+ * masters (the shield's peak, sides and lower curves, the banner's cloth, the plate's chamfers, the rim's band from the common hole
+ * to 0.937 of the width), filled ("empty, not transparent") with a neutral grey linear gradient, lighter at the top, and two faint
+ * inner effects for a slight volume (a light along the top edge, a shade along the bottom one); crisp, evenly spaced dashes with
+ * round caps, a grey a little lighter than the fill (`pathLength` and `stroke-dasharray`, a dash centred on the peak), inside the
+ * body on the outline moved in by 1.15 dash widths (each edge and each curve's tangents offset and met again: never past the fill);
+ * the banner's rod a bar of the fill; the rim the fill alone, no dashes (the owner's asks). Rendered by Chromium at
+ * twice the frame with a margin, then put on the frames by the rules above: the crest and the icon trimmed to their alpha and 500 /
+ * 248 px high on 512 / 256, the banner stretched to the 365 x 500 box, the plate's end caps (0.16 of its width each) kept and its
+ * middle sized to the 760 x 200 box, the rim's band remapped radially to 0.804 and 0.937 of the width. Lossless as the others.
+ *
  * Per copy: resized on the part's side and encoded as lossy WebP with its alpha (`cwebp`, libwebp 1.6.0 when these were written,
  * `-m 6 -sharp_yuv -alpha_q 100`, no metadata) at the quality of `QUALITY`. The encoder runs under `nice -n 10`. No package:
  * `cwebp` is libwebp's command-line tool (`brew install webp`, `apt install webp`), needed only to write. Node 24 runs this as is

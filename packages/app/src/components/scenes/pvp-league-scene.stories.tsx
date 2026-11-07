@@ -8,8 +8,8 @@ import { scrolledToEnd } from "../../stories/scrolled-to-end";
 /**
  * The league (#647). LEAGUE-PAGE (the Paved UX Book's League): the HUD's drawer, a full page with Back on a phone, a side panel
  * docked at the left from `tablet`. The League control at the header's end (#859, a tap brings the carousel back to the player's
- * league); the carousel of Unranked and the 23 leagues opening on the player's (#785, #917), each card the crest beside its name and
- * its range, between two thin arrows (no dots); the season in one row (its calendar, the player's league's Cobbles, its time
+ * league); the carousel of the 23 leagues opening on the player's (#785), Wood for an Unranked player (#917, no slide of its own since
+ * UNRANKED-PLACEHOLDER), each card the crest beside its name and its range, between two thin arrows (no dots); the season in one row (its calendar, the player's league's Cobbles, its time
  * left, #859); the battle logs (#786), each row opening its match, its score, XP and chest behind a rule. No Attack button (#833).
  * The arrows, a swipe and the arrow keys move it; reduced motion cuts instead of sliding. On fakes.
  */
@@ -32,9 +32,12 @@ export const Lower: Story = { args: PVP_LEAGUE.lower };
 export const LastDay: Story = { args: PVP_LEAGUE.lastDay };
 /** The top league: the next arrow stops there. */
 export const GrandMaster: Story = { args: PVP_LEAGUE.grandmaster };
-/** No attack yet: Unranked (#917), the first view, before Wood, with no range of crowns; the previous arrow stops there. */
+/**
+ * No attack yet: Unranked (#917), the header's League control alone says it, with Unranked's placeholder crest; the carousel opens on
+ * Wood, the league a first attack enters, none of the slides marked as the player's; the previous arrow stops there.
+ */
 export const Unranked: Story = { args: PVP_LEAGUE.unranked };
-/** In Wood after a first attack (120 crowns, 0 – 399): Unranked's card before it. */
+/** In Wood after a first attack (120 crowns, 0 – 399): Wood's card is the player's, the first. */
 export const Wood: Story = { args: PVP_LEAGUE.wood };
 /** Dropped to Wood (200 crowns), the carousel opened on Bronze I. */
 export const Demoted: Story = { args: PVP_LEAGUE.demoted };
