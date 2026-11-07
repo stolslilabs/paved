@@ -12,7 +12,7 @@ import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PLAYER_RANKING_LIMIT, formatInteger, guildScore, rankPlayers } from "@paved/game-core";
-import { LeaderboardScene, type LeaderboardSceneProps } from "../src/components/scenes/leaderboard-scene";
+import { LeaderboardScene, outOfViewSide, type LeaderboardSceneProps } from "../src/components/scenes/leaderboard-scene";
 import { useGuildRanking } from "../src/data/guilds";
 import { addressKey } from "../src/data/keys";
 import { community } from "../src/data/mock/community";
@@ -294,6 +294,90 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
       expect(own).toHaveFocus();
       act(() => watch.callback([{ isIntersecting: true, intersectionRatio: 1 } as IntersectionObserverEntry], {} as IntersectionObserver));
       expect(drawer.querySelector("[data-slot=ranking-pinned]")).toBeNull();
+    });
+    // RANK-OWN-ROW-SIDE (#1061): the row is pinned on the side it left, at the body's top above the view, at the foot below it.
+    const entry = (ratio: number, top: number) =>
+      ({ isIntersecting: ratio > 0, intersectionRatio: ratio, boundingClientRect: { top } as DOMRectReadOnly, rootBounds: { top: 100 } as DOMRectReadOnly }) as IntersectionObserverEntry;
+    const pinOf = (drawer: HTMLElement) => drawer.querySelector<HTMLElement>("[data-slot=ranking-pinned]");
+
+    it("tells the side from the entry: shown at 95 % or more, above when the row's top is above the body's, below otherwise", () => {
+      expect(outOfViewSide(entry(1, 120))).toBeNull();
+      expect(outOfViewSide(entry(0.95, 96))).toBeNull();
+      expect(outOfViewSide(entry(0.9, 96))).toBe("above");
+      expect(outOfViewSide(entry(0, 20))).toBe("above");
+      expect(outOfViewSide(entry(0.9, 700))).toBe("below");
+      expect(outOfViewSide(entry(0, 900))).toBe("below");
+      expect(outOfViewSide({ ...entry(0, 20), rootBounds: null })).toBe("below");
+    });
+
+    it("pins the viewer's row at the foot below the view, none in it, at the top above it; a tap on the top one brings the row into view", async () => {
+      const { drawer } = scene(LEADERBOARD.playersOutOfView);
+      const own = within(within(drawer).getByRole("list", { name: "Players by crowns" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
+      const watch = observed.find((o) => o.target === own)!;
+      const send = (e: IntersectionObserverEntry) => act(() => watch.callback([e], {} as IntersectionObserver));
+      const footer = drawer.querySelector("[data-slot=hud-drawer-footer]") ?? drawer.querySelector("[data-slot=ranking-footer]")!;
+      const top = drawer.querySelector("[data-slot=ranking-top]")!;
+      // Foot, none, top, none, foot: scrolled down past the row and back up.
+      send(entry(0, 900));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+      expect(footer).toContainElement(pinOf(drawer));
+      send(entry(1, 400));
+      expect(pinOf(drawer)).toBeNull();
+      send(entry(0.5, 70));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "top");
+      expect(top).toContainElement(pinOf(drawer));
+      expect(footer).not.toContainElement(pinOf(drawer));
+      expect(within(pinOf(drawer)!).getByRole("button")).toHaveAccessibleName(/^30\. .+ \(you\), /);
+      own.scrollIntoView = vi.fn();
+      await userEvent.click(within(pinOf(drawer)!).getByRole("button"));
+      expect(own.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "center" }));
+      expect(own).toHaveFocus();
+      send(entry(1, 400));
+      expect(pinOf(drawer)).toBeNull();
+      send(entry(0, 900));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+    });
+
+    it("pins the viewer's row among their friends on the side it left: foot, none, top, none, foot", async () => {
+      const { drawer } = scene(LEADERBOARD.friends);
+      const own = within(within(drawer).getByRole("list", { name: "Friends by crowns" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
+      const watch = observed.find((o) => o.target === own)!;
+      const send = (e: IntersectionObserverEntry) => act(() => watch.callback([e], {} as IntersectionObserver));
+      const footer = drawer.querySelector("[data-slot=hud-drawer-footer]") ?? drawer.querySelector("[data-slot=ranking-footer]")!;
+      const top = drawer.querySelector("[data-slot=ranking-top]")!;
+      const place = LEADERBOARD.friends.friends.data!.me!.place;
+      send(entry(0, 900));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+      expect(footer).toContainElement(pinOf(drawer));
+      send(entry(1, 400));
+      expect(pinOf(drawer)).toBeNull();
+      send(entry(0.5, 70));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "top");
+      expect(top).toContainElement(pinOf(drawer));
+      expect(within(pinOf(drawer)!).getByRole("button")).toHaveAccessibleName(new RegExp(`^${place}\\. .+ \\(you\\), `));
+      own.scrollIntoView = vi.fn();
+      await userEvent.click(within(pinOf(drawer)!).getByRole("button"));
+      expect(own.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "center" }));
+      send(entry(1, 400));
+      expect(pinOf(drawer)).toBeNull();
+      send(entry(0, 900));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+    });
+
+    it("pins the viewer's guild on the side it left too", () => {
+      const { drawer } = scene(LEADERBOARD.guilds);
+      const own = within(within(drawer).getByRole("list", { name: "Guilds by score" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
+      const watch = observed.find((o) => o.target === own)!;
+      act(() => watch.callback([entry(0, 20)], {} as IntersectionObserver));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "top");
+      act(() => watch.callback([entry(0, 900)], {} as IntersectionObserver));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+    });
+
+    it("keeps a place past the list's end at the foot, whatever the scroll", () => {
+      const { drawer } = scene(LEADERBOARD.playersPastList);
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+      expect(drawer.querySelector("[data-slot=ranking-top]")).not.toContainElement(pinOf(drawer));
     });
   });
 
