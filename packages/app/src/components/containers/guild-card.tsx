@@ -55,6 +55,8 @@ export interface GuildCardProps {
   /** The player's level and crowns: the card says when they do not meet the requirements. Null: not known. */
   player?: Pick<GuildCandidate, "level" | "crowns"> | null;
   onOpen?: (id: number) => void;
+  /** In a carved list, its place's shape (`listRowShape`). */
+  className?: string;
 }
 
 /**
@@ -63,7 +65,7 @@ export interface GuildCardProps {
  * the drawer's carved lists (the battle logs'), its name outlined, its figures under the painted icons; its place in the ranking in the
  * medal's gold for the first three.
  */
-export function GuildCard({ guild, place, player = null, onOpen }: GuildCardProps) {
+export function GuildCard({ guild, place, player = null, onOpen, className }: GuildCardProps) {
   const block = cardBlock(guild, player);
   return (
     <button
@@ -71,7 +73,7 @@ export function GuildCard({ guild, place, player = null, onOpen }: GuildCardProp
       data-slot="guild-card"
       aria-label={`${guild.name}, ${guild.tag}`}
       onClick={() => onOpen?.(guild.id)}
-      className="state-layer flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left outline-none"
+      className={cn("state-layer flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left outline-none", className)}
     >
       {place !== undefined && <span className={cn("text-outline w-6 shrink-0 text-center text-base font-bold tabular-nums", place <= 3 ? "text-medal-1" : "text-muted-foreground")}>{formatInteger(place)}</span>}
       <GuildEmblem emblem={guild.emblem} />

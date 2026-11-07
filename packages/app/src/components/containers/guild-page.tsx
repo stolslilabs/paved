@@ -34,6 +34,7 @@ import { UiIcon } from "../elements/ui-icon";
 import { GuildForm, useGuildActions } from "./guild-sheets";
 import { GuildTabs } from "./guild-tabs";
 import { ViewHeader, useDrawerView } from "./hud-drawer";
+import { listRowShape } from "../elements/list-row";
 
 /** What a player outside the guild may do on its page, as the route works it out with game-core's checks. */
 export type GuildApply =
@@ -238,7 +239,7 @@ const EMPTY = "drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semib
 const rowRule = (index: number) => (index > 0 ? "border-t border-border" : undefined);
 
 /** A member's row: their portrait in their league's rim, their name ("You" on their own, on the gold wash), their rank, their crowns. */
-function MemberRow({ member, me, onOpen }: { member: GuildMember; me: string | null; onOpen?: (address: string) => void }) {
+function MemberRow({ member, me, onOpen, className }: { member: GuildMember; me: string | null; onOpen?: (address: string) => void; className?: string }) {
   const p = member.profile;
   const own = me !== null && p.address === me;
   return (
@@ -247,7 +248,7 @@ function MemberRow({ member, me, onOpen }: { member: GuildMember; me: string | n
       data-slot="guild-member"
       data-own={own || undefined}
       onClick={() => onOpen?.(p.address)}
-      className={cn("state-layer flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none", own && CHOSEN)}
+      className={cn("state-layer flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none", own && CHOSEN, className)}
     >
       <MemberPortrait profile={p} />
       <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
@@ -424,12 +425,12 @@ export function GuildPage({
     shown.current?.focus({ preventScroll: true });
   }, [viewKey]);
 
-  // A row's press layer is rounded as the list (the battle logs': nothing clips a row in the drawer's body).
+  // A row's wash and press layer take the list's shape (`listRowShape`, the owner's rule of 2026-11-07): square between two rows.
   const roster = (
     <ul aria-label="Members" className="drawer-carved flex flex-col rounded-xl">
       {guild.roster.map((m, i) => (
         <li key={m.profile.address} className={cn("flex", rowRule(i))}>
-          <MemberRow member={m} me={me} onOpen={onOpenPlayer} />
+          <MemberRow member={m} me={me} onOpen={onOpenPlayer} className={listRowShape(i, guild.roster.length)} />
         </li>
       ))}
     </ul>
@@ -453,10 +454,10 @@ export function GuildPage({
           <p className={EMPTY}>{mayPost ? "No announcement yet: post the first." : "No announcement yet."}</p>
         ) : (
           <ul className="drawer-carved flex flex-col rounded-xl">
-            {guild.announcements.map((a, i) => {
+            {guild.announcements.map((a, i, all) => {
               const pinned = i === 0;
               return (
-                <li key={a.id} data-slot="guild-announcement" data-pinned={pinned || undefined} className={cn("flex min-w-0 items-start gap-2.5 rounded-xl px-3 py-2.5", pinned ? CHOSEN : rowRule(i))}>
+                <li key={a.id} data-slot="guild-announcement" data-pinned={pinned || undefined} className={cn("flex min-w-0 items-start gap-2.5 px-3 py-2.5", listRowShape(i, all.length), pinned ? CHOSEN : rowRule(i))}>
                   {pinned && <UiIcon name="pin" px={28} label="Pinned" className="drawer-icon size-7 shrink-0" />}
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <p className="text-outline text-sm leading-snug font-bold whitespace-pre-wrap wrap-anywhere">{a.text}</p>

@@ -19,6 +19,7 @@ import { GuildCard } from "./guild-card";
 import { GuildForm, NEW_GUILD, useGuildActions } from "./guild-sheets";
 import { FooterTab, FooterTabsList } from "./footer-tabs";
 import { DrawerFooter, ViewHeader, useDrawerView } from "./hud-drawer";
+import { listRowShape } from "../elements/list-row";
 
 /** The search's member-count filter: any, small (under 10), mid (10 to 29), large (30 and more). */
 export type GuildSizeFilter = "any" | "small" | "mid" | "large";
@@ -93,9 +94,9 @@ function Cards({ list, player, ranked, empty, onOpen }: { list: GuildList; playe
       {list.guilds?.length === 0 && <p className={EMPTY}>{empty}</p>}
       {list.guilds && list.guilds.length > 0 && (
         <ul className="drawer-carved flex flex-col rounded-xl">
-          {list.guilds.map((g, i) => (
+          {list.guilds.map((g, i, all) => (
             <li key={g.id} className={cn("flex", i > 0 && "border-t border-border")}>
-              <GuildCard guild={g} place={ranked ? i + 1 : undefined} player={player} onOpen={onOpen} />
+              <GuildCard guild={g} place={ranked ? i + 1 : undefined} player={player} onOpen={onOpen} className={listRowShape(i, all.length)} />
             </li>
           ))}
         </ul>

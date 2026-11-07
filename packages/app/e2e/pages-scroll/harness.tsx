@@ -24,6 +24,10 @@ import { ThemeScene } from "../../src/components/scenes/theme-scene";
 import { VaultScene } from "../../src/components/scenes/vault-scene";
 import { ShopScene } from "../../src/components/scenes/shop-scene";
 import { LeaderboardScene } from "../../src/components/scenes/leaderboard-scene";
+import { StoryScene } from "../../src/components/scenes/story-scene";
+import { CAMPAIGNS } from "@paved/game-core";
+import { appRenders } from "../../src/mocks/assets";
+import { STORY } from "../../src/mocks/story";
 import { titleOf } from "../../src/lib/music/track-info";
 import { TRACKS } from "../../src/lib/music/tracks";
 import { PVP_LEAGUE, PVP_MATCHES } from "../../src/mocks/pvp";
@@ -67,7 +71,7 @@ function TickingMissions() {
 
 /**
  * The pages of the pass, by id: the title its header shows, its scene with long content. `drawer`: the HUD's drawer
- * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, LEADERBOARD-PAGE) at every width, its own panel: never in the
+ * (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, STORY-PAGE, LEADERBOARD-PAGE) at every width, its own panel: never in the
  * page panel.
  */
 export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: true }> = {
@@ -93,6 +97,12 @@ export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: tr
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },
   // Play (PLAY-PAGE): the HUD's drawer, its four groups of modes (no full-screen flow left).
   play: { title: "Play", drawer: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
+  // Story's campaigns (STORY-PAGE): a view of Play's drawer, the Tutorial under way, its twelve levels.
+  story: {
+    title: "Story",
+    drawer: true,
+    page: <PlayScene {...PLAY.connected} story={<StoryScene campaigns={CAMPAIGNS} renders={appRenders} {...STORY.inProgress} onCampaign={no} onLevel={no} />} onBack={no} onStoryBack={no} />,
+  },
   credits: { title: "Credits", drawer: true, page: <SettingsScene {...SETTINGS.connected} {...settingsActions} view="credits" credits={{ tracks: TRACKS.map(titleOf) }} /> },
   // The avatar editor (AVATAR-PAGE): the HUD's drawer, Headwear's eleven options and the one on sale tried on.
   avatar: { title: "Avatar", drawer: true, page: <AvatarCreatorScene {...AVATAR_CREATOR.priced} onBack={no} onClose={no} /> },
