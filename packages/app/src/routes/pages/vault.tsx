@@ -48,6 +48,12 @@ export default function Page() {
   const guard = useGuardRate();
   const typed = parseUnits(amount, 18);
   const preview = useVaultPreview(op, typed);
+  // A quote that failed (and is not being read again): the action stays held, the error has Retry (VAULT-QUOTE-GATE).
+  const quoteFailed = preview.error && !preview.isFetching ? preview.error : null;
+  const quoteDetail = useErrorDetail(quoteFailed);
+  // The quote the action may send at: none while the query holds an error, even with an older quote kept and its retry on its way
+  // (TanStack keeps both the last data and the error until a read succeeds), so the action stays held until a fresh one is shown.
+  const usableQuote = preview.error ? null : (preview.data ?? null);
   const control = useVaultWrites(account);
   const refusedDetail = useErrorDetail(control.refused ? (control.refusedError ?? control.refused) : null);
 
@@ -93,7 +99,10 @@ export default function Page() {
       mode={mode}
       unit={unit}
       amount={amount}
-      preview={preview.data ?? null}
+      preview={usableQuote}
+      previewError={quoteFailed ? (quoteFailed as Error).message : null}
+      previewErrorDetail={quoteDetail}
+      onRetryPreview={() => void preview.refetch()}
       busy={control.busy}
       refused={control.refused}
       refusedDetail={refusedDetail}

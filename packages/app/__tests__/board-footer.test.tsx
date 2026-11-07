@@ -14,7 +14,7 @@ function open(path: string) {
   render(<App router={createTestRouter(path)} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
 }
 
-preloadPages("board", "play", "settings");
+preloadPages("board", "play", "settings", "home");
 
 beforeEach(() => {
   localStorage.clear();
