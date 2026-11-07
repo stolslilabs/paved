@@ -46,7 +46,7 @@ function useCarousel() {
 }
 
 /**
- * Play's mode cards and the themes. Give it an `aria-label`: the region is a landmark. `opts.startIndex` is the slide it
+ * Story's campaigns, the League's leagues, the inventory tray and the edit panel. Give it an `aria-label`: the region is a landmark. `opts.startIndex` is the slide it
  * opens on, read once: a later change would re-init Embla, which jumps to it and cuts the scroll under way.
  */
 export function Carousel({ orientation = "horizontal", opts, setApi, plugins, className, children, ...props }: ComponentProps<"div"> & CarouselProps) {

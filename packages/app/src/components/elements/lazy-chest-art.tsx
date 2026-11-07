@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import type { ChestArtProps } from "./chest-art";
-import { CHEST_NAME } from "./chest-badge";
+import { CHEST_NAME } from "./chest-designs";
 import { CHEST_ART_REM, CHEST_SPENT } from "./chest-designs";
 import { ChestIcon } from "./chest-icon";
 

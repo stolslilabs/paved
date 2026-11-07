@@ -1,5 +1,5 @@
 import type { IndexedPlayer, PlayerStats } from "@paved/chain";
-import type { PlayerProgress } from "../components/elements/xp-ring";
+import type { PlayerProgress } from "../components/elements/xp-motion";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 
 /** The viewer of every mock: a controller account. */
