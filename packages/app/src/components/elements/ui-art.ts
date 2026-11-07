@@ -56,6 +56,8 @@ export const UI_ICONS = [
   "close",
   "avatar",
   "collection",
+  // ATTACK-SCOUT: a pile of tiles (the scout's deck, painted by Codex from the book's tile), the home's Tiles since the user's ask.
+  "tile-stack",
   "invite",
   "city",
   "road",

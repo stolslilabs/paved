@@ -283,14 +283,10 @@
   --resource-glint: rgb(255 255 255 / 0.14);
 }
 
-/* 3d. The PvP flow (#647): the search's clouds over their sky, the crowns, and each league group's crest (#644's leagues:
-   Wood, Iron to Master in three divisions each, Grand Master). The crests are told apart by their names too, never by colour
-   alone. */
+/* 3d. The PvP flow (#647): the crowns, and each league group's crest (#644's leagues: Wood, Iron to Master in three divisions
+   each, Grand Master). The crests are told apart by their names too, never by colour alone. The search's clouds and their sky
+   left with ATTACK-SCOUT (the user's ask of 2026-11-07: the search over the board's void). */
 :root {
-  --cloud: var(--color-charcoal-50);
-  --cloud-shade: var(--color-charcoal-300);
-  --sky-search-top: var(--color-river-900);
-  --sky-search-bottom: var(--color-river-500);
   --crown: var(--color-gold-300);
   /* USDC's own logo (PLAY-PAGE, the owner's ask: the token's native mark, not the painted coin): Circle's blue and its white. */
   --usdc-blue: #2775ca;
@@ -420,10 +416,6 @@
 }
 
 @theme inline {
-  --color-cloud: var(--cloud);
-  --color-cloud-shade: var(--cloud-shade);
-  --color-sky-search-top: var(--sky-search-top);
-  --color-sky-search-bottom: var(--sky-search-bottom);
   --color-crown: var(--crown);
   --color-hud-card: var(--hud-card);
   --color-dock-ink: var(--dock-ink);

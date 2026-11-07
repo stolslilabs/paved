@@ -1,10 +1,10 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CENTER } from "@paved/game-core";
 import { attackDeck } from "@paved/game-core";
 import { ATTACK_DECK_PERCENT, ATTACK_STAR_PERCENTS, ATTACK_VIEW, attackDeckSize, attackExtras, attackStarPoints, attackStars } from "../src/lib/pvp-v2-rules";
@@ -102,32 +102,51 @@ describe("PvP v2 scenes (#740)", () => {
     expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "2");
   });
 
-  it("scout: the village, its score, each star's points at 80 / 90 / 100 % and the deck the attack will have", async () => {
+  it("scout: the village, each star's points at 80 / 90 / 100 % of its score and the deck the attack will have", async () => {
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.ready} />));
-    expect(screen.getByText("Village score").nextSibling).toHaveTextContent("3,216");
-    const stars = within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem");
-    expect(stars.map((s) => s.textContent)).toEqual(["2,573", "2,895", "3,216"]);
+    // The rival's guild under their name: its emblem and its tag (its name for screen readers and in its title); the small village's
+    // owner has none, an empty shield.
+    const badge = PVP_V2_SCOUT.ready.guild!;
+    const guild = document.querySelector("[data-guild]")!;
+    expect(guild).toHaveTextContent(badge.tag);
+    expect(guild).not.toHaveTextContent(badge.name);
+    expect(within(guild as HTMLElement).getByRole("img", { name: `${badge.name} guild, ${badge.tag}` }).querySelector("[data-slot=guild-emblem]")).not.toBeNull();
+    const stakes = within(screen.getByRole("list", { name: "Crowns at stake" })).getAllByRole("listitem");
+    expect(stakes.map((s) => s.getAttribute("aria-label")?.split(":")[0])).toEqual(["No star, under 2,573 points", "1 star, 2,573 points", "2 stars, 2,895 points", "3 stars, 3,216 points"]);
     expect(screen.getByRole("img", { name: /^Board of 20 tiles$/ })).toBeInTheDocument();
-    const region = screen.getByRole("region", { name: "Attack" });
-    expect(region.querySelector("[data-deck]")).toHaveTextContent("23 tiles");
+    // The deck over the village, at the bottom right (ATTACK-SCOUT): its count, and the deck page at a tap.
+    expect(screen.getByRole("button", { name: "Deck, 23 tiles" })).toHaveTextContent("Deck23");
     // The rules, behind the info button (#788): the village's tiles and the extras, and the crowns at stake.
     await userEvent.click(screen.getByRole("button", { name: "How an attack works" }));
     expect(await screen.findByText("You play the village's 19 tiles and 4 extras, shuffled, on an open board. You see the tile in hand and the next two.")).toBeInTheDocument();
     cleanup();
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.small} />));
-    expect(screen.getByRole("region", { name: "Attack" }).querySelector("[data-deck]")).toHaveTextContent("11 tiles");
+    expect(screen.getByRole("img", { name: "No guild" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deck, 11 tiles" })).toBeInTheDocument();
   });
 
-  it("scout: the deck chip opens the village's tile list, its tiles by plan and the extras unknown (#788)", async () => {
+  it("scout: the deck opens the deck page over the scout, its tiles by plan and the extras unknown (#788, ATTACK-SCOUT)", async () => {
+    const onDeckOpenChange = vi.fn();
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.ready} />));
-    await userEvent.click(screen.getByRole("button", { name: "23 tiles: the village's tile list" }));
-    const sheet = await screen.findByRole("dialog", { name: "Deck" });
-    expect(sheet).toHaveTextContent("23 tiles left of 23");
-    expect(within(sheet).getByRole("heading", { name: "The village's tiles 19" })).toBeInTheDocument();
-    expect(within(sheet).getByTestId("deck-extras").querySelectorAll("li")).toHaveLength(4);
-    expect(within(sheet).getAllByRole("img", { name: "Unknown tile" })).toHaveLength(4);
-    // Nothing played yet: no card crossed out.
-    expect(sheet.querySelectorAll('[data-out="true"]')).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Deck, 23 tiles" }));
+    const page = await screen.findByRole("dialog", { name: "Deck" });
+    expect(within(page).getByTestId("deck-summary")).toHaveTextContent("Left23Played0Discarded0");
+    expect(within(page).getByRole("heading", { name: "Village 19" })).toBeInTheDocument();
+    const village = [...within(page).getByTestId("deck-plans").querySelectorAll("li")];
+    expect(village.reduce((n, li) => n + Number(li.getAttribute("data-left")), 0)).toBe(19);
+    expect(within(page).getByTestId("deck-extras").querySelectorAll("li")).toHaveLength(4);
+    expect(within(page).getAllByRole("img", { name: "Unknown tile" })).toHaveLength(4);
+    // Nothing played yet: no tile out.
+    expect(page.querySelectorAll("[data-out]")).toHaveLength(0);
+    // Back to the scout, never a sheet over a sheet.
+    await userEvent.click(within(page).getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Deck" })).toBeNull());
+    cleanup();
+    // The route holds it (`?view=deck`): the scene opens it from its props and asks the route to close it.
+    render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.ready} deckOpen onDeckOpenChange={onDeckOpenChange} />));
+    const routed = await screen.findByRole("dialog", { name: "Deck" });
+    await userEvent.click(within(routed).getByRole("button", { name: "Back" }));
+    expect(onDeckOpenChange).toHaveBeenCalledWith(false);
   });
 });
 

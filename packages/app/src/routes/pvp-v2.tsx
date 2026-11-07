@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import type { BoardTile, WriteResult } from "@paved/chain";
 import { AttackRun, CENTER, CategoryType, DISCARD_POINTS, OrientationType, PlanType, STARTER_TILE, type LayoutTile } from "@paved/game-core";
 import type { BoardGhost } from "../components/containers/board-viewport";
 import { PvpAttackScene } from "../components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../components/scenes/pvp-scout-scene";
 import { PvpSearchScene } from "../components/scenes/pvp-search-scene";
+import { SearchVoid } from "./search-void";
 import { NEXT_PRICE, stakesOf, type PvpPlayer, type PvpVillage } from "../lib/pvp-rules";
 import { ATTACK_STAR_PERCENTS } from "../lib/pvp-v2-rules";
 import { attackDeckSheet } from "../lib/attack-deck-sheet";
@@ -15,6 +17,7 @@ import { useAttackV2Writes, type AttackMoveV2, type AttackV2, type AttackV2State
 import { V2RefusedError, useFreeVillage, useFreeVillageWrites } from "../data/free-village";
 import { savedLook, useAvatar } from "../data/avatar";
 import { usePvpStatus } from "../data/pvp";
+import { useGuildBadge } from "../data/guilds";
 import { errorDetail } from "./error-detail";
 import { fromBoard, useAttackLegality, useScoutBoard } from "./attack-board";
 import { useGameBoard } from "./game-board";
@@ -40,7 +43,7 @@ export function v2ErrorText(error: Error | null): string | null {
   if (!(error instanceof V2RefusedError)) return error.message;
   switch (error.reason) {
     case "not-joined":
-      return "Your village is not founded yet. Search again founds it with its starter layout, then searches.";
+      return "Your village is not founded yet. Search founds it with its starter layout, then searches.";
     case "no-opponent":
       return "No village can be attacked right now: every one near your crowns is shielded.";
     case "not-enough-cobbles":
@@ -106,16 +109,16 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
     writes.reset();
     searched.current = false;
   };
-  if (found && state.match) return <PvpSearchScene state="found" player={self} opponent={playerOf(state.match, opponentLook)} />;
+  if (found && state.match) return <PvpSearchScene canvas={<SearchVoid />} state="found" player={self} opponent={playerOf(state.match, opponentLook)} />;
   if (phase === "search") {
     if (writes.error) {
       const reason = writes.error instanceof V2RefusedError ? writes.error.reason : null;
-      if (reason === "no-opponent") return <PvpSearchScene state="none" player={self} onRetry={retry} onCancel={onBack} />;
+      if (reason === "no-opponent") return <PvpSearchScene canvas={<SearchVoid />} state="none" player={self} onRetry={retry} onCancel={onBack} />;
       // No village yet: founding it (its starter layout) lets the search run.
       const onRetry = reason === "not-joined" ? () => void village.found().then(retry, () => undefined) : retry;
-      return <PvpSearchScene state="error" player={self} error={v2ErrorText(village.error ?? writes.error)} errorDetail={errorDetail(village.error ?? writes.error)} onRetry={onRetry} onCancel={onBack} />;
+      return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error={v2ErrorText(village.error ?? writes.error)} errorDetail={errorDetail(village.error ?? writes.error)} onRetry={onRetry} onCancel={onBack} />;
     }
-    return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
   }
   if (phase === "scout") return <Scout me={me} match={state.match!} writes={writes} onBack={onBack} />;
   return <Attack attack={open!} match={state.match} writes={writes} ended={ended} onBack={onBack} />;
@@ -124,6 +127,33 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
 /** The rival drawn as the PvP screens show them, with the look they saved (#926) once read. */
 const playerOf = (match: MatchV2, look: bigint | null = null): PvpPlayer => ({ name: match.name, address: match.opponent, level: match.level, crowns: match.crowns, look });
 
+/** The deck page's state while it is open over the scout: pushed from the scout. */
+const DECK_OPENED = { opened: true } as const;
+
+/**
+ * The scout's deck page in the URL (`?view=deck`, ATTACK-SCOUT: a view keeps its URL): opened, an entry pushed over the scout, so the
+ * system's Back closes it; closed, back in the history when the scout pushed it, else the parameter replaced away (a reload, a link).
+ */
+function useDeckViewParam() {
+  const [params, setParams] = useSearchParams();
+  const { state } = useLocation();
+  const navigate = useNavigate();
+  const deckOpen = params.get("view") === "deck";
+  const onDeckOpenChange = (open: boolean) => {
+    if (open === deckOpen) return;
+    const next = new URLSearchParams(params);
+    if (open) {
+      next.set("view", "deck");
+      setParams(next, { state: DECK_OPENED });
+    } else if ((state as { opened?: boolean } | null)?.opened) navigate(-1);
+    else {
+      next.delete("view");
+      setParams(next, { replace: true });
+    }
+  };
+  return { deckOpen, onDeckOpenChange };
+}
+
 /** The scout of the rival drawn: its village and score, the stars' points, the deck the attack will have, Next and Attack. */
 function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writes: Writes; onBack: () => void }) {
   const now = useNow();
@@ -131,6 +161,8 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
   const look = savedLook(useAvatar(match.opponent).data);
   const account = useCobbleAccount(me);
   const status = usePvpStatus(me);
+  // The rival's guild beside their level (the user's ask of 2026-11-07): their profile's badge, null for none.
+  const guild = useGuildBadge(match.opponent).data ?? null;
   const tiles = useMemo(() => (rival.data ? layoutBoard(rival.data.tiles) : []), [rival.data]);
   const board = useScoutBoard(match.opponent, tiles);
   // The village's tile list (#788): the attack's deck sheet before its first tile, the defender's tiles and the extras.
@@ -141,9 +173,10 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
     writes.reset();
     write().catch(() => undefined);
   };
+  const deckView = useDeckViewParam();
   if (!rival.data) {
     const message = rival.data === null ? "This village cannot be read on this network." : rival.error?.message;
-    return <PvpSearchScene state={message ? "error" : "searching"} player={playerOf(match, look)} error={message} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state={message ? "error" : "searching"} player={playerOf(match, look)} error={message} onCancel={onBack} />;
   }
   const village: PvpVillage = { cells: tiles.map(({ x, y }) => ({ x, y })), tiles, score: match.target };
   const shield = status.data?.shield;
@@ -151,11 +184,13 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
   return (
     <PvpScoutScene
       defender={playerOf(match, look)}
+      guild={guild}
       village={village}
       {...board}
       stakes={stakesOf(match.offer, match.cost)}
       deck={{ slots: match.slots, size: match.deck, placed: rival.data.tiles.length }}
       deckSheet={deckSheet}
+      {...deckView}
       starPercents={ATTACK_STAR_PERCENTS}
       next={{ price: NEXT_PRICE, balance: account.data?.cobbles ?? 0 }}
       shieldEndsAt={shield?.up ? shield.until : null}

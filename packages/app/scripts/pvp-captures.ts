@@ -28,7 +28,7 @@ const SIZES = [
 ];
 /** Each story and the text its page shows once it has read the ledger. */
 const CAPTURES = [
-  { name: "page-search", story: "pages-pvp--search", ready: "Searching for a village" },
+  { name: "page-search", story: "pages-pvp--search", ready: "Searching for a rival" },
   { name: "page-scout", story: "pages-pvp--scout", ready: "Village score" },
   { name: "page-attack", story: "pages-pvp--attack", ready: "Attack:" },
   { name: "page-result", story: "pages-pvp--result", ready: "Village reward" },

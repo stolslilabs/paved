@@ -64,14 +64,14 @@ export interface EdgeTilesProps {
   className?: string;
 }
 
-/** The right column (the book's): Missions, Vault, Friends and Tiles (the skins owned, `/tiles`), one under the other, each with its count. */
+/** The right column (the book's): Missions, Vault, Friends and Tiles (the skins owned, `/tiles`; its icon the pile of tiles, `tile-stack`, the user's ask of 2026-11-07), one under the other, each with its count. */
 export function EdgeTiles({ missions = 0, friends = 0, onMissions, onVault, onFriends, onTiles, className }: EdgeTilesProps) {
   return (
     <nav aria-label="Village" className={className}>
       <Tile art="missions" label="Missions" badge={missions} onClick={onMissions} />
       <Tile art="vault" label="Vault" onClick={onVault} />
       <Tile art="friends" label="Friends" badge={friends} onClick={onFriends} />
-      <Tile art="collection" label="Tiles" onClick={onTiles} />
+      <Tile art="tile-stack" label="Tiles" onClick={onTiles} />
     </nav>
   );
 }

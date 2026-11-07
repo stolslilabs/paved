@@ -13,42 +13,50 @@ const id = (plan: PlanType) => Object.values(PlanType).indexOf(plan);
 describe("DeckSheet", () => {
   const counts = deckSheetCounts(baseDeckPlans(), [id(PlanType.CCCCCFFFC), id(PlanType.CCCCCFFFC), id(PlanType.CCCCCCCCC)], [id(PlanType.FFFFFFCFF), id(PlanType.FFFFFFCFF)]);
 
-  it("shows 72 chips and crosses out the played ones", () => {
-    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "counted", counts }} handPlan={id(PlanType.CCCCCFFFC)} side="bottom" />);
+  /** A grid's figures, summed over its plans: the tiles left, played and discarded. */
+  const sum = (list: HTMLElement, key: "left" | "played" | "discarded") => [...list.querySelectorAll("li")].reduce((n, li) => n + Number(li.getAttribute(`data-${key}`)), 0);
+
+  it("shows the 72 tiles as their plans, each with the tiles left of it, the plan in hand marked (ATTACK-SCOUT)", () => {
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "counted", counts }} handPlan={id(PlanType.CCCCCFFFC)} />);
     const plans = screen.getByTestId("deck-plans");
-    expect(within(plans).getAllByRole("img")).toHaveLength(72);
-    expect(plans.querySelectorAll("[data-out='true']")).toHaveLength(5);
-    expect(plans.querySelectorAll("[data-discarded='true']")).toHaveLength(2);
-    expect(plans.querySelectorAll("[data-state='selected']")).toHaveLength(1);
+    expect(plans.querySelectorAll("li")).toHaveLength(counts.plans.length);
+    expect(sum(plans, "left") + sum(plans, "played") + sum(plans, "discarded")).toBe(72);
+    expect(sum(plans, "played")).toBe(3);
+    expect(sum(plans, "discarded")).toBe(2);
+    expect(plans.querySelectorAll("[data-hand]")).toHaveLength(1);
+    expect(plans.querySelector('[data-plan="CCCCCFFFC"]')).toHaveAttribute("data-hand", "true");
+    expect(screen.getByLabelText(/^Capital: 0 of 1 left, 1 played$/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tiles 72" })).toBeInTheDocument();
     expect(screen.getByText(/some never come/)).toBeInTheDocument();
-    expect(screen.getByTestId("deck-summary")).toHaveTextContent("3 played, 2 discarded (dashed), 67 not yet.");
+    expect(screen.getByTestId("deck-summary")).toHaveTextContent("Left67Played3Discarded2");
   });
 
   it("shows a Story level's draw in order, each played tile out in its position (#613)", () => {
     const sequence = [PlanType.CFFFCFFFC, PlanType.RFRFFFFFR, PlanType.FFFFFFCFF, PlanType.CFFFCFFFC];
     const order = deckSheetOrder(sequence, [{ discard: false }, { discard: true }]);
-    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "ordered", order }} side="bottom" />);
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "ordered", order }} />);
     expect(screen.queryByTestId("deck-plans")).toBeNull();
     const slots = [...screen.getByTestId("deck-order").querySelectorAll("li")];
     expect(slots.map((li) => li.getAttribute("data-plan"))).toEqual(sequence);
     expect(slots.map((li) => li.getAttribute("data-slot-state"))).toEqual(["placed", "discarded", "hand", "next"]);
-    expect(slots[0]!.querySelector("[data-out='true']")).not.toBeNull();
-    expect(slots[1]!.querySelector("[data-discarded='true']")).not.toBeNull();
-    expect(slots[2]!.querySelector("[data-state='selected']")).not.toBeNull();
+    expect(slots[0]!.querySelector("[data-out]")).not.toBeNull();
+    expect(slots[1]!.querySelector("[data-out]")).not.toBeNull();
+    expect(slots[2]!.querySelector("[data-out]")).toBeNull();
+    expect(slots[2]).toHaveTextContent("Now");
     expect(screen.getByLabelText("Tile 4, to come")).toBeInTheDocument();
     expect(screen.getByText(/in this order, the next one first/)).toBeInTheDocument();
-    expect(screen.getByTestId("deck-summary")).toHaveTextContent("1 played, 1 discarded (dashed), 2 not yet.");
+    expect(screen.getByTestId("deck-summary")).toHaveTextContent("Left2Played1Discarded1");
   });
 
   it("never reveals the order of a random draw: the board's sheet without a Story order is the counted base deck (#613)", () => {
     const tiles: BoardTile[] = [PlanType.RFFFRFCFR, PlanType.CCCCCCCCC, PlanType.FFFFCCCFF].map((plan, i) => ({ id: i + 1, plan: id(plan), orientation: 1, x: i, y: 0 }));
-    const { rerender } = render(<BoardDeckSheet open onOpenChange={() => {}} tiles={tiles} discardedPlans={[id(PlanType.FFFFFFCFF)]} side="bottom" />);
+    const { rerender } = render(<BoardDeckSheet open onOpenChange={() => {}} tiles={tiles} discardedPlans={[id(PlanType.FFFFFFCFF)]} />);
     const shown = () => [...screen.getByTestId("deck-plans").querySelectorAll("[data-plan]")].map((li) => li.outerHTML);
     expect(screen.queryByTestId("deck-order")).toBeNull();
     expect(screen.getByText(/some never come/)).toBeInTheDocument();
     const before = shown();
     // The same tiles played in another order: the sheet is the same, plan by plan in the plans' order.
-    rerender(<BoardDeckSheet open onOpenChange={() => {}} tiles={[...tiles].reverse()} discardedPlans={[id(PlanType.FFFFFFCFF)]} side="bottom" />);
+    rerender(<BoardDeckSheet open onOpenChange={() => {}} tiles={[...tiles].reverse()} discardedPlans={[id(PlanType.FFFFFFCFF)]} />);
     expect(shown()).toEqual(before);
     const codes = [...screen.getByTestId("deck-plans").querySelectorAll("[data-plan]")].map((li) => id(li.getAttribute("data-plan") as PlanType));
     expect(codes).toEqual([...codes].sort((a, b) => a - b));

@@ -6,6 +6,7 @@ import { attackDeckSheet, type AttackDeckSheet } from "../lib/attack-deck-sheet"
 import type { PvpAttackSceneProps } from "../components/scenes/pvp-attack-scene";
 import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
 import { MOCK_NOW } from "./clock";
+import { GUILD_BADGE } from "./guilds";
 import { STAKES } from "./pvp";
 import { attackDeckOf, buildFreeVillage, placedPlans, playAttackV2, type AttackStep } from "./pvp-attack";
 
@@ -40,14 +41,15 @@ const SMALL_VILLAGE = buildFreeVillage(11, 9);
 const deck = { slots: RIVAL_V2_SLOTS, size: V2_DECK_SIZE, placed: placedPlans(RIVAL_V2_VILLAGE).length };
 /** The village's tile list (#788): the attack's deck sheet before its first tile. */
 const deckSheet = attackDeckSheet({ defenderPlans: placedPlans(RIVAL_V2_VILLAGE), size: V2_DECK_SIZE, moves: [], view: [] });
-const scout = { defender: RIVAL_V2, village: RIVAL_V2_VILLAGE, stakes: STAKES, deck, deckSheet, starPercents: ATTACK_STAR_PERCENTS, next: { price: NEXT_PRICE, balance: 640 }, now: MOCK_NOW };
+const scout = { defender: RIVAL_V2, guild: GUILD_BADGE.member, village: RIVAL_V2_VILLAGE, stakes: STAKES, deck, deckSheet, starPercents: ATTACK_STAR_PERCENTS, next: { price: NEXT_PRICE, balance: 640 }, now: MOCK_NOW };
 
 export const PVP_V2_SCOUT = {
   ready: scout,
   attacking: { ...scout, pending: "attacking" },
-  /** A level-1 village: 9 slots, a deck of 11 tiles. */
+  /** A level-1 village: 9 slots, a deck of 11 tiles; its owner in no guild (an empty shield). */
   small: {
     ...scout,
+    guild: null,
     defender: { ...RIVAL_V2, level: 1 },
     village: SMALL_VILLAGE,
     deck: { slots: slotsOf(1), size: attackDeckSize(slotsOf(1)), placed: placedPlans(SMALL_VILLAGE).length },
@@ -55,6 +57,10 @@ export const PVP_V2_SCOUT = {
   },
   /** The attacker's own village is shielded: attacking drops it. */
   shielded: { ...scout, shieldEndsAt: MOCK_NOW + 5 * 3_600 + 12 * 60 },
+  /** Another village on its way (Next sent). */
+  nextPending: { ...scout, pending: "next" },
+  /** Fewer Cobbles than Next costs: it is disabled. */
+  short: { ...scout, next: { price: NEXT_PRICE, balance: 0 } },
 } satisfies Record<string, Data<PvpScoutSceneProps>>;
 
 // Attack
