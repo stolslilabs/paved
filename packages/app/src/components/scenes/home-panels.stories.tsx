@@ -109,8 +109,11 @@ const shop = (state: keyof typeof SHOP = "tiles") => <ShopScene {...SHOP[state]}
 export const Shop: Story = { render: (args) => <HomeWith args={args}>{shop()}</HomeWith> };
 export const ShopCobbles: Story = { render: (args) => <HomeWith args={args}>{shop("picked")}</HomeWith> };
 export const ShopThemes: Story = { render: (args) => <HomeWith args={args}>{shop("themes")}</HomeWith> };
-/** The Vault: the same Cobbles in the header as every page, the wallet's PAVED on its first line. */
-export const Vault: Story = panel("Vault", <VaultScene {...VAULT.position} />);
+/**
+ * The Vault's drawer over the home (VAULT-PAGE): the HUD's drawer docked at the right, as the Shop; its Position tab, PAVED over
+ * vPAVED at its header's end.
+ */
+export const Vault: Story = { render: (args) => <HomeWith args={args}><VaultScene {...VAULT.position} onBack={fn()} /></HomeWith> };
 /** The League's drawer over the home (LEAGUE-PAGE): the HUD's drawer, as the profile's and the Missions', at every width. */
 const league = () => <PvpLeagueScene {...PVP_LEAGUE.bronze} onBack={fn()} onOpenMatch={fn()} />;
 
