@@ -20,9 +20,10 @@ export interface LeagueRimProps {
 }
 
 /**
- * The avatar's rim (the owner's design of 2026-11-01): a ring of the tier's material (cracked stone up to ruby set in gold) around the
- * player's portrait, so the league reads on the portrait itself. Every tier's ring has the same hole (`RIM_HOLE`), so a tier swaps for
- * another without a layout change. A 1em square; the ring is decorative, the portrait (or its caller) names the player.
+ * The avatar's rim (the owner's design of 2026-11-01): a ring of the tier's material (oak up to ruby set in gold; Unranked's a
+ * placeholder, a plain band of the crest's grey gradient, no dashes, UNRANKED-PLACEHOLDER) around the player's portrait, so the
+ * league reads on the portrait itself. Every tier's ring has the same hole (`RIM_HOLE`), so a tier swaps for another without a layout
+ * change. A 1em square; the ring is decorative, the portrait (or its caller) names the player.
  */
 export function LeagueRim({ tier, size = "md", children, className }: LeagueRimProps) {
   const rem = RIM_REM[size];
