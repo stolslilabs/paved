@@ -1,4 +1,5 @@
 import { Button } from "../ui/button";
+import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { amountFigure } from "../elements/amount";
 import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
 import { TokenIcon } from "../elements/token-icon";
@@ -18,8 +19,13 @@ export interface VaultActionProps {
   amount: string;
   /** The typed amount's limit (`limitOf`). */
   limit: bigint;
-  /** The operation's preview of the typed amount (`useVaultPreview`): its other side; null until read. */
+  /** The operation's preview of the typed amount (`useVaultPreview`): its other side; null until read (the action is held). */
   preview: bigint | null;
+  /** The preview's read failed (its message): the action is held, the error shown with Retry. */
+  previewError?: string | null;
+  previewErrorDetail?: ErrorDetail;
+  /** Reads the preview again (the error's Retry). */
+  onRetryPreview?: () => void;
   busy?: VaultBusy | null;
   /** Nothing to send: the page's state holds it (the account or a read on its way, a read failed, no economy). */
   disabled?: boolean;
@@ -32,17 +38,28 @@ export interface VaultActionProps {
  * button): the operation's other side, about: the vPAVED a deposit mints (`preview_deposit`), the PAVED a mint takes (`preview_mint`),
  * the vPAVED a withdraw uses, its exit fee included (`preview_withdraw`), the PAVED a redeem pays, its exit fee taken
  * (`preview_redeem`); the gold Deposit, Mint, Withdraw or Redeem, its word kept and a spinner while its write waits in the wallet (the
- * body says what the wallet asks), so the footer never moves between states. One row from 360 px.
+ * body says what the wallet asks), so the footer never moves between states. One row from 360 px. The action is held until the
+ * preview is shown (VAULT-QUOTE-GATE: nothing is sent at a figure the player has not seen): an ellipsis while it is read, and a failed
+ * read shows the app's error with Retry over the row, a dash in place of the figure.
  */
-export function VaultAction({ op, amount, limit, preview, busy, disabled, onSend }: VaultActionProps) {
+export function VaultAction({ op, amount, limit, preview, previewError, previewErrorDetail, onRetryPreview, busy, disabled, onSend }: VaultActionProps) {
   const { ready } = typedAmount(amount, limit);
   const side = SIDE[op];
   const working = busy != null;
-  const figure = !ready ? "0.00" : preview === null ? "…" : `≈ ${amountFigure(preview, side.token, true)}`;
-  const held = disabled || !ready || working;
+  const failed = ready && !disabled && Boolean(previewError);
+  const quoting = ready && !failed && preview === null;
+  const figure = !ready ? "0.00" : failed ? "—" : preview === null ? "…" : `≈ ${amountFigure(preview, side.token, true)}`;
+  const held = disabled || !ready || working || failed || preview === null;
   return (
     <div className="flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
-      <span aria-label={side.word} role="group" className="flex min-w-0 flex-col">
+      <InlineError
+        title="The quote cannot be read"
+        message={failed ? previewError : null}
+        detail={previewErrorDetail}
+        action={<Button size="sm" onClick={onRetryPreview}>Retry</Button>}
+        className="basis-full"
+      />
+      <span aria-label={side.word} aria-busy={quoting || undefined} role="group" className="flex min-w-0 flex-col">
         <span className="text-sm leading-tight font-semibold text-muted-foreground">{side.word}</span>
         <span className="flex min-w-0 flex-wrap items-center gap-x-1.5">
           {side.token === "vpaved" ? <TokenIcon kind="vpaved" size="sm" /> : <TokenIcon kind="paved" size="sm" />}
@@ -55,7 +72,7 @@ export function VaultAction({ op, amount, limit, preview, busy, disabled, onSend
         // The drawers' gold action (the Challenge's Confirm), its light passing while it can be pressed.
         style={GOLD_ACTION}
         className="relative ml-auto h-12 min-w-36 shrink-0 px-1 text-lg font-black text-foreground mobile:text-xl"
-        onClick={onSend}
+        onClick={held ? undefined : onSend}
         disabled={held}
         loading={busy === op}
       >
