@@ -288,14 +288,14 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
 }
 
 /**
- * First Stone (D-21), at the end of Tutorial level 1: one `Setup.claim_tutorial()`, which needs a connected wallet (Connect
- * is offered); a claim made before is read first (`tutorial_claimed`), so it needs no transaction. Nothing on chain checks
+ * First Stone (D-21), at the end of Tutorial level 1: one `Setup.claim_tutorial()`, which needs the account (NO-GUEST: made at
+ * start, none is asked to connect; until it is in, the line waits); a claim made before is read first (`tutorial_claimed`), so it needs no transaction. Nothing on chain checks
  * that the level was played (P-49).
  */
 function FirstStone() {
   const wallet = useAccount();
   // One claim per account: another account starts from its own read.
-  return <FirstStoneClaim key={wallet.address ?? "guest"} wallet={wallet} />;
+  return <FirstStoneClaim key={wallet.address ?? "none"} wallet={wallet} />;
 }
 
 function FirstStoneClaim({ wallet }: { wallet: WalletState }) {
@@ -305,12 +305,9 @@ function FirstStoneClaim({ wallet }: { wallet: WalletState }) {
   let body;
   if (!wallet.address) {
     body = (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground">Connect a wallet to claim the mission First Stone.</span>
-        <Button size="sm" variant="secondary" onClick={() => void wallet.connect()} loading={wallet.status === "connecting"}>
-          Connect
-        </Button>
-      </div>
+      <p role="status" className="text-muted-foreground">
+        Looking for your account…
+      </p>
     );
   } else if (outcome === "claimed") {
     body = <p role="status">Claimed: First Stone is yours.</p>;

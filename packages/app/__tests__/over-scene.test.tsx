@@ -31,17 +31,16 @@ describe("OverScene: a Challenge game's settlement (P7a)", () => {
     expect(settleArea()).not.toHaveTextContent("Settles in");
   });
 
+  // No "Connect to settle" (NO-GUEST: every player has an account, none is asked to connect).
   it.each([
-    ["connect", "Connect to settle"],
     ["ready", "Settle and claim"],
     ["refused", "Settle and claim"],
   ] as const)("%s has the button %s, which acts", async (state, name) => {
     const onSettle = vi.fn();
-    const onConnect = vi.fn();
-    const settle: SettleProps = { state, message: "no", onSettle, onConnect };
+    const settle: SettleProps = { state, message: "no", onSettle };
     show(<OverScene {...OVER.awaiting} settle={settle} />);
     await userEvent.click(within(settleArea()).getByRole("button", { name }));
-    expect(state === "connect" ? onConnect : onSettle).toHaveBeenCalledTimes(1);
+    expect(onSettle).toHaveBeenCalledTimes(1);
   });
 
   it("refused says why, as an alert", () => {

@@ -6,7 +6,6 @@ import { PAGES, type PageDef } from "./pages";
 import { withRef } from "./ref";
 import { RouteError } from "./RouteError";
 import { bootScreen, RootLayout } from "./Shell";
-import { hasWelcomed } from "./welcomed";
 
 /**
  * One lazy component per loader of `page-loaders.ts`: paths that share a scene (the three boards, the two game-over
@@ -25,20 +24,6 @@ const PageWithSheets = lazy(() => import("./page-sheets"));
 /** A redirect that keeps the request's `?ref=`. It replaces the entry, so Back never lands on the old link. */
 function to(path: string, request: Request) {
   return replace(withRef(path, new URL(request.url).search));
-}
-
-/**
- * `/` is the entry of a first visit: it sends the visitor to the welcome. The flag is read here, at navigation. The query goes
- * along: a player's link (`?player=`, #952) opens their profile once the welcome is done.
- */
-function homeLoader({ request }: LoaderFunctionArgs) {
-  // The whole query, its `?ref=` with it (what `to` keeps).
-  return hasWelcomed() ? null : replace("/welcome" + new URL(request.url).search);
-}
-
-/** The welcome shows once: a returning visitor who opens it goes Home. */
-function welcomeLoader({ request }: LoaderFunctionArgs) {
-  return hasWelcomed() ? to("/", request) : null;
 }
 
 /** The old links of the previous client (section 6.1). */
@@ -67,7 +52,7 @@ function challengeLoader({ request }: LoaderFunctionArgs) {
   return new URL(request.url).searchParams.get("tab") === "cobbles" ? to(SHOP_COBBLES, request) : null;
 }
 
-const LOADERS: Record<string, RouteObject["loader"]> = { welcome: welcomeLoader, "play/challenge": challengeLoader };
+const LOADERS: Record<string, RouteObject["loader"]> = { "play/challenge": challengeLoader };
 
 /** A page's route: its entry in `handle` (its tab, its title), its lazy component, its own error boundary. */
 function pageRoute(page: PageDef): RouteObject {
@@ -117,14 +102,18 @@ export const routes: RouteObject[] = [
     children: [
       {
         // The home's route (DESK-PANELS, #762): `/` and, as its children, the pages of the side panel (`PageDef.panel`), drawn over
-        // the home's village from `desktop` and as full pages below it (`HomeLayout`). The welcome's loader is the index's alone.
+        // the home's village from `desktop` and as full pages below it (`HomeLayout`). No welcome first (NO-GUEST, the owner's ruling
+        // of 2026-11-07: every player has an account, made at start; no page asks to connect).
         id: "home",
         element: <HomeLayout home={<Home />} />,
         errorElement: <RouteError />,
-        children: [{ index: true, handle: { page: HOME }, loader: homeLoader }, ...pageRoutes(PAGES.filter((page) => page.panel))],
+        // Its loader answers nothing: a route with one keeps the boot screen (`hydrateFallbackElement`) while the entry's code loads.
+        children: [{ index: true, handle: { page: HOME }, loader: () => null }, ...pageRoutes(PAGES.filter((page) => page.panel))],
       },
       ...pageRoutes(PAGES.filter((page) => page.path !== "" && !page.panel)),
       { path: "game", loader: gameRedirect },
+      // The welcome and its Connect left with the guests (NO-GUEST): its old link lands on the home, its query (`?ref=`, `?player=`) kept.
+      { path: "welcome", loader: ({ request }) => replace("/" + new URL(request.url).search) },
       // Missions is one page, today only (#832): the Lifetime tab's link and a day's land on it, as the older names do.
       { path: "missions/lifetime", loader: ({ request }) => to("/missions", request) },
       { path: "missions/:day", loader: ({ request }) => to("/missions", request) },

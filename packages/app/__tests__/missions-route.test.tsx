@@ -15,9 +15,11 @@ import { queryKeys } from "../src/data/keys";
 import { queryClient } from "../src/lib/query-client";
 import { weekOfDay } from "../src/lib/quest-window";
 import { createTestRouter } from "../src/routes/router";
+import type { LoadConnector } from "../src/wallet/wallet";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { errorToastTexts, preloadPages } from "./route-helpers";
+import { fakeWallet } from "./wallet-fakes";
 
 // `/missions` (P9, #832: one page, today only) on `@paved/chain`'s fakes: the fixture indexer (its clock is `now`), the Cobbles
 // ledger of `FakeGameViews` and `FakeClaimer`'s claims, through the app's own query client and store.
@@ -64,9 +66,9 @@ function setup(options: { signer?: "claims" | "board" | "none"; counts?: Counts;
   return { ...fakes, claimer, ada };
 }
 
-function open(path: string, s: ReturnType<typeof setup>) {
+function open(path: string, s: ReturnType<typeof setup>, connector?: LoadConnector) {
   const router = createTestRouter(path);
-  render(<App router={router} sources={s.sources} />);
+  render(<App router={router} sources={s.sources} connector={connector} />);
   return router;
 }
 
@@ -197,16 +199,24 @@ describe("/missions (P9, #832)", () => {
     expect(screen.queryByText("Could not load the missions")).not.toBeInTheDocument();
   });
 
-  it("with no signer: a guest, asked to connect, nothing to claim", async () => {
-    open("/missions", setup({ signer: "none" }));
-    expect(await screen.findByText("Connect to see your missions", {}, { timeout: slow(3000) })).toBeInTheDocument();
+  it("with no signer yet: no Connect (NO-GUEST), nothing to claim", async () => {
+    // The device's account on its way (NO-GUEST: the wallet makes one at start, and this one never answers): a wallet of its own, so
+    // the app's connector, shared by the file's tests, keeps no account for the next ones.
+    const wallet = fakeWallet();
+    wallet.connector.connect = () => new Promise(() => {});
+    open("/missions", setup({ signer: "none" }), wallet.load);
+    await screen.findByRole("dialog", { name: "Missions" }, { timeout: slow(3000) });
+    await waitFor(() => expect(wallet.calls).toContain("probe"));
+    expect(screen.getByRole("status", { name: "Loading the missions" })).toBeInTheDocument();
+    expect(screen.queryByText("Connect to see your missions")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Claim/ })).not.toBeInTheDocument();
   });
 
-  it("with a signer that cannot claim: read only, Connect to claim, no claim open", async () => {
+  it("with a signer that cannot claim: read only, no Connect (NO-GUEST), no claim open", async () => {
     open("/missions", setup({ signer: "board" }));
-    expect(await screen.findByText("Connect to claim", {}, { timeout: slow(3000) })).toBeInTheDocument();
     await userEvent.click(await tile("Daily Run"));
+    expect(screen.queryByText("Connect to claim")).toBeNull();
     expect(card().getByRole("button", { name: "Claim 5 Cobbles: Daily Run" })).toHaveAttribute("aria-disabled", "true");
     for (const button of screen.queryAllByRole("button", { name: /^Claim/ })) expect(button).toHaveAttribute("aria-disabled", "true");
   });
@@ -269,10 +279,13 @@ describe("the completion toasts, app-wide (#595)", () => {
     expect(success).toHaveBeenCalledTimes(2);
   }, slow(20_000));
 
-  it("tracks nothing for a guest", async () => {
+  it("tracks nothing while the device's account is on its way (NO-GUEST: no guest any more)", async () => {
     const s = setup({ signer: "none" });
     const playerQuests = vi.spyOn(s.sources.indexer, "playerQuests");
-    open("/vault", s);
+    // A wallet of its own whose account never comes: the app's connector, shared by the file's tests, keeps none for the next ones.
+    const wallet = fakeWallet();
+    wallet.connector.connect = () => new Promise(() => {});
+    open("/vault", s, wallet.load);
     await screen.findByRole("heading", { level: 1 }, { timeout: slow(5000) });
     expect(playerQuests).not.toHaveBeenCalled();
   });

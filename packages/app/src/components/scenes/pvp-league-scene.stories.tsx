@@ -116,8 +116,6 @@ export const BronzePhoneScrolled: Story = { ...BronzePhone, play: scrolledToEnd 
 /** PAGES-SCROLL (#782): at 1440 px the side panel's body scrolls to the last row; its close the red cross. */
 export const BronzeWideScrolled: Story = { ...BronzeWide, play: scrolledToEnd };
 
-/** The route's waits and refusals in the drawer: no account, PvP not on this network, the standing on its way, its read failed. */
-export const Connect: Story = { ...PHONE_375, args: { wait: { kind: "connect", onConnect: fn() } } };
 export const Unavailable: Story = { ...PHONE_375, args: { wait: { kind: "unavailable" } } };
 export const Loading: Story = { ...PHONE_375, args: { wait: { kind: "loading" } } };
 export const Failed: Story = { ...PHONE_375, args: { wait: { kind: "error", message: "The league could not load.", onRetry: fn() } } };

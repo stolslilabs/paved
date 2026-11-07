@@ -77,18 +77,11 @@ afterEach(() => {
 });
 
 describe("/vault (P10)", { timeout: slow(20_000) }, () => {
-  it("a guest is asked to connect, and Connect opens the wallet", async () => {
+  it("no Connect (NO-GUEST): a device with no account gets one at start, and its position is read", async () => {
     const s = setup({ viewer: "guest" });
     const wallet = open(s);
-    // The page waits for the wallet's look for an earlier session (its probe) before it asks.
-    await waitFor(() => expect(wallet.calls).toContain("probe"));
-    await waitFor(() => expect(screen.queryByRole("status", { name: "Reading the Vault" })).toBeNull());
-    const notice = (await screen.findByText("Connect to use the Vault", {}, { timeout: slow(5000) })).closest("[role=status]") as HTMLElement;
-    // Nothing of the Vault is read for a guest.
-    expect(s.economy.calls.filter((c) => c.startsWith("vault"))).toEqual([]);
-    await userEvent.click(within(notice).getByRole("button", { name: "Connect" }));
-    await waitFor(() => expect(wallet.calls).toContain("connect"));
-    // Connected: the account's position is read.
+    await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])));
+    expect(screen.queryByText("Connect to use the Vault")).toBeNull();
     expect(await position()).toHaveTextContent("No vPAVED yet");
   });
 

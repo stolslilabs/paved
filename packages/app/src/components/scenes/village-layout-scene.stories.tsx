@@ -79,8 +79,6 @@ export const Refused: Story = { args: VILLAGE_LAYOUT.refused };
 export const EmptyInventory: Story = { args: VILLAGE_LAYOUT.emptyInventory };
 /** The village on its way. */
 export const Loading: Story = { args: VILLAGE_LAYOUT.loading };
-/** A guest: Connect to build a village. */
-export const Guest: Story = { args: VILLAGE_LAYOUT.guest };
 /** The village's read failed: Retry. */
 export const ReadFailed: Story = { args: VILLAGE_LAYOUT.error };
 /** Someone else's village: read-only, no editor. */

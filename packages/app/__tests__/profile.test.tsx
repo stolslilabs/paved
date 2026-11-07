@@ -224,19 +224,17 @@ describe("ProfileSheet (#624)", () => {
     }
   });
 
-  it("a guest: the Training line and Connect, nothing to copy", async () => {
-    const onConnect = vi.fn();
-    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.guest} onConnect={onConnect} />));
+  it("while the account is read: Looking for your account, nothing to copy, no Connect (NO-GUEST)", async () => {
+    render(wrap(<ProfileSheet open onOpenChange={() => {}} state={PROFILE.loading} />));
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText("Training is free. Connect to enter the Challenge.")).toBeInTheDocument();
+    expect(within(sheet).getByText("Looking for your account…")).toBeInTheDocument();
     expect(within(sheet).queryByRole("button", { name: /Copy/ })).toBeNull();
-    await userEvent.click(within(sheet).getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
+    expect(within(sheet).queryByRole("button", { name: "Connect" })).toBeNull();
   });
 });
 
 describe("ProfileSlot (#624)", () => {
-  const value = (state: ProfileValue["state"]): ProfileValue => ({ state, onConnect: vi.fn(), onEditAvatar: vi.fn(), onCopy: vi.fn(async () => {}) });
+  const value = (state: ProfileValue["state"]): ProfileValue => ({ state, onEditAvatar: vi.fn(), onCopy: vi.fn(async () => {}) });
 
   it("draws nothing without the shell's profile", () => {
     render(wrap(<ProfileSlot />));
@@ -255,8 +253,8 @@ describe("ProfileSlot (#624)", () => {
   });
 
   it("Escape closes the sheet and the focus returns to the avatar (keyboard)", async () => {
-    render(withProfile(value(PROFILE.guest), <ProfileSlot />));
-    const avatar = screen.getByRole("button", { name: "Profile: guest" });
+    render(withProfile(value(PROFILE.loading), <ProfileSlot />));
+    const avatar = screen.getByRole("button", { name: "Profile" });
     avatar.focus();
     await userEvent.keyboard("{Enter}");
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
@@ -303,11 +301,11 @@ describe("ProfileSlot (#624)", () => {
   });
 
   it("a tab page has Back at its top left, not the avatar, which is the home's (#760; no navigation header from desktop, #762)", () => {
-    const { rerender } = render(withProfile(value(PROFILE.guest), <TabPage title="Vault" onBack={() => {}}>x</TabPage>));
-    expect(screen.queryAllByRole("button", { name: "Profile: guest" })).toHaveLength(0);
+    const { rerender } = render(withProfile(value(PROFILE.connected), <TabPage title="Vault" onBack={() => {}}>x</TabPage>));
+    expect(screen.queryAllByRole("button", { name: /^Profile/ })).toHaveLength(0);
     expect(within(screen.getByRole("banner")).getByRole("button", { name: "Back" })).toBeInTheDocument();
-    rerender(withProfile(value(PROFILE.guest), <TabPage title="Themes" onBack={() => {}}>x</TabPage>));
-    expect(screen.queryAllByRole("button", { name: "Profile: guest" })).toHaveLength(0);
+    rerender(withProfile(value(PROFILE.connected), <TabPage title="Themes" onBack={() => {}}>x</TabPage>));
+    expect(screen.queryAllByRole("button", { name: /^Profile/ })).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 

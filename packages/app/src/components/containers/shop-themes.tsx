@@ -41,7 +41,6 @@ export interface ShopThemesProps {
   onBuy?: (plan: number) => void;
   /** To the Cobbles tab. */
   onGetCobbles?: () => void;
-  onConnect?: () => void;
   onRetry?: () => void;
   /** A theme's tiles, all of them (its own view, in place of the tab). */
   onOpenTheme?: (theme: SkinThemeId) => void;
@@ -104,10 +103,7 @@ export function ShopThemes(props: ShopThemesProps) {
               skinsStatus && (
                 <SkinsStatusView
                   status={skinsStatus}
-                  guestTitle="Connect to buy tiles"
-                  guestText="A theme's tiles are bought with the Cobbles of your account and kept on it."
                   skeleton={<Skeleton className="h-56 w-full rounded-2xl" />}
-                  onConnect={props.onConnect}
                   onRetry={props.onRetry}
                 />
               )
@@ -233,7 +229,7 @@ export function ShopTheme({ theme, ...props }: ShopThemesProps & { theme: SkinTh
     );
   if (!skins)
     return skinsStatus ? (
-      <SkinsStatusView status={skinsStatus} guestTitle="Connect to buy tiles" guestText="A theme's tiles are bought with the Cobbles of your account and kept on it." skeleton={<Skeleton className="h-96 w-full rounded-2xl" />} onConnect={props.onConnect} onRetry={props.onRetry} />
+      <SkinsStatusView status={skinsStatus} skeleton={<Skeleton className="h-96 w-full rounded-2xl" />} onRetry={props.onRetry} />
     ) : null;
   return (
     <>

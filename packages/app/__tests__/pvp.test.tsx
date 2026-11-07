@@ -287,16 +287,13 @@ describe("PvP scenes (#647)", () => {
   });
 
   it("league's waits and refusals (LEAGUE-PAGE): in the drawer, its title kept, no League control", async () => {
-    const onConnect = vi.fn();
     const onRetry = vi.fn();
     const base = { crowns: 0, season: null, now: PVP_LEAGUE.bronze.now };
-    render(wrap(<PvpLeagueScene {...base} wait={{ kind: "connect", onConnect }} />));
+    // No Connect (NO-GUEST): the account still read is the league's loading.
+    render(wrap(<PvpLeagueScene {...base} wait={{ kind: "unavailable" }} />));
     expect(screen.getByRole("dialog", { name: "League" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Your league/ })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
-    cleanup();
-    render(wrap(<PvpLeagueScene {...base} wait={{ kind: "unavailable" }} />));
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.getByText("PvP is not on this network yet.")).toBeInTheDocument();
     cleanup();
     render(wrap(<PvpLeagueScene {...base} wait={{ kind: "loading" }} />));

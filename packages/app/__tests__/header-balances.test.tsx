@@ -41,7 +41,6 @@ const TABLE: Record<string, readonly string[]> = {
   play: [],
   story: [],
   settings: [],
-  welcome: [],
   referral: [],
   "settings/credits": [],
   // The game scenes: the boards, the ends of a game, the PvP attack's flow, its result and a replay (#647).
@@ -54,13 +53,6 @@ const TABLE: Record<string, readonly string[]> = {
   "pvp/result/:id": [],
   "pvp/replay/:attacker/:id": [],
   "pvp/match/:id": [],
-};
-
-/** The names the guest's Connect gives from `desktop`: the page's balances in a sentence. */
-const NAMES: Record<string, string> = { usdc: "USDC", paved: "PAVED", vpaved: "vPAVED", "vpaved-held": "vPAVED", cobbles: "Cobbles" };
-const sentence = (kinds: readonly string[]) => {
-  const labels = kinds.map((kind) => NAMES[kind]!);
-  return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
 };
 
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:theme/g, "forest").replace(/:player/g, "0x1").replace(/:(\w+)/g, "1");
@@ -98,8 +90,8 @@ describe("the balances by page (#855)", () => {
     expect(HEADER_BALANCES.vault).not.toContain("cobbles");
   });
 
-  // The shell's wiring, each route's page a stand-in top bar, a guest's: the page's balances in the bar's row, the phone's plates
-  // (below `desktop`) and the larger ones (from `desktop`), the guest's Connect naming them; nothing on a page with none. jsdom
+  // The shell's wiring, each route's page a stand-in top bar: the page's balances in the bar's row, the phone's plates (below
+  // `desktop`) and the larger ones (from `desktop`), never a Connect; nothing on a page with none. jsdom
   // applies no media query: each part is told by the width its class keeps it to.
   it.each(PAGES.map((p) => [p.path || "/", p.path] as const))("%s", async (_, path) => {
     const router = createTestRouter(concrete(path), (routes) => {
@@ -119,7 +111,7 @@ describe("the balances by page (#855)", () => {
       const sheets = drawn ? holder(routes) : undefined;
       if (sheets) sheets.element = route.element;
       route.loader = undefined;
-      // The home's welcome loader is its index's (#762).
+      // The home's loader is its index's (#762).
       if (path === "") route.children![0]!.loader = undefined;
       return routes;
     });
@@ -139,7 +131,8 @@ describe("the balances by page (#855)", () => {
         }, { timeout: slow(5000) });
     expect(regions.map((r) => r.className.match(/(hidden desktop:flex|desktop:hidden)/)?.[1])).toEqual(none ? [] : ["desktop:hidden", "hidden desktop:flex"]);
     for (const region of regions) expect(bar).toContainElement(region);
-    if (!none) expect(within(regions[1]!).getByText(`Connect to see your ${sentence(kinds)}.`)).toBeInTheDocument();
+    // No Connect (NO-GUEST, the owner's ruling of 2026-11-07): the account is made at start, its plates read.
+    for (const region of regions) expect(within(region).queryByRole("button", { name: "Connect" })).toBeNull();
     // `PageBalances` and its strip are gone (#781): nothing between the bar and the page's content.
     expect(container.querySelector('[data-slot="page-balances"]')).toBeNull();
   });

@@ -100,7 +100,9 @@ async function main(): Promise<void> {
     // The tab page is the Vault, connected (the mock's device key, nothing sent): its form and an empty wallet's Play, 743 px,
     // taller than its region on an iPhone SE's view under Safari's bars (548 px, the PAGES-SCROLL pass's short screen) at the
     // Pixel 7's width. Settings, which was taller than a phone even for a guest, is the HUD's drawer (SETTINGS-PAGE), not a tab page.
-    await page.getByRole("button", { name: "Connect" }).first().click();
+    // No Connect since NO-GUEST (the account is made at start); an older build still shows one.
+    const connect = page.getByRole("button", { name: "Connect" });
+    if ((await connect.count()) > 0) await connect.first().click();
     const play = page.getByRole("button", { name: "Play", exact: true });
     await play.waitFor();
     const phone = page.viewportSize()!;

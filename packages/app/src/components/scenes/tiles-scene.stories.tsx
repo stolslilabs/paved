@@ -34,7 +34,7 @@ const meta = {
   title: "Scenes/Tiles",
   component: TilesScene,
   render: (args) => <Stateful {...args} />,
-  args: { onPick: fn(), onSave: fn(), onDiscard: fn(), onOpenShop: fn(), onBack: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
+  args: { onPick: fn(), onSave: fn(), onDiscard: fn(), onOpenShop: fn(), onBack: fn(), onRetry: fn(), onDismissRefusal: fn() },
   // The Cobbles at the header's top right.
   decorators: [withCobbles],
 } satisfies Meta<typeof TilesScene>;
@@ -65,8 +65,6 @@ export const None: Story = { args: TILES.none };
 /** The whole Forest set. */
 export const AllForest: Story = { args: TILES.allForest };
 
-/** A guest: Connect. */
-export const Guest: Story = { args: TILES.guest };
 
 /** The reads on their way. */
 export const Loading: Story = { args: TILES.loading };

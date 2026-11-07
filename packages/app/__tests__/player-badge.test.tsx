@@ -22,7 +22,6 @@ const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
 const value = (over: Partial<ProfileValue> = {}): ProfileValue => ({
   state: PROFILE.connected,
   progress: PROGRESS.partWay,
-  onConnect: vi.fn(),
   onDisconnect: vi.fn(),
   onCopy: vi.fn(async () => {}),
   ...over,
@@ -177,11 +176,10 @@ describe("PlayerBadge, the player card (the owner's direction of 2026-11-01)", (
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
-  it("a guest: the silhouette and Guest, no level's bar; without the shell's profile, nothing", () => {
-    const { container, rerender } = render(badge(value({ state: PROFILE.guest, progress: undefined })));
-    expect(screen.getByRole("button", { name: "Profile: guest" })).toHaveTextContent("Guest");
-    expect(container.querySelector("[data-slot=player-avatar]")).not.toBeNull();
-    expect(container.querySelector("[data-slot=level-bar]")).toBeNull();
+  it("no guest (NO-GUEST): no Guest name, nothing to connect; without the shell's profile, nothing", () => {
+    const { container, rerender } = render(badge(value({ state: PROFILE.loading, progress: undefined })));
+    expect(screen.queryByText("Guest")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     rerender(badge(null));
     expect(container.querySelector("[data-slot=player-badge]")).toBeNull();
   });

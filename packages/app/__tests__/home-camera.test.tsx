@@ -104,7 +104,7 @@ describe("Home's Camera mode (#875)", () => {
     expect(scene.last().camera).toBe(false);
   });
 
-  it("is the view's alone: edit mode has none, and a guest's starter village has it too", async () => {
+  it("is the view's alone: edit mode has none, and a starter village read only has it too", async () => {
     const scene = canvas();
     const { rerender, unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} renderCanvas={scene.renderCanvas} initialCamera />));
     await screen.findByRole("button", { name: "Exit camera" }, { timeout: slow(5000) });
@@ -112,7 +112,7 @@ describe("Home's Camera mode (#875)", () => {
     expect(scene.last().camera).toBe(false);
     expect(screen.queryByRole("button", { name: "Exit camera" })).toBeNull();
     unmount();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.guest} renderCanvas={scene.renderCanvas} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} readOnly renderCanvas={scene.renderCanvas} />));
     expect(await screen.findByRole("button", { name: "Explore" }, { timeout: slow(5000) })).toBeInTheDocument();
   });
 });

@@ -90,11 +90,12 @@ afterEach(() => resetWelcomedForTests());
 
 // The board's page module brings the renderer (three.js): its first import can take longer than findBy's 1 s in jsdom.
 describe("/game/:gameId (P5)", () => {
-  it("with no signer: the game read only, with a Connect to play notice; the player's tile shown, nothing to play (#701)", async () => {
+  it("with no signer: the game read only, no Connect to play (NO-GUEST); the player's tile shown, nothing to play (#701)", async () => {
     const s = sources({ signer: false });
     open(`/game/${GAME_ID}`, s);
-    expect(await screen.findByText("Connect to play", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: `Challenge #${GAME_ID}` }, { timeout: slow(5000) })).toBeInTheDocument();
+    await screen.findByLabelText(/^Board of 1 tiles$/, {}, { timeout: slow(5000) });
+    expect(screen.queryByText("Connect to play")).toBeNull();
     expect(hand()).not.toBeInTheDocument();
     expect(watched()).toEqual(`tile ${planCode(s.views.games.get(`challenge:${GAME_ID}`)!.game.plan).toLowerCase()}`);
     const deck = screen.getByRole("region", { name: "Deck" });
@@ -227,7 +228,8 @@ describe("/game/:gameId on the VRF (#645)", () => {
   it("read only (no wallet): the player's tile and the two coming tiles on the Deck stack, nothing to play (#701)", async () => {
     const s = vrfSources({ signer: false });
     open(`/game/${GAME_ID}`, s);
-    expect(await screen.findByText("Connect to play", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    await screen.findByRole("region", { name: "Deck" }, { timeout: slow(5000) });
+    expect(screen.queryByText("Connect to play")).toBeNull();
     expect(hand()).not.toBeInTheDocument();
     const deck = screen.getByRole("region", { name: "Deck" });
     await waitFor(() => expect([...(within(deck).queryByTestId("coming-tiles")?.querySelectorAll("li") ?? [])].map((li) => li.getAttribute("data-coming"))).toEqual(["1", "2"]));

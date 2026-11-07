@@ -21,7 +21,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const profile = (state: ProfileState, progress = PROGRESS.start, look: bigint | null = null) => ({
-  profile: { state, progress, look, onConnect: fn(), onCopy: fn(async () => {}), onEditAvatar: fn() },
+  profile: { state, progress, look, onCopy: fn(async () => {}), onEditAvatar: fn() },
 });
 
 export const Connected: Story = { parameters: profile(PROFILE.connected) };
@@ -29,5 +29,4 @@ export const Connected: Story = { parameters: profile(PROFILE.connected) };
 export const PartWay: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay) };
 /** The avatar the player saved (#626): its still at the top left, in the ring. */
 export const SavedAvatar: Story = { parameters: profile(PROFILE.connected, PROGRESS.partWay, SAVED_LOOK) };
-export const Guest: Story = { parameters: profile(PROFILE.guest) };
 export const Loading: Story = { parameters: profile(PROFILE.loading) };

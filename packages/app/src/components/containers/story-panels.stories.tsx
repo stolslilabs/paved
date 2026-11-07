@@ -81,10 +81,9 @@ export const EndThreeStars: Story = {
   args: TUTORIAL_1,
   render: () => (
     <StoryEnd {...END} score={321} stars={3}>
-      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-secondary/50 p-2">
-        <span className="text-muted-foreground">Connect a wallet to claim the mission First Stone.</span>
-        <Button size="sm" variant="secondary">
-          Connect
+      <div className="flex flex-col gap-2 rounded-lg bg-secondary/50 p-2">
+        <Button size="sm" variant="secondary" className="self-start">
+          Claim First Stone
         </Button>
       </div>
     </StoryEnd>

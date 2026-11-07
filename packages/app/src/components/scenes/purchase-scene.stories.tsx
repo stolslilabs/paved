@@ -26,7 +26,7 @@ function Stateful({ stake, onStakeChange, ...args }: React.ComponentProps<typeof
   );
 }
 
-const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn(), onConnect: fn() }, decorators: [(Story) => <div className="mx-auto flex max-w-md flex-col p-4"><Story /></div>] } satisfies Meta<typeof PurchaseScene>;
+const meta = { title: "Scenes/Purchase", component: PurchaseScene, render: (args) => <Stateful {...args} />, args: { onStakeChange: fn(), onConfirm: fn() }, decorators: [(Story) => <div className="mx-auto flex max-w-md flex-col p-4"><Story /></div>] } satisfies Meta<typeof PurchaseScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -52,8 +52,6 @@ export const EstimateFailed: Story = { args: PURCHASE.estimateFailed };
 export const Stress: Story = { args: PURCHASE.stress };
 
 // P7b: the states of the purchase on the chain's data.
-/** A guest: Pay is "Connect to buy", whatever the balance. */
-export const Guest: Story = { args: { ...PURCHASE.stake1, connected: false } };
 /** The pool is being quoted for the stake's `min_out`: Pay waits. */
 export const Quoting: Story = { args: { ...PURCHASE.stake1, quoting: true } };
 /** The price changed since the confirm: nothing was spent, confirm again at the new price. */

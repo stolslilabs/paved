@@ -308,11 +308,11 @@ describe("/game/:gameId/over (P7a)", () => {
       expect(s.settle).not.toHaveBeenCalled();
     });
 
-    it("a guest: Connect to settle opens the wallet", async () => {
+    it("no Connect to settle (NO-GUEST): a device with no account gets one at start, no prompt", async () => {
       const s = setup({ viewer: "guest" });
       const { wallet } = over(s);
-      await userEvent.click(await screen.findByRole("button", { name: "Connect to settle" }, { timeout: slow(5000) }));
-      await waitFor(() => expect(wallet.calls).toContain("connect"));
+      await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])), { timeout: slow(5000) });
+      expect(screen.queryByRole("button", { name: "Connect to settle" })).toBeNull();
       expect(s.settle).not.toHaveBeenCalled();
     });
 

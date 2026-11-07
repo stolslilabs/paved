@@ -86,7 +86,7 @@ describe("mockConnector (#927)", () => {
   });
 });
 
-preloadPages("home", "welcome");
+preloadPages("home");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/home"), import("../src/routes/home-stage")]);
 }, slow(60_000));
@@ -102,7 +102,7 @@ afterEach(() => {
 });
 
 describe("a new account from Connect to the editor, on the mock (#927, #753)", () => {
-  it("first visit: Connect on the welcome, the home's 9 starter tiles, then Edit opens the editor", async () => {
+  it("first visit: the account made at start (NO-GUEST, no welcome), the home's 9 starter tiles, then Edit opens the editor", async () => {
     // The plan view (jsdom has no WebGL): its label counts the tiles.
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ quality: "low" }));
     const s = mockImplementation();
@@ -110,12 +110,11 @@ describe("a new account from Connect to the editor, on the mock (#927, #753)", (
     const wallet = fakeWallet({ address: me });
     const router = createTestRouter("/");
     render(<App router={router} sources={{ ...s.sources, signer: null }} connector={async () => mockConnector(wallet.connector, s.ledger)} />);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/welcome"), WAIT);
-    expect((await s.ledger.freeVillage(me)).founded).toBe(false);
-
-    await userEvent.click(await screen.findByRole("button", { name: "Connect" }, WAIT));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"), WAIT);
+    expect(router.state.location.pathname).toBe("/");
+    // The account made at once, no prompt: its village founded with the starter layout.
     expect(await screen.findByRole("img", { name: "Village layout of 9 tiles" }, WAIT)).toBeInTheDocument();
+    await waitFor(async () => expect((await s.ledger.freeVillage(me)).founded).toBe(true), WAIT);
+    expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"]));
     expect((await s.ledger.freeVillage(me)).tiles).toEqual(starterLayout(BigInt(me)));
     expect(screen.queryByRole("button", { name: "Found" })).toBeNull();
 

@@ -16,7 +16,7 @@ const COPIED_MS = 2_000;
  * every link and the purchases send as the referrer), Copy, and Share where the browser has a share sheet; their share of a
  * price from `Economy.split_bps()`; what the link earned from the indexer's `/v1/players/:id/referrals`, where the id is
  * the player's address, the signer's (D-25 (E): a player is the wallet's address). The link needs no read: a failed read of
- * the earnings shows Retry beside it, never in its place. A guest connects.
+ * the earnings shows Retry beside it, never in its place. Until the account is in, the page loads (NO-GUEST).
  */
 export default function Page() {
   const onBack = useBack();
@@ -53,7 +53,6 @@ export default function Page() {
       }}
       onShare={share ? (value) => void share({ title: "Paved", text: "Play Paved with my link", url: value }).catch(() => undefined) : undefined}
       onRetry={() => void earnings.refetch()}
-      onConnect={() => void wallet.connect()}
       onBack={onBack}
      
     />

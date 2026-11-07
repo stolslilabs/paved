@@ -338,11 +338,11 @@ describe("/play/challenge: the game's stake", () => {
     expect(screen.queryByText("The reward cannot be estimated")).toBeNull();
   });
 
-  it("a guest connects first: Pay is Connect to buy", async () => {
-    const s = setup({ signer: false });
-    const { wallet } = open("/play/challenge", s);
-    await userEvent.click(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: slow(3000) }));
-    await waitFor(() => expect(wallet.calls).toContain("connect"));
+  it("no Connect to buy (NO-GUEST): Pay is the page's one button, nothing sent before it", async () => {
+    const s = setup();
+    open("/play/challenge", s);
+    await enabledPay();
+    expect(screen.queryByRole("button", { name: "Connect to buy" })).toBeNull();
     expect(s.sent).toEqual([]);
   });
 
@@ -616,11 +616,11 @@ describe("/cobbles: the packs (#621), the Shop's Cobbles tab (SHOP-PAGE)", () =>
     expect(s.pool.calls).not.toContain(4_750_000n);
   });
 
-  it("a guest connects first", async () => {
-    const s = setup({ signer: false });
+  it("no Connect to buy (NO-GUEST): the packs show, Pay in its place", async () => {
+    const s = setup();
     open("/cobbles", s);
     await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
-    expect(screen.getByRole("button", { name: "Connect to buy" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Connect to buy" })).toBeNull();
   });
 });
 
@@ -1021,7 +1021,8 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
     return { router, as };
   }
 
-  for (const via of ["a guest", "another account"] as const) {
+  // No switch to a guest any more (NO-GUEST, the owner's ruling of 2026-11-07): from one account to another only.
+  for (const via of ["another account"] as const) {
     it(`switch away (${via}) and back while the send is pending: Pay stays disabled, nothing more is sent`, async () => {
       const s = setup();
       const other = s.client.writer({ address: "0xb0b", execute: async () => ({ transaction_hash: "0x99" }) });
@@ -1030,8 +1031,7 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
       s.state.gate = new Promise<void>((r) => (release = r));
       await userEvent.click(await enabledPay());
       await waitFor(() => expect(s.sent).toHaveLength(1));
-      as(via === "a guest" ? null : (other as unknown as GameSigner));
-      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: slow(3000) })).toBeInTheDocument();
+      as(other as unknown as GameSigner);
       as(s.writer as unknown as GameSigner);
       // Back to the sender, the send still pending: Pay is held.
       const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: slow(3000) });
@@ -1063,8 +1063,7 @@ describe("a pending send holds its sender's Pay across a change of player (arbit
       s.state.gate = new Promise<void>((r) => (release = r));
       await userEvent.click(await enabledPay(/Pay \$9 for/));
       await waitFor(() => expect(s.sent).toHaveLength(1));
-      as(via === "a guest" ? null : (other as unknown as GameSigner));
-      if (via === "a guest") expect(await screen.findByRole("button", { name: "Connect to buy" }, { timeout: slow(3000) })).toBeInTheDocument();
+      as(other as unknown as GameSigner);
       as(s.writer as unknown as GameSigner);
       const held = await screen.findByRole("button", { name: /Confirm in your wallet/ }, { timeout: slow(3000) });
       expect(held).toBeDisabled();

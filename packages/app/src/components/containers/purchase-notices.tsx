@@ -1,5 +1,4 @@
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { formatUnits, TOKENS } from "../elements/amount";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
@@ -164,12 +163,3 @@ export function DroppedReferrerNotice() {
 export const retryLabel = (refusal: PurchaseRefusal | null | undefined): string | null =>
   refusal?.kind === "low-quote" ? "Buy anyway" : refusal?.kind === "unknown" ? "Buy again" : null;
 
-/** A guest's Pay: connect first, whatever the balance. */
-export function ConnectButton({ onConnect }: { onConnect?: () => void }) {
-  return (
-    <Button size="lg" className="h-14 text-base" onClick={onConnect}>
-      <Icon name="wallet" size="sm" />
-      Connect to buy
-    </Button>
-  );
-}

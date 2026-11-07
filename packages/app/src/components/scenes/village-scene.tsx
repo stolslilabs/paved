@@ -26,7 +26,7 @@ export interface VillagePlace {
   orientation: number;
 }
 
-/** Why the village is not shown: a guest (Connect), the reads on their way, a failed read (Retry). */
+/** Why the village is not shown: the reads on their way (the account's too: no guest, NO-GUEST), a failed read (Retry). */
 export type VillageStatus = SkinsStatus;
 
 export interface VillageSceneProps {
@@ -65,7 +65,6 @@ export interface VillageSceneProps {
   onFound?: () => void;
   onOpenReward?: () => void;
   onDismissRefusal?: () => void;
-  onConnect?: () => void;
   onRetry?: () => void;
   onPlace?: (place: VillagePlace) => void;
   onTakeCobbles?: () => void;
@@ -94,7 +93,7 @@ const DRAG_SLOP = 6;
  * its start and Found; rewards waiting show Open. The parcels, the copies and the tiers left with v2 (#739); the v2 village
  * (`VillageLayoutScene`) replaces this screen once its contracts are wired.
  */
-export function VillageScene({ village, status, mode = "own", onBack, onConnect, onRetry, ...props }: VillageSceneProps) {
+export function VillageScene({ village, status, mode = "own", onBack, onRetry, ...props }: VillageSceneProps) {
   if (village) return <VillageView village={village} mode={mode} onBack={onBack} onRetry={onRetry} {...props} />;
   const own = mode === "own";
   return (
@@ -104,8 +103,6 @@ export function VillageScene({ village, status, mode = "own", onBack, onConnect,
         {status ? (
           <SkinsStatusView
             status={status}
-            guestTitle="Connect to build your village"
-            guestText="Your village is kept on your account: rewards after your games grow it, and others visit it."
             errorTitle="The village could not be read"
             skeleton={
               <div className="flex flex-col gap-3">
@@ -113,7 +110,6 @@ export function VillageScene({ village, status, mode = "own", onBack, onConnect,
                 <Skeleton className="aspect-square w-full rounded-2xl" />
               </div>
             }
-            onConnect={onConnect}
             onRetry={onRetry}
           />
         ) : (
@@ -150,7 +146,7 @@ function VillageView({
   onRetry,
   onPlace,
   onTakeCobbles,
-}: Omit<VillageSceneProps, "village" | "status" | "onConnect"> & { village: Village }) {
+}: Omit<VillageSceneProps, "village" | "status"> & { village: Village }) {
   const own = mode === "own";
   const [selected, setSelected] = useState<number | null>(initialSelected);
   const [orientation, setOrientation] = useState(1);

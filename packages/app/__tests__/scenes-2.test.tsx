@@ -132,14 +132,10 @@ describe("Vault", () => {
     expect(screen.queryByRole("button", { name: /Delegate/ })).not.toBeInTheDocument();
   });
 
-  it("a guest connects; a load shows its shape; a failed read has Retry", async () => {
-    const onConnect = vi.fn();
+  it("a load shows its shape, never Connect (NO-GUEST); a failed read has Retry", async () => {
     const onRetry = vi.fn();
-    const { unmount } = render(wrap(<VaultScene {...VAULT.guest} onConnect={onConnect} />));
-    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
-    unmount();
     const loading = render(wrap(<VaultScene {...VAULT.loading} />));
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.getByRole("status", { name: "Reading the Vault" })).toBeInTheDocument();
     loading.unmount();
     render(wrap(<VaultScene {...VAULT.error} onRetry={onRetry} />));
@@ -226,19 +222,18 @@ describe("Settings", () => {
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 
-  it("shows the connected account in its league's rim, and opens Themes and Credits; no Referral (the profile's Invite)", async () => {
-    const onDisconnect = vi.fn();
+  it("shows the connected account in its league's rim, and opens Themes and Credits; no Disconnect, no Referral (the profile's Invite)", async () => {
     const onView = vi.fn();
-    render(wrap(<SettingsScene {...SETTINGS.connected} onDisconnect={onDisconnect} onView={onView} />));
+    render(wrap(<SettingsScene {...SETTINGS.connected} onView={onView} />));
     const account = screen.getByRole("region", { name: "Account" });
     expect(account).toHaveTextContent("bal7hazar");
     expect(account).toHaveTextContent("Connected0x05f1…6e7f");
     // The drawer is a portal: its rim is in the document, not the render's container.
     expect(account.querySelector("[data-slot=league-portrait]")).toHaveAttribute("data-tier");
-    await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    // NO-GUEST (the owner's ruling of 2026-11-07): no way back to a guest; Reset goes from one account to the next.
+    expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /^Themes/ }));
     await userEvent.click(screen.getByRole("button", { name: /^Credits/ }));
-    expect(onDisconnect).toHaveBeenCalledOnce();
     expect(onView.mock.calls).toEqual([["themes"], ["credits"]]);
     expect(screen.queryByRole("button", { name: /Referral/ })).toBeNull();
   });
@@ -251,13 +246,13 @@ describe("Settings", () => {
     expect(within(screen.getByRole("region", { name: "Sound effects" })).getByText("Road closed")).toBeInTheDocument();
   });
 
-  it("asks a guest to connect", async () => {
-    const onConnect = vi.fn();
-    render(wrap(<SettingsScene {...SETTINGS.guest} onConnect={onConnect} />));
-    expect(screen.getByRole("region", { name: "Account" })).toHaveTextContent("Guest");
+  it("while the account is read: its place waits, no Guest and no Connect (NO-GUEST)", () => {
+    render(wrap(<SettingsScene {...SETTINGS.loading} />));
+    const account = screen.getByRole("region", { name: "Account" });
+    expect(within(account).getByRole("status", { name: "Looking for your account" })).toBeInTheDocument();
+    expect(account).not.toHaveTextContent("Guest");
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.getByRole("button", { name: /^Themes/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
   });
 });
 
@@ -323,13 +318,10 @@ describe("Theme", () => {
     expect(screen.getByText(/is not yours/)).toBeInTheDocument();
   });
 
-  it("asks a guest to connect, the covers still shown", async () => {
-    const onConnect = vi.fn();
-    render(wrap(<ThemeScene {...THEME.guest} onConnect={onConnect} />));
-    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
+  it("loads while the account is read (NO-GUEST: no Connect), the covers still shown", () => {
+    render(wrap(<ThemeScene {...THEME.loading} />));
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(within(card("Forest")).getByRole("button", { name: "Use Forest" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /My tiles/ })).not.toBeInTheDocument();
   });
 });
 
@@ -561,10 +553,11 @@ describe("Missions (#832)", () => {
     expect(card().getByRole("article")).toHaveAccessibleName("Settler III");
   });
 
-  it("asks a guest to connect, loads, and fails with a retry", async () => {
+  it("loads while the account is read (NO-GUEST: no Connect), loads, and fails with a retry", async () => {
     const onRetry = vi.fn();
-    const { unmount } = render(wrap(<MissionsScene {...MISSIONS.guest} />));
-    expect(screen.getByRole("status")).toHaveTextContent("Connect to see your missions");
+    const { unmount } = render(wrap(<MissionsScene {...MISSIONS.loading} connected={false} />));
+    expect(screen.getByRole("status", { name: "Loading the missions" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     unmount();
     const loading = render(wrap(<MissionsScene {...MISSIONS.loading} />));
     expect(screen.getByRole("status", { name: "Loading the missions" })).toBeInTheDocument();
@@ -628,10 +621,10 @@ describe("Referral", () => {
     expect(screen.getByRole("status", { name: "Loading the earnings" })).toBeInTheDocument();
   });
 
-  it("asks a guest to connect for a link", () => {
-    render(wrap(<ReferralScene {...REFERRAL.guest} />));
+  it("waits for the account's link (NO-GUEST: no Connect)", () => {
+    render(wrap(<ReferralScene {...REFERRAL.earned} link={null} />));
     expect(screen.queryByLabelText("Your referral link")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Connect to get your link");
+    expect(screen.queryByText("Connect to get your link")).toBeNull();
   });
 
   it("shows no share when the economy is not deployed", () => {

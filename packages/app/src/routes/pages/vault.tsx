@@ -16,8 +16,8 @@ import { useAppNavigate, useBack } from "../ref";
  * of 18 decimals (`parseUnits`: digits, one point, at most 18 decimals; anything else is no amount), never a float. Deposit
  * previews `preview_deposit` and sends the approve of exactly the amount and `deposit` in one transaction (one wallet
  * prompt); Withdraw previews `preview_withdraw` with the exit fee on top and sends `withdraw(assets)`, the PAVED the player
- * typed; Withdraw all sends `redeem` of every vPAVED, its fee shown before. An exit sends only at the fee shown. A guest
- * connects; a failed read has Retry.
+ * typed; Withdraw all sends `redeem` of every vPAVED, its fee shown before. An exit sends only at the fee shown. No guest
+ * (NO-GUEST, the owner's ruling of 2026-11-07): until the account is in, the page loads; a failed read has Retry.
  */
 export default function Page() {
   const go = useAppNavigate();
@@ -40,9 +40,7 @@ export default function Page() {
   const failed = [position, balance].find((q) => q.error);
   const status: VaultStatus | null =
     account === null
-      ? wallet.status === "restoring" || wallet.status === "connecting"
-        ? { kind: "loading" }
-        : { kind: "guest" }
+      ? { kind: "loading" }
       : failed
         ? { kind: "error", message: (failed.error as Error).message, detail: errorDetail(failed.error) }
         : position.data === undefined || balance.data === undefined
@@ -92,7 +90,6 @@ export default function Page() {
       onWithdrawAll={() => {
         if (current && current.shares > 0n) void control.send({ kind: "withdrawAll", shares: current.shares, exitFeeBps: current.exitFeeBps }).then(sent);
       }}
-      onConnect={() => void wallet.connect()}
       onRetry={() => {
         void position.refetch();
         void balance.refetch();

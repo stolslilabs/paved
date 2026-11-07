@@ -26,7 +26,7 @@ import { useAppNavigate } from "../ref";
  * again, with the router, the seller and the rate), which the wallet prompts for once (no approve is a session policy, P-65),
  * and opens the new game on its board. A declined prompt is a refusal: nothing was sent, no hold. The Cobble packs are on
  * their own page (`/cobbles`, #621; the old `?tab=cobbles` redirects there). The referrer is the link's `?ref=`, dropped (and
- * said) when the contracts would not pay it. A guest's Pay connects. An unknown outcome is recorded per player (it survives a
+ * said) when the contracts would not pay it. Until the account is in, Pay waits (NO-GUEST). An unknown outcome is recorded per player (it survives a
  * remount, a reload, a reconnect and a second tab), and so is a send the wallet never answered: Pay is held while its receipt
  * and the reconciling reads are checked (a receipt still unknown is read again after 5, 10 and 20 s), while that check fails
  * (Retry), and until the player confirms that their balance and games show no purchase; then only a deliberate Buy again
@@ -74,7 +74,7 @@ export default function ChallengeStake() {
     (purchase.mutation.error ? purchaseRefusal(purchase.mutation.error) : quoteProblem(stakeQuote, connected));
 
   const confirm = () => {
-    if (!purchase.buyer || !playerId) return void wallet.connect();
+    if (!purchase.buyer || !playerId) return; // No account yet (NO-GUEST: it is made at start): Pay is off until it is in.
     if (stakeQuote.minOut === null || gameHold.held || purchase.sending || gameReferrer.isPending) return;
     // A deliberate Buy again: the earlier purchase is left to the player's check. Its record goes only once the new send is
     // accepted (`heldSend` writes the new send's hold over it, and puts it back if nothing was sent).
@@ -132,7 +132,6 @@ export default function ChallengeStake() {
         setStake(next);
       }}
       onConfirm={confirm}
-      onConnect={() => void wallet.connect()}
       onRetryBalance={() => playerId && void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) })}
       onRetryCheck={() => gameHold.retry()}
       onCheckAgain={() => gameHold.checkAgain()}

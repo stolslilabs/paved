@@ -15,8 +15,6 @@ import { UiIcon } from "../elements/ui-icon";
 export type RunningChallenge = Pick<GameView, "id" | "score" | "expiresAt">;
 
 export interface PlayModesProps {
-  /** A wallet is connected: the Challenge can be bought, Attack opens. A guest's tap on either connects first. */
-  connected: boolean;
   /** `Challenge.spawn_paused`: no Challenge bought. */
   spawnPaused: boolean;
   /** The Challenge game still open: its time left, its score and Resume on the Challenge's card. Null or omitted: none. */
@@ -29,7 +27,6 @@ export interface PlayModesProps {
   onStory?: () => void;
   /** The PvP attack (#647, #740): a rival village. Omitted: no Attack. */
   onAttack?: () => void;
-  onConnect?: () => void;
 }
 
 /**
@@ -110,10 +107,10 @@ const SAVE_PILL = { "--save-pill": uiFrameImageSet("save-pill") } as CSSProperti
  * crossed swords, "Raid a rival village", its gift of crowns, XP and chests. Paid (PAVED's coin): the Challenge, its trophy, "Beat the
  * threshold", its gift of PAVED, XP and chests; with a game still open, its time left, its score and Resume in the gift's place
  * ("modes-resume"). Free (the leaf): one raised card, a soft rule between its rows: Training and its line, Story and its line with its
- * gift of XP and chests. Limited (the season's calendar): a mode to come, off. A guest's Challenge or Attack connects first; a pause
- * turns the Challenge off and says why.
+ * gift of XP and chests. Limited (the season's calendar): a mode to come, off. No Connect (NO-GUEST: every player has an account); a
+ * pause turns the Challenge off and says why.
  */
-export function PlayModes({ connected, spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, onConnect }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <>
@@ -125,7 +122,7 @@ export function PlayModes({ connected, spawnPaused, running = null, now = 0, onC
           </SectionTitle>
           <div className="drawer-tile state-layer relative flex items-center gap-2 rounded-2xl p-2 pr-3">
             <ModeArt name="attack" px={96} className={CARD_ART} />
-            <button type="button" onClick={connected ? onAttack : onConnect} className={cn(COVER, "flex-1")}>
+            <button type="button" onClick={onAttack} className={cn(COVER, "flex-1")}>
               <span className={TITLE}>Attack</span>
               <span className="text-sm font-semibold text-muted-foreground">Raid a rival village</span>
             </button>
@@ -142,7 +139,7 @@ export function PlayModes({ connected, spawnPaused, running = null, now = 0, onC
         <div aria-disabled={spawnPaused || undefined} className={cn("drawer-tile relative flex items-center gap-2 rounded-2xl p-2 pr-3", spawnPaused ? "opacity-60" : "state-layer")}>
           <ModeArt name="challenge" px={96} className={CARD_ART} />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <button type="button" disabled={spawnPaused} onClick={connected ? onChallenge : onConnect} className={COVER}>
+            <button type="button" disabled={spawnPaused} onClick={onChallenge} className={COVER}>
               <span className={TITLE}>Challenge</span>
               <span className="text-sm font-semibold text-muted-foreground">Beat the threshold</span>
               {spawnPaused && <span className="text-sm text-warning">Purchases are paused for now.</span>}
@@ -179,7 +176,6 @@ export function PlayModes({ connected, spawnPaused, running = null, now = 0, onC
           </div>
           {!running && <RewardGift rewards={CHALLENGE_REWARDS} />}
         </div>
-        {!connected && !spawnPaused && <p className="text-xs text-muted-foreground">Connect a wallet to enter: tap to connect.</p>}
       </section>
 
       <section aria-labelledby="play-free" className="flex flex-col gap-2">

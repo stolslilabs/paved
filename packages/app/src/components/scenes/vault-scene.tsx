@@ -12,10 +12,10 @@ import { VaultForm, type VaultBusy, type VaultDone, type VaultMode } from "../co
 import { VaultPosition } from "../containers/vault-position";
 
 /**
- * Where the page stands before a position is shown: no account (`guest`, with Connect), the reads on their way
- * (`loading`), or one that failed (`error`, with Retry). Left out, the position (or "not deployed") is shown.
+ * Where the page stands before a position is shown: the reads on their way (`loading`, the account's too: NO-GUEST, none is asked to
+ * connect), or one that failed (`error`, with Retry). Left out, the position (or "not deployed") is shown.
  */
-export type VaultStatus = { kind: "guest" } | { kind: "loading" } | { kind: "error"; message: string; detail?: ErrorDetail };
+export type VaultStatus = { kind: "loading" } | { kind: "error"; message: string; detail?: ErrorDetail };
 
 /** The page's first line, under its header (#781). */
 const INTRO = "Deposit PAVED for vPAVED.";
@@ -43,7 +43,6 @@ export interface VaultSceneProps {
   done?: VaultDone | null;
   /** `Vault.delegates(holder)`, read only: null when not delegated; left out, not shown. */
   delegate?: string | null;
-  onConnect?: () => void;
   onRetry?: () => void;
   onModeChange?: (mode: VaultMode) => void;
   onAmountChange?: (amount: string) => void;
@@ -69,11 +68,7 @@ export function VaultScene(props: VaultSceneProps) {
       <TabPage title="Vault" onBack={props.onBack}>
         <p className="text-sm text-muted-foreground">{INTRO}</p>
         <div className="flex flex-col gap-4">
-          {status.kind === "guest" ? (
-            <Notice title="Connect to use the Vault" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
-              Your vPAVED, its worth and your PAVED are read for your account.
-            </Notice>
-          ) : status.kind === "error" ? (
+          {status.kind === "error" ? (
             <InlineError title="The Vault cannot be read" message={status.message} detail={status.detail} action={<Button size="sm" onClick={props.onRetry}>Retry</Button>} />
           ) : (
             <div role="status" aria-label="Reading the Vault" className="flex flex-col gap-3">

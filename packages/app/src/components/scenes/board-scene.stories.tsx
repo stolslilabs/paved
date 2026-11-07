@@ -203,16 +203,16 @@ export const Expired: Story = { args: BOARD.expired };
 export const ExpiredPrompt: Story = { args: { ...BOARD.expired, promptSurrender: true } };
 
 /**
- * A Challenge game with no account connected (P5): the board read only. The stack is the same as the player's (#701): the game's
- * tile in hand and the next two over the pile, nothing to play (no hint, no Discard); a tap opens the deck.
+ * Another player's Challenge game (P5): the board read only. The stack is the same as the player's (#701): the game's tile in hand
+ * and the next two over the pile, nothing to play (no hint, no Discard); a tap opens the deck.
  */
 export const ReadOnly: Story = {
   args: {
     ...BOARD.queue,
     readOnly: true,
     notices: (
-      <Notice title="Connect to play" className="pointer-events-auto w-full max-w-2xl">
-        This game is shown read only. Connect your wallet to play it.
+      <Notice title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
+        You are watching this game: only its player can move.
       </Notice>
     ),
   },

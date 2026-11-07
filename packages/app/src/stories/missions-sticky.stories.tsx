@@ -22,7 +22,6 @@ const meta = {
     onClaimMilestone: fn(),
     onClaimWeeklyMilestone: fn(),
     onClaimAchievement: fn(),
-    onConnect: fn(),
     onRetry: fn(),
     onBack: fn(),
   },

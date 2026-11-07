@@ -57,7 +57,7 @@ export interface MissionsSceneProps {
   quests: ScheduledQuests | null;
   /** `/v1/players/:id/achievements`; null while it loads. */
   achievements: PlayerAchievements | null;
-  /** False: a guest, asked to connect. */
+  /** False: the account still on its way (NO-GUEST: no guest, no Connect), shown as the missions' loading. */
   connected: boolean;
   error?: string | null;
   /** That failure's detail for support (`InlineError`). */
@@ -111,7 +111,6 @@ export interface MissionsSceneProps {
   onClaimWeeklyMilestone?: (step: number) => void;
   /** `claim_achievement(achievement_id)`. */
   onClaimAchievement?: (achievementId: number) => void;
-  onConnect?: () => void;
   onRetry?: () => void;
   /**
    * Whether the drawer is shown (MISSIONS-PAGE): its route is the current one; false while it slides out. Omitted, shown (a story's,
@@ -377,18 +376,15 @@ export function MissionsScene(props: MissionsSceneProps) {
       // A press on a dialog over it (the Cobbles' packs, even as it slides away) is no tap on the village.
       onInteractOutside={keepForDialogs}
     >
-      {!connected ? (
-        <Notice title="Connect to see your missions" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
-          Missions count your games: they need an account.
-        </Notice>
-      ) : error ? (
+      {error ? (
         <InlineError
           title="Could not load the missions"
           message={error}
           detail={props.errorDetail}
           action={<Button size="sm" variant="outline" onClick={props.onRetry}>Retry</Button>}
         />
-      ) : quests === null || achievements === null ? (
+      ) : !connected || quests === null || achievements === null ? (
+        // The account still being read counts as the missions' loading (NO-GUEST: every player has one, none is asked to connect).
         <div role="status" aria-label="Loading the missions" className="flex flex-col gap-4">
           <Skeleton className="h-36 rounded-xl" />
           <div className={grid}>
@@ -404,11 +400,6 @@ export function MissionsScene(props: MissionsSceneProps) {
             {selected && <MissionCard mission={selected} canClaim={canClaim} onClaim={() => onClaim(selected)} />}
             <span aria-hidden className="mt-3 block" style={CARD_RULE} />
           </section>
-          {questRewards && !canClaim && (
-            <Notice title="Connect to claim" action={<Button size="sm" onClick={props.onConnect}>Connect</Button>}>
-              Your missions show; claiming their Cobbles needs your wallet to sign.
-            </Notice>
-          )}
           {props.rewardsUnavailable && <Notice title="Rewards unavailable">{props.rewardsUnavailable}</Notice>}
 
           {tutorial.length > 0 && (

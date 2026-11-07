@@ -10,7 +10,7 @@ import { ThemeScene } from "./theme-scene";
 const meta = {
   title: "Scenes/Theme",
   component: ThemeScene,
-  args: { onUse: fn(), onOpen: fn(), onMyTiles: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() },
+  args: { onUse: fn(), onOpen: fn(), onMyTiles: fn(), onRetry: fn(), onDismissRefusal: fn() },
 } satisfies Meta<typeof ThemeScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -33,8 +33,6 @@ export const Applying: Story = { args: THEME.applying };
 /** Use refused by the chain. */
 export const Refused: Story = { args: THEME.refused };
 
-/** A guest: Connect. */
-export const Guest: Story = { args: THEME.guest };
 
 /** The skins on their way. */
 export const Loading: Story = { args: THEME.loading };

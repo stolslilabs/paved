@@ -38,8 +38,11 @@ export interface PlayerStatusData {
   stats: PlayerStats;
 }
 
-/** Who is at the controls: the wallet still looking for an earlier session, a guest, or a connected player. */
-export type ProfileState = { status: "loading" } | { status: "guest"; connecting?: boolean } | { status: "connected"; data: PlayerStatusData };
+/**
+ * Who is at the controls: the account still being read (or made: NO-GUEST, the owner's ruling of 2026-11-07, every player has one), or
+ * the connected player.
+ */
+export type ProfileState = { status: "loading" } | { status: "connected"; data: PlayerStatusData };
 
 /** A season in the Hall of Fame: the league and the crowns it ended at, or the current one's so far. */
 export interface SeasonStanding {
@@ -78,7 +81,6 @@ export interface ProfileSheetProps {
   state: ProfileState;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConnect?: () => void;
   /** Copies the address; a rejection is a failed copy (nothing said). The page does the copying. */
   onCopy?: (address: string) => Promise<void>;
   /** The connected player's level and XP (#625, `usePlayerProgress`); undefined while it is read. */
@@ -444,14 +446,13 @@ export function HallAndStats({ hallOfFame, records }: { hallOfFame?: readonly Se
  * 150 XP"; the XP left and in all, #830, said to screen readers only), League (the crowns and the league, carved chips that wrap), Games and the follow
  * counts (#954), the Hall of Fame (each season's
  * banner and crowns, the filter of the Stats: the current season picked first, a tap on it again for all time) and the Stats (the
- * totals, a section per structure type). What informs is carved, what presses is raised. Disconnect is Settings' (the owner's ask of
- * 2026-11-04). A guest gets the Training line and Connect.
+ * totals, a section per structure type). What informs is carved, what presses is raised. No Connect and no Disconnect (NO-GUEST, the
+ * owner's ruling of 2026-11-07): until the account is in, the sheet says it is looked for.
  */
 export function ProfileSheet({
   state,
   open,
   onOpenChange,
-  onConnect,
   onCopy,
   progress,
   look,
@@ -582,15 +583,7 @@ export function ProfileSheet({
           <span className="text-[7rem]">
             <ProfileRim league={null}>{portrait}</ProfileRim>
           </span>
-          <span className="text-outline text-lg font-bold">{state.status === "guest" ? "Playing as a guest" : "Looking for your account…"}</span>
-          {state.status === "guest" && (
-            <>
-              <p className="text-sm font-bold text-muted-foreground">Training is free. Connect to enter the Challenge.</p>
-              <Button onClick={onConnect} loading={state.connecting} className="w-full">
-                Connect
-              </Button>
-            </>
-          )}
+          <span className="text-outline text-lg font-bold">Looking for your account…</span>
         </div>
       )}
     </HudDrawer>

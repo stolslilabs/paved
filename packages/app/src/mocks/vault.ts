@@ -55,11 +55,10 @@ const WITHDRAWN = { kind: "withdraw" as const, assets: WITHDRAW, shares: PREVIEW
 const base = { deployed: true, position: VAULT_HELD, balance: PAVED_BALANCE, split: SPLIT_BPS, mode: "deposit" as const, amount: "", preview: null };
 
 /**
- * The vault page's states on its data (P10), beside SC2's in `mocks/scenes.ts` (`VAULT`): a guest, the reads on their way,
+ * The vault page's states on its data (P10), beside SC2's in `mocks/scenes.ts` (`VAULT`): the reads on their way,
  * a failed read, a refused write (the writer's typed message), a deposit and a withdraw done, and a delegated position.
  */
 export const VAULT_STATES = {
-  guest: { ...base, position: null, status: { kind: "guest" as const } },
   loading: { ...base, position: null, status: { kind: "loading" as const } },
   error: { ...base, position: null, status: { kind: "error" as const, message: "RPC error: the node did not answer" } },
   refused: { ...base, amount: "100", preview: PREVIEW_DEPOSIT_100, refused: "The exit fee changed: confirm again" },

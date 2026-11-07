@@ -135,15 +135,13 @@ describe("/referral (P10)", { timeout: slow(20_000) }, () => {
     await waitFor(() => expect(region).toHaveTextContent("1.65USDC"));
   });
 
-  it("a guest gets no link and is asked to connect; nothing is read for them", async () => {
+  it("no Connect (NO-GUEST): a device with no account gets one at start, then its link", async () => {
     const s = setup({ viewer: "guest" });
     const { wallet } = open(s);
-    await waitFor(() => expect(wallet.calls).toContain("probe"));
-    const notice = (await screen.findByText("Connect to get your link", {}, { timeout: slow(5000) })).closest("[role=status]") as HTMLElement;
-    expect(screen.queryByLabelText("Your referral link")).toBeNull();
-    expect(s.fixture.requests.filter((r) => r.endsWith("/referrals"))).toEqual([]);
-    await userEvent.click(within(notice).getByRole("button", { name: "Connect" }));
-    await waitFor(() => expect(wallet.calls).toContain("connect"));
+    // The probe finds none: the account is made at once, no prompt.
+    await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])));
+    expect(await screen.findByLabelText("Your referral link", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(screen.queryByText("Connect to get your link")).toBeNull();
   });
 
   it("the indexer's answer reads as exact bigints of USDC", () => {

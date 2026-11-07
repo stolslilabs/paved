@@ -80,7 +80,6 @@ export default function Page() {
       }}
       onDismissRefusal={writes.reset}
       onOpenShop={(theme) => go(`/village/shop?tab=themes&theme=${theme}`)}
-      onConnect={() => go("/welcome")}
       onRetry={() => {
         void client.invalidateQueries({ queryKey: skinKeys.all });
         void client.invalidateQueries({ queryKey: cobbleKeys.all });

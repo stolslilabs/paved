@@ -12,15 +12,13 @@ import { PurchaseScene } from "./purchase-scene";
 const meta = {
   title: "Scenes/Play",
   component: PlayScene,
-  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onConnect: fn() },
+  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Connected: Story = { args: PLAY.connected };
 
-/** No wallet: the Challenge and Attack ask to connect. */
-export const Guest: Story = { args: PLAY.guest };
 
 /** New Challenge games paused: the Challenge is off and says why; Training and Story stay open. */
 export const PurchasesPaused: Story = { args: PLAY.paused };

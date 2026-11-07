@@ -314,8 +314,8 @@ export const isPlayer = (viewer: string | null | undefined, playerId: string): b
 
 /**
  * The scene's settle area for a bought game that is recorded, or null when there is nothing to settle (a game settled
- * before this page, or expired, shows its reward alone): the day cannot be settled yet, a guest connects, the player settles,
- * anyone else sees that it can be.
+ * before this page, or expired, shows its reward alone): the day cannot be settled yet, the player settles, anyone else sees that it
+ * can be; nothing while the viewer's account is not in yet (NO-GUEST: it is made at start, none is asked to connect).
  */
 export function settleProps(
   terms: TermsView,
@@ -323,12 +323,11 @@ export function settleProps(
   now: number,
   viewer: string | null,
   control: SettleControl,
-  actions: { connect: () => void },
 ): SettleProps | null {
   if (terms.stake === 0 || terms.expired) return null;
   if (terms.settled) return control.done ? { state: "settled" } : { state: "done" };
   if (!settleReady(terms, now)) return { state: "after", at: settlesAfter(terms.day) };
-  if (viewer === null) return { state: "connect", onConnect: actions.connect };
+  if (viewer === null) return null;
   if (!isPlayer(viewer, playerId)) return { state: "viewing" };
   // A signer with no settlement (no economy to send it through): nothing to press.
   if (!control.available) return null;

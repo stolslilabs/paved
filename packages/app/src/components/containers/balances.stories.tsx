@@ -15,7 +15,7 @@ import { TopBar } from "./top-bar";
 const meta = {
   title: "Containers/Balances",
   component: Balances,
-  args: { layout: "pill", kinds: ["cobbles"], onAction: fn(), onConnect: fn(), onRetry: fn(), faucet: true, state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } },
+  args: { layout: "pill", kinds: ["cobbles"], onAction: fn(), onRetry: fn(), faucet: true, state: { status: "ready", usdc: 48_500_000n, paved: 142_350_000_000_000_000_000n, cobbles: 240 } },
 } satisfies Meta<typeof Balances>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -23,15 +23,15 @@ type Story = StoryObj<typeof meta>;
 const MOBILE = { viewport: { value: "mobile", isRotated: false } } as const;
 const WIDE = { viewport: { value: "wide", isRotated: false } } as const;
 
-type InProps = Pick<BalancesProps, "state" | "onAction" | "onConnect" | "onRetry" | "faucet">;
+type InProps = Pick<BalancesProps, "state" | "onAction" | "onRetry" | "faucet">;
 
 /**
  * In a tab page, as the shell lays it out (BALANCES-BY-PAGE, #855): the Vault's balances, PAVED and vPAVED, at the header's top
  * right, the phone's plates below `desktop`, the larger ones from it.
  */
-function InPage({ state, onAction, onConnect, onRetry, faucet }: InProps) {
+function InPage({ state, onAction, onRetry, faucet }: InProps) {
   return (
-    <BalancesProvider value={{ state, kinds: HEADER_BALANCES.vault, here: VAULT_HERE, onAction, onConnect, onRetry, faucet }}>
+    <BalancesProvider value={{ state, kinds: HEADER_BALANCES.vault, here: VAULT_HERE, onAction, onRetry, faucet }}>
       <TabPage title="Vault">
         <div data-slot="card" className="h-40 rounded-xl border border-border bg-card" />
       </TabPage>
@@ -43,9 +43,9 @@ const page = (state: BalancesState): Story => ({ render: (args) => <InPage {...a
 const VAULT_HERE = hereOf("/vault");
 
 /** In a full-screen flow (#620): the same header, the flow's balances (#855): the Cobbles' packs', the Cobbles and USDC. */
-function InFlow({ state, onAction, onConnect, onRetry, faucet, route }: InProps & { route: keyof typeof HEADER_BALANCES }) {
+function InFlow({ state, onAction, onRetry, faucet, route }: InProps & { route: keyof typeof HEADER_BALANCES }) {
   return (
-    <BalancesProvider value={{ state, kinds: HEADER_BALANCES[route], here: hereOf(`/${route}`), onAction, onConnect, onRetry, faucet }}>
+    <BalancesProvider value={{ state, kinds: HEADER_BALANCES[route], here: hereOf(`/${route}`), onAction, onRetry, faucet }}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <TopBar title={TITLES[route] ?? route} onBack={fn()} />
         <div className="mx-auto h-40 w-full max-w-md rounded-xl border border-border bg-card" data-slot="card" />
@@ -77,9 +77,9 @@ const STEPS: readonly Ready[] = [
  * one under the other, right-aligned, at every width: the phone's plates below `desktop`, the larger ones from it. HOME-HUD-PADDING:
  * off the top and right by the HUD's inset, the phone's plates moved onto the profile's painted edge, as on the home.
  */
-function HomeCorner({ state, onAction, onConnect, onRetry, faucet }: InProps) {
+function HomeCorner({ state, onAction, onRetry, faucet }: InProps) {
   return (
-    <BalancesProvider value={{ state, onAction, onConnect, onRetry, faucet }}>
+    <BalancesProvider value={{ state, onAction, onRetry, faucet }}>
       <div className={cn("flex min-h-dvh items-start justify-end bg-background text-foreground", HUD_INSET_BOX)}>
         <div className={cn("desktop:hidden", HUD_PLATES_NUDGE)}>
           <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" />
@@ -112,8 +112,6 @@ export const Connected: Story = { ...page(CONNECTED), globals: MOBILE };
 export const Loading: Story = { ...page({ status: "loading" }), globals: MOBILE };
 /** The balances could not be read: a mark on a phone, its message in its name. */
 export const ErrorState: Story = { args: { state: { status: "error", message: "The balances could not be read." } }, globals: MOBILE };
-/** A guest: Connect instead of the figures. */
-export const Disconnected: Story = { ...page({ status: "disconnected" }), globals: MOBILE };
 /** WRAP360: the widest amounts. */
 export const Stress: Story = { args: { state: { status: "ready", usdc: BIG_AMOUNT_6, paved: BIG_AMOUNT_18, cobbles: 999_999 } }, globals: MOBILE };
 
@@ -123,8 +121,6 @@ export const RailConnected: Story = { ...page(CONNECTED), globals: WIDE };
 export const RailHolder: Story = { ...page(HOLDER), globals: WIDE };
 export const RailLoading: Story = { ...page({ status: "loading" }), globals: WIDE };
 export const RailError: Story = { ...page({ status: "error", message: "The balances could not be read." }), globals: WIDE };
-/** A guest from `desktop`: Connect, naming the page's balances. */
-export const RailDisconnected: Story = { ...page({ status: "disconnected" }), globals: WIDE };
 
 /** BALANCES-BY-PAGE (#855): the Cobbles' packs, the Cobbles and USDC (USDC buys the packs), at 320, 375 and 1440 px. */
 export const Packs320: Story = { ...pageOf("cobbles"), ...PHONE_320 };
@@ -149,7 +145,6 @@ export const Settings375: Story = { ...pageOf("settings"), ...PHONE_375 };
 export const Settings1440: Story = { ...pageOf("settings"), ...WIDE_1440 };
 /** A flow on a phone (the packs'): its balances in the top bar's row, nothing under it (#781, #855). */
 export const FlowConnected: Story = { ...flow(CONNECTED), globals: MOBILE };
-export const FlowDisconnected: Story = { ...flow({ status: "disconnected" }), globals: MOBILE };
 /** A flow from `desktop`: the balances on the top bar's right. */
 export const FlowRail: Story = { ...flow(HOLDER), globals: WIDE };
 
@@ -169,8 +164,6 @@ export const Stack1440: Story = { ...corner(CONNECTED), ...WIDE_1440 };
 /** A Vault holder at 1440 px: vPAVED joins the stack. */
 export const StackHolder1440: Story = { ...corner(HOLDER), ...WIDE_1440 };
 export const StackLoading1440: Story = { ...corner({ status: "loading" }), ...WIDE_1440 };
-/** Disconnected at 375 px: Connect in the corner, on the HUD's inset itself (no plates, so no nudge). */
-export const StackGuest375: Story = { ...corner({ status: "disconnected" }), ...PHONE_375, parameters: { ...PHONE_375.parameters, layout: "fullscreen" } };
 /** A Vault holder at 375 px: vPAVED joins the stack on a phone too. */
 export const StackHolder375: Story = { ...corner(HOLDER), ...PHONE_375, parameters: { ...PHONE_375.parameters, layout: "fullscreen" } };
 /** The widest amounts in the stack at 320 px. */

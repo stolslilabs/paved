@@ -7,8 +7,9 @@
  * `src/components/elements/ui-art.ts`, `ui-sources/medallions/<name>.webp` (`UI_MEDALLIONS` and `UI_RINGS`, on `MEDALLION_FRAME`, in
  * `medallion-art.ts`), `ui-sources/missions/<name>.webp` (`MISSION_PARTS`, there too), `ui-sources/shop/<name>.webp` (`SHOP_PARTS`,
  * in `shop-art.ts`), `ui-sources/friends/<name>.webp` (`FRIENDS_PARTS`, in `friends-art.ts`) and `ui-sources/emblems/<name>.webp`
- * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`) and `ui-sources/play/<name>.webp` (`PLAY_ART`, on `PLAY_ART_FRAME`, in
- * `play-art.ts`), transparent lossless WebP left untouched
+ * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`), `ui-sources/play/<name>.webp` (`PLAY_ART`, on `PLAY_ART_FRAME`, in
+ * `play-art.ts`) and `ui-sources/avatar/<name>.webp` (`AVATAR_ART`, on `AVATAR_ART_FRAME`, in `avatar-art.ts`), transparent lossless WebP
+ * left untouched
  * and never shipped (not in `public/`), and writes
  * `public/ui-art/icons/<size>/<name>.webp` and `public/ui-art/frames/<size>/<name>.webp` for each size. Each run removes the copies
  * of an earlier one. `--check` encodes nothing and fails when a master is missing, extra or not of its frame, or a copy is missing,
@@ -165,6 +166,14 @@
  * 1024 RGBA); checked on the drawer's navy and on the Challenge card's gold beside its crop, then trimmed to its opaque box, fitted to
  * the 3:2 frame (384 x 256, a 4 px margin) by a premultiplied area average, centred across and standing on its foot. Stored as
  * lossless WebP.
+ * AVATAR-PAGE (2026-11-06): the avatar editor's category paintings (`ui-sources/avatar/`, `AVATAR_ART` in `avatar-art.ts`), the Paved UX
+ * Book's "avatar-editor" strip: Skin tone, Hair colour, Hair, Beard, Eyes, Accessory and Outfit, each cropped from the book's tablet
+ * screen (about 65 px), upscaled 4x and redrawn by Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`)
+ * from its crop, with three shipped icons (avatar, crown, collection) as the rendering's reference, two variants each on a transparent
+ * ground, the one nearest the book kept (Hair colour's hair two-toned, so that it reads apart from Hair's); Pauldrons (a pair of steel
+ * shoulder plates rimmed in gold) and Backdrop (a landscape in a golden frame), which the book does not draw, painted the same way from
+ * a prompt. Headwear is the book's crown, the HUD's own (`crown`). Each checked beside the shipped icons at 128, 48 and 24 px, then
+ * trimmed to its opaque box, fitted to 240 px by a premultiplied downscale and centred on 256. Stored as lossless WebP.
  * SETTINGS-PAGE (2026-11-06): the Settings' rows (graphics, ambient, skins, music, sound, tile-preview, highlight, grid), each cropped
  * from the Paved UX Book's tablet Settings screen (about 70 px), upscaled 4x and redrawn by Codex's built-in image tool (`codex exec
  * -c model_provider=openai`, its `image_gen`) from its crop, with four shipped icons (missions, settings, sun, collection) as the
@@ -186,6 +195,7 @@ import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.t
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
 import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
+import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -193,7 +203,7 @@ export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
 /** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat, the medallions are paintings. */
-const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82 } as const;
+const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82, avatar: 82 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),
   ...UI_FRAMES.map((name) => ({ kind: "frames" as const, name, frame: FRAME_ART[name] })),
@@ -204,6 +214,7 @@ const IMAGES = [
   ...GUILD_EMBLEM_CHARGES.map((name) => ({ kind: "emblems" as const, name, frame: EMBLEM_FRAME })),
   ...PLAY_ART.map((name) => ({ kind: "play" as const, name, frame: PLAY_ART_FRAME })),
   ...STAKE_ART.map((name) => ({ kind: "play" as const, name, frame: STAKE_ART_FRAME })),
+  ...AVATAR_ART.map((name) => ({ kind: "avatar" as const, name, frame: AVATAR_ART_FRAME })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */
@@ -255,7 +266,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`public/ui-art/ holds the ${expected().length} copies, each a WebP of its size.`);
   } else {
     rmSync(OUT, { recursive: true, force: true });
-    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play"] as const) {
+    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play", "avatar"] as const) {
       let before = 0;
       const after = new Map<number, number>();
       const images = IMAGES.filter((i) => i.kind === kind);

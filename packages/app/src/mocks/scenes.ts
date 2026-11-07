@@ -6,7 +6,6 @@ import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
 import type { CobblesSceneProps } from "../components/scenes/cobbles-scene";
 import type { AvatarCreator, AvatarCreatorSceneProps } from "../components/scenes/avatar-creator-scene";
-import type { WelcomeSceneProps } from "../components/scenes/welcome-scene";
 import type { MissionsSceneProps } from "../components/scenes/missions-scene";
 import type { ReferralSceneProps } from "../components/scenes/referral-scene";
 import type { Preferences, SettingsSceneProps } from "../components/scenes/settings-scene";
@@ -36,19 +35,6 @@ import { leagueOf } from "../lib/pvp-rules";
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
 
-// Welcome
-
-/** A failed read's detail, as `errorDetail` builds it (P-67): no hash, the version and the time. */
-const READ_ERROR_DETAIL = { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 30) };
-
-export const WELCOME = {
-  firstVisit: {},
-  connecting: { connecting: true },
-  failed: { error: "The controller window was closed before the account connected." },
-  /** WRAP360: an error with a long sentence, an unbroken address and compound. */
-  stress: { error: `${LONG_SENTENCE} ${LONG_ADDRESS} ${LONG_WORD}` },
-} satisfies Record<string, Data<WelcomeSceneProps>>;
-
 // Loading
 
 export const LOADING = {
@@ -64,13 +50,14 @@ export const PLAYER_STATUS: PlayerStatusData = { player: PLAYER, stats: PLAYER_S
 
 const activeGame = GAME_PLAYING;
 
+/** A failed read's detail, as `errorDetail` builds it (P-67): no hash, the version and the time. */
+const READ_ERROR_DETAIL = { code: "IndexerError", version: "0.1.0", at: Date.UTC(2026, 9, 16, 9, 30) };
+
 /** The menu screens' avatar and its sheet (#624): one state each. */
 export const PROFILE = {
   connected: { status: "connected", data: PLAYER_STATUS },
   /** No Cartridge username: the address names the player, its first digit is the initial. */
   noUsername: { status: "connected", data: { ...PLAYER_STATUS, player: { ...PLAYER, name: null } } },
-  guest: { status: "guest" },
-  connecting: { status: "guest", connecting: true },
   /** The wallet still looks for an earlier session. */
   loading: { status: "loading" },
   /** WRAP360: the longest username, the largest figures. */
@@ -87,11 +74,10 @@ export { HALL_OF_FAME, RECORDS } from "./profile-records";
 const playBase = { spawnPaused: false, now: MOCK_NOW };
 
 export const PLAY = {
-  connected: { ...playBase, connected: true },
-  guest: { ...playBase, connected: false },
-  paused: { ...playBase, connected: true, spawnPaused: true },
+  connected: { ...playBase },
+  paused: { ...playBase, spawnPaused: true },
   /** The book's "modes-resume": a Challenge game still open, 19 h left, its score, Resume. */
-  running: { ...playBase, connected: true, running: GAME_PLAYING },
+  running: { ...playBase, running: GAME_PLAYING },
 } satisfies Record<string, Data<PlaySceneProps>>;
 
 // Board
@@ -282,8 +268,9 @@ const SETTINGS_CONNECTED = { preferences: PREFERENCES, account: { address: PLAYE
 /** SETTINGS-PAGE: the drawer's states and its views (Themes, whose body is the route's, is a story of its own). */
 export const SETTINGS = {
   connected: SETTINGS_CONNECTED,
-  guest: { preferences: { ...PREFERENCES, quality: "auto", sfxVolume: 0, showSkins: false }, account: null, version: "0.1.0", credits: CREDITS },
-  /** WRAP360: the longest username and a full address beside Disconnect; a long version. */
+  /** The account still read (made at start on a new device: NO-GUEST): its place waits. */
+  loading: { preferences: { ...PREFERENCES, quality: "auto", sfxVolume: 0, showSkins: false }, account: null, version: "0.1.0", credits: CREDITS },
+  /** WRAP360: the longest username and a full address; a long version. */
   stress: { preferences: PREFERENCES, account: { address: LONG_ADDRESS, name: LONG_NAME }, version: "0.1.0-rc.12+build.20261015.abcdef0", credits: CREDITS },
   /** The Visuals' pill's view: the four qualities, High chosen and its cost said. */
   quality: { ...SETTINGS_CONNECTED, view: "quality" },
@@ -310,8 +297,6 @@ export const THEME = {
   applying: { ...themesBase, skins: ownedSkins, applying: "forest" },
   /** Use refused by the chain. */
   refused: { ...themesBase, skins: ownedSkins, refusal: "A skin in this change is not yours: buy it before using it. Nothing was saved." },
-  /** A guest: Connect, the covers alone. */
-  guest: { ...themesBase, skinsStatus: { kind: "guest" } },
   /** The skins on their way from the chain. */
   loading: { ...themesBase, skinsStatus: { kind: "loading" } },
   /** A failed read, with Retry. */
@@ -340,8 +325,6 @@ export const THEME_SHOP = {
   ownedUnpriced: { ...shopBase, skins: { ...forestShop, prices: NO_PRICES } },
   /** Snow: its art is not in, so nothing is read: coming soon, under a blur. */
   comingSoon: { theme: "snow", renders: appRenders },
-  /** A guest: Connect. */
-  guest: { ...shopBase, skinsStatus: { kind: "guest" } },
   /** The reads on their way. */
   loading: { ...shopBase, skinsStatus: { kind: "loading" } },
   /** A failed read, with Retry. */
@@ -370,8 +353,6 @@ export const TILES = {
   none: { ...tilesBase, skins: { ...tilesSkins, owned: { [FOREST]: 0 }, active: activeOn(FOREST) } },
   /** The whole Forest set, worn. */
   allForest: { ...tilesBase, skins: { ...tilesSkins, owned: { [FOREST]: ownedPlans(...ALL_PLANS) }, active: activeOn(FOREST, ...ALL_PLANS) } },
-  /** A guest: Connect. */
-  guest: { ...tilesBase, skinsStatus: { kind: "guest" } },
   /** The reads on their way. */
   loading: { ...tilesBase, skinsStatus: { kind: "loading" } },
   /** A failed read, with Retry. */
@@ -484,10 +465,8 @@ export const MISSIONS = {
   noQuest: { ...rewarded, quests: { ...QUESTS_NONE, day: TODAY } },
   /** Before Cobbles (or the ledger unreadable): the missions without rewards. */
   noRewards: { ...missionsBase, rewardsUnavailable: "Not available on this network yet." },
-  /** P9: the player is known but cannot sign yet (P6): the rewards show, the claim asks to connect. */
+  /** P9: the player is known but cannot sign yet (P6): the rewards show, no claim (NO-GUEST: none asks to connect). */
   readOnly: { ...rewarded, initialSelected: "achievement:3", canClaim: false },
-  /** No wallet: Connect. */
-  guest: { ...missionsBase, quests: null, achievements: null, connected: false },
   /** The missions on their way. */
   loading: { ...missionsBase, quests: null, achievements: null },
   /** The indexer did not answer: the error with Retry, and its detail to copy (P-67). */
@@ -503,7 +482,6 @@ export const REFERRAL = {
   loading: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null },
   /** The indexer's read failed: the earnings have Retry, the link stays. */
   error: { link: REFERRAL_LINK, split: SPLIT_BPS, earnings: null, earningsError: "Indexer unreachable: fetch failed" },
-  guest: { link: null, split: SPLIT_BPS, earnings: null },
   notDeployed: { link: REFERRAL_LINK, split: null, earnings: null },
   /** WRAP360: a link with a full address, the largest earnings and counts. */
   stress: {
@@ -555,8 +533,6 @@ export const AVATAR_CREATOR = {
   none: { creator: { ...creator, saved: KING_IDS, unsaved: true, draft: KING_IDS, balance: 0 }, part: "skin" },
   /** Four traits in use (the owner's count): the other five tabs are not shown. */
   fewParts: { creator: { ...creator, offers: offersOf(AVATAR_ITEMS, [], 4), saved: KING_IDS, unsaved: true, draft: KING_IDS } },
-  /** A guest: Connect. */
-  guest: { status: { kind: "guest" } },
   /** The reads on their way. */
   loading: { status: { kind: "loading" } },
   /** A failed read, with Retry. */

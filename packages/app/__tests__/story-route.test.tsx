@@ -156,8 +156,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(saved.levels["1-1"]).toMatchObject({ best: level.target, stars: 3, run: { campaignId: 1, levelIndex: 1 } });
     expect(saved.levels["1-1"].run.moves).toHaveLength(decodeLine(level.line).length);
 
-    // The claim needs a signer: Connect first, then one `claim_tutorial`.
-    await userEvent.click(within(end).getByRole("button", { name: "Connect" }));
+    // The claim needs the account (NO-GUEST: made at start, no Connect): one `claim_tutorial`.
+    expect(within(end).queryByRole("button", { name: "Connect" })).toBeNull();
     await userEvent.click(await within(end).findByRole("button", { name: "Claim First Stone" }));
     expect(await screen.findByText("Claimed: First Stone is yours.")).toBeInTheDocument();
     expect(wallet.calls.filter((c) => c === "claimTutorial")).toHaveLength(1);

@@ -94,7 +94,8 @@ function Result({ id }: { id: number }) {
   const error = status.error ?? settled.error ?? defender.error;
   const target = last?.target ?? settled.data?.target;
   const score = settled.data?.score ?? last?.score;
-  if (me === null) return <PvpSearchScene state="error" player={self} error="Connect to see your attack's result." onRetry={() => void wallet.connect()} onCancel={onBack} />;
+  // No guest (NO-GUEST): until the account is in, the page waits.
+  if (me === null) return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
   if (status.data === null) return <PvpSearchScene state="error" player={self} error="PvP is not on this network yet." onCancel={onBack} />;
   if (!status.data || !settled.data || !defender.data || target === undefined || score === undefined) {
     // Not the attacker's last attack: its target and defender are the indexer's row's. Read and absent (a cached receipt alone,
