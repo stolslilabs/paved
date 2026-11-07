@@ -26,13 +26,14 @@ async function open(path: string, prepare?: (s: ReturnType<typeof mockImplementa
   await prepare?.(s, me);
   const wallet = fakeWallet({ address: me, restored: true });
   wallet.connector.signer = () => s.sources.signer as GameSigner;
-  render(<App router={createTestRouter(path)} sources={s.sources} connector={wallet.load} />);
-  return { ...s, me };
+  const router = createTestRouter(path);
+  render(<App router={router} sources={s.sources} connector={wallet.load} />);
+  return { ...s, me, router };
 }
 
 preloadPages("home");
 beforeAll(async () => {
-  await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pvp-v2"), import("../src/routes/pages/pvp-league"), import("../src/routes/pages/pvp-result"), import("../src/routes/pvp-v2-end"), import("../src/components/containers/final-board")]);
+  await Promise.all([import("../src/routes/pages/pvp"), import("../src/routes/pvp-v2"), import("../src/routes/pages/pvp-league"), import("../src/routes/pages/pvp-result"), import("../src/routes/pvp-v2-end"), import("../src/components/containers/final-board"), import("../src/components/containers/deck-sheet")]);
 }, slow(60_000));
 beforeEach(() => {
   queryClient.clear();
@@ -49,25 +50,28 @@ afterEach(() => {
 describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
   it("founds the village, searches, scouts the deck, opens the attack on an open board and places a tile", async () => {
     const s = await open("/pvp");
-    // A fresh device has no v2 village: the search says so, and Search again founds it with its starter layout.
+    // A fresh device has no v2 village: the search says so, and Search founds it with its starter layout.
     expect(await screen.findByText(/Your village is not founded yet/, {}, WAIT)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Search again/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
     expect(await screen.findByRole("heading", { name: "Scout" }, WAIT)).toBeInTheDocument();
     const { match } = await s.ledger.attackV2(s.me);
     const rival = mockRivalV2(match!.opponent)!;
     const card = screen.getByRole("region", { name: "Attack" });
-    expect(card.querySelector("[data-deck]")).toHaveTextContent(`${attackDeckSize(rival.slots)} tiles`);
-    // The deck chip opens the village's tile list (#788): the rival's tiles, then the extras unknown.
-    await userEvent.click(within(card).getByRole("button", { name: /the village's tile list$/ }));
+    // The deck over the village (ATTACK-SCOUT) opens the deck page (#788), in the URL: the rival's tiles, then the extras unknown.
+    await userEvent.click(screen.getByRole("button", { name: `Deck, ${attackDeckSize(rival.slots)} tiles` }));
     const sheet = await screen.findByRole("dialog", { name: "Deck" }, WAIT);
+    expect(s.router.state.location.search).toContain("view=deck");
     const extras = attackDeckSize(rival.slots) - rival.tiles.length;
-    expect(sheet).toHaveTextContent(`${attackDeckSize(rival.slots)} tiles left of ${attackDeckSize(rival.slots)}`);
-    expect(within(sheet).getByRole("heading", { name: `The village's tiles ${rival.tiles.length}` })).toBeInTheDocument();
+    expect(within(sheet).getByTestId("deck-summary")).toHaveTextContent(`Left${attackDeckSize(rival.slots)}Played0Discarded0`);
+    expect(within(sheet).getByRole("heading", { name: `Village ${rival.tiles.length}` })).toBeInTheDocument();
     expect(within(sheet).queryAllByRole("img", { name: "Unknown tile" })).toHaveLength(extras);
-    await userEvent.keyboard("{Escape}");
+    // Back to the scout: the entry pushed over it goes.
+    await userEvent.click(within(sheet).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Deck" })).toBeNull(), WAIT);
+    expect(s.router.state.location.search).not.toContain("view=deck");
     const points = [80, 90, 100].map((p) => Math.floor((p * rival.score + 99) / 100).toLocaleString("en-US"));
-    expect(within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem").map((li) => li.textContent?.split("+")[0])).toEqual(points);
+    const stakes = within(screen.getByRole("list", { name: "Crowns at stake" })).getAllByRole("listitem").slice(1);
+    expect(stakes.map((li) => li.getAttribute("aria-label")?.match(/, ([\d,]+) points/)?.[1])).toEqual(points);
 
     await userEvent.click(within(card).getByRole("button", { name: /^Attack$/ }));
     expect(await screen.findByRole("heading", { name: `Attack: ${rival.name}` }, WAIT)).toBeInTheDocument();

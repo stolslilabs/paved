@@ -256,7 +256,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(screen.getByTestId("tiles-left")).toHaveTextContent(String(level.deck.length));
     expect(screen.queryByTestId("story-coach")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /^Tiles left/ }));
-    expect(await screen.findByText(`This level deals these ${level.deck.length} tiles in this order, the next one first.`, {}, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByText("Dealt in this order, the next one first.", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByText(/some never come/)).toBeNull();
     expect(screen.queryByTestId("deck-plans")).toBeNull();
     const order = screen.getByTestId("deck-order");
@@ -264,7 +264,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     // The sheet's order is the presentation's; the first tile is in hand, none is out yet.
     expect(slots.map((li) => li.getAttribute("data-plan"))).toEqual(level.deck);
     expect(slots.map((li) => li.getAttribute("data-slot-state"))).toEqual(["hand", ...level.deck.slice(1).map(() => "next")]);
-    expect(screen.getByTestId("deck-summary")).toHaveTextContent(`0 played, 0 discarded (dashed), ${level.deck.length} not yet.`);
+    expect(screen.getByRole("heading", { name: `Order ${level.deck.length}` })).toBeInTheDocument();
+    expect(screen.getByTestId("deck-summary")).toHaveTextContent(`Left${level.deck.length}Played0Discarded0`);
   });
 
   it("progress saved on an old deck is dropped, an unchanged deck's is kept: 1-10's old best goes, 1-9's stays, the first village's moves from 1-11 to 1-12 (#721)", async () => {
