@@ -60,11 +60,14 @@ const EDITOR_STORIES = /^scenes-home--(editing|holding|placing|lifted|moved|rese
 const ALLOWED: (Allowed & { why: string })[] = [
   // A carousel: its track is wider than its window and the window clips it, by design (Embla).
   { story: /^ui-carousel--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^ui-carousel--/, kind: "overflow", element: 'div "DailyOne deck', why: "carousel track" },
-  // Story's campaign cards (#592): the same carousel on a phone, its next card peeking past the window, by design.
-  // The same page among the page shells of HEADER-HEIGHT (#676).
-  { story: /^(scenes-story--|pages-headers--story-campaigns$|containers-pagesheet--(story-phone|story-wide|reduced-motion)$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
-  { story: /^(scenes-story--|pages-headers--story-campaigns$|containers-pagesheet--(story-phone|story-wide|reduced-motion)$)/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
+  { story: /^ui-carousel--/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
+  // Story's campaigns (#592): the same carousel, one campaign per view at the head of Story's view (STORY-PAGE), the others past the
+  // window, by design.
+  // The same page among the page shells of HEADER-HEIGHT (#676), and framed in Play's drawer (STORY-PAGE: a view of it), whose body
+  // (a ScrollRegion, `overflow-x: hidden`) clips the same track again.
+  { story: /^(scenes-story--|scenes-play--story-|pages-headers--story-campaigns$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
+  { story: /^(scenes-story--|scenes-play--story-|pages-headers--story-campaigns$)/, kind: "overflow", element: 'div "Tutorial', why: "carousel track" },
+  { story: /^(scenes-play--story-|pages-headers--story-campaigns$)/, kind: "clip", element: "div[scroll-region]", why: "carousel track in Play's drawer" },
   // A horizontal scroller, by design: the story shows ScrollArea's horizontal mode.
   { story: "ui-scroll-area--horizontal", kind: "scroll", element: "div[scroll-area-viewport]", why: "horizontal scroller" },
   // The same for ScrollRegion (NO-SCROLLBARS, #609): its horizontal story is a sideways scroller with the edge hint.

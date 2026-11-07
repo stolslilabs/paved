@@ -16,16 +16,23 @@ export interface PlaySceneProps extends PlayModesProps {
    * Null or omitted: the modes.
    */
   challenge?: ReactNode;
+  /**
+   * Story's campaigns (`/story`, STORY-PAGE): their body (`StoryScene`), the panel's view in the modes' place, as the stake. Null or
+   * omitted: the modes.
+   */
+  story?: ReactNode;
   /** Play's close, back to the village. */
   onBack?: () => void;
   /** The stake's Back, to the modes. */
   onChallengeBack?: () => void;
+  /** Story's Back, to the modes (never into the level just played). */
+  onStoryBack?: () => void;
 }
 
 /** The stake's balance at the header's end (the drawers' rule: the page's balance at the top right), USDC, what it spends. */
 const USDC: readonly ShownBalance[] = ["usdc"];
 
-/** A press on a dialog over the drawer (a wallet's, Story's sheet) is no tap on the village. */
+/** A press on a dialog over the drawer (a wallet's) is no tap on the village. */
 const keepForDialogs = (event: Event) => {
   if ((event.target as Element | null)?.closest?.("[role=dialog], [role=alertdialog]")) event.preventDefault();
 };
@@ -36,11 +43,11 @@ const keepForDialogs = (event: Event) => {
  * centred window, which no drawer is: docked as the Shop). In it the modes (`PlayModes`): Ranked, Paid, Free, Limited. The Challenge's stake
  * (`/play/challenge`) is a panel of its own in the modes' place at every width (the owner's ask of 2026-11-06: no sheet from the bottom;
  * Guild's menu pattern), sliding in from the right, its Back to the modes and the red cross out to the village, the USDC balance at its
- * header's end (the drawers' rule, where the book writes it under the title). A pause says so under
- * the modes: Training and Story stay open.
+ * header's end (the drawers' rule, where the book writes it under the title). Story's campaigns (`/story`, STORY-PAGE) are a view of
+ * the same kind, "Story" on the header, its Back to the modes. A pause says so under the modes: Training and Story stay open.
  */
-export function PlayScene({ open = true, returnFocus, challenge = null, onBack, onChallengeBack, ...modes }: PlaySceneProps) {
-  const view = challenge !== null ? "challenge" : "modes";
+export function PlayScene({ open = true, returnFocus, challenge = null, story = null, onBack, onChallengeBack, onStoryBack, ...modes }: PlaySceneProps) {
+  const view = challenge !== null ? "challenge" : story !== null ? "story" : "modes";
   // The first view comes with the drawer's own slide; only a move between views slides.
   const [last, setLast] = useState(view);
   const [moved, setMoved] = useState(false);
@@ -54,25 +61,27 @@ export function PlayScene({ open = true, returnFocus, challenge = null, onBack, 
       onOpenChange={(next) => {
         if (!next) onBack?.();
       }}
-      title={view === "challenge" ? "Challenge" : "Play"}
+      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : "Play"}
       side="right"
       slot="play"
       returnFocus={returnFocus}
       // The title, the plate and both controls do not fit a phone under 360 px (the Shop's rule): there the title keeps the row.
       end={view === "challenge" ? <BalancesSlot layout="pill" kinds={USDC} className="hidden mobile:flex" /> : undefined}
-      onBack={view === "challenge" ? onChallengeBack : undefined}
+      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : undefined}
       onInteractOutside={keepForDialogs}
     >
       <m.div
         key={view}
-        // The stake comes in from the right, the modes back from the left (no slide under reduced motion: `MotionConfig`).
-        initial={moved && { x: view === "challenge" ? 48 : -48, opacity: 0 }}
+        // A view (the stake, Story) comes in from the right, the modes back from the left (no slide under reduced motion: `MotionConfig`).
+        initial={moved && { x: view === "modes" ? -48 : 48, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.22, ease: "easeOut" }}
         className="flex flex-col gap-4"
       >
         {view === "challenge" ? (
           challenge
+        ) : view === "story" ? (
+          story
         ) : (
           <>
             <PlayModes {...modes} />

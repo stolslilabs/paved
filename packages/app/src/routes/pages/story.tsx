@@ -5,18 +5,17 @@ import { StoryScene } from "../../components/scenes/story-scene";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { levelPath, useCampaignUnlocks, useStoryProgress } from "../../data/story";
 import { useTileRenders } from "../../data/tile-renders";
-import { useAppNavigate, useUpTo } from "../ref";
+import { useAppNavigate } from "../ref";
 
 /**
- * `/story` (#546, #592): the campaigns as cards and the levels of the chosen one, with the stars and locks of this device's
- * progress. The chosen campaign is the address's `?campaign=` (replaced, not pushed), so Back from a level lands on it; a
- * campaign opened since the last visit is chosen instead, so its card is in view while it plays its unlock, once. Back goes
- * to the modes (`/play`), whatever route the player came from: never into the level just played (#614). A sheet over the modes
- * (BACK-RULE #783, `PageDef.sheet`): its close is that Back.
+ * `/story` (#546, #592; STORY-PAGE): the campaigns as cards and the levels of the chosen one, with the stars and locks of this
+ * device's progress, the body of Play's drawer in the modes' place (`pages/play.tsx`, a chunk of its own), as the stake: the drawer's
+ * header says "Story", its Back goes to the modes (`/play`), whatever route the player came from: never into the level just played
+ * (#614). The chosen campaign is the address's `?campaign=` (replaced, not pushed), so Back from a level lands on it; a campaign
+ * opened since the last visit is chosen instead, so its card is in view while it plays its unlock, once.
  */
-export default function Page() {
+export default function StoryCampaigns() {
   const go = useAppNavigate();
-  const onBack = useUpTo("/play");
   const [params, setParams] = useSearchParams();
   const { progress, saved } = useStoryProgress();
   const justUnlocked = useCampaignUnlocks(CAMPAIGNS, progress);
@@ -39,7 +38,6 @@ export default function Page() {
       justUnlocked={justUnlocked}
       renders={renders}
       storageOff={!saved}
-      onBack={onBack}
       onCampaign={(id) => {
         if (params.get("campaign") !== String(id)) setParams({ campaign: String(id) }, { replace: true });
       }}

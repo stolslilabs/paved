@@ -1,11 +1,11 @@
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import { formatInteger } from "@paved/game-core";
+import { formatInteger, levelStatus } from "@paved/game-core";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
 import { BLACK_OUTLINE } from "../elements/black-outline";
-import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { CHEST_NAME, type ChestRank } from "../elements/chest-designs";
 import { CHEST_ART_REM, CHEST_SPENT, GOLD_SOFT } from "../elements/chest-designs";
 import { ChestIcon } from "../elements/chest-icon";
 import { CHEST_EFFECTS, chestEffectUrl, pickSize } from "../elements/chest-images";
@@ -16,8 +16,9 @@ import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LazyChestArt } from "../elements/lazy-chest-art";
 import { LevelBar } from "../elements/level-bar";
 import { missionPartImage } from "../elements/medallion-art";
+import { EMPTY_STAR } from "../elements/painted-stars";
 import type { TileArt } from "../elements/tile-chip";
-import type { PlayerProgress } from "../elements/xp-ring";
+import type { PlayerProgress } from "../elements/xp-motion";
 import { tileName } from "../elements/tile-render";
 import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
@@ -29,7 +30,9 @@ import { TilePicture } from "./chest-reveal";
  * (tap to open), `opening` (its draw on its way), `kept` (its tile taken: `plan`, or null when the end does not know it), `capped`
  * (stars won but the day's PvP slots full: disabled, the slots' reset counting down), `none` (nothing shown). While the chests' read
  * is not there: `loading` (the panel disabled, "Loading…"), `error` (the read failed: the message and Retry, which reads it again;
- * `retrying` while it does), `unavailable` (the network serves no chests: nothing to open here).
+ * `retrying` while it does), `unavailable` (the network serves no chests: nothing to open here). A Story level's chest, when this run
+ * won none (STORY-PAGE, the owner's ask of 2026-11-07: the end says so): `already` (the level gave it before), `missed` (3 stars win
+ * it, the first time).
  */
 export type EndChest =
   | { state: "won"; rank: ChestRank }
@@ -39,12 +42,35 @@ export type EndChest =
   | { state: "opening"; rank: ChestRank }
   | { state: "kept"; rank: ChestRank; plan: number | null }
   | { state: "capped"; rank: ChestRank; resetsAt: number }
+  | { state: "already"; rank: ChestRank }
+  | { state: "missed"; rank: ChestRank }
   | { state: "none" };
 
-/** An answer of the window: its words and what it does. */
+/** The XP a game gave (PvP, Story): the gain, the XP after it and the level's span (its floor and the next level's, the floor at the cap). */
+export interface EndXp {
+  gained: number;
+  xp: number;
+  level: number;
+  floor: number;
+  next: number;
+  /** The level before the game: a level up is said when it is lower. */
+  levelBefore: number;
+}
+
+/** The XP a game gave and the level it leaves, from the player's XP now (`levelStatus`). */
+export function endXp(xp: number, gained: number): EndXp {
+  const after = levelStatus(xp);
+  return { gained, xp: after.xp, level: after.level, floor: after.floor, next: after.next, levelBefore: levelStatus(xp - gained).level };
+}
+
+/** An answer of the window: its words and what it does; its look its slot's (raised grey, gold for `primary`) unless `tone` says. */
 export interface EndAction {
   label: string;
   onClick?: () => void;
+  /** The look over its slot's (STORY-PAGE: a level failed, Retry the gold and Next the raised grey). */
+  tone?: "raised" | "gold";
+  /** Shown, dimmed, not pressable (a control never leaves: a level failed, its Next). */
+  disabled?: boolean;
 }
 
 export interface GameEndProps {
@@ -64,11 +90,11 @@ export interface GameEndProps {
   notes?: ReactNode;
   /** The chest's panel (`EndChestPanel`). */
   chest?: ReactNode;
-  /** The book's two answers: the raised grey (Home, Replay) and the gold (Again, Next level). */
+  /** The book's two answers: the raised grey (Home, Retry) and the gold (Again, Next). */
   secondary?: EndAction;
+  /** A second raised grey answer between them, on the same row (STORY-PAGE: Story's Levels, the owner's ask of 2026-11-07). */
+  middle?: EndAction;
   primary?: EndAction;
-  /** Smaller answers under them (Levels). */
-  links?: ReactNode;
   /**
    * The cross at the window's top right (the owner's ask of 2026-11-06, the Board's new place): the scores close and the game's board
    * shows, with `ShowScores` to bring them back.
@@ -76,8 +102,6 @@ export interface GameEndProps {
   onClose?: () => void;
   /** The stars in at once (reduced motion, a tap that skipped them). */
   instant?: boolean;
-  /** The stars' beats (s): the first's delay and the gap between two; `END_STARS` by default. */
-  timing?: { lead: number; gap: number };
   children?: ReactNode;
   className?: string;
 }
@@ -87,15 +111,13 @@ const VERDICT: CSSProperties = { textShadow: BLACK_OUTLINE };
 /** The soft rule between two rows of the carved card (the Shop's panels'). */
 const ROW_RULE: CSSProperties = { borderTop: "1px solid color-mix(in oklab, var(--drawer-bevel) 45%, transparent)" };
 /** The raised grey answer (the drawer's rule: raised presses), its word outlined in black as the gold one's. */
-const RAISED = "drawer-raised h-12 w-full rounded-xl px-3 text-lg font-black text-foreground";
+const RAISED = "drawer-raised h-12 w-full rounded-xl font-black text-foreground";
 const RAISED_WORDS: CSSProperties = { textShadow: BLACK_OUTLINE };
 /** The gold answer: Follow back's painted pill, 48 px, its word outlined in black. */
 const GOLD: CSSProperties = { ...goldPillStyle(48), textShadow: BLACK_OUTLINE };
 /** The stars' beats (s): the first's delay, then one after the other. */
 export const END_STARS = { lead: 0.35, gap: 0.32 } as const;
 
-/** The empty star, the book's: its outline and its relief in greys. */
-const EMPTY: CSSProperties = { filter: "grayscale(1) brightness(0.72) contrast(1.15)" };
 /** A box `w` by `h` centred on its parent's middle. */
 const centred = (w: number, h = w): CSSProperties => ({ position: "absolute", left: "50%", top: "50%", width: w, height: h, marginLeft: -w / 2, marginTop: -h / 2, maxWidth: "none" });
 /**
@@ -241,7 +263,10 @@ function Glints({ px, spots, delay = 0, still }: { px: number; spots: readonly S
  * others greyed; the verdict large in gold, what it was against, the score; a carved card of rows (the crowns, the XP); the chest's
  * panel; the raised and gold answers, and smaller ones under them.
  */
-export function GameEnd({ stars, fills, verdict, subtitle, score, rows, notes, chest, secondary, primary, links, onClose, instant, timing, children, className }: GameEndProps) {
+export function GameEnd({ stars, fills, verdict, subtitle, score, rows, notes, chest, secondary, middle, primary, onClose, instant, children, className }: GameEndProps) {
+  const answers = [secondary, middle, primary].filter(Boolean).length;
+  // Three on one row: a step smaller, so each word keeps its line at 320 px.
+  const word = answers === 3 ? "px-2 text-base" : "px-3 text-lg";
   return (
     <section aria-label="Result" data-verdict={verdict} className={cn("relative isolate mx-auto mt-14 flex w-full max-w-sm flex-col items-center gap-3 px-4 pt-12 pb-4 text-center font-round", className)}>
       <HudFrame px={16} />
@@ -259,7 +284,7 @@ export function GameEnd({ stars, fills, verdict, subtitle, score, rows, notes, c
           <UiIcon name="close" px={36} className="drawer-icon size-9" />
         </button>
       )}
-      <EndStars stars={stars} fills={fills} instant={instant} timing={timing} className="absolute -top-14 left-1/2 -translate-x-1/2" />
+      <EndStars stars={stars} fills={fills} instant={instant} className="absolute -top-14 left-1/2 -translate-x-1/2" />
       <h2 className={cn("font-game leading-none text-balance text-primary", verdict.length > 10 ? "text-4xl" : "text-5xl")} style={VERDICT}>
         {verdict}
       </h2>
@@ -279,21 +304,27 @@ export function GameEnd({ stars, fills, verdict, subtitle, score, rows, notes, c
       {notes}
       {chest}
       {children}
-      {(secondary || primary) && (
-        <div className={cn("grid w-full gap-2", secondary && primary ? "grid-cols-2" : "grid-cols-1")}>
-          {secondary && (
-            <Button variant="ghost" style={RAISED_WORDS} className={RAISED} onClick={secondary.onClick}>
-              {secondary.label}
-            </Button>
-          )}
-          {primary && (
-            <Button variant="ghost" style={GOLD} className="h-12 w-full px-3 text-lg font-black text-foreground" onClick={primary.onClick}>
-              {primary.label}
-            </Button>
-          )}
+      {answers > 0 && (
+        <div className={cn("grid w-full gap-2", answers === 3 ? "grid-cols-3" : answers === 2 ? "grid-cols-2" : "grid-cols-1")}>
+          {[secondary, middle, primary].map((answer, i) => {
+            if (!answer) return null;
+            const gold = (answer.tone ?? (i === 2 ? "gold" : "raised")) === "gold";
+            return (
+              <Button
+                key={answer.label}
+                variant="ghost"
+                data-tone={gold ? "gold" : "raised"}
+                style={gold ? GOLD : RAISED_WORDS}
+                className={cn(gold ? "h-12 w-full font-black text-foreground" : RAISED, word)}
+                disabled={answer.disabled}
+                onClick={answer.onClick}
+              >
+                {answer.label}
+              </Button>
+            );
+          })}
         </div>
       )}
-      {links && <div className="flex flex-wrap items-center justify-center gap-1">{links}</div>}
     </section>
   );
 }
@@ -310,15 +341,6 @@ export function ShowScores({ onClick }: { onClick: () => void }) {
         Scores
       </Button>
     </div>
-  );
-}
-
-/** A small answer under the two (Levels): a word on the window, a press layer. */
-export function EndLink({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
-  return (
-    <Button variant="ghost" size="sm" className="text-outline h-11 rounded-full px-3 text-sm font-bold text-muted-foreground" onClick={onClick}>
-      {children}
-    </Button>
   );
 }
 
@@ -363,7 +385,7 @@ export function EndStars({ stars, fills, instant, timing = END_STARS, className 
             {/* Its light bursts in as its gold reaches the end (the fill takes 0.35 s from its turn). */}
             {full && <StarLight px={px} delay={now ? 0 : at(i) + 0.25} still={now} />}
             {/* The star to win, grey: its outline and its relief. */}
-            <span aria-hidden className="absolute inset-0" style={EMPTY}>
+            <span aria-hidden className="absolute inset-0" style={EMPTY_STAR}>
               <UiIcon name="star" px={px} className="size-full" />
             </span>
             {f > 0 && (
@@ -524,6 +546,23 @@ export function EndChestPanel({ chest, now, tileArt, onOpen }: { chest: EndChest
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-outline text-base leading-tight font-bold">{chest.plan != null ? "Added to your inventory" : `${name} opened`}</span>
           {chest.plan != null && <span className="text-sm font-semibold text-muted-foreground">{tileName(chest.plan)}</span>}
+        </span>
+      </section>
+    );
+  }
+  if (chest.state === "already" || chest.state === "missed") {
+    // A Story level's chest this run did not win (STORY-PAGE): carved, the chest's icon grey, and why.
+    const already = chest.state === "already";
+    return (
+      <section aria-label={name} data-chest={chest.state} className="drawer-carved flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left">
+        <span className="grid size-14 shrink-0 place-items-center" style={CHEST_SPENT}>
+          <ChestIcon rank={chest.rank} size="xl" label={null} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+          <span className="text-outline text-base leading-tight font-bold text-muted-foreground">{already ? "Chest already won" : "No chest this time"}</span>
+          <span className="text-xs font-semibold text-muted-foreground">
+            {already ? `This level's ${name.toLowerCase()} is yours.` : `3 stars win this level's ${name.toLowerCase()}.`}
+          </span>
         </span>
       </section>
     );

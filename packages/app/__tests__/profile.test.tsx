@@ -6,7 +6,8 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { KING_TRAITS, encodeTraits } from "@paved/renderer";
 import { avatarInitial, PlayerAvatar } from "../src/components/elements/player-avatar";
-import { ProfileProvider, ProfileSlot, type ProfileValue } from "../src/components/containers/profile-context";
+import { ProfileProvider, type ProfileValue } from "../src/components/containers/profile-context";
+import { PlayerBadge } from "../src/components/containers/player-badge";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProfileSheet } from "../src/components/containers/profile-sheet";
 import { DataProvider, type DataSources } from "../src/data/sources";
@@ -242,17 +243,12 @@ describe("ProfileSheet (#624)", () => {
   });
 });
 
-describe("ProfileSlot (#624)", () => {
+describe("the profile's opener (#624), on the player card (#787)", () => {
   const value = (state: ProfileValue["state"]): ProfileValue => ({ state, onEditAvatar: vi.fn(), onCopy: vi.fn(async () => {}) });
-
-  it("draws nothing without the shell's profile", () => {
-    render(wrap(<ProfileSlot />));
-    expect(screen.queryByRole("button")).toBeNull();
-  });
 
   it("a tap opens the sheet in its own chunk; an action that leaves for another screen (Edit avatar) closes it", async () => {
     const v = value(PROFILE.connected);
-    render(withProfile(v, <ProfileSlot />));
+    render(withProfile(v, <PlayerBadge />));
     expect(screen.queryByRole("dialog")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Profile: bal7hazar" }));
     const sheet = await screen.findByRole("dialog");
@@ -261,8 +257,8 @@ describe("ProfileSlot (#624)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("Escape closes the sheet and the focus returns to the avatar (keyboard)", async () => {
-    render(withProfile(value(PROFILE.loading), <ProfileSlot />));
+  it("Escape closes the sheet and the focus returns to the card (keyboard)", async () => {
+    render(withProfile(value(PROFILE.loading), <PlayerBadge />));
     const avatar = screen.getByRole("button", { name: "Profile" });
     avatar.focus();
     await userEvent.keyboard("{Enter}");
@@ -275,38 +271,6 @@ describe("ProfileSlot (#624)", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(avatar).toHaveFocus());
-  });
-
-  it("the width crosses `desktop` while open: the focus goes to the avatar shown now, not the hidden one that opened it", async () => {
-    // Two avatars, one per width: the header's below `desktop`, another from it (as the navigation's header had, before #762).
-    render(
-      withProfile(
-        value(PROFILE.connected),
-        <>
-          <ProfileSlot className="desktop:hidden" />
-          <nav aria-label="Wide">
-            <ProfileSlot className="hidden desktop:block" />
-          </nav>
-        </>,
-      ),
-    );
-    const nav = within(screen.getByRole("navigation", { name: "Wide" })).getByRole("button", { name: "Profile: bal7hazar" });
-    const header = screen.getAllByRole("button", { name: "Profile: bal7hazar" }).find((b) => b !== nav)!;
-    const shown = (el: HTMLElement, on: boolean) => vi.spyOn(el, "getClientRects").mockReturnValue((on ? [new DOMRect(0, 0, 44, 44)] : []) as unknown as DOMRectList);
-    // A phone: the header's avatar is shown, the navigation's hidden.
-    shown(header, true);
-    shown(nav, false);
-    header.focus();
-    await userEvent.keyboard("{Enter}");
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    // Resized to desktop: the header's avatar hides, the navigation's shows.
-    shown(header, false);
-    shown(nav, true);
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(nav).toHaveFocus());
-    await userEvent.keyboard("{Enter}");
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
   it("a tab page has Back at its top left, not the avatar, which is the home's (#760; no navigation header from desktop, #762)", () => {

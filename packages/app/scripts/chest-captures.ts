@@ -35,7 +35,6 @@ const STILLS = [
   { name: "slots-full", story: "scenes-village-v2-chests--kept" },
   { name: "art-layers", story: "elements-chestart--layers" },
   { name: "art-states", story: "elements-chestart--states" },
-  { name: "art-icons", story: "elements-chestart--in-badges-and-text" },
 ];
 const STEP_MS = 40;
 

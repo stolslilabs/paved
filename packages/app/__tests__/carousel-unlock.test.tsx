@@ -100,19 +100,23 @@ describe("Carousel and the campaign unlock: one motion at a time (#615)", () => 
 
   it("under reduced motion the card is open at once: nothing to sequence", () => {
     render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progressOpeningTheSecond()} campaignId={2} justUnlocked={[2]} />, "always"));
-    const card = screen.getByRole("button", { name: /^Open Country/ });
+    const card = screen.getByRole("article", { name: "Open Country" });
     expect(card).toHaveAttribute("data-status", "open");
     expect(card).not.toHaveAttribute("data-unlock");
   });
 
   for (const reduced of ["never", "always"] as const) {
-    it(`a press on a card brings it in view, a jump under reduced motion (${reduced})`, async () => {
+    it(`an arrow on the picture's edge brings its campaign in view, a jump under reduced motion (${reduced})`, async () => {
       embla.api = undefined;
       render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progressOpeningTheSecond()} campaignId={2} />, reduced));
       await waitFor(() => expect(embla.api).toBeDefined(), { timeout: slow(5000) });
       const scrollTo = vi.spyOn(embla.api!, "scrollTo");
-      fireEvent.click(screen.getByRole("button", { name: /^Tutorial/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Previous campaign" }));
       expect(scrollTo).toHaveBeenCalledWith(0, reduced === "always");
+      fireEvent.click(screen.getByRole("button", { name: "Next campaign" }));
+      expect(scrollTo).toHaveBeenLastCalledWith(1, reduced === "always");
+      // No dots (the owner's ask of 2026-11-07): the arrows and a swipe move through the campaigns.
+      expect(screen.queryByRole("button", { name: /^Go to / })).toBeNull();
     });
 
     it(`a swipe's release glides to its snap, and lands there at once under reduced motion (${reduced})`, async () => {

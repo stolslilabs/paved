@@ -4,7 +4,6 @@ import { WIDE_1440 } from "../scenes/viewports";
 import { BalancesProvider } from "./balances-context";
 import PagePanel from "./page-panel";
 import { TabPage } from "./tab-page";
-import { TopBar } from "./top-bar";
 import { scrolledToEnd } from "../../stories/scrolled-to-end";
 
 const CARDS = Array.from({ length: 10 }, (_, i) => (
@@ -53,19 +52,6 @@ export const WithBack: Story = {
         <TabPage title="Themes" onBack={fn()}>
           {CARDS}
         </TabPage>
-      </PagePanel>
-    </BalancesProvider>
-  ),
-};
-
-/** A flow's top bar as the panel's header (the Chests, the Shop, Play): the same header as a tab page's (#781). */
-export const TopBarInPanel: Story = {
-  args: { title: "Vault" },
-  render: (args) => (
-    <BalancesProvider value={{ state: READY, onAction: fn() }}>
-      <PagePanel {...args}>
-        <TopBar title="Vault" onBack={fn()} />
-        <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-6">{CARDS}</main>
       </PagePanel>
     </BalancesProvider>
   ),

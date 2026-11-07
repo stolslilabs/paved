@@ -1,37 +1,26 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
+import { CAMPAIGNS } from "@paved/game-core";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./carousel";
 
 const meta = { title: "UI/Carousel", component: Carousel, parameters: { layout: "padded" } } satisfies Meta<typeof Carousel>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const MODES = [
-  ["Daily", "One deck for everyone, once a day."],
-  ["Training", "Play freely, no stake."],
-  ["Tutorial", "Learn the rules, one stage at a time."],
-  ["Weekly", "Comes later."],
-] as const;
-
-/** Play's mode cards (section 6): drag, the arrow buttons, or the arrow keys once a card has focus. */
-const Modes = () => (
+/**
+ * One slide per view, as the app's carousels (Story's campaigns, the League's leagues): drag, the arrow buttons, or the arrow keys
+ * once focus is in the carousel. Here each slide is a campaign's name and summary on a plain carved box.
+ */
+const Slides = () => (
   <div className="px-12">
-    <Carousel aria-label="Game modes" opts={{ align: "start" }} className="mx-auto max-w-xs tablet:max-w-lg">
+    <Carousel aria-label="Campaigns" className="mx-auto max-w-sm">
       <CarouselContent>
-        {MODES.map(([title, text], i) => (
-          <CarouselItem key={title} aria-label={`${i + 1} of ${MODES.length}`} className="tablet:basis-1/2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{text}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <button type="button" className="text-sm text-primary underline-offset-4 hover:underline">
-                  Choose {title}
-                </button>
-              </CardContent>
-            </Card>
+        {CAMPAIGNS.map((campaign, i) => (
+          <CarouselItem key={campaign.id} aria-label={`${i + 1} of ${CAMPAIGNS.length}`}>
+            <div className="flex flex-col gap-1 rounded-xl bg-card p-4">
+              <h3 className="font-display text-xl">{campaign.name}</h3>
+              <p className="text-sm text-muted-foreground">{campaign.summary}</p>
+            </div>
           </CarouselItem>
         ))}
       </CarouselContent>
@@ -42,17 +31,17 @@ const Modes = () => (
 );
 
 /** Reduced motion off: Embla scrolls to the next snap. */
-export const MotionOff: Story = { name: "Mode cards, reduced motion off", parameters: { reducedMotion: "never" }, render: () => <Modes /> };
+export const MotionOff: Story = { name: "Reduced motion off", parameters: { reducedMotion: "never" }, render: () => <Slides /> };
 
 /** Reduced motion on: the buttons and the arrow keys jump to the snap, with no scroll animation; a drag still follows the finger. */
-export const MotionOn: Story = { name: "Mode cards, reduced motion on", parameters: { reducedMotion: "always" }, render: () => <Modes /> };
+export const MotionOn: Story = { name: "Reduced motion on", parameters: { reducedMotion: "always" }, render: () => <Slides /> };
 
-/** The keyboard: Tab reaches a card's button, then the arrow keys move the carousel. */
+/** The keyboard: Tab reaches Next (Previous is disabled on the first slide, out of the Tab order), then the arrow keys move it. */
 export const Keyboard: Story = {
-  render: () => <Modes />,
+  render: () => <Slides />,
   play: async ({ canvasElement }) => {
     await userEvent.tab();
-    await expect(within(canvasElement).getByRole("button", { name: "Choose Daily" })).toHaveFocus();
+    await expect(within(canvasElement).getByRole("button", { name: "Next slide" })).toHaveFocus();
     await userEvent.keyboard("{ArrowRight}");
   },
 };
