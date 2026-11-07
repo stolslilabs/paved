@@ -543,7 +543,7 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   name holding the HUD's painted pencil (the guild's Post's; a quill in an inkwell drawn by Codex was tried and set aside by the
   owner); it opens "Name" in the
   Profile drawer (Back to the profile, the Cobbles at the header's end): the name now carved, "New name" a carved field with its count
-  of characters, three short rules under it each marked with the HUD's check or cross as the typed name meets it (3 to 15 characters;
+  of characters, three short rules under it each marked as the typed name meets it, the Missions' green check badge or the drawers' red cross disc (the owner's ask), greyed while not judged (3 to 15 characters;
   letters, digits, single spaces or hyphens; not another player's name), then the fixed footer: the cost on the left ("Free" for the
   first change, else the Cobble and 50) and the gold Rename (the drawers' gold action, its passing light) on the right. What the
   player can mend is said where it already shows, never in the app's error box, whose Copy is for the server's failures (the owner's

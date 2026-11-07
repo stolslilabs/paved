@@ -8,7 +8,7 @@ import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { SectionTitle } from "../elements/section-title";
 import { shortAddress } from "../elements/short-address";
 import { TokenIcon } from "../elements/token-icon";
-import type { UiIconName } from "../elements/ui-art";
+import { CheckBadge } from "../elements/check-badge";
 import { UiIcon } from "../elements/ui-icon";
 import { DrawerFooter, ViewHeader, useDrawerView } from "./hud-drawer";
 
@@ -60,11 +60,17 @@ const RULE_TEXT: Record<(typeof NAME_RULES)[number], string> = {
   unique: "Not another player's name",
 };
 
-/** A rule's painted mark: met, broken, or not judged yet (the empty field; the name's uniqueness, judged on sending). */
+/** A rule's state: met, broken, or not judged yet (the empty field; the name's uniqueness, judged on sending). */
 type RuleMark = "met" | "broken" | "open";
-/** A painted mark's name (an alias: the Font Awesome subset's scanner reads the lines that name an icon). */
-type MarkArt = UiIconName;
-const MARK_ART: Record<RuleMark, MarkArt> = { met: "check", broken: "cross", open: "check" };
+
+/**
+ * A rule's painted mark (the owner's ask of 2026-11-07: the green checks and red crosses): the Missions' green check badge when met,
+ * the drawers' red cross disc when broken, the badge greyed while not judged. Two discs of one family, 20 px.
+ */
+function RuleMarkArt({ state }: { state: RuleMark }) {
+  if (state === "broken") return <UiIcon name="close" px={20} className="size-5 shrink-0" />;
+  return <CheckBadge px={20} className={cn("size-5 shrink-0", state === "open" && "opacity-40 grayscale")} />;
+}
 
 /**
  * The profile's name view (PLAYER-RENAME, the owner's ask of 2026-11-07: an edit button beside the player's own name, the first
@@ -74,7 +80,7 @@ const MARK_ART: Record<RuleMark, MarkArt> = { met: "check", broken: "cross", ope
  * the left ("Free" for the first change, else the Cobble and the price) and the gold Rename on the right, held while the name breaks
  * a rule or is the current one. What the player can mend is said where it shows, never in the app's error box (the owner's asks of
  * 2026-11-07: that box, with its Copy, is for what failed on the server's side): a broken rule in the warning colour with its
- * cross; a name taken, its rule's line ("Taken by another player"); too few Cobbles, the field and Rename held and the cost itself
+ * red cross; a name taken, its rule's line ("Taken by another player"); too few Cobbles, the field and Rename held and the cost itself
  * ("30 Cobbles missing" over the figure, both in the warning colour). A read that failed, or another refusal of the chain, is the app's
  * error. The success is said under the field, the field emptied, the name shown now the new one. Any script's letters (the owner's ask): the name is sent composed (NFC), its ends trimmed, and its
  * characters are counted as the chain counts them. Controls never move between states.
@@ -152,7 +158,7 @@ export function RenameView(props: RenameViewProps) {
                 data-mark={state}
                 className={cn("flex items-center gap-2 text-sm font-semibold", state === "met" ? "text-foreground" : state === "broken" ? "text-warning" : "text-muted-foreground")}
               >
-                <UiIcon name={MARK_ART[state]} px={20} className={cn("size-5 shrink-0", state === "open" && "opacity-40 grayscale")} />
+                <RuleMarkArt state={state} />
                 {/* A name taken: said on its own rule's line, the chain's answer. */}
                 <span>{rule === "unique" && taken ? "Taken by another player" : RULE_TEXT[rule]}</span>
                 <span className="sr-only">{state === "met" ? ", met" : state === "broken" ? ", not met" : ""}</span>
