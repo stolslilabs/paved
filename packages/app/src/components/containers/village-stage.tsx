@@ -12,7 +12,7 @@ import { EditBar, useDocked, type EditBarUse } from "./edit-bar";
 import { LeaveEditDialog, useLayoutEditor, type LayoutEditorOptions, type LayoutSaved } from "./layout-editor";
 import { layoutPoints, sameLayout, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { LayoutSlotsStrip, SlotDialog, type LayoutSlotsProps } from "./layout-slots-strip";
-import { LazyVillageBubble } from "./lazy-tile-bubble";
+import { LazyTileBubble } from "./lazy-tile-bubble";
 
 /**
  * Edit mode's panel and its points (EDIT-VILLAGE), their own chunk, loaded as edit mode opens: the stage's chunk, which the home names in
@@ -87,9 +87,9 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
  * The home's village (#753): the scene's box (the 3D canvas, else the plan view) and, in edit mode, the editor's overlays (#739), after
  * the Paved UX Book's "Edit my village" (EDIT-VILLAGE): its bar (`EditBar`, Save and its layouts' picker, #804), the points at the top
  * left (`EditPoints`), the inventory over the village (`EditPanel`: a phone's bottom sheet, a side menu from `tablet`) and the leave
- * dialog. The book's bubble of the tile in
- * hand stands by the tile on the 3D scene, clear of the bar and the panel, the camera framing the village in the room they leave; the
- * plan view stands it still over the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the
+ * dialog. The actions on the tile in hand (TILE-ACTIONS: Cancel, Back to the inventory, Rotate) stand out of its sides on the 3D
+ * scene, clear of the bar and the panel, the camera framing the village in the room they leave; the plan view stands them still in a
+ * row over the panel (#756). The view's overlays are the scene's, painted before this chunk (the editor, the
  * board, the engine) arrives.
  */
 const NONE: VillageLayout = { owner: "", level: 1, tiles: [], score: 0 };
@@ -263,8 +263,8 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   const onEdit = props.onEdit;
   const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", icon: EDIT_ICON, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
   const lit = litLine?.lit ?? null;
-  // The home's bubble is the book's (EDIT-VILLAGE): the village page keeps the boards'.
-  const bubble = useMemo(() => (scene && editor.bubble ? { ...editor.bubble, look: "village" as const } : null), [scene, editor.bubble]);
+  // The tile's actions on the scene (TILE-ACTIONS: the boards' own, Back to the inventory in Discard's place).
+  const bubble = scene ? editor.bubble : null;
   const boxRef = useRef<HTMLDivElement>(null);
   const cover = useEditCover(boxRef, editing && !!village);
   const frame = useMemo(() => (scene ? frameOf(cover) : null), [scene, cover]);
@@ -375,13 +375,13 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
                 )
               }
               above={
-                // The plan view's bubble: still, over the panel (the 3D scene's follows the tile); its own chunk, as the scene's.
+                // The plan view's actions: still, in a row over the panel (the 3D scene's stand out of the tile's sides); their own chunk, as the scene's.
                 still && (
                   <Suspense fallback={null}>
-                    <LazyVillageBubble
+                    <LazyTileBubble
                       rotations={still.rotations}
                       onRotate={still.onRotate}
-                      onReturn={still.onReturn!}
+                      onReturn={still.onReturn}
                       onClose={still.onClose}
                       cancelButton={still.cancelButton}
                       busy={still.busy}

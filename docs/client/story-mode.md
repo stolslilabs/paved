@@ -965,7 +965,7 @@ Forest take it from the Challenge's own draw (`packages/game-core/src/story/deck
   - **Star thresholds are hidden** (#593): no screen shows the score a star needs (not the level card, not the
     presentation, not the HUD). They stay in the plan, which computes the stars.
   - **Coach marks**: the level that introduces a control shows one tip under the header and rings that control on the
-    board: Place tile (1-1), the rotate and cancel bubble on the tile (1-2, a tip only: the bubble sits on the tile),
+    board: Place tile (1-1), the rotate and cancel buttons by the tile (1-2, a tip only: they stand round the tile),
     Discard (1-3, 1-4), the deck sheet's "Tiles left" (1-5, 2-1), the season wheel (1-6), the settings gear (1-7). "Got it"
     hides it.
   - **The tip and the theme** (#721, STORY-SCREENS): the intro also shows the level's tip, set apart, and every tile of a
