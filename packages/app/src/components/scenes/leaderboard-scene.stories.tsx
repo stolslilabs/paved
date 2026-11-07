@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, screen, waitFor } from "storybook/test";
 import { LEADERBOARD } from "../../mocks/ranking";
 import { LeaderboardScene } from "./leaderboard-scene";
 
@@ -23,6 +23,20 @@ const retry = <T extends { players: object; guilds: object; friends: object }>(s
 export const PlayersInView: Story = { args: LEADERBOARD.playersInView };
 /** Players: the viewer thirtieth, out of view: their row pinned over the tabs; a tap brings it into view. */
 export const PlayersOutOfView: Story = { args: LEADERBOARD.playersOutOfView };
+/**
+ * Players: the viewer thirtieth, the list scrolled to its end, past their row: it is pinned at the top of the body, under the header,
+ * the list scrolling under it (the owner's decision of 2026-11-07: on the side it left).
+ */
+export const PlayersScrolledPast: Story = {
+  args: LEADERBOARD.playersOutOfView,
+  play: async () => {
+    const drawer = await screen.findByRole("dialog");
+    const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    await waitFor(() => expect(drawer.querySelector("[data-own]")).not.toBeNull());
+    body.scrollTop = body.scrollHeight;
+    await waitFor(() => expect(drawer.querySelector("[data-slot=ranking-pinned]")?.getAttribute("data-side")).toBe("top"));
+  },
+};
 /** Players: a new player past the list's end, pinned with their place; a tap opens their profile. */
 export const PlayersPastList: Story = { args: LEADERBOARD.playersPastList };
 /** Guilds: by score, the sum of their members' crowns; the viewer's guild in gold. */
