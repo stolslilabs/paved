@@ -28,6 +28,7 @@ import {
   type SkinPrice,
   type PlayerReferralsAnswer,
   type PlayerVaultClaimsAnswer,
+  type NameHolderAnswer,
   type VaultClaim,
   type PlayerInfo,
   type PlayerQuest,
@@ -38,6 +39,7 @@ import {
   type UnsettledGame,
 } from "./api.ts";
 import { unpackSkins, type TaskTarget } from "./events.ts";
+import { nameKey } from "./player-name.ts";
 import {
   PODIUM_TASK,
   consistent,
@@ -615,6 +617,52 @@ export class Queries {
    * A holder's claims of the Vault's USDC at `head` (D-31), newest first, strictly before the cursor `(block, tx, idx)`; the
    * totals are over every one of them, the claims and the collects apart. The sums are exact (u256 text added as BigInt).
    */
+  /**
+   * The names set on chain (PLAYER-RENAME) of `ids` (padded) at block `head`: each player's latest `Renamed`; a player with none
+   * is absent.
+   */
+  chainNames(head: number, ids: readonly string[]): Map<string, string> {
+    const out = new Map<string, string>();
+    const latest = this.store.statement(
+      "SELECT name FROM renames WHERE player_id = ? AND block <= ? ORDER BY block DESC, tx DESC, idx DESC LIMIT 1",
+    );
+    for (const id of new Set(ids)) {
+      const row = latest.get(id, head) as Row | undefined;
+      if (row) out.set(id, String(row.name));
+    }
+    return out;
+  }
+
+  /**
+   * Who holds `name` at block `head`, whatever its case (PLAYER-RENAME, `NameHolderAnswer`): the player whose latest name on chain
+   * has its key, else a player of the names cache whose Cartridge username has it and who set no name on chain.
+   */
+  nameHolder(head: number, name: string): Omit<NameHolderAnswer, keyof Envelope> {
+    const key = nameKey(name);
+    if (key === null) return { name, player_id: null, source: null };
+    const chain = this.store
+      .statement(
+        `SELECT r.player_id FROM renames r
+         WHERE r.name_key = :k AND r.block <= :h
+           AND NOT EXISTS (
+             SELECT 1 FROM renames l WHERE l.player_id = r.player_id AND l.block <= :h AND (l.block, l.tx, l.idx) > (r.block, r.tx, r.idx)
+           )
+         LIMIT 1`,
+      )
+      .get({ k: key, h: head }) as Row | undefined;
+    if (chain) return { name, player_id: String(chain.player_id), source: "chain" };
+    const cartridge = this.store
+      .statement(
+        `SELECT n.address FROM names n
+         WHERE n.name IS NOT NULL AND lower(n.name) = lower(:k)
+           AND NOT EXISTS (SELECT 1 FROM renames r WHERE r.player_id = n.address AND r.block <= :h)
+         ORDER BY n.address LIMIT 1`,
+      )
+      .get({ k: key, h: head }) as Row | undefined;
+    if (cartridge) return { name, player_id: String(cartridge.address), source: "cartridge" };
+    return { name, player_id: null, source: null };
+  }
+
   playerVaultClaims(
     head: number,
     account: string,

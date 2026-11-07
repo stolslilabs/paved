@@ -467,6 +467,14 @@ working.
     A look is a `u128` in AVATAR-LOOK's format (#626 PR 1): the version in byte 0, one item id per part after it.
   - `Setup` is unchanged: `Avatar` pays with `ISetupSpend::spend_cobbles` (#639) as an allowlisted spender, with the reason
     `'AVATAR_ITEM'` (`CobblesSpent`, which the indexer already applies).
+- **The player's name** (PLAYER-RENAME, `docs/architecture/avatar-chain.md`, section 9; not deployed yet).
+  - `Avatar` gains a second interface, `IAvatarName`: `set_rename_price` (owner), `rename(name: ByteArray, max_cobbles)` (any
+    account, for itself), the views `name` (a `ByteArray`), `renames`, `rename_price` and `name_owner(name: ByteArray)`, and the
+    events `RenamePriceSet` and `Renamed` (`player_id` key; `name` a `ByteArray`, `cobbles`, `count`). Its storage is appended
+    (P-42): an upgrade keeps every look and item.
+  - A name is UTF-8 text of 3 to 15 characters, the letters and digits of any script with single spaces and hyphens between
+    words, unique whatever its case. The first change is free, a later one costs the rename price in Cobbles, paid with
+    `ISetupSpend::spend_cobbles` (reason `'RENAME'`, `CobblesSpent`). `Setup` is unchanged.
 
 ## Breaking change D-18
 

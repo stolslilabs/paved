@@ -13,6 +13,9 @@ export const AVATAR_PARTS_IN_USE = TRAIT_PARTS.length;
 /** The paid items' bounds (`FRESH_AVATAR_PRICE_MIN`, `_MAX`). */
 export const AVATAR_PRICE_BOUNDS: [number, number] = [20, 100];
 
+/** The Cobbles of a rename after the first (PLAYER-RENAME, `FRESH_AVATAR_RENAME_PRICE`); the first change is free. */
+export const AVATAR_RENAME_PRICE = 50;
+
 /**
  * How many of each trait's first options are free (`FRESH_AVATAR_FREE`, `docs/architecture/avatar-chain.md`): what a player is
  * (skin, hair, eyes, hair style, beard), the plain gear (the first outfits, pauldrons and accessories, the crown, the helmet and
