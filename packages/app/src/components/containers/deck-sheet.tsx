@@ -153,7 +153,7 @@ function deckTotals(deck: DeckSheetDeck): { total: number; placed: number; disca
 /** One of the toggle's two sides: its painted icon alone, raised when it is the view (raised presses, carved informs). */
 function ViewItem({ value, label, active, children }: { value: DeckView; label: string; active: boolean; children: ReactNode }) {
   return (
-    <ToggleGroupItem value={value} aria-label={label} style={active ? RAISED : undefined} className={cn("size-10 min-w-0 rounded-full border-0 p-0", !active && "opacity-60")}>
+    <ToggleGroupItem value={value} aria-label={label} style={active ? RAISED : undefined} className={cn("size-11 min-w-0 rounded-full border-0 p-0", !active && "opacity-60")}>
       {children}
     </ToggleGroupItem>
   );
@@ -199,6 +199,18 @@ function Face({ plan, look, out }: { plan: number | null; look: CardLook; out: b
   );
 }
 
+/**
+ * The copies of a plan among an attack's next two, at the cell's top left: the info colour's square, beside the red count of the
+ * tiles left, so that the plan in hand (gold) still tells whether one or two more of it come next.
+ */
+function Next({ count }: { count: number }) {
+  return (
+    <span aria-hidden data-slot="deck-next" className="numeric absolute top-0 left-0 grid h-5 min-w-5 place-items-center rounded-[0.3rem] bg-info px-1 text-xs leading-none font-bold text-foreground ring-2 ring-background">
+      {count}
+    </span>
+  );
+}
+
 /** The tiles left of a plan, at the cell's top right: the dock's red square, as the book's Collection counts. */
 function Left({ count }: { count: number }) {
   return (
@@ -219,15 +231,17 @@ function OutMark({ discarded }: { discarded: boolean }) {
 
 /**
  * One plan of a random draw or of the village's tiles: its face, the tiles of it left in the red square (none once every one is out,
- * the face dimmed); the plan of the tile in hand in Tiles' gold, an attack's coming one ringed. Named in full for screen readers.
+ * the face dimmed); the plan of the tile in hand in Tiles' gold, an attack's coming one ringed in blue, and its copies among the next
+ * two in the blue square (also when the plan is in hand, whose gold hides the ring). Named in full for screen readers.
  */
-function PlanCell({ plan, total, placed, discarded, hand, next = false, look }: { plan: number; total: number; placed: number; discarded: number; hand: boolean; next?: boolean; look: CardLook }) {
+function PlanCell({ plan, total, placed, discarded, hand, next = 0, look }: { plan: number; total: number; placed: number; discarded: number; hand: boolean; next?: number; look: CardLook }) {
   const left = total - placed - discarded;
-  const label = [`${tileName(plan)}: ${left} of ${total} left`, placed > 0 && `${placed} played`, discarded > 0 && `${discarded} discarded`, hand && "in hand", next && "coming next"].filter(Boolean).join(", ");
+  const label = [`${tileName(plan)}: ${left} of ${total} left`, placed > 0 && `${placed} played`, discarded > 0 && `${discarded} discarded`, hand && "in hand", next > 0 && `${next} coming next`].filter(Boolean).join(", ");
   return (
     <li data-plan={planCode(plan)} data-left={left} data-played={placed} data-discarded={discarded} data-hand={hand || undefined} data-next={next || undefined} aria-label={label} title={label}>
-      <span className={cn("relative block aspect-square w-full rounded-lg p-1.5", hand && CHOSEN)} style={next && !hand ? NEXT : undefined}>
+      <span className={cn("relative block aspect-square w-full rounded-lg p-1.5", hand && CHOSEN)} style={next > 0 && !hand ? NEXT : undefined}>
         <Face plan={plan} look={look} out={left === 0} />
+        {next > 0 && <Next count={next} />}
         {left > 0 && <Left count={left} />}
       </span>
     </li>
@@ -283,7 +297,7 @@ function AttackDeck({ attack, look, view }: { attack: AttackDeckSheet; look: Car
               placed={count(plan.cards, "placed")}
               discarded={count(plan.cards, "discarded")}
               hand={plan.cards.includes("hand")}
-              next={plan.cards.includes("next")}
+              next={count(plan.cards, "next")}
               look={look}
             />
           ))}

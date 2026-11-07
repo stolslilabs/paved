@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { BalancesProvider } from "../containers/balances-context";
+import { StillsOffContext } from "../elements/avatar-still";
 import { AVATAR_CREATOR } from "../../mocks/scenes";
 import { AvatarCreatorScene } from "./avatar-creator-scene";
 
@@ -40,6 +41,17 @@ type Story = StoryObj<typeof meta>;
 
 /** The saved avatar, Skin tone open: the five tones, all free. */
 export const Saved: Story = { args: AVATAR_CREATOR.saved };
+/** As a device without WebGL renders the stills (none): each option says its name in its card, Skin tone open (issue #1051). */
+const noStills: Story["decorators"] = [
+  (Story) => (
+    <StillsOffContext.Provider value={true}>
+      <Story />
+    </StillsOffContext.Provider>
+  ),
+];
+export const NoWebGL: Story = { args: AVATAR_CREATOR.saved, decorators: noStills };
+/** Without WebGL, Headwear: the longer names over their prices, one tried on in gold. */
+export const NoWebGLHeadwear: Story = { args: AVATAR_CREATOR.headwear, decorators: noStills };
 /** Headwear: one bought and four free (nothing under them), the others on sale (the Feathered cap for the winter). */
 export const Headwear: Story = { args: AVATAR_CREATOR.headwear };
 /** An option on sale tried on (the book's Viking helm's place): its rarity, its price, its season's end and Buy; Save waits for it. */

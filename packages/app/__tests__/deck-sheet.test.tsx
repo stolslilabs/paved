@@ -7,6 +7,7 @@ import BoardDeckSheet, { DeckSheet } from "../src/components/containers/deck-she
 import { LazyMotion, domMax } from "motion/react";
 import { TileStack } from "../src/components/containers/tile-stack";
 import { DECK_VIEW_KEY, deckView } from "../src/data/deck-view";
+import { attackDeckSheet } from "../src/lib/attack-deck-sheet";
 
 const id = (plan: PlanType) => Object.values(PlanType).indexOf(plan);
 
@@ -96,5 +97,39 @@ describe("DeckSheet", () => {
     expect(plans()).toHaveAttribute("data-view", "simple");
     await userEvent.click(screen.getByRole("radio", { name: /Real/ }));
     expect(plans()).toHaveAttribute("data-view", "real");
+  });
+
+  it.each([
+    { name: "[hand, next, left]", view: ["A", "A", "B"] as const, next: 1 },
+    { name: "[hand, next, next]", view: ["A", "A", "A"] as const, next: 2 },
+    { name: "[hand, left, left]", view: ["A", "B", "B"] as const, next: 0 },
+  ])("tells the copies coming next of the plan in hand apart: $name (#1058)", ({ view, next }) => {
+    const plans = { A: id(PlanType.CCCCCFFFC), B: id(PlanType.FFFFCCCFF) };
+    const attack = attackDeckSheet({ defenderPlans: [plans.A, plans.A, plans.A, plans.B, plans.B, plans.B], size: 6, moves: [], view: view.map((k) => plans[k]) });
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "attack", attack }} />);
+    const cell = screen.getByTestId("deck-plans").querySelector('[data-plan="CCCCCFFFC"]')!;
+    expect(cell).toHaveAttribute("data-hand", "true");
+    expect(cell).toHaveAttribute("data-left", "3");
+    const badge = cell.querySelector('[data-slot="deck-next"]');
+    if (next === 0) {
+      expect(cell).not.toHaveAttribute("data-next");
+      expect(badge).toBeNull();
+      expect(cell.getAttribute("aria-label")).not.toMatch(/coming next/);
+    } else {
+      expect(cell).toHaveAttribute("data-next", String(next));
+      expect(badge).toHaveTextContent(String(next));
+      expect(cell.getAttribute("aria-label")).toMatch(new RegExp(`in hand, ${next} coming next$`));
+    }
+  });
+
+  it("gives both view toggles the 44 px touch floor, the painted icon unchanged (#1058)", () => {
+    render(<DeckSheet open onOpenChange={() => {}} deck={{ mode: "counted", counts }} onViewChange={() => {}} />);
+    for (const name of ["Real", "Simplified"]) {
+      const toggle = screen.getByRole("radio", { name });
+      // Tailwind's `size-N` is N x 4 CSS px (jsdom lays nothing out, so the class is the measure).
+      const size = Number(/(?:^|\s)size-(\d+)(?:\s|$)/.exec(toggle.className)?.[1]);
+      expect(size * 4, `${name} toggle in CSS px`).toBeGreaterThanOrEqual(44);
+      expect(toggle.querySelector(".size-7")).not.toBeNull();
+    }
   });
 });
