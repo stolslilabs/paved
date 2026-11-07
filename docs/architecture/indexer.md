@@ -929,3 +929,72 @@ by its id, however old (a replay's metadata), `{ attack }`; 404 while it is open
 
 **Tests.** `pvp.test.ts` (both lists, a skipped opponent, the finish's game events skipped, the halt, a reorg, the routes, a
 deployment without `Arena`), `indexer.test.ts` (schema 19).
+
+## As built (VAULT-CLAIMS, D-31: the claims of the Vault's USDC)
+
+D-31 (`vault-share.md`, addendum 2) makes the Vault pay its holders USDC, as Nums' Vault: every purchase's margin is paid to
+it (`pay`), shared by a per-share index, and a holder claims when it likes. The Vault page reads the earned, claimed and
+claimable USDC from the Vault's views (`earned_of`, `claimed_of`, `claimable_of`); the indexer keeps the history of the
+claims. Schema version 20 (`rebuild` on an older database).
+
+**Source.** `vault`, optional as `collection` and `arena`: the deployment file's `Vault`. Without it no claim is read and the
+deployment hash is unchanged; with it the address is appended to the hash (after `arena`), to `meta.addresses` and to the
+head's `contracts` (absent without one).
+
+**A filter by selector.** The Vault emits many events no table reads: `Paid` at every purchase, the ERC20 `Transfer` and
+`Approval` of its shares (the `Transfer` shares Collection's name and selector), ERC4626's `Deposit` and `Withdraw`, the votes,
+`Paused`, `Unpaused`, `Opened`, `Closed`, `ExitFeeSet`, ownership and upgrade. So the Vault's `starknet_getEvents` filter, by
+block and by range, carries `keys: [[selector("Claimed"), selector("Collected")]]` (the alternatives of the first key) and
+only those two are fetched (`FILTERED` in `events.ts`, `keysOf` in `chain.ts`); the other sources' filters carry no `keys`.
+None of the Vault's other events reaches the strict decoder, and an upgrade that adds one cannot halt the indexer. An event
+of the Vault's answer whose selector was not asked (a node that ignores `keys`) is a `BadAnswer`, as an event of another
+contract is. The event positions are the node's: the events the filter leaves out still count in the transaction's index.
+
+**Events** (from `Vault`)
+
+| Event | Keys, then data | Indexed as |
+|---|---|---|
+| `Claimed` | `account`; `amount` (u256: low, high) | `vault_claims`, kind `claim` |
+| `Collected` | `holder`; `recipient`, `amount` (u256) | `vault_claims`, kind `collect` |
+
+The decoder refuses an `amount` of 0 (both revert on chain with `'Vault: nothing to claim'`). `Claimed` was the name of
+Challenge's prize claim before D-20, known and skipped from any source: it is indexed from the Vault alone and still skipped
+from every other source (`PAST_ELSEWHERE`), so a replay of an old history never halts.
+
+**Table.** `vault_claims (block, tx, idx, tx_hash, account, kind, recipient, amount, time)`, one row per event at its chain
+position, indexed by `(account, block, tx, idx)`; `account` is the holder (the claimer, or the contract a collect took from),
+`recipient` the owner a collect paid (NULL for a claim), `amount` decimal text (USDC base units, 6 decimals), `tx_hash` the
+transaction's hash (66 characters), `time` the block's. A rewind is a delete by block. Nothing is checked against it (the
+Vault's index is not indexed), and a holder is not a player (it may never play).
+
+**API.** `GET /v1/players/{player_id}/vault/claims?limit=&before=` (`/claims` is the cobbles' claims of a day, IX-GEMS1):
+`player_id`, the totals over every claim at the served block (not the page's) `claimed` and `count` (the holder's own
+claims), `collected` and `collected_count` (the owner's collects), `claims` (both kinds, newest first: `kind`, `amount`,
+`recipient`, `block`, `tx`, `idx`, `transaction_hash`, `claimed_at`) and `next` (`<block>:<tx>:<idx>`, as the packs; null on
+the last page). The Vault's `claimed_of(holder)` is `claimed` plus `collected`. An account with none answers zeros and no
+claim (200). The client reads it with `IndexerClient.playerVaultClaims` (`@paved/chain`).
+
+```json
+{ "version": 1, "status": "ok", "head": { "number": 9120, "hash": "0x01b4..e2", "timestamp": 1791878004 }, "behind": 0,
+  "player_id": "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef",
+  "claimed": "4100000", "count": 2, "collected": "0", "collected_count": 0,
+  "claims": [
+    { "kind": "claim", "amount": "2600000", "recipient": null, "block": 9101, "tx": 3, "idx": 1,
+      "transaction_hash": "0x05f1..9a", "claimed_at": 1791877800 },
+    { "kind": "claim", "amount": "1500000", "recipient": null, "block": 8410, "tx": 0, "idx": 1,
+      "transaction_hash": "0x0213..c4", "claimed_at": 1791790000 }
+  ],
+  "next": null }
+```
+
+**Rollout.** Today's `sepolia.json` (the fresh deployment of #359) names the staking Vault of E1, whose `Claimed { account;
+amount }` has the same keys and data, in PAVED base units (18 decimals). An indexer of this schema run against that file
+indexes those PAVED claims as USDC ones: it is rolled out with the fresh Vault and Economy of D-31 ("For the PM", item 6).
+
+**Tests.** `events.test.ts` (the ABI's members of both events, the Vault's variants nested, every other event of the Vault
+outside the filter, both decoders, the wrong lengths and halves, the amount 0, the past `Claimed` skipped from every other
+source), `chain.test.ts` (the Vault's filter carries the keys and the others none, by block and by range, the positions;
+a node that ignores `keys` is a `BadAnswer`), `vault.test.ts` (a claim and a collect, newest first, the totals, an earlier head,
+the route and its parameters, the pages, an account with none, the head's `contracts.vault`, a reorg against a rebuild, the
+catch-up by range, a deployment without a Vault), `deployment.test.ts` (the Vault optional), `indexer.test.ts` (schema 20,
+the deployment hash); in `@paved/chain`, `indexer-vault-claims.test.ts` and `indexer-real.test.ts` (the route over HTTP).

@@ -496,19 +496,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("PVP-FLOW-2: schema 19 (the PvP attacks, #643; 18 was the XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("19");
-    for (const old of ["18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
+  test("VAULT-CLAIMS: schema 20 (the Vault's USDC claims, D-31; 19 was the PvP attacks, #643; 18 was the XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("20");
+    for (const old of ["19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 19: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 19.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 20: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 20.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("19");
+      expect(rebuilt.meta("schema")).toBe("20");
       rebuilt.close();
     }
   });
@@ -534,6 +534,12 @@ describe("the database", () => {
     const sha = (text: string) => createHash("sha256").update(text).digest("hex");
     expect(deploymentHash(CONFIG)).toBe(sha([CHALLENGE, SETUP, ECONOMY, COLLECTION].join(",")));
     expect(deploymentHash({ ...CONFIG, collection: undefined })).toBe(sha([CHALLENGE, SETUP, ECONOMY].join(",")));
+    // D-31: a Vault is appended last, after an Arena; without one the hash is unchanged.
+    expect(deploymentHash({ ...CONFIG, vault: "0x7777" })).toBe(sha([CHALLENGE, SETUP, ECONOMY, COLLECTION, "0x7777"].join(",")));
+    expect(deploymentHash({ ...CONFIG, arena: "0x6666", vault: "0x07777" })).toBe(
+      sha([CHALLENGE, SETUP, ECONOMY, COLLECTION, "0x6666", "0x7777"].join(",")),
+    );
+    expect(deploymentHash({ ...CONFIG, vault: undefined })).toBe(deploymentHash(CONFIG));
   });
 
   test("a database is never reused for another deployment, another start or another chain", () => {
@@ -545,6 +551,7 @@ describe("the database", () => {
     expect(() => again.open({ ...CONFIG, challenge: "0x9999" })).toThrow(/another deployment/);
     expect(() => again.open({ ...CONFIG, economy: "0x9999" })).toThrow(/another deployment/);
     expect(() => again.open({ ...CONFIG, setup: "0x9999" })).toThrow(/another deployment/);
+    expect(() => again.open({ ...CONFIG, vault: "0x7777" })).toThrow(/another deployment/);
     expect(() => again.open({ ...CONFIG, from: 5 })).toThrow(/built from block 1/);
     expect(() => again.open({ ...CONFIG, chainId: "0x1" })).toThrow(/chain/);
     expect(() => again.open(CONFIG)).not.toThrow();

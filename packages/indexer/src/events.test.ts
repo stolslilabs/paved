@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import {
   DecodeError,
   EMITTERS,
+  FILTERED,
   IGNORED,
   SELECTORS,
   canonical,
@@ -448,17 +449,29 @@ describe("Economy's events", () => {
 
   test("the past prize events (D-20) are known by name and skipped, and no ABI declares them any more", () => {
     for (const name of ["Sponsored", "Claimed", "Reclaimed"] as const) {
-      expect(name in EMITTERS, name).toBe(false);
-      expect((IGNORED as readonly string[]).includes(name), name).toBe(true);
       for (const contract of CONTRACTS) {
         const declared = abi(contract).filter((item) => item.type === "event" && item.kind === "struct").map(shortOf);
         expect(declared, `${contract}.${name}`).not.toContain(name);
       }
     }
+    for (const name of ["Sponsored", "Reclaimed"] as const) {
+      expect(name in EMITTERS, name).toBe(false);
+      expect((IGNORED as readonly string[]).includes(name), name).toBe(true);
+    }
+    // `Claimed` is the Vault's since D-31, indexed from it alone: the past prize claim of any other source is still skipped.
+    expect(EMITTERS.Claimed).toEqual(["vault"]);
+    expect((IGNORED as readonly string[]).includes("Claimed")).toBe(false);
     // Their layouts before D-20 (public-interface.md, "Past events"), each from Challenge's address.
     for (const event of [ev.sponsored(20733, 0xabc), ev.claimed(20733, 0x1234, 1), ev.reclaimed(20733, 0xabc)]) {
       expect(decode("challenge", event.keys, event.data)).toBeNull();
     }
+    const past = ev.claimed(20733, 0x1234, 1);
+    for (const source of ["challenge", "setup", "economy", "collection", "arena"] as const) {
+      expect(decode(source, past.keys, past.data), source).toBeNull();
+      expect(decode(source, [SELECTORS.Claimed], []), source).toBeNull();
+    }
+    // From the Vault, the prize claim's layout (a day key; data player, rank, reward) is no claim of its USDC: a halt.
+    expect(() => decode("vault", past.keys, past.data)).toThrow(DecodeError);
   });
 
   test("the owner events of Economy are known and skipped", () => {
@@ -899,5 +912,89 @@ describe("Cobbles v1 part 3 events (the skins, cobbles-v1.md section 5)", () => 
     expect(() => decode("setup", e.keys, [])).toThrow(DecodeError);
     expect(() => decode("setup", e.keys, [...e.data, "0x0"])).toThrow(DecodeError);
     expect(() => decode("economy", e.keys, e.data)).toThrow(/does not emit it/);
+  });
+});
+
+describe("the Vault's claims (D-31)", () => {
+  type Enum = AbiItem & { variants: { name: string; type: string; kind: string }[] };
+  const vault = () => abi("Vault");
+  const declared = (name: string) => {
+    const item = vault().find((found) => found.type === "event" && found.kind === "struct" && shortOf(found) === name)!;
+    const members = (kind: string) => item.members!.filter((m) => m.kind === kind).map((m) => `${m.name}: ${m.type.split("::").at(-1)}`);
+    return { keys: members("key"), data: members("data") };
+  };
+
+  test("the ABI declares both with the keys and data the decoders read; only they are fetched, by their selectors", () => {
+    expect(declared("Claimed")).toEqual({ keys: ["account: ContractAddress"], data: ["amount: u256"] });
+    expect(declared("Collected")).toEqual({ keys: ["holder: ContractAddress"], data: ["recipient: ContractAddress", "amount: u256"] });
+    // The Vault's own variants are nested, each named as its struct: the selector is the struct's name.
+    const event = (vault().filter((item) => item.type === "event" && item.kind === "enum") as Enum[]).find(
+      (item) => item.name === "paved::systems::vault::Vault::Event",
+    )!;
+    for (const name of ["Claimed", "Collected"]) {
+      const variant = event.variants.find((v) => v.name === name)!;
+      expect(variant.kind, name).toBe("nested");
+      expect(variant.type.split("::").at(-1)).toBe(name);
+      expect(SELECTORS[name as "Claimed" | "Collected"]).toBe(canonical(hash.getSelectorFromName(name)));
+    }
+    expect(FILTERED.vault).toEqual(["Claimed", "Collected"]);
+    expect(EMITTERS.Claimed).toEqual(["vault"]);
+    expect(EMITTERS.Collected).toEqual(["vault"]);
+    // Every other event of the Vault (its own, the components': ERC20's Transfer, ERC4626, the votes, the owner's) has a
+    // selector the filter does not ask for, so none reaches the decoder.
+    const others = vault()
+      .filter((item) => item.type === "event" && item.kind === "struct")
+      .map(shortOf)
+      .filter((name) => name !== "Claimed" && name !== "Collected");
+    expect(others).toEqual(expect.arrayContaining(["Paid", "Transfer", "Deposit", "Withdraw", "DelegateVotesChanged", "Paused"]));
+    for (const name of others) expect([SELECTORS.Claimed, SELECTORS.Collected], name).not.toContain(canonical(hash.getSelectorFromName(name)));
+    expect(Object.keys(FILTERED)).toEqual(["vault"]);
+  });
+
+  test("Claimed: the account and a u256 amount", () => {
+    const big = 2n ** 128n + 7n;
+    const e = ev.vaultClaimed(0xa1, big);
+    expect(decode("vault", e.keys, e.data)).toEqual({ name: "Claimed", account: 0xa1n, amount: big });
+    const small = ev.vaultClaimed(0xa1, 1_500_000n);
+    expect(decode("vault", small.keys, small.data)).toEqual({ name: "Claimed", account: 0xa1n, amount: 1_500_000n });
+    // A claim of nothing reverts on chain; a half wider than u128; a missing or extra member, a missing key
+    for (const [keys, data] of [
+      [e.keys, ["0x0", "0x0"]],
+      [e.keys, [`0x${(2n ** 128n).toString(16)}`, "0x0"]],
+      [e.keys, e.data.slice(0, 1)],
+      [e.keys, [...e.data, "0x0"]],
+      [e.keys.slice(0, 1), e.data],
+      [[...e.keys, "0x1"], e.data],
+    ] as const) {
+      expect(() => decode("vault", keys, data), JSON.stringify([keys, data])).toThrow(DecodeError);
+    }
+    expect(() => decode("vault", e.keys, ["0x0", "0x0"])).toThrow(/amount 0/);
+  });
+
+  test("Collected: the holder, the recipient and a u256 amount", () => {
+    const e = ev.vaultCollected(0xc3, 0x0e, 250_000n);
+    expect(decode("vault", e.keys, e.data)).toEqual({ name: "Collected", holder: 0xc3n, recipient: 0x0en, amount: 250_000n });
+    const high = ev.vaultCollected(0xc3, 0x0e, 2n ** 200n);
+    expect(decode("vault", high.keys, high.data)).toMatchObject({ amount: 2n ** 200n });
+    for (const [keys, data] of [
+      [e.keys, [e.data[0]!, "0x0", "0x0"]],
+      [e.keys, e.data.slice(0, 2)],
+      [e.keys, [...e.data, "0x0"]],
+      [e.keys.slice(0, 1), e.data],
+      [e.keys, [e.data[0]!, "0x1", `0x${(2n ** 128n).toString(16)}`]],
+    ] as const) {
+      expect(() => decode("vault", keys, data), JSON.stringify([keys, data])).toThrow(DecodeError);
+    }
+    // Only the Vault emits it.
+    for (const source of ["challenge", "setup", "economy", "collection", "arena"] as const) {
+      expect(() => decode(source, e.keys, e.data), source).toThrow(/does not emit it/);
+    }
+  });
+
+  test("the Vault emits nothing else the decoder reads: a Transfer of its shares, if one reached it, halts", () => {
+    const t = ev.vaultTransfer(0xa1, 0xb2, 10n ** 18n);
+    expect(() => decode("vault", t.keys, t.data)).toThrow(DecodeError);
+    const p = ev.vaultPaid(0xe, 1n);
+    expect(() => decode("vault", p.keys, p.data)).toThrow(/unknown event of vault/);
   });
 });

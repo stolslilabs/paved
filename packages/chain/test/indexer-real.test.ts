@@ -8,7 +8,7 @@ import type { IndexerError } from "../src/indexer";
 import { padded } from "../../indexer/src/events.ts";
 import { serve } from "../../indexer/src/server.ts";
 import { FakeNode, ev } from "../../indexer/src/testing/fake-node.ts";
-import { indexerOf, settle } from "../../indexer/src/testing/setup.ts";
+import { indexerOf, indexerWithVault, settle } from "../../indexer/src/testing/setup.ts";
 
 const A = 0xa1n;
 const B = 0xb2n;
@@ -61,8 +61,8 @@ async function startQuests() {
   return { node, ...(await serveNode(node)) };
 }
 
-async function serveNode(node: FakeNode): Promise<{ client: IndexerClient; indexer: Indexer; url: string }> {
-  const indexer = indexerOf(node);
+async function serveNode(node: FakeNode, build: (node: FakeNode) => Indexer = indexerOf): Promise<{ client: IndexerClient; indexer: Indexer; url: string }> {
+  const indexer = build(node);
   await settle(indexer);
   const server = serve(indexer, { allowedOrigins: [ORIGIN] });
   servers.push(server);
@@ -305,6 +305,28 @@ describe("IndexerClient against the real indexer", () => {
     expect(allowed.headers.get("access-control-allow-origin")).toBe(ORIGIN);
     const other = await fetch(`${url}/v1/head`, { headers: { origin: "http://evil.example" } });
     expect(other.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  test("/v1/players/{id}/vault/claims (D-31): the Vault's claims and collects, newest first, the totals, the pages", async () => {
+    const node = new FakeNode();
+    node.mine([ev.vaultPaid(0xe, 600_000n), ev.vaultClaimed(A, 1_500_000n)]);
+    node.mine([ev.vaultTransfer(A, B, 10n ** 18n), ev.vaultCollected(B, 0xe, 250_000n)]);
+    node.mine([ev.vaultClaimed(A, 2n ** 130n)]);
+    const { client } = await serveNode(node, (n) => indexerWithVault(n));
+    const { data } = await client.playerVaultClaims(ADA);
+    expect(data).toMatchObject({ playerId: ADA, claimed: String(2n ** 130n + 1_500_000n), count: 2, collected: "0", collectedCount: 0, next: null });
+    expect(data.claims.map((c) => [c.kind, c.amount, c.block, c.tx, c.idx, c.recipient])).toEqual([
+      ["claim", String(2n ** 130n), 3, 0, 0, null],
+      ["claim", "1500000", 1, 0, 1, null],
+    ]);
+    expect(data.claims[0]!.transactionHash).toBe(padded(node.blocks[3]!.transactions[0]!.hash));
+    expect(data.claims[0]!.claimedAt).toBe(node.blocks[3]!.timestamp);
+    const page = await client.playerVaultClaims(ADA, { limit: 1 });
+    expect(page.data).toMatchObject({ count: 2, claims: [{ block: 3 }], next: "3:0:0" });
+    expect((await client.playerVaultClaims(ADA, { limit: 1, before: page.data.next! })).data).toMatchObject({ claims: [{ block: 1 }], next: null });
+    expect((await client.playerVaultClaims(BO)).data).toMatchObject({ collected: "250000", collectedCount: 1, claims: [{ kind: "collect", recipient: padded(0xen) }] });
+    expect((await client.playerVaultClaims(0xc3n)).data).toMatchObject({ claimed: "0", count: 0, claims: [] });
+    expect(await kindOf(client.playerVaultClaims(ADA, { before: "x" }))).toBe("rejected");
   });
 
   test("the padded id the client writes is the one the indexer serves", () => {
