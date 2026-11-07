@@ -110,11 +110,12 @@ export function LevelBar({ progress, variant = "card", star = true, className }:
       {/*
         The mockup's track (`xp-track`: a near-black outline, a silver bevel, a dark recess) with its drop shadow, and over it, inside
         the outline, the faceted cyan fill (`xp-fill`), shown from the left up to the share: as on the mockup, the fill covers the silver
-        bevel (the owner's ask of 2026-11-02), the outline alone round it (1 px, its inner corner 5 px).
+        bevel (the owner's ask of 2026-11-02), the outline alone round it (1 px, its inner corner 5 px). The recess and the flash are
+        rounded at both ends, full or not, star or not (#1060): under the star the left corner is hidden, at a game's end it shows.
       */}
       <span className="relative h-4.5 flex-1">
         <span aria-hidden data-slot="xp-track" className="absolute inset-0 [filter:drop-shadow(0_1px_0_var(--background))]" style={TRACK} />
-        <span data-slot="level-recess" className="absolute inset-px overflow-hidden rounded-r-[5px]">
+        <span data-slot="level-recess" className="absolute inset-px overflow-hidden rounded-[5px]">
           <m.span ref={fill} data-slot="level-fill" className="absolute inset-0 will-change-transform" style={{ ...FILL, transform: shift }} />
         </span>
         {lit !== null && (
@@ -122,7 +123,7 @@ export function LevelBar({ progress, variant = "card", star = true, className }:
           <m.span
             key={lit}
             data-slot="level-flash"
-            className="absolute inset-px rounded-r-[5px] bg-xp-light"
+            className="absolute inset-px rounded-[5px] bg-xp-light"
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}

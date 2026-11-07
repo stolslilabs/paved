@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { levelStatus } from "@paved/game-core";
+import { useEffect, useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { angledTileArt } from "../../mocks/assets";
 import { PVP_END } from "../../mocks/pvp";
 import { PLAN } from "../../mocks/village";
-import { PvpEndScene } from "./pvp-end-scene";
+import { PvpEndScene, type PvpEndSceneProps, type PvpEndXp } from "./pvp-end-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
@@ -98,6 +100,31 @@ export const ScoresClosed: Story = {
 };
 /** The attack's XP reaches a level: "Level up". */
 export const LevelUp: Story = { args: PVP_END.levelUp };
+/** At the level cap: the bar full, rounded at both ends, "Max level". */
+export const MaxLevel: Story = {
+  args: PVP_END.maxLevel,
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText("Max level")).toBeInTheDocument();
+  },
+};
+/** A few XP into a level: the fill near empty, its left end rounded inside the track's outline. */
+export const NearEmpty: Story = { args: PVP_END.nearEmpty };
+/** The XP before the attack: where the bar stood. */
+function xpBefore({ xp, gained }: PvpEndXp): PvpEndXp {
+  const at = levelStatus(xp - gained);
+  return { gained: 0, xp: at.xp, level: at.level, floor: at.floor, next: at.next, levelBefore: at.level };
+}
+/** The level up played: the bar where it stood, then, a second in, the attack's XP fills it, flashes it and fills the new level. */
+function LevelUpPlayed(props: PvpEndSceneProps) {
+  const [xp, setXp] = useState(props.xp && xpBefore(props.xp));
+  useEffect(() => {
+    const t = setTimeout(() => setXp(props.xp), 1000);
+    return () => clearTimeout(t);
+  }, [props.xp]);
+  return <PvpEndScene {...props} xp={xp} />;
+}
+/** The level up as it plays: the bar completes, flashes whole (rounded at both ends), then fills the new level. */
+export const LevelUpPlaying: Story = { args: PVP_END.levelUp, render: (args) => <LevelUpPlayed {...args} /> };
 /** The attack given up: "Surrendered" and the crowns it cost. */
 export const Surrendered: Story = { args: PVP_END.surrendered };
 /** The level still being read. */
@@ -125,5 +152,13 @@ export const ChestUnavailablePhone: Story = { ...ChestUnavailable, ...PHONE_375 
 export const ChestUnavailableWide: Story = { ...ChestUnavailable, ...WIDE_1440 };
 export const ChestKeptPhone: Story = { ...ChestKept, ...PHONE_375 };
 export const ChestKeptWide: Story = { ...ChestKept, ...WIDE_1440 };
+export const MaxLevelPhone: Story = { ...MaxLevel, ...PHONE_375 };
+export const MaxLevelWide: Story = { ...MaxLevel, ...WIDE_1440 };
+export const NearEmptyPhone: Story = { ...NearEmpty, ...PHONE_375 };
+export const NearEmptyWide: Story = { ...NearEmpty, ...WIDE_1440 };
+export const LevelUpPlayingPhone: Story = { ...LevelUpPlaying, ...PHONE_375 };
+export const LevelUpPlayingWide: Story = { ...LevelUpPlaying, ...WIDE_1440 };
+export const LevelUpPhone: Story = { ...LevelUp, ...PHONE_375 };
+export const LevelUpWide: Story = { ...LevelUp, ...WIDE_1440 };
 export const SurrenderedPhone: Story = { ...Surrendered, ...PHONE_375 };
 export const SurrenderedWide: Story = { ...Surrendered, ...WIDE_1440 };
