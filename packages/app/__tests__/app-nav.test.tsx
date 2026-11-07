@@ -18,11 +18,11 @@ import { preloadPages } from "./route-helpers";
 describe("the dock", () => {
   it("holds Shop, Ranking, Play, Guild, Settings in that order, at every width (#763, HOME-DOCK; END-CHEST: Ranking in the Chests' place), none of them current", () => {
     render(<AppNav />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking, coming soon", "Play", "Guild", "Settings"]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild", "Settings"]);
     expect(screen.queryByRole("button", { current: "page" })).toBeNull();
     expect(screen.getByRole("navigation", { name: "Main" })).not.toHaveClass("desktop:hidden");
     // The labels from `mobile` (a 320 px phone too narrow for the five).
-    for (const name of ["Shop", "Ranking, coming soon", "Guild", "Settings"]) {
+    for (const name of ["Shop", "Ranking", "Guild", "Settings"]) {
       expect(screen.getByRole("button", { name }).querySelector('[data-slot="app-nav-label"]')!.className).toContain("mobile:block");
     }
     // The painted wood and parchment under it (the mockup's pieces, 9-slices), and the four dividers between its columns.
@@ -30,15 +30,15 @@ describe("the dock", () => {
     expect(document.querySelectorAll('[data-slot="dock-divider"]')).toHaveLength(4);
   });
 
-  it("on the home, shows the guild's count on Guild; Ranking leads nowhere yet (the Leaderboard to come)", async () => {
+  it("on the home, shows the guild's count on Guild; Ranking opens the Leaderboard (LEADERBOARD-PAGE)", async () => {
     const onNavigate = vi.fn();
     render(<AppNav badges={{ guild: 1 }} onNavigate={onNavigate} />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking, coming soon", "Play", "Guild, 1 waiting", "Settings"]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild, 1 waiting", "Settings"]);
     expect([...document.querySelectorAll('[data-slot="app-nav-badge"]')].map((b) => b.textContent)).toEqual(["1"]);
-    const ranking = screen.getByRole("button", { name: "Ranking, coming soon" });
-    expect(ranking).toHaveAttribute("aria-disabled", "true");
+    const ranking = screen.getByRole("button", { name: "Ranking" });
+    expect(ranking).not.toHaveAttribute("aria-disabled");
     ranking.click();
-    expect(onNavigate).not.toHaveBeenCalled();
+    expect(onNavigate).toHaveBeenCalledWith("ranking");
   });
 });
 

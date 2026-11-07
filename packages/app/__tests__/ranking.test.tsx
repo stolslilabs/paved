@@ -1,0 +1,362 @@
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { LazyMotion, domMax } from "motion/react";
+import { Outlet, type RouteObject } from "react-router";
+import { App } from "../src/App";
+import type { GameSigner } from "../src/data";
+import { queryClient } from "../src/lib/query-client";
+import { PlayerProfileHost } from "../src/routes/player-profile";
+import { createTestRouter } from "../src/routes/router";
+import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
+import { preloadPages } from "./route-helpers";
+import { fakeWallet } from "./wallet-fakes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PLAYER_RANKING_LIMIT, formatInteger, guildScore, rankPlayers } from "@paved/game-core";
+import { LeaderboardScene, type LeaderboardSceneProps } from "../src/components/scenes/leaderboard-scene";
+import { useGuildRanking } from "../src/data/guilds";
+import { addressKey } from "../src/data/keys";
+import { community } from "../src/data/mock/community";
+import { MOCK_KEY } from "../src/data/mock/ledger";
+import { rankingKeys, useFriendsRanking, usePlayerRanking } from "../src/data/player-ranking";
+import { guildSource, type FollowLists, type FollowSource, type PublicProfile, type SocialSource } from "../src/data/social-source";
+import { LEADERBOARD } from "../src/mocks/ranking";
+import { slow } from "../test-slow";
+import { dataOf, fakeSources, renderData } from "./data-fakes";
+import { mockImplementation } from "./mock-fakes";
+
+// The Leaderboard (LEADERBOARD-PAGE): the players' ranking on the mock (by crowns, the viewer's place), a guild's score the sum of
+// its members' crowns as the players' ranking reads them, the viewer among their friends, the hooks, and the scene's states.
+
+/** The mock's sources with the signer's village founded (stored on the device) and, given, its crowns this season. */
+async function mockWith(crowns?: number) {
+  const s = mockImplementation();
+  const me = s.sources.signer!.address;
+  await s.ledger.writesFor(me).foundFreeVillage();
+  if (crowns !== undefined) {
+    const season = (await s.ledger.pvpLeague(me)).season;
+    const state = JSON.parse(s.store.getItem(MOCK_KEY)!);
+    state.players[addressKey(me)].pvp = { crowns, draws: 0, match: null, attacks: [], shieldUntil: 0, season, seasonAttacks: 1, peak: 0 };
+    s.store.setItem(MOCK_KEY, JSON.stringify(state));
+  }
+  return { ...s, me };
+}
+
+describe("the players' ranking on the mock (LEADERBOARD-PAGE)", () => {
+  it("ranks the community and the device's players by crowns, and gives the viewer's place", async () => {
+    const { sources, me } = await mockWith(1_300);
+    const ranking = await sources.social!.playerRanking!(me);
+    expect(ranking.players.length).toBe(community().length + 1);
+    expect(ranking.players.length).toBeLessThanOrEqual(PLAYER_RANKING_LIMIT);
+    const crowns = ranking.players.map((p) => p.crowns);
+    expect(crowns).toEqual([...crowns].sort((a, b) => b - a));
+    const place = ranking.players.findIndex((p) => addressKey(p.address) === addressKey(me)) + 1;
+    expect(ranking.me).toMatchObject({ place, profile: { crowns: 1_300 } });
+    expect(ranking.players[place - 1]!.crowns).toBe(1_300);
+    // Read by a player of no ID it knows, and by no viewer: no place.
+    expect((await sources.social!.playerRanking!("0xdead")).me).toBeNull();
+    expect((await sources.social!.playerRanking!(null)).me).toBeNull();
+  });
+
+  it("counts a guild's score as the sum of its members' crowns, the same crowns the players' ranking reads", async () => {
+    const { sources, me } = await mockWith(250);
+    const guilds = guildSource(sources.social)!;
+    // The viewer founds a guild: their crowns are in its score.
+    await guilds.createGuild(me, { name: "Stone Road", emblem: { icon: 1, primary: 2, secondary: 3 }, description: "", joinType: "open", requirements: { level: 0, crowns: 0 } });
+    const players = new Map((await sources.social!.playerRanking!(me)).players.map((p) => [addressKey(p.address), p.crowns]));
+    const ranking = await guilds.guildRanking();
+    expect(ranking.find((g) => g.name === "Stone Road")!.score).toBe(250);
+    for (const summary of ranking) {
+      const page = (await guilds.guild(summary.id, null))!;
+      const sum = page.roster.reduce((total, m) => total + players.get(addressKey(m.profile.address))!, 0);
+      expect(summary.score, summary.name).toBe(sum);
+      expect(summary.score, summary.name).toBe(guildScore(page.roster.map((m) => m.profile)));
+    }
+  });
+});
+
+describe("usePlayerRanking (LEADERBOARD-PAGE)", () => {
+  it("reads the ranking as the viewer reads it, under the social domain's key", async () => {
+    const { sources, me } = await mockWith(600);
+    const { result, client } = renderData(() => usePlayerRanking(me), sources);
+    const ranking = await dataOf(result);
+    expect(ranking.me!.profile.crowns).toBe(600);
+    expect(rankingKeys.players(me)).toEqual(["social", "ranking", "players", addressKey(me)]);
+    expect(client.getQueryData(rankingKeys.players(me))).toBe(ranking);
+    // Both rankings read together, as the page does.
+    const both = renderData(() => ({ players: usePlayerRanking(null), guilds: useGuildRanking() }), sources);
+    await waitFor(() => expect(both.result.current.players.data && both.result.current.guilds.data).toBeTruthy());
+    expect(both.result.current.players.data!.me).toBeNull();
+  });
+
+  it("answers unavailable without a ranking on the social source, and ends its wait on a failed read", async () => {
+    const plain: SocialSource = { profile: async () => null, searchPlayers: async () => [] };
+    const off = renderData(() => usePlayerRanking(null), fakeSources({ social: plain }).sources);
+    expect(off.result.current).toMatchObject({ unavailable: true, isPending: false, data: undefined, error: null });
+    const failing: SocialSource = { ...plain, playerRanking: () => Promise.reject(new Error("no answer")) };
+    const { result } = renderData(() => usePlayerRanking(null), fakeSources({ social: failing }).sources);
+    await waitFor(() => expect(result.current.error?.message).toBe("no answer"));
+    expect(result.current.isPending).toBe(false);
+  });
+});
+
+describe("useFriendsRanking (LEADERBOARD-PAGE)", () => {
+  const person = (address: string, crowns: number): PublicProfile => ({ address, name: address, look: null, level: 3, crowns, league: 0, score: 0, lastSeen: 0 });
+  const ME = person("0x0aa", 500);
+  const FRIENDS = [person("0xb1", 900), person("0xb2", 100), person("0xb3", 700)];
+  const lists = (friends: PublicProfile[]): FollowLists => ({ friends: friends.map((profile) => ({ profile, since: 0, isNew: false })), following: [], followers: [], newFollowers: 0, blocked: [], nextChangeAt: null });
+  /** A social source with the viewer's ranking and their follow lists; the follows' other calls unused here. */
+  const social = (friends: PublicProfile[], listsRead?: () => Promise<FollowLists>): SocialSource => ({
+    profile: async () => null,
+    searchPlayers: async () => [],
+    playerRanking: async () => ({ players: [], me: { place: 51, profile: ME } }),
+    follows: { lists: listsRead ?? (async () => lists(friends)) } as Partial<FollowSource> as FollowSource,
+  });
+
+  it("ranks the viewer among their friends by crowns, their place among them; no friend, an empty ranking", async () => {
+    const { result } = renderData(() => useFriendsRanking(ME.address), fakeSources({ social: social(FRIENDS) }).sources);
+    const ranking = await dataOf(result);
+    expect(ranking.players.map((p) => p.address)).toEqual(rankPlayers([ME, ...FRIENDS]).map((p) => p.address));
+    expect(ranking.me).toEqual({ place: 3, profile: ME });
+    const none = renderData(() => useFriendsRanking(ME.address), fakeSources({ social: social([]) }).sources);
+    expect(await dataOf(none.result)).toEqual({ players: [], me: null });
+  });
+
+  it("answers unavailable without the follows, and ends its wait on a failed read", async () => {
+    const plain: SocialSource = { profile: async () => null, searchPlayers: async () => [] };
+    const off = renderData(() => useFriendsRanking(ME.address), fakeSources({ social: plain }).sources);
+    expect(off.result.current).toMatchObject({ unavailable: true, isPending: false, data: undefined, error: null });
+    const failing = social(FRIENDS, () => Promise.reject(new Error("no answer")));
+    const { result } = renderData(() => useFriendsRanking(ME.address), fakeSources({ social: failing }).sources);
+    await waitFor(() => expect(result.current.error?.message).toBe("no answer"));
+    expect(result.current.isPending).toBe(false);
+  });
+});
+
+/** The scene with every callback a spy. */
+function scene(props: Partial<LeaderboardSceneProps> & Pick<LeaderboardSceneProps, "tab" | "players" | "guilds" | "friends">) {
+  const spies = { onTabChange: vi.fn(), onOpenPlayer: vi.fn(), onOpenGuild: vi.fn(), onBack: vi.fn() };
+  const view = render(
+    <LazyMotion features={domMax}>
+      <LeaderboardScene {...spies} {...props} />
+    </LazyMotion>,
+  );
+  return { ...view, ...spies, drawer: screen.getByRole("dialog", { name: "Ranking" }) };
+}
+
+describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
+  it("lists the players by crowns, the first three under their medals, the viewer's row in gold with You; a row opens the player", async () => {
+    const { drawer, onOpenPlayer } = scene(LEADERBOARD.playersInView);
+    const list = within(drawer).getByRole("list", { name: "Players by crowns" });
+    const rows = within(list).getAllByRole("button");
+    const ranking = LEADERBOARD.playersInView.players.data!;
+    expect(rows).toHaveLength(ranking.players.length);
+    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Players\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    const first = ranking.players[0]!;
+    expect(rows[0]).toHaveAccessibleName(`1. ${first.name}, level ${first.level}, ${formatInteger(first.crowns)} crowns`);
+    expect(rows.slice(0, 4).map((r) => r.querySelector("[data-slot=ranking-place]")!.tagName)).toEqual(["IMG", "IMG", "SPAN", "SPAN"]);
+    expect(rows[2]!.querySelector("[data-slot=ranking-place] img[data-icon=medal]")).not.toBeNull();
+    expect(rows[3]!.querySelector("[data-slot=ranking-place]")).toHaveTextContent("4");
+    // The viewer, fourth: their row on the gold wash with You; in view, nothing pinned.
+    const own = rows[3]!;
+    expect(own).toHaveAttribute("data-own", "true");
+    expect(own).toHaveClass("bg-primary/15");
+    expect(within(own).getByText("You")).toBeInTheDocument();
+    expect(rows.filter((r) => r.hasAttribute("data-own"))).toHaveLength(1);
+    expect(drawer.querySelector("[data-slot=ranking-pinned]")).toBeNull();
+    await userEvent.click(rows[1]!);
+    expect(onOpenPlayer).toHaveBeenCalledWith(ranking.players[1]!.address);
+  });
+
+  it("puts its tabs at the drawer's foot: Players, Guilds, Alliances disabled, Friends at the end; a press asks for its tab alone", async () => {
+    const { drawer, onTabChange } = scene(LEADERBOARD.playersInView);
+    const tabs = within(drawer).getByRole("tablist", { name: "Ranking" });
+    expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(tabs);
+    expect(tabs).toHaveAttribute("data-slot", "footer-tabs");
+    expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds", "Alliances, coming soon", "Friends"]);
+    const alliances = within(tabs).getByRole("tab", { name: "Alliances, coming soon" });
+    expect(alliances).toBeDisabled();
+    // Guilds and Alliances under the ranking's own painted shields, the handshake gone to Friends.
+    expect(alliances.querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/alliances.webp");
+    expect(within(tabs).getByRole("tab", { name: "Guilds" }).querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/guilds.webp");
+    expect(within(tabs).getByRole("tab", { name: "Friends" }).querySelector("img[data-icon=friends]")).not.toBeNull();
+    await userEvent.click(alliances);
+    expect(onTabChange).not.toHaveBeenCalled();
+    await userEvent.click(within(tabs).getByRole("tab", { name: "Guilds" }));
+    // Radix calls twice on a press (the page's change is idempotent: the URL's tab replaced by itself).
+    expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["guilds"]));
+    onTabChange.mockClear();
+    await userEvent.click(within(tabs).getByRole("tab", { name: "Friends" }));
+    expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["friends"]));
+  });
+
+  it("lists the viewer among their friends by crowns, their row in gold; no friend, the words for it", async () => {
+    const { drawer, onOpenPlayer, unmount } = scene(LEADERBOARD.friends);
+    const ranking = LEADERBOARD.friends.friends.data!;
+    const rows = within(within(drawer).getByRole("list", { name: "Friends by crowns" })).getAllByRole("button");
+    expect(rows).toHaveLength(ranking.players.length);
+    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Friends\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    const own = rows.find((r) => r.hasAttribute("data-own"))!;
+    expect(rows.indexOf(own) + 1).toBe(ranking.me!.place);
+    expect(own).toHaveAccessibleName(new RegExp(`^${ranking.me!.place}\\. .+ \\(you\\), `));
+    await userEvent.click(rows.find((r) => r !== own)!);
+    expect(onOpenPlayer).toHaveBeenCalledOnce();
+    unmount();
+    const none = scene(LEADERBOARD.noFriends);
+    expect(within(none.drawer).getByText(/^No friend to rank yet/)).toBeInTheDocument();
+    expect(within(none.drawer).queryByRole("list")).toBeNull();
+  });
+
+  it("lists the guilds by score, the viewer's in gold with Yours; a row opens the guild", async () => {
+    const { drawer, onOpenGuild } = scene(LEADERBOARD.guilds);
+    const rows = within(within(drawer).getByRole("list", { name: "Guilds by score" })).getAllByRole("button");
+    const guilds = LEADERBOARD.guilds.guilds.data!;
+    expect(rows).toHaveLength(guilds.length);
+    const scores = guilds.map((g) => g.score);
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+    const own = rows.find((r) => r.hasAttribute("data-own"))!;
+    expect(own).toHaveAccessibleName(new RegExp(`^${guilds.findIndex((g) => g.id === LEADERBOARD.guilds.myGuild) + 1}\\. The Quarrymen \\(your guild\\), `));
+    expect(within(own).getByText("Yours")).toBeInTheDocument();
+    await userEvent.click(rows[0]!);
+    expect(onOpenGuild).toHaveBeenCalledWith(guilds[0]!.id);
+  });
+
+  it("pins the viewer past the list's end at the foot, with their place; a tap opens their profile", async () => {
+    const { drawer, onOpenPlayer } = scene(LEADERBOARD.playersPastList);
+    const me = LEADERBOARD.playersPastList.players.data!.me!;
+    const pinned = drawer.querySelector<HTMLElement>("[data-slot=ranking-pinned]")!;
+    expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(pinned);
+    const row = within(pinned).getByRole("button");
+    expect(row).toHaveAccessibleName(`${me.place}. Ada (you), level 2, 0 crowns`);
+    await userEvent.click(row);
+    expect(onOpenPlayer).toHaveBeenCalledWith(me.profile.address);
+  });
+
+  describe("with the viewer's row out of view", () => {
+    let observed: { callback: IntersectionObserverCallback; target: Element | null }[] = [];
+    beforeEach(() => {
+      observed = [];
+      vi.stubGlobal(
+        "IntersectionObserver",
+        class {
+          entry: { callback: IntersectionObserverCallback; target: Element | null };
+          constructor(callback: IntersectionObserverCallback) {
+            this.entry = { callback, target: null };
+            observed.push(this.entry);
+          }
+          observe(target: Element) {
+            this.entry.target = target;
+          }
+          disconnect() {}
+        },
+      );
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("pins it over the tabs while it is out of view; a tap brings the row into view and focuses it", async () => {
+      const { drawer } = scene(LEADERBOARD.playersOutOfView);
+      const own = within(within(drawer).getByRole("list", { name: "Players by crowns" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
+      const watch = observed.find((o) => o.target === own)!;
+      expect(drawer.querySelector("[data-slot=ranking-pinned]")).toBeNull();
+      act(() => watch.callback([{ isIntersecting: false, intersectionRatio: 0 } as IntersectionObserverEntry], {} as IntersectionObserver));
+      const pinned = drawer.querySelector<HTMLElement>("[data-slot=ranking-pinned]")!;
+      expect(within(pinned).getByRole("button")).toHaveAccessibleName(/^30\. .+ \(you\), /);
+      own.scrollIntoView = vi.fn();
+      await userEvent.click(within(pinned).getByRole("button"));
+      expect(own.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "center" }));
+      expect(own).toHaveFocus();
+      act(() => watch.callback([{ isIntersecting: true, intersectionRatio: 1 } as IntersectionObserverEntry], {} as IntersectionObserver));
+      expect(drawer.querySelector("[data-slot=ranking-pinned]")).toBeNull();
+    });
+  });
+
+  it("shows the wait, nothing ranked, and a failed read with Retry", async () => {
+    const loading = scene(LEADERBOARD.loading);
+    expect(within(loading.drawer).getByRole("status", { name: "Loading the players" })).toBeInTheDocument();
+    loading.unmount();
+    const empty = scene(LEADERBOARD.empty);
+    expect(within(empty.drawer).getByText("No player is ranked yet.")).toBeInTheDocument();
+    empty.unmount();
+    const onRetry = vi.fn();
+    const failed = scene({ ...LEADERBOARD.error, players: { ...LEADERBOARD.error.players, onRetry } });
+    expect(within(failed.drawer).getByText("Could not load the players")).toBeInTheDocument();
+    await userEvent.click(within(failed.drawer).getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+    failed.unmount();
+    const off = scene(LEADERBOARD.unavailable);
+    expect(within(off.drawer).getByText("Rankings are not on this network yet.")).toBeInTheDocument();
+    expect(within(off.drawer).queryByRole("list")).toBeNull();
+  }, slow(10_000));
+});
+
+/** The home as a plain outlet with the app's profile host (the drawers' pages mount none of their own), as social-pages.test's. */
+const plainHome = (routes: RouteObject[]): RouteObject[] =>
+  routes.map((r) => ({
+    ...r,
+    children: r.children?.map((c) =>
+      c.id === "home"
+        ? {
+            ...c,
+            element: (
+              <main>
+                <Outlet />
+                <PlayerProfileHost />
+              </main>
+            ),
+          }
+        : c,
+    ),
+  })) as RouteObject[];
+
+describe("/ranking on the mock (LEADERBOARD-PAGE)", { timeout: slow(30_000) }, () => {
+  preloadPages("ranking", "guild");
+  beforeEach(() => {
+    queryClient.clear();
+    resetWelcomedForTests();
+    markWelcomed();
+  });
+  afterEach(() => {
+    queryClient.clear();
+    resetWelcomedForTests();
+    localStorage.clear();
+  });
+
+  async function open(path: string, crowns = 90) {
+    const s = await mockWith(crowns);
+    const wallet = fakeWallet({ address: s.me, restored: true });
+    wallet.connector.signer = () => s.sources.signer as GameSigner;
+    const router = createTestRouter(path, plainHome);
+    render(<App router={router} sources={s.sources} connector={wallet.load} />);
+    return { router, me: s.me, drawer: await screen.findByRole("dialog", { name: "Ranking" }, { timeout: slow(8000) }) };
+  }
+
+  it("lists the players with the viewer's own row; a player's row opens their profile over the drawer", async () => {
+    const { router, drawer } = await open("/ranking");
+    const list = await within(drawer).findByRole("list", { name: "Players by crowns" }, { timeout: slow(8000) });
+    const own = within(list).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
+    expect(own).toHaveAccessibleName(/\(you\), level \d+, 90 crowns$/);
+    const first = within(list).getAllByRole("button")[0]!;
+    const name = first.getAttribute("aria-label")!.replace(/^1\. /, "").split(",")[0]!;
+    await userEvent.click(first);
+    expect(await screen.findByRole("dialog", { name }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/ranking");
+    expect(new URLSearchParams(router.state.location.search).get("player")).not.toBeNull();
+    // The drawer stays open under the profile.
+    expect(document.querySelector('[data-hud-drawer="ranking"][data-state="open"]')).not.toBeNull();
+  });
+
+  it("opens on Friends from the URL: the viewer, new, has none yet", async () => {
+    const { drawer } = await open("/ranking?tab=friends");
+    expect(within(drawer).getByRole("tab", { name: "Friends" })).toHaveAttribute("aria-selected", "true");
+    expect(await within(drawer).findByText(/^No friend to rank yet/, undefined, { timeout: slow(8000) })).toBeInTheDocument();
+  });
+
+  it("opens on Guilds from the URL; a guild's row opens its page", async () => {
+    const { router, drawer } = await open("/ranking?tab=guilds");
+    expect(within(drawer).getByRole("tab", { name: "Guilds" })).toHaveAttribute("aria-selected", "true");
+    const list = await within(drawer).findByRole("list", { name: "Guilds by score" }, { timeout: slow(8000) });
+    const first = within(list).getAllByRole("button")[0]!;
+    await userEvent.click(first);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/guild"), { timeout: slow(8000) });
+    expect(new URLSearchParams(router.state.location.search).get("guild")).toMatch(/^\d+$/);
+  });
+});

@@ -8,7 +8,8 @@
  * `medallion-art.ts`), `ui-sources/missions/<name>.webp` (`MISSION_PARTS`, there too), `ui-sources/shop/<name>.webp` (`SHOP_PARTS`,
  * in `shop-art.ts`), `ui-sources/friends/<name>.webp` (`FRIENDS_PARTS`, in `friends-art.ts`) and `ui-sources/emblems/<name>.webp`
  * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`), `ui-sources/play/<name>.webp` (`PLAY_ART`, on `PLAY_ART_FRAME`, in
- * `play-art.ts`) and `ui-sources/avatar/<name>.webp` (`AVATAR_ART`, on `AVATAR_ART_FRAME`, in `avatar-art.ts`), transparent lossless WebP
+ * `play-art.ts`), `ui-sources/avatar/<name>.webp` (`AVATAR_ART`, on `AVATAR_ART_FRAME`, in `avatar-art.ts`) and
+ * `ui-sources/ranking/<name>.webp` (`RANKING_ART`, on `RANKING_ART_FRAME`, in `ranking-art.ts`), transparent lossless WebP
  * left untouched
  * and never shipped (not in `public/`), and writes
  * `public/ui-art/icons/<size>/<name>.webp` and `public/ui-art/frames/<size>/<name>.webp` for each size. Each run removes the copies
@@ -190,6 +191,14 @@
  * then turned to a neutral grey of the same lightness, the owner's ask: no blue on them), and the vPAVED coin's silver light
  * (`VAULT_LIGHTS`: broad rays and a fine starburst, painted on pure black, the black turned to alpha by the brightest channel, then
  * each pixel turned to the neutral grey of its luminance, Rec. 709, the alpha kept: no blue, 512 px).
+ * LEADERBOARD-PAGE (2026-11-07): the ranking's gold and silver medals (`ui-sources/ranking/`, `RANKING_ART`), its first two places
+ * (the third is the HUD's bronze `medal`): each drawn by Codex's built-in image tool (`codex exec -c model_provider=openai`, its
+ * `image_gen`) from the bronze medal, with the HUD's crown and trophy as the gold's reference, the metal alone changed, on a
+ * transparent 1024 px square; trimmed to its opaque box, fitted to the 240 px box (canvas, premultiplied) and centred on the icons'
+ * frame, checked beside the bronze on the drawer's charcoal. The footer's Alliances and Guilds tabs' icons (the owner's asks of
+ * 2026-11-07: the handshake went to the Friends tab), painted the same way: `alliances` with the HUD's guild, friends, shield, swords
+ * and members icons as its references, one of three ideas (two shields bound by a gold chain link; three banners in a fan; two shields
+ * over a laurel), the owner's pick the third; `guilds` the red shield of it alone, with it as its reference.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
@@ -207,6 +216,7 @@ import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/frie
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
 import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME } from "../src/components/elements/vault-art.ts";
+import { RANKING_ART, RANKING_ART_FRAME } from "../src/components/elements/ranking-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -214,7 +224,7 @@ export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
 /** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat, the medallions are paintings. */
-const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82, vault: 82, avatar: 82 } as const;
+const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82, vault: 82, avatar: 82, ranking: 82 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),
   ...UI_FRAMES.map((name) => ({ kind: "frames" as const, name, frame: FRAME_ART[name] })),
@@ -228,6 +238,7 @@ const IMAGES = [
   ...VAULT_ART.map((name) => ({ kind: "vault" as const, name, frame: VAULT_ART_FRAME })),
   ...VAULT_LIGHTS.map((name) => ({ kind: "vault" as const, name, frame: VAULT_LIGHT_FRAME })),
   ...AVATAR_ART.map((name) => ({ kind: "avatar" as const, name, frame: AVATAR_ART_FRAME })),
+  ...RANKING_ART.map((name) => ({ kind: "ranking" as const, name, frame: RANKING_ART_FRAME })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */
@@ -279,7 +290,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`public/ui-art/ holds the ${expected().length} copies, each a WebP of its size.`);
   } else {
     rmSync(OUT, { recursive: true, force: true });
-    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play", "vault", "avatar"] as const) {
+    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play", "vault", "avatar", "ranking"] as const) {
       let before = 0;
       const after = new Map<number, number>();
       const images = IMAGES.filter((i) => i.kind === kind);
