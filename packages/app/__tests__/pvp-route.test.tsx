@@ -16,6 +16,7 @@ import { fakeSources } from "./data-fakes";
 import { mockImplementation } from "./mock-fakes";
 import { placeTile, preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
+import { starPoints } from "../src/lib/pvp-rules";
 
 // The PvP flow's routes (#647 PR 2) on the mock (Sepolia's default: `Matchmaker` and `Arena` are on no network yet), whose
 // rules are the contracts': the league, the search and its scout, the attack's moves, the result and its reward, a replay, the
@@ -101,7 +102,7 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     // The search draws as the page opens: the village found (held `FOUND_MS`, 1.2 s), then its scout. The wait starts before
     // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks. Being found is
     // the check: by the time a check after it ran, under load, React had flushed the 1.2 s the heading stays and removed it.
-    const found = screen.findByRole("heading", { name: "Village found" }, WAIT);
+    const found = screen.findByRole("heading", { name: "Rival found" }, WAIT);
     // No Attack button on the League (#833): the search is the bar's (`/pvp`).
     expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
     await act(() => s.router.navigate("/pvp"));
@@ -110,7 +111,8 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     const match = await s.ledger.pvpMatch(s.me);
     const rival = mockRival(match.opponent)!;
     expect(screen.getAllByText(rival.name).length).toBeGreaterThan(0);
-    expect(screen.getByText(rival.score.toLocaleString("en-US"))).toBeInTheDocument();
+    // No village score of its own (the user's ask): each star's points are read from it (v1's 70 / 85 / 110 %).
+    expect(screen.getByRole("listitem", { name: new RegExp(`^3 stars, ${starPoints(rival.score)[2].toLocaleString("en-US")} points`) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next village for 1 Cobbles, not enough Cobbles" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: /^Attack$/ }));
@@ -244,9 +246,9 @@ describe("/pvp/replay/:attacker/:id: a failed read", { timeout: slow(30_000) }, 
       });
     });
     expect(await screen.findByText(/The indexer did not answer/, {}, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Search again/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
     // The waiting screen's heading leaves (its exit animation), never to come back.
-    await waitFor(() => expect(screen.queryByRole("heading", { name: "Searching for a village" })).toBeNull(), WAIT);
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Searching for a rival" })).toBeNull(), WAIT);
   });
 });
 
@@ -278,7 +280,7 @@ describe("receipt-cached attacks and the shield's read", { timeout: slow(30_000)
       });
     });
     expect(await screen.findByText(/This attack is not recorded yet/, {}, WAIT)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Search again/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
   });
 
   it("/pvp/result/:id: a failed reward read is told with Try again, never a capped day", async () => {

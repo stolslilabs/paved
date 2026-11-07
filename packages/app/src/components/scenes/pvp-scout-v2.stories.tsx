@@ -1,20 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
+import { appRenders } from "../../mocks/assets";
 import { PVP_V2_SCOUT } from "../../mocks/pvp-v2";
 import { PvpScoutScene } from "./pvp-scout-scene";
 import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The PvP v2 scout (#740): the rival's free village and its score, the points of each star at 80 / 90 / 100 %, and the deck
- * the attack will have, ceil(1.15 x S) tiles sized on the village's slots, played on an open board. Since #788 a light
- * overlay over the village, the same at every width; the deck chip opens the village's tile list (the attack's deck sheet,
- * #789) and the info button the rules and the crowns at stake.
+ * the attack will have, ceil(1.15 x S) tiles sized on the village's slots, played on an open board. After the Paved UX Book's
+ * "scout" (ATTACK-SCOUT): the header and the rival's card at the top, the deck at the bottom right (it opens the deck page, the
+ * attack's tiles, #789), the stars, Next and Attack in the panel under it; the info opens the rules and the crowns at stake.
  */
 const meta = {
   title: "Scenes/PvP/Scout v2",
   component: PvpScoutScene,
   parameters: { layout: "fullscreen" },
-  args: { ...PVP_V2_SCOUT.ready, onBack: fn(), onNext: fn(), onAttack: fn() },
+  args: { ...PVP_V2_SCOUT.ready, tileRenders: appRenders, onBack: fn(), onNext: fn(), onAttack: fn() },
 } satisfies Meta<typeof PvpScoutScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -27,6 +28,11 @@ export const Small: Story = { args: PVP_V2_SCOUT.small };
 /** The attacker's own village is shielded: a chip says attacking drops it, with its countdown. */
 export const Shielded: Story = { args: PVP_V2_SCOUT.shielded };
 
+/** Next sent: another village on its way, Attack held meanwhile. */
+export const NextPending: Story = { args: PVP_V2_SCOUT.nextPending };
+/** Fewer Cobbles than Next costs: Next is disabled, its price still shown. */
+export const NotEnoughCobbles: Story = { args: PVP_V2_SCOUT.short };
+
 /** The overlay on the narrowest phone kept (320 x 568). */
 export const Phone320: Story = { args: PVP_V2_SCOUT.ready, ...PHONE_320 };
 /** The overlay at 375 x 812: the village in view between the two cards. */
@@ -36,11 +42,11 @@ export const Phone375Shielded: Story = { args: PVP_V2_SCOUT.shielded, ...PHONE_3
 export const Wide1440: Story = { args: PVP_V2_SCOUT.ready, ...WIDE_1440 };
 
 const openList = async ({ canvasElement }: { canvasElement: HTMLElement }) => {
-  await userEvent.click(within(canvasElement).getByRole("button", { name: /the village's tile list/ }));
+  await userEvent.click(within(canvasElement).getByRole("button", { name: "Deck, 23 tiles" }));
   await expect(await screen.findByRole("heading", { name: "Deck" })).toBeInTheDocument();
 };
 
-/** The deck chip opens the village's tile list: its 19 tiles by plan, then the 4 extras as unknown tiles. */
+/** The deck opens the deck page over the scout: its 19 tiles by plan, then the 4 extras as unknown tiles; Back to the scout. */
 export const ListOpen: Story = { args: PVP_V2_SCOUT.ready, ...PHONE_375, play: openList };
 export const ListOpenWide: Story = { args: PVP_V2_SCOUT.ready, ...WIDE_1440, play: openList };
 

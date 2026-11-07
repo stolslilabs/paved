@@ -4,6 +4,7 @@ import { CENTER, DAY_S, OrientationType, PlanType, dayOf, levelStatus, pvpChestR
 import type { FinalBoardProps } from "../components/containers/final-board";
 import { PvpEndScene, type PvpEndChest, type PvpEndXp } from "../components/scenes/pvp-end-scene";
 import { PvpSearchScene } from "../components/scenes/pvp-search-scene";
+import { SearchVoid } from "./search-void";
 import type { PvpPlayer } from "../lib/pvp-rules";
 import { useBoardSkins } from "../data/board-skins";
 import { sideSettings } from "../data/board-side";
@@ -75,7 +76,7 @@ export default function PvpV2End({ me, attack, self }: PvpV2EndProps) {
   const go = useAppNavigate();
   const onBack = useUpTo("/pvp/league");
   if (attack.status === "open") {
-    return <PvpSearchScene state="error" player={self} error="This attack is still under way." onRetry={() => go("/pvp", { replace: true })} onCancel={onBack} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="This attack is still under way." onRetry={() => go("/pvp", { replace: true })} onCancel={onBack} />;
   }
   return <End me={me} attack={attack} />;
 }

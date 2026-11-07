@@ -8,8 +8,9 @@
  * `medallion-art.ts`), `ui-sources/missions/<name>.webp` (`MISSION_PARTS`, there too), `ui-sources/shop/<name>.webp` (`SHOP_PARTS`,
  * in `shop-art.ts`), `ui-sources/friends/<name>.webp` (`FRIENDS_PARTS`, in `friends-art.ts`) and `ui-sources/emblems/<name>.webp`
  * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`), `ui-sources/play/<name>.webp` (`PLAY_ART`, on `PLAY_ART_FRAME`, in
- * `play-art.ts`), `ui-sources/avatar/<name>.webp` (`AVATAR_ART`, on `AVATAR_ART_FRAME`, in `avatar-art.ts`) and
- * `ui-sources/ranking/<name>.webp` (`RANKING_ART`, on `RANKING_ART_FRAME`, in `ranking-art.ts`), transparent lossless WebP
+ * `play-art.ts`), `ui-sources/avatar/<name>.webp` (`AVATAR_ART`, on `AVATAR_ART_FRAME`, in `avatar-art.ts`),
+ * `ui-sources/ranking/<name>.webp` (`RANKING_ART`, on `RANKING_ART_FRAME`, in `ranking-art.ts`) and `ui-sources/attack/<name>.webp`
+ * (`RADAR_ART`, in `attack-art.ts`), transparent lossless WebP
  * left untouched
  * and never shipped (not in `public/`), and writes
  * `public/ui-art/icons/<size>/<name>.webp` and `public/ui-art/frames/<size>/<name>.webp` for each size. Each run removes the copies
@@ -181,6 +182,15 @@
  * style's reference: the object alone, on a transparent 1254 px square. Each trimmed to its opaque box, fitted to the 240 px box by a
  * premultiplied area average and centred on the icons' frame, checked beside the shipped icons on the drawer's charcoal. The book's
  * sun and scroll are the shipped `sun` and `missions`.
+ * ATTACK-SCOUT (2026-11-07): the attack's first half (`ui-sources/attack/`, `attack-art.ts`), after the Paved UX Book's "search" and
+ * "scout": the search's radar dish (`radar`, the gold rim, the dark face and its rings, no sweep and no crowns) and its sweep (`radar-beam`,
+ * a gold line and its trailing glow, painted on pure black, the black turned into alpha from the brightest channel, the colour
+ * unpremultiplied, its pivot the frame's centre), and the scout's deck, a pile of three tiles of grass, road and water, an icon of the
+ * HUD's (`ui-sources/icons/tile-stack.webp`, `UI_ICONS`: the user's ask, the home's Tiles wears it too). Each cropped from the phone
+ * book (the radar about 300 px, the scout's tile 100 x 80 px) and drawn by Codex's built-in image tool (`codex exec -c
+ * model_provider=openai`) from that crop, with shipped icons (collection, deck, swords; crown, shield, info) as the style's reference,
+ * three variants each, the first kept: the dish trimmed to its opaque box and fitted to 480 px on the 512 px frame, the pile to 240 px
+ * on the icons' 256 px frame, the sweep's square scaled whole to 512 px. Stored as lossless WebP.
  *
  * VAULT-PAGE (2026-11-06): the Vault's footer tabs and exit fee (`ui-sources/vault/<name>.webp`, `VAULT_ART` in `vault-art.ts`): Deposit,
  * Withdraw and the exit fee, drawn by Codex's built-in image tool (`codex exec -c model_provider=openai`) in the HUD icons' rendering, the
@@ -217,6 +227,7 @@ import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/com
 import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME } from "../src/components/elements/vault-art.ts";
 import { RANKING_ART, RANKING_ART_FRAME } from "../src/components/elements/ranking-art.ts";
+import { RADAR_ART, RADAR_FRAME } from "../src/components/elements/attack-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -224,7 +235,7 @@ export const SOURCE = resolve(HERE, "../ui-sources");
 export const OUT = resolve(HERE, "../public/ui-art");
 
 /** Each image as `<kind>/<name>` with its frame and its quality: the icons are seen small, the frames are mostly flat, the medallions are paintings. */
-const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82, vault: 82, avatar: 82, ranking: 82 } as const;
+const QUALITY = { icons: 82, frames: 80, medallions: 82, missions: 82, shop: 82, friends: 82, emblems: 82, play: 82, vault: 82, avatar: 82, ranking: 82, attack: 82 } as const;
 const IMAGES = [
   ...UI_ICONS.map((name) => ({ kind: "icons" as const, name, frame: ICON_FRAME })),
   ...UI_FRAMES.map((name) => ({ kind: "frames" as const, name, frame: FRAME_ART[name] })),
@@ -239,6 +250,7 @@ const IMAGES = [
   ...VAULT_LIGHTS.map((name) => ({ kind: "vault" as const, name, frame: VAULT_LIGHT_FRAME })),
   ...AVATAR_ART.map((name) => ({ kind: "avatar" as const, name, frame: AVATAR_ART_FRAME })),
   ...RANKING_ART.map((name) => ({ kind: "ranking" as const, name, frame: RANKING_ART_FRAME })),
+  ...RADAR_ART.map((name) => ({ kind: "attack" as const, name, frame: RADAR_FRAME })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */
@@ -290,7 +302,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`public/ui-art/ holds the ${expected().length} copies, each a WebP of its size.`);
   } else {
     rmSync(OUT, { recursive: true, force: true });
-    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play", "vault", "avatar", "ranking"] as const) {
+    for (const kind of ["icons", "frames", "medallions", "missions", "shop", "friends", "emblems", "play", "vault", "avatar", "ranking", "attack"] as const) {
       let before = 0;
       const after = new Map<number, number>();
       const images = IMAGES.filter((i) => i.kind === kind);
