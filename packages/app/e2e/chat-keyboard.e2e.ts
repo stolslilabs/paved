@@ -32,7 +32,15 @@ let browser: Browser;
 
 beforeAll(async () => {
   if (!base) {
-    vite = await createServer({ root: fileURLToPath(new URL("..", import.meta.url)), logLevel: "error", server: { port: 0, host: "127.0.0.1" } });
+    vite = await createServer({
+      root: fileURLToPath(new URL("..", import.meta.url)),
+      logLevel: "error",
+      server: { port: 0, host: "127.0.0.1" },
+      // The scan from the harness's page only, as Training's (`training.e2e.ts`): crawling `scripts/` fails on a render page's bare
+      // `three`, Vite then skips the pre-bundling and reloads the page as it finds a dependency at run time, which on CI's cold cache
+      // destroyed the first test's page right after its load ("Execution context was destroyed", #1044).
+      optimizeDeps: { entries: ["e2e/chat-keyboard/index.html"] },
+    });
     await vite.listen();
     const addr = vite.httpServer?.address();
     base = addr && typeof addr === "object" ? `http://127.0.0.1:${addr.port}` : "";
