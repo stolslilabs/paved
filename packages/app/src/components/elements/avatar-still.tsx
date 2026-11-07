@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { loadAvatarKing, traitsText, type BackdropUrl, type KingStills, type Traits } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 
@@ -60,15 +60,39 @@ function useKingStills(ground: StillGround): KingStills | null {
 
 /** The device gave no WebGL context once: no still is tried again (each try costs a failed context and a console error). */
 let noWebGL = false;
+const noWebGLListeners = new Set<() => void>();
+const markNoWebGL = () => {
+  if (noWebGL) return;
+  noWebGL = true;
+  for (const listener of noWebGLListeners) listener();
+};
+const onNoWebGL = (listener: () => void) => {
+  noWebGLListeners.add(listener);
+  return () => void noWebGLListeners.delete(listener);
+};
+
+/** True: the stills are not rendered here, as on a device without WebGL (a story of that state; the device's own lack is found at the first still). */
+export const StillsOffContext = createContext(false);
+
+/**
+ * True once the stills cannot render (no WebGL on the device, or `StillsOffContext`): a still's place shows nothing then, so a
+ * component that says what it stands for with a still alone (the editor's options) says it in words.
+ */
+export function useStillsUnavailable(): boolean {
+  const off = useContext(StillsOffContext);
+  const missing = useSyncExternalStore(onNoWebGL, () => noWebGL, () => false);
+  return off || missing;
+}
 
 /** The image of some traits at a size: from the cache at once, else once rendered. Undefined until then, or without WebGL. */
 export function useAvatarStill(traits: Traits | null, size: number, ground: StillGround = "scene"): string | undefined {
+  const off = useContext(StillsOffContext);
   const renderer = useKingStills(ground);
   const [src, setSrc] = useState(() => (renderer && traits ? renderer.peek(traits, { size }) : undefined));
   // Keyed on the traits' text, not the object: a parent that builds the same traits again each render asks for no new image.
   const key = traits ? traitsText(traits) : null;
   useEffect(() => {
-    if (!renderer || !traits || noWebGL) return setSrc(undefined);
+    if (!renderer || !traits || noWebGL || off) return setSrc(undefined);
     const cached = renderer.peek(traits, { size });
     setSrc(cached);
     if (cached !== undefined) return;
@@ -76,13 +100,13 @@ export function useAvatarStill(traits: Traits | null, size: number, ground: Stil
     renderer.get(traits, { size }).then(
       (url) => live && setSrc(url),
       // No WebGL (an old device, a test's DOM): the disc stays as it is.
-      () => (noWebGL = true),
+      markNoWebGL,
     );
     return () => {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` stands for `traits`
-  }, [renderer, key, size]);
+  }, [renderer, key, size, off]);
   return src;
 }
 
