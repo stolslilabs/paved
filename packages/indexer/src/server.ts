@@ -31,6 +31,7 @@ import { sameBlock, type Header } from "./chain.ts";
 import { canonical, felt, padded } from "./events.ts";
 import type { Indexer } from "./indexer.ts";
 import { NameResolver } from "./names.ts";
+import { nameKey } from "./player-name.ts";
 import { Queries } from "./queries.ts";
 import { clientAddress, limiterOf, type RateLimitOptions } from "./ratelimit.ts";
 
@@ -163,6 +164,20 @@ function route(url: URL): Read | null {
   if (parts[0] !== "" || parts[1] !== "v1") return null;
   const [, , area, a, b, c, d] = parts;
   switch (area) {
+    case "names": {
+      // PLAYER-RENAME: who holds a player name, whatever its case (`NameHolderAnswer`).
+      if (parts.length !== 4) return null;
+      // The name percent-encoded in the path (UTF-8: Chinese, a space, ...)
+      let name: string;
+      try {
+        name = decodeURIComponent(a ?? "");
+      } catch {
+        throw new BadRequest("name is not percent-encoded UTF-8");
+      }
+      if (nameKey(name) === null) throw new BadRequest("name must be a player name: 3 to 15 characters, single spaces or hyphens between words");
+      parameters(url, []);
+      return (queries, served) => queries.nameHolder(served.number, name);
+    }
     case "tournaments": {
       if (a === "") return null;
       if (parts.length === 3) {
@@ -445,6 +460,7 @@ export type HeadInfo = {
     collection: string | null;
     arena?: string;
     vault?: string;
+    avatar?: string;
   };
 };
 
@@ -461,18 +477,24 @@ const unavailable = (indexer: Indexer): Answer => ({
 type Named = { player_id: string; name?: string | null };
 
 /**
- * `rows` with `name` on every player row (the leaderboard's `entries`, `entry`, and `player`), read from the names cache
- * only: null where unknown, and everywhere without a resolver. The cached rows are not changed (the answer cache keeps
- * them per block; a name arrives between blocks).
+ * `rows` with `name` on every player row (the leaderboard's `entries`, `entry`, and `player`): the name the player set on chain
+ * (PLAYER-RENAME, `chainNames` at the served block), which wins, else the names cache's Cartridge username: null where unknown,
+ * and without a resolver for a player with no name on chain. The cached rows are not changed (the answer cache keeps them per
+ * block; a Cartridge name arrives between blocks). The players with a name on chain are not looked up.
  */
-function withNames(rows: Record<string, unknown>, names: NameResolver | undefined): Record<string, unknown> {
+function withNames(
+  rows: Record<string, unknown>,
+  names: NameResolver | undefined,
+  chainNames: (ids: readonly string[]) => Map<string, string>,
+): Record<string, unknown> {
   const entries = Array.isArray(rows.entries) ? (rows.entries as Named[]) : null;
   const entry = (rows.entry ?? null) as Named | null;
   const player = (rows.player ?? null) as Named | null;
   if (!entries && !entry && !player) return rows;
   const ids = [...(entries ?? []), entry, player].filter((row): row is Named => row !== null).map((row) => row.player_id);
-  const found = names?.read(ids);
-  const named = <T extends Named>(row: T): T => ({ ...row, name: found?.get(row.player_id) ?? null });
+  const onChain = chainNames(ids);
+  const found = names?.read(ids.filter((id) => !onChain.has(id)));
+  const named = <T extends Named>(row: T): T => ({ ...row, name: onChain.get(row.player_id) ?? found?.get(row.player_id) ?? null });
   return {
     ...rows,
     ...(entries ? { entries: entries.map(named) } : {}),
@@ -520,8 +542,9 @@ export function answer(indexer: Indexer, target: string, info?: HeadInfo, names?
     };
   }
   try {
-    const rows = cacheOf(indexer).read(served, `${path}${url.search}`, read!);
-    return { code: 200, body: { ...envelope, ...withNames(rows, names) } };
+    const cache = cacheOf(indexer);
+    const rows = cache.read(served, `${path}${url.search}`, read!);
+    return { code: 200, body: { ...envelope, ...withNames(rows, names, (ids) => cache.queries.chainNames(served.number, ids)) } };
   } catch (error) {
     if (error instanceof NotFound) return refusal(indexer, 404, error.message);
     throw error;

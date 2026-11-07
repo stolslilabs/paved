@@ -18,6 +18,7 @@ export const ECONOMY = "0x4444";
 export const COLLECTION = "0x5555";
 export const ARENA = "0x6666";
 export const VAULT = "0x7777";
+export const AVATAR = "0x8888";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
   challenge: CHALLENGE,
@@ -26,6 +27,7 @@ const ADDRESS: Record<Source, string> = {
   collection: COLLECTION,
   arena: ARENA,
   vault: VAULT,
+  avatar: AVATAR,
 };
 
 export type FakeEvent = { source: Source; keys: string[]; data: string[] };
@@ -55,6 +57,14 @@ export function raw(
     keys: [SELECTORS[name], ...keys.map(hex)],
     data: data.map(hex),
   };
+}
+
+/** A text as a Cairo `ByteArray`'s felts: its UTF-8 in full 31-byte words, then the pending word and its length. */
+export function byteArray(text: string): bigint[] {
+  const bytes = Buffer.from(text, "utf8");
+  const word = (from: number, to: number) => (to > from ? BigInt(`0x${bytes.subarray(from, to).toString("hex")}`) : 0n);
+  const full = Math.floor(bytes.length / 31);
+  return [BigInt(full), ...Array.from({ length: full }, (_, i) => word(i * 31, i * 31 + 31)), word(full * 31, bytes.length), BigInt(bytes.length - full * 31)];
 }
 
 /** A u256 as its two felts, low then high. */
@@ -360,6 +370,11 @@ export const ev = {
   vaultPaid: (payer: bigint | number, amount: bigint, index = 1n) => unknownEvent("vault", "Paid", [payer], [...u256(amount), ...u256(index)]),
   /** The Vault's ERC20 `Transfer { from, to; value }` of its shares: shares Collection's name, never fetched. */
   vaultTransfer: (from: bigint | number, to: bigint | number, value: bigint) => raw("vault", "Transfer", [from, to], u256(value)),
+  /** Avatar's `Renamed { player_id; name, cobbles, count }` (PLAYER-RENAME): the name a short string, big-endian bytes. */
+  renamed: (player: bigint | number, name: string, cobbles = 0, count = 1) =>
+    raw("avatar", "Renamed", [player], [...byteArray(name), cobbles, count]),
+  /** Avatar's `AvatarSet { player_id; look }` (#627): never fetched (Avatar's filter asks for its names only). */
+  avatarSet: (player: bigint | number, look: bigint) => unknownEvent("avatar", "AvatarSet", [player], [look]),
 };
 
 export class FakeNode {

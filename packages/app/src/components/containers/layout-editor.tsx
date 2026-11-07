@@ -3,6 +3,7 @@ import type { BoardTile } from "@paved/chain";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { browserRandomLayoutRunner, freshSeed, type RandomLayoutRunner } from "../../lib/random-layout-runner";
+import { distinctRotations } from "../../lib/rotations";
 import { cn } from "../../lib/utils";
 import { HoldButton } from "../elements/hold-button";
 import { InlineError } from "../elements/inline-error";
@@ -244,7 +245,8 @@ export function useLayoutEditor({
     () => (editing && held ? { id: held.id, x: held.x, y: held.y, plan: held.plan, orientation: held.orientation } : null),
     [editing, held],
   );
-  const rotations = held ? fittingAt(rest, held.plan, held) : [];
+  // One per distinct tile (`distinctRotations`, TILE-ACTIONS): Rotate shows only when a turn changes the tile.
+  const rotations = held ? distinctRotations(held.plan, fittingAt(rest, held.plan, held), held.orientation) : [];
 
   const open = () => {
     onDismissSaved?.();

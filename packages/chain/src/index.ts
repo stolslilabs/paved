@@ -169,11 +169,20 @@ export {
   canSetLook,
   isFreeItem,
   isOnSale,
+  isPlayerName,
+  allowedCode,
+  foldCode,
+  scriptOf,
+  normalizeName,
   lookIds,
   lookOf,
+  NAME_MAX,
+  NAME_MIN,
+  nameKey,
   ownsItem,
+  renameCost,
 } from "./avatar";
-export type { AvatarItem, AvatarViews } from "./avatar";
+export type { AvatarItem, AvatarViews, NameViews } from "./avatar";
 export {
   RECEIPT_POLL_MS,
   PavedWriter,
@@ -184,6 +193,8 @@ export {
   AVATAR_REFUSAL_TEXT,
   AvatarPriceChangedError,
   AvatarRefusedError,
+  RENAME_REFUSAL_TEXT,
+  RenameRefusedError,
   CLAIM_REFUSAL_TEXT,
   ClaimRefusedError,
   FaucetCapError,
@@ -210,7 +221,7 @@ export {
   packBoughtOf,
   refusedBeforeSending,
 } from "./writer";
-export type { AvatarRefusal, BuildMove, BuyAvatarItemRequest, BuyPackRequest, BuyParcelRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, VillageRefusal, PvpRefusal, WriteAccount, WriteResult } from "./writer";
+export type { AvatarRefusal, RenameRefusal, RenameRequest, BuildMove, BuyAvatarItemRequest, BuyPackRequest, BuyParcelRequest, BuySkinRequest, ClaimRefusal, PackBought, PackRefusal, SkinRefusal, VillageRefusal, PvpRefusal, WriteAccount, WriteResult } from "./writer";
 export { PACK_IDS, PackBuyer, PackNotOnSaleError, PackPriceChangedError, onSale, packBuyerOf, packReferrer, packSwapInput, readPacks } from "./packs";
 export type { PackBuyerOptions, PackPlan, PackPurchaseRequest } from "./packs";
 export { PavedClient, createPavedClient } from "./paved-client";
@@ -248,6 +259,7 @@ export type {
   PlayerQuests,
   PlayerReferrals,
   PlayerVaultClaims,
+  NameHolder,
   VaultClaim,
   IndexedAttack,
   PlayerStats,

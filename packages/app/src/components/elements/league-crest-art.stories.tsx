@@ -3,7 +3,7 @@ import { LeagueCrestArt, type LeagueCrestArtSize } from "./league-crest-art";
 import { LEAGUE_TIERS } from "./league-standards";
 import { Grounds } from "./league-story-grounds";
 
-/** The ten crests of issue 917 (after the owner's design), full form, from 64 px: Unranked's broken planks to the Grand Master's crown. */
+/** The ten crests of issue 917 (after the owner's design), full form, from 64 px: Unranked's empty slot (grey, dashed: UNRANKED-PLACEHOLDER) to the Grand Master's crown. */
 const meta = {
   title: "Elements/League crest art",
   component: LeagueCrestArt,

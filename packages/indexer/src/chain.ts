@@ -158,11 +158,12 @@ type EventsPage = {
 };
 
 /** The sources a deployment may lack. */
-type Optional = "collection" | "arena" | "vault";
+type Optional = "collection" | "arena" | "vault" | "avatar";
 
 /**
  * `collection` is optional: without it its mints are not read (a deployment before E5b). So is `arena` (#643): without it no
- * attack is read; and `vault` (D-31): without it no claim of the Vault's USDC is read.
+ * attack is read; and `vault` (D-31): without it no claim of the Vault's USDC is read; and `avatar` (PLAYER-RENAME): without it no
+ * name set on chain is read.
  */
 export type Addresses = Record<Exclude<Source, Optional>, string> & { [S in Optional]?: string | undefined };
 
@@ -216,6 +217,7 @@ export class Chain {
       collection: addresses.collection === undefined ? undefined : canonical(addresses.collection),
       arena: addresses.arena === undefined ? undefined : canonical(addresses.arena),
       vault: addresses.vault === undefined ? undefined : canonical(addresses.vault),
+      avatar: addresses.avatar === undefined ? undefined : canonical(addresses.avatar),
     };
   }
 

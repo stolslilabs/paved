@@ -403,6 +403,28 @@
   --game-silver: var(--color-charcoal-100);
 }
 
+/* 3g. The holds' rings on the tile's painted actions (TILE-ACTIONS, `HoldRing`'s painted look): the Missions' gold rail (`rail-fill`,
+   the Daily and Weekly progress) across the ring's width, its colours sampled from the rail, from its foot inside to its top outside
+   (a dark edge, the deep and shaded orange, the gold, the bright yellow, the pale shine, the rim, the edge); Discard's the same tube
+   in the red of the HUD's close (`close`), the owner's ask of 2026-11-07; its shine and bright pushed whiter for the glow, the head's
+   spark and the burst (the owner: shinier, a feeling of power). */
+:root {
+  --hold-gold-edge: #2b1100;
+  --hold-gold-deep: #c24d01;
+  --hold-gold-shade: #e07202;
+  --hold-gold-base: #f7b802;
+  --hold-gold-bright: #ffe94d;
+  --hold-gold-shine: #fffbe6;
+  --hold-gold-rim: #a47200;
+  --hold-red-edge: #2a0303;
+  --hold-red-deep: #8c0001;
+  --hold-red-shade: #d00306;
+  --hold-red-base: #fd1e1a;
+  --hold-red-bright: #ff6e5a;
+  --hold-red-shine: #ffe7e0;
+  --hold-red-rim: #a30a06;
+}
+
 
 @theme inline {
   --color-slab-edge: var(--slab-edge);

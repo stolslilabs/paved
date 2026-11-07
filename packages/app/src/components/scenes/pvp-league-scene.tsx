@@ -12,7 +12,7 @@ import { Notice } from "../elements/notice";
 import { UiIcon } from "../elements/ui-icon";
 import { HudDrawer } from "../containers/hud-drawer";
 import { LeagueCard } from "../containers/league-card";
-import { LeagueCarousel, slideOf } from "../containers/league-carousel";
+import { LeagueCarousel } from "../containers/league-carousel";
 import { LeagueControl } from "../containers/league-control";
 import { MatchList, type MatchListProps } from "../containers/match-list";
 
@@ -79,7 +79,8 @@ function keepForDialogs(event: Event) {
  * profile and the Missions (`HudDrawer`): a full page with Back on a phone, a side panel docked at the left from `tablet` (the
  * HUD's crowns, at the home's top left, open it), its close the red cross. The header's end holds the League control (#859: the
  * crowns and the crest; a tap brings the carousel back to the player's league). Under it, in the drawer's carved surfaces: the
- * leagues' carousel, Unranked and the 23 leagues opening on the player's (#785, #917), each card the crest beside its name and its
+ * leagues' carousel, the 23 leagues opening on the player's (#785), Wood for a player outside the leagues (Unranked, #917: no slide
+ * of its own since the owner's ask of 2026-11-07, the header alone says it), each card the crest beside its name and its
  * range of crowns between two thin arrows (no dots); the season in one row (its calendar, what the player's league gives at its
  * end, #644, #859, its time left); then the battle logs (#786), each row opening its match. No Attack button (#833).
  */
@@ -214,29 +215,31 @@ interface LeagueBrowserHandle {
 
 interface LeagueBrowserProps extends Pick<PvpLeagueSceneProps, "opensOn"> {
   ref?: Ref<LeagueBrowserHandle>;
-  /** The player's league; `null`, Unranked. */
+  /** The player's league; `null`, Unranked: no slide is theirs. */
   mine: League | null;
 }
 
 /**
  * The carousel and its cards, on the drawer's face (no carved panel: the owner's ask of 2026-11-05), with the league in view as their own state: moving through the
  * leagues redraws the carousel alone, never the season or the matches below, nor the header (its League control calls `showMine`).
+ * An Unranked player's view is Wood's, the league a first attack enters (UNRANKED-PLACEHOLDER), none marked as theirs.
  */
 function LeagueBrowser({ ref, mine, opensOn }: LeagueBrowserProps) {
-  const [selected, setSelected] = useState(slideOf(opensOn !== undefined ? LEAGUES[opensOn]! : mine));
+  const home = (mine ?? LEAGUES[0]!).index;
+  const [selected, setSelected] = useState(opensOn ?? home);
   const select = (index: number) => setSelected(index);
   const root = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotionConfig();
-  // The header's League control: the carousel glides back to the player's league (a cut under reduced motion, the carousel's
-  // rule), brought into view when the page was scrolled past it.
+  // The header's League control: the carousel glides back to the player's league (Wood for an Unranked player; a cut under reduced
+  // motion, the carousel's rule), brought into view when the page was scrolled past it.
   useImperativeHandle(ref, () => ({
     showMine: () => {
-      select(slideOf(mine));
+      select(home);
       root.current?.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
     },
   }));
   return (
-    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={slideOf(mine)} className="py-1">
+    <LeagueCarousel ref={root} selected={selected} onSelect={select} mine={mine?.index ?? null} className="py-1">
       {(l) => <LeagueCard league={l} />}
     </LeagueCarousel>
   );

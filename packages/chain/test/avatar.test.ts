@@ -1,12 +1,13 @@
-/** The avatar on chain (#627): the look in AVATAR-LOOK's format, the views of `Avatar` through the codec, its two writes, their typed refusals, the fakes. */
+/** The avatar on chain (#627): the look in AVATAR-LOOK's format, the views of `Avatar` through the codec, its two writes, their typed refusals, the fakes; and the name (PLAYER-RENAME): its short string, its views, `rename` and its refusals. */
 import { describe, expect, test, vi } from "vitest";
 import { createCodecs } from "../src/abis";
-import { AVATAR_LISTED, AVATAR_WITHDRAWN, canSetLook, isFreeItem, isOnSale, lookIds, lookOf, ownsItem, unlistedItem, type AvatarItem } from "../src/avatar";
+import { AVATAR_LISTED, AVATAR_WITHDRAWN, canSetLook, isFreeItem, isOnSale, isPlayerName, lookIds, lookOf, nameKey, normalizeName, ownsItem, renameCost, unlistedItem, type AvatarItem, type NameViews } from "../src/avatar";
+import { byteArrayFelts } from "../src/codec";
 import { CONTROLLER_ENTRY_POINTS, controllerPolicies } from "../src/auth/controller";
 import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews, RpcGameViews, ViewError, type CallProvider } from "../src/views";
-import { AvatarPriceChangedError, AvatarRefusedError, WriteError, type AvatarRefusal } from "../src/writer";
+import { AvatarPriceChangedError, AvatarRefusedError, RenameRefusedError, WriteError, type AvatarRefusal, type RenameRefusal } from "../src/writer";
 
 const AVATAR = "0x7";
 const PLAYER = "0x5";
@@ -232,11 +233,11 @@ describe("the writes", () => {
 
 describe("the session and the fakes", () => {
   test("the two writes are session policies where the deployment has an Avatar", () => {
-    expect(CONTROLLER_ENTRY_POINTS.Avatar).toEqual(["buy_avatar_item", "set_avatar"]);
+    expect(CONTROLLER_ENTRY_POINTS.Avatar).toEqual(["buy_avatar_item", "set_avatar", "rename"]);
     const methods = controllerPolicies(deployment)
       .filter((p) => BigInt(p.target) === BigInt(AVATAR))
       .map((p) => p.method);
-    expect(methods).toEqual(["buy_avatar_item", "set_avatar"]);
+    expect(methods).toEqual(["buy_avatar_item", "set_avatar", "rename"]);
     const none = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2", Setup: "0x3" } } });
     expect(controllerPolicies(none).map((p) => p.method)).not.toContain("set_avatar");
   });
@@ -259,5 +260,184 @@ describe("the session and the fakes", () => {
     expect(await fake.avatar("0x99")).toBe(0n);
     fake.avatarFail = new Error("down");
     await expect(fake.avatar(PLAYER)).rejects.toThrow("down");
+  });
+});
+
+/**
+ * The names' vectors (PLAYER-RENAME), the contract's own (`contracts/src/tests/avatar.cairo`, `name_key`'s tests) and more: what the
+ * chain takes, and the key two names share when they are one.
+ */
+export const VALID_NAMES = ["abc", "MossyMason27", "123456789012345", "Mossy Mason", "Jean-Luc", "A B-C", "李小龙", "Élodie", "Анна", "李小龙 Lee 7", "佐々木", "मोहन", "محمد", "李小龙李小龙李小龙李小龙李小龙"];
+export const INVALID_NAMES = [
+  "",
+  "ab",
+  "1234567890123456",
+  "李小龙李小龙李小龙李小龙李小龙x",
+  " abc",
+  "abc ",
+  "-abc",
+  "abc-",
+  "ab  c",
+  "ab--c",
+  "ab -c",
+  "ab_c",
+  "abc.",
+  "@bc",
+  "ab'c",
+  "ab\tc",
+  "ab\u0000c",
+  "a\u00a0bc",
+  "a\u200bbc",
+  "a\u200fbc",
+  "a\u3164bc",
+  "a\u3000bc",
+  "E\u0301lo",
+  "ab\u{1F600}",
+  "\uff42al",
+  // Latin with a Cyrillic lookalike ("bаl7hazar", its а Cyrillic), Greek with Latin
+  "b\u0430l7hazar",
+  "\u0391bc",
+];
+
+describe("the name (PLAYER-RENAME)", () => {
+  /** The name views of a test: player 0x5 with `count` changes and `current`, the price, and who holds a name (by its key). */
+  function nameViews(over: { count?: number; price?: number; current?: string | null; holders?: Record<string, string> } = {}): Pick<NameViews, "renameCount" | "renamePrice" | "nameOwner" | "playerName"> {
+    return {
+      renameCount: async () => over.count ?? 0,
+      renamePrice: async () => over.price ?? 50,
+      nameOwner: async (name) => over.holders?.[nameKey(name) ?? ""] ?? null,
+      playerName: async () => over.current ?? null,
+    };
+  }
+
+  test("a name: 3 to 15 characters of any script, single spaces or hyphens between words, no lookalike mix, as the contract's name_key", () => {
+    for (const name of VALID_NAMES) expect(nameKey(name), name).not.toBeNull();
+    for (const name of INVALID_NAMES) expect(nameKey(name), JSON.stringify(name)).toBeNull();
+    // The case of Latin (accented too), Greek and Cyrillic folded; a space and a hyphen are two names
+    expect(nameKey("MossyMason27")).toBe(nameKey("mossymason27"));
+    expect(nameKey("ÉLODIE")).toBe(nameKey("élodie"));
+    expect(nameKey("АННА")).toBe(nameKey("анна"));
+    expect(nameKey("ŒUVRE")).toBe(nameKey("œuvre"));
+    expect(nameKey("Mossy Mason")).not.toBe(nameKey("Mossy-Mason"));
+    expect(renameCost(0, 50)).toBe(0);
+    expect(renameCost(1, 50)).toBe(50);
+  });
+
+  test("the client sends composed letters, marks, numbers and separators only, its ends trimmed", () => {
+    for (const name of VALID_NAMES) expect(isPlayerName(name), name).toBe(true);
+    for (const name of INVALID_NAMES) expect(isPlayerName(name), JSON.stringify(name)).toBe(false);
+    // The chain takes an Arabic question mark; the client sends letters only
+    expect(nameKey("محمد؟")).not.toBeNull();
+    expect(isPlayerName("محمد؟")).toBe(false);
+    // Typed decomposed, sent composed; typed with a space at its end, sent without
+    expect(normalizeName("E\u0301lodie ")).toBe("Élodie");
+    expect(isPlayerName(normalizeName("  Jean-Luc "))).toBe(true);
+  });
+
+  test("a ByteArray's felts: UTF-8 in 31-byte words, then the pending word and its length; the codec reads them back", () => {
+    expect(byteArrayFelts("abc")).toEqual(["0x0", "0x616263", "0x3"]);
+    expect(byteArrayFelts("")).toEqual(["0x0", "0x0", "0x0"]);
+    // 李 is E6 9D 8E
+    expect(byteArrayFelts("李")).toEqual(["0x0", "0xe69d8e", "0x3"]);
+    const long = "李小龙李小龙李小龙李小龙李小龙";
+    const felts = byteArrayFelts(long);
+    expect(felts[0]).toBe("0x1");
+    expect(felts.at(-1)).toBe(`0x${(45 - 31).toString(16)}`);
+    expect(codecs.Avatar.decodeResult("name", felts)).toBe(long);
+  });
+
+  test("Avatar.json has rename and the four views, decoded; a name is sent and read as a ByteArray", async () => {
+    for (const fn of ["rename", "set_rename_price", "name", "renames", "rename_price", "name_owner"]) expect(codecs.Avatar.hasFunction(fn), fn).toBe(true);
+    const { views: v, calls } = views((entrypoint) => {
+      switch (entrypoint) {
+        case "name":
+          return byteArrayFelts("李小龙 Lee");
+        case "renames":
+          return ["0x2"];
+        case "rename_price":
+          return ["0x32"];
+        default:
+          return ["0x5"];
+      }
+    });
+    expect(await v.playerName(PLAYER)).toBe("李小龙 Lee");
+    expect(await v.renameCount(PLAYER)).toBe(2);
+    expect(await v.renamePrice()).toBe(50);
+    expect(await v.nameOwner("élodie")).toBe("0x5");
+    // Not a name: free, nothing read
+    expect(await v.nameOwner("a  b")).toBeNull();
+    expect(calls.map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata.map(BigInt)])).toEqual([
+      [7n, "name", [5n]],
+      [7n, "renames", [5n]],
+      [7n, "rename_price", []],
+      [7n, "name_owner", byteArrayFelts("élodie").map(BigInt)],
+    ]);
+    const none = views(() => byteArrayFelts("")).views;
+    expect(await none.playerName(PLAYER)).toBeNull();
+  });
+
+  test("rename reads the cost, the holder and the name again, then sends rename(name as a ByteArray, confirmed price)", async () => {
+    const first = writerWith();
+    await first.writer.rename({ name: "李小龙", confirmedPrice: 0 }, nameViews());
+    expect(sent(first.execute)).toEqual([[7n, "rename", [...byteArrayFelts("李小龙").map(BigInt), 0n]]]);
+    const paid = writerWith();
+    // The player's own name in another case is theirs to take
+    await paid.writer.rename({ name: "ÉLODIE", confirmedPrice: 50 }, nameViews({ count: 1, current: "Élodie", holders: { [nameKey("élodie")!]: "0x5" } }));
+    expect(sent(paid.execute)).toEqual([[7n, "rename", [...byteArrayFelts("ÉLODIE").map(BigInt), 50n]]]);
+  });
+
+  test("refused before sending: invalid, taken, the same name, another price, no price set, no Avatar, a failed read", async () => {
+    const cases: Array<[Parameters<typeof nameViews>[0], string, number, RenameRefusal]> = [
+      [{}, "a  b", 0, "invalid-name"],
+      [{}, "E\u0301lo", 0, "invalid-name"],
+      [{ holders: { [nameKey("mason")!]: "0x9" } }, "MASON", 0, "taken"],
+      [{ current: "Mason" }, "Mason", 0, "same-name"],
+      [{ count: 1, price: 70 }, "Carter", 50, "price-changed"],
+      [{ count: 0 }, "Carter", 50, "price-changed"],
+      [{ count: 2, price: 0 }, "Carter", 0, "not-priced"],
+    ];
+    for (const [over, name, price, reason] of cases) {
+      const { writer, execute } = writerWith();
+      await expect(writer.rename({ name, confirmedPrice: price }, nameViews(over)), reason).rejects.toMatchObject({ name: "RenameRefusedError", reason, transactionHash: undefined });
+      expect(execute).not.toHaveBeenCalled();
+    }
+    const none = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Challenge: "0x2" } } });
+    await expect(writerWith({ dep: none }).writer.rename({ name: "Mason", confirmedPrice: 0 }, nameViews())).rejects.toThrow(/No Avatar/);
+    const { writer, execute } = writerWith();
+    await expect(writer.rename({ name: "Mason", confirmedPrice: -1 }, nameViews())).rejects.toBeInstanceOf(WriteError);
+    await expect(writer.rename({ name: "Mason", confirmedPrice: 0 }, { ...nameViews(), renamePrice: async () => Promise.reject(new Error("down")) })).rejects.toThrow(/Nothing was sent/);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("each revert of rename is its typed refusal, with the transaction", async () => {
+    const reverts: Array<[string, RenameRefusal]> = [
+      ["Avatar: invalid name", "invalid-name"],
+      ["Avatar: same name", "same-name"],
+      ["Avatar: name taken", "taken"],
+      ["Avatar: rename not priced", "not-priced"],
+      ["Avatar: price above max", "price-changed"],
+      ["Setup: not enough cobbles", "not-enough-cobbles"],
+    ];
+    for (const [reason, refusal] of reverts) {
+      const { writer } = writerWith({ receipt: { execution_status: "REVERTED", revert_reason: reason } });
+      const error = await writer.rename({ name: "Mason", confirmedPrice: 0 }, nameViews()).catch((e: unknown) => e);
+      expect(error, reason).toBeInstanceOf(RenameRefusedError);
+      expect(error, reason).toMatchObject({ reason: refusal, transactionHash: "0x1" });
+    }
+  });
+
+  test("FakeGameViews answers the name in memory, any case holding it", async () => {
+    const fake = new FakeGameViews();
+    fake.names.price = 50;
+    fake.namePlayer(PLAYER).name = "Élodie";
+    fake.namePlayer(PLAYER).count = 1;
+    expect(await fake.playerName(PLAYER)).toBe("Élodie");
+    expect(await fake.renameCount(PLAYER)).toBe(1);
+    expect(await fake.renamePrice()).toBe(50);
+    expect(await fake.nameOwner("ÉLODIE")).toBe("0x5");
+    expect(await fake.nameOwner("Carter")).toBeNull();
+    expect(await fake.playerName("0x99")).toBeNull();
+    fake.avatarFail = new Error("down");
+    await expect(fake.playerName(PLAYER)).rejects.toThrow("down");
   });
 });

@@ -825,7 +825,7 @@ describe("Board", () => {
     expect(within(screen.getByRole("region", { name: "Your tile" })).queryByRole("button", { name: /discard/i })).not.toBeInTheDocument();
     expect(screen.queryByTestId("hand-hint")).not.toBeInTheDocument();
     const names = (await screen.findByRole("toolbar", { name: "Tile" })).querySelectorAll("button");
-    expect([...names].map((b) => b.getAttribute("aria-label"))).toEqual(["Cancel placement", "Hold to discard the tile (costs 50 points)", "Rotate tile", "Hold to place the tile"]);
+    expect([...names].map((b) => b.getAttribute("aria-label"))).toEqual(["Cancel placement", "Hold to place the tile", "Rotate tile", "Hold to discard the tile (costs 50 points)"]);
   });
 
   it("says when the tile fits nowhere, its Discard still offered", () => {

@@ -21,7 +21,7 @@ function appFiles(dir: string): string[] {
 const classLike = (token: string) => /^!?[a-z0-9-][\w\-:/.!*&>@]*$/.test(token.replace(/\[[^\]]*\]|\([^)]*\)/g, "x"));
 
 /** Props, attributes and fields whose string is never a class: a variant's name, an ARIA role, an SVG or style value, a state. */
-const NOT_CLASS_KEYS = new Set(["variant", "role", "overflow", "visibility", "willChange", "kind", "state", "playbackState"]);
+const NOT_CLASS_KEYS = new Set(["variant", "role", "overflow", "visibility", "willChange", "transition", "kind", "state", "playbackState"]);
 
 /**
  * Whether a string at `at` is plainly no class list, from what precedes it in its statement. Its own operand only: the value
@@ -102,6 +102,7 @@ describe("the app stylesheet's word list", () => {
       `<div data-unlock={on ? (playing ? "playing" : "paused") : undefined} />`,
       `<Notice title="Purchases paused" />`,
       `el.style.transition = "transform 200ms ease-out, width 200ms ease-out";`,
+      "<g style={{ transition: on ? `transform ${ms}ms linear` : `transform 150ms ease-out` }} />",
       "<polygon filter={`url(#${shadow})`} />",
     ];
     for (const source of fine) expect(excludedUses(source), source).toEqual([]);
