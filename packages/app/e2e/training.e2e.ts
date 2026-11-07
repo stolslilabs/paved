@@ -14,6 +14,7 @@ import {
   holdToDiscard,
   holdToPlace,
   newSeed,
+  distinctValid,
   nextValid,
   noWebGL,
   openTraining,
@@ -24,6 +25,7 @@ import {
   readUi,
   ready,
   rngOf,
+  sameLayout,
   seedFromTest,
   setSeed,
   shownSlots,
@@ -228,9 +230,9 @@ async function play(page: Page, seed: string, model: EngineGame, random: () => n
     const closing = seekClosure ? legal.filter((p) => model.clone().build(p).scored.length > 0) : [];
     if (closing.length > 0) out.closable += 1;
     const pool = closing.length > 0 ? closing : legal;
-    const placement = pool[Math.floor(random() * pool.length)]!;
+    let placement = pool[Math.floor(random() * pool.length)]!;
     const cell = chainOf(placement);
-    const want = ORIENTATIONS.indexOf(placement.orientation);
+    let want = ORIENTATIONS.indexOf(placement.orientation);
     // The rotations the engine allows at that cell: the tile lands in the one in hand if it fits, else the first that does.
     const valid = [1, 2, 3, 4].filter((o) => model.canPlace({ orientation: ORIENTATIONS[o]!, x: placement.x, y: placement.y }));
     const slot = page.getByRole("button", { name: slotName(cell.x, cell.y), exact: true });
@@ -238,23 +240,37 @@ async function play(page: Page, seed: string, model: EngineGame, random: () => n
     if (!valid.includes(orientation)) orientation = valid[0]!;
     await expect.poll(() => slot.getAttribute("aria-pressed"), { message: `${at}: the tile stands on its slot`, timeout: 10_000 }).toBe("true");
     await bubble(page).waitFor({ timeout: 10_000 });
-    expect(await rotate.count(), `${at}: Rotate shows only with more than one rotation (${valid.join(",")})`).toBe(valid.length > 1 ? 1 : 0);
+    // Rotate shows only when a turn changes the tile (TILE-ACTIONS): a symmetric plan fits in orientations that are the same tile.
+    const plan = model.hand!.plan;
+    const turns = () => distinctValid(plan, valid, orientation);
+    const kinds = turns().length;
+    expect(await rotate.count(), `${at}: Rotate shows only when a turn changes the tile (${valid.join(",")}: ${turns().join(",")})`).toBe(kinds > 1 ? 1 : 0);
 
-    // Rotate turns through the valid rotations only: when asked, each one is checked (the hand, the lit slots) and the
-    // tile comes back to the first; then it is turned to the bot's.
+    // Rotate turns through the valid rotations only, each turn another tile: when asked, each kind is checked (the hand, the lit
+    // slots); then it is turned to the bot's.
     const check = async () => {
       await expect.poll(async () => (await readHand(page)).orientation, { message: `${at}: the rotation in hand`, timeout: 10_000 }).toBe(orientation);
       await expect.poll(fitting, { message: `${at}: the slots lit at rotation ${orientation}`, timeout: 10_000 }).toEqual(legalAt(orientation));
     };
     const turn = async () => {
       await rotate.click();
-      orientation = nextValid(orientation, valid);
+      orientation = nextValid(orientation, turns());
     };
     if (checkSlots) {
-      for (let i = 0; i < valid.length; i++) {
+      for (let i = 0; i < kinds; i++) {
         await check();
-        if (valid.length > 1) await turn();
+        if (kinds > 1) await turn();
       }
+    }
+    // The rotations Rotate reaches from here; the bot's, when it is not among them, is its twin that is (the same tile in the game).
+    const reached = [orientation];
+    for (let o = orientation, i = 0; i < 4; i++) {
+      o = nextValid(o, distinctValid(plan, valid, o));
+      if (!reached.includes(o)) reached.push(o);
+    }
+    if (!reached.includes(want)) {
+      want = reached.find((o) => sameLayout(plan, o, want))!;
+      placement = { ...placement, orientation: ORIENTATIONS[want]! };
     }
     for (let i = 0; i < 4 && orientation !== want; i++) await turn();
     expect(orientation, `${at}: the bubble reaches the rotation wanted`).toBe(want);
