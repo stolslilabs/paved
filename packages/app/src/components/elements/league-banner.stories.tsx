@@ -3,7 +3,7 @@ import { LeagueBanner } from "./league-banner";
 import { LEAGUE_TIERS } from "./league-standards";
 import { Grounds } from "./league-story-grounds";
 
-/** The leagues' banners (issue 917): each tier's pennant with its emblem; Unranked's torn cloth. */
+/** The leagues' banners (issue 917): each tier's pennant with its emblem; Unranked's empty slot, grey and dashed (UNRANKED-PLACEHOLDER). */
 const meta = {
   title: "Elements/League banner",
   component: LeagueBanner,

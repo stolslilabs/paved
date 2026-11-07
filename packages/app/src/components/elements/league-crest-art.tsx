@@ -26,8 +26,10 @@ export interface LeagueCrestArtProps {
 
 /**
  * A tier's crest (issue 917, redrawn after the owner's design of 2026-11-01): the same shield on every tier, made of the tier's
- * material and colour (cracked stone, oak, iron, bronze, silver, gold, emerald, diamond, amethyst, ruby set in gold); a division's
- * version carries its numeral in its middle, Grand Master its horned helmet, Unranked and Wood an empty field. An image on a 1em square.
+ * material and colour (oak, iron, bronze, silver, gold, emerald, diamond, amethyst, ruby set in gold), Unranked an empty slot rather
+ * than a material (UNRANKED-PLACEHOLDER, the owner's asks of 2026-11-07: a vector shape, a grey gradient with a slight volume,
+ * soft dashes for its edge, nothing that shines); a division's version carries its numeral in its middle, Grand Master its horned
+ * helmet, Unranked and Wood an empty field. An image on a 1em square.
  */
 export function LeagueCrestArt({ tier, division = null, size = "md", label, className }: LeagueCrestArtProps) {
   const rem = CREST_REM[size];
