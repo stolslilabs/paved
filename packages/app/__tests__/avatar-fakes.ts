@@ -1,8 +1,8 @@
-import { AvatarPriceChangedError, AvatarRefusedError, lookIds, type AvatarViews, type BuyAvatarItemRequest, type DecodedEvent, type FakeGameViews, type WriteResult } from "@paved/chain";
+import { AvatarPriceChangedError, AvatarRefusedError, RenameRefusedError, isPlayerName, lookIds, type AvatarViews, type BuyAvatarItemRequest, type DecodedEvent, type FakeGameViews, type NameViews, type RenameRequest, type WriteResult } from "@paved/chain";
 
 const event = (name: string, fields: Record<string, unknown>): DecodedEvent => ({ name, fields }) as unknown as DecodedEvent;
 
-/** `Avatar`'s writes in memory, on the fake views: `buy_avatar_item` and `set_avatar` with the contract's checks. */
+/** `Avatar`'s writes in memory, on the fake views: `buy_avatar_item`, `set_avatar` and `rename` (PLAYER-RENAME) with the contract's checks. */
 export class FakeAvatarWriter {
   readonly sent: string[] = [];
   /** While set, a write waits for it before answering: the page's pending state. */
@@ -43,6 +43,27 @@ export class FakeAvatarWriter {
     }
     player.look = look;
     return { transactionHash: "0x2", events: [event("AvatarSet", { playerId: this.address, look })] };
+  }
+
+  /** `Avatar.rename(name, max_cobbles)`: the writer's checks before sending, then the contract's; `Renamed`, and `CobblesSpent` when paid. */
+  async rename({ name, confirmedPrice }: RenameRequest, views: Pick<NameViews, "renameCount" | "renamePrice" | "nameOwner" | "playerName">): Promise<WriteResult> {
+    if (!isPlayerName(name)) throw new RenameRefusedError("invalid-name");
+    if (this.gate) await this.gate;
+    const [count, price, owner] = await Promise.all([views.renameCount(this.address), views.renamePrice(), views.nameOwner(name)]);
+    const cost = count === 0 ? 0 : price;
+    if (cost !== confirmedPrice) throw new RenameRefusedError("price-changed");
+    this.sent.push(`rename ${name} ${confirmedPrice}`);
+    const held = this.views.namePlayer(this.address);
+    if (held.name === name) throw new RenameRefusedError("same-name", "0x3");
+    if (owner !== null && BigInt(owner) !== BigInt(this.address)) throw new RenameRefusedError("taken", "0x3");
+    const ledger = this.views.cobblePlayer(this.address);
+    if (ledger.account.cobbles < cost) throw new RenameRefusedError("not-enough-cobbles", "0x3");
+    ledger.account = { ...ledger.account, cobbles: ledger.account.cobbles - cost };
+    held.name = name;
+    held.count = count + 1;
+    const renamed = event("Renamed", { playerId: this.address, name, cobbles: cost, count: held.count });
+    const events = cost === 0 ? [renamed] : [renamed, event("CobblesSpent", { playerId: this.address, reason: "RENAME", cobbles: cost, balance: ledger.account.cobbles })];
+    return { transactionHash: "0x3", events };
   }
 }
 

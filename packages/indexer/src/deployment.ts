@@ -2,7 +2,8 @@
 // filters on (Challenge, Setup and Economy are required: Setup since D-24 holds the quests and achievements, and since D-25 (E)
 // the wiring; every deployment has an Economy since E3, and a file without one is refused, since its paid games would be
 // half indexed; Collection, since E5b, is optional: without it the mints are not read and no game has a token id; so are
-// Arena, #643, and Vault, D-31: without it no claim of the Vault's USDC is read), the block it starts from, the chain id, and
+// Arena, #643, Vault, D-31: without it no claim of the Vault's USDC is read, and Avatar, PLAYER-RENAME: without it no name set
+// on chain is read), the block it starts from, the chain id, and
 // the node's URL. Nothing else of the file is used: an `Account` key (a deployment before D-25 (E)) is ignored.
 import { readFileSync } from "node:fs";
 import { canonical } from "./events.ts";
@@ -23,6 +24,8 @@ export type Deployment = {
   arena: string | undefined;
   /** Optional (D-31): the claims of the Vault's USDC, the Vault page's history. A deployment without `Vault` reads none. */
   vault: string | undefined;
+  /** Optional (PLAYER-RENAME): the names the players set, which win over the Cartridge usernames. Without `Avatar`, none. */
+  avatar: string | undefined;
 };
 
 const ADDRESS = /^0x[0-9a-fA-F]{1,64}$/;
@@ -62,6 +65,7 @@ export function parseDeployment(file: unknown): Deployment {
     collection: contracts.Collection === undefined ? undefined : address("Collection"),
     arena: contracts.Arena === undefined ? undefined : address("Arena"),
     vault: contracts.Vault === undefined ? undefined : address("Vault"),
+    avatar: contracts.Avatar === undefined ? undefined : address("Avatar"),
   };
 }
 

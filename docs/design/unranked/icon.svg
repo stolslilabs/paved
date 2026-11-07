@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="608" height="608" viewBox="-24 -24 304 304"><defs>
+  <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a5a5a"/><stop offset="1" stop-color="#363636"/></linearGradient>
+  <filter id="volume" x="-10%" y="-10%" width="120%" height="120%">
+    <feFlood flood-color="#fff" flood-opacity="0.22"/><feComposite in2="SourceAlpha" operator="out"/>
+    <feGaussianBlur stdDeviation="3"/><feOffset dy="4"/><feComposite in2="SourceAlpha" operator="in" result="light"/>
+    <feFlood flood-color="#000" flood-opacity="0.4"/><feComposite in2="SourceAlpha" operator="out"/>
+    <feGaussianBlur stdDeviation="5"/><feOffset dy="-6"/><feComposite in2="SourceAlpha" operator="in" result="shade"/>
+    <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="light"/><feMergeNode in="shade"/></feMerge>
+  </filter>
+</defs><path d="M128 4 L232 41 L232 172 Q209.5 204.5 128 251 Q46.5 204.5 23 172 L23 41 L128 4 Z" fill="url(#fill)" fill-rule="nonzero" filter="url(#volume)"/><path d="M127.97 21.57 L215.44 52.69 L215.44 166.83 Q198.03 191.98 128 231.93 Q57.82 191.89 39.56 166.64 L39.56 52.72 L127.97 21.57 Z" fill="none" stroke="#8c8c8c" stroke-width="14.4" stroke-linecap="round" stroke-linejoin="round" pathLength="756" stroke-dasharray="22 41" stroke-dashoffset="11"/></svg>

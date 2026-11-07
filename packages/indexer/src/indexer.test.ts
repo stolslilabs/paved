@@ -496,19 +496,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("VAULT-CLAIMS: schema 20 (the Vault's USDC claims, D-31; 19 was the PvP attacks, #643; 18 was the XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
-    expect(SCHEMA_VERSION).toBe("20");
-    for (const old of ["19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
+  test("PLAYER-RENAME: schema 21 (the names set on Avatar; 20 was the Vault's USDC claims, D-31; 19 was the PvP attacks, #643; 18 was the XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
+    expect(SCHEMA_VERSION).toBe("21");
+    for (const old of ["20", "19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
       raw.close();
       expect(() => new Store(path)).toThrow(SchemaMismatch);
-      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 20: rebuild it`));
-      // `rebuild` drops it whatever it held and starts it again at 20.
+      expect(() => new Store(path)).toThrow(new RegExp(`schema ${old}, this indexer 21: rebuild it`));
+      // `rebuild` drops it whatever it held and starts it again at 21.
       const rebuilt = new Store(path, { rebuild: true });
       rebuilt.open(CONFIG);
-      expect(rebuilt.meta("schema")).toBe("20");
+      expect(rebuilt.meta("schema")).toBe("21");
       rebuilt.close();
     }
   });

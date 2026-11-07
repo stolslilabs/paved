@@ -5,11 +5,18 @@
 //! once, never twice; cobbles never below zero; `set_avatar` never accepts a part neither free nor
 //! owned; only an allowlisted spender spends; the limits in quantity and in time.
 //!
+//! The player's name (PLAYER-RENAME, `avatar/name.cairo`): the shape (UTF-8, 3 to 15 characters of
+//! any script's letters and digits, single spaces and hyphens between them),
+//! the first change free and every later one at the owner's price, debited on `Setup`'s ledger in
+//! the same call; one player per name whatever its case, a name left free at once; never above the
+//! price the player confirmed, never below zero cobbles.
+//!
 //! The parts, bounds and prices here are the tests' own: the owner's values are not set yet. The
 //! cobbles are written into `Setup`'s ledger directly (`give`): the earning paths have their own
 //! tests (`e2e::cobbles*`). The gas of each call is measured in `tests/gas.cairo` (z27 to z31).
 
 use core::num::traits::Zero;
+use core::poseidon::poseidon_hash_span;
 use paved::avatar::catalogue::CatalogueComponent::{
     AvatarItemListed, Event as CatalogueEvent, PriceBoundsSet,
 };
@@ -17,10 +24,14 @@ use paved::avatar::item::{
     AvatarItem, LISTED, UNLISTED, WITHDRAWN, is_free_word, item_of, item_word,
 };
 use paved::avatar::look::{MAX_PARTS, look_ids, look_of};
-use paved::systems::avatar::Avatar::{AvatarItemBought, AvatarSet, Event as AvatarEvent, PartsSet};
+use paved::avatar::name::{allowed, decode, fold, name_key};
+use paved::systems::avatar::Avatar::{
+    AvatarItemBought, AvatarSet, Event as AvatarEvent, PartsSet, RenamePriceSet, Renamed,
+};
 use paved::systems::avatar::{
-    AVATAR_REASON, IAvatarDispatcher, IAvatarDispatcherTrait, IAvatarSafeDispatcher,
-    IAvatarSafeDispatcherTrait, PriceBounds,
+    AVATAR_REASON, IAvatarDispatcher, IAvatarDispatcherTrait, IAvatarNameDispatcher,
+    IAvatarNameDispatcherTrait, IAvatarNameSafeDispatcher, IAvatarNameSafeDispatcherTrait,
+    IAvatarSafeDispatcher, IAvatarSafeDispatcherTrait, PriceBounds, RENAME_REASON,
 };
 use paved::systems::setup::Setup::{CobblesSpent, Event as SetupEvent};
 use paved::systems::setup::{
@@ -709,4 +720,438 @@ fn test_fuzz_buys_and_sets(seed: u64) {
         });
     }
     set(w, PLAYER(), look(ids));
+}
+
+// The name (PLAYER-RENAME)
+
+fn names(w: World) -> IAvatarNameDispatcher {
+    IAvatarNameDispatcher { contract_address: w.avatar.contract_address }
+}
+
+fn safe_names(w: World) -> IAvatarNameSafeDispatcher {
+    IAvatarNameSafeDispatcher { contract_address: w.avatar.contract_address }
+}
+
+/// `bare()` with the rename price at 50, as `scripts/deploy.sh` sets it.
+fn priced() -> World {
+    let w = bare();
+    as_owner(w);
+    names(w).set_rename_price(50);
+    stop(w);
+    w
+}
+
+fn rename(w: World, who: ContractAddress, name: ByteArray) {
+    as_player(w, who);
+    names(w).rename(name, 0xffff);
+    stop(w);
+}
+
+/// A `ByteArray` of these bytes (UTF-8 written out: Cairo's literals are ASCII).
+fn utf8(bytes: Array<u8>) -> ByteArray {
+    let mut text: ByteArray = "";
+    for byte in bytes {
+        text.append_byte(byte);
+    }
+    text
+}
+
+/// 李小龙 (Chinese), Élodie (accented Latin), ÉLODIE, Анна and АННА (Cyrillic).
+fn li_xiaolong() -> ByteArray {
+    utf8(array![0xe6, 0x9d, 0x8e, 0xe5, 0xb0, 0x8f, 0xe9, 0xbe, 0x99])
+}
+
+fn elodie() -> ByteArray {
+    utf8(array![0xc3, 0x89, 'l', 'o', 'd', 'i', 'e'])
+}
+
+fn elodie_upper() -> ByteArray {
+    utf8(array![0xc3, 0x89, 'L', 'O', 'D', 'I', 'E'])
+}
+
+fn anna() -> ByteArray {
+    utf8(array![0xd0, 0x90, 0xd0, 0xbd, 0xd0, 0xbd, 0xd0, 0xb0])
+}
+
+fn anna_upper() -> ByteArray {
+    utf8(array![0xd0, 0x90, 0xd0, 0x9d, 0xd0, 0x9d, 0xd0, 0x90])
+}
+
+/// The key of a name of ASCII and Latin-1 characters, as `name_key` makes it: each character
+/// folded, hashed.
+fn key_of(codes: Array<u32>) -> felt252 {
+    let mut folded: Array<felt252> = array![];
+    for code in codes {
+        folded.append(fold(code).into());
+    }
+    poseidon_hash_span(folded.span())
+}
+
+#[test]
+fn test_utf8_is_decoded_strictly() {
+    assert_eq!(decode(@"a", 0), Some((0x61, 1)));
+    assert_eq!(decode(@utf8(array![0xc3, 0x89]), 0), Some((0xc9, 2)));
+    assert_eq!(decode(@utf8(array![0xe6, 0x9d, 0x8e]), 0), Some((0x674e, 3)));
+    assert_eq!(decode(@utf8(array![0xf0, 0x9f, 0x98, 0x80]), 0), Some((0x1f600, 4)));
+    // A lone continuation, an overlong form, a surrogate, past U+10FFFF, a cut sequence
+    assert_eq!(decode(@utf8(array![0x80]), 0), None);
+    assert_eq!(decode(@utf8(array![0xc0, 0x81]), 0), None);
+    assert_eq!(decode(@utf8(array![0xe0, 0x80, 0x80]), 0), None);
+    assert_eq!(decode(@utf8(array![0xed, 0xa0, 0x80]), 0), None);
+    assert_eq!(decode(@utf8(array![0xf4, 0x90, 0x80, 0x80]), 0), None);
+    assert_eq!(decode(@utf8(array![0xf5, 0x80, 0x80, 0x80]), 0), None);
+    assert_eq!(decode(@utf8(array![0xe6, 0x9d]), 0), None);
+    assert_eq!(decode(@utf8(array![0xc3, 0x41]), 0), None);
+}
+
+#[test]
+fn test_name_key_takes_any_script_with_single_spaces_and_hyphens() {
+    // ASCII, the case folded
+    assert_eq!(name_key(@"MossyMason27"), name_key(@"mossymason27"));
+    assert_eq!(name_key(@"abc"), Some(key_of(array!['a', 'b', 'c'])));
+    assert_eq!(name_key(@"ABC"), name_key(@"abc"));
+    assert!(name_key(@"123456789012345").is_some());
+    // Spaces and hyphens between words
+    assert!(name_key(@"Mossy Mason").is_some());
+    assert!(name_key(@"Jean-Luc").is_some());
+    assert!(name_key(@"A B-C").is_some());
+    assert!(name_key(@"Mossy Mason") != name_key(@"Mossy-Mason"));
+    // Any script: Chinese, accented Latin (its case folded), Cyrillic (its case folded)
+    assert!(name_key(@li_xiaolong()).is_some());
+    assert_eq!(name_key(@elodie()), Some(key_of(array![0xc9, 'l', 'o', 'd', 'i', 'e'])));
+    assert_eq!(name_key(@elodie_upper()), name_key(@elodie()));
+    assert!(name_key(@anna()).is_some());
+    assert_eq!(name_key(@anna_upper()), name_key(@anna()));
+    // Chinese with Latin and digits (no lookalike there)
+    let mut mixed = li_xiaolong();
+    mixed.append(@" Lee 7");
+    assert!(name_key(@mixed).is_some());
+    // 15 characters of 3 bytes each: 45 bytes
+    let mut fifteen: ByteArray = "";
+    for _ in 0..5_u8 {
+        fifteen.append(@li_xiaolong());
+    }
+    assert!(name_key(@fifteen).is_some());
+}
+
+#[test]
+fn test_name_key_refuses_what_could_hide_another_name() {
+    // Too short, too long (characters and bytes), nothing
+    assert_eq!(name_key(@""), None);
+    assert_eq!(name_key(@"ab"), None);
+    assert_eq!(name_key(@"1234567890123456"), None);
+    let mut sixteen = li_xiaolong();
+    for _ in 0..4_u8 {
+        sixteen.append(@li_xiaolong());
+    }
+    sixteen.append(@"x");
+    assert_eq!(name_key(@sixteen), None);
+    // Separators: first, last, doubled, side by side
+    assert_eq!(name_key(@" abc"), None);
+    assert_eq!(name_key(@"abc "), None);
+    assert_eq!(name_key(@"-abc"), None);
+    assert_eq!(name_key(@"abc-"), None);
+    assert_eq!(name_key(@"ab  c"), None);
+    assert_eq!(name_key(@"ab--c"), None);
+    assert_eq!(name_key(@"ab -c"), None);
+    // ASCII signs and controls
+    assert_eq!(name_key(@"ab_c"), None);
+    assert_eq!(name_key(@"abc."), None);
+    assert_eq!(name_key(@"@bc"), None);
+    assert_eq!(name_key(@"ab'c"), None);
+    assert_eq!(name_key(@utf8(array!['a', 'b', 0x09, 'c'])), None);
+    assert_eq!(name_key(@utf8(array!['a', 'b', 0x00, 'c'])), None);
+    // Invalid UTF-8
+    assert_eq!(name_key(@utf8(array!['a', 'b', 0xff])), None);
+    // A no-break space, a zero-width space, a direction mark, a Hangul filler, an ideographic space
+    assert_eq!(name_key(@utf8(array!['a', 0xc2, 0xa0, 'b', 'c'])), None);
+    assert_eq!(name_key(@utf8(array!['a', 0xe2, 0x80, 0x8b, 'b', 'c'])), None);
+    assert_eq!(name_key(@utf8(array!['a', 0xe2, 0x80, 0x8f, 'b', 'c'])), None);
+    assert_eq!(name_key(@utf8(array!['a', 0xe3, 0x85, 0xa4, 'b', 'c'])), None);
+    assert_eq!(name_key(@utf8(array!['a', 0xe3, 0x80, 0x80, 'b', 'c'])), None);
+    // A combining accent after a Latin letter (composed text only), an emoji, fullwidth ASCII
+    assert_eq!(name_key(@utf8(array!['E', 0xcc, 0x81, 'l', 'o'])), None);
+    assert_eq!(name_key(@utf8(array!['a', 'b', 0xf0, 0x9f, 0x98, 0x80])), None);
+    assert_eq!(name_key(@utf8(array![0xef, 0xbd, 0x82, 'a', 'l'])), None);
+    // Latin with a Cyrillic lookalike ("bаl7hazar", its а Cyrillic), Greek with Latin
+    assert_eq!(name_key(@utf8(array!['b', 0xd0, 0xb0, 'l', '7', 'h', 'a', 'z', 'a', 'r'])), None);
+    assert_eq!(name_key(@utf8(array![0xce, 0x91, 'b', 'c'])), None);
+}
+
+#[test]
+fn test_allowed_and_fold_by_range() {
+    assert!(allowed('a') && allowed('Z') && allowed('0'));
+    assert!(!allowed(' ') && !allowed('-') && !allowed('_'));
+    assert!(allowed(0xe9)); // é
+    assert!(!allowed(0xd7) && !allowed(0xf7) && !allowed(0xa0) && !allowed(0xad));
+    assert!(allowed(0x674e) && allowed(0x3005)); // 李, 々
+    assert!(!allowed(0x3000) && !allowed(0x200b) && !allowed(0xfeff) && !allowed(0x1f600));
+    assert!(
+        allowed(0x0627) && allowed(0x0915) && allowed(0x093f),
+    ); // Arabic alef, Devanagari ka and its vowel sign
+    assert_eq!(fold('A'), 'a');
+    assert_eq!(fold(0xc9), 0xe9); // É
+    assert_eq!(fold(0xdf), 0xdf); // ß has no capital here
+    assert_eq!(fold(0x152), 0x153); // Œ
+    assert_eq!(fold(0x178), 0xff); // Ÿ
+    assert_eq!(fold(0x141), 0x142); // Ł
+    assert_eq!(fold(0x391), 0x3b1); // Α
+    assert_eq!(fold(0x416), 0x436); // Ж
+    assert_eq!(fold(0x401), 0x451); // Ё
+    assert_eq!(fold(0x674e), 0x674e);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_set_rename_price_owner_only_never_zero() {
+    let w = bare();
+    assert_eq!(names(w).rename_price(), 0);
+    let s = safe_names(w);
+    as_player(w, PLAYER());
+    assert_eq!(error_of(s.set_rename_price(50)), 'Ownable: caller is not owner');
+    stop(w);
+    as_owner(w);
+    assert_eq!(error_of(s.set_rename_price(0)), 'Avatar: invalid rename price');
+    let mut spy = spy_events();
+    names(w).set_rename_price(50);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    w.avatar.contract_address,
+                    AvatarEvent::RenamePriceSet(RenamePriceSet { cobbles: 50 }),
+                ),
+            ],
+        );
+    names(w).set_rename_price(70);
+    stop(w);
+    assert_eq!(names(w).rename_price(), 70);
+}
+
+#[test]
+fn test_first_rename_is_free_and_emits() {
+    let w = priced();
+    let player_id: felt252 = PLAYER().into();
+    assert_eq!(names(w).name(player_id), "");
+    assert_eq!(names(w).renames(player_id), 0);
+    let mut spy = spy_events();
+    // No cobbles at all: the first change is free
+    rename(w, PLAYER(), li_xiaolong());
+    assert_eq!(names(w).name(player_id), li_xiaolong());
+    assert_eq!(names(w).renames(player_id), 1);
+    assert_eq!(names(w).name_owner(li_xiaolong()), player_id);
+    assert_eq!(cobbles_of(w, PLAYER()), 0);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    w.avatar.contract_address,
+                    AvatarEvent::Renamed(
+                        Renamed { player_id, name: li_xiaolong(), cobbles: 0, count: 1 },
+                    ),
+                ),
+            ],
+        );
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_later_renames_cost_the_price_debited_by_setup() {
+    let w = priced();
+    let player_id: felt252 = PLAYER().into();
+    give(w, PLAYER(), 120);
+    rename(w, PLAYER(), "First");
+    assert_eq!(cobbles_of(w, PLAYER()), 120);
+    let mut spy = spy_events();
+    rename(w, PLAYER(), "Mossy Mason");
+    assert_eq!(cobbles_of(w, PLAYER()), 70);
+    assert_eq!(names(w).renames(player_id), 2);
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    w.avatar.contract_address,
+                    AvatarEvent::Renamed(
+                        Renamed { player_id, name: "Mossy Mason", cobbles: 50, count: 2 },
+                    ),
+                ),
+            ],
+        );
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    w.setup,
+                    SetupEvent::CobblesSpent(
+                        CobblesSpent {
+                            player_id,
+                            spender: w.avatar.contract_address,
+                            reason: RENAME_REASON,
+                            cobbles: 50,
+                            balance: 70,
+                        },
+                    ),
+                ),
+            ],
+        );
+    rename(w, PLAYER(), elodie());
+    assert_eq!(cobbles_of(w, PLAYER()), 20);
+    // Short: refused, and nothing changed
+    as_player(w, PLAYER());
+    assert_eq!(error_of(safe_names(w).rename("Fourth", 0xffff)), 'Setup: not enough cobbles');
+    stop(w);
+    assert_eq!(cobbles_of(w, PLAYER()), 20);
+    assert_eq!(names(w).name(player_id), elodie());
+    assert_eq!(names(w).renames(player_id), 3);
+    assert_eq!(names(w).name_owner("Fourth"), 0);
+    assert_eq!(names(w).name_owner(elodie_upper()), player_id);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_rename_refuses_a_price_above_the_confirmed_one_or_none_set() {
+    let w = bare();
+    let player_id: felt252 = PLAYER().into();
+    give(w, PLAYER(), 200);
+    // No price set: the first change still free, a later one refused
+    as_player(w, PLAYER());
+    names(w).rename("First", 0);
+    assert_eq!(error_of(safe_names(w).rename("Second", 0xffff)), 'Avatar: rename not priced');
+    stop(w);
+    // The owner sets 50: a player who confirmed 40 is not charged more
+    as_owner(w);
+    names(w).set_rename_price(50);
+    stop(w);
+    as_player(w, PLAYER());
+    assert_eq!(error_of(safe_names(w).rename("Second", 40)), 'Avatar: price above max');
+    assert_eq!(names(w).name(player_id), "First");
+    assert_eq!(cobbles_of(w, PLAYER()), 200);
+    names(w).rename("Second", 50);
+    stop(w);
+    assert_eq!(cobbles_of(w, PLAYER()), 150);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_rename_refuses_an_invalid_or_the_same_name() {
+    let w = priced();
+    give(w, PLAYER(), 100);
+    let s = safe_names(w);
+    as_player(w, PLAYER());
+    let invalid = 'Avatar: invalid name';
+    assert_eq!(error_of(s.rename("", 0xffff)), invalid);
+    assert_eq!(error_of(s.rename("ab", 0xffff)), invalid);
+    assert_eq!(error_of(s.rename("a  b c", 0xffff)), invalid);
+    assert_eq!(error_of(s.rename("1234567890123456", 0xffff)), invalid);
+    assert_eq!(error_of(s.rename(utf8(array!['a', 'b', 0xff]), 0xffff)), invalid);
+    // A refusal is no change: the first is still free
+    assert_eq!(names(w).renames(PLAYER().into()), 0);
+    names(w).rename("Paver", 0);
+    assert_eq!(error_of(s.rename("Paver", 0xffff)), 'Avatar: same name');
+    // Another case is another name (charged), and stays the player's
+    names(w).rename("PAVER", 50);
+    stop(w);
+    assert_eq!(names(w).name(PLAYER().into()), "PAVER");
+    assert_eq!(names(w).name_owner("paver"), PLAYER().into());
+    assert_eq!(cobbles_of(w, PLAYER()), 50);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_one_player_per_name_whatever_its_case() {
+    let w = priced();
+    give(w, PLAYER(), 100);
+    give(w, OTHER(), 100);
+    rename(w, PLAYER(), elodie());
+    let s = safe_names(w);
+    as_player(w, OTHER());
+    let taken = 'Avatar: name taken';
+    assert_eq!(error_of(s.rename(elodie(), 0xffff)), taken);
+    assert_eq!(error_of(s.rename(elodie_upper(), 0xffff)), taken);
+    stop(w);
+    // A refusal is no change, and spends nothing
+    assert_eq!(names(w).renames(OTHER().into()), 0);
+    assert_eq!(cobbles_of(w, OTHER()), 100);
+    // The name a player leaves is free at once
+    rename(w, PLAYER(), "Carter");
+    assert_eq!(names(w).name_owner(elodie()), 0);
+    rename(w, OTHER(), elodie_upper());
+    assert_eq!(names(w).name_owner(elodie()), OTHER().into());
+    as_player(w, PLAYER());
+    assert_eq!(error_of(s.rename(elodie(), 0xffff)), taken);
+    stop(w);
+}
+
+#[test]
+#[fuzzer(runs: 8, seed: 1100)]
+#[feature("safe_dispatcher")]
+fn test_fuzz_renames_keep_one_player_per_name_and_the_cobbles(seed: u64) {
+    let w = priced();
+    give(w, PLAYER(), 130);
+    give(w, OTHER(), 60);
+    let pool: Array<ByteArray> = array![
+        elodie(), elodie_upper(), anna(), anna_upper(), "Mossy Mason",
+    ];
+    let players = array![PLAYER(), OTHER()];
+    let mut balances: Array<u64> = array![130, 60];
+    let mut counts: Array<u32> = array![0, 0];
+    let mut x = seed;
+    for _ in 0..10_u8 {
+        let who: u32 = (x % 2).try_into().unwrap();
+        x = x / 2 + 104729;
+        let pick: u32 = (x % 5).try_into().unwrap();
+        x = x / 5 + 7919;
+        let player = *players.at(who);
+        let player_id: felt252 = player.into();
+        let name = pool.at(pick).clone();
+        let key = name_key(@name).unwrap();
+        let holder = names(w).name_owner(name.clone());
+        let current = names(w).name(player_id);
+        let count = *counts.at(who);
+        let balance = *balances.at(who);
+        let price: u64 = if count == 0 {
+            0
+        } else {
+            50
+        };
+        let ok = name != current && (holder == 0 || holder == player_id) && balance >= price;
+        as_player(w, player);
+        let result = safe_names(w).rename(name.clone(), 0xffff);
+        stop(w);
+        assert_eq!(result.is_ok(), ok);
+        if ok {
+            let mut next_balances: Array<u64> = array![];
+            let mut next_counts: Array<u32> = array![];
+            for i in 0..2_u32 {
+                next_balances.append(if i == who {
+                    balance - price
+                } else {
+                    *balances.at(i)
+                });
+                next_counts.append(if i == who {
+                    count + 1
+                } else {
+                    *counts.at(i)
+                });
+            }
+            balances = next_balances;
+            counts = next_counts;
+            assert_eq!(names(w).name_owner(name.clone()), player_id);
+            if let Some(left) = name_key(@current) {
+                if left != key {
+                    assert_eq!(names(w).name_owner(current), 0);
+                }
+            }
+        }
+        // Every player's balance and count as tracked; each name held by its holder only
+        for i in 0..2_u32 {
+            let p = *players.at(i);
+            assert_eq!(cobbles_of(w, p), *balances.at(i));
+            assert_eq!(names(w).renames(p.into()), *counts.at(i));
+            let held = names(w).name(p.into());
+            if held.len() != 0 {
+                assert_eq!(names(w).name_owner(held), p.into());
+            }
+        }
+    }
 }

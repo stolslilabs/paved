@@ -160,12 +160,101 @@ describe("the tones (#606)", () => {
   });
 });
 
+describe("the tile's painted actions (TILE-ACTIONS, the Paved UX Book's board screen)", () => {
+  it("each a painted round button at its side (the owner's order): the grey cross up left, the gold check up right, the blue arrow down left, the red trash down right", () => {
+    render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} onConfirm={vi.fn()} />));
+    const at = (name: RegExp | string) => {
+      const b = screen.getByRole("button", { name });
+      return [b.closest("[data-side]")?.getAttribute("data-side"), b.querySelector("[data-slot=ui-icon]")?.getAttribute("data-icon")];
+    };
+    expect(at("Cancel placement")).toEqual(["top-left", "tile-cancel"]);
+    expect(at("Hold to place the tile")).toEqual(["top-right", "tile-confirm"]);
+    expect(at("Rotate tile")).toEqual(["bottom-left", "tile-rotate"]);
+    expect(at(/^Hold to discard/)).toEqual(["bottom-right", "tile-discard"]);
+    // Reading order: the keyboard goes row by row.
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Cancel placement", "Hold to place the tile", "Rotate tile", "Hold to discard the tile (free)"]);
+    // No fill of their own, no Font Awesome glyph: the painting is the button.
+    for (const b of screen.getAllByRole("button")) {
+      expect(b.className).not.toMatch(/\bbg-(primary|secondary)\b/);
+      expect(b.querySelector(".fa, [data-slot=icon]")).toBeNull();
+    }
+  });
+
+  it("the holds' rings are the Missions' gold rail round the button, outside its disc, on a dark track: gold on Confirm, the same tube in red on Discard", () => {
+    render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} onConfirm={vi.fn()} />));
+    const tube = (b: HTMLElement) => {
+      const progress = b.querySelector("[data-ring-progress]")!;
+      const id = /^url\(#(.+)\)$/.exec(progress.getAttribute("stroke") ?? "")![1]!;
+      const stops = [...b.querySelectorAll(`#${id} stop`)].map((s) => (s as HTMLElement).style.stopColor);
+      const track = b.querySelector<SVGCircleElement>("[data-ring-track]")!;
+      return { kind: progress.getAttribute("data-tube"), stops, r: Number(progress.getAttribute("r")), track: track.style.stroke };
+    };
+    const gold = tube(button());
+    expect(gold.kind).toBe("gold");
+    // Outside the painted disc (its edge at about 20.6 px of the 44 px box), on the HUD's dark outline.
+    expect(gold.r - 4.5 / 2).toBeGreaterThan(20.6);
+    expect(gold.track).toBe("var(--hud-outline)");
+    expect(gold.stops).toEqual(["edge", "deep", "shade", "base", "bright", "shine", "rim", "edge"].map((p) => `var(--hold-gold-${p})`));
+    const red = tube(screen.getByRole("button", { name: /^Hold to discard/ }));
+    expect(red.kind).toBe("red");
+    expect(red.stops[3]).toBe("var(--hold-red-base)");
+    // Two rings, two tubes: each names its own gradient.
+    expect(document.querySelectorAll("radialGradient[id^=hold-tube-]")).toHaveLength(2);
+  });
+
+  it("a hold charges: a glow under the tube, a spark at its head, and a burst ready for the end; the ticks quicken, then a strong buzz", () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    const onConfirm = vi.fn();
+    render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={onConfirm} />));
+    const b = button();
+    expect(b.querySelector("[data-ring-glow]")).not.toBeNull();
+    expect(b.querySelector("[data-ring-head]")).not.toBeNull();
+    expect(b.querySelectorAll("[data-burst=spark]")).toHaveLength(8);
+    fireEvent.pointerDown(b, { button: 0 });
+    // The painting swells while held, the spark turns with the fill.
+    expect((b.querySelector("[data-charge]") as HTMLElement).style.transform).toBe("scale(1.09)");
+    expect((b.querySelector("[data-ring-head]") as SVGElement).style.transform).toBe("rotate(360deg)");
+    act(() => vi.advanceTimersByTime(HOLD_MS));
+    expect(onConfirm).toHaveBeenCalledOnce();
+    // The start's light tick, six charge ticks closer and closer together, the power buzz.
+    expect(vibrate.mock.calls).toEqual([[HAPTIC_MS.light], ...Array.from({ length: 6 }, () => [HAPTIC_MS.charge]), [[...HAPTIC_MS.power]]]);
+  });
+
+  it("a hold let go early stops its ticks", () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={vi.fn()} />));
+    fireEvent.pointerDown(button(), { button: 0 });
+    act(() => vi.advanceTimersByTime(HOLD_MS * 0.4));
+    fireEvent.pointerUp(button(), { button: 0 });
+    act(() => vi.advanceTimersByTime(HOLD_MS * 2));
+    expect(vibrate.mock.calls).toEqual([[HAPTIC_MS.light], [HAPTIC_MS.charge]]);
+  });
+
+  it("busy: an arc of the tube turns round Confirm (the spinner round the icon, not on it), its painting kept, disabled and aria-busy", () => {
+    render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={vi.fn()} busy />));
+    expect(button()).toBeDisabled();
+    expect(button()).toHaveAttribute("aria-busy", "true");
+    expect(button().querySelector("[data-icon=tile-confirm]")).not.toBeNull();
+    expect(button().querySelector("svg[data-ring-busy]")).toHaveClass("animate-spin");
+    // No spinner on the painting, and the button not dimmed as a whole (the painting a little, the arc not).
+    expect(button().querySelector("[data-charge] .animate-spin, [data-charge] svg")).toBeNull();
+    expect(button().className).toMatch(/disabled:opacity-100/);
+  });
+
+  it("an absent action leaves its place empty: one rotation, no Discard, the other places unchanged", () => {
+    render(wrap(<TileBubble rotations={1} onRotate={vi.fn()} onClose={vi.fn()} onConfirm={vi.fn()} />));
+    expect([...document.querySelectorAll("[data-side]")].map((e) => e.getAttribute("data-side"))).toEqual(["top-left", "top-right"]);
+  });
+});
+
 describe("the bubble's buttons (#568, #606)", () => {
-  it("Cancel, Discard, Rotate, Validate in that order, each with the white hover and pressed states, no focus ring; Validate held places once", () => {
+  it("Cancel, Validate, Rotate, Discard in that order (reading order, TILE-ACTIONS), each with the white hover and pressed states, no focus ring; Validate held places once", () => {
     const onConfirm = vi.fn();
     render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={vi.fn()} onDiscard={vi.fn()} discardCost={50} onConfirm={onConfirm} />));
     const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
-    expect(names).toEqual(["Cancel placement", "Hold to discard the tile (costs 50 points)", "Rotate tile", "Hold to place the tile"]);
+    expect(names).toEqual(["Cancel placement", "Hold to place the tile", "Rotate tile", "Hold to discard the tile (costs 50 points)"]);
     for (const b of screen.getAllByRole("button")) {
       // The white hover and pressed states of #537 (`state-layer`), over Validate's gold fill too; no focus ring.
       expect(b.className).toMatch(/\bstate-layer\b/);
@@ -252,12 +341,16 @@ describe("Discard in the bubble (#606)", () => {
     expect(discardButton()).toBeDisabled();
   });
 
-  it("the village editor's (#756): Back to the inventory (share-from-square) and Rotate, no Validate; Cancel only when asked, Escape always", () => {
+  it("the village editor's (#756): Back to the inventory (TILE-ACTIONS: the painted blue box) and Rotate, no Validate; Cancel only when asked, Escape always", () => {
     const onClose = vi.fn();
     const onReturn = vi.fn();
     const { rerender } = render(wrap(<TileBubble rotations={2} onRotate={vi.fn()} onClose={onClose} onReturn={onReturn} cancelButton={false} />));
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Back to the inventory", "Rotate tile"]);
-    expect(screen.getByRole("button", { name: "Back to the inventory" }).querySelector("[data-icon]")).toHaveAttribute("data-icon", "share-from-square");
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Rotate tile", "Back to the inventory"]);
+    expect(screen.getByRole("button", { name: "Back to the inventory" }).querySelector("[data-icon]")).toHaveAttribute("data-icon", "tile-return");
+    // Discard's place (down and right), Rotate's (down and left); Cancel's and Confirm's empty.
+    expect(screen.getByRole("button", { name: "Back to the inventory" }).closest("[data-side]")).toHaveAttribute("data-side", "bottom-right");
+    expect(screen.getByRole("button", { name: "Rotate tile" }).closest("[data-side]")).toHaveAttribute("data-side", "bottom-left");
+    expect(document.querySelectorAll("[data-side]")).toHaveLength(2);
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(onClose).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Back to the inventory" }));

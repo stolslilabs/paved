@@ -8,7 +8,7 @@ import { cn } from "../../lib/utils";
 import type { Hold } from "../../lib/use-hold";
 import { PRESS_SHOW_MS, usePressAction } from "../../lib/use-press-action";
 import { BoardCovered } from "./board-covered";
-import { LazyPressBubble, LazyTileBubble, LazyVillageBubble, loadPressBubble } from "./lazy-tile-bubble";
+import { LazyPressBubble, LazyTileBubble, loadPressBubble } from "./lazy-tile-bubble";
 
 export { PRESS_SHOW_MS };
 
@@ -116,7 +116,10 @@ export interface BoardViewportProps {
   onCellPress?: (slot: { x: number; y: number }) => void;
   /** The pointer is over a cell, or (null) left the board. */
   onCellHover?: (slot: { x: number; y: number } | null) => void;
-  /** The tile placed and not yet sent: the bubble (Cancel, Discard, Rotate, Validate) follows its corner. Unset: none. */
+  /**
+   * The tile placed and not yet sent: its actions (TILE-ACTIONS: Cancel, Discard or Back to the inventory, Rotate, Confirm), one out of
+   * each side of the tile, follow it. Unset: none.
+   */
   bubble?: BoardBubble | null;
   /**
    * A long press on a tile opens this action (LONGPRESS-EDIT, #799: the village's Edit in view), through a one-button bubble by
@@ -144,7 +147,10 @@ export interface BoardPress {
   holdMs?: number;
 }
 
-/** The bubble on the placed tile (`TileBubble`): `cell` is the tile's, in the contracts' coordinates. */
+/**
+ * The actions on the placed tile (`TileBubble`, TILE-ACTIONS), the boards' and the home editor's alike: `cell` is the tile's, in the
+ * contracts' coordinates.
+ */
 export interface BoardBubble {
   cell: { x: number; y: number };
   rotations: number;
@@ -168,11 +174,8 @@ export interface BoardBubble {
   coach?: boolean | "place" | "discard";
   /** The tile's rotation now: a change drops a hold on Validate under way. */
   orientation?: number;
-  /**
-   * The home editor's bubble (EDIT-VILLAGE, `VillageBubble`): the book's speech bubble, its painted Rotate, Back to the inventory
-   * and Cancel over their words. Unset: the boards' round bubble (`TileBubble`).
-   */
-  look?: "village";
+  /** The holds' length, ms (`HOLD_MS` by default; the stories tune it). */
+  holdMs?: number;
 }
 
 /**
@@ -455,21 +458,7 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
         onTileHover={onCellHover && ((gx, gy) => onCellHover(toChainSlot(gx, gy)))}
         onHoverLeave={onCellHover && (() => onCellHover(null))}
       />
-      {bubble && scene && bubble.look === "village" && bubble.onReturn && (
-        <Suspense fallback={null}>
-          <LazyVillageBubble
-            scene={scene}
-            cell={toGridSlot(bubble.cell.x, bubble.cell.y)}
-            rotations={bubble.rotations}
-            onRotate={bubble.onRotate}
-            onReturn={bubble.onReturn}
-            onClose={bubble.onClose}
-            cancelButton={bubble.cancelButton}
-            busy={bubble.busy}
-          />
-        </Suspense>
-      )}
-      {bubble && scene && bubble.look !== "village" && (
+      {bubble && scene && (
         <Suspense fallback={null}>
           <LazyTileBubble
             scene={scene}
@@ -486,6 +475,7 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
             busy={bubble.busy}
             coach={bubble.coach}
             orientation={bubble.orientation}
+            holdMs={bubble.holdMs}
             holdRef={tileHold}
           />
         </Suspense>
