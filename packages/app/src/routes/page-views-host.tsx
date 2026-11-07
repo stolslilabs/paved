@@ -1,18 +1,32 @@
 import { lazy, Suspense, useCallback, useLayoutEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { HudDrawer, useOpenDrawer } from "../components/containers/hud-drawer";
+import { DrawerOrderContext, HudDrawer, useOpenDrawer } from "../components/containers/hud-drawer";
 import { GUILD_PARAM, guildParamOf } from "./guild-param";
 import { useRoutePage } from "./handle";
-import PlayerProfileHost from "./player-profile-host";
-import { PLAYER_PARAM, viewsOf } from "./player-param";
+import { PLAYER_PARAM, viewsOf, type PageView, type PageViewsState } from "./player-param";
 
 // The pages the URL opens over any page (DRAWER-NAV-IN-PLACE, #1064): a player's profile (`?player=`, #952) and another guild's
 // (`?guild=`, #953). Each draws itself in the open drawer's place (`HudDrawer`'s `inPlace`), with Back to the page it covers; with
-// none open (the home, a link), in the drawer they share here, so that a profile, its guild, a member... follow in one drawer.
-// Its own chunk, fetched once one is asked for (`player-profile.tsx`).
+// none open (the home, a link), in the drawer they share here. A chain (a profile, its guild, a member...) is a stack: the URL names
+// the page on top, the history entry the pages it covers (`below`), and each of them stays mounted under the next, as it was (its
+// scroll, its tab), so that Back shows it again unchanged. Its own chunk, fetched once one is asked for (`player-profile.tsx`).
 
-/** Another guild's page and the reads it needs: in the guild page's chunk (`pages/guild.tsx`), fetched once a guild is asked for. */
-const GuildViewHost = lazy(() => import("./pages/guild").then((m) => ({ default: m.GuildViewHost })));
+/** A player's profile and its reads: its own chunk, fetched at the first opening. */
+const PlayerProfile = lazy(() => import("./player-profile-sheet"));
+/** A guild's page and the reads it needs: in the guild page's chunk (`pages/guild.tsx`), fetched once a guild is asked for. */
+const GuildView = lazy(() => import("./pages/guild").then((m) => ({ default: m.GuildView })));
+
+/** The pages of the entry, oldest first: those the history entry keeps under the URL's, then the URL's (a profile before a guild). */
+function stackOf(params: URLSearchParams, state: unknown): PageView[] {
+  const player = params.get(PLAYER_PARAM);
+  const guild = params.get(GUILD_PARAM);
+  const top: PageView | null = player !== null ? { kind: "player", id: player } : guildParamOf(guild) !== null ? { kind: "guild", id: guild! } : null;
+  if (!top) return [];
+  const below = ((state as PageViewsState | null)?.below ?? []).filter((v) => v.kind === "player" || guildParamOf(v.id) !== null);
+  return [...below, top];
+}
+
+const samePages = (a: readonly PageView[], b: readonly PageView[]) => a.length === b.length && a.every((v, i) => v.kind === b[i]!.kind && v.id === b[i]!.id);
 
 /**
  * The drawer the pages share when none is open: on the right, as the others' profiles are, empty under them. Its close leaves them
@@ -65,25 +79,46 @@ export default function PageViewsHost() {
 }
 
 function PageViews() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const { state } = useLocation();
+  const navigate = useNavigate();
   const page = useRoutePage();
-  const player = params.has(PLAYER_PARAM);
-  const guild = guildParamOf(params.get(GUILD_PARAM)) !== null;
+  const stack = stackOf(params, state);
   // A drawer's page: the pages wait for its drawer, to be drawn in it (a link to `/friends?player=`); else in their own.
   const drawn = useOpenDrawer();
   const ready = page?.drawer !== true || drawn;
-  // Each host kept once asked: the page it shows stays as it slides out.
-  const [live, setLive] = useState({ player: false, guild: false });
-  if (ready && ((player && !live.player) || (guild && !live.guild))) setLive({ player: live.player || player, guild: live.guild || guild });
+  // The pages drawn: the entry's, kept once none is left, so that they stay in the drawer as it slides out. Each chain from none is a
+  // new opening, its pages mounted afresh (their reads and clocks those of the moment they open).
+  const [shown, setShown] = useState<{ pages: PageView[]; opening: number; closed: boolean }>({ pages: [], opening: 0, closed: true });
+  const open = ready && stack.length > 0;
+  if (open && (shown.closed || !samePages(stack, shown.pages))) setShown({ pages: stack, opening: shown.closed ? shown.opening + 1 : shown.opening, closed: false });
+  else if (stack.length === 0 && !shown.closed) setShown({ ...shown, closed: true });
+  // The page on top's Back (the covered ones' are never called): back when the app opened it, else its parameter dropped in place.
+  const close = useCallback(() => {
+    const held = state as PageViewsState | null;
+    if (held?.playerSheet || held?.guildSheet) return void navigate(-1);
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete(PLAYER_PARAM);
+        next.delete(GUILD_PARAM);
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
+  }, [state, navigate, setParams]);
   return (
     <>
-      <ViewsDrawer open={(player || guild) && page?.drawer !== true} />
-      {live.player && <PlayerProfileHost />}
-      {live.guild && (
-        <Suspense fallback={null}>
-          <GuildViewHost />
+      <ViewsDrawer open={stack.length > 0 && page?.drawer !== true} />
+      {shown.pages.map((v, i) => (
+        // One boundary each: a page whose code is on its way never hides those already drawn.
+        <Suspense key={`${shown.opening}:${i}:${v.kind}:${v.id}`} fallback={null}>
+          {/* Its place in the chain: the drawer stacks the pages in this order, whichever code comes first. */}
+          <DrawerOrderContext.Provider value={i}>
+            {v.kind === "player" ? <PlayerProfile playerId={v.id} open={open} onClose={close} /> : <GuildView id={Number(v.id)} open={open} onClose={close} />}
+          </DrawerOrderContext.Provider>
         </Suspense>
-      )}
+      ))}
     </>
   );
 }

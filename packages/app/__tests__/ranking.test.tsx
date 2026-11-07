@@ -507,6 +507,22 @@ describe("/ranking on the mock (LEADERBOARD-PAGE)", { timeout: slow(30_000) }, (
     const search = new URLSearchParams(router.state.location.search);
     expect(search.get("guild")).toMatch(/^\d+$/);
     expect(search.get("tab")).toBe("guilds");
+    // A member of it: their profile over the guild, which stays under it as it was (DRAWER-NAV-IN-PLACE: a chain, one step at a time).
+    const guild = shownView("guild-sheet")!;
+    const members = await within(guild).findByRole("list", { name: "Members" }, { timeout: slow(8000) });
+    guild.scrollTop = 300;
+    await userEvent.click(within(members).getAllByRole("button")[0]!);
+    await waitFor(() => expect(shownView()).toBe(shownView("public-profile")), { timeout: slow(8000) });
+    expect(guild).toHaveAttribute("inert");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(new URLSearchParams(router.state.location.search).get("guild")).toBeNull();
+    // Back: the same guild page (not mounted again), at its scroll; then the list.
+    await userEvent.click(drawerBack(drawer));
+    await waitFor(() => expect(shownView()).toBe(guild), { timeout: slow(5000) });
+    expect(guild).not.toHaveAttribute("inert");
+    expect(guild.scrollTop).toBe(300);
+    expect(within(guild).getByRole("list", { name: "Members" })).toBe(members);
+    expect(new URLSearchParams(router.state.location.search).get("guild")).toMatch(/^\d+$/);
     await userEvent.click(drawerBack(drawer));
     await waitFor(() => expect(shownView()).toBeNull(), { timeout: slow(5000) });
     expect(within(drawer).getByRole("list", { name: "Guilds by score" })).toBe(list);

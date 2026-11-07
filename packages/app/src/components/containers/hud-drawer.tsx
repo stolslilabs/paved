@@ -53,34 +53,41 @@ const DrawerViewContext = createContext<((view: DrawerView | null) => void) | nu
  */
 interface DrawerHost {
   /** Where the guests' bodies and titles are drawn; null until the drawer's header and body are there. */
-  readonly slots: { layer: HTMLElement | null; title: HTMLElement | null };
+  readonly slots: { layer: HTMLElement | null; title: HTMLElement | null; end: HTMLElement | null };
   /** Whether the drawer is open: a guest stays in it while it slides out. */
   readonly open: boolean;
   /** The guests, oldest first. */
   readonly stack: readonly string[];
-  enter(id: string, back: () => void): void;
+  /** A guest enters, on top, or at its place in a chain (`order`, `DrawerOrderContext`) under those that come after it. */
+  enter(id: string, back: () => void, order?: number): void;
   leave(id: string): void;
   /** The Back of the guest shown; null with none. */
   back(): (() => void) | null;
   subscribe(listener: () => void): () => void;
   /** Sets a field and tells the guests. */
-  set(patch: Partial<{ layer: HTMLElement | null; title: HTMLElement | null; open: boolean }>): void;
+  set(patch: Partial<{ layer: HTMLElement | null; title: HTMLElement | null; end: HTMLElement | null; open: boolean }>): void;
 }
 
 function createHost(): DrawerHost {
   const listeners = new Set<() => void>();
   const backs = new Map<string, () => void>();
+  const orders = new Map<string, number | undefined>();
   const host = {
-    slots: { layer: null as HTMLElement | null, title: null as HTMLElement | null },
+    slots: { layer: null as HTMLElement | null, title: null as HTMLElement | null, end: null as HTMLElement | null },
     open: false,
     stack: [] as readonly string[],
-    enter(id: string, back: () => void) {
+    enter(id: string, back: () => void, order?: number) {
       backs.set(id, back);
-      if (!host.stack.includes(id)) host.stack = [...host.stack, id];
+      orders.set(id, order);
+      if (!host.stack.includes(id)) {
+        const at = order === undefined ? -1 : host.stack.findIndex((s) => (orders.get(s) ?? -1) > order);
+        host.stack = at < 0 ? [...host.stack, id] : [...host.stack.slice(0, at), id, ...host.stack.slice(at)];
+      }
       notify();
     },
     leave(id: string) {
       backs.delete(id);
+      orders.delete(id);
       if (!host.stack.includes(id)) return;
       host.stack = host.stack.filter((s) => s !== id);
       notify();
@@ -93,7 +100,7 @@ function createHost(): DrawerHost {
       listeners.add(listener);
       return () => void listeners.delete(listener);
     },
-    set(patch: Partial<{ layer: HTMLElement | null; title: HTMLElement | null; open: boolean }>) {
+    set(patch: Partial<{ layer: HTMLElement | null; title: HTMLElement | null; end: HTMLElement | null; open: boolean }>) {
       const { open, ...slots } = patch;
       const moved = Object.entries(slots).some(([k, v]) => host.slots[k as keyof typeof slots] !== v);
       if ((open === undefined || open === host.open) && !moved) return;
@@ -137,6 +144,12 @@ const lastHost = () => openHosts.at(-1) ?? null;
 
 /** Whether a drawer is open, which a page the URL opens (`?player=`, `?guild=`) is drawn in (DRAWER-NAV-IN-PLACE). */
 export const useOpenDrawer = (): boolean => useStore(subscribeHosts, () => openHosts.length > 0);
+
+/**
+ * A page's place in a chain the URL names (`page-views-host.tsx`: a profile, its guild, a member), so that the drawer stacks them in
+ * that order whichever code comes first (a reload); unset elsewhere, a page goes on top.
+ */
+export const DrawerOrderContext = createContext<number | undefined>(undefined);
 
 /** The drawer a guest in it draws its own guests into (a profile's guild, then a member): the same one. */
 const DrawerHostContext = createContext<DrawerHost | null>(null);
@@ -272,8 +285,9 @@ const BODY = "flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overscroll-co
  * (no slide under reduced motion), its title in the header; covered by a later guest, it stays as it was under it. While the drawer
  * slides out, it stays in it. The focus goes to it as it opens, and back to what opened it as it leaves.
  */
-function DrawerGuest({ host, open, onOpenChange, title, onBack, slot = "hud-drawer", children }: HudDrawerProps & { host: DrawerHost }) {
+function DrawerGuest({ host, open, onOpenChange, title, end, onBack, slot = "hud-drawer", children }: HudDrawerProps & { host: DrawerHost }) {
   const id = useId();
+  const order = useContext(DrawerOrderContext);
   const hostOpen = useStore(host.subscribe, () => host.open);
   const slots = useStore(host.subscribe, () => host.slots);
   const top = useStore(host.subscribe, () => host.stack.at(-1) === id);
@@ -287,9 +301,9 @@ function DrawerGuest({ host, open, onOpenChange, title, onBack, slot = "hud-draw
   const shown = open || !hostOpen;
   useLayoutEffect(() => {
     if (!shown) return;
-    host.enter(id, () => back.current());
+    host.enter(id, () => back.current(), order);
     return () => host.leave(id);
-  }, [shown, host, id]);
+  }, [shown, host, id, order]);
   const body = useRef<HTMLDivElement>(null);
   // Drawn once the drawer's slots are there (the first pass draws nothing).
   const placed = slots.layer !== null && slots.title !== null;
@@ -308,6 +322,16 @@ function DrawerGuest({ host, open, onOpenChange, title, onBack, slot = "hud-draw
   return (
     <>
       {createPortal(<span hidden={!top}>{view?.title ?? title}</span>, slots.title)}
+      {/* What the page shows at the header's end (the rename's Cobbles), while it is the one shown. */}
+      {top &&
+        end &&
+        slots.end &&
+        createPortal(
+          <span data-slot="hud-drawer-end" className="flex min-w-0 items-center">
+            {end}
+          </span>,
+          slots.end,
+        )}
       {createPortal(
         <ScrollRegion
           ref={body}
@@ -320,9 +344,11 @@ function DrawerGuest({ host, open, onOpenChange, title, onBack, slot = "hud-draw
         >
           <m.div initial={{ x: 48, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.22, ease: "easeOut" }} className="flex flex-col gap-3">
             <DrawerHostContext.Provider value={host}>
-              <DrawerViewContext.Provider value={setView}>
-                <DrawerFooterContext.Provider value={null}>{children}</DrawerFooterContext.Provider>
-              </DrawerViewContext.Provider>
+              <DrawerOrderContext.Provider value={undefined}>
+                <DrawerViewContext.Provider value={setView}>
+                  <DrawerFooterContext.Provider value={null}>{children}</DrawerFooterContext.Provider>
+                </DrawerViewContext.Provider>
+              </DrawerOrderContext.Provider>
             </DrawerHostContext.Provider>
           </m.div>
         </ScrollRegion>,
@@ -356,6 +382,7 @@ function DrawerFrame({ host, open, onOpenChange, title, subtitle, side: edge = "
   }, [host, open]);
   const titleSlot = useCallback((el: HTMLElement | null) => host.set({ title: el }), [host]);
   const layerSlot = useCallback((el: HTMLElement | null) => host.set({ layer: el }), [host]);
+  const endSlot = useCallback((el: HTMLElement | null) => host.set({ end: el }), [host]);
   const toBack = guested ? () => host.back()?.() : (view?.onBack ?? onBack);
   // The phone's Back at the top left, the title right after it; the side panel's close at the header's right end, after what the page
   // shows there (the owner's ask of 2026-11-04: the title on the left, the balance at the top right).
@@ -421,7 +448,8 @@ function DrawerFrame({ host, open, onOpenChange, title, subtitle, side: edge = "
             </SheetTitle>
             {subtitle && !view && !guested && <p className="text-sm leading-snug font-semibold text-muted-foreground">{subtitle}</p>}
           </div>
-          {!guested && ends}
+          {/* A guest's own end in the drawer's (`DrawerGuest`), in the place of the drawer's. */}
+          {guested ? <span ref={endSlot} className="contents" /> : ends}
           {(side || back) && close}
         </SheetHeader>
         {/* Down only: what glows past the content's edge (a waiting gift's halo at a row's end) is cut at the drawer's, never scrolled to. */}

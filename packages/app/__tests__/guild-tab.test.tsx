@@ -218,6 +218,18 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await confirm(/^Demote /, "Demote to Recruit");
     await userEvent.click(await within(profile).findByRole("button", { name: "Make leader" }, T(5_000)));
     await confirm(/^Make .* the leader\?$/, "Make leader");
+    // Their guild line: the player's own guild, in place over the profile (DRAWER-NAV-IN-PLACE), its tabs; Back to the profile, kept.
+    await userEvent.click(within(profile).getByRole("button", { name: /^Mill Lane,/ }));
+    const own = await waitFor(() => {
+      const view = shownView("guild-sheet");
+      expect(view).not.toBeNull();
+      return view!;
+    }, T(8_000));
+    expect(drawer).toContainElement(own);
+    expect(await within(own).findByRole("tab", { name: "Members" }, T(5_000))).toBeInTheDocument();
+    expect(profile).toHaveAttribute("inert");
+    await back();
+    await waitFor(() => expect(shownView()).toBe(profile), T(5_000));
     await closeProfile();
     // Back: the members again, on their tab, at their scroll.
     expect(screen.getByRole("tab", { name: "Members" })).toHaveAttribute("aria-selected", "true");

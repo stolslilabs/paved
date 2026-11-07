@@ -609,7 +609,13 @@ export function ProfileSheet({
               {/* The player's guild, then the actions, under the avatar (the owner's asks of 2026-11-05), not after the League. */}
               {(guild ?? (sources && routed)) && (
                 <div data-slot="profile-guild" className="empty:hidden">
-                  {guild ?? <ReadGuildLine playerId={connected.player.playerId} onOpened={() => onOpenChange(false)} />}
+                  {guild ?? <ReadGuildLine
+                      playerId={connected.player.playerId}
+                      // In a drawer's place (DRAWER-NAV-IN-PLACE), the guild opens over the profile, Back to it: the profile stays.
+                      onOpened={() => {
+                        if (!inPlace) onOpenChange(false);
+                      }}
+                    />}
                 </div>
               )}
               {(onOpenLeague || onEditAvatar || onOpenTiles || onOpenInvite) && (

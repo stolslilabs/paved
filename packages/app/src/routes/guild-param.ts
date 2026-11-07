@@ -6,12 +6,8 @@
 /** The search parameter that holds the guild whose page is open. */
 export const GUILD_PARAM = "guild";
 
-/** What an opening leaves in the history entry: Close then goes Back, so the entry before is not left twice. */
-export interface GuildSheetState {
-  guildSheet?: true;
-  /** The pages opened in a row before (`PlayerSheetState.views`). */
-  views?: number;
-}
+/** What an opening leaves in the history entry (`PlayerSheetState`, `player-param.ts`, whose type alone this module reads). */
+export type { PlayerSheetState as GuildSheetState } from "./player-param";
 
 /** The guild ID a parameter names, or null. */
 export const guildParamOf = (value: string | null): number | null => (value !== null && /^\d{1,12}$/.test(value) ? Number(value) : null);

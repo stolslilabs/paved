@@ -131,13 +131,15 @@ export interface GuildSheetProps {
 }
 
 /**
- * Another guild's page (`?guild=`): read as the connected player sees it, with Join, Request, Cancel or the invitation's answer, or
- * why not. Joined, it closes on the page it covered. DRAWER-NAV-IN-PLACE (#1064): opened from a drawer (the guild page, the ranking,
+ * A guild's page (`?guild=`): read as the connected player sees it, with Join, Request, Cancel or the invitation's answer, or
+ * why not. Joined, it closes on the page it covered. The player's own guild is drawn as their guild page draws it (`OwnGuild`). DRAWER-NAV-IN-PLACE (#1064): opened from a drawer (the guild page, the ranking,
  * a profile's guild line, the chat), in that drawer's place, with Back; with none open, its own drawer.
  */
 export function GuildSheet({ id, me, player, candidate, now, open, onClose, writes, onOpenPlayer }: GuildSheetProps) {
   const read = useGuild(id, me);
-  const guild = read.data;
+  // The player's own guild (a guildmate's profile, its guild line): their guild page itself, its tabs and menu (`OwnGuild`).
+  const mine = me !== null && player?.guild?.id === id ? player.guild : null;
+  const guild = mine ?? read.data;
   const apply = guild && player && me !== null && guild.rank === null ? guildApply(guild, player, candidate) : undefined;
   return (
     <HudDrawer open={open} onOpenChange={(next) => !next && onClose()} title={
@@ -157,8 +159,9 @@ export function GuildSheet({ id, me, player, candidate, now, open, onClose, writ
         {guild === null && <p className="text-sm font-semibold text-muted-foreground">No guild has this tag any more.</p>}
         {guild === undefined && read.unavailable && <p className="text-sm font-semibold text-muted-foreground">Guilds are not on this network yet.</p>}
         {guild === undefined && read.isPending && <Skeleton aria-busy className="h-48 rounded-xl" />}
-        <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />
-        {guild && (
+        {!mine && <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />}
+        {mine && me !== null && <OwnGuild guild={mine} me={me} now={now} unread={player?.unread ?? 0} writes={writes} onOpenPlayer={onOpenPlayer} />}
+        {guild && !mine && (
           <GuildPage
             guild={guild}
             me={me}
