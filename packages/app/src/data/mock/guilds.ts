@@ -30,6 +30,7 @@ import {
   promoteRefusal,
   rankAbove,
   rankBelow,
+  guildPlace,
   rankGuilds,
   requestRefusal,
   rotatedLeader,
@@ -49,6 +50,7 @@ import {
   type GuildInvitation,
   type GuildLogKind,
   type GuildQuery,
+  type GuildPlace,
   type GuildSummary,
   type GuildView,
   type PlayerGuild,
@@ -563,6 +565,9 @@ export function searchGuildsOf(world: GuildWorld, people: GuildPeople, now: numb
 export const suggestedGuildsOf = (world: GuildWorld, people: GuildPeople, now: number, player: string): GuildSummary[] => suggestGuilds(listings(world, people, now), candidate(world, people, key(player)));
 
 export const guildRankingOf = (world: GuildWorld, people: GuildPeople, now: number): GuildSummary[] => rankGuilds(listings(world, people, now));
+
+/** A guild's place in the whole ranking, past the list's end too, or null. */
+export const guildPlaceOf = (world: GuildWorld, people: GuildPeople, now: number, id: number): GuildPlace | null => guildPlace(listings(world, people, now), id);
 
 // --- Writes ----------------------------------------------------------------------------------------------------------
 

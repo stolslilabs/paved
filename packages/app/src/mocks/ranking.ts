@@ -1,7 +1,7 @@
 import { rankAmongFriends, rankPlayers } from "@paved/game-core";
 import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
 import { community, communityProfile } from "../data/mock/community";
-import type { PlayerRanking, PublicProfile } from "../data/social-source";
+import type { GuildSummary, PlayerRanking, PublicProfile } from "../data/social-source";
 import { generatedLook } from "./avatar";
 import { MOCK_NOW } from "./clock";
 import { FRIENDS_TAB } from "./follows";
@@ -35,9 +35,14 @@ const NEW_PLAYER: PublicProfile = { address: "0x7e3b0001", name: "Ada", look: ge
 const GUILDS = GUILD_FINDER.guildless.ranking.guilds!;
 const QUARRY = GUILDS.find((g) => g.name === "The Quarrymen")!.id;
 
+/** A guild of the viewer's ranked past the list's end (the source answers its first `GUILD_LIST_LIMIT`): its place in the whole ranking. */
+const LOW_GUILD: GuildSummary = { ...GUILDS[GUILDS.length - 1]!, id: 4_242, tag: "#4242", name: "Mossy Kerb", members: 2, score: 12 };
+const LOW_PLACE = { place: 42, guild: LOW_GUILD };
+
 /** WRAP360: the longest name and address, the largest figures. */
 const STRESS_PLAYER: PublicProfile = { address: LONG_ADDRESS, name: LONG_NAME, look: null, level: 120, crowns: 123_456, league: 22, score: 0, lastSeen: MOCK_NOW };
-const STRESS_NO_NAME: PublicProfile = { ...STRESS_PLAYER, name: null, crowns: 99_999 };
+/** Another long address (its own row and key), no name. */
+const STRESS_NO_NAME: PublicProfile = { ...STRESS_PLAYER, address: `0x07f9${LONG_ADDRESS.slice(6)}`, name: null, crowns: 99_999 };
 
 const read = <T,>(data: T | null) => ({ data, error: null });
 const FAILED = { data: null, error: "The ranking could not be read: the social source did not answer.", errorDetail: { code: "SocialError", version: "0.1.0", at: Date.UTC(2026, 10, 7, 9, 30) } };
@@ -52,6 +57,8 @@ export const LEADERBOARD = {
   playersPastList: { tab: "players", players: read({ players: [...RANKED], me: { place: RANKED.length + 1, profile: NEW_PLAYER } }), guilds: read(GUILDS), friends: read(rankAmongFriends(FRIENDS, NEW_PLAYER)), myGuild: null },
   /** Guilds: by score, the viewer's guild in gold. */
   guilds: { tab: "guilds", players: read(rankingAt(4)), guilds: read(GUILDS), friends: read(friendsAt(4)), myGuild: QUARRY },
+  /** Guilds: the viewer's guild ranked past the list's end, 42nd: pinned at the foot with its place; a tap opens its page. */
+  guildsPastList: { tab: "guilds", players: read(rankingAt(4)), guilds: read(GUILDS), friends: read(friendsAt(4)), myGuild: LOW_GUILD.id, myGuildPlace: LOW_PLACE },
   /** Friends: the viewer among their four friends by crowns, their row in gold. */
   friends: { tab: "friends", players: read(rankingAt(30)), guilds: read(GUILDS), friends: read(friendsAt(30)), myGuild: QUARRY },
   /** Friends: none yet, nothing to rank against. */

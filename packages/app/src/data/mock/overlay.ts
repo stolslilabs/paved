@@ -138,7 +138,7 @@ export function mockSocial(ledger: MockLedger): SocialSource {
 }
 
 /** Every read and write of `GuildSource` (#953), each the ledger's. */
-export const MOCKED_GUILD_CALLS = ["playerGuild", "guild", "guildOf", "searchGuilds", "suggestedGuilds", "guildRanking", "createGuild", "editGuild", "joinGuild", "requestToJoin", "cancelRequest", "answerRequest", "invite", "answerInvitation", "kick", "promote", "demote", "makeLeader", "leaveGuild", "postAnnouncement", "editAnnouncement", "deleteAnnouncement", "readAnnouncements", "visitGuildTab"] as const satisfies readonly (keyof GuildSource)[];
+export const MOCKED_GUILD_CALLS = ["playerGuild", "guild", "guildOf", "searchGuilds", "suggestedGuilds", "guildRanking", "guildPlace", "createGuild", "editGuild", "joinGuild", "requestToJoin", "cancelRequest", "answerRequest", "invite", "answerInvitation", "kick", "promote", "demote", "makeLeader", "leaveGuild", "postAnnouncement", "editAnnouncement", "deleteAnnouncement", "readAnnouncements", "visitGuildTab"] as const satisfies readonly (keyof GuildSource)[];
 
 /** Every read and write of `ChatSource` (#955), each the ledger's. */
 export const MOCKED_CHAT_CALLS = ["overview", "conversation", "subscribe", "send", "deleteMessage", "report", "mute", "unmute", "mutes", "answerRequest", "markRead", "seeNotice", "visitChat"] as const satisfies readonly (keyof ChatSource)[];

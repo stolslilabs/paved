@@ -193,6 +193,12 @@ export interface GuildSentInvitation {
  * A guild's page: its card, its members; for its members, the announcements and the log; for the ranks that invite, the invitations
  * sent; for the ranks that answer them, the requests.
  */
+/** A guild's place in the whole ranking (1 first) and its summary: the viewer's own row, pinned past the list's end. */
+export interface GuildPlace {
+  place: number;
+  guild: GuildSummary;
+}
+
 export interface GuildView extends GuildSummary {
   /** By rank, then by crowns (game-core's `sortGuildMembers`). */
   roster: GuildMember[];
@@ -291,8 +297,10 @@ export interface GuildSource {
   searchGuilds(query: GuildQuery): Promise<GuildSummary[]>;
   /** The guilds `player` may join, the most active first (game-core's `suggestGuilds`). */
   suggestedGuilds(player: string): Promise<GuildSummary[]>;
-  /** The guilds by score (game-core's `rankGuilds`). */
+  /** The guilds by score (game-core's `rankGuilds`), the first `GUILD_LIST_LIMIT`. */
   guildRanking(): Promise<GuildSummary[]>;
+  /** A guild's place in the whole ranking, past the list's end too (game-core's `guildPlace`), or null when no guild has that ID. */
+  guildPlace(id: number): Promise<GuildPlace | null>;
   /** Creates a guild; the player becomes its Leader. Resolves with its ID. */
   createGuild(player: string, draft: GuildDraft): Promise<number>;
   editGuild(player: string, settings: GuildSettings): Promise<void>;
