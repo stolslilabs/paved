@@ -7,7 +7,6 @@ import { LEAGUES } from "../src/lib/pvp-rules";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
 import { dotsWindow } from "../src/components/ui/carousel-dots";
 import { crownRange } from "../src/components/containers/league-card";
-import { LEAGUE_SLIDES } from "../src/components/containers/league-carousel";
 import { PVP_LEAGUE } from "../src/mocks/pvp";
 
 const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
@@ -27,8 +26,8 @@ describe("League carousel (#785, #833, #859)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
     expect(inView()).toHaveAccessibleName("Bronze II");
     expect(inView()).toHaveAttribute("aria-current", "true");
-    // Unranked's slide, then the 23 leagues (#917).
-    expect(carousel().querySelectorAll("[data-slot='carousel-item']")).toHaveLength(LEAGUES.length + 1);
+    // The 23 leagues, Wood to Grand Master: Unranked is no slide (UNRANKED-PLACEHOLDER, the owner's ask of 2026-11-07).
+    expect(carousel().querySelectorAll("[data-slot='carousel-item']")).toHaveLength(LEAGUES.length);
     // Under the title: the range of crowns alone (the owner's ask of 2026-11-05: the season's reward is the season row's).
     expect(within(inView()).getByRole("img", { name: "1,000 to 1,199 crowns" })).toBeInTheDocument();
     expect(within(inView()).queryByRole("img", { name: /Cobbles/ })).toBeNull();
@@ -57,14 +56,14 @@ describe("League carousel (#785, #833, #859)", () => {
   it("every league's card has the same content (LEAGUE-PAGE, the book's): the crest beside the name and the range", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.bronze} />));
     const cards = carousel().querySelectorAll<HTMLElement>("[data-slot='league-card']");
-    expect(cards).toHaveLength(LEAGUE_SLIDES.length);
+    expect(cards).toHaveLength(LEAGUES.length);
     // One crest box for all, Wood included, at one size (#917): its height is the box's, the same clamp on every card.
     const crests = [...cards].map((c) => c.querySelector<HTMLElement>("[data-slot=league-crest-art]")!);
     expect(new Set(crests.map((f) => f.parentElement!.style.fontSize))).toEqual(new Set(["clamp(3.5rem, 19vw, 6rem)"]));
-    expect(crests.map((f) => f.dataset.tier)).toEqual(["unranked", ...LEAGUES.map((l) => l.id)]);
+    expect(crests.map((f) => f.dataset.tier)).toEqual(LEAGUES.map((l) => l.id));
     // The name names the card: its heading, the first row beside the crest.
-    expect(cards[0]!.querySelector("h2")).toHaveAccessibleName("Unranked");
-    expect(cards[14]!.querySelector("h2")).toHaveAccessibleName("Emerald III");
+    expect(cards[0]!.querySelector("h2")).toHaveAccessibleName("Wood");
+    expect(cards[13]!.querySelector("h2")).toHaveAccessibleName("Emerald III");
     for (const card of cards) expect(card.lastElementChild!.firstElementChild!.tagName).toBe("H2");
     // The crest, then the two rows (the name, the range); no bonus's corner since #917 (a lifetime league mission instead).
     for (const card of cards) expect(card.children).toHaveLength(2);
@@ -123,35 +122,37 @@ describe("League carousel (#785, #833, #859)", () => {
     });
   }
 
-  it("stops at Unranked, before Wood, and at Grand Master", async () => {
+  it("an Unranked player opens on Wood, none marked theirs; stops at Wood and at Grand Master", async () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.unranked} />));
-    // Outside the leagues (no crown, no attack): the header reads Unranked (#917), and the carousel opens on Unranked's card, the
-    // player's, before Wood's: no range of crowns there, Wood's starts at 0.
+    // Outside the leagues (no crown, no attack): the header alone reads Unranked (#917), with Unranked's crest; the carousel holds
+    // the 23 leagues only (UNRANKED-PLACEHOLDER) and opens on Wood, the league a first attack enters, no slide the player's.
     expect(control()).toHaveAccessibleName("Your league: Unranked, 0 crowns. Show it");
     expect(control()).toHaveAttribute("data-tier", "unranked");
-    expect(inView()).toHaveAccessibleName("Unranked");
-    expect(inView()).toHaveAttribute("aria-current", "true");
-    expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
-    expect(within(inView()).queryByRole("img", { name: /crowns/ })).toBeNull();
-    expect(within(inView()).getByText("Before the first attack")).toBeInTheDocument();
-    expect(inView().querySelector<HTMLElement>("[data-slot=league-crest-art]")!.dataset.tier).toBe("unranked");
+    expect(inView()).toHaveAccessibleName("Wood");
+    expect(within(inView()).getByRole("img", { name: "0 to 399 crowns" })).toBeInTheDocument();
+    expect(carousel().querySelector("[aria-current]")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Unranked" })).toBeNull();
+    expect(screen.queryByText("Before the first attack")).toBeNull();
+    expect(carousel().querySelector("[data-tier=unranked]")).toBeNull();
     expect(screen.getByRole("button", { name: "Previous league" })).toBeDisabled();
     carousel().focus();
     await userEvent.keyboard("{ArrowLeft}");
-    expect(inView()).toHaveAccessibleName("Unranked");
-    await userEvent.keyboard("{ArrowRight}");
     expect(inView()).toHaveAccessibleName("Wood");
-    expect(within(inView()).getByRole("img", { name: "0 to 399 crowns" })).toBeInTheDocument();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(inView()).toHaveAccessibleName("Iron III");
+    expect(inView()).not.toHaveAttribute("aria-current");
+    // The header's League control brings an Unranked player back to Wood, still none marked theirs.
+    await userEvent.click(control());
+    expect(inView()).toHaveAccessibleName("Wood");
+    expect(carousel().querySelector("[aria-current]")).toBeNull();
     cleanup();
 
-    // In Wood after a first attack: the carousel opens on Wood, the player's; Unranked's card is before it.
+    // In Wood after a first attack: the carousel opens on Wood, the player's, the first slide.
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wood} />));
     expect(inView()).toHaveAccessibleName("Wood");
     expect(inView()).toHaveAttribute("aria-current", "true");
     expect(control()).toHaveAccessibleName("Your league: Wood, 120 crowns. Show it");
-    await userEvent.click(screen.getByRole("button", { name: "Previous league" }));
-    expect(inView()).toHaveAccessibleName("Unranked");
-    expect(inView()).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("button", { name: "Previous league" })).toBeDisabled();
     cleanup();
 
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.grandmaster} />));

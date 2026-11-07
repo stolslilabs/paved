@@ -19,7 +19,15 @@ export interface HoldOptions {
   holdKey?: string | number;
   /** Disabled or busy: no hold starts, and one under way is dropped. */
   disabled?: boolean;
+  /**
+   * The charge (TILE-ACTIONS, the owner's ask of 2026-11-07: a feeling of power): while held, ticks closer and closer together
+   * (`CHARGE_AT`), and the completion a strong buzz (`power`) in place of the firm tick. Off: the start's light tick and the firm one.
+   */
+  charge?: boolean;
 }
+
+/** The charge's ticks, as shares of the hold: further apart at first, then faster and faster as it fills. */
+export const CHARGE_AT = [0.28, 0.5, 0.66, 0.78, 0.87, 0.94] as const;
 
 /**
  * One hold, whatever holds it (TILE-HOLD, #630): the button that shows its ring (`HoldButton`) and any other source, the
@@ -45,7 +53,7 @@ export interface Hold {
  * end acts once (a firmer tick, `haptic`, where the device has haptics); `release` or `cancel` before the end rewinds it.
  * A change of `holdKey`, `disabled` turning on, or the unmount drops a hold under way.
  */
-export function useHold({ onComplete, holdMs = HOLD_MS, holdKey, disabled = false }: HoldOptions): Hold {
+export function useHold({ onComplete, holdMs = HOLD_MS, holdKey, disabled = false, charge = false }: HoldOptions): Hold {
   const [state, setState] = useState<HoldState>("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const done = useRef(false);
@@ -55,12 +63,17 @@ export function useHold({ onComplete, holdMs = HOLD_MS, holdKey, disabled = fals
   const off = useRef(disabled);
   off.current = disabled;
 
+  const ticks = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const charged = useRef(charge);
+  charged.current = charge;
   const stop = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
+    for (const t of ticks.current) clearTimeout(t);
+    ticks.current = [];
   }, []);
   const act = useCallback(() => {
-    haptic("firm");
+    haptic(charged.current ? "power" : "firm");
     action.current();
   }, []);
   const start = useCallback(() => {
@@ -69,6 +82,7 @@ export function useHold({ onComplete, holdMs = HOLD_MS, holdKey, disabled = fals
     done.current = false;
     haptic("light");
     setState("holding");
+    if (charged.current) ticks.current = CHARGE_AT.map((at) => setTimeout(() => haptic("charge"), at * holdMs));
     timer.current = setTimeout(() => {
       timer.current = null;
       done.current = true;

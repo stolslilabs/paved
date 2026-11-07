@@ -1,4 +1,4 @@
-import { CENTER, levelStatus, pvpXp } from "@paved/game-core";
+import { CENTER, XP_CAP, levelStatus, pvpXp } from "@paved/game-core";
 import { sideSettings } from "../data/board-side";
 import { BOARD_FOG, squareGridSettings } from "../data/settings";
 import { APP_ASSETS } from "./assets";
@@ -305,9 +305,9 @@ export const PVP_LEAGUE = {
   higher: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 8 },
   lower: { crowns: ME.crowns, season: SEASON, now: MOCK_NOW, opensOn: 2 },
   grandmaster: { crowns: 5_320, season: SEASON, now: MOCK_NOW },
-  // No attack yet (#917): Unranked, its card before Wood's, no range of crowns.
+  // No attack yet (#917): Unranked, in the header alone; the carousel opens on Wood, none of its slides the player's.
   unranked: { crowns: 0, season: SEASON, now: MOCK_NOW, unranked: true },
-  // In Wood after a first attack (120 crowns): Unranked's card before it.
+  // In Wood after a first attack (120 crowns): Wood's card, the player's, the first.
   wood: { crowns: 120, season: SEASON, now: MOCK_NOW },
   // Dropped to Wood, the carousel opened on Bronze I.
   demoted: { crowns: 200, season: SEASON, now: MOCK_NOW, opensOn: 5 },
@@ -368,6 +368,10 @@ export const PVP_END = {
   chestCapped: end(2, 92, STAKES.win[1], { chest: { state: "capped", rank: "rare", resetsAt: CAPPED_AT } }),
   /** A level reached with the attack's XP. */
   levelUp: end(3, 101, STAKES.win[2], { xp: endXp(pvpXp(3), levelStatus(1_480).floor + 10) }),
+  /** At the level cap: the bar full, "Max level", no XP gained any more (#1060). */
+  maxLevel: end(3, 104, STAKES.win[2], { xp: endXp(0, XP_CAP) }),
+  /** A few XP into a level: the fill near empty, its left end rounded (#1060). */
+  nearEmpty: end(1, 84, STAKES.win[0], { xp: endXp(pvpXp(1), levelStatus(1_480).floor + 5) }),
   /** The attack given up: 0 stars and what it cost. */
   surrendered: end(0, 40, -STAKES.loss, { surrendered: true }),
   /** The level still being read. */

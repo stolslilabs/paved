@@ -20,8 +20,8 @@ export interface LeagueBannerProps {
 
 /**
  * A tier's banner (issue 917, redrawn 2026-11-01): the pennant hanging from its rod, cloth, rod and trim in the tier's material, the
- * division's numeral on the cloth (Grand Master's helmet; nothing on Wood's; Unranked's a torn, blank cloth). An image 1em high, as
- * wide as its frame. Reusable alone (a later promotion overlay).
+ * division's numeral on the cloth (Grand Master's helmet; nothing on Wood's; Unranked's an empty slot, a grey gradient, its edge
+ * dashed: UNRANKED-PLACEHOLDER). An image 1em high, as wide as its frame. Reusable alone (a later promotion overlay).
  */
 export function LeagueBanner({ tier, division = null, size = "md", label, className }: LeagueBannerProps) {
   const rem = BANNER_REM[size];

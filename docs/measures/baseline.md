@@ -1807,3 +1807,26 @@ the same tests confirms (or refutes) them. **Before**: the measured figures behi
 - The two `#[available_gas]` budgets of `tests/e2e/economy.cairo` that a paid spawn crosses were reset to measured
   + about 1,000 L2 gas: `test_economy_spawn_moves_exactly_the_price_of_its_stake` and
   `test_economy_protocol_address_referrer_is_no_referral`.
+
+## After PLAYER-RENAME (the player's name on Avatar)
+
+Measured on the Mac (P-33), 2026-11-07, scarb 2.20.1, snforge 0.64.0, `snforge test avatar` (`paved::tests::avatar::` and the
+avatar's gas scenarios of `contracts/tests/gas.cairo`; 36 passed; the test profile; peak RSS 9.58 GB, `/usr/bin/time -l`).
+AGENTS.md keeps committed figures measured on Linux: snforge's L2 gas does not depend on the machine, and the pull request's CI
+run of the same tests confirms (or refutes) them. **Before**: the figures of "After AVATAR-CHAIN". **After**: this branch.
+
+| Scenario | Before | After | Change | Ceiling (measured + 5 %) |
+|---|---:|---:|---:|---:|
+| z27, `set_item` | 704,759 | 705,159 | +400 | 739,997 (kept) |
+| z28, `buy_avatar_item` | 1,191,653 | 1,193,653 | +2,000 | 1,240,642 (kept) |
+| z29, `set_avatar`, ten free parts | 1,357,620 | 1,358,420 | +800 | 1,440,201 (kept) |
+| z30, `set_avatar`, ten owned parts | 2,466,150 | 2,466,950 | +800 | 2,604,158 (kept) |
+| z31, the `items` view of 17 items | 2,393,093 | 2,393,093 | 0 | 2,512,748 (kept) |
+| z44, a first `rename` (free), 12 characters | | 3,471,914 | new | 3,645,510 |
+| z45, a later `rename` of 15 characters with spaces (paid: the key left freed, `Setup.spend_cobbles`) | | 4,628,636 | new | 4,860,068 |
+
+- The names are UTF-8 `ByteArray`s (the owner's asks of 2026-11-07: spaces, hyphens, any script): the strict UTF-8 check of each
+  character, the key's poseidon hash and the `ByteArray`'s storage are most of a rename. A first version with ASCII short strings
+  measured 883,880 and 1,971,598; keeping each player's key (`name_keys`) took z45 from 7,346,890 to 4,628,636.
+- z27 to z30 move by the larger entry-point dispatch of the class (`IAvatarName`'s six entry points): 400 to 2,000 L2 gas,
+  within their ceilings, which are kept.

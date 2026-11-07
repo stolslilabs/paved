@@ -6,6 +6,8 @@ import { playerRecords } from "../../data/player-records";
 import { useGuildBadge } from "../../data/guilds";
 import { useFollowStatus } from "../../data/social";
 import { useOpenGuild } from "../../routes/open-guild";
+import { useErrorDetail } from "../../routes/error-detail";
+import { useRename, useRenameWrite } from "../../data/rename";
 import { isUnranked, usePvpLastAttack, usePvpLeagueOf } from "../../data/pvp-standing";
 import { DataContext, type DataSources } from "../../data/sources";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
@@ -29,9 +31,12 @@ import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 import { isMaxLevel, xpLeft } from "../elements/xp-level";
 import type { PlayerProgress } from "../elements/xp-ring";
+import type { ShownBalance } from "./balances";
+import { BalancesSlot } from "./balances-context";
 import { GuildLine } from "./guild-profile";
 import { HudDrawer } from "./hud-drawer";
 import { ActionTile } from "./profile-action";
+import { RenameView } from "./rename-view";
 
 /** The connected player as the indexer gives them: the profile and their Challenge figures. */
 export interface PlayerStatusData {
@@ -92,8 +97,13 @@ export interface ProfileSheetProps {
   look?: bigint | null;
   /** Opens the avatar creator (#626); omitted, Avatar is not offered. */
   onEditAvatar?: () => void;
-  /** Changes the player's name; omitted, the name has no pencil. */
-  onEditName?: () => void;
+  /**
+   * PLAYER-RENAME: the name's view, drawn in the drawer in place of the profile once the pencil beside the name is pressed, given its
+   * Back (a story's); left out, read where the app's sources are (`ReadRenameView`); with neither, the name has no pencil.
+   */
+  renameView?: (onBack: () => void) => ReactNode;
+  /** Opens on the name's view (a story's). */
+  defaultRenaming?: boolean;
   /**
    * The connected player's PvP standing (`Matchmaker.league`): their league's rim and crest round the avatar, their crowns and
    * league under League (#917). Left out, the sheet reads it itself where the app's sources are (the home's read and cache,
@@ -234,6 +244,44 @@ function ReadGuildLine({ playerId, onOpened }: { playerId: string; onOpened: () 
         onOpened();
         openGuild(id);
       }}
+    />
+  );
+}
+
+/** The Cobbles a rename spends, at the header's end while the name's view is open (the Themes' and the Avatar's set). */
+const COBBLES: readonly ShownBalance[] = ["cobbles"];
+
+/**
+ * The name's view on the app's sources (PLAYER-RENAME): its reads (`useRename`: the cost of the next change and the Cobbles) and its
+ * write (`useRenameWrite`). A network without `Avatar` (no names to set) says so, the action held.
+ */
+function ReadRenameView({ playerId, current, onBack }: { playerId: string; current: string | null; onBack: () => void }) {
+  const read = useRename(playerId);
+  const write = useRenameWrite(playerId);
+  const readDetail = useErrorDetail(read.error);
+  const refusedDetail = useErrorDetail(write.error);
+  const reason = (write.error as { reason?: unknown } | null)?.reason;
+  const cost = read.data?.cost;
+  return (
+    <RenameView
+      current={current}
+      address={playerId}
+      cost={cost}
+      balance={read.data?.balance}
+      pending={write.pending}
+      done={write.done}
+      refused={write.error?.message ?? null}
+      refusedDetail={refusedDetail}
+      taken={reason === "taken"}
+      error={read.error?.message ?? (read.data === null ? "Names cannot be set on this network yet." : null)}
+      errorDetail={readDetail}
+      onRename={(name) => {
+        if (cost !== undefined) write.rename(name, cost).catch(() => undefined);
+      }}
+      onType={() => {
+        if (write.error || write.done) write.reset();
+      }}
+      onBack={onBack}
     />
   );
 }
@@ -461,7 +509,8 @@ export function ProfileSheet({
   progress,
   look,
   onEditAvatar,
-  onEditName,
+  renameView,
+  defaultRenaming = false,
   league,
   onOpenLeague,
   onOpenTiles,
@@ -479,6 +528,10 @@ export function ProfileSheet({
   const { hallOfFame, records } = sources && givenFame === undefined && givenRecords === undefined ? playerRecords() : { hallOfFame: givenFame, records: givenRecords };
   const [copied, setCopied] = useState(false);
   const connected = state.status === "connected" ? state.data : null;
+  // PLAYER-RENAME: the name's view in the drawer, in place of the profile; the pencil only where it can be drawn.
+  const [renaming, setRenaming] = useState(defaultRenaming);
+  const canRename = renameView !== undefined || sources !== null;
+  const back = () => setRenaming(false);
   const portrait = (
     <PlayerAvatar
       size="lg"
@@ -494,6 +547,7 @@ export function ProfileSheet({
       onOpenChange={(next) => {
         if (!next) {
           setCopied(false);
+          setRenaming(false);
         }
         onOpenChange(next);
       }}
@@ -501,8 +555,15 @@ export function ProfileSheet({
       returnFocus={returnFocus}
       slot="profile"
       inPlace={inPlace}
+      end={renaming && connected ? <BalancesSlot layout="pill" kinds={COBBLES} /> : undefined}
     >
-      {connected ? (
+      {connected && renaming ? (
+        renameView ? (
+          renameView(back)
+        ) : (
+          <ReadRenameView playerId={connected.player.playerId} current={connected.player.name} onBack={back} />
+        )
+      ) : connected ? (
         <WithLeague league={league} playerId={connected.player.playerId}>
           {(shown) => (
             <>
@@ -519,14 +580,16 @@ export function ProfileSheet({
                       address={connected.player.playerId}
                       className={cn("text-outline text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
                     />
-                    {onEditName && (
+                    {/* PLAYER-RENAME: the HUD's painted pencil (the guild's Post's; the owner's pick over a quill), raised: it opens the name's view in the drawer. */}
+                    {canRename && (
                       <button
                         type="button"
+                        data-slot="profile-edit-name"
                         aria-label="Edit name"
-                        onClick={onEditName}
-                        className="state-layer drawer-raised grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg outline-none"
+                        onClick={() => setRenaming(true)}
+                        className="state-layer drawer-raised grid size-9 shrink-0 cursor-pointer place-items-center rounded-lg outline-none"
                       >
-                        <Icon name="pen" size="xs" />
+                        <UiIcon name="pencil" px={24} className="size-6" />
                       </button>
                     )}
                   </span>

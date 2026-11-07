@@ -40,7 +40,9 @@ use paved::constants::{self, CENTER};
 use paved::mocks::drawer::{IDrawHarnessDispatcher, IDrawHarnessDispatcherTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::seed::SeedSource;
-use paved::systems::avatar::{IAvatarDispatcher, IAvatarDispatcherTrait};
+use paved::systems::avatar::{
+    IAvatarDispatcher, IAvatarDispatcherTrait, IAvatarNameDispatcher, IAvatarNameDispatcherTrait,
+};
 use paved::systems::challenge::Challenge::InternalTrait;
 use paved::systems::challenge::{
     Challenge, IChallengeDispatcherTrait as ChallengeDispatcherTrait, IChallengeDrawDispatcher,
@@ -198,6 +200,12 @@ pub const CEILING_AVATAR_BUY: u128 = 1240642;
 pub const CEILING_AVATAR_SET_FREE: u128 = 1440201;
 pub const CEILING_AVATAR_SET_OWNED: u128 = 2604158;
 pub const CEILING_AVATAR_ITEMS: u128 = 2512748;
+// z44 and z45: the player's name (PLAYER-RENAME): a first `rename`, free, and a later one of 15
+// characters with spaces, paid: the UTF-8 check and the key (`avatar::name`), the name's ByteArray
+// stored, the key left freed, the new one held, the count, and `Setup.spend_cobbles`. Measured on
+// the Mac (snforge 0.64.0, test profile; L2 gas does not depend on the machine) + 5 %, rounded up.
+pub const CEILING_AVATAR_RENAME_FREE: u128 = 3645510;
+pub const CEILING_AVATAR_RENAME_PAID: u128 = 4860068;
 // z32 and z33: leagues and seasons (#644, `docs/architecture/leagues.md`): a settlement across a
 // season's end (both villages rolled, reset and paid, the missions reported) and `close_season`
 // with a reward and a reset. Measured on the VPS (snforge 0.64.0, test profile) + 5 %, rounded up.
@@ -1276,6 +1284,40 @@ fn test_gas_z31_avatar_items() {
     let after = get_available_gas();
     assert(items.len() == 17, 'Gas: 17 items');
     report("z31_avatar_items", before - after, CEILING_AVATAR_ITEMS);
+}
+
+/// The scenario's `Avatar` with the rename price at 50 (as `scripts/deploy.sh` sets it); the caller
+/// `PLAYER`, with 500 cobbles.
+fn rename_scenario() -> IAvatarNameDispatcher {
+    let avatar = avatar_scenario(false);
+    let names = IAvatarNameDispatcher { contract_address: avatar.contract_address };
+    start_cheat_caller_address(avatar.contract_address, OWNER());
+    names.set_rename_price(50);
+    start_cheat_caller_address(avatar.contract_address, PLAYER());
+    names
+}
+
+/// z44. A first `rename`, free: the name's key, the holder and the name read, two writes and the
+/// count, one event; no cobbles.
+#[test]
+fn test_gas_z44_avatar_rename_free() {
+    let names = rename_scenario();
+    let before = get_available_gas();
+    names.rename("MossyMason27", 0);
+    let after = get_available_gas();
+    report("z44_avatar_rename_free", before - after, CEILING_AVATAR_RENAME_FREE);
+}
+
+/// z45. A later `rename` of 15 characters with spaces, paid: the name left freed, the new one held,
+/// the count, and `Setup.spend_cobbles` (its account read and written, its event).
+#[test]
+fn test_gas_z45_avatar_rename_paid() {
+    let names = rename_scenario();
+    names.rename("MossyMason27", 0);
+    let before = get_available_gas();
+    names.rename("Swift Carter 04", 50);
+    let after = get_available_gas();
+    report("z45_avatar_rename_paid", before - after, CEILING_AVATAR_RENAME_PAID);
 }
 
 // Leagues and seasons (#644)

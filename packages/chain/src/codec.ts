@@ -79,6 +79,20 @@ const U128 = "core::integer::u128";
 const U256 = "core::integer::u256";
 const BOOL = "core::bool";
 const BYTE_ARRAY = "core::byte_array::ByteArray";
+
+/** A text as a Cairo `ByteArray`'s felts: its UTF-8 bytes in full 31-byte words (big-endian), then the pending word and its length. */
+export function byteArrayFelts(text: string): string[] {
+  const bytes = new TextEncoder().encode(text);
+  const word = (from: number, to: number) => {
+    let felt = 0n;
+    for (let i = from; i < to; i++) felt = (felt << 8n) | BigInt(bytes[i]!);
+    return felt;
+  };
+  const full = Math.floor(bytes.length / 31);
+  const words = Array.from({ length: full }, (_, i) => word(i * 31, i * 31 + 31));
+  const pending = bytes.length - full * 31;
+  return [BigInt(full), ...words, word(full * 31, bytes.length), BigInt(pending)].map((felt) => `0x${felt.toString(16)}`);
+}
 /** Words a decoded `ByteArray` may hold (31 bytes each): a bound on what a contract can make the client allocate. */
 export const MAX_BYTE_ARRAY_WORDS = 8192;
 const ARRAY = /^core::array::(?:Array|Span)::<(.+)>$/;
@@ -212,8 +226,8 @@ export class AbiCodec {
   }
 
   /**
-   * A Cairo `ByteArray` (full 31-byte words, then a pending word and its length) read as UTF-8 text. Decode only: no
-   * Paved call takes one. Invalid UTF-8 becomes U+FFFD; the text is data and the caller never reads it as markup.
+   * A Cairo `ByteArray` (full 31-byte words, then a pending word and its length) read as UTF-8 text. Invalid UTF-8 becomes
+   * U+FFFD; the text is data and the caller never reads it as markup. `Avatar.rename` (PLAYER-RENAME) takes one: `encode`.
    */
   private decodeByteArray(cursor: { felts: bigint[]; at: number }): string {
     const take = () => {
@@ -265,6 +279,12 @@ export class AbiCodec {
       const bits = INT_BITS[type];
       if (v < 0n || (bits ? v >= 1n << BigInt(bits) : v >= FELT_P)) throw new RangeError(`${String(value)} is out of range for ${type}`);
       out.push(toHex(v));
+      return;
+    }
+    if (type === BYTE_ARRAY) {
+      // UTF-8 text (PLAYER-RENAME's names): its full 31-byte words, then the pending word and its length.
+      if (typeof value !== "string") throw new Error(`${type} takes text, not ${typeof value}`);
+      out.push(...byteArrayFelts(value));
       return;
     }
     const variants = this.enums.get(type);

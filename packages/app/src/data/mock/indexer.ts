@@ -392,6 +392,11 @@ export function mockIndexer(ledger: MockLedger): IndexerClient {
     // section brings the mock's reward).
     playerVaultClaims: async (playerId: string | bigint) =>
       answer({ playerId: String(playerId), claimed: "0", count: 0, collected: "0", collectedCount: 0, claims: [], next: null }),
+    // PLAYER-RENAME: who holds a name in any case, among the names the mock shows (its ledger's `name_owner`): all the chain's.
+    nameHolder: async (name: string) => {
+      const holder = await ledger.nameOwner(name);
+      return answer({ name, playerId: holder === null ? null : indexerId(holder), source: holder === null ? null : ("chain" as const) });
+    },
   } satisfies { [K in keyof IndexerClient]: IndexerClient[K] };
   // `IndexerClient` is a class with private fields: the mock has its public reads only, which is all a caller can reach.
   return client as unknown as IndexerClient;

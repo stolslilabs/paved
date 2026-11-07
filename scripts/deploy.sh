@@ -67,8 +67,8 @@
 #   the views seller, pack, skin_price, quest_cobbles and achievement_cobbles; then Story's campaigns and levels
 #   (FRESH_STORY_CAMPAIGNS, FRESH_STORY_LEVELS: set_campaign, set_level), one multicall of what Story lacks, read back
 #   through its views campaign and level (docs/architecture/story-mode.md, 8); then Avatar's defaults (FRESH_AVATAR_*: set_parts,
-#   set_price_bounds, set_item for the free base set), one multicall of what Avatar lacks, read back through its views
-#   parts, price_bounds and item (docs/architecture/avatar-chain.md);
+#   set_price_bounds, set_rename_price, set_item for the free base set), one multicall of what Avatar lacks, read back through its
+#   views parts, price_bounds, rename_price and item (docs/architecture/avatar-chain.md);
 #   5. write the deployment file: `contracts` (Faucet, Challenge, Setup, Collection, Economy, PavedToken, Vault,
 #   MockRouter, Story, Avatar) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
 #   owner() on Economy, Challenge, Setup, Collection, Vault, Story and Avatar, Story's Setup, reporter and levels, Avatar's Setup,
@@ -2325,6 +2325,10 @@ FRESH_AVATAR_PARTS=10
 FRESH_AVATAR_PRICE_MIN=20
 FRESH_AVATAR_PRICE_MAX=100
 FRESH_AVATAR_FREE=(5 5 5 5 4 3 5 4 4 1)
+# The player's name (PLAYER-RENAME, docs/architecture/avatar-chain.md, "The name"): a player's first change is free, every later
+# one costs this many Cobbles (the owner's ask of 2026-11-07), set by Avatar's owner (set_rename_price) and read back through the
+# view rename_price. The owner may change it later; a run sends it only while no price is set.
+FRESH_AVATAR_RENAME_PRICE=50
 # Cobbles v1, part 3 (P-61, cobbles-v1.md 5.2 and 6.4): the themes whose 19 skins the fresh deployment prices, by the rarity
 # table. Theme 1 is Forest, the only theme with art (the PM's ruling of 2026-10-15); the other themes get no id here and
 # stay unpriced until their art ships (the owner's set_skin_price). Add a theme id to this one list to price it too.
@@ -2638,8 +2642,9 @@ fresh_story_smoke() {
 }
 
 # fresh_avatar_calls: the Avatar calls still missing, one spec per line: the parts when the view is below FRESH_AVATAR_PARTS
-# (more parts set by the owner are kept: they only grow), the price bounds when no bounds are set, then each free item of every
-# part that is not listed (an item the owner changed since is kept). Fails when a read fails.
+# (more parts set by the owner are kept: they only grow), the price bounds when no bounds are set, the rename price when none is
+# set (a price the owner changed since is kept), then each free item of every part that is not listed (an item the owner
+# changed since is kept). Fails when a read fails.
 fresh_avatar_calls() {
   local raw part id
   raw="$(call "$AVATAR" parts)" || return 1
@@ -2648,6 +2653,8 @@ fresh_avatar_calls() {
   # shellcheck disable=SC2086 # the view's felts, one argument each
   [[ "$(python3 -I -c 'import sys;print(" ".join(str(int(x,16)) for x in sys.argv[1:]))' $raw)" != "0 0" ]] ||
     echo "$AVATAR set_price_bounds $FRESH_AVATAR_PRICE_MIN $FRESH_AVATAR_PRICE_MAX"
+  raw="$(call "$AVATAR" rename_price)" || return 1
+  (( $(hex_int "$raw") != 0 )) || echo "$AVATAR set_rename_price $FRESH_AVATAR_RENAME_PRICE"
   for ((part = 0; part < FRESH_AVATAR_PARTS; part++)); do
     for ((id = 0; id < FRESH_AVATAR_FREE[part]; id++)); do
       raw="$(call "$AVATAR" item "$part" "$id")" || return 1
@@ -2666,9 +2673,9 @@ fresh_avatar_step() {
   v AVATAR_RAW fresh_avatar_calls
   while IFS= read -r spec; do [[ -n "$spec" ]] && AVATAR_CALLS+=("$spec"); done <<<"$AVATAR_RAW"
   if [[ "${#AVATAR_CALLS[@]}" == 0 ]]; then
-    echo "   set already: the parts, the price bounds and the free items$( [[ -n "$(fr_get avatar_tx)" ]] && echo ", tx $(fr_get avatar_tx)")"
+    echo "   set already: the parts, the price bounds, the rename price and the free items$( [[ -n "$(fr_get avatar_tx)" ]] && echo ", tx $(fr_get avatar_tx)")"
   else
-    echo "   ${#AVATAR_CALLS[@]} parts, bounds and free item call(s) to send"
+    echo "   ${#AVATAR_CALLS[@]} parts, bounds, rename price and free item call(s) to send"
     RECORD_SENDING=avatar_tx
     invoke_all "${AVATAR_CALLS[@]}"
     RECORD_SENDING=""
@@ -2676,14 +2683,14 @@ fresh_avatar_step() {
   fresh_avatar_smoke
 }
 
-# fresh_avatar_smoke: Avatar's Setup is Setup, Setup allows it as a spender (it spends the Cobbles of an item), and the
-# parts, the bounds and the free items read back as set. Read on a complete record too.
+# fresh_avatar_smoke: Avatar's Setup is Setup, Setup allows it as a spender (it spends the Cobbles of an item and of a paid
+# rename), and the parts, the bounds, the rename price and the free items read back as set. Read on a complete record too.
 fresh_avatar_smoke() {
   [[ "$(hex_int "$(call "$AVATAR" setup)")" == "$(hex_int "$SETUP")" ]] || die "Avatar.setup() is not Setup"
   [[ "$(hex_int "$(call "$SETUP" is_spender "$AVATAR")")" == 1 ]] || die "Setup does not allow Avatar as a spender"
   v AVATAR_RAW fresh_avatar_calls
   [[ -z "$AVATAR_RAW" ]] || die "Avatar lacks: $(cut -d' ' -f2,3,4 <<<"$AVATAR_RAW" | tr '\n' ' ')"
-  echo "   Avatar: setup() is Setup, a spender of Setup; $FRESH_AVATAR_PARTS parts, bounds set, the first ${FRESH_AVATAR_FREE[*]} items of each part listed free (views parts, price_bounds and item)"
+  echo "   Avatar: setup() is Setup, a spender of Setup; $FRESH_AVATAR_PARTS parts, bounds set, a rename price set, the first ${FRESH_AVATAR_FREE[*]} items of each part listed free (views parts, price_bounds, rename_price and item)"
 }
 
 # fresh_guardian_step: Challenge's guardian is the deployer (PM, 2026-10-14), set in the run that deploys it, with the
@@ -2940,7 +2947,7 @@ fresh_check_only() {
   else
     echo "   definitions (definitions_tx): quests $FRESH_QUEST_IDS and achievements 1 to ${#FRESH_ACHIEVEMENTS[@]} on Setup, v1 and v2a, then the shop (Economy.set_seller(Setup), set_pack x 4: 50 cobbles for 5 USDC, 100 for 9, 500 for 40, 1,000 for 70), then the skin prices (set_skin_price x 19 for each of the theme(s) ${FRESH_SKIN_THEMES[*]}, the rarity table), then their cobbles (set_quest_cobbles x 13, set_achievement_cobbles x 15); a run sends the ones Setup lacks and reads each back as specified"
     echo "   story (story_tx): campaign(s) ${FRESH_STORY_CAMPAIGNS[*]%% *} and ${#FRESH_STORY_LEVELS[@]} level(s) on Story (set_campaign, set_level); a run sends the ones Story lacks and reads each back"
-    echo "   avatar (avatar_tx): the parts ($FRESH_AVATAR_PARTS), the price bounds $FRESH_AVATAR_PRICE_MIN to $FRESH_AVATAR_PRICE_MAX and the first ${FRESH_AVATAR_FREE[*]} items of each part free on Avatar; a run sends what Avatar lacks and reads it back"
+    echo "   avatar (avatar_tx): the parts ($FRESH_AVATAR_PARTS), the price bounds $FRESH_AVATAR_PRICE_MIN to $FRESH_AVATAR_PRICE_MAX, the rename price ($FRESH_AVATAR_RENAME_PRICE Cobbles after the first change) and the first ${FRESH_AVATAR_FREE[*]} items of each part free on Avatar; a run sends what Avatar lacks and reads it back"
     for key in declare_tx Faucet.deploy_tx PavedToken.deploy_tx MockRouter.deploy_tx Vault.deploy_tx pool_tx stake_tx \
         Economy.deploy_tx minter_tx Setup.deploy_tx Challenge.deploy_tx Collection.deploy_tx Story.deploy_tx Avatar.deploy_tx wiring_tx guardian_tx \
         vrf_tx definitions_tx story_tx avatar_tx \
@@ -3471,8 +3478,8 @@ echo "== story"
 fresh_story_step
 
 echo "== avatar"
-# The parts, the price bounds and the free base set on Avatar (FRESH_AVATAR_*), as its owner, before its address reaches
-# the deployment file.
+# The parts, the price bounds, the rename price and the free base set on Avatar (FRESH_AVATAR_*), as its owner, before its
+# address reaches the deployment file.
 fresh_avatar_step
 
 FIRST_DEPLOY_TX="$(fr_get Faucet.deploy_tx)"

@@ -1,5 +1,5 @@
-import { useQueries } from "@tanstack/react-query";
-import type { AvatarViews, GameViews } from "@paved/chain";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import type { AvatarViews, GameViews, NameViews } from "@paved/chain";
 import { addressKey } from "./keys";
 import { useDataSources } from "./sources";
 
@@ -20,6 +20,8 @@ export const avatarKeys = {
   owned: (playerId: string, part: number) => ["chain", "avatar", "owned", addressKey(playerId), part] as const,
   /** `avatar(player_id)`. */
   look: (playerId: string) => ["chain", "avatar", "look", addressKey(playerId)] as const,
+  /** `name(player_id)` (PLAYER-RENAME): the name set on chain, null: none. */
+  name: (playerId: string) => ["chain", "avatar", "name", addressKey(playerId)] as const,
   /** Every read of the avatar: what a write's receipt invalidates. */
   all: ["chain", "avatar"] as const,
 };
@@ -93,6 +95,21 @@ export function useAvatar(playerId: string | null): { data: AvatarData | null | 
 }
 
 const avatarData = (look: bigint, parts: number): AvatarData => ({ look, ids: look === 0n ? null : idsOf(look, parts) });
+
+/**
+ * The name a player set on chain (PLAYER-RENAME, `Avatar.name`), which wins over the Cartridge username wherever a name is read:
+ * a string, null for none set (and on a network without `Avatar`), undefined while it is read or when the read failed (the
+ * indexer's name, else the wallet's, is shown meanwhile). A rename's receipt puts the new name in the cache (`applyRenameEvents`),
+ * so the profile shows it at once, before the indexer has the block.
+ */
+export function usePlayerName(playerId: string | null): string | null | undefined {
+  const { views } = useDataSources();
+  // The one view the menus read; the name's other views are the name view's (`data/rename.ts`, its own chunk).
+  const names = typeof (views as Partial<NameViews>).playerName === "function" ? (views as unknown as Pick<NameViews, "playerName">) : null;
+  const enabled = playerId !== null && names !== null;
+  const { data } = useQuery({ queryKey: avatarKeys.name(playerId ?? "0x0"), queryFn: () => orNone(() => names!.playerName(playerId!)), enabled });
+  return enabled ? data : null;
+}
 
 /**
  * The look a player saved, as the menus draw it (#626): null for none saved, a look the chain would not take, or nothing read
