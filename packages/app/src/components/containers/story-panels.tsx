@@ -1,15 +1,18 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { formatInteger, type Stars } from "@paved/game-core";
 import { cn } from "../../lib/utils";
+import { BLACK_OUTLINE } from "../elements/black-outline";
+import { EMPTY_STAR } from "../elements/painted-stars";
 import { StarRow } from "../elements/star-row";
 import { planCode, type TileArt } from "../elements/tile-chip";
-import { StoryBackground, TileMosaic, TileRender, type TileRenders } from "../elements/tile-render";
+import { TileRender, type TileRenders } from "../elements/tile-render";
+import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
-import { EndChestPanel, EndLink, GameEnd, ShowScores, type EndChest } from "./game-end";
+import { EndChestPanel, END_STARS, GameEnd, ShowScores, XpRow, type EndChest, type EndXp } from "./game-end";
 
 const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
 
@@ -158,6 +161,8 @@ export interface StoryEndProps {
   title: string;
   score: number;
   stars: Stars;
+  /** Each star's share filled by the score, 0 to 1 (the Ranked end's bar, `GameEnd`'s `fills`); unset, the won ones full. Never a threshold. */
+  fills?: readonly number[];
   /** The points this run was short of its next star; none at 3 stars. The thresholds themselves are never shown (#593). */
   toNextStar?: number | null;
   /** The level's target is the best score known, not a proven optimum. */
@@ -166,11 +171,18 @@ export interface StoryEndProps {
   previousBest?: number | null;
   /** The run scored above a best-known target: the plan can raise it. */
   beatsTarget?: boolean;
+  /** The XP the run's report gave (`StoryReported.xp`) and the level it leaves; none (no report, nothing gained): no row. */
+  xp?: EndXp | null;
   onReplay?: () => void;
   /** The next level; none after the last level, or while it is locked. */
   onNext?: () => void;
+  /** A level follows but stays locked (a run with no star): Next shown, disabled, in its place. */
+  nextLocked?: boolean;
   onLevels?: () => void;
-  /** The chest the run won (3 stars the first time), opened here (END-CHEST): its panel's state; none, no panel. */
+  /**
+   * The level's chest (END-CHEST, STORY-PAGE): won (3 stars the first time), opened here (`EndChestPanel`), or why this run won none
+   * (`already`, `missed`); none, no panel.
+   */
   chest?: EndChest;
   /** Seconds since the epoch (a capped chest's wait; a Story chest is never capped). */
   now?: number;
@@ -181,20 +193,29 @@ export interface StoryEndProps {
   className?: string;
 }
 
-/** The stars' timeline, seconds: the first lands after `lead`, then one every `gap`; the rest of the screen after the last. */
-const FILL = { lead: 0.35, gap: 0.5, pop: 0.45 } as const;
+/** The stars' last pop after its turn (s): the result under them comes in then. */
+const POP = 0.45;
 
-/** When the result under the stars comes in, seconds. */
-export const resultDelay = (stars: number) => FILL.lead + Math.max(0, stars - 1) * FILL.gap + FILL.pop;
+/** When the result under the stars comes in, seconds: the Ranked end's beats (`END_STARS`), after the last star won. */
+export const resultDelay = (stars: number) => END_STARS.lead + Math.max(0, stars - 1) * END_STARS.gap + POP;
+
+/** A row's large figure and its line under it, the crowns' row's (`CrownsRow`): outlined, the figure tabular. */
+const FIGURE = "text-outline text-4xl leading-none font-bold tabular-nums";
+const UNDER = "text-outline text-lg leading-tight font-bold text-muted-foreground";
 
 /**
- * A finished level (#593, #546; END-SCREENS, the owner's ask of 2026-11-06, in the book's window of `attack-end`, `GameEnd`): over the
- * board, blurred, the window crowned by its three painted stars filling one by one, "Level complete" and the level's title, the score,
- * a new best, how many points the next star was missing (never the thresholds); the chest the run won, opened here (`EndChestPanel`);
- * then Retry and Next (the owner's words of 2026-11-06; Levels when no level follows), Levels under them. A tap skips the stars; under
- * reduced motion they are there at once. The window's cross shows the finished board, the gold Scores pill bringing the result back.
+ * A finished level (#593, #546; END-SCREENS; STORY-PAGE: as close as its content allows to the Ranked end, `PvpEndScene`): over the
+ * board, blurred, the book's window (`GameEnd`) crowned by its three painted stars on the Ranked end's beats and lights, each filling
+ * with gold as the score goes (`fills`, never a threshold), "Level complete" and the level's title, the score; the carved card of rows
+ * the Ranked end draws for its crowns and XP: the best (the trophy: the best score, a new best said with the one before it), the points
+ * the next star was missing (never the thresholds), the XP the run's report gave (`XpRow`, only when it gave some); the level's chest
+ * (`EndChestPanel`: to open here, or why this run won none: already won, or 3 stars win it); then the raised grey and gold answers on
+ * one row (the owner's asks of 2026-11-06 and 2026-11-07): Retry, Levels and Next, or Retry and Levels in gold when no level follows;
+ * with no star, "Level failed", Retry in gold and Next disabled in its place.
+ * A tap skips the stars; under reduced motion they are there at once. The window's cross shows the finished board, the gold Scores
+ * pill bringing the result back.
  */
-export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousBest, beatsTarget, onReplay, onNext, onLevels, chest, now = 0, tileArt, onOpenChest, children, className }: StoryEndProps) {
+export function StoryEnd({ title, score, stars, fills, toNextStar, bestKnown, previousBest, beatsTarget, xp, onReplay, onNext, nextLocked, onLevels, chest, now = 0, tileArt, onOpenChest, children, className }: StoryEndProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const [skipped, setSkipped] = useState(false);
   const [settled, setSettled] = useState(reduced);
@@ -207,10 +228,56 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
     return () => clearTimeout(timer);
   }, [settled, stars]);
   const record = previousBest != null && score > previousBest;
+  const best = Math.max(score, previousBest ?? score);
+  const shortOf = toNextStar != null && toNextStar > 0 && stars < 3 ? toNextStar : null;
+  // No star (the owner's ask of 2026-11-07): Retry is the gold answer, Next stays in its place, disabled (a control never leaves).
+  const failed = stars === 0;
+  const next = onNext !== undefined || Boolean(nextLocked);
   // The scores closed on the board (the window's cross, the Board's place, the owner's ask of 2026-11-06), the gold Scores pill to
   // bring them back, at once.
   if (peek) return <ShowScores onClick={() => setPeek(false)} />;
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
+  const rows = [
+    <section key="best" aria-label="Best" data-record={record || undefined} className="flex min-w-0 flex-1 items-center gap-3">
+      <UiIcon name="trophy" px={80} className="drawer-icon size-20 shrink-0" />
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className={cn(FIGURE, record ? "text-primary" : "text-foreground")}>{formatInteger(best)}</span>
+        {record ? (
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-outline text-lg leading-tight font-black text-primary">New best!</span>
+            <span className={cn(UNDER, "tabular-nums")}>
+              {formatInteger(previousBest!)} → {formatInteger(score)}
+            </span>
+          </span>
+        ) : (
+          <span className={UNDER}>Your best</span>
+        )}
+      </span>
+    </section>,
+  ];
+  if (shortOf != null)
+    rows.push(
+      <section key="next" aria-label="Next star" data-testid="to-next-star" className="flex min-w-0 flex-1 items-center gap-3">
+        <span aria-hidden className="drawer-icon size-20 shrink-0">
+          <span className="block size-full" style={EMPTY_STAR}>
+            <UiIcon name="star" px={80} className="size-full" />
+          </span>
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="flex flex-wrap items-baseline gap-x-1.5">
+            <span className={cn(FIGURE, "text-foreground")}>{formatInteger(shortOf)}</span>{" "}
+            <span className="text-outline text-lg leading-tight font-bold text-foreground">{shortOf === 1 ? "point" : "points"}</span>
+          </span>{" "}
+          <span className={UNDER}>short of the next star</span>
+        </span>
+      </section>,
+    );
+  if (xp && xp.gained > 0)
+    rows.push(
+      <section key="xp" aria-label="Experience" className="flex min-w-0 flex-1 items-center gap-3">
+        <XpRow gained={xp.gained} progress={{ level: xp.level, xp: xp.xp - xp.floor, xpForNext: xp.next - xp.floor }} levelUp={xp.level > xp.levelBefore} />
+      </section>,
+    );
   return (
     <div
       className={cn("pointer-events-auto fixed inset-0 z-50 bg-background/40 backdrop-blur-sm", !settled && "cursor-pointer")}
@@ -222,50 +289,47 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
     >
       <ScrollRegion className="h-full">
         {/* Clipped across: the stars' light spreads past a phone's edges, and the region must not scroll sideways (WRAP360). */}
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center overflow-x-clip px-4 py-6">
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center overflow-x-clip px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <section aria-label="Level complete" data-testid="story-end" data-stars={stars} className={className}>
             <GameEnd
               stars={stars}
+              fills={fills}
               instant={instant}
-              timing={FILL}
-              verdict="Level complete"
+              verdict={failed ? "Level failed" : "Level complete"}
               subtitle={<span className="wrap-anywhere">{title}</span>}
               score={formatInteger(score)}
+              rows={rows}
               notes={
-                <m.div
-                  key={instant ? "result-instant" : "result-fill"}
-                  className="flex w-full flex-col items-center gap-1.5 text-sm font-semibold"
-                  initial={instant ? false : { opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: resultDelay(stars), duration: 0.35 }}
-                >
-                  {record && <span className="text-primary">A new best for you.</span>}
-                  {toNextStar != null && toNextStar > 0 && stars < 3 && (
-                    <p data-testid="to-next-star" className="flex items-center gap-1.5 text-muted-foreground">
-                      <Icon name="star" size="xs" className="text-primary" />
-                      <span>
-                        <span className="numeric text-foreground">{formatInteger(toNextStar)}</span> {toNextStar === 1 ? "point" : "points"} short of the next star.
-                      </span>
-                    </p>
-                  )}
-                  {stars === 3 && !beatsTarget && <p className="text-primary">{bestKnown ? "Three stars: the best score known for this level." : "Three stars: the best score there is."}</p>}
-                  {beatsTarget && (
-                    <p role="status" className="text-primary">
-                      You beat the best score known for this level. It was found by a search, not proven: yours is better.
-                    </p>
-                  )}
-                </m.div>
+                (stars === 3 || beatsTarget) && (
+                  <m.div
+                    key={instant ? "result-instant" : "result-fill"}
+                    className="flex w-full flex-col items-center gap-1.5 text-sm font-semibold text-primary"
+                    initial={instant ? false : { opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: resultDelay(stars), duration: 0.35 }}
+                  >
+                    {beatsTarget ? (
+                      <p role="status">You beat the best score known for this level. It was found by a search, not proven: yours is better.</p>
+                    ) : (
+                      <p>{bestKnown ? "Three stars: the best score known for this level." : "Three stars: the best score there is."}</p>
+                    )}
+                  </m.div>
+                )
               }
               chest={
                 chest && chest.state !== "none" ? (
-                  <section aria-label="Chest" data-state={chest.state} className="w-full" onClick={stop}>
+                  <section aria-label="Chest" data-state={chest.state} aria-disabled={chest.state === "unavailable" || chest.state === "already" || chest.state === "missed" || undefined} className="w-full" onClick={stop}>
                     <EndChestPanel chest={chest} now={now} tileArt={tileArt} onOpen={onOpenChest} />
                   </section>
                 ) : undefined
               }
-              secondary={{ label: "Retry", onClick: onReplay }}
-              primary={onNext ? { label: "Next", onClick: onNext } : { label: "Levels", onClick: onLevels }}
-              links={onNext && <EndLink onClick={onLevels}>Levels</EndLink>}
+              secondary={{ label: "Retry", onClick: onReplay, tone: failed ? "gold" : undefined }}
+              middle={next ? { label: "Levels", onClick: onLevels } : undefined}
+              primary={
+                next
+                  ? { label: "Next", onClick: onNext, disabled: !onNext, tone: failed || !onNext ? "raised" : undefined }
+                  : { label: "Levels", onClick: onLevels, tone: failed ? "raised" : undefined }
+              }
               onClose={() => {
                 setSkipped(true);
                 setSettled(true);
@@ -285,133 +349,42 @@ export function StoryEnd({ title, score, stars, toNextStar, bestKnown, previousB
   );
 }
 
-/**
- * A campaign card's state (#592): open, locked (blurred, its condition stated), unlocking (opened since the device last showed
- * the list: the lock goes and the blur lifts, once), complete (every level finished).
- */
-export type CampaignStatus = "open" | "locked" | "unlocking" | "complete";
+/** First Stone's Claim: the raised grey answer (the drawers' raised press; the end's gold is Next), its word outlined in black. */
+const CLAIM: CSSProperties = { textShadow: BLACK_OUTLINE };
 
-export interface CampaignCardProps {
-  id: number;
-  name: string;
-  summary: string;
-  levels: number;
-  /** The stars held over its levels, of `levels` x 3. */
-  stars: number;
-  status: CampaignStatus;
-  /** Locked: the stars still to earn over the campaigns before it. */
-  missing?: number;
-  /** The campaign's tile theme (`StoryCampaign.theme`, 0 Default): its background is drawn in it. Unset: 0. */
-  theme?: number;
-  /** The plans of its decks (chain ids), the first eight drawn as its background when the build has no picture of it. */
-  plans: readonly number[];
-  renders?: TileRenders;
-  /** Its levels are the ones shown under the cards. */
-  selected?: boolean;
-  /** Unlocking: holds the locked look while another motion runs (the carousel's), and plays the unlock once it is false (#615). */
-  paused?: boolean;
-  onSelect?: () => void;
-  className?: string;
+export interface FirstStonePanelProps {
+  /** Its state in a line: looking for the account, checking, yours to claim, claimed, claimed before. */
+  line: string;
+  /** Claimable: Claim. None: no Claim. */
+  onClaim?: () => void;
+  claiming?: boolean;
+  /** Under it: a refused claim (`InlineError`). */
+  error?: ReactNode;
 }
 
-/** The unlock's timeline, in seconds: the lock turns open, the blur lifts, the lock goes. */
-const UNLOCK = { turn: 0.5, lift: 0.8, duration: 0.9, fade: 1.3 } as const;
-const BLURRED = "blur(14px) saturate(0.5)";
-
 /**
- * One campaign (#592): its background (its build-time picture in its theme, #721; its tiles' renders without one; no WebGL),
- * its name, summary, levels and stars. A locked one shows its background under a blur, a lock and the stars it still needs;
- * an unlocking one plays the unlock once (at once under reduced motion), when it is not `paused`. Pressing it shows its levels.
+ * First Stone (D-21) under Tutorial level 1's result (STORY-PAGE): a carved row as the end's chest panel, the painted medal (an
+ * achievement), its name and its state, the raised grey Claim at its end while it can be claimed; a refused claim under it.
  */
-export function CampaignCard({ id, name, summary, levels, stars, status, missing = 0, theme = 0, plans, renders, selected, paused, onSelect, className }: CampaignCardProps) {
-  const reduced = useReducedMotionConfig();
-  const shown: CampaignStatus = status === "unlocking" && reduced ? "open" : status;
-  const locked = shown === "locked";
-  const unlocking = shown === "unlocking";
-  const playing = unlocking && !paused;
-  const veiled = locked ? "scale-110 blur-[14px] saturate-50" : undefined;
-  const total = levels * 3;
+export function FirstStonePanel({ line, onClaim, claiming, error }: FirstStonePanelProps) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected ?? false}
-      data-campaign={id}
-      data-status={shown}
-      data-unlock={unlocking ? (playing ? "playing" : "paused") : undefined}
-      className={cn(
-        "state-layer group relative flex aspect-[16/10] w-full cursor-pointer flex-col justify-end overflow-hidden rounded-xl border bg-card text-left text-card-foreground outline-none transition-colors",
-        selected ? "border-primary ring-1 ring-primary" : "border-border",
-        className,
-      )}
-    >
-      <m.span
-        className="absolute inset-0"
-        initial={unlocking ? { filter: BLURRED, scale: 1.1 } : false}
-        animate={playing ? { filter: "blur(0px) saturate(1)", scale: 1 } : undefined}
-        transition={{ delay: UNLOCK.lift, duration: UNLOCK.duration, ease: "easeOut" }}
-      >
-        <StoryBackground
-          campaign={id}
-          theme={theme}
-          renders={renders}
-          className={veiled}
-          fallback={<TileMosaic plans={plans} renders={renders} className={cn("size-full aspect-auto", veiled)} />}
-        />
-      </m.span>
-      <span aria-hidden className="absolute inset-0 bg-linear-to-t from-card via-card/75 to-transparent" />
-      {(locked || unlocking) && (
-        <m.span
-          aria-hidden
-          className="absolute inset-0 bg-background/35"
-          initial={{ opacity: 1 }}
-          animate={playing ? { opacity: 0 } : undefined}
-          transition={{ delay: UNLOCK.fade, duration: 0.45 }}
-        >
-          <span className="absolute top-3 right-3 grid size-11 place-items-center rounded-full border border-border bg-card/90 text-foreground shadow-lg">
-            <m.span className="absolute" initial={{ opacity: 1 }} animate={playing ? { opacity: 0 } : undefined} transition={{ delay: UNLOCK.turn, duration: 0.12 }}>
-              <Icon name="lock" size="md" />
-            </m.span>
-            {unlocking && (
-              <m.span
-                className="absolute text-primary"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={playing ? { opacity: 1, scale: [0.8, 1.3, 1] } : undefined}
-                transition={{ delay: UNLOCK.turn, duration: 0.45 }}
-              >
-                <Icon name="lock-open" size="md" />
-              </m.span>
-            )}
+    <div data-testid="first-stone" className="flex flex-col gap-2">
+      <div className="drawer-carved flex items-center gap-3 rounded-2xl px-3 py-2.5">
+        <UiIcon name="medal" px={56} className="drawer-icon size-14 shrink-0" />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-outline text-base leading-tight font-bold">First Stone</span>
+          <span role="status" className="text-xs leading-snug font-semibold text-muted-foreground">
+            {line}
           </span>
-        </m.span>
-      )}
-      <span className="relative flex flex-col gap-1 p-4">
-        <span className="flex items-center justify-between gap-2">
-          <span title={name} className="min-w-0 truncate font-display text-xl font-semibold">
-            {name}
-          </span>
-          {shown === "complete" && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
-              <Icon name="circle-check" size="xs" /> Complete
-            </span>
-          )}
         </span>
-        <span title={summary} className="line-clamp-2 text-sm text-muted-foreground">
-          {summary}
-        </span>
-        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className="numeric text-muted-foreground">{levels} levels</span>
-          <span className="numeric flex items-center gap-1" aria-label={`${stars} of ${total} stars`}>
-            <Icon name="star" size="sm" className="text-primary" />
-            {stars} / {total}
-          </span>
-          {locked && (
-            <span className="flex items-center gap-1 font-semibold text-foreground">
-              <Icon name="lock" size="xs" /> <span className="numeric">{missing}</span> more {missing === 1 ? "star" : "stars"} to open
-            </span>
-          )}
-        </span>
-      </span>
-    </button>
+        {onClaim && (
+          <Button variant="ghost" aria-label="Claim First Stone" style={CLAIM} className="drawer-raised h-11 shrink-0 rounded-xl px-4 text-base font-black text-foreground" onClick={onClaim} loading={claiming}>
+            Claim
+          </Button>
+        )}
+      </div>
+      {error}
+    </div>
   );
 }
+

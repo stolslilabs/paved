@@ -119,7 +119,8 @@ function readShown(store: () => KeyValueStore | null): Set<number> {
 
 /**
  * The campaigns that opened since this device last showed the campaign list (#592): their cards play the unlock once (the
- * lock goes, the blur lifts). A campaign open from the start (no stars asked) never plays it. Read once per mount; the
+ * lock goes, the blur lifts; finishing the Tutorial opens every other campaign at once, each card playing it as it comes in view).
+ * A campaign open from the start (the first) never plays it. Read once per mount; the
  * effect then records them, so the next visit shows them open at once.
  */
 export function useCampaignUnlocks(campaigns: readonly StoryCampaign[], progress: StoryProgress): readonly number[] {

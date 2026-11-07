@@ -51,11 +51,12 @@ describe("the route map", () => {
       const parent = PAGES.find((p) => `/${p.path}` === page.parent);
       // The parent is a page of its own that goes up to the village.
       expect(parent?.parent, page.path).toBeUndefined();
-      // A panel's page under a parent is a sheet over it, or a view of the parent's drawer (PLAY-PAGE: the stake, one loader with Play).
+      // A panel's page under a parent is a sheet over it, or a view of the parent's drawer (PLAY-PAGE: the stake, one loader with Play;
+      // STORY-PAGE: Story's campaigns, no longer a sheet over Play).
       const view = page.drawer === true && parent?.drawer === true && PAGE_LOADERS[page.path] === PAGE_LOADERS[parent.path];
       if (page.panel) expect(page.sheet === true || view, page.path).toBe(true);
     }
-    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual(["story"]);
+    expect(PAGES.filter((p) => p.sheet).map((p) => p.path)).toEqual([]);
     expect(PAGES.some((p) => p.path === "pvp/defence")).toBe(false);
   });
 });

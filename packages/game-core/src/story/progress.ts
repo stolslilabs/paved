@@ -112,19 +112,27 @@ export function campaignStars(progress: StoryProgress, campaign: StoryCampaign):
   return campaign.levels.reduce((n, level) => n + (levelProgress(progress, campaign.id, level.id)?.stars ?? 0), 0);
 }
 
-/** The stars `campaign` needs, held over the campaigns before it: 2 per level of those campaigns. */
+/**
+ * What `campaign` needs to open (STORY-PAGE, the owner's rule of 2026-11-07): every level of the first campaign (the Tutorial)
+ * finished, each at 1 star at least; the first campaign needs nothing. `needed` its levels to finish, `held` those finished.
+ */
 export function campaignRequirement(campaigns: readonly StoryCampaign[], campaign: StoryCampaign): { needed: number; held: (p: StoryProgress) => number } {
-  const before = campaigns.filter((c) => c.id < campaign.id);
+  const first = campaigns.reduce<StoryCampaign | undefined>((a, c) => (a && a.id < c.id ? a : c), undefined);
+  if (!first || first.id === campaign.id) return { needed: 0, held: () => 0 };
   return {
-    needed: 2 * before.reduce((n, c) => n + c.levels.length, 0),
-    held: (p) => before.reduce((n, c) => n + campaignStars(p, c), 0),
+    needed: first.levels.length,
+    held: (p) => first.levels.filter((l) => levelProgress(p, first.id, l.id) !== null).length,
   };
 }
 
-/** Whether `campaign` is open: total stars over every level of the campaigns before it >= 2 x their number of levels. */
+/**
+ * Whether `campaign` is open: the first campaign always; every other once the first is finished (`campaignRequirement`), all of
+ * them at once, from their level 1. A campaign already played (a level of it finished, under the rule before: 2 stars per level on
+ * average over the campaigns before it) stays open.
+ */
 export function campaignUnlocked(progress: StoryProgress, campaigns: readonly StoryCampaign[], campaign: StoryCampaign): boolean {
   const { needed, held } = campaignRequirement(campaigns, campaign);
-  return held(progress) >= needed;
+  return held(progress) >= needed || campaign.levels.some((l) => levelProgress(progress, campaign.id, l.id) !== null);
 }
 
 /** Whether level `levelIndex` of `campaign` can be played: its campaign is open and the level before it is finished. */

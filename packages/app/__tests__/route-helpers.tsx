@@ -37,7 +37,8 @@ const routeOrNull = (routes: RouteObject[], path: string): RouteObject | null =>
 
 const PAGES = {
   board: () => import("../src/routes/pages/board"),
-  story: () => import("../src/routes/pages/story"),
+  // Story's campaigns are a view of Play's drawer (STORY-PAGE): Play's chunk and its host come with them.
+  story: () => Promise.all([import("../src/routes/pages/story"), import("../src/routes/pages/play"), import("../src/routes/home-hosts")]),
   "story-board": () => import("../src/routes/pages/story-board"),
   // The home and the chunks it draws on every visit: its stage (the editor, the engine, the village's stage and its Camera
   // button), the phone's bar, the League control and the season wheel. A file whose test ends before they are in left their
@@ -53,16 +54,15 @@ const PAGES = {
       import("../src/components/containers/board-season-wheel"),
     ]),
   over: () => import("../src/routes/pages/over"),
-  // Play is the HUD's drawer over the home (PLAY-PAGE), its route a page with sheets (Story's): its host and the sheets' come with
-  // it, and the stake's chunk (`pages/purchase`), which the page fetches as soon as a pointer passes over it or a control takes the
-  // focus. Left to the test, that import fell inside back-targets' wait for Story's levels on CI and outlasted it.
+  // Play is the HUD's drawer over the home (PLAY-PAGE): its host comes with it, and its views' chunks (the stake's `pages/purchase`,
+  // Story's `pages/story`, STORY-PAGE), which the page fetches as soon as a pointer passes over it or a control takes the focus. Left
+  // to the test, that import fell inside back-targets' wait for Story's levels on CI and outlasted it.
   play: () =>
     Promise.all([
       import("../src/routes/pages/play"),
       import("../src/routes/pages/purchase"),
+      import("../src/routes/pages/story"),
       import("../src/routes/home-hosts"),
-      import("../src/routes/page-sheets"),
-      import("../src/routes/page-sheet-host"),
     ]),
   purchase: () => import("../src/routes/pages/purchase"),
   cobbles: () => import("../src/routes/pages/cobbles"),

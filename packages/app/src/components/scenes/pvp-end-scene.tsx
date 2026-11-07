@@ -8,7 +8,7 @@ import type { TileArt } from "../elements/tile-chip";
 import { useSfx } from "../containers/audio-provider";
 import { BoardCovered } from "../containers/board-covered";
 import type { FinalBoardProps } from "../containers/final-board";
-import { CrownsRow, END_STARS, EndChestPanel, GameEnd, ShowScores, XpRow, type EndChest } from "../containers/game-end";
+import { CrownsRow, END_STARS, EndChestPanel, GameEnd, ShowScores, XpRow, type EndChest, type EndXp } from "../containers/game-end";
 
 // The attack's final board is its own chunk, with the renderer (as the other modes' end, `over-scene.tsx`): the results never
 // wait for it, and it appears under them once it is in. A failed load leaves the board's plain colour.
@@ -28,16 +28,8 @@ const BOARD_AFTER_MS = (END_STARS.lead + 2 * END_STARS.gap + 0.9) * 1000;
  */
 export type PvpEndChest = EndChest;
 
-export interface PvpEndXp {
-  gained: number;
-  /** The XP after the attack, and the level's span: its floor and the next level's (the floor itself at the cap). */
-  xp: number;
-  level: number;
-  floor: number;
-  next: number;
-  /** The level before the attack: a level up is said when it is lower. */
-  levelBefore: number;
-}
+/** The XP the attack gave: the ends' shape (`EndXp`). */
+export type PvpEndXp = EndXp;
 
 export interface PvpEndSceneProps {
   defender: PvpPlayer;

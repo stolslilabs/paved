@@ -68,27 +68,33 @@ describe("unlocks", () => {
     expect(levelUnlocked(one, CAMPAIGNS, TUTORIAL, 3)).toBe(false);
   });
 
-  it("opens a campaign at 2 stars per level of the campaigns before it, on average", () => {
+  it("opens every other campaign, from its level 1, once the Tutorial is finished, at any stars (STORY-PAGE, 2026-11-07)", () => {
     expect(campaignUnlocked(EMPTY_PROGRESS, CAMPAIGNS, TUTORIAL)).toBe(true);
-    expect(campaignUnlocked(finished(1, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY)).toBe(false);
-    expect(campaignUnlocked(finished(2, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY)).toBe(true);
-    // 3 stars on some levels make up for 1 on others: 24 stars in all (6 x 3, 6 x 1)
-    let mixed = EMPTY_PROGRESS;
-    TUTORIAL.levels.forEach((level, index) => {
-      mixed = recordRun(mixed, level, run(1, level.id), index < 6 ? level.target : 0);
-    });
-    expect(campaignUnlocked(mixed, CAMPAIGNS, OPEN_COUNTRY)).toBe(true);
-    const short = recordRun(EMPTY_PROGRESS, TUTORIAL.levels[0]!, run(1, 1), 0);
-    expect(campaignUnlocked({ v: 1, levels: { ...mixed.levels, "1-1": short.levels["1-1"]! } }, CAMPAIGNS, OPEN_COUNTRY)).toBe(false);
-    expect(levelUnlocked(finished(1, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY, 1)).toBe(false);
-    expect(levelUnlocked(finished(2, [TUTORIAL]), CAMPAIGNS, OPEN_COUNTRY, 1)).toBe(true);
+    expect(campaignRequirement(CAMPAIGNS, TUTORIAL).needed).toBe(0);
+    expect(campaignUnlocked(EMPTY_PROGRESS, CAMPAIGNS, OPEN_COUNTRY)).toBe(false);
+    // Eleven Tutorial levels at 3 stars: one left to finish, both campaigns locked.
+    let eleven = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels.slice(0, 11)) eleven = recordRun(eleven, level, run(1, level.id), level.target);
+    expect(campaignRequirement(CAMPAIGNS, OPEN_COUNTRY).needed).toBe(12);
+    expect(campaignRequirement(CAMPAIGNS, OPEN_COUNTRY).held(eleven)).toBe(11);
+    expect(campaignUnlocked(eleven, CAMPAIGNS, OPEN_COUNTRY)).toBe(false);
+    expect(campaignUnlocked(eleven, CAMPAIGNS, DARK_FOREST)).toBe(false);
+    // The Tutorial finished at 1 star a level: both open at once, at their level 1, the second level still locked.
+    for (const campaign of [OPEN_COUNTRY, DARK_FOREST]) {
+      expect(campaignUnlocked(finished(1, [TUTORIAL]), CAMPAIGNS, campaign)).toBe(true);
+      expect(levelUnlocked(finished(1, [TUTORIAL]), CAMPAIGNS, campaign, 1)).toBe(true);
+      expect(levelUnlocked(finished(1, [TUTORIAL]), CAMPAIGNS, campaign, 2)).toBe(false);
+    }
   });
 
-  it("opens Open Country at 24 stars and Dark Forest at 48: 2 per level of the 12-level campaigns before (#721)", () => {
-    expect(campaignRequirement(CAMPAIGNS, OPEN_COUNTRY).needed).toBe(24);
-    expect(campaignRequirement(CAMPAIGNS, DARK_FOREST).needed).toBe(48);
-    expect(campaignUnlocked(finished(2, [TUTORIAL]), CAMPAIGNS, DARK_FOREST)).toBe(false);
-    expect(campaignUnlocked(finished(2, [TUTORIAL, OPEN_COUNTRY]), CAMPAIGNS, DARK_FOREST)).toBe(true);
+  it("keeps a campaign already played open: a level of it finished under the rule before (2 stars per level on average)", () => {
+    // Eight Tutorial levels at 3 stars (24 stars, the old rule's), and Open Country's first level finished.
+    let before = EMPTY_PROGRESS;
+    for (const level of TUTORIAL.levels.slice(0, 8)) before = recordRun(before, level, run(1, level.id), level.target);
+    before = recordRun(before, OPEN_COUNTRY.levels[0]!, run(2, 1), 0);
+    expect(campaignUnlocked(before, CAMPAIGNS, OPEN_COUNTRY)).toBe(true);
+    expect(levelUnlocked(before, CAMPAIGNS, OPEN_COUNTRY, 2)).toBe(true);
+    expect(campaignUnlocked(before, CAMPAIGNS, DARK_FOREST)).toBe(false);
   });
 });
 
