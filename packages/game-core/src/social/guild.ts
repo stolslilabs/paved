@@ -528,3 +528,13 @@ export const filterGuilds = <T extends GuildListing>(guilds: readonly T[], f: Gu
 /** The guilds' ranking: by score, then by members, then the oldest (the lowest ID) first. */
 export const rankGuilds = <T extends GuildListing>(guilds: readonly T[], limit = GUILD_LIST_LIMIT): T[] =>
   [...guilds].sort((a, b) => b.score - a.score || b.members - a.members || a.id - b.id).slice(0, Math.max(0, limit));
+
+/**
+ * A guild's place in the whole ranking (`rankGuilds`' order, 1 first), past `GUILD_LIST_LIMIT` too, with its listing: the viewer's
+ * own row, pinned when the ranking's list ends before it. Null when no guild has that ID.
+ */
+export function guildPlace<T extends GuildListing>(guilds: readonly T[], id: number): { place: number; guild: T } | null {
+  const ranked = rankGuilds(guilds, guilds.length);
+  const index = ranked.findIndex((g) => g.id === id);
+  return index < 0 ? null : { place: index + 1, guild: ranked[index]! };
+}

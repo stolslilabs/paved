@@ -41,6 +41,8 @@ export const PlayersScrolledPast: Story = {
 export const PlayersPastList: Story = { args: LEADERBOARD.playersPastList };
 /** Guilds: by score, the sum of their members' crowns; the viewer's guild in gold. */
 export const Guilds: Story = { args: LEADERBOARD.guilds };
+/** Guilds: the viewer's guild ranked past the list's end, pinned with its place; a tap opens its page. */
+export const GuildsPastList: Story = { args: LEADERBOARD.guildsPastList };
 /** Friends, at the right end: the viewer among their friends by crowns, their row in gold. */
 export const Friends: Story = { args: LEADERBOARD.friends };
 /** Friends: none yet, nothing to rank against. */

@@ -71,6 +71,10 @@ describe("the players' ranking on the mock (LEADERBOARD-PAGE)", () => {
       expect(summary.score, summary.name).toBe(sum);
       expect(summary.score, summary.name).toBe(guildScore(page.roster.map((m) => m.profile)));
     }
+    // The viewer's guild's place in the whole ranking, the ranking's order; no guild of that ID, none.
+    const mine = ranking.findIndex((g) => g.name === "Stone Road");
+    expect(await guilds.guildPlace(ranking[mine]!.id)).toEqual({ place: mine + 1, guild: ranking[mine] });
+    expect(await guilds.guildPlace(999_999)).toBeNull();
   });
 });
 
@@ -229,6 +233,30 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     expect(row).toHaveAccessibleName(`${me.place}. Ada (you), level 2, 0 crowns`);
     await userEvent.click(row);
     expect(onOpenPlayer).toHaveBeenCalledWith(me.profile.address);
+  });
+
+  it("pins the viewer's guild past the list's end at the foot, with its place in the whole ranking; a tap opens its page", async () => {
+    const { drawer, onOpenGuild } = scene(LEADERBOARD.guildsPastList);
+    const { guild, place } = LEADERBOARD.guildsPastList.myGuildPlace;
+    const rows = within(within(drawer).getByRole("list", { name: "Guilds by score" })).getAllByRole("button");
+    expect(rows.some((r) => r.hasAttribute("data-own"))).toBe(false);
+    const pinned = drawer.querySelector<HTMLElement>("[data-slot=ranking-pinned]")!;
+    expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(pinned);
+    const row = within(pinned).getByRole("button");
+    expect(place).toBeGreaterThan(rows.length);
+    expect(row).toHaveAccessibleName(new RegExp(`^${place}\\. ${guild.name} \\(your guild\\), `));
+    expect(row).toHaveAttribute("data-own", "true");
+    expect(within(row).getByText("Yours")).toBeInTheDocument();
+    await userEvent.click(row);
+    expect(onOpenGuild).toHaveBeenCalledWith(guild.id);
+  });
+
+  it("pins no guild in the list in view, nor on another tab", () => {
+    const listed = scene({ ...LEADERBOARD.guilds, myGuildPlace: { place: 1, guild: LEADERBOARD.guilds.guilds.data![0]! } });
+    expect(listed.drawer.querySelector("[data-slot=ranking-pinned]")).toBeNull();
+    listed.unmount();
+    const players = scene({ ...LEADERBOARD.guildsPastList, tab: "players" });
+    expect(players.drawer.querySelector("[data-slot=ranking-pinned]")).toBeNull();
   });
 
   describe("with the viewer's row out of view", () => {
