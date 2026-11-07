@@ -157,9 +157,9 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
     expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
     expect(region.className).toContain("overscroll-contain");
-    // The carousel of Unranked and the 23 leagues (#785, #917), then the season; no Attack button (#833).
+    // The carousel of the 23 leagues (#785; Unranked is no slide, UNRANKED-PLACEHOLDER), then the season; no Attack button (#833).
     expect(region).toContainElement(screen.getByRole("region", { name: "Leagues" }));
-    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-slot='carousel-item']").length).toBe(24);
+    expect(screen.getByRole("region", { name: "Leagues" }).querySelectorAll("[data-slot='carousel-item']").length).toBe(23);
     expect(region).toContainElement(screen.getByRole("region", { name: "Season" }));
     expect(screen.queryByRole("button", { name: /^Attack/ })).toBeNull();
     // The latest attacks and defences (#786), a section of the page, in the same region, to its last row and its Show more.

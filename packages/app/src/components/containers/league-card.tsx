@@ -5,8 +5,8 @@ import { LeagueCrestArt } from "../elements/league-crest-art";
 import { divisionOf, tierOf } from "../elements/league-standards";
 
 export interface LeagueCardProps {
-  /** The league; `null`, Unranked (a player who has not entered the leagues, #917): no range of crowns, before Wood. */
-  league: League | null;
+  /** The league (Unranked has no card since UNRANKED-PLACEHOLDER, the owner's ask of 2026-11-07: the League page's header says it). */
+  league: League;
   className?: string;
 }
 
@@ -25,28 +25,22 @@ const CREST = { fontSize: "clamp(3.5rem, 19vw, 6rem)" };
  * (the Paved UX Book's League, 2026-11-02): the league's crest (#917) in its division's version, and beside it the league's name in
  * the display font over its range of crowns (no season's reward: the season's row holds the player's, the owner's ask of
  * 2026-11-05). One height for every league (the carousel's panel takes the
- * tallest), so moving through them never moves the page. Unranked's card (`null`, first in the carousel) has no range: its
- * players have not attacked yet, and Wood's range starts at 0 crowns. No first-time bonus since #917: reaching each group once in a
- * lifetime is a mission (the Missions page). No crowns' count (#859): the header's League control holds the player's crowns and
+ * tallest), so moving through them never moves the page. No first-time bonus since #917: reaching each group once in a lifetime
+ * is a mission (the Missions page). No crowns' count (#859): the header's League control holds the player's crowns and
  * brings the carousel back to the player's league.
  */
 export function LeagueCard({ league, className }: LeagueCardProps) {
-  const range = league && crownRange(league);
-  const tier = tierOf(league);
+  const range = crownRange(league);
   return (
     <div data-slot="league-card" className={cn("flex h-full min-w-0 items-center justify-center gap-2.5 py-1", className)}>
       <span className="flex shrink-0" style={CREST}>
-        <LeagueCrestArt tier={tier} division={league && divisionOf(league)} size="inherit" className="drawer-icon" />
+        <LeagueCrestArt tier={tierOf(league)} division={divisionOf(league)} size="inherit" className="drawer-icon" />
       </span>
       <div className="flex min-w-0 flex-col items-start gap-1">
-        <h2 className="text-outline m-0 font-display text-2xl leading-none tracking-wide">{league?.name ?? "Unranked"}</h2>
-        {range ? (
-          <span role="img" aria-label={range.name} className="text-sm leading-tight font-bold whitespace-nowrap text-muted-foreground tabular-nums mobile:text-base">
-            <span aria-hidden>{range.text}</span>
-          </span>
-        ) : (
-          <span className="text-sm leading-tight font-bold text-muted-foreground">Before the first attack</span>
-        )}
+        <h2 className="text-outline m-0 font-display text-2xl leading-none tracking-wide">{league.name}</h2>
+        <span role="img" aria-label={range.name} className="text-sm leading-tight font-bold whitespace-nowrap text-muted-foreground tabular-nums mobile:text-base">
+          <span aria-hidden>{range.text}</span>
+        </span>
       </div>
     </div>
   );

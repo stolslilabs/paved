@@ -538,18 +538,31 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   (dish and sweep, the sweep painted on black and keyed; `packages/app/ui-sources/attack/`, `attack-art.ts`) and the deck's pile (the
   icon `tile-stack`, `ui-sources/icons/`) were drawn by Codex's built-in image tool from their crops of the book; the shield, swords, info, star, crown, check, bin, grass block
   and grid are the HUD's own icons.
+  UNRANKED-PLACEHOLDER (2026-11-07, the owner's asks): Unranked, a player who has not attacked yet, is no longer a league of its own.
+  The League page's carousel holds the 23 leagues alone, Wood to Grand Master; an Unranked player's opens on Wood, the league a first
+  attack enters, with no slide marked as theirs, and the header's League control alone says Unranked. Its art (the badge, the
+  crest's icon form on the player card's corner, the League control and the profile; the crest; the season's banner; and with them
+  the avatar's rim and the plate) is a placeholder, an empty slot waiting for its league, and not painted: vector shapes (the
+  owner's "closer to an SVG than a PNG, very digital lines"), the leagues' silhouettes filled with a neutral grey gradient ("empty,
+  not transparent", a faint light and shade inside the edges for a slight volume), crisp, evenly spaced dashes a little lighter
+  than the fill running just inside their edge, never past it; the banner's rod and the avatar's rim the fill alone, no dashes; no
+  metal, no gem, nothing that shines. Sources: `unranked/` (one SVG a part), rendered into `packages/app/league-sources/` by the
+  rules of `scripts/compress-league-art.ts`. Painted directions came first (an empty socket in a grey frame, a blank grey model, a
+  stitched felt patch, then dashes alone on nothing); the owner kept the dashes and asked for the fill, the vector line, softer
+  dashes inside the body and a rim without them.
   PLAYER-RENAME (2026-11-07), the owner's ask: an edit button beside the player's own name in their Profile, the first change free,
   then 50 Cobbles a change. The Paved UX Book draws none, so in the Profile's and Missions' style: a raised square button beside the
   name holding the HUD's painted pencil (the guild's Post's; a quill in an inkwell drawn by Codex was tried and set aside by the
-  owner); it opens "Name" in the
-  Profile drawer (Back to the profile, the Cobbles at the header's end): the name now carved, "New name" a carved field with its count
-  of characters, three short rules under it each marked as the typed name meets it, the Missions' green check badge or the drawers' red cross disc (the owner's ask), greyed while not judged (3 to 15 characters;
-  letters, digits, single spaces or hyphens; not another player's name), then the fixed footer: the cost on the left ("Free" for the
-  first change, else the Cobble and 50) and the gold Rename (the drawers' gold action, its passing light) on the right. What the
-  player can mend is said where it already shows, never in the app's error box, whose Copy is for the server's failures (the owner's
-  ask): too few Cobbles, the field and Rename held and the cost's label reading "30 Cobbles missing" over the figure, both in the
-  warning colour; a name taken, its rule's line ("Taken by another player", crossed); a broken rule in the warning colour. The
-  success is a carved line with the HUD's check. Names of any script (the owner's ask): Chinese shows in the system's font.
+  owner); it opens "Name" in the Profile drawer (Back to the profile, the Cobbles at the header's end): the name now and "New name"
+  in two carved boxes of one size, the field's count of characters over it, three short rules under it each marked as the typed name
+  meets it, the Missions' green check badge or the drawers' red cross disc (the owner's ask), greyed while not judged (3 to 15
+  characters; letters, digits, single spaces or hyphens; not another player's name), then the fixed footer: the cost on the left
+  ("Free" for the first change, else the Cobble and 50) and the gold Rename (the drawers' gold action, its passing light) on the
+  right. What the player can mend is said where it already shows, never in the app's error box, whose Copy is for the server's
+  failures (the owner's ask): too few Cobbles, the field and Rename held and the cost's label reading "30 Cobbles missing" over the
+  figure, both in the warning colour; a name taken, its rule's line ("Taken by another player", crossed); a broken rule in the
+  warning colour. The success is a carved line with the HUD's check. Names of any script (the owner's ask): Chinese shows in the
+  system's font.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.

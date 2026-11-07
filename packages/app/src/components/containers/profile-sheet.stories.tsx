@@ -84,6 +84,13 @@ export const NoLeague: Story = { args: { league: null } };
 export const OneAction: Story = { args: { onOpenLeague: undefined, onOpenTiles: undefined, onOpenInvite: undefined } };
 /** Before any crown and any attack: Unranked's crest. */
 export const LeagueUnranked: Story = { args: { league: { crowns: 0, league: 0, unranked: true } } };
+/**
+ * The first season played Unranked (`SeasonStanding.unranked`, no attack that season), the others the Hall of Fame's: its card's banner
+ * is Unranked's empty slot, grey with a dashed edge (UNRANKED-PLACEHOLDER).
+ */
+export const HallOfFameUnranked: Story = {
+  args: { hallOfFame: [{ season: 1, league: 0, crowns: 0, unranked: true }, ...HALL_OF_FAME.slice(1)] },
+};
 /** The top league beside the longest name. */
 export const LeagueGrandMaster: Story = { args: { league: { crowns: 5_320, league: 22, unranked: false }, state: PROFILE.stress } };
 /** The avatar the player saved (#626), its still in the ring. */
