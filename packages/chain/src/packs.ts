@@ -23,11 +23,11 @@ export async function readPacks(views: PackViews, ids: readonly number[] = PACK_
 }
 
 /**
- * The USDC a pack's one swap takes (`Economy.pay`): the price, less the referral when a referrer counts. The referral is
- * `price x referral_bps / 10,000`, as `curve::split`.
+ * The USDC a pack's swap takes (`Economy.pay`, D-31): its burn quote, `price x burn_bps / 10,000` rounded down as
+ * `curve::split`, with or without a referrer; the rest is paid to the Vault in USDC.
  */
-export function packSwapInput(price: bigint, split: Pick<SplitView, "referral">, referred: boolean): bigint {
-  return referred ? price - (price * BigInt(split.referral)) / BPS : price;
+export function packSwapInput(price: bigint, split: Pick<SplitView, "burn">): bigint {
+  return (price * BigInt(split.burn)) / BPS;
 }
 
 /** A pack's purchase as the player confirmed it. */
@@ -132,7 +132,7 @@ export class PackBuyer {
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
     if (typeof slippage !== "bigint" || slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
     if (!this.options.poolQuoter) throw new WriteError("No pool quote: nothing was sent");
-    const swapIn = packSwapInput(pack.price, split, referrer !== "0x0");
+    const swapIn = packSwapInput(pack.price, split);
     let poolOut: bigint;
     try {
       poolOut = await this.options.poolQuoter.quoteSwap(swapIn);

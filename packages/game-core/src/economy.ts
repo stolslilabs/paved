@@ -34,8 +34,9 @@ const RATE_SCALE = 10n ** 18n;
 const GUARD_BPS = 11_000n;
 
 /**
- * `curve::vault_split`'s burn part: of the PAVED one swap of `swapIn` USDC bought (the burn quote and the margin, P-56),
- * the share of the burn quote, rounded up to the burn as the contract does (the Vault's part is rounded down).
+ * The burn quote's share of the PAVED one swap of `swapIn` USDC bought, rounded up to the burn. Since D-31 the purchase
+ * swaps the burn quote alone (`swapIn` is the burn quote), so the share is the whole of it; P-56's swap of the burn quote
+ * and the margin split it by input (`curve::vault_split`, removed).
  */
 export function burnShare(bought: bigint, burnQuote: bigint, swapIn: bigint): bigint {
   if (swapIn === 0n) return bought;

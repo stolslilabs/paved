@@ -489,7 +489,8 @@ def margin_table(days, population, mean, min_score):
         ("B, players keep half", {"settle": "day", "sell": 0.5}),
     )
     # The owner's split (P-56, 2026-10-14): 7,368 bps of the price swapped for the burn, so that 70 %
-    # of the price is burned after the pool's 5 %; the margin in PAVED only
+    # of the price is burned after the pool's 5 %; the margin in PAVED (P-56) and, since D-31, in
+    # USDC paid to the Vault's holders as a claimable reward (Nums' Vault)
     split = (
         ("B, base, burn 73.68 %", {"settle": "day", "burn": 0.7368}),
         ("A, base, burn 73.68 %", {"settle": "spawn", "burn": 0.7368}),
@@ -497,8 +498,6 @@ def margin_table(days, population, mean, min_score):
     )
     for label, changes in runs + split:
         for margin in ("usdc", "paved"):
-            if "burn" in changes and margin == "usdc":
-                continue
             params = dict(base)
             params.update(changes)
             params["margin"] = margin

@@ -902,6 +902,38 @@ replaying history keeps knowing it and skips it, as for the D-20 prize events.
 On Sepolia it was emitted by the deployed `Account` of 06c024d; the fresh deployment (step F) has no `Account`, so an
 indexer of the new deployment meets none. Names come from the Controller (the Cartridge username), off chain.
 
+## Breaking change D-31: the margin paid in USDC, claimable by the vPAVED holders (as Nums' Vault)
+
+Design: `docs/architecture/vault-share.md`, addendum 2. The P-56 section below holds but for what this one changes.
+
+### `Vault` (`Vault.json`)
+
+Constructor `(owner, paved, usdc, exit_fee)`: `usdc` is the reward token (not zero, `'Vault: zero address'`). No dead
+shares: the owner's deposit after the deployment is the first, at 1:1.
+
+| Entry point | Who | What |
+|---|---|---|
+| `pay(amount: u256)` | anyone (approve USDC first); `Economy` at every purchase and sale | pulls `amount` USDC and shares it among the holders of now by a per-share index; with no share, it waits (`reward_waiting`) for the next payment; 0 does nothing; never paused. Emits `Paid` |
+| `claim() -> u256` | a holder | pays the caller all its claimable USDC. `'Vault: nothing to claim'`, `'Vault: paused'`, `'Vault: closed'`. Emits `Claimed` |
+| `collect(holder) -> u256` | owner | pays a contract holder's claimable USDC to the owner; `'Vault: holder is an account'` when `holder` answers `supports_interface(ISRC6_ID)` true (a holder without SRC5 makes the call revert), `'Vault: zero address'`, `'Vault: nothing to claim'`. Emits `Collected` |
+| `pause()`, `unpause()` | owner | stop or restart deposits, mints, withdraws, redeems and claims (`'Vault: paused'`, `'Vault: not paused'`). Emit `Paused`, `Unpaused` |
+| `close()`, `open()` | owner | stop or restart withdraws, redeems and claims; deposits go on (`'Vault: closed'`, `'Vault: open'`). Emit `Closed`, `Opened` |
+| `claimable_of(account)`, `claimed_of(account)`, `earned_of(account)` | view | USDC base units: claimable now; paid out of the position so far (claims and collects); their sum |
+| `reward_token()`, `reward_index()`, `total_paid()`, `total_claimed()`, `reward_waiting()`, `is_paused()`, `is_open()` | view | the reward's state |
+
+A transfer, a mint or a burn of vPAVED settles both sides first, so shares carry no USDC: what they earned stays with
+the account that held them. Events of the Vault's address, new: `Paid { #[key] payer, amount, index }`,
+`Claimed { #[key] account, amount }`, `Collected { #[key] holder, recipient, amount }`, `Paused`, `Unpaused`,
+`Opened`, `Closed` (each `{ account }`).
+
+### `Economy` (`Economy.json`)
+
+| | P-56 | D-31 |
+|---|---|---|
+| `purchase`, `sell` | one swap of the burn quote and the Vault's part, the PAVED split by input | one swap of the burn quote only, filled whole, all of its PAVED burned; then all of `Economy`'s USDC (the margin, any USDC sent to it, the router's strays) approved to the Vault and paid with `Vault.pay`. `min_out` bounds the burn quote's swap: the client takes it from `quote_swap(burn_quote)` |
+| `Quote.min_out_hint` | 99 % of `price - referral` at the guard's rate | 99 % of `burn_quote` at the guard's rate |
+| Events `Purchased`, `Sold` | `vault_paved` the PAVED sent to the Vault | the same layout (19 and 15 data felts); `vault_paved` always 0; `margin` the USDC paid to the Vault |
+
 ## Breaking change P-56 (V1b): vPAVED, the margin as PAVED, the split
 
 P-56 (`docs/architecture/vault-share.md`, addendum; `economy.md` section 4, "As built: V1b"). Sepolia starts from zero

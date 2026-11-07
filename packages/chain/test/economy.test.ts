@@ -122,11 +122,12 @@ describe("ABIs: all committed (Economy E2, paid spawn E3; USDC is the ERC20 of T
 
   test("PavedToken and Vault are CORE's real ABIs (E1)", () => {
     const codecs = createEconomyCodecs();
-    // vPAVED (P-56): the ERC4626 entry points and views the client calls, the exit fee; no claim.
+    // vPAVED (P-56): the ERC4626 entry points and views the client calls, the exit fee; its USDC reward (D-31), as Nums.
     for (const f of ["deposit", "withdraw", "redeem", "balance_of", "convert_to_assets", "max_withdraw", "preview_deposit", "preview_withdraw", "preview_redeem", "total_assets", "total_supply", "exit_fee"]) {
       expect(codecs.Vault.hasFunction(f), f).toBe(true);
     }
-    for (const f of ["stake", "unstake", "claim", "pending", "acc", "accounted"]) expect(codecs.Vault.hasFunction(f), f).toBe(false);
+    for (const f of ["claim", "claimable_of", "claimed_of", "earned_of", "is_paused", "is_open"]) expect(codecs.Vault.hasFunction(f), f).toBe(true);
+    for (const f of ["stake", "unstake", "pending", "acc", "accounted"]) expect(codecs.Vault.hasFunction(f), f).toBe(false);
     expect(codecs.Vault.encodeCall("deposit", [2n, PLAYER])).toEqual(["0x2", "0x0", PLAYER]);
     expect(codecs.Vault.encodeCall("withdraw", [2n, PLAYER, PLAYER])).toEqual(["0x2", "0x0", PLAYER, PLAYER]);
     expect(codecs.Vault.encodeCall("redeem", [2n, PLAYER, PLAYER])).toEqual(["0x2", "0x0", PLAYER, PLAYER]);
@@ -242,7 +243,7 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
 });
 
 describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out), in one multicall", () => {
-  test("approves exactly the price to Challenge; min_out is the pool quote of the one swap (burn quote + margin) less 1 %, never the hint", async () => {
+  test("approves exactly the price to Challenge; min_out is the pool quote of the burn quote's swap less 1 %, never the hint", async () => {
     const { economy, econWriter, sent } = setup();
     const result = await econWriter.purchase({ stake: 3, confirmedPrice: 6_000_000n, confirmedMinOut: 1n, referrer: null });
     expect(result.gameId).toBe(9);
@@ -250,9 +251,9 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
     expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Challenge, "spawn"]]);
     expect(calls[0].calldata).toEqual([ADDR.Challenge, "0x5b8d80", "0x0"]); // 6_000_000 as u256
     const quote = await economy.quote(3);
-    // P-56: without a referrer, the whole price is swapped once (the burn quote and the margin).
+    // D-31: only the burn quote is swapped; the margin goes to the Vault in USDC.
     expect(quote.burnQuote + quote.margin).toBe(quote.price);
-    const poolOut = (quote.price * 95n * 80n * 10n ** 18n) / (100n * 1_000_000n); // the fee included
+    const poolOut = (quote.burnQuote * 95n * 80n * 10n ** 18n) / (100n * 1_000_000n); // the fee included
     const minOut = (poolOut * 9_900n) / 10_000n;
     expect(typeof minOut).toBe("bigint");
     expect(minOut).toBe(await economy.expectedMinOut(3));
@@ -261,17 +262,17 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
     expect(calls[1].calldata).toEqual(["0x3", "0x0", `0x${minOut.toString(16)}`, "0x0"]);
   });
 
-  test("the referral changes no amount the player pays; it leaves the swap, so min_out is the quote of the price less it", async () => {
+  test("the referral changes no amount the player pays, nor the swap: min_out is the burn quote's with or without it (D-31)", async () => {
     const s = setup();
     const without = await s.econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, confirmedMinOut: 1n, referrer: null });
     const withRef = await setup().econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, confirmedMinOut: 1n, referrer: REFERRER });
     expect(withRef.price).toBe(without.price);
     expect(withRef.calls[0]).toEqual(without.calls[0]); // the same approve
-    expect(without.swapIn).toBe(20_000_000n);
-    expect(withRef.swapIn).toBe(20_000_000n - referralOf(20_000_000n));
-    expect(withRef.swapIn).toBe(withRef.quote.burnQuote + withRef.quote.margin - withRef.quote.referral);
-    expect(withRef.minOut).toBe(await s.economy.expectedMinOut(10, new FakePoolQuoter(), true));
-    expect(withRef.minOut < without.minOut).toBe(true);
+    expect(without.swapIn).toBe(14_000_000n);
+    expect(withRef.swapIn).toBe(without.swapIn);
+    expect(withRef.swapIn).toBe(withRef.quote.burnQuote);
+    expect(withRef.minOut).toBe(await s.economy.expectedMinOut(10, new FakePoolQuoter()));
+    expect(withRef.minOut).toBe(without.minOut);
     expect(withRef.calls[1].calldata[1]).toBe(REFERRER);
     expect(without.calls[1].calldata[1]).toBe("0x0");
   });
@@ -313,7 +314,7 @@ describe("purchase: approve USDC, then Challenge.spawn(stake, referrer, min_out)
   // `Economy.pay` ignores the Vault, the router and the seller (Setup) as referrers: the swap must be the no-referral one.
   test("a Vault, router or Setup referrer is sent as 0x0, with the no-referral swap input and min_out", async () => {
     const none = await setup().econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: null });
-    expect(none.swapIn).toBe(8_000_000n);
+    expect(none.swapIn).toBe(5_600_000n);
     for (const ignored of [ECON.vault, FAKE_ROUTER, ADDR.Setup, `0x${"0".repeat(62)}12`, "0X3"]) {
       const { econWriter, sent } = setup();
       const plan = await econWriter.planPurchase({ stake: 4, confirmedPrice: 8_000_000n, confirmedMinOut: 1n, referrer: ignored });

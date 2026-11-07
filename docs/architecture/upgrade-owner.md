@@ -99,10 +99,14 @@ not embedded, so they add no entry point.
 |---|---|---|---|
 | `upgrade(class_hash)` (`vault.cairo` `UpgradeableImpl::upgrade`) | the whole code, storage kept | no (only class hash 0 is refused) | **Every staker's PAVED and the votes**: a new class can send the Vault's PAVED anywhere, mint or burn shares, rewrite delegations and checkpoints a later Governor would read, or refuse every exit. This is the reason P-56 gave it an owner (a fix without a migration of the stakes, D-27) and the reason it falls under the deferred upgrade-owner gate (D-28) |
 | `set_exit_fee(bps)` (`vault.cairo` `set_exit_fee`) | the fee every `withdraw` and `redeem` leaves in the Vault | **yes**: 0 to 1,000 bps (owner, 2026-10-14); evented (`ExitFeeSet`) | Raise every exit's cost to 10 %, kept by the holders who stay (none of it reaches the owner). It cannot block an exit or take a stake |
+| `pause()`, `unpause()` (`vault.cairo`, D-31) | deposits, mints, withdraws, redeems and claims stop or restart | no time bound; evented (`Paused`, `Unpaused`) | **Hold every holder's PAVED and USDC inside the Vault** for as long as the key wants (the owner's ruling of 2026-11-07, as Nums). It cannot take them, and it stops neither the payments of purchases, nor transfers, nor votes |
+| `close()`, `open()` (`vault.cairo`, D-31) | withdraws, redeems and claims stop or restart; deposits go on | as above; evented (`Closed`, `Opened`) | As the pause, for the exits and claims only |
+| `collect(holder)` (`vault.cairo`, D-31) | pays a contract holder's claimable USDC to the owner | refused for an account (`supports_interface(ISRC6_ID)`) | Take the USDC earned by shares held in a contract (a pool, an escrow), not an account's |
 | `transfer_ownership` | the owner | two-step | As above. |
 
-The Vault has no other owner entry point: no pause, no setter of its asset, no sweep. Deposits, transfers, exits and
-delegations stay each holder's own.
+Since D-31 the Vault's owner may hold the exits and claims (pause, close) and collect contract holders' USDC; no setter
+of its asset or reward token, no sweep. Deposits and delegations stay each holder's own, and transfers and votes go on
+while paused.
 
 ### In short
 
@@ -217,7 +221,7 @@ in one multicall.
 - (c) and (d): 48 hours after the schedule, plus the signatures. A timelock delays fixes exactly as it delays attacks.
 
 **The pause guardian on `Challenge.spawn` (G4, `docs/briefs/g4-pause-guardian.md`; built after this note).** It is the
-only pause in the contracts (the `Vault` still has none, as intended, P-56):
+only pause in the contracts (the `Vault` has its own since D-31, the owner's ruling, as Nums):
 
 - **Who.** The guardian is an address the owner sets with `Challenge.set_guardian(address)` (owner only; zero means no
   guardian; emits `GuardianSet`). The guardian or the owner calls `pause_spawn()` (emits `SpawnPaused { by }` once; a

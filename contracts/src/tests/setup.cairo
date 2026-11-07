@@ -25,7 +25,7 @@ pub mod setup {
     use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
     use paved::systems::setup::{ISetupDispatcher, ISetupDispatcherTrait};
     use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
-    use paved::systems::vault::{DEAD_ASSETS, DEFAULT_EXIT_FEE_BPS};
+    use paved::systems::vault::DEFAULT_EXIT_FEE_BPS;
     pub use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::types::plan::{Plan, PlanImpl};
@@ -245,7 +245,8 @@ pub mod setup {
 
     /// The economy as `scripts/deploy.sh devnet` wires it: `PavedToken` (its initial supply to
     /// `OWNER`), `Faucet`, `MockRouter` seeded with 800,000 PAVED and 10,000 USDC, the `Vault`
-    /// (vPAVED) with its 1,000 PAVED of dead shares and 199,000 PAVED deposited by `OWNER`,
+    /// (vPAVED, its reward in the faucet's USDC) with 200,000 PAVED deposited by `OWNER`, its
+    /// first and only shares (D-31: no dead shares),
     /// `Economy` (decided configuration, launch rate) as
     /// the token's minter. `Economy.set_game` is left to the caller. Returns `Economy` and USDC.
     pub fn deploy_economy() -> (ContractAddress, ContractAddress) {
@@ -254,7 +255,7 @@ pub mod setup {
         let usdc = deploy("Faucet", array![]);
         let router = deploy("MockRouter", array![paved.into(), usdc.into()]);
         let vault = deploy(
-            "Vault", array![owner.into(), paved.into(), DEFAULT_EXIT_FEE_BPS.into()],
+            "Vault", array![owner.into(), paved.into(), usdc.into(), DEFAULT_EXIT_FEE_BPS.into()],
         );
         // [Setup] The pool, from the owner's PAVED and the faucet's USDC
         IFaucetDispatcher { contract_address: usdc }.mint(owner, 10_000 * USDC);
@@ -274,11 +275,9 @@ pub mod setup {
         start_cheat_caller_address(router, owner);
         IMockRouterDispatcher { contract_address: router }.add_liquidity(amount0, amount1);
         stop_cheat_caller_address(router);
-        // [Setup] The dead shares, held by the Vault itself, then the owner's stake
+        // [Setup] The owner's stake, the Vault's first shares
         start_cheat_caller_address(vault, owner);
-        let erc4626 = IERC4626Dispatcher { contract_address: vault };
-        erc4626.deposit(DEAD_ASSETS, vault);
-        erc4626.deposit(200_000 * PAVED - DEAD_ASSETS, owner);
+        IERC4626Dispatcher { contract_address: vault }.deposit(200_000 * PAVED, owner);
         stop_cheat_caller_address(vault);
         // [Setup] Economy, the token's minter
         let pool_key = IMockRouterDispatcher { contract_address: router }.pool_key();

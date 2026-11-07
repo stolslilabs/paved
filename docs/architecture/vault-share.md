@@ -1,5 +1,234 @@
 # P-55: the Vault's share token with votes
 
+## Addendum 2: USDC rewards, as Nums' Vault (owner, 2026-11-07, D-31)
+
+The owner asked, on 2026-11-07, that vPAVED holders earn USDC they can claim from the Vault whenever they like, and that
+the Vault page show, per player, the USDC earned, claimed, claimable now, and the history of claims. Asked how, the owner
+answered "the same as the Nums project" (`cartridge-gg/nums`), then ruled four points (below). This reopens P-56 point 5
+("no USDC claim: the rate is the only mechanism") by its own reversal clause: section 3 of the 1:1 note (an accumulator
+settled on every transfer, mint and burn, and a claim) comes back, on top of the ERC4626. This addendum is a design:
+nothing in it is built yet.
+
+References: `NUMS:` is Nums at `4f8f405` (`cartridge-gg/nums`, MIT, read only, from a local clone); the other references
+are those of the addenda below. Nums' Vault is Glitchbomb's (A5): the same `RewardableComponent`, the same `pay`,
+`claimable_of`, `claim`, `collect`, pause and `open`/`close`.
+
+### The owner's rulings (2026-11-07)
+
+| Point | Ruling | What it replaces |
+|---|---|---|
+| Which USDC reaches the Vault | **The whole margin**: the part of the price not swapped for the burn, less the referral, paid to the Vault in USDC and shared among the holders as a claimable reward. No team share | P-56 (4): the margin swapped to PAVED and sent to the Vault without shares |
+| Does the rate still rise with purchases? | **No.** As vNUMS, vPAVED's rate rises only with the exit fee (and the rounding) | P-56 (4): the rate rose with every purchase |
+| USDC owed to a holder that is a contract and cannot claim (a pool, an escrow) | **The owner collects it** (Nums' `collect`), and receives it | Section 3's edge case, "stranded"; "For the PM" item 3 of the 1:1 note |
+| The dead shares | **There are none**: the first and only shares at launch are minted after the deployment by the owner, for PAVED at the 1:1 rate | P-56 (2): 1,000 PAVED of dead shares deposited for the Vault itself |
+| Pause | **As Nums**: the owner may pause the Vault and close it (exits and claims) | P-56 (1) and A5: "no key may freeze stakers" (`upgrade-owner.md:243-244`) |
+
+### B1. The money path of a purchase
+
+Nums' purchase (`NUMS:contracts/src/components/purchase.cairo:130-193`): `burn_percentage` of the price is swapped and
+burned; `vault_percentage` of the USDC left is approved to the Vault and paid with `vault.pay(recipient, amount)`
+(`:178-187`); the rest goes to a team address (`:189-193`). Nums' deployments set `vault_percentage` to 50 on Sepolia
+(`NUMS:dojo_sepolia.toml:62`) and to 0 on mainnet (`NUMS:dojo_mainnet.toml:58`).
+
+Paved takes the same path with no team share (D-10, the owner's ruling): the Vault gets all that is left.
+
+1. The referral, out of the Vault's part, in USDC (unchanged).
+2. **One swap of the burn quote only** (`burn_bps` of the price), filled whole, at least `min_out`, as before P-56. The
+   swap's PAVED is all burned, with any PAVED on `Economy`. `R` and the guard's next rate read the whole swap against the
+   burn quote. `curve::vault_split` goes.
+3. **The rest to the Vault**: `Economy`'s whole USDC balance after the swap (the Vault's part, any USDC sent to `Economy`
+   before, and the router's strays returned by `clear`) is approved to the Vault and paid with `Vault.pay(amount)`.
+   `Economy` holds nothing after the call.
+
+| Share of the price, defaults (burn 7,368, referral 500) | Without a referrer | With one |
+|---|---:|---:|
+| Burned (the swap less the pool's 5 %) | 69.996 % | 69.996 % |
+| The pool's fee, to the LP position | 3.684 % | 3.684 % |
+| **USDC to the Vault's holders** | **26.32 %** | **21.32 %** |
+| Referrer | | 5 % |
+
+Against P-56: the burn does not change; the LP's part falls from 5 % (4.75 % with a referrer) to 3.684 %, since the
+margin is no longer swapped; the holders get 26.32 % in USDC instead of 25.004 % of the price in PAVED (20.254 % with a
+referrer). Computed from the defaults.
+
+- **`min_out`** covers the burn quote only again: the client's `swapInputOf` (`packages/chain/src/economy/amounts.ts:64-72`)
+  returns the burn quote, and `Quote.min_out_hint` is the burn quote at the guard's rate, less 1 %.
+- **A partial fill still reverts** (P-56's check stays). An unswapped rest could now go to the holders, as Nums lets it,
+  but the burn would then fall below 70 % of the price (D-10).
+- **The events keep their layout.** `Purchased.vault_paved` and `Sold.vault_paved` stay, always 0 from this change, so
+  the indexer's strict decoders (19 and 15 data felts) do not move. `margin` is the USDC paid to the Vault. "For the
+  PM", item 5.
+
+### B2. The Vault's reward (Nums' Rewardable, without the world)
+
+Nums keeps the reward in Dojo models: `VaultInfo.total_reward` (USDC per share, times `10^36`) and, per user,
+`VaultPosition { current_reward, pending_reward, time_lock }` (`NUMS:contracts/src/models/index.cairo:57-73`,
+`NUMS:contracts/src/models/position.cairo:14-34`). Paved has no world: the same fields live in the Vault's own storage,
+appended after today's (P-42: new fields only).
+
+| Storage (appended) | Nums | Meaning |
+|---|---|---|
+| `usdc` | `config.quote` | The reward token, set in the constructor |
+| `reward_index: u256` | `total_reward` | USDC base units per vPAVED base unit, times `10^36`, since the deployment |
+| `reward_snapshot: Map<address, u256>` | `current_reward` | The index at the account's last settlement |
+| `reward_pending: Map<address, u256>` | `pending_reward` | USDC settled to the account and not yet paid out, times `10^36` |
+| `reward_claimed: Map<address, u256>` | (none: Nums' client reads the last `VaultClaimed` event) | USDC paid out of the account's position, by its claims or the owner's collects |
+| `reward_waiting: u256` | (none: Nums reverts) | USDC paid while no share existed, shared at the next payment |
+| `total_paid`, `total_claimed: u256` | (none) | Totals, for the page and the audit |
+| `paused`, `closed: bool` | `PausableComponent`, `VaultInfo.open` | B4 |
+
+**Settlement.** The ERC20 `before_update` hook settles `from` and `recipient` at their balances before the change,
+transfers, mints (deposit, mint) and burns (withdraw, redeem) alike, the zero address skipped
+(`NUMS:contracts/src/systems/vault.cairo:244-261`): `pending += balance × (index − snapshot)`, `snapshot = index`.
+Section 3's proof holds with `index` for `acc` and `pay` for `sync`: a transfer, a mint or a burn creates no USDC and
+loses none beyond the floor of each payment. Shares receive only the payments made after they exist.
+
+| Entry | Who | What |
+|---|---|---|
+| `pay(amount)` | anyone (Nums: `PROVIDER_ROLE`, its Setup) | Pulls `amount` USDC from the caller (`transfer_from`), adds `(amount + waiting) × 10^36 / total_supply` to the index, rounded down; with no share, keeps it in `reward_waiting` (Nums reverts `'Rewardable: vault is empty'`, `NUMS:contracts/src/components/rewardable.cairo:148`, which would revert every purchase while the Vault is empty, now possible with no dead shares). 0 does nothing. Not blocked by the pause: purchases go on. Event `Paid` |
+| `claimable_of(account)` | view | `(pending + balance × (index − snapshot)) / 10^36` (Nums `:281-285`) |
+| `claimed_of(account)` | view | `reward_claimed` |
+| `earned_of(account)` | view | `claimed_of + claimable_of`: all the USDC the account's position has earned |
+| `claim()` | the holder | Settles the caller and pays it all its claimable USDC; reverts when paused, closed, or with nothing to claim (`'Vault: nothing to claim'`, Nums `:303-318`). The state is written before the transfer. Event `Claimed` |
+| `collect(holder)` | the owner (Nums: `COLLECTOR_ROLE`, to its Treasury) | Pays a contract holder's claimable USDC to the owner. Refused for the zero address and for an account: `ISRC5(holder).supports_interface(ISRC6_ID)` must be false (Nums `:340-361`); the Vault itself skips the probe. Counts in `claimed_of(holder)`. Event `Collected` |
+
+The views the page reads: `claimable_of`, `claimed_of`, `earned_of`, `reward_token`, `total_paid`, `total_claimed`,
+`is_paused`, `is_open`.
+
+Events (Nums: `VaultPaid { player_id, amount, time }` and `VaultClaimed { user, amount, time }`, Dojo events,
+`NUMS:contracts/src/events/index.cairo:37-51`):
+
+- `Paid { #[key] payer, amount, index }`;
+- `Claimed { #[key] account, amount }`;
+- `Collected { #[key] holder, recipient, amount }`;
+- `Paused`, `Unpaused`, `Opened`, `Closed`, each `{ account }`.
+
+Starknet gives each event its block and transaction, so the time is not repeated in the data.
+
+**Bounds.** The index grows by at most `amount × 10^36` per payment (one share in the supply). `balance × index` stays
+under `total_paid × 10^36`, about `10^51` for a billion USDC, far below `2^256`. The floor of each payment leaves
+under one USDC base unit per `10^36 / total_supply` in the Vault for good, as in Nums.
+
+### B3. No dead shares
+
+The deployment no longer deposits for the Vault itself. The owner's deposit after the deployment is the first: at an
+empty Vault it mints at `(0 + 1) / (0 + 1)`, 1:1. The rest of the inflation defence stays: offset 0, and a deposit
+that would mint 0 shares reverts.
+
+- **What the dead shares were for** (A1): the margin's PAVED piling up while the supply is 0. With the margin in USDC,
+  nothing but the exit fee adds PAVED without shares, so no pile builds from purchases.
+- **What is left** ("For the PM", item 3): if every holder, the owner included, exits, the supply falls to 0 and the last
+  exit's fee stays in the Vault as PAVED with no share. The next deposit smaller than that PAVED then mints 0 shares and
+  reverts. USDC paid meanwhile waits in `reward_waiting` for the next shares.
+- **The window before the owner's deposit**: between the Vault's deployment and the owner's deposit, a first depositor
+  could mint 1 base unit and donate PAVED. Offset 0 makes that attack lose about what it takes (A1), and the zero-share
+  check refuses a victim's empty mint. `deploy.sh` deposits right after the deployment, before `Economy.set_game`.
+
+### B4. Pause and close, as Nums
+
+Nums gates its Vault with `PausableComponent` and a keeper's `open`/`close` (`NUMS:contracts/src/systems/vault.cairo:198-235`,
+`:303-306`, `:364-398`). Paved takes the same two flags, held by the owner (two-step), with no new dependency
+(`openzeppelin_security` is not pinned): two `bool` fields and their events.
+
+| | deposit, mint | withdraw, redeem | claim | transfer, votes | `pay` (purchases) | `collect` |
+|---|---|---|---|---|---|---|
+| `pause()` / `unpause()` | blocked | blocked | blocked | free | free | free |
+| `close()` / `open()` | free | blocked | blocked | free | free | free |
+
+The Vault starts open and not paused. This reverses `upgrade-owner.md:243-244` ("the stakers' exits out of any key's
+reach") and A5's last point: a key can now hold the holders' PAVED and USDC inside the Vault, though not take them. It
+falls under the deferred upgrade-owner gate (D-28), as the upgrade does.
+
+### B5. What Paved does not take from Nums
+
+- **The exit fee as Nums takes it**: `Fee::Shares` on redeem, its formulas swapped, `max_withdraw` that ignores the fee
+  (`NUMS:contracts/src/systems/vault.cairo:47`, `:400-444`; A2 found the same in Glitchbomb). Paved keeps its own (P-56 (3)).
+- **The time lock**: `VAULT_LOCKUP_DURATION` is 0 (`NUMS:contracts/src/constants.cairo:72`), a same-block guard. The exit
+  fee (5 %) makes a round trip around a purchase lose: a game's whole margin is about 1.63 USDC on average (B6).
+- **`AccessControl` and its roles, `SRC5`**: the owner holds every power, as for the fee and the upgrade (P-56).
+- **The Dojo world, its models and `register_external_contract`**: Paved's Vault is a plain contract.
+
+### B6. Economy figures
+
+From `scripts/montecarlo/sim.py --margin-paved`, the rows "burn 73.68 %" (the owner's split; this addendum adds the USDC
+rows to that table). The model: 365 days, seed 8, half the games referred, no outside trader.
+
+| Run (365 days) | Margin | mint / burn | house edge | supply end | price end / start | USDC to the holders in the year |
+|---|---|---:|---:|---:|---:|---:|
+| B, base (200 games a day) | **USDC (this addendum)** | 0.999 | 33.2 % | 987k | 6.79 | 118,305 |
+| B, base | PAVED (P-56) | 0.992 | 34.0 % | 984k | 202.96 | (631,034 PAVED) |
+| A, base | **USDC** | 0.998 | 33.4 % | 977k | 7.10 | 118,305 |
+| B, 20 games a day | **USDC** | 0.974 | 35.2 % | 944k | 1.57 | 11,726 |
+
+- The holders' income is real USDC, paid per purchase, no longer a PAVED balance whose value depends on selling it into
+  the pool. On average a game pays them 6.8283 × 23.82 % = 1.63 USDC (the mean price of A4, half the games referred).
+- P-56's open economy points close: the PAVED no longer gathers in the Vault ("For the PM" item 5 of the vPAVED
+  addendum), and the margin no longer pays the pool's fee (item 3).
+- The house edge falls by 0.8 point (B) and 1.7 points (A) against P-56: the margin no longer lifts the price at which
+  the burn buys and the players sell.
+
+### B7. The plan
+
+Four pull requests, in order, each with its checks green:
+
+1. **CORE, contracts.**
+   - `contracts/src/systems/vault.cairo`: B2 to B4; the constructor `(owner, paved, usdc, exit_fee)`; the module
+     comment.
+   - `contracts/src/systems/economy.cairo`: B1; `contracts/src/economy/curve.cairo`: `vault_split` goes.
+   - Tests in `contracts/src/tests/economy/` (vault, purchase, sell, hardening) and `e2e/`.
+   - `contracts/abis/`.
+   - `scripts/deploy.sh`: the Vault's constructor, no dead shares, the owner's deposit and its reads.
+   - Docs: `economy.md` section 4, `public-interface.md`, `upgrade-owner.md`, DECISIONS (D-31, P-56).
+2. **CLIENT, `@paved/chain`.**
+   - The views `claimableOf`, `claimedOf`, `earnedOf` in `VaultPosition`.
+   - `EconomyWriter.claim()`.
+   - `swapInputOf` back to the burn quote.
+   - The fake economy: the index, the payment at purchase, the claim; no dead shares.
+3. **CLIENT, `@paved/indexer`.**
+   - The Vault as a fifth source: `Claimed` and `Collected` indexed, its other events ignored by selector.
+   - A `vault_claims` table.
+   - `GET /v1/players/:id/vault/claims` (the history) with the totals (`/claims` already serves the cobbles' claims).
+4. **CLIENT, `@paved/app`.** The Vault page's Earnings section (earned, claimed, claimable, a gold Claim, the history),
+   the mock ledger.
+
+**Tests (CORE)**:
+
+- **Exactness**: `A` alone, payment `I`; `A` sends half to `B`; payment `J`. Then `A` can claim `I + J/2` and `B` `J/2`,
+  to the floor.
+- **No payment before the shares**: a deposit after a payment claims nothing of it.
+- **A fuzz** of deposits, withdraws, redeems, transfers, `transfer_from`s, payments and claims among three accounts:
+  after every step, `Σ claimable + total_claimed ≤ total_paid ≤ total_claimed + USDC balance`.
+- **Claim**: it pays and zeroes; 0 reverts.
+- **`collect`**: refused for an account (a mock answering `ISRC6_ID`) and for anyone but the owner; pays the owner
+  from a contract holder.
+- **Waiting**: a payment with no share waits and goes to the next shares.
+- **Pause and close**: the table of B4, and only the owner.
+- **The purchase**: the burn swaps the burn quote only; the Vault receives the margin in USDC; `Economy` ends with
+  nothing; `R` reads the whole swap.
+- **Upgrade**: it keeps the reward state.
+- **Gas**: `purchase`, `transfer`, `claim` against today's, in the PR.
+
+### For the PM
+
+1. **`pay` is open to anyone** (Nums: its Setup only). A payment only gives the payer's own USDC to the holders, and
+   `Paid` names the payer; gating it would need a set-once `set_payer` and a deployment step.
+2. **A payment while the Vault is empty waits** (Nums reverts, which would stop every purchase).
+3. **No dead shares (owner)**: the supply can reach 0 again. If it does, the last exit's fee strands, and any deposit
+   smaller than it reverts until the owner upgrades. Recommendation: the owner's stake stays deposited. Alternatively,
+   the exit that burns the last share pays no fee (a few lines in the fee hooks, with nobody left for the fee to
+   benefit).
+4. **`collect`'s account probe calls `supports_interface`** on the holder. A contract without SRC5 makes that call
+   revert, and Starknet cannot catch it, so `collect` cannot reach such a contract. Whether Ekubo's core answers SRC5 is
+   not checked here. Nums' `collect` has the same limit.
+5. **`vault_paved` kept at 0** in `Purchased` and `Sold`, so the indexer's decoders and the `economy` table stay as
+   they are. Removing the field instead means a new layout and an indexer migration in the same rollout.
+6. **A fresh Vault, hence a fresh `Economy`.** The Vault's constructor gains `usdc` and the deployment loses the dead
+   shares. `Economy` sets its Vault in the constructor only. Today's Sepolia therefore needs a fresh Vault and Economy
+   (D-27's path), not an upgrade. An upgrade path would need a set-once `set_reward_token` and leaves today's 1,000
+   dead vPAVED earning (the owner could `collect` the Vault's own position).
+7. **The pause reverses `upgrade-owner.md:243-244`** (owner's ruling): the owner's key can hold every exit and claim.
+8. **The partial fill still reverts** (B1), to keep the burn at 70 % of the price.
+
 ## Addendum: vPAVED (owner correction, 2026-10-14)
 
 The owner corrected ruling 1 of P-56 (the 1:1 share), relayed by the PM on 2026-10-14: "It is rather vPAVED for the

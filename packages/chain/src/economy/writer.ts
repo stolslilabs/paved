@@ -199,6 +199,9 @@ const OVER_MAX_WITHDRAW = "ERC4626: exceeds max withdraw";
 const OVER_MAX_REDEEM = "ERC4626: exceeds max redeem";
 const NO_ALLOWANCE = "ERC20: insufficient allowance";
 const NO_BALANCE = "ERC20: insufficient balance";
+const NOTHING_TO_CLAIM = "Vault: nothing to claim";
+const PAUSED = "Vault: paused";
+const CLOSED = "Vault: closed";
 
 /**
  * A deposit too small to mint one vPAVED at the current rate (`preview_deposit` gives 0; the contract reverts with
@@ -279,9 +282,46 @@ export class VaultAllowanceError extends WriteError {
   }
 }
 
+/** A claim with no USDC to claim: refused before sending from a fresh `claimable_of`, or the contract's revert after a race. */
+export class VaultNothingToClaimError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("You have no USDC to claim yet. Nothing was sent.", transactionHash, transactionHash !== undefined);
+    this.name = "VaultNothingToClaimError";
+  }
+}
+
+/** The Vault's owner paused it (D-31, as Nums): no deposit, exit or claim goes through until it unpauses. */
+export class VaultPausedError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("The Vault is paused: deposits, withdrawals and claims wait until it reopens. Nothing was moved.", transactionHash, transactionHash !== undefined);
+    this.name = "VaultPausedError";
+  }
+}
+
+/** The Vault's owner closed it (D-31, as Nums): withdrawals and claims wait; deposits still go through. */
+export class VaultClosedError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("The Vault is closed: withdrawals and claims wait until it reopens. Nothing was moved.", transactionHash, transactionHash !== undefined);
+    this.name = "VaultClosedError";
+  }
+}
+
 /** A known revert of the Vault as its clear state; any other error unchanged. */
 function vaultRevert(error: unknown): unknown {
-  if (!(error instanceof WriteError) || error instanceof VaultOverMaxWithdrawError || error instanceof VaultZeroSharesError || error instanceof VaultBalanceError) return error;
+  if (
+    !(error instanceof WriteError) ||
+    error instanceof VaultOverMaxWithdrawError ||
+    error instanceof VaultZeroSharesError ||
+    error instanceof VaultBalanceError ||
+    error instanceof VaultNothingToClaimError ||
+    error instanceof VaultPausedError ||
+    error instanceof VaultClosedError
+  ) {
+    return error;
+  }
+  if (revertNames(error.message, NOTHING_TO_CLAIM)) return new VaultNothingToClaimError(error.transactionHash);
+  if (revertNames(error.message, PAUSED)) return new VaultPausedError(error.transactionHash);
+  if (revertNames(error.message, CLOSED)) return new VaultClosedError(error.transactionHash);
   if (revertNames(error.message, ZERO_SHARES)) return new VaultZeroSharesError(error.transactionHash);
   if (revertNames(error.message, OVER_MAX_DEPOSIT)) return new VaultOverMaxDepositError(error.transactionHash);
   if (revertNames(error.message, OVER_MAX_WITHDRAW)) return new VaultOverMaxWithdrawError(null, error.transactionHash);
@@ -317,7 +357,7 @@ export interface PurchasePlan {
   calls: Call[];
   price: bigint;
   minOut: bigint;
-  /** The USDC the purchase swaps in one swap (P-56): the burn quote plus the margin, the referral taken (`swapInputOf`). */
+  /** The USDC the purchase swaps (D-31): the burn quote only (`swapInputOf`); the margin goes to the Vault in USDC. */
   swapIn: bigint;
   /** The pool's PAVED for `swapIn`, fee included, before the slippage. */
   poolOut: bigint;
@@ -435,12 +475,12 @@ export class EconomyWriter {
     // A burn part outside (0, price], or a referral above the margin, is not this purchase's quote.
     if (quote.burnQuote <= 0n || quote.burnQuote > price) throw new WriteError("The quote's burn part is not within the price: nothing was sent");
     if (quote.referral < 0n || quote.referral > price - quote.burnQuote) throw new WriteError("The quote's referral is not within the margin: nothing was sent");
-    // One swap of the burn quote and the margin (P-56): the price less the referral, which is paid only with a referrer.
-    const swapIn = swapInputOf(quote, referrer !== "0x0");
+    // The swap of the burn quote only (D-31): the margin goes to the Vault in USDC, with or without a referrer.
+    const swapIn = swapInputOf(quote);
     // A fresh quote at every send, taken here just before the account executes: never one shown earlier, nor cached.
     let poolOut: bigint;
     try {
-      // The quote is for exactly the USDC the purchase swaps: `swapIn`, the burn quote and the margin (P-56).
+      // The quote is for exactly the USDC the purchase swaps: `swapIn`, the burn quote (D-31).
       poolOut = await this.options.poolQuoter.quoteSwap(swapIn);
     } catch (error) {
       // No quote, no slippage protection: nothing is sent. Only the contract's revert (`'Economy: partial fill'`, any
@@ -574,6 +614,20 @@ export class EconomyWriter {
       if (position.shares !== options.confirmedShares) throw new VaultAmountChangedError(options.confirmedShares, position.shares);
       this.checkFee(position.exitFeeBps, options.confirmedExitFeeBps);
       return { calls: [this.call("Vault", "redeem", [position.shares, this.address, this.address])], events: this.vaultEvents() };
+    });
+  }
+
+  /**
+   * Claims all the USDC the Vault owes the player (D-31): `claim()`. Nothing to claim, read just before, sends nothing
+   * (`VaultNothingToClaimError`); a paused or closed Vault neither (`VaultPausedError`, `VaultClosedError`).
+   */
+  claim(): Promise<WriteResult> {
+    return this.sendVault(async () => {
+      const earnings = await this.read(() => this.options.views.earnings(this.address), "Vault earnings");
+      if (earnings.paused) throw new VaultPausedError();
+      if (!earnings.open) throw new VaultClosedError();
+      if (earnings.claimable === 0n) throw new VaultNothingToClaimError();
+      return { calls: [this.call("Vault", "claim", [])], events: this.vaultEvents() };
     });
   }
 

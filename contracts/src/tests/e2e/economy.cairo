@@ -58,7 +58,7 @@ fn test_economy_entry_price_is_the_stake_unit() {
 }
 
 #[test]
-#[available_gas(l2_gas: 116729676)]
+#[available_gas(l2_gas: 118222700)]
 fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     assert_paid_spawn(store, @systems, @context, 1);
@@ -131,11 +131,11 @@ fn test_economy_referrer_is_any_address_but_the_payer() {
 
 /// The protocol addresses `Daily` knows, `Economy` and `Daily` itself, are ignored as referrers,
 /// like the payer (economy audit N2 of #350): nothing is paid to them, the payer pays the whole
-/// price, and the whole price is swapped (no referral taken out of the Vault's part, which reaches
-/// the Vault as PAVED, P-56). Paid to `Economy`, the 5 % would be swept back into the margin and
-/// counted twice by `Purchased`; paid to `Daily`, it would be stuck.
+/// price, and the Vault is paid the whole margin in USDC (no referral taken out of it, D-31). Paid
+/// to `Economy`, the 5 % would be swept back into the margin and counted twice by `Purchased`; paid
+/// to `Daily`, it would be stuck.
 #[test]
-#[available_gas(l2_gas: 117984689)]
+#[available_gas(l2_gas: 119907100)]
 fn test_economy_protocol_address_referrer_is_no_referral() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
@@ -143,16 +143,22 @@ fn test_economy_protocol_address_referrer_is_no_referral() {
     let paved = IERC20Dispatcher { contract_address: addresses.paved };
     for referrer in array![systems.economy.contract_address, systems.challenge.contract_address] {
         let before = token.balance_of(PLAYER());
-        let vault_before = paved.balance_of(addresses.vault);
-        let swapped = systems.economy.quote_swap(BASE_PRICE);
+        let vault_paved = paved.balance_of(addresses.vault);
+        let vault_usdc = token.balance_of(addresses.vault);
+        // The decided split: 73.68 % of the price swapped for the burn
+        let quote = BASE_PRICE * 7_368 / 10_000;
+        let swapped = systems.economy.quote_swap(quote);
         let supply = paved.total_supply();
         systems.challenge.spawn(1, referrer, 0);
         assert(before - token.balance_of(PLAYER()) == BASE_PRICE, 'Protocol: price');
-        assert(token.balance_of(addresses.vault) == 0, 'Protocol: USDC to the Vault');
-        // The whole price was swapped: its PAVED is the burn's and the Vault's parts
-        let to_vault = paved.balance_of(addresses.vault) - vault_before;
-        assert(to_vault > 0, 'Protocol: margin');
-        assert(supply - paved.total_supply() + to_vault == swapped, 'Protocol: whole swap');
+        // The burn quote was swapped and all its PAVED burned; the rest of the price, the whole
+        // margin, was paid to the Vault in USDC, and no PAVED
+        assert(supply - paved.total_supply() == swapped, 'Protocol: burn swap');
+        assert(
+            token.balance_of(addresses.vault) - vault_usdc == BASE_PRICE - quote,
+            'Protocol: margin',
+        );
+        assert(paved.balance_of(addresses.vault) == vault_paved, 'Protocol: PAVED to the Vault');
         assert(token.balance_of(referrer) == 0, 'Protocol: referrer paid');
     }
 }

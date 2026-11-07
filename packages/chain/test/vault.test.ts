@@ -10,10 +10,13 @@ import {
   RpcEconomyViews,
   VaultAllowanceError,
   VaultBalanceError,
+  VaultClosedError,
   VaultExitFeeChangedError,
+  VaultNothingToClaimError,
   VaultOverMaxDepositError,
   VaultOverMaxRedeemError,
   VaultOverMaxWithdrawError,
+  VaultPausedError,
   VaultZeroSharesError,
   createEconomyClient,
   redeemFee,
@@ -75,6 +78,39 @@ describe("VaultViews: the page's reads, on the fake and over RPC", () => {
       [ECON.vault, "delegates", [PLAYER]],
       [ECON.vault, "delegates", [PLAYER]],
     ]);
+  });
+
+  test("RPC earnings (D-31): earned_of, claimed_of and claimable_of as u256 USDC, is_paused and is_open as booleans", async () => {
+    const felts: Record<string, string[]> = {
+      earned_of: ["0x2dc6c0", "0x0"],
+      claimed_of: ["0x1e8480", "0x0"],
+      claimable_of: ["0xf4240", "0x0"],
+      is_paused: ["0x0"],
+      is_open: ["0x1"],
+    };
+    const calls: Array<{ contractAddress: string; entrypoint: string; calldata: string[] }> = [];
+    const provider = {
+      callContract: async (c: { contractAddress: string; entrypoint: string; calldata: string[] }) => (calls.push(c), felts[c.entrypoint]),
+    };
+    const views = new RpcEconomyViews(provider, economyDeployment, createEconomyCodecs());
+    expect(await views.earnings(PLAYER)).toEqual({ earned: 3_000_000n, claimed: 2_000_000n, claimable: 1_000_000n, paused: false, open: true });
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint, c.calldata])).toEqual([
+      [ECON.vault, "earned_of", [PLAYER]],
+      [ECON.vault, "claimed_of", [PLAYER]],
+      [ECON.vault, "claimable_of", [PLAYER]],
+      [ECON.vault, "is_paused", []],
+      [ECON.vault, "is_open", []],
+    ]);
+  });
+
+  test("the fake's earnings: none by default; a claim moves the claimable to claimed and to the wallet's USDC", async () => {
+    const economy = new FakeEconomy();
+    expect(await economy.earnings(PLAYER)).toEqual({ earned: 0n, claimed: 0n, claimable: 0n, paused: false, open: true });
+    economy.setEarnings(PLAYER, { claimed: 2n, claimable: 5n });
+    expect(await economy.earnings(PLAYER)).toMatchObject({ earned: 7n, claimed: 2n, claimable: 5n });
+    expect(economy.claimed(PLAYER)).toBe(5n);
+    expect(await economy.earnings(PLAYER)).toMatchObject({ earned: 7n, claimed: 7n, claimable: 0n });
+    expect(await economy.usdcBalance(PLAYER)).toBe(5n);
   });
 
   test("the rate is OpenZeppelin's (total_assets + 1) / (total_supply + 1), rounded down", () => {
@@ -170,6 +206,48 @@ describe("Vault writes: each revert a typed error", () => {
   });
 });
 
+describe("EconomyWriter.claim (D-31): the player's USDC from the Vault", () => {
+  test("claims with a fresh read of the claimable USDC: one call, Vault.claim()", async () => {
+    const s = setup();
+    s.economy.setEarnings(PLAYER, { claimable: 1_500_000n });
+    await s.econWriter.claim();
+    expect(s.execute).toHaveBeenCalledTimes(1);
+    const [calls] = s.execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>];
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint, c.calldata])).toEqual([[ECON.vault, "claim", []]]);
+  });
+
+  test("nothing to claim, a paused or a closed Vault sends nothing, each with its plain message", async () => {
+    const none = setup();
+    const error = await none.econWriter.claim().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultNothingToClaimError);
+    expect(error).toBeInstanceOf(WriteError);
+    expect((error as Error).message).toBe("You have no USDC to claim yet. Nothing was sent.");
+    const paused = setup();
+    paused.economy.setEarnings(PLAYER, { claimable: 1n });
+    paused.economy.vaultPaused = true;
+    await expect(paused.econWriter.claim()).rejects.toBeInstanceOf(VaultPausedError);
+    const closed = setup();
+    closed.economy.setEarnings(PLAYER, { claimable: 1n });
+    closed.economy.vaultOpen = false;
+    await expect(closed.econWriter.claim()).rejects.toBeInstanceOf(VaultClosedError);
+    for (const s of [none, paused, closed]) expect(s.execute).not.toHaveBeenCalled();
+  });
+
+  test("the contract's reverts read as the same errors after a race", async () => {
+    for (const [revert, kind] of [
+      ["Vault: nothing to claim", VaultNothingToClaimError],
+      ["Vault: paused", VaultPausedError],
+      ["Vault: closed", VaultClosedError],
+    ] as const) {
+      const s = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: `Failure reason: '${revert}'` }) });
+      s.economy.setEarnings(PLAYER, { claimable: 1n });
+      const error = await s.econWriter.claim().catch((e: unknown) => e);
+      expect(error, revert).toBeInstanceOf(kind);
+      expect((error as WriteError).transactionHash, revert).toBe("0x1");
+    }
+  });
+});
+
 describe("the Vault's receipt events decode from the committed ABI", () => {
   const codec = createEconomyCodecs().Vault;
 
@@ -179,6 +257,15 @@ describe("the Vault's receipt events decode from the committed ABI", () => {
       data: ["0x1bc16d674ec80000", "0x0", "0xde0b6b3a7640000", "0x0"],
     });
     expect(deposit).toMatchObject({ name: "Deposit", fields: { sender: PLAYER, owner: PLAYER, assets: 2n * P, shares: P } });
+  });
+
+  test("Paid, Claimed and Collected (D-31): their keys and USDC amounts as u256", () => {
+    const paid = codec.decodeEvent({ keys: [hash.getSelectorFromName("Paid"), "0x10"], data: ["0x5", "0x0", "0x7", "0x0"] });
+    expect(paid).toMatchObject({ name: "Paid", fields: { payer: "0x10", amount: 5n, index: 7n } });
+    const claimed = codec.decodeEvent({ keys: [hash.getSelectorFromName("Claimed"), PLAYER], data: ["0xf4240", "0x0"] });
+    expect(claimed).toMatchObject({ name: "Claimed", fields: { account: PLAYER, amount: 1_000_000n } });
+    const collected = codec.decodeEvent({ keys: [hash.getSelectorFromName("Collected"), "0x99"], data: ["0x9", "0x2", "0x0"] });
+    expect(collected).toMatchObject({ name: "Collected", fields: { holder: "0x99", recipient: "0x9", amount: 2n } });
   });
 
   test("Withdraw: sender, receiver and owner keys, assets and shares as u256", () => {

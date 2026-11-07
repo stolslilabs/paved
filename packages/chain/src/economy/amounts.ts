@@ -61,14 +61,12 @@ export function minOutFor(poolOut: bigint, slippageBps: bigint = DEFAULT_SLIPPAG
 }
 
 /**
- * The USDC `Economy.purchase` swaps (P-56): the price less the referral, i.e. the burn quote plus the margin, in one swap.
- * `referred` is whether the purchase sends a referrer (any non-zero address the writer accepts): the contract pays the
- * referral out of the margin first, then swaps the whole rest. `min_out` and the sanity floor are over this amount.
+ * The USDC `Economy.purchase` swaps (D-31): the burn quote only, with or without a referrer; the margin is paid to the
+ * Vault in USDC, never swapped. `min_out` and the sanity floor are over this amount.
  */
-export function swapInputOf(quote: { price: bigint; burnQuote: bigint; referral: bigint }, referred: boolean): bigint {
-  const input = quote.price - (referred ? quote.referral : 0n);
-  if (input < quote.burnQuote) throw new RangeError("The referral is larger than the margin");
-  return input;
+export function swapInputOf(quote: { burnQuote: bigint }): bigint {
+  if (quote.burnQuote <= 0n) throw new RangeError("A burn quote is above 0");
+  return quote.burnQuote;
 }
 
 /** The scale of `Economy.rate()`, the guard's swap rate: PAVED base units per USDC base unit, x 1e18 (`curve::RATE_SCALE`). */

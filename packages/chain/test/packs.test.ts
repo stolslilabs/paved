@@ -65,9 +65,9 @@ function setup(options: { receipt?: () => Promise<unknown>; execute?: () => Prom
   return { economy, gameViews, writer, buyer, pool, sent, execute };
 }
 
-/** The `min_out` the buyer computes for a pack with the fake pool: the quote of its swap less 1 %. */
-async function expectedMinOut(price: bigint, referred = false): Promise<bigint> {
-  return minOutFor(await new FakePoolQuoter().quoteSwap(packSwapInput(price, { referral: 500 }, referred)));
+/** The `min_out` the buyer computes for a pack with the fake pool: the quote of its swap (the burn quote, D-31) less 1 %. */
+async function expectedMinOut(price: bigint): Promise<bigint> {
+  return minOutFor(await new FakePoolQuoter().quoteSwap(packSwapInput(price, { burn: 7_000 })));
 }
 
 describe("Setup.pack", () => {
@@ -173,19 +173,19 @@ describe("PavedWriter.buyPack: approve Setup for exactly the price, then Setup.b
 });
 
 describe("PackBuyer: the fresh reads and checks before buyPack", () => {
-  test("buys at the confirmed price, with min_out from a fresh quote of the pack's swap less 1 %", async () => {
+  test("buys at the confirmed price, with min_out from a fresh quote of the pack's swap (its burn quote) less 1 %", async () => {
     const { buyer, sent, pool } = setup();
     const minOut = await expectedMinOut(9_000_000n);
     await buyer.buy({ packId: 2, confirmedPrice: 9_000_000n, confirmedMinOut: minOut, referrer: null });
-    expect(pool.calls).toEqual([9_000_000n]);
+    expect(pool.calls).toEqual([6_300_000n]);
     expect(sent()[0][1].calldata).toEqual(["0x2", "0x0", hex(minOut), "0x0"]);
   });
 
-  test("with a referrer the swap takes the price less the referral (5 %), and the referrer is sent", async () => {
+  test("with a referrer the swap is the same burn quote (the referral comes out of the Vault's USDC), and the referrer is sent", async () => {
     const { buyer, sent, pool } = setup();
-    const minOut = await expectedMinOut(9_000_000n, true);
+    const minOut = await expectedMinOut(9_000_000n);
     await buyer.buy({ packId: 2, confirmedPrice: 9_000_000n, confirmedMinOut: minOut, referrer: REFERRER });
-    expect(pool.calls).toEqual([8_550_000n]);
+    expect(pool.calls).toEqual([6_300_000n]);
     expect(sent()[0][1].calldata).toEqual(["0x2", REFERRER, hex(minOut), "0x0"]);
   });
 
