@@ -23,6 +23,13 @@ vi.mock("@paved/renderer/react", () => ({
       () =>
         props.onReady?.({
           projectCell: () => ({ x: 200, y: 300, visible: true }),
+          // The tile's outline on screen (TILE-ACTIONS): its actions stand out of its sides.
+          projectCellOutline: () => [
+            { x: 160, y: 260, visible: true },
+            { x: 200, y: 260, visible: true },
+            { x: 200, y: 300, visible: true },
+            { x: 160, y: 300, visible: true },
+          ],
           onCameraChange: () => () => {},
           prepareDropAt: async () => false,
           dropTile: async () => ({ status: "skipped", reason: "no-model" }),

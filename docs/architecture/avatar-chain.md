@@ -184,3 +184,66 @@ whole from `Setup`'s events alone, as it does for the matchmaker and the village
   `u128`. The look is a `u128` read by `DivRem` by 256: no felt or u256 arithmetic, no overflow. `look_of` is test-side only.
 - **The parts in use only grow**, so no stored look gains a byte past the parts; a look's parts are each checked once.
 - **The owner's setters** are gated by `OwnableComponent` (tested for each); `set_setup` refuses zero.
+
+## 9. The name (PLAYER-RENAME)
+
+The owner's ask of 2026-11-07: a player renames themselves from their own profile, **the first change free, then 50 Cobbles a
+change**. Until then no name was on chain: a player was shown by its Cartridge Controller username, which the indexer caches
+(N1, display only).
+
+- **Where.** In `Avatar`, the player's profile system, beside the look: its name and the count of its changes. The Cobbles
+  of a paid change are debited through `Setup.spend_cobbles` (the reason `'RENAME'`), as an item's, inside the same call: a
+  short balance reverts the whole rename. `Setup` is unchanged to the felt (51,026 CASM felts, 62.3 %): it is past P-64's 50 %
+  review point, and `Avatar` already is an allowlisted spender.
+- **The shape** (`contracts/src/avatar/name.cairo`, `name_key`; the owner's asks of 2026-11-07, second round): a `ByteArray` of
+  UTF-8, 3 to 15 characters (code points; 60 bytes at most), within the name plate's 15. The letters and digits of any script
+  (Latin with its accents, Chinese, Cyrillic, Arabic, Devanagari, ...), and single spaces and hyphens between words. The chain
+  refuses what could hide a name or show nothing: invalid UTF-8; an ASCII sign; a space or a hyphen first, last or beside another;
+  controls, the other spaces, zero-width and direction marks, fillers, punctuation, symbols, emoji, private use, fullwidth ASCII;
+  the combining accents of Latin, Greek and Cyrillic (the client sends composed text, NFC); and Latin, Greek and Cyrillic letters
+  mixed in one name (their lookalikes: "bаl7hazar" with a Cyrillic а). Which characters are letters (Unicode's letter, mark and
+  number classes) is the client's to check (`isPlayerName`): the chain's list is coarser.
+- **Unique, whatever its case.** `Avatar` keeps one player per key (`name_owners`), the poseidon hash of the name's characters
+  with the case of ASCII, Latin-1, Latin Extended-A, Greek and Cyrillic folded: "Élodie" and "ÉLODIE" are one name. The key of a
+  player's name is kept too (`name_keys`), so a rename frees it without reading the name again. A name a player leaves is free for
+  others at once. A player may change the case of its own name (a change like another: it costs, after the first). The chain
+  cannot read the Cartridge usernames: the client asks the indexer (`GET /v1/names/{name}`) before it sends, and refuses a name
+  another player shows as its username. Not covered: two names of different scripts that look alike as a whole (an all-Cyrillic
+  name drawn as a Latin one), and the case of the scripts not folded (Armenian, Georgian).
+- **The price** is a stored value the owner sets (`set_rename_price`, not 0), as the catalogue's prices are: 50 at deployment
+  (`FRESH_AVATAR_RENAME_PRICE` in `scripts/deploy.sh`). Without a price set, only a first change is possible
+  (`'Avatar: rename not priced'`). The call carries the price the player confirmed (`max_cobbles`): an owner's change between
+  the player's read and the rename never charges more.
+
+| Call | Who | Checks | Effects | Event |
+|---|---|---|---|---|
+| `set_rename_price(cobbles)` | owner | not 0 (`'Avatar: invalid rename price'`) | `rename_price` | `RenamePriceSet` |
+| `rename(name: ByteArray, max_cobbles)` | the player, for itself | `name_key` (`'Avatar: invalid name'`); not its current name (`'Avatar: same name'`, the name read only when the keys match); its key held by nobody or itself (`'Avatar: name taken'`); a later change priced (`'Avatar: rename not priced'`), at most `max_cobbles` (`'Avatar: price above max'`) | the key it left freed, the new key held and kept, the name, the count + 1, then `Setup.spend_cobbles` for a paid change (`'Setup: not enough cobbles'` reverts it all) | `Renamed`; `Setup`'s `CobblesSpent` when paid |
+
+Views: `name(player_id)` (a `ByteArray`; empty: none set), `renames(player_id)`, `rename_price()`, `name_owner(name)` (the player
+holding it in any case; 0: free, or not a name). `Renamed` carries `player_id` (key), `name` (a `ByteArray`), `cobbles` (0 for the
+first) and `count`.
+
+- **Client.** `@paved/chain`: `NameViews` (`playerName`, `renameCount`, `renamePrice`, `nameOwner`) on `RpcGameViews` and
+  `FakeGameViews`, `PavedWriter.rename` (the name sent as a `ByteArray`, the codec's `byteArrayFelts`; the count, the price, the
+  holder and the current name read again inside the send), its refusals (`RenameRefusedError`), a session policy; the rules
+  (`nameKey`, the contract's `name_key` code point for code point; `isPlayerName`, with Unicode's letter classes and NFC;
+  `normalizeName`). The indexer and the app hold copies of the rules, kept equal by their tests. The app: the profile's pencil
+  opens the name's view in the Profile drawer (`containers/rename-view.tsx`), its reads and write `data/rename.ts`; the profile
+  shows the name set on chain first (`usePlayerName`), else the indexer's, else the wallet's.
+- **Indexer.** `Renamed` from an optional `avatar` source (its other events never fetched), table `renames` (schema 21): a
+  name set on chain wins over the Cartridge username wherever a name is served. `docs/architecture/indexer.md`, "As built
+  (PLAYER-RENAME)".
+- **The mock** keeps the name in its ledger: the drawn name of a new player (#926) is not a change, so the first rename is free.
+- **Tests**: `paved::tests::avatar::` (strict UTF-8; the shape's vectors in Chinese, accented Latin, Cyrillic, with spaces and
+  hyphens; what could hide a name; the case folding; the price owner-only and never 0, the first change free, a later one
+  debited, never above the confirmed price, refused without a price, invalid or the same name, one player per name in any case,
+  a name left free at once, a fuzz of renames by two players); gas z44 (a first rename of 12 characters, 3,471,914) and z45 (a
+  later one of 15 characters with spaces, paid, 4,628,636) in `contracts/tests/gas.cairo`: the UTF-8 check, the key's hash and
+  the `ByteArray`'s storage. A rename is rare (a daily spawn is about 19 million).
+- **Size**: `Avatar` 8,405 Sierra, 18,854 CASM felts (23.0 % of the Starknet cap), 54,874 under the P-44 cap (73,728); 10,201
+  at the last measure (`class-headroom.md`, "After PVP-ATTACKS").
+- **Audit.** `rename` debits only its caller, only the price after the first change, and only once per change: the count is
+  written before the debit, in the same call. A player's key is kept (`name_keys`) and freed only when it is not the new one, so
+  a player changing its own name's case never collides with itself. The UTF-8 is decoded strictly (no overlong form, no
+  surrogate, nothing past U+10FFFF), and a name is at most 60 bytes, so its check is bounded.

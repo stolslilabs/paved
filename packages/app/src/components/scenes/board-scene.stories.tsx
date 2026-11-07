@@ -329,6 +329,37 @@ export const StoryCoachDiscard: Story = {
   },
 };
 
+/** A Story level's coach on the placement, the tile on a cell (Tutorial 1, TILE-ACTIONS): the tile's Confirm, up and right of it, ringed. */
+export const StoryCoachPlace: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, CHOSEN),
+    bubble: { ...inHand(HAND.orientation, CHOSEN).bubble!, coach: "place" },
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 1: First stone",
+    coach: "place",
+    notices: <StoryCoach tip="Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." onDismiss={fn()} />,
+  },
+};
+
+/** A Story level's coach on the discard, the tile on a cell (Tutorial 3, TILE-ACTIONS): the trash down and right of the tile ringed. */
+export const StoryCoachDiscardOnTile: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, CHOSEN),
+    bubble: { ...inHand(HAND.orientation, CHOSEN).bubble!, coach: "discard", discardCost: 0 },
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: "Tutorial 3: Not this one",
+    coach: "discard",
+    score: 0,
+    notices: <StoryCoach tip="This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." onDismiss={fn()} />,
+  },
+};
+
 /** A Story level's end over its board (#593): the stars fill, then the score and the points short of the next star; Replay (the last level: no Next). */
 export const StoryEndOnBoard: Story = {
   args: {

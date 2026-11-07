@@ -827,3 +827,17 @@ Measured with `scripts/class-sizes.sh` (scarb 2.20.1 through the machine's shim,
 - `Village` gains the view `parcel_of`, the attack's snapshot of a territory: 15,709 under the P-44 cap.
 - Every other class is unchanged to the felt (`Challenge` 69,494, `Story` 58,837, `Setup` 49,984, `Rewards` 10,771,
   `Avatar` 10,201).
+
+## After PLAYER-RENAME (the player's name on Avatar)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, release, the Mac, 2026-11-07, `/usr/bin/time -l`, peak RSS 4.14 GB).
+
+| Class | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap |
+|---|---:|---:|---:|---:|
+| `Avatar` | 8,405 | 18,854 | +8,653 (10,201 at the last measure, "After PVP-ATTACKS") | 23.0 % |
+| `Setup` | 22,475 | 51,026 | unchanged by this change | 62.3 % |
+
+- `Avatar` gains `IAvatarName` (`set_rename_price`, `rename`, the views `name`, `renames`, `rename_price`, `name_owner`), the
+  name's check (`avatar::name`: strict UTF-8, the allowed characters, the case folding, the key's hash) and two events: 54,874
+  CASM felts under the P-44 cap (73,728). The name went in
+  `Avatar` rather than in `Setup`, which is past P-64's 50 % review point; `Avatar` pays through `Setup.spend_cobbles` as before.

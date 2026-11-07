@@ -1,4 +1,4 @@
-import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter } from "@paved/chain";
+import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter, RenameRequest } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
@@ -41,6 +41,11 @@ export const MOCKED_GAME_READS = [
   "avatarItems",
   "ownedAvatarItems",
   "avatar",
+  // The player's name (PLAYER-RENAME): the ledger's, drawn (#926) or chosen
+  "playerName",
+  "renameCount",
+  "renamePrice",
+  "nameOwner",
   "village",
   "villageCells",
   "villageTiles",
@@ -78,7 +83,7 @@ export const MOCKED_GAME_READS = [
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewMint", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance", "quote", "guardRate", "router", "day", "terms"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers (`mint`: the faucet; `build`, `discard`, `surrender`, `spawnFree`: the games, #927). */
-export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "claimWeeklyMilestone", "claimTutorialStep", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree", "claimTutorial"] as const;
+export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "claimWeeklyMilestone", "claimTutorialStep", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "rename", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree", "claimTutorial"] as const;
 
 /** The hash prefix of the mock's receipts ("mock"): `receipt` answers them, never the node. */
 const MOCK_HASH = "0x6d6f636b";
@@ -187,6 +192,8 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     // The writer's signature (`buyAvatarItem(request, views)`): the item is the ledger's, read inside its own send.
     buyAvatarItem: (request: BuyAvatarItemRequest) => writes.buyAvatarItem(request),
     setAvatar: writes.setAvatar,
+    // The writer's signature (`rename(request, views)`): the ledger reads its own count, price and names.
+    rename: (request: RenameRequest) => writes.rename(request),
     foundVillage: writes.foundVillage,
     // The writer's signatures (`buyParcel(request, views)`, `openReward(views)`): the ledger reads its own village.
     buyParcel: (request: BuyParcelRequest) => writes.buyParcel(request),

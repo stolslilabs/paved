@@ -43,7 +43,11 @@ describe("PlayerAvatar (#624)", () => {
 describe("ProfileSheet (#624)", () => {
   it("connected: the name and its pencil, the address a tap copies, the figures, the actions; no Disconnect (Settings')", async () => {
     const onCopy = vi.fn(async () => {});
-    const onEditName = vi.fn();
+    const renameView = vi.fn((onBack: () => void) => (
+      <button type="button" onClick={onBack}>
+        Leave the name's view
+      </button>
+    ));
     const onEditAvatar = vi.fn();
     const onOpenLeague = vi.fn();
     const onOpenTiles = vi.fn();
@@ -55,7 +59,7 @@ describe("ProfileSheet (#624)", () => {
           onOpenChange={() => {}}
           state={PROFILE.connected}
           onCopy={onCopy}
-          onEditName={onEditName}
+          renameView={renameView}
           onEditAvatar={onEditAvatar}
           onOpenLeague={onOpenLeague}
           onOpenTiles={onOpenTiles}
@@ -66,8 +70,11 @@ describe("ProfileSheet (#624)", () => {
     const sheet = await screen.findByRole("dialog", { name: "Profile" });
     expect(within(sheet).getByRole("heading", { name: "Profile" })).toBeInTheDocument();
     expect(within(sheet).getByText("bal7hazar")).toBeInTheDocument();
+    // PLAYER-RENAME: the pencil opens the name's view in the drawer, in place of the profile; its Back returns.
     await userEvent.click(within(sheet).getByRole("button", { name: "Edit name" }));
-    expect(onEditName).toHaveBeenCalledOnce();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Leave the name's view" }));
+    expect(renameView).toHaveBeenCalled();
+    expect(within(sheet).getByRole("button", { name: "Edit name" })).toBeInTheDocument();
     // The mockup's tiles, in its order (PROFILE-DRAWER).
     expect(Array.from(sheet.querySelectorAll("[data-slot=profile-action]"), (b) => b.textContent)).toEqual(["Battle logs", "Avatar", "Tiles", "Invite"]);
     await userEvent.click(within(sheet).getByRole("button", { name: "Tiles" }));
@@ -190,6 +197,8 @@ describe("ProfileSheet (#624)", () => {
     const sheet = await screen.findByRole("dialog");
     expect(Array.from(sheet.querySelectorAll("[data-slot=profile-action]"), (b) => b.textContent)).toEqual(["Avatar"]);
     expect(within(sheet).queryByRole("button", { name: "Battle logs" })).toBeNull();
+    // PLAYER-RENAME: no name's view given and no app sources to read one: no pencil.
+    expect(within(sheet).queryByRole("button", { name: "Edit name" })).toBeNull();
   });
 
   it("the HUD's drawer (PROFILE-DRAWER): on a phone a full page with Back, from `tablet` a side panel with the red cross; its end at the screen's foot", async () => {

@@ -37,13 +37,13 @@ import { useAppNavigate, useUpTo } from "../ref";
 
 /**
  * The coach marks of the levels that introduce a control (#546), besides the tip of every level's intro (#721): the coach
- * mark names the control, the board rings it. The placement's ring ("place") is on the bubble's Validate, on the tile (#568);
- * the discard's on the trash, the tile stack's or, with the tile on a cell, the bubble's (#606); the deck's on the tile stack
+ * mark names the control, the board rings it. The placement's ring ("place") is on the tile's Confirm, up and right of it (#568,
+ * TILE-ACTIONS); the discard's on the trash, the tile stack's or, with the tile on a cell, the one down and right of the tile (#606); the deck's on the tile stack
  * (1-5 opens it, 1-11 plans with it); the rotate and cancel tip has no ring. Keyed by `campaign-level`.
  */
 export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: string }>> = {
   "1-1": { target: "place", tip: "Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." },
-  "1-2": { target: null, tip: "Tap a cell: the bubble on the tile turns it, or its cross takes it back. Then hold the check to place it." },
+  "1-2": { target: null, tip: "Tap a cell: the arrow by the tile turns it, the cross takes it back. Then hold the check to place it." },
   "1-3": { target: "discard", tip: "This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." },
   "1-4": { target: "discard", tip: "With points on the board, a discard takes 50 of them. Count what the next tile is worth first." },
   "1-5": { target: "deck", tip: "Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." },
