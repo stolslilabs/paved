@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { TRAIT_OPTIONS, type Trait } from "@paved/renderer";
 import { cn } from "../../lib/utils";
-import { AvatarStill } from "../elements/avatar-still";
+import { AvatarStill, useStillsUnavailable } from "../elements/avatar-still";
 import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { optionName, PART_TITLES, traitsOf, withPart, type AvatarOffer, type TraitIds } from "./avatar-types";
@@ -73,6 +73,8 @@ function OfferPill({ offer, tried }: { offer: AvatarOffer; tried: boolean }) {
  * the group (radio semantics), the draft's option checked.
  */
 export function AvatarSwatches({ part, draft, offers, buying, disabled, onPick }: AvatarSwatchesProps) {
+  // No still on this device (no WebGL): each card says its option's name instead of an empty disc (issue #1051).
+  const noStills = useStillsUnavailable();
   return (
     <div role="radiogroup" aria-label={PART_TITLES[part]} data-slot="avatar-swatches" className="grid grid-cols-3 gap-2">
       {TRAIT_OPTIONS[part].map((_, id) => {
@@ -96,15 +98,22 @@ export function AvatarSwatches({ part, draft, offers, buying, disabled, onPick }
               !selected && "drawer-tile",
             )}
           >
-            <span className="block shrink-0 overflow-hidden rounded-full" style={DISC}>
-              {/* On a plain ground, the trait and not the scene (the owner's ask of 2026-11-06); a backdrop's option shows its scene. */}
-              <AvatarStill
-                traits={traitsOf(withPart(draft, part, id))}
-                size={SWATCH_PX}
-                ground={part === "backdrop" ? "scene" : "plain"}
-                className={cn("size-full!", offer.kind === "off" && "opacity-50")}
-              />
-            </span>
+            {noStills ? (
+              // Two lines' height for every name, so the prices line up; the name in the card's ink (the dark one on the gold).
+              <span data-slot="avatar-swatch-name" className={cn("flex min-h-10 w-full items-center justify-center text-center text-sm leading-tight font-bold break-words", selected ? "text-background" : "text-foreground", offer.kind === "off" && "opacity-60")}>
+                {name}
+              </span>
+            ) : (
+              <span className="block shrink-0 overflow-hidden rounded-full" style={DISC}>
+                {/* On a plain ground, the trait and not the scene (the owner's ask of 2026-11-06); a backdrop's option shows its scene. */}
+                <AvatarStill
+                  traits={traitsOf(withPart(draft, part, id))}
+                  size={SWATCH_PX}
+                  ground={part === "backdrop" ? "scene" : "plain"}
+                  className={cn("size-full!", offer.kind === "off" && "opacity-50")}
+                />
+              </span>
+            )}
             <OfferPill offer={offer} tried={selected} />
             {/* The purchase on its way: the card dims and pulses (Buy shows the spinner). */}
             {buying === id && <span className="absolute inset-0 animate-pulse rounded-xl bg-background/60 motion-reduce:animate-none" aria-hidden />}
