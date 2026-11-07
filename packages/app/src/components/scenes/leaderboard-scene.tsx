@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import { formatInteger } from "@paved/game-core";
 import type { GuildPlace, GuildSummary, PlayerRanking } from "../../data/social-source";
@@ -79,19 +79,63 @@ const tabArt = (art: TabArt) =>
 /** An empty list's words, or the network's: on the drawer's carved surface (the friends' lists'). */
 const NOTE = "drawer-carved rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground";
 
+/** The side of the drawer's view the viewer's own row has left: above it (pinned at the body's top) or below it (pinned at the foot). */
+export type OutOfViewSide = "above" | "below";
+
 /**
- * Whether `el` is out of its drawer's view, not wholly in the scrolling body (`data-hud-drawer-body`): the viewer's own row, pinned at
- * the foot while it is. False without an element, or where no `IntersectionObserver` is (jsdom): the row counts as shown.
+ * Which side of the scrolling body (`data-hud-drawer-body`) an observed row has left, from an `IntersectionObserver` entry: null while
+ * 95 % of it or more shows; above when its top is above the body's top (`boundingClientRect` against `rootBounds`), below otherwise
+ * (and without the root's bounds).
  */
-function useOutOfView(el: HTMLElement | null): boolean {
-  const [out, setOut] = useState(false);
+export function outOfViewSide(entry: Pick<IntersectionObserverEntry, "isIntersecting" | "intersectionRatio" | "boundingClientRect" | "rootBounds">): OutOfViewSide | null {
+  if (entry.isIntersecting && entry.intersectionRatio >= 0.95) return null;
+  return entry.rootBounds && entry.boundingClientRect.top < entry.rootBounds.top ? "above" : "below";
+}
+
+/**
+ * The side of its drawer's view `el` is out of (`outOfViewSide`), or null while it is shown: the viewer's own row, pinned on that side
+ * while it is out. Null without an element, or where no `IntersectionObserver` is (jsdom): the row counts as shown.
+ */
+function useOutOfView(el: HTMLElement | null): OutOfViewSide | null {
+  const [side, setSide] = useState<OutOfViewSide | null>(null);
   useEffect(() => {
+    setSide(null);
     if (!el || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => setOut(!entry!.isIntersecting || entry!.intersectionRatio < 0.95), { root: el.closest("[data-hud-drawer-body]"), threshold: [0, 0.95] });
+    const root = el.closest<HTMLElement>("[data-hud-drawer-body]");
+    let out = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Several crossings can come at once: the last is the row's place now.
+        const next = outOfViewSide(entries[entries.length - 1]!);
+        out = next !== null;
+        setSide(next);
+      },
+      { root, threshold: [0, 0.95] },
+    );
     observer.observe(el);
-    return () => observer.disconnect();
+    // A jump from one side to the other (scrolled to the top at once) crosses no threshold: while out, each scroll reads the side again.
+    let frame = 0;
+    const onScroll = () => {
+      if (!out || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!out || !root) return;
+        const row = el.getBoundingClientRect();
+        const view = root.getBoundingClientRect();
+        const shown = Math.max(0, Math.min(row.bottom, view.bottom) - Math.max(row.top, view.top));
+        const next = outOfViewSide({ isIntersecting: shown > 0, intersectionRatio: row.height > 0 ? shown / row.height : 0, boundingClientRect: row, rootBounds: view });
+        out = next !== null;
+        setSide(next);
+      });
+    };
+    root?.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      root?.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
   }, [el]);
-  return el !== null && out;
+  return el === null ? null : side;
 }
 
 /** A list's states: still read (its skeletons), failed (Retry), empty, or its rows on the carved panel. */
@@ -132,6 +176,9 @@ function RankedList<T>({ title, read, empty, label, rows }: { title: string; rea
   );
 }
 
+/** The top pin's strip: the foot's near-black line turned over, along its bottom, where the list goes under it. */
+const TOP_PIN: CSSProperties = { boxShadow: "0 1px 0 var(--hud-outline)" };
+
 /** A row of a carved list: the near-black rule above every row but the first (the Guild members'). */
 const rowRule = (index: number) => cn("flex", index > 0 && "border-t border-border");
 
@@ -142,14 +189,17 @@ const rowRule = (index: number) => cn("flex", index > 0 && "border-t border-bord
  * show), Guilds (by score, the sum of their members' crowns), Alliances in its place, disabled, its carved "Soon" (`FooterTab`'s `soon`),
  * until the game has them, and Friends at the right end (the viewer among their friends, by the same crowns). Each tab a section title
  * with its count, then the ranking on a carved list, a row per place: the first three in the medals' colours, the viewer's own on the
- * Guild page's gold wash with its tag. While the viewer's row is out of view (or past the list's end), it is pinned at the foot over the
- * tabs: a tap brings it into view (past the list, opens their profile).
+ * Guild page's gold wash with its tag. While the viewer's row is out of view, it is pinned on the side it left (the owner's decision of
+ * 2026-11-07): at the top of the body, under the header, when it is above the view, the list scrolling under it; at the foot over the
+ * tabs when it is below, or past the list's end. A tap brings it into view (past the list, opens their profile).
  */
 export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, myGuild = null, myGuildPlace = null, unavailable = false, onOpenPlayer, onOpenGuild, open = true, onBack, returnFocus }: LeaderboardSceneProps) {
   const reduced = useReducedMotionConfig();
   // The viewer's own row in the list shown, observed while it is mounted.
   const [ownRow, setOwnRow] = useState<HTMLButtonElement | null>(null);
   const outOfView = useOutOfView(ownRow);
+  // Where the pinned row stands: at the body's top while the row is above the view; at the foot otherwise (below it, past the list).
+  let pinSide: OutOfViewSide = "below";
 
   // The players' list shown (Players or Friends) and the viewer's place in it.
   const ranked = tab === "players" ? players.data : tab === "friends" ? friends.data : null;
@@ -177,17 +227,38 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
   if (!unavailable && me && ranked) {
     const listed = me.place <= ranked.players.length;
     if (!listed || outOfView) pinned = <PlayerRankRow profile={me.profile} place={me.place} own onOpen={listed ? reveal : () => onOpenPlayer?.(me.profile.address)} />;
+    if (listed && outOfView) pinSide = outOfView;
   }
-  // The viewer's guild: while its row is out of view; past the list's end (its place in the whole ranking beyond it), always, a tap
-  // opening its page.
+  // The viewer's guild: while its row is out of view, on the side it left; past the list's end (its place in the whole ranking beyond
+  // it), always, at the foot, a tap opening its page.
   if (!unavailable && tab === "guilds" && guildList) {
     if (guildPlace >= 0) {
-      if (outOfView) pinned = <GuildRankRow guild={guildList[guildPlace]!} place={guildPlace + 1} own onOpen={reveal} />;
+      if (outOfView) {
+        pinned = <GuildRankRow guild={guildList[guildPlace]!} place={guildPlace + 1} own onOpen={reveal} />;
+        pinSide = outOfView;
+      }
     } else if (myGuildPlace && myGuildPlace.guild.id === myGuild && myGuildPlace.place > guildList.length) {
       const { guild, place } = myGuildPlace;
       pinned = <GuildRankRow guild={guild} place={place} own onOpen={() => onOpenGuild?.(guild.id)} />;
     }
   }
+  // The pin's strip (FOOTER-TABS' rule, the Vault's bill): on the body's charcoal, full width, the row carved as the list it stands for.
+  const pin = pinned && (
+    <div data-slot="ranking-pinned" data-side={pinSide === "above" ? "top" : "foot"} className="bg-secondary px-4 py-2">
+      <div className="drawer-carved flex rounded-xl">{pinned}</div>
+    </div>
+  );
+  // The body's top fade (`scroll-hint`, a mask on the scroller itself) would dim the top pin, drawn inside it: off while it shows, the
+  // list under the pin hidden by it anyway.
+  const pinnedOnTop = pinned !== null && pinSide === "above";
+  useLayoutEffect(() => {
+    const body = pinnedOnTop ? ownRow?.closest<HTMLElement>("[data-hud-drawer-body]") : null;
+    if (!body) return;
+    body.style.setProperty("--scroll-hint-start", "0px");
+    return () => {
+      body.style.removeProperty("--scroll-hint-start");
+    };
+  }, [pinnedOnTop, ownRow]);
 
   return (
     <HudDrawer
@@ -209,6 +280,15 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
         }}
         className="flex flex-col gap-3"
       >
+        {/* The top pin: a strip of no height stuck to the body's top (its padding and the tabs' gap taken back), the row drawn over the
+            list from it, full width; the list scrolls under it and the real row, coming back, shows where the pin stood. */}
+        <div data-slot="ranking-top" className="sticky -top-4 z-10 -mx-4 -mt-4 -mb-3 h-0">
+          {pinSide === "above" && (
+            <div style={TOP_PIN} className="absolute inset-x-0 top-0">
+              {pin}
+            </div>
+          )}
+        </div>
         {unavailable ? (
           <p className={NOTE}>Rankings are not on this network yet.</p>
         ) : (
@@ -247,13 +327,8 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
         )}
         <DrawerFooter>
           <div data-slot="ranking-footer" className="flex flex-col">
-            {/* The viewer's row over the tabs (FOOTER-TABS' rule, the Vault's bill): on the body's charcoal, full width, flush with the
-                bar, so the current tab hangs from it; the row carved as the list it stands for. */}
-            {pinned && (
-              <div data-slot="ranking-pinned" className="bg-secondary px-4 py-2">
-                <div className="drawer-carved flex rounded-xl">{pinned}</div>
-              </div>
-            )}
+            {/* The viewer's row over the tabs, below the view or past the list: flush with the bar, so the current tab hangs from it. */}
+            {pinSide === "below" && pin}
             <FooterTabsList aria-label="Ranking">
               {TABS.map(({ id, label, art, soon }) => (
                 <FooterTab key={id} value={id} label={label} soon={soon} art={tabArt(art)} />
