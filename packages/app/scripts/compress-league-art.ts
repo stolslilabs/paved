@@ -18,7 +18,10 @@
  * outlines), then put on the frames by one rule a part: the shields at 98% of the frame's height in their own proportions; the
  * plate's end caps kept and its middle sized to the width; the banner's plain cloth sized to the frame and its numeral (or Grand
  * Master's helmet), lifted off the drawn banner, laid over it unstretched at one size and place; the rims masked to their ring and
- * scaled so every hole is the same. Stored as lossless WebP (`cwebp -lossless -z 9 -exact`).
+ * scaled so every hole is the same. Stored as lossless WebP (`cwebp -lossless -z 9 -exact`). The rims redrawn half as thick on
+ * 2026-11-06 (the owner's ask): each master of 2026-11-01 remapped radially, its ring centred on the frame, its band from its own
+ * hole (0.664 of the width) to its own outer edge laid between the common hole of 0.804 and that edge, linearly, its inner edge
+ * moved out with it; past the outer edge nothing moves. Sampled 6x6 per pixel, bilinear on premultiplied colour (`RIM_HOLE`).
  *
  * Per copy: resized on the part's side and encoded as lossy WebP with its alpha (`cwebp`, libwebp 1.6.0 when these were written,
  * `-m 6 -sharp_yuv -alpha_q 100`, no metadata) at the quality of `QUALITY`. The encoder runs under `nice -n 10`. No package:

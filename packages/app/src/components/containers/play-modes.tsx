@@ -70,12 +70,13 @@ const GIFT_BOX: CSSProperties = { width: "4.75rem", height: "4.25rem" };
 /**
  * A mode's prize (the owner's asks of 2026-11-06, in place of the book's tags: "an open gift box with what it pays above it"): the HUD's
  * gift opened (`gift-open`, the red box with its gold ribbon, its lid lifted, light coming out) under the rewards' icons, fanned, each
- * bobbing in turn (still under reduced motion, `MotionConfig`). Named for a screen reader by its rewards.
+ * bobbing in turn (still under reduced motion, `MotionConfig`). Named for a screen reader by its rewards. It takes no tap
+ * (`pointer-events-none`): drawn above the card's stretched button, a tap on it reaches that button (#1041).
  */
 function RewardGift({ rewards }: { rewards: readonly Reward[] }) {
   const fan = FAN[rewards.length] ?? FAN[3]!;
   return (
-    <span role="img" aria-label={`Rewards: ${rewards.map((r) => REWARD_NAMES[r]).join(", ")}`} style={GIFT_BOX} className="relative ml-auto flex shrink-0 flex-col items-center justify-end">
+    <span role="img" aria-label={`Rewards: ${rewards.map((r) => REWARD_NAMES[r]).join(", ")}`} style={GIFT_BOX} className="pointer-events-none relative ml-auto flex shrink-0 flex-col items-center justify-end">
       <UiIcon name="gift-open" px={44} className="drawer-icon size-11" />
       <span className="absolute inset-x-0 top-0 flex justify-center">
         {rewards.map((reward, i) => (

@@ -8,7 +8,8 @@ import { leagueOf, type League, type LeagueId } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
 import { LeagueRim } from "../elements/league-rim";
-import { divisionOf, RIM_PORTRAIT, tierOf, type LeagueTier } from "../elements/league-standards";
+import { RIM_PORTRAIT } from "../elements/league-rim-geometry";
+import { divisionOf, tierOf, type LeagueTier } from "../elements/league-standards";
 import { PlayerAvatar, type AvatarPlayer } from "../elements/player-avatar";
 import { Plate, plateBareIconClass, PLATE_FIGURE, plateHudIconClass, plateHudIconPx, type PlateSize } from "../elements/plate";
 import { UiIcon } from "../elements/ui-icon";
@@ -113,18 +114,19 @@ export interface PlayerRimProps {
 /**
  * Where the crest's box starts, in % of the rim's width, so its painted left edge meets the rim's: each tier's art keeps its own
  * transparent margin (measured on the 256 px copies' opaque pixels, the crest's divisions averaged: within half a pixel at 104 px).
+ * Moved with the rim's left edge when the thinner rims of 2026-11-06 were centred on their frame (the same measure on the new copies).
  */
 const CREST_LEFT: Record<LeagueTier, number> = {
-  unranked: 0.65,
-  wood: 0.47,
+  unranked: -0.52,
+  wood: -1.09,
   iron: -1.14,
-  bronze: 0.02,
-  silver: -0.44,
-  gold: 0.65,
-  emerald: -0.79,
+  bronze: 0.81,
+  silver: 0.34,
+  gold: -0.91,
+  emerald: -2.74,
   diamond: -1.14,
-  master: -2.01,
-  grandmaster: -1.58,
+  master: -1.23,
+  grandmaster: -1.19,
 };
 
 export function PlayerRim({ crowns = 0, attacks, children, className }: PlayerRimProps) {

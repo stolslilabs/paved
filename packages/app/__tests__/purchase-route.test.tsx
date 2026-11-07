@@ -460,6 +460,17 @@ describe("/play/challenge: the game's stake", () => {
     expect(screen.queryByText("Your USDC balance cannot be read")).toBeNull();
   });
 
+  // #1041: the router matches the Challenge's route without regard to case or a trailing slash; the stake follows the matched
+  // route, not the path's text.
+  it.each(["/play/challenge/", "/PLAY/CHALLENGE", "/PLAY/CHALLENGE/", "/Play/Challenge?ref=0x77"])("%s opens the stake, not the modes", async (path) => {
+    const s = setup();
+    open(path, s);
+    expect(await screen.findByRole("button", { name: "Raise the stake" }, { timeout: slow(3000) })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Challenge" })).toBeInTheDocument();
+    await enabledPay();
+    expect(screen.queryByRole("heading", { name: "Ranked" })).toBeNull();
+  });
+
   it("without an economy, why and Retry, with Back", async () => {
     const s = setup();
     s.sources.economy = null;
