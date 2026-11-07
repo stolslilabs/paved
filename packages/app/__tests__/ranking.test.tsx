@@ -160,6 +160,12 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     const own = rows[3]!;
     expect(own).toHaveAttribute("data-own", "true");
     expect(own).toHaveClass("bg-primary/15");
+    // Its wash takes its place's shape in the list (the owner's rule of 2026-11-07): square between two rows, the list's
+    // corners on its first and last rows only.
+    const rounding = (row: HTMLElement) => [...row.classList].filter((c) => c.startsWith("rounded"));
+    expect(rounding(own)).toEqual(["rounded-none"]);
+    expect(rounding(rows[0]!)).toEqual(["rounded-none", "rounded-t-xl"]);
+    expect(rounding(rows.at(-1)!)).toEqual(["rounded-none", "rounded-b-xl"]);
     expect(within(own).getByText("You")).toBeInTheDocument();
     expect(rows.filter((r) => r.hasAttribute("data-own"))).toHaveLength(1);
     expect(drawer.querySelector("[data-slot=ranking-pinned]")).toBeNull();

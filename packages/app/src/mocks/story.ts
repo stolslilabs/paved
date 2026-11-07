@@ -22,7 +22,7 @@ export const STORY = {
   firstVisit: { progress: EMPTY_PROGRESS },
   /** Halfway through the Tutorial, with mixed stars: level 7 to play next. */
   inProgress: { progress: storyProgressOf({ index: 0, levels: 4, stars: 3 }, { index: 0, levels: 6, stars: 1 }) },
-  /** Eight Tutorial levels finished, Open Country in view: locked until the Tutorial is finished, 4 levels left. */
+  /** Eight Tutorial levels finished, Open Country in view: locked until the Tutorial is finished (4 levels left). */
   locked: { progress: storyProgressOf({ index: 0, levels: 8, stars: 2 }), campaignId: 2 },
   /** The Tutorial just finished: on this first visit since, Open Country and Dark Forest open, Open Country's card in view unlocks, once. */
   unlocking: { progress: storyProgressOf({ index: 0, levels: 12, stars: 2 }), justUnlocked: [2, 3] },

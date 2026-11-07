@@ -61,7 +61,8 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // A carousel: its track is wider than its window and the window clips it, by design (Embla).
   { story: /^ui-carousel--/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },
   { story: /^ui-carousel--/, kind: "overflow", element: 'div "DailyOne deck', why: "carousel track" },
-  // Story's campaign cards (#592): the same carousel, one card per view (STORY-PAGE), the others past the window, by design.
+  // Story's campaigns (#592): the same carousel, one campaign per view at the head of Story's view (STORY-PAGE), the others past the
+  // window, by design.
   // The same page among the page shells of HEADER-HEIGHT (#676), and framed in Play's drawer (STORY-PAGE: a view of it), whose body
   // (a ScrollRegion, `overflow-x: hidden`) clips the same track again.
   { story: /^(scenes-story--|scenes-play--story-|pages-headers--story-campaigns$|containers-pagesheet--(story-phone|story-wide|reduced-motion)$)/, kind: "clip", element: "div[carousel-content]", why: "carousel window" },

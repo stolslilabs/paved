@@ -13,6 +13,7 @@ import { UiIcon } from "../elements/ui-icon";
 import { FooterTab, FooterTabsList } from "../containers/footer-tabs";
 import { DrawerFooter, HudDrawer } from "../containers/hud-drawer";
 import { GuildRankRow, PlayerRankRow } from "../containers/leaderboard";
+import { listRowShape } from "../elements/list-row";
 
 /** The Leaderboard's tabs (`?tab=`); Alliances is shown, disabled, until the game has alliances. */
 export type LeaderboardTab = "players" | "guilds" | "friends";
@@ -165,7 +166,7 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
       const own = ranking.me !== null && ranking.me.place === i + 1;
       return (
         <li key={p.address} className={rowRule(i)}>
-          <PlayerRankRow ref={own ? setOwnRow : undefined} profile={p} place={i + 1} own={own} onOpen={() => onOpenPlayer?.(p.address)} />
+          <PlayerRankRow ref={own ? setOwnRow : undefined} profile={p} place={i + 1} own={own} onOpen={() => onOpenPlayer?.(p.address)} className={listRowShape(i, ranking.players.length)} />
         </li>
       );
     });
@@ -222,7 +223,7 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
                     const own = g.id === myGuild;
                     return (
                       <li key={g.id} className={rowRule(i)}>
-                        <GuildRankRow ref={own ? setOwnRow : undefined} guild={g} place={i + 1} own={own} onOpen={() => onOpenGuild?.(g.id)} />
+                        <GuildRankRow ref={own ? setOwnRow : undefined} guild={g} place={i + 1} own={own} onOpen={() => onOpenGuild?.(g.id)} className={listRowShape(i, list.length)} />
                       </li>
                     );
                   })

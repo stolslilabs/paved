@@ -63,15 +63,15 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
   it("/tutorial leads to Story mode, where only the first level is open", async () => {
     const router = createTestRouter("/tutorial");
     render(<App router={router} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
-    // STORY-PAGE: a view of Play's drawer, its section titles h3 under the drawer's "Story".
+    // STORY-PAGE: a view of Play's drawer, the campaign's name its h3 under the drawer's "Story", the Levels under it named by it.
     expect(await screen.findByRole("heading", { level: 3, name: "Tutorial" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/story");
     const tutorial = screen.getByRole("region", { name: "Tutorial" });
     expect(within(tutorial).getByRole("button", { name: /^Level 1, First stone$/ })).toBeEnabled();
     expect(within(tutorial).getByRole("button", { name: /^Level 2, Turn it around, locked$/ })).toBeDisabled();
     expect(tutorial.querySelector('[title="Turn it around"]')).not.toBeNull();
-    // The campaigns are cards, one in view (STORY-PAGE: the League's carousel); the locked one says what it needs, and the arrow
-    // brings it in view with its levels, locked.
+    // The campaigns one in view at the view's head (STORY-PAGE: the League's carousel, written on their picture); the locked one says
+    // what it needs, and the arrow brings it in view with its levels, locked.
     const cards = screen.getByRole("region", { name: "Campaigns" });
     const card = (id: number) => cards.querySelector(`article[data-campaign="${id}"]`);
     // Three campaigns, and no card announcing one to come (#721).
@@ -86,7 +86,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(within(cards).getByRole("article", { name: "Open Country" })).toHaveAttribute("data-status", "locked");
     await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
     const second = screen.getByRole("region", { name: "Open Country" });
-    expect(within(second).getByText("Locked")).toBeInTheDocument();
+    expect(within(cards).getByRole("article", { name: "Open Country" })).toHaveTextContent("Finish the Tutorial to open");
     expect(within(second).getByRole("button", { name: /^Level 1, .*, locked$/ })).toBeDisabled();
     expect(screen.queryByRole("region", { name: "Tutorial" })).toBeNull();
   });

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, type CSSProperties, type KeyboardEven
 import { useReducedMotionConfig } from "motion/react";
 import {
   PlanType,
-  campaignRequirement,
   campaignStars,
   campaignUnlocked,
   formatInteger,
@@ -14,17 +13,16 @@ import {
 import { cn } from "../../lib/utils";
 import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
 import { Notice } from "../elements/notice";
+import { listRowShape } from "../elements/list-row";
 import { PaintedStars } from "../elements/painted-stars";
-import { playArtSources } from "../elements/play-art";
 import { SectionTitle } from "../elements/section-title";
 import type { TileRenders } from "../elements/tile-render";
 import { UiIcon } from "../elements/ui-icon";
-import { CampaignCard, type CampaignStatus } from "../containers/campaign-card";
+import { CampaignHero, type CampaignStatus } from "../containers/campaign-hero";
 import { DrawerFooter } from "../containers/hud-drawer";
-import { ARROW, Arrow } from "../containers/league-carousel";
+import { Arrow } from "../containers/league-carousel";
 import { Button } from "../ui/button";
 import { Carousel, CarouselContent, CarouselItem, useCarouselSettled, type CarouselApi } from "../ui/carousel";
-import { CarouselDots } from "../ui/carousel-dots";
 
 export interface StorySceneProps {
   campaigns: readonly StoryCampaign[];
@@ -56,16 +54,24 @@ function statusOf(progress: StoryProgress, campaigns: readonly StoryCampaign[], 
 const ROW_RULE: CSSProperties = { borderTop: "1px solid color-mix(in oklab, var(--drawer-bevel) 45%, transparent)" };
 /** The level to play, its row: the Guild page's and the Leaderboard's own row's discreet gold wash, no ring. */
 const CURRENT = "bg-primary/15";
+/**
+ * The arrows on the picture's edges (the owner's ask of 2026-11-07, no dots): the League's thin arrow on a dark round, so it reads
+ * over any picture; dimmed at the ends.
+ */
+const EDGE_ARROW =
+  "pointer-events-auto absolute top-1/2 size-11 -translate-y-1/2 rounded-full bg-background/55 text-foreground backdrop-blur-sm hover:bg-background/75 hover:text-foreground";
 
 /**
  * Story mode (`/story`, #546, #592; STORY-PAGE: the Paved UX Book draws none, so the integrated pages' style, Play's and the
- * Leaderboard's above all): the body of Play's drawer, as the stake, "Story" on its header and its Back to the modes. Under the
- * Campaigns title the campaigns one per view (the League's carousel: a swipe, the thin arrows or the dots move through them; only the
- * one in view is in the accessibility tree), each a raised card with its picture (`CampaignCard`); under it, the chosen campaign's
- * levels on a carved list, a row per level: its number, its title (wrapping), its painted stars always, a locked one dimmed with the
- * painted lock in its number's place; a tap on an open row plays it again. The last level unlocked is the one to play (the owner's ask
+ * Leaderboard's above all): the body of Play's drawer, as the stake, "Story" on its header and its Back to the modes. At its head the
+ * campaigns one per view, each written on its picture from the header down, edge to edge, fading into the body (`CampaignHero`, the
+ * owner's ask of 2026-11-07: no card); a swipe or the thin arrows on the picture's edges move through them (the League's carousel, no
+ * dots; only the one in view is in the accessibility tree). Under it, the Levels of the chosen campaign on a carved list, a row per
+ * level: its number, its title (wrapping), its painted stars always, a locked one dimmed with the painted lock in its number's place; a
+ * tap on an open row plays it again; a row's wash and press layer take its place's shape in the list (square between two rows). A
+ * locked campaign says what opens it at the head only (the owner's ask of 2026-11-07: no box repeating it over its levels). The last level unlocked is the one to play (the owner's ask
  * of 2026-11-07: the player sees they progress): its row on the gold wash, and the gold Play in the drawer's footer (the Challenge's
- * Confirm's place), its number and title beside it. A locked campaign says in a carved box what it needs. A level opens once the one
+ * Confirm's place), its number and title beside it. A level opens once the one
  * before it is finished (1 star); every campaign after the Tutorial opens, from its level 1, once the Tutorial is finished (the
  * owner's rule of 2026-11-07). The star thresholds are never shown (#593).
  */
@@ -75,7 +81,7 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
   // One motion at a time (#615): the carousel opens on the chosen card without a scroll, and a card's unlock waits until
   // the track is at rest, so neither cuts the other.
   const settled = useCarouselSettled(api);
-  // Embla's second argument is `jump`: under reduced motion an arrow or a dot brings its card in view without a scroll.
+  // Embla's second argument is `jump`: under reduced motion an arrow brings its campaign in view without a scroll.
   const reduced = Boolean(useReducedMotionConfig());
   const campaign = campaigns.find((c) => c.id === chosen) ?? campaigns[0];
   const index = Math.max(0, campaigns.findIndex((c) => c.id === campaign?.id));
@@ -120,22 +126,14 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
   const [start] = useState(index);
   return (
     <div className="flex flex-col gap-4">
-      {storageOff && (
-        <Notice tone="warning" title="Storage is off">
-          This browser refuses local storage: your stars last until the page closes.
-        </Notice>
-      )}
-      <div className="flex flex-col gap-2">
-        <SectionTitle>
-          <img {...playArtSources("story", 42)} alt="" draggable={false} decoding="async" className="drawer-icon h-7 w-auto self-center" />
-          Campaigns
-        </SectionTitle>
-        <Carousel aria-label="Campaigns" tabIndex={0} setApi={setApi} opts={{ startIndex: start }} onKeyDownCapture={onKey} className="rounded-2xl outline-none">
+      {/* Edge to edge from the header: the body's gutters and top padding taken back. */}
+      <div className="relative -mx-4 -mt-4">
+        <Carousel aria-label="Campaigns" tabIndex={0} setApi={setApi} opts={{ startIndex: start }} onKeyDownCapture={onKey} className="outline-none">
           <CarouselContent>
             {campaigns.map((c, i) => {
               return (
-                <CarouselItem key={c.id} aria-label={c.name} aria-hidden={i === index ? undefined : true} inert={i !== index} className="pb-1">
-                  <CampaignCard
+                <CarouselItem key={c.id} aria-label={c.name} aria-hidden={i === index ? undefined : true} inert={i !== index}>
+                  <CampaignHero
                     id={c.id}
                     name={c.name}
                     summary={c.summary}
@@ -148,23 +146,29 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
                     renders={renders}
                     // Its unlock plays once in view and the track at rest (#615): a campaign opened with another waits for its turn.
                     paused={!settled || i !== index}
-                    className="mx-px"
                   />
                 </CarouselItem>
               );
             })}
           </CarouselContent>
         </Carousel>
-        <div className="flex items-center justify-center gap-2">
-          <Button variant="ghost" size="icon" className={ARROW} aria-label="Previous campaign" disabled={index === 0} onClick={() => go(index - 1)}>
-            <Arrow to="left" />
-          </Button>
-          <CarouselDots count={campaigns.length} current={index} onSelect={go} label={(i) => `Go to ${campaigns[i]!.name}`} aria-label="Go to a campaign" />
-          <Button variant="ghost" size="icon" className={ARROW} aria-label="Next campaign" disabled={index === last} onClick={() => go(index + 1)}>
-            <Arrow to="right" />
-          </Button>
+        {/* The arrows on the edges, at the middle of the picture's room (the hero's gutters and its 2:1 room). */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 px-4">
+          <div className="relative aspect-[2/1]">
+            <Button variant="ghost" size="icon" className={cn(EDGE_ARROW, "-left-3")} aria-label="Previous campaign" disabled={index === 0} onClick={() => go(index - 1)}>
+              <Arrow to="left" />
+            </Button>
+            <Button variant="ghost" size="icon" className={cn(EDGE_ARROW, "-right-3")} aria-label="Next campaign" disabled={index === last} onClick={() => go(index + 1)}>
+              <Arrow to="right" />
+            </Button>
+          </div>
         </div>
       </div>
+      {storageOff && (
+        <Notice tone="warning" title="Storage is off">
+          This browser refuses local storage: your stars last until the page closes.
+        </Notice>
+      )}
       {campaign && <CampaignLevels campaigns={campaigns} campaign={campaign} progress={progress} onLevel={onLevel} />}
     </div>
   );
@@ -172,29 +176,16 @@ export function StoryScene({ campaigns, progress, campaignId, justUnlocked = [],
 
 function CampaignLevels({ campaigns, campaign, progress, onLevel }: { campaigns: readonly StoryCampaign[]; campaign: StoryCampaign; progress: StoryProgress; onLevel?: StorySceneProps["onLevel"] }) {
   const open = campaignUnlocked(progress, campaigns, campaign);
-  const requirement = campaignRequirement(campaigns, campaign);
   const first = campaigns[0]?.name ?? "Tutorial";
-  const left = requirement.needed - requirement.held(progress);
   // The level to play: the last one unlocked (a level opens once the one before it is finished), never one behind it.
   const current = open ? [...campaign.levels].reverse().find((l) => levelUnlocked(progress, campaigns, campaign, l.id)) : undefined;
   return (
-    <section aria-labelledby={`campaign-${campaign.id}`} data-campaign={campaign.id} data-locked={!open || undefined} className="flex flex-col gap-2">
-      <SectionTitle id={`campaign-${campaign.id}`}>
+    // Named by the campaign's heading at the view's head (`CampaignHero`), the one in view.
+    <section aria-labelledby={`campaign-name-${campaign.id}`} data-campaign={campaign.id} data-locked={!open || undefined} className="flex flex-col gap-2">
+      <SectionTitle>
         <UiIcon name="tile-stack" px={28} className="drawer-icon size-7 self-center" />
-        {campaign.name}
+        Levels
       </SectionTitle>
-      {!open && (
-        <div data-slot="campaign-locked" className="drawer-carved flex items-center gap-3 rounded-xl px-3 py-2.5">
-          <UiIcon name="lock" px={40} className="drawer-icon size-10" />
-          <p className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-outline text-base leading-tight font-bold">Locked</span>
-            <span className="text-sm leading-snug font-semibold text-muted-foreground">
-              Finish every level of the {first} to open it:{" "}
-              <span className="numeric text-foreground">{formatInteger(left)}</span> {left === 1 ? "level" : "levels"} left.
-            </span>
-          </p>
-        </div>
-      )}
       <ol aria-label={`${campaign.name} levels`} className="drawer-carved flex flex-col rounded-xl">
         {campaign.levels.map((level, i) => {
           const unlocked = levelUnlocked(progress, campaigns, campaign, level.id);
@@ -212,7 +203,9 @@ function CampaignLevels({ campaigns, campaign, progress, onLevel }: { campaigns:
                 aria-label={`Level ${level.id}, ${level.title}${unlocked ? "" : ", locked"}${done ? `, ${done.stars} of 3 stars` : ""}`}
                 aria-current={isCurrent ? "step" : undefined}
                 className={cn(
-                  "state-layer flex min-h-14 w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none disabled:cursor-default",
+                  "state-layer flex min-h-14 w-full min-w-0 cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none disabled:cursor-default",
+                  // The list's shape (the owner's rule of 2026-11-07): rounded at the list's top and foot only, square between two rows.
+                  listRowShape(i, campaign.levels.length),
                   isCurrent && CURRENT,
                   !unlocked && "opacity-60",
                 )}
