@@ -24,7 +24,7 @@ import { parseUnits, withdrawFee } from "../src/components/containers/vault-form
 import type { DataSources, GameSigner } from "../src/data";
 import { queryKeys } from "../src/data/keys";
 import type { VaultWrites } from "../src/data/sources";
-import { exactUnits, positionAfter } from "../src/data/vault";
+import { exactUnits, positionAfter, vaultKeys } from "../src/data/vault";
 import { vaultWritesFor } from "../src/data/vault-client";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
@@ -236,6 +236,45 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     release();
     await userEvent.click(await action("Deposit"));
     await waitFor(() => expect(s.writes.deposit).toHaveBeenCalledWith(3n * P, { confirmedAmount: 3n * P }));
+  });
+
+  it("the quote gate: a shown quote whose refetch failed stays held through its Retry until the new quote is read", async () => {
+    const s = setup({ writes: { mint: async (shares) => ok([depositEvent(shares, shares)]) } });
+    let fail = false;
+    let pending = false;
+    let release: () => void = () => {};
+    const previewMint = s.economy.previewMint.bind(s.economy);
+    const reads = vi.spyOn(s.economy, "previewMint").mockImplementation(async (shares) => {
+      if (fail) throw new Error("node down");
+      if (pending) await new Promise<void>((resolve) => (release = resolve));
+      return previewMint(shares);
+    });
+    open(s);
+    await position();
+    await openTab("Deposit");
+    await userEvent.click(within(drawer()).getByRole("radio", { name: /vPAVED/ }));
+    await userEvent.type(field(/Amount to mint, in vPAVED/), "4");
+    await action("Mint");
+    // A later read of the same quote fails (a focus refetch): the old quote is kept by the cache, the action is held.
+    fail = true;
+    await queryClient.refetchQueries({ queryKey: vaultKeys.preview("mint", 4n * P) });
+    const title = await screen.findByText("The quote cannot be read", {}, { timeout: slow(8000) });
+    const mint = within(drawer()).getByRole("button", { name: "Mint" });
+    expect(mint).toBeDisabled();
+    // Retry on its way: still held, a tap sends nothing.
+    fail = false;
+    pending = true;
+    const before = reads.mock.calls.length;
+    await userEvent.click(within(title.closest("[role=alert]") as HTMLElement).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(reads.mock.calls.length).toBeGreaterThan(before));
+    expect(screen.getByRole("group", { name: "You pay" })).toHaveTextContent("…");
+    expect(mint).toBeDisabled();
+    await userEvent.click(mint);
+    expect(s.writes.mint).not.toHaveBeenCalled();
+    pending = false;
+    release();
+    await userEvent.click(await action("Mint"));
+    await waitFor(() => expect(s.writes.mint).toHaveBeenCalledWith(4n * P, { confirmedShares: 4n * P }));
   });
 
   it("not enough PAVED: a deposit above the wallet is refused before any send", async () => {
