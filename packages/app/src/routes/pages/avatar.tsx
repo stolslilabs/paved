@@ -58,15 +58,22 @@ export default function Page() {
   }
 
   const catalogue = read.data;
+  // The catalogue in (late after the opening, or read again): its offers are read at that instant, not at the opening's.
+  const [seenCatalogue, setSeenCatalogue] = useState(catalogue);
+  if (catalogue !== seenCatalogue) {
+    setSeenCatalogue(catalogue);
+    if (catalogue) setNow(nowSeconds());
+  }
   // While the drawer is open, a timer to the nearest seasonal end still ahead: the offers are read again at that instant.
   const deadline = open && catalogue ? nextEnd(catalogue.items, now) : null;
   useEffect(() => {
     if (deadline === null) return;
-    const delay = (deadline - now) * 1000;
+    // Measured against the clock, not `now` (the render may come later than it): an end already passed reads again at once.
+    const delay = Math.max(0, deadline * 1000 - Date.now());
     // At the end, `now` is at least the end (a timer a few ms early would leave the offer on); a far end, read again on the way.
     const timer = setTimeout(() => setNow(delay > MAX_DELAY ? nowSeconds() : Math.max(deadline, nowSeconds())), Math.min(delay, MAX_DELAY));
     return () => clearTimeout(timer);
-  }, [deadline, now]);
+  }, [deadline]);
   const saved = catalogue ? idsOfLook(catalogue.look) : null;
   const draft = changes ?? saved;
   // The saved look read again (a save's receipt, another device): a draft equal to it is no change any more.

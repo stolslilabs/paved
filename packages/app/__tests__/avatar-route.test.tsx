@@ -203,6 +203,27 @@ describe("/avatar: the creator", () => {
     expect(await screen.findByRole("radio", { name: "Feathered cap, not for sale" }, { timeout: slow(6000) })).toBeInTheDocument();
   });
 
+  it("a seasonal offer whose end passes before the catalogue arrives is off sale as soon as it shows (issue #1051)", async () => {
+    const c = chain();
+    seasonal(c, seconds() + 60);
+    // The catalogue's items held back past the drawer's opening.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const items = c.views.avatarItems.bind(c.views);
+    c.views.avatarItems = async (part: number) => {
+      await gate;
+      return items(part);
+    };
+    open(c, "/avatar?part=headwear");
+    await screen.findByRole("dialog", { name: "Avatar" }, { timeout: slow(5000) });
+    // Two minutes after the opening (the season ended a minute ago), the catalogue comes in.
+    const real = Date.now.bind(Date);
+    vi.spyOn(Date, "now").mockImplementation(() => real() + 120_000);
+    release();
+    expect(await screen.findByRole("radio", { name: "Feathered cap, not for sale" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /^Feathered cap, \d+ Cobbles$/ })).toBeNull();
+  });
+
   it("the category is the URL's: a link opens it, a tab replaces it", async () => {
     const c = chain();
     const { router } = open(c, "/avatar?part=beard");
