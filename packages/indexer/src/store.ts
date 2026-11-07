@@ -43,6 +43,8 @@ export type Config = {
   collection: string | undefined;
   /** Undefined for a deployment without `Arena` (#643): no attack is read. Optional for the configurations written before it. */
   arena?: string | undefined;
+  /** Undefined for a deployment without `Vault` (D-31): no claim of its USDC is read. Optional as `arena`. */
+  vault?: string | undefined;
   /** The first block indexed (the contracts' deployment block). */
   from: number;
   /** The chain id of the deployment file, as a canonical felt. */
@@ -52,18 +54,19 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "19";
+export const SCHEMA_VERSION = "20";
 
 /**
- * The sha256 of the four addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection when there is
- * one): the identity of a deployment. Account left it in schema 9 (D-25 (E)); Daily is named Challenge since schema 11 (D-23b).
+ * The sha256 of the addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection, Arena and Vault, each
+ * when there is one): the identity of a deployment. Account left it in schema 9 (D-25 (E)); Daily is named Challenge since
+ * schema 11 (D-23b); the Vault joined it in schema 20 (D-31).
  */
 export function deploymentHash(
-  config: Pick<Config, "challenge" | "setup" | "economy" | "collection" | "arena">,
+  config: Pick<Config, "challenge" | "setup" | "economy" | "collection" | "arena" | "vault">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.challenge, config.setup, config.economy, config.collection, config.arena]
+      [config.challenge, config.setup, config.economy, config.collection, config.arena, config.vault]
         .filter((address): address is string => address !== undefined)
         .map((address) => canonical(address))
         .join(","),
@@ -293,6 +296,17 @@ const SCHEMA = `
     PRIMARY KEY (attacker, id)
   );
   CREATE INDEX IF NOT EXISTS pvp_attacks_defender ON pvp_attacks (defender, opened_block);
+  -- The Vault's USDC claims (D-31, schema 20), one row per event at its chain position (a rewind is a delete by block): a
+  -- holder's own (Claimed, kind 'claim', paid to the account) and the owner's collect of a contract holder's (Collected, kind
+  -- 'collect', paid to recipient, the owner; recipient is NULL for a claim). account is the holder either way; amount is
+  -- decimal text (u256, USDC base units); tx_hash is the transaction's hash (66 characters).
+  CREATE TABLE IF NOT EXISTS vault_claims (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    tx_hash TEXT NOT NULL, account TEXT NOT NULL, kind TEXT NOT NULL, recipient TEXT, amount TEXT NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS vault_claims_account ON vault_claims (account, block, tx, idx);
   -- DayClosed: a day's mean, fixed at its first settlement.
   CREATE TABLE IF NOT EXISTS economy_days (
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
@@ -323,6 +337,7 @@ function normalize(config: Config): Config {
     economy: canonical(config.economy),
     collection: config.collection === undefined ? undefined : canonical(config.collection),
     arena: config.arena === undefined ? undefined : canonical(config.arena),
+    vault: config.vault === undefined ? undefined : canonical(config.vault),
     from: config.from,
     chainId: canonical(config.chainId),
   };
@@ -340,6 +355,7 @@ function metaOf(config: Config): Record<string, string> {
       economy: config.economy,
       collection: config.collection ?? null,
       ...(config.arena === undefined ? {} : { arena: config.arena }),
+      ...(config.vault === undefined ? {} : { vault: config.vault }),
     }),
   };
 }
@@ -516,7 +532,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { challenge: string; setup: string; economy: string; collection: string | null; arena?: string }
+    | { challenge: string; setup: string; economy: string; collection: string | null; arena?: string; vault?: string }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
@@ -1121,6 +1137,24 @@ export class Store {
             });
             break;
           }
+          case "Claimed":
+          case "Collected": {
+            // The Vault's USDC claims (D-31): a history, nothing to check against (the Vault's index is not indexed). The holder
+            // is not a player: it may never play.
+            const claim = event.name === "Claimed";
+            this.sql.insertVaultClaim.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              tx_hash: padded(raw.transaction),
+              account: padded(event.name === "Claimed" ? event.account : event.holder),
+              kind: claim ? "claim" : "collect",
+              recipient: event.name === "Collected" ? padded(event.recipient) : null,
+              amount: String(event.amount),
+              time: block.timestamp,
+            });
+            break;
+          }
           case "EconomySet":
           case "CollectionSet": {
             // Setup's wiring (D-25 (E)) against the deployment file: the file alone names the contracts that are read.
@@ -1201,6 +1235,7 @@ export class Store {
       this.sql.rewindXpGains.run(to);
       this.sql.rewindPvpAttacks.run(to);
       this.sql.unfinishPvpAttacks.run(to);
+      this.sql.rewindVaultClaims.run(to);
       this.sql.rewindSkinPurchases.run(to);
       this.sql.rewindCobbleSpends.run(to);
       this.sql.rewindSkinPrices.run(to);
@@ -1251,6 +1286,7 @@ export class Store {
     | "cobble_spends"
     | "xp_gains"
     | "pvp_attacks"
+    | "vault_claims"
     | "events"
     | "blocks",
     Row[]
@@ -1279,6 +1315,7 @@ export class Store {
       cobble_spends: all("SELECT * FROM cobble_spends ORDER BY block, tx, idx"),
       xp_gains: all("SELECT * FROM xp_gains ORDER BY block, tx, idx"),
       pvp_attacks: all("SELECT * FROM pvp_attacks ORDER BY attacker, id"),
+      vault_claims: all("SELECT * FROM vault_claims ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1555,6 +1592,11 @@ function statements(db: DatabaseSync) {
          finished_time = NULL
        WHERE finished_block > ?`,
     ),
+    insertVaultClaim: db.prepare(
+      `INSERT INTO vault_claims (block, tx, idx, tx_hash, account, kind, recipient, amount, time)
+       VALUES (:block, :tx, :idx, :tx_hash, :account, :kind, :recipient, :amount, :time)`,
+    ),
+    rewindVaultClaims: db.prepare("DELETE FROM vault_claims WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),

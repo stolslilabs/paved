@@ -75,6 +75,8 @@ export interface HeadAnswer extends Envelope {
     collection: string | null;
     /** Absent for a deployment without an Arena (#643): no attack is read. Appended in schema 19, only with one. */
     arena?: string;
+    /** Absent for a deployment without a Vault (D-31): no claim of its USDC is read. Appended in schema 20, only with one. */
+    vault?: string;
   };
   checks: {
     /** Quest and achievement definitions left out of every answer: a task total of 0 or a task id repeated (P-30). */
@@ -544,4 +546,46 @@ export interface PlayerClaimsAnswer extends Envelope {
   week: number | null;
   claims: CobbleClaim[];
   credits: CreditClaim[];
+}
+
+/**
+ * A claim of the Vault's USDC (D-31): the holder's own (`claim`, `Vault.claim`, paid to the holder) or the owner's collect of
+ * a contract holder's (`collect`, `Vault.collect`, paid to `recipient`, the owner). Both count in the Vault's
+ * `claimed_of(holder)`. Appended in schema 20.
+ */
+export interface VaultClaim {
+  kind: "claim" | "collect";
+  /** USDC base units, a decimal string (u256). */
+  amount: string;
+  /** Who a collect paid, `0x` and 64 hex digits; null for a claim (the holder itself). */
+  recipient: string | null;
+  /** The claim's position: the block, the transaction's index in it and the event's index in it. */
+  block: number;
+  tx: number;
+  idx: number;
+  /** The transaction's hash, `0x` and 64 hex digits. */
+  transaction_hash: string;
+  /** Time of the block of the claim. */
+  claimed_at: number;
+}
+
+/**
+ * A holder's claims of the Vault's USDC (`/v1/players/:id/vault/claims`, D-31), newest first, and its totals over every one
+ * at the served block (not the page's). The earned, claimed and claimable figures are the Vault's views (`earned_of`,
+ * `claimed_of`, `claimable_of`): `claimed_of` is `claimed` plus `collected`.
+ */
+export interface PlayerVaultClaimsAnswer extends Envelope {
+  player_id: string;
+  /** USDC base units of the holder's own claims, a decimal string ("0" for none). */
+  claimed: string;
+  /** How many claims of its own. */
+  count: number;
+  /** USDC base units the owner collected from the holder (a contract), a decimal string ("0" for none). */
+  collected: string;
+  /** How many collects. */
+  collected_count: number;
+  /** Both kinds, newest first. */
+  claims: VaultClaim[];
+  /** Pass as `before` for the next page: `<block>:<tx>:<idx>`; null on the last. */
+  next: string | null;
 }

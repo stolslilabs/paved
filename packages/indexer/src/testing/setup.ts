@@ -6,7 +6,7 @@
 import { Chain } from "../chain.ts";
 import { Indexer } from "../indexer.ts";
 import { Halt, Store } from "../store.ts";
-import { ARENA, CHAIN_ID, COLLECTION, CHALLENGE, ECONOMY, FakeNode, SETUP } from "./fake-node.ts";
+import { ARENA, CHAIN_ID, COLLECTION, CHALLENGE, ECONOMY, FakeNode, SETUP, VAULT } from "./fake-node.ts";
 
 export const CONFIG = {
   challenge: CHALLENGE,
@@ -48,6 +48,18 @@ export function indexerWithArena(node: FakeNode): Indexer {
     store: new Store(":memory:"),
     config,
     depth: 1000,
+  });
+}
+
+/** The same indexer for a deployment with a Vault (D-31): its USDC claims are read. `range` > 0 catches up by range at depth l1. */
+export function indexerWithVault(node: FakeNode, range = 0): Indexer {
+  const config = { ...CONFIG, vault: VAULT };
+  return new Indexer({
+    chain: new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, collection: COLLECTION, vault: VAULT }),
+    store: new Store(":memory:"),
+    config,
+    depth: range > 0 ? "l1" : 1000,
+    range,
   });
 }
 
