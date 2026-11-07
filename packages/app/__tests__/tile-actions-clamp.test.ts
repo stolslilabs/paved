@@ -89,28 +89,34 @@ const ROOMS: Record<string, (w: number) => BubbleAvoid[]> = {
 
 const clearAt = (p: Point, outline: Point[]) => actionsClearance({ "top-left": p, "top-right": p, "bottom-left": p, "bottom-right": p }, outline);
 /** How many buttons stand the gap clear of the tile. */
-const clearCount = (at: ActionPlaces, outline: Point[]) => ACTION_SIDES.filter((s) => clearAt(at[s], outline) >= ACTION_GAP_PX - 0.5).length;
+const clearCount = (at: ActionPlaces, outline: Point[]) => ACTION_SIDES.filter((s) => clearAt(at[s], outline) >= ACTION_GAP_PX - 1e-6).length;
 
 /**
- * The most buttons (up to four) the room outside the tile holds the gap clear of it and `ACTION_SPREAD_PX` apart: every set of the
- * clear places of an 8 px grid of the room, searched exhaustively.
+ * The most buttons (up to four) a `step` px grid of the room holds the gap clear of the tile and `ACTION_SPREAD_PX` apart: every set of
+ * its clear places, searched exhaustively. A lower bound of what the continuous room holds, independent of the layout's own search
+ * (which also places buttons off the grid, on the bounds and on one another's spread): the layout must do at least as well.
  */
-function mostOutside(outline: Point[], width: number, avoid: BubbleAvoid[]): number {
+function mostOutside(outline: Point[], width: number, avoid: BubbleAvoid[], step = 2): number {
   const room = { top: MARGIN_PX, bottom: 720 - MARGIN_PX };
   for (const a of avoid)
     if (a.rect.top + a.rect.height / 2 < 360) room.top = Math.max(room.top, a.rect.bottom + MARGIN_PX);
     else room.bottom = Math.min(room.bottom, a.rect.top - MARGIN_PX);
   const free: Point[] = [];
-  for (let x = MARGIN_PX + R; x <= width - MARGIN_PX - R; x += 8)
-    for (let y = room.top + R; y <= room.bottom - R; y += 8) if (clearAt({ x, y }, outline) >= ACTION_GAP_PX) free.push({ x, y });
+  for (let x = MARGIN_PX + R; x <= width - MARGIN_PX - R; x += step)
+    for (let y = room.top + R; y <= room.bottom - R; y += step) if (clearAt({ x, y }, outline) >= ACTION_GAP_PX) free.push({ x, y });
   let most = 0;
-  const grow = (from: number, taken: Point[]) => {
+  const taken: Point[] = [];
+  const grow = (from: number) => {
     most = Math.max(most, taken.length);
-    if (most === 4) return;
-    for (let i = from; i < free.length && most < 4; i++)
-      if (taken.every((q) => Math.hypot(free[i]!.x - q.x, free[i]!.y - q.y) >= ACTION_SPREAD_PX)) grow(i + 1, [...taken, free[i]!]);
+    for (let i = from; i < free.length && most < 4; i++) {
+      const p = free[i]!;
+      if (taken.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < ACTION_SPREAD_PX)) continue;
+      taken.push(p);
+      grow(i + 1);
+      taken.pop();
+    }
   };
-  grow(0, []);
+  grow(0);
   return most;
 }
 
@@ -143,7 +149,7 @@ describe("the gap kept close in (#1078)", () => {
         ]) {
           const outline = projectCell(10, width, 720, target);
           const at = layoutTileActions(outline, box, avoid);
-          expect(actionsClearance(at, outline), JSON.stringify(target)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 0.5);
+          expect(actionsClearance(at, outline), JSON.stringify(target)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 1e-6);
           onScreenClear(at);
           // Each still at its corner of the group: Cancel left of Confirm, not below Rotate.
           expect(at["top-left"].x).toBeLessThan(at["top-right"].x);
@@ -170,7 +176,7 @@ describe("the gap kept close in (#1078)", () => {
     const avoid = ROOMS.board!(375);
     const outline = projectCell(15, 375, 720, { x: 0, z: -1 }, Math.PI / 4);
     const at = layoutTileActions(outline, rect(0, 0, 375, 720), avoid);
-    expect(actionsClearance(at, outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 0.5);
+    expect(actionsClearance(at, outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 1e-6);
     for (const a of ACTION_SIDES)
       for (const b of ACTION_SIDES) if (a < b) expect(Math.hypot(at[a].x - at[b].x, at[a].y - at[b].y), `${a}/${b}`).toBeGreaterThanOrEqual(ACTION_SPREAD_PX);
     for (const side of ACTION_SIDES) {
@@ -182,6 +188,38 @@ describe("the gap kept close in (#1078)", () => {
     expect(Math.max(at["top-left"].x, at["bottom-left"].x)).toBeLessThanOrEqual(Math.min(at["top-right"].x, at["bottom-right"].x));
     expect(at["top-left"].y).toBeLessThanOrEqual(at["bottom-left"].y);
     expect(at["top-right"].y).toBeLessThanOrEqual(at["bottom-right"].y);
+  });
+
+  it("a narrow room by a turned tile: the four packed on its bounds, off any grid (the second review of #1078)", () => {
+    // 320 x 720, distance 19.5, the compass at 41.5 degrees: the room outside the tile a corner by the hand panel.
+    const avoid = ROOMS.board!(320);
+    const outline = projectCell(19.5, 320, 720, { x: -0.67, z: 0.55 }, (41.5 * Math.PI) / 180);
+    const at = layoutTileActions(outline, rect(0, 0, 320, 720), avoid);
+    expect(actionsClearance(at, outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX);
+    for (const a of ACTION_SIDES)
+      for (const b of ACTION_SIDES) if (a < b) expect(Math.hypot(at[a].x - at[b].x, at[a].y - at[b].y), `${a}/${b}`).toBeGreaterThanOrEqual(ACTION_SPREAD_PX);
+    for (const side of ACTION_SIDES) {
+      expect(at[side].x - R).toBeGreaterThanOrEqual(MARGIN_PX);
+      expect(at[side].x + R).toBeLessThanOrEqual(320 - MARGIN_PX);
+      for (const r of avoid) expect(meets(at[side], r.rect), side).toBe(false);
+    }
+  });
+
+  it("close in, poses drawn at random (seeded): no button on the tile where a 2 px grid of the room outside holds the four", () => {
+    let seed = 20261107;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let k = 0; k < 400; k++) {
+      const width = PHONES[Math.floor(rnd() * PHONES.length)]!;
+      const name = rnd() < 0.5 ? "board" : "home editor";
+      const avoid = ROOMS[name]!(width);
+      const pose = { distance: 10 + rnd() * 30, target: { x: (rnd() - 0.5) * 6, z: (rnd() - 0.5) * 6 }, deg: rnd() * 90 };
+      const outline = projectCell(pose.distance, width, 720, pose.target, (pose.deg * Math.PI) / 180);
+      const at = layoutTileActions(outline, rect(0, 0, width, 720), avoid);
+      const label = `${name} ${width} ${JSON.stringify(pose)}`;
+      for (const side of ACTION_SIDES) for (const a of avoid) expect(meets(at[side], a.rect), label).toBe(false);
+      if (actionsClearance(at, outline) >= ACTION_GAP_PX - 1e-6) continue;
+      expect(clearCount(at, outline), label).toBeGreaterThanOrEqual(mostOutside(outline, width, avoid));
+    }
   });
 
   it("close in, whatever the compass and the pan: the gap kept wherever the room outside the tile can hold the four", () => {
@@ -208,9 +246,9 @@ describe("the gap kept close in (#1078)", () => {
               }
               for (const a of ACTION_SIDES)
                 for (const b of ACTION_SIDES) if (a < b) expect(Math.hypot(at[a].x - at[b].x, at[a].y - at[b].y), label).toBeGreaterThanOrEqual(ACTION_SPREAD_PX - 0.5);
-              if (actionsClearance(at, outline) >= ACTION_GAP_PX - 0.5) continue;
-              // Some on the tile: only where the room outside it holds fewer, the most it holds found by an exhaustive search.
-              expect(clearCount(at, outline), label).toBeGreaterThanOrEqual(mostOutside(outline, width, avoid));
+              if (actionsClearance(at, outline) >= ACTION_GAP_PX - 1e-6) continue;
+              // Some on the tile: only where a 4 px grid of the room outside it holds no more (`mostOutside`; the random poses use 2 px).
+              expect(clearCount(at, outline), label).toBeGreaterThanOrEqual(mostOutside(outline, width, avoid, 4));
             }
       }
   });
@@ -225,7 +263,7 @@ describe("the gap kept close in (#1078)", () => {
     ];
     expect(actionsClearance(clampActions(tileActionPlaces(outline), { left: 8, right: 367, top: 8, bottom: 804 }), outline)).toBeLessThan(ACTION_GAP_PX);
     const at = layoutTileActions(outline, box, []);
-    expect(actionsClearance(at, outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 0.5);
+    expect(actionsClearance(at, outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 1e-6);
     for (const side of ACTION_SIDES) expect(at[side].x + R).toBeLessThanOrEqual(375 - MARGIN_PX + 0.5);
   });
 

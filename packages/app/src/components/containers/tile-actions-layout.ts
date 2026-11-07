@@ -336,7 +336,7 @@ function closeZoom(outline: readonly Point[], room: BubbleLimits): ActionPlaces 
     if (best) {
       const places = {} as ActionPlaces;
       for (const side of ACTION_SIDES) places[side] = { x: best.x + shape[side].x, y: best.y + shape[side].y };
-      if (actionsClearance(places, outline) >= ACTION_GAP_PX - 0.5 && inside(places, room)) return places;
+      if (actionsClearance(places, outline) >= ACTION_GAP_PX - 1e-6 && inside(places, room)) return places;
     }
   }
   return null;
@@ -346,8 +346,132 @@ function closeZoom(outline: readonly Point[], room: BubbleLimits): ActionPlaces 
 function clearOf(places: ActionPlaces, outline: readonly Point[]): number {
   return ACTION_SIDES.filter((s) => {
     const p = places[s];
-    return actionsClearance({ "top-left": p, "top-right": p, "bottom-left": p, "bottom-right": p }, outline) >= ACTION_GAP_PX - 0.5;
+    return actionsClearance({ "top-left": p, "top-right": p, "bottom-left": p, "bottom-right": p }, outline) >= ACTION_GAP_PX - 1e-6;
   }).length;
+}
+
+/** A curve the packing's critical places lie on: a segment, or a circle. */
+type Curve = { a: Point; b: Point } | { c: Point; r: number };
+
+/** Where two curves cross (the segments' ends included, the circles whole). */
+function crossings(p: Curve, q: Curve): Point[] {
+  if ("a" in p && "a" in q) {
+    const d1 = { x: p.b.x - p.a.x, y: p.b.y - p.a.y };
+    const d2 = { x: q.b.x - q.a.x, y: q.b.y - q.a.y };
+    const den = d1.x * d2.y - d1.y * d2.x;
+    if (Math.abs(den) < 1e-12) return [];
+    const ax = q.a.x - p.a.x;
+    const ay = q.a.y - p.a.y;
+    const t = (ax * d2.y - ay * d2.x) / den;
+    const u = (ax * d1.y - ay * d1.x) / den;
+    return t >= -1e-9 && t <= 1 + 1e-9 && u >= -1e-9 && u <= 1 + 1e-9 ? [{ x: p.a.x + t * d1.x, y: p.a.y + t * d1.y }] : [];
+  }
+  if ("c" in p && "a" in q) return crossings(q, p);
+  if ("a" in p && "c" in q) {
+    const d = { x: p.b.x - p.a.x, y: p.b.y - p.a.y };
+    const f = { x: p.a.x - q.c.x, y: p.a.y - q.c.y };
+    const A = d.x * d.x + d.y * d.y;
+    const B = 2 * (f.x * d.x + f.y * d.y);
+    const C = f.x * f.x + f.y * f.y - q.r * q.r;
+    const disc = B * B - 4 * A * C;
+    if (A < 1e-12 || disc < 0) return [];
+    const root = Math.sqrt(disc);
+    return [(-B - root) / (2 * A), (-B + root) / (2 * A)].filter((t) => t >= -1e-9 && t <= 1 + 1e-9).map((t) => ({ x: p.a.x + t * d.x, y: p.a.y + t * d.y }));
+  }
+  if ("c" in p && "c" in q) {
+    const dx = q.c.x - p.c.x;
+    const dy = q.c.y - p.c.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1e-9 || d > p.r + q.r || d < Math.abs(p.r - q.r)) return [];
+    const along = (p.r * p.r - q.r * q.r + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(0, p.r * p.r - along * along));
+    const mx = p.c.x + (dx * along) / d;
+    const my = p.c.y + (dy * along) / d;
+    return [
+      { x: mx - (dy * h) / d, y: my + (dx * h) / d },
+      { x: mx + (dy * h) / d, y: my - (dx * h) / d },
+    ];
+  }
+  return [];
+}
+
+/** The most nodes `criticalPacking`'s search visits. */
+const CRITICAL_SEARCH_NODES = 20_000;
+/** The slack `criticalPacking` keeps past each bound, screen px: its places rest on the bounds, so rounding never crosses one. */
+const CRITICAL_SLACK_PX = 0.05;
+
+/**
+ * Up to four button centres outside the tile, `clear` from its outline, inside the centres' rectangle `x0`..`x1` by `y0`..`y1`, each
+ * `ACTION_SPREAD_PX` from the others, found among the critical places of a tight packing: where two of the region's bounding curves
+ * cross (the rectangle's sides; the tile's sides pushed out by `clear` and the circles of that radius round its corners; the circle of
+ * `ACTION_SPREAD_PX` round each centre already placed). A packing pushed as far as it goes into a corner of the region rests on such
+ * crossings, so a narrow region that holds four is packed exactly here where a grid would miss it. A depth-first search, bounded.
+ */
+function criticalPacking(outline: readonly Point[], box: { x0: number; x1: number; y0: number; y1: number }, clear: number): Point[] {
+  const { x0, x1, y0, y1 } = box;
+  clear += CRITICAL_SLACK_PX;
+  const spread = ACTION_SPREAD_PX + CRITICAL_SLACK_PX;
+  const n = outline.length;
+  const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
+  const curves: Curve[] = [
+    { a: { x: x0, y: y0 }, b: { x: x1, y: y0 } },
+    { a: { x: x1, y: y0 }, b: { x: x1, y: y1 } },
+    { a: { x: x1, y: y1 }, b: { x: x0, y: y1 } },
+    { a: { x: x0, y: y1 }, b: { x: x0, y: y0 } },
+  ];
+  for (let i = 0; i < n; i++) {
+    const a = outline[i]!;
+    const b = outline[(i + 1) % n]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    curves.push({ c: a, r: clear });
+    if (len < 1e-9) continue;
+    let nx = (b.y - a.y) / len;
+    let ny = -(b.x - a.x) / len;
+    if (nx * (centre.x - a.x) + ny * (centre.y - a.y) > 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    curves.push({ a: { x: a.x + nx * clear, y: a.y + ny * clear }, b: { x: b.x + nx * clear, y: b.y + ny * clear } });
+  }
+  const ok = (p: Point) =>
+    p.x >= x0 - 1e-6 && p.x <= x1 + 1e-6 && p.y >= y0 - 1e-6 && p.y <= y1 + 1e-6 && !within(p, outline) && toOutline(p, outline) >= clear - 1e-6;
+  const snap = (p: Point) => ({ x: Math.min(Math.max(p.x, x0), x1), y: Math.min(Math.max(p.y, y0), y1) });
+  const base: Point[] = [];
+  for (let i = 0; i < curves.length; i++) for (let j = i + 1; j < curves.length; j++) for (const p of crossings(curves[i]!, curves[j]!)) if (ok(p)) base.push(snap(p));
+  let best: Point[] = [];
+  let nodes = 0;
+  const taken: Point[] = [];
+  const apart = (p: Point) => taken.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= spread - 1e-6);
+  const grow = (from: number) => {
+    if (taken.length > best.length) best = [...taken];
+    if (best.length === ACTION_SIDES.length || nodes >= CRITICAL_SEARCH_NODES) return;
+    // The places this set makes: its circles across the region's curves and across each other.
+    const made: Point[] = [];
+    for (let k = 0; k < taken.length; k++) {
+      const ring: Curve = { c: taken[k]!, r: spread };
+      for (const curve of curves) for (const p of crossings(ring, curve)) if (ok(p)) made.push(snap(p));
+      for (let m = k + 1; m < taken.length; m++) for (const p of crossings(ring, { c: taken[m]!, r: spread })) if (ok(p)) made.push(snap(p));
+    }
+    for (const p of made) {
+      if (best.length === ACTION_SIDES.length || nodes >= CRITICAL_SEARCH_NODES) return;
+      nodes++;
+      if (!apart(p)) continue;
+      taken.push(p);
+      grow(from);
+      taken.pop();
+    }
+    for (let i = from; i < base.length; i++) {
+      if (best.length === ACTION_SIDES.length || nodes >= CRITICAL_SEARCH_NODES) return;
+      nodes++;
+      const p = base[i]!;
+      if (!apart(p)) continue;
+      taken.push(p);
+      grow(i + 1);
+      taken.pop();
+    }
+  };
+  grow(0);
+  return best;
 }
 
 /** The grid step of `splitActions`' search, screen px. */
@@ -369,7 +493,8 @@ function steps(lo: number, hi: number, step: number): number[] {
  * `ACTION_GAP_PX` clear of the outline. The places are searched on a grid of the room. Each button in turn takes the free place
  * outside the tile that its rule prefers, apart from those taken. Three rules are tried: nearest where the clamp put it, nearest the
  * tile's centre, and farthest from it (which packs a narrow strip from its end). The one that puts the most outside is kept; when none
- * puts all four there, a bounded exhaustive search of the free places (every other one of the grid each way) looks for more. Any button left over takes the place in the room
+ * puts all four there, the packing is looked for exactly on the region's bounds (`criticalPacking`: a narrow corner holds four only
+ * so packed, off any grid), then by a bounded exhaustive search of the free places (every other one of the grid each way). Any button left over takes the place in the room
  * nearest where the clamp put it. The four are then named by their places on screen: the two on
  * the left are the left column (Cancel above Rotate), the two on the right the right one (Confirm above Discard). Null when no button
  * fits outside the tile: the tile covers the room.
@@ -394,7 +519,6 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
       if (i % 2 === 0 && j % 2 === 0) coarse.push(p);
     }),
   );
-  if (free.length === 0) return null;
   const n = outline.length;
   const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
   const dist = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y);
@@ -426,6 +550,10 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
     if (best.length === ACTION_SIDES.length) break;
   }
   if (best.length < ACTION_SIDES.length) {
+    const found = criticalPacking(outline, { x0, x1, y0, y1 }, clear);
+    if (found.length > best.length) best = found;
+  }
+  if (best.length < ACTION_SIDES.length) {
     const order = coarse.sort((p, q) => dist(q, centre) - dist(p, centre));
     let nodes = 0;
     const taken: Point[] = [];
@@ -442,6 +570,7 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
     };
     grow(0);
   }
+  if (best.length === 0) return null;
   const chosen = [...best];
   for (const side of ACTION_SIDES.slice(chosen.length)) {
     const p = pick(all, chosen, (q) => dist(q, clamped[side]));
@@ -477,7 +606,7 @@ export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid
     if (i > 0 && inside(at, room)) break;
     at = clampActions(free, room);
   }
-  if (outline.length > 2 && actionsClearance(at, outline) < ACTION_GAP_PX - 0.5) {
+  if (outline.length > 2 && actionsClearance(at, outline) < ACTION_GAP_PX - 1e-6) {
     const room = actionRoom(box, avoid, -1e6, 2e6);
     const group = closeZoom(outline, room);
     const split = group ? null : splitActions(outline, room, at);
