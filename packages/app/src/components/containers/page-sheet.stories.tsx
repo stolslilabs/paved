@@ -60,7 +60,13 @@ const sheet = (title: string, page: ReactNode, wide = false, under?: { page: Rea
   ...(wide ? WIDE_1440 : PHONE_375),
 });
 
-const story = <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onCampaign={fn()} onLevel={fn()} />;
+// Story is a view of the HUD drawer: its campaign's picture runs edge to edge by cancelling the drawer body's padding, so here it
+// sits in that same padding (the sheet's scroll has none).
+const story = (
+  <div className="px-4 pt-4">
+    <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onCampaign={fn()} onLevel={fn()} />
+  </div>
+);
 // In the sheet the packs show their own balances, the Cobbles and USDC, not the page's under them (#855: the packs' page).
 const packs = (
   <BalancesOf page="cobbles">
