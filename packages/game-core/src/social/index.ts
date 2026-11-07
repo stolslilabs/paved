@@ -5,6 +5,9 @@
 export { ONLINE_WINDOW_S, byPresence, isOnline } from "./presence";
 export { SEARCH_LIMIT, nameMatches, normalQuery, parsePlayerId, searchPlayers, wordStarts } from "./search";
 export type { Searchable } from "./search";
+// The players' ranking (LEADERBOARD-PAGE): by crowns, the points a guild's score sums; a player among their friends too.
+export { PLAYER_RANKING_LIMIT, comparePlayers, playerPlace, rankAmongFriends, rankPlayers } from "./ranking";
+export type { RankedPlayer } from "./ranking";
 export {
   EMPTY_GRAPH,
   FOLLOW_LIMIT,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ONLINE_WINDOW_S, SEARCH_LIMIT, isOnline, nameMatches, parsePlayerId, searchPlayers, wordStarts } from "../src";
+import { ONLINE_WINDOW_S, PLAYER_RANKING_LIMIT, SEARCH_LIMIT, isOnline, nameMatches, parsePlayerId, playerPlace, rankAmongFriends, rankPlayers, searchPlayers, wordStarts } from "../src";
 
 describe("the player search's words (#952)", () => {
   it("starts a word at the name's start, after a sign, at a capital after a small letter, and at digits", () => {
@@ -79,5 +79,44 @@ describe("who shows as online (#952, open point 4)", () => {
     expect(isOnline(1_000, 1_000)).toBe(true);
     expect(isOnline(1_000, 1_299)).toBe(true);
     expect(isOnline(1_000, 1_300)).toBe(false);
+  });
+});
+
+describe("the players' ranking (LEADERBOARD-PAGE)", () => {
+  const p = (address: string, crowns: number, level: number) => ({ address, crowns, level });
+
+  it("ranks by crowns, then by level, then by ID, whatever the ID's form", () => {
+    const players = [p("0x3", 100, 2), p("0x05", 300, 1), p("0x2", 100, 2), p("0x4", 100, 7), p("0x1", 0, 9)];
+    expect(rankPlayers(players).map((x) => x.address)).toEqual(["0x05", "0x4", "0x2", "0x3", "0x1"]);
+    expect(rankPlayers([p("0x10", 5, 1), p("0x0f", 5, 1)]).map((x) => x.address)).toEqual(["0x0f", "0x10"]);
+  });
+
+  it("keeps the first PLAYER_RANKING_LIMIT, and leaves the list given as it was", () => {
+    const players = Array.from({ length: PLAYER_RANKING_LIMIT + 5 }, (_, i) => p(`0x${(i + 1).toString(16)}`, i, 1));
+    const ranked = rankPlayers(players);
+    expect(ranked).toHaveLength(PLAYER_RANKING_LIMIT);
+    expect(ranked[0]!.crowns).toBe(PLAYER_RANKING_LIMIT + 4);
+    expect(players[0]!.crowns).toBe(0);
+    expect(rankPlayers(players, 2)).toHaveLength(2);
+  });
+
+  it("says a player's place past the limit too, or null for a player not in it", () => {
+    const players = Array.from({ length: PLAYER_RANKING_LIMIT + 5 }, (_, i) => p(`0x${(i + 1).toString(16)}`, i, 1));
+    expect(playerPlace(players, "0x1")).toBe(PLAYER_RANKING_LIMIT + 5);
+    expect(playerPlace(players, "0x0069")).toBe(1);
+    expect(playerPlace(players, "0xabc")).toBeNull();
+  });
+
+  it("ranks a player among their friends by the same order, all of them, the player once, and says their place", () => {
+    const friends = Array.from({ length: PLAYER_RANKING_LIMIT + 2 }, (_, i) => p(`0x${(i + 1).toString(16)}`, i * 10, 1));
+    const me = p("0x0abc", 15, 4);
+    const ranked = rankAmongFriends([...friends, p("0xabc", 15, 4)], me);
+    // Past the players' limit (the list is the player's own), the player counted once whatever their ID's form.
+    expect(ranked.players).toHaveLength(PLAYER_RANKING_LIMIT + 3);
+    expect(ranked.players.map((x) => x.address)).toEqual(rankPlayers([...friends, me], Infinity).map((x) => x.address));
+    expect(ranked.me).toEqual({ place: PLAYER_RANKING_LIMIT + 1, profile: me });
+    // No friend: nothing to rank against; no player: the friends alone.
+    expect(rankAmongFriends([], me)).toEqual({ players: [], me: null });
+    expect(rankAmongFriends(friends.slice(0, 2), null)).toEqual({ players: [friends[1], friends[0]], me: null });
   });
 });

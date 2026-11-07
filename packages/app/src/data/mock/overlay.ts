@@ -115,13 +115,15 @@ export function mockPool(ledger: MockLedger): PoolQuoter {
 }
 
 /**
- * The social source of the ledger (#952): the community's public profiles, the player search, the guilds (#953), the follows
- * (#954) and the messages (#955). No chain part lies beneath.
+ * The social source of the ledger (#952): the community's public profiles, the player search, the players' ranking (LEADERBOARD-PAGE),
+ * the guilds (#953), the follows (#954) and the messages (#955). No chain part lies beneath.
  */
 export function mockSocial(ledger: MockLedger): SocialSource {
   return {
     profile: (address) => ledger.publicProfile(address),
     searchPlayers: (query) => ledger.searchPlayers(query),
+    // The players by crowns (LEADERBOARD-PAGE): the ledger's, by game-core's `rankPlayers`.
+    playerRanking: (viewer) => ledger.playerRanking(viewer),
     // The follows, friends and blocks (#954): the ledger's, by game-core's rules.
     follows: {
       lists: (player) => ledger.followLists(player),

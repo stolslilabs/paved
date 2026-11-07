@@ -17,6 +17,8 @@ import { PVP_LEAGUE } from "../src/mocks/pvp";
 import { COBBLES, MISSIONS, PLAY, REFERRAL, SETTINGS, THEME, TILES, VAULT } from "../src/mocks/scenes";
 import { SHOP } from "../src/mocks/shop";
 import { ShopScene } from "../src/components/scenes/shop-scene";
+import { LeaderboardScene } from "../src/components/scenes/leaderboard-scene";
+import { LEADERBOARD } from "../src/mocks/ranking";
 
 /**
  * PAGES-SCROLL (#782, the owner's decisions of 2026-10-26): every page of the bar and the second-level pages
@@ -208,6 +210,22 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
     expect(scrollers).toEqual([]);
     for (let el: HTMLElement | null = last.parentElement; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
+  });
+
+  it("the Leaderboard draws its ranking in the HUD drawer's body (LEADERBOARD-PAGE), to the last row; its tabs at the drawer's foot, out of it", () => {
+    draw(<LeaderboardScene {...LEADERBOARD.playersInView} onBack={no()} />, false, "Ranking");
+    const drawer = screen.getByRole("dialog", { name: "Ranking" });
+    const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
+    expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
+    const rows = within(screen.getByRole("list", { name: "Players by crowns" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(LEADERBOARD.playersInView.players.data!.players.length);
+    expect(region).toContainElement(rows.at(-1)!);
+    const tabs = screen.getByRole("tablist", { name: "Ranking" });
+    expect(region).not.toContainElement(tabs);
+    expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(tabs);
+    const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
+    expect(scrollers).toEqual([]);
   });
 
   it("Tiles draws its stage, its skins and its 19 tiles in the HUD drawer's body (COLLECTION-PAGE), to the last tile", () => {

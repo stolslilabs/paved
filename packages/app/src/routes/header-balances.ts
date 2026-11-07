@@ -38,6 +38,7 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "chat/:tab": NONE,
   guild: NONE,
   friends: NONE,
+  ranking: NONE,
   referral: NONE,
   "settings/theme": COBBLES,
   "settings/credits": NONE,

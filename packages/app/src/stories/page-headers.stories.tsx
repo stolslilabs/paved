@@ -28,6 +28,8 @@ import { VaultScene } from "../components/scenes/vault-scene";
 import { ChatScene } from "../components/scenes/chat-scene";
 import { FriendsScene } from "../components/scenes/friends-scene";
 import { GuildScene } from "../components/scenes/guild-scene";
+import { LeaderboardScene } from "../components/scenes/leaderboard-scene";
+import { LEADERBOARD } from "../mocks/ranking";
 import { FRIENDS_SEARCH } from "../mocks/social";
 import { HEADER_BALANCES, hereOf } from "../routes/header-balances";
 import { PAGE_HEADER_STORIES } from "./page-headers";
@@ -71,6 +73,7 @@ export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> }
 export const Chat: Story = { render: () => <ChatScene /> };
 export const Guild: Story = { render: () => <GuildScene /> };
 export const Friends: Story = { render: () => <FriendsScene {...FRIENDS_SEARCH.idle} /> };
+export const Ranking: Story = { render: () => <LeaderboardScene {...LEADERBOARD.playersInView} /> };
 export const Settings: Story = { render: () => <SettingsScene {...SETTINGS.connected} /> };
 export const StoryCampaigns: Story = {
   name: "Story",

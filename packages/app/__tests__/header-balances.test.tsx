@@ -38,6 +38,7 @@ const TABLE: Record<string, readonly string[]> = {
   "chat/:tab": [],
   guild: [],
   friends: [],
+  ranking: [],
   play: [],
   story: [],
   settings: [],
