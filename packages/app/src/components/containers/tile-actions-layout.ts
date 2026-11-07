@@ -342,6 +342,118 @@ function closeZoom(outline: readonly Point[], room: BubbleLimits): ActionPlaces 
   return null;
 }
 
+/** How many of the buttons stand `ACTION_GAP_PX` clear of the outline. */
+function clearOf(places: ActionPlaces, outline: readonly Point[]): number {
+  return ACTION_SIDES.filter((s) => {
+    const p = places[s];
+    return actionsClearance({ "top-left": p, "top-right": p, "bottom-left": p, "bottom-right": p }, outline) >= ACTION_GAP_PX - 0.5;
+  }).length;
+}
+
+/** The grid step of `splitActions`' search, screen px. */
+const SPLIT_STEP_PX = 4;
+/** The most places `splitActions`' exhaustive search tries, so a camera frame stays cheap. */
+const SPLIT_SEARCH_NODES = 20_000;
+
+/** `lo` to `hi` by `step`, `hi` included. */
+function steps(lo: number, hi: number, step: number): number[] {
+  const out: number[] = [];
+  for (let v = lo; v < hi; v += step) out.push(v);
+  out.push(hi);
+  return out;
+}
+
+/**
+ * Close in, when no group fits beyond a single side of the tile (a turned tile whose corner splits the room in two): each button on
+ * its own, wholly in `room`, its centre `ACTION_SPREAD_PX` from the others, as many as the room outside the tile holds
+ * `ACTION_GAP_PX` clear of the outline. The places are searched on a grid of the room. Each button in turn takes the free place
+ * outside the tile that its rule prefers, apart from those taken. Three rules are tried: nearest where the clamp put it, nearest the
+ * tile's centre, and farthest from it (which packs a narrow strip from its end). The one that puts the most outside is kept; when none
+ * puts all four there, a bounded exhaustive search of the free places (every other one of the grid each way) looks for more. Any button left over takes the place in the room
+ * nearest where the clamp put it. The four are then named by their places on screen: the two on
+ * the left are the left column (Cancel above Rotate), the two on the right the right one (Confirm above Discard). Null when no button
+ * fits outside the tile: the tile covers the room.
+ */
+function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: ActionPlaces): ActionPlaces | null {
+  const clear = R + ACTION_GAP_PX;
+  const x0 = room.left + R;
+  const x1 = room.right - R;
+  const y0 = room.top + R;
+  const y1 = room.bottom - R;
+  if (x0 > x1 || y0 > y1) return null;
+  const all: Point[] = [];
+  const free: Point[] = [];
+  // The exhaustive search's places: every other one of the grid each way (8 px), so it stays within a frame.
+  const coarse: Point[] = [];
+  steps(x0, x1, SPLIT_STEP_PX).forEach((x, i) =>
+    steps(y0, y1, SPLIT_STEP_PX).forEach((y, j) => {
+      const p = { x, y };
+      all.push(p);
+      if (within(p, outline) || toOutline(p, outline) < clear) return;
+      free.push(p);
+      if (i % 2 === 0 && j % 2 === 0) coarse.push(p);
+    }),
+  );
+  if (free.length === 0) return null;
+  const n = outline.length;
+  const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
+  const dist = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y);
+  const rules: ((p: Point, side: ActionSide) => number)[] = [(p, side) => dist(p, clamped[side]), (p) => dist(p, centre), (p) => -dist(p, centre)];
+  const pick = (from: readonly Point[], taken: readonly Point[], score: (p: Point) => number) => {
+    let best: Point | null = null;
+    let bestScore = Infinity;
+    for (const p of from) {
+      if (taken.some((q) => dist(p, q) < ACTION_SPREAD_PX)) continue;
+      const v = score(p);
+      if (v < bestScore) {
+        bestScore = v;
+        best = p;
+      }
+    }
+    return best;
+  };
+  // The most places outside the tile, apart: the rules first, then, when they leave a button over, an exhaustive search (the
+  // farthest places from the tile's centre first, which pack a strip from its end), bounded.
+  let best: Point[] = [];
+  for (const rule of rules) {
+    const taken: Point[] = [];
+    for (const side of ACTION_SIDES) {
+      const p = pick(free, taken, (q) => rule(q, side));
+      if (!p) break;
+      taken.push(p);
+    }
+    if (taken.length > best.length) best = taken;
+    if (best.length === ACTION_SIDES.length) break;
+  }
+  if (best.length < ACTION_SIDES.length) {
+    const order = coarse.sort((p, q) => dist(q, centre) - dist(p, centre));
+    let nodes = 0;
+    const taken: Point[] = [];
+    const grow = (from: number) => {
+      if (taken.length > best.length) best = [...taken];
+      for (let i = from; i < order.length && best.length < ACTION_SIDES.length && nodes < SPLIT_SEARCH_NODES; i++) {
+        const p = order[i]!;
+        nodes++;
+        if (taken.some((q) => dist(p, q) < ACTION_SPREAD_PX)) continue;
+        taken.push(p);
+        grow(i + 1);
+        taken.pop();
+      }
+    };
+    grow(0);
+  }
+  const chosen = [...best];
+  for (const side of ACTION_SIDES.slice(chosen.length)) {
+    const p = pick(all, chosen, (q) => dist(q, clamped[side]));
+    if (!p) return null;
+    chosen.push(p);
+  }
+  const [a, b, c, d] = chosen.sort((p, q) => p.x - q.x || p.y - q.y) as [Point, Point, Point, Point];
+  const [tl, bl] = a.y <= b.y ? [a, b] : [b, a];
+  const [tr, br] = c.y <= d.y ? [c, d] : [d, c];
+  return { "top-left": tl, "top-right": tr, "bottom-left": bl, "bottom-right": br };
+}
+
 /**
  * Where the buttons stand around the tile whose outline on screen is `outline`, in `box`, clear of `avoid` (`data-bubble-avoid`):
  *
@@ -350,8 +462,10 @@ function closeZoom(outline: readonly Point[], room: BubbleLimits): ActionPlaces 
  *    panned far to one side brings its buttons back across, under the HUD it was not over (#1078);
  * 3. each button clamped into it (`clampActions`), the room tested again on where they ended;
  * 4. close in, where that clamp puts a button on the tile or nearer it than `ACTION_GAP_PX` (the tile larger than the room round it,
- *    or against an edge), the four together out of its nearest side the room shows (`closeZoom`), every part of the screen they
- *    avoid treated as across the whole width. When the tile covers the whole room there is no such place: the clamped ones stay.
+ *    or against an edge), the four together out of its nearest side the room shows (`closeZoom`), or, where no group fits beyond a
+ *    single side (a turned tile's corner splitting the room), each on its own, as many outside it as the room there holds
+ *    (`splitActions`); every part of the screen they avoid treated as across the whole width. When the tile covers the whole room
+ *    there is no such place: the clamped ones stay.
  */
 export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid: readonly BubbleAvoid[]): ActionPlaces {
   const free = tileActionPlaces(outline);
@@ -364,8 +478,11 @@ export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid
     at = clampActions(free, room);
   }
   if (outline.length > 2 && actionsClearance(at, outline) < ACTION_GAP_PX - 0.5) {
-    const fallback = closeZoom(outline, actionRoom(box, avoid, -1e6, 2e6));
-    if (fallback) at = fallback;
+    const room = actionRoom(box, avoid, -1e6, 2e6);
+    const group = closeZoom(outline, room);
+    const split = group ? null : splitActions(outline, room, at);
+    if (group) at = group;
+    else if (split && clearOf(split, outline) >= clearOf(at, outline)) at = split;
   }
   return at;
 }

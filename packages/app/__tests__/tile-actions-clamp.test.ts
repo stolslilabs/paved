@@ -8,6 +8,7 @@ import {
   ACTION_GAP_PX,
   ACTION_PX,
   ACTION_SIDES,
+  ACTION_SPREAD_PX,
   MARGIN_PX,
   actionsClearance,
   actionsSpan,
@@ -86,6 +87,33 @@ const ROOMS: Record<string, (w: number) => BubbleAvoid[]> = {
   ],
 };
 
+const clearAt = (p: Point, outline: Point[]) => actionsClearance({ "top-left": p, "top-right": p, "bottom-left": p, "bottom-right": p }, outline);
+/** How many buttons stand the gap clear of the tile. */
+const clearCount = (at: ActionPlaces, outline: Point[]) => ACTION_SIDES.filter((s) => clearAt(at[s], outline) >= ACTION_GAP_PX - 0.5).length;
+
+/**
+ * The most buttons (up to four) the room outside the tile holds the gap clear of it and `ACTION_SPREAD_PX` apart: every set of the
+ * clear places of an 8 px grid of the room, searched exhaustively.
+ */
+function mostOutside(outline: Point[], width: number, avoid: BubbleAvoid[]): number {
+  const room = { top: MARGIN_PX, bottom: 720 - MARGIN_PX };
+  for (const a of avoid)
+    if (a.rect.top + a.rect.height / 2 < 360) room.top = Math.max(room.top, a.rect.bottom + MARGIN_PX);
+    else room.bottom = Math.min(room.bottom, a.rect.top - MARGIN_PX);
+  const free: Point[] = [];
+  for (let x = MARGIN_PX + R; x <= width - MARGIN_PX - R; x += 8)
+    for (let y = room.top + R; y <= room.bottom - R; y += 8) if (clearAt({ x, y }, outline) >= ACTION_GAP_PX) free.push({ x, y });
+  let most = 0;
+  const grow = (from: number, taken: Point[]) => {
+    most = Math.max(most, taken.length);
+    if (most === 4) return;
+    for (let i = from; i < free.length && most < 4; i++)
+      if (taken.every((q) => Math.hypot(free[i]!.x - q.x, free[i]!.y - q.y) >= ACTION_SPREAD_PX)) grow(i + 1, [...taken, free[i]!]);
+  };
+  grow(0, []);
+  return most;
+}
+
 describe("the gap kept close in (#1078)", () => {
   for (const [name, avoidFor] of Object.entries(ROOMS))
     for (const width of PHONES) {
@@ -136,6 +164,56 @@ describe("the gap kept close in (#1078)", () => {
         onScreenClear(layoutTileActions(outline, box, avoid));
       });
     }
+
+  it("a turned tile whose corner splits the room in two: each button on its own outside it (the review of #1078)", () => {
+    // 375 x 720, distance 15, the compass at 45 degrees, the camera a unit up the board: the tile's top corner under the HUD.
+    const avoid = ROOMS.board!(375);
+    const outline = projectCell(15, 375, 720, { x: 0, z: -1 }, Math.PI / 4);
+    const at = layoutTileActions(outline, rect(0, 0, 375, 720), avoid);
+    expect(actionsClearance(at, outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 0.5);
+    for (const a of ACTION_SIDES)
+      for (const b of ACTION_SIDES) if (a < b) expect(Math.hypot(at[a].x - at[b].x, at[a].y - at[b].y), `${a}/${b}`).toBeGreaterThanOrEqual(ACTION_SPREAD_PX);
+    for (const side of ACTION_SIDES) {
+      expect(at[side].x - R).toBeGreaterThanOrEqual(MARGIN_PX);
+      expect(at[side].x + R).toBeLessThanOrEqual(375 - MARGIN_PX);
+      for (const r of avoid) expect(meets(at[side], r.rect), side).toBe(false);
+    }
+    // Named by their places: the left column left of the right one, each top above its bottom.
+    expect(Math.max(at["top-left"].x, at["bottom-left"].x)).toBeLessThanOrEqual(Math.min(at["top-right"].x, at["bottom-right"].x));
+    expect(at["top-left"].y).toBeLessThanOrEqual(at["bottom-left"].y);
+    expect(at["top-right"].y).toBeLessThanOrEqual(at["bottom-right"].y);
+  });
+
+  it("close in, whatever the compass and the pan: the gap kept wherever the room outside the tile can hold the four", () => {
+    for (const [name, avoidFor] of Object.entries(ROOMS))
+      for (const width of PHONES) {
+        const box = rect(0, 0, width, 720);
+        const avoid = avoidFor(width);
+        for (const distance of [10, 15, 20, 30])
+          for (const deg of [0, 15, 30, 45, 60, 75])
+            for (const target of [
+              { x: 0, z: 0 },
+              { x: 0, z: -1 },
+              { x: 1, z: 0 },
+              { x: -1.5, z: 1 },
+              { x: 2, z: -2 },
+            ]) {
+              const outline = projectCell(distance, width, 720, target, (deg * Math.PI) / 180);
+              const at = layoutTileActions(outline, box, avoid);
+              const label = `${name} ${width} d${distance} ${deg}deg ${JSON.stringify(target)}`;
+              for (const side of ACTION_SIDES) {
+                expect(at[side].x - R, label).toBeGreaterThanOrEqual(MARGIN_PX - 0.5);
+                expect(at[side].x + R, label).toBeLessThanOrEqual(width - MARGIN_PX + 0.5);
+                for (const a of avoid) expect(meets(at[side], a.rect), label).toBe(false);
+              }
+              for (const a of ACTION_SIDES)
+                for (const b of ACTION_SIDES) if (a < b) expect(Math.hypot(at[a].x - at[b].x, at[a].y - at[b].y), label).toBeGreaterThanOrEqual(ACTION_SPREAD_PX - 0.5);
+              if (actionsClearance(at, outline) >= ACTION_GAP_PX - 0.5) continue;
+              // Some on the tile: only where the room outside it holds fewer, the most it holds found by an exhaustive search.
+              expect(clearCount(at, outline), label).toBeGreaterThanOrEqual(mostOutside(outline, width, avoid));
+            }
+      }
+  });
 
   it("a small tile against the screen's side: the clamp would put a button on it, the four stand beside it instead", () => {
     const box = rect(0, 0, 375, 812);
