@@ -39,11 +39,13 @@ function TileActionsStory({ board = true, distance, offset, compass = 0, ...prop
     placeCamera(scene, target, [target[0], distance * Math.cos(PLAY_DEFAULT_POLAR_ANGLE), target[2] + distance * Math.sin(PLAY_DEFAULT_POLAR_ANGLE)]);
     scene.requestRender();
   }, [scene, distance, offset?.x, offset?.z, compass]);
-  // The tile's outline on screen, for the play functions that measure the gap.
+  // The tile's outline on screen, for the play functions that measure the gap: its cell in the renderer's grid, as the board hands
+  // it to the actions (`toGridSlot`), not the contract's coordinates.
   useEffect(() => {
     if (!scene) return;
+    const g = toGridSlot(CELL.x, CELL.y);
     const mark = () => {
-      const outline = scene.projectCellOutline(CELL.x, CELL.y);
+      const outline = scene.projectCellOutline(g.x, g.y);
       if (outline) document.body.dataset.tileOutline = JSON.stringify(outline.map(({ x, y }) => ({ x, y })));
     };
     mark();
@@ -134,6 +136,13 @@ async function gapOnScreen(canvasElement: HTMLElement): Promise<number> {
   await within(toolbar).findByRole("button", { name: "Cancel placement" }, { timeout: 15000 });
   const box = toolbar.getBoundingClientRect();
   const outline = JSON.parse(document.body.dataset.tileOutline ?? "[]") as Point[];
+  // The tile measured is the one on screen: an outline of four corners with an area, over the screen's left half (the camera on
+  // its right edge), never a far polygon of no size.
+  expect(outline).toHaveLength(4);
+  const area = Math.abs(outline.reduce((s, p, i) => s + p.x * outline[(i + 1) % 4]!.y - outline[(i + 1) % 4]!.x * p.y, 0)) / 2;
+  expect(area).toBeGreaterThan(box.width * box.height * 0.25);
+  const left = { x: box.width / 4, y: box.height / 2 };
+  expect(actionsClearance({ "top-left": left, "top-right": left, "bottom-left": left, "bottom-right": left }, outline)).toBeLessThan(0);
   let least = Infinity;
   for (const el of toolbar.querySelectorAll<HTMLElement>("[data-side]")) {
     const r = el.getBoundingClientRect();

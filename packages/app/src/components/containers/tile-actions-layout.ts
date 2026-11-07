@@ -350,6 +350,14 @@ function clearOf(places: ActionPlaces, outline: readonly Point[]): number {
   }).length;
 }
 
+/**
+ * A centre `p` inside one of `blocks`: the parts of the screen the buttons avoid, each grown by the margin and a button's half, so a
+ * centre on its edge puts the button's target `MARGIN_PX` clear of the part.
+ */
+function blocked(p: Point, blocks: readonly BubbleLimits[]): boolean {
+  return blocks.some((k) => p.x > k.left + 1e-6 && p.x < k.right - 1e-6 && p.y > k.top + 1e-6 && p.y < k.bottom - 1e-6);
+}
+
 /** A curve the packing's critical places lie on: a segment, or a circle. */
 type Curve = { a: Point; b: Point } | { c: Point; r: number };
 
@@ -407,7 +415,7 @@ const CRITICAL_SLACK_PX = 0.05;
  * `ACTION_SPREAD_PX` round each centre already placed). A packing pushed as far as it goes into a corner of the region rests on such
  * crossings, so a narrow region that holds four is packed exactly here where a grid would miss it. A depth-first search, bounded.
  */
-function criticalPacking(outline: readonly Point[], box: { x0: number; x1: number; y0: number; y1: number }, clear: number): Point[] {
+function criticalPacking(outline: readonly Point[], box: { x0: number; x1: number; y0: number; y1: number }, clear: number, blocks: readonly BubbleLimits[]): Point[] {
   const { x0, x1, y0, y1 } = box;
   clear += CRITICAL_SLACK_PX;
   const spread = ACTION_SPREAD_PX + CRITICAL_SLACK_PX;
@@ -433,8 +441,23 @@ function criticalPacking(outline: readonly Point[], box: { x0: number; x1: numbe
     }
     curves.push({ a: { x: a.x + nx * clear, y: a.y + ny * clear }, b: { x: b.x + nx * clear, y: b.y + ny * clear } });
   }
+  for (const k of blocks) {
+    const c = [
+      { x: k.left, y: k.top },
+      { x: k.right, y: k.top },
+      { x: k.right, y: k.bottom },
+      { x: k.left, y: k.bottom },
+    ];
+    for (let i = 0; i < 4; i++) curves.push({ a: c[i]!, b: c[(i + 1) % 4]! });
+  }
   const ok = (p: Point) =>
-    p.x >= x0 - 1e-6 && p.x <= x1 + 1e-6 && p.y >= y0 - 1e-6 && p.y <= y1 + 1e-6 && !within(p, outline) && toOutline(p, outline) >= clear - 1e-6;
+    p.x >= x0 - 1e-6 &&
+    p.x <= x1 + 1e-6 &&
+    p.y >= y0 - 1e-6 &&
+    p.y <= y1 + 1e-6 &&
+    !blocked(p, blocks) &&
+    !within(p, outline) &&
+    toOutline(p, outline) >= clear - 1e-6;
   const snap = (p: Point) => ({ x: Math.min(Math.max(p.x, x0), x1), y: Math.min(Math.max(p.y, y0), y1) });
   const base: Point[] = [];
   for (let i = 0; i < curves.length; i++) for (let j = i + 1; j < curves.length; j++) for (const p of crossings(curves[i]!, curves[j]!)) if (ok(p)) base.push(snap(p));
@@ -499,7 +522,7 @@ function steps(lo: number, hi: number, step: number): number[] {
  * the left are the left column (Cancel above Rotate), the two on the right the right one (Confirm above Discard). Null when no button
  * fits outside the tile: the tile covers the room.
  */
-function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: ActionPlaces): ActionPlaces | null {
+function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: ActionPlaces, blocks: readonly BubbleLimits[]): ActionPlaces | null {
   const clear = R + ACTION_GAP_PX;
   const x0 = room.left + R;
   const x1 = room.right - R;
@@ -513,6 +536,7 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
   steps(x0, x1, SPLIT_STEP_PX).forEach((x, i) =>
     steps(y0, y1, SPLIT_STEP_PX).forEach((y, j) => {
       const p = { x, y };
+      if (blocked(p, blocks)) return;
       all.push(p);
       if (within(p, outline) || toOutline(p, outline) < clear) return;
       free.push(p);
@@ -550,7 +574,7 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
     if (best.length === ACTION_SIDES.length) break;
   }
   if (best.length < ACTION_SIDES.length) {
-    const found = criticalPacking(outline, { x0, x1, y0, y1 }, clear);
+    const found = criticalPacking(outline, { x0, x1, y0, y1 }, clear, blocks);
     if (found.length > best.length) best = found;
   }
   if (best.length < ACTION_SIDES.length) {
@@ -593,8 +617,8 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
  * 4. close in, where that clamp puts a button on the tile or nearer it than `ACTION_GAP_PX` (the tile larger than the room round it,
  *    or against an edge), the four together out of its nearest side the room shows (`closeZoom`), or, where no group fits beyond a
  *    single side (a turned tile's corner splitting the room), each on its own, as many outside it as the room there holds
- *    (`splitActions`); every part of the screen they avoid treated as across the whole width. When the tile covers the whole room
- *    there is no such place: the clamped ones stay.
+ *    (`splitActions`, clear of each part of the screen the buttons avoid, so also beside a part that does not span it; the group
+ *    treats every part as across the whole width). When the tile covers the whole room there is no such place: the clamped ones stay.
  */
 export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid: readonly BubbleAvoid[]): ActionPlaces {
   const free = tileActionPlaces(outline);
@@ -609,7 +633,13 @@ export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid
   if (outline.length > 2 && actionsClearance(at, outline) < ACTION_GAP_PX - 1e-6) {
     const room = actionRoom(box, avoid, -1e6, 2e6);
     const group = closeZoom(outline, room);
-    const split = group ? null : splitActions(outline, room, at);
+    // On their own, the buttons may stand beside a part that does not span the screen (a panel, a dial): each part a block.
+    const open = actionRoom(box, avoid.filter((a) => a.side), 0, box.width);
+    const grow = MARGIN_PX + R;
+    const blocks = avoid
+      .filter((a) => !a.side)
+      .map(({ rect: r }) => ({ left: r.left - box.left - grow, right: r.left - box.left + r.width + grow, top: r.top - box.top - grow, bottom: r.top - box.top + r.height + grow }));
+    const split = group ? null : splitActions(outline, open, at, blocks);
     if (group) at = group;
     else if (split && clearOf(split, outline) >= clearOf(at, outline)) at = split;
   }

@@ -75,8 +75,16 @@ describe("the HUD minded where the buttons end, not where they were free (#1078)
   });
 });
 
-/** The board's HUD and hand panel on a phone; the home editor's floating bar and sheet. */
+/**
+ * The board's HUD and hand panel on a phone; the home editor's floating bar and sheet; and a board whose foot is two parts that do
+ * not span it (a hand panel on the right, a dial on the left: the review's), so the buttons may stand between and above them.
+ */
 const ROOMS: Record<string, (w: number) => BubbleAvoid[]> = {
+  "board, parted foot": (w) => [
+    { rect: rect(0, 0, w, 96), side: false },
+    { rect: rect(w - 175, 520, 167, 192), side: false },
+    { rect: rect(8, 616, 96, 96), side: false },
+  ],
   board: (w) => [
     { rect: rect(0, 0, w, 96), side: false },
     { rect: rect(8, 520, w - 16, 200), side: false },
@@ -97,13 +105,11 @@ const clearCount = (at: ActionPlaces, outline: Point[]) => ACTION_SIDES.filter((
  * (which also places buttons off the grid, on the bounds and on one another's spread): the layout must do at least as well.
  */
 function mostOutside(outline: Point[], width: number, avoid: BubbleAvoid[], step = 2): number {
-  const room = { top: MARGIN_PX, bottom: 720 - MARGIN_PX };
-  for (const a of avoid)
-    if (a.rect.top + a.rect.height / 2 < 360) room.top = Math.max(room.top, a.rect.bottom + MARGIN_PX);
-    else room.bottom = Math.min(room.bottom, a.rect.top - MARGIN_PX);
+  // Each part avoided on its own: a target `MARGIN_PX` clear of it, whatever its width.
+  const near = (p: Point) => avoid.some(({ rect: r }) => meets(p, rect(r.left - MARGIN_PX, r.top - MARGIN_PX, r.width + 2 * MARGIN_PX, r.height + 2 * MARGIN_PX)));
   const free: Point[] = [];
   for (let x = MARGIN_PX + R; x <= width - MARGIN_PX - R; x += step)
-    for (let y = room.top + R; y <= room.bottom - R; y += step) if (clearAt({ x, y }, outline) >= ACTION_GAP_PX) free.push({ x, y });
+    for (let y = MARGIN_PX + R; y <= 720 - MARGIN_PX - R; y += step) if (!near({ x, y }) && clearAt({ x, y }, outline) >= ACTION_GAP_PX) free.push({ x, y });
   let most = 0;
   const taken: Point[] = [];
   const grow = (from: number) => {
@@ -205,12 +211,29 @@ describe("the gap kept close in (#1078)", () => {
     }
   });
 
+  it("beside parts that do not span the screen: the buttons between and above them, not on the tile (the third review of #1078)", () => {
+    // 375 x 720, distance 10, the camera 0.9 down the board: the tile's foot at y 522.6, a dial and a hand panel below it.
+    const avoid = ROOMS["board, parted foot"]!(375);
+    const outline = projectCell(10, 375, 720, { x: 0, z: 0.9 });
+    const at = layoutTileActions(outline, rect(0, 0, 375, 720), avoid);
+    expect(actionsClearance(at, outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX);
+    for (const a of ACTION_SIDES)
+      for (const b of ACTION_SIDES) if (a < b) expect(Math.hypot(at[a].x - at[b].x, at[a].y - at[b].y), `${a}/${b}`).toBeGreaterThanOrEqual(ACTION_SPREAD_PX - 1e-6);
+    for (const side of ACTION_SIDES) {
+      expect(at[side].x - R).toBeGreaterThanOrEqual(MARGIN_PX);
+      expect(at[side].x + R).toBeLessThanOrEqual(375 - MARGIN_PX);
+      expect(at[side].y + R).toBeLessThanOrEqual(720 - MARGIN_PX);
+      for (const { rect: r } of avoid) expect(meets(at[side], rect(r.left - MARGIN_PX, r.top - MARGIN_PX, r.width + 2 * MARGIN_PX, r.height + 2 * MARGIN_PX)), side).toBe(false);
+    }
+  });
+
   it("close in, poses drawn at random (seeded): no button on the tile where a 2 px grid of the room outside holds the four", () => {
     let seed = 20261107;
     const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
     for (let k = 0; k < 400; k++) {
       const width = PHONES[Math.floor(rnd() * PHONES.length)]!;
-      const name = rnd() < 0.5 ? "board" : "home editor";
+      const names = Object.keys(ROOMS);
+      const name = names[Math.floor(rnd() * names.length)]!;
       const avoid = ROOMS[name]!(width);
       const pose = { distance: 10 + rnd() * 30, target: { x: (rnd() - 0.5) * 6, z: (rnd() - 0.5) * 6 }, deg: rnd() * 90 };
       const outline = projectCell(pose.distance, width, 720, pose.target, (pose.deg * Math.PI) / 180);
