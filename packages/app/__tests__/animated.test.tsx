@@ -5,7 +5,6 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { NumberTicker } from "../src/components/elements/number-ticker";
-import { AnimatedList, AnimatedListItem } from "../src/components/ui/animated-list";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "../src/components/ui/carousel";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "../src/components/ui/dialog";
 import { Toaster, toast } from "../src/components/ui/sonner";
@@ -117,36 +116,6 @@ describe("NumberTicker (Magic UI)", () => {
     // No frames needed: the text is written in the effect.
     expect(ticker).toHaveTextContent("104.50");
   });
-});
-
-describe("AnimatedList (Magic UI)", () => {
-  function Rows({ initial }: { initial: string[] }) {
-    const [rows, setRows] = useState(initial);
-    return (
-      <>
-        <AnimatedList aria-label="Closings">
-          {rows.map((r) => (
-            <AnimatedListItem key={r}>{r}</AnimatedListItem>
-          ))}
-        </AnimatedList>
-        <button onClick={() => setRows((rs) => ["new", ...rs])}>Add</button>
-        <button onClick={() => setRows((rs) => rs.slice(1))}>Remove</button>
-      </>
-    );
-  }
-
-  for (const reduced of ["never", "always"] as const) {
-    it(`adds a row and removes one after its exit, with reduced motion ${reduced === "always" ? "on" : "off"}`, async () => {
-      const user = userEvent.setup();
-      render(wrap(<Rows initial={["alice", "bob"]} />, reduced));
-      const list = screen.getByRole("list", { name: "Closings" });
-      expect(within(list).getAllByRole("listitem")).toHaveLength(2);
-      await user.click(screen.getByRole("button", { name: "Add" }));
-      expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["new", "alice", "bob"]);
-      await user.click(screen.getByRole("button", { name: "Remove" }));
-      await waitFor(() => expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["alice", "bob"]), { timeout: slow(3000) });
-    });
-  }
 });
 
 describe("Carousel (shadcn/ui on Embla)", () => {

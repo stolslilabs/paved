@@ -27,11 +27,9 @@ interface Copy {
   quality: number;
 }
 
-/** Each copy at twice its largest box: the hero at a phone's width and a wide screen's, the thumbnails as the scenes set them. */
+/** Each copy at twice its largest box on screen. */
 export const COPIES: readonly Copy[] = [
   { name: "wordmark", width: 840, height: 240, quality: 0.86 },
-  { name: "hero-tall", width: 750, height: 1000, quality: 0.7 },
-  { name: "hero-wide", width: 1440, height: 720, quality: 0.7 },
 ];
 
 async function run(): Promise<void> {

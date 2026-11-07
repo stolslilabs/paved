@@ -27,9 +27,6 @@ const strip = (keys: string[], cols: number): BoardSpec["tiles"] => keys.map((ke
 
 export const RENDERS: Record<string, BoardSpec | WordmarkSpec> = {
   wordmark: { kind: "wordmark", width: 1400, height: 400 },
-  // Home's hero: the 72-tile game, close, from above the south-east, Forest variants.
-  "hero-tall": { kind: "board", board: "72", theme: 1, width: 750, height: 1000, zoom: 2, polar: 52, azimuth: 35, offset: [-4, -0.5], keyed: true },
-  "hero-wide": { kind: "board", board: "72", theme: 1, width: 1600, height: 800, zoom: 1.6, polar: 55, azimuth: 35, offset: [-3, -0.5], keyed: true },
   // The HUD: the 38-tile game in play, its free slots and the tile in hand placed, pending.
   "hud-tall": { kind: "board", board: "38", theme: 1, width: 750, height: 1624, zoom: 1.5, offset: [-1.5, 0], polar: 42, azimuth: 30, hand: true, keyed: true },
   "hud-wide": { kind: "board", board: "38", theme: 1, width: 1440, height: 900, zoom: 1.6, offset: [-1, 0], polar: 45, azimuth: 30, hand: true, keyed: true },
