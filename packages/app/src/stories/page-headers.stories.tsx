@@ -77,7 +77,8 @@ export const Ranking: Story = { render: () => <LeaderboardScene {...LEADERBOARD.
 export const Settings: Story = { render: () => <SettingsScene {...SETTINGS.connected} /> };
 export const StoryCampaigns: Story = {
   name: "Story",
-  render: () => <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} />,
+  // STORY-PAGE: a view of Play's drawer, as the stake.
+  render: () => <PlayScene {...PLAY.connected} story={<StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} />} onBack={fn()} onStoryBack={fn()} />,
 };
 // Settings' views (SETTINGS-PAGE): Themes and Credits in its drawer, its band's Back and red cross.
 export const Themes: Story = { render: () => <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} />} /> };

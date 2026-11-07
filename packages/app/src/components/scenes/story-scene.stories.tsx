@@ -1,59 +1,54 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { CAMPAIGNS, EMPTY_PROGRESS, recordRun, type StoryProgress } from "@paved/game-core";
+import { CAMPAIGNS } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
+import { STORY, storyProgressOf } from "../../mocks/story";
 import { StoryScene } from "./story-scene";
 
-/** `levels` levels of campaign `index` finished, each with `stars` (scores at the target, at 70 %, or 0). */
-function progressOf(...parts: { index: number; levels: number; stars: 1 | 2 | 3 }[]): StoryProgress {
-  let progress = EMPTY_PROGRESS;
-  for (const { index, levels, stars } of parts) {
-    const campaign = CAMPAIGNS[index]!;
-    for (const level of campaign.levels.slice(0, levels)) {
-      const score = stars === 3 ? level.target : stars === 2 ? Math.ceil(level.target * 0.7) : 0;
-      progress = recordRun(progress, level, { campaignId: campaign.id, levelIndex: level.id, moves: [] }, score);
-    }
-  }
-  return progress;
-}
-
 /**
- * Story mode (`/story`, #546, #592): the campaigns as cards (their own tiles behind, a lock and a blur until they open) and the
- * levels of the chosen one. A level opens once the one before it is finished; the second campaign once the Tutorial holds 2
- * stars per level on average. One story per state; the Viewport control reframes it. The layout: the carousel swipes the
- * cards on a phone and turns into the grid from tablet up.
+ * Story mode (`/story`, #546, #592; STORY-PAGE): the body Play's drawer frames (a view in the modes' place, as the stake; `Scenes/Play`'s
+ * Story stories show it framed): the campaigns one per view (a lock and a blur until they open), the dots and arrows under them, and the
+ * levels of the one in view on a carved list, the last level unlocked on the gold wash with the gold Play in the footer. A level opens
+ * once the one before it is finished; every other campaign once the Tutorial is finished. One story per state.
  */
 const meta = {
   title: "Scenes/Story",
   component: StoryScene,
-  args: { campaigns: CAMPAIGNS, progress: EMPTY_PROGRESS, renders: appRenders, onBack: fn(), onCampaign: fn(), onLevel: fn() },
+  args: { campaigns: CAMPAIGNS, progress: STORY.firstVisit.progress, renders: appRenders, onCampaign: fn(), onLevel: fn() },
+  decorators: [
+    (Story) => (
+      <div className="mx-auto flex max-w-md flex-col bg-secondary p-4">
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof StoryScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A first visit: level 1 open, everything else locked, the second campaign's requirement stated. */
-export const FirstVisit: Story = {};
+/** A first visit: level 1 open (the gold Play), everything else locked. */
+export const FirstVisit: Story = { args: STORY.firstVisit };
 
-/** Halfway through the Tutorial, with mixed stars. */
-export const InProgress: Story = { args: { progress: progressOf({ index: 0, levels: 4, stars: 3 }, { index: 0, levels: 6, stars: 1 }) } };
+/** Halfway through the Tutorial, with mixed stars: level 7 to play next. */
+export const InProgress: Story = { args: STORY.inProgress };
 
-/** The Tutorial finished with 1 star each: 12 stars, short of the 24 the second campaign asks for. */
-export const CampaignLocked: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 1 }) } };
+/** Open Country in view, locked: eight Tutorial levels finished, four left before every other campaign opens. */
+export const CampaignLocked: Story = { args: STORY.locked };
 
-/** The Tutorial at 2 stars a level: the second campaign is open, its first level playable. */
-export const CampaignOpen: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 2 }, { index: 1, levels: 3, stars: 2 }) } };
+/** The Tutorial finished: the other campaigns are open, Open Country's first levels played. */
+export const CampaignOpen: Story = { args: { progress: storyProgressOf({ index: 0, levels: 12, stars: 2 }, { index: 1, levels: 3, stars: 2 }) } };
 
-/** The Tutorial just brought to 2 stars a level: on this first visit since, Open Country's card unlocks on screen, once. */
-export const JustUnlocked: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 2 }), justUnlocked: [2] } };
+/** The Tutorial just finished: on this first visit since, Open Country's card unlocks on screen, once (Dark Forest's when it comes in view). */
+export const JustUnlocked: Story = { args: STORY.unlocking };
 
 /** The same under reduced motion: no animation, the card is open at once. */
-export const JustUnlockedReduced: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 2 }), justUnlocked: [2] }, parameters: { reducedMotion: "always" } };
+export const JustUnlockedReduced: Story = { args: STORY.unlocking, parameters: { reducedMotion: "always" } };
 
-/** The Tutorial complete at 3 stars and chosen, Open Country under way: the complete card's badge. */
-export const Completed: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 3 }, { index: 1, levels: 2, stars: 2 }), campaignId: 1 } };
+/** The Tutorial complete at 3 stars and in view, Open Country under way: Complete on its card. */
+export const Completed: Story = { args: STORY.complete };
 
 /** Every level of the Tutorial and Open Country at 3 stars: Dark Forest open. */
-export const AllStars: Story = { args: { progress: progressOf({ index: 0, levels: 12, stars: 3 }, { index: 1, levels: 12, stars: 3 }) } };
+export const AllStars: Story = { args: { progress: storyProgressOf({ index: 0, levels: 12, stars: 3 }, { index: 1, levels: 12, stars: 3 }) } };
 
 /** The browser refuses storage: the stars last for this visit. */
-export const StorageOff: Story = { args: { storageOff: true } };
+export const StorageOff: Story = { args: STORY.storageOff };

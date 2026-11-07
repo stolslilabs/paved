@@ -97,10 +97,10 @@ export function ThemeCover({ theme, renders, blurred, alt, className }: ThemeCov
 /** A Story background's widths (`scripts/render-tiles.ts`, `STORY_WIDTHS`), 16:10: the phone's card at DPR 3, the grid's at DPR 2. */
 export const STORY_BACKGROUND_WIDTHS = [720, 1040] as const;
 /**
- * The card's width on the page (`StoryScene`): about 86 % of a phone's width (the carousel) or all of it, half the tablet's
- * grid (768 px at most), a third of the desktop's (1024 px at most).
+ * The picture's width (`CampaignHero`, STORY-PAGE: at the head of Story's view in Play's drawer, edge to edge): the phone's drawer is
+ * the window's width, the side drawer 28 rem.
  */
-const STORY_BACKGROUND_SIZES = "(min-width: 64rem) 330px, (min-width: 40rem) min(50vw, 370px), 100vw";
+const STORY_BACKGROUND_SIZES = "(min-width: 40rem) 28rem, 100vw";
 
 /**
  * A background from the build at each of `widths` (`<name>-<width>` in `theme`): the `src` (the widest) and the `srcSet` the

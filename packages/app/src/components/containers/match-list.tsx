@@ -13,6 +13,7 @@ import { SectionTitle } from "../elements/section-title";
 import { StarRow } from "../elements/star-row";
 import { UiIcon } from "../elements/ui-icon";
 import { LeaguePortrait } from "./league-control";
+import { listRowShape } from "../elements/list-row";
 
 /** One match on the League page (#786): an attack the player made, or one on their village. */
 export interface MatchCardData {
@@ -115,7 +116,20 @@ function Results({ match: m }: { match: MatchCardData }) {
  * XP and its chest's icon.
  * The whole row opens the match; with the rivals' profiles (#952) their portrait and name open it instead.
  */
-export function MatchCard({ match: m, now, onOpen, onOpenPlayer }: { match: MatchCardData; now: number; onOpen?: (id: string) => void; onOpenPlayer?: (address: string) => void }) {
+export function MatchCard({
+  match: m,
+  now,
+  onOpen,
+  onOpenPlayer,
+  className,
+}: {
+  match: MatchCardData;
+  now: number;
+  onOpen?: (id: string) => void;
+  onOpenPlayer?: (address: string) => void;
+  /** In a carved list, its place's shape (`listRowShape`). */
+  className?: string;
+}) {
   const attack = m.side === "attack";
   const lost = matchLost(m);
   // With the rival's profile (#952) the row holds two controls, which may not nest: the row's own is a layer under the figures,
@@ -142,7 +156,7 @@ export function MatchCard({ match: m, now, onOpen, onOpenPlayer }: { match: Matc
       {...(split ? { "data-slot": "match-card" } : { type: "button" as const, "aria-label": cardName(m), onClick: () => onOpen?.(m.id), "data-slot": "match-card" })}
       data-side={m.side}
       data-lost={lost}
-      className={cn("relative flex min-h-18 w-full min-w-0 items-center gap-1.5 rounded-xl px-2 py-2 text-left", !split && press)}
+      className={cn("relative flex min-h-18 w-full min-w-0 items-center gap-1.5 rounded-xl px-2 py-2 text-left", !split && press, className)}
     >
       {split && <button type="button" data-slot="match-open" aria-label={cardName(m)} onClick={() => onOpen?.(m.id)} className={cn("absolute inset-0 rounded-[inherit]", press)} />}
       {/* The side's badge (the book's Attack badge, the HUD's blue shield) and its name, tight, a clear gap before the portrait (the
@@ -207,11 +221,11 @@ export function MatchList({ matches, now, error, errorDetail, onOpen, onOpenPlay
         <p className="drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semibold text-muted-foreground">No match yet. Attack a village: your attacks and those on your village show here.</p>
       )}
       {matches && matches.length > 0 && (
-        // A row's press layer is rounded as the list (no clip on the list: nothing boxes a row in the drawer's body).
+        // A row's press layer takes the list's shape (`listRowShape`, the owner's rule of 2026-11-07): square between two rows.
         <ul aria-label="Matches" className="drawer-carved flex flex-col rounded-xl">
           {matches.slice(0, shown).map((m, i) => (
             <li key={m.id} className={cn("flex", i > 0 && "border-t border-border")}>
-              <MatchCard match={m} now={now} onOpen={onOpen} onOpenPlayer={onOpenPlayer} />
+              <MatchCard match={m} now={now} onOpen={onOpen} onOpenPlayer={onOpenPlayer} className={listRowShape(i, Math.min(shown, matches.length))} />
             </li>
           ))}
         </ul>

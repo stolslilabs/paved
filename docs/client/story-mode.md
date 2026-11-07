@@ -31,9 +31,10 @@ requests").
   **1 star** = the level finished. A score above a best-known target earns 3 stars, and the end screen says the player beat
   the best known score.
 - **Levels unlock in order**: a level is locked until the one before it is finished (1 star).
-- **A campaign unlocks on stars**: the stars held over every level of the campaigns before it must reach 2 x their number
-  of levels (2 stars per level on average). Open Country opens at 24 stars over the Tutorial's 12 levels, Dark Forest at 48
-  over the 24 levels of the two campaigns before it.
+- **The Tutorial opens the other campaigns** (owner, 2026-11-07, STORY-PAGE; it replaced the rule of 2 stars per level on
+  average over the campaigns before): every campaign after the Tutorial opens, from its level 1, once each of the Tutorial's
+  12 levels is finished (1 star); Open Country and Dark Forest open together. A campaign with a level already finished (under
+  the rule before) stays open.
 - Stars never go down: a replay keeps the best score, its stars and its run.
 
 ## The campaigns
