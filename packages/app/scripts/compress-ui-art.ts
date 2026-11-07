@@ -128,7 +128,7 @@
  *
  * EDIT-VILLAGE (2026-11-05), the Paved UX Book's "Edit my village" own pixels (Codex listed no image tool that day either): edit mode's
  * die (`die`, since redrawn, below), its bubble's three (Rotate's blue arrows, `rotate-tile`; Back to the inventory's crate and green arrow,
- * `to-inventory`; Cancel's red cross, `cancel`), the Layouts' padlock (`padlock`) and Use's gold pill (the frame `save-pill`; the book's
+ * `to-inventory`; Cancel's red cross, `cancel`; all three left with TILE-ACTIONS, below), the Layouts' padlock (`padlock`) and Use's gold pill (the frame `save-pill`; the book's
  * Save pill). The book's reset arrow was cut too, then left out: Erase took the eraser (the owner's ask of 2026-11-05). The owner's ask: Codex decomposed the book's screens (each part's layers, measures and colours sampled from the pixels)
  * and cut them from the screen that draws each largest (the tablet's, 50 to 130 px): each crop upscaled so the drawing's longer side
  * is 240 px, keyed out of its navy as the League's (Rotate's arrows, blue themselves, by a flood held under the navy's lightness and
@@ -209,6 +209,18 @@
  * 2026-11-07: the handshake went to the Friends tab), painted the same way: `alliances` with the HUD's guild, friends, shield, swords
  * and members icons as its references, one of three ideas (two shields bound by a gold chain link; three banners in a fan; two shields
  * over a laurel), the owner's pick the third; `guilds` the red shield of it alone, with it as its reference.
+ * TILE-ACTIONS (2026-11-07): the actions on a tile being placed, the Paved UX Book's board screen's round buttons (mockup 3 of "Resume
+ * a Challenge", `screens/board.jpg`): the trash (`tile-discard`), the blue turning arrow (`tile-rotate`) and the gold check on its
+ * bronze face (`tile-confirm`), each cropped from the book (about 64 px, upscaled 4x) and drawn by Codex's built-in image tool (`codex
+ * exec -c model_provider=openai`, its `image_gen`) from its crop, with the HUD's `info` (the blue disc) and `close` (the red one) as the
+ * style's references, the book's progress arcs left out (the app draws its rings), three variants each on a transparent 1024 px square,
+ * the first kept; the editor's Back to the inventory (`tile-return`, the book draws none: a white box and its arrow going in, on the
+ * blue disc; the shipped crate and its green arrow on the disc the alternative). Then, the owner's asks of the same day: the trash
+ * redrawn on the red of `close` (from the blue one, three variants, the first kept), and Cancel (`tile-cancel`) on a neutral disc,
+ * drawn from `close` with its red turned to greys (three variants: mid slate, charcoal, graphite; the charcoal kept). Each trimmed to its alpha
+ * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked beside `close` at 128, 44,
+ * 32 and 24 px on the drawer's charcoal and on a light ground. Edit mode's bubble's three (`rotate-tile`, `to-inventory`, `cancel`) left
+ * with it.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

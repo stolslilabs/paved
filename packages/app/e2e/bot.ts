@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Page } from "playwright-core";
-import { CENTER, OrientationType } from "@paved/game-core";
+import { CENTER, Layout, Orientation, OrientationType, Plan, PlanType } from "@paved/game-core";
 
 export { CENTER };
 
@@ -160,6 +160,30 @@ export function nextValid(orientation: number, valid: readonly number[]): number
     if (valid.includes(o)) return o;
   }
   return orientation;
+}
+
+/** Whether `plan` (its code, "RFFFRFFFR") turned to `a` and to `b` is the same tile: the same nine areas. */
+export function sameLayout(plan: string, a: number, b: number): boolean {
+  const p = Plan.from(Object.values(PlanType).indexOf(plan.toUpperCase() as PlanType));
+  const key = (o: number) => {
+    const l = Layout.from(p, Orientation.from(o).value);
+    return [l.center, l.northWest, l.north, l.northEast, l.east, l.southEast, l.south, l.southWest, l.west].map((c) => c.value).join("");
+  };
+  return key(a) === key(b);
+}
+
+/**
+ * The rotations of `valid` that change the tile, from `orientation` on, one per distinct layout (TILE-ACTIONS): Rotate shows when
+ * there are two or more, and turns to the next of them (`distinctRotations`). A symmetric plan fits a cell in orientations that are
+ * the same tile.
+ */
+export function distinctValid(plan: string, valid: readonly number[], orientation: number): number[] {
+  const out: number[] = [];
+  for (let step = 0; step < 4; step++) {
+    const o = ((orientation - 1 + step) % 4) + 1;
+    if (valid.includes(o) && !out.some((k) => sameLayout(plan, k, o))) out.push(o);
+  }
+  return out.sort((a, b) => a - b);
 }
 
 /** The bubble's Validate, held to place the tile (PLACE-POLISH, #568): the hand panel has no Place tile any more. */

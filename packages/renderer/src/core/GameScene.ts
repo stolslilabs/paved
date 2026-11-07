@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { AssetLoader } from "./AssetLoader";
-import { TileRenderer, type LitTile } from "./TileRenderer";
+import { PLACEHOLDER_HEIGHT, TileRenderer, type LitTile } from "./TileRenderer";
 import type { ClosedStructure, ClosedStructuresOptions } from "./closed-structures";
 import { NO_SKINS, type TileSkins } from "./skins";
 import { CameraController, OPENING_DISTANCE, TALLEST_TILE_HEIGHT } from "./CameraController";
 import { frameFloorFor, frameInsetsFor, type CameraFit, type CellExtent } from "./camera-fit-settings";
 import { Effects, resolveFaceAntialiasing, type FaceAntialiasing } from "./Effects";
-import { screenToGrid, cellCorner, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
+import { screenToGrid, cellCorner, cellOutline, createThrottled, PointerTap, type CellCorner, type TilePressListener } from "./interaction";
 import type {
   RendererConfig,
   TileRenderData,
@@ -1291,6 +1291,17 @@ export class GameScene {
     this.camera.updateMatrixWorld();
     this.sceneGroup.updateMatrixWorld();
     return cellCorner({ x: gridX, y: gridY }, this.camera, this.sceneGroup.matrixWorld, this.surface.getSize(), TILE_SIZE, TALLEST_TILE_HEIGHT);
+  }
+
+  /**
+   * A board cell's square on screen (TILE-ACTIONS): its four corners at the ground's top (`PLACEHOLDER_HEIGHT`, the tile's slab),
+   * in CSS px from the surface's top-left, for a DOM overlay that stands around the tile (`cellOutline`). Null before `init`.
+   */
+  projectCellOutline(gridX: number, gridY: number): CellCorner[] | null {
+    if (!this.surface || !this.camera) return null;
+    this.camera.updateMatrixWorld();
+    this.sceneGroup.updateMatrixWorld();
+    return cellOutline({ x: gridX, y: gridY }, this.camera, this.sceneGroup.matrixWorld, this.surface.getSize(), TILE_SIZE, PLACEHOLDER_HEIGHT);
   }
 
   /**
