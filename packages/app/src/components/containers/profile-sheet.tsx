@@ -513,7 +513,7 @@ export function ProfileSheet({
                     <PlayerName
                       name={connected.player.name}
                       address={connected.player.playerId}
-                      className={cn("text-outline text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
+                      className={cn("text-outline outline-room text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
                     />
                     {onEditName && (
                       <button
