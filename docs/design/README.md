@@ -538,6 +538,27 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   (dish and sweep, the sweep painted on black and keyed; `packages/app/ui-sources/attack/`, `attack-art.ts`) and the deck's pile (the
   icon `tile-stack`, `ui-sources/icons/`) were drawn by Codex's built-in image tool from their crops of the book; the shield, swords, info, star, crown, check, bin, grass block
   and grid are the HUD's own icons.
+  STORY-PAGE (2026-11-07), Story's campaigns (`/story`) and a level's end: the Paved UX Book draws neither, so in the integrated pages'
+  style (Play's raised cards, the League's carousel, the Leaderboard's carved rows) and, for the end, the Ranked end (`attack-end`, the
+  owner's words: "s'inspirer aussi de l'écran des scores des ranked games"). The campaigns are a view of Play's drawer, as the stake
+  (no sheet over the drawer any more): "Story" on its band, Back to the modes, the red cross to the village. Under the Campaigns title
+  (Story's painting from Play) one campaign per view, the League's thin arrows and the dots under it: a raised card holding its
+  build-time picture carved into it (no WebGL), its name and its stars (the painted star) over the picture's foot, its summary and a
+  status line (its levels under the HUD's pile; the stars it still needs under the painted lock; Complete under the painted check); a
+  locked one blurred under the painted gold lock, which opens (the HUD's `unlock`) and goes as it unlocks, once, still under reduced
+  motion. Under it the chosen campaign's levels on a carved list: the number, the title (wrapping), three painted stars always (the
+  empty ones in the end's greys), a locked level dimmed with the painted lock in its number's place, any open level a tap away; the last
+  level unlocked on the Leaderboard's gold wash, and the gold Play in the drawer's footer (the Challenge's Confirm's place, the page's
+  one gold) playing it (the owner's ask of 2026-11-07: the player sees they progress). A level opens once the one before it is finished;
+  every other campaign once the Tutorial is finished (the owner's rule of 2026-11-07), a locked one saying so in a carved box. The end keeps the book's window
+  (`GameEnd`) with the Ranked end's beats and lights, the stars filling with the score (shares only: the thresholds stay hidden), and
+  the same carved card of rows: the best (the trophy; a new best in gold with the one before it), the points the next star was
+  missing (a grey star), the XP the run's report gave (the Ranked end's row, only when it gave some); then the level's chest, opened
+  there, or a carved line saying why this run won none (already won, or 3 stars win it: the owner's ask of 2026-11-07); Retry, Levels
+  and Next on one row (Levels raised grey as Retry, the owner's ask of 2026-11-07; Retry and Levels in gold when no level follows; with
+  no star, "Level failed", Retry in gold and Next disabled in its place);
+  Tutorial level 1's First Stone as a carved row under the painted medal, its Claim raised grey. No new painting: the lock, open lock,
+  star, trophy, medal, pile and check are the HUD's own icons.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.

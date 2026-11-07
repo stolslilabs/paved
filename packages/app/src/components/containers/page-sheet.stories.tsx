@@ -16,8 +16,9 @@ import PageSheet from "./page-sheet";
 const READY = { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 } as const;
 
 /**
- * BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page. Story's campaigns are this sheet over Play's
- * modes: from the bottom on a phone (a drag down closes it), from the right from `desktop`, over Play's side panel. Its header has
+ * BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page. Story's campaigns were this sheet over Play's
+ * modes until STORY-PAGE (a view of Play's drawer since, as the stake: no route opens a sheet today; the frame stays, shown here with
+ * them): from the bottom on a phone (a drag down closes it), from the right from `desktop`, over Play's side panel. Its header has
  * Back, the title and the balances: Back (or Escape, a tap outside, a drag down) closes it, up to Play. The Cobble packs open in it
  * over the page that asks for them. Settings' pages (Themes, Credits) are views of its drawer since SETTINGS-PAGE, and the referral a
  * page of its own. On the mock.
@@ -59,7 +60,7 @@ const sheet = (title: string, page: ReactNode, wide = false, under?: { page: Rea
   ...(wide ? WIDE_1440 : PHONE_375),
 });
 
-const story = <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onBack={fn()} onCampaign={fn()} onLevel={fn()} />;
+const story = <StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} renders={appRenders} onCampaign={fn()} onLevel={fn()} />;
 // In the sheet the packs show their own balances, the Cobbles and USDC, not the page's under them (#855: the packs' page).
 const packs = (
   <BalancesOf page="cobbles">

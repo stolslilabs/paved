@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import type { BoardTile } from "@paved/chain";
-import { CENTER, DAY_S, OrientationType, PlanType, dayOf, levelStatus, pvpChestRank } from "@paved/game-core";
+import { CENTER, DAY_S, OrientationType, PlanType, dayOf, pvpChestRank } from "@paved/game-core";
 import type { FinalBoardProps } from "../components/containers/final-board";
-import { PvpEndScene, type PvpEndChest, type PvpEndXp } from "../components/scenes/pvp-end-scene";
+import { endXp } from "../components/containers/game-end";
+import { PvpEndScene, type PvpEndChest } from "../components/scenes/pvp-end-scene";
 import { PvpSearchScene } from "../components/scenes/pvp-search-scene";
 import { SearchVoid } from "./search-void";
 import type { PvpPlayer } from "../lib/pvp-rules";
@@ -58,11 +59,8 @@ export function attackChestOrigin(attack: Pick<AttackV2, "finishedAt" | "chestSl
   return attack.chestSlot != null && origin.slot === attack.chestSlot;
 }
 
-/** The XP the attack gave and the level it leaves, from the player's XP now. */
-export function endXp(xp: number, gained: number): PvpEndXp {
-  const after = levelStatus(xp);
-  return { gained, xp: after.xp, level: after.level, floor: after.floor, next: after.next, levelBefore: levelStatus(xp - gained).level };
-}
+/** The XP the attack gave and the level it leaves, from the player's XP now: the ends' (`game-end.tsx`, shared with Story's). */
+export { endXp };
 
 export interface PvpV2EndProps {
   me: string;

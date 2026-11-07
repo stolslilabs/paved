@@ -1,9 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CAMPAIGNS, EMPTY_PROGRESS, PlanType, recordRun } from "@paved/game-core";
-import { CampaignCard, DeckPresentation } from "../src/components/containers/story-panels";
+import { CampaignCard } from "../src/components/containers/campaign-card";
+import { DeckPresentation } from "../src/components/containers/story-panels";
 import { StoryScene } from "../src/components/scenes/story-scene";
 
 const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
@@ -14,31 +15,64 @@ const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
 const CARD = { id: 2, name: "Open Country", summary: "Longer games.", levels: 11, stars: 0, plans: [1, 2, 3] } as const;
 
 describe("Story campaign cards (#592)", () => {
-  it("a locked card states the stars it still needs; one star reads singular", () => {
-    const { rerender } = render(wrap(<CampaignCard {...CARD} status="locked" missing={24} />));
-    expect(screen.getByRole("button")).toHaveTextContent("24 more stars to open");
-    rerender(wrap(<CampaignCard {...CARD} status="locked" missing={1} />));
-    expect(screen.getByRole("button")).toHaveTextContent("1 more star to open");
+  it("a locked card says which campaign to finish first (STORY-PAGE: the Tutorial opens every other one)", () => {
+    render(wrap(<CampaignCard {...CARD} status="locked" opensAfter="Tutorial" />));
+    expect(screen.getByRole("article")).toHaveTextContent("Finish the Tutorial to open");
   });
 
   it("the unlock plays with motion and is skipped under reduced motion: the card is open at once", () => {
     const { unmount } = render(wrap(<CampaignCard {...CARD} status="unlocking" />));
-    expect(screen.getByRole("button")).toHaveAttribute("data-status", "unlocking");
+    expect(screen.getByRole("article")).toHaveAttribute("data-status", "unlocking");
     unmount();
     render(wrap(<CampaignCard {...CARD} status="unlocking" />, "always"));
-    expect(screen.getByRole("button")).toHaveAttribute("data-status", "open");
-    expect(screen.getByRole("button")).not.toHaveTextContent("to open");
+    expect(screen.getByRole("article")).toHaveAttribute("data-status", "open");
+    expect(screen.getByRole("article")).not.toHaveTextContent("to open");
   });
 
-  it("every level title keeps one line (ellipsis) with the full title in its title attribute", () => {
+  it("every level title wraps rather than truncates (STORY-PAGE: titles wrap at 320 px), its full title in its title attribute", () => {
     let progress = EMPTY_PROGRESS;
     for (const level of CAMPAIGNS[0]!.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
     render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progress} campaignId={1} />));
     const levels = screen.getByRole("region", { name: "Tutorial" });
     const longest = within(levels).getByRole("button", { name: /The price of a discard/ });
     expect(longest).toHaveAttribute("title", "The price of a discard");
-    expect(longest).toHaveClass("h-16");
-    for (const title of within(levels).getAllByTestId("level-title")) expect(title).toHaveClass("truncate");
+    expect(longest).toHaveClass("min-h-14");
+    for (const title of within(levels).getAllByTestId("level-title")) {
+      expect(title).not.toHaveClass("truncate");
+      expect(title).toHaveClass("wrap-anywhere");
+    }
+  });
+
+  it("every row keeps its painted stars; the last level unlocked is the current one and the footer's gold Play plays it; a locked one the painted lock", () => {
+    // Level 1 at 1 star, level 2 at 2 stars: level 3 is the last unlocked, the one Play plays; 1 and 2 stay a tap away.
+    const [one, two] = CAMPAIGNS[0]!.levels;
+    let progress = recordRun(EMPTY_PROGRESS, one!, { campaignId: 1, levelIndex: 1, moves: [] }, 0);
+    progress = recordRun(progress, two!, { campaignId: 1, levelIndex: 2, moves: [] }, Math.ceil(two!.target * 0.7));
+    const onLevel = vi.fn();
+    render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progress} campaignId={1} onLevel={onLevel} />));
+    const levels = screen.getByRole("region", { name: "Tutorial" });
+    expect(within(within(levels).getByRole("button", { name: /^Level 1, / })).getByRole("img", { name: "1 of 3 stars" }).querySelectorAll("img[data-icon='star']")).toHaveLength(3);
+    expect(within(within(levels).getByRole("button", { name: /^Level 2, / })).getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
+    expect(within(within(levels).getByRole("button", { name: /^Level 3, / })).getByRole("img", { name: "0 of 3 stars" })).toBeInTheDocument();
+    expect(levels.querySelector("svg[data-icon='star']")).toBeNull();
+    expect(levels.querySelectorAll("[data-next]")).toHaveLength(1);
+    expect(within(levels).getByRole("button", { name: /^Level 3, / })).toHaveAttribute("aria-current", "step");
+    fireEvent.click(screen.getByRole("button", { name: /^Play level 3, / }));
+    expect(onLevel).toHaveBeenLastCalledWith(1, 3);
+    fireEvent.click(within(levels).getByRole("button", { name: /^Level 1, / }));
+    expect(onLevel).toHaveBeenLastCalledWith(1, 1);
+    const locked = within(levels).getByRole("button", { name: /^Level 4, .*, locked$/ });
+    expect(locked.querySelector("img[data-icon='lock']")).not.toBeNull();
+  });
+
+  it("a locked campaign: the carved box says how many Tutorial levels are left, the footer's Play is disabled", () => {
+    let progress = EMPTY_PROGRESS;
+    for (const level of CAMPAIGNS[0]!.levels.slice(0, 8)) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, level.target);
+    render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={progress} campaignId={2} />));
+    const levels = screen.getByRole("region", { name: "Open Country" });
+    expect(levels.querySelector("[data-slot='campaign-locked']")).toHaveTextContent("Finish every level of the Tutorial to open it: 4 levels left.");
+    expect(screen.getByRole("button", { name: "Play, locked" })).toBeDisabled();
+    expect(levels.querySelectorAll("[data-next]")).toHaveLength(0);
   });
 
   it("draw the campaign's background from the build in its theme, both widths in its srcset, blurred while locked; its tiles without one", () => {
@@ -63,7 +97,7 @@ describe("Story campaign cards (#592)", () => {
   it("three campaign cards and nothing else: no card announces a campaign to come (#721)", () => {
     render(wrap(<StoryScene campaigns={CAMPAIGNS} progress={EMPTY_PROGRESS} />));
     const cards = screen.getByRole("region", { name: "Campaigns" });
-    expect(within(cards).getAllByRole("button").map((b) => b.getAttribute("data-campaign"))).toEqual(["1", "2", "3"]);
+    expect([...cards.querySelectorAll("article[data-campaign]")].map((a) => a.getAttribute("data-campaign"))).toEqual(["1", "2", "3"]);
     expect(cards).not.toHaveTextContent(/on the way|coming soon/i);
     expect(cards.querySelectorAll("[data-slot='carousel-item']")).toHaveLength(3);
   });

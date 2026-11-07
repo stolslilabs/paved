@@ -63,24 +63,27 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
   it("/tutorial leads to Story mode, where only the first level is open", async () => {
     const router = createTestRouter("/tutorial");
     render(<App router={router} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
-    expect(await screen.findByRole("heading", { level: 2, name: "Tutorial" }, { timeout: slow(5000) })).toBeInTheDocument();
+    // STORY-PAGE: a view of Play's drawer, its section titles h3 under the drawer's "Story".
+    expect(await screen.findByRole("heading", { level: 3, name: "Tutorial" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/story");
     const tutorial = screen.getByRole("region", { name: "Tutorial" });
     expect(within(tutorial).getByRole("button", { name: /^Level 1, First stone$/ })).toBeEnabled();
     expect(within(tutorial).getByRole("button", { name: /^Level 2, Turn it around, locked$/ })).toBeDisabled();
     expect(tutorial.querySelector('[title="Turn it around"]')).not.toBeNull();
-    // The campaigns are cards; the locked one says what it needs, and pressing it shows its levels, locked.
+    // The campaigns are cards, one in view (STORY-PAGE: the League's carousel); the locked one says what it needs, and the arrow
+    // brings it in view with its levels, locked.
     const cards = screen.getByRole("region", { name: "Campaigns" });
+    const card = (id: number) => cards.querySelector(`article[data-campaign="${id}"]`);
     // Three campaigns, and no card announcing one to come (#721).
-    expect(within(cards).getAllByRole("button", { name: /levels/ }).map((b) => b.getAttribute("data-campaign"))).toEqual(["1", "2", "3"]);
-    expect(within(cards).getByRole("button", { name: /^Dark Forest/ })).toHaveTextContent("48 more stars to open");
+    expect([...cards.querySelectorAll("article[data-campaign]")].map((a) => a.getAttribute("data-campaign"))).toEqual(["1", "2", "3"]);
+    expect(card(3)).toHaveTextContent("Finish the Tutorial to open");
     expect(cards).not.toHaveTextContent(/on the way/);
-    const locked = within(cards).getByRole("button", { name: /^Open Country/ });
-    expect(locked).toHaveAttribute("data-status", "locked");
-    expect(locked).toHaveTextContent("24 more stars to open");
-    expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(locked);
-    expect(locked).toHaveAttribute("aria-pressed", "true");
+    expect(card(2)).toHaveAttribute("data-status", "locked");
+    expect(card(2)).toHaveTextContent("Finish the Tutorial to open");
+    expect(within(cards).getByRole("article", { name: "Tutorial" })).toBeInTheDocument();
+    expect(within(cards).queryByRole("article", { name: "Open Country" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Next campaign" }));
+    expect(within(cards).getByRole("article", { name: "Open Country" })).toHaveAttribute("data-status", "locked");
     await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
     const second = screen.getByRole("region", { name: "Open Country" });
     expect(within(second).getByText("Locked")).toBeInTheDocument();
@@ -94,15 +97,18 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     const first = render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
     const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
-    expect(within(cards).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "unlocking");
-    expect(within(cards).getByRole("button", { name: /^Tutorial/ })).toHaveAttribute("data-status", "complete");
-    await waitFor(() => expect(JSON.parse(store.getItem(UNLOCKS_KEY) ?? "[]")).toEqual([2]));
+    expect(within(cards).getByRole("article", { name: "Open Country" })).toHaveAttribute("data-status", "unlocking");
+    expect(cards.querySelector('article[data-campaign="1"]')).toHaveAttribute("data-status", "complete");
+    // The Tutorial finished opens Dark Forest too (STORY-PAGE): its unlock waits until its card is the one in view.
+    expect(cards.querySelector('article[data-campaign="3"]')).toHaveAttribute("data-status", "unlocking");
+    expect(cards.querySelector('article[data-campaign="3"]')).toHaveAttribute("data-unlock", "paused");
+    await waitFor(() => expect(JSON.parse(store.getItem(UNLOCKS_KEY) ?? "[]")).toEqual([2, 3]));
     first.unmount();
     queryClient.clear();
 
     render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
     const again = await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
-    expect(within(again).getByRole("button", { name: /^Open Country/ })).toHaveAttribute("data-status", "open");
+    expect(again.querySelector('article[data-campaign="2"]')).toHaveAttribute("data-status", "open");
   });
 
   it("the campaign just opened is the one in view, over a campaign remembered in the address (#592)", async () => {
@@ -112,13 +118,13 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const router = createTestRouter("/story?campaign=1");
     render(<App router={router} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
     const cards = await screen.findByRole("region", { name: "Campaigns" }, { timeout: slow(5000) });
-    const opened = within(cards).getByRole("button", { name: /^Open Country/ });
+    // The one in view: the only card in the accessibility tree.
+    const opened = within(cards).getByRole("article", { name: "Open Country" });
     expect(opened).toHaveAttribute("data-status", "unlocking");
-    expect(opened).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("region", { name: "Open Country" })).toBeInTheDocument();
     await waitFor(() => expect(router.state.location.search).toBe("?campaign=2"));
     // A pick after that is the player's: the address keeps it.
-    await userEvent.click(within(cards).getByRole("button", { name: /^Tutorial/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Previous campaign" }));
     await waitFor(() => expect(router.state.location.search).toBe("?campaign=1"));
     expect(screen.getByRole("region", { name: "Tutorial" })).toBeInTheDocument();
   });
@@ -183,7 +189,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     await userEvent.click(within(end).getByRole("heading", { name: /complete$/ }));
     expect(within(screen.getByTestId("story-end")).getAllByTestId("star-fill")).toHaveLength(1);
     // The thresholds stay hidden: only what the next star was missing.
-    expect(within(end).getByTestId("to-next-star")).toHaveTextContent(`${Math.ceil(level.target * 0.7)} points short of the next star.`);
+    expect(within(end).getByTestId("to-next-star")).toHaveTextContent(`${Math.ceil(level.target * 0.7)} points short of the next star`);
     expect(end).not.toHaveTextContent(String(level.target));
     expect(JSON.parse(store.getItem(STORY_KEY)!).levels["1-1"]).toMatchObject({ best: 0, stars: 1 });
     await userEvent.click(within(end).getByRole("button", { name: "Retry" }));
@@ -226,18 +232,21 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     await waitFor(() => expect(comingNames(hand())).toEqual(level.deck.slice(2, 4).map(name)));
   });
 
-  it("a locked level's address says so; the second campaign opens at 2 stars per Tutorial level", async () => {
+  it("a locked level's address says so; the Tutorial finished, at 1 star a level, opens every other campaign at its level 1", async () => {
     render(<App router={createTestRouter("/story/2/1")} sources={fakeSources({ store: () => memoryStore() }).sources} connector={fakeWallet().load} />);
     expect(await screen.findByText("This level is locked", {}, { timeout: slow(5000) })).toBeInTheDocument();
 
     let progress = EMPTY_PROGRESS;
-    for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, Math.ceil(level.target * 0.7));
+    for (const level of TUTORIAL.levels) progress = recordRun(progress, level, { campaignId: 1, levelIndex: level.id, moves: [] }, 0);
     const store = memoryStore({ [STORY_KEY]: JSON.stringify(progress) });
     render(<App router={createTestRouter("/story")} sources={fakeSources({ store: () => store }).sources} connector={fakeWallet().load} />);
     const second = await screen.findByRole("region", { name: CAMPAIGNS[1]!.name }, { timeout: slow(5000) });
     expect(within(second).queryByText("Locked")).toBeNull();
     expect(within(second).getByRole("button", { name: /^Level 1, / })).toBeEnabled();
     expect(within(second).getByRole("button", { name: /^Level 2, .*, locked$/ })).toBeDisabled();
+    // Dark Forest opened with it.
+    const cards = screen.getByRole("region", { name: "Campaigns" });
+    expect(cards.querySelector('article[data-campaign="3"]')).not.toHaveAttribute("data-status", "locked");
   });
 
   it("the deck sheet of a level shows its draw in order, the presentation's order; from the starter alone (Tutorial 10, #613, #721)", async () => {
