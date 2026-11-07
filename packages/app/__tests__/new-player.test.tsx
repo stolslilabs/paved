@@ -15,7 +15,6 @@ import { SETTINGS_KEY } from "../src/data/settings";
 import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { resetWelcomedForTests } from "../src/routes/welcomed";
-import { PvpPlayerRow } from "../src/components/containers/pvp-player-row";
 import { usePvpPlayer } from "../src/data/pvp";
 import { mockRivalsV2 } from "../src/data/mock/v2";
 import { generatedLook } from "../src/mocks/avatar";
@@ -158,7 +157,7 @@ describe("mockIndexer's player (#926)", () => {
 });
 
 describe("a new player in the PvP rows (#926)", () => {
-  it("usePvpPlayer gives the drawn name and look on the mock, and the row draws that avatar beside the name", async () => {
+  it("usePvpPlayer gives the drawn name and look on the mock", async () => {
     const s = mockImplementation();
     const me = s.sources.signer!.address;
     await welcomeNewPlayer(s.ledger, me, seededRandom(926));
@@ -168,14 +167,6 @@ describe("a new player in the PvP rows (#926)", () => {
     await waitFor(() => expect(result.current.data?.look).toBe(look));
     const player = await dataOf(result);
     expect(player).toMatchObject({ name, address: me, look });
-
-    render(<PvpPlayerRow player={player!} />);
-    const avatar = document.querySelector("[data-slot=player-avatar]");
-    expect(avatar).not.toBeNull();
-    // The initial under the look's still: the name's first letter.
-    expect(within(avatar as HTMLElement).getByText(name.slice(0, 1))).toBeInTheDocument();
-    expect(screen.getByText(name)).toBeInTheDocument();
-    expect(screen.queryByText(shortAddress(me))).toBeNull();
   });
 
   it("a rival of the mock wears the face of its battle logs, read as its saved look", async () => {

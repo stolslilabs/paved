@@ -625,8 +625,7 @@ SOFTWARE.
 ================================================================================
 Magic UI (magicuidesign/magicui, commit 85f97fd27b053339af74ba9dd4ca428ee25989fb)
 https://github.com/magicuidesign/magicui
-Used in: src/components/elements/number-ticker.tsx (Number Ticker),
-src/components/ui/animated-list.tsx (Animated List)
+Used in: src/components/elements/number-ticker.tsx (Number Ticker)
 ================================================================================
 
 MIT License

@@ -90,8 +90,6 @@ export const EarlierSeason: Story = {
 export const NoHistory: Story = { args: { hallOfFame: undefined, records: undefined } };
 /** No league known (not read, no PvP on the network): a plain ring, no league's name. */
 export const NoLeague: Story = { args: { league: null } };
-/** Only Avatar offered: the other actions' callbacks left out. */
-export const OneAction: Story = { args: { onOpenLeague: undefined, onOpenTiles: undefined, onOpenInvite: undefined } };
 /** Before any crown and any attack: Unranked's crest. */
 export const LeagueUnranked: Story = { args: { league: { crowns: 0, league: 0, unranked: true } } };
 /**
