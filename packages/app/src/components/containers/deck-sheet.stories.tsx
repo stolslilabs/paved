@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { baseDeckPlans, deckSheetCounts, deckSheetOrder, PlanType, TUTORIAL } from "@paved/game-core";
 import { appRenders, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { attackDeckSheet } from "../../lib/attack-deck-sheet";
 import { attackV2Deck, PVP_V2_SCOUT, V2_DECK, V2_MIDWAY } from "../../mocks/pvp-v2";
 import { DeckSheet } from "./deck-sheet";
 
@@ -70,3 +71,22 @@ export const AttackEnd: Story = { args: { deck: { mode: "attack", attack: attack
 export const AttackSimplified: Story = { args: { view: "simple", deck: { mode: "attack", attack: attackV2Deck(V2_MIDWAY) }, handPlan: null }, globals: mobile };
 /** The scout's deck page (ATTACK-SCOUT): the village's tiles before the attack, docked on the right from the tablet width up. */
 export const ScoutWide: Story = { args: { edge: "right", deck: { mode: "attack", attack: PVP_V2_SCOUT.ready.deckSheet }, handPlan: null }, globals: wide };
+/**
+ * A plan both in hand and coming next (#1058): the tile in hand and one of the next two are the same plan, so its gold cell carries
+ * the blue square (1 coming next) beside the red count of the tiles left; the other coming plan is ringed in blue with its own square.
+ */
+export const AttackHandAndNext: Story = {
+  args: {
+    deck: {
+      mode: "attack",
+      attack: attackDeckSheet({
+        defenderPlans: [id(PlanType.CCCCCFFFC), id(PlanType.CCCCCFFFC), id(PlanType.CCCCCFFFC), id(PlanType.FFFFCCCFF), id(PlanType.FFFFCCCFF), id(PlanType.RFRFFFFFR)],
+        size: 7,
+        moves: [{ plan: id(PlanType.RFRFFFFFR), discard: false }],
+        view: [id(PlanType.CCCCCFFFC), id(PlanType.CCCCCFFFC), id(PlanType.FFFFCCCFF)],
+      }),
+    },
+    handPlan: null,
+  },
+  globals: mobile,
+};
