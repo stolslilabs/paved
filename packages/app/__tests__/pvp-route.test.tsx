@@ -97,8 +97,11 @@ describe("/pvp: search, scout, attack", { timeout: slow(30_000) }, () => {
     const s = await open("/pvp/league");
     // LEAGUE-PAGE: the HUD's drawer over the home.
     expect(await screen.findByRole("dialog", { name: "League" }, WAIT)).toHaveAttribute("data-hud-drawer", "league");
-    // A new player has never attacked: the carousel opens on Unranked's card, before Wood's (#917).
-    expect(await screen.findByRole("heading", { name: "Unranked" }, WAIT)).toBeInTheDocument();
+    // A new player has never attacked (#917): the header's League control reads Unranked, and the carousel opens on Wood, the league
+    // a first attack enters, none of its slides theirs (UNRANKED-PLACEHOLDER: Unranked has no card).
+    expect(await screen.findByRole("button", { name: /^Your league: Unranked, / }, WAIT)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Wood" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Unranked" })).toBeNull();
     // The search draws as the page opens: the village found (held `FOUND_MS`, 1.2 s), then its scout. The wait starts before
     // the click, so a slow click on a loaded machine cannot let the found heading come and go before it looks. Being found is
     // the check: by the time a check after it ran, under load, React had flushed the 1.2 s the heading stays and removed it.

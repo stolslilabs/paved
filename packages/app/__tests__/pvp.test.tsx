@@ -399,10 +399,11 @@ describe("PvP scenes (#647)", () => {
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.wood} />));
     expect(screen.getByRole("heading", { name: "Wood" })).toBeInTheDocument();
     cleanup();
-    // No attack yet (#917): Unranked's card, before Wood's.
+    // No attack yet (#917): no card of its own (UNRANKED-PLACEHOLDER), the carousel on Wood, none of its slides the player's.
     render(wrap(<PvpLeagueScene {...PVP_LEAGUE.unranked} />));
-    expect(screen.getByRole("heading", { name: "Unranked" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { current: true })).toHaveAccessibleName("Unranked");
+    expect(screen.queryByRole("heading", { name: "Unranked" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Wood" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { current: true })).toBeNull();
     cleanup();
     // An open attack holds 20 crowns: the chain says Iron III (the whole count, 400) while showing 380.
     render(wrap(<PvpLeagueScene crowns={380} league={1} season={PVP_LEAGUE.bronze.season} now={PVP_LEAGUE.bronze.now} />));

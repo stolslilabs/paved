@@ -5,23 +5,20 @@ import { LEAGUES, type League } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "../ui/carousel";
 
-/**
- * The carousel's slides: Unranked first (a player who has not entered the leagues, a client state, `null` as `tierOf` reads it,
- * #917), before Wood; then the 23 leagues.
- */
-export const LEAGUE_SLIDES: readonly (League | null)[] = [null, ...LEAGUES];
-/** A league's slide in `LEAGUE_SLIDES`; Unranked's (`null`) is the first. */
-export const slideOf = (league: League | null): number => (league ? league.index + 1 : 0);
-const slideName = (league: League | null) => league?.name ?? "Unranked";
+/** The last slide, Grand Master's. */
+const last = LEAGUES.length - 1;
 
 export interface LeagueCarouselProps {
-  /** The slide in view (`slideOf`): 0 Unranked, 1 Wood to 23 Grand Master. */
+  /** The league in view, its index in `LEAGUES`: 0 Wood to 22 Grand Master. */
   selected: number;
   onSelect: (index: number) => void;
-  /** The player's slide (`aria-current`). */
-  mine: number;
-  /** A league's card (`LeagueCard`), Unranked's as `null`, the same height for every one (#833). */
-  children: (league: League | null, current: boolean) => ReactNode;
+  /**
+   * The player's league (`aria-current`), its index; none for a player outside the leagues (Unranked, #917: a client state, not a
+   * slide of its own since UNRANKED-PLACEHOLDER, the owner's ask of 2026-11-07).
+   */
+  mine: number | null;
+  /** A league's card (`LeagueCard`), the same height for every one (#833). */
+  children: (league: League, current: boolean) => ReactNode;
   /** The carousel's whole block (the arrows, the card): the League control brings it into view (#859). */
   ref?: Ref<HTMLDivElement>;
   className?: string;
@@ -47,16 +44,15 @@ export function Arrow({ to }: { to: "left" | "right" }) {
 const SCROLL_MARGIN = { scrollMarginTop: "1rem" };
 
 /**
- * The leagues one per view (#785), Unranked then Wood to Grand Master, each card standing alone (#859): the arrows on each side of
- * it (thin arrows), a swipe and the arrow keys move through them, and stop at both ends. No dots (the owner's ask of
- * 2026-11-05: 24 were too many). The index is the scene's: Embla follows it (a cut under reduced motion) and reports a swipe's
- * landing. Only the league in view is in the accessibility tree.
+ * The leagues one per view (#785), Wood to Grand Master (Unranked is no slide: the owner's ask of 2026-11-07), each card standing
+ * alone (#859): the arrows on each side of it (thin arrows), a swipe and the arrow keys move through them, and stop at both ends. No
+ * dots (the owner's ask of 2026-11-05: 24 were too many). The index is the scene's: Embla follows it (a cut under reduced motion)
+ * and reports a swipe's landing. Only the league in view is in the accessibility tree.
  */
 export function LeagueCarousel({ ref, selected, onSelect, mine, children, className }: LeagueCarouselProps) {
   const [api, setApi] = useState<CarouselApi>();
   const reduced = useReducedMotionConfig();
-  const last = LEAGUE_SLIDES.length - 1;
-  const step = useCallback((by: number) => onSelect(Math.max(0, Math.min(last, selected + by))), [onSelect, selected, last]);
+  const step = useCallback((by: number) => onSelect(Math.max(0, Math.min(last, selected + by))), [onSelect, selected]);
 
   // A swipe lands on a snap: the scene takes it.
   useEffect(() => {
@@ -97,14 +93,14 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
           className="min-w-0 flex-1 rounded-lg outline-none"
         >
           <CarouselContent>
-            {LEAGUE_SLIDES.map((l, i) => (
+            {LEAGUES.map((l, i) => (
               <CarouselItem
-                key={i}
-                aria-label={slideName(l)}
+                key={l.index}
+                aria-label={l.name}
                 aria-current={i === mine ? "true" : undefined}
                 aria-hidden={i === selected ? undefined : true}
                 inert={i !== selected}
-                data-league={l?.index}
+                data-league={l.index}
               >
                 {children(l, i === selected)}
               </CarouselItem>
@@ -116,7 +112,7 @@ export function LeagueCarousel({ ref, selected, onSelect, mine, children, classN
         </Button>
       </div>
       <p aria-live="polite" className="sr-only">
-        {slideName(LEAGUE_SLIDES[selected]!)}
+        {LEAGUES[selected]!.name}
       </p>
     </div>
   );
