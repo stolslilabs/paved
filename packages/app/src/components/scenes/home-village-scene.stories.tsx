@@ -489,9 +489,9 @@ export const Scene: Story = {
 };
 /** The same scene in edit mode: the overlays switched to the editor's, the scene's box what the panel leaves. */
 export const SceneEditing: Story = { args: HOME_VILLAGE.holding, render: (args) => <InScene {...args} /> };
-/** A road placed on the scene (#756): the bubble by the tile, following pans, zooms and the compass, clear of the bar and the panel. */
+/** A road placed on the scene (#756): its actions out of its sides (TILE-ACTIONS), following pans, zooms and the compass, clear of the bar and the panel. */
 export const ScenePlaced: Story = { args: HOME_VILLAGE.placing, render: (args) => <InScene {...args} /> };
-/** A lifted tile moved on the scene: the bubble by it, with Cancel. */
+/** A lifted tile moved on the scene: its actions round it, with Cancel. */
 export const SceneMoved: Story = { args: HOME_VILLAGE.moved, render: (args) => <InScene {...args} /> };
 
 /** The points on the scene in edit mode (#758): a line lit lights its structure's areas and dims the rest. */
@@ -522,7 +522,7 @@ export const SceneMovedWide: Story = { ...SceneMoved, ...WIDE_1440 };
 /*
  * EDIT-VILLAGE (after the Paved UX Book's "Edit my village", 2026-11-05): the editor's bar (Back, "Edit", the die, Erase held, Save
  * and Use on the book's gold pill; from `tablet` the side menu's band, as the HUD drawers', their close at its end), the tile's
- * actions on a soft veil, the points at the top left, and the inventory with the layouts above it (a phone's bottom sheet, a side
+ * actions out of its sides (TILE-ACTIONS), the points at the top left, and the inventory with the layouts above it (a phone's bottom sheet, a side
  * menu from `tablet`), at 320, 375, 768, 1024 and 1440 px.
  */
 /** A lifted tile moved, at 320 px: the bar with "Edit", the tile's actions with Cancel, the inventory's sheet. */

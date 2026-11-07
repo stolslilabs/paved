@@ -36,8 +36,11 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     // copies (64 and 128 px): 6,970 bytes for the open gift (`gift-open`), 42,700 for the stake's burned coin, Vault, referral, top
     // win and break even (`flow-burn`, `flow-vault`, `flow-referral`, `max-gain`: 31,500; `break-even`: 11,200), 8,392 for the
     // split's coin and arrows (`money-flow`), 8,196 for the stake's money bag (`stake`). ATTACK-SCOUT (2026-11-07): raised by exactly
-    // the copies of the pile of tiles (`tile-stack`, the scout's deck and the home's Tiles, 64 and 128 px), 8,034 bytes.
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196 + 8_034);
+    // the copies of the pile of tiles (`tile-stack`, the scout's deck and the home's Tiles, 64 and 128 px), 8,034 bytes. TILE-ACTIONS
+    // (2026-11-07): raised by exactly the measured growth, 15,184 bytes: the copies of the tile's painted actions (`tile-cancel`,
+    // `tile-discard`, `tile-rotate`, `tile-confirm`, `tile-return`, 64 and 128 px), 32,254 bytes, less those of edit mode's bubble's bare
+    // Rotate, Back to the inventory and Cancel (`rotate-tile`, `to-inventory`, `cancel`), 17,070, which left with it.
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196 + 8_034 + 15_184);
   });
 
   it("ships the ranking's gold and silver medals and its Alliances and Guilds tabs' icons (LEADERBOARD-PAGE): the icons' frame, two light copies each", () => {

@@ -6,7 +6,29 @@ import type { PressPhase } from "../../lib/use-press-action";
 import { HoldRing } from "../elements/hold-button";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { MARGIN_PX, OVERLAP_PX, bubbleLimits, bubbleSize, placeBubble } from "./tile-bubble";
+import { MARGIN_PX, bubbleLimits, type BubbleLimits } from "./tile-actions-layout";
+
+/** The bubble's size: a touch target of 44 px per button, 4 px of padding, a 4 px gap (the tile bubble's before TILE-ACTIONS). */
+export const BUTTON_PX = 44;
+const PAD_PX = 4;
+const GAP_PX = 4;
+/** The bubble overlaps the tile's corner by this much, so it reads as attached to it. */
+export const OVERLAP_PX = 10;
+
+export function bubbleSize(buttons: number): { width: number; height: number } {
+  return { width: buttons * BUTTON_PX + (buttons - 1) * GAP_PX + 2 * PAD_PX, height: BUTTON_PX + 2 * PAD_PX };
+}
+
+/**
+ * The bubble's top-left for a tile whose top-right corner is at `corner`: the bubble sits above and to the right of it,
+ * overlapping by `OVERLAP_PX`, then is pushed inside `limits` (the box without the HUD and the hand panel), so it never
+ * leaves the screen or goes under them.
+ */
+export function placeBubble(corner: { x: number; y: number }, size: { width: number; height: number }, limits: BubbleLimits): { x: number; y: number } {
+  const x = Math.min(Math.max(corner.x - OVERLAP_PX, limits.left), Math.max(limits.left, limits.right - size.width));
+  const y = Math.min(Math.max(corner.y - size.height + OVERLAP_PX, limits.top), Math.max(limits.top, limits.bottom - size.height));
+  return { x, y };
+}
 
 export interface PressBubbleProps {
   /** The button's accessible name: "Edit village". */

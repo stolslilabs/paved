@@ -8,8 +8,10 @@
  * the guild's Post's pencil and the log's joined and kicked, its menu's Invite a player, Find guilds, Leave and Disband and a
  * member's Promote and Demote, the join types' open padlock and sealed letter, the members' busts, the Recruit's sprout and the
  * Veteran's medal (GUILD-PAGE, 2026-11-05),
- * edit mode's die, its bubble's Rotate, Back to the inventory and Cancel, the Layouts' padlock, Use's gold pill (a frame) and the
- * bar's Save and Erase (EDIT-VILLAGE, 2026-11-05),
+ * edit mode's die, the Layouts' padlock, Use's gold pill (a frame) and the bar's Save and Erase (EDIT-VILLAGE, 2026-11-05),
+ * the actions on a tile being placed, on the boards and in the editor: the grey cross, the red trash, the blue turning arrow, the gold
+ * check and the blue box with its arrow (TILE-ACTIONS, 2026-11-07; edit mode's bubble's bare Rotate, Back to the inventory and Cancel
+ * left with its bubble),
  * the Settings' rows (SETTINGS-PAGE, 2026-11-06), the Play page's open gift under a mode's rewards and the Challenge's stake's
  * burned coin, Vault, referral, break even, top win, split and money bag (PLAY-PAGE, 2026-11-06),
  * and the frames the home draws with them: the XP bar's track and fill, and the dock's wood, parchment, divider and PLAY medallion
@@ -103,9 +105,12 @@ export const UI_ICONS = [
   "sprout",
   "medal",
   "die",
-  "rotate-tile",
-  "to-inventory",
-  "cancel",
+  // TILE-ACTIONS: the actions on a tile being placed, the Paved UX Book's board screen's round buttons, painted by Codex.
+  "tile-cancel",
+  "tile-discard",
+  "tile-rotate",
+  "tile-confirm",
+  "tile-return",
   "padlock",
   "save",
   "erase",
