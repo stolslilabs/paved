@@ -11,6 +11,7 @@ export const FIXTURE_TOURNAMENT = 20733;
 export const FIXTURE_HEAD = { number: 9120, hash: "0x01b4e2", timestamp: 1791878004 };
 
 import { MAX_TOURNAMENT_ID } from "./indexer";
+import { nameKey } from "./avatar";
 
 type Row = Record<string, unknown>;
 
@@ -95,6 +96,8 @@ export class FixtureIndexer {
   readonly state: FixtureState = { behind: 0, status: "ok", down: false, version: 1, rawBody: undefined };
   /** Every URL asked, in order. */
   readonly requests: string[] = [];
+  /** `/v1/names/{name}` (PLAYER-RENAME): the holder of each name, by its key (`nameKey`); a name not listed is nobody's. */
+  readonly holders = new Map<string, { playerId: string; source: "chain" | "cartridge" }>();
   /** Rows by tournament id; a tournament not listed answers zeros and an empty board. */
   entries = new Map<number, Row[]>([[FIXTURE_TOURNAMENT, ENTRIES]]);
   /** Usernames the indexer's cache holds (N1), by player id; none by default: every `name` is null. */
@@ -173,6 +176,14 @@ export class FixtureIndexer {
     const playerOk = (id: string) => /^0x[0-9a-f]{64}$/.test(id);
 
     const [, a, b, c, d] = path;
+    // PLAYER-RENAME: who holds a name, whatever its case (`holders`, by the name's lower case; nobody by default).
+    if (a === "names" && b !== undefined && c === undefined) {
+      const name = decodeURIComponent(b);
+      const key = nameKey(name);
+      if (key === null) return fail(400, "name must be a player name");
+      const held = this.holders.get(key);
+      return ok({ name, player_id: held?.playerId ?? null, source: held?.source ?? null });
+    }
     if (a === "head" && !b) {
       const e = allowed();
       if (e) return fail(400, e);

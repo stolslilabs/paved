@@ -1,6 +1,9 @@
 import {
   AvatarPriceChangedError,
   AvatarRefusedError,
+  RenameRefusedError,
+  isPlayerName,
+  nameKey,
   FAUCET_USDC_AMOUNT,
   ClaimRefusedError,
   PackNotOnSaleError,
@@ -55,6 +58,8 @@ import {
   type AvatarItem,
   type AvatarViews,
   type BuyAvatarItemRequest,
+  type NameViews,
+  type RenameRequest,
   type BuyParcelRequest,
   type BuySkinRequest,
   type CobbleAccount,
@@ -186,7 +191,7 @@ import type { MatchRecord, MatchRecordViews } from "../matches";
 import { DailyMilestoneRefusedError, type DailyMilestoneViews, type DailyMilestoneWrites, type DailyMilestonesView } from "../daily-milestones";
 import { WeeklyMilestoneRefusedError, type WeeklyMilestoneViews, type WeeklyMilestoneWrites, type WeeklyMilestonesView } from "../weekly-milestones";
 import { TutorialStepRefusedError, type TutorialView, type TutorialViews, type TutorialWrites } from "../tutorial";
-import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, generatedLook } from "../../mocks/avatar";
+import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, AVATAR_RENAME_PRICE, generatedLook } from "../../mocks/avatar";
 import { ACHIEVEMENT_COBBLES, PACKS, SKIN_PRICES } from "../../mocks/cobbles";
 import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
@@ -281,6 +286,7 @@ export interface MockedReads
     SkinViews,
     LevelViews,
     AvatarViews,
+    NameViews,
     VillageViews,
     PvpViews,
     FreeVillageViews,
@@ -307,8 +313,10 @@ export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" |
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
-  /** The player's name (#926): the mock's alone until the integration decides where it lives (on chain, or #918's identities). */
+  /** The player's name (#926), drawn at the first connection: not a change (`renames` stays), so the first rename is still free. */
   setName(name: string): Promise<WriteResult>;
+  /** `Avatar.rename` (PLAYER-RENAME), as the writer's `rename(request, views)`: the ledger reads its own count, price and names. */
+  rename(request: RenameRequest): Promise<WriteResult>;
   foundVillage(): Promise<WriteResult>;
   buyParcel(request: BuyParcelRequest): Promise<WriteResult>;
   openReward(): Promise<WriteResult>;
@@ -375,8 +383,10 @@ interface StoredPlayer {
   usdc: string;
   /** `avatar(player_id)`, a decimal string; absent: none set (a state stored before the avatar reads it so). */
   avatar?: string;
-  /** The player's name (#926), drawn at their first connection (`nameAtConnection`); absent: none (an account before it). */
+  /** The player's name (#926), drawn at their first connection (`nameAtConnection`) or renamed (`rename`); absent: none (an account before it). */
   name?: string;
+  /** The renames the player has made (PLAYER-RENAME); absent: none, the next is free. The drawn name is not one. */
+  renames?: number;
   /** When First Stone was claimed (`claimTutorial`, #927), in the ledger's seconds; absent: not claimed. */
   tutorialAt?: number;
   /**
@@ -841,6 +851,41 @@ export class MockLedger {
     if (seeded) return seeded.name;
     this.sync();
     return this.peek(playerId).name ?? null;
+  }
+
+  /** `Avatar.name(player_id)` (PLAYER-RENAME): the mock's name, drawn or chosen, as every screen of the mock shows it. */
+  playerName(playerId: string): Promise<string | null> {
+    return this.name(playerId);
+  }
+
+  /** `Avatar.renames(player_id)`: the changes made; the drawn name is not one. */
+  async renameCount(playerId: string): Promise<number> {
+    this.sync();
+    return this.peek(playerId).renames ?? 0;
+  }
+
+  /** `Avatar.rename_price()`: `scripts/deploy.sh`'s (`AVATAR_RENAME_PRICE`). */
+  async renamePrice(): Promise<number> {
+    return AVATAR_RENAME_PRICE;
+  }
+
+  /**
+   * `Avatar.name_owner(name)`: who holds `name` in any case among the names the mock shows, the players' of the ledger (drawn or
+   * chosen), the seeded players', the community's and the rivals'; null: free, or not a name.
+   */
+  async nameOwner(name: string): Promise<string | null> {
+    const key = nameKey(name);
+    if (key === null) return null;
+    this.sync();
+    return this.holderOf(key);
+  }
+
+  /** The address holding the name of key `key` (`nameKey`: its case folded), or null. */
+  private holderOf(key: string): string | null {
+    const same = (name: string | undefined) => name !== undefined && nameKey(name) === key;
+    for (const [address, p] of Object.entries(this.state.players)) if (same(p.name)) return address;
+    const named = [...community(), ...mockRivals()].find((m) => same(m.name));
+    return named ? named.address : null;
   }
 
   /** `Village.village(player_id)`, as the contract computes it: the score is the engine's replay of the tiles (game-core). */
@@ -1708,6 +1753,7 @@ export class MockLedger {
       buyAvatarItem: (request) => this.buyAvatarItem(account, request),
       setAvatar: (look) => this.setAvatar(account, look),
       setName: (name) => this.setName(account, name),
+      rename: (request) => this.rename(account, request),
       foundVillage: () => this.foundVillage(account),
       buyParcel: (request) => this.buyParcel(account, request),
       openReward: () => this.openReward(account),
@@ -1937,6 +1983,31 @@ export class MockLedger {
     if (!MOCK_NAME.test(name)) throw new WriteError(`Not a name: ${JSON.stringify(name)} (letters and digits, 3 to ${PLAYER_NAME_MAX})`);
     p.name = name;
     return this.event("NameSet", { playerId: account, name });
+  }
+
+  /**
+   * `Avatar.rename(name, max_cobbles)` (PLAYER-RENAME) with the contract's checks and the writer's refusals: letters and digits, 3
+   * to 15; not the current name; held by no other player in any case; the first change free, a later one at the rename price,
+   * never another than the one confirmed; the Cobbles debited. The drawn name (#926) is not a change. Its receipt: `Renamed`,
+   * and `CobblesSpent` for a paid change.
+   */
+  async rename(account: string, { name, confirmedPrice }: RenameRequest): Promise<WriteResult> {
+    if (!isPlayerName(name)) throw new RenameRefusedError("invalid-name");
+    await sleep(this.latency);
+    return this.write(account, (p, hash) => {
+      const count = p.renames ?? 0;
+      const cost = count === 0 ? 0 : AVATAR_RENAME_PRICE;
+      if (cost !== confirmedPrice) throw new RenameRefusedError("price-changed", hash);
+      if (p.name === name) throw new RenameRefusedError("same-name", hash);
+      const holder = this.holderOf(nameKey(name)!);
+      if (holder !== null && addressKey(holder) !== addressKey(account)) throw new RenameRefusedError("taken", hash);
+      if (p.cobbles < cost) throw new RenameRefusedError("not-enough-cobbles", hash);
+      p.cobbles -= cost;
+      p.name = name;
+      p.renames = count + 1;
+      const renamed = this.event("Renamed", { playerId: account, name, cobbles: cost, count: count + 1 });
+      return cost === 0 ? [renamed] : [renamed, this.event("CobblesSpent", { playerId: account, spender: this.options.seller, reason: "RENAME", cobbles: cost, balance: p.cobbles })];
+    });
   }
 
   /**

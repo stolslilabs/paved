@@ -287,6 +287,122 @@
   },
   {
     "type": "impl",
+    "name": "AvatarNameImpl",
+    "interface_name": "paved::systems::avatar::IAvatarName"
+  },
+  {
+    "type": "struct",
+    "name": "core::byte_array::ByteArray",
+    "members": [
+      {
+        "name": "data",
+        "type": "core::array::Array::<core::bytes_31::bytes31>"
+      },
+      {
+        "name": "pending_word",
+        "type": "core::felt252"
+      },
+      {
+        "name": "pending_word_len",
+        "type": "core::internal::bounded_int::BoundedInt::<0, 30>"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::avatar::IAvatarName",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_rename_price",
+        "inputs": [
+          {
+            "name": "cobbles",
+            "type": "core::integer::u16"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "rename",
+        "inputs": [
+          {
+            "name": "name",
+            "type": "core::byte_array::ByteArray"
+          },
+          {
+            "name": "max_cobbles",
+            "type": "core::integer::u16"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "name",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::byte_array::ByteArray"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "renames",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "rename_price",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u16"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "name_owner",
+        "inputs": [
+          {
+            "name": "name",
+            "type": "core::byte_array::ByteArray"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::felt252"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "UpgradeableImpl",
     "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
   },
@@ -600,6 +716,45 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::avatar::Avatar::RenamePriceSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "cobbles",
+        "type": "core::integer::u16",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::avatar::Avatar::Renamed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "name",
+        "type": "core::byte_array::ByteArray",
+        "kind": "data"
+      },
+      {
+        "name": "cobbles",
+        "type": "core::integer::u16",
+        "kind": "data"
+      },
+      {
+        "name": "count",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::avatar::Avatar::Event",
     "kind": "enum",
     "variants": [
@@ -636,6 +791,16 @@
       {
         "name": "AvatarSet",
         "type": "paved::systems::avatar::Avatar::AvatarSet",
+        "kind": "nested"
+      },
+      {
+        "name": "RenamePriceSet",
+        "type": "paved::systems::avatar::Avatar::RenamePriceSet",
+        "kind": "nested"
+      },
+      {
+        "name": "Renamed",
+        "type": "paved::systems::avatar::Avatar::Renamed",
         "kind": "nested"
       }
     ]

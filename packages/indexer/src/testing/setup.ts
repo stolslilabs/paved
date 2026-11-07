@@ -6,7 +6,7 @@
 import { Chain } from "../chain.ts";
 import { Indexer } from "../indexer.ts";
 import { Halt, Store } from "../store.ts";
-import { ARENA, CHAIN_ID, COLLECTION, CHALLENGE, ECONOMY, FakeNode, SETUP, VAULT } from "./fake-node.ts";
+import { ARENA, AVATAR, CHAIN_ID, COLLECTION, CHALLENGE, ECONOMY, FakeNode, SETUP, VAULT } from "./fake-node.ts";
 
 export const CONFIG = {
   challenge: CHALLENGE,
@@ -60,6 +60,17 @@ export function indexerWithVault(node: FakeNode, range = 0): Indexer {
     config,
     depth: range > 0 ? "l1" : 1000,
     range,
+  });
+}
+
+/** The same indexer for a deployment with an Avatar (PLAYER-RENAME): the names set on chain are read. */
+export function indexerWithAvatar(node: FakeNode): Indexer {
+  const config = { ...CONFIG, avatar: AVATAR };
+  return new Indexer({
+    chain: new Chain(node.rpc, { challenge: CHALLENGE, setup: SETUP, economy: ECONOMY, collection: COLLECTION, avatar: AVATAR }),
+    store: new Store(":memory:"),
+    config,
+    depth: 1000,
   });
 }
 

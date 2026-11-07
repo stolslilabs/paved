@@ -12,6 +12,13 @@
 //!
 //! Nothing is hard-coded but the format: the parts in use, the price bounds, the free items and the
 //! limits are the owner's settings.
+//!
+//! The player's name (PLAYER-RENAME, `avatar::name`): UTF-8 text of 3 to 15 characters, the
+//! letters and digits of any script with single spaces and hyphens between them, unique whatever
+//! its case (one player per key, the case of Latin, Greek and Cyrillic folded). The player renames
+//! itself (`rename`): its first change is free, every later one costs the owner's rename price in
+//! cobbles, debited on `Setup`'s ledger in the same call. Without a name set here a player is shown
+//! by its Cartridge username (the indexer's, N1); a name set here wins over it.
 
 use paved::avatar::item::AvatarItem;
 
@@ -24,6 +31,8 @@ pub struct PriceBounds {
 
 /// The reason of `Avatar`'s `CobblesSpent` on `Setup`.
 pub const AVATAR_REASON: felt252 = 'AVATAR_ITEM';
+/// The reason of a paid rename's `CobblesSpent` on `Setup`.
+pub const RENAME_REASON: felt252 = 'RENAME';
 
 #[starknet::interface]
 pub trait IAvatar<TContractState> {
@@ -66,6 +75,30 @@ pub trait IAvatar<TContractState> {
     fn setup(self: @TContractState) -> starknet::ContractAddress;
 }
 
+/// The player's name (PLAYER-RENAME): set by the player for itself, its first change free, every
+/// later one at the owner's rename price.
+#[starknet::interface]
+pub trait IAvatarName<TContractState> {
+    /// Sets the price in cobbles of a rename after the first, owner only, not 0. Renames already
+    /// made keep what they cost. Emits `RenamePriceSet`.
+    fn set_rename_price(ref self: TContractState, cobbles: u16);
+    /// The caller renames itself: `name` UTF-8 text of 3 to 15 characters
+    /// (`avatar::name::name_key`), not its current name, and held by no other player in any case.
+    /// Its first change is free; a later one costs the rename price, debited by `Setup` (a short
+    /// balance reverts), refused when no price is set or the price is above `max_cobbles`, the
+    /// price the player confirmed. The name it leaves is free for others at once. Emits `Renamed`.
+    fn rename(ref self: TContractState, name: ByteArray, max_cobbles: u16);
+    /// A player's name (empty: none set here, the client shows its Cartridge username).
+    fn name(self: @TContractState, player_id: felt252) -> ByteArray;
+    /// The changes a player has made (0: its next is free).
+    fn renames(self: @TContractState, player_id: felt252) -> u32;
+    /// The price in cobbles of a rename after the first (0: not set, only a first change is
+    /// possible).
+    fn rename_price(self: @TContractState) -> u16;
+    /// The player holding `name` in any case; 0: free (or not a valid name).
+    fn name_owner(self: @TContractState, name: ByteArray) -> felt252;
+}
+
 #[starknet::contract]
 pub mod Avatar {
     use core::num::traits::Zero;
@@ -74,6 +107,7 @@ pub mod Avatar {
     use paved::avatar::catalogue::CatalogueComponent;
     use paved::avatar::item::AvatarItem;
     use paved::avatar::look::{MAX_PARTS, look_ids};
+    use paved::avatar::name::name_key;
     use paved::components::ownable::OwnableComponent;
     use paved::systems::setup::{ISetupSpendDispatcher, ISetupSpendDispatcherTrait};
     use starknet::storage::{
@@ -81,7 +115,7 @@ pub mod Avatar {
         StoragePointerWriteAccess,
     };
     use starknet::{ClassHash, ContractAddress, get_caller_address};
-    use super::{AVATAR_REASON, IAvatar, PriceBounds};
+    use super::{AVATAR_REASON, IAvatar, IAvatarName, PriceBounds, RENAME_REASON};
 
     pub mod errors {
         pub const ZERO_SETUP_ADDRESS: felt252 = 'Avatar: setup is zero';
@@ -90,6 +124,11 @@ pub mod Avatar {
         pub const INVALID_LOOK: felt252 = 'Avatar: invalid look';
         pub const NOT_OWNED: felt252 = 'Avatar: item not owned';
         pub const PRICE_ABOVE_MAX: felt252 = 'Avatar: price above max';
+        pub const INVALID_NAME: felt252 = 'Avatar: invalid name';
+        pub const SAME_NAME: felt252 = 'Avatar: same name';
+        pub const NAME_TAKEN: felt252 = 'Avatar: name taken';
+        pub const RENAME_NOT_PRICED: felt252 = 'Avatar: rename not priced';
+        pub const INVALID_RENAME_PRICE: felt252 = 'Avatar: invalid rename price';
     }
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -115,6 +154,20 @@ pub mod Avatar {
         parts: u8,
         /// A player's look, key `player_id`; written by `set_avatar`.
         avatars: Map<felt252, u128>,
+        /// PLAYER-RENAME, appended (P-42). A player's name, key `player_id` (empty: none); written
+        /// by `rename`.
+        names: Map<felt252, ByteArray>,
+        /// The player holding a name, key the name's key (`name_key`: its characters, their case
+        /// folded, hashed; 0: free); written by `rename`.
+        name_owners: Map<felt252, felt252>,
+        /// The changes a player has made, key `player_id`; written by `rename`.
+        renames: Map<felt252, u32>,
+        /// The key of a player's name, key `player_id` (0: none), so a rename frees it without
+        /// reading the name again; written by `rename`.
+        name_keys: Map<felt252, felt252>,
+        /// The price in cobbles of a rename after the first (0: not set); written by
+        /// `set_rename_price`.
+        rename_price: u16,
     }
 
     #[event]
@@ -130,6 +183,8 @@ pub mod Avatar {
         PartsSet: PartsSet,
         AvatarItemBought: AvatarItemBought,
         AvatarSet: AvatarSet,
+        RenamePriceSet: RenamePriceSet,
+        Renamed: Renamed,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -161,6 +216,23 @@ pub mod Avatar {
         #[key]
         pub player_id: felt252,
         pub look: u128,
+    }
+
+    /// The price of a rename after the first, set by the owner.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct RenamePriceSet {
+        pub cobbles: u16,
+    }
+
+    /// The player's new name: `cobbles` what it cost (0: its first change), `count` the changes it
+    /// has made with this one.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct Renamed {
+        #[key]
+        pub player_id: felt252,
+        pub name: ByteArray,
+        pub cobbles: u16,
+        pub count: u32,
     }
 
     #[constructor]
@@ -274,6 +346,80 @@ pub mod Avatar {
 
         fn setup(self: @ContractState) -> ContractAddress {
             self.setup.read()
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl AvatarNameImpl of IAvatarName<ContractState> {
+        fn set_rename_price(ref self: ContractState, cobbles: u16) {
+            self.ownable.assert_only_owner();
+            assert(cobbles != 0, errors::INVALID_RENAME_PRICE);
+            self.rename_price.write(cobbles);
+            self.emit(RenamePriceSet { cobbles });
+        }
+
+        fn rename(ref self: ContractState, name: ByteArray, max_cobbles: u16) {
+            let player_id: felt252 = get_caller_address().into();
+            // [Check] 3 to 15 characters of the allowed ones (`avatar::name`)
+            let key = match name_key(@name) {
+                Some(key) => key,
+                None => core::panic_with_felt252(errors::INVALID_NAME),
+            };
+            // [Check] Another name than the current one (another case is another name): the name
+            // read only when its key is the new one's
+            let left = self.name_keys.read(player_id);
+            if left == key {
+                assert(name != self.names.read(player_id), errors::SAME_NAME);
+            }
+            // [Check] Held by no other player, in any case
+            let owner = self.name_owners.read(key);
+            assert(owner == 0 || owner == player_id, errors::NAME_TAKEN);
+            // [Check] The first change free, a later one at the price set, never above the price
+            // the player confirmed
+            let count = self.renames.read(player_id);
+            let cobbles = if count == 0 {
+                0
+            } else {
+                let price = self.rename_price.read();
+                assert(price != 0, errors::RENAME_NOT_PRICED);
+                price
+            };
+            assert(cobbles <= max_cobbles, errors::PRICE_ABOVE_MAX);
+            // [Effect] The name left is free at once; the new one is the player's
+            if left != 0 && left != key {
+                self.name_owners.write(left, 0);
+            }
+            self.name_owners.write(key, player_id);
+            self.name_keys.write(player_id, key);
+            self.names.write(player_id, name.clone());
+            let count = count + 1;
+            self.renames.write(player_id, count);
+            // [Interaction] A paid change's cobbles debited on `Setup`'s ledger (reverts on a short
+            // balance, and the whole rename with it)
+            if cobbles != 0 {
+                let setup = ISetupSpendDispatcher { contract_address: self.setup_address() };
+                setup.spend_cobbles(player_id, cobbles.into(), RENAME_REASON);
+            }
+            self.emit(Renamed { player_id, name, cobbles, count });
+        }
+
+        fn name(self: @ContractState, player_id: felt252) -> ByteArray {
+            self.names.read(player_id)
+        }
+
+        fn renames(self: @ContractState, player_id: felt252) -> u32 {
+            self.renames.read(player_id)
+        }
+
+        fn rename_price(self: @ContractState) -> u16 {
+            self.rename_price.read()
+        }
+
+        fn name_owner(self: @ContractState, name: ByteArray) -> felt252 {
+            match name_key(@name) {
+                Some(key) => self.name_owners.read(key),
+                None => 0,
+            }
         }
     }
 

@@ -13,6 +13,7 @@
 // player registry of Account, ownership) are known by name and skipped; any other selector is a contract change the indexer was not told about.
 import { hash } from "starknet";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
+import { nameKey } from "./player-name.ts";
 
 /**
  * The four contracts whose events are read: `challenge` plays, `setup` holds the quests and the achievements (D-24: the
@@ -21,15 +22,17 @@ import { MAX_TOURNAMENT_ID } from "./api.ts";
  * (docs/architecture/economy.md, "Events"), and `collection` mints the game NFTs (economy.md, section 9). The on-chain
  * Tutorial left with D-21 and Account with D-25 (E): their addresses are no longer read. A player is a wallet address.
  */
-export type Source = "challenge" | "setup" | "economy" | "collection" | "arena" | "vault";
+export type Source = "challenge" | "setup" | "economy" | "collection" | "arena" | "vault" | "avatar";
 
 /**
  * `arena` (#643, `docs/architecture/pvp-attacks.md`) holds the PvP attacks: who attacked whom, the stars and the crowns (the
  * defence log, #647). Optional, as `collection`: a deployment without `Arena` reads none. `vault` (D-31,
  * `docs/architecture/vault-share.md`, addendum 2) pays its holders USDC: its claims and the owner's collects are the history of
- * the Vault page. Optional too: a deployment without `Vault` reads none.
+ * the Vault page. Optional too: a deployment without `Vault` reads none. `avatar` (PLAYER-RENAME,
+ * `docs/architecture/avatar-chain.md`, "The name") holds the names the players set: a name set there wins over the Cartridge
+ * username wherever a name is served. Optional too: a deployment without `Avatar` reads none.
  */
-export const SOURCES: readonly Source[] = ["challenge", "setup", "economy", "collection", "arena", "vault"];
+export const SOURCES: readonly Source[] = ["challenge", "setup", "economy", "collection", "arena", "vault", "avatar"];
 
 /**
  * A past Tutorial game's token id was `TUTORIAL_OFFSET + game id`; a Challenge game's is its game id (`Collection`). The
@@ -325,6 +328,17 @@ export type Decoded =
       recipient: bigint;
       /** USDC base units (u256), never 0. */
       amount: bigint;
+    }
+  | {
+      /** A player's new name (`Avatar.rename`, PLAYER-RENAME): it wins over the Cartridge username from this event on. */
+      name: "Renamed";
+      playerId: bigint;
+      /** The name, UTF-8 text of 3 to 15 characters (`avatar::name`), as the player sent it. */
+      text: string;
+      /** The Cobbles it cost (u16): 0 for the player's first change. */
+      cobbles: number;
+      /** The changes the player has made with this one (u32), from 1. */
+      count: number;
     };
 
 /** One task of a quest or an achievement: the id the game reports, and the count that completes it. */
@@ -429,6 +443,8 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   // The Vault's other events are never fetched (`FILTERED`).
   Claimed: ["vault"],
   Collected: ["vault"],
+  // PLAYER-RENAME: a player's name set on chain. Avatar's other events (the look, the catalogue, the owner's) are never fetched.
+  Renamed: ["avatar"],
 };
 
 /**
@@ -440,6 +456,8 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
  */
 export const FILTERED: Partial<Record<Source, readonly EventName[]>> = {
   vault: ["Claimed", "Collected"],
+  // PLAYER-RENAME: only the names; the looks and the catalogue are read from Avatar's views by the client.
+  avatar: ["Renamed"],
 };
 
 /** Events of the contracts' ABIs that are not indexed in v1 (indexer.md, "Not indexed"). */
@@ -567,6 +585,7 @@ const INDEXED: readonly EventName[] = [
   "AttackSkipped",
   "Claimed",
   "Collected",
+  "Renamed",
 ];
 
 /** Selector (a lowercase 0x hex without leading zeros) of every event name of the contracts. */
@@ -1074,5 +1093,43 @@ export function decode(
       if (amount === 0n) throw new DecodeError(`${name}: amount 0`);
       return { name, holder: felt(keys[1]), recipient: felt(data[0]), amount };
     }
+    case "Renamed": {
+      // key player_id; data name (a ByteArray: its full words, the pending word and its length), cobbles (u16), count (u32)
+      if (keys.length !== 2) throw new DecodeError(`${name}: ${keys.length - 1} keys, expected 1`);
+      const { text, next } = playerName(data, 0);
+      if (data.length !== next + 2) throw new DecodeError(`${name}: ${data.length} data, expected ${next + 2}`);
+      const count = small(data[next + 1], 32, "count");
+      if (count === 0) throw new DecodeError(`${name}: count 0`);
+      return { name, playerId: felt(keys[1]), text, cobbles: small(data[next], 16, "cobbles"), count };
+    }
   }
+}
+
+/**
+ * A player's name (PLAYER-RENAME) from a `ByteArray` at `data[at]`: its full 31-byte words, the pending word and its length, as
+ * strict UTF-8, and a name `Avatar` takes (`nameKey`); anything else is a DecodeError. `next` is the index after it.
+ */
+export function playerName(data: readonly string[], at: number): { text: string; next: number } {
+  const words = small(data[at], 8, "name's words");
+  // 60 bytes at most: one full word, or none
+  if (words > 1) throw new DecodeError(`a name of ${words} full words`);
+  const pendingAt = at + 1 + words;
+  const length = small(data[pendingAt + 1], 8, "name's pending length");
+  if (length > 30) throw new DecodeError(`a name's pending word of ${length} bytes`);
+  const bytes: number[] = [];
+  const put = (value: string | undefined, size: number) => {
+    const word = felt(value);
+    if (word >= 1n << BigInt(8 * size)) throw new DecodeError("a name's word wider than its length");
+    for (let i = size - 1; i >= 0; i--) bytes.push(Number((word >> BigInt(8 * i)) & 0xffn));
+  };
+  for (let i = 0; i < words; i++) put(data[at + 1 + i], 31);
+  put(data[pendingAt], length);
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes));
+  } catch {
+    throw new DecodeError("a name that is not UTF-8");
+  }
+  if (nameKey(text) === null) throw new DecodeError(`${JSON.stringify(text)} is not a player name`);
+  return { text, next: pendingAt + 2 };
 }

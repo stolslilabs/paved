@@ -15,6 +15,7 @@ import type { PvpSearchSceneProps } from "../components/scenes/pvp-search-scene"
 import type { PlayerSearchProps } from "../components/containers/player-search";
 import type { PublicProfileState } from "../components/containers/public-profile-sheet";
 import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
+import type { RenameViewProps } from "../components/containers/rename-view";
 import type * as avatar from "./avatar";
 import type * as avatarCatalogue from "./avatar-catalogue";
 import type * as avatarOffers from "./avatar-offers";
@@ -24,6 +25,7 @@ import type * as indexer from "./indexer";
 import type * as playerProgress from "./player-progress";
 import type * as playerRanking from "./player-ranking";
 import type * as purchase from "./purchase";
+import type * as rename from "./rename";
 import type * as pvp from "./pvp";
 import type * as social from "./social";
 import type * as training from "./training";
@@ -61,6 +63,10 @@ export type SceneTypes = [
   Expect<Equal<ReturnType<typeof avatarOffers.avatarOffers>, AvatarCreator["offers"]>>,
   Expect<Equal<ReturnType<typeof avatar.savedLook>, OrNull<NonNullable<ProfileSheetProps["look"]>>>>,
   Expect<Equal<NonNullable<Data<typeof avatarCatalogue.useAvatarCatalogue>>["balance"], AvatarCreator["balance"]>>,
+  // the name (PLAYER-RENAME): the name's view's cost and Cobbles, and the profile's name (the chain's, else the indexer's)
+  Expect<Equal<NonNullable<Data<typeof rename.useRename>>["cost"], NonNullable<RenameViewProps["cost"]>>>,
+  Expect<Equal<NonNullable<Data<typeof rename.useRename>>["balance"], NonNullable<RenameViewProps["balance"]>>>,
+  Expect<Equal<NonNullable<ReturnType<typeof avatar.usePlayerName>>, NonNullable<RenameViewProps["current"]>>>,
   // the PvP flow (#647 PR 2): a player, the scout's village and stakes, the attack's board (null: no PvP on the network)
   Expect<Equal<Data<typeof pvp.usePvpPlayer>, OrNull<PvpSearchSceneProps["player"]>>>,
   Expect<Equal<NonNullable<Data<typeof pvp.usePvpScout>>["village"], PvpScoutSceneProps["village"]>>,

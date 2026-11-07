@@ -140,3 +140,136 @@ export interface FakeAvatarState {
   /** By player (`BigInt` of the id as a string): the look and the owned bitmap of each part. */
   players: Map<string, { look: bigint; owned: Map<number, bigint> }>;
 }
+
+// The player's name (PLAYER-RENAME, `contracts/src/avatar/name.cairo`): UTF-8 text of 3 to 15 characters held on `Avatar`, the
+// owner's asks of 2026-11-07: the letters and digits of any script, single spaces and hyphens between them. Unique whatever its
+// case (one player per key, the case of Latin, Greek and Cyrillic folded). The player renames itself (`PavedWriter.rename`): its
+// first change is free, every later one costs the owner's rename price in Cobbles (`rename_price`, 50 at deployment), debited on
+// `Setup`'s ledger in the same call. A player with no name there is shown by its Cartridge username (the indexer's, N1).
+//
+// `nameKey` is the contract's `name_key`, code point for code point (a test keeps them on the same vectors): what the chain takes.
+// `isPlayerName` adds what the client checks on top: Unicode's letters, marks and numbers only, in composed form (NFC).
+
+/** The fewest and the most characters (code points) of a name. */
+export const NAME_MIN = 3;
+export const NAME_MAX = 15;
+
+const SPACE = 0x20;
+const HYPHEN = 0x2d;
+/** The scripts whose letters look alike, one bit each: a name holds letters of one of them at most. */
+const LATIN = 1;
+const GREEK = 2;
+const CYRILLIC = 4;
+
+/** Whether a character other than the space and the hyphen may be in a name, as the contract's `allowed`. */
+export function allowedCode(code: number): boolean {
+  if (code < 0x80) return (code >= 0x30 && code <= 0x39) || (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a);
+  return !(
+    code <= 0xbf ||
+    code === 0xd7 ||
+    code === 0xf7 ||
+    (code >= 0x300 && code <= 0x36f) ||
+    code === 0x61c ||
+    code === 0x115f ||
+    code === 0x1160 ||
+    code === 0x17b4 ||
+    code === 0x17b5 ||
+    (code >= 0x180b && code <= 0x180f) ||
+    code === 0x3164 ||
+    code === 0xffa0 ||
+    (code >= 0x2000 && code <= 0x2bff) ||
+    (code >= 0x2e00 && code <= 0x2e7f) ||
+    (code >= 0x3000 && code <= 0x3004) ||
+    (code >= 0x3008 && code <= 0x303f) ||
+    // Lone surrogates (a JavaScript string may hold one; UTF-8 cannot) and private use
+    (code >= 0xd800 && code <= 0xf8ff) ||
+    (code >= 0xfe00 && code <= 0xfe6f) ||
+    (code >= 0xfeff && code <= 0xff65) ||
+    (code >= 0xffe0 && code <= 0xffff) ||
+    (code >= 0x1f000 && code <= 0x1fbff) ||
+    code >= 0xe0000
+  );
+}
+
+/** The script of a letter among Latin (1), Greek (2) and Cyrillic (4); 0 for another, or not a letter. As the contract's `script_of`. */
+export function scriptOf(code: number): number {
+  if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a) || (code >= 0xc0 && code <= 0x24f) || (code >= 0x1e00 && code <= 0x1eff)) return LATIN;
+  if ((code >= 0x370 && code <= 0x3ff) || (code >= 0x1f00 && code <= 0x1fff)) return GREEK;
+  if (code >= 0x400 && code <= 0x52f) return CYRILLIC;
+  return 0;
+}
+
+/** A character's case folded for the key, as the contract's `fold`: ASCII, Latin-1, Latin Extended-A, Greek and Cyrillic capitals. */
+export function foldCode(code: number): number {
+  if (code >= 0x41 && code <= 0x5a) return code + 0x20;
+  if (code >= 0xc0 && code <= 0xde && code !== 0xd7) return code + 0x20;
+  if (code >= 0x100 && code <= 0x17f) {
+    if (code === 0x178) return 0xff;
+    const even = code % 2 === 0;
+    if (code <= 0x137 || (code >= 0x14a && code <= 0x177)) return even ? code + 1 : code;
+    if ((code >= 0x139 && code <= 0x148) || (code >= 0x179 && code <= 0x17e)) return even ? code : code + 1;
+    return code;
+  }
+  if (code >= 0x391 && code <= 0x3a9 && code !== 0x3a2) return code + 0x20;
+  if (code >= 0x410 && code <= 0x42f) return code + 0x20;
+  if (code >= 0x400 && code <= 0x40f) return code + 0x50;
+  return code;
+}
+
+/**
+ * The key of a name the contract takes (`name_key`), as text: its characters, their case folded; null for any other text (fewer
+ * than 3 or more than 15 characters, a sign, a separator first, last or doubled, an invisible character, mixed lookalike scripts).
+ * Two names of one key are the same name.
+ */
+export function nameKey(name: string): string | null {
+  const codes = Array.from(name, (c) => c.codePointAt(0)!);
+  if (codes.length < NAME_MIN || codes.length > NAME_MAX) return null;
+  let afterSeparator = true;
+  let scripts = 0;
+  for (const code of codes) {
+    if (code === SPACE || code === HYPHEN) {
+      if (afterSeparator) return null;
+      afterSeparator = true;
+    } else {
+      if (!allowedCode(code)) return null;
+      afterSeparator = false;
+      scripts |= scriptOf(code);
+    }
+  }
+  if (afterSeparator) return null;
+  if (scripts !== 0 && scripts !== LATIN && scripts !== GREEK && scripts !== CYRILLIC) return null;
+  return String.fromCodePoint(...codes.map(foldCode));
+}
+
+/** Unicode's letters, marks and numbers, and the space and the hyphen: what the client lets a name hold. */
+const LETTERS = /^[\p{L}\p{M}\p{N} -]*$/u;
+
+/** A name as typed, made what the client sends: composed (NFC), its ends trimmed. */
+export const normalizeName = (typed: string): string => typed.normalize("NFC").trim();
+
+/** True when `name` is a name the client sends: the contract takes it (`nameKey`), its characters are letters, marks, numbers and separators, composed. */
+export const isPlayerName = (name: string): boolean => nameKey(name) !== null && LETTERS.test(name) && name === name.normalize("NFC");
+
+/** What the next rename costs, in Cobbles: the first (`count` 0) is free, a later one the rename price (0: none set). */
+export const renameCost = (count: number, price: number): number => (count === 0 ? 0 : price);
+
+/**
+ * The reads of the name on `Avatar`. `RpcGameViews` implements them (a `not-configured` `ViewError` without an Avatar address)
+ * and `FakeGameViews` answers them in memory.
+ */
+export interface NameViews {
+  /** `name(player_id)`: the player's name (a `ByteArray`); null: none set (its Cartridge username is shown). */
+  playerName(playerId: string): Promise<string | null>;
+  /** `renames(player_id)`: the changes the player has made; 0: its next is free. */
+  renameCount(playerId: string): Promise<number>;
+  /** `rename_price()`: the Cobbles of a rename after the first; 0: not set (only a first change). */
+  renamePrice(): Promise<number>;
+  /** `name_owner(name)`: the player holding `name` in any case, as a hex address; null: free (or not a name). */
+  nameOwner(name: string): Promise<string | null>;
+}
+
+/** The name side of `FakeGameViews`: the rename price and, by player (`BigInt` of the id as a string), the name and the count. */
+export interface FakeNameState {
+  price: number;
+  players: Map<string, { name: string | null; count: number }>;
+}

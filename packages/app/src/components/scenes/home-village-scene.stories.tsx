@@ -71,7 +71,6 @@ const meta = {
           hallOfFame: HALL_OF_FAME,
           records: RECORDS,
           onCopy: fn(async () => {}),
-          onEditName: fn(),
           onEditAvatar: fn(),
           onOpenLeague: fn(),
           onOpenTiles: fn(),

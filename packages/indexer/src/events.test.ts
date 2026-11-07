@@ -948,7 +948,9 @@ describe("the Vault's claims (D-31)", () => {
       .filter((name) => name !== "Claimed" && name !== "Collected");
     expect(others).toEqual(expect.arrayContaining(["Paid", "Transfer", "Deposit", "Withdraw", "DelegateVotesChanged", "Paused"]));
     for (const name of others) expect([SELECTORS.Claimed, SELECTORS.Collected], name).not.toContain(canonical(hash.getSelectorFromName(name)));
-    expect(Object.keys(FILTERED)).toEqual(["vault"]);
+    // PLAYER-RENAME: Avatar's names too, alone of its events.
+    expect(Object.keys(FILTERED)).toEqual(["vault", "avatar"]);
+    expect(FILTERED.avatar).toEqual(["Renamed"]);
   });
 
   test("Claimed: the account and a u256 amount", () => {

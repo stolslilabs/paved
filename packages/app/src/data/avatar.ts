@@ -1,5 +1,5 @@
-import { useQueries } from "@tanstack/react-query";
-import type { AvatarViews, GameViews } from "@paved/chain";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import type { AvatarViews, GameViews, NameViews } from "@paved/chain";
 import { addressKey } from "./keys";
 import { useDataSources } from "./sources";
 
@@ -20,6 +20,12 @@ export const avatarKeys = {
   owned: (playerId: string, part: number) => ["chain", "avatar", "owned", addressKey(playerId), part] as const,
   /** `avatar(player_id)`. */
   look: (playerId: string) => ["chain", "avatar", "look", addressKey(playerId)] as const,
+  /** `name(player_id)` (PLAYER-RENAME): the name set on chain, null: none. */
+  name: (playerId: string) => ["chain", "avatar", "name", addressKey(playerId)] as const,
+  /** `renames(player_id)`: the changes the player has made. */
+  renames: (playerId: string) => ["chain", "avatar", "renames", addressKey(playerId)] as const,
+  /** `rename_price()`. */
+  renamePrice: ["chain", "avatar", "renamePrice"] as const,
   /** Every read of the avatar: what a write's receipt invalidates. */
   all: ["chain", "avatar"] as const,
 };
@@ -29,6 +35,14 @@ export function avatarViews(views: GameViews): AvatarViews | null {
   const v = views as GameViews & Partial<AvatarViews>;
   return typeof v.avatar === "function" && typeof v.avatarParts === "function" && typeof v.avatarItems === "function" && typeof v.ownedAvatarItems === "function"
     ? (v as AvatarViews)
+    : null;
+}
+
+/** The sources' name views (PLAYER-RENAME), or null (a views double without them). Probed as `avatarViews` is. */
+export function nameViews(views: GameViews): NameViews | null {
+  const v = views as GameViews & Partial<NameViews>;
+  return typeof v.playerName === "function" && typeof v.renameCount === "function" && typeof v.renamePrice === "function" && typeof v.nameOwner === "function"
+    ? (v as NameViews)
     : null;
 }
 
@@ -93,6 +107,20 @@ export function useAvatar(playerId: string | null): { data: AvatarData | null | 
 }
 
 const avatarData = (look: bigint, parts: number): AvatarData => ({ look, ids: look === 0n ? null : idsOf(look, parts) });
+
+/**
+ * The name a player set on chain (PLAYER-RENAME, `Avatar.name`), which wins over the Cartridge username wherever a name is read:
+ * a string, null for none set (and on a network without `Avatar`), undefined while it is read or when the read failed (the
+ * indexer's name, else the wallet's, is shown meanwhile). A rename's receipt puts the new name in the cache (`applyRenameEvents`),
+ * so the profile shows it at once, before the indexer has the block.
+ */
+export function usePlayerName(playerId: string | null): string | null | undefined {
+  const { views } = useDataSources();
+  const names = nameViews(views);
+  const enabled = playerId !== null && names !== null;
+  const { data } = useQuery({ queryKey: avatarKeys.name(playerId ?? "0x0"), queryFn: () => orNone(() => names!.playerName(playerId!)), enabled });
+  return enabled ? data : null;
+}
 
 /**
  * The look a player saved, as the menus draw it (#626): null for none saved, a look the chain would not take, or nothing read
