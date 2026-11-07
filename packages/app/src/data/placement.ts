@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PLACEMENT_SETTINGS } from "@paved/renderer";
 import type { BoardGhost } from "../components/containers/board-viewport";
+import { distinctRotations } from "../lib/rotations";
 
 /**
  * The board's placement state (SLOTS, P-68; PLATES, P-74), for the Training and Challenge boards: the plates of the
@@ -216,9 +217,11 @@ export function usePlacement({
     },
     [orientationsAt, orientation],
   );
-  // The rotations the tile fits at the chosen cell: the bubble shows Rotate when there is more than one.
+  // The rotations the tile fits at the chosen cell, one per distinct tile (`distinctRotations`): the actions show Rotate when there is
+  // more than one, and a turn always shows another tile.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const rotations = useMemo(() => (chosen ? orientationsAt(chosen) : []), [chosen, orientationsAt, version]);
+  const legal = useMemo(() => (chosen ? orientationsAt(chosen) : []), [chosen, orientationsAt, version]);
+  const rotations = useMemo(() => distinctRotations(plan, legal, orientation), [plan, legal, orientation]);
   const rotate = useCallback(() => setOrientation((o) => nextValid(o, rotations)), [rotations]);
   /**
    * The move was accepted (the page says when: Training once `place` resolves true, Challenge once the engine's prediction

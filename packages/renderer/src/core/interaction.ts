@@ -155,6 +155,37 @@ export function cellCorner(
 }
 
 /**
+ * The outline of a grid cell's square on screen (TILE-ACTIONS): its four corners at `height` world units above the ground, in
+ * CSS px from the surface's top-left, in the board's order (north-west, north-east, south-east, south-west before the compass
+ * turns them). A DOM overlay places itself from these points in screen px, so a gap it keeps from them stays the same at
+ * every zoom; only the points move with the scene. `visible` as `cellCorner`'s.
+ *
+ * @param camera - Its matrices must be current (`updateMatrixWorld`)
+ * @param sceneGroupMatrix - The compass rotation's world matrix
+ * @param size - The surface's size in CSS px
+ */
+export function cellOutline(
+  cell: { x: number; y: number },
+  camera: THREE.Camera,
+  sceneGroupMatrix: THREE.Matrix4,
+  size: { width: number; height: number },
+  tileSize: number,
+  height: number,
+): CellCorner[] {
+  const half = tileSize / 2;
+  return ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as const).map(([dx, dz]) => {
+    const point = new THREE.Vector3(cell.x * tileSize + dx * half, height, cell.y * tileSize + dz * half).applyMatrix4(sceneGroupMatrix);
+    const behind = new THREE.Vector3().copy(point).applyMatrix4(camera.matrixWorldInverse).z >= 0;
+    const ndc = point.project(camera);
+    return {
+      x: ((ndc.x + 1) / 2) * size.width,
+      y: ((1 - ndc.y) / 2) * size.height,
+      visible: !behind && Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1,
+    };
+  });
+}
+
+/**
  * Where a press on a board cell is (TILE-HOLD, #630): `down` when the pointer goes down on the cell, then exactly one of
  * `released` (let go, wherever) or `cancelled` (it moved past the click threshold, a second pointer went down, another button
  * was pressed, it left the surface or the browser took it). A press that ends `cancelled` never clicks.

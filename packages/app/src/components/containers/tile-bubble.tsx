@@ -1,62 +1,16 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { GameScene } from "@paved/renderer";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { HoldButton } from "../elements/hold-button";
+import { UiIcon } from "../elements/ui-icon";
+import type { UiIconName } from "../elements/ui-art";
 import { cn } from "../../lib/utils";
 import { haptic } from "../../lib/haptics";
 import { useHold, type Hold } from "../../lib/use-hold";
 import { useSfx } from "./audio-provider";
 import { COACH_RING } from "./coach";
 import { DiscardHold } from "./discard-hold";
-
-/** Where the bubble may stand, in CSS px of the board's box. */
-export interface BubbleLimits {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
-/** The bubble's size: a touch target of 44 px per button (two to four: 196 px at most, inside a 375 px board), 4 px of padding, a 4 px gap. */
-export const BUTTON_PX = 44;
-const PAD_PX = 4;
-const GAP_PX = 4;
-/** The bubble overlaps the tile's corner by this much, so it reads as attached to it. */
-export const OVERLAP_PX = 10;
-/** The clearance kept from the box edge and from the HUD and the hand panel. */
-export const MARGIN_PX = 8;
-
-export function bubbleSize(buttons: number): { width: number; height: number } {
-  return { width: buttons * BUTTON_PX + (buttons - 1) * GAP_PX + 2 * PAD_PX, height: BUTTON_PX + 2 * PAD_PX };
-}
-
-/**
- * The bubble's top-left for a tile whose top-right corner is at `corner`: the bubble sits above and to the right of it,
- * overlapping by `OVERLAP_PX`, then is pushed inside `limits` (the box without the HUD and the hand panel), so it never
- * leaves the screen or goes under them.
- */
-export function placeBubble(corner: { x: number; y: number }, size: { width: number; height: number }, limits: BubbleLimits): { x: number; y: number } {
-  const x = Math.min(Math.max(corner.x - OVERLAP_PX, limits.left), Math.max(limits.left, limits.right - size.width));
-  const y = Math.min(Math.max(corner.y - size.height + OVERLAP_PX, limits.top), Math.max(limits.top, limits.bottom - size.height));
-  return { x, y };
-}
-
-/**
- * The limits of the bubble in `box`: its edges less a margin, then the elements marked `data-bubble-avoid` (the HUD, the
- * hand panel) that the bubble would overlap horizontally push the top or the bottom limit in, by the side they are on.
- */
-export function bubbleLimits(box: DOMRect, avoid: Iterable<DOMRect>, x: number, width: number): BubbleLimits {
-  const limits: BubbleLimits = { left: MARGIN_PX, right: box.width - MARGIN_PX, top: MARGIN_PX, bottom: box.height - MARGIN_PX };
-  for (const r of avoid) {
-    const left = r.left - box.left;
-    if (left >= x + width || left + r.width <= x) continue;
-    const top = r.top - box.top;
-    if (top + r.height / 2 < box.height / 2) limits.top = Math.max(limits.top, top + r.height + MARGIN_PX);
-    else limits.bottom = Math.min(limits.bottom, top - MARGIN_PX);
-  }
-  return limits;
-}
+import { ACTION_PX, ACTION_SIDES, actionRoom, actionsSpan, avoidOf, clampActions, tileActionPlaces, type ActionSide } from "./tile-actions-layout";
 
 export interface TileBubbleProps {
   /** How many rotations the tile has at its cell; Rotate shows only when there is more than one. */
@@ -76,59 +30,88 @@ export interface TileBubbleProps {
   /** Discard is enabled: no move on its way. */
   canDiscard?: boolean;
   /**
-   * Sends the tile back to the inventory: the village editor's action in the bin's place (#739), `share-from-square` (#756). A
-   * tap, not a hold: nothing is lost, the tile is in the inventory again.
+   * Sends the tile back to the inventory: the village editor's action in Discard's place (#739, #756). A tap, not a hold: nothing is
+   * lost, the tile is in the inventory again.
    */
   onReturn?: () => void;
   /**
    * Validates the placement: the end of a hold on the check (`HoldButton`), the only way to place a tile on the boards (#568).
-   * Unset: no Validate (the village editor, whose tile is placed by the tap that sets it, #756).
+   * Unset: no Confirm (the village editor, whose tile is placed by the tap that sets it, #756): its place stays empty.
    */
   onConfirm?: () => void;
-  /** The tile can be placed (its rotation fits, the points are known): Validate is enabled. */
+  /** The tile can be placed (its rotation fits, the points are known): Confirm is enabled. */
   canConfirm?: boolean;
-  /** The move is on its way: Validate shows a spinner and is disabled. */
+  /** The move (or the editor's save) is on its way: Confirm shows a spinner and is disabled, Discard and Back to the inventory wait. */
   busy?: boolean;
-  /** A Story coach mark points at the placement (Validate is ringed) or at Discard (the trash is). */
+  /** A Story coach mark points at the placement (Confirm is ringed) or at Discard (the trash is). */
   coach?: boolean | "place" | "discard";
-  /** The tile's rotation now: a change during a hold on Validate drops the hold (it never places a rotation not shown). */
+  /** The tile's rotation now: a change during a hold on Confirm drops the hold (it never places a rotation not shown). */
   orientation?: number;
   /** The hold's length, ms (`HOLD_MS` by default; the stories tune it). */
   holdMs?: number;
   /**
-   * The renderer's scene and the tile's cell (the renderer's grid): the bubble follows the tile's top-right corner. Without
-   * a scene (the plan view) it stands still, centred above the hand panel.
+   * The renderer's scene and the tile's cell (the renderer's grid): each action stands out of its side of the tile and follows it.
+   * Without a scene (the plan view) the actions stand still in a row, where the parent puts them.
    */
   scene?: GameScene | null;
   cell?: { x: number; y: number };
   /**
-   * Where the board finds Validate's hold (TILE-HOLD, #630): a press on the placed tile starts and lets go of this same hold,
-   * so Validate's ring fills whichever of the two is held. Set while the bubble is up, null once it is gone.
+   * Where the board finds Confirm's hold (TILE-HOLD, #630): a press on the placed tile starts and lets go of this same hold, so
+   * Confirm's ring fills whichever of the two is held. Set while the actions are up, null once they are gone.
    */
   holdRef?: RefObject<Hold | null>;
   className?: string;
 }
 
-/**
- * The bubble's buttons: 44 px, round. Their hover (desktop) and pressed (touch)
- * states are every button's since #537 (`state-layer`, white at 10 % and 20 % over any fill, the gold Validate's too).
- */
-const BUBBLE_BUTTON = "size-11 rounded-full";
-/** Validate, the strongest: filled with the primary colour (the default variant), raised. */
-const BUBBLE_PRIMARY = "size-11 rounded-full shadow-md";
+/** A painted action: the book's round button, the whole 44 px target; hover and press are every button's white states (`state-layer`). */
+const PAINTED = "size-11 rounded-full p-0";
+
+/** One of the actions tapped (Cancel, Rotate, Back to the inventory): the book's painted round button alone, its name for assistive technology and a desktop's tooltip. */
+function ActionButton({ art, label, title, disabled, onClick }: { art: UiIconName; label: string; title: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={PAINTED}
+      aria-label={label}
+      title={title}
+      disabled={disabled}
+      onClick={() => {
+        haptic("light");
+        onClick();
+      }}
+    >
+      <Painted art={art} />
+    </Button>
+  );
+}
+
+/** A painted button's art at the target's size. */
+function Painted({ art }: { art: UiIconName }) {
+  return <UiIcon name={art} px={ACTION_PX} className="pointer-events-none size-11" />;
+}
 
 /**
- * The bubble on the tile being handled, in this order: Close (cancel), Rotate (clockwise through the valid rotations only,
- * when there is more than one) and Validate, held to place the tile (PLACE-POLISH, #568). The primary action is last, at
- * the end the reading and the thumb reach last, as a dialog's; Rotate, the step before it, is next to it, and Close is
- * apart from both. Keys: R rotates, Escape closes, Enter or Space held on Validate places. Holding the placed tile itself
- * places it too, with Validate's hold and ring (TILE-HOLD, #630: `holdRef`). It follows the tile through
- * pans, zooms and the compass without a render of its own: the position is written to the element on the renderer's
- * camera notifications.
+ * The actions on the tile being placed (TILE-ACTIONS, after the Paved UX Book's board screen, mockup 3 of "Resume a Challenge"): one
+ * painted round button out of each side of the tile, each in its place on screen whatever the compass (the owner's order of 2026-11-07:
+ * the left column cancels and turns, the right one decides):
+ *
+ * - up and left, Cancel: the white cross on a neutral grey disc; Escape too;
+ * - down and left, Rotate: the blue turning arrow, clockwise through the valid rotations only; R too;
+ * - up and right, Confirm, held: the gold check, the Missions' gold rail filling round its rim (#568); Enter or Space held on it.
+ *   Holding the placed tile itself holds it too, with its ring (TILE-HOLD, #630: `holdRef`);
+ * - down and right, Discard, held: the white trash on red, the same rail in red filling round it, its cost in its name (#606); in the
+ *   village editor, Back to the inventory in its place (the blue box and its arrow, a tap: nothing is lost).
+ *
+ * An action that is not offered leaves its place empty (Rotate with one valid rotation, Discard where the mode has none, Confirm and
+ * Discard in the editor); the others never move. The places follow the tile through pans, zooms and the compass without a render of
+ * their own: on each camera notification they are computed from the tile's outline on screen (`tileActionPlaces`), a constant gap in
+ * screen px from it, kept inside the room the HUD, the hand panel and the editor's side menu leave (`data-bubble-avoid`), and written to
+ * the buttons. Its own chunk (`lazy-tile-bubble.tsx`).
  */
 export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, onDiscard, discardCost, canDiscard = true, onReturn, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, holdRef, className }: TileBubbleProps) {
   const ref = useRef<HTMLDivElement>(null);
-  // Each rotation asked from the bubble (its button or R): with the cell and the rotation, what Validate's hold validates.
+  // Each rotation asked from the actions (the button or R): with the cell and the rotation, what Confirm's hold validates.
   const [turns, setTurns] = useState(0);
   const rotate = useCallback(() => {
     setTurns((t) => t + 1);
@@ -138,26 +121,32 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
   const holdKey = `${cell?.x},${cell?.y}:${orientation ?? ""}:${turns}`;
   const play = useSfx();
   const canRotate = rotations > 1;
-  const size = bubbleSize((cancelButton ? 1 : 0) + (onDiscard || onReturn ? 1 : 0) + (canRotate ? 1 : 0) + (onConfirm ? 1 : 0));
 
   const place = useCallback(() => {
     const el = ref.current;
-    const box = el?.parentElement?.getBoundingClientRect();
-    if (!el || !box || !scene || !cell) return;
-    const corner = scene.projectCell(cell.x, cell.y);
-    if (!corner) return;
-    const avoid = Array.from(document.querySelectorAll("[data-bubble-avoid]"), (e) => e.getBoundingClientRect());
-    const rough = placeBubble(corner, size, { left: MARGIN_PX, right: box.width - MARGIN_PX, top: MARGIN_PX, bottom: box.height - MARGIN_PX });
-    const at = placeBubble(corner, size, bubbleLimits(box, avoid, rough.x, size.width));
-    el.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`;
-    el.style.visibility = "visible";
-  }, [scene, cell?.x, cell?.y, size.width, size.height]);
+    if (!el || !scene || !cell) return;
+    const outline = scene.projectCellOutline(cell.x, cell.y);
+    if (!outline) return;
+    const box = el.getBoundingClientRect();
+    const free = tileActionPlaces(outline);
+    const span = actionsSpan(free);
+    const avoid = Array.from(document.querySelectorAll("[data-bubble-avoid]"), avoidOf);
+    const at = clampActions(free, actionRoom(box, avoid, span.x, span.width));
+    for (const button of el.querySelectorAll<HTMLElement>("[data-side]")) {
+      const p = at[button.dataset.side as ActionSide];
+      if (!p) continue;
+      button.style.transform = `translate(${Math.round(p.x - ACTION_PX / 2)}px, ${Math.round(p.y - ACTION_PX / 2)}px)`;
+      button.style.visibility = "visible";
+    }
+  }, [scene, cell?.x, cell?.y]);
 
+  // An action that comes or goes (Rotate, Cancel) is placed with the others.
+  const shown = `${cancelButton}:${!!(onDiscard || onReturn)}:${canRotate}:${!!onConfirm}`;
   useLayoutEffect(() => {
     place();
     return scene?.onCameraChange(place);
-  }, [place, scene]);
-  // The hand panel resizes (a refusal appears): the bubble is placed again.
+  }, [place, scene, shown]);
+  // The hand panel resizes (a refusal appears), the editor's panel or bar moves: the actions are placed again.
   useEffect(() => {
     if (!scene || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(place);
@@ -184,8 +173,9 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
     play("place");
     onConfirm?.();
   }, [play, onConfirm]);
-  // Validate's hold, the button's and the board's (#630): one ring whichever holds it.
-  const hold = useHold({ onComplete: confirm, holdMs, holdKey, disabled: !onConfirm || !canConfirm || busy });
+  // Confirm's hold, the button's and the board's (#630): one ring whichever holds it.
+  // Charged (TILE-ACTIONS): the ticks quicken as it fills, a strong buzz at the end, whether the button or the tile is held.
+  const hold = useHold({ onComplete: confirm, holdMs, holdKey, disabled: !onConfirm || !canConfirm || busy, charge: true });
   useLayoutEffect(() => {
     if (holdRef) holdRef.current = hold;
   }, [holdRef, hold]);
@@ -196,80 +186,57 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
     };
   }, [holdRef]);
 
+  const actions: Record<ActionSide, ReactNode> = {
+    "top-left": cancelButton && <ActionButton art="tile-cancel" label="Cancel placement" title="Cancel (Esc)" onClick={onClose} />,
+    "top-right": onConfirm && (
+      <HoldButton
+        painted
+        label="Hold to place the tile"
+        title="Hold to place"
+        glyph={<Painted art="tile-confirm" />}
+        hold={hold}
+        disabled={!canConfirm}
+        busy={busy}
+        onComplete={confirm}
+        className={cn(PAINTED, coachPlace && COACH_RING, coachPlace && "rounded-full")}
+      />
+    ),
+    "bottom-left": canRotate && <ActionButton art="tile-rotate" label="Rotate tile" title="Rotate (R)" onClick={rotate} />,
+    "bottom-right": onDiscard ? (
+      <DiscardHold
+        onDiscard={onDiscard}
+        cost={discardCost}
+        disabled={!canDiscard || busy}
+        holdMs={holdMs}
+        glyph={<Painted art="tile-discard" />}
+        className={cn(PAINTED, coach === "discard" && COACH_RING, coach === "discard" && "rounded-full")}
+      />
+    ) : (
+      onReturn && <ActionButton art="tile-return" label="Back to the inventory" title="Back to the inventory" disabled={busy} onClick={onReturn} />
+    ),
+  };
+
   return (
     <div
       ref={ref}
       role="toolbar"
       aria-label="Tile"
-      data-input-surface
       data-follows={scene ? "tile" : "hand"}
-      style={scene ? { visibility: "hidden" } : undefined}
-      className={cn(
-        "pointer-events-auto flex gap-1 rounded-full border bg-card/95 p-1 shadow-lg backdrop-blur",
-        scene ? "absolute top-0 left-0 will-change-transform" : "mx-auto w-fit",
-        className,
-      )}
+      data-tile-actions
+      className={cn(scene ? "pointer-events-none absolute inset-0" : "pointer-events-auto mx-auto flex w-fit gap-1", className)}
     >
-      {cancelButton && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className={BUBBLE_BUTTON}
-          onClick={() => {
-            haptic("light");
-            onClose();
-          }}
-          aria-label="Cancel placement"
-          title="Cancel (Esc)"
-        >
-          <Icon name="xmark" size="md" />
-        </Button>
-      )}
-      {onDiscard && (
-        <DiscardHold onDiscard={onDiscard} cost={discardCost} disabled={!canDiscard || busy} holdMs={holdMs} className={cn(BUBBLE_BUTTON, coach === "discard" && COACH_RING, coach === "discard" && "rounded-full")} />
-      )}
-      {onReturn && !onDiscard && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className={BUBBLE_BUTTON}
-          disabled={busy}
-          onClick={() => {
-            haptic("light");
-            onReturn();
-          }}
-          aria-label="Back to the inventory"
-          title="Back to the inventory"
-        >
-          <Icon name="share-from-square" size="md" />
-        </Button>
-      )}
-      {canRotate && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className={BUBBLE_BUTTON}
-          onClick={() => {
-            haptic("light");
-            rotate();
-          }}
-          aria-label="Rotate tile"
-          title="Rotate (R)"
-        >
-          <Icon name="rotate-right" size="md" />
-        </Button>
-      )}
-      {onConfirm && (
-        <HoldButton
-          label="Hold to place the tile"
-          title="Hold to place"
-          icon="check"
-          hold={hold}
-          disabled={!canConfirm}
-          busy={busy}
-          onComplete={confirm}
-          className={cn(BUBBLE_PRIMARY, coachPlace && COACH_RING, coachPlace && "rounded-full")}
-        />
+      {ACTION_SIDES.map(
+        (side) =>
+          actions[side] && (
+            <div
+              key={side}
+              data-side={side}
+              style={scene ? { visibility: "hidden" } : undefined}
+              className={cn("flex rounded-full", scene && "pointer-events-auto absolute top-0 left-0 will-change-transform")}
+            >
+              {actions[side]}
+            </div>
+          ),
       )}
     </div>
   );

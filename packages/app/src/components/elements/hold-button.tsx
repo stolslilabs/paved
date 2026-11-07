@@ -1,4 +1,5 @@
-import { useRef, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
+import { useReducedMotionConfig } from "motion/react";
 import { cn } from "../../lib/utils";
 import { HOLD_MS, useHold, type Hold, type HoldState } from "../../lib/use-hold";
 import { Button } from "../ui/button";
@@ -18,10 +19,32 @@ const RING_C = 2 * Math.PI * RING_R;
  */
 export type HoldTone = "primary" | "destructive";
 
-const TONE: Record<HoldTone, { variant: "default" | "secondary"; progress: string }> = {
-  primary: { variant: "default", progress: "stroke-current" },
-  destructive: { variant: "secondary", progress: "stroke-destructive" },
+const TONE: Record<HoldTone, { variant: "default" | "secondary"; progress: string; tube: "gold" | "red" }> = {
+  primary: { variant: "default", progress: "stroke-current", tube: "gold" },
+  destructive: { variant: "secondary", progress: "stroke-destructive", tube: "red" },
 };
+
+/**
+ * The painted ring (TILE-ACTIONS, the owner's ask of 2026-11-07): the Missions' gold rail (`rail-fill`) bent into a ring round the painted
+ * button, just outside its disc (on the disc's own gold or red rim it would not read), 4.5 px wide, its colours across the width from the
+ * rail's foot inside to its top outside (`--hold-gold-*`); Discard's the same tube in red (`--hold-red-*`). Under it while held, a dark
+ * track a px wider, as the rail's under its fill. Each stop: the colour's part and its radius, px of the 44 px box (the disc's edge is at
+ * about 20.6).
+ */
+const TUBE_R = 23.5;
+const TUBE_W = 4.5;
+const TUBE_OUT = TUBE_R + TUBE_W / 2;
+const TUBE_C = 2 * Math.PI * TUBE_R;
+const TUBE: readonly (readonly [string, number])[] = [
+  ["edge", 21.25],
+  ["deep", 21.85],
+  ["shade", 22.55],
+  ["base", 23.25],
+  ["bright", 23.95],
+  ["shine", 24.45],
+  ["rim", 24.95],
+  ["edge", 25.75],
+];
 
 export interface HoldButtonProps {
   /** The action, once per completed hold. */
@@ -50,6 +73,12 @@ export interface HoldButtonProps {
    * `holdMs` and `holdKey`; the button's are unused.
    */
   hold?: Hold;
+  /**
+   * The painted look (TILE-ACTIONS, the Paved UX Book's board screen): `glyph` is the whole button, a painted round button on no fill
+   * of the button's own; the ring rides on its rim with no track under it (the rim is the track), light on Confirm's gold, red on
+   * Discard's blue; busy keeps the painting under the spinner.
+   */
+  painted?: boolean;
   className?: string;
 }
 
@@ -60,9 +89,10 @@ export interface HoldButtonProps {
  * (hold Enter or Space). An activation with no press before it, as a screen reader's double tap sends, acts at once: the
  * hold guards a slip of the finger, which that activation is not.
  */
-export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", hold: shared, className }: HoldButtonProps) {
+export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", hold: shared, painted = false, className }: HoldButtonProps) {
   const off = disabled || busy;
-  const own = useHold({ onComplete, holdMs, holdKey, disabled: off });
+  const own = useHold({ onComplete, holdMs, holdKey, disabled: off, charge: painted });
+  const reduce = useReducedMotionConfig() ?? false;
   const hold = shared ?? own;
   const { state } = hold;
   // A press (pointer or key) on the button began: the click that follows it is not an activation of its own, and only
@@ -113,13 +143,15 @@ export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = 
   return (
     <Button
       size="icon"
-      variant={TONE[tone].variant}
+      variant={painted ? "ghost" : TONE[tone].variant}
       data-tone={tone}
       aria-label={label}
       title={title}
       data-state={state}
-      disabled={disabled}
-      loading={busy}
+      // Painted, the button's own spinner would take the painting's place: the button is disabled and busy by hand, the spinner over it.
+      disabled={painted ? off : disabled}
+      loading={painted ? false : busy}
+      {...(painted && busy ? { "aria-busy": true } : {})}
       onPointerDown={onPointerDown}
       onPointerUp={release}
       onPointerLeave={leave}
@@ -129,10 +161,25 @@ export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = 
       onKeyUp={onKeyUp}
       onBlur={release}
       onClick={onClick}
-      className={cn("relative touch-none select-none [-webkit-touch-callout:none]", className)}
+      className={cn("relative touch-none select-none [-webkit-touch-callout:none]", className, painted && busy && "disabled:opacity-100")}
     >
-      {!busy && (glyph ?? <Icon name={icon} size="md" />)}
-      <HoldRing state={state} holdMs={hold.holdMs} tone={tone} />
+      {painted ? (
+        // The charge: the painting swells a little as the hold fills (slowly, then fast), and springs back when let go.
+        <span
+          data-charge
+          className={cn("pointer-events-none grid size-full place-items-center", busy && "opacity-70")}
+          style={
+            reduce
+              ? undefined
+              : { transform: state === "holding" ? "scale(1.09)" : "scale(1)", transition: state === "holding" ? `transform ${hold.holdMs}ms cubic-bezier(0.6, 0, 0.9, 0.4)` : `transform ${REWIND_MS}ms ease-out` }
+          }
+        >
+          {glyph}
+        </span>
+      ) : (
+        !busy && (glyph ?? <Icon name={icon} size="md" />)
+      )}
+      <HoldRing state={state} holdMs={hold.holdMs} tone={tone} painted={painted} busy={painted && busy} />
     </Button>
   );
 }
@@ -142,7 +189,8 @@ export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = 
  * over `holdMs` while held, stays full once done, and rewinds when let go early. The fill is the hold's progress, so it shows
  * under reduced motion too.
  */
-export function HoldRing({ state, holdMs, tone = "primary" }: { state: HoldState; holdMs: number; tone?: HoldTone }) {
+export function HoldRing({ state, holdMs, tone = "primary", painted = false, busy = false }: { state: HoldState; holdMs: number; tone?: HoldTone; painted?: boolean; busy?: boolean }) {
+  if (painted) return <PaintedRing state={state} holdMs={holdMs} tone={tone} busy={busy} />;
   const offset = state === "idle" ? RING_C : 0;
   const transition = state === "holding" ? `stroke-dashoffset ${holdMs}ms linear` : state === "idle" ? `stroke-dashoffset ${REWIND_MS}ms ease-out, opacity ${REWIND_MS}ms ease-out` : "none";
   return (
@@ -161,5 +209,157 @@ export function HoldRing({ state, holdMs, tone = "primary" }: { state: HoldState
         style={{ strokeDashoffset: offset, transition, opacity: state === "idle" ? 0 : 1 }}
       />
     </svg>
+  );
+}
+
+/** The burst's sparks: eight, every 45 degrees round the ring. */
+const SPARKS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
+/** The burst's length, ms. */
+const BURST_MS = 480;
+
+/**
+ * The painted ring (TILE-ACTIONS, the owner's asks of 2026-11-07: the Missions' gold, shinier, a feeling of power): the rail's tube fills
+ * round the button on its dark track; a white glow follows the fill and a halo of its bright colour round the whole button swells as
+ * it fills (slowly, then fast); a white-hot spark runs at its head; at the end a burst (a shockwave, a flash on the disc, eight sparks flying out). Busy: an arc of the same tube turns
+ * round the button (the spinner round the icon, not on it). Under reduced motion the fill and the glow alone (the hold's progress), and
+ * the busy arc still.
+ */
+function PaintedRing({ state, holdMs, tone, busy }: { state: HoldState; holdMs: number; tone: HoldTone; busy: boolean }) {
+  const reduce = useReducedMotionConfig() ?? false;
+  const id = useId().replace(/[^\w-]/g, "");
+  const kind = TONE[tone].tube;
+  const tube = `hold-tube-${id}`;
+  const glow = `hold-glow-${id}`;
+  const spark = `hold-spark-${id}`;
+  const halo = `hold-halo-${id}`;
+  const idle = state === "idle";
+  const holding = state === "holding";
+  const offset = idle ? TUBE_C : 0;
+  const fill = holding ? `stroke-dashoffset ${holdMs}ms linear` : idle ? `stroke-dashoffset ${REWIND_MS}ms ease-out` : "none";
+  const fade = holding ? `opacity ${holdMs}ms cubic-bezier(0.4, 0, 0.8, 0.6)` : `opacity ${REWIND_MS}ms ease-out`;
+  const color = (part: string) => `var(--hold-${kind}-${part})`;
+  const burst = useRef<SVGGElement>(null);
+  useEffect(() => {
+    const g = burst.current;
+    if (state !== "done" || reduce || !g || typeof g.animate !== "function") return;
+    const run = (sel: string, frames: Keyframe[], ms = BURST_MS) => g.querySelectorAll<SVGElement>(sel).forEach((e) => e.animate(frames, { duration: ms, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" }));
+    run("[data-burst=wave]", [
+      { opacity: 1, transform: "scale(1)", strokeWidth: 5 },
+      { opacity: 0, transform: "scale(1.9)", strokeWidth: 0.5 },
+    ]);
+    run("[data-burst=flash]", [{ opacity: 0.9 }, { opacity: 0 }], 320);
+    run("[data-burst=spark]", [
+      { opacity: 1, transform: "translateX(0) scale(1.4)" },
+      { opacity: 0, transform: "translateX(15px) scale(0.3)" },
+    ]);
+  }, [state, reduce]);
+  return (
+    <>
+      <svg data-ring aria-hidden viewBox="0 0 44 44" className="absolute inset-0 size-full -rotate-90 overflow-visible">
+        <defs>
+          <radialGradient id={tube} gradientUnits="userSpaceOnUse" cx="22" cy="22" r={TUBE_OUT}>
+            {TUBE.map(([part, at], i) => (
+              <stop key={i} offset={at / TUBE_OUT} style={{ stopColor: color(part) }} />
+            ))}
+          </radialGradient>
+          <filter id={glow} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.5" />
+          </filter>
+          <filter id={halo} x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+          <radialGradient id={spark}>
+            <stop offset="0" style={{ stopColor: color("shine") }} />
+            <stop offset="0.45" style={{ stopColor: color("bright"), stopOpacity: 0.9 }} />
+            <stop offset="1" style={{ stopColor: color("bright"), stopOpacity: 0 }} />
+          </radialGradient>
+        </defs>
+        <circle
+          data-ring-track
+          cx="22"
+          cy="22"
+          r={TUBE_R}
+          fill="none"
+          strokeWidth={TUBE_W + 1}
+          style={{ stroke: "var(--hud-outline)", strokeOpacity: 0.7, opacity: idle && !busy ? 0 : 1, transition: `opacity ${REWIND_MS}ms ease-out` }}
+        />
+        {!busy && (
+          <>
+            {/* The halo: the whole button's light, swelling as the hold fills (slowly, then fast). */}
+            <circle
+              data-ring-halo
+              cx="22"
+              cy="22"
+              r={TUBE_R}
+              fill="none"
+              strokeWidth={10}
+              filter={`url(#${halo})`}
+              style={{ stroke: color("bright"), opacity: idle ? 0 : 1, transition: fade }}
+            />
+            <circle
+              data-ring-glow
+              cx="22"
+              cy="22"
+              r={TUBE_R}
+              fill="none"
+              strokeWidth={TUBE_W + 3}
+              strokeLinecap="round"
+              strokeDasharray={TUBE_C}
+              filter={`url(#${glow})`}
+              style={{ stroke: color("shine"), strokeDashoffset: offset, opacity: idle ? 0 : 1, transition: `${fill}, ${fade}` }}
+            />
+            <circle
+              data-ring-progress
+              data-tube={kind}
+              cx="22"
+              cy="22"
+              r={TUBE_R}
+              fill="none"
+              stroke={`url(#${tube})`}
+              strokeWidth={TUBE_W}
+              strokeLinecap="round"
+              strokeDasharray={TUBE_C}
+              style={{ strokeDashoffset: offset, opacity: idle ? 0 : 1, transition: idle ? `${fill}, opacity ${REWIND_MS}ms ease-out` : fill }}
+            />
+            {!reduce && (
+              <g
+                data-ring-head
+                style={{
+                  transformOrigin: "22px 22px",
+                  transform: `rotate(${idle ? 0 : 360}deg)`,
+                  opacity: holding ? 1 : 0,
+                  transition: holding ? `transform ${holdMs}ms linear` : `transform ${REWIND_MS}ms ease-out, opacity ${REWIND_MS}ms ease-out`,
+                }}
+              >
+                <circle cx={22 + TUBE_R} cy="22" r="7" fill={`url(#${spark})`} />
+              </g>
+            )}
+            <g ref={burst}>
+              <circle data-burst="flash" cx="22" cy="22" r="20.6" opacity={0} style={{ fill: color("shine") }} />
+              <circle data-burst="wave" cx="22" cy="22" r={TUBE_R} fill="none" opacity={0} style={{ stroke: color("shine"), transformOrigin: "22px 22px" }} />
+              {SPARKS.map((a) => (
+                <g key={a} style={{ transformOrigin: "22px 22px", transform: `rotate(${a}deg)` }}>
+                  <circle data-burst="spark" cx={22 + TUBE_OUT} cy="22" r="2.2" opacity={0} style={{ fill: color("shine"), transformOrigin: `${22 + TUBE_OUT}px 22px` }} />
+                </g>
+              ))}
+            </g>
+          </>
+        )}
+      </svg>
+      {busy && (
+        <svg data-ring-busy aria-hidden viewBox="0 0 44 44" className={cn("absolute inset-0 size-full overflow-visible", !reduce && "animate-spin")}>
+          <circle
+            cx="22"
+            cy="22"
+            r={TUBE_R}
+            fill="none"
+            stroke={`url(#${tube})`}
+            strokeWidth={TUBE_W}
+            strokeLinecap="round"
+            strokeDasharray={`${TUBE_C * 0.3} ${TUBE_C}`}
+          />
+        </svg>
+      )}
+    </>
   );
 }
