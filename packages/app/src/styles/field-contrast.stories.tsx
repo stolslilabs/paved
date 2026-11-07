@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Switch } from "../components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { contrast, level } from "./color-math";
@@ -58,15 +57,11 @@ export const FieldOnSurfaces: Story = {
         <Ratio edge="input" surface="background" />
       </Panel>
       <Panel title="On a card (--card)">
-        <Card>
-          <CardHeader>
-            <CardTitle>Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Field />
-            <Ratio edge="input-surface" surface="card" />
-          </CardContent>
-        </Card>
+        {/* A card as the app draws one (the Referral's, the end's): a section on `--card`, its `data-slot` the theme's hook. */}
+        <section data-slot="card" aria-label="Card" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+          <Field />
+          <Ratio edge="input-surface" surface="card" />
+        </section>
       </Panel>
       <Panel title="In a popover, dialog or sheet (--popover)">
         <div data-input-surface className="flex flex-col gap-3 rounded-xl border border-border bg-popover p-5 text-popover-foreground shadow-lg">

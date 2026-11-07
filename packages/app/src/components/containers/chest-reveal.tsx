@@ -4,7 +4,7 @@ import * as m from "motion/react-m";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
 import { BLACK_OUTLINE } from "../elements/black-outline";
-import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { CHEST_NAME, type ChestRank } from "../elements/chest-designs";
 import { CARD_GREY, GOLD_FILL } from "../elements/chest-designs";
 import { CHEST_EFFECTS, chestEffectUrl, pickSize } from "../elements/chest-images";
 import { goldPillStyle } from "../elements/friends-art";

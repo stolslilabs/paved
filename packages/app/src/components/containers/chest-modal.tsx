@@ -4,7 +4,7 @@ import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { haptic } from "../../lib/haptics";
 import { cn } from "../../lib/utils";
-import { CHEST_CHOICES, CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { CHEST_CHOICES, CHEST_NAME, type ChestRank } from "../elements/chest-designs";
 import { CHEST_DROP_S } from "../elements/chest-designs";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { LazyChestArt } from "../elements/lazy-chest-art";

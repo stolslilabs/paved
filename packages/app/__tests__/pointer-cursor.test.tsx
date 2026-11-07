@@ -10,7 +10,6 @@ import { ChatTab, EdgeTiles, MissionTab } from "../src/components/containers/hom
 import { LeagueControl } from "../src/components/containers/league-control";
 import { MatchCard } from "../src/components/containers/match-list";
 import { VillageScore } from "../src/components/containers/village-score";
-import { CarouselDots } from "../src/components/ui/carousel-dots";
 import { Slider } from "../src/components/ui/slider";
 import { MOCK_NOW } from "../src/mocks/clock";
 import { MATCH_CARDS } from "../src/mocks/pvp";
@@ -58,7 +57,7 @@ const wrap = (ui: ReactNode) => (
 );
 
 describe("the pointer cursor (#880)", () => {
-  it("every edge button (HOME-EDGES), the League control, the village's capsule, a battle log card, a carousel dot and a game's chest to open", () => {
+  it("every edge button (HOME-EDGES), the League control, the village's capsule, a battle log card and a game's chest to open", () => {
     render(
       wrap(
         <>
@@ -68,7 +67,6 @@ describe("the pointer cursor (#880)", () => {
           <LeagueControl crowns={1_240} onLeague={() => {}} />
           <VillageScore score={HOME_VILLAGE.view.village.score} onEdit={() => {}} />
           <MatchCard match={MATCH_CARDS.attackWon} now={MOCK_NOW} onOpen={() => {}} />
-          <CarouselDots count={3} current={0} onSelect={() => {}} />
           <EndChestPanel chest={{ state: "won", rank: "epic" }} now={MOCK_NOW} onOpen={() => {}} />
         </>,
       ),
@@ -84,7 +82,6 @@ describe("the pointer cursor (#880)", () => {
       screen.getByRole("button", { name: /^League:/ }),
       screen.getByRole("button", { name: /^Edit village, score/ }),
       document.querySelector<HTMLElement>("button[data-side=attack]")!,
-      ...screen.getAllByRole("button", { name: /^Go to / }),
       screen.getByRole("button", { name: /^Open the / }),
     ];
     expect(parts.every(Boolean)).toBe(true);

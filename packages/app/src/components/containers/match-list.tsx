@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils";
 import type { League, PvpPlayer } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
-import { CHEST_NAME, type ChestRank } from "../elements/chest-badge";
+import { CHEST_NAME, type ChestRank } from "../elements/chest-designs";
 import { ChestIcon } from "../elements/chest-icon";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { PlayerName } from "../elements/player-name";

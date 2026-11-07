@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatInteger } from "@paved/game-core";
-import { CHEST_CHOICES } from "../src/components/elements/chest-badge";
+import { CHEST_CHOICES } from "../src/components/elements/chest-designs";
 import { deckCount, rarityOf } from "../src/components/elements/rarity-badge";
 import {
   STARTER,

@@ -9,7 +9,6 @@ import { PROGRESS } from "../../mocks/players";
 import { HALL_OF_FAME, RECORDS } from "../../mocks/profile-records";
 import { PUBLIC_PROFILES } from "../../mocks/social";
 import { GuildLine, GuildMemberActions } from "./guild-profile";
-import { Button } from "../ui/button";
 import { MessageButton } from "./message-button";
 import { PublicProfileSheet } from "./public-profile-sheet";
 
@@ -42,13 +41,6 @@ export const Online: Story = {};
 export const Offline: Story = { args: { state: PUBLIC_PROFILES.offline } };
 /** No name: their short address. */
 export const NoName: Story = { args: { state: PUBLIC_PROFILES.noName } };
-/** Where #953 to #955 put theirs: the guild line, and actions above Copy player ID (stand-ins here). */
-export const WithActions: Story = {
-  args: {
-    guild: <p className="text-center text-sm text-muted-foreground">Guild line</p>,
-    actions: <Button variant="outline">Action</Button>,
-  },
-};
 /** A Member of the viewer's guild, seen by its Leader (#953): the guild line, and the tiles Promote, Demote, Leader and Kick after the others (GUILD-PAGE's five ranks). */
 export const GuildMember: Story = {
   args: {
