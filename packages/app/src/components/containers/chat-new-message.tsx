@@ -26,7 +26,7 @@ export interface ChatNewMessageProps {
   /** Their guildmates (#953), the player left out; null while read; undefined for a player in no guild. */
   guildmates?: readonly PublicProfile[] | null;
   /** The player search (#952), under the lists; a result picked opens the conversation. */
-  search: Omit<PlayerSearchProps, "onOpen" | "renderAction" | "className">;
+  search: Omit<PlayerSearchProps, "onOpen" | "className">;
   /** A player picked: their private conversation opens. */
   onPick: (address: string) => void;
 }

@@ -32,17 +32,17 @@ const wrap = (ui: ReactNode) => (
 );
 
 describe("the social pages' scenes (#973)", () => {
-  it("each has its title, Back, and its empty state for a guest", async () => {
+  it("each has its title, Back, and the content its page gives it", async () => {
     const onBack = vi.fn();
-    for (const [scene, title, empty] of [
-      [<ChatScene onBack={onBack} />, "Chat", "No messages yet"],
-      [<GuildScene onBack={onBack} />, "Guild", "No guild yet"],
-      [<FriendsScene {...FRIENDS_SEARCH.idle} onBack={onBack} />, "Friends", "No friends yet"],
+    for (const [scene, title] of [
+      [<ChatScene onBack={onBack}><p>body</p></ChatScene>, "Chat"],
+      [<GuildScene onBack={onBack}><p>body</p></GuildScene>, "Guild"],
+      [<FriendsScene {...FRIENDS_SEARCH.idle} onBack={onBack}><p>body</p></FriendsScene>, "Friends"],
     ] as const) {
       const { unmount } = render(wrap(scene));
       // The page's title: the header's h1, or the HUD's drawer's (CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE: a drawer's title is the dialog's, an h2).
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
-      expect(screen.getByText(empty)).toBeInTheDocument();
+      expect(screen.getByText("body")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Back" }));
       unmount();
     }
@@ -50,10 +50,10 @@ describe("the social pages' scenes (#973)", () => {
   });
 
   it("puts the player search at the top of the friends page only", () => {
-    const { unmount } = render(wrap(<FriendsScene {...FRIENDS_SEARCH.idle} />));
+    const { unmount } = render(wrap(<FriendsScene {...FRIENDS_SEARCH.idle}>{null}</FriendsScene>));
     expect(screen.getByRole("searchbox", { name: "Name or player ID" })).toBeInTheDocument();
     unmount();
-    render(wrap(<ChatScene />));
+    render(wrap(<ChatScene>{null}</ChatScene>));
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
@@ -70,7 +70,6 @@ describe("the social pages' scenes (#973)", () => {
   it("draws the content the page gives it", () => {
     render(wrap(<GuildScene>{<p>guild content</p>}</GuildScene>));
     expect(screen.getByText("guild content")).toBeInTheDocument();
-    expect(screen.queryByText("No guild yet")).toBeNull();
   });
 });
 

@@ -215,8 +215,6 @@ export const PVP_RESULT = {
   defeat: result(ATTACK_SCORES.rival[5]),
   /** A defeat that drops the attacker out of Bronze II. */
   defeatDropped: { ...result(ATTACK_SCORES.rival[5]), crownsAfter: 990 },
-  pending: result(ATTACK_SCORES.rival[3], { pending: true }),
-  error: result(ATTACK_SCORES.rival[3], { error: "The result is not recorded yet: the network did not answer.", errorDetail: { code: "RpcError", version: "0.1.0", at: Date.UTC(2026, 9, 20, 9, 52) } }),
 } satisfies Record<string, Data<PvpResultSceneProps>>;
 
 // Matches (#786): the latest attacks and defences, in place of the defence log

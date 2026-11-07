@@ -11,13 +11,12 @@ export const Default: Story = {};
 export const Zero: Story = { args: { value: 0 } };
 /** A quest's or an achievement's reward. */
 export const Reward: Story = { args: { value: 15, sign: "+", size: "sm" } };
-export const Large: Story = { args: { value: 1_000, size: "lg" } };
 
-/** The three sizes. */
+/** The two sizes: 12 px (a reward, a cost), 14 px (a balance's line). */
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
-      {(["sm", "md", "lg"] as const).map((size) => (
+      {(["sm", "md"] as const).map((size) => (
         <Cobbles key={size} size={size} value={1_580} />
       ))}
     </div>
@@ -27,7 +26,7 @@ export const Sizes: Story = {
 export const Stress: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
-      {(["sm", "md", "lg"] as const).map((size) => (
+      {(["sm", "md"] as const).map((size) => (
         <Cobbles key={size} size={size} value={BIG_NUMBER} />
       ))}
     </div>

@@ -112,7 +112,7 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, tip, deck
           )}
           {best && (
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} size="xs" />
+              Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} />
             </p>
           )}
           <div className="flex flex-wrap items-center gap-3">

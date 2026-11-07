@@ -121,9 +121,7 @@ export interface BoardSceneProps {
   tileRenders?: TileRenders;
   /** The board's skins (plan key to theme): the deck sheet and the coming tiles show each plan in the theme the board draws it in. */
   skins?: TileSkins;
-  /** The stack's top drawn by the renderer (`TileView`), given by the page like `canvas`; the art otherwise. */
-  renderHandTile?: (tile: { plan: number; orientation: number }) => ReactNode;
-  /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page like `canvas`; before `renderHandTile`. */
+  /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page like `canvas`; the art otherwise. */
   renderHandStack?: (view: StackFrame) => ReactNode;
   /** `localStorage` refused: Story progress is not saved on this device (Training saves nothing: #718). */
   storageDisabled?: boolean;
@@ -318,7 +316,6 @@ export function BoardScene(props: BoardSceneProps) {
             tileArt={props.tileArt}
             renders={props.tileRenders}
             skins={props.skins}
-            renderTile={props.renderHandTile}
             renderStack={props.renderHandStack}
             pilePlans={pilePlans}
             onDeck={mode === "attack" && !attack?.deck ? undefined : openDeck}

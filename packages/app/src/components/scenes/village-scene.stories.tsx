@@ -37,8 +37,6 @@ export const Start: Story = { args: VILLAGE.start };
 export const Growing: Story = { args: VILLAGE.growing };
 /** A large village: 38 cells. */
 export const Full: Story = { args: VILLAGE.full };
-/** The fog off (#633's other side), to compare. */
-export const FogOff: Story = { args: VILLAGE.fogOff };
 /** After a game: the reward's three tiles under the board, "take 5 Cobbles" always there. */
 export const Reward: Story = { args: VILLAGE.reward };
 /** A reward's tile chosen (a tap, or held in a drag): its legal cells lit. */

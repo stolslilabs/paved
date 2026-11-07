@@ -4,12 +4,6 @@ import { TileChip, type TileArt } from "../elements/tile-chip";
 import { ScrollRegion } from "../ui/scroll-region";
 import { cellKey, clearCells, type Cell, type LegalCell, type Village } from "./village-rules";
 
-/**
- * The plan's fog (#633's village variant): `village` clears the owned cells and the cells next to them, the rest of the ground
- * is veiled; `off` draws no fog. The 3D village (`VillageViewport`, #648) draws the renderer's fog of war instead.
- */
-export type VillageFog = "village" | "off";
-
 /** The reward's tile while the player places it: where it can go. */
 export interface VillagePlacing {
   plan: number;
@@ -19,7 +13,6 @@ export interface VillagePlacing {
 
 export interface VillageBoardProps {
   village: Pick<Village, "cells" | "tiles">;
-  fog?: VillageFog;
   placing?: VillagePlacing | null;
   /** The cell the dragged tile is over: the tile is previewed there. */
   over?: Cell | null;
@@ -73,7 +66,7 @@ export function cellName(c: Cell): string {
  * pointer. Shared with the PvP flow (#647): the attack draws the defender's territory with it. The parcels and the tiers'
  * bases left with v2 (#739); the v2 village draws its free layout with `LayoutBoard`.
  */
-export function VillageBoard({ village, fog = "village", placing, over, tileArt, onPlace, className }: VillageBoardProps) {
+export function VillageBoard({ village, placing, over, tileArt, onPlace, className }: VillageBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is (the scroll region holds the grid).
   const extent = village.cells.length;
@@ -92,7 +85,7 @@ export function VillageBoard({ village, fog = "village", placing, over, tileArt,
     return { x: x!, y: y! };
   });
   if (clearList.length === 0) return null;
-  const margin = fog === "village" ? FOG_RINGS : 0;
+  const margin = FOG_RINGS;
   const minX = Math.min(...clearList.map((c) => c.x)) - margin;
   const maxX = Math.max(...clearList.map((c) => c.x)) + margin;
   const minY = Math.min(...clearList.map((c) => c.y)) - margin;
@@ -177,7 +170,7 @@ export function VillageBoard({ village, fog = "village", placing, over, tileArt,
         }}
       >
         {cells}
-        {fog === "village" && <FogVeil clear={clearList} minX={minX} maxY={maxY} cols={cols} rows={rows} />}
+        <FogVeil clear={clearList} minX={minX} maxY={maxY} cols={cols} rows={rows} />
       </div>
     </ScrollRegion>
   );

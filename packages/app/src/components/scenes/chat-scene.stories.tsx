@@ -29,10 +29,8 @@ const conversation = (data: (typeof CHAT_CONVERSATION)[keyof typeof CHAT_CONVERS
   <ChatConversation {...data} fill onBack={back ? fn() : undefined} onSend={fn(async () => {})} onAction={fn(async () => {})} onAnswer={fn(async () => {})} onOpenPlayer={fn()} />
 );
 
-/** The empty state, no tabs (the chat not on this network). */
-export const Empty: Story = { args: { menu: undefined } };
 /** The page finding its tab (a member's first visit opens on Guild once the overview is read). */
-export const Opening: Story = { args: { tab: null } };
+export const Opening: Story = { args: { tab: null, children: null } };
 /** The World: its conversation in the tab, a guild's tag beside each name. */
 export const World: Story = { args: { tab: "world", badges: CHAT_BADGES.conversations, children: conversation(CHAT_CONVERSATION.world) } };
 /** Below level 2: the World is read, not written. */

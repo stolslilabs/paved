@@ -6,7 +6,6 @@ import { planCode } from "../elements/tile-chip";
 import { BOARD_38 } from "../../mocks/board";
 import { LONG_ADDRESS, LONG_SENTENCE } from "../../mocks/stress";
 import { StackView } from "./stack-view";
-import { TileView } from "./tile-view";
 import { TileStack } from "./tile-stack";
 
 const tile = { plan: BOARD_38.next.plan, orientation: BOARD_38.next.orientation };
@@ -87,8 +86,6 @@ export const CoachDiscard: Story = { args: { coach: "discard", discardCost: 0 } 
 export const Stack3D: Story = { args: { remaining: 20, coming: [{ plan: 7 }, { plan: 12 }], renderStack: (v) => <StackView {...v} basePath={APP_ASSETS} /> } };
 /** The tile in hand on a cell, with the 3D view: it is see-through (the board draws it), the coming tiles stay. */
 export const Stack3DOnACell: Story = { args: { ...Stack3D.args, cellChosen: true } };
-/** Without the 3D view: the tile in hand drawn by the renderer from above on its slab (`TileView`). */
-export const Rendered: Story = { args: { renderTile: (t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} /> } };
 /** Without the art: the plan's nine areas. */
 export const AreasView: Story = { args: { tileArt: undefined } };
 /** WRAP360: a long refusal with an unbroken address wraps inside the banner; three-digit tiles left. */

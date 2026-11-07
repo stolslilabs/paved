@@ -1,6 +1,5 @@
 import type { PlayerStatusData, ProfileState } from "../components/containers/profile-sheet";
 import type { BoardSceneProps } from "../components/scenes/board-scene";
-import type { LoadingSceneProps } from "../components/scenes/loading-scene";
 import type { OverSceneProps } from "../components/scenes/over-scene";
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import type { PurchaseSceneProps } from "../components/scenes/purchase-scene";
@@ -26,7 +25,7 @@ import { KING_IDS } from "../components/containers/avatar-types";
 import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
-import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_VAULT } from "./stress";
+import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, STRESS_VAULT } from "./stress";
 import { PREVIEW_DEPOSIT_100, PREVIEW_DEPOSIT_25, PREVIEW_MINT_25, PREVIEW_REDEEM_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
 import { titleOf } from "../lib/music/track-info";
 import { TRACKS } from "../lib/music/tracks";
@@ -34,15 +33,6 @@ import { leagueOf } from "../lib/pvp-rules";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
-
-// Loading
-
-export const LOADING = {
-  booting: { progress: null, message: "Starting" },
-  assets: { progress: 64, message: "Loading the board", tip: "Closing a city scores more the bigger it gets." },
-  /** WRAP360: a long message and tip. */
-  stress: { progress: 99, message: `${LONG_SENTENCE} ${LONG_WORD}`, tip: LONG_SENTENCE },
-} satisfies Record<string, Data<LoadingSceneProps>>;
 
 // Home
 

@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
 import { HudDrawer } from "../containers/hud-drawer";
 import { PlayerSearch, type PlayerSearchProps } from "../containers/player-search";
-import { SocialEmpty } from "../containers/social-empty";
 
 export interface FriendsSceneProps {
   /** The player search (#952), at the top: its results open a player's public profile, each with Follow. */
   search: PlayerSearchProps;
-  /** The lists as the app draws them (`FriendsPanel`: the three tabs, the suggestions, the blocked players). Unset: the empty state. */
-  children?: ReactNode;
+  /** The lists as the app draws them (`FriendsPanel`: the three tabs, the suggestions, the blocked players; the loading or the unavailable note). */
+  children: ReactNode;
   /**
    * Whether the drawer is shown (FRIENDS-PAGE): its route is the current one; false while it slides out. Omitted, shown (a story's,
    * a test's).
@@ -46,7 +45,7 @@ export function FriendsScene({ search, children, open = true, onBack, returnFocu
     >
       <div className="flex flex-col gap-4">
         <PlayerSearch look="drawer" {...search} />
-        {children ?? <SocialEmpty page="friends" className="drawer-carved border-0" />}
+        {children}
       </div>
     </HudDrawer>
   );

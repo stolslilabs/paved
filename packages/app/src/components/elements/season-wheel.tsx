@@ -25,14 +25,6 @@ export const TIME_ICON_RADIUS = 9.5;
 export const TIME_ICON_SIZE = 10;
 
 /**
- * Which way the centre disc turns against the seasons' ring, counterclockwise: the other way, clockwise (the owner's ask, the
- * default), or the same way. The disc is painted to turn clockwise; turning the same way, it is drawn mirrored, so its
- * night still gives way to its day under the pointer.
- */
-export const CENTRE_TURNS = ["against", "with"] as const;
-export type CentreTurn = (typeof CENTRE_TURNS)[number];
-
-/**
  * The disc as painted (turning clockwise, the pointer reads it counterclockwise): clockwise from the top, its night from 0 to
  * `NIGHT_ENDS`, its day from there round to the top, dawn at the top, dusk at `NIGHT_ENDS`.
  */
@@ -44,15 +36,11 @@ function at(r: number, deg: number): { x: number; y: number } {
   return { x: 50 + r * Math.sin(a), y: 50 - r * Math.cos(a) };
 }
 
-/** Where the sun and the moon sit on the disc, in % of the dial (the middle of the day and of the night), each way it turns. */
-export const TIME_ICON_AT = Object.fromEntries(
-  CENTRE_TURNS.map((turn) => {
-    const day = at(TIME_ICON_RADIUS, (NIGHT_ENDS + 360) / 2);
-    const night = at(TIME_ICON_RADIUS, NIGHT_ENDS / 2);
-    const side = (p: { x: number; y: number }) => (turn === "with" ? { x: 100 - p.x, y: p.y } : p);
-    return [turn, { day: side(day), night: side(night) }];
-  }),
-) as Record<CentreTurn, Record<"day" | "night", { x: number; y: number }>>;
+/** Where the sun and the moon sit on the disc, in % of the dial: the middle of the day and of the night. */
+export const TIME_ICON_AT: Record<"day" | "night", { x: number; y: number }> = {
+  day: at(TIME_ICON_RADIUS, (NIGHT_ENDS + 360) / 2),
+  night: at(TIME_ICON_RADIUS, NIGHT_ENDS / 2),
+};
 
 /** The fixed layers over the discs, bottom to top: the hub last, over the pointer. */
 const FIXED = ["shade", "inner-bezel", "frame", "pointer", "hub"] as const satisfies readonly WheelLayer[];
@@ -68,8 +56,6 @@ export interface SeasonWheelProps {
   onNext?: () => void;
   /** The discs' turn takes this long between two readings, in ms (the board reads once a second). Default 1000. */
   turnMs?: number;
-  /** Which way the centre disc turns: against the seasons' ring (the default), or with it. */
-  centreTurn?: CentreTurn;
   className?: string;
 }
 
@@ -88,12 +74,12 @@ function Layer({ name, className }: { name: WheelLayer; className?: string }) {
  * The season dial (issue 547; painted art since V4-WHEEL-ART): a ring of paving stones set with gold around the four seasons'
  * landscape, a little planet, and at the centre a disc of a day and a night under the sun and the moon. The
  * seasons' ring turns counterclockwise under the gold pointer at the top, once a year (four days and nights); the centre disc
- * once a day and night, clockwise (`centreTurn` "with": counterclockwise, mirrored). What is under the pointer is "now": its
+ * once a day and night, clockwise, against the ring (the owner's ask). What is under the pointer is "now": its
  * outer tip on the season, its inner notch on the day or the night. In auto the discs follow the cycle; in a fixed state they
  * rest on that season's day. Nothing tells auto from fixed, nothing is written (issue 634): the button's name says it. Each
  * disc always turns the same way, never back.
  */
-export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = "against", className }: SeasonWheelProps) {
+export function SeasonWheel({ state, point, onNext, turnMs = 1000, className }: SeasonWheelProps) {
   const angle = useRef<number | null>(null);
   const goal = -cyclePoint(state, point) * 90;
   // The ring only ever turns one way, counterclockwise (the next season comes up the right side to the top): a reading
@@ -102,8 +88,7 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
   const behind = (((last - goal) % 360) + 360) % 360;
   const turned = (angle.current = behind > 359 ? last : last - behind);
   // The centre disc's angle follows from the ring's: four times it, so it too only turns forward, its own way.
-  const mirrored = centreTurn === "with";
-  const timeTurned = turned * TIME_TURNS_PER_YEAR * (mirrored ? 1 : -1);
+  const timeTurned = -turned * TIME_TURNS_PER_YEAR;
   const current = state === "auto" ? (point?.season ?? "summer") : state;
   const night = state === "auto" && isNight(point);
   const time = night ? "night" : "day";
@@ -117,7 +102,6 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
       title={label}
       data-state={state}
       data-time={time}
-      data-centre-turn={centreTurn}
       data-testid="season-wheel"
       onClick={onNext}
       className={cn("group relative flex shrink-0 rounded-full outline-none", className)}
@@ -127,9 +111,9 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
         <span data-dial-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${turned}deg)`, ...turn }}>
           <Layer name="season-ring" />
         </span>
-        {/* The day and night disc, turning four times as fast, mirrored when it turns with the ring. */}
+        {/* The day and night disc, turning four times as fast, the other way. */}
         <span data-time-disc className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
-          <Layer name="time-disc" className={mirrored ? "-scale-x-100" : undefined} />
+          <Layer name="time-disc" />
         </span>
         {/* The sun and the moon ride on the disc and turn back about their own centres, so they stay upright. */}
         <span data-time-icons className={cn("absolute inset-0", spin)} style={{ transform: `rotate(${timeTurned}deg)`, ...turn }}>
@@ -143,8 +127,8 @@ export function SeasonWheel({ state, point, onNext, turnMs = 1000, centreTurn = 
               data-time-icon={t}
               className={cn("absolute max-w-none", spin)}
               style={{
-                left: `${TIME_ICON_AT[centreTurn][t].x - TIME_ICON_SIZE / 2}%`,
-                top: `${TIME_ICON_AT[centreTurn][t].y - TIME_ICON_SIZE / 2}%`,
+                left: `${TIME_ICON_AT[t].x - TIME_ICON_SIZE / 2}%`,
+                top: `${TIME_ICON_AT[t].y - TIME_ICON_SIZE / 2}%`,
                 width: `${TIME_ICON_SIZE}%`,
                 height: `${TIME_ICON_SIZE}%`,
                 transform: `rotate(${-timeTurned}deg)`,

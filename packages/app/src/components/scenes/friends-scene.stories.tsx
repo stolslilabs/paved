@@ -4,7 +4,7 @@ import { FRIENDS_TAB } from "../../mocks/follows";
 import { FRIENDS_SEARCH } from "../../mocks/social";
 import type { PlayerSearchProps } from "../containers/player-search";
 import { FollowResultButton, type FollowResultState } from "../containers/follow-result-button";
-import { FollowPlayerRow, FriendsPanel } from "../containers/friends-panel";
+import { CARVED_NOTE, FollowPlayerRow, FriendsPanel } from "../containers/friends-panel";
 import { FriendsScene } from "./friends-scene";
 
 /**
@@ -37,8 +37,6 @@ const withFollow = (search: PlayerSearchProps): PlayerSearchProps => ({
   },
 });
 
-/** The search, and the empty state. */
-export const Empty: Story = {};
 /** The Friends tab (the book's "friends"): friends online and offline, online or when last seen at each row's end; two new followers on the Followers tab's badge. */
 export const Friends: Story = { args: { children: panel(FRIENDS_TAB.friends) } };
 /** The Following tab: Following at each row's end, which unfollows once confirmed. */
@@ -56,7 +54,7 @@ export const Blocked: Story = { args: { children: panel(FRIENDS_TAB.blocked) } }
 /** The search's results above the tabs, each with Follow (in each of its standings); a tap opens the player's profile. */
 export const Searching: Story = { args: { search: withFollow(FRIENDS_SEARCH.searching.search), children: panel(FRIENDS_TAB.friends) } };
 /** No social source on this network: the search disabled. */
-export const Unavailable: Story = { args: FRIENDS_SEARCH.unavailable };
+export const Unavailable: Story = { args: { ...FRIENDS_SEARCH.unavailable, children: <p className={CARVED_NOTE}>Follows are not on this network yet.</p> } };
 /** With reduced motion: the drawer and the tabs change without their slide. */
 export const ReducedMotion: Story = { args: { children: panel(FRIENDS_TAB.friends) }, parameters: { reducedMotion: "always" } };
 /** WRAP360: the longest name in the results and the lists, four-digit counts. */

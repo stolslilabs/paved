@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import type { ChatTab } from "../../routes/chat-param";
 import { ChatTabs, type ChatBadges } from "../containers/chat-tabs";
 import { HudDrawer } from "../containers/hud-drawer";
-import { SocialEmpty } from "../containers/social-empty";
 import { Skeleton } from "../ui/skeleton";
 
 export interface ChatSceneProps {
@@ -15,8 +14,8 @@ export interface ChatSceneProps {
   badges?: ChatBadges;
   /** The page's menu at the header's end (`ChatMenu`: the muted players). */
   menu?: ReactNode;
-  /** The tab's content as the app draws it (a conversation, or the Private tab's list). Unset: the empty state. */
-  children?: ReactNode;
+  /** The tab's content as the app draws it (a conversation, or the Private tab's list; the loading or the unavailable note). */
+  children: ReactNode;
   /** Back, up to the village (BACK-RULE #783): the drawer's Back on a phone, its close from `tablet`. */
   onBack?: () => void;
   /** Whether the drawer is shown (CHAT-PAGE): its route is the current one; false while it slides out. Omitted, shown. */
@@ -40,7 +39,7 @@ function keepForDialogs(event: Event) {
  * conversations, one opened over them.
  */
 export function ChatScene({ tab, onTabChange, badges, menu, children, onBack, open, returnFocus }: ChatSceneProps) {
-  let body: ReactNode = children ?? <SocialEmpty page="chat" className="drawer-carved border-0" />;
+  let body: ReactNode = children;
   if (tab === null)
     body = (
       <div aria-busy className="flex min-h-0 flex-1 flex-col gap-3">

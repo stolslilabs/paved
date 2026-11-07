@@ -32,8 +32,6 @@ const page = (data: GuildPageProps, over: Partial<GuildPageProps> = {}) => (
   <GuildPage {...data} onAction={fn(async () => {})} onOpenPlayer={fn()} onOpenChat={fn()} invite={invite} find={find} {...over} />
 );
 
-/** The empty state. */
-export const Empty: Story = {};
 /** A player in no guild: the finder, Create, the search, Suggested or Ranking. */
 export const Guildless: Story = { args: { children: finder(GUILD_FINDER.guildless) } };
 /** Create a guild, a view in the drawer (GUILD-PAGE): the emblem, its charges and colours six to a row, the join types, the requirements. */

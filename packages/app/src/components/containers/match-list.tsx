@@ -173,7 +173,7 @@ export function MatchCard({
         {/* The stars, then how long ago (the book's time column, brought under the name: a phone's row keeps the name its room). */}
         {/* Where the row is too narrow (a 320 px phone beside a tile), the time goes under the stars, never cut. */}
         <span className="flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5">
-          <StarRow stars={m.stars} size="xs" className="drawer-icon shrink-0" />
+          <StarRow stars={m.stars} className="drawer-icon shrink-0" />
           {m.surrendered && <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">Surrendered</span>}
           <time dateTime={new Date(m.at * 1000).toISOString()} className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
             {formatAgo(m.at - now)}

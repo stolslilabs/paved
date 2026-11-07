@@ -9,10 +9,10 @@ import { ValueRow } from "./value-row";
 
 const scoreVariants = cva("numeric font-semibold leading-none", {
   variants: {
-    size: { sm: "text-base", hud: "text-xl tablet:text-2xl", md: "text-2xl", lg: "text-4xl", xl: "text-5xl tablet:text-6xl" },
+    size: { sm: "text-base", hud: "text-xl tablet:text-2xl", xl: "text-5xl tablet:text-6xl" },
     tone: { default: "text-foreground", gold: "text-primary", muted: "text-muted-foreground" },
   },
-  defaultVariants: { size: "md", tone: "default" },
+  defaultVariants: { size: "sm", tone: "default" },
 });
 
 /** Points with a comma every three digits, in en-US like every number (P-66): "1,270". The owner's word wins over the mockups' "1 240". */
@@ -21,7 +21,7 @@ export function formatPoints(points: number): string {
 }
 
 /** The icon beside each size's figure (Font Awesome sizes an icon as its font size). */
-const ICON_SIZE: Record<NonNullable<VariantProps<typeof scoreVariants>["size"]>, IconSize> = { sm: "sm", hud: "md", md: "md", lg: "lg", xl: "xl" };
+const ICON_SIZE: Record<NonNullable<VariantProps<typeof scoreVariants>["size"]>, IconSize> = { sm: "sm", hud: "md", xl: "xl" };
 
 export interface ScoreProps extends VariantProps<typeof scoreVariants> {
   value: number;
@@ -80,7 +80,7 @@ export function Score({ value, label, icon, iconClassName, delta, preview, figur
           {previewed ?? gain}
         </span>
       )}
-      <ValueRow icon={icon} iconSize={ICON_SIZE[size ?? "md"]} iconClassName={cn("text-primary", iconClassName)}>
+      <ValueRow icon={icon} iconSize={ICON_SIZE[size ?? "sm"]} iconClassName={cn("text-primary", iconClassName)}>
         <span className={scoreVariants({ size, tone })} data-testid="score-value">
           {figure ?? formatPoints(value)}
         </span>

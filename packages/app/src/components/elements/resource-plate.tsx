@@ -12,11 +12,6 @@ export interface ResourcePlateProps extends PlateVariants {
   decimals: number;
   /** The digits shown after the point. */
   fraction: number;
-  /**
-   * The icon's end (issue 828): `right` for the plates on the right of the screen (the balances); `left`, the same plate mirrored
-   * for the left of the screen (issue 829).
-   */
-  side?: "right" | "left";
   /** The amount shown before this plate mounted (a balance that just appeared): the first render animates from it. */
   from?: bigint;
   /** One width at each size, whatever the figure (issue 860, `Plate`'s `fixed`); with `compactFrom`, the figure never overflows it. */
@@ -39,13 +34,12 @@ export interface ResourcePlateProps extends PlateVariants {
  * the change's colour; up, a "+N" rises and fades and the icon pops; down, a "−N" drops and fades and the icon dips. Under reduced
  * motion only the colour flashes: nothing moves. The accessible name is the container's.
  */
-export function ResourcePlate({ kind, amount, decimals, fraction, side = "right", from, fixed, compactFrom, size, tone, children, className }: ResourcePlateProps) {
+export function ResourcePlate({ kind, amount, decimals, fraction, from, fixed, compactFrom, size, tone, children, className }: ResourcePlateProps) {
   const { text, start, target, format, change, flash, moving } = useAmountChange({ amount, decimals, fraction, from, compactFrom });
   return (
     <Plate
       data-slot="resource-plate"
       data-token={kind}
-      side={side}
       size={size}
       tone={tone}
       fixed={fixed}
@@ -56,7 +50,7 @@ export function ResourcePlate({ kind, amount, decimals, fraction, side = "right"
           <TokenIcon kind={kind} px={plateHudIconPx(size)} className={plateHudIconClass(size)} />
         </ChangePop>
       }
-      after={<ChangeFloat change={change} moving={moving} className={side === "left" ? "right-auto left-2" : "right-6"} />}
+      after={<ChangeFloat change={change} moving={moving} className="right-6" />}
     >
       <span aria-hidden className={cn(PLATE_FIGURE, "text-outline transition-colors duration-700 motion-reduce:duration-300", changeTone(flash, change))}>
         {text === null ? "–" : <NumberTicker value={target} startValue={start} decimalPlaces={fraction} format={format} className="tracking-tight" />}

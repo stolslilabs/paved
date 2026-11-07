@@ -24,7 +24,7 @@ const meta = {
   title: "Containers/PagePanel",
   component: PagePanel,
   parameters: { layout: "fullscreen" },
-  args: { open: true, title: "Missions", top: true, onClose: fn(), children: null },
+  args: { open: true, title: "Missions", onClose: fn(), children: null },
   ...WIDE_1440,
 } satisfies Meta<typeof PagePanel>;
 export default meta;
@@ -36,20 +36,6 @@ export const TabPageInPanel: Story = {
     <BalancesProvider value={{ state: READY, onAction: fn() }}>
       <PagePanel {...args}>
         <TabPage title="Missions">
-          {CARDS}
-        </TabPage>
-      </PagePanel>
-    </BalancesProvider>
-  ),
-};
-
-/** A page whose header keeps Back in the panel (`top` false). No page of the app is one since BACK-RULE (#783): a sheet's Back closes it. */
-export const WithBack: Story = {
-  args: { title: "Themes", top: false },
-  render: (args) => (
-    <BalancesProvider value={{ state: READY, onAction: fn() }}>
-      <PagePanel {...args}>
-        <TabPage title="Themes" onBack={fn()}>
           {CARDS}
         </TabPage>
       </PagePanel>

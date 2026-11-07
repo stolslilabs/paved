@@ -175,14 +175,6 @@ describe("the leagues' standards in the app (#917, PR 3)", () => {
     expect(icon()).not.toHaveAttribute("data-division");
   });
 
-  it("LeagueCrest reads Unranked outside the leagues, whatever the league", () => {
-    const { container, rerender } = render(<LeagueCrest league={LEAGUES[0]!} unranked />);
-    expect(container.firstElementChild).toHaveTextContent(/^Unranked$/);
-    expect(container.querySelector("[data-slot=league-crest-icon]")).toHaveAttribute("data-tier", "unranked");
-    rerender(<LeagueCrest league={LEAGUES[0]!} unranked iconOnly />);
-    expect(screen.getByRole("img", { name: "Unranked" })).toBeInTheDocument();
-  });
-
   it("the battle logs' card shows the rival's league crest where known, none on v1's rows", () => {
     const match = MATCHES[0]!;
     const { container, rerender } = render(<MatchCard match={match} now={MOCK_NOW} />);

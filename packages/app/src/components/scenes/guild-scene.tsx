@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { HudDrawer } from "../containers/hud-drawer";
-import { SocialEmpty } from "../containers/social-empty";
 
 export interface GuildSceneProps {
-  /** The page's content as the app draws it (the finder, or the player's guild, #953). Unset: the empty state. */
-  children?: ReactNode;
+  /** The page's content as the app draws it (the finder, or the player's guild, #953; the loading or the unavailable note). */
+  children: ReactNode;
   /** The drawer's close: Back on a phone, the red cross from `tablet`, Escape, a tap on the village. */
   onBack?: () => void;
   /** Whether the drawer is shown (GUILD-PAGE): its route is the current one; false while it slides out. Omitted, shown. */
@@ -40,7 +39,7 @@ export function GuildScene({ children, onBack, open = true, returnFocus }: Guild
       returnFocus={returnFocus}
       onInteractOutside={keepForDialogs}
     >
-      {children ?? <SocialEmpty page="guild" />}
+      {children}
     </HudDrawer>
   );
 }
