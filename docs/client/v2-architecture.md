@@ -448,9 +448,8 @@ WebGL on a machine with no GPU) and committed as the masters in `src/directions/
 | File | Size | Where |
 |---|---|---|
 | `wordmark.webp` | 840 x 240, 14,352 B | `Wordmark` (Home, the nav header, Welcome, Loading) |
-| `hero-tall.webp` / `hero-wide.webp` | 750 x 1000, 122,366 B / 1440 x 720, 112,264 B | `BoardHero` (Home, Welcome); one of the two is fetched |
 
-Total 248,982 B (the over screen's banner, `score-wide.webp`, left with #720: the final board is that screen's background; the mode
+Total 14,352 B (the hero, `hero-tall.webp` and `hero-wide.webp`, left with the stories cleanup: no page drew `BoardHero`; the over screen's banner, `score-wide.webp`, left with #720: the final board is that screen's background; the mode
 cards' three, `mode-challenge.webp`, `mode-training.webp` and `mode-tutorial.webp`, left with PLAY-PAGE: the Play page draws the Paved
 UX Book's paintings, `public/ui-art/play/`). Each is its own file in `dist/assets` (no JavaScript chunk grows), fetched when its `<img>` is drawn
 (`loading="lazy"` below the fold), with its width and height set; nothing is fetched from another host.
@@ -769,7 +768,6 @@ nothing is fetched at run time.
 | Sheet (enter and exit) | motion.dev | `AnimatePresence` on a force-mounted Radix dialog (kept from F3) | `motion` 14.0.0 | MIT | No MIT registry has a Radix sheet on Motion (motion-primitives and Magic UI have none; cult-ui's Family Drawer needs `vaul`, a second drawer runtime). The Dialog now has the same structure. | `ui/sheet.tsx` |
 | Toast | Sonner | Toaster (shadcn/ui's wrapper, kept from F3) | `sonner` 2.0.8 | MIT | Already in the repository; CSS transitions, no JS animation runtime. coss ui's toast is on Base UI (a second primitive library beside Radix); cult-ui's Halo Toast is a visual, not a queue. Reduced motion now follows `MotionConfig` (`toaster-reduced-motion`) as well as the media query. | `ui/sonner.tsx` |
 | Animated counter (score, PAVED amounts) | Magic UI | Number Ticker | `magicuidesign/magicui` 85f97fd | MIT | Motion hooks only (`useSpring`, `useInView`), no `m` component, writes the text without a React render per frame. motion-primitives' Animated Number uses `motion.create` (breaks `LazyMotion strict`); its Sliding Number needs `react-use-measure`. | `elements/number-ticker.tsx` |
-| List enter and exit (leaderboard rows, closings list) | Magic UI | Animated List (its `AnimatedListItem`) | 85f97fd | MIT | `AnimatePresence` + `layout`: rows grow in, shrink out, and the others slide. motion-primitives' Animated Group has no exit. The original's one-row-per-second reveal (a notification demo) is dropped. | `ui/animated-list.tsx` |
 | Carousel (Play's mode cards, the themes) | embla-carousel.com, through shadcn/ui | Carousel | `embla-carousel-react` 8.6.0; `shadcn-ui/ui` 0023018 | MIT | The owner's choice; shadcn/ui's wrapper gives the region and slide roles and the arrow keys. animate-ui's Motion Carousel is not taken (F3c, below). | `ui/carousel.tsx` |
 
 **Not taken, and why:**

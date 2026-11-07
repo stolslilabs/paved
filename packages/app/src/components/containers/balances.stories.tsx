@@ -53,7 +53,7 @@ function InFlow({ state, onAction, onRetry, faucet, route }: InProps & { route: 
     </BalancesProvider>
   );
 }
-const TITLES: Partial<Record<keyof typeof HEADER_BALANCES, string>> = { cobbles: "Cobbles", "play/challenge": "Purchase", vault: "Vault", "village/shop": "Tile shop", settings: "Settings" };
+const TITLES: Partial<Record<keyof typeof HEADER_BALANCES, string>> = { cobbles: "Cobbles" };
 const flow = (state: BalancesState): Story => ({ render: (args) => <InFlow {...args} state={state} route="cobbles" /> });
 /** One page's header (#855), by route: its own balances, nothing else. */
 const pageOf = (route: keyof typeof HEADER_BALANCES, state: BalancesState = CONNECTED_STATE): Story => ({
@@ -122,31 +122,11 @@ export const RailHolder: Story = { ...page(HOLDER), globals: WIDE };
 export const RailLoading: Story = { ...page({ status: "loading" }), globals: WIDE };
 export const RailError: Story = { ...page({ status: "error", message: "The balances could not be read." }), globals: WIDE };
 
-/** BALANCES-BY-PAGE (#855): the Cobbles' packs, the Cobbles and USDC (USDC buys the packs), at 320, 375 and 1440 px. */
+/** BALANCES-BY-PAGE (#855): the Cobbles' packs, the Cobbles and USDC (USDC buys the packs), at 320 and 375 px. */
 export const Packs320: Story = { ...pageOf("cobbles"), ...PHONE_320 };
 export const Packs375: Story = { ...pageOf("cobbles"), ...PHONE_375 };
-export const Packs1440: Story = { ...pageOf("cobbles"), ...WIDE_1440 };
-/** The Challenge's purchase: USDC alone. */
-export const Purchase320: Story = { ...pageOf("play/challenge"), ...PHONE_320 };
-export const Purchase375: Story = { ...pageOf("play/challenge"), ...PHONE_375 };
-export const Purchase1440: Story = { ...pageOf("play/challenge"), ...WIDE_1440 };
-/**
- * The Vault: PAVED and vPAVED, never the Cobbles; PAVED leads to the Challenge (#871), vPAVED on its own page leads nowhere.
- * No "+" on either (#925): two plates in a phone's row keep their whole figure at 320 px.
- */
-export const Vault320: Story = { ...pageOf("vault", HOLDER), ...PHONE_320 };
-export const Vault375: Story = { ...pageOf("vault", HOLDER), ...PHONE_375 };
-export const Vault1440: Story = { ...pageOf("vault", HOLDER), ...WIDE_1440 };
-/** A page that spends Cobbles (the tile shop): the Cobbles alone. */
-export const Shop375: Story = { ...pageOf("village/shop"), ...PHONE_375 };
-export const Shop1440: Story = { ...pageOf("village/shop"), ...WIDE_1440 };
-/** A page that uses none (Settings): no balances at all. */
-export const Settings375: Story = { ...pageOf("settings"), ...PHONE_375 };
-export const Settings1440: Story = { ...pageOf("settings"), ...WIDE_1440 };
 /** A flow on a phone (the packs'): its balances in the top bar's row, nothing under it (#781, #855). */
 export const FlowConnected: Story = { ...flow(CONNECTED), globals: MOBILE };
-/** A flow from `desktop`: the balances on the top bar's right. */
-export const FlowRail: Story = { ...flow(HOLDER), globals: WIDE };
 
 /** The balances changing, on a phone: each plate counts, pops up or dips down. */
 export const LiveChanges: Story = { render: (args) => <Live layout="pill" onAction={args.onAction} />, globals: MOBILE };

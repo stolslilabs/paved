@@ -3,15 +3,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { PVP_LEAGUE } from "../../mocks/pvp";
-import { COBBLES, HALL_OF_FAME, MISSIONS, PLAY, PLAYER_STATUS, RECORDS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
+import { HALL_OF_FAME, MISSIONS, PLAYER_STATUS, RECORDS, SETTINGS, THEME, VAULT } from "../../mocks/scenes";
 import { PROGRESS } from "../../mocks/players";
 import { HOME_VILLAGE } from "../../mocks/village-v2";
 import { BalancesProvider } from "../containers/balances-context";
-import PagePanel from "../containers/page-panel";
 import { ProfileProvider, type ProfileValue } from "../containers/profile-context";
-import { CobblesScene } from "./cobbles-scene";
 import { HomeVillageScene, type HomeVillageSceneProps } from "./home-village-scene";
-import { PlayScene } from "./play-scene";
 import { PvpLeagueScene } from "./pvp-league-scene";
 import { MissionsScene } from "./missions-scene";
 import { ShopScene } from "./shop-scene";
@@ -21,15 +18,14 @@ import { ThemeScene } from "./theme-scene";
 import { VaultScene } from "./vault-scene";
 import { PHONE_320, PHONE_375, TABLET_768, WIDE_1440 } from "./viewports";
 
-
 const tileArt = originalTileArt(SOURCE_ASSETS);
 
 /**
- * DESK-PANELS (#762, the owner's decisions of 2026-10-25): from `desktop` the overlay's pages open in a side panel on the right,
- * over the village (the League's on the left, #829; dimmed; a click on it or Escape closes it, no close button since #782), laid out as on a phone. One story per page of the
- * overlay at 1440 px (the Viewport toolbar can switch it; below `desktop` the app draws these pages full screen instead); the
- * home's Cobbles in every panel's header (ONE-HEADER, #781). No page opens another (BACK-RULE, #783): the defence log is a
- * section of the League, and the themes are a sheet over Settings' panel. The profile opens on the left. The village is the plan view (the `Scene` stories of `Scenes/Home` have the 3D).
+ * The home's pages over the village at 1440 px (the Viewport toolbar can switch it): the HUD's drawers, docked at the edge of the
+ * control that opens them (the profile's and the League's on the left, the others on the right), laid out as on a phone; below
+ * `tablet` the app draws them full screen instead. The side panel (DESK-PANELS, #762) holds the Referral alone today (its stories
+ * are `Containers/PagePanel`'s). No page opens another (BACK-RULE, #783). The village is the plan view (the `Scene` stories of
+ * `Scenes/Home` have the 3D).
  * DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): the dock stays under every page, veiled and blurred with the village: the `Dock` stories check it.
  */
 const meta = {
@@ -68,31 +64,17 @@ const PROFILE_VALUE = {
   onOpenInvite: fn(),
 } satisfies ProfileValue;
 
-/** The shell's providers (the avatar, the balances), the home and, open over it, the panel (`title`), or a drawer's page (none). */
-function HomeWith({ args, title, top = true, side, children }: { args: HomeVillageSceneProps; title?: string; top?: boolean; side?: "left"; children?: ReactNode }) {
+/** The shell's providers (the avatar, the balances), the home and, open over it, a drawer's page. */
+function HomeWith({ args, children }: { args: HomeVillageSceneProps; children?: ReactNode }) {
   return (
     <ProfileProvider value={PROFILE_VALUE}>
       <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 640 }, faucet: false }}>
         <HomeVillageScene {...args} />
-        {title ? (
-          <PagePanel open title={title} top={top} side={side} onClose={fn()}>
-            {children}
-          </PagePanel>
-        ) : (
-          children
-        )}
+        {children}
       </BalancesProvider>
     </ProfileProvider>
   );
 }
-
-const panel = (title: string, page: ReactNode, options: { top?: boolean; side?: "left" } = {}): Story => ({
-  render: (args) => (
-    <HomeWith args={args} title={title} {...options}>
-      {page}
-    </HomeWith>
-  ),
-});
 
 /** Missions' drawer over the home (MISSIONS-PAGE): the HUD's drawer, as the profile's, at every width. */
 const missions = () => <MissionsScene {...MISSIONS.daily} onBack={fn()} onClaimQuest={fn()} onClaimAchievement={fn()} />;
@@ -139,10 +121,6 @@ const settings = (view?: "credits" | "themes") => (
 export const Settings: Story = { render: (args) => <HomeWith args={args}>{settings()}</HomeWith> };
 /** More › Themes, a view of the drawer: Back to Settings, the red cross, the Cobbles at the header's end. */
 export const Themes: Story = { render: (args) => <HomeWith args={args}>{settings("themes")}</HomeWith> };
-/** Play's mode choice (the games themselves open full screen). */
-export const Play: Story = panel("Play", <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onTraining={fn()} onStory={fn()} onAttack={fn()} />);
-/** The Cobble packs, from the balances. */
-export const Cobbles: Story = panel("Cobbles", <CobblesScene {...COBBLES.packs} onBack={fn()} onSelectPack={fn()} onBuyPack={fn()} />);
 
 /**
  * The dock under the open page (DOCK-UNDER-PAGES): what the screen shows over the dock's band and over the PLAY medallion is the

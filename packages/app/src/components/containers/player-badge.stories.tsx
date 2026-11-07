@@ -6,7 +6,7 @@ import { PROGRESS } from "../../mocks/players";
 import { NEW_PLAYER, NEW_PLAYER_PROFILE } from "../../mocks/new-player";
 import { HALL_OF_FAME, PROFILE, RECORDS } from "../../mocks/scenes";
 import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
-import type { PlayerProgress } from "../elements/xp-ring";
+import type { PlayerProgress } from "../elements/xp-motion";
 import { cn } from "../../lib/utils";
 import { HUD_INSET_BOX } from "../elements/hud-inset";
 import { PlayerBadge } from "./player-badge";

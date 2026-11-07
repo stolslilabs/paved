@@ -1,6 +1,6 @@
 import type { GameViews, LevelViews, PlayerLevel } from "@paved/chain";
 import { useQuery } from "@tanstack/react-query";
-import type { PlayerProgress } from "../components/elements/xp-ring";
+import type { PlayerProgress } from "../components/elements/xp-motion";
 import { queryKeys } from "./keys";
 import { useDataSources } from "./sources";
 
