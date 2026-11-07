@@ -30,7 +30,7 @@ import { TokenIcon } from "../elements/token-icon";
 import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 import { isMaxLevel, xpLeft } from "../elements/xp-level";
-import type { PlayerProgress } from "../elements/xp-ring";
+import type { PlayerProgress } from "../elements/xp-motion";
 import type { ShownBalance } from "./balances";
 import { BalancesSlot } from "./balances-context";
 import { GuildLine } from "./guild-profile";

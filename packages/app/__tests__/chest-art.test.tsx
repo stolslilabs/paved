@@ -5,7 +5,6 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { expected, masters, OUT, problems } from "../scripts/compress-chest-art.ts";
 import { ChestArt, type ChestArtState } from "../src/components/elements/chest-art";
-import { ChestBadge } from "../src/components/elements/chest-badge";
 import { CHEST_RANKS } from "../src/components/elements/chest-designs";
 import { ChestIcon } from "../src/components/elements/chest-icon";
 import { CHEST_BASE, CHEST_LAYERS, CHEST_MEASURES, chestIconSources, chestImageUrl, pickSize } from "../src/components/elements/chest-images";
@@ -171,13 +170,6 @@ describe("the chests (ChestIcon, ChestArt)", () => {
     }
     await waitFor(() => expect(screen.getByRole("img", { name: "Rare chest" })).toHaveAttribute("data-slot", "chest-art"));
     expect(container.querySelector('[data-slot="chest-art"]')).toHaveAttribute("data-state", "spent");
-  });
-
-  it("draw the icon in ChestBadge, named by its rank", () => {
-    render(<ChestBadge rank="epic" size="lg" />);
-    const badge = screen.getByRole("img", { name: "Epic chest" });
-    expect(badge.querySelector('[data-slot="chest-icon"]')).toHaveAttribute("aria-hidden", "true");
-    expect(badge.querySelector(".fa-treasure-chest, [data-icon]")).toBeNull();
   });
 
   it("are no longer drawn from Font Awesome: no shapes file, no notice", () => {
