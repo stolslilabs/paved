@@ -9,19 +9,21 @@ import {
   levelProgress,
   levelResult,
   levelUnlocked,
+  storyRankAt,
   type ChestRank,
   type StoryCampaign,
   type StoryLevel,
 } from "@paved/game-core";
 import { NO_SKINS, skinsOf, type TileSkins } from "@paved/renderer";
 import type { CoachTarget } from "../../components/containers/coach";
-import { DeckPresentation, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
+import { endXp, type EndChest } from "../../components/containers/game-end";
+import { DeckPresentation, FirstStonePanel, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { Button } from "../../components/ui/button";
-import { useFreeVillageWrites } from "../../data/free-village";
+import { useFreeVillage, useFreeVillageWrites } from "../../data/free-village";
 import type { Slot } from "../../data/placement";
 import { useDataSources } from "../../data/sources";
 import { findLevel, levelPath, nextLevel, useDeckPresented, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
@@ -67,6 +69,23 @@ export function pointsToNextStar(result: { stars: number; twoStars: number; targ
   return Math.max(0, (result.stars >= 2 ? result.target : result.twoStars) - score);
 }
 
+/**
+ * Each star's share filled by a finished run's score (STORY-PAGE: the Ranked end's stars, `GameEnd`'s `fills`): the first full (a
+ * finished level holds one), the second from nothing to the 2 stars' score, the third from there to the target. Shares only: the
+ * thresholds are never written (#593).
+ */
+export function storyStarFills(result: { twoStars: number; target: number }, score: number): number[] {
+  const { twoStars: two, target } = result;
+  const share = (from: number, to: number) => (to > from ? Math.min(1, Math.max(0, (score - from) / (to - from))) : score >= to ? 1 : 0);
+  return [1, share(0, two), share(two, target)];
+}
+
+/** What the village side answered to a finished run (`reportStory`, #739): the chest it won and the XP it gave, or why it did not answer. */
+type StoryReportState =
+  | { attempt: number; state: "pending" }
+  | { attempt: number; state: "done"; chest: ChestRank | null; xp: number }
+  | { attempt: number; state: "failed"; error: Error };
+
 /** `/story/:campaign/:level`: a level of Story mode, if it exists and is open. */
 export default function Page() {
   const params = useParams();
@@ -81,7 +100,7 @@ export default function Page() {
         <TopBar title="Story" onBack={onBack} />
         <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
           <Notice title={found ? "This level is locked" : "No such level"} icon="lock" action={<Button size="sm" onClick={() => go("/story")}>Levels</Button>}>
-            {found ? "Finish the level before it first (and earn the stars its campaign asks for)." : "Story mode has no level at this address."}
+            {found ? "Finish the level before it first (and the Tutorial, for the other campaigns)." : "Story mode has no level at this address."}
           </Notice>
         </main>
       </div>
@@ -131,34 +150,52 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   // The deck sheet shows the level's draw in its order (#613), the order the presentation shows.
   const deckOrder = useMemo(() => deckSheetOrder(level.deck, snapshot.moves), [level, snapshot.moves]);
 
-  // The best before this run, read once per attempt, then the run recorded once it is over.
+  // The best before this run and its stars, read once per attempt, then the run recorded once it is over.
   const [previousBest, setPreviousBest] = useState<number | null>(null);
+  const [previousStars, setPreviousStars] = useState(0);
   const recorded = useRef(-1);
   // PvP v2 (#739, #741): a finished run is reported to the village side too (XP by the stars earned the first time, a chest on
   // 3 stars the first time). The mock serves it in step 1; a source without the v2 writes (the chain before step 3) reports nothing.
   const sources = useDataSources();
-  const v2 = useFreeVillageWrites(sources.signer?.address ?? null);
+  const me = sources.signer?.address ?? null;
+  const v2 = useFreeVillageWrites(me);
   const report = useRef<typeof v2.reportStory | null>(null);
   report.current = v2.signer ? v2.reportStory : null;
-  // The chest the run won (3 stars the first time, the report's `StoryReported`), opened on the end (END-CHEST, the owner's ask of
-  // 2026-11-06: the Chests page gone).
-  const [wonChest, setWonChest] = useState<{ attempt: number; rank: ChestRank } | null>(null);
-  const end = useEndChest(sources.signer?.address ?? null, wonChest && wonChest.attempt === attempt ? { rank: wonChest.rank, mine: (o) => o == null || o.source === "story" } : null);
+  const reporting = report.current !== null;
+  // The report's answer for an attempt: the chest the run won (the report's `StoryReported`), opened on the end (END-CHEST, the owner's
+  // ask of 2026-11-06: the Chests page gone), and the XP it gave (STORY-PAGE: the end's XP row, only from the report).
+  const [reported, setReported] = useState<StoryReportState | null>(null);
+  const send = useCallback(
+    (ran: number, stars: number) => {
+      const reportStory = report.current;
+      if (!reportStory) return;
+      setReported({ attempt: ran, state: "pending" });
+      reportStory({ campaign: campaign.id, level: level.id, stars }).then(
+        (result) => {
+          const fields = result.events.find((e) => e.name === "StoryReported")?.fields;
+          const rank = fields?.chest;
+          const chest = rank === "basic" || rank === "rare" || rank === "epic" ? rank : null;
+          setReported({ attempt: ran, state: "done", chest, xp: Number(fields?.xp ?? 0) || 0 });
+        },
+        (error: Error) => setReported({ attempt: ran, state: "failed", error }),
+      );
+    },
+    [campaign.id, level.id],
+  );
+  const answer = reported?.attempt === attempt ? reported : null;
+  const wonChest = answer?.state === "done" ? answer.chest : null;
+  const end = useEndChest(me, wonChest ? { rank: wonChest, mine: (o) => o == null || o.source === "story" } : null);
+  const village = useFreeVillage(answer?.state === "done" && answer.xp > 0 ? me : null);
   const now = useNow();
   useEffect(() => {
     if (!over || recorded.current === attempt) return;
     recorded.current = attempt;
-    setPreviousBest(levelProgress(progress, campaign.id, level.id)?.best ?? null);
+    const before = levelProgress(progress, campaign.id, level.id);
+    setPreviousBest(before?.best ?? null);
+    setPreviousStars(before?.stars ?? 0);
     record(level, run.submission(), run.score);
-    const ran = attempt;
-    report.current?.({ campaign: campaign.id, level: level.id, stars: levelResult(level, run.score).stars }).then(
-      (result) => {
-        const rank = result.events.find((e) => e.name === "StoryReported")?.fields.chest;
-        if (rank === "basic" || rank === "rare" || rank === "epic") setWonChest({ attempt: ran, rank });
-      },
-      () => undefined,
-    );
-  }, [over, attempt, progress, campaign.id, level, record, run]);
+    send(attempt, levelResult(level, run.score).stars);
+  }, [over, attempt, progress, campaign.id, level, record, run, send]);
 
   const confirm = useCallback(() => {
     if (!placement.canConfirm || !move || preview === null) return;
@@ -188,6 +225,20 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
       return found !== null && campaignUnlocked(progress, CAMPAIGNS, found.campaign) && levelUnlocked(progress, CAMPAIGNS, found.campaign, found.level.id);
     })();
   const best = levelProgress(progress, campaign.id, level.id);
+  // The level's chest on its end (STORY-PAGE, the owner's ask of 2026-11-07: opened there, or why this run won none): won, to open;
+  // already won (before this run on this device, or the report gave none for 3 stars); missed (3 stars win it); no chests without
+  // the v2 writes; while the report is on its way, loading; a failed report, its message and Retry, which sends it again.
+  const rank = storyRankAt(level.id, campaign.levels.length);
+  let chest: EndChest;
+  if (!reporting && !answer) chest = { state: "unavailable", rank };
+  else if (wonChest) chest = end.chest;
+  else if (previousStars >= 3) chest = { state: "already", rank };
+  else if (result.stars < 3) chest = { state: "missed", rank };
+  else if (answer?.state === "failed")
+    chest = { state: "error", rank, message: answer.error.message, detail: errorDetail(answer.error), onRetry: () => send(attempt, result.stars) };
+  else if (answer?.state === "done") chest = { state: "already", rank };
+  else chest = { state: "loading", rank };
+  const xp = answer?.state === "done" && answer.xp > 0 && village.data ? endXp(village.data.xp, answer.xp) : null;
 
   let notices;
   if (presenting) {
@@ -211,15 +262,18 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         title={level.title}
         score={run.score}
         stars={result.stars}
+        fills={storyStarFills(result, run.score)}
         toNextStar={pointsToNextStar(result, run.score)}
         bestKnown={result.bestKnown}
         previousBest={previousBest}
         beatsTarget={result.beatsTarget && result.bestKnown}
+        xp={xp}
         onReplay={replay}
         // Both replace the finished level's entry: the system Back never reopens it as a new game (#614).
         onNext={nextOpen && next ? () => go(levelPath(next.campaignId, next.levelIndex), { replace: true }) : undefined}
+        nextLocked={next !== null && !nextOpen}
         onLevels={() => go(levels, { replace: true })}
-        chest={end.chest}
+        chest={chest}
         now={now}
         tileArt={end.tileArt}
         onOpenChest={end.open}
@@ -302,33 +356,27 @@ function FirstStoneClaim({ wallet }: { wallet: WalletState }) {
   const claimed = useTutorialClaimed(wallet.address);
   const claim = useTutorialClaim();
   const outcome = claim.data?.outcome ?? null;
-  let body;
+  let line;
+  let onClaim;
   if (!wallet.address) {
-    body = (
-      <p role="status" className="text-muted-foreground">
-        Looking for your account…
-      </p>
-    );
+    line = "Looking for your account…";
   } else if (outcome === "claimed") {
-    body = <p role="status">Claimed: First Stone is yours.</p>;
+    line = "Claimed: First Stone is yours.";
   } else if (outcome === "already-claimed" || (claim.isIdle && claimed.data === true)) {
-    body = <p role="status">Already claimed: this account had First Stone before.</p>;
+    line = "Already claimed: this account had First Stone before.";
   } else if (claim.isIdle && claimed.isPending) {
-    body = <p role="status">Checking your claim…</p>;
+    line = "Checking your claim…";
   } else {
     // An unreadable claim is still offered: the write says what the chain thinks.
-    body = (
-      <div className="flex flex-col gap-2">
-        <Button size="sm" variant="secondary" className="self-start" onClick={() => claim.mutate()} loading={claim.isPending}>
-          Claim First Stone
-        </Button>
-        <InlineError title="The claim was refused" message={claim.error?.message} detail={claim.error ? errorDetail(claim.error) : undefined} />
-      </div>
-    );
+    line = "Yours to claim.";
+    onClaim = () => claim.mutate();
   }
   return (
-    <div data-testid="first-stone" className="flex flex-col gap-2 rounded-lg bg-secondary/50 p-2">
-      {body}
-    </div>
+    <FirstStonePanel
+      line={line}
+      onClaim={onClaim}
+      claiming={claim.isPending}
+      error={<InlineError title="The claim was refused" message={claim.error?.message} detail={claim.error ? errorDetail(claim.error) : undefined} />}
+    />
   );
 }
