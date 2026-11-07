@@ -109,13 +109,13 @@ describe("the friends page's panel (#954, #973)", () => {
     const onAction = vi.fn(async () => {});
     const onListChange = vi.fn();
     const { rerender } = render(wrap(<FriendsPanel {...FRIENDS_TAB.friends} onAction={onAction} onListChange={onListChange} />));
-    // The friends page's three tabs (#973; a toggle before).
-    expect(screen.getByRole("tab", { name: "Friends, 4" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Following, 6" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Followers, 7, 2 new" })).toBeInTheDocument();
-    // The book's tabs: each word with its count.
-    expect(screen.getByRole("tab", { name: "Friends, 4" })).toHaveTextContent("Friends4");
+    // The friends page's three tabs (#973; a toggle before), the footer's since #1062: the new followers badged on Followers.
+    expect(screen.getByRole("tab", { name: "Friends" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Following" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Followers, 2 new" })).toBeInTheDocument();
     const friends = screen.getByRole("region", { name: "Friends" });
+    // The list's count by its title (FOOTER-TABS, #1062), as the Ranking's.
+    expect(within(friends).getByRole("heading")).toHaveTextContent("Friends4");
     // The book's Friends rows: online or when last seen at their end, no button (Message and Following are on the profile).
     expect(within(friends).getAllByRole("listitem")).toHaveLength(4);
     expect(within(friends).getAllByRole("button").every((b) => /, level \d+, .+ league/.test(b.getAttribute("aria-label") ?? ""))).toBe(true);

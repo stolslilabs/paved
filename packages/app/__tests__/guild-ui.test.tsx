@@ -31,7 +31,7 @@ const wrap = (ui: ReactNode) => (
 const button = (name: string | RegExp) => screen.queryByRole("button", { name });
 
 /** The guild page's tabs, as their labels read. */
-const tabNames = () => within(screen.getByRole("tablist", { name: "Guild" })).getAllByRole("tab").map((t) => t.textContent);
+const tabNames = () => within(screen.getByRole("tablist", { name: "Guild" })).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent);
 /** Opens the header's menu (GUILD-PAGE: a view in the page's place); its items, by their names. */
 async function menu() {
   await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
@@ -86,7 +86,7 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
 
   it("an Officer: the Requests tab badged, the requests then the invitations sent; Post, their own announcements only; Invite in the menu, no settings", async () => {
     render(wrap(<GuildPage {...GUILD_PAGE.officer} invite={<p>The player search</p>} />));
-    expect(tabNames()).toEqual(["Announcements", "Members", "Requests2", "Log"]);
+    expect(tabNames()).toEqual(["Announcements", "Members", "Requests, 2 waiting", "Log"]);
     await tab("Requests");
     expect(within(screen.getByRole("region", { name: "Requests" })).getAllByRole("listitem")).toHaveLength(2);
     const sent = screen.getByRole("region", { name: "Invitations sent" });
@@ -171,7 +171,7 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     expect(await menu()).toEqual(["Find guilds", "Leave the guild"]);
     unmount();
     render(wrap(<GuildPage {...GUILD_PAGE.veteran} defaultTab="announcements" />));
-    expect(tabNames()).toEqual(["Announcements", "Members", "Requests2", "Log"]);
+    expect(tabNames()).toEqual(["Announcements", "Members", "Requests, 2 waiting", "Log"]);
     expect(button(/Post/)).toBeInTheDocument();
   });
 
