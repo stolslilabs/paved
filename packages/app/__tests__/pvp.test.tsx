@@ -115,20 +115,28 @@ describe("PvP scenes (#647)", () => {
   it("search: says it searches near the crowns, Cancel stops it", async () => {
     const onCancel = vi.fn();
     render(wrap(<PvpSearchScene {...PVP_SEARCH.searching} onCancel={onCancel} />));
-    expect(screen.getByRole("heading", { name: "Searching for a village" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Searching for a rival" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "1,172 crowns" })).toBeInTheDocument();
+    // The window's two actions: Cancel, and the gold action held while the draw runs.
+    expect(screen.getByRole("button", { name: "Searching" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalled();
+    // The clouds left (the user's ask): no sky, the board's ground or the page's void.
+    expect(document.querySelector(".from-sky-search-top")).toBeNull();
   });
 
   it("search: found names the defender; none and error offer a new search", () => {
     render(wrap(<PvpSearchScene {...PVP_SEARCH.found} />));
+    expect(screen.getByRole("heading", { name: "Rival found" })).toBeInTheDocument();
     expect(screen.getByText("Rook of Ashford")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    // Cancel keeps its place, dimmed: the page moves on to the scout.
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     cleanup();
-    render(wrap(<PvpSearchScene {...PVP_SEARCH.none} />));
-    expect(screen.getByRole("heading", { name: "No village in range" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Search again/ })).toBeInTheDocument();
+    render(wrap(<PvpSearchScene {...PVP_SEARCH.none} onRetry={() => {}} />));
+    expect(screen.getByRole("heading", { name: "No rival in range" })).toBeInTheDocument();
+    // Nothing drawn: the gold action is Search, beside Cancel, in their places.
+    expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
     cleanup();
     render(wrap(<PvpSearchScene {...PVP_SEARCH.error} />));
     expect(screen.getByText(/matchmaker did not answer/)).toBeInTheDocument();
@@ -138,18 +146,23 @@ describe("PvP scenes (#647)", () => {
     const onNext = vi.fn();
     const onAttack = vi.fn();
     render(wrap(<PvpScoutScene {...PVP_SCOUT.ready} onNext={onNext} onAttack={onAttack} />));
-    expect(screen.getByText("5,831")).toBeInTheDocument();
-    const stars = within(screen.getByRole("list", { name: "Stars" })).getAllByRole("listitem");
-    expect(stars.map((s) => s.textContent)).toEqual(["4,082", "4,957", "6,415"]);
+    // The crowns at stake in the panel (the user's ask of 2026-11-07): the defeat's loss, then each star's points and crowns.
+    const stakes = within(screen.getByRole("list", { name: "Crowns at stake" })).getAllByRole("listitem");
+    expect(stakes.map((s) => s.getAttribute("aria-label"))).toEqual(["No star, under 4,082 points: -20 crowns", "1 star, 4,082 points: +10 crowns", "2 stars, 4,957 points: +20 crowns", "3 stars, 6,415 points: +30 crowns"]);
+    expect(stakes.map((s) => s.querySelector("[data-crowns]")!.textContent)).toEqual(["\u221220", "+10", "+20", "+30"]);
+    // The rival in the bottom panel (the user's asks): avatar in its rim (the crest on it, no other), name, guild; no level, no score.
+    const rival = within(screen.getByRole("region", { name: "Attack" })).getByRole("region", { name: "Rival" });
+    expect(rival.querySelectorAll("[data-slot=league-crest-icon]")).toHaveLength(1);
+    expect(within(rival).queryByRole("img", { name: /^Level / })).toBeNull();
+    // No guild (v1's fakes give none): an empty shield under the name, no league written out; no village score (the user's ask).
+    expect(within(rival).getByRole("img", { name: "No guild" })).toBeInTheDocument();
+    expect(within(rival).queryByRole("group", { name: /^Village score/ })).toBeNull();
     expect(screen.getByRole("img", { name: /Board of 38 tiles in a territory of 38 cells/ })).toBeInTheDocument();
-    // v1 has no tile list: the deck chip only counts the tiles.
-    expect(document.querySelector("[data-deck]")).toHaveTextContent("38 tiles");
-    expect(screen.queryByRole("button", { name: /tile list/ })).toBeNull();
+    // v1 has no tile list: the deck over the village only counts the tiles.
+    expect(screen.getByRole("img", { name: "38 tiles" })).toHaveAttribute("data-deck");
+    expect(screen.queryByRole("button", { name: /^Deck/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "How an attack works" }));
-    const crowns = within(await screen.findByRole("list", { name: "Crowns at stake" })).getAllByRole("listitem");
-    expect(crowns.map((s) => s.textContent)).toEqual(["4,082 points+10", "4,957 points+20", "6,415 points+30", "No star\u221220"]);
-    expect(screen.getByRole("img", { name: "-20 crowns" })).toBeInTheDocument();
-    expect(screen.getByText("You play the defender's tiles, drawn at random, on their cells.")).toBeInTheDocument();
+    expect(await screen.findByText("You play the defender's tiles, drawn at random, on their cells.")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await userEvent.click(screen.getByRole("button", { name: "Next village for 1 Cobbles" }));
@@ -172,7 +185,7 @@ describe("PvP scenes (#647)", () => {
     expect(board.className).toMatch(/\babsolute inset-0\b/);
     const card = screen.getByRole("region", { name: "Attack" });
     expect(board.contains(card)).toBe(false);
-    expect(card.parentElement!.className).toMatch(/\bpointer-events-none absolute inset-0\b/);
+    expect(card.closest(".pointer-events-none")!.className).toMatch(/\bpointer-events-none absolute inset-0\b/);
     expect(card.className).toMatch(/\bpointer-events-auto\b/);
     // The rules' sentences went behind the info button.
     expect(card).not.toHaveTextContent(/You play/);

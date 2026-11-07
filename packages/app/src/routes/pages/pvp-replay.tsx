@@ -5,6 +5,7 @@ import type { Attack } from "@paved/chain";
 import { AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
 import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
+import { SearchVoid } from "../search-void";
 import { useBoardSkins } from "../../data/board-skins";
 import { usePlayerStatus } from "../../data/indexer";
 import { addressKey } from "../../data/keys";
@@ -100,7 +101,7 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
     // indexer behind), the replay cannot be built yet.
     const unrecorded = status.data != null && !last && !settled.isPending && !settled.error && settled.data?.target === undefined;
     const missing = read.data === null || unrecorded ? "This attack cannot be replayed: it is not recorded on this network." : (error?.message ?? null);
-    return <PvpSearchScene state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} onRetry={error || unrecorded ? retry : undefined} />;
+    return <PvpSearchScene canvas={<SearchVoid />} state={missing ? "error" : "searching"} player={self} error={missing} errorDetail={error ? errorDetail(error) : undefined} onCancel={onBack} onRetry={error || unrecorded ? retry : undefined} />;
   }
   return (
     <PvpAttackScene
