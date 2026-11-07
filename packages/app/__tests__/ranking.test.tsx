@@ -338,6 +338,32 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
       expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
     });
 
+    it("pins the viewer's row among their friends on the side it left: foot, none, top, none, foot", async () => {
+      const { drawer } = scene(LEADERBOARD.friends);
+      const own = within(within(drawer).getByRole("list", { name: "Friends by crowns" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
+      const watch = observed.find((o) => o.target === own)!;
+      const send = (e: IntersectionObserverEntry) => act(() => watch.callback([e], {} as IntersectionObserver));
+      const footer = drawer.querySelector("[data-slot=hud-drawer-footer]") ?? drawer.querySelector("[data-slot=ranking-footer]")!;
+      const top = drawer.querySelector("[data-slot=ranking-top]")!;
+      const place = LEADERBOARD.friends.friends.data!.me!.place;
+      send(entry(0, 900));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+      expect(footer).toContainElement(pinOf(drawer));
+      send(entry(1, 400));
+      expect(pinOf(drawer)).toBeNull();
+      send(entry(0.5, 70));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "top");
+      expect(top).toContainElement(pinOf(drawer));
+      expect(within(pinOf(drawer)!).getByRole("button")).toHaveAccessibleName(new RegExp(`^${place}\\. .+ \\(you\\), `));
+      own.scrollIntoView = vi.fn();
+      await userEvent.click(within(pinOf(drawer)!).getByRole("button"));
+      expect(own.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "center" }));
+      send(entry(1, 400));
+      expect(pinOf(drawer)).toBeNull();
+      send(entry(0, 900));
+      expect(pinOf(drawer)).toHaveAttribute("data-side", "foot");
+    });
+
     it("pins the viewer's guild on the side it left too", () => {
       const { drawer } = scene(LEADERBOARD.guilds);
       const own = within(within(drawer).getByRole("list", { name: "Guilds by score" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
