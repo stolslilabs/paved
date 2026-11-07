@@ -62,7 +62,8 @@ describe("the level's star and bar (the owner's direction of 2026-11-01)", () =>
     expect(fillShift(0.4)).toBe("translateX(-60%)");
     expect(fill.style.width).toBe("");
     // The fill covers the track's silver bevel, inside its 1 px outline (the mockup's).
-    expect(container.querySelector("[data-slot=level-recess]")).toHaveClass("inset-px", "rounded-r-[5px]");
+    // Rounded at both ends, the outline's inner corner (#1060).
+    expect(container.querySelector("[data-slot=level-recess]")).toHaveClass("inset-px", "rounded-[5px]");
     expect(container.querySelector("[data-slot=level]")).toHaveTextContent(/^3$/);
     expect(container.querySelector("[data-slot=xp]")).toHaveTextContent(/^120\/300$/);
     expect(container.querySelector("[data-slot=ui-icon][data-icon=level-star]")).not.toBeNull();
@@ -71,6 +72,17 @@ describe("the level's star and bar (the owner's direction of 2026-11-01)", () =>
     const capped = render(wrap(<LevelBar progress={PROGRESS.maxLevel} />)).container;
     expect(capped.querySelector<HTMLElement>("[data-slot=level-fill]")!.style.transform).toBe(fillShift(1));
     expect(capped.querySelector("[data-slot=xp]")).toHaveTextContent(/^Max$/);
+  });
+
+  it("without its star (a game's end), the recess is still rounded at both ends, part way or full at the cap (#1060)", () => {
+    for (const progress of [{ level: 5, xp: 5, xpForNext: 500 }, PROGRESS.maxLevel]) {
+      const { container, unmount } = render(wrap(<LevelBar progress={progress} variant="profile" star={false} />));
+      expect(container.querySelector("[data-slot=ui-icon][data-icon=level-star]")).toBeNull();
+      const recess = container.querySelector("[data-slot=level-recess]")!;
+      expect(recess).toHaveClass("overflow-hidden", "rounded-[5px]");
+      expect(recess.className).not.toMatch(/rounded-[rl]-/);
+      unmount();
+    }
   });
 
   it("on load fills in from empty to the share on the compositor, eased in and out, once its art is ready; read again, again", async () => {
@@ -121,7 +133,7 @@ describe("the level's star and bar (the owner's direction of 2026-11-01)", () =>
     const reduced = render(wrap(<LevelBar progress={{ level: 3, xp: 100, xpForNext: 300 }} />, "always"));
     await act(async () => reduced.rerender(wrap(<LevelBar progress={{ level: 4, xp: 20, xpForNext: 350 }} />, "always")));
     expect(reduced.container.querySelector("[data-slot=level]")).toHaveTextContent(/^4$/);
-    expect(reduced.container.querySelector("[data-slot=level-flash]")).not.toBeNull();
+    expect(reduced.container.querySelector("[data-slot=level-flash]")).toHaveClass("inset-px", "rounded-[5px]");
     expect(reduced.container.querySelector("[data-slot=xp-gain]")).toBeNull();
   });
 });
