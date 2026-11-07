@@ -15,9 +15,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** 1,250.40 vPAVED at a rate of 1.0842: the coin in its light, the share of the supply, the worth in PAVED and dollars, the tiles, the rates. */
+/** 1,250.40 vPAVED at a rate of 1.0842: the coin in its light (rays, glow, pulse), the share of the supply, the worth in PAVED and dollars, the tiles, the rates. */
 export const Held: Story = {};
-/** No vPAVED yet: the same box at zero. */
+/** No vPAVED yet: the same box at zero, the coin unlit (no light, no pulse, #1053). */
 export const NoShares: Story = { args: { position: VAULT_NONE } };
 /** The guard's rate unread (or none before any purchase): no dollar figure. */
 export const NoDollars: Story = { args: { guardRate: null } };

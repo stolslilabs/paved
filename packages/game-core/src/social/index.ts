@@ -70,6 +70,7 @@ export {
   guildFull,
   guildNameKey,
   guildNameRefusal,
+  guildPlace,
   guildScore,
   guildSettingsInvalid,
   guildTag,

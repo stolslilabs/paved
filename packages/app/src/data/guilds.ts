@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import type { GuildRefusal } from "@paved/game-core";
 import { addressKey } from "./keys";
 import { SEARCH_DELAY_MS, socialKeys, useSettled, type SocialRead } from "./social";
-import { GuildRefusedError, guildSource, type GuildBadge, type GuildQuery, type GuildSource, type GuildSummary, type GuildView, type PlayerGuild } from "./social-source";
+import { GuildRefusedError, guildSource, type GuildBadge, type GuildPlace, type GuildQuery, type GuildSource, type GuildSummary, type GuildView, type PlayerGuild } from "./social-source";
 import { useDataSources } from "./sources";
 
 // The guilds' hooks (#953): the player's guild, a guild's page, a player's guild badge, the search, the suggestions and the
@@ -24,6 +24,7 @@ export const guildKeys = {
   search: (q: GuildQuery) => ["social", "guild", "search", q.query, q.joinType ?? "", q.meetsFor ? addressKey(q.meetsFor) : "", q.minMembers ?? -1, q.maxMembers ?? -1] as const,
   suggested: (player: string) => ["social", "guild", "suggested", addressKey(player)] as const,
   ranking: () => ["social", "guild", "ranking"] as const,
+  place: (id: number) => ["social", "guild", "place", id] as const,
 };
 
 const UNAVAILABLE = { data: undefined, isPending: false, error: null, unavailable: true, refetch: () => undefined } as const;
@@ -81,6 +82,9 @@ export const useSuggestedGuilds = (player: string | null): SocialRead<readonly G
 
 /** The guilds by score. */
 export const useGuildRanking = (): SocialRead<readonly GuildSummary[]> => useGuildRead(guildKeys.ranking(), true, (g) => g.guildRanking());
+
+/** A guild's place in the whole ranking, past the ranking's list too (null: no guild of that ID); disabled without an ID. */
+export const useGuildPlace = (id: number | null): SocialRead<GuildPlace | null> => useGuildRead(guildKeys.place(id ?? 0), id !== null, (g) => g.guildPlace(id!));
 
 /** Why a guild write was refused (game-core's reason), or null for another error or none. */
 export const guildRefusal = (error: unknown): GuildRefusal | null => (error instanceof GuildRefusedError ? error.reason : null);
