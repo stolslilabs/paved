@@ -519,7 +519,7 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   no level and no village score, the
   user's asks: the three stars' points say the target); at the bottom right, over the village,
   the deck (the user's ask: a painted pile of tiles over "Deck", the tiles the attack draws in the dock's red square; a pile only in v1,
-  which has no tile list); under it the book's panel: the crowns at stake in a carved row of four (the user's ask: each case its stars, its points and the
+  which has no tile list; the pile is the HUD's icon `tile-stack`, which the home's Tiles wears too, the user's ask); under it the book's panel: the crowns at stake in a carved row of four (the user's ask: each case its stars, its points and the
   crowns won, the defeat first, a grey star under the first star's points and the crowns it loses), "Attacking drops your shield,
   07h42m left",
   Next and its Cobble price on the raised grey, Attack on the book's gold pill (Play's Confirm, the passing light, no glow nor pulse),
@@ -535,8 +535,8 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   book: the board's void, not the blurred village, behind the search (the home is not under `/pvp`); the actions in the window;
   the crowns of each case in the panel; "23 tiles" left the panel for the deck
   (no duplicate); the HUD's grey rims and charcoal, not the book's blue and navy; the level as the blue star, not "Level 12". The radar
-  (dish and sweep, the sweep painted on black and keyed) and the deck's pile were drawn by Codex's built-in image tool from their crops
-  of the book (`packages/app/ui-sources/attack/`, `attack-art.ts`); the shield, swords, info, star, crown, check, bin, grass block
+  (dish and sweep, the sweep painted on black and keyed; `packages/app/ui-sources/attack/`, `attack-art.ts`) and the deck's pile (the
+  icon `tile-stack`, `ui-sources/icons/`) were drawn by Codex's built-in image tool from their crops of the book; the shield, swords, info, star, crown, check, bin, grass block
   and grid are the HUD's own icons.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view

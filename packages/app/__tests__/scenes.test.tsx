@@ -288,7 +288,7 @@ describe("Home (#753): the village with its overlays", () => {
       [/^Missions/, "missions"],
       [/^Vault/, "vault"],
       [/^Friends/, "friends"],
-      [/^Tiles/, "collection"],
+      [/^Tiles/, "tile-stack"],
     ] as const) {
       expect(within(column).getByRole("button", { name }).querySelector(`[data-slot=ui-icon][data-icon=${icon}]`), String(name)).not.toBeNull();
     }

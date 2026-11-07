@@ -12,17 +12,17 @@ import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME, playArtSources, s
 import { AVATAR_ART, AVATAR_ART_FRAME, avatarArtSources } from "../src/components/elements/avatar-art";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME, vaultArtSources } from "../src/components/elements/vault-art";
 import { RANKING_ART, RANKING_ART_FRAME, rankingArtSources } from "../src/components/elements/ranking-art";
-import { DECK_ART, DECK_ART_FRAME, RADAR_ART, RADAR_FRAME, attackArtSources } from "../src/components/elements/attack-art";
+import { RADAR_ART, RADAR_FRAME, attackArtSources } from "../src/components/elements/attack-art";
 import { GUILD_EMBLEM_ICONS } from "@paved/game-core";
 import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts";
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length + AVATAR_ART.length + RANKING_ART.length + RADAR_ART.length + DECK_ART.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length + AVATAR_ART.length + RANKING_ART.length + RADAR_ART.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
     const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length + 2 * AVATAR_ART.length + 2 * RANKING_ART.length + 2 * RADAR_ART.length + 2 * DECK_ART.length);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length + 2 * AVATAR_ART.length + 2 * RANKING_ART.length + 2 * RADAR_ART.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
     const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/") && !f.startsWith("vault/") && !f.startsWith("avatar/") && !f.startsWith("ranking/") && !f.startsWith("attack/"));
     // GUILD-PAGE (2026-11-05): raised by exactly the measured growth over main, the copies of the guild's icons (each in line with the
@@ -35,8 +35,9 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     // sound, tile-preview, highlight, grid), 49,176 bytes. PLAY-PAGE (2026-11-06): raised by exactly the measured size of its icons'
     // copies (64 and 128 px): 6,970 bytes for the open gift (`gift-open`), 42,700 for the stake's burned coin, Vault, referral, top
     // win and break even (`flow-burn`, `flow-vault`, `flow-referral`, `max-gain`: 31,500; `break-even`: 11,200), 8,392 for the
-    // split's coin and arrows (`money-flow`), 8,196 for the stake's money bag (`stake`).
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196);
+    // split's coin and arrows (`money-flow`), 8,196 for the stake's money bag (`stake`). ATTACK-SCOUT (2026-11-07): raised by exactly
+    // the copies of the pile of tiles (`tile-stack`, the scout's deck and the home's Tiles, 64 and 128 px), 8,034 bytes.
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196 + 8_034);
   });
 
   it("ships the ranking's gold and silver medals and its Alliances and Guilds tabs' icons (LEADERBOARD-PAGE): the icons' frame, two light copies each", () => {
@@ -90,12 +91,10 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     });
   });
 
-  it("ships the attack's paintings (ATTACK-SCOUT): the radar and its sweep, the deck's pile; out of the HUD's total, light", () => {
+  it("ships the search's radar (ATTACK-SCOUT): the dish and its sweep, out of the HUD's total, light", () => {
     expect(RADAR_FRAME).toMatchObject({ width: 512, height: 512, sizes: [192, 384] });
-    expect(DECK_ART_FRAME).toMatchObject({ width: 256, height: 256, sizes: [64, 128] });
-    // Measured on 2026-11-07: the dish 8.2 and 19.7 KiB, the sweep 4.1 and 11.6 KiB; the pile 2.3 and 5.6 KiB.
+    // Measured on 2026-11-07: the dish 8.2 and 19.7 KiB, the sweep 4.1 and 11.6 KiB.
     for (const name of RADAR_ART) for (const s of RADAR_FRAME.sizes) expect(statSync(join(OUT, "attack", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 384 ? 24 * 1024 : 10 * 1024);
-    for (const name of DECK_ART) for (const s of DECK_ART_FRAME.sizes) expect(statSync(join(OUT, "attack", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 128 ? 7 * 1024 : 3 * 1024);
     expect(attackArtSources("radar", 176)).toEqual({
       src: "/ui-art/attack/384/radar.webp",
       srcSet: "/ui-art/attack/192/radar.webp 192w, /ui-art/attack/384/radar.webp 384w",
@@ -103,7 +102,6 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
       width: 512,
       height: 512,
     });
-    expect(attackArtSources("deck-stack", 56).srcSet).toBe("/ui-art/attack/64/deck-stack.webp 64w, /ui-art/attack/128/deck-stack.webp 128w");
   });
 
   it("ships the avatar editor's paintings (AVATAR-PAGE): one a trait but Headwear (the HUD's crown), and Undo, on the icons' frame, each copy light", () => {

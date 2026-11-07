@@ -9,7 +9,6 @@ import { cn } from "../../lib/utils";
 import { STAR_PERCENTS, leagueOf, type CrownStakes, type PvpPlayer, type PvpVillage } from "../../lib/pvp-rules";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { attackArtSources } from "../elements/attack-art";
 import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
 import { GuildEmblem } from "../elements/guild-emblem";
 import { HudFrame } from "../elements/hud-frame";
@@ -342,7 +341,7 @@ function DeckButton({ tiles, onOpen }: { tiles: number; onOpen?: () => void }) {
   const body = (
     <>
       <span aria-hidden className="flex flex-col items-center">
-        <img {...attackArtSources("deck-stack", 56)} alt="" draggable={false} decoding="async" className="drawer-icon size-14" />
+        <UiIcon name="tile-stack" px={56} className="drawer-icon size-14" />
         <span className="text-outline -mt-1 text-sm leading-none font-black tracking-tight">Deck</span>
       </span>
       <DeckCount count={tiles} />

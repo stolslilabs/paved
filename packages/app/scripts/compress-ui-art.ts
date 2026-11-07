@@ -10,7 +10,7 @@
  * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`), `ui-sources/play/<name>.webp` (`PLAY_ART`, on `PLAY_ART_FRAME`, in
  * `play-art.ts`), `ui-sources/avatar/<name>.webp` (`AVATAR_ART`, on `AVATAR_ART_FRAME`, in `avatar-art.ts`),
  * `ui-sources/ranking/<name>.webp` (`RANKING_ART`, on `RANKING_ART_FRAME`, in `ranking-art.ts`) and `ui-sources/attack/<name>.webp`
- * (`RADAR_ART` and `DECK_ART`, in `attack-art.ts`), transparent lossless WebP
+ * (`RADAR_ART`, in `attack-art.ts`), transparent lossless WebP
  * left untouched
  * and never shipped (not in `public/`), and writes
  * `public/ui-art/icons/<size>/<name>.webp` and `public/ui-art/frames/<size>/<name>.webp` for each size. Each run removes the copies
@@ -185,11 +185,12 @@
  * ATTACK-SCOUT (2026-11-07): the attack's first half (`ui-sources/attack/`, `attack-art.ts`), after the Paved UX Book's "search" and
  * "scout": the search's radar dish (`radar`, the gold rim, the dark face and its rings, no sweep and no crowns) and its sweep (`radar-beam`,
  * a gold line and its trailing glow, painted on pure black, the black turned into alpha from the brightest channel, the colour
- * unpremultiplied, its pivot the frame's centre), and the scout's deck (`deck-stack`, a pile of three tiles of grass, road and water,
- * the button over the village). Each cropped from the phone book (the radar about 300 px, the scout's tile 100 x 80 px) and drawn by
- * Codex's built-in image tool (`codex exec -c model_provider=openai`) from that crop, with shipped icons (collection, deck, swords; crown,
- * shield, info) as the style's reference, three variants each, the first kept: the dish trimmed to its opaque box and fitted to 480 px
- * on the 512 px frame, the pile to 240 px on the 256 px frame, the sweep's square scaled whole to 512 px. Stored as lossless WebP.
+ * unpremultiplied, its pivot the frame's centre), and the scout's deck, a pile of three tiles of grass, road and water, an icon of the
+ * HUD's (`ui-sources/icons/tile-stack.webp`, `UI_ICONS`: the user's ask, the home's Tiles wears it too). Each cropped from the phone
+ * book (the radar about 300 px, the scout's tile 100 x 80 px) and drawn by Codex's built-in image tool (`codex exec -c
+ * model_provider=openai`) from that crop, with shipped icons (collection, deck, swords; crown, shield, info) as the style's reference,
+ * three variants each, the first kept: the dish trimmed to its opaque box and fitted to 480 px on the 512 px frame, the pile to 240 px
+ * on the icons' 256 px frame, the sweep's square scaled whole to 512 px. Stored as lossless WebP.
  *
  * VAULT-PAGE (2026-11-06): the Vault's footer tabs and exit fee (`ui-sources/vault/<name>.webp`, `VAULT_ART` in `vault-art.ts`): Deposit,
  * Withdraw and the exit fee, drawn by Codex's built-in image tool (`codex exec -c model_provider=openai`) in the HUD icons' rendering, the
@@ -226,7 +227,7 @@ import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/com
 import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME } from "../src/components/elements/vault-art.ts";
 import { RANKING_ART, RANKING_ART_FRAME } from "../src/components/elements/ranking-art.ts";
-import { DECK_ART, DECK_ART_FRAME, RADAR_ART, RADAR_FRAME } from "../src/components/elements/attack-art.ts";
+import { RADAR_ART, RADAR_FRAME } from "../src/components/elements/attack-art.ts";
 import { webpSize } from "./compress-music-art.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -250,7 +251,6 @@ const IMAGES = [
   ...AVATAR_ART.map((name) => ({ kind: "avatar" as const, name, frame: AVATAR_ART_FRAME })),
   ...RANKING_ART.map((name) => ({ kind: "ranking" as const, name, frame: RANKING_ART_FRAME })),
   ...RADAR_ART.map((name) => ({ kind: "attack" as const, name, frame: RADAR_FRAME })),
-  ...DECK_ART.map((name) => ({ kind: "attack" as const, name, frame: DECK_ART_FRAME })),
 ];
 
 /** The masters a run reads, as `<kind>/<name>.webp`. */

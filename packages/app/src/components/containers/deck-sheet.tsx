@@ -5,7 +5,6 @@ import type { TileSkins } from "@paved/renderer";
 import { useDeckView, type DeckView } from "../../data/deck-view";
 import type { AttackCardState, AttackDeckSheet } from "../../lib/attack-deck-sheet";
 import { cn } from "../../lib/utils";
-import { attackArtSources } from "../elements/attack-art";
 import { SectionTitle } from "../elements/section-title";
 import { TileChip, UnknownTileChip, planCode, type TileArt } from "../elements/tile-chip";
 import { tileName, type TileRenders } from "../elements/tile-render";
@@ -106,7 +105,7 @@ export function DeckSheet({ open, onOpenChange, deck, handPlan, tileArt, renders
       }
     >
       <dl data-testid="deck-summary" aria-label="Deck" className="drawer-carved drawer-rule flex rounded-xl">
-        <Figure term="Left" value={total - placed - discarded} art={<img {...attackArtSources("deck-stack", 24)} alt="" draggable={false} decoding="async" className="drawer-icon size-6" />} />
+        <Figure term="Left" value={total - placed - discarded} art={<UiIcon name="tile-stack" px={24} className="drawer-icon size-6" />} />
         <Figure term="Played" value={placed} art={<UiIcon name="check" px={24} className="drawer-icon size-6" />} />
         <Figure term="Discarded" value={discarded} art={<UiIcon name="discard" px={24} className="drawer-icon size-6" />} />
       </dl>
