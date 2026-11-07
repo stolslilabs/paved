@@ -25,7 +25,7 @@ const pvp: PageLoader = () => {
   return import("./pages/pvp");
 };
 
-/** Play and its stake (PLAY-PAGE): one loader, so one component, the drawer kept as the stake opens. */
+/** Play, its stake (PLAY-PAGE) and Story's campaigns (STORY-PAGE): one loader, so one component, the drawer kept as a view opens. */
 const play: PageLoader = () => import("./pages/play");
 
 /** The chat page and its tabs' paths (#973): one loader, so one component, kept across a tab change. */
@@ -60,7 +60,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "pvp/league": () => import("./pages/pvp-league"),
   "game/:gameId": board,
   training: board,
-  story: () => import("./pages/story"),
+  story: play,
   // A Story level is its own chunk (#546), with the board's manifest asked for as the board's.
   "story/:campaign/:level": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
