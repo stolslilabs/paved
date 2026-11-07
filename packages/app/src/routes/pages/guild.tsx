@@ -5,6 +5,12 @@ import { GuildContent } from "../social/guild-content";
 import { ProfilesBelowDesktop } from "../social/profiles-below-desktop";
 
 /**
+ * Another guild's page at `?guild=` on any page (DRAWER-NAV-IN-PLACE, `page-views-host.tsx`), loaded with this page's chunk: a chunk of
+ * its own split the guild's page (`guild-view.tsx`) out of it, three more names in the first load's preload map.
+ */
+export { default as GuildViewHost } from "../social/guild-view-host";
+
+/**
  * `/guild` (#973, PvP v2 step 1 on the mock): the guild page, in place of the Social page's Guild tab. The finder for a player in
  * no guild, the player's guild for a member (#953); another guild's page in a sheet over it at `?guild=<id>` (the profiles'
  * guild line and the guild cards open it); the old `/social?guild=` links land here (`router.tsx`). Its own chunk.

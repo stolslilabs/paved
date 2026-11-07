@@ -11,8 +11,8 @@ import { PLAYER_PARAM, viewsOf } from "./player-param";
 // none open (the home, a link), in the drawer they share here, so that a profile, its guild, a member... follow in one drawer.
 // Its own chunk, fetched once one is asked for (`player-profile.tsx`).
 
-/** Another guild's page and the reads it needs: the guild page's chunk, fetched once a guild is asked for. */
-const GuildViewHost = lazy(() => import("./social/guild-view-host"));
+/** Another guild's page and the reads it needs: in the guild page's chunk (`pages/guild.tsx`), fetched once a guild is asked for. */
+const GuildViewHost = lazy(() => import("./pages/guild").then((m) => ({ default: m.GuildViewHost })));
 
 /**
  * The drawer the pages share when none is open: on the right, as the others' profiles are, empty under them. Its close leaves them
