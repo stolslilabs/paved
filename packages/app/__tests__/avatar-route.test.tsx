@@ -51,6 +51,7 @@ beforeEach(async () => {
   markWelcomed();
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   queryClient.clear();
   localStorage.clear();
@@ -173,7 +174,7 @@ describe("/avatar: the creator", () => {
 
   it("a seasonal offer past its end while the drawer was closed: reopened, it is off sale (issue #1051)", async () => {
     const c = chain();
-    seasonal(c, seconds() + 60);
+    seasonal(c, seconds() + 3600);
     const { router } = open(c, "/");
     await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
     const editor = async () => {
@@ -187,25 +188,30 @@ describe("/avatar: the creator", () => {
     await userEvent.click(within(screen.getByRole("dialog", { name: "Avatar" })).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
-    // Two minutes later (the season ended a minute ago), the drawer opened again from the Profile.
+    // Two hours later (the season ended an hour ago), the drawer opened again from the Profile.
     const real = Date.now.bind(Date);
-    vi.spyOn(Date, "now").mockImplementation(() => real() + 120_000);
+    vi.spyOn(Date, "now").mockImplementation(() => real() + 7200_000);
     const drawer = await editor();
     expect(within(drawer).getByRole("radio", { name: "Feathered cap, not for sale" })).toBeInTheDocument();
     expect(within(drawer).queryByRole("radio", { name: /^Feathered cap, \d+ Cobbles$/ })).toBeNull();
   });
 
   it("a seasonal offer whose end passes while the drawer is open goes off sale without a reload (issue #1051)", async () => {
+    // The clock and the timers faked but running (the page's loads as they are): the end is reached by advancing the clock, not by
+    // waiting for it, so a loaded machine cannot pass it before the offer shows.
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout", "Date"] });
     const c = chain();
-    seasonal(c, seconds() + 2);
+    seasonal(c, seconds() + 3600);
     open(c, "/avatar?part=headwear");
     expect(await screen.findByRole("radio", { name: /^Feathered cap, \d+ Cobbles$/ }, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(await screen.findByRole("radio", { name: "Feathered cap, not for sale" }, { timeout: slow(6000) })).toBeInTheDocument();
+    // The hour passes with the drawer open: the timer to the end reads the offers again.
+    vi.advanceTimersByTime(3600_000);
+    expect(await screen.findByRole("radio", { name: "Feathered cap, not for sale" }, { timeout: slow(5000) })).toBeInTheDocument();
   });
 
   it("a seasonal offer whose end passes before the catalogue arrives is off sale as soon as it shows (issue #1051)", async () => {
     const c = chain();
-    seasonal(c, seconds() + 60);
+    seasonal(c, seconds() + 3600);
     // The catalogue's items held back past the drawer's opening.
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
@@ -216,9 +222,9 @@ describe("/avatar: the creator", () => {
     };
     open(c, "/avatar?part=headwear");
     await screen.findByRole("dialog", { name: "Avatar" }, { timeout: slow(5000) });
-    // Two minutes after the opening (the season ended a minute ago), the catalogue comes in.
+    // Two hours after the opening (the season ended an hour ago), the catalogue comes in.
     const real = Date.now.bind(Date);
-    vi.spyOn(Date, "now").mockImplementation(() => real() + 120_000);
+    vi.spyOn(Date, "now").mockImplementation(() => real() + 7200_000);
     release();
     expect(await screen.findByRole("radio", { name: "Feathered cap, not for sale" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: /^Feathered cap, \d+ Cobbles$/ })).toBeNull();
