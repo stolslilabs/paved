@@ -221,6 +221,12 @@
  * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked beside `close` at 128, 44,
  * 32 and 24 px on the drawer's charcoal and on a light ground. Edit mode's bubble's three (`rotate-tile`, `to-inventory`, `cancel`) left
  * with it.
+ * STORY-INTRO (2026-11-07): a Story level's tip, its opening's and the coach mark's (the book draws none): the lit bulb (`bulb`), drawn by
+ * Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`) with the HUD's trophy, star, info and unlock as
+ * the style's references, three variants on a transparent 1024 px square (a plain lit bulb; the same with five gold rays; an amber one
+ * with a painted halo, whose halo left red fringes in its alpha), the first kept; trimmed to its alpha box, fitted to the 240 px box
+ * (canvas, premultiplied, stepped by halves) and centred on the icons' frame, checked beside the trophy, star and info at 128, 40 and
+ * 24 px on the drawer's charcoal and on a light ground.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

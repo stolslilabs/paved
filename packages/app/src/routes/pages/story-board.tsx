@@ -245,6 +245,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     notices = (
       <DeckPresentation
         campaign={campaign.name}
+        campaignId={campaign.id}
         levelIndex={level.id}
         title={level.title}
         intro={level.intro}
