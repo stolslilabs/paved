@@ -75,7 +75,7 @@ export const MOCKED_GAME_READS = [
 ] as const satisfies readonly (keyof MockedReads)[];
 
 /** `EconomyViews`' reads the mock answers: the Vault's, the split, the seller, the tokens' balances (USDC, PAVED) and the games' quote, days and terms (#927). */
-export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance", "quote", "guardRate", "router", "day", "terms"] as const satisfies readonly (keyof MockedReads)[];
+export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewMint", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance", "quote", "guardRate", "router", "day", "terms"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers (`mint`: the faucet; `build`, `discard`, `surrender`, `spawnFree`: the games, #927). */
 export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "claimWeeklyMilestone", "claimTutorialStep", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree", "claimTutorial"] as const;
@@ -263,5 +263,5 @@ export function mockSettlements(ledger: MockLedger, account: string): Settlement
 /** The Vault's writes of the ledger (the Vault's class has none of them), on the ledger's PAVED and vPAVED. */
 export function mockVaultWrites(ledger: MockLedger, account: string): VaultWrites {
   const writes = ledger.writesFor(account);
-  return { deposit: writes.deposit, withdraw: writes.withdraw, withdrawAll: writes.withdrawAll };
+  return { deposit: writes.deposit, mint: writes.vaultMint, withdraw: writes.withdraw, redeem: writes.vaultRedeem, withdrawAll: writes.withdrawAll };
 }

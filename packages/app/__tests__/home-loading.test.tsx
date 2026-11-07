@@ -104,10 +104,10 @@ describe("/: a cold arrival under the fog", () => {
     const router = await open();
     fireEvent.click(screen.getByRole("button", { name: "Draw village" }));
     await waitFor(() => expect(fog()).toBeNull(), { timeout: slow(FOG_CLEAR_MS + 2000) });
-    // A page of its own below `desktop` (the Vault; Settings is the HUD's drawer over the home since SETTINGS-PAGE): the page drawn,
-    // the home gone, then Back.
-    await act(() => router.navigate("/vault"));
-    await screen.findByRole("heading", { level: 1, name: "Vault" }, WAIT);
+    // A page of its own below `desktop` (the Referral; the Vault and Settings are the HUD's drawers over the home since VAULT-PAGE and
+    // SETTINGS-PAGE): the page drawn, the home gone, then Back.
+    await act(() => router.navigate("/referral"));
+    await screen.findByRole("heading", { level: 1, name: "Referral" }, WAIT);
     await act(() => router.navigate(-1));
     await screen.findByTestId("home-canvas", {}, WAIT);
     expect(fog()).toHaveAttribute("data-arrival", "fade");

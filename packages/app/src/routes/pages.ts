@@ -85,7 +85,9 @@ export const PAGES: readonly PageDef[] = [
   // Tiles (COLLECTION-PAGE, the book's Collection, named after the home's button): the skin each tile wears. The HUD's drawer at every
   // width, docked at the right from `tablet`, under the right column's Tiles; its old Settings sheet `/settings/tiles` lands on it.
   { path: "tiles", title: "Tiles", nav: null, panel: true, drawer: true },
-  { path: "vault", title: "Vault", nav: "vault", panel: true },
+  // The Vault (VAULT-PAGE): the HUD's drawer at every width, docked at the right from `tablet`, beside the home's right column's Vault; its
+  // Deposit and Withdraw are the footer's tabs (`?tab=`).
+  { path: "vault", title: "Vault", nav: "vault", panel: true, drawer: true },
   // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
   // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
   // The chat's tabs (#973): `/chat` opens on the last one used, `/chat/<tab>` names one, `/chat/private/<player>` a private

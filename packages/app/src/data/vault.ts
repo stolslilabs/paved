@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { DecodedEvent, VaultPosition, WriteResult } from "@paved/chain";
-import type { VaultBusy, VaultDone } from "../components/containers/vault-form";
+import type { VaultBusy, VaultDone, VaultOp } from "../components/containers/vault-form";
 import { addressKey, queryKeys } from "./keys";
 import { useDataSources } from "./sources";
 
@@ -13,8 +13,8 @@ import { useDataSources } from "./sources";
 
 /** The keys of the Vault's reads beside `keys.ts`'s `vault` and `pavedBalance`. Amounts are decimal strings (a key holds no bigint). */
 export const vaultKeys = {
-  /** `preview_deposit(assets)` or `preview_withdraw(assets)`. */
-  preview: (kind: "deposit" | "withdraw", amount: bigint) => ["chain", "economy", "vaultPreview", kind, amount.toString()] as const,
+  /** `preview_deposit(assets)`, `preview_mint(shares)`, `preview_withdraw(assets)` or `preview_redeem(shares)`. */
+  preview: (kind: VaultOp, amount: bigint) => ["chain", "economy", "vaultPreview", kind, amount.toString()] as const,
   /** Every preview: a write's receipt moves the rate. */
   previews: ["chain", "economy", "vaultPreview"] as const,
   /** `delegates(holder)`. */
@@ -81,16 +81,25 @@ export function useVaultDelegate(account: string | null): UseQueryResult<string 
   });
 }
 
+/** Each operation's preview: what the typed amount gives or takes on the other side. */
+const PREVIEWS = {
+  deposit: "previewDeposit",
+  mint: "previewMint",
+  withdraw: "previewWithdraw",
+  redeem: "previewRedeem",
+} as const satisfies Record<VaultOp, keyof NonNullable<ReturnType<typeof useDataSources>["economy"]>>;
+
 /**
- * The preview of a typed amount: the vPAVED a deposit mints (`preview_deposit`), or a withdraw burns, its exit fee on top
- * (`preview_withdraw`). Disabled for no amount or 0; null without an economy.
+ * The preview of a typed amount, the other side of the operation: the vPAVED a deposit mints (`preview_deposit`), the PAVED a mint
+ * takes (`preview_mint`), the vPAVED a withdraw burns, its exit fee on top (`preview_withdraw`), the PAVED a redeem pays, its exit fee
+ * taken (`preview_redeem`). Disabled for no amount or 0; null without an economy.
  */
-export function useVaultPreview(kind: "deposit" | "withdraw", amount: bigint | null): UseQueryResult<bigint | null> {
+export function useVaultPreview(kind: VaultOp, amount: bigint | null): UseQueryResult<bigint | null> {
   const { economy } = useDataSources();
   const asked = amount !== null && amount > 0n ? amount : null;
   return useQuery({
     queryKey: vaultKeys.preview(kind, asked ?? 0n),
-    queryFn: () => (economy ? (kind === "deposit" ? economy.previewDeposit(asked as bigint) : economy.previewWithdraw(asked as bigint)) : null),
+    queryFn: () => (economy ? economy[PREVIEWS[kind]](asked as bigint) : null),
     enabled: asked !== null,
   });
 }
@@ -98,7 +107,9 @@ export function useVaultPreview(kind: "deposit" | "withdraw", amount: bigint | n
 /** One write of the page, with what the player confirmed: the amount, and for an exit the fee and the vPAVED they saw. */
 export type VaultWrite =
   | { kind: "deposit"; amount: bigint }
+  | { kind: "mint"; shares: bigint }
   | { kind: "withdraw"; amount: bigint; exitFeeBps: number }
+  | { kind: "redeem"; shares: bigint; exitFeeBps: number }
   | { kind: "withdrawAll"; shares: bigint; exitFeeBps: number };
 
 export interface VaultControl {
@@ -133,9 +144,13 @@ export function useVaultWrites(account: string | null): VaultControl {
       const result =
         write.kind === "deposit"
           ? await writes.deposit(write.amount, { confirmedAmount: write.amount })
-          : write.kind === "withdraw"
-            ? await writes.withdraw(write.amount, { confirmedAmount: write.amount, confirmedExitFeeBps: write.exitFeeBps })
-            : await writes.withdrawAll({ confirmedShares: write.shares, confirmedExitFeeBps: write.exitFeeBps });
+          : write.kind === "mint"
+            ? await writes.mint(write.shares, { confirmedShares: write.shares })
+            : write.kind === "withdraw"
+              ? await writes.withdraw(write.amount, { confirmedAmount: write.amount, confirmedExitFeeBps: write.exitFeeBps })
+              : write.kind === "redeem"
+                ? await writes.redeem(write.shares, { confirmedShares: write.shares, confirmedExitFeeBps: write.exitFeeBps })
+                : await writes.withdrawAll({ confirmedShares: write.shares, confirmedExitFeeBps: write.exitFeeBps });
       return { result, done: account ? vaultDoneIn(result.events, account) : null };
     },
     onSuccess: ({ done }) => {

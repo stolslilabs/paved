@@ -14,7 +14,9 @@
  * with a silver rim and a blank blue face), the Cobbles' stone with the badge ring's stones as its reference. USDC's mark is Circle's, never generated: the white paths of the previous
  * `usdc.svg` (nums', see the notices), rasterised and laid on the coin's face along the face's ellipse (an affine map, the tilted
  * coin's foreshortening), its dark blue emboss under it. The stone's tone was matched to the badge's (per channel, Pillow and
- * NumPy). Stored as lossless WebP (`cwebp -lossless -z 9 -exact`), the icons scaled to 512 px.
+ * NumPy). Stored as lossless WebP (`cwebp -lossless -z 9 -exact`), the icons scaled to 512 px. VAULT-PAGE (the owner's ask of
+ * 2026-11-07: no blue on the vPAVED coin): vPAVED's blue arc and cast turned to a neutral grey of the same lightness (its blue hues
+ * only, by script), a plain silver coin.
  *
  * Per copy: resized and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv`, no metadata) at the quality of `IMAGES`,
  * under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install webp`, `apt install webp`), needed only to

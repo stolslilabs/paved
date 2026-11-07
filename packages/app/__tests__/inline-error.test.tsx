@@ -127,7 +127,7 @@ describe("InlineError (P-67)", () => {
     expect(document.querySelector('[data-slot="inline-error"]')).toBeNull();
     unmount();
     render(
-      wrap(<VaultForm mode="deposit" amount="100" balance={PAVED_BALANCE} shares={VAULT_HELD.shares} maxWithdraw={VAULT_HELD.maxWithdraw} exitFeeBps={EXIT_FEE_BPS} preview={PREVIEW_DEPOSIT_100} />),
+      wrap(<VaultForm mode="deposit" unit="paved" amount="100" balance={PAVED_BALANCE} shares={VAULT_HELD.shares} maxWithdraw={VAULT_HELD.maxWithdraw} exitFeeBps={EXIT_FEE_BPS} totalAssets={VAULT_HELD.totalAssets} totalSupply={VAULT_HELD.totalSupply} preview={PREVIEW_DEPOSIT_100} />),
     );
     expect(document.querySelector('[data-slot="inline-error"]')).toBeNull();
   });

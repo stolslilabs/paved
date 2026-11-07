@@ -18,8 +18,8 @@ import { join } from "node:path";
  *   (the wheel); a page of fixed length on a shorter screen of the same width (`SHORT`). Per page and width: its
  *   content is taller than its region, the region is the one element that scrolls, it reaches the page's last element, and
  *   the header stays at the region's top. A page whose content fits fails: the pass would prove nothing.
- * - Missions, the League, the Shop, Tiles, Settings (its Themes and Credits) and Play are the HUD's drawer at every width
- *   (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, `DRAWERS`): its body is its region, under the
+ * - Missions, the League, the Shop, Tiles, Settings (its Themes and Credits), Play and the Vault are the HUD's drawer at every width
+ *   (MISSIONS-PAGE, LEAGUE-PAGE, SHOP-PAGE, COLLECTION-PAGE, SETTINGS-PAGE, PLAY-PAGE, VAULT-PAGE, `DRAWERS`): its body is its region, under the
  *   drawer's band, which stays put; from `tablet` its side panel has its close, by design. No full-screen flow is left (Play was
  *   the last).
  * - The app on the mock, at 1440 x 900: the panel has no close button; a click on the village outside it closes it and gives
@@ -45,7 +45,7 @@ const TITLES: Record<(typeof PAGES)[number], string> = {
 };
 
 /** The HUD's drawers (MISSIONS-PAGE): a dialog at every width, its title in its band, its body the region that scrolls. */
-const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits", "play"]);
+const DRAWERS: ReadonlySet<(typeof PAGES)[number]> = new Set(["league", "missions", "defence", "shop", "tiles", "settings", "themes", "credits", "play", "vault"]);
 /** Where a page's title is: a drawer's in its band (a dialog's title), a page's in its header's `h1`. */
 const titled = (scope: Locator, id: (typeof PAGES)[number]) =>
   DRAWERS.has(id) ? scope.locator('[data-slot="hud-drawer-title"]', { hasText: TITLES[id] }) : scope.getByRole("heading", { level: 1, name: TITLES[id] });
@@ -67,6 +67,9 @@ const SHORT: Partial<Record<(typeof PAGES)[number], { phone: number; desktop: nu
   // Play's four groups (PLAY-PAGE), of fixed length too (669 px of content, about the drawer's body on a 375 x 812 phone): an
   // iPhone SE's view under Safari's bars (548 px), a 560 px browser window.
   play: { phone: 548, desktop: 560 },
+  // The Vault's three tabs (VAULT-PAGE), each shorter than the drawer's body on a 375 x 812 phone since the Position left the forms
+  // (its tallest, the Position at the largest figures, about 500 px): the same screens as Play.
+  vault: { phone: 548, desktop: 560 },
 };
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -123,7 +126,13 @@ function measure(region: Locator): Promise<Measure> {
     // A drawer's band sits right above its body, out of it: it stays at the body's top.
     const band = el.closest("[data-hud-drawer]")?.querySelector("[data-slot=sheet-header]")?.getBoundingClientRect();
     let last: Element | null = el.querySelector("main") ?? (band ? el : null);
-    while (last?.lastElementChild) last = last.lastElementChild;
+    // The last element shown: an inactive tab's panel (Radix keeps it, empty and `hidden`: the Vault's footer tabs) is skipped.
+    const shownLast = (n: Element) => {
+      let child = n.lastElementChild;
+      while (child && (child as HTMLElement).hidden) child = child.previousElementSibling;
+      return child;
+    };
+    for (let next = last && shownLast(last); next; next = shownLast(next)) last = next;
     const end = last?.getBoundingClientRect();
     const scrollers = [...document.querySelectorAll<HTMLElement>("*")]
       .filter((n) => ["auto", "scroll"].includes(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight + 1)

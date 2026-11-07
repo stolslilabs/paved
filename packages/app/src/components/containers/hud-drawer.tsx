@@ -82,6 +82,8 @@ export interface HudDrawerProps {
   onOpenChange: (open: boolean) => void;
   /** The title on its top line: the drawer's accessible name. */
   title: ReactNode;
+  /** A short line under the title (VAULT-PAGE: the book's "Deposit PAVED for vPAVED."); omitted, the header is the title's one row. */
+  subtitle?: ReactNode;
   /**
    * The edge the side panel docks at from `tablet`, the side of the HUD control that opens it: the left for the profile (the player
    * card's), the right for the right column's pages (Missions). The phone's page slides in from the right either way.
@@ -137,7 +139,7 @@ export function ViewHeader({ title, onBack }: { title: string; onBack: () => voi
  * Inside, the phone's layout whatever the width (`data-page-panel`). The village beside the side panel is veiled lightly and blurred,
  * Escape or a tap on it closing the drawer. It takes the focus itself as it opens. The slide is the Sheet's (Motion).
  */
-export function HudDrawer({ open, onOpenChange, title, side: edge = "left", phone = "page", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
+export function HudDrawer({ open, onOpenChange, title, subtitle, side: edge = "left", phone = "page", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
   const wide = useSidePanel(SIDE_QUERY);
   // A phone's sheet closes as the side panel does: its red cross at the header's end.
   const sheet = !wide && phone === "sheet";
@@ -196,9 +198,17 @@ export function HudDrawer({ open, onOpenChange, title, side: edge = "left", phon
         {/* One row: Back (a phone's, or a view's), the title on the left, what the page shows at the end, the close (a side panel's, or a view's) last. */}
         <SheetHeader className="drawer-band flex shrink-0 flex-row items-center gap-1 px-2 py-2.5">
           {back || (!side && control)}
-          <SheetTitle data-slot="hud-drawer-title" className={cn("text-outline min-w-0 flex-1 truncate text-left font-display text-2xl leading-tight tracking-wide", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
-            {view?.title ?? title}
-          </SheetTitle>
+          {subtitle && !view ? (
+            // The title over its line, one column in the title's place.
+            <div data-slot="hud-drawer-title" className={cn("flex min-w-0 flex-1 flex-col", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
+              <SheetTitle className="text-outline truncate text-left font-display text-2xl leading-tight tracking-wide">{title}</SheetTitle>
+              <p className="text-sm leading-snug font-semibold text-muted-foreground">{subtitle}</p>
+            </div>
+          ) : (
+            <SheetTitle data-slot="hud-drawer-title" className={cn("text-outline min-w-0 flex-1 truncate text-left font-display text-2xl leading-tight tracking-wide", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
+              {view?.title ?? title}
+            </SheetTitle>
+          )}
           {ends}
           {(side || back) && close}
         </SheetHeader>

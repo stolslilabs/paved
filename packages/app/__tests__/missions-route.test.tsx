@@ -75,7 +75,7 @@ function open(path: string, s: ReturnType<typeof setup>) {
 const balance = async (value: number) => (await screen.findAllByRole("button", { name: `${value} Cobbles: Buy packs` }, { timeout: slow(10000) }))[0];
 const claimButton = (cobbles: number, title: string | RegExp) => screen.findByRole("button", { name: typeof title === "string" ? `Claim ${cobbles} Cobbles: ${title}` : title }, { timeout: slow(3000) });
 
-preloadPages("missions", "vault");
+preloadPages("missions", "vault", "referral", "home");
 
 beforeEach(() => {
   queryClient.clear();
@@ -225,9 +225,10 @@ describe("the completion toast, once per completion (P9's note)", () => {
     await act(() => queryClient.invalidateQueries({ queryKey: ["indexer"] }));
     await waitFor(() => expect(success).toHaveBeenCalledTimes(1));
 
-    // Away and back: the cache answers first, then the fresh read; neither is news.
-    await act(() => router.navigate("/vault"));
-    await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
+    // Away and back: the cache answers first, then the fresh read; neither is news. Away on a page of its own (the Referral: the
+    // Vault is the HUD's drawer since VAULT-PAGE).
+    await act(() => router.navigate("/referral"));
+    await screen.findByRole("heading", { level: 1, name: "Referral" }, { timeout: slow(5000) });
     // Quest 3 completes while the page is closed.
     s.fixture.progress.get(FIXTURE_ADA)!.quests.set(3, { count: 1, completed_at: FIXTURE_HEAD.timestamp });
     await act(() => router.navigate("/missions"));
@@ -273,7 +274,7 @@ describe("the completion toasts, app-wide (#595)", () => {
     const s = setup({ signer: "none" });
     const playerQuests = vi.spyOn(s.sources.indexer, "playerQuests");
     open("/vault", s);
-    await screen.findByRole("heading", { level: 1 }, { timeout: slow(5000) });
+    await screen.findByRole("dialog", { name: "Vault" }, { timeout: slow(5000) });
     expect(playerQuests).not.toHaveBeenCalled();
   });
 });

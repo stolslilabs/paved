@@ -59,60 +59,101 @@ describe("SC2 helpers", () => {
 });
 
 describe("Vault", () => {
-  it("shows the vPAVED, their value, max_withdraw, the rate and the exit fee", () => {
+  it("is the HUD's drawer: the vPAVED in its box, their share of the supply, their worth in PAVED and dollars, max_withdraw, the exit fee, the rates", () => {
     render(wrap(<VaultScene {...VAULT.position} />));
-    const position = screen.getByRole("region", { name: "Your position" });
+    expect(screen.getByRole("dialog", { name: "Vault" })).toBeInTheDocument();
+    const position = screen.getByRole("region", { name: "Position" });
     expect(position).toHaveTextContent("1,250.40vPAVED");
-    expect(position).toHaveTextContent("1,355.68PAVED");
-    expect(within(position).getByText("Withdrawable now").closest("div")?.parentElement).toHaveTextContent("1,291.12");
-    expect(within(position).getByText("Rate").closest("div")?.parentElement).toHaveTextContent("1 : 1.0841");
-    expect(within(position).getByText("Exit fee").closest("div")?.parentElement).toHaveTextContent("5%");
-    // No dock on a page (DOCK-UNDER-PAGES): its Back is its way out.
+    expect(within(position).getByRole("group", { name: "Share of the Vault" })).toHaveTextContent("0.25% of 500K vPAVED");
+    // 1,355.68 PAVED at the guard's 80 PAVED a dollar.
+    expect(within(position).getByRole("group", { name: "Worth" })).toHaveTextContent("≈ 1,355.68 PAVED · $16.94");
+    expect(within(position).getByRole("group", { name: "Withdrawable now" })).toHaveTextContent("1,291.12");
+    expect(within(position).getByRole("group", { name: "Exit fee" })).toHaveTextContent("5%");
+    expect(within(position).getByLabelText("Rate")).toHaveTextContent("1 vPAVED ≈ 1.0841 PAVED");
+    expect(within(position).getByLabelText("PAVED price")).toHaveTextContent("1 PAVED ≈ $0.0125");
+    // No dock in a drawer (DOCK-UNDER-PAGES), no votes (delegation is not in the app), no USDC earned (the app reads none).
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(screen.queryByText(/Votes|Earned/)).toBeNull();
   });
 
-  it("shows the split of each purchase: burn 73.68%, Vault 26.32%, the referral's 5% out of the Vault's part", () => {
+  it("draws no dollar figure without the guard's rate", () => {
+    render(wrap(<VaultScene {...VAULT.position} guardRate={null} />));
+    expect(screen.getByRole("group", { name: "Worth" })).toHaveTextContent(/^≈ 1,355.68 PAVED$/);
+    expect(screen.queryByLabelText("PAVED price")).toBeNull();
+    expect(screen.queryByText(/\$/)).toBeNull();
+  });
+
+  it("puts the Position, Deposit and Withdraw in the footer, a tablist, the URL's tab selected; the bill only on the forms", async () => {
+    const onModeChange = vi.fn();
+    const position = render(wrap(<VaultScene {...VAULT.position} />));
+    expect(within(screen.getByRole("tablist", { name: "Vault" })).getByRole("tab", { name: "Position" })).toHaveAttribute("aria-selected", "true");
+    // The Position sends nothing: no bill over the tabs.
+    expect(screen.queryByRole("group", { name: "You get" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Deposit" })).toBeNull();
+    position.unmount();
+    render(wrap(<VaultScene {...VAULT.deposit} onModeChange={onModeChange} />));
+    const tabs = screen.getByRole("tablist", { name: "Vault" });
+    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Position", "Deposit", "Withdraw"]);
+    expect(within(tabs).getByRole("tab", { name: "Deposit" })).toHaveAttribute("aria-selected", "true");
+    // The arrow keys move between them (Radix's roving focus), and select.
+    within(tabs).getByRole("tab", { name: "Deposit" }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(within(tabs).getByRole("tab", { name: "Withdraw" })).toHaveFocus();
+    expect(onModeChange).toHaveBeenLastCalledWith("withdraw");
+  });
+
+  it("says the Vault's part of each purchase, and that there is nothing to claim (the Position's notes)", () => {
     render(wrap(<VaultScene {...VAULT.position} />));
-    expect(screen.getByRole("img", { name: "Burned 73.68%, Vault 21.32%, Referral 5%" })).toBeInTheDocument();
-    const split = screen.getByRole("region", { name: "Where purchases go" });
-    expect(split).toHaveTextContent("26.32%");
+    const notes = screen.getByRole("list", { name: "How the Vault works" });
+    expect(notes).toHaveTextContent("Up to 26.32% of every purchase feeds the Vault: the rate rises.");
+    expect(notes).toHaveTextContent("Nothing to claim: you withdraw at the rate.");
   });
 
-  it("withdraws and withdraws all from a position", async () => {
+  it("deposits: the typed PAVED in dollars, the wallet, what it mints in the footer, the gold Deposit", async () => {
+    const onDeposit = vi.fn();
+    const onMax = vi.fn();
+    render(wrap(<VaultScene {...VAULT.deposit} onDeposit={onDeposit} onMax={onMax} />));
+    expect(screen.getByRole("textbox", { name: /Amount to deposit/ })).toHaveValue("25");
+    expect(screen.getByLabelText("In dollars")).toHaveTextContent("≈ $0.31");
+    expect(screen.getByText("Wallet").parentElement).toHaveTextContent("142.35PAVED");
+    expect(screen.getByRole("group", { name: "You get" })).toHaveTextContent("≈ 23.05vPAVED");
+    await userEvent.click(screen.getByRole("button", { name: "Max" }));
+    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
+    expect(onMax).toHaveBeenCalledOnce();
+    expect(onDeposit).toHaveBeenCalledOnce();
+  });
+
+  it("withdraws and withdraws all from a position: the vPAVED it uses in the footer", async () => {
     const onWithdraw = vi.fn();
     const onWithdrawAll = vi.fn();
-    render(wrap(<VaultScene {...VAULT.position} onWithdraw={onWithdraw} onWithdrawAll={onWithdrawAll} />));
-    expect(screen.getByText(/Uses about/)).toHaveTextContent("484.22vPAVED");
+    render(wrap(<VaultScene {...VAULT.withdraw} onWithdraw={onWithdraw} onWithdrawAll={onWithdrawAll} />));
+    expect(screen.getByRole("group", { name: "Uses" })).toHaveTextContent("484.22vPAVED");
+    expect(screen.getByText("Available").parentElement).toHaveTextContent("1,291.12PAVED");
     await userEvent.click(screen.getByRole("button", { name: "Withdraw" }));
     await userEvent.click(screen.getByRole("button", { name: /Withdraw all/ }));
     expect(onWithdraw).toHaveBeenCalledOnce();
     expect(onWithdrawAll).toHaveBeenCalledOnce();
   });
 
-  it("offers a first deposit with its preview when there is no position", async () => {
-    const onDeposit = vi.fn();
-    const onModeChange = vi.fn();
-    render(wrap(<VaultScene {...VAULT.noPosition} onDeposit={onDeposit} onModeChange={onModeChange} />));
-    expect(screen.getByText("No vPAVED yet")).toBeInTheDocument();
-    expect(screen.getByText(/You get about/)).toHaveTextContent("92.23vPAVED");
-    await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
-    expect(onDeposit).toHaveBeenCalledOnce();
-    await userEvent.click(screen.getByRole("tab", { name: "Withdraw" }));
-    expect(onModeChange).toHaveBeenCalledWith("withdraw");
+  it("shows the Position at zero, the same box, when there is no position", () => {
+    render(wrap(<VaultScene {...VAULT.noPosition} />));
+    expect(screen.getByRole("region", { name: "Position" })).toHaveTextContent("0.00vPAVED");
+    expect(screen.getByRole("group", { name: "Withdrawable now" })).toHaveTextContent("0.00");
   });
 
   it.each([
-    ["depositing", /Approve and deposit in your wallet: one transaction for both/],
-    ["withdrawing", /Confirm the withdraw in your wallet/],
-  ] as const)("is busy while %s", (state, text) => {
+    ["depositing", "Deposit", /Approve and deposit in your wallet: one transaction for both/],
+    ["withdrawing", "Withdraw", /Confirm the withdraw in your wallet/],
+  ] as const)("is busy while %s: its word kept with a spinner, the tabs and the field held", (state, word, text) => {
     render(wrap(<VaultScene {...VAULT[state]} />));
-    expect(screen.getByRole("button", { name: /Confirm in your wallet/ })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: word })).toHaveAttribute("aria-busy", "true");
     expect(screen.getByText(text)).toHaveAttribute("role", "status");
     expect(screen.getByRole("textbox")).toBeDisabled();
+    for (const tab of screen.getAllByRole("tab")) expect(tab).toBeDisabled();
   });
 
   it("shows the exit fee before a withdraw is sent: on top of the amount, and inside Withdraw all", () => {
-    render(wrap(<VaultScene {...VAULT.position} />));
+    render(wrap(<VaultScene {...VAULT.withdraw} />));
     const before = screen.getByLabelText("Before you withdraw");
     // 5 % of 500 PAVED, on top.
     expect(screen.getByTestId("withdraw-fee")).toHaveTextContent("25.00");
@@ -120,27 +161,17 @@ describe("Vault", () => {
     // Withdraw all pays max_withdraw, the value less it taken.
     expect(screen.getByText(/Withdraw all pays/)).toHaveTextContent("1,291.12");
     expect(screen.getByText(/Withdraw all pays/)).toHaveTextContent("64.55");
+    expect(screen.getByRole("list", { name: "How a withdraw works" })).toHaveTextContent("The exit fee, 5%, stays in the Vault for the other holders.");
   });
 
-  it("shows the share of the Vault, and the delegate read only", () => {
-    const { unmount } = render(wrap(<VaultScene {...VAULT.position} />));
-    expect(screen.getByText("Your share of the Vault").parentElement).toHaveTextContent("0.25%");
-    expect(screen.queryByText("Votes")).not.toBeInTheDocument();
-    unmount();
-    render(wrap(<VaultScene {...VAULT.delegated} />));
-    expect(screen.getByText("Votes").parentElement).toHaveTextContent("0x04d1");
-    expect(screen.queryByRole("button", { name: /Delegate/ })).not.toBeInTheDocument();
-  });
-
-  it("a guest connects; a load shows its shape; a failed read has Retry", async () => {
-    const onConnect = vi.fn();
+  it("no guest (the owner's ruling of 2026-11-07): a load shows its shape, the tabs at the foot, no Connect; a failed read has Retry", async () => {
     const onRetry = vi.fn();
-    const { unmount } = render(wrap(<VaultScene {...VAULT.guest} onConnect={onConnect} />));
-    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
-    unmount();
     const loading = render(wrap(<VaultScene {...VAULT.loading} />));
     expect(screen.getByRole("status", { name: "Reading the Vault" })).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Vault" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deposit" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
+    expect(Object.keys(VAULT)).not.toContain("guest");
     loading.unmount();
     render(wrap(<VaultScene {...VAULT.error} onRetry={onRetry} />));
     expect(screen.getByRole("alert")).toHaveTextContent("The Vault cannot be read");
@@ -164,24 +195,54 @@ describe("Vault", () => {
   it("refuses a withdraw over max_withdraw before any send", () => {
     render(wrap(<VaultScene {...VAULT.overMax} />));
     expect(screen.getByRole("alert")).toHaveTextContent("at most 1,291.12 PAVED now, the exit fee taken. Nothing was sent.");
-    expect(screen.getByRole("textbox", { name: "Amount to withdraw" })).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("textbox", { name: /Amount to withdraw/ })).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByRole("button", { name: "Withdraw" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Withdraw all/ })).toBeEnabled();
   });
 
-  it("sends a player with no PAVED to play", async () => {
+  it("sends a player with no PAVED to play; Deposit stays in its place, held", async () => {
     const onPlay = vi.fn();
     render(wrap(<VaultScene {...VAULT.noPaved} onPlay={onPlay} />));
     expect(screen.getByRole("status")).toHaveTextContent("No PAVED in your wallet");
-    expect(screen.queryByRole("button", { name: "Deposit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deposit" })).toBeDisabled();
     await userEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Play" }));
     expect(onPlay).toHaveBeenCalledOnce();
+  });
+
+  it("the book's unit switch picks a tab's operation: vPAVED makes Deposit a Mint, Withdraw a Redeem", async () => {
+    const onUnitChange = vi.fn();
+    const { unmount } = render(wrap(<VaultScene {...VAULT.deposit} onUnitChange={onUnitChange} />));
+    const units = screen.getByRole("radiogroup", { name: "Amount in" });
+    expect(within(units).getByRole("radio", { name: /^PAVED/ })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(within(units).getByRole("radio", { name: /vPAVED/ }));
+    expect(onUnitChange).toHaveBeenCalledWith("vpaved");
+    unmount();
+    const onMint = vi.fn();
+    const mint = render(wrap(<VaultScene {...VAULT.mint} onMint={onMint} />));
+    expect(screen.getByRole("heading", { name: "Mint" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Amount to mint, in vPAVED" })).toHaveValue("25");
+    // 25 vPAVED take 27.105 PAVED (written down to 27.10), worth about $0.33 at the guard's rate.
+    expect(screen.getByRole("group", { name: "You pay" })).toHaveTextContent("≈ 27.10PAVED");
+    expect(screen.getByLabelText("In dollars")).toHaveTextContent("≈ $0.33");
+    await userEvent.click(screen.getByRole("button", { name: "Mint" }));
+    expect(onMint).toHaveBeenCalledOnce();
+    mint.unmount();
+    const onRedeem = vi.fn();
+    render(wrap(<VaultScene {...VAULT.redeem} onRedeem={onRedeem} />));
+    expect(screen.getByRole("heading", { name: "Redeem" })).toBeInTheDocument();
+    // 100 vPAVED worth 108.42 PAVED: the fee inside, 5.16..., the rest paid.
+    expect(screen.getByLabelText("Before you withdraw")).toHaveTextContent(/You burn\s*100.00/);
+    expect(screen.getByTestId("withdraw-fee")).toHaveTextContent("5.16");
+    expect(screen.getByRole("group", { name: "You get" })).toHaveTextContent("≈ 103.25PAVED");
+    await userEvent.click(screen.getByRole("button", { name: "Redeem" }));
+    expect(onRedeem).toHaveBeenCalledOnce();
   });
 
   it("says when the economy is not deployed, and offers nothing to send", () => {
     render(wrap(<VaultScene {...VAULT.notDeployed} />));
     expect(screen.getByText("Economy not deployed")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deposit" })).toBeDisabled();
   });
 });
 

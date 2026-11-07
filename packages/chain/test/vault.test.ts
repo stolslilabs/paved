@@ -190,6 +190,62 @@ describe("Vault writes: each revert a typed error", () => {
     expect(s.execute).not.toHaveBeenCalled();
   });
 
+  test("mint (VAULT-PAGE): approves exactly preview_mint's PAVED, then mint(shares, self), in one multicall", async () => {
+    const s = setup();
+    s.economy.vaultAssets = 3_000n * P;
+    s.economy.setBalance("paved", PLAYER, 100n * P);
+    const shares = 10n * P;
+    const assets = await s.economy.previewMint(shares);
+    // `convert_to_assets` rounded up, no entry fee: never below what a deposit of it would need.
+    expect(await s.economy.previewDeposit(assets)).toBeGreaterThanOrEqual(shares);
+    await s.econWriter.mint(shares, { confirmedShares: shares });
+    expect(s.execute).toHaveBeenCalledOnce();
+    const [calls] = s.execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>];
+    const u256 = (v: bigint) => [`0x${v.toString(16)}`, "0x0"];
+    expect(calls.map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([
+      [BigInt(ECON.pavedToken), "approve", [ECON.vault, ...u256(assets)]],
+      [BigInt(ECON.vault), "mint", [...u256(shares), PLAYER]],
+    ]);
+  });
+
+  test("mint: a wallet short of what it takes, or an amount not the one confirmed, sends nothing", async () => {
+    const s = setup();
+    s.economy.setBalance("paved", PLAYER, P);
+    const short = await s.econWriter.mint(2n * P, { confirmedShares: 2n * P }).catch((e: unknown) => e);
+    expect(short).toBeInstanceOf(VaultBalanceError);
+    expect((short as VaultBalanceError).balance).toBe(P);
+    await expect(s.econWriter.mint(P, { confirmedShares: 2n * P })).rejects.toThrow();
+    expect(s.execute).not.toHaveBeenCalled();
+  });
+
+  test("redeem (VAULT-PAGE): redeem(shares, self, self) of exactly the vPAVED asked; more than held, or another fee, sends nothing", async () => {
+    const s = setup();
+    s.economy.setShares(PLAYER, 5n * P);
+    const over = await s.econWriter.redeem(6n * P, { confirmedShares: 6n * P }).catch((e: unknown) => e);
+    expect(over).toBeInstanceOf(VaultOverMaxRedeemError);
+    await expect(s.econWriter.redeem(P, { confirmedShares: P, confirmedExitFeeBps: 1_000 })).rejects.toBeInstanceOf(VaultExitFeeChangedError);
+    expect(s.execute).not.toHaveBeenCalled();
+    await s.econWriter.redeem(2n * P, { confirmedShares: 2n * P, confirmedExitFeeBps: 500 });
+    const [calls] = s.execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>];
+    expect(calls.map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([[BigInt(ECON.vault), "redeem"]]);
+    expect(calls[0]!.calldata).toEqual([`0x${(2n * P).toString(16)}`, "0x0", PLAYER, PLAYER]);
+  });
+
+  test("a mint above max_mint reverts as a deposit above max_deposit", async () => {
+    const s = setup({ wait: reverted("ERC4626: exceeds max mint") });
+    s.economy.setBalance("paved", PLAYER, 10n * P);
+    const error = await s.econWriter.mint(P, { confirmedShares: P }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultOverMaxDepositError);
+  });
+
+  test("RPC: preview_mint is the Vault's own, a u256", async () => {
+    const calls: Array<{ entrypoint: string; calldata: string[] }> = [];
+    const provider = { callContract: async (c: { entrypoint: string; calldata: string[] }) => (calls.push(c), ["0x7", "0x0"]) };
+    const views = new RpcEconomyViews(provider, economyDeployment, createEconomyCodecs());
+    expect(await views.previewMint(3n)).toBe(7n);
+    expect(calls).toEqual([expect.objectContaining({ entrypoint: "preview_mint", calldata: ["0x3", "0x0"] })]);
+  });
+
   test("an exit sends only at the exit fee the player confirmed", async () => {
     const s = setup();
     s.economy.setShares(PLAYER, 2n * P);

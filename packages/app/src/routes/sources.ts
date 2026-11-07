@@ -75,7 +75,9 @@ const lazySettlements = (signer: Parameters<NonNullable<DataSources["settlements
 /** The Vault's writes of a signer (P10), built on the economy client at the first deposit or withdraw. */
 const lazyVault = (signer: Parameters<NonNullable<DataSources["vault"]>>[0]): VaultWrites => ({
   deposit: async (amount, options) => (await import("../data/vault-client")).vaultWritesOf(signer).deposit(amount, options),
+  mint: async (shares, options) => (await import("../data/vault-client")).vaultWritesOf(signer).mint(shares, options),
   withdraw: async (amount, options) => (await import("../data/vault-client")).vaultWritesOf(signer).withdraw(amount, options),
+  redeem: async (shares, options) => (await import("../data/vault-client")).vaultWritesOf(signer).redeem(shares, options),
   withdrawAll: async (options) => (await import("../data/vault-client")).vaultWritesOf(signer).withdrawAll(options),
 });
 
@@ -135,7 +137,9 @@ const MOCK_SOURCES: DataSources = {
   settlements: (signer) => ({ settle: async (gameIds) => (await mockApp()).settlements(signer).settle(gameIds) }),
   vault: (signer) => ({
     deposit: async (amount, options) => (await mockApp()).vault(signer).deposit(amount, options),
+    mint: async (shares, options) => (await mockApp()).vault(signer).mint(shares, options),
     withdraw: async (amount, options) => (await mockApp()).vault(signer).withdraw(amount, options),
+    redeem: async (shares, options) => (await mockApp()).vault(signer).redeem(shares, options),
     withdrawAll: async (options) => (await mockApp()).vault(signer).withdrawAll(options),
   }),
 };

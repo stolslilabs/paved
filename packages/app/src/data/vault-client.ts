@@ -19,7 +19,9 @@ export function vaultWritesFor(economy: EconomyClient, signer: GameSigner): Vaul
   const writer = economy.writer(signer);
   return {
     deposit: (amount, options) => writer.deposit(amount, options),
+    mint: (shares, options) => writer.mint(shares, options),
     withdraw: (amount, options) => writer.withdraw(amount, options),
+    redeem: (shares, options) => writer.redeem(shares, options),
     withdrawAll: (options) => writer.withdrawAll(options),
   };
 }
