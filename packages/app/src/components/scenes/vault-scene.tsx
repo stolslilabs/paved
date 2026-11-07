@@ -61,6 +61,10 @@ export interface VaultSceneProps {
   amount: string;
   /** The operation's preview of the typed amount (`useVaultPreview`): its other side; null until read. */
   preview: bigint | null;
+  /** The preview's read failed (its message): the action is held, the error shown with Retry (`onRetryPreview`). */
+  previewError?: string | null;
+  previewErrorDetail?: ErrorDetail;
+  onRetryPreview?: () => void;
   busy?: VaultBusy | null;
   /** The last write's refusal (the writer's typed message). */
   refused?: string | null;
@@ -196,7 +200,18 @@ export function VaultScene(props: VaultSceneProps) {
             {/* The bill is the forms' (the Position sends nothing): it shows over the tabs on Deposit and Withdraw. */}
             {form && (
               <div className="bg-secondary">
-                <VaultAction op={op} amount={ready ? props.amount : ""} limit={limit} preview={props.preview} busy={busy} disabled={!ready} onSend={send} />
+                <VaultAction
+                  op={op}
+                  amount={ready ? props.amount : ""}
+                  limit={limit}
+                  preview={props.preview}
+                  previewError={props.previewError}
+                  previewErrorDetail={props.previewErrorDetail}
+                  onRetryPreview={props.onRetryPreview}
+                  busy={busy}
+                  disabled={!ready}
+                  onSend={send}
+                />
               </div>
             )}
             <FooterTabsList aria-label="Vault">

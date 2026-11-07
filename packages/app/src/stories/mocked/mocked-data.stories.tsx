@@ -63,7 +63,8 @@ const definitions: Definitions = {
 const vaultHandlers = { onModeChange: fn(), onAmountChange: fn(), onMax: fn(), onDeposit: fn(), onWithdraw: fn(), onWithdrawAll: fn(), onPlay: fn(), onConnect: fn(), onRetry: fn() };
 
 async function vaultArgs(l: MockLedger, amount: bigint): Promise<VaultSceneProps> {
-  return { ...VAULT.noPosition, ...vaultHandlers, position: await l.vault(PLAYER_ID), balance: await l.pavedBalance(PLAYER_ID), split: await l.split(), amount: String(amount / P), preview: await l.previewDeposit(amount) };
+  // The Deposit tab, selected explicitly: the Position (the drawer's first tab) shows no form, quote, action or receipt.
+  return { ...VAULT.deposit, mode: "deposit", ...vaultHandlers, position: await l.vault(PLAYER_ID), balance: await l.pavedBalance(PLAYER_ID), split: await l.split(), amount: String(amount / P), preview: await l.previewDeposit(amount) };
 }
 
 /** The Vault of a player who won 142.35 PAVED: no vPAVED, a first deposit of 100 PAVED and its preview. */

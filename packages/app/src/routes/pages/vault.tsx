@@ -48,6 +48,9 @@ export default function Page() {
   const guard = useGuardRate();
   const typed = parseUnits(amount, 18);
   const preview = useVaultPreview(op, typed);
+  // A quote that failed (and is not being read again): the action stays held, the error has Retry (VAULT-QUOTE-GATE).
+  const quoteFailed = preview.error && !preview.isFetching ? preview.error : null;
+  const quoteDetail = useErrorDetail(quoteFailed);
   const control = useVaultWrites(account);
   const refusedDetail = useErrorDetail(control.refused ? (control.refusedError ?? control.refused) : null);
 
@@ -94,6 +97,9 @@ export default function Page() {
       unit={unit}
       amount={amount}
       preview={preview.data ?? null}
+      previewError={quoteFailed ? (quoteFailed as Error).message : null}
+      previewErrorDetail={quoteDetail}
+      onRetryPreview={() => void preview.refetch()}
       busy={control.busy}
       refused={control.refused}
       refusedDetail={refusedDetail}
