@@ -76,7 +76,9 @@ export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: tr
   // Settings (SETTINGS-PAGE): the HUD's drawer, its groups; Themes and Credits are views of the same drawer.
   settings: { title: "Settings", drawer: true, page: <SettingsScene {...SETTINGS.connected} {...settingsActions} /> },
   missions: { title: "Missions", drawer: true, page: <TickingMissions /> },
-  vault: { title: "Vault", page: <VaultScene {...VAULT.stress} onNavigate={no} /> },
+  // The Vault (VAULT-PAGE): the HUD's drawer, its footer's tabs; the largest figures on its tallest tab, the Position (its own tab
+  // since the owner's ask of 2026-11-07, so of fixed length: `SHORT`).
+  vault: { title: "Vault", drawer: true, page: <VaultScene {...VAULT.stress} mode="position" onBack={no} /> },
   // The League with a long list of attacks and defences (#786, in place of the defence log): 20 rows and Show more.
   defence: { title: "League", drawer: true, page: <PvpLeagueScene {...PVP_LEAGUE.bronze} matches={{ ...PVP_MATCHES.latest, matches: PVP_MATCHES.many.matches }} onBack={no} onOpenMatch={no} /> },
   themes: {

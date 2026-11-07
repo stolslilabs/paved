@@ -39,7 +39,7 @@ export function useShopPacks(): ShopPacksProps {
   const packs = usePacks();
   const account = useCobbleAccount(playerId);
   const pack = packs.data?.find((p) => p.packId === selected) ?? null;
-  const packQuote = usePackQuote(pack, split.data ?? null, packReferrer.referrer !== null);
+  const packQuote = usePackQuote(pack, split.data ?? null);
   const buyPack = useBuyPack(playerId);
 
   const unavailable =

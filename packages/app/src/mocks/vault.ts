@@ -1,5 +1,5 @@
 import type { VaultPosition } from "@paved/chain";
-import { PAVED_BALANCE, SPLIT_BPS } from "./economy";
+import { GUARD_RATE, PAVED_BALANCE, SPLIT_BPS } from "./economy";
 
 const E18 = 10n ** 18n;
 
@@ -40,6 +40,15 @@ export const VAULT_HELD = position(1_250_400_000_000_000_000_000n);
 /** `Vault.preview_deposit(100 PAVED)` at this rate. */
 export const PREVIEW_DEPOSIT_100 = (100n * E18 * (TOTAL_SUPPLY + 1n)) / (TOTAL_ASSETS + 1n);
 
+/** `Vault.preview_mint(25 vPAVED)` at this rate: `convert_to_assets` rounded up (no entry fee), 27.105 PAVED. */
+export const PREVIEW_MINT_25 = ceilDiv(25n * E18 * (TOTAL_ASSETS + 1n), TOTAL_SUPPLY + 1n);
+
+/** `Vault.preview_redeem(100 vPAVED)` at this rate: their value less the exit fee inside it (the book's 100.0 vPAVED, about 103.25 PAVED). */
+export const PREVIEW_REDEEM_100 = afterFee(toAssets(100n * E18));
+
+/** `Vault.preview_deposit(25 PAVED)` at this rate (the book's deposit of 25.00, about 23.06 vPAVED). */
+export const PREVIEW_DEPOSIT_25 = (25n * E18 * (TOTAL_SUPPLY + 1n)) / (TOTAL_ASSETS + 1n);
+
 /**
  * `Vault.preview_withdraw(500 PAVED)`: the shares of `a + ceil(a x f / BPS)` (`calculate_withdraw_fee`, `vault.cairo:233`,
  * the fee on top), converted rounding up as OpenZeppelin's `preview_withdraw` does.
@@ -52,11 +61,11 @@ const DEPOSITED = { kind: "deposit" as const, assets: 100n * E18, shares: PREVIE
 /** A withdraw of 500 PAVED: its `Withdraw` burns `PREVIEW_WITHDRAW_500` vPAVED. */
 const WITHDRAWN = { kind: "withdraw" as const, assets: WITHDRAW, shares: PREVIEW_WITHDRAW_500 };
 
-const base = { deployed: true, position: VAULT_HELD, balance: PAVED_BALANCE, split: SPLIT_BPS, mode: "deposit" as const, amount: "", preview: null };
+const base = { deployed: true, position: VAULT_HELD, balance: PAVED_BALANCE, split: SPLIT_BPS, guardRate: GUARD_RATE, mode: "deposit" as const, amount: "", preview: null };
 
 /**
- * The vault page's states on its data (P10), beside SC2's in `mocks/scenes.ts` (`VAULT`): the reads on their way,
- * a failed read, a refused write (the writer's typed message), a deposit and a withdraw done, and a delegated position.
+ * The vault page's states on its data (P10), beside SC2's in `mocks/scenes.ts` (`VAULT`): the account or the reads on their way,
+ * a failed read, a refused write (the writer's typed message), a deposit and a withdraw done.
  */
 export const VAULT_STATES = {
   loading: { ...base, position: null, status: { kind: "loading" as const } },
@@ -64,5 +73,4 @@ export const VAULT_STATES = {
   refused: { ...base, amount: "100", preview: PREVIEW_DEPOSIT_100, refused: "The exit fee changed: confirm again" },
   deposited: { ...base, position: { ...VAULT_HELD, shares: VAULT_HELD.shares + DEPOSITED.shares }, done: DEPOSITED },
   withdrawn: { ...base, mode: "withdraw" as const, done: WITHDRAWN },
-  delegated: { ...base, delegate: "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef" },
 };

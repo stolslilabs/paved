@@ -1,5 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
-import * as m from "motion/react-m";
+import type { ReactNode } from "react";
 import type { QuoteView, SplitView } from "@paved/chain";
 import { capScore, rewardOf, winningScore } from "@paved/game-core";
 import { cn } from "../../lib/utils";
@@ -12,8 +11,7 @@ import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
 import { formatPoints } from "../elements/score";
 import { SectionTitle } from "../elements/section-title";
-import { BLACK_OUTLINE } from "../elements/black-outline";
-import { goldPillStyle } from "../elements/friends-art";
+import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
 import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { UsdcLogo } from "../elements/usdc-logo";
@@ -131,14 +129,6 @@ export function breakEvenScore(quote: QuoteView, reference: bigint | null, price
   }
   return low;
 }
-
-/**
- * Confirm as the chests' Take (the owner's ask of 2026-11-06): the book's gold pill (Follow back's, `goldPillStyle`) at 48 px, the
- * footer's band less its padding, the word in white outlined in black; no glow (the owner's ask).
- */
-const CONFIRM: CSSProperties = { ...goldPillStyle(48), textShadow: BLACK_OUTLINE };
-/** The light crossing Confirm now and then, as it crosses Take. */
-const SHINE: CSSProperties = { backgroundImage: "linear-gradient(90deg, transparent, color-mix(in oklab, var(--foreground) 55%, transparent), transparent)" };
 
 /** A tile's figures, a step smaller under 360 px, where two tiles share a phone's width. */
 const FIGURE = "numeric text-outline text-base leading-tight font-bold mobile:text-xl";
@@ -308,24 +298,15 @@ export function PurchaseScene(props: PurchaseSceneProps) {
           </span>
           <Button
             variant="ghost"
-            style={CONFIRM}
+            // Confirm as the chests' Take (the owner's ask of 2026-11-06): the drawers' gold action, its light passing.
+            style={GOLD_ACTION}
             className={cn("relative ml-auto h-12 min-w-36 shrink-0 px-1 font-black text-foreground", word === "Confirm" ? "text-lg mobile:text-xl" : "text-sm mobile:text-base")}
             onClick={props.onConfirm}
             disabled={blocked}
             loading={buying}
             aria-label={paying ? `Confirm, pay ${price} USDC and play` : undefined}
           >
-            {!blocked && !buying && (
-              <span aria-hidden className="pointer-events-none absolute inset-1 overflow-hidden rounded-full">
-                <m.span
-                  className="absolute inset-y-0 left-0 w-1/3"
-                  style={SHINE}
-                  initial={{ x: "-120%" }}
-                  animate={{ x: "320%" }}
-                  transition={{ delay: 0.4, duration: 0.9, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }}
-                />
-              </span>
-            )}
+            {!blocked && !buying && <GoldShine />}
             {word}
           </Button>
         </div>

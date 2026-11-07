@@ -10,10 +10,13 @@ import {
   RpcEconomyViews,
   VaultAllowanceError,
   VaultBalanceError,
+  VaultClosedError,
   VaultExitFeeChangedError,
+  VaultNothingToClaimError,
   VaultOverMaxDepositError,
   VaultOverMaxRedeemError,
   VaultOverMaxWithdrawError,
+  VaultPausedError,
   VaultZeroSharesError,
   createEconomyClient,
   redeemFee,
@@ -75,6 +78,39 @@ describe("VaultViews: the page's reads, on the fake and over RPC", () => {
       [ECON.vault, "delegates", [PLAYER]],
       [ECON.vault, "delegates", [PLAYER]],
     ]);
+  });
+
+  test("RPC earnings (D-31): earned_of, claimed_of and claimable_of as u256 USDC, is_paused and is_open as booleans", async () => {
+    const felts: Record<string, string[]> = {
+      earned_of: ["0x2dc6c0", "0x0"],
+      claimed_of: ["0x1e8480", "0x0"],
+      claimable_of: ["0xf4240", "0x0"],
+      is_paused: ["0x0"],
+      is_open: ["0x1"],
+    };
+    const calls: Array<{ contractAddress: string; entrypoint: string; calldata: string[] }> = [];
+    const provider = {
+      callContract: async (c: { contractAddress: string; entrypoint: string; calldata: string[] }) => (calls.push(c), felts[c.entrypoint]),
+    };
+    const views = new RpcEconomyViews(provider, economyDeployment, createEconomyCodecs());
+    expect(await views.earnings(PLAYER)).toEqual({ earned: 3_000_000n, claimed: 2_000_000n, claimable: 1_000_000n, paused: false, open: true });
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint, c.calldata])).toEqual([
+      [ECON.vault, "earned_of", [PLAYER]],
+      [ECON.vault, "claimed_of", [PLAYER]],
+      [ECON.vault, "claimable_of", [PLAYER]],
+      [ECON.vault, "is_paused", []],
+      [ECON.vault, "is_open", []],
+    ]);
+  });
+
+  test("the fake's earnings: none by default; a claim moves the claimable to claimed and to the wallet's USDC", async () => {
+    const economy = new FakeEconomy();
+    expect(await economy.earnings(PLAYER)).toEqual({ earned: 0n, claimed: 0n, claimable: 0n, paused: false, open: true });
+    economy.setEarnings(PLAYER, { claimed: 2n, claimable: 5n });
+    expect(await economy.earnings(PLAYER)).toMatchObject({ earned: 7n, claimed: 2n, claimable: 5n });
+    expect(economy.claimed(PLAYER)).toBe(5n);
+    expect(await economy.earnings(PLAYER)).toMatchObject({ earned: 7n, claimed: 7n, claimable: 0n });
+    expect(await economy.usdcBalance(PLAYER)).toBe(5n);
   });
 
   test("the rate is OpenZeppelin's (total_assets + 1) / (total_supply + 1), rounded down", () => {
@@ -154,6 +190,62 @@ describe("Vault writes: each revert a typed error", () => {
     expect(s.execute).not.toHaveBeenCalled();
   });
 
+  test("mint (VAULT-PAGE): approves exactly preview_mint's PAVED, then mint(shares, self), in one multicall", async () => {
+    const s = setup();
+    s.economy.vaultAssets = 3_000n * P;
+    s.economy.setBalance("paved", PLAYER, 100n * P);
+    const shares = 10n * P;
+    const assets = await s.economy.previewMint(shares);
+    // `convert_to_assets` rounded up, no entry fee: never below what a deposit of it would need.
+    expect(await s.economy.previewDeposit(assets)).toBeGreaterThanOrEqual(shares);
+    await s.econWriter.mint(shares, { confirmedShares: shares });
+    expect(s.execute).toHaveBeenCalledOnce();
+    const [calls] = s.execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>];
+    const u256 = (v: bigint) => [`0x${v.toString(16)}`, "0x0"];
+    expect(calls.map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([
+      [BigInt(ECON.pavedToken), "approve", [ECON.vault, ...u256(assets)]],
+      [BigInt(ECON.vault), "mint", [...u256(shares), PLAYER]],
+    ]);
+  });
+
+  test("mint: a wallet short of what it takes, or an amount not the one confirmed, sends nothing", async () => {
+    const s = setup();
+    s.economy.setBalance("paved", PLAYER, P);
+    const short = await s.econWriter.mint(2n * P, { confirmedShares: 2n * P }).catch((e: unknown) => e);
+    expect(short).toBeInstanceOf(VaultBalanceError);
+    expect((short as VaultBalanceError).balance).toBe(P);
+    await expect(s.econWriter.mint(P, { confirmedShares: 2n * P })).rejects.toThrow();
+    expect(s.execute).not.toHaveBeenCalled();
+  });
+
+  test("redeem (VAULT-PAGE): redeem(shares, self, self) of exactly the vPAVED asked; more than held, or another fee, sends nothing", async () => {
+    const s = setup();
+    s.economy.setShares(PLAYER, 5n * P);
+    const over = await s.econWriter.redeem(6n * P, { confirmedShares: 6n * P }).catch((e: unknown) => e);
+    expect(over).toBeInstanceOf(VaultOverMaxRedeemError);
+    await expect(s.econWriter.redeem(P, { confirmedShares: P, confirmedExitFeeBps: 1_000 })).rejects.toBeInstanceOf(VaultExitFeeChangedError);
+    expect(s.execute).not.toHaveBeenCalled();
+    await s.econWriter.redeem(2n * P, { confirmedShares: 2n * P, confirmedExitFeeBps: 500 });
+    const [calls] = s.execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>];
+    expect(calls.map((c) => [BigInt(c.contractAddress), c.entrypoint])).toEqual([[BigInt(ECON.vault), "redeem"]]);
+    expect(calls[0]!.calldata).toEqual([`0x${(2n * P).toString(16)}`, "0x0", PLAYER, PLAYER]);
+  });
+
+  test("a mint above max_mint reverts as a deposit above max_deposit", async () => {
+    const s = setup({ wait: reverted("ERC4626: exceeds max mint") });
+    s.economy.setBalance("paved", PLAYER, 10n * P);
+    const error = await s.econWriter.mint(P, { confirmedShares: P }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultOverMaxDepositError);
+  });
+
+  test("RPC: preview_mint is the Vault's own, a u256", async () => {
+    const calls: Array<{ entrypoint: string; calldata: string[] }> = [];
+    const provider = { callContract: async (c: { entrypoint: string; calldata: string[] }) => (calls.push(c), ["0x7", "0x0"]) };
+    const views = new RpcEconomyViews(provider, economyDeployment, createEconomyCodecs());
+    expect(await views.previewMint(3n)).toBe(7n);
+    expect(calls).toEqual([expect.objectContaining({ entrypoint: "preview_mint", calldata: ["0x3", "0x0"] })]);
+  });
+
   test("an exit sends only at the exit fee the player confirmed", async () => {
     const s = setup();
     s.economy.setShares(PLAYER, 2n * P);
@@ -170,6 +262,48 @@ describe("Vault writes: each revert a typed error", () => {
   });
 });
 
+describe("EconomyWriter.claim (D-31): the player's USDC from the Vault", () => {
+  test("claims with a fresh read of the claimable USDC: one call, Vault.claim()", async () => {
+    const s = setup();
+    s.economy.setEarnings(PLAYER, { claimable: 1_500_000n });
+    await s.econWriter.claim();
+    expect(s.execute).toHaveBeenCalledTimes(1);
+    const [calls] = s.execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>];
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint, c.calldata])).toEqual([[ECON.vault, "claim", []]]);
+  });
+
+  test("nothing to claim, a paused or a closed Vault sends nothing, each with its plain message", async () => {
+    const none = setup();
+    const error = await none.econWriter.claim().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VaultNothingToClaimError);
+    expect(error).toBeInstanceOf(WriteError);
+    expect((error as Error).message).toBe("You have no USDC to claim yet. Nothing was sent.");
+    const paused = setup();
+    paused.economy.setEarnings(PLAYER, { claimable: 1n });
+    paused.economy.vaultPaused = true;
+    await expect(paused.econWriter.claim()).rejects.toBeInstanceOf(VaultPausedError);
+    const closed = setup();
+    closed.economy.setEarnings(PLAYER, { claimable: 1n });
+    closed.economy.vaultOpen = false;
+    await expect(closed.econWriter.claim()).rejects.toBeInstanceOf(VaultClosedError);
+    for (const s of [none, paused, closed]) expect(s.execute).not.toHaveBeenCalled();
+  });
+
+  test("the contract's reverts read as the same errors after a race", async () => {
+    for (const [revert, kind] of [
+      ["Vault: nothing to claim", VaultNothingToClaimError],
+      ["Vault: paused", VaultPausedError],
+      ["Vault: closed", VaultClosedError],
+    ] as const) {
+      const s = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: `Failure reason: '${revert}'` }) });
+      s.economy.setEarnings(PLAYER, { claimable: 1n });
+      const error = await s.econWriter.claim().catch((e: unknown) => e);
+      expect(error, revert).toBeInstanceOf(kind);
+      expect((error as WriteError).transactionHash, revert).toBe("0x1");
+    }
+  });
+});
+
 describe("the Vault's receipt events decode from the committed ABI", () => {
   const codec = createEconomyCodecs().Vault;
 
@@ -179,6 +313,15 @@ describe("the Vault's receipt events decode from the committed ABI", () => {
       data: ["0x1bc16d674ec80000", "0x0", "0xde0b6b3a7640000", "0x0"],
     });
     expect(deposit).toMatchObject({ name: "Deposit", fields: { sender: PLAYER, owner: PLAYER, assets: 2n * P, shares: P } });
+  });
+
+  test("Paid, Claimed and Collected (D-31): their keys and USDC amounts as u256", () => {
+    const paid = codec.decodeEvent({ keys: [hash.getSelectorFromName("Paid"), "0x10"], data: ["0x5", "0x0", "0x7", "0x0"] });
+    expect(paid).toMatchObject({ name: "Paid", fields: { payer: "0x10", amount: 5n, index: 7n } });
+    const claimed = codec.decodeEvent({ keys: [hash.getSelectorFromName("Claimed"), PLAYER], data: ["0xf4240", "0x0"] });
+    expect(claimed).toMatchObject({ name: "Claimed", fields: { account: PLAYER, amount: 1_000_000n } });
+    const collected = codec.decodeEvent({ keys: [hash.getSelectorFromName("Collected"), "0x99"], data: ["0x9", "0x2", "0x0"] });
+    expect(collected).toMatchObject({ name: "Collected", fields: { holder: "0x99", recipient: "0x9", amount: 2n } });
   });
 
   test("Withdraw: sender, receiver and owner keys, assets and shares as u256", () => {

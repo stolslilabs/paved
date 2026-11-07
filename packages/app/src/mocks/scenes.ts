@@ -27,7 +27,7 @@ import { AVATAR_ITEMS, AVATAR_OFFERS, SAVED_AVATAR, offersOf } from "./avatar";
 import { ACCOUNT, ACHIEVEMENT_COBBLES, NOTHING_CLAIMED, NO_PRICES, PACKS, QUEST_COBBLES, SKIN_PRICES, activeOn, bits, ownedPlans } from "./cobbles";
 import { REFERRAL_EARNINGS, REFERRAL_LINK, REFERRAL_NONE } from "./referral";
 import { BIG_AMOUNT_18, BIG_AMOUNT_6, BIG_NUMBER, BIG_SCORE, LONG_ADDRESS, LONG_NAME, LONG_SENTENCE, LONG_WORD, STRESS_VAULT } from "./stress";
-import { PREVIEW_DEPOSIT_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
+import { PREVIEW_DEPOSIT_100, PREVIEW_DEPOSIT_25, PREVIEW_MINT_25, PREVIEW_REDEEM_100, PREVIEW_WITHDRAW_500, VAULT_HELD, VAULT_NONE, VAULT_STATES } from "./vault";
 import { titleOf } from "../lib/music/track-info";
 import { TRACKS } from "../lib/music/tracks";
 import { leagueOf } from "../lib/pvp-rules";
@@ -241,11 +241,21 @@ export const COBBLES = {
 
 // Vault
 
-const vaultBase = { deployed: true, position: VAULT_HELD, balance: PAVED_BALANCE, split: SPLIT_BPS, mode: "deposit", amount: "", preview: null } satisfies Partial<Data<VaultSceneProps>>;
+const vaultBase = { deployed: true, position: VAULT_HELD, balance: PAVED_BALANCE, split: SPLIT_BPS, guardRate: GUARD_RATE, mode: "deposit", amount: "", preview: null } satisfies Partial<Data<VaultSceneProps>>;
 
 export const VAULT = {
-  noPosition: { ...vaultBase, position: VAULT_NONE, amount: "100", preview: PREVIEW_DEPOSIT_100 },
-  position: { ...vaultBase, mode: "withdraw", amount: "500", preview: PREVIEW_WITHDRAW_500 },
+  /** The Position tab, the first (the owner's ask of 2026-11-07): 1,250.40 vPAVED held, their worth, the tiles, the rates, the notes. */
+  position: { ...vaultBase, mode: "position" },
+  /** 1,250.40 vPAVED held; a deposit of 25 PAVED, its preview (the book's "vault"). */
+  deposit: { ...vaultBase, amount: "25", preview: PREVIEW_DEPOSIT_25 },
+  /** The unit switched to vPAVED: a mint of exactly 25 vPAVED, the PAVED it takes. */
+  mint: { ...vaultBase, unit: "vpaved", amount: "25", preview: PREVIEW_MINT_25 },
+  /** The Withdraw tab in vPAVED: a redeem of exactly 100 vPAVED (the book's), the PAVED it pays, its fee inside. */
+  redeem: { ...vaultBase, mode: "withdraw", unit: "vpaved", amount: "100", preview: PREVIEW_REDEEM_100 },
+  /** No vPAVED yet: the Position at zero. */
+  noPosition: { ...vaultBase, mode: "position", position: VAULT_NONE },
+  /** 1,250.40 vPAVED held; a withdraw of 500 PAVED, its preview and its fee (the book's "vault-withdraw"). */
+  withdraw: { ...vaultBase, mode: "withdraw", amount: "500", preview: PREVIEW_WITHDRAW_500 },
   depositing: { ...vaultBase, amount: "100", preview: PREVIEW_DEPOSIT_100, busy: "deposit" },
   withdrawing: { ...vaultBase, mode: "withdraw", amount: "500", preview: PREVIEW_WITHDRAW_500, busy: "withdraw" },
   overMax: { ...vaultBase, mode: "withdraw", amount: "1300" },

@@ -58,7 +58,8 @@ describe("PAVED's plate leads to the Challenge, vPAVED's to the Vault (#871)", {
 
   it("the Vault: PAVED's plate leads to the Challenge; vPAVED's, on its own page, leads nowhere", async () => {
     const router = await open("/vault");
-    await screen.findByRole("heading", { level: 1, name: "Vault" }, WAIT);
+    // The HUD's drawer over the home (VAULT-PAGE): its header's plates.
+    await screen.findByRole("dialog", { name: "Vault" }, WAIT);
     for (const vpaved of await plates(/^\S+ vPAVED$/)) expect(vpaved).toBeDisabled();
     const [paved] = await plates(/^\S+ PAVED: Play a Challenge$/);
     await userEvent.click(paved!);

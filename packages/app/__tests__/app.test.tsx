@@ -37,8 +37,9 @@ describe("app", () => {
   });
 
   it("gives the home the dock's five items, Play in the centre; no page carries it (DOCK-UNDER-PAGES)", async () => {
-    const { unmount } = render(<App router={createTestRouter("/vault")} />);
-    expect(await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
+    // The last page of its own (VAULT-PAGE: the Vault is the HUD's drawer over the home, as Settings and the others).
+    const { unmount } = render(<App router={createTestRouter("/referral")} />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Referral" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
     unmount();
     render(<App router={createTestRouter("/")} />);

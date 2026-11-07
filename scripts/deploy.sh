@@ -55,7 +55,7 @@
 # the build: a resumed record's classes are the ones built. Then the funding check (the declares still to send, as
 # below). In order, each step skipped when what it would send has landed (read from the chain):
 #   1. declare the 10 classes; 2. deploy Faucet, PavedToken, MockRouter, Vault (vPAVED), then the pool (one multicall)
-#   and the Vault's dead shares with the owner's stake (one multicall), Economy (its router, pool key and the P-46 configuration in its constructor),
+#   and the owner's stake, the Vault's first shares (one multicall, D-31: no dead shares), Economy (its router, pool key and the P-46 configuration in its constructor),
 #   PavedToken.set_minter(Economy), Setup, Challenge(owner, USDC, Setup), Collection, Story(owner, Setup), Avatar(owner, Setup); 3. wire, one multicall of what is
 #   missing: Setup.set_reporter(Challenge), Setup.set_reporter(Story), Setup.set_spender(Avatar), Economy.set_game(Challenge), Setup.set_economy, Setup.set_collection,
 #   Collection.set_minters(Challenge, 0), then read back with Economy's router, pool, config and mean; 4. define the
@@ -73,7 +73,7 @@
 #   MockRouter, Story, Avatar) and `token` appear only now, after the definitions (claim_tutorial is one-shot: #346's audit); 6. smoke:
 #   owner() on Economy, Challenge, Setup, Collection, Vault, Story and Avatar, Story's Setup, reporter and levels, Avatar's Setup,
 #   spender and defaults, the Vault's exit fee, Setup.wiring(), every definition
-#   held, a paid spawn at stake 1 (the Vault's PAVED grows by its margin),
+#   held, a paid spawn at stake 1 (the Vault's USDC grows by its margin, D-31),
 #   one D-18 build next to the starter, the surrender (a game over reported to Setup: 2 events or more), the token,
 #   claim_tutorial once, pack 1 bought (buy_pack: its USDC through Economy's game split, its cobbles credited); the
 #   rehearsal settles the game at (D + 2) x 86400 too.
@@ -210,9 +210,9 @@
 # Deploy order (P8 E3, docs/architecture/economy.md sections 1, 4, 5; E1's audit):
 #   Faucet, PavedToken(deployer, deployer) (no old mock Token since F: the client's entry token is the Faucet, `token`),
 #   MockRouter(paved, usdc) seeded with 800,000 PAVED and the 10,000 USDC its constructor preminted to the deployer
-#   (outside the faucet, so nobody can push the deployer to the faucet's caps first), Vault(owner, paved, exit fee
-#   500 bps) (vPAVED, P-56) with 1,000 PAVED of dead shares deposited for the Vault itself, then the owner's 199,000
-#   PAVED (devnet: 199,000 - 1,000 x N) deposited, both before Economy can buy, Economy(owner, paved, usdc, vault, router, the
+#   (outside the faucet, so nobody can push the deployer to the faucet's caps first), Vault(owner, paved, usdc, exit
+#   fee 500 bps) (vPAVED, P-56, its USDC reward D-31), then the owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N)
+#   deposited, its first and only shares at 1:1 (D-31: no dead shares), before Economy can buy, Economy(owner, paved, usdc, vault, router, the
 #   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
 #   3,980 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
 #   minter() == Economy and admin() == 0 are checked), Setup(owner), Challenge(owner, USDC, Setup),
@@ -223,7 +223,7 @@
 #   Account is deployed: a player is the wallet address, Setup holds the wiring, and contracts.Account is not written
 #   (--repoint and --d18 keep theirs, run from 06c024d). The quests and achievements of quests.md v1 are defined on Setup
 #   by its owner after the wiring and before the file is written (F). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
-#   owner's stake (P-38: the stake is 199,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
+#   owner's stake (P-38: the stake is 200,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
 # Challenge's VRF provider (#645, docs/architecture/challenge-vrf.md): the fresh path sets it right after the guardian, as
 #   Challenge's owner (fresh_vrf_step): the devnet's MockVrfProvider, on devnet and, for the smoke only, on Sepolia (the
 #   owner's ruling of 2026-10-21): Cartridge's provider proves a draw only inside its server's VRF wrapper, which the smoke's
@@ -3266,17 +3266,15 @@ POOL_PAVED="$(python3 -I -c "print(800000 * $PAVED_UNIT)")"
 # The devnet test PAVED (P-38, O-54): 1,000 PAVED per predeployed account other than the deployer, from the owner's
 # stake (never the pool: it sets the launch rate). Devnet only; no faucet exists.
 TEST_PAVED="$(python3 -I -c "print(1000 * $PAVED_UNIT)")"
-(( 1000 * ${#TEST_ACCOUNTS[@]} < 199000 )) ||
-  die "${#TEST_ACCOUNTS[@]} predeployed accounts would take 1,000 PAVED each, the owner's whole 199,000 stake: use fewer than 199"
-# The Vault (vPAVED, P-56): 1,000 PAVED of dead shares for the Vault itself (the inflation defence: nothing can redeem
-# them), then the owner's stake, 199,000 - 1,000 x N; its exit fee at the default, 500 bps (owner, 2026-10-14).
-DEAD_PAVED="$(python3 -I -c "print(1000 * $PAVED_UNIT)")"
-STAKE_PAVED="$(python3 -I -c "print((199000 - 1000 * ${#TEST_ACCOUNTS[@]}) * $PAVED_UNIT)")"
-VAULT_PAVED="$(python3 -I -c "print($DEAD_PAVED + $STAKE_PAVED)")"
+(( 1000 * ${#TEST_ACCOUNTS[@]} < 200000 )) ||
+  die "${#TEST_ACCOUNTS[@]} predeployed accounts would take 1,000 PAVED each, the owner's whole 200,000 stake: use fewer than 200"
+# The Vault (vPAVED, P-56, D-31): no dead shares; the owner's stake, 200,000 - 1,000 x N, is its first deposit, minted
+# 1:1; its exit fee at the default, 500 bps (owner, 2026-10-14); its reward token the Faucet's USDC.
+STAKE_PAVED="$(python3 -I -c "print((200000 - 1000 * ${#TEST_ACCOUNTS[@]}) * $PAVED_UNIT)")"
 EXIT_FEE=500
 # Economy: the decided configuration (burn 7,368 bps, so 70 % of the price burned after the pool's 5 %, sigma 0,
 # slope 12,220 bps, cap 5, target 1,000,000 PAVED; P-46; the referral 500 bps of the price, out of the Vault's
-# 2,632, P-56), the initial mean (3,980 points x 1,000) and the launch rate after the pool's fee (economy.md
+# 2,632, paid to the Vault in USDC, D-31), the initial mean (3,980 points x 1,000) and the launch rate after the pool's fee (economy.md
 # section 5). The wiring step reads each back.
 CONFIG=(7368 0 12220 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")" 500)
 MEAN0=3980000
@@ -3286,7 +3284,7 @@ echo "== deploy"
 USDC="$(fresh_deploy Faucet "$USDC_CLASS")"
 PAVED="$(fresh_deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
 ROUTER="$(fresh_deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
-VAULT="$(fresh_deploy Vault "$VAULT_CLASS" "$DEPLOYER_ARG" "$PAVED" "$EXIT_FEE")"
+VAULT="$(fresh_deploy Vault "$VAULT_CLASS" "$DEPLOYER_ARG" "$PAVED" "$USDC" "$EXIT_FEE")"
 VRF=""
 if [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]]; then VRF="$(fresh_deploy MockVrfProvider "$VRF_CLASS")"; fi
 # The file names the mock on devnet only: on Sepolia the client draws through Cartridge's provider (`vrfProvider`)
@@ -3326,28 +3324,27 @@ else
     "$ROUTER add_liquidity $LIQUIDITY"
   RECORD_SENDING=""
 fi
-# The Vault's dead shares and the owner's stake, one multicall, before Economy can buy anything (E1's audit; P-56: the
-# margin's PAVED reaches the Vault from the first purchase, and the dead shares keep its supply from ever being 0).
+# The owner's stake, the Vault's first shares at 1:1 (D-31: no dead shares), one multicall, before Economy can buy
+# anything (E1's audit): the Vault's supply is then the owner's stake alone.
 fr_settled stake_tx || true
-DEAD=""
+SUPPLY=""
 STAKED=""
 if ((FRESH_COMPLETE == 0)); then
-  v RAW call "$VAULT" balance_of "$VAULT"
-  DEAD="$(u256_of $RAW)"
+  v RAW call "$VAULT" total_supply
+  SUPPLY="$(u256_of $RAW)"
   v RAW call "$VAULT" balance_of "$DEPLOYER_ARG"
   STAKED="$(u256_of $RAW)"
 fi
 if ((FRESH_COMPLETE)); then
   echo "   stake: complete record, not read again (tx $(fr_get stake_tx))"
-elif [[ "$DEAD" == "$DEAD_PAVED" && "$STAKED" == "$STAKE_PAVED" ]]; then
-  echo "   dead shares and stake made already$( [[ -n "$(fr_get stake_tx)" ]] && echo ", tx $(fr_get stake_tx)")"
-elif [[ "$DEAD" == 0 && "$STAKED" == 0 ]]; then
+elif [[ "$SUPPLY" == "$STAKE_PAVED" && "$STAKED" == "$STAKE_PAVED" ]]; then
+  echo "   stake made already$( [[ -n "$(fr_get stake_tx)" ]] && echo ", tx $(fr_get stake_tx)")"
+elif [[ "$SUPPLY" == 0 && "$STAKED" == 0 ]]; then
   RECORD_SENDING=stake_tx
-  invoke_all "$PAVED approve $VAULT $(u256 "$VAULT_PAVED")" "$VAULT deposit $(u256 "$DEAD_PAVED") $VAULT" \
-    "$VAULT deposit $(u256 "$STAKE_PAVED") $DEPLOYER_ARG"
+  invoke_all "$PAVED approve $VAULT $(u256 "$STAKE_PAVED")" "$VAULT deposit $(u256 "$STAKE_PAVED") $DEPLOYER_ARG"
   RECORD_SENDING=""
 else
-  die "the Vault holds $DEAD dead and $STAKED staked vPAVED base units, neither none nor the launch amounts"
+  die "the Vault holds $SUPPLY vPAVED base units, $STAKED of them the owner's: neither none nor the launch stake"
 fi
 # P-38: the test PAVED, from what the owner keeps outside the stake. Devnet only: off devnet the list is empty, and a
 # non-empty one is refused here as well.
@@ -3356,7 +3353,7 @@ if [[ "$NETWORK" == "devnet" ]]; then
   for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
     invoke "$PAVED" transfer "$acct" $(u256 "$TEST_PAVED") >/dev/null
   done
-  echo "   test PAVED: 1,000 to each of ${#TEST_ACCOUNTS[@]} predeployed accounts, stake $((199000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
+  echo "   test PAVED: 1,000 to each of ${#TEST_ACCOUNTS[@]} predeployed accounts, stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 fi
 read -r -a POOL_KEY <<<"$(call "$ROUTER" pool_key)"
 [[ "${#POOL_KEY[@]}" == 5 ]] || die "MockRouter.pool_key returned ${#POOL_KEY[@]} felts, expected 5"
@@ -3394,11 +3391,11 @@ fi
 if ((FRESH_COMPLETE == 0)); then
   read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" balance_of "$DEPLOYER_ARG")"
   [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$STAKED_LOW" "$STAKED_HIGH")" == "$STAKE_PAVED" ]] ||
-    die "the owner's stake in the Vault is not 199,000 - 1,000 x ${#TEST_ACCOUNTS[@]} vPAVED"
+    die "the owner's stake in the Vault is not 200,000 - 1,000 x ${#TEST_ACCOUNTS[@]} vPAVED"
   read -r DEAD_LOW DEAD_HIGH <<<"$(call "$VAULT" balance_of "$VAULT")"
-  [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$DEAD_LOW" "$DEAD_HIGH")" == "$DEAD_PAVED" ]] ||
-    die "the Vault's dead shares are not 1,000 vPAVED"
-  echo "   Vault: dead shares 1,000 vPAVED, owner's stake $((199000 - 1000 * ${#TEST_ACCOUNTS[@]})) vPAVED"
+  [[ "$(hex_int "$DEAD_LOW")" == 0 && "$(hex_int "$DEAD_HIGH")" == 0 ]] || die "the Vault holds vPAVED of its own (D-31: no dead shares)"
+  [[ "$(hex_int "$(call "$VAULT" reward_token)")" == "$(hex_int "$USDC")" ]] || die "Vault.reward_token() is not the Faucet's USDC"
+  echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) vPAVED, its only shares; reward token USDC"
 fi
 
 # The quests and achievements (D-24): Challenge reports each game over to Setup, which accepts reporters only.
@@ -3643,9 +3640,9 @@ if launch == "1":
 PY2
 fi
 
-# A paid Challenge game at stake 1, with the client's min_out: the pool's quote of the whole swap, less 1 % (no referrer:
-# the burn quote and the margin, one swap since P-56, so the whole price). Its margin's PAVED reaches the Vault, which
-# mints no share for it. The 2 USDC come
+# A paid Challenge game at stake 1, with the client's min_out: the pool's quote of the burn quote's swap, less 1 % (D-31:
+# only the burn is swapped). Its margin reaches the Vault in USDC, shared among the holders; no share is minted and the
+# Vault's PAVED does not move. The 2 USDC come
 # from the faucet, unless the deployer already holds them: on Sepolia anyone may have filled its faucet cap, and
 # that USDC is then on the deployer. A spawn a stopped run sent is read from its receipt.
 if [[ -z "$(fr_get smoke.game_id)" ]] && fr_settled smoke.spawn_tx; then
@@ -3664,8 +3661,9 @@ else
   fi
   invoke "$USDC" approve "$CHALLENGE" 2000000 0 >/dev/null
   read -r -a QUOTE <<<"$(call "$ECONOMY" quote 1)"
-  read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap "${QUOTE[0]}" "${QUOTE[1]}")"
+  read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap "${QUOTE[2]}" "${QUOTE[3]}")"
   VAULT_BEFORE="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
+  VAULT_USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$VAULT" | cut -d' ' -f1)")"
   SHARES_BEFORE="$(hex_int "$(call "$VAULT" total_supply | cut -d' ' -f1)")"
   MIN_OUT="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$SWAP_LOW")"
   EMA_BEFORE="$(call "$ECONOMY" ema)"
@@ -3679,17 +3677,16 @@ else
   fr_set "smoke.spawn_tx=$CHALLENGE_TX" "smoke.game_id=$PAID_ID"
   USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
   [[ $((USDC_BEFORE - USDC_AFTER)) == 2000000 ]] || die "the spawn moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected 2000000"
-  # USDC the router held before the purchase comes back to Economy (`clear`) and waits for the next margin (P-56): anyone
-  # can send some to the router, so it is printed, not refused (security audit note 1 of #382)
-  STRAY_USDC="$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")"
-  [[ "$STRAY_USDC" == 0 ]] || echo "   Economy holds $STRAY_USDC USDC base units the router gave back: the next purchase's margin"
+  # Economy keeps nothing: the margin, and any USDC the router gave back (`clear`), went to the Vault (D-31)
+  [[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
   [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
   VAULT_AFTER="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
-  gt "$VAULT_AFTER" "$VAULT_BEFORE" || die "the purchase sent no PAVED to the Vault"
+  [[ "$VAULT_AFTER" == "$VAULT_BEFORE" ]] || die "the purchase moved the Vault's PAVED (D-31: the margin is paid in USDC)"
   [[ "$(hex_int "$(call "$VAULT" total_supply | cut -d' ' -f1)")" == "$SHARES_BEFORE" ]] || die "the purchase minted vPAVED"
-  [[ "$(hex_int "$(call "$USDC" balance_of "$VAULT" | cut -d' ' -f1)")" == 0 ]] || die "the Vault holds USDC after the purchase"
-  echo "   challenge game $PAID_ID bought at stake 1 (min_out $MIN_OUT), tx $CHALLENGE_TX; Economy holds no PAVED;"
-  echo "   the Vault's PAVED grew by $((VAULT_AFTER - VAULT_BEFORE)) base units, its shares unchanged"
+  VAULT_USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$VAULT" | cut -d' ' -f1)")"
+  gt "$VAULT_USDC_AFTER" "$VAULT_USDC_BEFORE" || die "the purchase paid no USDC to the Vault"
+  echo "   challenge game $PAID_ID bought at stake 1 (min_out $MIN_OUT), tx $CHALLENGE_TX; Economy holds nothing;"
+  echo "   the Vault received $((VAULT_USDC_AFTER - VAULT_USDC_BEFORE)) USDC base units for its holders, its PAVED and shares unchanged"
 fi
 DAY="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)//86400)' "$(call "$CHALLENGE" game "$PAID_ID" | cut -d' ' -f14)")"
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
@@ -3780,11 +3777,14 @@ else
     invoke "$USDC" mint "$DEPLOYER_ARG" $(u256 "$PACK_PRICE") >/dev/null
   fi
   invoke "$USDC" approve "$SETUP" $(u256 "$PACK_PRICE") >/dev/null
-  read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap $(u256 "$PACK_PRICE"))"
+  # The pack's swap is its burn quote only (D-31): burn_bps of the price, rounded down as Economy's split
+  BURN_BPS="$(hex_int "$(call "$ECONOMY" split_bps | cut -d' ' -f1)")"
+  PACK_QUOTE=$((PACK_PRICE * BURN_BPS / 10000))
+  read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap $(u256 "$PACK_QUOTE"))"
   MIN_OUT="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$SWAP_LOW")"
   COBBLES_BEFORE="$(hex_int "$(call "$SETUP" account "$DEPLOYER_ARG" | cut -d' ' -f1)")"
   USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
-  VAULT_BEFORE="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
+  VAULT_BEFORE="$(hex_int "$(call "$USDC" balance_of "$VAULT" | cut -d' ' -f1)")"
   RECORD_SENDING=smoke.pack_tx
   PACK_TX="$(invoke "$SETUP" buy_pack 1 0 $(u256 "$MIN_OUT"))"
   RECORD_SENDING=""
@@ -3795,8 +3795,8 @@ else
   [[ $((COBBLES_AFTER - COBBLES_BEFORE)) == "$PACK_COBBLES" ]] || die "buy_pack credited $((COBBLES_AFTER - COBBLES_BEFORE)) cobbles, expected $PACK_COBBLES"
   [[ "$(hex_int "$(call "$USDC" balance_of "$SETUP" | cut -d' ' -f1)")" == 0 ]] || die "Setup holds USDC after buy_pack"
   [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after buy_pack"
-  VAULT_AFTER="$(hex_int "$(call "$PAVED" balance_of "$VAULT" | cut -d' ' -f1)")"
-  gt "$VAULT_AFTER" "$VAULT_BEFORE" || die "buy_pack sent no PAVED to the Vault"
+  VAULT_AFTER="$(hex_int "$(call "$USDC" balance_of "$VAULT" | cut -d' ' -f1)")"
+  gt "$VAULT_AFTER" "$VAULT_BEFORE" || die "buy_pack paid no USDC to the Vault"
   # PackBought from Setup and Sold from Economy, in the same receipt
   SHOP_EVENTS="$(rpc starknet_getTransactionReceipt "[\"$PACK_TX\"]" | python3 -I -c '
 import sys, json

@@ -92,15 +92,19 @@ describe("the mocked pages (Sepolia's default)", { timeout: slow(20_000) }, () =
 
   it("/vault: the mock's position and wallet; a deposit goes through and moves both", async () => {
     const s = await open("/vault", false, WINNER);
-    expect(await screen.findByRole("region", { name: "Your position" }, { timeout: slow(5000) })).toHaveTextContent("No vPAVED yet");
+    expect(await screen.findByRole("region", { name: "Position" }, { timeout: slow(5000) })).toHaveTextContent("0.00vPAVED");
     noRawErrors();
+    // The Vault opens on its Position: the Deposit tab first.
+    await userEvent.click(screen.getByRole("tab", { name: "Deposit" }));
     await userEvent.type(screen.getByRole("textbox", { name: /Amount to deposit/ }), "100");
-    expect(await screen.findByText(/You get about/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("group", { name: "You get" })).toHaveTextContent(/≈ [\d,.]+vPAVED/));
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
     expect(await screen.findByText("Deposited", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect((await s.ledger.vault(FIXTURE_ADA)).shares).toBeGreaterThan(0n);
     expect(await s.ledger.pavedBalance(FIXTURE_ADA)).toBe(WON_PAVED - 100n * 10n ** 18n);
-    await waitFor(() => expect(screen.getByRole("region", { name: "Your position" })).not.toHaveTextContent("No vPAVED yet"));
+    // Back on the Position: the vPAVED minted show.
+    await userEvent.click(screen.getByRole("tab", { name: "Position" }));
+    await waitFor(() => expect(screen.getByRole("region", { name: "Position" })).not.toHaveTextContent(/^Position.*Your share0.00vPAVED/));
     noRawErrors();
   });
 

@@ -68,7 +68,11 @@ export interface Settlements {
  */
 export interface VaultWrites {
   deposit: EconomyWriter["deposit"];
+  /** A deposit with its vPAVED fixed (VAULT-PAGE). */
+  mint: EconomyWriter["mint"];
   withdraw: EconomyWriter["withdraw"];
+  /** A withdraw with its vPAVED fixed (VAULT-PAGE). */
+  redeem: EconomyWriter["redeem"];
   withdrawAll: EconomyWriter["withdrawAll"];
 }
 

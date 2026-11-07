@@ -119,7 +119,8 @@ describe("the mock's tokens (#927)", () => {
   });
 });
 
-preloadPages("cobbles", "shop");
+// The Shop is a drawer over the home: the home's chunks come in before the first test, or their import outlives the environment.
+preloadPages("cobbles", "shop", "home");
 
 beforeEach(() => {
   localStorage.clear();

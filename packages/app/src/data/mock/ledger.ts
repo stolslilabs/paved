@@ -11,6 +11,7 @@ import {
   VaultAmountChangedError,
   VaultBalanceError,
   VaultExitFeeChangedError,
+  VaultOverMaxRedeemError,
   VaultOverMaxWithdrawError,
   VaultZeroSharesError,
   GameExpiredError,
@@ -332,6 +333,10 @@ export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" |
   deposit(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult>;
   withdraw(amount: bigint, options: { confirmedAmount: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
   withdrawAll(options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
+  /** `EconomyWriter.mint`: exactly `shares` vPAVED, for the PAVED `preview_mint` asks (VAULT-PAGE). */
+  vaultMint(shares: bigint, options: { confirmedShares: bigint }): Promise<WriteResult>;
+  /** `EconomyWriter.redeem`: exactly `shares` vPAVED out, for their PAVED less the exit fee (VAULT-PAGE). */
+  vaultRedeem(shares: bigint, options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult>;
 }
 
 /** `Village.place`'s reverts, as the engine names them, to the writer's refusals. */
@@ -1562,6 +1567,11 @@ export class MockLedger {
     return this.depositShares(assets);
   }
 
+  async previewMint(shares: bigint): Promise<bigint> {
+    this.sync();
+    return this.mintAssets(shares);
+  }
+
   async previewWithdraw(assets: bigint): Promise<bigint> {
     this.sync();
     return this.withdrawShares(assets);
@@ -1715,6 +1725,8 @@ export class MockLedger {
       deposit: (amount, options) => this.deposit(account, amount, options),
       withdraw: (amount, options) => this.withdraw(account, amount, options),
       withdrawAll: (options) => this.withdrawAll(account, options),
+      vaultMint: (shares, options) => this.vaultMint(account, shares, options),
+      vaultRedeem: (shares, options) => this.vaultRedeem(account, shares, options),
     };
   }
 
@@ -2475,6 +2487,42 @@ export class MockLedger {
     });
   }
 
+  /** `Vault.mint(shares, self)`: the PAVED `preview_mint` asks; refused above the wallet's PAVED. Its receipt is a `Deposit`. */
+  async vaultMint(account: string, shares: bigint, options: { confirmedShares: bigint }): Promise<WriteResult> {
+    this.checkAmount(shares, options.confirmedShares);
+    const balance = await this.pavedBalance(account);
+    const assets = await this.previewMint(shares);
+    if (balance < assets) throw new VaultBalanceError(balance);
+    await sleep(this.latency);
+    return this.write(account, (p) => {
+      // Checked again at commit, on the stored state: the rate may have moved, or another deposit taken the PAVED.
+      const cost = this.mintAssets(shares);
+      const now = BigInt(p.paved);
+      if (now < cost) throw new VaultBalanceError(now);
+      this.move(p, shares, cost);
+      p.paved = (now - cost).toString();
+      return [this.event("Deposit", { sender: account, owner: account, assets: cost, shares })];
+    });
+  }
+
+  /** `Vault.redeem(shares, self, self)`: their PAVED less the exit fee; refused above the vPAVED held. */
+  async vaultRedeem(account: string, shares: bigint, options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult> {
+    this.checkAmount(shares, options.confirmedShares);
+    const position = await this.vault(account);
+    this.checkFee(options.confirmedExitFeeBps);
+    if (shares > position.shares) throw new VaultOverMaxRedeemError();
+    await sleep(this.latency);
+    return this.write(account, (p) => {
+      // Checked again at commit: another exit may have burned the shares during the wait.
+      if (shares > BigInt(p.shares)) throw new VaultOverMaxRedeemError();
+      const value = this.toAssets(shares);
+      const assets = value - redeemFee(value, MOCK_VAULT.exitFeeBps);
+      this.move(p, -shares, -assets);
+      p.paved = (BigInt(p.paved) + assets).toString();
+      return [this.event("Withdraw", { sender: account, receiver: account, owner: account, assets, shares })];
+    });
+  }
+
   /** `Vault.redeem(shares, self, self)` of every vPAVED held, at the shares the player confirmed. */
   async withdrawAll(account: string, options: { confirmedShares: bigint; confirmedExitFeeBps?: number }): Promise<WriteResult> {
     const position = await this.vault(account);
@@ -2973,6 +3021,12 @@ export class MockLedger {
   private depositShares(assets: bigint): bigint {
     const t = this.totals();
     return (assets * (t.supply + 1n)) / (t.assets + 1n);
+  }
+
+  /** `preview_mint`: `convert_to_assets` rounded up (no entry fee). */
+  private mintAssets(shares: bigint): bigint {
+    const t = this.totals();
+    return ceilDiv(shares * (t.assets + 1n), t.supply + 1n);
   }
 
   private withdrawShares(assets: bigint): bigint {

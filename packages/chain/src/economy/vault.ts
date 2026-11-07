@@ -1,5 +1,5 @@
 import { BPS } from "./amounts";
-import type { VaultPosition } from "./views";
+import type { VaultEarnings, VaultPosition } from "./views";
 
 // The Vault's reads (P10): an OpenZeppelin ERC4626 over PAVED, vPAVED (`contracts/src/systems/vault.cairo`, P-56,
 // `docs/architecture/vault-share.md` and its addendum). The vault page reads only this interface, so another share
@@ -12,10 +12,17 @@ export interface VaultViews {
    * `total_supply`. The rate is `vaultRate(totalAssets, totalSupply)`.
    */
   vault(account: string): Promise<VaultPosition>;
+  /**
+   * The holder's USDC reward (D-31): `earned_of`, `claimed_of`, `claimable_of`, and whether the Vault is paused or
+   * closed (a claim then reverts).
+   */
+  earnings(account: string): Promise<VaultEarnings>;
   /** `Vault.max_redeem(owner)`: the most vPAVED a `redeem` burns now (the Vault sets no redeem limit: the balance). */
   maxRedeem(account: string): Promise<bigint>;
   /** `Vault.preview_deposit(assets)`: the vPAVED a deposit of `assets` PAVED mints now (0 is refused by the contract). */
   previewDeposit(assets: bigint): Promise<bigint>;
+  /** `Vault.preview_mint(shares)`: the PAVED a mint of `shares` vPAVED takes now, rounded up (no entry fee). */
+  previewMint(shares: bigint): Promise<bigint>;
   /** `Vault.preview_withdraw(assets)`: the vPAVED a withdraw of `assets` PAVED burns now, the exit fee included. */
   previewWithdraw(assets: bigint): Promise<bigint>;
   /** `Vault.preview_redeem(shares)`: the PAVED a redeem of `shares` pays now, the exit fee taken. */

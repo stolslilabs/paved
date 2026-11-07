@@ -58,7 +58,7 @@ const clickOutside = async () => userEvent.click(document.querySelector<HTMLElem
 /** The home's village stays mounted under the panel (hidden behind the modal). */
 const village = () => screen.getByRole("navigation", { name: "Village", hidden: true });
 
-preloadPages("home", "chat", "guild", "friends", "missions", "vault", "settings", "theme", "play", "purchase");
+preloadPages("home", "chat", "guild", "friends", "missions", "vault", "settings", "theme", "play", "purchase", "referral", "home-panel");
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
@@ -98,10 +98,11 @@ describe("the route map (#762)", () => {
     // No page opens another (BACK-RULE #783): only the sheet over Play and Play's stake (a view of its drawer, PLAY-PAGE) name a
     // parent (Settings' views have none, SETTINGS-PAGE).
     expect(PAGES.filter((p) => p.panel && p.parent).every((p) => (p.sheet || p.drawer) && p.parent === "/play")).toBe(true);
-    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE, SETTINGS-PAGE, PLAY-PAGE: the League, Missions,
-    // Tiles, the Chat, the Guild, Friends, Settings (its Themes and Credits) and Play are the HUD's drawer over the home at every width,
-    // never the side panel; children of the home's route. Play's stake is a view of its drawer, Story's campaigns a sheet over it (the
-    // drawer kept under the sheet). AVATAR-PAGE: the avatar editor too, docked at the left as the Profile that opens it.
+    // MISSIONS-PAGE, LEAGUE-PAGE, COLLECTION-PAGE, VAULT-PAGE, CHAT-PAGE, GUILD-PAGE, FRIENDS-PAGE, SETTINGS-PAGE, PLAY-PAGE: the League,
+    // Missions, Tiles, the Vault, the Chat, the Guild, Friends, Settings (its Themes and Credits) and Play are the HUD's drawer over the
+    // home at every width, never the side panel; children of the home's route. Play's stake is a view of its drawer, Story's campaigns
+    // a sheet over it (the drawer kept under the sheet). AVATAR-PAGE: the avatar editor too, docked at the left as the Profile that
+    // opens it.
     expect(PAGES.filter((p) => p.drawer).map((p) => p.path)).toEqual([
       "play",
       "play/challenge",
@@ -111,6 +112,7 @@ describe("the route map (#762)", () => {
       "story",
       "missions",
       "tiles",
+      "vault",
       "chat",
       "chat/private/:player",
       "chat/:tab",
@@ -138,19 +140,38 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     expect(within(dock).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Shop", "Ranking", "Play", "Guild", "Settings"]);
   });
 
-  it.each([["Vault", "Village", "/vault", "Vault", "right"]] as const)("%s opens its page in the panel, the URL naming it, the village still mounted", async (button, from, path, title, side) => {
+  it("the Referral, reached from the profile's Invite, opens in the panel: the URL naming it, the village still mounted, no close button", async () => {
+    // The last page of the side panel (VAULT-PAGE: the Vault, the overlay column's last page, is the HUD's drawer).
     const router = open("/");
-    // The overlay's column (HOME-EDGES' tiles: the Vault).
-    const column = await screen.findByRole("navigation", { name: from }, { timeout: slow(5000) });
-    await userEvent.click(within(column).getByRole("button", { name: new RegExp(`^${button}`) }));
-    const dialog = await panel(title);
-    expect(router.state.location.pathname).toBe(path);
-    expect(dialog).toHaveAttribute("data-side", side);
+    await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await act(() => router.navigate("/referral"));
+    const dialog = await panel("Referral");
+    expect(dialog).toHaveAttribute("data-side", "right");
     expect(village()).toBeInTheDocument();
-    // A page of the overlay itself: no Back, and no close button (#782): a click outside or Escape closes it.
+    // No close button (#782): a click outside or Escape closes it.
     await waitFor(() => expect(dialog.querySelector("[data-slot=page-scroll]")?.childElementCount).toBeGreaterThan(0), { timeout: slow(5000) });
     expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
-    expect(within(dialog).queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  it("the overlay's Vault opens the HUD's drawer at the right (VAULT-PAGE), not the panel: its title, PAVED and vPAVED, the red cross; its tabs at the foot", async () => {
+    wide();
+    const router = open("/");
+    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await userEvent.click(within(column).getByRole("button", { name: /^Vault/ }));
+    const drawer = await panel("Vault");
+    expect(router.state.location.pathname).toBe("/vault");
+    expect(drawer).toHaveAttribute("data-hud-drawer", "vault");
+    expect(drawer).toHaveAttribute("data-side", "right");
+    expect(village()).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    const header = drawer.querySelector<HTMLElement>('[data-slot="sheet-header"]')!;
+    expect([...header.children].map((el) => el.getAttribute("data-slot"))).toEqual(["hud-drawer-title", "hud-drawer-end", "hud-drawer-close"]);
+    expect(await within(drawer).findByRole("tablist", { name: "Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(router.state.historyAction).toBe("POP");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^Vault/ })).toHaveFocus());
   });
 
   it("Missions opens the HUD's drawer at the right (MISSIONS-PAGE), not the panel: the URL naming it, the village still mounted, the title on the left, the red cross at the right end", async () => {
@@ -313,11 +334,11 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
 
   it("the dock stays under the panel (DOCK-UNDER-PAGES, the owner's ask of 2026-11-04): veiled and blurred, the page leaving it no room", async () => {
     const router = open("/");
-    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    await userEvent.click(within(column).getByRole("button", { name: /^Vault/ }));
-    const vault = await panel("Vault");
+    await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await act(() => router.navigate("/referral"));
+    const referral = await panel("Referral");
     // The page leaves the dock no room at its end.
-    expect(vault.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom).toBe("");
+    expect(referral.querySelector<HTMLElement>("[data-slot=page-scroll]")!.style.paddingBottom).toBe("");
     // The veil (the Sheet's, `z-50`) stands over the dock's band (`z-20`), nothing raising it, and blurs it with the village (as the
     // HUD drawer's veil). jsdom applies no stylesheet: the `Dock` stories of Scenes/Home/Panels check what the screen shows.
     const veil = document.querySelector("[data-slot=sheet-overlay]")!;
@@ -331,29 +352,28 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
   });
 
   it("a reload with the panel open reopens it over the village; its close then replaces the entry with the home's", async () => {
-    const router = open("/vault");
-    await panel("Vault");
+    const router = open("/referral");
+    await panel("Referral");
     await waitFor(() => expect(village()).toBeInTheDocument(), { timeout: slow(5000) });
-    await panel("Vault");
+    await panel("Referral");
     await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("REPLACE");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
   });
 
-  it("has no close button; a click on the village closes it, and the focus goes back to the overlay's button that opened it (#782)", async () => {
+  it("has no close button; a click on the village closes it (#782)", async () => {
+    // No control of the home opens a page of the panel any more (VAULT-PAGE): the focus's way back is the drawers' (above).
     const router = open("/");
-    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    const opener = within(column).getByRole("button", { name: /^Vault/ });
-    await userEvent.click(opener);
-    const dialog = await panel("Vault");
+    await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await act(() => router.navigate("/referral"));
+    const dialog = await panel("Referral");
     // Its accessible name stays (the dialog's title), and the keyboard's way out is Escape.
-    expect(dialog).toHaveAccessibleName("Vault");
+    expect(dialog).toHaveAccessibleName("Referral");
     expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
     await clickOutside();
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
-    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Village" })).getByRole("button", { name: /^Vault/ })).toHaveFocus());
   });
 
   it("closes on Escape, back to the home's own entry (Back does not reopen it), the focus on the button that opened it", async () => {
@@ -370,9 +390,9 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
 
   it("the browser's Back closes it", async () => {
     const router = open("/");
-    const column = await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
-    await userEvent.click(within(column).getByRole("button", { name: /^Vault/ }));
-    await panel("Vault");
+    await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
+    await act(() => router.navigate("/referral"));
+    await panel("Referral");
     await router.navigate(-1);
     expect(router.state.location.pathname).toBe("/");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });

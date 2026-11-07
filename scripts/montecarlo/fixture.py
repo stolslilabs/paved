@@ -16,10 +16,10 @@ The pool keeps its fee in its reserves, as MockRouter does (sim.py keeps it out:
 sim.py's pool instead, to measure that gap). It prints the day means and the rows of `expected()` in
 the test: (PAVED bought, R, payout), in base units.
 
-`--margin-paved` runs the purchase as `Economy` does since P-56: one swap of the burn quote and the
-margin (the price less any referral), its PAVED split by input, the margin's part to the Vault and the
-burn's part burned; R and the guard read the burn's part, which "PAVED bought" reports. The test's
-table is this output.
+By default the purchase is `Economy`'s since D-31: the burn quote alone is swapped and all of it
+burned, the margin paid to the Vault in USDC. The test's table is this output. `--margin-paved` runs
+P-56's purchase instead (one swap of the burn quote and the margin, its PAVED split by input, the
+margin's part to the Vault and the burn's part burned; R and the guard read the burn's part).
 """
 
 import sys

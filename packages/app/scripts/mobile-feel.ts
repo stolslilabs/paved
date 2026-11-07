@@ -48,11 +48,11 @@ async function pinch(cdp: CDPSession, x: number, y: number, scaleFactor: number)
 
 async function main(): Promise<void> {
   const given = process.argv.indexOf("--url") >= 0 ? process.argv[process.argv.indexOf("--url") + 1] : "";
-  // The mock, as the PAGES-SCROLL pass: the connected Vault below reads no chain, its writes go to the device's ledger only.
+  // The mock, as the PAGES-SCROLL pass: the connected Referral below reads no chain, nothing is sent.
   if (!given) process.env.VITE_DATA_SOURCE ??= "mock";
   // The scan from the app's page only, as the Training e2e's: crawling `scripts/` fails on a render page's bare `three`, Vite
   // then skips the pre-bundling and reloads the page each time it finds a dependency at run time, which on a cold cache (CI)
-  // lands in the middle of the tab page's checks (the connected Vault's `zustand`: its scroll offset lost to the reload).
+  // lands in the middle of the tab page's checks (a connected page's `zustand`: its scroll offset lost to the reload).
   const vite = given
     ? null
     : await createVite({
@@ -74,8 +74,9 @@ async function main(): Promise<void> {
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
 
-    // The chrome: the Vault is text and rows, no board (Settings, the HUD's drawer since SETTINGS-PAGE, draws the village under it).
-    await page.goto(`${base}/vault`, { waitUntil: "networkidle" });
+    // The chrome: the Referral is text and rows, no board (the Vault and Settings, the HUD's drawers since VAULT-PAGE and SETTINGS-PAGE,
+    // draw the village under them).
+    await page.goto(`${base}/referral`, { waitUntil: "networkidle" });
     await page.getByRole("heading").first().waitFor();
     const meta = await page.evaluate(() => document.querySelector('meta[name="viewport"]')?.getAttribute("content") ?? "");
     check("viewport meta forbids zoom", /maximum-scale=1/.test(meta) && /user-scalable=no/.test(meta) && /viewport-fit=cover/.test(meta), meta);
@@ -97,20 +98,25 @@ async function main(): Promise<void> {
 
     // FOOTER-FIXED (#611): the document never scrolls or bounces; the page scrolls in its own region, its header sticking to
     // the viewport's top through a scroll. DOCK-UNDER-PAGES (2026-11-04): a page carries no dock, its way out is its Back.
-    // The tab page is the Vault, connected (the mock's device key, nothing sent): its form and an empty wallet's Play, 743 px,
-    // taller than its region on an iPhone SE's view under Safari's bars (548 px, the PAGES-SCROLL pass's short screen) at the
-    // Pixel 7's width. Settings, which was taller than a phone even for a guest, is the HUD's drawer (SETTINGS-PAGE), not a tab page.
-    // No Connect since NO-GUEST (the account is made at start); an older build still shows one.
+    // The tab page is the Referral, connected (the mock's device key, nothing sent): its link, its share and its earnings, taller
+    // than its region on an iPhone SE's view under Safari's bars (548 px, the PAGES-SCROLL pass's short screen) at the Pixel 7's
+    // width. It is the last page of its own: the Vault (VAULT-PAGE), Settings (SETTINGS-PAGE) and the others are the HUD's drawers.
+    // It is reached from the profile's Invite (a push over the village): its Back goes back to the village, Forward to it again.
+    // A guest's Connect while the app still has one; none once every player has an account (the owner's ruling of 2026-11-07).
     const connect = page.getByRole("button", { name: "Connect" });
-    if ((await connect.count()) > 0) await connect.first().click();
-    const play = page.getByRole("button", { name: "Play", exact: true });
-    await play.waitFor();
+    if (await connect.count()) await connect.first().click();
+    const link = page.getByLabel("Your referral link");
+    await link.waitFor();
+    await page.goto(`${base}/`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: /^Profile: / }).click();
+    await page.getByRole("dialog", { name: "Profile" }).getByRole("button", { name: "Invite" }).click();
+    await page.waitForURL(/\/referral$/);
     const phone = page.viewportSize()!;
     await page.setViewportSize({ width: phone.width, height: 548 });
     // The session's change draws the page again: its region is waited for, not assumed.
     await page.waitForLoadState("networkidle");
     await page.locator("[data-slot=page-scroll]").first().waitFor();
-    await play.waitFor();
+    await link.waitFor();
     await page.waitForTimeout(500);
     const header = page.locator("[data-slot=page-header]").first();
     const headerTop = async () => (await header.boundingBox())!.y;
@@ -121,58 +127,55 @@ async function main(): Promise<void> {
     }));
     check("tab page: html and body take no overscroll, the region contains its own", docStyles.html === "none" && docStyles.body === "none" && docStyles.region === "contain", JSON.stringify(docStyles));
     const docks = await page.getByRole("navigation", { name: "Main" }).count();
-    check("tab page: no dock on a page, Back at its top left", docks === 0 && (await header.getByRole("button", { name: "Back" }).count()) === 1, `${docks} dock(s)`);
+    const backs = header.getByRole("button", { name: "Back" });
+    check("tab page: no dock on a page, Back at its top left", docks === 0 && (await backs.count()) === 1, `${docks} dock(s)`);
     const headerBefore = await headerTop();
     await page.mouse.wheel(0, 2000);
     await page.waitForTimeout(300);
     const docScroll = await page.evaluate(() => document.scrollingElement!.scrollTop);
     check("tab page: the document does not scroll", docScroll === 0, `scrollTop ${docScroll}`);
     check("tab page: the header does not move on a scroll", (await headerTop()) === headerBefore, `${await headerTop()} vs ${headerBefore}`);
-    // Back brings the page back where it was left (the region keeps its offset per history entry).
+    // A step back and forward brings the page back where it was left (the region keeps its offset per history entry).
     const region = page.locator("[data-slot=page-scroll]").first();
     const left = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
     await page.waitForTimeout(300);
-    await play.click();
-    await page.waitForURL(/\/play$/);
-    await page.goBack();
-    await play.waitFor();
+    await backs.click();
+    await page.waitForURL(/\/$/);
+    await page.goForward();
+    await link.waitFor();
     await page.waitForTimeout(500);
     const back = await region.evaluate((el) => el.scrollTop);
-    check("tab page: Back restores the page's scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
+    check("tab page: Forward to the page restores its scroll offset", left > 0 && Math.abs(back - left) < 2, `left at ${left}, back at ${back}`);
     await region.evaluate((el) => (el.scrollTop = 0));
     await page.waitForTimeout(300);
-    // Back to an entry left at the top returns to the top: the Vault left at 0, Play (a full-screen flow below `desktop`: its
-    // document scrolls) scrolled, then Back. A dispatched click: a pointer's would first scroll the region to Play, at its foot.
-    await play.dispatchEvent("click");
-    await page.waitForURL(/\/play$/);
+    // To an entry left at the top returns to the top: the Referral left at 0, the village, then Forward. A dispatched click: a
+    // pointer's would first scroll the region to the header's Back.
+    await backs.dispatchEvent("click");
+    await page.waitForURL(/\/$/);
     await page.waitForTimeout(500);
-    await page.evaluate(() => (document.scrollingElement!.scrollTop = 500));
-    await page.waitForTimeout(300);
-    await page.goBack();
-    await play.waitFor();
+    await page.goForward();
+    await link.waitFor();
     await page.waitForTimeout(500);
     const backToTop = await region.evaluate((el) => el.scrollTop);
-    check("tab page: Back to an entry left at the top returns to the top", backToTop === 0, `scrollTop ${backToTop}`);
-    await page.goto(`${base}/vault`, { waitUntil: "networkidle" });
-    await region.waitFor();
+    check("tab page: to an entry left at the top returns to the top", backToTop === 0, `scrollTop ${backToTop}`);
     // A fresh document (a typed URL) opens at the top: its first entry never takes another page's offset.
     await region.evaluate((el) => (el.scrollTop = el.scrollHeight));
     await page.waitForTimeout(300);
-    for (const path of ["/referral", "/vault"]) {
-      await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
-      await region.waitFor();
-      await page.waitForTimeout(500);
-      const fresh = await region.evaluate((el) => el.scrollTop);
-      check(`tab page: a fresh load of ${path} opens at the top`, fresh === 0, `scrollTop ${fresh}`);
-    }
-    // The first entry of that fresh document keeps its offset across a reload of a later entry.
+    // Another document first (the village): a typed URL that is the current one is a reload, which keeps its entry.
+    await page.goto(`${base}/`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/referral`, { waitUntil: "networkidle" });
+    await region.waitFor();
+    await link.waitFor();
+    await page.waitForTimeout(500);
+    const fresh = await region.evaluate((el) => el.scrollTop);
+    check("tab page: a fresh load of /referral opens at the top", fresh === 0, `scrollTop ${fresh}`);
+    // The first entry of that fresh document keeps its offset across a reload of a later entry (the village, typed).
     const kept = await region.evaluate((el) => (el.scrollTop = el.scrollHeight, el.scrollTop));
     await page.waitForTimeout(300);
-    await play.click();
-    await page.waitForURL(/\/play$/);
+    await page.goto(`${base}/`, { waitUntil: "networkidle" });
     await page.reload({ waitUntil: "networkidle" });
     await page.goBack();
-    await play.waitFor();
+    await link.waitFor();
     await page.waitForTimeout(500);
     const afterReload = await region.evaluate((el) => el.scrollTop);
     check("tab page: Back after a reload of the next page restores the first entry's offset", kept > 0 && Math.abs(afterReload - kept) < 2, `left at ${kept}, back at ${afterReload}`);

@@ -51,7 +51,7 @@ export default function ChallengeStake() {
   const paused = useSpawnPaused();
   const split = useSplit();
   const balance = useUsdcBalance(playerId);
-  const stakeQuote = useStakeQuote(stake, gameReferrer.referrer !== null);
+  const stakeQuote = useStakeQuote(stake);
   const purchase = usePurchase(playerId);
 
   const quote = stakeQuote.quote;

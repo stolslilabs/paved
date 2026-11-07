@@ -586,6 +586,21 @@ is 0 again from `sigma` +0.1 (54 % and 52 % lost).
 
 ## 4. The Vault
 
+### D-31: the margin paid in USDC, claimable (as Nums' Vault)
+
+The owner (2026-11-07) asked that the vPAVED holders earn USDC they claim whenever they like, "the same as the Nums
+project". Design: `docs/architecture/vault-share.md`, addendum 2. It replaces P-56's margin in PAVED:
+
+- A purchase (and a sale) swaps the burn quote only and burns all its PAVED; the rest of the price, less the referral,
+  is paid to the Vault in USDC (`Vault.pay`) and shared among the holders by a per-share index, settled on every
+  transfer, mint and burn. Shares at the defaults: 69.996 % of the price burned, 3.684 % to the LP, 26.32 % to the
+  holders (21.32 % and 5 % to the referrer with one).
+- The rate of vPAVED rises only with the exit fee (and the rounding). No dead shares: the owner's deposit is the first.
+- The owner may pause and close the Vault, and collect a contract holder's USDC.
+- `sim.py --margin-paved`, rows "burn 73.68 %" with the margin in USDC (option B, 200 games a day, a year, seed 8):
+  house edge 33.2 %, mint/burn 0.999, 118,305 USDC to the holders in the year (option A: 33.4 %; 20 games a day:
+  35.2 %, 11,726 USDC).
+
 ### As built: V1b (vPAVED, the margin as PAVED, the split; P-56)
 
 P-56 (the owner's correction of P-55's 1:1 share, 2026-10-14; design: `docs/architecture/vault-share.md`, addendum)

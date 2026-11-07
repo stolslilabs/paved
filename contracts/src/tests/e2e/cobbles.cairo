@@ -228,8 +228,9 @@ fn test_cobbles_e2e_day_credit_end_to_end() {
     assert_eq!(account.credits, 0);
 }
 
-/// A7: a free game brings nothing into the Vault and takes nothing out. Its spawn makes no token
-/// transfer and no `Economy` call, its game over no `Economy.record`, and no `settle` can pay it.
+/// A7: a free game brings nothing into the Vault and takes nothing out, neither PAVED nor USDC (its
+/// reward since D-31). Its spawn makes no token transfer and no `Economy` call, its game over no
+/// `Economy.record`, and no `settle` can pay it.
 #[test]
 #[available_gas(l2_gas: 213696699)]
 #[feature("safe_dispatcher")]
@@ -246,6 +247,7 @@ fn test_cobbles_A7_free_game_brings_nothing_into_the_vault() {
         contract_address: addresses.paved,
     };
     let vault_paved = paved_token.balance_of(addresses.vault);
+    let vault_usdc = usdc.balance_of(addresses.vault);
     let supply = paved_token.total_supply();
     let mut spy = spy_events();
     let game_id = systems.challenge.spawn_free();
@@ -260,6 +262,7 @@ fn test_cobbles_A7_free_game_brings_nothing_into_the_vault() {
     assert_eq!(usdc.balance_of(PLAYER()), player_usdc);
     assert_eq!(usdc.balance_of(economy), economy_usdc);
     assert_eq!(paved_token.balance_of(addresses.vault), vault_paved);
+    assert_eq!(usdc.balance_of(addresses.vault), vault_usdc);
     assert_eq!(paved_token.total_supply(), supply);
     // [Check] The game is the player's token, and `Economy` does not know it
     let collection = IERC721SoulboundDispatcher {

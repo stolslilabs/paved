@@ -59,6 +59,7 @@ use paved::systems::setup::{
     ISetupSpendDispatcher, ISetupSpendDispatcherTrait, ISetupStoryDispatcher,
     ISetupStoryDispatcherTrait, XP_ATTACK,
 };
+use paved::systems::vault::{IVaultDispatcher, IVaultDispatcherTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -113,15 +114,21 @@ pub const CEILING_GAME_OVER_ON_BUILD: u128 = 8089321;
 // s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
 pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 4744364;
 // m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
-// `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M).
-pub const CEILING_SPAWN_DAILY: u128 = 18515090;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 19454704;
+// `Economy.purchase` (swap, burn, Vault). G1 cut the deck walk of the spawn (about 32M). D-31: the
+// margin is paid to the Vault in USDC (`approve`, `Vault.pay`) instead of a PAVED transfer, and
+// the swap is the burn quote's only: measured + 5 % again (as z7, z8 and z10).
+pub const CEILING_SPAWN_DAILY: u128 = 20128866;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 21068479;
 // t to w: the Vault, vPAVED (P-56), each call by a holder who delegated to themselves (the votes'
-// checkpoints included), after a paid spawn (its margin in the Vault, so the rate is above 1).
-pub const CEILING_VAULT_DEPOSIT: u128 = 3903711;
-pub const CEILING_VAULT_REDEEM: u128 = 3809165;
-pub const CEILING_VAULT_WITHDRAW: u128 = 5499165;
-pub const CEILING_VAULT_TRANSFER: u128 = 1583287;
+// checkpoints included), after a paid spawn (its margin paid to the holders in USDC, D-31). Since
+// D-31 every balance change settles the USDC reward of both sides first (as Nums' Vault): measured
+// + 5 % again.
+pub const CEILING_VAULT_DEPOSIT: u128 = 4180890;
+pub const CEILING_VAULT_REDEEM: u128 = 4131840;
+pub const CEILING_VAULT_WITHDRAW: u128 = 5822890;
+pub const CEILING_VAULT_TRANSFER: u128 = 2239589;
+// w2: the claim (D-31), measured + 5 %.
+pub const CEILING_VAULT_CLAIM: u128 = 2008713;
 // Cobbles v1, part 1 (P-61): every paid game over writes Setup's ledger (the day's and the
 // account's slots, and the week's from week 0 on), so g, i, k, l and s are reset to measured + 5 %
 // (`docs/measures/baseline.md`, "After cobbles v1, part 1"): +645,916 each, +722,746 on k. x and y
@@ -136,13 +143,13 @@ pub const CEILING_SPAWN_FREE: u128 = 8937440;
 pub const CEILING_FREE_GAME_OVER: u128 = 1983591;
 // Cobbles v1, part 2 (P-61): z7 and z8, `buy_pack` with no referrer and with one; z9, `set_pack`
 // (measured + 5 %, `docs/measures/baseline.md`, "After cobbles v1, part 2").
-pub const CEILING_BUY_PACK: u128 = 9897659;
-pub const CEILING_BUY_PACK_REFERRED: u128 = 10814792;
+pub const CEILING_BUY_PACK: u128 = 11582624;
+pub const CEILING_BUY_PACK_REFERRED: u128 = 12499757;
 pub const CEILING_SET_PACK: u128 = 327873;
 // Cobbles v1, part 3 (P-61): z10, `buy_pack` as the first sale of a block; z11 `buy_skin`, z12 and
 // z13 `set_skins` (1 and 19 changes), z14 `set_skin_price` (measured + 5 %,
 // `docs/measures/baseline.md`, "After cobbles v1, part 3").
-pub const CEILING_BUY_PACK_FIRST_OF_BLOCK: u128 = 10264035;
+pub const CEILING_BUY_PACK_FIRST_OF_BLOCK: u128 = 11897824;
 pub const CEILING_BUY_SKIN: u128 = 787830;
 pub const CEILING_SET_SKINS_1: u128 = 479549;
 pub const CEILING_SET_SKINS_19: u128 = 2789690;
@@ -599,6 +606,19 @@ fn test_gas_w_vault_transfer() {
     share.transfer(ANYONE(), 1_000 * PAVED);
     let after = get_available_gas();
     report("w_vault_transfer", before - after, CEILING_VAULT_TRANSFER);
+}
+
+/// w2. The owner's claim of the USDC its stake earned from the paid spawn (D-31): the settlement,
+/// the totals and the USDC transfer.
+#[test]
+fn test_gas_w2_vault_claim() {
+    let (share, _) = vault();
+    let vault = IVaultDispatcher { contract_address: share.contract_address };
+    assert(vault.claimable_of(OWNER()) > 0, 'Gas: nothing to claim');
+    let before = get_available_gas();
+    vault.claim();
+    let after = get_available_gas();
+    report("w2_vault_claim", before - after, CEILING_VAULT_CLAIM);
 }
 
 // Cobbles v1, part 1 (P-61): the claims, the free spawn and a free game's game over. Each figure is

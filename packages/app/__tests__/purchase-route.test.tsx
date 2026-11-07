@@ -259,10 +259,11 @@ describe("/play/challenge: the game's stake", () => {
     expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[USDC, "approve"], [ADDR.Challenge, "spawn"]]);
     expect(BigInt(calls[0].calldata[0])).toBe(BigInt(ADDR.Challenge));
     expect(u256(calls[0].calldata[1], calls[0].calldata[2])).toBe(3n * FAKE_UNIT);
-    // spawn(3, no referrer, min_out): the pool's quote of the 6 USDC swap, less 1 %.
-    const minOut = ((((6n * USDC_UNIT * 95n * 80n * 10n ** 18n) / (100n * USDC_UNIT)) * 9_900n) / 10_000n);
+    // spawn(3, no referrer, min_out): the pool's quote of the swap of the burn quote (the fake's 70 % of 6 USDC, D-31),
+    // less 1 %; the margin goes to the Vault in USDC.
+    const minOut = ((((4_200_000n * 95n * 80n * 10n ** 18n) / (100n * USDC_UNIT)) * 9_900n) / 10_000n);
     expect([Number(calls[1].calldata[0]), BigInt(calls[1].calldata[1]), u256(calls[1].calldata[2], calls[1].calldata[3])]).toEqual([3, 0n, minOut]);
-    expect(s.pool.calls).toContain(6n * USDC_UNIT);
+    expect(s.pool.calls).toContain(4_200_000n);
   });
 
   it("the 24 h expiry is read against the chain's time, not the browser's (UTC-BOUND)", async () => {
@@ -283,13 +284,13 @@ describe("/play/challenge: the game's stake", () => {
     }
   });
 
-  it("sends the referrer of ?ref=, which keeps the 5 % out of the swap", async () => {
+  it("sends the referrer of ?ref=; the swap is the burn quote all the same (the 5 % comes out of the Vault's USDC, D-31)", async () => {
     const s = setup();
     open(`/play/challenge?ref=${REF}`, s);
     await userEvent.click(await enabledPay());
     await waitFor(() => expect(s.sent).toHaveLength(1));
     expect(BigInt(s.sent[0][1].calldata[1])).toBe(BigInt(REF));
-    expect(s.pool.calls.at(-1)).toBe(1_900_000n);
+    expect(s.pool.calls.at(-1)).toBe(1_400_000n);
   });
 
   it("shows the reward by score from the pool's quote and the guard's rate (#705)", async () => {
@@ -373,7 +374,7 @@ describe("/play/challenge: the game's stake", () => {
     expect(screen.queryByText("The price moved")).toBeNull();
     expect(s.sent).toEqual([]);
     // The quote is read again: the next Pay sends at the new min_out.
-    await waitFor(() => expect(s.pool.calls.filter((c) => c === 2n * USDC_UNIT).length).toBeGreaterThanOrEqual(3));
+    await waitFor(() => expect(s.pool.calls.filter((c) => c === 1_400_000n).length).toBeGreaterThanOrEqual(3));
     await userEvent.click(await enabledPay());
     await waitFor(() => expect(s.sent).toHaveLength(1));
   });
@@ -524,8 +525,8 @@ describe("/cobbles: the packs (#621), the Shop's Cobbles tab (SHOP-PAGE)", () =>
     expect(u256(calls[0].calldata[1], calls[0].calldata[2])).toBe(9_000_000n);
     expect(Number(calls[1].calldata[0])).toBe(2);
     expect(BigInt(calls[1].calldata[1])).toBe(BigInt(REF));
-    // The swap takes the price less the 5 % referral.
-    expect(s.pool.calls).toContain(8_550_000n);
+    // The swap takes the pack's burn quote (the fake's 70 %), with or without the referral (D-31).
+    expect(s.pool.calls).toContain(6_300_000n);
     // 240 + 100, from the receipt.
     expect(await screen.findAllByRole("img", { name: "340 Cobbles" })).not.toHaveLength(0);
   });
@@ -614,7 +615,7 @@ describe("/cobbles: the packs (#621), the Shop's Cobbles tab (SHOP-PAGE)", () =>
     expect(screen.queryByRole("list", { name: "Cobble packs" })).toBeNull();
   });
 
-  it("a ?ref= the pack's split ignores (the Vault) is shown as no referrer, and sent as 0x0 with the whole price swapped", async () => {
+  it("a ?ref= the pack's split ignores (the Vault) is shown as no referrer, and sent as 0x0 with its burn quote swapped", async () => {
     const s = setup();
     open(`/cobbles?ref=${ECON.vault}`, s);
     await userEvent.click(await screen.findByRole("button", { name: /^50 Cobbles/ }, { timeout: slow(3000) }));
@@ -623,8 +624,7 @@ describe("/cobbles: the packs (#621), the Shop's Cobbles tab (SHOP-PAGE)", () =>
     await userEvent.click(await enabledPay(/Pay \$5 for/));
     await waitFor(() => expect(s.sent).toHaveLength(1));
     expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
-    expect(s.pool.calls).toContain(5_000_000n);
-    expect(s.pool.calls).not.toContain(4_750_000n);
+    expect(s.pool.calls).toContain(3_500_000n);
   });
 
   it("no Connect to buy (NO-GUEST): the packs show, Pay in its place", async () => {
@@ -821,7 +821,7 @@ describe("an unknown outcome survives a remount, a reload and a failed check (re
     await userEvent.click(await enabledPay());
     await waitFor(() => expect(s.sent).toHaveLength(1));
     expect(BigInt(s.sent[0][1].calldata[1])).toBe(0n);
-    expect(s.pool.calls).not.toContain(1_900_000n);
+    expect(s.pool.calls).toContain(1_400_000n);
   });
 });
 

@@ -28,7 +28,7 @@ function open(path: string, wallet = fakeWallet()) {
 }
 
 // The Back button is the board's own: the real board is kept, loaded once before the first test.
-preloadPages("board", "home", "missions", "play");
+preloadPages("board", "home", "missions", "play", "vault", "referral");
 
 beforeEach(() => {
   // Importing the router module creates the app's browser router, which writes `idx` into jsdom's history state: a memory
@@ -182,7 +182,8 @@ describe("?ref= survives", () => {
     const router = open("/?ref=0xabc");
     await screen.findByRole("heading", { name: "Home" });
     await userEvent.click(within(await screen.findByRole("navigation", { name: "Village" })).getByRole("button", { name: "Vault" }));
-    await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
+    // The HUD's drawer over the home (VAULT-PAGE).
+    await screen.findByRole("dialog", { name: "Vault" }, { timeout: slow(5000) });
     expect(router.state.location.search).toBe("?ref=0xabc");
     cleanup();
     const again = open("/?ref=0xabc");
@@ -276,15 +277,16 @@ describe("Back", () => {
   it("a game opened from a page goes back to it, and that page's Back up to the village (BACK-RULE #783)", async () => {
     const router = open("/");
     await screen.findByRole("heading", { level: 1, name: "Home" });
-    await act(() => router.navigate("/vault"));
-    await screen.findByRole("heading", { level: 1, name: "Vault" });
+    // A page of its own (the Referral: the Vault is the HUD's drawer since VAULT-PAGE).
+    await act(() => router.navigate("/referral"));
+    await screen.findByRole("heading", { level: 1, name: "Referral" }, { timeout: slow(5000) });
     await act(() => router.navigate("/game/7"));
     await waitFor(() => expect(router.state.location.pathname).toBe("/game/7"));
     await userEvent.click(await screen.findByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/vault"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/referral"));
     expect(router.state.historyAction).toBe("POP");
     await waitFor(async () => {
-      if (router.state.location.pathname === "/vault") await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      if (router.state.location.pathname === "/referral") await userEvent.click(screen.getByRole("button", { name: "Back" }));
       expect(router.state.location.pathname).toBe("/");
     });
     expect(router.state.historyAction).toBe("POP");

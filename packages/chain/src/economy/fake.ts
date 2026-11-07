@@ -3,7 +3,7 @@
 import { ViewError } from "../views";
 import { BPS, RATE_SCALE, isStake, minOutFor, priceOf, swapInputOf } from "./amounts";
 import type { PoolQuoter } from "./pool";
-import type { DayView, EconomyViews, QuoteView, SplitView, TermsView, VaultPosition } from "./views";
+import type { DayView, EconomyViews, QuoteView, SplitView, TermsView, VaultEarnings, VaultPosition } from "./views";
 
 /** USDC's base units of 2 USDC: the `Mode::Challenge` unit price of economy.md. */
 export const FAKE_UNIT = 2_000_000n;
@@ -50,9 +50,17 @@ export class FakeEconomy implements EconomyViews {
   readonly terms_ = new Map<number, TermsView>();
   /** vPAVED held, by account. */
   readonly shares = new Map<string, bigint>();
-  /** The Vault (P-56): its PAVED, its vPAVED (1,000 dead shares at deployment, as `deploy.sh`) and the exit fee. */
+  /**
+   * The Vault (P-56): its PAVED, its vPAVED and the exit fee. At start the owner's stake of 1,000 vPAVED for 1,000 PAVED
+   * (D-31: no dead shares; the deployment's first deposit is the owner's).
+   */
   vaultAssets = 1_000n * 10n ** 18n;
   vaultSupply = 1_000n * 10n ** 18n;
+  /** The Vault's USDC reward (D-31), by account: what was claimed and what is claimable now (USDC base units). */
+  readonly rewards = new Map<string, { claimed: bigint; claimable: bigint }>();
+  /** `Vault.is_paused()` and `is_open()` (D-31, as Nums): open and not paused by default. */
+  vaultPaused = false;
+  vaultOpen = true;
   /** The deployment's default (`DEFAULT_EXIT_FEE_BPS`, 5 %, P-56). */
   exitFeeBps = 500;
   /** `Vault.delegates`, by account: none delegated by default. */
@@ -126,6 +134,12 @@ export class FakeEconomy implements EconomyViews {
     };
   }
 
+  async earnings(account: string): Promise<VaultEarnings> {
+    this.check(`earnings ${account}`);
+    const { claimed, claimable } = this.rewards.get(BigInt(account).toString(16)) ?? { claimed: 0n, claimable: 0n };
+    return { earned: claimed + claimable, claimed, claimable, paused: this.vaultPaused, open: this.vaultOpen };
+  }
+
   async maxRedeem(account: string): Promise<bigint> {
     this.check(`max_redeem ${account}`);
     return this.shares.get(BigInt(account).toString(16)) ?? 0n;
@@ -140,6 +154,12 @@ export class FakeEconomy implements EconomyViews {
   async previewDeposit(assets: bigint): Promise<bigint> {
     this.check(`preview_deposit ${assets}`);
     return (assets * (this.vaultSupply + 1n)) / (this.vaultAssets + 1n);
+  }
+
+  /** `convert_to_assets` rounded up, as OpenZeppelin's `preview_mint` (no entry fee). */
+  async previewMint(shares: bigint): Promise<bigint> {
+    this.check(`preview_mint ${shares}`);
+    return ceilDiv(shares * (this.vaultAssets + 1n), this.vaultSupply + 1n);
   }
 
   async previewWithdraw(assets: bigint): Promise<bigint> {
@@ -182,6 +202,22 @@ export class FakeEconomy implements EconomyViews {
     this.shares.set(key, shares);
   }
 
+  /** `account`'s USDC reward (D-31): `claimed` so far and `claimable` now, USDC base units. */
+  setEarnings(account: string, earnings: { claimed?: bigint; claimable?: bigint }): void {
+    const key = BigInt(account).toString(16);
+    const current = this.rewards.get(key) ?? { claimed: 0n, claimable: 0n };
+    this.rewards.set(key, { claimed: earnings.claimed ?? current.claimed, claimable: earnings.claimable ?? current.claimable });
+  }
+
+  /** What a `claim` does to the fake (D-31): the claimable USDC moves to `claimed` and to the account's balance. */
+  claimed(account: string): bigint {
+    const key = BigInt(account).toString(16);
+    const { claimed, claimable } = this.rewards.get(key) ?? { claimed: 0n, claimable: 0n };
+    this.rewards.set(key, { claimed: claimed + claimable, claimable: 0n });
+    this.usdc.set(key, (this.usdc.get(key) ?? 0n) + claimable);
+    return claimable;
+  }
+
   /** `account` delegated its votes to `delegatee` (`delegate`, which the client never sends). */
   setDelegate(account: string, delegatee: string): void {
     this.delegates.set(BigInt(account).toString(16), delegatee);
@@ -192,11 +228,11 @@ export class FakeEconomy implements EconomyViews {
   }
 
   /**
-   * The `min_out` a purchase of `stake` sends with `FakePoolQuoter` and the default slippage: the quote of its one swap,
-   * the burn quote and the margin, the referral taken when `referred` (P-56).
+   * The `min_out` a purchase of `stake` sends with `FakePoolQuoter` and the default slippage: the quote of its swap, the
+   * burn quote only, with or without a referrer (D-31).
    */
-  async expectedMinOut(stake: number, pool: FakePoolQuoter = new FakePoolQuoter(), referred = false): Promise<bigint> {
-    return minOutFor(await pool.quoteSwap(swapInputOf(await this.quote(stake), referred)));
+  async expectedMinOut(stake: number, pool: FakePoolQuoter = new FakePoolQuoter()): Promise<bigint> {
+    return minOutFor(await pool.quoteSwap(swapInputOf(await this.quote(stake))));
   }
 
   private check(call: string): void {

@@ -16,7 +16,6 @@ use paved::systems::economy::{
 };
 use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
 use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
-use paved::systems::vault::DEAD_ASSETS;
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyTrait, EventsFilterTrait, declare, mock_call,
     spy_events, start_cheat_block_timestamp_global, start_cheat_caller_address,
@@ -46,6 +45,12 @@ const USDC: u256 = 1_000_000;
 const DAY0: u64 = 20_000;
 const MEAN0: u64 = 3_980_000;
 const POOL_RATE: u256 = 76_000_000_000_000 * RATE_SCALE;
+/// `RECIPIENT`'s deposit, the Vault's only shares (D-31: no dead shares).
+const STAKE: u256 = 1_000 * ONE_PAVED;
+/// A purchase of stake 1 at the decided split: 7,368 bps of the 2 USDC swapped for the burn, the
+/// rest the margin, paid to the Vault in USDC (less 5 % of the price with a referrer).
+const BURN_QUOTE: u256 = 1_473_600;
+const MARGIN: u256 = 526_400;
 
 #[derive(Copy, Drop)]
 struct Setup {
@@ -87,20 +92,23 @@ fn deploy_router(
     router
 }
 
-/// The launch pool (800,000 PAVED and 10,000 USDC), the Vault, and `Economy` with the decided
-/// configuration, `DAILY` as its game. An hour into `DAY0`.
+/// The launch pool (800,000 PAVED and 10,000 USDC), the Vault (its reward in the faucet's USDC)
+/// with `RECIPIENT`'s `STAKE` as its only shares, and `Economy` with the decided configuration,
+/// `DAILY` as its game. An hour into `DAY0`.
 fn setup() -> Setup {
     start_cheat_block_timestamp_global(DAY0 * DAY + 3600);
     let paved_address = deploy_token(RECIPIENT());
     let usdc_address = deploy("Faucet", array![]);
     let paved = IERC20Dispatcher { contract_address: paved_address };
     let usdc = IERC20Dispatcher { contract_address: usdc_address };
-    let vault = deploy("Vault", array![OWNER().into(), paved_address.into(), 0]);
+    let vault = deploy(
+        "Vault", array![OWNER().into(), paved_address.into(), usdc_address.into(), 0],
+    );
     start_cheat_caller_address(paved_address, RECIPIENT());
-    paved.approve(vault, DEAD_ASSETS);
+    paved.approve(vault, STAKE);
     stop_cheat_caller_address(paved_address);
     start_cheat_caller_address(vault, RECIPIENT());
-    IERC4626Dispatcher { contract_address: vault }.deposit(DEAD_ASSETS, vault);
+    IERC4626Dispatcher { contract_address: vault }.deposit(STAKE, RECIPIENT());
     stop_cheat_caller_address(vault);
     let router = deploy_router(paved, usdc, 800_000 * ONE_PAVED, 10_000 * USDC);
     let pool_key = IMockRouterDispatcher { contract_address: router }.pool_key();
@@ -171,7 +179,7 @@ fn test_purchase_refuses_a_paved_leg_paid_in() {
     let s = setup();
     donate_paved(s, s.economy.contract_address, 1_000 * ONE_PAVED);
     mock_swap(
-        s, i129 { mag: 2_000_000, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: false },
+        s, i129 { mag: 1_473_600, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: false },
     );
     pay(s, 1, 1, Zero::zero());
 }
@@ -182,7 +190,7 @@ fn test_purchase_refuses_a_paved_leg_paid_in() {
 fn test_purchase_refuses_a_paved_leg_paid_in_without_a_donation() {
     let s = setup();
     mock_swap(
-        s, i129 { mag: 2_000_000, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: false },
+        s, i129 { mag: 1_473_600, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: false },
     );
     let price = BASE_PRICE;
     IFaucetDispatcher { contract_address: s.usdc.contract_address }
@@ -198,27 +206,29 @@ fn test_purchase_refuses_a_paved_leg_paid_in_without_a_donation() {
 #[test]
 fn test_purchase_with_a_zero_paved_leg_buys_nothing() {
     let s = setup();
-    mock_swap(s, i129 { mag: 2_000_000, sign: false }, i129 { mag: 0, sign: false });
+    mock_swap(s, i129 { mag: BURN_QUOTE.low, sign: false }, i129 { mag: 0, sign: false });
     let supply = s.paved.total_supply();
     pay(s, 1, 1, Zero::zero());
-    // Nothing is burned, nothing goes to the Vault; the price stays on `Economy` as USDC (the
-    // router's `clear` hands back what it did not swap), to join the next purchase's margin
+    // Nothing is burned; the router's `clear` hands back the burn quote it did not swap, and it
+    // goes to the Vault with the margin (D-31): the whole price, in USDC. Nothing stays on
+    // `Economy`, and the Vault's PAVED does not move
     assert_eq!(s.paved.total_supply(), supply);
-    assert_eq!(s.paved.balance_of(s.vault), DEAD_ASSETS);
-    assert_eq!(s.usdc.balance_of(s.economy.contract_address), 2 * USDC);
+    assert_eq!(s.usdc.balance_of(s.vault), 2 * USDC);
+    assert_eq!(s.paved.balance_of(s.vault), STAKE);
+    assert_eq!(s.usdc.balance_of(s.economy.contract_address), 0);
 }
 
-/// The normal path through the real router is unchanged: the PAVED bought is burned (burn quote)
-/// and sent to the Vault (margin).
+/// The normal path through the real router is unchanged: the PAVED the burn quote bought is
+/// burned, and the margin paid to the Vault in USDC (D-31).
 #[test]
 fn test_purchase_through_the_router_is_unchanged() {
     let s = setup();
     let supply = s.paved.total_supply();
-    let quoted = s.economy.quote_swap(2_000_000);
+    let quoted = s.economy.quote_swap(BURN_QUOTE);
     pay(s, 1, 1, Zero::zero());
-    assert_eq!(
-        supply - s.paved.total_supply() + (s.paved.balance_of(s.vault) - DEAD_ASSETS), quoted,
-    );
+    assert_eq!(supply - s.paved.total_supply(), quoted);
+    assert_eq!(s.usdc.balance_of(s.vault), MARGIN);
+    assert_eq!(s.paved.balance_of(s.vault), STAKE);
     assert_eq!(s.paved.balance_of(s.economy.contract_address), 0);
     assert_eq!(s.usdc.balance_of(s.economy.contract_address), 0);
 }
@@ -226,8 +236,8 @@ fn test_purchase_through_the_router_is_unchanged() {
 // No referral to the protocol's own addresses
 
 /// One purchase of stake 1 with the referrer `kind` (0 none, 1 Vault, 2 router, 3 `Economy`, 4 the
-/// game, 5 the payer, 6 an outsider), on a fresh setup: its `Purchased` data, the Vault's PAVED,
-/// the supply after, and the USDC the referrer holds beyond what it held.
+/// game, 5 the payer, 6 an outsider), on a fresh setup: its `Purchased` data, the Vault's USDC (the
+/// margin paid to it), the supply after, and the USDC the referrer holds beyond what it held.
 fn run(kind: u8) -> (Array<felt252>, u256, u256, u256) {
     let s = setup();
     let referrer = if kind == 1 {
@@ -254,7 +264,7 @@ fn run(kind: u8) -> (Array<felt252>, u256, u256, u256) {
     } else {
         s.usdc.balance_of(referrer) - before
     };
-    (data, s.paved.balance_of(s.vault), s.paved.total_supply(), gained)
+    (data, s.usdc.balance_of(s.vault), s.paved.total_supply(), gained)
 }
 
 #[test]
@@ -263,18 +273,23 @@ fn test_referrals_to_the_protocol_pay_nothing_and_change_nothing() {
     // `referrer` is the fourth word of the data (day, stake, price x 2), `referral` the next two
     assert_eq!(*none.at(4), 0);
     assert_eq!(*none.at(5), 0);
+    assert_eq!(vault, MARGIN);
     let mut kind = 1;
     while kind <= 5 {
         let (data, v, t, gained) = run(kind);
         assert_eq!(data, none.clone());
         assert_eq!(v, vault);
         assert_eq!(t, supply);
-        // The router holds the price it swapped, the others nothing: none holds a referral
-        assert_eq!(gained, if kind == 2 {
-            2 * USDC
+        // The Vault holds the margin paid to it, the router the burn quote it swapped, the others
+        // nothing: none holds a referral
+        let paid = if kind == 1 {
+            MARGIN
+        } else if kind == 2 {
+            BURN_QUOTE
         } else {
             0
-        });
+        };
+        assert_eq!(gained, paid);
         kind += 1;
     };
 }
@@ -287,9 +302,10 @@ fn test_referral_to_an_outsider_is_paid() {
     assert_eq!(*data.at(4), REFERRER().into());
     assert_eq!(gained, 100_000);
     assert_eq!(*data.at(5), 100_000);
-    // The burn quote is the same; the Vault's part is smaller by the referral
+    // The burn quote is the same; the Vault's USDC is smaller by the referral
     assert_eq!(*data.at(7), *none.at(7));
-    assert!(vault < vault_none);
+    assert_eq!(vault_none, MARGIN);
+    assert_eq!(vault, MARGIN - 100_000);
 }
 
 /// The router is read when the purchase runs: after `set_router(new)`, the new one is excluded and
@@ -308,7 +324,7 @@ fn test_set_router_moves_the_excluded_router() {
     let data = purchased(ref spy, s);
     assert_eq!(*data.at(4), 0);
     assert_eq!(*data.at(5), 0);
-    // The pool took the whole price: the router holds its reserve and nothing more
+    // The pool took the burn quote: the router holds its reserve and nothing more
     let (r0, r1) = IMockRouterDispatcher { contract_address: other }.reserves();
     let reserve = if s.paved.contract_address < s.usdc.contract_address {
         r1
@@ -316,7 +332,7 @@ fn test_set_router_moves_the_excluded_router() {
         r0
     };
     assert_eq!(s.usdc.balance_of(other), reserve);
-    assert_eq!(reserve, usdc_before + 2 * USDC);
+    assert_eq!(reserve, usdc_before + BURN_QUOTE);
     // The old router: paid
     let mut spy = spy_events();
     let old_before = s.usdc.balance_of(s.router);

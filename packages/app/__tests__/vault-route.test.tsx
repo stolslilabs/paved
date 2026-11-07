@@ -30,10 +30,13 @@ import { queryClient } from "../src/lib/query-client";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // `/vault` (P10) on `@paved/chain`'s fakes: `FakeEconomy` for the Vault (OpenZeppelin's ERC4626 arithmetic, the 5 % exit fee,
-// 1,000 PAVED of dead shares), and the Vault's writes as a double that records what it is asked, or the real writer.
+// 1,000 PAVED of dead shares), and the Vault's writes as a double that records what it is asked, or the real writer. The Vault is the
+// HUD's drawer over the home (VAULT-PAGE): its page and the drawers' host are imported before the first test, with the home.
+preloadPages("vault", "home");
 
 const PLAYER = "0x5f1";
 const P = 10n ** 18n;
@@ -49,6 +52,8 @@ function setup(options: { viewer?: string | "guest"; shares?: bigint; paved?: bi
     deposit: vi.fn(options.writes?.deposit ?? (async () => ok())),
     withdraw: vi.fn(options.writes?.withdraw ?? (async () => ok())),
     withdrawAll: vi.fn(options.writes?.withdrawAll ?? (async () => ok())),
+    mint: vi.fn(options.writes?.mint ?? (async () => ok())),
+    redeem: vi.fn(options.writes?.redeem ?? (async () => ok())),
   };
   const viewer = options.viewer ?? PLAYER;
   const signer = viewer === "guest" ? null : ({ address: viewer } as unknown as GameSigner);
@@ -61,7 +66,11 @@ function open(s: ReturnType<typeof setup>, wallet = fakeWallet({ address: PLAYER
   return wallet;
 }
 
-const position = () => screen.findByRole("region", { name: "Your position" }, { timeout: slow(5000) });
+const position = () => screen.findByRole("region", { name: "Position" }, { timeout: slow(5000) });
+/** The drawer: its footer's tabs and gold action are its own. */
+const drawer = () => screen.getByRole("dialog", { name: "Vault" });
+/** A footer tab pressed (the Vault opens on its Position). */
+const openTab = (name: "Position" | "Deposit" | "Withdraw") => userEvent.click(within(drawer()).getByRole("tab", { name }));
 const field = (name: RegExp) => screen.getByRole("textbox", { name });
 
 beforeEach(() => {
@@ -77,36 +86,59 @@ afterEach(() => {
 });
 
 describe("/vault (P10)", { timeout: slow(20_000) }, () => {
-  it("no Connect (NO-GUEST): a device with no account gets one at start, and its position is read", async () => {
+  it("no Connect (the owner's ruling of 2026-11-07, NO-GUEST): a device with no account gets one at start, then its position is read", async () => {
     const s = setup({ viewer: "guest" });
     const wallet = open(s);
     await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])));
-    expect(screen.queryByText("Connect to use the Vault")).toBeNull();
-    expect(await position()).toHaveTextContent("No vPAVED yet");
+    expect(await position()).toBeInTheDocument();
+    expect(within(drawer()).queryByRole("button", { name: "Connect" })).toBeNull();
+    expect(screen.queryByText(/Connect to use the Vault/)).toBeNull();
+    await waitFor(() => expect(s.economy.calls).toContain(`vault ${PLAYER}`));
   });
 
-  it("shows the position from the chain: vPAVED, its PAVED value, the share of the Vault, the rate, the exit fee, the wallet", async () => {
+  it("shows the position from the chain: vPAVED, their share of the supply, their worth in PAVED and dollars, the rate, the exit fee, the wallet", async () => {
     const s = setup({ shares: 250n * P });
     open(s);
     const region = await position();
     // 250 vPAVED at a rate of 1 (the fake's 1,000 dead shares for 1,000 PAVED): worth 250, 238.09... after the 5 % fee.
     expect(region).toHaveTextContent("250.00vPAVED");
-    expect(within(region).getByText("Your share of the Vault").parentElement).toHaveTextContent("20%");
-    expect(within(region).getByText("Rate").parentElement).toHaveTextContent("1 : 1.0000");
-    expect(within(region).getByText("Exit fee").parentElement).toHaveTextContent("5%");
-    expect(within(region).getByText("Withdrawable now").parentElement).toHaveTextContent("238.09");
-    expect(within(region).getByText("Votes").parentElement).toHaveTextContent("Not delegated");
+    expect(within(region).getByRole("group", { name: "Share of the Vault" })).toHaveTextContent("20% of 1,250.00 vPAVED");
+    // The guard's rate (the fake's 80 PAVED a dollar): 250 PAVED is $3.12.
+    await waitFor(() => expect(within(region).getByRole("group", { name: "Worth" })).toHaveTextContent("≈ 250.00 PAVED · $3.12"));
+    expect(within(region).getByLabelText("Rate")).toHaveTextContent("1 vPAVED ≈ 1.0000 PAVED");
+    expect(within(region).getByRole("group", { name: "Exit fee" })).toHaveTextContent("5%");
+    expect(within(region).getByRole("group", { name: "Withdrawable now" })).toHaveTextContent("238.09");
+    // The wallet is the Deposit form's limit.
+    await openTab("Deposit");
     expect(document.body).toHaveTextContent(/Wallet\s*50.00\s*\PAVED/);
-    expect(s.economy.calls).toEqual(expect.arrayContaining([`vault ${PLAYER}`, `paved ${PLAYER}`, `delegates ${PLAYER}`]));
+    expect(s.economy.calls).toEqual(expect.arrayContaining([`vault ${PLAYER}`, `paved ${PLAYER}`, "rate"]));
   });
 
-  it("shows the delegate when the vPAVED is delegated, and offers no delegate write", async () => {
+  it("reads no delegate and offers no delegate write: delegation is not in the app", async () => {
     const s = setup({ shares: P });
-    s.economy.setDelegate(PLAYER, "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef");
     open(s);
-    const region = await position();
-    await waitFor(() => expect(within(region).getByText("Votes").parentElement).toHaveTextContent("0x04d1"));
+    await position();
+    expect(s.economy.calls.filter((c) => c.startsWith("delegates"))).toEqual([]);
+    expect(screen.queryByText("Votes")).toBeNull();
     expect(screen.queryByRole("button", { name: /Delegate/ })).toBeNull();
+  });
+
+  it("the footer's tabs are the URL's: Withdraw and Deposit set ?tab= in place, the Position drops it", async () => {
+    const s = setup({ shares: P });
+    const router = createTestRouter("/vault");
+    render(<App router={router} sources={s.sources} connector={fakeWallet({ address: PLAYER }).load} />);
+    await position();
+    const length = window.history.length;
+    await userEvent.click(within(drawer()).getByRole("tab", { name: "Withdraw" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?tab=withdraw"));
+    expect(within(drawer()).getByRole("tab", { name: "Withdraw" })).toHaveAttribute("aria-selected", "true");
+    expect(field(/Amount to withdraw/)).toBeInTheDocument();
+    await userEvent.click(within(drawer()).getByRole("tab", { name: "Deposit" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?tab=deposit"));
+    // The Position, the first tab, drops it.
+    await userEvent.click(within(drawer()).getByRole("tab", { name: "Position" }));
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(window.history.length).toBe(length);
   });
 
   it("a failed read shows the error with Retry, which reads again", async () => {
@@ -126,9 +158,10 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
   it("nothing deposited: a first deposit previews its vPAVED, then sends the exact amount", async () => {
     const s = setup({ writes: { deposit: async (amount) => ok([depositEvent(amount, amount)]) } });
     open(s);
-    expect(await position()).toHaveTextContent("No vPAVED yet");
+    expect(await position()).toHaveTextContent("0.00vPAVED");
+    await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "12.5");
-    expect(await screen.findByText(/You get about/)).toHaveTextContent("12.50vPAVED");
+    await waitFor(() => expect(screen.getByRole("group", { name: "You get" })).toHaveTextContent("12.50vPAVED"));
     expect(s.economy.calls).toContain(`preview_deposit ${125n * 10n ** 17n}`);
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
     await waitFor(() => expect(s.writes.deposit).toHaveBeenCalledOnce());
@@ -143,6 +176,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     const s = setup({ shares: P, writes: { deposit: async (amount) => ok([depositEvent(amount, amount)]) } });
     open(s);
     await position();
+    await openTab("Deposit");
     // The reconciling reads wait, so the cache's own values can be seen first.
     const pending = new Promise<void>((resolve) => (release = resolve));
     const vault = s.economy.vault.bind(s.economy);
@@ -162,6 +196,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     const s = setup({ paved: 3n * P });
     open(s);
     await position();
+    await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "3.000000000000000001");
     expect(screen.getByRole("alert")).toHaveTextContent("Not enough PAVED");
     expect(screen.getByRole("button", { name: "Deposit" })).toBeDisabled();
@@ -173,6 +208,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     const s = setup({ paved: balance });
     open(s);
     await position();
+    await openTab("Deposit");
     await userEvent.click(screen.getByRole("button", { name: "Max" }));
     expect(field(/Amount to deposit/)).toHaveValue("7.000000000123456789");
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
@@ -188,11 +224,54 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     // 5 % of 40, on top; the vPAVED of 42 burn (preview_withdraw at a rate of about 1).
     expect(screen.getByTestId("withdraw-fee")).toHaveTextContent("2.00");
     expect(screen.getByLabelText("Before you withdraw")).toHaveTextContent(/You receive\s*40.00/);
-    expect(await screen.findByText(/Uses about/)).toHaveTextContent("42.00vPAVED");
+    await waitFor(() => expect(screen.getByRole("group", { name: "Uses" })).toHaveTextContent("42.00vPAVED"));
     expect(screen.getByText(/Withdraw all pays/)).toHaveTextContent("95.23");
     await userEvent.click(screen.getByRole("button", { name: "Withdraw" }));
     await waitFor(() => expect(s.writes.withdraw).toHaveBeenCalledWith(40n * P, { confirmedAmount: 40n * P, confirmedExitFeeBps: 500 }));
     expect(await screen.findByText("Withdrawn")).toBeInTheDocument();
+  });
+
+  it("mint (VAULT-PAGE): the unit in vPAVED fixes the vPAVED, previews preview_mint, then sends mint(shares)", async () => {
+    const s = setup({ writes: { mint: async (shares) => ok([depositEvent(shares, shares)]) } });
+    open(s);
+    await position();
+    await openTab("Deposit");
+    await userEvent.click(within(drawer()).getByRole("radio", { name: /vPAVED/ }));
+    await userEvent.type(field(/Amount to mint, in vPAVED/), "4");
+    // At a rate of 1 (the fake's dead shares), 4 vPAVED take 4 PAVED (rounded up).
+    await waitFor(() => expect(screen.getByRole("group", { name: "You pay" })).toHaveTextContent("4.00PAVED"));
+    expect(s.economy.calls).toContain(`preview_mint ${4n * P}`);
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Mint" }));
+    await waitFor(() => expect(s.writes.mint).toHaveBeenCalledWith(4n * P, { confirmedShares: 4n * P }));
+    expect(await screen.findByText("Deposited")).toBeInTheDocument();
+  });
+
+  it("mint: more vPAVED than the wallet pays for is refused before any send", async () => {
+    const s = setup({ paved: 3n * P });
+    open(s);
+    await position();
+    await openTab("Deposit");
+    await userEvent.click(within(drawer()).getByRole("radio", { name: /vPAVED/ }));
+    await userEvent.type(field(/Amount to mint/), "4");
+    expect(screen.getByRole("alert")).toHaveTextContent("More than your wallet pays for");
+    expect(within(drawer()).getByRole("button", { name: "Mint" })).toBeDisabled();
+    // Max fills the most it can mint (3 vPAVED at a rate of 1).
+    await userEvent.click(screen.getByRole("button", { name: "Max" }));
+    expect(field(/Amount to mint/)).toHaveValue("3");
+  });
+
+  it("redeem (VAULT-PAGE): the Withdraw tab in vPAVED burns exactly the vPAVED, its fee inside shown first", async () => {
+    const s = setup({ shares: 100n * P });
+    open(s);
+    await position();
+    await userEvent.click(within(drawer()).getByRole("tab", { name: "Withdraw" }));
+    await userEvent.click(within(drawer()).getByRole("radio", { name: /vPAVED/ }));
+    await userEvent.type(field(/Amount to redeem, in vPAVED/), "40");
+    // 40 vPAVED worth 40 PAVED: the fee inside, ceil(40 x 500 / 10,500) = 1.90..., the PAVED paid the rest.
+    expect(screen.getByTestId("withdraw-fee")).toHaveTextContent("1.90");
+    await waitFor(() => expect(screen.getByRole("group", { name: "You get" })).toHaveTextContent("38.09PAVED"));
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Redeem" }));
+    await waitFor(() => expect(s.writes.redeem).toHaveBeenCalledWith(40n * P, { confirmedShares: 40n * P, confirmedExitFeeBps: 500 }));
   });
 
   it("withdraw all redeems every vPAVED held, at the fee shown", async () => {
@@ -215,15 +294,17 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     expect(s.writes.withdraw).not.toHaveBeenCalled();
   });
 
-  it("pending: the button says the approve and the deposit wait in the wallet, and the field is held", async () => {
+  it("pending: the approve and the deposit wait in the wallet, the button busy in its place, and the field is held", async () => {
     let finish: (r: WriteResult) => void = () => {};
     const s = setup({ writes: { deposit: () => new Promise<WriteResult>((resolve) => (finish = resolve)) } });
     open(s);
     await position();
+    await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "1");
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
-    const busy = await screen.findByRole("button", { name: /Confirm in your wallet/ });
-    expect(screen.getByText(/Approve and deposit in your wallet: one transaction for both/)).toBeInTheDocument();
+    // The footer's Deposit keeps its word and its place, a spinner in it; the body says what the wallet asks.
+    expect(await screen.findByText(/Approve and deposit in your wallet: one transaction for both/)).toBeInTheDocument();
+    const busy = screen.getByRole("button", { name: "Deposit" });
     expect(busy).toHaveAttribute("aria-busy", "true");
     expect(field(/Amount to deposit/)).toBeDisabled();
     // A second tap sends nothing more.
@@ -243,6 +324,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     });
     open(s);
     await position();
+    await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "2");
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
     expect(await screen.findByText("Deposit refused")).toBeInTheDocument();
@@ -275,6 +357,7 @@ describe("/vault (P10)", { timeout: slow(20_000) }, () => {
     const sources: DataSources = { ...f.sources, signer: writer as unknown as GameSigner, vault: (signer) => vaultWritesFor(econ, signer) };
     render(<App router={createTestRouter("/vault")} sources={sources} connector={fakeWallet({ address: PLAYER }).load} />);
     await position();
+    await openTab("Deposit");
     await userEvent.type(field(/Amount to deposit/), "2");
     await userEvent.click(screen.getByRole("button", { name: "Deposit" }));
     await waitFor(() => expect(sent).toHaveLength(2));

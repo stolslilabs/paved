@@ -125,8 +125,8 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     ["/settings", "Settings", "/"],
   ])("%s opened directly: Back lands on %s's parent", async (path, title, parent) => {
     const router = open(path);
-    if (title === "Missions" || title === "Settings") {
-      // MISSIONS-PAGE, SETTINGS-PAGE: the HUD's drawer over the village, its Back the header band's first control, before the title.
+    if (title === "Missions" || title === "Settings" || title === "Vault") {
+      // MISSIONS-PAGE, SETTINGS-PAGE, VAULT-PAGE: the HUD's drawer over the village, its Back the header band's first control, before the title.
       const drawer = await screen.findByRole("dialog", { name: title }, { timeout: slow(5000) });
       expect(drawer.querySelector('[data-slot="sheet-header"] button')).toHaveAccessibleName("Back");
     } else {
@@ -138,10 +138,11 @@ describe("Back to the village (#760): every page's top left", { timeout: slow(30
     await waitFor(() => expect(at(router)).toBe(parent));
   });
 
-  it("from Settings reached through Vault, Back is the village, not Vault", async () => {
-    const router = open("/vault");
-    await screen.findByRole("heading", { level: 1, name: "Vault" }, { timeout: slow(5000) });
-    // A link from the Vault's page (no page carries the dock, DOCK-UNDER-PAGES).
+  it("from Settings reached through the Referral, Back is the village, not the Referral", async () => {
+    // The last page of its own (VAULT-PAGE: the Vault is the HUD's drawer over the home).
+    const router = open("/referral");
+    await screen.findByRole("heading", { level: 1, name: "Referral" }, { timeout: slow(5000) });
+    // A link from the Referral's page (no page carries the dock, DOCK-UNDER-PAGES).
     await act(() => router.navigate("/settings"));
     await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
     await back();

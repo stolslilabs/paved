@@ -1777,3 +1777,33 @@ parts in use, items 0 to 3 of every part free and item 4 at 50 Cobbles.
 The hand-over's single-class version measured 1,154,753 for a purchase and 2,677,046 and 3,640,176 for `set_avatar` with ten
 free and ten owned parts (VPS): reading the look as bytes of a `u128` instead of a layout of widths in a `u256` halves the
 free case.
+
+## After D-31 (USDC rewards for the vPAVED holders, as Nums' Vault)
+
+Measured on the Mac (P-33), 2026-11-07, scarb 2.20.1, `snforge test gas::`, `contracts/tests/gas.cairo`; 63 passed. AGENTS.md
+keeps committed figures measured on Linux: snforge's L2 gas does not depend on the machine, and the pull request's CI run of
+the same tests confirms (or refutes) them. **Before**: the measured figures behind the ceilings (ceiling / 1.05, main
+`c6d5e23f`). **After**: this branch.
+
+| Scenario | Before | After | Change | Ceiling (measured + 5 %) |
+|---|---:|---:|---:|---:|
+| m, Daily spawn at stake 1 | 17,633,419 | 19,170,349 | +1,536,930 (+8.7 %) | 20,128,866 |
+| n, Daily spawn at stake 10, referred | 18,528,289 | 20,065,219 | +1,536,930 (+8.3 %) | 21,068,479 |
+| z7, `buy_pack` | 9,426,341 | 11,031,071 | +1,604,730 (+17.0 %) | 11,582,624 |
+| z8, `buy_pack`, referred | 10,299,801 | 11,904,531 | +1,604,730 (+15.6 %) | 12,499,757 |
+| z10, `buy_pack` as the first sale of a block | 9,775,271 | 11,331,261 | +1,555,990 (+15.9 %) | 11,897,824 |
+| t, Vault `deposit` | 3,717,820 | 3,981,800 | +263,980 (+7.1 %) | 4,180,890 |
+| u, Vault `redeem` | 3,627,776 | 3,935,086 | +307,310 (+8.5 %) | 4,131,840 |
+| v, Vault `withdraw` | 5,237,300 | 5,545,610 | +308,310 (+5.9 %) | 5,822,890 |
+| w, vPAVED `transfer` | 1,507,892 | 2,132,942 | +625,050 (+41.5 %) | 2,239,589 |
+| w2, Vault `claim` (new) | | 1,913,060 | | 2,008,713 |
+
+- **A purchase or a sale**: the margin no longer leaves as one PAVED `transfer` but as an `approve` and `Vault.pay`. `pay`
+  pulls the USDC with `transfer_from`, which spends the allowance, then raises the index and `total_paid` and emits `Paid`.
+  The smaller swap (the burn quote only) does not offset that on the mock router. One write was saved: `reward_waiting` is
+  written only when it was not 0 (-134,760 per payment against a first version).
+- **A transfer, a deposit, an exit**: each settles the reward of both sides first (Nums' `before_update`). That is the
+  index, the snapshot and the pending reward of each side, and +625k on a transfer to an account that never held.
+- The two `#[available_gas]` budgets of `tests/e2e/economy.cairo` that a paid spawn crosses were reset to measured
+  + about 1,000 L2 gas: `test_economy_spawn_moves_exactly_the_price_of_its_stake` and
+  `test_economy_protocol_address_referrer_is_no_referral`.
