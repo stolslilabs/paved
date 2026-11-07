@@ -2,14 +2,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { CAMPAIGNS, PlanType } from "@paved/game-core";
 import { angledTileArt, appRenders } from "../../mocks/assets";
-import { PHONE_375, WIDE_1440 } from "../scenes/viewports";
 import { EndStars, endXp } from "./game-end";
 import { DeckPresentation, FirstStonePanel, StoryCoach, StoryEnd } from "./story-panels";
 
 /**
- * The panels of a Story level (#546, #593, #721): the deck presentation that opens it (with the level's tip, its tiles in the
- * campaign's theme), a coach mark, the end (the stars filling one by one, then the score with the points short of the next
- * star). No star threshold is shown anywhere.
+ * The panels of a Story level (#546, #593, #721): the opening that presents its deck (STORY-INTRO: the HUD's window over the board,
+ * its tiles in the campaign's theme and draw order, its tip under the painted bulb, the best and the gold Start), a coach mark, the end
+ * (the stars filling one by one, then the score with the points short of the next star). No star threshold is shown anywhere.
  */
 const meta = { title: "Containers/Story panels", component: DeckPresentation, parameters: { layout: "padded" } } satisfies Meta<typeof DeckPresentation>;
 export default meta;
@@ -22,36 +21,36 @@ const deckOf = (campaign: number, level: number) => CAMPAIGNS[campaign]!.levels[
 const levelArgs = (campaign: number, level: number) => {
   const c = CAMPAIGNS[campaign]!;
   const l = c.levels[level]!;
-  return { campaign: c.name, levelIndex: l.id, title: l.title, intro: l.intro, tip: l.tip, deck: deckOf(campaign, level), theme: c.theme, renders: appRenders, onStart: fn() };
+  return { campaign: c.name, campaignId: c.id, levelIndex: l.id, title: l.title, intro: l.intro, tip: l.tip, deck: deckOf(campaign, level), theme: c.theme, renders: appRenders, onStart: fn() };
 };
 
 const TUTORIAL_1 = levelArgs(0, 0);
 
-/** A Tutorial level opens on its deck (#593, #721): the title, the intro, its two tiles landing in turn, then its tip; a tap anywhere starts. */
+/**
+ * Tutorial level 1 opens on its deck (#593, #721), the first time: the level, its title and intro on the Tutorial's picture, its two
+ * tiles dealt in turn, its tip under the bulb, "No best yet" and the gold Start; a tap anywhere, or Escape, starts too.
+ */
 export const Presentation: Story = { args: TUTORIAL_1 };
 
-/** The intro with its tip at 375 x 812, the width the owner checks first. */
-export const PresentationPhone: Story = { args: TUTORIAL_1, ...PHONE_375 };
+/** The same level presented again (the deck page's "Present the level again"): the device's best and its painted stars by Start. */
+export const PresentationBest: Story = { args: { ...TUTORIAL_1, best: { score: 260, stars: 2 } } };
 
-/** The intro with its tip at 1440. */
-export const PresentationWide: Story = { args: TUTORIAL_1, ...WIDE_1440 };
+/** A level without a tip: no box between the tiles and the foot. */
+export const PresentationNoTip: Story = { args: { ...TUTORIAL_1, tip: undefined } };
 
-/** A Dark Forest level (#721): its tiles in the campaign's theme (Forest), whatever skins the player set; its tip under them. */
-export const PresentationForestPhone: Story = { args: levelArgs(2, 0), ...PHONE_375 };
+/** A Dark Forest level (#721): its tiles in the campaign's theme (Forest), whatever skins the player set, on the campaign's picture. */
+export const PresentationForest: Story = { args: levelArgs(2, 0) };
 
-/** The same at 1440. */
-export const PresentationForestWide: Story = { args: levelArgs(2, 0), ...WIDE_1440 };
-
-/** The longest level of a campaign: 15 tiles after the starter, in draw order, the tip, and the player's best so far (no threshold). */
+/** The longest deck of a campaign (Open Country 12): 15 tiles after the starter, four a row in draw order, the tip, the best. */
 export const PresentationLong: Story = { args: { ...levelArgs(1, 11), best: { score: 10200, stars: 2 } } };
 
-/** The same under reduced motion: every tile there at once. */
+/** The same under reduced motion: the window and every tile there at once. */
 export const PresentationReduced: Story = { args: PresentationLong.args, parameters: { reducedMotion: "always" } };
 
-/** A coach mark's tip; the board rings the control it names. */
+/** A coach mark's tip (STORY-INTRO: the tip's bulb, on the HUD's frame); the board rings the control it names. */
 export const Coach: Story = {
   args: TUTORIAL_1,
-  render: () => <StoryCoach tip="Tap a lit cell next to the starter, then Place tile. Roads must meet roads." onDismiss={fn()} />,
+  render: () => <StoryCoach tip="Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." onDismiss={fn()} />,
 };
 
 const END = { title: "First stone", onReplay: fn(), onNext: fn(), onLevels: fn() };

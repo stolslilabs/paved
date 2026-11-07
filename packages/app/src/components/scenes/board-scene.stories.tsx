@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
-import { Direction, DirectionType, Layout, Orientation, Plan } from "@paved/game-core";
+import { CAMPAIGNS, Direction, DirectionType, Layout, Orientation, Plan, PlanType } from "@paved/game-core";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
 import { useBoardSettings } from "../../data/board-settings";
@@ -14,7 +14,7 @@ import { Notice } from "../elements/notice";
 import { toastCompletion } from "../containers/completion-toasts";
 import { Toaster } from "../ui/sonner";
 import { BoardViewport } from "../containers/board-viewport";
-import { StoryCoach, StoryEnd } from "../containers/story-panels";
+import { DeckPresentation, StoryCoach, StoryEnd } from "../containers/story-panels";
 import { TileView } from "../containers/tile-view";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
 
@@ -357,6 +357,41 @@ export const StoryCoachDiscardOnTile: Story = {
     coach: "discard",
     score: 0,
     notices: <StoryCoach tip="This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." onDismiss={fn()} />,
+  },
+};
+
+const PLAN_IDS = Object.values(PlanType);
+const TUTORIAL = CAMPAIGNS[0]!;
+
+/**
+ * A Story level's opening over its board (#593, STORY-INTRO), the first time the device opens it: the starter alone under the blurred
+ * veil, the HUD's window over it (Tutorial 1: its two tiles, its tip, no best yet, the gold Start); the board takes no move meanwhile.
+ */
+export const StoryIntroOnBoard: Story = {
+  args: {
+    ...BOARD.placing,
+    tiles: TILES.slice(0, 1),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    title: `${TUTORIAL.name} 1: ${TUTORIAL.levels[0]!.title}`,
+    score: 0,
+    hand: { tile: null, state: "empty" },
+    readOnly: true,
+    notices: (
+      <DeckPresentation
+        campaign={TUTORIAL.name}
+        campaignId={TUTORIAL.id}
+        levelIndex={1}
+        title={TUTORIAL.levels[0]!.title}
+        intro={TUTORIAL.levels[0]!.intro}
+        tip={TUTORIAL.levels[0]!.tip}
+        deck={TUTORIAL.levels[0]!.deck.map((p) => PLAN_IDS.indexOf(p))}
+        theme={TUTORIAL.theme}
+        renders={appRenders}
+        onStart={fn()}
+      />
+    ),
   },
 };
 
