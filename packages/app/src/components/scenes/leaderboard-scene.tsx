@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import { formatInteger } from "@paved/game-core";
-import type { GuildSummary, PlayerRanking } from "../../data/social-source";
+import type { GuildPlace, GuildSummary, PlayerRanking } from "../../data/social-source";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
@@ -33,12 +33,14 @@ export interface LeaderboardSceneProps {
   onTabChange?: (tab: LeaderboardTab) => void;
   /** The players by crowns and the viewer's place. */
   players: RankingRead<PlayerRanking>;
-  /** The guilds by score, the sum of their members' crowns. */
+  /** The guilds by score, the sum of their members' crowns: the first `GUILD_LIST_LIMIT`. */
   guilds: RankingRead<readonly GuildSummary[]>;
   /** The viewer among their friends (the mutual follows) by crowns, and their place among them; no friend, an empty ranking. */
   friends: RankingRead<PlayerRanking>;
   /** The viewer's guild (its row in gold), or null: in none. */
   myGuild?: number | null;
+  /** The viewer's guild's place in the whole ranking and its summary (null: in none, or still read): pinned when past the list's end. */
+  myGuildPlace?: GuildPlace | null;
   /** No ranking on this network: no social source. */
   unavailable?: boolean;
   /** A player's row: their profile (Friends' profile sheet, `?player=`). */
@@ -143,7 +145,7 @@ const rowRule = (index: number) => cn("flex", index > 0 && "border-t border-bord
  * Guild page's gold wash with its tag. While the viewer's row is out of view (or past the list's end), it is pinned at the foot over the
  * tabs: a tap brings it into view (past the list, opens their profile).
  */
-export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, myGuild = null, unavailable = false, onOpenPlayer, onOpenGuild, open = true, onBack, returnFocus }: LeaderboardSceneProps) {
+export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, myGuild = null, myGuildPlace = null, unavailable = false, onOpenPlayer, onOpenGuild, open = true, onBack, returnFocus }: LeaderboardSceneProps) {
   const reduced = useReducedMotionConfig();
   // The viewer's own row in the list shown, observed while it is mounted.
   const [ownRow, setOwnRow] = useState<HTMLButtonElement | null>(null);
@@ -176,7 +178,16 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
     const listed = me.place <= ranked.players.length;
     if (!listed || outOfView) pinned = <PlayerRankRow profile={me.profile} place={me.place} own onOpen={listed ? reveal : () => onOpenPlayer?.(me.profile.address)} />;
   }
-  if (!unavailable && tab === "guilds" && guildList && guildPlace >= 0 && outOfView) pinned = <GuildRankRow guild={guildList[guildPlace]!} place={guildPlace + 1} own onOpen={reveal} />;
+  // The viewer's guild: while its row is out of view; past the list's end (its place in the whole ranking beyond it), always, a tap
+  // opening its page.
+  if (!unavailable && tab === "guilds" && guildList) {
+    if (guildPlace >= 0) {
+      if (outOfView) pinned = <GuildRankRow guild={guildList[guildPlace]!} place={guildPlace + 1} own onOpen={reveal} />;
+    } else if (myGuildPlace && myGuildPlace.guild.id === myGuild && myGuildPlace.place > guildList.length) {
+      const { guild, place } = myGuildPlace;
+      pinned = <GuildRankRow guild={guild} place={place} own onOpen={() => onOpenGuild?.(guild.id)} />;
+    }
+  }
 
   return (
     <HudDrawer
