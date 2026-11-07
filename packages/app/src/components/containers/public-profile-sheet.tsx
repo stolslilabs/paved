@@ -127,7 +127,7 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
               <Portrait profile={profile} />
               <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
                 {/* With no name, the short address in Space Mono, whose glyphs stand taller than a tight line (the profile's rule). */}
-                <PlayerName name={profile.name} address={profile.address} className={cn("text-outline max-w-full text-2xl font-bold", profile.name ? "leading-tight" : "leading-normal")} />
+                <PlayerName name={profile.name} address={profile.address} className={cn("text-outline outline-room max-w-[calc(100%+4px)] text-2xl font-bold", profile.name ? "leading-tight" : "leading-normal")} />
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <Presence lastSeen={profile.lastSeen} now={now} className={cn("text-sm font-bold", isOnline(profile.lastSeen, now) && "text-success")} />
                   {follow && <FollowMark status={follow} />}
