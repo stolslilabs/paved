@@ -18,7 +18,7 @@ import {
 } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { playerLevel, playerLevelOf, type LevelViews, type PlayerLevel } from "./level";
-import { avatarItem, unlistedItem, type AvatarItem, type AvatarViews, type FakeAvatarState } from "./avatar";
+import { avatarItem, nameKey, unlistedItem, type AvatarItem, type AvatarViews, type FakeAvatarState, type FakeNameState, type NameViews } from "./avatar";
 import { SKIN_PLANS, type FakeSkinPlayer, type SkinViews } from "./skins";
 import { rewardGrants, rewardOffer, type RewardGrants, type RewardOffer } from "./rewards";
 import { attack as attackOf, attackDeck, attackMove, type Attack, type AttackDeck, type AttackMove } from "./arena";
@@ -240,8 +240,8 @@ export interface CallProvider {
 
 export const MAX_PAGE = 64;
 
-/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`), `Avatar`'s (`avatar.ts`), and the village's (`village.ts`). */
-export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews, PvpViews {
+/** The game views, and `Setup`'s Cobbles views (`cobbles.ts`), packs and skins views (`skins.ts`), `Avatar`'s (`avatar.ts`: the look and the name), and the village's (`village.ts`). */
+export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, NameViews, VillageViews, PvpViews {
   constructor(
     private readonly provider: CallProvider,
     private readonly deployment: Deployment,
@@ -380,6 +380,27 @@ export class RpcGameViews implements GameViews, DrawViews, CobbleViews, PackView
     return BigInt((await this.call("Avatar", "avatar", [playerId])) as bigint | string | number);
   }
 
+  async playerName(playerId: string): Promise<string | null> {
+    // A `ByteArray`, decoded as UTF-8 text by the codec; empty: none set.
+    const name = String(await this.call("Avatar", "name", [playerId]));
+    return name === "" ? null : name;
+  }
+
+  async renameCount(playerId: string): Promise<number> {
+    return Number(await this.call("Avatar", "renames", [playerId]));
+  }
+
+  async renamePrice(): Promise<number> {
+    return Number(await this.call("Avatar", "rename_price", []));
+  }
+
+  async nameOwner(name: string): Promise<string | null> {
+    // Not a name: free, as the contract answers (and nothing to send)
+    if (nameKey(name) === null) return null;
+    const owner = BigInt((await this.call("Avatar", "name_owner", [name])) as bigint | string | number);
+    return owner === 0n ? null : `0x${owner.toString(16)}`;
+  }
+
   async village(playerId: string): Promise<VillageInfo> {
     return villageInfo((await this.call("Village", "village", [playerId])) as Struct);
   }
@@ -497,7 +518,7 @@ function gameKeyId(key: GameKey): string {
 }
 
 /** In-memory views with the contracts' error rules, for unit tests of the app; the Cobbles views, the packs and the skins and the avatar too. */
-export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, VillageViews, PvpViews {
+export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackViews, SkinViews, LevelViews, AvatarViews, NameViews, VillageViews, PvpViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
@@ -524,8 +545,10 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   skinsFail: Error | null = null;
   /** The avatar: the parts in use, the bounds, the catalogue (`part:id`; an item not listed reads unlisted) and the players. */
   readonly avatars: FakeAvatarState = { parts: 0, bounds: [0, 0], items: new Map(), players: new Map() };
-  /** Set to an Error to make every avatar read fail. */
+  /** Set to an Error to make every avatar read fail (the name's too). */
   avatarFail: Error | null = null;
+  /** The name (PLAYER-RENAME): the rename price and each player's name and count of changes. */
+  readonly names: FakeNameState = { price: 0, players: new Map() };
   /** The villages by player (`BigInt` of the id as a string); a player not listed has founded none and has no reward. */
   readonly villages = new Map<string, FakeVillagePlayer>();
   /** `max_cells()`: the owner's cap (38, the value proposed for the deployment). */
@@ -579,6 +602,17 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
     if (!player) {
       player = { look: 0n, owned: new Map() };
       this.avatars.players.set(key, player);
+    }
+    return player;
+  }
+
+  /** The player's name and count of changes, created with none on first use: a test edits it in place. */
+  namePlayer(playerId: string): { name: string | null; count: number } {
+    const key = BigInt(playerId).toString();
+    let player = this.names.players.get(key);
+    if (!player) {
+      player = { name: null, count: 0 };
+      this.names.players.set(key, player);
     }
     return player;
   }
@@ -762,6 +796,29 @@ export class FakeGameViews implements GameViews, DrawViews, CobbleViews, PackVie
   async avatar(playerId: string): Promise<bigint> {
     this.avatarCall(`avatar ${BigInt(playerId)}`);
     return this.avatars.players.get(BigInt(playerId).toString())?.look ?? 0n;
+  }
+
+  async playerName(playerId: string): Promise<string | null> {
+    this.avatarCall(`name ${BigInt(playerId)}`);
+    return this.names.players.get(BigInt(playerId).toString())?.name ?? null;
+  }
+
+  async renameCount(playerId: string): Promise<number> {
+    this.avatarCall(`renames ${BigInt(playerId)}`);
+    return this.names.players.get(BigInt(playerId).toString())?.count ?? 0;
+  }
+
+  async renamePrice(): Promise<number> {
+    this.avatarCall("rename_price");
+    return this.names.price;
+  }
+
+  async nameOwner(name: string): Promise<string | null> {
+    this.avatarCall(`name_owner ${name}`);
+    const key = nameKey(name);
+    if (key === null) return null;
+    for (const [player, held] of this.names.players) if (held.name !== null && nameKey(held.name) === key) return `0x${BigInt(player).toString(16)}`;
+    return null;
   }
 
   async village(playerId: string): Promise<VillageInfo> {

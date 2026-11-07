@@ -998,3 +998,34 @@ a node that ignores `keys` is a `BadAnswer`), `vault.test.ts` (a claim and a col
 the route and its parameters, the pages, an account with none, the head's `contracts.vault`, a reorg against a rebuild, the
 catch-up by range, a deployment without a Vault), `deployment.test.ts` (the Vault optional), `indexer.test.ts` (schema 20,
 the deployment hash); in `@paved/chain`, `indexer-vault-claims.test.ts` and `indexer-real.test.ts` (the route over HTTP).
+
+## As built (PLAYER-RENAME: the names set on chain)
+
+A player renames themselves on `Avatar` (`docs/architecture/avatar-chain.md`, section 9): its first change free, a later one 50
+Cobbles. **A name set on chain wins over the Cartridge username** (N1) wherever a name is served.
+
+- **A seventh, optional source, `avatar`** (`contracts.Avatar` of the deployment file). `starknet_getEvents` asks it for
+  `Renamed` only (`FILTERED`): its look, catalogue and owner's events never reach the decoder, and an upgrade that adds one
+  never halts the indexer. Without an `Avatar` in the file, no name is read and `GET /v1/head` names none.
+- **Decoder**: strict on length; the name is a `ByteArray` (one full word at most), strict UTF-8, and a name the contract takes
+  (`player-name.ts`, a copy of `@paved/chain`'s rules kept equal by a test); the cobbles a u16, the count a u32 not 0.
+- **Table `renames`** (schema 21: older databases are rebuilt), one row per event at its chain position, rewound by block: the
+  player, the name as sent, its key (its characters with their case folded, as the contract's), the Cobbles and the count. A
+  rename creates no player.
+- **The names served** (`withNames`: the leaderboard's `entries` and `entry`, a player's `player`): each player's latest name on
+  chain at the served block, else the names cache's Cartridge username. A player with a name on chain is not looked up.
+- **`GET /v1/names/{name}`** (the name percent-encoded UTF-8; a name the contract would refuse is a 400): who holds a name
+  whatever its case, at the served block.
+  ```json
+  { "name": "李小龙", "player_id": "0x…", "source": "chain" }
+  ```
+  `source` is `chain` (the latest name on chain of a player), `cartridge` (a cached username of a player with no name on chain:
+  a renamed player's username is free), or null with `player_id` null. The client asks it before a rename, the chain being
+  unable to read the Cartridge usernames; the cache holds the players the indexer has looked up, so it is a guard, not a proof.
+- **`@paved/chain`**: `IndexerClient.nameHolder(name)`, `NameHolder`; the fixture's `holders`.
+- **Tests**: `renames.test.ts` (the ABI's shape, the filter, the decoder's refusals, the rows, the chain's name over the
+  Cartridge one, the route and its parameters, a reorg against a rebuild, a deployment without an Avatar), `events.test.ts`
+  (the filters), `indexer.test.ts` (schema 21); in `@paved/chain`, `indexer-names.test.ts`.
+
+**Rollout.** Ship it with the `Avatar` the deployment file names (Sepolia has none yet): the schema change rebuilds the
+database from the chain.

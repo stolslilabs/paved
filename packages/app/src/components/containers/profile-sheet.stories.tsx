@@ -5,8 +5,10 @@ import { SAVED_LOOK } from "../../mocks/avatar";
 import { NEW_PLAYER, NEW_PLAYER_PROFILE } from "../../mocks/new-player";
 import { HALL_OF_FAME, PROFILE, RECORDS } from "../../mocks/scenes";
 import { GUILD_BADGE } from "../../mocks/guilds";
+import { RENAME } from "../../mocks/rename";
 import { GuildLine } from "./guild-profile";
 import { ProfileSheet } from "./profile-sheet";
+import { RenameView } from "./rename-view";
 
 /**
  * What a tap on the player card opens (#624, PROFILE-DRAWER; PROFILE-PAGE, 2026-11-04): the HUD's drawer, a full page with Back on a
@@ -29,7 +31,8 @@ const meta = {
     onOpenChange: fn(),
     onCopy: fn(async () => {}),
     onEditAvatar: fn(),
-    onEditName: fn(),
+    // PLAYER-RENAME: the pencil's view, as the app reads it (`ReadRenameView`), here the first change's.
+    renameView: (onBack) => <RenameView {...RENAME.free} onBack={onBack} onRename={fn()} />,
     onOpenLeague: fn(),
     onOpenTiles: fn(),
     onOpenInvite: fn(),
@@ -44,6 +47,18 @@ type Story = StoryObj<typeof meta>;
  * with the follow counts (#954), the four actions, the Hall of Fame (season 6 picked) and its Stats.
  */
 export const Connected: Story = {};
+/** PLAYER-RENAME: the pencil opens the name's view in the drawer, Back returns to the profile. */
+export const EditName: Story = {
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await page.findByRole("button", { name: "Edit name" }));
+    await expect(await page.findByRole("textbox", { name: "New name" })).toBeInTheDocument();
+    await userEvent.click(page.getAllByRole("button", { name: "Back" })[0]!);
+    await expect(await page.findByRole("button", { name: "Edit name" })).toBeInTheDocument();
+  },
+};
+/** PLAYER-RENAME: opened on the name's view, a later change (50 Cobbles). */
+export const Renaming: Story = { args: { defaultRenaming: true, renameView: (onBack) => <RenameView {...RENAME.paid} onBack={onBack} onRename={fn()} /> } };
 /** A tap on the picked season lets go of it: the Stats show all time, the badge says so and has no cross. */
 export const AllTime: Story = {
   play: async ({ canvasElement }) => {

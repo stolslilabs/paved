@@ -27,6 +27,7 @@ import {
 } from "node:sqlite";
 import type { Header, RawEvent } from "./chain.ts";
 import { canonical, MODE, padded, type Decoded, type Source } from "./events.ts";
+import { nameKey } from "./player-name.ts";
 
 /** An invariant failed: the indexer stops following and answers `halted`, with this reason. */
 export class Halt extends Error {}
@@ -45,6 +46,8 @@ export type Config = {
   arena?: string | undefined;
   /** Undefined for a deployment without `Vault` (D-31): no claim of its USDC is read. Optional as `arena`. */
   vault?: string | undefined;
+  /** Undefined for a deployment without `Avatar` (PLAYER-RENAME): no name set on chain is read. Optional as `arena`. */
+  avatar?: string | undefined;
   /** The first block indexed (the contracts' deployment block). */
   from: number;
   /** The chain id of the deployment file, as a canonical felt. */
@@ -54,19 +57,19 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "20";
+export const SCHEMA_VERSION = "21";
 
 /**
- * The sha256 of the addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection, Arena and Vault, each
- * when there is one): the identity of a deployment. Account left it in schema 9 (D-25 (E)); Daily is named Challenge since
- * schema 11 (D-23b); the Vault joined it in schema 20 (D-31).
+ * The sha256 of the addresses (canonical, in a fixed order: Challenge, Setup, Economy, then Collection, Arena, Vault and
+ * Avatar, each when there is one): the identity of a deployment. Account left it in schema 9 (D-25 (E)); Daily is named
+ * Challenge since schema 11 (D-23b); the Vault joined it in schema 20 (D-31), Avatar in schema 21 (PLAYER-RENAME).
  */
 export function deploymentHash(
-  config: Pick<Config, "challenge" | "setup" | "economy" | "collection" | "arena" | "vault">,
+  config: Pick<Config, "challenge" | "setup" | "economy" | "collection" | "arena" | "vault" | "avatar">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.challenge, config.setup, config.economy, config.collection, config.arena, config.vault]
+      [config.challenge, config.setup, config.economy, config.collection, config.arena, config.vault, config.avatar]
         .filter((address): address is string => address !== undefined)
         .map((address) => canonical(address))
         .join(","),
@@ -307,6 +310,18 @@ const SCHEMA = `
     PRIMARY KEY (block, tx, idx)
   );
   CREATE INDEX IF NOT EXISTS vault_claims_account ON vault_claims (account, block, tx, idx);
+  -- The names set on Avatar (PLAYER-RENAME, schema 21), one row per Renamed at its chain position (a rewind is a delete by
+  -- block): the player's name from that event on (as sent), its key (its case folded, player-name.ts: one player per key on chain), the Cobbles
+  -- it cost and the player's count of changes. A player's latest row wins over its Cartridge username (the names cache) wherever
+  -- a name is served. A rename creates no player: it may never play.
+  CREATE TABLE IF NOT EXISTS renames (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    player_id TEXT NOT NULL, name TEXT NOT NULL, name_key TEXT NOT NULL, cobbles INTEGER NOT NULL, count INTEGER NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS renames_player ON renames (player_id, block, tx, idx);
+  CREATE INDEX IF NOT EXISTS renames_key ON renames (name_key, block, tx, idx);
   -- DayClosed: a day's mean, fixed at its first settlement.
   CREATE TABLE IF NOT EXISTS economy_days (
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
@@ -338,6 +353,7 @@ function normalize(config: Config): Config {
     collection: config.collection === undefined ? undefined : canonical(config.collection),
     arena: config.arena === undefined ? undefined : canonical(config.arena),
     vault: config.vault === undefined ? undefined : canonical(config.vault),
+    avatar: config.avatar === undefined ? undefined : canonical(config.avatar),
     from: config.from,
     chainId: canonical(config.chainId),
   };
@@ -356,6 +372,7 @@ function metaOf(config: Config): Record<string, string> {
       collection: config.collection ?? null,
       ...(config.arena === undefined ? {} : { arena: config.arena }),
       ...(config.vault === undefined ? {} : { vault: config.vault }),
+      ...(config.avatar === undefined ? {} : { avatar: config.avatar }),
     }),
   };
 }
@@ -532,7 +549,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { challenge: string; setup: string; economy: string; collection: string | null; arena?: string; vault?: string }
+    | { challenge: string; setup: string; economy: string; collection: string | null; arena?: string; vault?: string; avatar?: string }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
@@ -1155,6 +1172,21 @@ export class Store {
             });
             break;
           }
+          case "Renamed": {
+            // PLAYER-RENAME: the player's name from here on (Avatar checked its shape and that no other player holds its key).
+            this.sql.insertRename.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              player_id: padded(event.playerId),
+              name: event.text,
+              name_key: nameKey(event.text)!,
+              cobbles: event.cobbles,
+              count: event.count,
+              time: block.timestamp,
+            });
+            break;
+          }
           case "EconomySet":
           case "CollectionSet": {
             // Setup's wiring (D-25 (E)) against the deployment file: the file alone names the contracts that are read.
@@ -1236,6 +1268,7 @@ export class Store {
       this.sql.rewindPvpAttacks.run(to);
       this.sql.unfinishPvpAttacks.run(to);
       this.sql.rewindVaultClaims.run(to);
+      this.sql.rewindRenames.run(to);
       this.sql.rewindSkinPurchases.run(to);
       this.sql.rewindCobbleSpends.run(to);
       this.sql.rewindSkinPrices.run(to);
@@ -1287,6 +1320,7 @@ export class Store {
     | "xp_gains"
     | "pvp_attacks"
     | "vault_claims"
+    | "renames"
     | "events"
     | "blocks",
     Row[]
@@ -1316,6 +1350,7 @@ export class Store {
       xp_gains: all("SELECT * FROM xp_gains ORDER BY block, tx, idx"),
       pvp_attacks: all("SELECT * FROM pvp_attacks ORDER BY attacker, id"),
       vault_claims: all("SELECT * FROM vault_claims ORDER BY block, tx, idx"),
+      renames: all("SELECT * FROM renames ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -1597,6 +1632,11 @@ function statements(db: DatabaseSync) {
        VALUES (:block, :tx, :idx, :tx_hash, :account, :kind, :recipient, :amount, :time)`,
     ),
     rewindVaultClaims: db.prepare("DELETE FROM vault_claims WHERE block > ?"),
+    insertRename: db.prepare(
+      `INSERT INTO renames (block, tx, idx, player_id, name, name_key, cobbles, count, time)
+       VALUES (:block, :tx, :idx, :player_id, :name, :name_key, :cobbles, :count, :time)`,
+    ),
+    rewindRenames: db.prepare("DELETE FROM renames WHERE block > ?"),
     rewindSales: db.prepare("DELETE FROM sales WHERE block > ?"),
     rewindPacks: db.prepare("DELETE FROM packs WHERE block > ?"),
     economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),

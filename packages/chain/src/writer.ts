@@ -5,7 +5,7 @@ import type { CobbleClaim } from "./cobbles";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
 import { SKIN_PLANS, isSkinPlan, type SkinChange, type SkinViews } from "./skins";
-import { AVATAR_LISTED, AVATAR_MAX_ID, AVATAR_MAX_PARTS, type AvatarViews } from "./avatar";
+import { AVATAR_LISTED, AVATAR_MAX_ID, AVATAR_MAX_PARTS, isPlayerName, renameCost, type AvatarViews, type NameViews } from "./avatar";
 import { gameContract, type DrawView, type DrawViews, type GameKey } from "./views";
 import { withVrfRequest } from "./vrf";
 import { buyParcelCall, foundVillageCall, type VillageCell, type VillageViews } from "./village";
@@ -347,6 +347,52 @@ function avatarRevert(error: unknown): never {
     if (known) throw new AvatarRefusedError(known[1], error.transactionHash);
   }
   throw error;
+}
+
+/** Why a rename was refused (PLAYER-RENAME), by `Avatar`'s revert (`avatar.cairo`, `errors`; `setup.cairo` for the Cobbles) or before sending. */
+export type RenameRefusal = "invalid-name" | "same-name" | "taken" | "not-priced" | "price-changed" | "not-enough-cobbles";
+
+/** Each refusal's revert reason. */
+const RENAME_REVERTS: Array<[string, RenameRefusal]> = [
+  ["Avatar: invalid name", "invalid-name"],
+  ["Avatar: same name", "same-name"],
+  ["Avatar: name taken", "taken"],
+  ["Avatar: rename not priced", "not-priced"],
+  ["Avatar: price above max", "price-changed"],
+  ["Setup: not enough cobbles", "not-enough-cobbles"],
+];
+
+/** What the player reads for each refusal. */
+export const RENAME_REFUSAL_TEXT: Record<RenameRefusal, string> = {
+  "invalid-name": "A name is 3 to 15 letters or digits, with single spaces or hyphens between words. Nothing was changed.",
+  "same-name": "This is already your name. Nothing was changed.",
+  taken: "This name is taken: pick another one. Nothing was changed.",
+  "not-priced": "A new name cannot be bought yet. Nothing was changed.",
+  "price-changed": "The price of a new name changed: check it and confirm again. No Cobbles were spent.",
+  "not-enough-cobbles": "Not enough Cobbles for a new name: earn them from quests and achievements, or buy a pack.",
+};
+
+/** A rename refused, on chain or before sending: no Cobbles were spent and the name did not change. */
+export class RenameRefusedError extends WriteError {
+  constructor(readonly reason: RenameRefusal, transactionHash?: string) {
+    super(RENAME_REFUSAL_TEXT[reason], transactionHash, transactionHash !== undefined);
+    this.name = "RenameRefusedError";
+  }
+}
+
+/** A known revert of a rename as its `RenameRefusedError`; any other error unchanged. */
+function renameRevert(error: unknown): never {
+  if (error instanceof WriteError && !(error instanceof RenameRefusedError)) {
+    const known = RENAME_REVERTS.find(([reason]) => revertNames(error.message, reason));
+    if (known) throw new RenameRefusedError(known[1], error.transactionHash);
+  }
+  throw error;
+}
+
+/** A rename as the player confirmed it: the new name, and the price in Cobbles the view showed (0: the first change, free). */
+export interface RenameRequest {
+  name: string;
+  confirmedPrice: number;
 }
 
 /** An avatar item's purchase as the player confirmed it: the part, the item id, and the price in Cobbles the creator showed. */
@@ -856,6 +902,38 @@ export class PavedWriter {
     if (!this.options.deployment.addresses.Avatar) return Promise.reject(new WriteError("No Avatar contract in this deployment: no avatar can be saved"));
     if (look < 0n || look >= 2n ** 128n) return Promise.reject(new AvatarRefusedError("invalid-look"));
     return this.send("Avatar", [this.call("Avatar", "set_avatar", [look])]).catch(avatarRevert);
+  }
+
+  /**
+   * `Avatar.rename(name, confirmedPrice)` (PLAYER-RENAME): the caller renames itself, its first change free, a later one at the
+   * owner's rename price in Cobbles (debited on `Setup`'s ledger), never above `confirmedPrice`: the contract refuses a higher
+   * price. Inside the serialised send the count, the price, the name's holder and the current name are read again (`views`):
+   * another price than `confirmedPrice` (`price-changed`), no price set for a paid change (`not-priced`), a name another player
+   * holds in any case (`taken`) or the current name (`same-name`) is a `RenameRefusedError` and nothing is sent; a failed read
+   * sends nothing. A name the client does not send (`isPlayerName`: 3 to 15 letters or digits of any script, composed, single
+   * spaces or hyphens between words) is refused before anything (`invalid-name`); the name is sent as a `ByteArray` (UTF-8). The receipt's
+   * `Renamed` carries the name, its cost and the count; a refusal on chain is a `RenameRefusedError`: nothing moved.
+   */
+  rename(request: RenameRequest, views: Pick<NameViews, "renameCount" | "renamePrice" | "nameOwner" | "playerName">): Promise<WriteResult> {
+    const { name, confirmedPrice } = request;
+    if (!this.options.deployment.addresses.Avatar) return Promise.reject(new WriteError("No Avatar contract in this deployment: no name can be set"));
+    if (!isPlayerName(name)) return Promise.reject(new RenameRefusedError("invalid-name"));
+    if (!Number.isInteger(confirmedPrice) || confirmedPrice < 0 || confirmedPrice > 0xffff) return Promise.reject(new WriteError("No confirmed price for this name: nothing was sent"));
+    const self = BigInt(this.address);
+    return this.serialised(async () => {
+      let read: [number, number, string | null, string | null];
+      try {
+        read = await Promise.all([views.renameCount(this.address), views.renamePrice(), views.nameOwner(name), views.playerName(this.address)]);
+      } catch (error) {
+        throw new WriteError(`Cannot read the price of a new name: ${error instanceof Error ? error.message : String(error)}. Nothing was sent.`);
+      }
+      const [count, price, owner, current] = read;
+      if (count > 0 && price === 0) throw new RenameRefusedError("not-priced");
+      if (renameCost(count, price) !== confirmedPrice) throw new RenameRefusedError("price-changed");
+      if (owner !== null && BigInt(owner) !== self) throw new RenameRefusedError("taken");
+      if (current === name) throw new RenameRefusedError("same-name");
+      return this.sendNow("Avatar", [this.call("Avatar", "rename", [name, confirmedPrice])]);
+    }).catch(renameRevert);
   }
 
   /** `Village.found()`: the caller's village, once (the 3 x 3 of the start and the starter). */

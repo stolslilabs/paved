@@ -1,6 +1,8 @@
 // Typed client of the indexer's read API v1 (docs/architecture/indexer.md, section "Read API").
 // Display only. Since D-20 the daily leaderboard is the indexer's own: the contracts keep no ranking.
 
+import { nameKey } from "./avatar";
+
 /** The only API version this client reads. */
 export const INDEXER_API_VERSION = 1;
 
@@ -372,6 +374,18 @@ export interface VaultClaim {
   transactionHash: string;
   /** Time of the block of the claim (seconds). */
   claimedAt: number;
+}
+
+/**
+ * `GET /v1/names/{name}` (PLAYER-RENAME): who holds a player name whatever its case, at the served block: the player whose name
+ * set on chain it is, else a player whose Cartridge username (the indexer's cache, N1) it is and who set none on chain; null for
+ * nobody the indexer knows. The chain refuses a name another player set; this tells the client of the Cartridge usernames too.
+ */
+export interface NameHolder {
+  name: string;
+  /** The holder, as the indexer pads it; null: nobody known. */
+  playerId: string | null;
+  source: "chain" | "cartridge" | null;
 }
 
 /**
@@ -911,6 +925,19 @@ export class IndexerClient {
         if (BigInt(answer.collected) !== sum("collect") || answer.collectedCount !== of("collect")) bad("vault claims.collected is not its collects' sum");
       }
       return answer;
+    });
+  }
+
+  /** Who holds `name`, whatever its case (PLAYER-RENAME); a text `Avatar` would not take is rejected before any request. */
+  async nameHolder(name: string): Promise<IndexerAnswer<NameHolder>> {
+    if (nameKey(name) === null) throw new IndexerError("rejected", `Not a player name: ${JSON.stringify(name)}`);
+    return this.get(`/v1/names/${encodeURIComponent(name)}`, {}, (b) => {
+      const playerId = orNull(b, "player_id", str, "name holder");
+      const source = orNull(b, "source", str, "name holder");
+      if (source !== null && source !== "chain" && source !== "cartridge") bad(`name holder.source is ${JSON.stringify(source)}`);
+      if ((playerId === null) !== (source === null)) bad("name holder: a holder without its source, or a source without one");
+      if (str(b, "name", "name holder") !== name) bad("name holder.name is not the name asked");
+      return { name, playerId, source: source as NameHolder["source"] };
     });
   }
 

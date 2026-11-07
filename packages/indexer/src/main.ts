@@ -114,6 +114,7 @@ const config = {
   collection: deployment.collection,
   arena: deployment.arena,
   vault: deployment.vault,
+  avatar: deployment.avatar,
   from: deployment.deployedBlock,
   chainId: deployment.chainId,
 };
@@ -227,6 +228,8 @@ const server = serve(indexer, {
       ...(config.arena === undefined ? {} : { arena: config.arena }),
       // The same with a Vault (D-31).
       ...(config.vault === undefined ? {} : { vault: config.vault }),
+      // The same with an Avatar (PLAYER-RENAME).
+      ...(config.avatar === undefined ? {} : { avatar: config.avatar }),
     },
   },
 });

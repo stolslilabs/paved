@@ -77,6 +77,8 @@ export interface HeadAnswer extends Envelope {
     arena?: string;
     /** Absent for a deployment without a Vault (D-31): no claim of its USDC is read. Appended in schema 20, only with one. */
     vault?: string;
+    /** Absent for a deployment without an Avatar (PLAYER-RENAME): no name set on chain is read. Appended in schema 21, only with one. */
+    avatar?: string;
   };
   checks: {
     /** Quest and achievement definitions left out of every answer: a task total of 0 or a task id repeated (P-30). */
@@ -574,6 +576,21 @@ export interface VaultClaim {
  * at the served block (not the page's). The earned, claimed and claimable figures are the Vault's views (`earned_of`,
  * `claimed_of`, `claimable_of`): `claimed_of` is `claimed` plus `collected`.
  */
+/**
+ * `GET /v1/names/{name}` (PLAYER-RENAME): who holds a player name, whatever its case, at the served block: the player whose name
+ * set on chain (`Avatar.rename`) it is, else a player whose Cartridge username (the names cache, N1) it is and who set none on
+ * chain; null for nobody known. What the client checks before a rename: the chain refuses a name another player set, and this
+ * tells it of the Cartridge usernames too, which the chain cannot read. The cache holds the players the indexer has seen.
+ */
+export interface NameHolderAnswer extends Envelope {
+  /** The name asked, as asked. */
+  name: string;
+  /** The holder, 0x and 64 hex digits; null: nobody known. */
+  player_id: string | null;
+  /** Where the holder's name is: `chain` (set on Avatar) or `cartridge` (its username); null with nobody. */
+  source: "chain" | "cartridge" | null;
+}
+
 export interface PlayerVaultClaimsAnswer extends Envelope {
   player_id: string;
   /** USDC base units of the holder's own claims, a decimal string ("0" for none). */

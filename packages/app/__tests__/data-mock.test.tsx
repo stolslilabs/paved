@@ -2,6 +2,7 @@ import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   AvatarRefusedError,
+  RenameRefusedError,
   ClaimRefusedError,
   ViewError,
   PavedWriter,
@@ -40,9 +41,11 @@ import { buyGame, mockImplementation, playGame, surrenderedGame } from "./mock-f
 import { FakeSkinWriter } from "./skin-fakes";
 import { FakeAvatarWriter } from "./avatar-fakes";
 import { KING_TRAITS, encodeTraits } from "@paved/renderer";
-import { savedLook, useAvatar } from "../src/data/avatar";
+import { savedLook, useAvatar, usePlayerName } from "../src/data/avatar";
+import { useRename, useRenameWrite } from "../src/data/rename";
+import { SEEDED_PLAYERS } from "../src/data/mock/players";
 import { useAvatarCatalogue, useAvatarWrites } from "../src/data/avatar-catalogue";
-import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS } from "../src/mocks/avatar";
+import { AVATAR_ITEMS, AVATAR_PARTS_IN_USE, AVATAR_PRICE_BOUNDS, AVATAR_RENAME_PRICE } from "../src/mocks/avatar";
 import { FakeVillageWriter } from "./village-fakes";
 import { MOCK_SKIN_TIERS, MOCK_STARTING_REWARDS } from "../src/data/mock/ledger";
 import { useVillage, useVillageReward, useVillageWrites } from "../src/data/village";
@@ -118,6 +121,9 @@ function chainImplementation() {
   views.avatars.parts = AVATAR_PARTS_IN_USE;
   views.avatars.bounds = [...AVATAR_PRICE_BOUNDS];
   for (const item of AVATAR_ITEMS.flat()) views.listAvatarItem(item);
+  // PLAYER-RENAME: `scripts/deploy.sh`'s rename price; a seeded player's name held on chain, as the mock's names are.
+  views.names.price = AVATAR_RENAME_PRICE;
+  views.namePlayer(SEEDED_PLAYERS[0]!.address).name = SEEDED_PLAYERS[0]!.name;
   economy.split_ = { ...MOCK_SPLIT };
   economy.vaultAssets = MOCK_VAULT.assets;
   economy.vaultSupply = MOCK_VAULT.supply;
@@ -140,6 +146,7 @@ function chainImplementation() {
     setSkins: skins.setSkins.bind(skins),
     buyAvatarItem: avatar.buyAvatarItem.bind(avatar),
     setAvatar: avatar.setAvatar.bind(avatar),
+    rename: avatar.rename.bind(avatar),
     foundVillage: village.foundVillage.bind(village),
     buyParcel: village.buyParcel.bind(village),
     openReward: village.openReward.bind(village),
@@ -216,6 +223,23 @@ describe.each(IMPLEMENTATIONS)("the shared interface on the %s implementation", 
     // An item neither free nor owned is refused, and the look stays.
     const unowned = await result.current.writes.save(encodeTraits({ ...KING_TRAITS, headwear: "feathered" })).catch((e: unknown) => e);
     expect((unowned as AvatarRefusedError).reason).toBe("not-owned");
+  });
+
+  it("a name (PLAYER-RENAME): the first change free, the next 50 Cobbles; a name another player holds in any case refused", async () => {
+    const sources = make();
+    const { result } = renderData(() => ({ read: useRename(PLAYER), write: useRenameWrite(PLAYER), name: usePlayerName(PLAYER), buy: useBuyPack(PLAYER) }), sources);
+    await waitFor(() => expect(result.current.read.data?.cost).toBe(0));
+    const taken = await result.current.write.rename(SEEDED_PLAYERS[0]!.name.toLowerCase(), 0).catch((e: unknown) => e);
+    expect((taken as RenameRefusedError).reason).toBe("taken");
+    await act(() => result.current.write.rename("QuarryQueen", 0));
+    await waitFor(() => expect(result.current.name).toBe("QuarryQueen"));
+    await waitFor(() => expect(result.current.read.data).toMatchObject({ count: 1, cost: AVATAR_RENAME_PRICE, balance: 0 }));
+    const short = await result.current.write.rename("Jean-Luc", AVATAR_RENAME_PRICE).catch((e: unknown) => e);
+    expect((short as RenameRefusedError).reason).toBe("not-enough-cobbles");
+    await act(() => result.current.buy.mutation.mutateAsync({ playerId: PLAYER, packId: 1, confirmedPrice: 5n * USDC, confirmedMinOut: 1n, referrer: null }));
+    await waitFor(() => expect(result.current.read.data?.balance).toBe(50));
+    await act(() => result.current.write.rename("李小龙", AVATAR_RENAME_PRICE));
+    await waitFor(() => expect(result.current.read.data).toMatchObject({ name: "李小龙", count: 2, balance: 0 }));
   });
 
   it("a village founded, rewards opened and claimed (#646); no parcel or tier read (#739)", async () => {

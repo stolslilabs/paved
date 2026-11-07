@@ -61,6 +61,7 @@ pub mod avatar {
     pub mod catalogue;
     pub mod item;
     pub mod look;
+    pub mod name;
 }
 
 pub mod helpers {
