@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { StillsOffContext } from "../src/components/elements/avatar-still";
 import { AvatarCreatorScene } from "../src/components/scenes/avatar-creator-scene";
 import { KING_IDS } from "../src/components/containers/avatar-types";
 import { AVATAR_CREATOR } from "../src/mocks/scenes";
@@ -26,6 +27,25 @@ describe("AvatarCreatorScene", () => {
     // Nothing changed: Save is off; the option tried on is owned, so Buy stays in its place, off.
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Buy" })).toBeDisabled();
+  });
+
+  it("without WebGL (no still), each option's card shows its name, not only an empty disc (issue #1051)", () => {
+    render(
+      wrap(
+        <StillsOffContext.Provider value={true}>
+          <AvatarCreatorScene {...AVATAR_CREATOR.saved} />
+        </StillsOffContext.Provider>,
+      ),
+    );
+    const grid = screen.getByRole("radiogroup", { name: "Skin tone" });
+    const radios = within(grid).getAllByRole("radio");
+    // Each card says its own name, visibly (not in its label alone), and no empty still.
+    const names = radios.map((radio) => radio.querySelector('[data-slot="avatar-swatch-name"]')?.textContent);
+    expect(names.every(Boolean)).toBe(true);
+    expect(new Set(names).size).toBe(radios.length);
+    for (const radio of radios) expect(radio.getAttribute("aria-label")).toMatch(new RegExp(`^${radio.querySelector('[data-slot="avatar-swatch-name"]')!.textContent}, `));
+    expect(within(grid).getByText("Brown")).toBeVisible();
+    expect(grid.querySelector('[data-slot="avatar-still"]')).toBeNull();
   });
 
   it("a priced option tried on: its price and Buy, and Save waits for it", async () => {

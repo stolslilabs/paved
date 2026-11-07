@@ -42,8 +42,9 @@ export default function Page() {
   const read = useAvatarCatalogue(playerId);
   const writes = useAvatarWrites(playerId);
   const client = useQueryClient();
-  // A seasonal sale's end is read against the time the page opened: the chain refuses a sale past its end anyway.
-  const [now] = useState(() => Math.floor(Date.now() / 1000));
+  // A seasonal sale's end is read against the time the drawer opened (each opening reads it again), then again at the nearest end
+  // while it is open (below): an offer past its end leaves without a reload. The chain refuses a sale past its end anyway.
+  const [now, setNow] = useState(nowSeconds);
   // The draft: null is the saved avatar, so a save made on another device shows here until the player changes a part.
   const [changes, setChanges] = useState<TraitIds | null>(null);
   // The drawer's page stays mounted once closed (its host keeps it): each opening starts again from the saved look, as a visit did when
@@ -52,10 +53,20 @@ export default function Page() {
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
+    if (open) setNow(nowSeconds());
     if (open && !writes.saving && writes.buying === null) setChanges(null);
   }
 
   const catalogue = read.data;
+  // While the drawer is open, a timer to the nearest seasonal end still ahead: the offers are read again at that instant.
+  const deadline = open && catalogue ? nextEnd(catalogue.items, now) : null;
+  useEffect(() => {
+    if (deadline === null) return;
+    const delay = (deadline - now) * 1000;
+    // At the end, `now` is at least the end (a timer a few ms early would leave the offer on); a far end, read again on the way.
+    const timer = setTimeout(() => setNow(delay > MAX_DELAY ? nowSeconds() : Math.max(deadline, nowSeconds())), Math.min(delay, MAX_DELAY));
+    return () => clearTimeout(timer);
+  }, [deadline, now]);
   const saved = catalogue ? idsOfLook(catalogue.look) : null;
   const draft = changes ?? saved;
   // The saved look read again (a save's receipt, another device): a draft equal to it is no change any more.
@@ -161,6 +172,18 @@ export default function Page() {
       {cobbles.sheet}
     </>
   );
+}
+
+const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+/** `setTimeout`'s longest delay (a 32-bit count of ms, about 24 days): a later end waits in steps. */
+const MAX_DELAY = 2 ** 31 - 1;
+
+/** The nearest seasonal end after `now` (seconds) of the catalogue's items, or null. */
+function nextEnd(items: readonly (readonly { until: number }[])[], now: number): number | null {
+  let next: number | null = null;
+  for (const part of items) for (const item of part) if (item.until > now && (next === null || item.until < next)) next = item.until;
+  return next;
 }
 
 /** A trait's index in the look (the chain's part number), and back. */

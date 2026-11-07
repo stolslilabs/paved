@@ -1,7 +1,7 @@
 import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KING_TRAITS, encodeTraits } from "@paved/renderer";
 import { App } from "../src/App";
 import type { GameSigner } from "../src/data";
@@ -51,6 +51,7 @@ beforeEach(async () => {
   markWelcomed();
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();
@@ -159,6 +160,47 @@ describe("/avatar: the creator", () => {
     await userEvent.click(within(await screen.findByRole("dialog", { name: "Avatar" }, { timeout: slow(5000) })).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+  });
+
+  /** The Feathered cap (headwear 5) on sale until `until` (seconds), the only seasonal item (the Night's season left out). */
+  function seasonal(c: ReturnType<typeof chain>, until: number) {
+    const headwear = AVATAR_ITEMS[7]![5]!;
+    const night = AVATAR_ITEMS[AVATAR_ITEMS.length - 1]!.find((item) => item.until > 0);
+    c.views.listAvatarItem({ ...headwear, until });
+    if (night) c.views.listAvatarItem({ ...night, until: 0 });
+  }
+  const seconds = () => Math.floor(Date.now() / 1000);
+
+  it("a seasonal offer past its end while the drawer was closed: reopened, it is off sale (issue #1051)", async () => {
+    const c = chain();
+    seasonal(c, seconds() + 60);
+    const { router } = open(c, "/");
+    await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
+    const editor = async () => {
+      await userEvent.click((await screen.findAllByRole("button", { name: /^Profile: / }, { timeout: slow(5000) }))[0]!);
+      await userEvent.click(within(await screen.findByRole("dialog", { name: "Profile" }, { timeout: slow(5000) })).getByRole("button", { name: /Edit avatar/ }));
+      const drawer = await screen.findByRole("dialog", { name: "Avatar" }, { timeout: slow(5000) });
+      await userEvent.click(await within(drawer).findByRole("tab", { name: "Headwear" }, { timeout: slow(5000) }));
+      return drawer;
+    };
+    expect(within(await editor()).getByRole("radio", { name: /^Feathered cap, \d+ Cobbles$/ })).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Avatar" })).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
+    // Two minutes later (the season ended a minute ago), the drawer opened again from the Profile.
+    const real = Date.now.bind(Date);
+    vi.spyOn(Date, "now").mockImplementation(() => real() + 120_000);
+    const drawer = await editor();
+    expect(within(drawer).getByRole("radio", { name: "Feathered cap, not for sale" })).toBeInTheDocument();
+    expect(within(drawer).queryByRole("radio", { name: /^Feathered cap, \d+ Cobbles$/ })).toBeNull();
+  });
+
+  it("a seasonal offer whose end passes while the drawer is open goes off sale without a reload (issue #1051)", async () => {
+    const c = chain();
+    seasonal(c, seconds() + 2);
+    open(c, "/avatar?part=headwear");
+    expect(await screen.findByRole("radio", { name: /^Feathered cap, \d+ Cobbles$/ }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: "Feathered cap, not for sale" }, { timeout: slow(6000) })).toBeInTheDocument();
   });
 
   it("the category is the URL's: a link opens it, a tab replaces it", async () => {
