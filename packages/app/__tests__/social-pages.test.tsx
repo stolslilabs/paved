@@ -60,7 +60,8 @@ describe("the social pages' scenes (#973)", () => {
   it("draws the chat page's three tabs around the tab's content, with no bottom bar", () => {
     render(wrap(<ChatScene tab="guild" badges={{ guild: 2, private: 0 }}>{<p>guild conversation</p>}</ChatScene>));
     const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["World", "Guild, 2 waiting", "Private"]);
+    // A tab's name: its word, and the count waiting in it (`FooterTab`).
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 2 waiting", "Private"]);
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("guild conversation")).toBeInTheDocument();
     // No bottom bar: no page carries the dock (DOCK-UNDER-PAGES).
@@ -138,7 +139,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
     expect(await screen.findByRole("heading", { level: 2, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Name or player ID" })).toBeInTheDocument();
     const tabs = within(await screen.findByRole("tablist", { name: "Lists" }, { timeout: slow(8000) })).getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("aria-label")?.split(",")[0])).toEqual(["Friends", "Following", "Followers"]);
+    expect(tabs.map((t) => (t.getAttribute("aria-label") ?? t.textContent)?.split(",")[0])).toEqual(["Friends", "Following", "Followers"]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
   });
 

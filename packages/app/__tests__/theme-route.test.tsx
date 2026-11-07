@@ -212,8 +212,9 @@ describe("the Shop's view of Forest (SHOP-PAGE; `/settings/theme/forest` before)
     expect(await screen.findByText("Snow tiles: coming soon", undefined, { timeout: slow(5000) })).toBeInTheDocument();
     expect(s.views.calls.filter((c) => c.startsWith("skin_price 2 ") || (c.startsWith("skins ") && c.endsWith(" 2")))).toEqual([]);
     await router.navigate("/village/shop?tab=themes&theme=default");
-    expect(await screen.findByRole("tab", { name: "Themes" }, { timeout: slow(5000) })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("dialog", { name: "Shop" })).toBeInTheDocument();
+    // The Shop's own title once the view leaves (a theme's view keeps the footer's tabs, Themes current: FOOTER-TABS, #1062).
+    expect(await screen.findByRole("dialog", { name: "Shop" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Themes" })).toHaveAttribute("aria-selected", "true");
   });
 });
 
