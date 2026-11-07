@@ -8,6 +8,7 @@ import {
   GUILD_INVITE_TTL_S,
   GUILD_KICK_COOLDOWN_S,
   GUILD_KICK_REASON_MAX,
+  GUILD_LIST_LIMIT,
   GUILD_LEADER_IDLE_S,
   GUILD_LOG_KEPT,
   GUILD_MAX_MEMBERS,
@@ -26,6 +27,7 @@ import {
   guildFull,
   guildNameKey,
   guildNameRefusal,
+  guildPlace,
   guildScore,
   guildTag,
   invitationOpen,
@@ -419,5 +421,15 @@ describe("finding guilds (#953)", () => {
   it("ranks the guilds by score", () => {
     expect(rankGuilds(guilds).map((g) => g.id)).toEqual([5, 2, 3, 1, 4]);
     expect(rankGuilds(guilds, 2)).toHaveLength(2);
+  });
+
+  it("places a guild in the whole ranking, past the list's limit too", () => {
+    expect(guildPlace(guilds, 5)).toEqual({ place: 1, guild: guilds.find((g) => g.id === 5) });
+    expect(guildPlace(guilds, 4)!.place).toBe(5);
+    expect(guildPlace(guilds, 99)).toBeNull();
+    // Past GUILD_LIST_LIMIT: the last of more guilds than a list answers.
+    const many = Array.from({ length: GUILD_LIST_LIMIT + 5 }, (_, i) => ({ ...guilds[0]!, id: 100 + i, score: 1_000 - i }));
+    expect(rankGuilds(many).map((g) => g.id)).not.toContain(100 + GUILD_LIST_LIMIT + 4);
+    expect(guildPlace(many, 100 + GUILD_LIST_LIMIT + 4)!.place).toBe(GUILD_LIST_LIMIT + 5);
   });
 });
