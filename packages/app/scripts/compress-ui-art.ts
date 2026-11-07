@@ -65,7 +65,8 @@
  * out). Play: cropped from the book's "Battle log" phone screen (about 100 px), its navy panel keyed out as the League's badge was.
  * The star: the middle one of the book's result screen (about 170 px), cut from its glow and sparkles by a flood fill of its face from
  * its centre over the pixels lighter than its outline, then its near-black outline grown outward from the face through darker pixels
- * (at most 10 px), the outline's outer ring faded by its lightness. Each fitted to the 240 px box by a premultiplied bicubic scale (no
+ * (at most 10 px), the outline's outer ring faded by its lightness (that cut left specks, a brown halo and light bites in the outline:
+ * the star was extracted again by Codex, STAR-ART, below). Each fitted to the 240 px box by a premultiplied bicubic scale (no
  * navy bleeds into the edge) and centred on the icons' frame, checked side by side with its crop. Pause, which the book does not
  * draw: the Play master with its triangle (measured on the master, and 7 px round it for its shade) erased by interpolating the disc
  * row by row from either side, then two rounded bars painted where it stood, centred on the disc, in the triangle's own colours (its
@@ -221,6 +222,17 @@
  * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked beside `close` at 128, 44,
  * 32 and 24 px on the drawer's charcoal and on a light ground. Edit mode's bubble's three (`rotate-tile`, `to-inventory`, `cancel`) left
  * with it.
+ * STAR-ART (2026-11-07): the star (`star`: the ends', Story's and the Attack's), the owner's ask: MATCH-PAGE's flood fill had left
+ * specks, a brown halo and light bites in its outline. Extracted again from the same original, the middle star of the Paved UX Book's
+ * result screen (`screens/attack-end.jpg`, 768 px wide, the star about 168 px), by Codex's built-in image tool (`codex exec -c
+ * model_provider=openai`, its `image_gen`): the crop (234 x 214 px, upscaled 4x) given, the star asked for alone on a transparent
+ * ground, its shape, faces, colours and outline kept; three variants (1254 px RGBA), the third kept (registered on the book by least
+ * colour error, its gold faces the closest, 1.5, -2.1 and -4.2 off per channel on average, and its outline the most even). Its cut
+ * cleaned by script, the drawing untouched: the tool's near-opaque body (alpha 253) brought to 255, its faint fringe (alpha under 16,
+ * 464 specks) cleared. Checked: one alpha island, no hole, no edge pixel lighter than the outline or blue (the old glow and ground),
+ * the outline 6 to 8 px all round with no bump (the old one fell to 0); on white, black, magenta, the drawer's charcoal and the end
+ * window's ground, at 256 px and 6x on each tip and notch. Trimmed to its alpha box, fitted to 240 px by a premultiplied area average
+ * and centred on the icons' frame; stored as lossless WebP.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

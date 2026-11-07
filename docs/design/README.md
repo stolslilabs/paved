@@ -606,6 +606,14 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   no star, "Level failed", Retry in gold and Next disabled in its place);
   Tutorial level 1's First Stone as a carved row under the painted medal, its Claim raised grey. No new painting: the lock, open lock,
   star, trophy, medal, pile and check are the HUD's own icons.
+
+  STAR-ART (2026-11-07), the owner's ask (the score screen's star "très mal détourée", small artifacts): the painted star (`star`, the
+  ends', Story's cards and levels, the Attack) extracted again from the Paved UX Book's original, the middle star of the result
+  screen (`attack-end`), by Codex's image tool, the star alone on transparency with its shape, faces, colours and outline kept (three
+  variants; the one closest to the book kept, measured on it); its cut cleaned by script (the body made fully opaque, a faint fringe
+  cleared). It replaces MATCH-PAGE's flood-fill cut, which left specks, a brown halo and light bites in the outline. Checked at each
+  step: one alpha island, no fringe off its palette, an even outline; on five grounds, zoomed on every tip and notch, gold and greyed,
+  with and without its light. The same frame and centre: the light behind a full star and every place it shows are unchanged.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.
