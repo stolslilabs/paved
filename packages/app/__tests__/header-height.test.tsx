@@ -5,8 +5,6 @@ import { describe, expect, it } from "vitest";
 import { AppNav } from "../src/components/containers/app-nav";
 import { TabPage } from "../src/components/containers/tab-page";
 import { TopBar } from "../src/components/containers/top-bar";
-import { WelcomeScene } from "../src/components/scenes/welcome-scene";
-import { WELCOME } from "../src/mocks/scenes";
 import { PAGES } from "../src/routes/pages";
 import { DRAWER_PAGES, PAGE_HEADER_STORIES } from "../src/stories/page-headers";
 
@@ -40,7 +38,6 @@ describe("the page headers", () => {
     ["a flow's top bar without balances", () => <TopBar title="Something broke" balances={false} />],
     ["a tab page's title row", () => <TabPage title="Vault">{null}</TabPage>],
     ["a page reached from another", () => <TabPage title="Credits" onBack={() => {}}>{null}</TabPage>],
-    ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
   ])("%s is a page header on the token", (_, page) => {
     const { container } = render(page());
     const el = header(container);
@@ -53,7 +50,6 @@ describe("the page headers", () => {
   it.each([
     ["a flow's top bar", () => <TopBar title="Choose a mode" onBack={() => {}} />],
     ["a tab page's header", () => <TabPage title="Vault" onBack={() => {}}>{null}</TabPage>],
-    ["Welcome's header", () => <WelcomeScene {...WELCOME.firstVisit} onBack={() => {}} />],
   ])("%s is sticky, with Back at its top left", (_, page) => {
     const { container } = render(page());
     const el = header(container);

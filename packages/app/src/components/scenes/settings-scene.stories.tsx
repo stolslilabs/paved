@@ -13,7 +13,7 @@ import { ThemeScene } from "./theme-scene";
 const meta = {
   title: "Scenes/Settings",
   component: SettingsScene,
-  args: { onChange: fn(), onVolumeChange: fn(), onConnect: fn(), onDisconnect: fn(), onReset: fn(), onView: fn(), onViewBack: fn(), onBack: fn() },
+  args: { onChange: fn(), onVolumeChange: fn(), onReset: fn(), onView: fn(), onViewBack: fn(), onBack: fn() },
 } satisfies Meta<typeof SettingsScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -24,8 +24,8 @@ export const Connected: Story = { args: SETTINGS.connected };
 /** A new player on the mock (#926): the drawn name and look of free items, never the address alone; no league yet, a plain ring. */
 export const NewPlayer: Story = { args: { ...SETTINGS.connected, account: { ...SETTINGS.connected.account, name: NEW_PLAYER.name, look: NEW_PLAYER.look, league: undefined } } };
 
-/** No wallet: Connect. */
-export const Guest: Story = { args: SETTINGS.guest };
+/** The account still read: its place waits (no Connect: NO-GUEST). */
+export const Loading: Story = { args: SETTINGS.loading };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: SETTINGS.stress };
 

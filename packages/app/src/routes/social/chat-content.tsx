@@ -219,7 +219,13 @@ export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
         <SocialUnavailable>Messages are not on this network yet.</SocialUnavailable>
       </ChatScene>
     );
-  if (me === null) return <ChatScene {...frame} />;
+  // The account still read (NO-GUEST: every player has one): the chat's loading.
+  if (me === null)
+    return (
+      <ChatScene {...frame}>
+        <Skeleton aria-busy className="h-40 rounded-xl" />
+      </ChatScene>
+    );
 
   const tab = target !== null ? null : urlTab;
   const noticeSeen = data?.noticeSeen ?? true;

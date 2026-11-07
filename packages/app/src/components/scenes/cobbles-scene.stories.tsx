@@ -4,7 +4,7 @@ import { COBBLES } from "../../mocks/scenes";
 import { CobblesScene } from "./cobbles-scene";
 
 /** The Cobble packs (`/cobbles`, #621): the balance, the four packs, pick one and pay its USDC. One story per state; the Viewport control reframes it. */
-const meta = { title: "Scenes/Cobbles", component: CobblesScene, args: { onSelectPack: fn(), onBuyPack: fn(), onConnect: fn(), onBack: fn() } } satisfies Meta<typeof CobblesScene>;
+const meta = { title: "Scenes/Cobbles", component: CobblesScene, args: { onSelectPack: fn(), onBuyPack: fn(), onBack: fn() } } satisfies Meta<typeof CobblesScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -21,8 +21,6 @@ export const Short: Story = { args: COBBLES.short };
 /** WRAP360: the largest balances and a full referrer address. */
 export const Stress: Story = { args: COBBLES.stress };
 
-/** A guest: their Cobbles a dash, Pay is "Connect to buy". */
-export const Guest: Story = { args: { ...COBBLES.picked, balance: null, connected: false } };
 /** A pack bought: its Cobbles added, the balance from its `PackBought`. */
 export const PackBought: Story = { args: { ...COBBLES.picked, cobbles: { ...COBBLES.picked.cobbles, balance: 340, bought: { cobbles: 100 } } } };
 /** The packs are being read. */

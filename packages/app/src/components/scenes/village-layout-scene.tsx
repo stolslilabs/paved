@@ -20,7 +20,7 @@ import { TopBar } from "../containers/top-bar";
 // The score's count after a save (issue 802, the balances' change): its own chunk, loaded by a save alone.
 const LazyScoreCount = lazy(() => import("../elements/score-count").then((m) => ({ default: m.CountedScore })));
 
-/** Why the village is not shown: a guest (Connect), the reads on their way, a failed read (Retry). */
+/** Why the village is not shown: the reads on their way (the account's too: no guest, NO-GUEST), a failed read (Retry). */
 export type VillageLayoutStatus = SkinsStatus;
 
 export type { LayoutHand, LayoutSaved } from "../containers/layout-editor";
@@ -59,7 +59,6 @@ export interface VillageLayoutSceneProps extends Pick<LayoutEditorOptions, "rand
   initialPending?: Spot | null;
   initialLeaving?: boolean;
   onBack?: () => void;
-  onConnect?: () => void;
   onRetry?: () => void;
   /** Save the draft: always valid (the editor keeps it so), within the slots. */
   onSave?: (tiles: readonly BoardTile[]) => void;
@@ -84,7 +83,7 @@ export interface VillageLayoutSceneProps extends Pick<LayoutEditorOptions, "rand
  * when something changed and shows the new score once confirmed; Back with changes asks first, the way to drop them. Data and the save come as props and
  * callbacks: the page wires them to the mock ledger (#741) and then the contracts (#733) in later tasks.
  */
-export function VillageLayoutScene({ village, status, mode = "own", onBack, onConnect, onRetry, ...props }: VillageLayoutSceneProps) {
+export function VillageLayoutScene({ village, status, mode = "own", onBack, onRetry, ...props }: VillageLayoutSceneProps) {
   if (village) return <LayoutView village={village} mode={mode} onBack={onBack} {...props} />;
   const own = mode === "own";
   return (
@@ -94,8 +93,6 @@ export function VillageLayoutScene({ village, status, mode = "own", onBack, onCo
         {status && (
           <SkinsStatusView
             status={status}
-            guestTitle="Connect to build your village"
-            guestText="Your village is kept on your account: chests after your games and the daily shop fill your inventory, and others attack it."
             errorTitle="The village could not be read"
             skeleton={
               <div className="flex flex-col gap-3">
@@ -103,7 +100,6 @@ export function VillageLayoutScene({ village, status, mode = "own", onBack, onCo
                 <Skeleton className="aspect-square w-full rounded-2xl" />
               </div>
             }
-            onConnect={onConnect}
             onRetry={onRetry}
           />
         )}
@@ -138,7 +134,7 @@ function LayoutView({
   onDismissRefusal,
   onOpenShop,
   ...die
-}: Omit<VillageLayoutSceneProps, "village" | "status" | "onConnect" | "onRetry"> & { village: VillageLayout }) {
+}: Omit<VillageLayoutSceneProps, "village" | "status" | "onRetry"> & { village: VillageLayout }) {
   const own = mode === "own";
   const editor = useLayoutEditor({ village, inventory, own, saving, saved, initialEditing, initialDraft, initialHand, initialPending, initialLeaving, onBack, onSave: onSave && ((tiles) => onSave(tiles)), onDismissSaved, onDirtyChange, ...die });
   const { editing, slots, used, score, pending, open, back } = editor;

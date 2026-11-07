@@ -54,8 +54,9 @@ describe("app", () => {
   });
 
   // 28 since BACK-RULE (#783): the defence log is a section of the League, no longer a page; 29 with a match's page (#786); 28 since Missions is one page (#832); 29 with the Social page (#952); 31 with Chat, Guild and Friends in its place (#973); 33 with the chat's tab and private conversation paths (#973); 30 without the Chests (END-CHEST: chests open where they are won).
-  it("keeps the section 6.1 route map: 30 pages, each path once (SHOP-PAGE: the packs' page and a theme's shop became the Shop's tabs)", () => {
-    expect(PAGES).toHaveLength(30);
+  // 29 without the welcome (NO-GUEST: every player has an account, none is asked to connect; its old link lands on the home).
+  it("keeps the section 6.1 route map: 29 pages, each path once (SHOP-PAGE: the packs' page and a theme's shop became the Shop's tabs)", () => {
+    expect(PAGES).toHaveLength(29);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
@@ -66,7 +67,7 @@ describe("app", () => {
   // `vault-route.test.tsx`, `referral-route.test.tsx`; settings: P11a, `settings-route.test.tsx`; the avatar creator: #626,
   // `avatar-route.test.tsx`; the village: #646, `village-route.test.tsx`; the PvP flow: #647, `pvp-route.test.tsx`; a match:
   // #786, `pvp-match-route.test.tsx`; the social pages: #973, `social-pages.test.tsx`).
-  const WIRED = ["welcome", "", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions", "tiles", "settings", "settings/theme", "settings/theme/:theme", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "chat", "chat/private/:player", "chat/:tab", "guild", "friends"];
+  const WIRED = ["", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions", "tiles", "settings", "settings/theme", "settings/theme/:theme", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "chat", "chat/private/:player", "chat/:tab", "guild", "friends"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {
@@ -80,11 +81,13 @@ describe("app", () => {
     },
   );
 
-  it("renders the welcome scene on /welcome for a first visit", async () => {
+  it("has no welcome (NO-GUEST): a first visit opens the village, and the welcome's old link lands there", async () => {
     firstVisit();
-    render(<App router={createTestRouter("/welcome")} />);
-    expect(await screen.findByRole("heading", { name: "Welcome to Paved" })).toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    const router = createTestRouter("/welcome?ref=0x5f1");
+    render(<App router={router} />);
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/");
+    expect(router.state.location.search).toBe("?ref=0x5f1");
   });
 
   it("shows the loading scene as the boot screen, until the entry route has loaded", () => {

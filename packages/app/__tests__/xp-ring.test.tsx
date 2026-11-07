@@ -107,7 +107,7 @@ describe("XpRing (#625)", () => {
 });
 
 describe("the ring around the avatar (#625)", () => {
-  const value: ProfileValue = { state: PROFILE.connected, progress: FIRST_LEVEL, onConnect: vi.fn(), onDisconnect: vi.fn(), onCopy: vi.fn(async () => {}) };
+  const value: ProfileValue = { state: PROFILE.connected, progress: FIRST_LEVEL, onCopy: vi.fn(async () => {}) };
   const slot = (v: ProfileValue) =>
     wrap(
       <ProfileProvider value={v}>
@@ -115,12 +115,12 @@ describe("the ring around the avatar (#625)", () => {
       </ProfileProvider>,
     );
 
-  it("the menus' avatar draws the ring in its own chunk and says the level; a guest has none", async () => {
+  it("the menus' avatar draws the ring in its own chunk and says the level; none while the account is read", async () => {
     const { container, rerender } = render(slot(value));
     expect(screen.getByRole("button", { name: "Profile: bal7hazar, level 1" })).toBeInTheDocument();
     await waitFor(() => expect(container.querySelector("[data-slot=xp-ring]")).not.toBeNull());
     expect(container.querySelector("[data-slot=level-badge]")).toHaveTextContent("1");
-    rerender(slot({ ...value, state: PROFILE.guest, progress: undefined }));
+    rerender(slot({ ...value, state: PROFILE.loading, progress: undefined }));
     await act(async () => {});
     expect(container.querySelector("[data-slot=xp-ring]")).toBeNull();
   });

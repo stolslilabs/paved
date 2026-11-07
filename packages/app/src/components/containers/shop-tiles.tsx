@@ -38,7 +38,6 @@ export interface ShopTilesProps {
   refusalDetail?: ErrorDetail;
   /** The build-time renders (`useTileRenders`): each tile as the board draws it. */
   renders?: TileRenders;
-  onConnect?: () => void;
   onRetry?: () => void;
   onBuy?: (index: number) => void;
   /** To the Cobbles tab. */
@@ -65,17 +64,14 @@ function NewTilesIn({ resetsAt, now }: { resetsAt: number; now: number }) {
  * each can be bought once a day (`Bought` in its place after), the tile going to the inventory. Short of Cobbles, Get Cobbles opens
  * the Cobbles tab.
  */
-export function ShopTiles({ status, offers = [], cobbles = 0, owned = {}, resetsAt, now, buying = null, refusal = null, refusalDetail, renders, onConnect, onRetry, onBuy, onGetCobbles, onDismissRefusal }: ShopTilesProps) {
+export function ShopTiles({ status, offers = [], cobbles = 0, owned = {}, resetsAt, now, buying = null, refusal = null, refusalDetail, renders, onRetry, onBuy, onGetCobbles, onDismissRefusal }: ShopTilesProps) {
   const short = offers.some((o) => !o.bought && o.price > cobbles);
   if (status)
     return (
       <SkinsStatusView
         status={status}
-        guestTitle="Connect to visit the shop"
-        guestText="Three tiles a day, the same for everyone: buy them with Cobbles for your village."
         errorTitle="The shop could not be read"
         skeleton={<Skeleton className="h-64 w-full rounded-2xl" />}
-        onConnect={onConnect}
         onRetry={onRetry}
       />
     );

@@ -86,14 +86,14 @@ afterEach(() => {
 });
 
 describe("/vault (P10)", { timeout: slow(20_000) }, () => {
-  it("no account yet: the page shows its loading, never a guest's Connect, and reads nothing of the Vault (the owner's ruling of 2026-11-07)", async () => {
+  it("no Connect (the owner's ruling of 2026-11-07, NO-GUEST): a device with no account gets one at start, then its position is read", async () => {
     const s = setup({ viewer: "guest" });
     const wallet = open(s);
-    await waitFor(() => expect(wallet.calls).toContain("probe"));
-    expect(await screen.findByRole("status", { name: "Reading the Vault" }, { timeout: slow(5000) })).toBeInTheDocument();
+    await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])));
+    expect(await position()).toBeInTheDocument();
     expect(within(drawer()).queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.queryByText(/Connect to use the Vault/)).toBeNull();
-    expect(s.economy.calls.filter((c) => c.startsWith("vault"))).toEqual([]);
+    await waitFor(() => expect(s.economy.calls).toContain(`vault ${PLAYER}`));
   });
 
   it("shows the position from the chain: vPAVED, their share of the supply, their worth in PAVED and dollars, the rate, the exit fee, the wallet", async () => {

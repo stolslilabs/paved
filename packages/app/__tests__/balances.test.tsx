@@ -36,13 +36,6 @@ describe("Balances (#538), the resource bar (#620)", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("pill: a guest's tap connects", async () => {
-    const onConnect = vi.fn();
-    render(wrap(<Balances layout="pill" state={{ status: "disconnected" }} onConnect={onConnect} />));
-    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    expect(onConnect).toHaveBeenCalledOnce();
-  });
-
   it("rail: a plate per balance, each leading to its place; the Cobbles' plate to the packs", async () => {
     const onAction = vi.fn();
     render(wrap(<Balances layout="rail" state={READY} onAction={onAction} faucet />));
@@ -240,14 +233,10 @@ describe("the plates (#828)", () => {
     expect(screen.queryByRole("region", { name: "Balances" })).toBeNull();
   });
 
-  it("a guest's Connect names the page's balances from desktop", () => {
-    render(wrap(<Balances layout="rail" kinds={["cobbles", "usdc"]} state={{ status: "disconnected" }} />));
-    expect(screen.getByText("Connect to see your Cobbles and USDC.")).toBeInTheDocument();
-  });
-
-  it("loading: a skeleton per balance shown, none for vPAVED while unknown", () => {
+  it("loading (the account's too, NO-GUEST: no Connect): a skeleton per balance shown, none for vPAVED while unknown", () => {
     const { container } = render(wrap(<Balances layout="pill" kinds={["cobbles", "paved", "vpaved-held"]} state={{ status: "loading" }} />));
     expect(container.querySelectorAll("[data-slot=skeleton]")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
   });
 
   // #855's second open point: the phone stack gives way to the Cobbles alone where its widest plate would cover the League control.

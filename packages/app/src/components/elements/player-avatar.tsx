@@ -35,7 +35,7 @@ export interface AvatarPlayer {
 }
 
 export interface PlayerAvatarProps extends VariantProps<typeof avatarVariants> {
-  /** Null: a guest, drawn as a silhouette that invites to connect. */
+  /** Null: no player to show (a conversation's other side not read, the account on its way), drawn as a silhouette. */
   player: AvatarPlayer | null;
   /** The wallet is still looking for an earlier session: a placeholder of the same size. */
   loading?: boolean;
@@ -59,7 +59,7 @@ export function avatarInitial(player: AvatarPlayer): string {
 /**
  * The player's avatar (issue 624): a round disc, 40 px inside a 44 px box on a phone. Connected, the avatar they saved (issue
  * 626) as a still image (rendered once, cached: never a live WebGL context per avatar), else the default one: the initial in
- * gold on the secondary disc. A guest: a silhouette on a dashed outline. Decorative: the control that holds it carries the name.
+ * gold on the secondary disc. No player: a silhouette on a dashed outline. Decorative: the control that holds it carries the name.
  */
 export function PlayerAvatar({ player, loading, look, live, size, children, className }: PlayerAvatarProps) {
   return (

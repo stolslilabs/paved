@@ -72,7 +72,8 @@ function Match({ id }: { id: string }) {
 
   const client = useQueryClient();
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  if (me === null) return <PvpSearchScene state="error" player={self} error="Connect to see your matches." onRetry={() => void wallet.connect()} onCancel={onBack} />;
+  // No guest (NO-GUEST): until the account is in, the page waits.
+  if (me === null) return <PvpSearchScene state="searching" player={self} onCancel={onBack} />;
   if (!match || !build) {
     const missing = matches.data === null ? "Matches are not on this network yet." : matches.data ? "This match is not recorded on this device." : null;
     const error = matches.error;

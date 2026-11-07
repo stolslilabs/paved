@@ -58,10 +58,9 @@ export function BalancesHost({ page, faucet = FAUCET, children }: { page: string
     },
     [go, pathname, cobbles.open, signer, address, queryClient],
   );
-  const onConnect = useCallback(() => void wallet.connect(), [wallet]);
   const value = useMemo(
-    () => ({ state, page, onAction, onConnect, onRetry: retry, faucet: faucet && Boolean(signer), minting }),
-    [state, page, onAction, onConnect, retry, faucet, signer, minting],
+    () => ({ state, page, onAction, onRetry: retry, faucet: faucet && Boolean(signer), minting }),
+    [state, page, onAction, retry, faucet, signer, minting],
   );
   return (
     <BalancesProvider value={value}>

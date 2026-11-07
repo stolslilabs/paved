@@ -22,7 +22,8 @@ export function useBalances(): { state: BalancesState; retry: () => void } {
   return { state: stateOf(), retry };
 
   function stateOf(): BalancesState {
-    if (!address) return { status: "disconnected", connecting: wallet.status === "connecting" };
+    // No guest (NO-GUEST): until the account is in (read, or made on a new device), the plates load.
+    if (!address) return { status: "loading" };
     const failed = usdc.error ?? paved.error ?? cobbles.error;
     if (failed) return { status: "error", message: failed instanceof Error ? failed.message : String(failed), retrying: usdc.isFetching || paved.isFetching || cobbles.isFetching };
     if (usdc.isPending && paved.isPending && cobbles.isPending) return { status: "loading" };

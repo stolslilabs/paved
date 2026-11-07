@@ -185,7 +185,7 @@ describe("a new player in the PvP rows (#926)", () => {
   });
 });
 
-preloadPages("home", "welcome", "settings");
+preloadPages("home", "settings");
 beforeAll(async () => {
   await Promise.all([import("../src/routes/pages/home"), import("../src/routes/home-stage")]);
 }, slow(60_000));
@@ -201,18 +201,16 @@ afterEach(() => {
 });
 
 describe("a new player's name and look on the screens, on the mock (#926)", () => {
-  it("Connect on the welcome: the home's profile and Settings show the drawn name, never the address", async () => {
+  it("a first visit (the account made at start, NO-GUEST): the home's profile and Settings show the drawn name, never the address", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ quality: "low" }));
     const s = mockImplementation();
     const me = s.sources.signer!.address;
     const wallet = fakeWallet({ address: me });
     const router = createTestRouter("/");
     render(<App router={router} sources={{ ...s.sources, signer: null }} connector={async () => mockConnector(wallet.connector, s.ledger, { random: seededRandom(926) })} />);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/welcome"), WAIT);
-    expect(await s.ledger.name(me)).toBeNull();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Connect" }, WAIT));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"), WAIT);
+    expect(router.state.location.pathname).toBe("/");
+    // Named and dressed at the account's making, no prompt.
+    await waitFor(async () => expect(await s.ledger.name(me)).not.toBeNull(), WAIT);
     const name = (await s.ledger.name(me))!;
     expect(name).toMatch(PLAYER_NAME);
     expect(allFree(await s.ledger.avatar(me))).toBe(true);

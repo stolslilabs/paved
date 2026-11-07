@@ -12,7 +12,7 @@ import { HEADER_BALANCES, hereOf } from "../../routes/header-balances";
 
 /** The wallet's balances as a page reads them. USDC, PAVED and vPAVED are tokens (base units); Cobbles are a ledger (a count). */
 export type BalancesState =
-  | { status: "disconnected"; connecting?: boolean }
+  /** Read, the account's too (NO-GUEST, the owner's ruling of 2026-11-07: every player has one, none is asked to connect). */
   | { status: "loading" }
   /** A failed read: its text (shown through `balancesMessage`, #918); `retrying` while Retry reads again. */
   | { status: "error"; message: string; retrying?: boolean }
@@ -61,7 +61,6 @@ export interface BalancesProps {
    */
   here?: readonly BalanceKind[];
   onAction?: (kind: BalanceKind) => void;
-  onConnect?: () => void;
   /** Reads the balances again after a failed read (`error`): Retry, beside the message from `desktop`, the mark itself on a phone. */
   onRetry?: () => void;
   /** The network has a test-USDC faucet (devnet, Sepolia): USDC's action mints; without it USDC has no action here. */
@@ -90,12 +89,6 @@ const kindOf = (shown: ShownBalance): BalanceKind => (shown === "vpaved-held" ? 
 function amountOf(state: Ready, kind: BalanceKind): bigint | null | undefined {
   const value = state[kind];
   return typeof value === "number" ? BigInt(value) : value;
-}
-
-/** "USDC, PAVED and Cobbles": the balances' names in a sentence. */
-function namesOf(kinds: readonly ShownBalance[]) {
-  const labels = kinds.map((shown) => PLATES[kindOf(shown)].label);
-  return labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
 }
 
 /** How long a vPAVED plate stays once its balance falls to zero: its count down and its "−N" play out first. */
@@ -239,17 +232,6 @@ function PlateTap({ kind, from, state, here, onAction, faucet, minting, size }: 
   );
 }
 
-function Guest({ connecting, onConnect, names }: { connecting?: boolean; onConnect?: () => void; names?: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      {names && <span className="hidden text-xs text-muted-foreground wide:inline">Connect to see your {names}.</span>}
-      <Button size="sm" onClick={onConnect} loading={connecting}>
-        Connect
-      </Button>
-    </div>
-  );
-}
-
 /** What the balances show when the node or the network cannot be reached: short, and the bar offers Retry (#918). */
 export const BALANCES_OFFLINE = "Can't reach the network.";
 
@@ -304,10 +286,10 @@ function BalancesError({ size, message, retrying, onRetry }: { size: PlateSize; 
  * stands (#860, compact from 10,000, the full amount in its name and tooltip). No plate draws a "+" (#925): the whole plate is
  * the tap to its page (the Challenge, the Vault, the packs), inert on that page itself (`here`). The Cobbles' plate stands apart (a gold edge, a slow shine) and leads to the packs; vPAVED leads to the Vault, and
  * joins when held where the page shows it so (`vpaved-held`). Only the page's balances (`kinds`, #855), the same on a phone
- * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Disconnected: Connect; loading:
- * skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
+ * (`pill`) and from `desktop` (`rail`), in a row or a column (`direction`); none, nothing. Loading (the account's too: no Connect,
+ * NO-GUEST): skeleton plates; error: a short inline error (a mark on a phone, its message in its name), never a toast.
  */
-export function Balances({ layout, page, direction = "row", state, onAction, onConnect, onRetry, faucet, minting, beside, className, ...props }: BalancesProps) {
+export function Balances({ layout, page, direction = "row", state, onAction, onRetry, faucet, minting, beside, className, ...props }: BalancesProps) {
   // No page (a story's, a test's), every balance; a page that shows none (`null`, or a route the rule does not name), none.
   const kinds = props.kinds ?? (page === undefined ? EVERY : (HEADER_BALANCES[page as keyof typeof HEADER_BALANCES] ?? []));
   const here = props.here ?? (page == null ? undefined : hereOf(`/${page}`));
@@ -326,9 +308,7 @@ export function Balances({ layout, page, direction = "row", state, onAction, onC
       data-direction={direction}
       className={cn("flex min-w-0", direction === "column" ? "flex-col items-end gap-1" : "items-center gap-3", className)}
     >
-      {state.status === "disconnected" ? (
-        <Guest connecting={state.connecting} onConnect={onConnect} names={size === "md" ? namesOf(kinds) : undefined} />
-      ) : state.status === "error" ? (
+      {state.status === "error" ? (
         <BalancesError size={size} message={balancesMessage(state.message)} retrying={state.retrying} onRetry={onRetry} />
       ) : state.status === "loading" ? (
         // The plates' rows: a skeleton in each plate's place, nothing moves when they arrive.

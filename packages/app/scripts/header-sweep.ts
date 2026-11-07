@@ -7,7 +7,7 @@
  *   the fixed bottom bar), as tall as its own `--header-h` token (theme.css) at that width;
  * - every other page header shown (a tab page's title row from `desktop`, below the navigation) as tall as the token too;
  * - the content's first box (painted, text, a picture, a control, a tab page's title row from `desktop`) starts at the same
- *   height in the layout on every page but the heroes (Home, Welcome);
+ *   height in the layout on every page but the heroes (Home);
  * - the header at the top is the one header (ONE-HEADER, #781): its title (an `h1`) shown, and the home's balances shown in
  *   it on every page whose rule has them (`header-balances.ts`);
  * - every page listed has its story, and every story is listed.

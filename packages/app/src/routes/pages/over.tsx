@@ -86,7 +86,7 @@ function rewardProps(reward: OverReward): Pick<OverSceneProps["reward"], "state"
  * deadline of an expired game), `Economy.day(day)` (the threshold once the day is closed) and the indexer's record (a free
  * game, the threshold the contract used), the reward its score earns before the settle (`curveOf`, #705: an estimate at its
  * day's prior while the day is open), and the missions it completed (`useGameCompletions`, #595). Settle is `Economy.settle`: "Settles after <date>" until the end of the day after
- * the game's, then the player's button; a guest connects. A game still in play goes back to its board, an unknown one is
+ * the game's, then the player's button (none until the account is in, NO-GUEST). A game still in play goes back to its board, an unknown one is
  * "Game not found", a failed read has Retry. Play again opens the purchase, keeping the link's `?ref=`.
  */
 function ChallengeOver({ gameId }: { gameId: number }) {
@@ -142,7 +142,7 @@ function ChallengeOver({ gameId }: { gameId: number }) {
   const { game, terms, day, indexed, closings } = read;
   const reward = rewardOf(terms, day, indexed);
   const free = reward.kind === "free";
-  const settle = terms && !free ? settleProps(terms, game.playerId, now, viewer, control, { connect: () => void wallet.connect() }) : null;
+  const settle = terms && !free ? settleProps(terms, game.playerId, now, viewer, control) : null;
   return (
     <OverScene
       mode="challenge"

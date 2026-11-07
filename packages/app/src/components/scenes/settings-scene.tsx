@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import * as m from "motion/react-m";
 import type { League } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
+import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";
 import { PlayerName } from "../elements/player-name";
 import { SETTING_LABEL, SETTING_ROW, ShowSkinsSwitch } from "../elements/setting-switch";
@@ -42,7 +43,7 @@ const TITLES: Record<SettingsView, string> = { settings: "Settings", quality: "G
 
 export interface SettingsSceneProps {
   preferences: Preferences;
-  /** Null: a guest. */
+  /** Null while the account is read (NO-GUEST, the owner's ruling of 2026-11-07: every player has one, none is asked to connect). */
   account: Account | null;
   /** The tier "auto" resolves to on this device: "Auto (Medium)". */
   autoQuality?: Exclude<GraphicsQuality, "auto">;
@@ -61,9 +62,7 @@ export interface SettingsSceneProps {
   returnFocus?: () => HTMLElement | null;
   onChange?: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
   onVolumeChange?: (channel: VolumeChannel, volume: number) => void;
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-  /** Reset: a new key and a new account on this device (testing, #918). Omitted: no Reset row. */
+  /** Reset: a new key and a new account on this device (testing, #918), from one account to the next. Omitted: no Reset row. */
   onReset?: () => void;
   /** A view opened from Settings: the quality's pill, More's Themes and Credits. */
   onView?: (view: Exclude<SettingsView, "settings">) => void;
@@ -81,7 +80,7 @@ const keepForDialogs = (event: Event) => {
   if ((event.target as Element | null)?.closest?.("[role=dialog], [role=alertdialog]")) event.preventDefault();
 };
 
-/** The account's raised pill (the book's Disconnect, the Reset): a press on the carved surface, 44 px tall. */
+/** The account's raised pill (the book's, Reset's): a press on the carved surface, 44 px tall. */
 const PILL = "drawer-raised state-layer text-outline flex min-h-11 shrink-0 cursor-pointer items-center rounded-full px-3.5 text-sm font-bold outline-none disabled:pointer-events-none disabled:opacity-50";
 
 /**
@@ -89,7 +88,7 @@ const PILL = "drawer-raised state-layer text-outline flex min-h-11 shrink-0 curs
  * Back on a phone, a side panel docked at the right from `tablet`, the dock's Settings being its right-most button (the book draws a
  * centred window at those widths). Its groups in the book's order: Visuals (the quality's pill, the day and night cycle, the ambient
  * effects, the other players' skins), Sound (the two sliders, the music player of #569), Gameplay (tile preview, placement highlight,
- * the square grid), Account (the portrait in its league's rim, the name, Connected and the address, Disconnect; a guest's Connect;
+ * the square grid), Account (the portrait in its league's rim, the name, Connected and the address, Reset;
  * Reset for testing, #918), More (Themes, kept, and Credits), the app's version at the foot. The quality's choice, Credits and Themes
  * open as views in the drawer, in its place, sliding in: the header names the view, its Back goes back to Settings and the red cross
  * leaves (the Guild's menu's pattern).
@@ -149,7 +148,7 @@ export function SettingsScene(props: SettingsSceneProps) {
               onOpenQuality={() => props.onView?.("quality")}
               visualsExtra={<ShowSkinsSwitch checked={p.showSkins} onCheckedChange={(v) => onChange?.("showSkins", v)} />}
             />
-            <AccountGroup account={account} connecting={props.connecting} onConnect={props.onConnect} onDisconnect={props.onDisconnect} onReset={props.onReset} />
+            <AccountGroup account={account} connecting={props.connecting} onReset={props.onReset} />
             <SettingsGroup title="More" surface="links">
               <SettingsLink label="Themes" art="theme-forest" onClick={() => props.onView?.("themes")} />
               <SettingsLink label="Credits" art="missions" onClick={() => props.onView?.("credits")} />
@@ -162,8 +161,11 @@ export function SettingsScene(props: SettingsSceneProps) {
   );
 }
 
-/** The account (the book's): the portrait in its league's rim, the name, Connected in green and the address, Disconnect; a guest's Connect. */
-function AccountGroup({ account, connecting, onConnect, onDisconnect, onReset }: Pick<SettingsSceneProps, "account" | "connecting" | "onConnect" | "onDisconnect" | "onReset">) {
+/**
+ * The account (the book's): the portrait in its league's rim, the name, Connected in green and the address; its place waiting while it
+ * is read. No Disconnect and no Connect (NO-GUEST, the owner's ruling of 2026-11-07): Reset goes from one account to the next.
+ */
+function AccountGroup({ account, connecting, onReset }: Pick<SettingsSceneProps, "account" | "connecting" | "onReset">) {
   return (
     <SettingsGroup title="Account">
       {account ? (
@@ -175,22 +177,14 @@ function AccountGroup({ account, connecting, onConnect, onDisconnect, onReset }:
             <span className="text-outline text-sm font-bold text-success">Connected</span>
             <ShortAddress address={account.address} className="text-sm text-muted-foreground" />
           </span>
-          <button type="button" className={cn(PILL, "ml-auto")} onClick={onDisconnect}>
-            Disconnect
-          </button>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3">
-          <span className="grid size-12 shrink-0 place-items-center rounded-full border-4 border-border">
-            <UiIcon name="user" px={32} className="drawer-icon size-8" />
+        <div role="status" aria-label="Looking for your account" className="flex items-center gap-3 p-3">
+          <Skeleton className="size-12 shrink-0 rounded-full bg-card" />
+          <span className="flex flex-1 flex-col gap-1.5">
+            <Skeleton className="h-5 w-32 rounded bg-card" />
+            <Skeleton className="h-4 w-24 rounded bg-card" />
           </span>
-          <span className="flex min-w-32 flex-1 basis-0 flex-col">
-            <span className="text-outline text-lg leading-tight font-bold">Guest</span>
-            <span className="text-sm wrap-anywhere text-muted-foreground">Story progress is saved on this device only.</span>
-          </span>
-          <Button className="ml-auto" onClick={onConnect} loading={connecting}>
-            Connect
-          </Button>
         </div>
       )}
       {onReset && (

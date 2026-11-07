@@ -34,7 +34,6 @@ const chat: PageLoader = () => import("./pages/chat");
 const settings: PageLoader = () => import("./pages/settings");
 
 export const PAGE_LOADERS: Record<string, PageLoader> = {
-  welcome: () => import("./pages/welcome"),
   "": () => import("./pages/home"),
   play,
   "play/challenge": play,

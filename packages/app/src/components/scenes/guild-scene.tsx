@@ -3,7 +3,7 @@ import { HudDrawer } from "../containers/hud-drawer";
 import { SocialEmpty } from "../containers/social-empty";
 
 export interface GuildSceneProps {
-  /** The page's content as the app draws it (the finder, or the player's guild, #953). Unset: the empty state, as a guest sees it. */
+  /** The page's content as the app draws it (the finder, or the player's guild, #953). Unset: the empty state. */
   children?: ReactNode;
   /** The drawer's close: Back on a phone, the red cross from `tablet`, Escape, a tap on the village. */
   onBack?: () => void;

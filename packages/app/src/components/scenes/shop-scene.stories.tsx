@@ -20,7 +20,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const calls = { tiles: { onBuy: fn(), onGetCobbles: fn(), onConnect: fn(), onRetry: fn(), onDismissRefusal: fn() }, packs: { onSelectPack: fn(), onBuyPack: fn(), onConnect: fn() }, themes: { onBuy: fn(), onOpenTheme: fn(), onGetCobbles: fn(), onConnect: fn() } };
+const calls = { tiles: { onBuy: fn(), onGetCobbles: fn(), onRetry: fn(), onDismissRefusal: fn() }, packs: { onSelectPack: fn(), onBuyPack: fn() }, themes: { onBuy: fn(), onOpenTheme: fn(), onGetCobbles: fn() } };
 const of = (data: (typeof SHOP)[keyof typeof SHOP]) => ({ ...data, tiles: { ...data.tiles, ...calls.tiles }, packs: { ...data.packs, ...calls.packs }, themes: { ...data.themes, ...calls.themes } });
 
 /** The Tiles tab: today's three, their rarity, the tiles held, their prices; the time until tomorrow's. */
@@ -41,7 +41,6 @@ export const Themes: Story = { args: of(SHOP.themes) };
 export const Forest: Story = { args: of(SHOP.forest) };
 /** Forest's view, no Cobbles. */
 export const ForestNoCobbles: Story = { args: of(SHOP.forestNoCobbles) };
-export const Guest: Story = { args: of(SHOP.guest) };
 export const Loading: Story = { args: of(SHOP.loading) };
 
 export const TilesPhone: Story = { ...Tiles, ...PHONE_375 };

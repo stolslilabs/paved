@@ -123,7 +123,6 @@ export const VILLAGE_LAYOUT = {
   refused: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, refusal: "The layout changed on another device: read it again. Nothing was saved." },
   emptyInventory: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, initialEditing: true },
   loading: { status: { kind: "loading" } },
-  guest: { status: { kind: "guest" } },
   error: { status: { kind: "error", message: "Village: the node did not answer" } },
   visit: { village: LAYOUT_RIVAL, mode: "visit" },
 } satisfies Record<string, Data<VillageLayoutSceneProps>>;
@@ -155,7 +154,6 @@ export const VILLAGE_SHOP = {
   short: { offers: SHOP_TODAY, cobbles: 30, owned: ownedOf(LAYOUT_GROWING, INVENTORY), resetsAt: TOMORROW, now: MOCK_NOW },
   refused: { offers: SHOP_TODAY, cobbles: 240, owned: ownedOf(LAYOUT_GROWING, INVENTORY), resetsAt: TOMORROW, now: MOCK_NOW, refusal: "This tile was bought today already. No Cobbles were spent." },
   loading: { status: { kind: "loading" } },
-  guest: { status: { kind: "guest" } },
 } satisfies Record<string, Data<ShopTilesProps>>;
 
 /** The home's base (#753): the growing village, its inventory, 3 missions waiting, 1,240 crowns, at the mocks' clock. */
@@ -238,8 +236,6 @@ export const HOME_VILLAGE = {
   unranked: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: { crowns: 0, attacks: 0 }, now: MOCK_NOW },
   /** Not founded yet: the starter alone, Found in Edit's place. */
   unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, league: null, now: MOCK_NOW },
-  /** No wallet: a starter village to look at, nothing to edit (Connect is the header's). */
-  guest: { village: LAYOUT_START, guest: true, league: null, now: MOCK_NOW },
   /** The village on its way: the overlays over the sky. */
   loading: { now: MOCK_NOW },
   /** The village's read failed: Retry. */

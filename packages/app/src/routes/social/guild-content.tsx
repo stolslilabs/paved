@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { GUILD_SIZES, GuildBrowse, GuildFinder, GuildInvitations, NO_GUILD_FILTERS, type GuildFinderAction, type GuildFinderFilters } from "../../components/containers/guild-finder";
-import { SocialEmpty, SocialUnavailable } from "../../components/containers/social-empty";
+import { SocialUnavailable } from "../../components/containers/social-empty";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
 import { useGuildRanking, useGuildSearch, useGuildWrites, usePlayerGuild, useSuggestedGuilds, type GuildWriteRun } from "../../data/guilds";
@@ -91,7 +91,8 @@ export function GuildContent() {
   const sheetOpen = asked !== null && asked !== own;
 
   if (player.unavailable) return <SocialUnavailable>Guilds are not on this network yet.</SocialUnavailable>;
-  if (me === null) return <SocialEmpty page="guild" />;
+  // The account still read (NO-GUEST: every player has one): the guild's loading.
+  if (me === null) return <Skeleton aria-busy className="h-40 rounded-xl" />;
 
   const state = player.data;
   return (

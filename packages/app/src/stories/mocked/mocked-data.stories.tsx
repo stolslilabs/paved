@@ -60,7 +60,7 @@ const definitions: Definitions = {
   achievements: [],
 };
 
-const vaultHandlers = { onModeChange: fn(), onAmountChange: fn(), onMax: fn(), onDeposit: fn(), onWithdraw: fn(), onWithdrawAll: fn(), onPlay: fn(), onConnect: fn(), onRetry: fn() };
+const vaultHandlers = { onModeChange: fn(), onAmountChange: fn(), onMax: fn(), onDeposit: fn(), onWithdraw: fn(), onWithdrawAll: fn(), onPlay: fn(), onRetry: fn() };
 
 async function vaultArgs(l: MockLedger, amount: bigint): Promise<VaultSceneProps> {
   return { ...VAULT.noPosition, ...vaultHandlers, position: await l.vault(PLAYER_ID), balance: await l.pavedBalance(PLAYER_ID), split: await l.split(), amount: String(amount / P), preview: await l.previewDeposit(amount) };
@@ -85,7 +85,7 @@ export const VaultDeposited: Story = {
   render: (_args, { loaded }) => <VaultScene {...(loaded.props as VaultSceneProps)} />,
 };
 
-const questHandlers = { onConnect: fn(), onRetry: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimWeeklyMilestone: fn() };
+const questHandlers = { onRetry: fn(), onClaimQuest: fn(), onClaimAchievement: fn(), onClaimWeeklyMilestone: fn() };
 
 /** Today with the three Challenge weeklies done (#976): three of five, the week's first gift reached. */
 const WEEK_THREE = questsWeekDone(3);
@@ -136,7 +136,7 @@ export const MissionsClaimed: Story = {
 
 /** Challenge with the mark (MOCK-MARK, #622): "Mock" on the title's line. */
 export const Challenge: Story = {
-  render: () => <PurchaseScene {...PURCHASE.stake1} {...{ onStakeChange: fn(), onConfirm: fn(), onConnect: fn(), onBack: fn() }} />,
+  render: () => <PurchaseScene {...PURCHASE.stake1} {...{ onStakeChange: fn(), onConfirm: fn(), onBack: fn() }} />,
 };
 
 /** The Cobble packs on the mock (#621): its four packs, 50 Cobbles after the first one (5 USDC) was bought with the faucet's USDC, 95 USDC left. */
@@ -148,7 +148,7 @@ export const PackBought: Story = {
       const packs = await readPacks(l);
       const props: CobblesSceneProps = {
         ...(COBBLES.packs as CobblesSceneProps),
-        ...{ onConnect: fn(), onBack: fn(), onSelectPack: fn(), onBuyPack: fn() },
+        ...{ onBack: fn(), onSelectPack: fn(), onBuyPack: fn() },
         balance: await l.usdcBalance(PLAYER_ID),
         cobbles: { balance: (await l.account(PLAYER_ID)).cobbles, packs, selected: null },
       };

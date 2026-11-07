@@ -15,7 +15,7 @@ import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
 import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { UsdcLogo } from "../elements/usdc-logo";
-import { BalanceNotice, ConnectButton, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "../containers/purchase-notices";
+import { BalanceNotice, DroppedReferrerNotice, RefusalNotice, retryLabel, shortText, type PurchaseRefusal } from "../containers/purchase-notices";
 import { DrawerFooter } from "../containers/hud-drawer";
 import { PriceFlow } from "../containers/price-flow";
 import { RewardEstimate } from "../containers/reward-estimate";
@@ -77,14 +77,13 @@ export interface PurchaseSceneProps {
    * stays held; Check again, or the player's confirm that their balance and games show no purchase.
    */
   checkUnresolved?: boolean;
-  /** A wallet is connected; a guest's Pay is "Connect to buy". Connected when omitted (the stories). */
+  /** The account is in (NO-GUEST: every player has one); until then Pay waits, off. In when omitted (the stories). */
   connected?: boolean;
   now: number;
   /** The player's time zone for the deadline; their own when omitted (stories fix it). */
   timeZone?: string;
   onStakeChange?: (stake: number) => void;
   onConfirm?: () => void;
-  onConnect?: () => void;
   onRetryBalance?: () => void;
   /** Check an unknown purchase again after a failed check. */
   onRetryCheck?: () => void;
@@ -165,13 +164,13 @@ function Target({ art, label, score, gain }: { art: ReactNode; label: string; sc
  * from the threshold to the cap, and under its box what it means, a short line each (#705); then the split of the USDC, a bar and a tile per recipient (`PriceFlow`); the
  * 24 h validity and its deadline; and the bill in the drawer's footer (`DrawerFooter`, the header's band at its foot), the total on the
  * left, Confirm on the right as the chests' Take.
- * A guest's button connects.
+ * No Connect (NO-GUEST): until the account is in, Pay waits.
  * The refusals, the paused state and an unknown outcome's check keep their notices above Pay.
  */
 export function PurchaseScene(props: PurchaseSceneProps) {
   const { stake, quote, balance, spawnPaused, buying, now, refusal, connected = true, reference, referenceError } = props;
   const short = connected && balance !== null && balance < quote.price;
-  const blocked = spawnPaused || short || props.quoting || (connected && balance === null) || props.checking || props.checkFailed || props.checkUnresolved;
+  const blocked = !connected || spawnPaused || short || props.quoting || balance === null || props.checking || props.checkFailed || props.checkUnresolved;
   const label = retryLabel(refusal);
   const price = formatUnits(quote.price, TOKENS.usdc.decimals, quote.price % 1_000_000n === 0n ? 0 : TOKENS.usdc.fraction);
   const paying = !buying && !props.checking && !props.checkFailed && !props.checkUnresolved && !label;
@@ -297,25 +296,19 @@ export function PurchaseScene(props: PurchaseSceneProps) {
               <span className="text-outline text-base font-bold">USDC</span>
             </span>
           </span>
-          {!connected ? (
-            <span className="ml-auto">
-              <ConnectButton onConnect={props.onConnect} />
-            </span>
-          ) : (
-            <Button
-              variant="ghost"
-              // Confirm as the chests' Take (the owner's ask of 2026-11-06): the drawers' gold action, its light passing.
-              style={GOLD_ACTION}
-              className={cn("relative ml-auto h-12 min-w-36 shrink-0 px-1 font-black text-foreground", word === "Confirm" ? "text-lg mobile:text-xl" : "text-sm mobile:text-base")}
-              onClick={props.onConfirm}
-              disabled={blocked}
-              loading={buying}
-              aria-label={paying ? `Confirm, pay ${price} USDC and play` : undefined}
-            >
-              {!blocked && !buying && <GoldShine />}
-              {word}
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            // Confirm as the chests' Take (the owner's ask of 2026-11-06): the drawers' gold action, its light passing.
+            style={GOLD_ACTION}
+            className={cn("relative ml-auto h-12 min-w-36 shrink-0 px-1 font-black text-foreground", word === "Confirm" ? "text-lg mobile:text-xl" : "text-sm mobile:text-base")}
+            onClick={props.onConfirm}
+            disabled={blocked}
+            loading={buying}
+            aria-label={paying ? `Confirm, pay ${price} USDC and play` : undefined}
+          >
+            {!blocked && !buying && <GoldShine />}
+            {word}
+          </Button>
         </div>
       </DrawerFooter>
     </div>

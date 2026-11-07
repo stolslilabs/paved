@@ -18,7 +18,7 @@ import { heldRefusal, newRefusal, quoteProblem, withDetail } from "./purchase-re
  * The Cobble packs' wiring (#621), the Shop's Cobbles tab's and the packs' sheet's (SHOP-PAGE): it reads the packs from `Setup.pack`,
  * the Cobble balance, the USDC balance and the split, and buys one with the approve and `Setup.buy_pack` (`PackBuyer`) in one prompt;
  * the receipt's `PackBought` sets the balance, then the account is read again. The referrer is the link's `?ref=`, dropped (and said)
- * when the pack's split would not pay it. A guest's Pay connects. An unknown outcome is held as a game's is (`usePurchaseHold`):
+ * when the pack's split would not pay it. Until the account is in, Pay waits (NO-GUEST). An unknown outcome is held as a game's is (`usePurchaseHold`):
  * recorded per player, checked, and released only by the player's confirm that their balance and Cobbles show no purchase; then only a
  * deliberate Buy again sends. The flow of the `/cobbles` page it was, unchanged.
  */
@@ -53,7 +53,7 @@ export function useShopPacks(): ShopPacksProps {
     (buyPack.mutation.error ? purchaseRefusal(buyPack.mutation.error) : quoteProblem(packQuote, connected && pack !== null));
 
   const buy = () => {
-    if (!buyPack.buyer || !playerId) return void wallet.connect();
+    if (!buyPack.buyer || !playerId) return; // No account yet (NO-GUEST: it is made at start): Pay is off until it is in.
     if (!pack || packQuote.minOut === null || packHold.held || buyPack.sending || packReferrer.isPending) return;
     packHold.dismiss();
     buyPack.mutation.mutate({
@@ -98,7 +98,6 @@ export function useShopPacks(): ShopPacksProps {
       setSelected(id);
     },
     onBuyPack: buy,
-    onConnect: () => void wallet.connect(),
     onRetryEconomy: () => void client.invalidateQueries({ queryKey: ["chain", "economy"] }),
     onRetryBalance: () => playerId && void client.invalidateQueries({ queryKey: queryKeys.chain.usdcBalance(playerId) }),
     onRetryPacks: () => void client.invalidateQueries({ queryKey: packKeys.packs() }),

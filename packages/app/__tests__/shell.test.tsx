@@ -10,7 +10,7 @@ import { routes } from "../src/routes/router";
 import { PAGES } from "../src/routes/pages";
 import { withRef } from "../src/routes/ref";
 import { createTestRouter } from "../src/routes/router";
-import { hasWelcomed, markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
+import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { preloadPages, routeOf } from "./route-helpers";
@@ -28,7 +28,7 @@ function open(path: string, wallet = fakeWallet()) {
 }
 
 // The Back button is the board's own: the real board is kept, loaded once before the first test.
-preloadPages("board", "home", "missions", "play", "welcome", "vault", "referral");
+preloadPages("board", "home", "missions", "play", "vault", "referral");
 
 beforeEach(() => {
   // Importing the router module creates the app's browser router, which writes `idx` into jsdom's history state: a memory
@@ -50,11 +50,9 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
   it.each(PAGES.filter((p) => p.nav && p.path !== "").map((p) => [p.path, p] as const))("%s carries no dock", async (_path, page) => {
     open(concrete(page.path));
     // The first page module of the file is imported cold: Home's now brings its data hooks (P6).
-    // A drawer's page (MISSIONS-PAGE, LEAGUE-PAGE) is the HUD's drawer over the home, named by its title; the League's asks a guest
-    // to connect in it.
+    // A drawer's page (MISSIONS-PAGE, LEAGUE-PAGE) is the HUD's drawer over the home, named by its title.
     if (page.drawer) {
       await screen.findByRole("dialog", { name: page.title }, { timeout: slow(5000) });
-      if (page.path === "pvp/league") await screen.findByText("Connect to see your league", undefined, { timeout: slow(5000) });
     } else await screen.findByRole("heading", { level: 1, name: HEADING[page.path] ?? page.title }, { timeout: slow(5000) });
     const dock = screen.queryByRole("navigation", { name: "Main", hidden: true });
     if (page.drawer) expect(within(screen.getByRole("dialog", { name: page.title })).queryByRole("navigation", { name: "Main", hidden: true })).toBeNull();
@@ -195,15 +193,12 @@ describe("?ref= survives", () => {
     expect(again.state.location.search).toBe("?ref=0xabc");
   });
 
-  it("is kept from the first visit's redirect to the welcome, and by Training", async () => {
+  it("is kept by the welcome's old link, which lands on the home (NO-GUEST: no welcome)", async () => {
     localStorage.clear();
     resetWelcomedForTests();
-    const router = open("/?ref=0xabc");
-    await screen.findByRole("heading", { name: "Welcome to Paved" });
-    expect(router.state.location.pathname).toBe("/welcome");
-    expect(router.state.location.search).toBe("?ref=0xabc");
-    await userEvent.click(screen.getByRole("button", { name: /Play Training/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
+    const router = open("/welcome?ref=0xabc");
+    await screen.findByRole("heading", { name: "Home" }, { timeout: slow(5000) });
+    expect(router.state.location.pathname).toBe("/");
     expect(router.state.location.search).toBe("?ref=0xabc");
   });
 });
@@ -228,73 +223,33 @@ describe("a page that throws", () => {
   });
 });
 
-/** The welcome card's Connect: the header's balances (#781) carry a guest's Connect too, the home's. */
-const welcomeConnect = () => within(screen.getByRole("heading", { name: "Welcome to Paved" }).closest<HTMLElement>('[data-slot="card"]')!).getByRole("button", { name: /Connect/ });
-
-describe("the welcome", () => {
+describe("no welcome (NO-GUEST, the owner's ruling of 2026-11-07: every player has an account, none is asked to connect)", () => {
   beforeEach(() => {
     localStorage.clear();
     resetWelcomedForTests();
   });
 
-  it("shows on the first visit to Home, and Connect connects, marks the visit and goes Home", async () => {
-    const router = open("/");
-    await screen.findByRole("heading", { name: "Welcome to Paved" });
-    expect(router.state.location.pathname).toBe("/welcome");
-    await userEvent.click(welcomeConnect());
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-    expect(localStorage.getItem("welcomed")).toBe("1");
+  it("a first visit opens the village, its account made at start; the welcome's old link lands there too", async () => {
+    const wallet = fakeWallet();
+    const router = open("/", wallet);
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/");
+    await waitFor(() => expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"])));
+    expect(screen.queryByRole("button", { name: /Connect/ })).toBeNull();
+    const again = createTestRouter("/welcome");
+    render(<App router={again} />);
+    await waitFor(() => expect(again.state.location.pathname).toBe("/"));
   });
 
-  // The header's balances (#781) carry a guest's Connect: on the welcome it is the card's, so it completes the visit too.
-  // The welcome uses no balance (#855): its header has none, so the card's Connect is the one.
-  it("the header shows no balances and no Connect of its own", async () => {
-    open("/");
-    const heading = await screen.findByRole("heading", { level: 1, name: "Welcome" });
-    const header = heading.closest<HTMLElement>('[data-slot="page-header"]')!;
-    expect(within(header).queryByRole("region", { name: "Balances" })).toBeNull();
-    expect(within(header).queryByRole("button", { name: /Connect/ })).toBeNull();
-  });
-
-  it("a refused connect stays on the welcome with its reason, the visit not marked", async () => {
-    const router = open("/", fakeWallet({ refuse: "closed by the player" }));
-    await screen.findByRole("heading", { name: "Welcome to Paved" });
-    await userEvent.click(welcomeConnect());
-    expect(await screen.findByText(/closed by the player/, { selector: "[data-slot=card] *" })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/welcome");
-    expect(hasWelcomed()).toBe(false);
-  });
-
-  it("shows once: a returning visitor skips it, on Home and on /welcome", async () => {
-    markWelcomed();
-    const first = open("/");
-    await screen.findByRole("heading", { name: "Home" });
-    expect(first.state.location.pathname).toBe("/");
-    const second = createTestRouter("/welcome");
-    render(<App router={second} />);
-    await waitFor(() => expect(second.state.location.pathname).toBe("/"));
-  });
-
-  it("'Skip to Training' goes to /training and marks the visit", async () => {
-    const router = open("/welcome");
-    await userEvent.click(await screen.findByRole("button", { name: /Play Training/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
-    expect(hasWelcomed()).toBe(true);
-  });
-
-  it("with storage off it shows and nothing breaks: a connect still goes Home, which does not loop back", async () => {
+  it("with storage off nothing breaks: the village opens", async () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("denied", "SecurityError");
     });
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("denied", "SecurityError");
     });
-    expect(hasWelcomed()).toBe(false);
     const router = open("/");
-    await screen.findByRole("heading", { name: "Welcome to Paved" });
-    await userEvent.click(welcomeConnect());
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/");
   });
 });
@@ -314,17 +269,6 @@ describe("Back", () => {
   it("from an old link opened directly lands Home, not back in the redirect", async () => {
     const router = open("/game?mode=challenge&id=7");
     await waitFor(() => expect(router.state.location.pathname).toBe("/game/7"));
-    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
-  });
-
-  it("from /welcome through 'Play Training' (a replace) lands Home", async () => {
-    resetWelcomedForTests();
-    localStorage.clear();
-    const router = open("/welcome");
-    await userEvent.click(await screen.findByRole("button", { name: /Play Training/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
     await userEvent.click(await screen.findByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
