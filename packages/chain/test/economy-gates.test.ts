@@ -43,13 +43,13 @@ const NUMS_ROUTER = "0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64
 const SN_MAIN = "0x534e5f4d41494e";
 
 /**
- * Stake 1 without a referrer: a price of 2 USDC, swapped whole in one swap (the burn quote and the margin, P-56). At this
- * rate its guard-rate value is exactly 160 PAVED.
+ * Stake 1: a price of 2 USDC, of which the burn quote alone is swapped (the fake's 70 %, 1.4 USDC; D-31: the margin goes
+ * to the Vault in USDC). At this rate its guard-rate value is exactly 112 PAVED.
  */
-const BURN = 2_000_000n;
+const BURN = 1_400_000n;
 const RATE = 80n * 10n ** 30n;
-const IMPLIED = 160n * 10n ** 18n;
-const AT_FLOOR = (IMPLIED * 9_000n) / 10_000n; // 144 PAVED, exactly 90 %
+const IMPLIED = 112n * 10n ** 18n;
+const AT_FLOOR = (IMPLIED * 9_000n) / 10_000n; // 100.8 PAVED, exactly 90 %
 
 const economyOn = (network: string, file?: EconomyDeploymentFile) =>
   resolveEconomyDeployment({ base: resolveDeployment({ network, file, env: { rpcUrl: "http://x", addresses: ADDR } }), file, env: ECON });

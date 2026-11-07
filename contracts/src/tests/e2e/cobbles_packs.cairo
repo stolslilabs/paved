@@ -192,8 +192,9 @@ fn test_a6_set_pack_by_the_owner_within_its_bounds_and_its_event() {
 
 // The purchase, end to end (7.2)
 
-/// The player's price leaves it for `Economy`, whose sale burns, pays the Vault and keeps nothing;
-/// `Setup` holds nothing; the cobbles are credited; `PackBought` and `Sold` in the same call.
+/// The player's price leaves it for `Economy`, whose sale burns, pays the Vault its margin in USDC
+/// (D-31) and keeps nothing; `Setup` holds nothing; the cobbles are credited; `PackBought` and
+/// `Sold` in the same call.
 #[test]
 fn test_buy_pack_end_to_end() {
     let s = shop();
@@ -201,7 +202,8 @@ fn test_buy_pack_end_to_end() {
     let economy = s.systems.economy.contract_address;
     for (id, cobbles, price) in fresh_packs() {
         let usdc_before = s.usdc.balance_of(PLAYER());
-        let vault_before = s.paved.balance_of(s.vault);
+        let vault_before = s.usdc.balance_of(s.vault);
+        let vault_paved = s.paved.balance_of(s.vault);
         let supply_before = s.paved.total_supply();
         let balance_before = cobbles_of(@s, PLAYER());
         let mut spy = spy_events();
@@ -230,8 +232,13 @@ fn test_buy_pack_end_to_end() {
         assert_eq!(cobbles_of(@s, PLAYER()), balance);
         assert_eq!(sold.price, price.into());
         assert_eq!(sold.referral, 0);
-        assert_eq!(s.paved.balance_of(s.vault) - vault_before, sold.vault_paved);
-        assert!(sold.vault_paved > 0);
+        // The margin, the price less the burn quote (no referrer), paid to the Vault in USDC; no
+        // PAVED to it
+        let paid: u256 = price.into();
+        assert_eq!(sold.margin, paid - paid * 7_368 / 10_000);
+        assert_eq!(s.usdc.balance_of(s.vault) - vault_before, sold.margin);
+        assert_eq!(s.paved.balance_of(s.vault), vault_paved);
+        assert_eq!(sold.vault_paved, 0);
         assert_eq!(supply_before - s.paved.total_supply(), sold.burned);
         assert_eq!(sold.supply, s.paved.total_supply());
         assert_nothing_held(@s);
@@ -290,7 +297,10 @@ fn test_buy_pack_ignores_the_referrers_the_game_ignores_and_setup() {
         assert!(sold.referrer.is_zero());
         assert_eq!(sold.referral, 0);
         assert_eq!(sold.quote + sold.margin, 5 * USDC);
-        if referrer != s.router && referrer != PLAYER() {
+        if referrer == s.vault {
+            // The Vault is paid the margin in USDC, as on every sale, and no referral
+            assert_eq!(s.usdc.balance_of(referrer), usdc_before + sold.margin);
+        } else if referrer != s.router && referrer != PLAYER() {
             assert_eq!(s.usdc.balance_of(referrer), usdc_before);
         }
         assert_nothing_held(@s);
@@ -312,8 +322,9 @@ fn test_buy_pack_refusals_change_nothing() {
     assert_eq!(error_of(safe(@s).buy_pack(5, Zero::zero(), 0)), 'Setup: pack not on sale');
     assert_eq!(error_of(safe(@s).buy_pack(0, Zero::zero(), 0)), 'Setup: pack not on sale');
     assert_eq!(error_of(safe(@s).buy_pack(3, Zero::zero(), 0)), 'Setup: pack not on sale');
-    // [Check] A min_out above the swap reverts the whole purchase
-    let out = s.systems.economy.quote_swap(5 * USDC);
+    // [Check] A min_out above the swap of the burn quote (73.68 % of the 5 USDC) reverts the whole
+    // purchase
+    let out = s.systems.economy.quote_swap(5 * USDC * 7_368 / 10_000);
     assert!(safe(@s).buy_pack(1, Zero::zero(), out + 1).is_err());
     stop_cheat_caller_address(setup_address);
     // [Check] With no approval, the payment fails and nothing is credited
@@ -479,14 +490,15 @@ fn test_a9_buy_pack_takes_the_games_split() {
         assert_eq!(sold, purchased);
         assert_eq!(pack.systems.economy.rate(), game.systems.economy.rate());
         assert_eq!(pack.paved.balance_of(pack.vault), game.paved.balance_of(game.vault));
+        assert_eq!(pack.usdc.balance_of(pack.vault), game.usdc.balance_of(game.vault));
         assert_eq!(pack.paved.total_supply(), game.paved.total_supply());
     }
 }
 
 /// The split through `buy_pack`, fuzzed (7.4): a random price set by the owner (up to 100 USDC) and
 /// a random referrer. The player pays exactly the price; a referrer that counts gets 5 % of it; the
-/// referral, the burn quote and the margin add up to it; nothing stays on `Setup` or `Economy`; the
-/// cobbles are credited.
+/// referral, the burn quote and the margin add up to it; the Vault is paid the margin in USDC;
+/// nothing stays on `Setup` or `Economy`; the cobbles are credited.
 #[test]
 #[fuzzer(runs: 12, seed: 61)]
 fn test_a9_fuzz_buy_pack_split(seed: u64) {
@@ -506,6 +518,7 @@ fn test_a9_fuzz_buy_pack_split(seed: u64) {
     stop_cheat_caller_address(setup_address);
     let usdc_before = s.usdc.balance_of(PLAYER());
     let referrer_before = s.usdc.balance_of(referrer);
+    let vault_before = s.usdc.balance_of(s.vault);
     let mut spy = spy_events();
     buy(@s, PLAYER(), 7, referrer);
     let sold: Split = last_split(ref spy, s.systems.economy.contract_address, false);
@@ -523,6 +536,8 @@ fn test_a9_fuzz_buy_pack_split(seed: u64) {
         assert!(sold.referrer.is_zero());
     }
     assert_eq!(sold.referral + sold.quote + sold.margin, price.into());
+    // The margin is the USDC the Vault was paid (D-31)
+    assert_eq!(s.usdc.balance_of(s.vault) - vault_before, sold.margin);
     assert_eq!(cobbles_of(@s, PLAYER()), cobbles.into());
     assert_nothing_held(@s);
 }

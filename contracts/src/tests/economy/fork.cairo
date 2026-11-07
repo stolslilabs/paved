@@ -15,9 +15,9 @@
 //!   fill that `economy.md` describes, at `Economy`'s extreme price limit.
 //!
 //! `Economy.quote_swap` refuses a partial fill ('Economy: partial fill', E-9's audit F1), and since
-//! P-56 so does `Economy.purchase` (one swap of the burn quote and the margin, filled whole): the
-//! partial-fill tests take the router's own quote and send the purchase with an explicit min_out,
-//! which reverts.
+//! P-56 so does `Economy.purchase` (its swap, filled whole: the burn quote alone since D-31, the
+//! margin paid to the Vault in USDC): the partial-fill tests take the router's own quote and send
+//! the purchase with an explicit min_out, which reverts.
 //!
 //! USDC is Circle's native USDC (a FiatToken): the tests mint it as Circle's own flow does, the
 //! on-chain master minter naming a controller, which configures a minter.
@@ -370,14 +370,14 @@ fn test_fork_quote_needs_no_funds_and_answers_where_the_swap_reverts() {
 #[fork("MAINNET")]
 fn test_fork_purchase_at_a_near_limit_reverts_on_the_partial_fill() {
     let economy = deploy_economy(STRK(), USDC_STRK(), MIN_SQRT_RATIO, STRK_RATE);
-    // A limit 1e-6 below the current sqrt ratio: stake 10's 20 USDC (the burn quote and the
-    // margin, one swap since P-56) would move it about 4e-6
+    // A limit 1e-6 below the current sqrt ratio: stake 10's burn quote, 14.736 USDC of its 20 (the
+    // purchase's only swap since D-31), would move it about 3e-6
     let start = price(USDC_STRK());
     let limit = start - start / 1_000_000;
     set_pool(economy, USDC_STRK(), limit);
-    let amount: u256 = 20 * USDC_UNIT;
+    let amount: u256 = 20 * USDC_UNIT * 7_368 / 10_000;
     let delta = IRouterDispatcher { contract_address: ROUTER() }
-        .quote_swap(node(economy), usdc_in(20_000_000));
+        .quote_swap(node(economy), usdc_in(14_736_000));
     let (usdc_leg, strk_leg) = legs(USDC_STRK(), delta);
     let filled: u256 = usdc_leg.mag.into();
     assert!(filled > 0 && filled < amount);
@@ -385,7 +385,7 @@ fn test_fork_purchase_at_a_near_limit_reverts_on_the_partial_fill() {
     // `Economy.quote_swap` refuses this state: the client sends nothing (E-9's audit, F1)
     assert_partial_fill_refused(economy, amount);
     // A purchase sent anyway, with an explicit min_out (the router's partial quote less 1 %),
-    // reverts: the Vault has no use for the unswapped USDC (P-56)
+    // reverts: the burn must stay at its share of the price
     assert_purchase_refused(economy, out * 99 / 100);
     assert_eq!(price(USDC_STRK()), start);
     println!("E-9 fork: near limit {}, a fill of {} of {} USDC refused", limit, filled, amount);
@@ -467,9 +467,10 @@ fn test_fork_purchase_that_would_drain_a_thin_pool_reverts() {
         MAX_SQRT_RATIO
     };
     let economy = deploy_economy(paved.contract_address, pool_key, limit, PAVED_RATE);
-    let amount: u256 = 20 * USDC_UNIT;
+    // Stake 10's burn quote, the purchase's only swap (D-31)
+    let amount: u256 = 20 * USDC_UNIT * 7_368 / 10_000;
     let delta = IRouterDispatcher { contract_address: ROUTER() }
-        .quote_swap(node(economy), usdc_in(20_000_000));
+        .quote_swap(node(economy), usdc_in(14_736_000));
     let (usdc_leg, paved_leg) = legs(pool_key, delta);
     let filled: u256 = usdc_leg.mag.into();
     assert!(filled > 0 && filled < amount);

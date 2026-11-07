@@ -110,7 +110,6 @@ function useMinOut(swapIn: bigint | null): Confirmable & { poolOut: bigint | nul
  */
 export function useStakeQuote(
   stake: number,
-  referred: boolean,
 ): { quote: UseQueryResult<QuoteView | null>; reference: bigint | null; referenceError: Error | null; priceInPaved: bigint | null } & Confirmable {
   const { economy } = useDataSources();
   const quote = useQuery({
@@ -120,7 +119,8 @@ export function useStakeQuote(
   });
   const rate = useGuardRate();
   const current = quote.isPlaceholderData ? null : (quote.data ?? null);
-  const swapIn = current ? swapInputOf(current, referred) : null;
+  // The burn quote alone is swapped, with or without a referrer (D-31): the margin goes to the Vault in USDC.
+  const swapIn = current ? swapInputOf(current) : null;
   const { poolOut, ...confirmable } = useMinOut(swapIn);
   const reference =
     current && swapIn !== null && poolOut !== null && rate.data != null
@@ -138,9 +138,9 @@ export function useStakeQuote(
 /** The pool's `quote_swap` answered 0: the swap cannot fill now, so no `R` can be estimated from it. */
 export const REFERENCE_POOL_EMPTY = "The pool cannot fill this stake's swap now.";
 
-/** A pack's `min_out`: the swap of its price, less the referral (`split.referral`) when `referred`. */
-export function usePackQuote(pack: PackView | null, split: SplitView | null, referred: boolean): Confirmable {
-  return useMinOut(pack && split ? packSwapInput(pack.price, split, referred) : null);
+/** A pack's `min_out`: the swap of its burn quote (`split.burn` of the price, D-31), with or without a referrer. */
+export function usePackQuote(pack: PackView | null, split: SplitView | null): Confirmable {
+  return useMinOut(pack && split ? packSwapInput(pack.price, split) : null);
 }
 
 /** The purchases of the connected signer, or null: no signer, or no economy (`DataSources.purchases`). */

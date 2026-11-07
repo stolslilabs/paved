@@ -6,7 +6,7 @@
 //!
 //! The audit property A9 (a pack's split is the game's) has its tests here, named after it: one
 //! price split by `sell` and by `purchase` from the same pool state gives the same referral, burn
-//! quote, margin, PAVED burned, PAVED to the Vault and guard rate; and its fuzz.
+//! quote, margin (the USDC paid to the Vault, D-31), PAVED burned and guard rate; and its fuzz.
 //! `e2e::cobbles_packs`
 //! runs the same path through `Setup.buy_pack`.
 
@@ -28,7 +28,7 @@ use snforge_std::{
 use starknet::ContractAddress;
 use super::economy::{
     DAILY, ONE_PAVED, OWNER, PLAYER, REFERRER, SOMEONE, Setup, USDC, assert_nothing_left, buy,
-    configure, mock_swap, router_quote, setup, today, vault_paved,
+    configure, mock_swap, router_quote, setup, today, vault_usdc,
 };
 
 pub fn SELLER() -> ContractAddress {
@@ -45,6 +45,7 @@ pub struct Split {
     pub burned: u256,
     pub margin: u256,
     pub supply: u256,
+    /// 0 since D-31: the margin is paid to the Vault in USDC.
     pub vault_paved: u256,
 }
 
@@ -53,7 +54,7 @@ fn u256_at(data: Span<felt252>, i: u32) -> u256 {
 }
 
 /// The split of the last `Purchased` (or `Sold`) event `Economy` emitted. `Purchased`'s data starts
-/// with the day and the stake, and holds the factor and `R` before the Vault's PAVED.
+/// with the day and the stake, and holds the factor and `R` before `vault_paved`.
 pub fn last_split(
     ref spy: snforge_std::EventSpy, economy: ContractAddress, purchased: bool,
 ) -> Split {
@@ -197,18 +198,20 @@ fn test_sell_refuses_a_price_not_on_economy_a_zero_price_and_a_zero_player() {
     stop_cheat_caller_address(economy);
 }
 
+/// `min_out` bounds the swap of the burn quote, 3.684 USDC of a 5 USDC price at the owner's split
+/// (D-31: the margin is not swapped).
 #[test]
 #[should_panic(expected: 'Economy: swap below min_out')]
 fn test_sell_below_min_out_reverts() {
     let s = seller_setup();
-    let out = router_quote(s, 5_000_000);
+    let out = router_quote(s, 3_684_000);
     sell(s, PLAYER(), 5 * USDC, Zero::zero(), out + 1);
 }
 
 #[test]
 fn test_sell_at_min_out_passes() {
     let s = seller_setup();
-    let out = router_quote(s, 5_000_000);
+    let out = router_quote(s, 3_684_000);
     sell(s, PLAYER(), 5 * USDC, Zero::zero(), out);
     assert_nothing_left(s);
 }
@@ -218,7 +221,7 @@ fn test_sell_at_min_out_passes() {
 fn test_sell_refuses_a_partial_fill() {
     let s = seller_setup();
     mock_swap(
-        s, i129 { mag: 4_999_999, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: true },
+        s, i129 { mag: 3_683_999, sign: false }, i129 { mag: 100 * ONE_PAVED.low, sign: true },
     );
     sell(s, PLAYER(), 5 * USDC, Zero::zero(), 0);
 }
@@ -241,20 +244,34 @@ fn test_p1_sell_refuses_a_price_whose_burn_quote_is_zero_at_the_first_sale_of_a_
     assert_eq!(s.economy.rate(), rate);
 }
 
+/// Since D-31 only the burn quote is swapped: a burn quote of 1 base unit is all pool fee (the
+/// mock pool rounds its fee up), so the swap buys nothing and the router refuses it; a burn quote
+/// of 2 sells, its margin paid to the Vault in USDC.
 #[test]
-fn test_p1_sell_sells_the_smallest_price_whose_burn_quote_is_one() {
+#[feature("safe_dispatcher")]
+fn test_p1_sell_of_a_burn_quote_of_one_buys_nothing_and_two_sells() {
     let s = seller_setup();
+    let economy = s.economy.contract_address;
     start_cheat_block_timestamp_global(starknet::get_block_timestamp() + 1);
     // 2 base units: 2 x 7,368 / 10,000 = 1
-    sell(s, PLAYER(), 2, Zero::zero(), 0);
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }.mint(economy, 2);
+    start_cheat_caller_address(economy, SELLER());
+    assert_eq!(error_of(safe(s).sell(PLAYER(), 2, Zero::zero(), 0)), 'MockRouter: zero output');
+    stop_cheat_caller_address(economy);
+    // 3 base units: 3 x 7,368 / 10,000 = 2 swapped; the Vault gets the margin, 1, and the 2 the
+    // refused sale left on Economy
+    let vault = vault_usdc(s);
+    sell(s, PLAYER(), 3, Zero::zero(), 0);
+    assert_eq!(vault_usdc(s) - vault, 3);
+    assert_eq!(s.usdc.balance_of(economy), 0);
 }
 
 // The split: the game's (A9)
 
 /// One price, one referrer and one pool state: `sell` and `purchase` split it identically (the
-/// referral, the burn quote, the margin, the PAVED burned and sent to the Vault, the supply after,
-/// the guard's rate), as they run the same code. Each on a fresh fixture: the same deploys give the
-/// same pool.
+/// referral, the burn quote, the margin paid to the Vault in USDC, the PAVED burned, the supply
+/// after, the guard's rate), as they run the same code. Each on a fresh fixture: the same deploys
+/// give the same pool.
 #[test]
 fn test_a9_sell_and_purchase_split_a_price_identically() {
     for referrer in array![Zero::zero(), REFERRER()] {
@@ -271,13 +288,16 @@ fn test_a9_sell_and_purchase_split_a_price_identically() {
             assert_eq!(sold, purchased);
             assert_eq!(counted, referrer);
             assert_eq!(pack.economy.rate(), game.economy.rate());
-            assert_eq!(vault_paved(pack), vault_paved(game));
+            assert_eq!(vault_usdc(pack), vault_usdc(game));
             assert_eq!(pack.usdc.balance_of(REFERRER()), game.usdc.balance_of(REFERRER()));
             // [Check] The referral, the burn quote and the margin add up to the price; the
-            // referral is 5 % of it with a referrer, out of the Vault's part
+            // referral is 5 % of it with a referrer, out of the Vault's part; the margin is the
+            // USDC the Vault was paid, and no PAVED goes to it
             assert_eq!(sold.referral + sold.quote + sold.margin, price);
-            let (referral, quote, _) = split(price, 7_368, 500, referrer.is_non_zero());
-            assert_eq!((sold.referral, sold.quote), (referral, quote));
+            let (referral, quote, margin) = split(price, 7_368, 500, referrer.is_non_zero());
+            assert_eq!((sold.referral, sold.quote, sold.margin), (referral, quote, margin));
+            assert_eq!(vault_usdc(pack), margin);
+            assert_eq!(sold.vault_paved, 0);
             assert_nothing_left(pack);
         }
     }
@@ -301,9 +321,16 @@ fn test_a9_sell_ignores_the_referrers_a_game_ignores_and_the_seller() {
         assert!(sold.referrer.is_zero());
         assert_eq!(sold.referral, 0);
         assert_eq!(sold.quote + sold.margin, 5 * USDC);
-        if referrer != s.router {
-            assert_eq!(s.usdc.balance_of(referrer), before);
-        }
+        // The router keeps the burn quote it swapped and the Vault is paid the margin; the others
+        // hold nothing more: none is paid a referral
+        let kept = if referrer == s.router {
+            sold.quote
+        } else if referrer == s.vault {
+            sold.margin
+        } else {
+            0
+        };
+        assert_eq!(s.usdc.balance_of(referrer), before + kept);
         assert_nothing_left(s);
     }
     let counted = sell(s, PLAYER(), 5 * USDC, SOMEONE(), 0);
@@ -395,8 +422,8 @@ fn test_a9_fuzz_sell_splits_as_purchase(seed: u64) {
     let mut spy = spy_events();
     sell(pack, SOMEONE(), any, REFERRER(), 0);
     let sold = last_split(ref spy, pack.economy.contract_address, false);
-    let (referral, quote, _) = split(any, 7_368, 500, true);
-    assert_eq!((sold.referral, sold.quote), (referral, quote));
+    let (referral, quote, margin) = split(any, 7_368, 500, true);
+    assert_eq!((sold.referral, sold.quote, sold.margin), (referral, quote, margin));
     assert_eq!(sold.referral + sold.quote + sold.margin, any);
     assert_nothing_left(pack);
 }

@@ -15,7 +15,7 @@ use openzeppelin_interfaces::votes::{IVotesDispatcher, IVotesDispatcherTrait};
 use openzeppelin_upgrades::UpgradeableComponent;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::systems::economy::IEconomyDispatcherTrait;
-use paved::systems::vault::DEAD_ASSETS;
+use paved::systems::vault::{IVaultDispatcher, IVaultDispatcherTrait};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, OWNER, PLAYER};
 use paved::types::mode::Mode;
@@ -187,17 +187,22 @@ fn test_paved_token_has_no_upgrade() {
     stop_cheat_caller_address(contract);
 }
 
-// The Vault (vPAVED, P-56): its upgrade keeps the shares, the PAVED behind them and the votes
+// The Vault (vPAVED, P-56, D-31): its upgrade keeps the shares, the PAVED behind them, the USDC
+// reward and the votes
 
-/// After a paid game (its margin in the Vault) and the owner's self-delegation, the owner upgrades
-/// the Vault: the new class reads the same shares, supply, fee and votes, and the PAVED behind
-/// them, which the token holds, has not moved: the rate is kept.
+/// After a paid game (its margin paid to the Vault in USDC, D-31) and the owner's self-delegation,
+/// the owner upgrades the Vault: the new class reads the same shares, supply, fee, votes and reward
+/// (its token, its index, its total paid), and the PAVED and the USDC it holds, which the tokens
+/// hold, have not moved: the rate is kept.
 #[test]
 fn test_upgrade_of_the_vault_keeps_the_shares_the_rate_and_the_votes() {
     let (_, systems, _) = setup::spawn_game(Mode::Challenge);
-    let vault = systems.economy.addresses().vault;
-    let paved = IERC20Dispatcher { contract_address: systems.economy.addresses().paved };
+    let addresses = systems.economy.addresses();
+    let vault = addresses.vault;
+    let paved = IERC20Dispatcher { contract_address: addresses.paved };
+    let usdc = IERC20Dispatcher { contract_address: addresses.usdc };
     let share = ERC4626ABIDispatcher { contract_address: vault };
+    let reward = IVaultDispatcher { contract_address: vault };
     start_cheat_caller_address(vault, OWNER());
     IVotesDispatcher { contract_address: vault }.delegate(OWNER());
     stop_cheat_caller_address(vault);
@@ -205,7 +210,13 @@ fn test_upgrade_of_the_vault_keeps_the_shares_the_rate_and_the_votes() {
     let supply = share.total_supply();
     let assets = paved.balance_of(vault);
     let rate = share.convert_to_assets(ONE);
-    assert(assets > supply, 'Vault: margin in');
+    // The stake-1 game's margin (2 USDC less its burn quote, 73.68 % of it) is in the Vault as
+    // USDC; its PAVED is the owner's deposit alone
+    assert(assets == supply, 'Vault: no PAVED in');
+    let paid = reward.total_paid();
+    let index = reward.reward_index();
+    assert(paid == 526_400, 'Vault: margin paid');
+    assert(usdc.balance_of(vault) == paid, 'Vault: margin in');
     start_cheat_caller_address(vault, OWNER());
     IUpgradeableDispatcher { contract_address: vault }.upgrade(class_of("UpgradeProbe"));
     stop_cheat_caller_address(vault);
@@ -220,8 +231,14 @@ fn test_upgrade_of_the_vault_keeps_the_shares_the_rate_and_the_votes() {
     assert(probed.probe(selector!("owner")) == owner, 'Vault: owner kept');
     let delegate = map_entry_address(selector!("Votes_delegatee"), array![owner].span());
     assert(probed.probe(delegate) == owner, 'Vault: delegation kept');
-    // The PAVED behind the shares is the token's: the rate the next class computes is the same
+    // The reward, appended after the fee (D-31, P-42)
+    assert(probed.probe(selector!("usdc")) == addresses.usdc.into(), 'Vault: reward token kept');
+    assert(probed.probe(selector!("reward_index")) == index.low.into(), 'Vault: index kept');
+    assert(probed.probe(selector!("total_paid")) == paid.low.into(), 'Vault: total paid kept');
+    // The PAVED behind the shares and the USDC to claim are the tokens': the rate the next class
+    // computes is the same
     assert(paved.balance_of(vault) == assets, 'Vault: assets kept');
+    assert(usdc.balance_of(vault) == paid, 'Vault: USDC kept');
     assert(ONE * (assets + 1) / (supply + 1) == rate, 'Vault: rate kept');
 }
 
@@ -232,9 +249,9 @@ fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> fe
     *load(contract, map_entry_address(map, key.span()), 1).at(0)
 }
 
-/// The Vault's layout (P-42 since P-56): its components' variables and its fee, read at the raw
-/// address of their names after a paid spawn and a delegation. A rename or a retype of a
-/// substorage field fails here.
+/// The Vault's layout (P-42 since P-56): its components' variables, its fee and its USDC reward
+/// (D-31, appended after the fee), read at the raw address of their names after a paid spawn and a
+/// delegation. A rename or a retype of a substorage field fails here.
 #[test]
 fn test_upgrade_layout_pins_the_vault_by_name() {
     let (_, systems, _) = setup::spawn_game(Mode::Challenge);
@@ -261,12 +278,6 @@ fn test_upgrade_layout_pins_the_vault_by_name() {
             .into(),
         'Pin: vault balances',
     );
-    assert(
-        raw_entry(vault, selector!("ERC20_balances"), array![vault.into()]) == DEAD_ASSETS
-            .low
-            .into(),
-        'Pin: vault dead shares',
-    );
     // [ERC4626] the asset, [Votes] the delegation (its checkpoints are a `Vec`, whose length lives
     // at a derived address, not at the name), the fee
     assert(raw(vault, selector!("ERC4626_asset")) == addresses.paved.into(), 'Pin: vault asset');
@@ -275,6 +286,18 @@ fn test_upgrade_layout_pins_the_vault_by_name() {
         'Pin: vault delegatee',
     );
     assert(raw(vault, selector!("exit_fee")) == 500, 'Pin: vault exit_fee');
+    // [Reward] the token, the index and the total paid, after the paid spawn's margin
+    let reward = IVaultDispatcher { contract_address: vault };
+    assert(reward.total_paid() != 0, 'Pin: vault paid nothing');
+    assert(raw(vault, selector!("usdc")) == addresses.usdc.into(), 'Pin: vault usdc');
+    assert(
+        raw(vault, selector!("reward_index")) == reward.reward_index().low.into(),
+        'Pin: vault reward_index',
+    );
+    assert(
+        raw(vault, selector!("total_paid")) == reward.total_paid().low.into(),
+        'Pin: vault total_paid',
+    );
 }
 
 /// An upgrade keeps the storage only if the new class finds every variable at its slot, and the

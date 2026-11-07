@@ -68,6 +68,7 @@ export interface TermsView {
 /**
  * A holder's position in the `Vault`, vPAVED (P-56: an ERC4626 over PAVED with an exit fee). Every amount is in base units
  * of 18 decimals. The screens show `value` as the position's worth and `maxWithdraw` as what leaves now, the fee taken.
+ * Its USDC reward is `VaultEarnings` (D-31).
  */
 export interface VaultPosition {
   /** vPAVED held (`balance_of`). */
@@ -78,10 +79,27 @@ export interface VaultPosition {
   maxWithdraw: bigint;
   /** The exit fee, bps of the PAVED that leaves (`exit_fee`), kept in the Vault for the other holders. */
   exitFeeBps: number;
-  /** The PAVED the Vault holds (`total_assets`), the dead shares' 1,000 included. */
+  /** The PAVED the Vault holds (`total_assets`). */
   totalAssets: bigint;
-  /** All vPAVED (`total_supply`), the dead shares included. */
+  /** All vPAVED (`total_supply`). No dead shares since D-31. */
   totalSupply: bigint;
+}
+
+/**
+ * A holder's USDC reward in the `Vault` (D-31, as Nums' Vault): every purchase pays its margin to the holders in USDC,
+ * which each claims whenever it likes. Amounts in USDC base units (6 decimals).
+ */
+export interface VaultEarnings {
+  /** All the USDC the position has earned (`earned_of`): `claimed` plus `claimable`. */
+  earned: bigint;
+  /** The USDC already paid out of the position (`claimed_of`): its claims (and the owner's collects, for a contract). */
+  claimed: bigint;
+  /** The USDC a `claim` pays now (`claimable_of`). */
+  claimable: bigint;
+  /** The owner paused the Vault (`is_paused`): no deposit, exit or claim. */
+  paused: boolean;
+  /** The Vault is open (`is_open`): exits and claims go through unless paused. */
+  open: boolean;
 }
 
 /**
@@ -185,6 +203,23 @@ export class RpcEconomyViews implements EconomyViews {
       exitFeeBps: Number(exitFee),
       totalAssets: totalAssets as bigint,
       totalSupply: totalSupply as bigint,
+    };
+  }
+
+  async earnings(account: string): Promise<VaultEarnings> {
+    const [earned, claimed, claimable, paused, open] = await Promise.all([
+      this.call("Vault", "earned_of", [account]),
+      this.call("Vault", "claimed_of", [account]),
+      this.call("Vault", "claimable_of", [account]),
+      this.call("Vault", "is_paused", []),
+      this.call("Vault", "is_open", []),
+    ]);
+    return {
+      earned: earned as bigint,
+      claimed: claimed as bigint,
+      claimable: claimable as bigint,
+      paused: paused as boolean,
+      open: open as boolean,
     };
   }
 
