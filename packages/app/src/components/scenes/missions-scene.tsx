@@ -1,6 +1,6 @@
 import { useRef, useState, type CSSProperties, type FocusEvent, type ReactNode } from "react";
 import type { PlayerAchievements } from "@paved/chain";
-import { TUTORIAL_STEPS, tutorialCompleted, tutorialFinished, tutorialStates, type TutorialCounts, type TutorialStepState } from "@paved/game-core";
+import { TUTORIAL_STEPS, tutorialFinished, tutorialStates, type TutorialCounts, type TutorialStepState } from "@paved/game-core";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 import { endOfUtcDay, questPeriod, windowEnd, type ScheduledQuest, type ScheduledQuests } from "../../lib/quest-window";
@@ -159,31 +159,20 @@ const ROW = {
   weekly: { title: "Weekly", ends: "Weekly missions reset in" },
 } as const;
 
-/** A section's count after its title, in the body's type: "3/8". */
-function Count({ done, of }: { done: number; of: number }) {
-  return (
-    <span className="numeric font-sans text-base font-bold text-muted-foreground">
-      {done}/{of}
-    </span>
-  );
-}
-
-/** A section of the list: its title (the drawer's, its count beside it, what it holds at its end), then its content. */
-function MissionSection({ id, title, count, end, children, ...list }: {
+/**
+ * A section of the list: its title (the drawer's, a fixed word: TILE-COUNTS, the owner's rule of 2026-11-07, no count beside it, the
+ * medallions and the milestones' bar say what is done), then its content.
+ */
+function MissionSection({ id, title, children, ...list }: {
   id: string;
   title: string;
-  count?: ReactNode;
-  end?: ReactNode;
   children: ReactNode;
   onFocus?: (event: FocusEvent<HTMLElement>) => void;
   onPointerDown?: () => void;
 }) {
   return (
     <section aria-labelledby={id} {...list} className="flex flex-col gap-2.5">
-      <SectionTitle id={id} end={end}>
-        {title}
-        {count}
-      </SectionTitle>
+      <SectionTitle id={id}>{title}</SectionTitle>
       {children}
     </section>
   );
@@ -213,7 +202,7 @@ function tileState(entry: { completed: boolean; tasks: { count: number }[] }, re
  * phone, a side panel docked at the right from `tablet` (the right column's Missions opens it), its close the red cross on its inner
  * edge, the Cobbles at its header's end, the dock over its foot. At the top a card with the selected mission (`MissionCard`); under
  * it the missions as medallions, five a row (`MissionTile`), in sections titled as the profile's (`SectionTitle`): the Tutorial,
- * the Daily and the Weekly, each with its reset's countdown in a carved chip, then the Achievements (the lifetime missions, named so on
+ * the Daily and the Weekly, each with its reset's countdown in a carved chip on its first line (a title holds no timer: TILE-COUNTS), then the Achievements (the lifetime missions, named so on
  * the owner's ask of 2026-11-04). The Daily and the Weekly have
  * their period's milestones graph above their medallions (`MilestonesBar`, the day's #869, the week's #976): an edge per quest done
  * and a gift per milestone's Cobbles, opened (claimed) with a tap on it; no weekly pays on its own any more, nor a week's bonus. On
@@ -222,7 +211,7 @@ function tileState(entry: { completed: boolean; tasks: { count: number }[] }, re
  * while the list scrolls (#988, from a viewport 560 px tall), so the tapped mission always shows; no medallion shows Cobbles, the
  * card does. Cobbles are the only reward: no free game, no day picker. A mission's Cobbles are claimed from the card's medallion's
  * badge, its gift (the owner's asks of 2026-11-04). Above the Daily, while a step waits to be claimed, the Tutorial (#977): eight
- * steps in order, each opened by the one before's completion, its title counting the steps done ("Tutorial 3/8"); the open step is
+ * steps in order, each opened by the one before's completion, its title a fixed word (the steps done read on the medallions); the open step is
  * selected on arrival, and the section goes once every step is claimed. The completion toasts are the app's
  * (`routes/completion-host.tsx`).
  */
@@ -311,7 +300,6 @@ export function MissionsScene(props: MissionsSceneProps) {
   // The Tutorial (#977): its steps in order, gone once every one is claimed (open point 5). A step's count is capped at its target
   // on the card (an early action counts once it opens, open point 4); the level shows as it is, up to its target.
   const tutorialData = props.tutorial && !tutorialFinished(props.tutorial.claimed) ? props.tutorial : null;
-  const stepsDone = tutorialData ? tutorialCompleted(tutorialData.counts) : 0;
   const tutorial: Mission[] = tutorialData
     ? tutorialStates(tutorialData.counts, tutorialData.claimed).map((state, i) => {
         const step = TUTORIAL_STEPS[i]!;
@@ -359,7 +347,6 @@ export function MissionsScene(props: MissionsSceneProps) {
   );
   // Five a row, the book's, at every width: the drawer keeps the phone's column.
   const grid = "grid grid-cols-5 gap-x-2 gap-y-1.5";
-  const earned = lifetime.filter((m) => m.state === "claimable" || m.state === "done").length;
 
   return (
     <HudDrawer
@@ -403,7 +390,7 @@ export function MissionsScene(props: MissionsSceneProps) {
           {props.rewardsUnavailable && <Notice title="Rewards unavailable">{props.rewardsUnavailable}</Notice>}
 
           {tutorial.length > 0 && (
-            <MissionSection id="missions-tutorial" title="Tutorial" count={<Count done={stepsDone} of={tutorial.length} />} {...list}>
+            <MissionSection id="missions-tutorial" title="Tutorial" {...list}>
               <div className={grid}>{tutorial.map(tile)}</div>
             </MissionSection>
           )}
@@ -417,20 +404,15 @@ export function MissionsScene(props: MissionsSceneProps) {
                   key={period}
                   id={`missions-${period}`}
                   title={ROW[period].title}
-                  count={<Count done={done} of={missions.length} />}
-                  end={
-                    Number.isFinite(ends) && (
-                      <Countdown
-                        expiresAt={ends}
-                        now={now}
-                        label={ROW[period].ends}
-                        short
-                        className="drawer-carved h-7 shrink-0 rounded-full px-2.5 text-foreground"
-                      />
-                    )
-                  }
                   {...list}
                 >
+                  {/* The time left before the period resets, out of the title (TILE-COUNTS: a title holds no timer): its carved chip on
+                      the section's first line. */}
+                  {Number.isFinite(ends) && (
+                    <div data-slot="missions-reset" className="flex">
+                      <Countdown expiresAt={ends} now={now} label={ROW[period].ends} short className="drawer-carved h-7 shrink-0 rounded-full px-2.5 text-foreground" />
+                    </div>
+                  )}
                   {period === "daily" ? (
                     <MilestonesBar
                       done={done}
@@ -459,7 +441,7 @@ export function MissionsScene(props: MissionsSceneProps) {
             )
           )}
 
-          <MissionSection id="missions-achievements" title="Achievements" count={<Count done={earned} of={lifetime.length} />} {...list}>
+          <MissionSection id="missions-achievements" title="Achievements" {...list}>
             {lifetime.length === 0 ? (
               <p className="drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semibold text-muted-foreground">No achievement yet.</p>
             ) : (

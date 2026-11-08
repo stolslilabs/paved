@@ -87,7 +87,10 @@ describe("RenameView (PLAYER-RENAME)", () => {
     const onRename = vi.fn();
     view({ ...RENAME.paid, onRename });
     expect(within(screen.getByRole("group", { name: "Cost" })).getByText("50")).toBeInTheDocument();
-    expect(screen.getByText("3/15")).toBeInTheDocument();
+    // The characters typed, at the end of the length's rule under the field (TILE-COUNTS: out of the title).
+    const typed = screen.getByText("3/15");
+    expect(typed.closest('[data-mark]')).toHaveTextContent(/^3 to 15 characters/);
+    expect(screen.getByText("New name").closest("h3")).toHaveTextContent(/^New name$/);
     expect(rename()).toBeEnabled();
     await userEvent.type(screen.getByRole("textbox", { name: "New name" }), "{Enter}");
     expect(onRename).toHaveBeenCalledWith("李小龙");

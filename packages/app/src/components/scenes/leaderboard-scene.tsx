@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
-import { formatInteger } from "@paved/game-core";
 import type { GuildPlace, GuildSummary, PlayerRanking } from "../../data/social-source";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
@@ -144,10 +143,8 @@ function RankedList<T>({ title, read, empty, label, rows }: { title: string; rea
   const items = read.data === null ? null : rows(read.data);
   return (
     <section aria-label={title} className="flex flex-col gap-2">
-      <SectionTitle>
-        {title}
-        {items !== null && <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(items.length)}</span>}
-      </SectionTitle>
+      {/* A fixed word (TILE-COUNTS): the rows' ranks say how many. */}
+      <SectionTitle>{title}</SectionTitle>
       <InlineError
         title={`Could not load the ${title.toLowerCase()}`}
         message={read.error}

@@ -47,7 +47,7 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     await mount(stage(LAYOUT_SLOTS.one));
     const panel = screen.getByRole("complementary", { name: "Editor" });
     expect(within(panel).getByRole("group", { name: "Layouts" })).toBeInTheDocument();
-    expect(within(panel).getAllByRole("heading").map((h) => h.textContent)).toEqual(["Layouts", expect.stringMatching(/^Inventory/)]);
+    expect(within(panel).getAllByRole("heading").map((h) => h.textContent)).toEqual(["Layouts", "Inventory"]);
     await shown(1);
     expect(carousel().getByText("Active")).toBeInTheDocument();
     expect(arrow("Previous")).toBeDisabled();

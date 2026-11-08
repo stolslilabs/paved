@@ -130,8 +130,9 @@ describe("a level's intro (#593, #721; STORY-INTRO: the HUD's window over the bo
         expect(within(intro).getByRole("heading", { level: 2, name: level.title })).toBeInTheDocument();
         expect(intro).toHaveTextContent(`${campaign.name} · Level ${level.id}`);
         expect(intro).toHaveTextContent(level.intro);
-        // The deck page's section: the painted pile, "Deck" and its count, then the tiles numbered in draw order.
-        expect(within(intro).getByRole("heading", { level: 3, name: `Deck ${level.deck.length}` })).toBeInTheDocument();
+        // The deck page's section: the painted pile and "Deck" (TILE-COUNTS: no count in the title), then the tiles numbered in draw
+        // order, the last number the deck's count.
+        expect(within(intro).getByRole("heading", { level: 3, name: "Deck" })).toBeInTheDocument();
         const tiles = [...within(intro).getByTestId("presented-tiles").querySelectorAll("li")];
         expect(tiles.map((li) => Number(li.getAttribute("data-plan")))).toEqual(ids(level.deck));
         expect(tiles.map((li) => li.textContent)).toEqual(level.deck.map((_, i) => String(i + 1)));

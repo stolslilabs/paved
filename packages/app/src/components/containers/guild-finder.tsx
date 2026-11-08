@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import * as m from "motion/react-m";
-import { GUILD_JOIN_TYPES, formatAgo, formatInteger, type GuildCandidate, type GuildDraft, type GuildJoinType } from "@paved/game-core";
+import { GUILD_JOIN_TYPES, formatAgo, type GuildCandidate, type GuildDraft, type GuildJoinType } from "@paved/game-core";
 import type { GuildInvitation, GuildSummary, PlayerGuild } from "../../data/social-source";
 import { JOIN_TYPES } from "../../lib/guild-text";
 import { cn } from "../../lib/utils";
@@ -54,14 +54,11 @@ const EMPTY = "drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semib
 /** A raised button of the finder (Accept, Decline, Cancel): the drawer's raised grey, its words outlined. */
 const RAISED_BUTTON = "state-layer drawer-raised text-outline h-10 cursor-pointer gap-1.5 rounded-xl px-4 text-sm font-bold";
 
-/** A section of the finder, the drawer's: its engraved title in the display font and a count at its end, then its content. */
-function FinderSection({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
+/** A section of the finder, the drawer's: its engraved title in the display font, a fixed word (TILE-COUNTS: its rows say how many), then its content. */
+function FinderSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
-      <SectionTitle>
-        {title}
-        {count !== undefined && <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(count)}</span>}
-      </SectionTitle>
+      <SectionTitle>{title}</SectionTitle>
       {children}
     </section>
   );
@@ -121,7 +118,7 @@ export function GuildInvitations({ invitations, current, now, onAction, onOpenGu
   const { run, ask, dialog, pending, error } = useGuildActions(onAction);
   if (invitations.length === 0) return null;
   return (
-    <FinderSection title="Invitations" count={invitations.length}>
+    <FinderSection title="Invitations">
       <ul className="flex flex-col gap-2">
         {invitations.map((inv) => (
           <li key={inv.guild.id} data-slot="guild-invitation" className="drawer-carved flex flex-col gap-2 rounded-xl pb-3">

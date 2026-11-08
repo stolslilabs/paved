@@ -154,7 +154,8 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     const rows = within(list).getAllByRole("button");
     const ranking = LEADERBOARD.playersInView.players.data!;
     expect(rows).toHaveLength(ranking.players.length);
-    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Players\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the rows say how many.
+    expect(within(drawer).getByRole("heading", { name: "Players" })).toBeInTheDocument();
     const first = ranking.players[0]!;
     expect(rows[0]).toHaveAccessibleName(`1. ${first.name}, level ${first.level}, ${formatInteger(first.crowns)} crowns`);
     expect(rows.slice(0, 4).map((r) => r.querySelector("[data-slot=ranking-place]")!.tagName)).toEqual(["IMG", "IMG", "SPAN", "SPAN"]);
@@ -204,7 +205,7 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     const ranking = LEADERBOARD.friends.friends.data!;
     const rows = within(within(drawer).getByRole("list", { name: "Friends by crowns" })).getAllByRole("button");
     expect(rows).toHaveLength(ranking.players.length);
-    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Friends\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    expect(within(drawer).getByRole("heading", { name: "Friends" })).toBeInTheDocument();
     const own = rows.find((r) => r.hasAttribute("data-own"))!;
     expect(rows.indexOf(own) + 1).toBe(ranking.me!.place);
     expect(own).toHaveAccessibleName(new RegExp(`^${ranking.me!.place}\\. .+ \\(you\\), `));
