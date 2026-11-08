@@ -67,17 +67,17 @@ describe("attackDeckSheet: which card a played tile crosses (#789 open point 1)"
 });
 
 describe("the unknown tile (#789)", () => {
-  it("is named Unknown tile at every chip size, and takes the chip's states", () => {
+  it("is named Unknown tile at every chip size", () => {
     render(
       <>
         {(["sm", "md", "lg", "xl"] as const).map((size) => (
-          <UnknownTileChip key={size} size={size} state={size === "lg" ? "selected" : undefined} />
+          <UnknownTileChip key={size} size={size} />
         ))}
       </>,
     );
     const chips = screen.getAllByRole("img", { name: "Unknown tile" });
     expect(chips).toHaveLength(4);
-    expect(chips.map((c) => c.getAttribute("data-state"))).toEqual(["default", "default", "selected", "default"]);
+    expect(chips.map((c) => c.getAttribute("data-state"))).toEqual(["default", "default", "default", "default"]);
     expect(chips[0]).toHaveTextContent("?");
   });
 });

@@ -60,6 +60,3 @@ export const RewardError: Story = { args: { ...PVP_RESULT.rewardError, onRetryRe
 export const Defeat: Story = { args: PVP_RESULT.defeat };
 /** A defeat that drops the attacker to Bronze. */
 export const DefeatDropped: Story = { args: PVP_RESULT.defeatDropped };
-/** The result on its way to the chain. */
-export const Pending: Story = { args: PVP_RESULT.pending };
-export const Failed: Story = { args: PVP_RESULT.error };

@@ -18,7 +18,6 @@ export const On: Story = {};
 export const Off: Story = { args: { checked: false } };
 /** The hint is read out with the switch, not shown (the book's rows show their name alone). */
 export const WithHint: Story = { args: { label: "Tile preview", art: "tile-preview", hint: "Show the tile on the slot before you place it" } };
-export const Disabled: Story = { args: { label: "Square grid", art: "grid", checked: false, disabled: true } };
 /** WRAP360: a long label wraps; the icon and the switch stay beside it. */
 export const Stress: Story = {
   render: (args) => (

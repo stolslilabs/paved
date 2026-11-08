@@ -7,21 +7,18 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
-export const Gold: Story = { args: { tone: "gold", size: "lg" } };
 /** The points the last move added, beside the score. */
 export const WithDelta: Story = { args: { value: 1380, delta: 140 } };
 /** The points a placed tile would score (#568): in place of the label (kept for screen readers), in brackets and the primary colour, distinct from the green gain. */
 export const WithPreview: Story = { args: { value: 1000, preview: 154 } };
-/** The owner's first sketch, "1,000 (+154)" on one line (a score with no label): too wide for the HUD at 375 px beside the wheel and the deck. */
-export const WithPreviewOneLine: Story = { args: { value: 1000, preview: 154, label: undefined } };
 export const Final: Story = { args: { value: 4820, size: "xl", tone: "gold", label: "Your score" } };
 export const Zero: Story = { args: { value: 0 } };
 
-/** The four sizes, tabular figures: the digits line up from one row to the next. */
+/** The three sizes (a village's line, the HUD, the end), tabular figures: the digits line up from one row to the next. */
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
-      {(["sm", "md", "lg", "xl"] as const).map((size) => (
+      {(["sm", "hud", "xl"] as const).map((size) => (
         <Score key={size} size={size} value={size === "sm" ? 111 : 1888} label={size} />
       ))}
     </div>
@@ -31,7 +28,7 @@ export const Sizes: Story = {
 export const Stress: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
-      {(["sm", "hud", "md", "lg", "xl"] as const).map((size) => (
+      {(["sm", "hud", "xl"] as const).map((size) => (
         <Score key={size} value={BIG_SCORE} delta={9_999} size={size} label="Score" icon="star" />
       ))}
     </div>

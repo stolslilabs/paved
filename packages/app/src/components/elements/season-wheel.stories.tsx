@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { fn } from "storybook/test";
 import { DAY_SHARE, WHEEL_SEASONS, WHEEL_STATES, initialWheelRound, nextWheelRound, type WheelRound } from "../../data/season-wheel";
-import { CENTRE_TURNS, SeasonWheel, type CentreTurn } from "./season-wheel";
+import { SeasonWheel } from "./season-wheel";
 import { PHONE_320, VIEWPORT_OPTIONS } from "../scenes/viewports";
 
 const meta = {
@@ -50,14 +50,14 @@ export const AllStates: Story = {
   ),
 };
 
-function Turning_({ centreTurn }: { centreTurn?: CentreTurn }) {
+function Turning_() {
   const [seasons, setSeasons] = useState(0.1);
   // One season in 3 s (the game's takes 120 s): the discs turn as the cycle does at 40x.
   useEffect(() => {
     const id = setInterval(() => setSeasons((p) => p + 0.0333), 100);
     return () => clearInterval(id);
   }, []);
-  return <SeasonWheel state="auto" point={{ season: WHEEL_SEASONS[Math.floor(seasons) % 4]!, position: seasons % 1 }} turnMs={100} centreTurn={centreTurn} />;
+  return <SeasonWheel state="auto" point={{ season: WHEEL_SEASONS[Math.floor(seasons) % 4]!, position: seasons % 1 }} turnMs={100} />;
 }
 
 /**
@@ -145,22 +145,3 @@ function Moments_() {
 export const DayNightAt96: Story = { ...PHONE_320, render: () => <Moments_ /> };
 export const DayNightAt108: Story = { ...PHONE_414, render: () => <Moments_ /> };
 export const DayNightAt144: Story = { render: () => <Moments_ />, globals: { viewport: { value: "tablet", isRotated: false } } };
-
-function Directions_({ render }: { render: (turn: CentreTurn) => ReactNode }) {
-  return (
-    <div className="flex flex-wrap gap-6">
-      {CENTRE_TURNS.map((turn) => (
-        <figure key={turn} className="flex flex-col items-center gap-2">
-          {render(turn)}
-          <figcaption className="text-xs text-muted-foreground">{turn === "against" ? "Centre against the seasons (default)" : "Centre with the seasons"}</figcaption>
-        </figure>
-      ))}
-    </div>
-  );
-}
-
-/**
- * The centre disc's two directions sped up, as `Turning`: against the seasons' ring (clockwise, the default), or with it
- * (counterclockwise, the disc drawn mirrored so its night still gives way to its day under the notch).
- */
-export const BothDirections: Story = { render: () => <Directions_ render={(turn) => <Turning_ centreTurn={turn} />} /> };

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { pageScrollHintRef } from "../../lib/page-scroll-hint";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 import { PagePanelProvider } from "./page-panel-context";
@@ -8,10 +8,6 @@ export interface PagePanelProps {
   open: boolean;
   /** The page's title: the panel's accessible name (the page's header shows it too). */
   title: string;
-  /** A page of the overlay itself, no Back in its header (`PagePanelValue.top`). */
-  top?: boolean;
-  /** The side it opens from (`PageDef.panelSide`): the right, or the left for the League (#829). */
-  side?: "right" | "left";
   /** The close: Escape, a click or a tap on the village (#782: no close button). */
   onClose: () => void;
   children: ReactNode;
@@ -30,8 +26,10 @@ export interface PagePanelProps {
  * DOCK-UNDER-PAGES (the owner's ask of 2026-11-04): the home's dock stays under its veil, which blurs it with the village (`backdrop-blur-sm`,
  * as the HUD drawer's): a tap on it is a tap outside, which closes the panel.
  */
-export default function PagePanel({ open, title, top = true, side = "right", onClose, children }: PagePanelProps) {
-  const value = useMemo(() => ({ top }), [top]);
+/** Its one page (the Referral) is a page of the overlay itself: no Back in its header (`PagePanelValue.top`). */
+const TOP = { top: true } as const;
+
+export default function PagePanel({ open, title, onClose, children }: PagePanelProps) {
   // The panel opens with the route, not from a dialog trigger: the element that had the focus as it opened (the overlay's
   // button) takes it back on its close. A layout effect, before the dialog moves the focus into the panel.
   const opener = useRef<HTMLElement | null>(null);
@@ -47,7 +45,7 @@ export default function PagePanel({ open, title, top = true, side = "right", onC
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent
-        side={side}
+        side="right"
         closeButton={false}
         aria-describedby={undefined}
         data-page-panel=""
@@ -56,7 +54,7 @@ export default function PagePanel({ open, title, top = true, side = "right", onC
         className="w-[28rem] max-w-full gap-0 bg-background p-0 text-foreground sm:max-w-none"
       >
         <SheetTitle className="sr-only">{title}</SheetTitle>
-        <PagePanelProvider value={value}>
+        <PagePanelProvider value={TOP}>
           <div ref={pageScrollHintRef} data-slot="page-scroll" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
             <PageRegionProvider value>{children}</PageRegionProvider>
           </div>

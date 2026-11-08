@@ -34,7 +34,7 @@ export function RouteError() {
       live = false;
     };
   }, [chunk, error]);
-  if (checking) return <LoadingScene progress={null} />;
+  if (checking) return <LoadingScene />;
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar title="Something broke" balances={false} />
