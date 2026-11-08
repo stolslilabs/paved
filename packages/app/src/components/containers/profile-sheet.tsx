@@ -87,6 +87,8 @@ export interface ProfileSheetProps {
   state: ProfileState;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Opened from a drawer (`?player=` of the player's own ID, DRAWER-NAV-IN-PLACE): drawn in its place (`HudDrawer`'s `inPlace`). */
+  inPlace?: boolean;
   /** Copies the address; a rejection is a failed copy (nothing said). The page does the copying. */
   onCopy?: (address: string) => Promise<void>;
   /** The connected player's level and XP (#625, `usePlayerProgress`); undefined while it is read. */
@@ -502,6 +504,7 @@ export function ProfileSheet({
   state,
   open,
   onOpenChange,
+  inPlace,
   onCopy,
   progress,
   look,
@@ -551,6 +554,7 @@ export function ProfileSheet({
       title="Profile"
       returnFocus={returnFocus}
       slot="profile"
+      inPlace={inPlace}
       end={renaming && connected ? <BalancesSlot layout="pill" kinds={COBBLES} /> : undefined}
     >
       {connected && renaming ? (
@@ -605,7 +609,13 @@ export function ProfileSheet({
               {/* The player's guild, then the actions, under the avatar (the owner's asks of 2026-11-05), not after the League. */}
               {(guild ?? (sources && routed)) && (
                 <div data-slot="profile-guild" className="empty:hidden">
-                  {guild ?? <ReadGuildLine playerId={connected.player.playerId} onOpened={() => onOpenChange(false)} />}
+                  {guild ?? <ReadGuildLine
+                      playerId={connected.player.playerId}
+                      // In a drawer's place (DRAWER-NAV-IN-PLACE), the guild opens over the profile, Back to it: the profile stays.
+                      onOpened={() => {
+                        if (!inPlace) onOpenChange(false);
+                      }}
+                    />}
                 </div>
               )}
               {(onOpenLeague || onEditAvatar || onOpenTiles || onOpenInvite) && (

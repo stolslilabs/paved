@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
 import { GUILD_SIZES, GuildBrowse, GuildFinder, GuildInvitations, NO_GUILD_FILTERS, type GuildFinderAction, type GuildFinderFilters } from "../../components/containers/guild-finder";
 import { SocialUnavailable } from "../../components/containers/social-empty";
 import { Skeleton } from "../../components/ui/skeleton";
@@ -11,14 +10,14 @@ import type { GuildSummary } from "../../data/social-source";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
-import { GUILD_PARAM, guildParamOf, type GuildSheetState } from "../guild-param";
 import { useNow } from "../now";
 import { useOpenGuild } from "../open-guild";
 import { useOpenPlayer } from "../open-player";
-import { GuildSheet, OwnGuild } from "./guild-view";
+import { OwnGuild } from "./guild-view";
 
 // The guild page's content (#953; the Social page's Guild tab until #973): the player's guild with its header, menu and tabs
-// (#973), or the finder of a player in none; any other guild's page in a sheet over it (`?guild=`). The guild's page
+// (#973), or the finder of a player in none; any other guild's page (`?guild=`) is drawn in its drawer's place by the pages' host
+// (`page-views-host.tsx`, DRAWER-NAV-IN-PLACE). The guild's page
 // (`guild-view.tsx`) is in the page's chunk since #973: a chunk of its own put one more name in the first load's preload map.
 
 /** A finder action as the guild source's write. */
@@ -68,28 +67,6 @@ export function GuildContent() {
     if (!unavailable) void run((g, p) => g.visitGuildTab(p)).catch(() => undefined);
   }, [unavailable, run]);
 
-  // Another guild's page, at `?guild=`: kept in the sheet while it slides out.
-  const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const asked = guildParamOf(params.get(GUILD_PARAM));
-  const own = player.data?.guild?.id ?? null;
-  const [shown, setShown] = useState<number | null>(asked);
-  if (asked !== null && asked !== shown) setShown(asked);
-  const closeGuild = useCallback(() => {
-    if ((location.state as GuildSheetState | null)?.guildSheet) return void navigate(-1);
-    setParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        next.delete(GUILD_PARAM);
-        return next;
-      },
-      { replace: true, preventScrollReset: true },
-    );
-  }, [location.state, navigate, setParams]);
-  // The player's own guild is the page itself: no sheet over it.
-  const sheetOpen = asked !== null && asked !== own;
-
   if (player.unavailable) return <SocialUnavailable>Guilds are not on this network yet.</SocialUnavailable>;
   // The account still read (NO-GUEST: every player has one): the guild's loading.
   if (me === null) return <Skeleton aria-busy className="h-40 rounded-xl" />;
@@ -110,7 +87,7 @@ export function GuildContent() {
             writes={writes}
             onOpenPlayer={openPlayer}
             // The member's Find guilds (#973): the finder's search and lists, in its view in the drawer (GUILD-PAGE); a guild found
-            // opens in its sheet over it.
+            // opens in its place.
             find={
               <GuildBrowse
                 candidate={candidate}
@@ -144,9 +121,6 @@ export function GuildContent() {
             onAction={(a) => writes.run(finderWrite(a))}
           />
         )
-      )}
-      {shown !== null && shown !== own && (
-        <GuildSheet key={shown} id={shown} me={me} player={state ?? null} candidate={candidate} now={now} open={sheetOpen} onClose={closeGuild} writes={writes} onOpenPlayer={openPlayer} />
       )}
     </div>
   );
