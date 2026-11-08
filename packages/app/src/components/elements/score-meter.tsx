@@ -41,7 +41,7 @@ type Beat = { mark: number; n: number };
  * The board's score meter (GAME-OVERLAY, the owner's ask of 2026-11-08: the Ranked's bar, restyled, in every mode; `lib/score-meter.ts`
  * says what each mode puts on it): the Missions' painted rail, its steel the whole line and its gold to the score, and the marks painted
  * on it, greyed until the score reaches them, then gold and glowing; the score's share of the goal outlined after it (none in Story,
- * #593). A mark reached during play beats: it pops, its light flashes once and the device gives a light buzz (no sound: the move plays
+ * whose thresholds stay hidden). A mark reached during play beats: it pops, its light flashes once and the device gives a light buzz (no sound: the move plays
  * its own); a mark held from the start does not. Under reduced motion the gold moves at once and nothing beats. A `meter` for assistive
  * technology.
  */
