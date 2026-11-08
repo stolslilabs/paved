@@ -186,9 +186,11 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds", "Alliances", "Friends"]);
     const alliances = within(tabs).getByRole("tab", { name: "Alliances" });
     expect(alliances).toBeEnabled();
-    // Guilds and Alliances under the ranking's own painted shields, the handshake gone to Friends.
+    // Alliances under the ranking's own painted shields, Guilds under the dock's Guild (its two banners), the handshake on Friends.
     expect(alliances.querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/alliances.webp");
-    expect(within(tabs).getByRole("tab", { name: "Guilds" }).querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/guilds.webp");
+    const guilds = within(tabs).getByRole("tab", { name: "Guilds" });
+    expect(guilds.querySelector("img[data-icon=guild]")).not.toBeNull();
+    expect(guilds.querySelector('img[src*="/ui-art/ranking/"]')).toBeNull();
     expect(within(tabs).getByRole("tab", { name: "Friends" }).querySelector("img[data-icon=friends]")).not.toBeNull();
     await userEvent.click(alliances);
     expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["alliances"]));
