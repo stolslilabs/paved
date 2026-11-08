@@ -280,13 +280,13 @@ describe("The scan means a search, nothing else (#1067)", { timeout: slow(40_000
     expect(await screen.findByRole("heading", { name: /^Attack: / }, WAIT)).toBeInTheDocument();
     await discardTile();
     await waitFor(async () => expect((await s.ledger.attackV2(s.me)).attack!.status).toBe("finished"), WAIT);
-    // The board holds; the player leaves by Back before the end is in.
+    // The board holds; the player leaves by Back before the end is in: up to the Play page (RANKED-BACK #1066).
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/pvp/league"), WAIT);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play"), WAIT);
     release();
     await realWait(500);
     await act(async () => undefined);
-    expect(router.state.location.pathname).toBe("/pvp/league");
+    expect(router.state.location.pathname).toBe("/play");
     expect(screen.queryByRole("heading", { level: 1, name: "Attack over" })).toBeNull();
   });
 

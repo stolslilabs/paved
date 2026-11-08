@@ -51,7 +51,7 @@ export default function Page() {
  */
 function Pick({ id }: { id: number }) {
   const wallet = useAccount();
-  const onBack = useUpTo("/pvp/league");
+  const onBack = useUpTo("/play");
   const me = useDataSources().signer?.address ?? null;
   const v2 = useAttackV2Of(me, id);
   // The end's chunk when the last tile loaded it ahead (`pvp-v2.tsx`): drawn straight, so the end follows the board with nothing
@@ -74,7 +74,7 @@ function Pick({ id }: { id: number }) {
 
 function Result({ id }: { id: number }) {
   const go = useAppNavigate();
-  const onBack = useUpTo("/pvp/league");
+  const onBack = useUpTo("/play");
   const now = useNow();
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? null;

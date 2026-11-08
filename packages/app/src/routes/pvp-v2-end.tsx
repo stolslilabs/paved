@@ -21,8 +21,8 @@ import { useAppNavigate, useUpTo } from "./ref";
 
 // `/pvp/result/:id` on PvP v2 (#790), its own chunk: the end screen of the attacker's attack `id`, read by its id (`attackV2Of`,
 // the mock's record, #741; an id with no v2 attack is v1's result), so a reload or a link shows it again, after later attacks
-// too. The attack's last move goes here with `replace` (`pvp-v2.tsx`), and Back goes up to the league: never into the finished
-// attack.
+// too. The attack's last move goes here with `replace` (`pvp-v2.tsx`), and Back goes up to the Play page, where Ranked is chosen
+// (RANKED-BACK #1066): never into the finished attack.
 
 const PLANS = Object.values(PlanType);
 const ORIENTATIONS = Object.values(OrientationType);
@@ -72,7 +72,7 @@ export interface PvpV2EndProps {
 
 export default function PvpV2End({ me, attack, self }: PvpV2EndProps) {
   const go = useAppNavigate();
-  const onBack = useUpTo("/pvp/league");
+  const onBack = useUpTo("/play");
   if (attack.status === "open") {
     return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="This attack is still under way." onRetry={() => go("/pvp", { replace: true })} onCancel={onBack} />;
   }
