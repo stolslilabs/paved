@@ -10,13 +10,13 @@ describe("FooterTab", () => {
       <Tabs value="players">
         <FooterTabsList aria-label="Ranking">
           <FooterTab value="players" label="Players" art={<span />} />
-          <FooterTab value="guilds" label="Guilds" art={<span />} badge={3} />
+          <FooterTab value="guilds" label="Allegiances" art={<span />} badge={3} />
           <FooterTab value="friends" label="Friends" art={<span />} badge={5} soon />
         </FooterTabsList>
       </Tabs>,
     );
     const tabs = within(screen.getByRole("tablist", { name: "Ranking" })).getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds, 3 waiting", "Friends, coming soon"]);
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Allegiances, 3 waiting", "Friends, coming soon"]);
     const [players, guilds, soon] = tabs as [HTMLElement, HTMLElement, HTMLElement];
     // In its place, last, not pressable; its mark where a count would be, the count it was given not shown.
     expect(soon).toBeDisabled();

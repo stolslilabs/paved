@@ -67,14 +67,14 @@ export function GuildContent() {
     if (!unavailable) void run((g, p) => g.visitGuildTab(p)).catch(() => undefined);
   }, [unavailable, run]);
 
-  if (player.unavailable) return <SocialUnavailable>Guilds are not on this network yet.</SocialUnavailable>;
+  if (player.unavailable) return <SocialUnavailable>Allegiances are not on this network yet.</SocialUnavailable>;
   // The account still read (NO-GUEST: every player has one): the guild's loading.
   if (me === null) return <Skeleton aria-busy className="h-40 rounded-xl" />;
 
   const state = player.data;
   return (
     <div className="flex flex-col gap-5">
-      <InlineError title="Guild" message={player.error?.message} detail={player.error ? errorDetail(player.error) : undefined} />
+      <InlineError title="Allegiance" message={player.error?.message} detail={player.error ? errorDetail(player.error) : undefined} />
       {!state && !player.error && <Skeleton aria-busy className="h-40 rounded-xl" />}
       {state?.guild ? (
         <>
@@ -99,7 +99,7 @@ export function GuildContent() {
                 suggested={listOf(suggested)}
                 ranking={listOf(ranking)}
                 onOpenGuild={openGuild}
-                suggestedEmpty="No other guild to suggest right now: search one, or see the ranking."
+                suggestedEmpty="No other allegiance to suggest right now: search one, or see the ranking."
               />
             }
           />

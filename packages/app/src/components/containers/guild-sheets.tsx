@@ -125,7 +125,7 @@ export function GuildForm({ mode, initial, onSubmit, pending, error }: GuildForm
       {/* The emblem as it will look, beside the name. */}
       <div data-slot="guild-form-preview" className="drawer-carved flex min-w-0 items-center gap-3 rounded-xl p-3">
         <GuildEmblem emblem={draft.emblem} size="lg" />
-        <p className={cn("text-outline min-w-0 flex-1 text-xl leading-tight font-bold wrap-anywhere", name === "" && "text-muted-foreground")}>{name === "" ? "Your guild" : name}</p>
+        <p className={cn("text-outline min-w-0 flex-1 text-xl leading-tight font-bold wrap-anywhere", name === "" && "text-muted-foreground")}>{name === "" ? "Your allegiance" : name}</p>
       </div>
 
       {mode === "create" && (
@@ -211,7 +211,7 @@ export function GuildForm({ mode, initial, onSubmit, pending, error }: GuildForm
 
       <InlineError title={mode === "create" ? "Create" : "Settings"} message={error ?? (shown ? REFUSALS[shown] : null)} />
       <Button type="submit" variant="ghost" disabled={invalid !== null} loading={pending} className="state-layer drawer-tile text-outline h-12 w-full rounded-xl text-base font-bold">
-        {mode === "create" ? "Create the guild" : "Save"}
+        {mode === "create" ? "Create the allegiance" : "Save"}
       </Button>
     </form>
   );

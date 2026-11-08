@@ -66,7 +66,7 @@ function keepForDialogs(event: Event) {
 type TabArt = "user" | "guild" | "friends";
 const TABS: readonly { id: LeaderboardTab; label: string; art: TabArt }[] = [
   { id: "players", label: "Players", art: "user" },
-  { id: "guilds", label: "Guilds", art: "guild" },
+  { id: "guilds", label: "Allegiances", art: "guild" },
   { id: "friends", label: "Friends", art: "friends" },
 ];
 
@@ -298,10 +298,10 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
             </TabsContent>
             <TabsContent value="guilds" className="flex flex-col">
               <RankedList
-                title="Guilds"
-                label="Guilds by score"
+                title="Allegiances"
+                label="Allegiances by score"
                 read={guilds}
-                empty="No guild is ranked yet."
+                empty="No allegiance is ranked yet."
                 rows={(list) =>
                   list.map((g, i) => {
                     const own = g.id === myGuild;

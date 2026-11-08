@@ -139,7 +139,7 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     expect(screen.getAllByRole("button", { name: "Play" }).filter((b) => !b.closest("nav"))).toHaveLength(0);
     const dock = await screen.findByRole("navigation", { name: "Main" });
     expect(dock.parentElement).not.toHaveClass("desktop:hidden");
-    expect(within(dock).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Shop", "Ranking", "Play", "Guild", "Settings"]);
+    expect(within(dock).getAllByRole("button").map((b) => b.getAttribute("aria-label")?.split(",")[0])).toEqual(["Shop", "Ranking", "Play", "Allegiance", "Settings"]);
   });
 
   it("the Referral, reached from the profile's Invite, opens in the panel: the URL naming it, the village still mounted, no close button", async () => {
@@ -227,8 +227,8 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     wide();
     const router = open("/");
     const dock = await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
-    await userEvent.click(within(dock).getByRole("button", { name: /^Guild/ }));
-    const drawer = await panel("Guild");
+    await userEvent.click(within(dock).getByRole("button", { name: /^Allegiance/ }));
+    const drawer = await panel("Allegiance");
     expect(router.state.location.pathname).toBe("/guild");
     expect(drawer).toHaveAttribute("data-hud-drawer", "guild");
     expect(drawer).toHaveAttribute("data-side", "right");
@@ -240,7 +240,7 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), { timeout: slow(5000) });
-    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: /^Guild/ })).toHaveFocus());
+    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: /^Allegiance/ })).toHaveFocus());
   });
 
   it("the dock's Ranking opens the Leaderboard's HUD drawer at the right (LEADERBOARD-PAGE): its tabs at its foot, the tab the URL's", async () => {
@@ -260,10 +260,10 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     // The chain's sources serve no social source: no ranking here (the lists: ranking.test.tsx).
     expect(within(drawer).getByText("Rankings are not on this network yet.")).toBeInTheDocument();
     // A tab is the URL's, its entry replaced: the close still goes back to the village's own entry.
-    await userEvent.click(within(drawer).getByRole("tab", { name: /^Guilds/ }));
+    await userEvent.click(within(drawer).getByRole("tab", { name: /^Allegiances/ }));
     await waitFor(() => expect(router.state.location.search).toBe("?tab=guilds"));
     expect(router.state.historyAction).toBe("REPLACE");
-    expect(within(drawer).getByRole("tab", { name: /^Guilds/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(drawer).getByRole("tab", { name: /^Allegiances/ })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(router.state.historyAction).toBe("POP");

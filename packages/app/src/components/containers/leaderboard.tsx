@@ -124,7 +124,7 @@ export function GuildRankRow({ guild, place, own = false, onOpen, ref, className
       type="button"
       data-slot="ranking-guild"
       data-own={own || undefined}
-      aria-label={`${formatInteger(place)}. ${guild.name}${own ? " (your guild)" : ""}, ${formatInteger(guild.members)} of ${GUILD_MAX_MEMBERS} members, ${formatInteger(guild.score)} ${guild.score === 1 ? "crown" : "crowns"}`}
+      aria-label={`${formatInteger(place)}. ${guild.name}${own ? " (your allegiance)" : ""}, ${formatInteger(guild.members)} of ${GUILD_MAX_MEMBERS} members, ${formatInteger(guild.score)} ${guild.score === 1 ? "crown" : "crowns"}`}
       onClick={onOpen}
       className={cn(ROW, own && OWN, className)}
     >

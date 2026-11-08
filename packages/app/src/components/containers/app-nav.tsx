@@ -12,12 +12,16 @@ import { UiIcon } from "../elements/ui-icon";
  * the dock's centre: the PLAY medallion.
  */
 // `art`, not `icon`: the Font Awesome subset's guard reads an `icon` key as a Font Awesome name; these are the HUD's images.
-export const NAV_TABS: readonly { id: Tab; label: string; art: UiIconName; soon?: true }[] = [
+/**
+ * The dock's items. `fit`: a label longer than a phone's column (the 2026-11-08 rename: "Allegiance", 64 px of text at 12 px in a 59 px
+ * column at 360 px) takes its size from its column (`FIT_LABEL`) instead of truncating; the others keep 12 px at every width.
+ */
+export const NAV_TABS: readonly { id: Tab; label: string; art: UiIconName; soon?: true; fit?: true }[] = [
   { id: "shop", label: "Shop", art: "shop" },
   // The Leaderboard (LEADERBOARD-PAGE).
   { id: "ranking", label: "Ranking", art: "trophy" },
   { id: "play", label: "Play", art: "swords" },
-  { id: "guild", label: "Guild", art: "guild" },
+  { id: "guild", label: "Allegiance", art: "guild", fit: true },
   { id: "settings", label: "Settings", art: "settings" },
 ];
 
@@ -63,6 +67,8 @@ const OUTLINE: CSSProperties = {
     .concat("0 2px 2px var(--background)")
     .join(", "),
 };
+/** A `fit` label's size: 12 px, or less where its column (the button, an inline-size container) is too narrow for it. */
+const FIT_LABEL: CSSProperties = { ...OUTLINE, fontSize: "min(0.75rem, 17cqw)" };
 
 export interface AppNavProps {
   onNavigate?: (tab: Tab) => void;
@@ -143,11 +149,14 @@ export function AppNav({ onNavigate, badges, className }: AppNavProps) {
                 aria-disabled={tab.soon || undefined}
                 onClick={tab.soon ? undefined : () => onNavigate?.(tab.id)}
                 // `relative`: the badge's box. The icon alone in the band's middle below `mobile`.
-                className="relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center pb-1.5 text-foreground outline-none transition-transform active:scale-95 motion-reduce:transition-none mobile:justify-start mobile:pb-0"
+                className={cn(
+                  "relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center pb-1.5 text-foreground outline-none transition-transform active:scale-95 motion-reduce:transition-none mobile:justify-start mobile:pb-0",
+                  tab.fit && "@container",
+                )}
               >
                 <UiIcon name={tab.art} px={ICON_PX} className="size-11 mobile:-mb-1" />
                 {/* Not `sr-only mobile:not-sr-only`: Font Awesome injects its own `.sr-only` after Tailwind's, which wins. */}
-                <span data-slot="app-nav-label" className="hidden max-w-full truncate outline-room text-xs leading-none font-black tracking-tight mobile:block" style={OUTLINE}>
+                <span data-slot="app-nav-label" className="hidden max-w-full truncate outline-room text-xs leading-none font-black tracking-tight mobile:block" style={tab.fit ? FIT_LABEL : OUTLINE}>
                   {tab.label}
                 </span>
                 {badge > 0 && (

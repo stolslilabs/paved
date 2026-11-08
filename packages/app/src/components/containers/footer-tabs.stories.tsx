@@ -95,7 +95,7 @@ export const Soon: Story = {
   args: {
     tabs: [
       { id: "players", label: "Players", art: art("user") },
-      { id: "guilds", label: "Guilds", art: art("guild") },
+      { id: "guilds", label: "Allegiances", art: art("guild") },
       { id: "friends", label: "Friends", art: art("friends"), badge: 5, soon: true },
     ],
   },

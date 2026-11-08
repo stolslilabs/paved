@@ -206,7 +206,7 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     const { container } = render(
       <>
         <UiIcon name="vault" />
-        <UiIcon name="guild" size="xl" label="Guild" />
+        <UiIcon name="guild" size="xl" label="Allegiance" />
       </>,
     );
     const [plain, named] = container.querySelectorAll("img");
@@ -214,7 +214,7 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     expect(plain).toHaveAttribute("aria-hidden", "true");
     expect(plain).toHaveAttribute("draggable", "false");
     expect(plain).toHaveAttribute("data-icon", "vault");
-    expect(screen.getByRole("img", { name: "Guild" })).toBe(named);
+    expect(screen.getByRole("img", { name: "Allegiance" })).toBe(named);
     expect(named!.className).toContain("size-12");
     expect(named!.getAttribute("sizes")).toBe("48px");
     expect(container.innerHTML).not.toMatch(/https?:/);

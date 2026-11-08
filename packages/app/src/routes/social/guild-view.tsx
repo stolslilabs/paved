@@ -146,20 +146,20 @@ export function GuildSheet({ id, me, player, candidate, now, open, onClose, writ
         guild ? (
           // The page names the guild under it: the header says what it is, screen readers hear its name.
           <>
-            <span aria-hidden>Guild</span>
+            <span aria-hidden>Allegiance</span>
             <span className="sr-only">{guild.name}</span>
           </>
         ) : guild === null ? (
-          "Guild not found"
+          "Allegiance not found"
         ) : (
-          "Guild"
+          "Allegiance"
         )
       } side="right" slot="guild-sheet" inPlace>
       <div data-slot="guild-sheet" className="flex flex-col gap-4">
-        {guild === null && <p className="text-sm font-semibold text-muted-foreground">No guild has this tag any more.</p>}
-        {guild === undefined && read.unavailable && <p className="text-sm font-semibold text-muted-foreground">Guilds are not on this network yet.</p>}
+        {guild === null && <p className="text-sm font-semibold text-muted-foreground">No allegiance has this tag any more.</p>}
+        {guild === undefined && read.unavailable && <p className="text-sm font-semibold text-muted-foreground">Allegiances are not on this network yet.</p>}
         {guild === undefined && read.isPending && <Skeleton aria-busy className="h-48 rounded-xl" />}
-        {!mine && <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />}
+        {!mine && <InlineError title="Allegiance" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />}
         {mine && me !== null && <OwnGuild guild={mine} me={me} now={now} unread={player?.unread ?? 0} writes={writes} onOpenPlayer={onOpenPlayer} />}
         {guild && !mine && (
           <GuildPage

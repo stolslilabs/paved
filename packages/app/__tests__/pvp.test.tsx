@@ -156,7 +156,7 @@ describe("PvP scenes (#647)", () => {
     expect(rival.querySelectorAll("[data-slot=league-crest-icon]")).toHaveLength(1);
     expect(within(rival).queryByRole("img", { name: /^Level / })).toBeNull();
     // No guild (v1's fakes give none): an empty shield under the name, no league written out; no village score (the user's ask).
-    expect(within(rival).getByRole("img", { name: "No guild" })).toBeInTheDocument();
+    expect(within(rival).getByRole("img", { name: "No allegiance" })).toBeInTheDocument();
     expect(within(rival).queryByRole("group", { name: /^Village score/ })).toBeNull();
     expect(screen.getByRole("img", { name: /Board of 38 tiles in a territory of 38 cells/ })).toBeInTheDocument();
     // v1 has no tile list: the deck over the village only counts the tiles.

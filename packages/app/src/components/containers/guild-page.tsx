@@ -311,7 +311,7 @@ interface GuildMenuItem {
  */
 function GuildMenu({ items }: { items: readonly GuildMenuItem[] }) {
   return (
-    <ul data-slot="guild-menu" aria-label="Guild menu" className="flex flex-col gap-2">
+    <ul data-slot="guild-menu" aria-label="Allegiance menu" className="flex flex-col gap-2">
       {items.map((item) => (
         <li key={item.label} className={cn("flex flex-col gap-1", item.destructive && "mt-3")}>
           <DrawerRow art={item.art} label={item.label} tone={item.destructive ? "danger" : "default"} next={item.next} disabled={item.refused !== undefined} onClick={item.onSelect} />
@@ -389,18 +389,18 @@ export function GuildPage({
   const leave = () =>
     ask(
       disbands
-        ? { title: `Disband ${guild.name}?`, text: "You are its only member: leaving disbands the guild, for good.", confirm: "Disband", destructive: true }
-        : { title: `Leave ${guild.name}?`, text: "You can join another guild, or come back if they let you in.", confirm: "Leave", destructive: true },
+        ? { title: `Disband ${guild.name}?`, text: "You are its only member: leaving disbands the allegiance, for good.", confirm: "Disband", destructive: true }
+        : { title: `Leave ${guild.name}?`, text: "You can join another allegiance, or come back if they let you in.", confirm: "Leave", destructive: true },
       () => ({ type: "leave" }),
     );
 
   const menu: GuildMenuItem[] = [
     ...(mayInvite ? [{ label: "Invite a player", art: "invite-player" as const, next: true, onSelect: () => openView("invite") }] : []),
-    ...(leader ? [{ label: "Guild settings", art: "settings" as const, next: true, onSelect: () => openView("settings") }] : []),
-    { label: "Find guilds", art: "find", next: true, onSelect: () => openView("find") },
-    { label: disbands ? "Disband the guild" : "Leave the guild", art: disbands ? "disband" : "leave", destructive: true, onSelect: leave, refused: leaveBlock ? REFUSALS[leaveBlock] : undefined },
+    ...(leader ? [{ label: "Allegiance settings", art: "settings" as const, next: true, onSelect: () => openView("settings") }] : []),
+    { label: "Find allegiances", art: "find", next: true, onSelect: () => openView("find") },
+    { label: disbands ? "Disband the allegiance" : "Leave the allegiance", art: disbands ? "disband" : "leave", destructive: true, onSelect: leave, refused: leaveBlock ? REFUSALS[leaveBlock] : undefined },
   ];
-  const titles: Record<GuildPageView, string> = { menu: "Guild menu", invite: "Invite a player", settings: "Guild settings", find: "Find guilds" };
+  const titles: Record<GuildPageView, string> = { menu: "Allegiance menu", invite: "Invite a player", settings: "Allegiance settings", find: "Find allegiances" };
   const viewTitle = view === null ? null : titles[view];
   // The drawer's header names the view and its Back goes back one; outside a drawer (a story of the page alone), the view draws its own.
   const inDrawer = useDrawerView(viewTitle, back);
@@ -444,7 +444,7 @@ export function GuildPage({
           <Button
             variant="ghost"
             className={cn(RAISED_BUTTON, "self-end")}
-            onClick={() => ask({ title: "Post an announcement", text: "Pinned at the top of the guild's page, for every member.", confirm: "Post", field: { label: "Announcement", max: GUILD_ANNOUNCEMENT_MAX, rows: 4 } }, (text) => ({ type: "post", text }))}
+            onClick={() => ask({ title: "Post an announcement", text: "Pinned at the top of the allegiance's page, for every member.", confirm: "Post", field: { label: "Announcement", max: GUILD_ANNOUNCEMENT_MAX, rows: 4 } }, (text) => ({ type: "post", text }))}
           >
             <UiIcon name="pencil" px={20} className="drawer-icon size-5" />
             Post
@@ -542,7 +542,7 @@ export function GuildPage({
         {guild.invitations && (
           <TabSection title="Invitations sent">
             {guild.invitations.length === 0 ? (
-              <p className={EMPTY}>None waiting. Invite a player from the guild's menu.</p>
+              <p className={EMPTY}>None waiting. Invite a player from the allegiance's menu.</p>
             ) : (
               <ul className="drawer-carved flex flex-col rounded-xl">
                 {guild.invitations.map((v, i) => (
@@ -606,7 +606,7 @@ export function GuildPage({
   else if (view === "find")
     shownView = (
       <>
-        <p className={VIEW_LINE}>Search the guilds by name or tag, or see the ranking by score.</p>
+        <p className={VIEW_LINE}>Search the allegiances by name or tag, or see the ranking by score.</p>
         {find}
       </>
     );
@@ -633,7 +633,7 @@ export function GuildPage({
           <span className="flex max-w-full min-w-0 items-center gap-0.5">
             <h2 className="text-outline min-w-0 text-2xl leading-tight font-bold wrap-anywhere">{guild.name}</h2>
             {rank !== null && (
-              <button type="button" aria-label="Guild menu" onClick={() => openView("menu")} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg outline-none">
+              <button type="button" aria-label="Allegiance menu" onClick={() => openView("menu")} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg outline-none">
                 <span className={RAISED_FACE}>
                   <Icon name="ellipsis" size="sm" />
                 </span>

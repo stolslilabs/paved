@@ -495,7 +495,7 @@ export function ChatConversation({
       : undefined
     : { height: `min(44rem, max(20rem, ${tall} - 9rem))` };
   const nearLimit = length >= CHAT_MESSAGE_MAX * COUNT_FROM;
-  const placeholder = c?.kind === "world" ? "Message the World" : c?.kind === "guild" ? "Message the guild" : "Message";
+  const placeholder = c?.kind === "world" ? "Message the World" : c?.kind === "guild" ? "Message the allegiance" : "Message";
 
   return (
     <>

@@ -31,15 +31,15 @@ const wrap = (ui: ReactNode) => (
 const button = (name: string | RegExp) => screen.queryByRole("button", { name });
 
 /** The guild page's tabs, as their labels read. */
-const tabNames = () => within(screen.getByRole("tablist", { name: "Guild" })).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent);
+const tabNames = () => within(screen.getByRole("tablist", { name: "Allegiance" })).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent);
 /** Opens the header's menu (GUILD-PAGE: a view in the page's place); its items, by their names. */
 async function menu() {
-  await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
-  const list = await screen.findByRole("list", { name: "Guild menu" });
+  await userEvent.click(screen.getByRole("button", { name: "Allegiance menu" }));
+  const list = await screen.findByRole("list", { name: "Allegiance menu" });
   return within(list).getAllByRole("listitem").map((i) => within(i).getByRole("button").textContent);
 }
 /** An item of the open menu. */
-const item = (name: string | RegExp) => within(screen.getByRole("list", { name: "Guild menu" })).getByRole("button", { name });
+const item = (name: string | RegExp) => within(screen.getByRole("list", { name: "Allegiance menu" })).getByRole("button", { name });
 /** A view's title: outside the drawer, the page draws it with its own Back. */
 const viewTitle = (name: string) => screen.findByRole("heading", { level: 2, name });
 const goBack = () => userEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -59,16 +59,16 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     expect(screen.getByRole("region", { name: "Members" })).toBeInTheDocument();
     await userEvent.click(within(header).getByRole("button", { name: "Chat" }));
     expect(onOpenChat).toHaveBeenCalled();
-    expect(await menu()).toEqual(["Invite a player", "Find guilds", "Leave the guild"]);
+    expect(await menu()).toEqual(["Invite a player", "Find allegiances", "Leave the allegiance"]);
     // Find guilds: its view in the menu's place, Back to the menu, Back to the page.
-    await userEvent.click(item("Find guilds"));
-    expect(await viewTitle("Find guilds")).toBeInTheDocument();
+    await userEvent.click(item("Find allegiances"));
+    expect(await viewTitle("Find allegiances")).toBeInTheDocument();
     expect(screen.getByText("The guild search")).toBeInTheDocument();
     await goBack();
-    expect(await screen.findByRole("list", { name: "Guild menu" })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Allegiance menu" })).toBeInTheDocument();
     await goBack();
     expect(await screen.findByRole("heading", { level: 2, name: "The Quarrymen" })).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Guild menu" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Allegiance menu" })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     await tab("Announcements");
     expect(screen.getByRole("region", { name: "Announcements" })).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     expect(button(/Post/)).toBeInTheDocument();
     // The officer wrote the second announcement only: one Edit.
     expect(screen.getAllByRole("button", { name: /Edit/ })).toHaveLength(1);
-    expect(await menu()).toEqual(["Invite a player", "Find guilds", "Leave the guild"]);
+    expect(await menu()).toEqual(["Invite a player", "Find allegiances", "Leave the allegiance"]);
     await userEvent.click(item("Invite a player"));
     expect(await viewTitle("Invite a player")).toBeInTheDocument();
     expect(screen.getByText("The player search")).toBeInTheDocument();
@@ -110,12 +110,12 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     expect(screen.getAllByRole("button", { name: /Edit/ })).toHaveLength(GUILD_PAGE.leader.guild.announcements!.length);
     expect(screen.getAllByRole("button", { name: /Delete/ })).toHaveLength(GUILD_PAGE.leader.guild.announcements!.length);
     const items = await menu();
-    expect(items.slice(0, 3)).toEqual(["Invite a player", "Guild settings", "Find guilds"]);
-    expect(item("Leave the guild")).toBeDisabled();
-    expect(within(screen.getByRole("list", { name: "Guild menu" })).getByText(REFUSALS["leader-must-transfer"])).toBeInTheDocument();
+    expect(items.slice(0, 3)).toEqual(["Invite a player", "Allegiance settings", "Find allegiances"]);
+    expect(item("Leave the allegiance")).toBeDisabled();
+    expect(within(screen.getByRole("list", { name: "Allegiance menu" })).getByText(REFUSALS["leader-must-transfer"])).toBeInTheDocument();
     // Guild settings: the form in its view; saved, the page again.
-    await userEvent.click(item("Guild settings"));
-    expect(await viewTitle("Guild settings")).toBeInTheDocument();
+    await userEvent.click(item("Allegiance settings"));
+    expect(await viewTitle("Allegiance settings")).toBeInTheDocument();
     // The emblem's twenty charges, Codex's (GUILD-PAGE), the guild's own picked.
     const charges = within(screen.getByRole("radiogroup", { name: "Icon" })).getAllByRole("radio");
     expect(charges).toHaveLength(GUILD_EMBLEM_ICONS);
@@ -131,7 +131,7 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildPage {...GUILD_PAGE.alone} onAction={onAction} />));
     await menu();
-    await userEvent.click(item("Disband the guild"));
+    await userEvent.click(item("Disband the allegiance"));
     const dialog = await screen.findByRole("dialog", { name: "Disband Ashford Lanterns?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Disband" }));
     expect(onAction).toHaveBeenCalledWith({ type: "leave" });
@@ -168,7 +168,7 @@ describe("GuildPage (#953, #973): the header, the menu and the tabs; each rank s
 
   it("a Recruit's menu has no Invite; a Veteran sees the Requests tab and Post", async () => {
     const { unmount } = render(wrap(<GuildPage {...GUILD_PAGE.recruit} />));
-    expect(await menu()).toEqual(["Find guilds", "Leave the guild"]);
+    expect(await menu()).toEqual(["Find allegiances", "Leave the allegiance"]);
     unmount();
     render(wrap(<GuildPage {...GUILD_PAGE.veteran} defaultTab="announcements" />));
     expect(tabNames()).toEqual(["Announcements", "Members", "Requests, 2 waiting", "Log"]);
@@ -201,7 +201,7 @@ describe("GUILD-PAGE: the Paved UX Book's guild in the HUD drawer", () => {
   it("draws the page in the HUD's drawer titled Guild, Back closing it on a phone", async () => {
     const onBack = vi.fn();
     render(wrap(<GuildScene onBack={onBack}>{<GuildPage {...GUILD_PAGE.member} />}</GuildScene>));
-    const drawer = screen.getByRole("dialog", { name: "Guild" });
+    const drawer = screen.getByRole("dialog", { name: "Allegiance" });
     expect(drawer).toHaveAttribute("data-hud-drawer", "guild");
     expect(within(drawer).getByRole("heading", { level: 2, name: "The Quarrymen" })).toBeInTheDocument();
     await userEvent.click(within(drawer).getByRole("button", { name: "Back" }));
@@ -211,25 +211,25 @@ describe("GUILD-PAGE: the Paved UX Book's guild in the HUD drawer", () => {
   it("the menu is a view in the drawer: its title on the header, Back to the page, the red cross to leave, on a phone too", async () => {
     const onBack = vi.fn();
     render(wrap(<GuildScene onBack={onBack}>{<GuildPage {...GUILD_PAGE.member} />}</GuildScene>));
-    await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
-    const drawer = await screen.findByRole("dialog", { name: "Guild menu" });
+    await userEvent.click(screen.getByRole("button", { name: "Allegiance menu" }));
+    const drawer = await screen.findByRole("dialog", { name: "Allegiance menu" });
     expect(drawer).toHaveAttribute("data-hud-drawer", "guild");
-    expect(within(drawer).getByRole("list", { name: "Guild menu" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("list", { name: "Allegiance menu" })).toBeInTheDocument();
     // One Back, the drawer's (in a drawer the page draws none of its own), and the red cross.
     expect(within(drawer).getAllByRole("button", { name: "Back" })).toHaveLength(1);
     expect(drawer.querySelector("[data-slot=hud-drawer-close]")).not.toBeNull();
     await userEvent.click(within(drawer).getByRole("button", { name: "Back" }));
-    expect(await screen.findByRole("dialog", { name: "Guild" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Allegiance" })).toBeInTheDocument();
     expect(onBack).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
-    await userEvent.click(within(await screen.findByRole("dialog", { name: "Guild menu" })).getByRole("button", { name: "Close" }));
+    await userEvent.click(screen.getByRole("button", { name: "Allegiance menu" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Allegiance menu" })).getByRole("button", { name: "Close" }));
     expect(onBack).toHaveBeenCalled();
   });
 
   it("the menu's rows carry their painted icons (Codex's): Invite a player, Guild settings, Find guilds, then Leave", async () => {
     render(wrap(<GuildPage {...GUILD_PAGE.leader} />));
     await menu();
-    const list = screen.getByRole("list", { name: "Guild menu" });
+    const list = screen.getByRole("list", { name: "Allegiance menu" });
     expect([...list.querySelectorAll("[data-slot=drawer-row] img[data-icon]")].map((i) => i.getAttribute("data-icon"))).toEqual(["invite-player", "settings", "find", "leave"]);
   });
 
@@ -322,7 +322,7 @@ describe("GuildPage (#953) for a player outside", () => {
     expect(screen.queryByRole("region", { name: "Announcements" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Log" })).toBeNull();
     expect(button("Chat")).toBeNull();
-    expect(button("Guild menu")).toBeNull();
+    expect(button("Allegiance menu")).toBeNull();
     expect(button(/Leave/)).toBeNull();
     await userEvent.click(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")[0]!);
     expect(onOpenPlayer).toHaveBeenCalledWith(GUILD_PAGE.join.guild.roster[0]!.profile.address);
@@ -399,11 +399,11 @@ describe("GuildFinder and GuildCard (#953)", () => {
   it("creates a guild of a join type, the name checked first", async () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildFinder {...GUILD_FINDER.guildless} onAction={onAction} />));
-    await userEvent.click(button("Create a guild")!);
+    await userEvent.click(button("Create an allegiance")!);
     // GUILD-PAGE: a view in the drawer (here outside one: its own title and Back).
-    expect(await viewTitle("Create a guild")).toBeInTheDocument();
+    expect(await viewTitle("Create an allegiance")).toBeInTheDocument();
     const sheet = document.querySelector<HTMLElement>("[data-slot=guild-form]")!;
-    const create = within(sheet).getByRole("button", { name: "Create the guild" });
+    const create = within(sheet).getByRole("button", { name: "Create the allegiance" });
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "Ab");
     expect(create).toBeDisabled();
     expect(within(sheet).getByText(REFUSALS["name-length"])).toBeInTheDocument();
@@ -412,19 +412,19 @@ describe("GuildFinder and GuildCard (#953)", () => {
     await userEvent.click(within(sheet).getByRole("radio", { name: "castle" }));
     await userEvent.click(create);
     expect(onAction).toHaveBeenCalledWith({ type: "create", draft: expect.objectContaining({ name: "Abbey Road", joinType: "invite", emblem: expect.objectContaining({ icon: 5 }) }) });
-    await waitFor(() => expect(screen.queryByRole("heading", { level: 2, name: "Create a guild" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("heading", { level: 2, name: "Create an allegiance" })).toBeNull());
   });
 
   it("opens Create from a scrolled finder at the top of the drawer, the focus on its view, and gives it back to the Create row (#1030)", async () => {
     render(wrap(<GuildScene>{<GuildFinder {...GUILD_FINDER.invited} />}</GuildScene>));
-    const drawer = screen.getByRole("dialog", { name: "Guild" });
+    const drawer = screen.getByRole("dialog", { name: "Allegiance" });
     const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
     // jsdom lays nothing out: the body keeps the scroll it is given (the review's 351 px at 320 x 568, the invitation scrolled past).
     Object.defineProperty(body, "scrollTop", { value: 351, writable: true, configurable: true });
-    const row = within(drawer).getByRole("button", { name: "Create a guild" });
+    const row = within(drawer).getByRole("button", { name: "Create an allegiance" });
     row.focus();
     await userEvent.keyboard("{Enter}");
-    const createDrawer = await screen.findByRole("dialog", { name: "Create a guild" });
+    const createDrawer = await screen.findByRole("dialog", { name: "Create an allegiance" });
     expect(body.scrollTop).toBe(0);
     expect(document.activeElement).toBe(createDrawer.querySelector("[data-slot=guild-finder-view][data-view=create]"));
     // The next Tab goes into the form, not to the drawer's Back.
@@ -441,9 +441,9 @@ describe("GuildFinder and GuildCard (#953)", () => {
     try {
       body.scrollTop = 200;
       await userEvent.click(within(createDrawer).getByRole("button", { name: "Back" }));
-      await screen.findByRole("dialog", { name: "Guild" });
+      await screen.findByRole("dialog", { name: "Allegiance" });
       expect(body.scrollTop).toBe(0);
-      expect(document.activeElement).toBe(within(drawer).getByRole("button", { name: "Create a guild" }));
+      expect(document.activeElement).toBe(within(drawer).getByRole("button", { name: "Create an allegiance" }));
     } finally {
       spy.mockRestore();
     }
@@ -452,8 +452,8 @@ describe("GuildFinder and GuildCard (#953)", () => {
   it("takes any whole number of crowns as a requirement, not only multiples of 50", async () => {
     const onAction = vi.fn(async () => {});
     render(wrap(<GuildFinder {...GUILD_FINDER.guildless} onAction={onAction} />));
-    await userEvent.click(button("Create a guild")!);
-    await viewTitle("Create a guild");
+    await userEvent.click(button("Create an allegiance")!);
+    await viewTitle("Create an allegiance");
     const sheet = document.querySelector<HTMLElement>("[data-slot=guild-form]")!;
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "Review Guild");
     const crowns = within(sheet).getByRole("spinbutton", { name: "Minimum crowns" }) as HTMLInputElement;
@@ -461,7 +461,7 @@ describe("GuildFinder and GuildCard (#953)", () => {
     await userEvent.type(crowns, "125");
     expect(crowns.validity.valid).toBe(true);
     expect(crowns.closest("form")!.checkValidity()).toBe(true);
-    await userEvent.click(within(sheet).getByRole("button", { name: "Create the guild" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create the allegiance" }));
     expect(onAction).toHaveBeenCalledWith({ type: "create", draft: expect.objectContaining({ requirements: { level: 0, crowns: 125 } }) });
   });
 
@@ -490,7 +490,7 @@ describe("GuildFinder and GuildCard (#953)", () => {
     expect(onFiltersChange).toHaveBeenCalledWith({ joinType: null, meets: true, size: "any" });
     unmount();
     render(wrap(<GuildFinder {...GUILD_FINDER.none} />));
-    expect(screen.getByText("No guild found.")).toBeInTheDocument();
+    expect(screen.getByText("No allegiance found.")).toBeInTheDocument();
   });
 
   it("a card says why a player cannot join: full, or a requirement", () => {
