@@ -31,6 +31,8 @@ export const RENAME = {
   done: { ...base, current: "QuarryQueen", cost: 50, balance: 190, done: "QuarryQueen" },
   /** The cost and the Cobbles on their way: the action held. */
   loading: { ...base, cost: undefined, balance: undefined },
+  /** The reads failed (after the query client's retry): the error and its Retry, the action held. */
+  readFailed: { ...base, cost: undefined, balance: undefined, defaultName: "", error: "The chain did not answer: check your connection and try again." },
   /** No name set and no Cartridge username: the short address. */
   noName: { ...base, current: null, cost: 0, defaultName: "" },
   /** WRAP360: the longest username shown now, a name at the most characters typed (15 Chinese ones). */
