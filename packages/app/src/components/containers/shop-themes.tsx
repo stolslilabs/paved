@@ -86,7 +86,7 @@ export function ShopThemes(props: ShopThemesProps) {
           <section key={theme.id} aria-labelledby={titleId} className="flex flex-col gap-2">
             <div className="flex min-h-11 items-center gap-2">
               <ThemeMark theme={theme} />
-              <h3 id={titleId} className="text-outline min-w-0 flex-1 truncate font-display text-2xl leading-tight tracking-wide">
+              <h3 id={titleId} className="text-outline outline-room min-w-0 flex-1 truncate font-display text-2xl leading-tight tracking-wide">
                 {theme.name}
               </h3>
               {owned !== null && (
