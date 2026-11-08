@@ -140,7 +140,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const intro = await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });
     const level = TUTORIAL.levels[0]!;
     expect(intro).toHaveTextContent(level.intro);
-    expect(within(intro).getByRole("heading", { name: `Deck ${level.deck.length}` })).toBeInTheDocument();
+    // "Deck" alone (TILE-COUNTS): the count is the tiles' last number, not the title's.
+    expect(within(intro).getByRole("heading", { name: "Deck" })).toBeInTheDocument();
     // Its two tiles in draw order, numbered (#613): the same plan twice, never grouped.
     expect(within(intro).getByTestId("presented-tiles").querySelectorAll("li")).toHaveLength(level.deck.length);
     expect(within(intro).getByLabelText("Tile 2")).toBeInTheDocument();
@@ -274,7 +275,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     // The sheet's order is the presentation's; the first tile is in hand, none is out yet.
     expect(slots.map((li) => li.getAttribute("data-plan"))).toEqual(level.deck);
     expect(slots.map((li) => li.getAttribute("data-slot-state"))).toEqual(["hand", ...level.deck.slice(1).map(() => "next")]);
-    expect(screen.getByRole("heading", { name: `Order ${level.deck.length}` })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the order's length is its slots' (above) and the band's.
+    expect(screen.getByRole("heading", { name: "Order" })).toBeInTheDocument();
     expect(screen.getByTestId("deck-summary")).toHaveTextContent(`Left${level.deck.length}Played0Discarded0`);
   });
 

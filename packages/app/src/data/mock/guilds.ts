@@ -486,7 +486,8 @@ export function settle(world: GuildWorld, people: GuildPeople, now: number, bloc
 
 // --- Reads -----------------------------------------------------------------------------------------------------------
 
-function summaryOf(g: StoredGuild, people: GuildPeople, now: number): GuildSummary {
+/** A guild's card as its row and the alliances (ALLIANCES) show it. */
+export function summaryOf(g: StoredGuild, people: GuildPeople, now: number): GuildSummary {
   const profiles = g.members.map((m) => people(m.address));
   return {
     id: g.id,

@@ -24,6 +24,8 @@ export const Conversations: Story = {};
 export const Empty: Story = { args: CHAT_LIST.guildless };
 /** A stranger's request over the conversations: "Wants to chat", the check and the cross. */
 export const Request: Story = { args: CHAT_LIST.request };
+/** Two-figure levels (#1065): the other players at levels 9, 10 and 20, both figures inside the star. */
+export const TwoFigureLevels: Story = { args: CHAT_LIST.twoFigures };
 export const Loading: Story = { args: CHAT_LIST.loading };
 export const Failed: Story = { args: CHAT_LIST.failed };
 /** WRAP360: the longest names and addresses, three-digit counts, a long last line. */
