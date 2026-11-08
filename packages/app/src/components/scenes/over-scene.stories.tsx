@@ -7,18 +7,31 @@ import { OverScene } from "./over-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
- * The end of a game: final score, metrics, every closing (P7), the reward or its absence, as a translucent overlay over the
- * final board (#720), under the board's own HUD. One story per state; the Viewport control reframes it (check each at 375 and
- * 1440 px).
+ * The end of a game over its final board (#720). Training's (TRAINING-END): the Ranked end's window (`TrainingEnd` on `GameEnd`) over
+ * the board blurred, crowned by the crown of its best. A Challenge's: final score, metrics, every closing (P7), the reward or its
+ * absence, as a translucent overlay under the board's own HUD. One story per state; the Viewport control reframes it (check each at
+ * 375 and 1440 px).
  */
 const meta = { title: "Scenes/Over", component: OverScene, args: { onSettle: fn(), onPlayAgain: fn(), onHome: fn() } } satisfies Meta<typeof OverScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A Training end (#720): no stake, no reward; the scores over the final board, the bar titled "Training". */
+/** A Training end short of the device's best (TRAINING-END): "GAME OVER", the crown's gold stopping at the score's share, no light. */
 export const Training: Story = { args: OVER.training };
 
-/** The final board alone (#539): "Board" hid the scores; the board panned and zoomed, no hand. */
+/** A new best (TRAINING-END): the crown fills, pops and lights; "VICTORY", the best before → the score. */
+export const TrainingNewBest: Story = { args: { ...OVER.training, previousBest: 1_180 } };
+
+/** The device's first Training game: no best to beat, the crown grey; the score is the best. */
+export const TrainingFirstGame: Story = { args: { ...OVER.training, previousBest: null } };
+
+/** The scenes' figures stripped (no `gameStats`): the closings alone count the categories, the game its tiles. */
+export const TrainingNoFigures: Story = { args: { ...OVER.training, stats: undefined } };
+
+/** WRAP360: Training's widest figures (the Challenge's stress game, its reward unused). */
+export const TrainingStress: Story = { args: { ...OVER.stress, mode: "training" } };
+
+/** The final board alone (#539): the window's cross closed the scores; the board panned and zoomed, the gold Scores pill to come back. */
 export const FinalBoard: Story = { args: OVER.finalBoard };
 
 /** The board's chunk still on its way (#720): the scores at once over the board's colour, never waiting for it. */
@@ -30,14 +43,16 @@ export const BoardLoadingAlone: Story = { args: { ...OVER.finalBoard, loadBoard:
 /** The three at 375 px and at 1440 px (#720): the scores over the board, the board alone, the board still loading. */
 export const TrainingPhone: Story = { ...Training, ...PHONE_375 };
 export const TrainingWide: Story = { ...Training, ...WIDE_1440 };
+export const TrainingNewBestPhone: Story = { ...TrainingNewBest, ...PHONE_375 };
+export const TrainingNewBestWide: Story = { ...TrainingNewBest, ...WIDE_1440 };
 export const FinalBoardPhone: Story = { ...FinalBoard, ...PHONE_375 };
 export const FinalBoardWide: Story = { ...FinalBoard, ...WIDE_1440 };
 export const BoardLoadingPhone: Story = { ...BoardLoading, ...PHONE_375 };
 export const BoardLoadingWide: Story = { ...BoardLoading, ...WIDE_1440 };
 
 /**
- * The final board of a connected player, the shell's balances provided (#620): the end's bar is the board's HUD, no balances
- * over the board or the scores (#720: none in the game scenes).
+ * The final board of a connected player, the shell's balances provided (#620): no balances over the board or the scores (#720: none in
+ * the game scenes).
  */
 export const FinalBoardConnected: Story = {
   args: OVER.finalBoard,
@@ -107,7 +122,7 @@ export const FreeGame: Story = { args: { ...OVER.awaiting, freeGame: true, rewar
 /** The closings could not be read: the rest of the page stands. */
 export const ClosingsUnavailable: Story = { args: { ...OVER.awaiting, closings: [], closingsNote: "The closings of this game could not be read." } };
 
-/** Nothing closed: the list says so. */
+/** A Training game that closed nothing, the device's first: every category dimmed at 0, the list says so. */
 export const NoClosing: Story = { args: OVER.noClosing };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: OVER.stress };

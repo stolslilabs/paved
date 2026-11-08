@@ -283,7 +283,7 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByText(/Today's rewards are all taken/)).toBeInTheDocument();
     cleanup();
     render(wrap(<PvpResultScene {...PVP_RESULT.defeat} />));
-    expect(screen.getByRole("heading", { name: "Defeat" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "DEFEAT" })).toBeInTheDocument();
     expect(screen.getByText(/No star, no reward/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Choose/ })).toBeNull();
   });

@@ -188,7 +188,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const end = await screen.findByTestId("story-end");
     expect(end).toHaveAttribute("data-stars", "1");
     // A tap while the stars fill skips to the result: one row of stars, never two.
-    await userEvent.click(within(end).getByRole("heading", { name: /complete$/ }));
+    await userEvent.click(within(end).getByRole("heading", { name: "VICTORY" }));
     expect(within(screen.getByTestId("story-end")).getAllByTestId("star-fill")).toHaveLength(1);
     // The thresholds stay hidden: only what the next star was missing.
     expect(within(end).getByTestId("to-next-star")).toHaveTextContent(`${Math.ceil(level.target * 0.7)} points short of the next star`);
