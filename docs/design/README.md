@@ -650,6 +650,22 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   the pages' names that identify what they show ("Challenge #1234", a Story level's name, a village owner's): fixed for the
   page's life, names rather than figures. This supersedes the counts beside the titles described in MISSIONS-PAGE, COLLECTION-PAGE,
   ATTACK-SCOUT, LEADERBOARD-PAGE, GUILD-PAGE, EDIT-VILLAGE, PLAYER-RENAME and STORY-INTRO above.
+
+  ALLIANCES (2026-11-07), the alliance feature on the mock (client only; the contracts' spec comes once the owner is satisfied): the
+  Paved UX Book draws no alliance, so in the Guild page's look and parts. An alliance is a union of up to five guilds (the Leaderboard's
+  Alliances icon, two guilds' shields over a laurel), ranked by the sum of its guilds' scores; guild leaders act for their guilds, the
+  founding guild is its head and its leader leads it (game-core's `social/alliance.ts`). Its page is a view of the Guild drawer ("Alliance",
+  Back, the red cross; `/guild?alliance=<id>`, the player's own at `/guild?view=alliance`): the emblem, the name and the viewer's guild's
+  role in a carved pill, the figures on the carved band (guilds out of 5, score, players), the description folded, its guilds on carved
+  rows (the head with its crown, the viewer's on the gold wash); for its leader the requests (raised Accept and Decline) and the
+  invitations sent; for an outside guild's leader, the drawer's footer: Cancel or Decline raised grey at the left, the gold Request to
+  join or Accept at the right, in their places whatever the state. The emblem: a guild emblem's shield (the same charges, colours and
+  picker) standing on the gold laurel of the Alliances icon, which Codex's built-in image tool painted alone (three variants, the third
+  kept). The Guild page: the guild's alliance under its tag (a small raised pill, or "No alliance" written out), an Alliance tile beside
+  Chat (the Alliances icon, its red count what waits), a "No alliance" view (the invitations, the request, Create an alliance, Find an
+  alliance as the menu's raised rows); another guild's page carries the alliance leader's Invite, or Make head and Remove (Codex painted
+  Invite a guild and Remove a guild: the Guilds tab's red shield with Invite a player's plus and Kick's minus). The Leaderboard's
+  Alliances tab is live, its rows the guilds' with the laurelled emblem and the guilds out of 5.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.
