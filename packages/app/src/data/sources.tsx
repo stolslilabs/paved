@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { EconomyViews, EconomyWriter, EventReader, GameViews, IndexerClient, PackBuyer, PavedWriter, PoolQuoter } from "@paved/chain";
 import { browserStore, type KeyValueStore } from "@paved/game-core";
+import type { PuzzleSource } from "./puzzle-source";
 import type { SocialSource } from "./social-source";
 
 /**
@@ -103,6 +104,11 @@ export interface DataSources {
    * chain, until a service serves them, #956): the social hooks answer no data and no error, `unavailable`.
    */
   social?: SocialSource | null;
+  /**
+   * The Puzzle (Play's Limited mode): the days' leaderboards, the player's games, the prizes. The mock's on `mock`; null or left out
+   * (the chain, until the Puzzle's contract is deployed): its hooks answer `unavailable` and Play's card stays "Coming soon".
+   */
+  puzzle?: PuzzleSource | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }

@@ -6,7 +6,8 @@ import type { SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import { mockIndexer } from "./indexer";
 import { MockLedger } from "./ledger";
-import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
+import { mockEconomyViews, mockEvents, mockGameViews, mockPool, mockPurchases, mockPuzzle, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
+import type { PuzzleSource } from "../puzzle-source";
 
 // The app's mock (#549, #927): every source of `DataSources` from the device's ledger, and nothing under it. No chain client,
 // no economy client and no indexer client is built, no node and no indexer is read: the overlays of `overlay.ts` go over
@@ -49,6 +50,8 @@ export interface MockAppSources {
   indexer: IndexerClient;
   /** The social features (#952), the ledger's alone. */
   social: SocialSource;
+  /** The Puzzle (Play's Limited mode), the ledger's alone. */
+  puzzle: PuzzleSource;
   purchases(signer: GameSigner): Purchases;
   settlements(signer: GameSigner): Settlements;
   vault(signer: GameSigner): VaultWrites;
@@ -89,6 +92,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     pool: mockPool(ledger),
     indexer: mockIndexer(ledger),
     social: mockSocial(ledger),
+    puzzle: mockPuzzle(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),

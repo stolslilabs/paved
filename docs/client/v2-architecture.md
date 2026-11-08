@@ -2763,7 +2763,7 @@ The owner's request (2026-10-17, via the PM, P-73): an animated, coloured backgr
   - The level rises with the keyframes: 0 by day, 0.3 to 0.45 at dawn, 0.6 to 0.7 at dusk, 1 at night.
   - Turning the lights on labels the models drawn, once each, in idle slices, as a highlight does.
   - The ghost holds them off, as it holds the highlight.
-- **Still.** Under reduced motion (the setting, or the device's for "auto", followed live) and on the Low tier, the scene shows the start season's noon: no clock, no moving shadow, no night lights, and no labelling.
+- **Still.** Under reduced motion (the setting, or the device's for "auto", followed live) and on the Low tier, the scene does not move: no clock, no moving shadow. A held moment stays as held, so Settings' Night stays a night (STILL-NIGHT, #1119); otherwise it shows the start season's noon, or its night when the seasons turn at their night (Settings' Cycle and Night). The night lights show at a still night under reduced motion (a lit window does not move); on the Low tier and at a still day there are no night lights and no labelling.
 - **Settings.** `RendererSettings.dayNight` (off in the renderer). The app's Settings has a row, "Day/night cycle", on by default (`paved.settings.v1`, `dayNight`). The board's renderer gets `{ dayNight: { enabled } }`; the hand's tile (`TileView`) does not run the cycle.
 - **Stories.** "Renderer/DayNight":
   - Cycle, Fast (×10), SummerDay, SummerNight, AutumnDusk, WinterDawn, NightNoLights, ReducedMotion, SlotsAtNight, PlacedAtDusk and ForestAtNight.

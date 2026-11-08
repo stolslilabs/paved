@@ -29,7 +29,7 @@ import type { ScoreMeterValue } from "../../lib/score-meter";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 export type { CoachTarget } from "../containers/coach";
 
-export type BoardMode = "challenge" | "training" | "story" | "attack";
+export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle";
 
 /**
  * An attack's own pieces (`mode: "attack"`, #772), in the board's slots; everything else is the boards': the HUD, the closing
@@ -57,7 +57,7 @@ const PREFETCH_AFTER_MS = 3000;
 /** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
 const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
 
-const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack" };
+const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle" };
 
 export interface BoardSceneProps {
   mode: BoardMode;
@@ -71,6 +71,8 @@ export interface BoardSceneProps {
   attack?: AttackSlots;
   /** The plans the stack's pile draws (chain ids): an attack's deck; the Story level's or the base deck when left out. */
   pilePlans?: readonly number[];
+  /** The deck the game deals, its cards counted on the deck sheet: a Puzzle day's 38 (`puzzleDeck`); the base deck when left out. */
+  deckPlans?: readonly PlanType[];
   /** A Story level: the deck sheet offers the level's deck presentation again (#593). */
   onPresentDeck?: () => void;
   /**
@@ -88,7 +90,7 @@ export interface BoardSceneProps {
   remaining: number;
   /** Chain plan ids of the tiles discarded: the deck sheet crosses them out too. */
   discardedPlans?: number[];
-  /** `GameView.expiresAt` (S1): a Challenge game's start + 24 h; past it only a surrender is accepted. */
+  /** `GameView.expiresAt` (S1): a Challenge game's start + 24 h; past it only a surrender is accepted. A Puzzle game's day's end. */
   expiresAt?: number | null;
   /** A Challenge game's reward curve (#705): the HUD shows the score to beat, then what the score earns. */
   reward?: RewardCurve | null;
@@ -218,8 +220,10 @@ export function BoardScene(props: BoardSceneProps) {
     setSettingsOpen(false);
     open(true);
   };
+  // A Puzzle game is on chain too: no Restart, a Surrender.
+  const surrenders = mode === "challenge" || mode === "puzzle";
   const gameAction: GameAction | undefined =
-    !props.readOnly && mode === "challenge"
+    !props.readOnly && surrenders
       ? { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: pick(setSurrendering), disabled: !props.onSurrender || hand.state === "pending" || hand.state === "empty" }
       : undefined;
   // Restart, held in the header: Story's level, Training's game; dimmed in its place while the board is read only (a level's intro or
@@ -239,7 +243,7 @@ export function BoardScene(props: BoardSceneProps) {
           score={props.score}
           delta={props.delta}
           preview={hand.slotChosen ? hand.preview : null}
-          expiresAt={mode === "challenge" ? props.expiresAt : null}
+          expiresAt={mode === "challenge" || mode === "puzzle" ? props.expiresAt : null}
           reward={mode === "challenge" ? props.reward : null}
           now={now}
           onBack={props.onBack}
@@ -310,7 +314,7 @@ export function BoardScene(props: BoardSceneProps) {
             onDeck={mode === "attack" && !attack?.deck ? undefined : openDeck}
             onDiscard={props.readOnly ? undefined : () => props.onDiscard?.()}
             discardCost={discardCost}
-            onSurrender={!props.readOnly && mode === "challenge" ? () => setSurrendering(true) : undefined}
+            onSurrender={!props.readOnly && surrenders ? () => setSurrendering(true) : undefined}
             surrenderPending={surrendering && !surrenderDialog}
             coach={props.coach}
             readOnly={props.readOnly}
@@ -319,7 +323,7 @@ export function BoardScene(props: BoardSceneProps) {
       </div>
 
       {deckSheet && (
-        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} order={props.deckOrder}
+        <deckSheet.default open={deckOpen} onOpenChange={setDeckOpen} tiles={tiles} discardedPlans={props.discardedPlans} order={props.deckOrder} plans={props.deckPlans}
           attack={attack?.deck}
           handPlan={hand.tile?.plan ?? null}
           tileArt={props.tileArt}
