@@ -68,7 +68,7 @@ describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
     const controls = within(box).getAllByRole("button");
     const named = (el: HTMLElement) => el.getAttribute("aria-label") ?? el.textContent ?? "";
     // The capsules, the right column's four tiles, the Chat tab, the mission and the dock's five, among the rest.
-    const expected = [/^League: /, /^Edit village, score/, /^Missions/, /^Vault/, /^Friends/, /^Tiles/, /^Chat/, /^Public Works/, /^Shop/, /^Ranking/, /^Play/, /^Guild/, /^Settings/];
+    const expected = [/^League: /, /^Edit village, score/, /^Missions/, /^Vault/, /^Friends/, /^Tiles/, /^Chat/, /^Public Works/, /^Shop/, /^Ranking/, /^Play/, /^Allegiance/, /^Settings/];
     expect(controls.map(named)).toEqual(expect.arrayContaining(expected.map((re) => expect.stringMatching(re))));
     expect(controls.map(named).filter((n) => /^Season/.test(n))).toEqual([]);
     const blocked = controls.filter((el) => pointerEvents(el) === "none").map(named);

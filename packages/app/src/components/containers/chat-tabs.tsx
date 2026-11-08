@@ -14,7 +14,7 @@ export type ChatBadges = Readonly<Record<"guild" | "private", number>>;
 /** Each tab, left to right. The World has no badge. */
 export const CHAT_TABS: readonly { id: ChatTab; label: string; art: UiIconName }[] = [
   { id: "world", label: "World", art: "chat" },
-  { id: "guild", label: "Guild", art: "guild" },
+  { id: "guild", label: "Allegiance", art: "guild" },
   { id: "private", label: "Private", art: "letter" },
 ];
 
@@ -57,11 +57,11 @@ export function ChatGuildless({ onFindGuild }: { onFindGuild?: () => void }) {
   return (
     <div data-slot="chat-guildless" className="drawer-carved flex flex-col items-center gap-3 rounded-2xl px-4 py-8 text-center">
       <UiIcon name="guild" size="xl" className="drawer-icon" />
-      <p className="text-outline text-lg font-bold">You are in no guild</p>
-      <p className="max-w-xs text-sm font-semibold text-muted-foreground">Your guild's conversation shows here once you join one. Find a guild to join, or create your own.</p>
+      <p className="text-outline text-lg font-bold">You are in no allegiance</p>
+      <p className="max-w-xs text-sm font-semibold text-muted-foreground">Your allegiance's conversation shows here once you join one. Find an allegiance to join, or create your own.</p>
       {onFindGuild && (
         <Button className="text-outline h-11 rounded-xl px-5 text-base font-bold text-foreground" style={GOLD_RAISED} onClick={onFindGuild}>
-          Find a guild
+          Find an allegiance
         </Button>
       )}
     </div>

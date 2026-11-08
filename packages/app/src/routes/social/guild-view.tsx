@@ -12,7 +12,6 @@ import type { GuildView, PlayerGuild } from "../../data/social-source";
 import { errorDetail } from "../error-detail";
 import { openingGuildTab, storeGuildTab, type GuildTab } from "../guild-tab";
 import { useAppNavigate } from "../ref";
-import { GuildAllianceActions, GuildAllianceLine, GuildAllianceTile } from "./alliance-view";
 import { guildApply } from "./guild-apply";
 
 // The guild's page (#953), in the guild page's chunk: the connected player's guild on their guild page, with its header, menu
@@ -57,9 +56,6 @@ export interface OwnGuildProps {
   onOpenPlayer?: (address: string) => void;
   /** The menu's Find guilds: the finder's search, Suggested and the ranking, in its view (the page's). */
   find?: ReactNode;
-  /** ALLIANCES: the guild's alliance line opens its page; the Alliance tile, the player's own Alliance. */
-  onOpenAlliance?: (id: number) => void;
-  onOpenOwnAlliance?: () => void;
 }
 
 /**
@@ -87,7 +83,7 @@ function InviteSearch({ me, onOpenPlayer }: { me: string; onOpenPlayer?: (addres
  * The connected player's guild, on the guild page (#973): it opens on Announcements while one is unread, else on the last tab used
  * on this device, the first time on Members. Announcements shown, they are read (the Guild button's count drops them).
  */
-export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer, find, onOpenAlliance, onOpenOwnAlliance }: OwnGuildProps) {
+export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer, find }: OwnGuildProps) {
   const { run } = writes;
   const go = useAppNavigate();
   // GUILD-PAGE's five ranks: the Requests tab for those who answer them (a Veteran and above), Invite a player from a Member.
@@ -117,9 +113,6 @@ export function OwnGuild({ guild, me, now, unread, writes, onOpenPlayer, find, o
       onOpenChat={() => go("/chat/guild")}
       invite={invites ? <InviteSearch me={me} onOpenPlayer={onOpenPlayer} /> : undefined}
       find={find}
-      // ALLIANCES: the guild's alliance under its tag (its own Alliance, as the tile), and the Alliance tile beside Chat.
-      alliance={<GuildAllianceLine guild={guild.id} onOpen={() => onOpenOwnAlliance?.()} />}
-      allianceTile={<GuildAllianceTile me={me} onOpen={() => onOpenOwnAlliance?.()} />}
     />
   );
 }
@@ -135,9 +128,6 @@ export interface GuildSheetProps {
   onClose: () => void;
   writes: GuildWrites;
   onOpenPlayer?: (address: string) => void;
-  /** ALLIANCES: the guild's alliance line opens its page; the player's own guild's Alliance tile, their own Alliance. */
-  onOpenAlliance?: (id: number) => void;
-  onOpenOwnAlliance?: () => void;
 }
 
 /**
@@ -145,7 +135,7 @@ export interface GuildSheetProps {
  * why not. Joined, it closes on the page it covered. The player's own guild is drawn as their guild page draws it (`OwnGuild`). DRAWER-NAV-IN-PLACE (#1064): opened from a drawer (the guild page, the ranking,
  * a profile's guild line, the chat), in that drawer's place, with Back; with none open, its own drawer.
  */
-export function GuildSheet({ id, me, player, candidate, now, open, onClose, writes, onOpenPlayer, onOpenAlliance, onOpenOwnAlliance }: GuildSheetProps) {
+export function GuildSheet({ id, me, player, candidate, now, open, onClose, writes, onOpenPlayer }: GuildSheetProps) {
   const read = useGuild(id, me);
   // The player's own guild (a guildmate's profile, its guild line): their guild page itself, its tabs and menu (`OwnGuild`).
   const mine = me !== null && player?.guild?.id === id ? player.guild : null;
@@ -156,21 +146,21 @@ export function GuildSheet({ id, me, player, candidate, now, open, onClose, writ
         guild ? (
           // The page names the guild under it: the header says what it is, screen readers hear its name.
           <>
-            <span aria-hidden>Guild</span>
+            <span aria-hidden>Allegiance</span>
             <span className="sr-only">{guild.name}</span>
           </>
         ) : guild === null ? (
-          "Guild not found"
+          "Allegiance not found"
         ) : (
-          "Guild"
+          "Allegiance"
         )
       } side="right" slot="guild-sheet" inPlace>
       <div data-slot="guild-sheet" className="flex flex-col gap-4">
-        {guild === null && <p className="text-sm font-semibold text-muted-foreground">No guild has this tag any more.</p>}
-        {guild === undefined && read.unavailable && <p className="text-sm font-semibold text-muted-foreground">Guilds are not on this network yet.</p>}
+        {guild === null && <p className="text-sm font-semibold text-muted-foreground">No allegiance has this tag any more.</p>}
+        {guild === undefined && read.unavailable && <p className="text-sm font-semibold text-muted-foreground">Allegiances are not on this network yet.</p>}
         {guild === undefined && read.isPending && <Skeleton aria-busy className="h-48 rounded-xl" />}
-        {!mine && <InlineError title="Guild" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />}
-        {mine && me !== null && <OwnGuild guild={mine} me={me} now={now} unread={player?.unread ?? 0} writes={writes} onOpenPlayer={onOpenPlayer} onOpenAlliance={onOpenAlliance} onOpenOwnAlliance={onOpenOwnAlliance} />}
+        {!mine && <InlineError title="Allegiance" message={read.error?.message} detail={read.error ? errorDetail(read.error) : undefined} />}
+        {mine && me !== null && <OwnGuild guild={mine} me={me} now={now} unread={player?.unread ?? 0} writes={writes} onOpenPlayer={onOpenPlayer} />}
         {guild && !mine && (
           <GuildPage
             guild={guild}
@@ -178,9 +168,6 @@ export function GuildSheet({ id, me, player, candidate, now, open, onClose, writ
             now={now}
             apply={apply}
             onOpenPlayer={onOpenPlayer}
-            // ALLIANCES: its alliance under its tag; for the alliance's leader, Invite, or Make head and Remove.
-            alliance={<GuildAllianceLine guild={guild.id} onOpen={(a) => onOpenAlliance?.(a)} />}
-            allianceActions={me !== null ? <GuildAllianceActions me={me} guild={guild} /> : undefined}
             onAction={async (a) => {
               await writes.run(pageWrite(a, guild.id));
               if ((a.type === "join" || (a.type === "answer-invitation" && a.accept)) && guild.rank === null) onClose();

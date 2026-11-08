@@ -1,7 +1,7 @@
 import type { DayNightSettings, Season } from "@paved/renderer";
 
 // The board's seasons and its day and night as Settings choose them (SEASONS-SETTINGS, the owner's ask of 2026-11-08, in the
-// season wheel's place): each a cycle (the default) or one held. Types and figures only, the renderer a type-only import: the
+// place of the board's old dial): each a cycle (the default) or one held. Types and figures only, the renderer a type-only import: the
 // shell imports `settings.ts`, which reads this, and the renderer's barrel pulls three.js.
 
 /** The seasons in the cycle's order (`@paved/renderer`'s `SEASONS`, repeated: its barrel pulls three.js), summer first. */

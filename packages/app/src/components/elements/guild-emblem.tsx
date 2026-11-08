@@ -64,25 +64,6 @@ export interface GuildEmblemProps extends VariantProps<typeof emblemVariants> {
 }
 
 /**
- * An emblem's shield and its charge, filling the box that holds them (40 by 48): the guild emblem's drawing, which the alliance emblem
- * (ALLIANCES) sets on its laurel. `charge` sizes the charge (its `size-*`); `lift` raises it off the box's middle (the guild's 2 px).
- */
-export function EmblemShield({ emblem, charge, lift = "-mt-0.5" }: { emblem: Emblem; charge: string; lift?: string }) {
-  return (
-    <>
-      <svg viewBox="0 0 40 48" className="absolute inset-0 size-full" aria-hidden>
-        <path d="M20 2 37 8v14c0 11-7 19-17 24C10 41 3 33 3 22V8Z" fill={colour(emblem.primary)} stroke="var(--emblem-rim)" strokeWidth="3" strokeLinejoin="round" />
-        <path d="M8 11 20 7l12 4" fill="none" stroke={colour(emblem.secondary)} strokeWidth="4" strokeLinecap="round" />
-        <path d="M8 26c1 7 5 12 12 15 7-3 11-8 12-15" fill="none" stroke={colour(emblem.secondary)} strokeWidth="4" strokeLinecap="round" />
-      </svg>
-      <span className={cn("relative flex", lift)} style={EDGED}>
-        <EmblemCharge name={GUILD_EMBLEM_CHARGES[emblem.icon] ?? GUILD_EMBLEM_CHARGES[0]} tint={colour(emblem.charge ?? GUILD_EMBLEM_SILVER)} className={charge} />
-      </span>
-    </>
-  );
-}
-
-/**
  * A guild's emblem (issue 953): a shield in its first colour, banded in its second, bearing its charge in its third (GUILD-PAGE: a flat
  * silhouette, Silver when the emblem names no colour for it), with a dark rim round the shield and the charge so any three read.
  */
@@ -90,7 +71,14 @@ export function GuildEmblem({ emblem, size, label, className }: GuildEmblemProps
   const a11y = label ? { role: "img", "aria-label": label } : { "aria-hidden": true };
   return (
     <span data-slot="guild-emblem" {...a11y} className={cn(emblemVariants({ size }), className)}>
-      <EmblemShield emblem={emblem} charge={CHARGE[size ?? "md"]} />
+      <svg viewBox="0 0 40 48" className="absolute inset-0 size-full" aria-hidden>
+        <path d="M20 2 37 8v14c0 11-7 19-17 24C10 41 3 33 3 22V8Z" fill={colour(emblem.primary)} stroke="var(--emblem-rim)" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M8 11 20 7l12 4" fill="none" stroke={colour(emblem.secondary)} strokeWidth="4" strokeLinecap="round" />
+        <path d="M8 26c1 7 5 12 12 15 7-3 11-8 12-15" fill="none" stroke={colour(emblem.secondary)} strokeWidth="4" strokeLinecap="round" />
+      </svg>
+      <span className="relative -mt-0.5 flex" style={EDGED}>
+        <EmblemCharge name={GUILD_EMBLEM_CHARGES[emblem.icon] ?? GUILD_EMBLEM_CHARGES[0]} tint={colour(emblem.charge ?? GUILD_EMBLEM_SILVER)} className={CHARGE[size ?? "md"]} />
+      </span>
     </span>
   );
 }

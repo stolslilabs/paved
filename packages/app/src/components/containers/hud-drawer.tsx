@@ -440,9 +440,10 @@ function DrawerFrame({ host, open, onOpenChange, title, subtitle, side: edge = "
         {/* One row: Back (a phone's, or a view's), the title on the left, what the page shows at the end, the close (a side panel's, or a view's) last. */}
         <SheetHeader className="drawer-band flex shrink-0 flex-row items-center gap-1 px-2 py-2.5">
           {back || (!side && control)}
-          {/* The title over its line, one column in the title's place; a guest's title in its stead (`inPlace`). */}
+          {/* The title over its line, one column in the title's place; a guest's title in its stead (`inPlace`). A title too long for
+              the band wraps rather than truncates (the owner's rule for titles at 320 px; "Create an allegiance" since the 2026-11-08 rename). */}
           <div data-slot="hud-drawer-title" className={cn("flex min-w-0 flex-1 flex-col", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
-            <SheetTitle className="text-outline truncate text-left font-display text-2xl leading-tight tracking-wide">
+            <SheetTitle className="text-outline text-left font-display text-2xl leading-tight tracking-wide wrap-anywhere">
               <span hidden={guested}>{view?.title ?? title}</span>
               <span ref={titleSlot} />
             </SheetTitle>
