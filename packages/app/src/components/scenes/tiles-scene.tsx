@@ -1,6 +1,6 @@
 import { Suspense, lazy, useRef, useState, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
-import { formatNumber } from "@paved/game-core";
+import { baseCopies, formatNumber } from "@paved/game-core";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
@@ -65,22 +65,13 @@ const ALL_PLANS = Array.from({ length: PLANS }, (_, i) => i + 1);
 /** The gold of what is chosen (the book's wash, the profile's ring on the Hall of Fame's picked season). */
 const CHOSEN = "bg-linear-to-b from-primary/40 to-primary/5 ring-2 ring-medal-1 ring-inset";
 
-/** A section's count beside its title, as the Missions' ("Daily 1/5"). */
-function Count({ done, of }: { done: number; of: number }) {
-  return (
-    <span className="numeric font-sans text-base font-bold text-muted-foreground">
-      {done}/{of}
-    </span>
-  );
-}
-
 /**
  * Tiles (`/tiles`, COLLECTION-PAGE, after the Paved UX Book's Collection, renamed after the home's button), in the profile's and the
  * Missions' style: the HUD's drawer (a full page with Back on a phone, a side panel docked at the right from `tablet`, under the right
  * column's Tiles), the Cobbles at its header's end. The selected tile's name, the tile in 3D, turned with the finger (`TileStage`);
- * then its Skins (the drawer's section title, the skins owned of five) on one carved band, the book's row: Default and
+ * then its Skins (the drawer's section title, a fixed word: TILE-COUNTS) on one carved band, the book's row: Default and
  * the themes on sale (Active, Use, or locked with Shop), then those coming soon (Soon); then All tiles, the 19 seen from above in the skin
- * each wears, the selected one in gold. The picks are batched, then saved in one `set_skins` (Save), or dropped (Discard), as the skins were (P-61).
+ * each wears, each with its copies in the base deck in the dock's red square, the selected one in gold. The picks are batched, then saved in one `set_skins` (Save), or dropped (Discard), as the skins were (P-61).
  */
 export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath, onPick, onSave, onDiscard, onDismissRefusal, onOpenShop, onRetry, onBack, open, returnFocus }: TilesSceneProps) {
   const [plan, setPlan] = useState(initialPlan ?? 1);
@@ -140,10 +131,7 @@ export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath,
             }
           />
           <section aria-labelledby="tiles-skins" className="flex flex-col gap-2">
-            <SectionTitle id="tiles-skins">
-              Skins
-              <Count done={THEMES.filter((t) => t.available && ownsCode(THEME_CODES[t.id])).length} of={THEMES.length} />
-            </SectionTitle>
+            <SectionTitle id="tiles-skins">Skins</SectionTitle>
             {/* The spec's five in its order: Default and the themes on sale (Forest today), then those coming soon (Snow, Desert,
                 Volcano: the owner's choice of 2026-11-05, the book's locked Snow), locked, no art yet: the tile under a blur. One carved
                 band, the book's row, its cells parted by the drawer's rules; three a row on the narrowest phones. */}
@@ -168,16 +156,19 @@ export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath,
           <section aria-labelledby="tiles-all" className="flex flex-col gap-2">
             <SectionTitle id="tiles-all">All tiles</SectionTitle>
             {/* Each tile seen from above (the owner's ask of 2026-11-05: the grid top-down, the isometric view the stage's), four a row on
-                a carved panel as the Hall of Fame's seasons, the selected one in the book's gold wash and the profile's gold ring. */}
+                a carved panel as the Hall of Fame's seasons, the selected one in the book's gold wash and the profile's gold ring. Its
+                copies in the base deck at its top right (the owner's ask of 2026-11-07, TILE-COUNTS: read at a glance), the deck page's
+                red square. */}
             <ul aria-label="Tiles" className="drawer-carved grid grid-cols-4 gap-1 rounded-xl p-1">
               {ALL_PLANS.map((p) => {
                 const unsaved = (current[p - 1] ?? 0) !== (skins.active[p - 1] ?? 0);
+                const copies = baseCopies(p);
                 return (
                   <li key={p}>
                     <button
                       type="button"
                       aria-pressed={p === plan}
-                      aria-label={unsaved ? `${tileName(p)}, skin not saved` : tileName(p)}
+                      aria-label={`${tileName(p)}, ${formatNumber(copies)} in deck${unsaved ? ", skin not saved" : ""}`}
                       onClick={() => select(p)}
                       className={cn("state-layer relative block aspect-square w-full cursor-pointer rounded-lg p-1.5", p === plan && CHOSEN)}
                     >
@@ -185,8 +176,9 @@ export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath,
                       <span className="block size-full overflow-hidden rounded-md shadow-[0_2px_0_var(--hud-outline)]">
                         <TileRender plan={p} theme={current[p - 1] ?? 0} renders={renders} top alt="" className="scale-105" />
                       </span>
-                      {/* Where the book draws its count: a pick not saved yet (the Save bar's batch), the profile's gold. */}
-                      {unsaved && <span aria-hidden data-slot="tile-unsaved" className="absolute top-0.5 right-0.5 size-2.5 rounded-full bg-medal-1 shadow-[0_0_0_2px_var(--hud-outline)]" />}
+                      {/* A pick not saved yet (the Save bar's batch), the profile's gold, at the top left: the count holds the right. */}
+                      {unsaved && <span aria-hidden data-slot="tile-unsaved" className="absolute top-0.5 left-0.5 size-2.5 rounded-full bg-medal-1 shadow-[0_0_0_2px_var(--hud-outline)]" />}
+                      <DeckCount count={copies} />
                     </button>
                   </li>
                 );
@@ -197,6 +189,19 @@ export function TilesScene({ renders, skins, skinsStatus, initialPlan, basePath,
         </>
       )}
     </HudDrawer>
+  );
+}
+
+/**
+ * A tile's copies in the base deck (`baseCopies`, game-core's 72 cards: the Challenge's draw, the shop's rarity, the chests' odds), at
+ * its cell's top right: the dock's red square, the deck page's tiles left (`deck-sheet.tsx`'s `Left`), the same classes. Decorative:
+ * the tile's button names it.
+ */
+function DeckCount({ count }: { count: number }) {
+  return (
+    <span aria-hidden data-slot="tile-deck-count" className="numeric absolute top-0 right-0 grid h-5 min-w-5 place-items-center rounded-[0.3rem] bg-dock-badge px-1 text-xs leading-none font-bold text-foreground ring-2 ring-background">
+      {formatNumber(count)}
+    </span>
   );
 }
 
@@ -295,7 +300,7 @@ function SkinCell({ plan, theme, renders, state, disabled, onPress }: { plan: nu
           </span>
         )}
       </span>
-      <span className="text-outline max-w-full truncate text-xs leading-tight font-bold">{theme.name}</span>
+      <span className="text-outline outline-room max-w-[calc(100%+4px)] truncate text-xs leading-tight font-bold">{theme.name}</span>
       {chosen && <span className={cn(PILL, "drawer-carved text-medal-1")}>Active</span>}
       {state === "owned" && <span className={cn(PILL, "drawer-raised text-outline")}>Use</span>}
       {state === "locked" && <span className={cn(PILL, "drawer-raised text-outline")}>Shop</span>}

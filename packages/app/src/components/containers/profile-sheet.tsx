@@ -87,6 +87,8 @@ export interface ProfileSheetProps {
   state: ProfileState;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Opened from a drawer (`?player=` of the player's own ID, DRAWER-NAV-IN-PLACE): drawn in its place (`HudDrawer`'s `inPlace`). */
+  inPlace?: boolean;
   /** Copies the address; a rejection is a failed copy (nothing said). The page does the copying. */
   onCopy?: (address: string) => Promise<void>;
   /** The connected player's level and XP (#625, `usePlayerProgress`); undefined while it is read. */
@@ -251,7 +253,8 @@ const COBBLES: readonly ShownBalance[] = ["cobbles"];
 
 /**
  * The name's view on the app's sources (PLAYER-RENAME): its reads (`useRename`: the cost of the next change and the Cobbles) and its
- * write (`useRenameWrite`). A network without `Avatar` (no names to set) says so, the action held.
+ * write (`useRenameWrite`). A network without `Avatar` (no names to set) says so, the action held; a failed read offers Retry
+ * beside the error (the UX Book's InlineError and Retry), which reads the failed ones again.
  */
 function ReadRenameView({ playerId, current, onBack }: { playerId: string; current: string | null; onBack: () => void }) {
   const read = useRename(playerId);
@@ -273,6 +276,7 @@ function ReadRenameView({ playerId, current, onBack }: { playerId: string; curre
       taken={reason === "taken"}
       error={read.error?.message ?? (read.data === null ? "Names cannot be set on this network yet." : null)}
       errorDetail={readDetail}
+      onRetry={read.error ? read.refetch : undefined}
       onRename={(name) => {
         if (cost !== undefined) write.rename(name, cost).catch(() => undefined);
       }}
@@ -502,6 +506,7 @@ export function ProfileSheet({
   state,
   open,
   onOpenChange,
+  inPlace,
   onCopy,
   progress,
   look,
@@ -551,6 +556,7 @@ export function ProfileSheet({
       title="Profile"
       returnFocus={returnFocus}
       slot="profile"
+      inPlace={inPlace}
       end={renaming && connected ? <BalancesSlot layout="pill" kinds={COBBLES} /> : undefined}
     >
       {connected && renaming ? (
@@ -574,7 +580,7 @@ export function ProfileSheet({
                     <PlayerName
                       name={connected.player.name}
                       address={connected.player.playerId}
-                      className={cn("text-outline text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
+                      className={cn("text-outline outline-room text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
                     />
                     {/* PLAYER-RENAME: the HUD's painted pencil (the guild's Post's; the owner's pick over a quill), raised: it opens the name's view in the drawer. */}
                     {canRename && (
@@ -605,7 +611,13 @@ export function ProfileSheet({
               {/* The player's guild, then the actions, under the avatar (the owner's asks of 2026-11-05), not after the League. */}
               {(guild ?? (sources && routed)) && (
                 <div data-slot="profile-guild" className="empty:hidden">
-                  {guild ?? <ReadGuildLine playerId={connected.player.playerId} onOpened={() => onOpenChange(false)} />}
+                  {guild ?? <ReadGuildLine
+                      playerId={connected.player.playerId}
+                      // In a drawer's place (DRAWER-NAV-IN-PLACE), the guild opens over the profile, Back to it: the profile stays.
+                      onOpened={() => {
+                        if (!inPlace) onOpenChange(false);
+                      }}
+                    />}
                 </div>
               )}
               {(onOpenLeague || onEditAvatar || onOpenTiles || onOpenInvite) && (

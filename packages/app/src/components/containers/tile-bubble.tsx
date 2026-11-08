@@ -11,7 +11,7 @@ import { useSfx } from "./audio-provider";
 import { CoachMark } from "../elements/coach-mark";
 import { COACH_BOX } from "./coach";
 import { DiscardHold } from "./discard-hold";
-import { ACTION_PX, ACTION_SIDES, actionRoom, actionsSpan, avoidOf, clampActions, tileActionPlaces, type ActionSide } from "./tile-actions-layout";
+import { ACTION_PX, ACTION_SIDES, avoidOf, layoutTileActions, type ActionSide } from "./tile-actions-layout";
 
 export interface TileBubbleProps {
   /** How many rotations the tile has at its cell; Rotate shows only when there is more than one. */
@@ -107,8 +107,8 @@ function Painted({ art }: { art: UiIconName }) {
  * An action that is not offered leaves its place empty (Rotate with one valid rotation, Discard where the mode has none, Confirm and
  * Discard in the editor); the others never move. The places follow the tile through pans, zooms and the compass without a render of
  * their own: on each camera notification they are computed from the tile's outline on screen (`tileActionPlaces`), a constant gap in
- * screen px from it, kept inside the room the HUD, the hand panel and the editor's side menu leave (`data-bubble-avoid`), and written to
- * the buttons. Its own chunk (`lazy-tile-bubble.tsx`).
+ * screen px from it, kept inside the room the HUD, the hand panel and the editor's side menu leave (`data-bubble-avoid`), out of the tile
+ * close in (`layoutTileActions`), and written to the buttons. Its own chunk (`lazy-tile-bubble.tsx`).
  */
 export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, onDiscard, discardCost, canDiscard = true, onReturn, onConfirm, canConfirm = true, busy = false, coach = false, orientation, holdMs, scene, cell, holdRef, className }: TileBubbleProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -129,10 +129,7 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
     const outline = scene.projectCellOutline(cell.x, cell.y);
     if (!outline) return;
     const box = el.getBoundingClientRect();
-    const free = tileActionPlaces(outline);
-    const span = actionsSpan(free);
-    const avoid = Array.from(document.querySelectorAll("[data-bubble-avoid]"), avoidOf);
-    const at = clampActions(free, actionRoom(box, avoid, span.x, span.width));
+    const at = layoutTileActions(outline, box, Array.from(document.querySelectorAll("[data-bubble-avoid]"), avoidOf));
     for (const button of el.querySelectorAll<HTMLElement>("[data-side]")) {
       const p = at[button.dataset.side as ActionSide];
       if (!p) continue;

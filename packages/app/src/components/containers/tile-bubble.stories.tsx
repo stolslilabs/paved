@@ -1,18 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
-import { fireEvent, fn, within } from "storybook/test";
+import { expect, fireEvent, fn, waitFor, within } from "storybook/test";
 import { PLAY_DEFAULT_POLAR_ANGLE, TILE_SIZE, type GameScene } from "@paved/renderer";
 import { APP_ASSETS } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { placeCamera } from "../../stories/renderer/story-camera";
 import { BoardViewport, toGridSlot } from "./board-viewport";
 import { TileBubble, type TileBubbleProps } from "./tile-bubble";
+import { ACTION_GAP_PX, ACTION_PX, actionsClearance, type Point } from "./tile-actions-layout";
 
 interface TileActionsStoryProps extends TileBubbleProps {
   /** On the 3D board (the default), round the placed tile; off, still in a row, as the plan view stands them over the hand. */
   board?: boolean;
-  /** The camera's distance from the tile, world units (8 the closest, 300 the farthest); unset, the board's opening frame. */
+  /** The camera's distance from the tile, world units (10 the closest, 300 the farthest); unset, the board's opening frame. */
   distance?: number;
+  /** The camera's target from the tile's centre, world units across (+x, the screen's right) and up the board (-z, the screen's top). */
+  offset?: { x: number; z: number };
   /** The compass's turn of the board, degrees: the actions keep their places on screen. */
   compass?: number;
 }
@@ -20,7 +23,7 @@ interface TileActionsStoryProps extends TileBubbleProps {
 /** The recorded next move of the 38-tile board: the tile placed on its cell. */
 const CELL = { x: BOARD_38.next.x, y: BOARD_38.next.y };
 
-function TileActionsStory({ board = true, distance, compass = 0, ...props }: TileActionsStoryProps) {
+function TileActionsStory({ board = true, distance, offset, compass = 0, ...props }: TileActionsStoryProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [open, setOpen] = useState(true);
   useEffect(() => {
@@ -30,12 +33,24 @@ function TileActionsStory({ board = true, distance, compass = 0, ...props }: Til
     if (distance === undefined) return;
     // The camera on the tile, at the play view's tilt: the cell's place, turned with the board.
     const g = toGridSlot(CELL.x, CELL.y);
-    const x = g.x * TILE_SIZE;
-    const z = g.y * TILE_SIZE;
+    const x = g.x * TILE_SIZE + (offset?.x ?? 0);
+    const z = g.y * TILE_SIZE + (offset?.z ?? 0);
     const target = [x * Math.cos(turn) + z * Math.sin(turn), 0, -x * Math.sin(turn) + z * Math.cos(turn)] as const;
     placeCamera(scene, target, [target[0], distance * Math.cos(PLAY_DEFAULT_POLAR_ANGLE), target[2] + distance * Math.sin(PLAY_DEFAULT_POLAR_ANGLE)]);
     scene.requestRender();
-  }, [scene, distance, compass]);
+  }, [scene, distance, offset?.x, offset?.z, compass]);
+  // The tile's outline on screen, for the play functions that measure the gap: its cell in the renderer's grid, as the board hands
+  // it to the actions (`toGridSlot`), not the contract's coordinates.
+  useEffect(() => {
+    if (!scene) return;
+    const g = toGridSlot(CELL.x, CELL.y);
+    const mark = () => {
+      const outline = scene.projectCellOutline(g.x, g.y);
+      if (outline) document.body.dataset.tileOutline = JSON.stringify(outline.map(({ x, y }) => ({ x, y })));
+    };
+    mark();
+    return scene.onCameraChange(mark);
+  }, [scene]);
   if (!board)
     return (
       <div className="w-full max-w-[375px] p-4">
@@ -76,7 +91,7 @@ const meta = {
   args: { rotations: 2, onRotate: fn(), onClose: fn(), onDiscard: fn(), discardCost: 50, onConfirm: fn(), canConfirm: true, holdMs: 800 },
   argTypes: {
     holdMs: { control: { type: "range", min: 200, max: 6000, step: 50 }, description: "The holds' length, ms (800 in the game)" },
-    distance: { control: { type: "range", min: 8, max: 300, step: 1 }, description: "The camera's distance from the tile; unset, the opening frame" },
+    distance: { control: { type: "range", min: 10, max: 300, step: 1 }, description: "The camera's distance from the tile; unset, the opening frame" },
     compass: { control: { type: "range", min: 0, max: 360, step: 5 }, description: "The board's turn, degrees" },
   },
 } satisfies Meta<typeof TileActionsStory>;
@@ -112,8 +127,43 @@ export const CoachedDiscard: Story = { args: { coach: "discard" } };
 export const Editor: Story = { args: { onDiscard: undefined, onConfirm: undefined, onReturn: fn(), cancelButton: false } };
 /** The village editor's lifted tile: Cancel puts it back where it was. */
 export const EditorLifted: Story = { args: { onDiscard: undefined, onConfirm: undefined, onReturn: fn() } };
-/** Zoomed in on the tile: the same gap in screen px, the buttons the same size. */
-export const ZoomedIn: Story = { args: { distance: 30 } };
+/**
+ * The least gap, screen px, between the buttons shown and the tile's outline, once the camera has settled: the outline the story marks,
+ * the buttons' boxes from the board's.
+ */
+async function gapOnScreen(canvasElement: HTMLElement): Promise<number> {
+  const toolbar = await within(canvasElement).findByRole("toolbar", { name: "Tile" }, { timeout: 15000 });
+  await within(toolbar).findByRole("button", { name: "Cancel placement" }, { timeout: 15000 });
+  const box = toolbar.getBoundingClientRect();
+  const outline = JSON.parse(document.body.dataset.tileOutline ?? "[]") as Point[];
+  // The tile measured is the one on screen: an outline of four corners with an area, over the screen's left half (the camera on
+  // its right edge), never a far polygon of no size.
+  expect(outline).toHaveLength(4);
+  const area = Math.abs(outline.reduce((s, p, i) => s + p.x * outline[(i + 1) % 4]!.y - outline[(i + 1) % 4]!.x * p.y, 0)) / 2;
+  expect(area).toBeGreaterThan(box.width * box.height * 0.25);
+  const left = { x: box.width / 4, y: box.height / 2 };
+  expect(actionsClearance({ "top-left": left, "top-right": left, "bottom-left": left, "bottom-right": left }, outline)).toBeLessThan(0);
+  let least = Infinity;
+  for (const el of toolbar.querySelectorAll<HTMLElement>("[data-side]")) {
+    const r = el.getBoundingClientRect();
+    const p = { x: r.left - box.left + ACTION_PX / 2, y: r.top - box.top + ACTION_PX / 2 };
+    least = Math.min(least, actionsClearance({ "top-left": p, "top-right": p, "bottom-left": p, "bottom-right": p }, outline));
+  }
+  return least;
+}
+
+/**
+ * Zoomed in as close as the camera goes (distance 10), the camera on the tile's right edge: the tile is far larger than the screen
+ * round it, so the four stand in a column along its side on screen, round the middle of it, the same gap in screen px (#1078), the
+ * buttons the same size. The play function measures that gap against the real outline of the tile.
+ * (Centred at this distance, the tile fills a phone's screen: there is no place outside it.)
+ */
+export const ZoomedIn: Story = {
+  args: { distance: 10, offset: { x: 1.5, z: 0 } },
+  play: async ({ canvasElement }) => {
+    await waitFor(async () => expect(await gapOnScreen(canvasElement)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 1), { timeout: 15000 });
+  },
+};
 /** Zoomed out as far as the camera goes: the same gap, the tile small (about 45 px on a phone, so the buttons never need spreading). */
 export const ZoomedOut: Story = { args: { distance: 300 } };
 /** The board turned 45 degrees: the tile a diamond, as the book's, each action out of the middle of a side; Confirm still at the top right. */

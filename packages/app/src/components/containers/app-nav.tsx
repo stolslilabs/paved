@@ -145,9 +145,9 @@ export function AppNav({ onNavigate, badges, className }: AppNavProps) {
                 // `relative`: the badge's box. The icon alone in the band's middle below `mobile`.
                 className="relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center pb-1.5 text-foreground outline-none transition-transform active:scale-95 motion-reduce:transition-none mobile:justify-start mobile:pb-0"
               >
-                <UiIcon name={tab.art} px={ICON_PX} className="size-11" />
+                <UiIcon name={tab.art} px={ICON_PX} className="size-11 mobile:-mb-1" />
                 {/* Not `sr-only mobile:not-sr-only`: Font Awesome injects its own `.sr-only` after Tailwind's, which wins. */}
-                <span data-slot="app-nav-label" className="-mt-1 hidden max-w-full truncate px-0.5 text-xs leading-none font-black tracking-tight mobile:block" style={OUTLINE}>
+                <span data-slot="app-nav-label" className="hidden max-w-full truncate outline-room text-xs leading-none font-black tracking-tight mobile:block" style={OUTLINE}>
                   {tab.label}
                 </span>
                 {badge > 0 && (

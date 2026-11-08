@@ -47,9 +47,10 @@ export interface RenameData {
 
 /**
  * The name view's reads (PLAYER-RENAME): `name`, `renames` and `rename_price` on `Avatar`, and the ledger's `account` for the
- * Cobbles. Null on a network without `Avatar` or without the ledger; disabled without a player. A failed read ends the wait.
+ * Cobbles. Null on a network without `Avatar` or without the ledger; disabled without a player. A failed read ends the wait;
+ * `refetch` reads the failed ones again (the view's Retry, once the query client's own retry is spent).
  */
-export function useRename(playerId: string | null): { data: RenameData | null | undefined; isPending: boolean; error: Error | null } {
+export function useRename(playerId: string | null): { data: RenameData | null | undefined; isPending: boolean; error: Error | null; refetch: () => void } {
   const { views } = useDataSources();
   const names = nameViews(views);
   const ledger = cobbleViews(views);
@@ -63,7 +64,7 @@ export function useRename(playerId: string | null): { data: RenameData | null | 
       { queryKey: cobbleKeys.account(id), queryFn: () => (ledger ? ledger.account(id) : null), enabled },
     ],
     combine: ([name, count, price, account]) => {
-      if (playerId !== null && !enabled) return { data: null, isPending: false, error: null };
+      if (playerId !== null && !enabled) return { data: null, isPending: false, error: null, refetch: () => undefined };
       const ready = name.data !== undefined && count.data !== undefined && price.data !== undefined && account.data !== undefined;
       const error = name.error ?? count.error ?? price.error ?? account.error ?? null;
       let data: RenameData | null | undefined;
@@ -74,7 +75,8 @@ export function useRename(playerId: string | null): { data: RenameData | null | 
             ? null
             : { name: name.data, count: count.data, price: price.data, cost: count.data === 0 ? 0 : price.data, balance: account.data.cobbles };
       }
-      return { data, isPending: !ready && !error, error };
+      const refetch = () => void Promise.all([name, count, price, account].filter((q) => q.isError).map((q) => q.refetch()));
+      return { data, isPending: !ready && !error, error, refetch };
     },
   });
 }

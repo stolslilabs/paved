@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useSearchParams } from "react-router";
 import { LeaderboardScene, type LeaderboardTab, type RankingRead } from "../../components/scenes/leaderboard-scene";
 import type { PlayerRanking } from "../../data/player-ranking";
+import { useAlliancePlace, useAllianceRanking, useGuildAlliance } from "../../data/alliances";
 import { useGuildBadge, useGuildPlace, useGuildRanking } from "../../data/guilds";
 import { useFriendsRanking, usePlayerRanking } from "../../data/player-ranking";
 import type { SocialRead } from "../../data/social";
@@ -9,15 +10,19 @@ import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useDrawerRoute } from "../drawer-route";
 import { errorDetail } from "../error-detail";
+import { useOpenAlliance } from "../open-alliance";
 import { useOpenGuild } from "../open-guild";
 import { useOpenPlayer } from "../open-player";
 import { useBack } from "../ref";
 
-/** The tab of the URL (`?tab=`): Players when it names none or another (Alliances has no tab yet). */
-const tabOf = (value: string | null): LeaderboardTab => (value === "guilds" || value === "friends" ? value : "players");
+/** The tab of the URL (`?tab=`): Players when it names none or another. */
+const tabOf = (value: string | null): LeaderboardTab => (value === "guilds" || value === "alliances" || value === "friends" ? value : "players");
 
 /** No follows on the social source: no friend to rank (the Friends tab's empty words), not a read that never ends. */
 const NO_FRIENDS: RankingRead<PlayerRanking> = { data: { players: [], me: null } };
+
+/** No alliance part on the social source: none to rank (the tab's empty words), not a read that never ends. */
+const NO_ALLIANCES: RankingRead<readonly never[]> = { data: [] };
 
 /** A read as the scene shows it: its data (null while read), its error's words and detail, Retry. */
 const rankingOf = <T,>(read: SocialRead<T>): RankingRead<T> => ({
@@ -30,12 +35,13 @@ const rankingOf = <T,>(read: SocialRead<T>): RankingRead<T> => ({
 /**
  * `/ranking` (LEADERBOARD-PAGE, the dock's Ranking): the Leaderboard, the HUD's drawer over the home (`PageDef.drawer`,
  * `home-hosts.tsx`). Players by crowns and the viewer's place (`usePlayerRanking`), Guilds by score, the sum of their members' crowns
- * (`useGuildRanking`), Friends, the viewer among their friends by the same crowns (`useFriendsRanking`), all read from the social source
+ * (`useGuildRanking`), Alliances by score, the sum of their guilds' (`useAllianceRanking`, ALLIANCES), Friends, the viewer among their
+ * friends by the same crowns (`useFriendsRanking`), all read from the social source
  * as the page opens, so a tab change shows its list at once; the viewer's guild from their badge (`useGuildBadge`), its place in the
  * whole ranking (`useGuildPlace`) for its row past the list's end. The tab is the URL's
- * (`?tab=guilds`, `?tab=friends`; Players without one), a change replacing the entry, so the drawer's close still lands where it was
+ * (`?tab=guilds`, `?tab=alliances`, `?tab=friends`; Players without one), a change replacing the entry, so the drawer's close still lands where it was
  * opened from. A player's row opens their profile over the drawer (`?player=`, the home's profile host); a guild's, its page
- * (`/guild?guild=`), as the guild cards do. Its own chunk.
+ * (`/guild?guild=`), as the guild cards do; an alliance's, its page in the guild page's drawer (`/guild?alliance=`). Its own chunk.
  */
 export default function Page() {
   // The HUD's drawer over the home (`home-hosts.tsx`), shown while its route is the current one; alone (a story's or a test's route),
@@ -65,8 +71,13 @@ export default function Page() {
   const myGuild = useGuildBadge(me).data?.id ?? null;
   // The viewer's guild's place in the whole ranking: its row pinned when it ranks past the list's end.
   const myGuildPlace = useGuildPlace(myGuild).data ?? null;
+  // ALLIANCES: the alliances by score, the viewer's through their guild, its place for its row past the list's end.
+  const alliances = useAllianceRanking();
+  const myAlliance = useGuildAlliance(myGuild).data?.id ?? null;
+  const myAlliancePlace = useAlliancePlace(myAlliance).data ?? null;
   const openPlayer = useOpenPlayer();
   const openGuild = useOpenGuild();
+  const openAlliance = useOpenAlliance();
   return (
     <LeaderboardScene
       open={drawer?.open ?? true}
@@ -76,12 +87,16 @@ export default function Page() {
       onTabChange={setTab}
       players={rankingOf(players)}
       guilds={rankingOf(guilds)}
+      alliances={alliances.unavailable ? NO_ALLIANCES : rankingOf(alliances)}
       friends={friends.unavailable ? NO_FRIENDS : rankingOf(friends)}
       myGuild={myGuild}
       myGuildPlace={myGuildPlace}
+      myAlliance={myAlliance}
+      myAlliancePlace={myAlliancePlace}
       unavailable={players.unavailable && guilds.unavailable}
       onOpenPlayer={openPlayer}
       onOpenGuild={openGuild}
+      onOpenAlliance={openAlliance}
     />
   );
 }

@@ -233,6 +233,25 @@
  * the outline 6 to 8 px all round with no bump (the old one fell to 0); on white, black, magenta, the drawer's charcoal and the end
  * window's ground, at 256 px and 6x on each tip and notch. Trimmed to its alpha box, fitted to 240 px by a premultiplied area average
  * and centred on the icons' frame; stored as lossless WebP.
+ * STORY-INTRO (2026-11-07): a Story level's tip, its opening's and the coach mark's (the book draws none): the lit bulb (`bulb`), drawn by
+ * Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`) with the HUD's trophy, star, info and unlock as
+ * the style's references, three variants on a transparent 1024 px square (a plain lit bulb; the same with five gold rays; an amber one
+ * with a painted halo, whose halo left red fringes in its alpha), the first kept; trimmed to its alpha box, fitted to the 240 px box
+ * (canvas, premultiplied, stepped by halves) and centred on the icons' frame, checked beside the trophy, star and info at 128, 40 and
+ * 24 px on the drawer's charcoal and on a light ground.
+ *
+ * ALLIANCES (2026-11-07): the alliance emblem's laurel (`ui-sources/emblems/alliance-laurel.webp`, `ALLIANCE_ART`, on
+ * `ALLIANCE_ART_FRAME`, 512 px, copies 64, 128 and 256 px, in `emblem-art.ts`): the gold wreath and bow of the Leaderboard's Alliances
+ * icon alone, its middle left empty for the alliance's shield, drawn by Codex's built-in image tool (`codex exec -c
+ * model_provider=openai`, its `image_gen`) with that icon, the Guilds icon and the HUD's crown and medal as references, three variants
+ * on a transparent 1024 px square, the third kept (its branches rise highest round the shield, as the icon's); trimmed to its alpha
+ * box, fitted to the 480 px box (canvas, high-quality scale) and centred on the frame, checked with a shield on it at 200, 96, 64 and
+ * 52 px on the drawer's charcoal. Then the alliance's two actions (`ui-sources/emblems/invite-guild.webp` and `remove-guild.webp`,
+ * `ALLIANCE_ICONS`, on `ALLIANCE_ICON_FRAME`, the icons' 256 px, copies 64 and 128 px): Invite a guild and Remove a guild, the Guilds
+ * tab's red shield with Invite a player's green plus and Kick's red minus, drawn the same way with those three icons as references,
+ * three variants each, the first of each kept (the same shield in both); fitted to the 240 px box and centred on the frame, checked
+ * beside Invite a player and Kick at 128 and 36 px on the drawer's charcoal.
+ *
  * GAME-OVERLAY (2026-11-07): Story's Restart on the board (`restart`, the owner's ask: an icon held, no word), a red arrow going back
  * round counter-clockwise (the book draws none), drawn by Codex's built-in image tool from the HUD's `rotate` (whose clockwise turn it
  * must not look like), `settings`, `info` and `close` as the style's references, three variants (orange, red, white on a red disc),
@@ -249,7 +268,7 @@ import { fileURLToPath } from "node:url";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, copySize } from "../src/components/elements/ui-art.ts";
 import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS } from "../src/components/elements/medallion-art.ts";
 import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.ts";
-import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
+import { ALLIANCE_ART, ALLIANCE_ART_FRAME, ALLIANCE_ICONS, ALLIANCE_ICON_FRAME, EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
 import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
 import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
@@ -272,6 +291,8 @@ const IMAGES = [
   ...UI_SHOP_PARTS.map((name) => ({ kind: "shop" as const, name, frame: SHOP_PARTS[name] })),
   ...UI_FRIENDS_PARTS.map((name) => ({ kind: "friends" as const, name, frame: FRIENDS_PARTS[name] })),
   ...GUILD_EMBLEM_CHARGES.map((name) => ({ kind: "emblems" as const, name, frame: EMBLEM_FRAME })),
+  ...ALLIANCE_ART.map((name) => ({ kind: "emblems" as const, name, frame: ALLIANCE_ART_FRAME })),
+  ...ALLIANCE_ICONS.map((name) => ({ kind: "emblems" as const, name, frame: ALLIANCE_ICON_FRAME })),
   ...PLAY_ART.map((name) => ({ kind: "play" as const, name, frame: PLAY_ART_FRAME })),
   ...STAKE_ART.map((name) => ({ kind: "play" as const, name, frame: STAKE_ART_FRAME })),
   ...VAULT_ART.map((name) => ({ kind: "vault" as const, name, frame: VAULT_ART_FRAME })),

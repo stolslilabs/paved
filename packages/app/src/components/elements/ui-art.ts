@@ -105,6 +105,8 @@ export const UI_ICONS = [
   "sprout",
   "medal",
   "die",
+  // STORY-INTRO: a Story level's tip (its opening's and the coach mark's), painted by Codex.
+  "bulb",
   // TILE-ACTIONS: the actions on a tile being placed, the Paved UX Book's board screen's round buttons, painted by Codex.
   "tile-cancel",
   "tile-discard",
