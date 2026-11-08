@@ -138,6 +138,12 @@ export const AllianceFull: Story = { args: { children: alliance(ALLIANCE_PAGE.fu
 export const AllianceAnyone: Story = { args: { children: alliance(ALLIANCE_PAGE.anyone) } };
 /** WRAP360: the longest names, the largest figures, the description unfolded. */
 export const AllianceStress: Story = { args: { children: alliance(ALLIANCE_PAGE.stress, { initialUnfolded: true }) } };
+/** ALLIANCE-FIXES: the stress band at the narrowest phone; the score short ("2.5M"), never broken inside the number. */
+export const AllianceStress320: Story = { ...PHONE_320, args: AllianceStress.args };
+/** The same at the toolbar's `mobile` 360. */
+export const AllianceStress360: Story = { globals: { viewport: { value: "mobile", isRotated: false } }, args: AllianceStress.args };
+/** The same at the iPhone's 375. */
+export const AllianceStress375: Story = { ...PHONE_375, args: AllianceStress.args };
 
 const noAlliance = (player: NoAllianceProps["player"], over: Partial<NoAllianceProps> = {}) => (
   <NoAlliance player={player} query="" list={{ alliances: ALLIANCE_LISTS.ranking }} onAction={fn(async () => {})} onOpenAlliance={fn()} onQueryChange={fn()} onClose={fn()} {...over} />
@@ -156,6 +162,10 @@ export const NoAllianceCreate: Story = { args: { children: noAlliance(PLAYER_ALL
 export const NoAllianceFind: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.free, { initialView: "find" }) } };
 /** Find an alliance, a search: found by name. */
 export const NoAllianceSearch: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.free, { initialView: "find", query: "nor", list: { alliances: ALLIANCE_LISTS.search } }) } };
+/** ALLIANCE-FIXES: Find an alliance's read failed: the error with Retry in place (the guild finder's), Copy for its detail. */
+export const NoAllianceFindFailed: Story = {
+  args: { children: noAlliance(PLAYER_ALLIANCE.free, { initialView: "find", list: { alliances: null, error: "The alliance source did not answer: try again in a moment.", onRetry: fn() } }) },
+};
 
 /** The guild page with its alliance: its line under the tag, the Alliance tile beside Chat with what waits (a request). */
 export const LeaderInAlliance: Story = { args: { children: page(GUILD_PAGE.leader, { alliance: <AllianceLine badge={ALLIANCE_BADGE.head} onOpen={fn()} />, allianceTile: <AllianceTile count={1} onOpen={fn()} /> }) } };

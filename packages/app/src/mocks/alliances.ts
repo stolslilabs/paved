@@ -1,4 +1,4 @@
-import { ALLIANCE_DESCRIPTION_MAX, ALLIANCE_NAME_MAX, GUILD_NAME_MAX } from "@paved/game-core";
+import { ALLIANCE_DESCRIPTION_MAX, ALLIANCE_NAME_MAX, GUILD_NAME_MAX, guildTag } from "@paved/game-core";
 import type { AlliancePageProps } from "../components/containers/alliance-page";
 import { addressKey } from "../data/keys";
 import { allianceRankingOf, allianceViewOf, inviteGuildIn, playerAllianceOf, requestAllianceIn, searchAlliancesOf, seededAllianceWorld, type AllianceRead } from "../data/mock/alliances";
@@ -62,9 +62,14 @@ const view = (id: number, viewer: number | null, r: AllianceRead = WORLDS): Alli
 const playerOf = (index: number, r: AllianceRead = WORLDS): PlayerAlliance => playerAllianceOf(r, at(index));
 const guildIdOf = (index: number, r: AllianceRead = WORLDS) => playerOf(index, r).guild?.id ?? null;
 
+/** The stress roster's added guilds' first ID: none of the mock's, so each row has its own key and only the viewer's guild is "Yours". */
+const STRESS_GUILD_ID = 90_000;
+
 /** The stress alliance (WRAP360): the longest names and description, the largest figures. */
 function stressView(base: AllianceView): AllianceView {
   const long = (g: GuildSummary): GuildSummary => ({ ...g, name: "W".repeat(GUILD_NAME_MAX), members: 50, score: 499_950 });
+  const last = base.roster.at(-1)!;
+  const added = Array.from({ length: 5 - base.roster.length }, (_, i) => ({ ...last, role: "member" as const, guild: long({ ...last.guild, id: STRESS_GUILD_ID + i, tag: guildTag(STRESS_GUILD_ID + i) }) }));
   return {
     ...base,
     name: "W".repeat(ALLIANCE_NAME_MAX),
@@ -72,7 +77,7 @@ function stressView(base: AllianceView): AllianceView {
     guilds: 5,
     members: 250,
     score: 2_499_750,
-    roster: [...base.roster.map((g) => ({ ...g, guild: long(g.guild) })), ...base.roster.slice(0, 5 - base.roster.length).map((g) => ({ ...g, role: "member" as const, guild: long(g.guild) }))],
+    roster: [...base.roster.map((g) => ({ ...g, guild: long(g.guild) })), ...added],
     requests: base.requests?.map((q) => ({ ...q, guild: long(q.guild) })) ?? null,
     invitations: base.invitations?.map((v) => ({ ...v, guild: long(v.guild) })) ?? null,
   };

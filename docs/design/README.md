@@ -657,7 +657,7 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   Alliances icon, two guilds' shields over a laurel), ranked by the sum of its guilds' scores; guild leaders act for their guilds, the
   founding guild is its head and its leader leads it (game-core's `social/alliance.ts`). Its page is a view of the Guild drawer ("Alliance",
   Back, the red cross; `/guild?alliance=<id>`, the player's own at `/guild?view=alliance`): the emblem, the name and the viewer's guild's
-  role in a carved pill, the figures on the carved band (guilds out of 5, score, players), the description folded, its guilds on carved
+  role in a carved pill, the figures on the carved band (guilds out of 5, score, players; the score, a sum of five guilds', short from a million as the profile's figures and on a wider cell, so it never breaks at 320 px), the description folded, its guilds on carved
   rows (the head with its crown, the viewer's on the gold wash); for its leader the requests (raised Accept and Decline) and the
   invitations sent; for an outside guild's leader, the drawer's footer: Cancel or Decline raised grey at the left, the gold Request to
   join or Accept at the right, in their places whatever the state. The emblem: a guild emblem's shield (the same charges, colours and
