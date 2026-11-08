@@ -209,7 +209,8 @@
  * frame, checked beside the bronze on the drawer's charcoal. The footer's Alliances and Guilds tabs' icons (the owner's asks of
  * 2026-11-07: the handshake went to the Friends tab), painted the same way: `alliances` with the HUD's guild, friends, shield, swords
  * and members icons as its references, one of three ideas (two shields bound by a gold chain link; three banners in a fan; two shields
- * over a laurel), the owner's pick the third; `guilds` the red shield of it alone, with it as its reference.
+ * over a laurel), the owner's pick the third; `guilds` the red shield of it alone, with it as its reference. Since RANKING-GUILD-ICON
+ * the Guilds tab draws the dock's `guild` (the owner's ask) and `guilds` stays as an alliance's guild count's (`GuildCount`).
  * TILE-ACTIONS (2026-11-07): the actions on a tile being placed, the Paved UX Book's board screen's round buttons (mockup 3 of "Resume
  * a Challenge", `screens/board.jpg`): the trash (`tile-discard`), the blue turning arrow (`tile-rotate`) and the gold check on its
  * bronze face (`tile-confirm`), each cropped from the book (about 64 px, upscaled 4x) and drawn by Codex's built-in image tool (`codex
@@ -251,6 +252,11 @@
  * tab's red shield with Invite a player's green plus and Kick's red minus, drawn the same way with those three icons as references,
  * three variants each, the first of each kept (the same shield in both); fitted to the 240 px box and centred on the frame, checked
  * beside Invite a player and Kick at 128 and 36 px on the drawer's charcoal.
+ *
+ * GAME-OVERLAY (2026-11-07): Story's Restart on the board (`restart`, the owner's ask: an icon held, no word), a red arrow going back
+ * round counter-clockwise (the book draws none), drawn by Codex's built-in image tool from the HUD's `rotate` (whose clockwise turn it
+ * must not look like), `settings`, `info` and `close` as the style's references, three variants (orange, red, white on a red disc),
+ * the red kept (a destructive action, as the red trash; the disc read as `close`). Trimmed, fitted and centred as TILE-ACTIONS'.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

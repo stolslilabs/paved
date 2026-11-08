@@ -7,7 +7,8 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CENTER } from "@paved/game-core";
 import { LEAGUES, STAR_MARKS, STAR_PERCENTS, crownsFor, leagueOf, nextLeague, starPoints, starsFor } from "../src/lib/pvp-rules";
-import { StarMeter } from "../src/components/elements/star-meter";
+import { ScoreMeter } from "../src/components/elements/score-meter";
+import { attackMeter } from "../src/lib/score-meter";
 import type { StackFrame } from "../src/components/containers/tile-stack";
 import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
 import { PvpLeagueScene } from "../src/components/scenes/pvp-league-scene";
@@ -245,7 +246,7 @@ describe("PvP scenes (#647)", () => {
   });
 
   it("star meter: three stars past 110 %", () => {
-    render(<StarMeter score={6_415} target={5_831} />);
+    render(<ScoreMeter {...attackMeter(6_415, 5_831)} />);
     expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "3");
   });
 

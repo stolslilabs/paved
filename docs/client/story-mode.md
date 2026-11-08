@@ -965,14 +965,21 @@ Forest take it from the Challenge's own draw (`packages/game-core/src/story/deck
     the level again" shows it on request. Under reduced motion the tiles are there at once.
   - **Star thresholds are hidden** (#593): no screen shows the score a star needs (not the level card, not the
     presentation, not the HUD). They stay in the plan, which computes the stars.
-  - **Coach marks**: the level that introduces a control shows one tip under the header and rings that control on the
-    board: Place tile (1-1), the rotate and cancel buttons by the tile (1-2, a tip only: they stand round the tile),
-    Discard (1-3, 1-4), the deck sheet's "Tiles left" (1-5, 2-1), the season wheel (1-6), the settings gear (1-7). "Got it"
-    hides it.
+  - **Score meter** (GAME-OVERLAY, the owner's ask of 2026-11-08): under the header, the board's meter of every mode with
+    the level's three stars in even steps: the first at the start (finishing the level holds it), the second at the
+    middle, the third at the end, each half filled by its star's share (`storyStarFills`). Where a star stands says
+    nothing of its score, and no figure is written. A star reached lights, pops and flashes as the gold gets there, with
+    a light buzz and no sound; under reduced motion it is lit at once.
+  - **Coach marks**: the level that introduces a control shows one tip under the header and lights that control on the
+    board (GAME-OVERLAY: the opened chest's light behind it, the same mark on every target, still under reduced motion):
+    Place tile (1-1), the rotate and cancel buttons by the tile (1-2, a tip only: they stand round the tile),
+    Discard (1-3, 1-4), the tile stack (1-5, 1-11), the season wheel (1-6), the settings gear (1-7). "Got it" hides it.
   - **The tip and the theme** (#721, STORY-SCREENS): the intro also shows the level's tip, set apart, and every tile of a
     level (the board, the starter, the hand, the stack, the intro, the deck sheet) is drawn in its campaign's theme.
     STORY-SCREENS may move the "Tiles left" coach mark from 2-1 to the new 1-11, which introduces the deck sheet.
-  - **No Surrender**: a level restarts with Replay instead.
+  - **No Surrender**: a level restarts with Replay instead, and with Restart on the board (GAME-OVERLAY, the owner's ask of
+    2026-11-07): the painted red arrow in the header, before the gear, held as the tile's Discard (the hold confirms, no
+    dialog). The settings have no game row in Story.
   - **End** (#593): over the board, the stars earned fill one by one, each with a sound (`place`, the third `wonder`) and a
     buzz where the device has one; a tap skips to the end, and under reduced motion they are there at once. Then the score
     screen: the score, a new personal best, **how many points the next star was missing** (the only figure drawn from a
