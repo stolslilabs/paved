@@ -154,7 +154,8 @@ async function gapOnScreen(canvasElement: HTMLElement): Promise<number> {
 
 /**
  * Zoomed in as close as the camera goes (distance 10), the camera on the tile's right edge: the tile is far larger than the screen
- * round it, so the four stand together out of its side on screen, at least the same gap in screen px (#1078), the buttons the same size.
+ * round it, so the four stand in a column along its side on screen, round the middle of it, the same gap in screen px (#1078), the
+ * buttons the same size. The play function measures that gap against the real outline of the tile.
  * (Centred at this distance, the tile fills a phone's screen: there is no place outside it.)
  */
 export const ZoomedIn: Story = {
