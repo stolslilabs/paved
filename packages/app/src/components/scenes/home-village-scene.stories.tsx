@@ -4,6 +4,7 @@ import type { BoardTile } from "@paved/chain";
 import type { GameScene } from "@paved/renderer";
 import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
+import { WHEEL_SEASONS } from "../../data/season-wheel";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { HALL_OF_FAME, PLAYER_STATUS, PROFILE, RECORDS } from "../../mocks/scenes";
@@ -284,6 +285,73 @@ export const ButtonsReachable: Story = {
 export const ButtonsReachablePhone320: Story = { ...ButtonsReachable, ...PHONE_320 };
 export const ButtonsReachablePhone375: Story = { ...ButtonsReachable, ...PHONE_375 };
 export const ButtonsReachableWide1440: Story = { ...ButtonsReachable, ...WIDE_1440 };
+
+/** A day and night every 8 s, read from the clock: the dial turns at each of its reads (once a second), as on the deployed app. */
+function turningCycle() {
+  const start = Date.now();
+  return () => {
+    const seasons = (((Date.now() - start) / 8000) % WHEEL_SEASONS.length + WHEEL_SEASONS.length) % WHEEL_SEASONS.length;
+    return { season: WHEEL_SEASONS[Math.floor(seasons)]!, position: seasons % 1 };
+  };
+}
+
+/** The scene with its edit mode in hand (the page's URL in the app) and the dial turning. */
+function EditRoundTrip(args: HomeVillageSceneProps) {
+  const [editing, setEditing] = useState(false);
+  const [read] = useState(turningCycle);
+  return (
+    <HomeVillageScene
+      {...args}
+      seasonWheel={{ state: "auto", onNext: fn(), read }}
+      editing={editing}
+      onEditingChange={(next) => {
+        args.onEditingChange?.(next);
+        setEditing(next);
+      }}
+    />
+  );
+}
+
+/** The columns stand clear of the profile and the balances: their tops a gap under each, as measured (`--left-top`, `--right-top`). */
+async function expectColumnsInPlace(canvasElement: HTMLElement) {
+  const box = canvasElement.querySelector<HTMLElement>("[data-slot=home-overlays]")!;
+  await waitFor(() => expect(box.style.getPropertyValue("--left-top")).not.toBe(""), { timeout: 5000 });
+  const [profile, balances] = [...box.querySelectorAll<HTMLElement>("[data-out=u2]")].map((el) => el.getBoundingClientRect());
+  const left = box.querySelector("[data-slot=scroll-region]")!.getBoundingClientRect();
+  const right = box.querySelector("[data-out=r0]")!.getBoundingClientRect();
+  await expect(left.top).toBeGreaterThanOrEqual(profile!.bottom);
+  await expect(right.top).toBeGreaterThanOrEqual(balances!.bottom);
+  // The left column's controls start under the profile, the right one's tiles under the balances.
+  const score = within(box).getByRole("button", { name: /^Edit village, score/ }).getBoundingClientRect();
+  await expect(score.top).toBeGreaterThanOrEqual(profile!.bottom);
+  const tiles = within(box).getByRole("navigation", { name: "Village" }).getBoundingClientRect();
+  await expect(tiles.top).toBeGreaterThanOrEqual(balances!.bottom);
+}
+
+/**
+ * HOME-COLUMNS-AFTER-EDIT (#1068, the owner's decision of 2026-11-07: the overlay keeps its layout however the player comes back to
+ * it): the dial turning all along, in and out of edit mode three times, the columns under the profile and the balances each time.
+ */
+export const ColumnsAfterEdit: Story = {
+  ...PHONE_375,
+  args: HOME_VILLAGE.view,
+  render: (args) => <EditRoundTrip {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole("button", { name: /^Season/ }, { timeout: 10_000 });
+    await canvas.findByRole("navigation", { name: "Village" }, { timeout: 10_000 });
+    await expectColumnsInPlace(canvasElement);
+    for (let i = 0; i < 3; i++) {
+      await userEvent.click(canvas.getByRole("button", { name: /^Edit village, score/ }));
+      await userEvent.click(await canvas.findByRole("button", { name: "Leave edit mode" }, { timeout: 10_000 }));
+      // Back on the home: the dial's chunk is in, so it turns from the overlays' first frame.
+      await canvas.findByRole("navigation", { name: "Village" }, { timeout: 10_000 });
+      await expectColumnsInPlace(canvasElement);
+    }
+  },
+};
+export const ColumnsAfterEditPhone320: Story = { ...ColumnsAfterEdit, ...PHONE_320 };
+export const ColumnsAfterEditWide1440: Story = { ...ColumnsAfterEdit, ...WIDE_1440 };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };
 /** The village on its way: the overlays paint first, over the sky. */
