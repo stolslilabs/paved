@@ -32,8 +32,9 @@ async function open(path: string, prepare?: (s: Mock, me: string) => Promise<voi
   await prepare?.(s, me);
   const wallet = fakeWallet({ address: me, restored: true });
   wallet.connector.signer = () => s.sources.signer as GameSigner;
-  render(<App router={createTestRouter(path)} sources={s.sources} connector={wallet.load} />);
-  return { ...s, me };
+  const router = createTestRouter(path);
+  render(<App router={router} sources={s.sources} connector={wallet.load} />);
+  return { ...s, me, router };
 }
 
 /** The mock's stored state, edited in place (a test's stand-in for what happens elsewhere). */
@@ -258,6 +259,35 @@ describe("The scan means a search, nothing else (#1067)", { timeout: slow(40_000
     expect(end.states.size).toBe(0);
     expect(end.seen.loading).toBe(false);
     expect(gap).toBe(false);
+  });
+
+  it("Back taken while the end loads stays: the end, loaded later, never takes the player back to the result", async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((done) => (release = done));
+    const s = await open("/pvp", async (s, me) => {
+      const writes = s.ledger.writesFor(me);
+      await writes.foundFreeVillage();
+      await writes.drawOpponentV2("search");
+      await writes.startAttackV2();
+      const { attack } = await s.ledger.attackV2(me);
+      for (let i = 0; i < attack!.deck - 1; i++) await writes.playAttackV2({ discard: true });
+      // The end's read held until the test lets it answer, as a slow network would.
+      const views = s.sources.views as typeof s.sources.views & { attackV2Of: (attacker: string, id: number) => Promise<unknown> };
+      const read = views.attackV2Of;
+      s.sources.views = new Proxy(views, { get: (t, key) => (key === "attackV2Of" ? (a: string, id: number) => held.then(() => read(a, id)) : Reflect.get(t, key)) });
+    });
+    const router = s.router;
+    expect(await screen.findByRole("heading", { name: /^Attack: / }, WAIT)).toBeInTheDocument();
+    await discardTile();
+    await waitFor(async () => expect((await s.ledger.attackV2(s.me)).attack!.status).toBe("finished"), WAIT);
+    // The board holds; the player leaves by Back before the end is in.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/pvp/league"), WAIT);
+    release();
+    await realWait(500);
+    await act(async () => undefined);
+    expect(router.state.location.pathname).toBe("/pvp/league");
+    expect(screen.queryByRole("heading", { level: 1, name: "Attack over" })).toBeNull();
   });
 
   it("a link straight to a result waits on the rival's void with a spinner, never the scan", async () => {

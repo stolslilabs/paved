@@ -260,6 +260,16 @@ function Scout({ me, match, writes, onScan, onBack }: { me: string; match: Match
 function Attack({ me, attack, match, writes, ending, onEnd, onBack }: { me: string; attack: AttackV2; match: MatchV2 | null; writes: Writes; ending: boolean; onEnd: (attack: AttackV2) => void; onBack: () => void }) {
   const go = useAppNavigate();
   const prefetchEnd = usePrefetchAttackV2Of(me);
+  // Where the player is now (the location's key), null once the attack is gone: the end, loaded, moves there only if the player is
+  // still on the attack, never over a Back or another page taken meanwhile (#1067).
+  const { key: locationKey } = useLocation();
+  const here = useRef<string | null>(locationKey);
+  useEffect(() => {
+    here.current = locationKey;
+    return () => {
+      here.current = null;
+    };
+  }, [locationKey]);
   const rival = useFreeVillage(attack.defender);
   const skins = useBoardSkins(attack.defender);
   const { run, last, tiles } = useMemo(() => boardOf(attack.moves), [attack.moves]);
@@ -290,9 +300,15 @@ function Attack({ me, attack, match, writes, ending, onEnd, onBack }: { me: stri
         onEnd(attack);
         // Its end screen (#790), in place of the attack: Back from it never returns into the finished attack. The board stays as
         // the last tile left it while the end's page, its chunk and the attack's read come in, then the end comes up with no
-        // loading screen between (#1067); a failed load still moves on (the end page says what failed).
+        // loading screen between (#1067); a failed load still moves on (the end page says what failed). A player who left meanwhile
+        // (Back, another page) stays where they went.
+        const from = here.current;
         const ready = Promise.all([PAGE_LOADERS["pvp/result/:id"]!(), loadPvpV2End(), prefetchEnd(attack.id)]);
-        void ready.catch(() => undefined).then(() => go(`/pvp/result/${attack.id}`, { replace: true }));
+        void ready
+          .catch(() => undefined)
+          .then(() => {
+            if (from !== null && here.current === from) go(`/pvp/result/${attack.id}`, { replace: true });
+          });
       },
       () => undefined,
     );
