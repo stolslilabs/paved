@@ -131,8 +131,41 @@ export function createSettingsStore(storage?: Parameters<typeof createDeviceStor
   return createDeviceStore(SETTINGS_KEY, DEFAULT_SETTINGS, parseSettings, JSON.stringify, storage);
 }
 
-/** The app's store, on `localStorage`. */
-export const deviceSettings = createSettingsStore();
+/**
+ * The page runs in the Claude desktop app's browser pane (its user agent names `Claude/<version>` before `Chrome/`): an agent's
+ * preview of the client. Claude in Chrome is the user's own Chrome and does not name it.
+ */
+export function inClaudePane(userAgent: string = globalThis.navigator?.userAgent ?? ""): boolean {
+  return /\bClaude\/\d/.test(userAgent);
+}
+
+/**
+ * `store` with the music and the sound effects muted until its first change (AGENT-PREVIEW-MUTE): the owner keeps many agents'
+ * previews open in panes nobody looks at, the music plays on in a hidden tab (#712), and an agent's clicks sound. Each mute is the
+ * slider's own (the volume 0, the level before it kept), so a slider or the player's play turns its channel back on for the
+ * visit, and a change of any setting writes the mutes as they read. Nothing is written by the load itself.
+ */
+export function withSoundMutedOnLoad(store: DeviceStore<DeviceSettings>): DeviceStore<DeviceSettings> {
+  let muted = true;
+  // The same object while the stored one is, as `useSyncExternalStore` needs.
+  let cache: { from: DeviceSettings; value: DeviceSettings } | null = null;
+  return {
+    ...store,
+    get() {
+      const s = store.get();
+      if (!muted) return s;
+      if (cache?.from !== s) cache = { from: s, value: { ...s, musicVolume: 0, sfxVolume: 0 } };
+      return cache.value;
+    },
+    set(value) {
+      muted = false;
+      store.set(value);
+    },
+  };
+}
+
+/** The app's store, on `localStorage`; in an agent's preview (the Claude app's pane), the music and the effects muted on each load. */
+export const deviceSettings = inClaudePane() ? withSoundMutedOnLoad(createSettingsStore()) : createSettingsStore();
 
 /** The device settings in a component, with a setter for one field. */
 export function useDeviceSettings(): [DeviceSettings, <K extends keyof DeviceSettings>(key: K, value: DeviceSettings[K]) => void] {

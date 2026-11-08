@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BACKDROP_PATTERNS, HIGHLIGHT_STYLES, SMALL_SCREEN_PX as RENDERER_SMALL_SCREEN_PX, resolveQuality } from "@paved/renderer";
-import { DEFAULT_SETTINGS, SETTINGS_KEY, SMALL_SCREEN_PX, autoTier, createSettingsStore, parseSettings, squareGridSettings, withMuteToggled, withVolume } from "../src/data/settings";
+import { DEFAULT_SETTINGS, SETTINGS_KEY, SMALL_SCREEN_PX, autoTier, createSettingsStore, inClaudePane, parseSettings, squareGridSettings, withSoundMutedOnLoad, withMuteToggled, withVolume } from "../src/data/settings";
 import { THEME_KEY, deviceTheme } from "../src/data/skins";
 
 // The device stores (P11a): the settings under one versioned key and the theme's, each with an in-memory twin.
@@ -136,6 +136,45 @@ describe("the volumes", () => {
     expect(withVolume(s, "sfx", 0)).toMatchObject({ sfxVolume: 0, sfxBefore: 0.3 });
     expect(withVolume(s, "sfx", 0.8)).toMatchObject({ sfxVolume: 0.8, sfxBefore: 0.8 });
     expect(withVolume(s, "sfx", Number.NaN)).toMatchObject({ sfxVolume: 0, sfxBefore: 0.3 });
+  });
+});
+
+describe("an agent's preview: the music and the effects muted on each load in the Claude app's pane (AGENT-PREVIEW-MUTE)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("knows the Claude desktop app's pane by its user agent, and nothing else", () => {
+    expect(inClaudePane("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Claude/4.23118.0 Chrome/152.0.7977.167 Safari/537.36")).toBe(true);
+    expect(inClaudePane("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.80 Safari/537.36")).toBe(false);
+    expect(inClaudePane("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1")).toBe(false);
+    expect(inClaudePane("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36")).toBe(false);
+    expect(inClaudePane("")).toBe(false);
+  });
+
+  it("reads the music and the effects muted, the levels before them kept, and writes nothing on the load", () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, musicVolume: 0.6, musicBefore: 0.6, sfxVolume: 0.5, sfxBefore: 0.5, quality: "high" }));
+    const store = withSoundMutedOnLoad(createSettingsStore());
+    expect(store.get()).toEqual({ ...DEFAULT_SETTINGS, musicVolume: 0, musicBefore: 0.6, sfxVolume: 0, sfxBefore: 0.5, quality: "high" });
+    expect(store.get()).toBe(store.get());
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toMatchObject({ musicVolume: 0.6, sfxVolume: 0.5 });
+    // A device with no saved setting starts muted too, the default levels before the mutes.
+    localStorage.clear();
+    expect(withSoundMutedOnLoad(createSettingsStore()).get()).toMatchObject({ musicVolume: 0, musicBefore: 0.4, sfxVolume: 0, sfxBefore: 0.7 });
+  });
+
+  it("plays a channel again for the visit once its slider or the player turns it on, and a load mutes it again", () => {
+    const store = withSoundMutedOnLoad(createSettingsStore());
+    store.set(withMuteToggled(store.get(), "music"));
+    expect(store.get()).toMatchObject({ musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0, sfxBefore: 0.7 });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toMatchObject({ musicVolume: 0.4, sfxVolume: 0 });
+    expect(withSoundMutedOnLoad(createSettingsStore()).get()).toMatchObject({ musicVolume: 0, sfxVolume: 0 });
+  });
+
+  it("writes the mutes as they read when another setting changes, and reads stored mutes as they are", () => {
+    const store = withSoundMutedOnLoad(createSettingsStore());
+    store.set({ ...store.get(), quality: "low" });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toMatchObject({ quality: "low", musicVolume: 0, musicBefore: 0.4, sfxVolume: 0, sfxBefore: 0.7 });
+    const muted = createSettingsStore();
+    expect(withSoundMutedOnLoad(muted).get()).toEqual(muted.get());
   });
 });
 
