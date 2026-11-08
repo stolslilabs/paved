@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 
@@ -39,11 +40,13 @@ export interface CountdownProps {
   hideLabel?: boolean;
   /** The time in two units at most ("6h 12m", `formatShortRemaining`), the label left out: a chip's (the Missions' rows). */
   short?: boolean;
+  /** Drawn in place of the Font Awesome clock (GAME-OVERLAY: the board's painted stopwatch). */
+  art?: ReactNode;
   className?: string;
 }
 
 /** The time left before a game expires (`expires_at`); amber under an hour, red once expired. */
-export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, short = false, className }: CountdownProps) {
+export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, short = false, art, className }: CountdownProps) {
   const left = expiresAt - now;
   const state = left <= 0 ? "expired" : left < COUNTDOWN_WARN_S ? "warning" : "ok";
   return (
@@ -60,7 +63,7 @@ export function Countdown({ expiresAt, now, label = "Expires in", hideLabel, sho
         className,
       )}
     >
-      <Icon name="clock" size="sm" />
+      {art ?? <Icon name="clock" size="sm" />}
       {state === "expired" ? (
         <span className="font-semibold">Expired</span>
       ) : (

@@ -1,11 +1,11 @@
 /**
  * LEADERBOARD-PAGE: the ranking's medals for its first two places, gold and silver, Codex's redraws of the HUD's bronze medal (`medal`
- * of `ui-art.ts`, the third place's): the same medal, ribbon and star, its metal changed; and the footer's Alliances and Guilds tabs'
- * icons, painted by Codex in the HUD icons' rendering (the owner's asks of 2026-11-07: two shields over a laurel for the alliances, the
- * red one of them alone for the guilds; the handshake went to the Friends tab). On the icons' frame (256 px square, the drawing fitted
- * to 240 px), so they stand as the HUD's icons. Apart from `ui-art.ts` so the first load does not carry them. The masters are
- * `ui-sources/ranking/<name>.webp`; `node scripts/compress-ui-art.ts` writes their copies. URLs and measures only: the module stays
- * plain TypeScript so the script reads it under Node.
+ * of `ui-art.ts`, the third place's): the same medal, ribbon and star, its metal changed; and two icons painted by Codex in the HUD
+ * icons' rendering (the owner's asks of 2026-11-07): the footer's Alliances tab's, two shields over a laurel, and the red one of them
+ * alone, an alliance's guild count's (`GuildCount`). The Guilds tab draws the dock's Guild instead (its two banners, the owner's ask).
+ * On the icons' frame (256 px square, the drawing fitted to 240 px), so they stand as the HUD's icons. Apart from `ui-art.ts` so the
+ * first load does not carry them. The masters are `ui-sources/ranking/<name>.webp`; `node scripts/compress-ui-art.ts` writes their
+ * copies. URLs and measures only: the module stays plain TypeScript so the script reads it under Node.
  */
 
 /** The frame: the icons' (`ICON_FRAME`), copies 64 px (a row's 28 px at 2x) and 128 px. */

@@ -170,7 +170,7 @@ export interface BoardBubble {
   canConfirm?: boolean;
   /** The move is on its way: Validate's spinner. */
   busy?: boolean;
-  /** A Story coach mark points at the placement (Validate is ringed) or at Discard (the trash is). */
+  /** A Story coach mark points at the placement (the light behind Confirm, GAME-OVERLAY) or at Discard (behind the trash). */
   coach?: boolean | "place" | "discard";
   /** The tile's rotation now: a change drops a hold on Validate under way. */
   orientation?: number;

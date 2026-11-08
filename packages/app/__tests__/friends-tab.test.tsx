@@ -78,7 +78,16 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
 
   const lists = () => screen.findByRole("tablist", { name: "Lists" }, T(10_000));
   const list = (name: "Friends" | "Following" | "Followers") => screen.getByRole("region", { name });
-  const count = (name: string, n: number) => waitFor(() => expect(screen.getByRole("tab", { name: new RegExp(`^${name}, ${n}`) })).toBeInTheDocument(), T(8_000));
+  // A list's rows (no count in its tab since FOOTER-TABS, #1062, nor by its title since the book's rule of 2026-11-08), its tab shown first.
+  const count = async (name: "Friends" | "Following" | "Followers", n: number) => {
+    const tab = screen.getByRole("tab", { name: new RegExp(`^${name}`) });
+    if (tab.getAttribute("aria-selected") !== "true") await userEvent.click(tab);
+    await waitFor(() => {
+      const region = list(name);
+      expect(region.querySelector("[aria-busy]")).toBeNull();
+      expect(within(region).queryAllByRole("listitem")).toHaveLength(n);
+    }, T(8_000));
+  };
 
   async function confirm(title: string | RegExp, button: string) {
     const dialog = await screen.findByRole("dialog", { name: title }, T(5_000));
@@ -90,9 +99,9 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     open();
     await lists();
     await count("Friends", 0);
+    expect(list("Friends")).toHaveTextContent("No friends yet");
     await count("Following", 0);
     await count("Followers", 0);
-    expect(list("Friends")).toHaveTextContent("No friends yet");
     const suggested = screen.getByRole("region", { name: "Suggested players" });
     await waitFor(() => expect(within(suggested).getAllByRole("button", { name: /^Follow / }).length).toBeGreaterThan(0), T(8_000));
   });
@@ -137,11 +146,12 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
     await waitFor(() => expect(screen.queryByRole("dialog", { name: backer.name })).toBeNull(), T(5_000));
     await count("Friends", 1);
     expect(list("Friends")).toHaveTextContent(backer.name);
-    expect(screen.getByRole("tab", { name: "Followers, 1, 1 new" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Followers, 1 new" })).toBeInTheDocument();
     // Seen: the badges go, the New mark stays while the list is shown.
-    await userEvent.click(screen.getByRole("tab", { name: /^Followers, 1, 1 new/ }));
+    await userEvent.click(screen.getByRole("tab", { name: "Followers, 1 new" }));
     expect(list("Followers").querySelector("[data-slot=new-dot]")).not.toBeNull();
-    await waitFor(() => expect(screen.getByRole("tab", { name: "Followers, 1" })).toBeInTheDocument(), T(8_000));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Followers" })).toBeInTheDocument(), T(8_000));
+    await count("Followers", 1);
     expect(list("Followers").querySelector("[data-slot=new-dot]")).not.toBeNull();
     // Unfollowed from their row's Following (FRIENDS-PAGE: the book's rows have no Remove): no longer friends; they still follow.
     await userEvent.click(within(list("Followers")).getByRole("button", { name: `Following ${backer.name}: unfollow` }));

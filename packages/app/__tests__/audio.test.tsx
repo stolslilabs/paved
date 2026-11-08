@@ -95,12 +95,16 @@ describe("DeviceSettingsPanel", () => {
 });
 
 describe("DeviceSettingsSheet", () => {
-  it("opens the panel in a dialog, bottom or side", async () => {
-    const { rerender } = render(<DeviceSettingsSheet open onOpenChange={() => {}} preferences={PREFS} side="bottom" />);
-    expect(await screen.findByRole("dialog", { name: "Settings" })).toHaveAttribute("data-side", "bottom");
+  it("opens the panel in the HUD's drawer (GAME-OVERLAY: never a bottom sheet), the quality's choice a view with Back", async () => {
+    render(<DeviceSettingsSheet open onOpenChange={() => {}} preferences={PREFS} />);
+    const drawer = await screen.findByRole("dialog", { name: "Settings" });
+    expect(drawer).not.toHaveAttribute("data-side", "bottom");
+    expect(document.querySelector("[data-hud-drawer='board-settings']")).not.toBeNull();
     expect(screen.getByRole("slider", { name: "Music volume" })).toBeInTheDocument();
-    rerender(<DeviceSettingsSheet open onOpenChange={() => {}} preferences={PREFS} side="right" />);
-    expect(await screen.findByRole("dialog", { name: "Settings" })).toHaveAttribute("data-side", "right");
+    await userEvent.click(screen.getByRole("button", { name: /^Graphics quality/ }));
+    expect(await screen.findByRole("dialog", { name: "Graphics quality" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
   });
 });
 

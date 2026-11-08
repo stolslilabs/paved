@@ -21,7 +21,7 @@ const SHARED = "src/components/elements/inline-error.tsx";
 
 /** The error colours' uses that are not errors, with how many each file has. */
 const ALLOWED: Record<string, { count: number; why: string }> = {
-  "src/components/containers/device-settings-sheet.tsx": { count: 2, why: "the board's Surrender row, its icon and its label (a destructive action, #606)" },
+  "src/components/containers/device-settings-sheet.tsx": { count: 1, why: "the board's Surrender row's label (a destructive action, #606)" },
   "src/components/elements/stat-row.tsx": { count: 1, why: "StatRow's danger tone: a stat (missed by), not an error" },
   "src/components/elements/countdown.tsx": { count: 1, why: "an expired deadline" },
   "src/components/containers/reward-panel.tsx": { count: 2, why: "a threshold missed: the icon and the points" },

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { formatCompact, formatInteger, isOnline } from "@paved/game-core";
+import { formatInteger, isOnline } from "@paved/game-core";
 import type { FollowLists, FollowRow, GuildBadge, PublicProfile } from "../../data/social-source";
 import { followErrorText } from "../../lib/follow-text";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Tabs, TabsContent } from "../ui/tabs";
+import type { UiIconName } from "../elements/ui-art";
 import { goldPillStyle } from "../elements/friends-art";
 import { FriendsArt } from "../elements/friends-art-image";
 import { GuildEmblem } from "../elements/guild-emblem";
@@ -22,7 +23,8 @@ import { formatPoints } from "../elements/score";
 import { SectionTitle } from "../elements/section-title";
 import { UiIcon } from "../elements/ui-icon";
 import { useGuildActions } from "./guild-sheets";
-import { HudDrawer } from "./hud-drawer";
+import { FooterTab, FooterTabsList } from "./footer-tabs";
+import { DrawerFooter, HudDrawer } from "./hud-drawer";
 import { CARVED_ROWS, rowRule } from "./player-search";
 
 /** The friends page's three tabs (#954's lists, tabs since #973). */
@@ -34,10 +36,11 @@ export type FollowRowAction = "follow" | "unfollow" | "removeFollower" | "unbloc
 /** How many rows a list shows before "Show more", and how many more each tap. */
 export const FRIENDS_PAGE = 20;
 
-const LISTS: { id: FriendsList; label: string; empty: string }[] = [
-  { id: "friends", label: "Friends", empty: "No friends yet. When a player you follow follows you back, you are friends." },
-  { id: "following", label: "Following", empty: "You follow no one yet: find a player above, or follow a suggestion below." },
-  { id: "followers", label: "Followers", empty: "No one follows you yet." },
+/** Each list, its footer tab's painted icon (FOOTER-TABS, #1062) and its empty words. */
+const LISTS: { id: FriendsList; label: string; art: UiIconName; empty: string }[] = [
+  { id: "friends", label: "Friends", art: "friends", empty: "No friends yet. When a player you follow follows you back, you are friends." },
+  { id: "following", label: "Following", art: "user", empty: "You follow no one yet: find a player above, or follow a suggestion below." },
+  { id: "followers", label: "Followers", art: "members", empty: "No one follows you yet." },
 ];
 
 /** The key a list compares players by: the address in small letters, without leading zeros. */
@@ -48,9 +51,6 @@ const keyOf = (address: string): string => {
     return address.toLowerCase();
   }
 };
-
-/** A tab's count, the book's "Friends 6": whole up to 999, short from 1,000 ("1.2K", the whole in its name), so three labels hold on a 360 px phone. */
-const tabCount = (n: number) => (n < 1_000 ? formatInteger(n) : formatCompact(n));
 
 /**
  * The rows' buttons (FRIENDS-PAGE, the book's pills): 32 px tall and round; their touch target 44 px (a band past their top and
@@ -189,9 +189,9 @@ export const CARVED_NOTE = "drawer-carved rounded-xl px-4 py-6 text-center text-
 
 /**
  * The friends page's lists (`/friends`, #973; the Social page's Friends tab of #954 before), redrawn after the Paved UX Book's
- * "Friends and followers" (FRIENDS-PAGE): three tabs, the book's words, Friends (the mutual follows), Following and Followers, each
- * with its count beside it, the current one lit and underlined in gold; the new followers' count on Followers in the HUD's red. Each
- * list a carved panel of rows, online players first, then the most recently seen; a tap on a row opens the player's profile (Message,
+ * "Friends and followers" (FRIENDS-PAGE): three tabs, Friends (the mutual follows), Following and Followers, the footer's tabs since
+ * #1062 (FOOTER-TABS, the owner's standard), the new followers' count on Followers in the dock's red. Each list under its title (no count,
+ * the book's rule of 2026-11-08), a carved panel of rows, online players first, then the most recently seen; a tap on a row opens the player's profile (Message,
  * Following, Block are there, as the book's). Friends: online or when last seen at each row's end. Following: Following (unfollows,
  * confirmed). Followers: the new ones first and marked New, Follow back in gold, or Following. Then the Suggestions (the book's: the
  * name and the guild, Follow, or Follow back in gold), and the blocked players, a sheet of their own with Unblock.
@@ -284,7 +284,6 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
         }
       />
 
-      {/* The three lists as tabs (#973), the book's: each word with its count, the current one underlined in gold. */}
       <Tabs
         value={list}
         onValueChange={(v) => {
@@ -296,33 +295,12 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
         rememberAs="friends"
         className="gap-3"
       >
-        <TabsList aria-label="Lists" className="h-auto w-full gap-0.5 bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
-          {LISTS.map(({ id, label }) => {
-            const count = lists ? lists[id].length : null;
-            const fresh = id === "followers" ? (lists?.newFollowers ?? 0) : 0;
-            return (
-              <TabsTrigger
-                key={id}
-                value={id}
-                aria-label={`${label}${count === null ? "" : `, ${formatInteger(count)}`}${fresh > 0 ? `, ${formatInteger(fresh)} new` : ""}`}
-                // A 320 px phone: the count under the word; from `mobile` (360) beside it, the book's.
-                className="text-outline h-11 flex-col gap-0 px-0.5 text-sm leading-tight font-bold mobile:flex-row mobile:gap-1 mobile:text-[0.9375rem] tablet:text-base"
-              >
-                <span>{label}</span>
-                <span className="tabular-nums">{count === null ? "–" : tabCount(count)}</span>
-                {fresh > 0 && (
-                  <span aria-hidden className="numeric absolute -top-0.5 right-0 z-10 grid h-4 min-w-4 place-items-center rounded-[0.3rem] bg-dock-badge px-0.5 text-xs leading-none font-bold text-foreground ring-2 ring-secondary">
-                    {fresh > 99 ? "99+" : fresh}
-                  </span>
-                )}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
         {LISTS.map(({ id }) => (
           <TabsContent key={id} value={id}>
             {id === list && (
               <section aria-label={meta.label} className="flex flex-col gap-3">
+                {/* The list's title, no count (the UX Book's rule of 2026-11-08: no changing figure in a section title). */}
+                <SectionTitle>{meta.label}</SectionTitle>
                 {rows === null && !error && (
                   <div aria-busy className="flex flex-col gap-2">
                     {[0, 1, 2].map((i) => (
@@ -342,6 +320,14 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
             )}
           </TabsContent>
         ))}
+        {/* The three lists as the footer's tabs (FOOTER-TABS, #1062), the new followers' count on Followers. */}
+        <DrawerFooter>
+          <FooterTabsList aria-label="Lists">
+            {LISTS.map(({ id, label, art }) => (
+              <FooterTab key={id} value={id} label={label} badge={id === "followers" ? (lists?.newFollowers ?? 0) : 0} badgeWord="new" art={<UiIcon name={art} px={36} className="drawer-icon size-9" />} />
+            ))}
+          </FooterTabsList>
+        </DrawerFooter>
       </Tabs>
 
       <section aria-label="Suggested players" className="flex flex-col gap-2.5">
