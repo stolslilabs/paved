@@ -186,6 +186,22 @@ describe("the die in the editor", () => {
     expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
   });
 
+  it("never turns: still when pressed, while it builds and after (the owner, 2026-11-08: the spin was bad UX)", async () => {
+    // The transforms in the die's button, its art included: none, the board's new village being the feedback.
+    const turns = (die: HTMLElement) => [die, ...die.querySelectorAll<HTMLElement>("*")].map((el) => el.style.transform).filter((t) => t && t !== "none");
+    const frames = () => act(() => new Promise<void>((done) => setTimeout(done, 300)));
+    render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={PENDING_RANDOMIZER} />));
+    fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
+    await frames();
+    expect(turns(screen.getByRole("button", { name: /Building a random village/ }))).toEqual([]);
+    cleanup();
+    render(wrap(<VillageStage village={LAYOUT_GROWING} inventory={INVENTORY} editable editing randomizer={mainThreadRandomizer()} randomSeed={seedsOf(4)} />));
+    fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
+    await waitFor(() => expect(screen.getByLabelText("28 of 28 slots used")).toBeTruthy());
+    await frames();
+    expect(turns(screen.getByRole("button", { name: "Random village from your tiles" }))).toEqual([]);
+  });
+
   it("never lets a late answer undo an edit made while it builds: Reset all, a tile placed", async () => {
     // A build whose answer comes when the test says, and whose cancel does not stop it (the review's delayed worker).
     const late: ((built: { tiles: LayoutTile[] }) => void)[] = [];
