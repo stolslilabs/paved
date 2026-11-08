@@ -323,6 +323,26 @@ function leftColumnHint(el: HTMLDivElement) {
 const GAP_PX = 12;
 
 /**
+ * An element's layout box in the overlays' box (HOME-COLUMNS-AFTER-EDIT, #1068): its offsets summed up to the box, which transforms
+ * (`translate`, `transform`) do not move, unlike `getBoundingClientRect`. Each offset parent's border is added on the way.
+ */
+function layoutBox(el: HTMLElement, box: HTMLElement) {
+  let top = 0;
+  let left = 0;
+  for (let at: HTMLElement | null = el; at && at !== box; ) {
+    top += at.offsetTop;
+    left += at.offsetLeft;
+    const parent = at.offsetParent as HTMLElement | null;
+    if (parent) {
+      top += parent.clientTop;
+      left += parent.clientLeft;
+    }
+    at = parent;
+  }
+  return { top, left, height: el.offsetHeight, bottom: top + el.offsetHeight };
+}
+
+/**
  * The overlays' measures, on their box. The profile beside the balances' first plate: `--profile-room`, the width the badge may
  * take (its name plate grows with the name), so it stops a gap short of the plate whatever the amounts (a 999,999 Cobbles plate
  * at 320 px, #828).
@@ -343,25 +363,30 @@ function useOverlayMeasures(dial: boolean) {
   useLayoutEffect(() => {
     const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial].map((ref) => ref.current);
     const [box] = els as HTMLElement[];
-    // Its first notice comes before the first paint: the bands are in place when the overlays show. In the Camera mode the groups are
-    // off the screen (`data-out`, CAMERA-EXPLORE): nothing is measured until they stand back, every slide over.
+    // Its first notice comes before the first paint: the bands are in place when the overlays show. HOME-COLUMNS-AFTER-EDIT (#1068):
+    // it reads the layout's boxes (`layoutBox`), which no transform moves, so neither the Camera mode's slides (`translate`,
+    // CAMERA-EXPLORE) nor the season wheel's turn shifts it, and it runs at each mount, the wheel turning or not. In the Camera mode
+    // the corner's row goes down (`bottom`): nothing is measured until the mode is left (its slide's `transitionend` measures again).
     const measure = () => {
-      if (box.hasAttribute("data-camera") || box.getAnimations?.({ subtree: true }).some((a) => a instanceof CSSTransition)) return;
-      const [frame, balances, profile, foot, wheel] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
+      if (box.hasAttribute("data-camera")) return;
+      const [, balances, profile, foot, wheel] = els.map((el) => (el ? layoutBox(el, box) : undefined));
+      const height = box.offsetHeight;
       // The badge's foot as drawn: its rim runs past the card's (the player card's negative margins) and its crest a tenth of the rim
       // further (`PlayerRim`, -bottom-[10%]; the rim's box is there before the league's chunk, its stand-in the same size).
-      const rim = refs.profile.current?.querySelector("[data-slot=avatar-rim]")?.getBoundingClientRect();
+      const rimEl = refs.profile.current?.querySelector<HTMLElement>("[data-slot=avatar-rim]");
+      const rim = rimEl ? layoutBox(rimEl, box) : undefined;
       const drawnFoot = Math.max(profile!.bottom + GAP_PX, rim ? rim.bottom + rim.height * 0.1 : 0);
       const edges = {
-        "--right-top": balances!.bottom - frame!.top,
-        "--right-bottom": frame!.bottom - foot!.top,
-        "--left-top": drawnFoot - frame!.top,
-        "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom),
+        "--right-top": balances!.bottom,
+        "--right-bottom": height - foot!.top,
+        "--left-top": drawnFoot,
+        "--left-bottom": height - (wheel?.top ?? foot!.bottom),
       };
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
       // The profile's room, from its left to a gap short of the balances: the badge's name plate ends there.
       box.style.setProperty("--profile-room", `${balances!.left - profile!.left - GAP_PX}px`);
     };
+    measure();
     const observer = new ResizeObserver(measure);
     // The box and what the bands stand off (not the columns, which the bands size).
     for (const el of els) if (el) observer.observe(el);
