@@ -23,7 +23,7 @@ export interface SettingChoiceProps<T extends string> {
 }
 
 /** The menu's surface: the drawer's ground, outlined near-black, lifted off the drawer (an inline value on tokens, no new class). */
-const MENU_SHADOW = { boxShadow: "0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline), 0 12px 24px rgb(0 0 0 / 0.45)" };
+const MENU_SHADOW = { boxShadow: "0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline), 0 12px 24px color-mix(in oklab, var(--hud-outline) 60%, transparent)" };
 
 /**
  * One setting of a few choices (SEASONS-SETTINGS, the owner's "a dropdown"): the row's painting and name, and at its end the book's
