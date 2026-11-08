@@ -38,7 +38,7 @@ const FOUND_MS = 1_200;
 export default function Page() {
   const sources = useDataSources();
   const wallet = useAccount();
-  const onBack = useUpTo("/pvp/league");
+  const onBack = useUpTo("/play");
   const me = sources.signer?.address ?? null;
   const v2 = useAttackV2(me);
   const player = usePvpPlayer(v2.data ? me : null, wallet.username ?? null);
@@ -65,7 +65,7 @@ function PvpV1() {
   const sources = useDataSources();
   const wallet = useAccount();
   const client = useQueryClient();
-  const onBack = useUpTo("/pvp/league");
+  const onBack = useUpTo("/play");
   const me = sources.signer?.address ?? null;
   const status = usePvpStatus(me);
   const writes = usePvpWrites(me);

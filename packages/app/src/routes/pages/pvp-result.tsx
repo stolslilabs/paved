@@ -49,7 +49,7 @@ export default function Page() {
  */
 function Pick({ id }: { id: number }) {
   const wallet = useAccount();
-  const onBack = useUpTo("/pvp/league");
+  const onBack = useUpTo("/play");
   const me = useDataSources().signer?.address ?? null;
   const v2 = useAttackV2Of(me, id);
   if (me === null || v2.data === null) return <Result id={id} />;
@@ -67,7 +67,7 @@ function Pick({ id }: { id: number }) {
 
 function Result({ id }: { id: number }) {
   const go = useAppNavigate();
-  const onBack = useUpTo("/pvp/league");
+  const onBack = useUpTo("/play");
   const now = useNow();
   const wallet = useAccount();
   const me = useDataSources().signer?.address ?? null;
