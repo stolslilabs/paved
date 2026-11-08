@@ -364,7 +364,7 @@ function useOverlayMeasures() {
     // the corner's row goes down (`bottom`): nothing is measured until the mode is left (its slide's `transitionend` measures again).
     const measure = () => {
       if (box.hasAttribute("data-camera")) return;
-      const [, balances, profile, foot, corner] = els.map((el) => (el ? layoutBox(el, box) : undefined));
+      const [, balances, profile, foot, bottomLeft] = els.map((el) => (el ? layoutBox(el, box) : undefined));
       const height = box.offsetHeight;
       // The badge's foot as drawn: its rim runs past the card's (the player card's negative margins) and its crest a tenth of the rim
       // further (`PlayerRim`, -bottom-[10%]; the rim's box is there before the league's chunk, its stand-in the same size).
@@ -375,7 +375,7 @@ function useOverlayMeasures() {
         "--right-top": balances!.bottom,
         "--right-bottom": height - foot!.top,
         "--left-top": drawnFoot,
-        "--left-bottom": height - (corner?.top ?? foot!.bottom),
+        "--left-bottom": height - (bottomLeft?.top ?? foot!.bottom),
       };
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
       // The profile's room, from its left to a gap short of the balances: the badge's name plate ends there.

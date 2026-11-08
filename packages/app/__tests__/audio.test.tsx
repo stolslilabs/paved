@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -93,6 +95,20 @@ describe("DeviceSettingsPanel", () => {
     render(<DeviceSettingsPanel preferences={{ ...PREFS, musicVolume: 0, musicBefore: 0.55 }} onVolumeChange={onVolumeChange} />);
     await userEvent.click(screen.getByRole("button", { name: "Mute music" }));
     expect(onVolumeChange).toHaveBeenCalledWith("music", 0.55);
+  });
+
+  it("draws no selected layer on a muted button at rest (the dimmed icon and the cross say it), aria-pressed kept, hover and press as before", () => {
+    render(<DeviceSettingsPanel preferences={{ ...PREFS, musicVolume: 0 }} />);
+    const muted = screen.getByRole("button", { name: "Mute music" });
+    const sounding = screen.getByRole("button", { name: "Mute sound effects" });
+    expect(muted).toHaveAttribute("aria-pressed", "true");
+    expect(sounding).toHaveAttribute("aria-pressed", "false");
+    for (const button of [muted, sounding]) expect(button).toHaveClass("state-layer", "state-layer-quiet");
+    // The opt-out clears the layer of a pressed toggle at rest only: `state-layer`'s hover and press rules are untouched.
+    const theme = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
+    const quiet = theme.match(/@utility state-layer-quiet \{([\s\S]*?)\n\}/)?.[1] ?? "";
+    expect(quiet.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim()).toBe('&[aria-pressed="true"]:not(:hover, :active) { --layer: transparent; }');
+    expect(theme.match(/@utility state-layer \{[\s\S]*?\n\}/)?.[0]).toContain('[aria-pressed="true"]');
   });
 });
 

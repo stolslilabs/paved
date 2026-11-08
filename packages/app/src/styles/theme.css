@@ -570,6 +570,15 @@
     --layer: var(--state-pressed);
   }
 }
+/*
+ * A pressed toggle whose art already says so (the volume's mute: the icon dimmed, the red cross, the owner's ask of 2026-11-08): no
+ * selected layer at rest, `aria-pressed` kept. Under the pointer and while pressed it takes `state-layer`'s, as before.
+ */
+@utility state-layer-quiet {
+  &[aria-pressed="true"]:not(:hover, :active) {
+    --layer: transparent;
+  }
+}
 
 /*
  * NO-SCROLLBARS (#609), the edge hint: a scroller fades its content out over `--scroll-hint-size` on each side where more
