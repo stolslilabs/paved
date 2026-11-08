@@ -30,6 +30,7 @@ import { PREVIEW_DEPOSIT_100, PREVIEW_DEPOSIT_25, PREVIEW_MINT_25, PREVIEW_REDEE
 import { titleOf } from "../lib/music/track-info";
 import { TRACKS } from "../lib/music/tracks";
 import { leagueOf } from "../lib/pvp-rules";
+import { challengeMeter, storyMeter, trainingMeter } from "../lib/score-meter";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
@@ -81,10 +82,17 @@ const boardBase = {
   remaining: GAME_PLAYING.remainingCount,
   expiresAt: GAME_PLAYING.expiresAt,
   reward: CURVE_PLAYING,
+  // GAME-OVERLAY: the score meter, to the score to beat (1,150 at the day's threshold), then to the cap.
+  meter: challengeMeter(CURVE_PLAYING, GAME_PLAYING.score),
   now: MOCK_NOW,
   lastScored: [],
   tileArt: originalTileArt(SOURCE_ASSETS),
 } satisfies Partial<Data<BoardSceneProps>>;
+
+/** The device's best Training score in the stories (the Training end's `previousBest`): the meter's crown. */
+export const TRAINING_BEST = 1_420;
+/** Training's meter at the board's score, against `TRAINING_BEST`. */
+const trainingBase = { mode: "training", gameId: undefined, expiresAt: null, meter: trainingMeter(TRAINING_BEST, GAME_PLAYING.score) } as const;
 
 /** The two tiles known after the one in hand (#645): plans of the 38-tile board's deck. */
 const coming = [{ plan: BOARD_38.tiles[3]!.plan }, { plan: BOARD_38.tiles[8]!.plan }];
@@ -92,7 +100,7 @@ const coming = [{ plan: BOARD_38.tiles[3]!.plan }, { plan: BOARD_38.tiles[8]!.pl
 export const BOARD = {
   placing: { ...boardBase, hand: { tile: hand, state: "placing" } },
   /** #705: under the threshold, the HUD shows the score to beat; past it, what the score earns (every Challenge state). */
-  belowThreshold: { ...boardBase, score: 640, hand: { tile: hand, state: "placing" } },
+  belowThreshold: { ...boardBase, score: 640, meter: challengeMeter(CURVE_PLAYING, 640), hand: { tile: hand, state: "placing" } },
   /** #645: the tile to place and the two coming tiles (a Challenge on the VRF). */
   queue: { ...boardBase, hand: { tile: hand, state: "placing", coming } },
   /** #645: a Challenge move on its way: the next tile waits with it, the one after it is shown, the chain draws the last. */
@@ -102,7 +110,7 @@ export const BOARD = {
     hand: { tile: { plan: coming[0]!.plan, orientation: 1 }, state: "pending", coming: coming.slice(1), drawing: true },
   },
   /** #645: Training plays the same queue from its local random. */
-  queueTraining: { ...boardBase, mode: "training", gameId: undefined, expiresAt: null, hand: { tile: hand, state: "placing", coming } },
+  queueTraining: { ...boardBase, ...trainingBase, hand: { tile: hand, state: "placing", coming } },
   /** #645: the deck's last two tiles: one coming, none after it. */
   queueLast: { ...boardBase, remaining: 2, hand: { tile: hand, state: "placing", coming: coming.slice(0, 1) } },
   // The bubble's callbacks are the page's: no-ops here, the stories and tests pass their own.
@@ -115,10 +123,10 @@ export const BOARD = {
   closing: { ...boardBase, delta: 370, hand: { tile: hand, state: "placing" }, lastScored: LAST_SCORED },
   pending: { ...boardBase, tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }], hand: { tile: hand, state: "pending", slotChosen: true } },
   refused: { ...boardBase, hand: { tile: hand, state: "refused", slotChosen: true, error: "Move refused by the contract: the edges do not match." } },
-  expired: { ...boardBase, expiresAt: GAME_EXPIRED.expiresAt, hand: { tile: hand, state: "expired" } },
-  training: { ...boardBase, mode: "training", gameId: undefined, expiresAt: null, hand: { tile: hand, state: "placing" } },
+  expired: { ...boardBase, expiresAt: GAME_EXPIRED.expiresAt, meter: null, hand: { tile: hand, state: "expired" } },
+  training: { ...boardBase, ...trainingBase, hand: { tile: hand, state: "placing" } },
   /** A Story level with `localStorage` refused: its progress is not saved (Training saves nothing, so has no notice: #718). */
-  storageDisabled: { ...boardBase, mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees", hand: { tile: hand, state: "placing" }, storageDisabled: true },
+  storageDisabled: { ...boardBase, mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees", meter: storyMeter(2, [1, 1, 0.4]), hand: { tile: hand, state: "placing" }, storageDisabled: true },
   large: {
     ...boardBase,
     tiles: BOARD_72.tiles,
