@@ -142,6 +142,13 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 - The pre-push hook `.githooks/pre-push` runs the cheap part (format, typecheck, guard tests of the touched packages); a clone turns it
   on with `git config core.hooksPath .githooks`. Skip once with `PAVED_SKIP_PREPUSH=1 git push`. A missing tool lets the push through.
 
+## Merge queue
+
+- `main` takes pull requests through GitHub's merge queue (once the owner's ruleset turns it on). The queue tests each
+  pull request on top of the real `main` and of the pull requests ahead of it: `Stolsis CI` runs on `merge_group`, and
+  its `ci` job is the required check there as on the pull request.
+- `gh pr merge --admin` skips the queue and is never used. The flow rules themselves land in #1126.
+
 ## Pull requests
 
 - **Small pull requests (R8).** One brief, one pull request of at most about 400 lines of hand-written change. Generated files,
