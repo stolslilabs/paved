@@ -385,6 +385,33 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     });
   });
 
+  // RANKING-TOP-PADDING (the owner, 2026-11-08): the first title 16 px under the body's top, at its padding, as the Profile's and the
+  // Missions' content (measured at 375, 768 and 1440: the title stood at 0). jsdom lays nothing out: the strip's spacing classes hold it.
+  it("stands the first title at the body's padding on every tab and state: the top pin's strip gives back under it what it takes above", () => {
+    // A spacing class's figure in Tailwind's 4 px units, signed (`-mt-4` -4, `mb-1` 1); none, 0.
+    const units = (el: Element, prop: string) => {
+      const found = [...el.classList].find((c) => new RegExp(`^-?${prop}-\\d+$`).test(c));
+      return found ? (found.startsWith("-") ? -1 : 1) * Number(found.slice(found.lastIndexOf("-") + 1)) : 0;
+    };
+    for (const state of [LEADERBOARD.playersInView, LEADERBOARD.guilds, LEADERBOARD.alliances, LEADERBOARD.friends, LEADERBOARD.loading, LEADERBOARD.empty, LEADERBOARD.unavailable]) {
+      const { drawer, unmount } = scene(state);
+      const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+      const strip = drawer.querySelector<HTMLElement>("[data-slot=ranking-top]")!;
+      const tabs = strip.parentElement!;
+      // The strip opens the body, of no height: the tabs the body's first child, the strip theirs.
+      expect(body.firstElementChild).toBe(tabs);
+      expect(tabs.firstElementChild).toBe(strip);
+      expect(strip).toHaveClass("h-0");
+      // Above, the body's top padding taken back: the strip at the body's very top, and stuck there as it scrolls.
+      expect(units(body, "pt")).toBe(4);
+      expect(units(strip, "mt")).toBe(-units(body, "pt"));
+      expect(units(strip, "top")).toBe(-units(body, "pt"));
+      // Under it, all of it given back with the tabs' gap: what comes next (the title, or the network's note) starts at the padding.
+      expect(units(strip, "mt") + units(strip, "mb") + units(tabs, "gap")).toBe(0);
+      unmount();
+    }
+  });
+
   it("shows the wait, nothing ranked, and a failed read with Retry", async () => {
     const loading = scene(LEADERBOARD.loading);
     expect(within(loading.drawer).getByRole("status", { name: "Loading the players" })).toBeInTheDocument();

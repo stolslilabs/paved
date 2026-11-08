@@ -34,8 +34,10 @@ export interface GameHudProps {
   onBack?: () => void;
   /** The gear: opens the device settings over the board (#541). */
   onSettings?: () => void;
-  /** Story's Restart, held (GAME-OVERLAY): the level again from its first tile. */
+  /** Restart, held (GAME-OVERLAY): Story's level, Training's game (TRAINING-END) again from its first tile. */
   onRestart?: () => void;
+  /** Restart's name: "Hold to restart the level" (Story's) unless given (Training's game). */
+  restartLabel?: string;
   /** Restart is shown, dimmed: the level's intro or end is over the board. */
   restartDisabled?: boolean;
   /** A Story coach mark points at the gear: its light (the deck's is on the tile stack, #606; the season dial's is the board scene's). */
@@ -57,7 +59,7 @@ const GROOVE: CSSProperties = {
  * the last move's gain in green or the placed tile's points in gold; then, for a Challenge, behind a carved groove, the time left by the
  * painted stopwatch and the reward by the PAVED coin ("max" under it from the cap's score); Story's Restart, held; the painted gear. The tiles left are on the tile stack (#606).
  */
-export function GameHud({ title, score, delta, preview, expiresAt, reward, now, onBack, onSettings, onRestart, restartDisabled, coach, className }: GameHudProps) {
+export function GameHud({ title, score, delta, preview, expiresAt, reward, now, onBack, onSettings, onRestart, restartLabel, restartDisabled, coach, className }: GameHudProps) {
   const challenge = expiresAt != null || reward;
   return (
     <header className={cn("relative isolate flex min-h-14 items-center gap-0.5 py-1 pr-1 pl-0.5 mobile:gap-1 tablet:gap-2 tablet:pr-2", className)}>
@@ -97,7 +99,7 @@ export function GameHud({ title, score, delta, preview, expiresAt, reward, now, 
           </div>
         </>
       )}
-      {onRestart && <RestartHold onRestart={onRestart} disabled={restartDisabled} className="size-11 shrink-0 rounded-full p-0" />}
+      {onRestart && <RestartHold onRestart={onRestart} label={restartLabel} disabled={restartDisabled} className="size-11 shrink-0 rounded-full p-0" />}
       {onSettings && (
         <span data-coach={coach === "settings" ? "settings" : undefined} className={cn(COACH_BOX, "grid shrink-0")}>
           {coach === "settings" && <CoachMark />}

@@ -26,10 +26,10 @@ function show(data: Omit<PvpEndSceneProps, "onOpenChest" | "onVillage" | "onAgai
 
 describe("PvpEndScene (#790)", () => {
   it.each([
-    ["zeroStars", 0, "Defeat"],
-    ["oneStar", 1, "Victory"],
-    ["twoStars", 2, "Victory"],
-    ["threeStars", 3, "Triumph"],
+    ["zeroStars", 0, "DEFEAT"],
+    ["oneStar", 1, "VICTORY"],
+    ["twoStars", 2, "VICTORY"],
+    ["threeStars", 3, "VICTORY"],
   ] as const)("%s: the stars, the verdict and the score against the village's", (key, stars, verdict) => {
     const data = PVP_END[key];
     show(data);

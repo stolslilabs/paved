@@ -53,10 +53,13 @@ const PAINTED: Readonly<Partial<Record<string, Painting>>> = {
   [CategoryType.Wonder]: "wonder",
 };
 
-/** A closing's painting, or the category's relief icon where none is painted (a category the client does not know). */
-function ClosingArt({ category }: { category: number }) {
+/**
+ * A closing's painting `px` wide (28 by default, the feed's), or the category's relief icon where none is painted (a category the client
+ * does not know). Training's end draws its categories with it too (TRAINING-END).
+ */
+export function ClosingArt({ category, px = 28, className = "size-7" }: { category: number; px?: number; className?: string }) {
   const art = PAINTED[Object.values(CategoryType)[category] as string];
-  return art ? <UiIcon name={art} px={28} className="drawer-icon size-7 shrink-0" /> : <CategoryIcon category={category} size="sm" />;
+  return art ? <UiIcon name={art} px={px} className={cn("drawer-icon shrink-0", className)} /> : <CategoryIcon category={category} size="sm" />;
 }
 
 /**

@@ -147,9 +147,16 @@ const openSettings: Story["play"] = async ({ canvasElement }) => {
  * desktop (1440 px); "This game" first, with Surrender (#606), which asks in its dialog.
  */
 export const SettingsOpen: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, play: openSettings };
-/** The settings in Training: Restart (the same game from its first tile, same deck), confirmed by a dialog. No Surrender. */
+/** The settings in Training: no game row (TRAINING-END: its Restart is held in the header, as Story's). No Surrender. */
 export const SettingsTraining: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null) }, play: openSettings };
-/** The settings in Story mode: Restart level, confirmed by a dialog. */
+/**
+ * Training's header (TRAINING-END, aligned with Story's after GAME-OVERLAY): Back, "Training" and the score, the held red Restart, the
+ * gear; under it the score meter to the device's best (the crown).
+ */
+export const Training: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null) } };
+/** Training on the device's first game: no best, so no meter; the header the same. */
+export const TrainingFirstGame: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null), meter: null } };
+/** The settings in Story mode: no game row (its Restart is held on the board). */
 export const SettingsStory: Story = {
   args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, meter: storyStars(BOARD.placing.score), title: "Tutorial 5: Under the trees" },
   play: openSettings,

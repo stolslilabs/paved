@@ -1,12 +1,18 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { describe, expect, it, vi } from "vitest";
+import { CategoryType, formatInteger, winningScore } from "@paved/game-core";
+import { CLOSING_CATEGORIES, categoryInfo } from "../src/components/elements/category";
 import { BalancesProvider } from "../src/components/containers/balances-context";
-import { OverScene, type SettleProps } from "../src/components/scenes/over-scene";
+import { END_STARS } from "../src/components/containers/game-end";
+import { OverScene, challengeWon, type SettleProps } from "../src/components/scenes/over-scene";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
+import { CURVE_PLAYING } from "../src/mocks/games";
 import { OVER } from "../src/mocks/scenes";
 
+/** Points as the end writes them. */
+const pts = (n: number) => formatInteger(n);
 const show = (ui: React.ReactNode) => render(<LazyMotion features={domMax}>{ui}</LazyMotion>);
 const settleArea = () => screen.getByRole("region", { name: "Settle" });
 
@@ -103,16 +109,16 @@ describe("OverScene: the figures and the final board (#539)", () => {
   });
 
   it("says None closed for a category the game did not close", () => {
-    show(<OverScene {...OVER.noClosing} />);
+    show(<OverScene {...OVER.noClosing} mode="challenge" reward={{ state: "awaiting", stake: 3 }} />);
     expect(screen.getByTestId("highlight-city")).toHaveTextContent("None closed");
     expect(screen.queryByTestId("highlight-best")).toBeNull();
     expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent("Left open1Largest: a road of 3 tiles");
   });
 
-  it("the board is the scores' background from the start: covered, inert, then free under Board, and covered again (#720)", async () => {
+  it("a Challenge's board is the scores' background from the start: covered, inert, then free under Board, and covered again (#720)", async () => {
     const onViewChange = vi.fn();
     const onHome = vi.fn();
-    show(<OverScene {...OVER.training} onViewChange={onViewChange} onHome={onHome} />);
+    show(<OverScene {...OVER.awaiting} onViewChange={onViewChange} onHome={onHome} />);
     // Loaded as the screen opens, under the scores: no input reaches it there.
     const board = await screen.findByTestId("final-board");
     expect(await within(board).findByRole("img", { name: /Board of \d+ tiles/, hidden: true })).toBeInTheDocument();
@@ -124,36 +130,35 @@ describe("OverScene: the figures and the final board (#539)", () => {
     expect(onViewChange).toHaveBeenLastCalledWith("board");
     expect(board).not.toHaveAttribute("aria-hidden", "true");
     expect(board).not.toHaveAttribute("inert");
-    // One bar for both views, titled with the mode; its Back returns to the scores from the board.
-    expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
+    // One bar for both views, titled with the game; its Back returns to the scores from the board.
+    const title = `Challenge #${OVER.awaiting.game.id}`;
+    expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(onViewChange).toHaveBeenLastCalledWith("scores");
     expect(board).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
     // From the scores, Back leaves the screen.
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(onHome).toHaveBeenCalledOnce();
   });
 
-  it("one bar, the board's HUD: the mode and the score, no balances, no hairline, whatever the view (#720)", async () => {
+  it("a Challenge's end has one bar, the board's HUD: the game and the score, no balances, no hairline, whatever the view (#720)", async () => {
     show(
       <BalancesProvider value={{ state: { status: "ready", usdc: 100_000_000n, paved: 129_110_000_000_000_000_000n, cobbles: 10 } }}>
-        <OverScene {...OVER.training} />
+        <OverScene {...OVER.awaiting} />
       </BalancesProvider>,
     );
     const toggle = screen.getByRole("radiogroup", { name: "Show" });
     for (const view of ["Board", "Scores", "Board"]) {
       await userEvent.click(within(toggle).getByRole("radio", { name: view }));
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-      const bar = screen.getByRole("heading", { level: 1, name: "Training" }).closest("header")!;
+      const bar = screen.getByRole("heading", { level: 1, name: `Challenge #${OVER.awaiting.game.id}` }).closest("header")!;
       expect(bar).not.toHaveAttribute("data-slot", "page-header");
       expect(bar.className).not.toMatch(/(^|\s)border-b(\s|$)/);
       expect(within(bar).queryByRole("region", { name: "Balances" })).toBeNull();
-      expect(bar).toHaveTextContent(/^TrainingScore[\d,]+$/);
+      expect(bar).toHaveTextContent(/^Challenge #\d+Score[\d,]+$/);
     }
     expect(screen.queryByRole("region", { name: "Balances" })).toBeNull();
-    // The score card has no label of its own any more: the bar names the mode.
-    expect(within(screen.getByTestId("final-score")).queryByText("Training")).toBeNull();
   });
 
   it("a Challenge's end is titled with its game", () => {
@@ -161,9 +166,151 @@ describe("OverScene: the figures and the final board (#539)", () => {
     expect(screen.getByRole("heading", { level: 1, name: `Challenge #${OVER.rewarded.game.id}` })).toBeInTheDocument();
   });
 
+  it("a Challenge's end says VICTORY when rewarded and GAME OVER below the threshold, over its score", () => {
+    const { unmount } = show(<OverScene {...OVER.rewarded} />);
+    expect(within(screen.getByTestId("final-score")).getByRole("heading", { level: 2, name: "VICTORY" })).toBeInTheDocument();
+    unmount();
+    show(<OverScene {...OVER.below} />);
+    expect(within(screen.getByTestId("final-score")).getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
+  });
+
+  it("a Challenge is won rewarded or at the score to beat (the HUD's trophy), never below it, expired, free or unread", () => {
+    const toBeat = Math.ceil(OVER.awaiting.reward.threshold);
+    expect(challengeWon(0, OVER.rewarded.reward)).toBe(true);
+    expect(challengeWon(toBeat, OVER.awaiting.reward)).toBe(true);
+    expect(challengeWon(toBeat - 1, OVER.awaiting.reward)).toBe(false);
+    expect(challengeWon(toBeat, OVER.settle.reward)).toBe(true);
+    // The day still open: the score to beat at its curve's threshold.
+    const least = winningScore(CURVE_PLAYING.threshold);
+    expect(challengeWon(least, OVER.awaitingEstimate.reward)).toBe(true);
+    expect(challengeWon(least - 1, OVER.awaitingEstimate.reward)).toBe(false);
+    expect(challengeWon(toBeat, { state: "awaiting", stake: 3 })).toBe(false);
+    expect(challengeWon(toBeat, OVER.below.reward)).toBe(false);
+    expect(challengeWon(toBeat, OVER.expired.reward)).toBe(false);
+    expect(challengeWon(toBeat, OVER.awaiting.reward, true)).toBe(false);
+  });
+
   it("has no toggle without a board", () => {
     show(<OverScene {...OVER.noBoard} />);
     expect(screen.queryByRole("radiogroup", { name: "Show" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Highlights" })).toBeNull();
+  });
+});
+
+/** The contracts' category names, by index. */
+const CATEGORY_TYPES = Object.values(CategoryType);
+
+describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", () => {
+  const stats = OVER.training.stats;
+  const score = OVER.training.game.score;
+
+  it("a new best: the crown reached and lit, the headline, the best before and the score", () => {
+    show(<OverScene {...OVER.training} previousBest={1_180} />);
+    const mark = screen.getByRole("img", { name: "Crown: a new best" });
+    expect(mark).toHaveAttribute("data-reached", "true");
+    expect(mark.querySelector("[data-lit]")).not.toBeNull();
+    expect(screen.getByRole("heading", { level: 2, name: "VICTORY" })).toBeInTheDocument();
+    const best = screen.getByRole("region", { name: "Best" });
+    expect(best).toHaveAttribute("data-record", "true");
+    expect(best).toHaveTextContent(`${pts(score)}1,180 → ${pts(score)}`);
+    expect(within(screen.getByTestId("final-score")).getByTestId("score-value")).toHaveTextContent(pts(score));
+  });
+
+  it("short of the best: Game over, the crown's gold stopping at the score's share, nothing lit", () => {
+    show(<OverScene {...OVER.training} />);
+    const share = Math.round((score / 1_420) * 100);
+    const mark = screen.getByRole("img", { name: `Crown: ${share}% of your best` });
+    expect(mark).not.toHaveAttribute("data-reached");
+    expect(mark.querySelector("[data-lit]")).toBeNull();
+    expect(mark.querySelector(`[data-fill="${share}"]`)).not.toBeNull();
+    expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Best" })).toHaveTextContent("1,420Your best");
+  });
+
+  it("the device's first game: no best to beat, the crown grey, the score the best", () => {
+    show(<OverScene {...OVER.training} previousBest={null} />);
+    const mark = screen.getByRole("img", { name: "Crown: no best to beat yet" });
+    expect(mark.querySelector('[data-fill="0"]')).not.toBeNull();
+    expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Best" })).toHaveTextContent(`${pts(score)}Your best`);
+  });
+
+  it("the tiles, the closed categories in boxes and every closing; no reward, no Challenge figures; Home and Play again", async () => {
+    const onHome = vi.fn();
+    const onPlayAgain = vi.fn();
+    show(<OverScene {...OVER.training} onHome={onHome} onPlayAgain={onPlayAgain} />);
+    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(`${stats.placed} placed ${stats.discarded} discarded −${stats.discardPenalty}`);
+    const boxes = within(screen.getByRole("list", { name: "Closed" })).getAllByRole("listitem");
+    // The city, the road, the forest, the wonder, each with its count and its points.
+    expect(boxes.map((b) => b.getAttribute("aria-label"))).toEqual(
+      CLOSING_CATEGORIES.map((category) => {
+        const of = stats.categories.find((c) => c.category === CATEGORY_TYPES[category])!;
+        return `${categoryInfo(category).plural}: ${of.closed} closed, ${pts(of.points)} points`;
+      }),
+    );
+    expect(within(screen.getByRole("region", { name: "Closings" })).getAllByRole("listitem")).toHaveLength(OVER.training.closings.length);
+    expect(screen.queryByRole("region", { name: "Reward" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Highlights" })).toBeNull();
+    expect(screen.queryByRole("radiogroup", { name: "Show" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Training over" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Play again" }));
+    expect(onPlayAgain).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(onHome).toHaveBeenCalledOnce();
+  });
+
+  it("nothing closed: every category at 0, the list says so", () => {
+    show(<OverScene {...OVER.noClosing} />);
+    for (const box of within(screen.getByRole("list", { name: "Closed" })).getAllByRole("listitem")) expect(box.getAttribute("aria-label")).toMatch(/: 0 closed, 0 points$/);
+    expect(within(screen.getByRole("region", { name: "Closings" })).getByText("No structure closed in this game.")).toBeInTheDocument();
+  });
+
+  it("without figures, the closings count the categories and the game its tiles", () => {
+    show(<OverScene {...OVER.training} stats={undefined} />);
+    const city = CLOSING_CATEGORIES[0]!;
+    const cities = OVER.training.closings.filter((c) => c.category === city);
+    expect(cities.length).toBeGreaterThan(0);
+    expect(within(screen.getByRole("list", { name: "Closed" })).getAllByRole("listitem")[0]).toHaveAttribute(
+      "aria-label",
+      `${categoryInfo(city).plural}: ${cities.length} closed, ${pts(cities.reduce((s, c) => s + c.points, 0))} points`,
+    );
+    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(`${OVER.training.game.placedCount} placed ${OVER.training.game.discardedCount} discarded`);
+  });
+
+  it("the cross shows the final board, free; the gold Scores pill brings the window back at once", async () => {
+    const onViewChange = vi.fn();
+    show(<OverScene {...OVER.training} onViewChange={onViewChange} />);
+    expect(screen.getByTestId("scores-overlay")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close the scores" }));
+    expect(onViewChange).toHaveBeenLastCalledWith("board");
+    const board = await screen.findByTestId("final-board");
+    expect(board).not.toHaveAttribute("aria-hidden", "true");
+    expect(board).not.toHaveAttribute("inert");
+    expect(screen.queryByTestId("scores-overlay")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Show the scores" }));
+    expect(onViewChange).toHaveBeenLastCalledWith("scores");
+    expect(board).toHaveAttribute("aria-hidden", "true");
+    expect(board).toHaveAttribute("inert");
+    // Shown again, the crown is there at once: no beat, no light coming in.
+    expect(screen.getByTestId("scores-overlay")).toBeInTheDocument();
+  });
+
+  it("loads the board under the window once its crown is in, not with it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      show(<OverScene {...OVER.training} />);
+      expect(screen.queryByTestId("final-board")).toBeNull();
+      await act(() => vi.advanceTimersByTimeAsync((END_STARS.lead + 0.9) * 1000));
+      const board = await screen.findByTestId("final-board");
+      expect(board).toHaveAttribute("aria-hidden", "true");
+      expect(board).toHaveAttribute("inert");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("no board to show: no cross", () => {
+    show(<OverScene {...OVER.training} board={undefined} />);
+    expect(screen.queryByRole("button", { name: "Close the scores" })).toBeNull();
   });
 });

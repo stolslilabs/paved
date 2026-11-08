@@ -274,9 +274,11 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
         }}
         className="flex flex-col gap-3"
       >
-        {/* The top pin: a strip of no height stuck to the body's top (its padding and the tabs' gap taken back), the row drawn over the
-            list from it, full width; the list scrolls under it and the real row, coming back, shows where the pin stood. */}
-        <div data-slot="ranking-top" className="sticky -top-4 z-10 -mx-4 -mt-4 -mb-3 h-0">
+        {/* The top pin: a strip of no height stuck to the body's top (its padding taken back), the row drawn over the list from it,
+            full width; the list scrolls under it and the real row, coming back, shows where the pin stood. Under it, the padding given
+            back (4 px and the tabs' 12 px gap): the first title stands 16 px under the body's top, as the Profile's and the Missions'
+            content (RANKING-TOP-PADDING). */}
+        <div data-slot="ranking-top" className="sticky -top-4 z-10 -mx-4 -mt-4 mb-1 h-0">
           {pinSide === "above" && (
             <div style={TOP_PIN} className="absolute inset-x-0 top-0">
               {pin}

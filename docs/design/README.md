@@ -691,6 +691,24 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   the HUD). On the plan view the same rules round the pressed cell, the plan's scrolling region its room. Unchanged from #799: the
   ring fills during the press and the action fires at its end; let go early, the button lingers about 3 s, tappable, then fades
   (none under reduced motion); a press elsewhere or Escape hides it; its name is "Edit village".
+  TRAINING-END (2026-11-08), Training's header and score screen (the owner's words: "on est encore sur un vieux layout"; the book draws
+  neither, so in the integrated pages' style: GAME-OVERLAY's HUD, the Ranked and Story ends). The header: Training takes Story's held
+  red Restart before the gear (one place for one action, the hold its confirmation), its settings lose their game row, and the Restart
+  dialog is gone; the rest was already Story's (Back, the title, the score, the crown's meter to the device's best). The end
+  (`/training/over`, `containers/training-end.tsx` on `GameEnd`): the book's window over the final board blurred, crowned by the crown of
+  Training's meter in the middle star's place (`EndMark`: gold from the left by the score's share of the best, popping with the third
+  star's sound and buzz and lit as a won star once beaten, grey on the device's first game); "New best!" or "Game over", "Training",
+  the score; the carved card of the Ranked end's rows, the best (the crown, the figure, the best before → the score when beaten) and the
+  tiles (placed, discarded, what the discards took); the closed structures by category in carved boxes (the painted city, road, forest
+  and wonder, the count, the points); every closing in a carved list that scrolls in its box; Home and the gold Play again at the foot.
+  The window's cross shows the board, free to pan and zoom, and the gold Scores pill brings the window back at once. A Challenge's end
+  keeps its layout.
+  END-VERDICTS (2026-11-08, the owner's ask: "VICTORY (en uppercase) ou GAME OVER pour Story, Challenge, Training et les victoires
+  en Ranked"): the ends' verdicts in capitals (`EndVerdict` in `game-end.tsx`). Ranked, on the v2 end and the older one alike:
+  VICTORY at one, two or three stars (no more "Triumph": the stars say how large), DEFEAT at none (the owner: "Defeat pour les
+  Ranked game plutôt que Game Over"), "Surrendered" kept. Story: VICTORY, or GAME OVER with no star. Training: VICTORY on a new
+  best, else GAME OVER. A Challenge's end, which had no verdict, gets one over its score, in the same gold: VICTORY rewarded or at
+  the score to beat (the trophy of the HUD's meter), GAME OVER below it, expired, free or with its reward unread.
   NO-ALLIANCES (2026-11-08, the owner's decision): alliances dropped, 2026-11-08; guilds stand alone, with no level above them
   (their rules, mock, pages, the Ranking's tab and their paintings removed). In the same change the app names a guild an Allegiance
   in what it shows (en-US, P-66): "Allegiance" and "Allegiances" for "Guild" and "Guilds", "allegiance" inside a sentence, "an
