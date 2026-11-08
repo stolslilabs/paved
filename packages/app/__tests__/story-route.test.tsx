@@ -10,6 +10,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, memoryStore } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import type { GameSigner } from "../src/data";
 import { placeTile, preloadPages, discardTile } from "./route-helpers";
 
 // Story is a sheet over Play's drawer, over the home (PLAY-PAGE): their chunks too, or the file's first test loads them cold inside
@@ -296,5 +297,64 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     expect(within(tutorial).getByRole("button", { name: /^Level 11, .*, locked$/ })).toBeDisabled();
     // The first village keeps its 3 stars at 1-12 (locked until the new 1-11 is finished).
     expect(within(tutorial).getByRole("button", { name: /^Level 12, The first village, locked, 3 of 3 stars$/ })).toBeDisabled();
+  });
+});
+
+/**
+ * A signer that writes the village side (`freeVillageSigner`), its Story report refused the first time and landed the next, with no
+ * chest: the report's failure, then its Retry (#1088).
+ */
+function refusingReport() {
+  const reports: number[] = [];
+  const sent = async () => ({ transactionHash: "0x1", events: [] });
+  const signer = {
+    address: PLAYER,
+    foundFreeVillage: sent,
+    saveLayout: sent,
+    openChest: sent,
+    buyTile: sent,
+    reportStory: async ({ stars }: { stars: number }) => {
+      reports.push(stars);
+      if (reports.length === 1) throw new Error("The RPC did not answer.");
+      return { transactionHash: "0x2", events: [{ name: "StoryReported", fields: { xp: 0, chest: "" } }] };
+    },
+  } as unknown as GameSigner;
+  return { signer, reports };
+}
+
+describe("/story/:campaign/:level: a failed report (#1088)", { timeout: slow(30_000) }, () => {
+  const level = TUTORIAL.levels[0]!;
+  /** Level 1-1 played again by discards (1 star), its deck presented, after `before` (the device's progress). */
+  async function failedRun(before: typeof EMPTY_PROGRESS) {
+    const store = memoryStore({ [STORY_KEY]: JSON.stringify(before), [PRESENTED_KEY]: JSON.stringify(["1-1"]) });
+    const { signer, reports } = refusingReport();
+    render(<App router={createTestRouter("/story/1/1")} sources={fakeSources({ store: () => store, signer }).sources} connector={fakeWallet().load} />);
+    await within(await screen.findByRole("region", { name: "Your tile" }, { timeout: slow(5000) })).findByRole("button", { name: /^Hold to discard/ });
+    for (let i = 0; i < level.deck.length; i++) await discardTile();
+    const end = await screen.findByTestId("story-end", {}, { timeout: slow(5000) });
+    expect(end).toHaveAttribute("data-stars", "1");
+    const chest = within(end).getByRole("region", { name: "Chest" });
+    // The failure and its message, never what the device's stars would say.
+    await waitFor(() => expect(chest).toHaveAttribute("data-state", "error"), { timeout: slow(5000) });
+    expect(chest).toHaveTextContent(/^Could not load your .*chest/);
+    expect(chest).toHaveTextContent("The RPC did not answer.");
+    expect(chest).not.toHaveTextContent(/Chest already won|No chest this time/);
+    expect(reports).toEqual([1]);
+    // Its Retry sends the report again; landed with no chest, the end says why.
+    await userEvent.click(within(chest).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(reports).toEqual([1, 1]));
+    await waitFor(() => expect(chest).not.toHaveAttribute("data-state", "error"), { timeout: slow(5000) });
+    return chest;
+  }
+
+  it("with three stars before on this device: the failure and Retry, not 'Chest already won'", async () => {
+    const chest = await failedRun(recordRun(EMPTY_PROGRESS, level, { campaignId: 1, levelIndex: 1, moves: [] }, level.target));
+    expect(chest).toHaveAttribute("data-state", "already");
+  });
+
+  it("with fewer than three stars: the failure and Retry, not 'No chest this time'", async () => {
+    const chest = await failedRun(EMPTY_PROGRESS);
+    expect(chest).toHaveAttribute("data-state", "missed");
+    expect(chest).toHaveTextContent("No chest this time");
   });
 });

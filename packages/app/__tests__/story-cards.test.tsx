@@ -208,6 +208,36 @@ describe("a level's intro (#593, #721; STORY-INTRO: the HUD's window over the bo
     for (const li of screen.getByTestId("presented-tiles").querySelectorAll("li")) expect((li as HTMLElement).style.opacity).not.toBe("0");
     expect(screen.getByTestId("level-tip").style.opacity).not.toBe("0");
   });
+
+  // #1090: a long deck (Open Country 12) on a short phone (568 px tall) opened on its foot, the focus on Start scrolling the window down
+  // at once (scrollTop 222 to 250 at 320, 360 and 375 in Chromium). jsdom lays nothing out: its focus is given the browser's scroll into
+  // view (the scroller to the focused control, unless `preventScroll`), with the measured offset.
+  for (const width of [320, 360, 375]) {
+    it(`a long deck opens at its head on a short phone (${width} x 568): Start focused, the window not scrolled`, () => {
+      vi.stubGlobal("innerWidth", width);
+      vi.stubGlobal("innerHeight", 568);
+      const scrolled = new Map<Element, number>();
+      const focus = HTMLElement.prototype.focus;
+      const spy = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (this: HTMLElement, options?: FocusOptions) {
+        const scroller = this.closest("[data-slot='scroll-region']");
+        if (scroller && !options?.preventScroll) scrolled.set(scroller, 250);
+        focus.call(this, options);
+      });
+      try {
+        const country = CAMPAIGNS[1]!;
+        const level = country.levels[11]!;
+        intro({ campaign: country.name, campaignId: country.id, levelIndex: level.id, title: level.title, intro: level.intro, tip: level.tip, deck: ids(level.deck) });
+        expect(level.deck.length).toBeGreaterThan(8);
+        const scroller = screen.getByTestId("deck-presentation").querySelector("[data-slot='scroll-region']")!;
+        expect(screen.getByRole("button", { name: "Start" })).toHaveFocus();
+        expect(scrolled.get(scroller) ?? scroller.scrollTop).toBe(0);
+        expect(screen.getByRole("button", { name: "Start" })).not.toHaveAttribute("autofocus");
+      } finally {
+        spy.mockRestore();
+        vi.unstubAllGlobals();
+      }
+    });
+  }
 });
 
 describe("a coach mark (#546; STORY-INTRO: the tip's look on the HUD's frame)", () => {
