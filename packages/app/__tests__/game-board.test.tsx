@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardViewportProps } from "../src/components/containers/board-viewport";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { RENDERER_ASSETS } from "../src/data/renderer-manifest";
+import { DEFAULT_SETTINGS, deviceSettings } from "../src/data/settings";
 import type { BoardCanvasProps } from "../src/routes/board-canvas";
 import { useGameBoard, type GameBoardPlacement } from "../src/routes/game-board";
 import HomeCanvas from "../src/routes/home-canvas";
@@ -37,6 +38,7 @@ vi.mock("../src/components/containers/stack-view", async (actual) => ({
 }));
 afterEach(() => {
   gl.on = true;
+  deviceSettings.set(DEFAULT_SETTINGS);
 });
 
 const STARTER = { id: 1, plan: 0, orientation: 1, x: 2_147_483_647, y: 2_147_483_647 };
@@ -45,12 +47,11 @@ const SKINS = { ccccccccc: 1 };
 const placement: GameBoardPlacement = { plan: 3, slotsAt: () => [SLOT], orientationsAt: () => [1, 2], version: 0, resetKey: 0 };
 
 describe("useGameBoard", () => {
-  it("gives the scene the 3D board, the 3D stack, the dial and the placement, from one set of inputs", () => {
+  it("gives the scene the 3D board, the 3D stack and the placement, from one set of inputs", () => {
     const { result } = renderHook(() => useGameBoard({ skins: SKINS, placement }));
     const scene = result.current.scene({ tiles: [STARTER], gameId: 7, bubble: null });
     expect(scene.tiles).toEqual([STARTER]);
     expect(scene.skins).toBe(SKINS);
-    expect(scene.seasonWheel).toBeDefined();
     expect(scene.renderHandStack).toBeTypeOf("function");
     expect(scene.slots).toEqual([{ ...SLOT, fits: true }]);
     // The canvas gets the same tiles, skins, slots and taps as the plan view would.
@@ -62,21 +63,23 @@ describe("useGameBoard", () => {
     expect(canvas.onCellClick).toBe(scene.onSlotClick);
     expect(canvas.onCellPress).toBe(scene.onSlotClick);
     expect(canvas.board.renderer).toBeDefined();
-    expect(canvas.board.onScene).toBeTypeOf("function");
     // Drawn, it is the renderer's canvas on the app's served models with the board settings.
     render(<>{scene.canvas}</>);
     expect(drawn.board.at(-1)).toMatchObject({ basePath: RENDERER_ASSETS, gameId: 7, skins: SKINS, settings: canvas.board.renderer, tilePreview: canvas.board.tilePreview });
   });
 
-  it("holds summer's day with `summerDay` (the scout, #788): the cycle off whatever the Day and night setting, no season dial", () => {
+  it("holds summer's day with `summerDay` (the scout, #788): the cycle off whatever Settings' seasons and day and night", () => {
+    act(() => deviceSettings.set({ ...deviceSettings.get(), seasons: "winter", dayTime: "night" }));
     const { result } = renderHook(() => useGameBoard({ side: "rival", summerDay: true, placement }));
     const scene = result.current.scene({ tiles: [STARTER], bubble: null });
-    expect(scene.seasonWheel).toBeUndefined();
     // The renderer's rule (#770): the cycle off is summer's day, its fixed lights, no night and no chimney smoke.
     expect((scene.canvas as { props: BoardCanvasProps }).props.board.renderer.dayNight).toEqual({ enabled: false, freezeAt: null });
-    // Without it, the setting's default (on) runs the cycle, as the attack that follows does.
+    // Without it, Settings' choice (winter's night held here), as the attack that follows does; their default runs the whole cycle.
     const own = renderHook(() => useGameBoard({ side: "rival", placement })).result.current.scene({ tiles: [STARTER], bubble: null });
-    expect((own.canvas as { props: BoardCanvasProps }).props.board.renderer.dayNight).toEqual({ enabled: true, freezeAt: null });
+    expect((own.canvas as { props: BoardCanvasProps }).props.board.renderer.dayNight).toEqual({ enabled: true, freezeAt: 2.805 });
+    act(() => deviceSettings.set({ ...deviceSettings.get(), seasons: "cycle", dayTime: "cycle" }));
+    const auto = renderHook(() => useGameBoard({ side: "rival", placement })).result.current.scene({ tiles: [STARTER], bubble: null });
+    expect((auto.canvas as { props: BoardCanvasProps }).props.board.renderer.dayNight).toEqual({ enabled: true, freezeAt: null });
   });
 
   it("chooses a slot through the placement it holds: the ghost and the bubble's rotations follow", () => {
@@ -94,7 +97,6 @@ describe("useGameBoard", () => {
     const scene = result.current.scene({ tiles: [STARTER], bubble: null });
     expect(scene.canvas).toBeUndefined();
     expect(scene.renderHandStack).toBeUndefined();
-    expect(scene.seasonWheel).toBeDefined();
   });
 
   it("starts on the plan view and the CSS pile without WebGL", () => {

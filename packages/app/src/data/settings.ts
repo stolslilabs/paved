@@ -1,8 +1,8 @@
-import { useMemo } from "react";
 import type { BackdropPattern, HighlightStyle, QualityTier, RendererSettingsInput } from "@paved/renderer";
+import { DAY_TIME_CHOICES, SEASONS_CHOICES, type DayTimeChoice, type SeasonsChoice } from "./day-night";
 import { createDeviceStore, useDeviceStore, type DeviceStore } from "./device-store";
 
-// The device settings (P11a, section 6.4): graphics quality, the day and night cycle, the ambient effects, the music and sound effects volumes, tile preview and
+// The device settings (P11a, section 6.4): graphics quality, the seasons and the day and night, the ambient effects, the music and sound effects volumes, tile preview and
 // placement highlight, kept on this device under one versioned key. The theme choice (`paved.theme.v1`, the viewer's skins opt-out) is `skins.ts`'s.
 
 /**
@@ -28,8 +28,13 @@ export const QUALITIES: readonly GraphicsQuality[] = ["auto", "low", "medium", "
 
 export interface DeviceSettings {
   quality: GraphicsQuality;
-  /** The board's day and night cycle (DAYNIGHT, P-73): a moving sky, the sun's shadows, the city lights at night. */
-  dayNight: boolean;
+  /**
+   * The board's seasons (SEASONS-SETTINGS): turning ("cycle", DAYNIGHT's seasons, P-73) or one held. With `dayTime`, what the
+   * renderer's day and night cycle draws (`cycleDayNight`).
+   */
+  seasons: SeasonsChoice;
+  /** The board's day and night: turning ("cycle": a moving sky, the sun's shadows, the city lights at night) or the day or the night held. */
+  dayTime: DayTimeChoice;
   /**
    * The ambient effects (#572 to #574): every effect on the renderer's one ambient loop.
    * The renderer keeps them off on the Low tier and under reduced motion, whatever this says.
@@ -55,10 +60,11 @@ export interface DeviceSettings {
   squareGrid: boolean;
 }
 
-/** The mockups' defaults: quality "auto", the day and night cycle on (the owner's, P-73), the ambient effects on (the owner's, #572), music at 0.4 (the owner's, P-81), sound effects at 0.7, preview and highlight on, the square grid on. */
+/** The mockups' defaults: quality "auto", the seasons and the day and night turning (the owner's, P-73 and SEASONS-SETTINGS), the ambient effects on (the owner's, #572), music at 0.4 (the owner's, P-81), sound effects at 0.7, preview and highlight on, the square grid on. */
 export const DEFAULT_SETTINGS: DeviceSettings = {
   quality: "auto",
-  dayNight: true,
+  seasons: "cycle",
+  dayTime: "cycle",
   ambient: true,
   musicVolume: 0.4,
   musicBefore: 0.4,
@@ -90,7 +96,8 @@ export function withMuteToggled(s: DeviceSettings, channel: VolumeChannel): Devi
 /**
  * The stored text as settings: each field that is missing or of the wrong kind takes its default; text that is not an object,
  * all defaults. The first shape (`sound` and `music` switches, `musicVolume`) migrates: a switch that was off is a mute (volume
- * 0, the level before it kept: `musicVolume` for the music). The new shape never writes the switches, so they only ever read as legacy.
+ * 0, the level before it kept: `musicVolume` for the music). The Day/night cycle switch (`dayNight`) migrates too: off is Summer and
+ * Day (the board it drew), on or none Cycle and Cycle. The new shape never writes the switches, so they only ever read as legacy.
  */
 export function parseSettings(raw: string): DeviceSettings {
   let json: unknown;
@@ -101,7 +108,8 @@ export function parseSettings(raw: string): DeviceSettings {
   }
   if (typeof json !== "object" || json === null || Array.isArray(json)) return DEFAULT_SETTINGS;
   const o = json as Record<string, unknown>;
-  const flag = (k: "dayNight" | "ambient" | "tilePreview" | "placementHighlight" | "squareGrid") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
+  const flag = (k: "ambient" | "tilePreview" | "placementHighlight" | "squareGrid") => (typeof o[k] === "boolean" ? o[k] : DEFAULT_SETTINGS[k]);
+  const cycleOff = o.dayNight === false;
   const num = (k: string): number | null => (typeof o[k] === "number" && Number.isFinite(o[k]) ? clamp01(o[k]) : null);
   const channel = (volumeKey: string, beforeKey: string, legacyOn: unknown, fallback: number): { volume: number; before: number } => {
     const volume = num(volumeKey);
@@ -115,7 +123,8 @@ export function parseSettings(raw: string): DeviceSettings {
   const sfx = channel("sfxVolume", "sfxBefore", o.sound, DEFAULT_SETTINGS.sfxBefore);
   return {
     quality: QUALITIES.includes(o.quality as GraphicsQuality) ? (o.quality as GraphicsQuality) : DEFAULT_SETTINGS.quality,
-    dayNight: flag("dayNight"),
+    seasons: SEASONS_CHOICES.includes(o.seasons as SeasonsChoice) ? (o.seasons as SeasonsChoice) : cycleOff ? "summer" : DEFAULT_SETTINGS.seasons,
+    dayTime: DAY_TIME_CHOICES.includes(o.dayTime as DayTimeChoice) ? (o.dayTime as DayTimeChoice) : cycleOff ? "day" : DEFAULT_SETTINGS.dayTime,
     ambient: flag("ambient"),
     musicVolume: music.volume,
     musicBefore: music.before,
@@ -225,16 +234,3 @@ export const BOARD_FOG = { enabled: true } as const;
  * "Ambient effects" off, the white voxels shown then.
  */
 export const BOARD_SMOKE = { enabled: true } as const;
-
-/**
- * What the board takes of the settings: the renderer's settings (quality, the day and night cycle, the ambient effects, the fog, the smoke, memoised so a change
- * applies and a render does not), and the two board switches.
- */
-export function useBoardSettings(): { renderer: RendererSettingsInput; tilePreview: boolean; placementHighlight: boolean } {
-  const [{ quality, dayNight, ambient, tilePreview, placementHighlight, squareGrid }] = useDeviceSettings();
-  const renderer = useMemo<RendererSettingsInput>(
-    () => ({ quality, dayNight: { enabled: dayNight }, ambient: { enabled: ambient }, fog: BOARD_FOG, smoke: BOARD_SMOKE, squareGrid: squareGridSettings(squareGrid) }),
-    [quality, dayNight, ambient, squareGrid],
-  );
-  return { renderer, tilePreview, placementHighlight };
-}

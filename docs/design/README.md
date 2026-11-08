@@ -9,12 +9,6 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   division's numeral in the middle of the crest and the banner; Grand Master, which has none, its golden horned helmet; Unranked
   and Wood an empty field. Generated with OpenAI's image model through the Codex CLI, cut and put on the client's frames as
   `scripts/compress-league-art.ts` describes.
-- `season-wheel.webp`: the season wheel (2026-10-31), aligned that day with the player badge: the badge ring's paving stones,
-  gold blocks and groove around the four seasons as one little planet (summer top right, then autumn, winter, spring), the day and
-  night disc at the centre (night 135°, day 225°), the gold arrow cap at 12 o'clock and its inner notch reading the season and the
-  time of day; the two painted discs toned to a warm grey (60 % chroma) so the gold reads over them. Six moments of the cycle at
-  512, 144 and 96 px. Generated with OpenAI's image model through the Codex CLI; the client's layers are in
-  `packages/app/wheel-sources/` (`scripts/compress-wheel-art.ts`).
 - `chests.webp`: the chests' sheet (2026-10-31), approved by the owner: the basic, rare and epic chests closed, open and as icons,
   and the opening's effects (rays, a sparkle, a dust puff), in a Supercell-like mobile game's rendering, original designs. Generated
   with OpenAI's image model through the Codex CLI; each asset was then generated again alone from its cell (the open chests' lids
@@ -677,7 +671,7 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   tile stack (levels 1-5 and 1-11) and the yellow rings on the other targets are one mark, the opened chest's light behind the control a
   tip names (`elements/coach-mark.tsx`: the chest's painted rays, Codex on black, tinted in the hold rings' gold, two fans turning either
   way, a breathing glow, waves, a flash as it comes; a starburst, never a colour alone; still under reduced motion), on the tile's
-  Confirm and trash, the stack's trash, the pile, the season wheel and the gear. Story's Restart on the board: a painted red arrow going
+  Confirm and trash, the stack's trash, the pile and the gear (the season wheel's left with it, SEASONS-SETTINGS). Story's Restart on the board: a painted red arrow going
   back round in the header, before the gear, held as the tile's Discard (its red rail, charge and burst: the hold confirms, no dialog);
   Story's settings lose their game row, Training keeps its Restart there, and tip 1-7 names the arrow. The header on the HUD's frame
   (the Scout's): Back (the drawers' chevron), the title outlined in the display font, under it the score by the painted star (the last

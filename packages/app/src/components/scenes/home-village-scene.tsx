@@ -1,7 +1,6 @@
 import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { BoardTile, GameView } from "@paved/chain";
 import { formatInteger } from "@paved/game-core";
-import type { BoardWheel } from "../../data/board-settings";
 import { cn } from "../../lib/utils";
 import { HUD_CAPSULES_NUDGE, HUD_INSET_BOX, HUD_PLATES_NUDGE } from "../elements/hud-inset";
 import { Countdown } from "../elements/countdown";
@@ -24,8 +23,6 @@ import { VillageScore } from "../containers/village-score";
 import type { Tab } from "../../routes/pages";
 import type { MissionProgress } from "../../data/mission-progress";
 
-// The season wheel (#547) in its own chunk, as on the boards: its slot keeps its size meanwhile.
-const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 // The app's bar (#763) in its own chunk, shared with the tab pages: the home's first load stays as it was; a stand-in of its size
 // holds its place meanwhile.
 const LazyAppNav = lazy(() => import("../containers/app-nav").then((m) => ({ default: m.AppNav })));
@@ -115,8 +112,6 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   /** `Challenge.spawn_paused`: the notice. */
   spawnPaused?: boolean;
   now: number;
-  /** The season wheel of the scene (`useBoardSettings`); none: no wheel. */
-  seasonWheel?: BoardWheel;
   /**
    * The village in 3D (the board's renderer, given by the page): drawn from the editor's state. Without it the scene draws the
    * plan view (`LayoutBoard`), as where WebGL is missing and in the render tests.
@@ -154,14 +149,14 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
 
 /**
  * Home (`/`, #753): the player's village full screen, a game scene like the boards (the renderer, its camera framed for the
- * screen, the fog, the weather, the day and night, the season dial at the bottom left), with Clash of Clans' overlays inside
+ * screen, the fog, the weather, the day and night), with Clash of Clans' overlays inside
  * the safe areas. In view: at the top left the profile (#787, #830: the avatar in the level's arc and line, "Lv i", the name), under it the League control (#829:
  * the crowns' capsule, the crown capping it), the village score (#755, a capsule whose tap opens edit mode since HOME-UI-CAPSULES),
  * then the shield's capsule while shielded, those stacked at the top,
- * 24 px under the profile (#929), above the season dial; the balances at the top right; today's home content as chips (Resume, the
+ * 24 px under the profile (#929), above the Chat tab; the balances at the top right; today's home content as chips (Resume, the
  * spawn pause); the defence log is the league page's. HOME-EDGES (the owner's asks of 2026-11-04, the Paved UX
  * Book's main screen), at every width: the right column's four tiles (Missions, Vault, Friends, Tiles) with their counts,
- * centred under the balances; at the bottom left the season dial, the Chat tab on the screen's edge and the mission in
+ * centred under the balances; at the bottom left the Chat tab on the screen's edge and the mission in
  * progress, just above the dock; no Edit button (the village score's capsule opens edit mode). Edit mode switches the
  * overlays to the editor's (#739) in the same scene, after the Paved UX Book's "Edit my village" (EDIT-VILLAGE): its bar (Back, the
  * title, the die, Erase held, Save, Use; from `desktop` the side menu's band), the points at the top left, its panel (a phone's bottom
@@ -224,7 +219,7 @@ export function HomeVillageScene({ renderStage, ...props }: HomeVillageSceneProp
     initialRolling: props.initialRolling,
   };
   return (
-    // A game scene's frame, clipped as the boards' (the dial's ring included). In edit mode it clips vertically only: across, the
+    // A game scene's frame, clipped as the boards'. In edit mode it clips vertically only: across, the
     // inventory's carousel clips its own track (its window), and the scene's box clips the canvas.
     <div className={cn("relative flex h-dvh min-h-[32rem] flex-col bg-board text-foreground desktop:flex-row", editing ? "overflow-x-visible overflow-y-clip" : "overflow-hidden")}>
       <h1 className="sr-only">Home</h1>
@@ -348,28 +343,28 @@ function layoutBox(el: HTMLElement, box: HTMLElement) {
  * at 320 px, #828).
  * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the bands of the two columns, a gap off their neighbours as they are drawn: the right one from under the
  * balances to above the bottom row, the left one (the issue's second open point) from under the profile to
- * above the season dial (without it, the bottom row's foot, above the bar). HOME-STACK (#929, open point 1): the left band starts
+ * above the bottom left's Chat tab and mission. HOME-STACK (#929, open point 1): the left band starts
  * twice the gap, 24 px, under the profile, and a gap under its avatar's rim and crest where they run further (the larger circle of
  * 2026-11-03 hangs past the card's foot).
  */
-function useOverlayMeasures(dial: boolean) {
+function useOverlayMeasures() {
   const refs = {
     box: useRef<HTMLDivElement>(null),
     balances: useRef<HTMLDivElement>(null),
     profile: useRef<HTMLDivElement>(null),
     actions: useRef<HTMLDivElement>(null),
-    dial: useRef<HTMLDivElement>(null),
+    bottomLeft: useRef<HTMLDivElement>(null),
   };
   useLayoutEffect(() => {
-    const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial].map((ref) => ref.current);
+    const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.bottomLeft].map((ref) => ref.current);
     const [box] = els as HTMLElement[];
     // Its first notice comes before the first paint: the bands are in place when the overlays show. HOME-COLUMNS-AFTER-EDIT (#1068):
-    // it reads the layout's boxes (`layoutBox`), which no transform moves, so neither the Camera mode's slides (`translate`,
-    // CAMERA-EXPLORE) nor the season wheel's turn shifts it, and it runs at each mount, the wheel turning or not. In the Camera mode
+    // it reads the layout's boxes (`layoutBox`), which no transform moves, so the Camera mode's slides (`translate`, CAMERA-EXPLORE)
+    // do not shift it, and it runs at each mount, a transition running in the overlays or not. In the Camera mode
     // the corner's row goes down (`bottom`): nothing is measured until the mode is left (its slide's `transitionend` measures again).
     const measure = () => {
       if (box.hasAttribute("data-camera")) return;
-      const [, balances, profile, foot, wheel] = els.map((el) => (el ? layoutBox(el, box) : undefined));
+      const [, balances, profile, foot, corner] = els.map((el) => (el ? layoutBox(el, box) : undefined));
       const height = box.offsetHeight;
       // The badge's foot as drawn: its rim runs past the card's (the player card's negative margins) and its crest a tenth of the rim
       // further (`PlayerRim`, -bottom-[10%]; the rim's box is there before the league's chunk, its stand-in the same size).
@@ -380,7 +375,7 @@ function useOverlayMeasures(dial: boolean) {
         "--right-top": balances!.bottom,
         "--right-bottom": height - foot!.top,
         "--left-top": drawnFoot,
-        "--left-bottom": height - (wheel?.top ?? foot!.bottom),
+        "--left-bottom": height - (corner?.top ?? foot!.bottom),
       };
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
       // The profile's room, from its left to a gap short of the balances: the badge's name plate ends there.
@@ -395,8 +390,8 @@ function useOverlayMeasures(dial: boolean) {
       observer.disconnect();
       box.removeEventListener("transitionend", measure);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the refs are stable; the dial comes and goes with the scene's wheel
-  }, [dial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the refs are stable
+  }, []);
   return refs;
 }
 
@@ -420,10 +415,10 @@ const TILES_STAND_IN = <span aria-hidden className="block w-16" style={{ height:
 const CHAT_STAND_IN = <span aria-hidden className="block h-16 w-14" />;
 
 /**
- * The view's overlays: the corners, the left column, the edges' buttons (HOME-EDGES), the dial and the bottom's controls, the chips.
+ * The view's overlays: the corners, the left column, the edges' buttons (HOME-EDGES), the bottom's controls, the chips.
  * Each piece the long press's Edit village keeps clear of (PRESS-BUILD, the tile actions' rules: `layoutTileActions`) is marked
  * `data-bubble-avoid` on its own box, so the room is the HUD's real edges: the profile, the balances and the capsules from the top; the
- * dial, the Chat tab, the mission, the bottom right's controls and the dock from the foot; the right column of tiles, which stands
+ * Chat tab, the mission, the bottom right's controls and the dock from the foot; the right column of tiles, which stands
  * across the middle, as a side (`data-bubble-avoid="side"`), from the right. Edit mode draws none of them.
  */
 function ViewOverlays({
@@ -443,7 +438,7 @@ function ViewOverlays({
   const { activeGame, now, founded = true } = props;
   // The score just saved, until the village's read has it too.
   const shown = props.saved?.score ?? village?.score ?? 0;
-  const measures = useOverlayMeasures(!!props.seasonWheel);
+  const measures = useOverlayMeasures();
   // The left column's controls (#829, #856).
   const leftColumn = (
     <>
@@ -496,8 +491,8 @@ function ViewOverlays({
     // The overlays' box (the scene's): the top row's measures and the bar's height are set on it, for the columns and the bottom.
     // In the Camera mode (`data-camera`, #875's open point 2) all but Exit camera leave the screen by their nearest edge, in three
     // waves (`data-out`, theme.css; CAMERA-EXPLORE), out of reach once gone; Exit goes down to the corner (`data-corner`). The box lets taps through to the village (`pointer-events-none`, #916's gestures): each
-    // control's place takes them back (`pointer-events-auto`: the top row, the columns' children, the dial, the bottom row's children,
-    // the phone's bar). HOME-BUTTONS (#856): the dial, Edit, Settings, Play and the bar had none since #910 and took no tap.
+    // control's place takes them back (`pointer-events-auto`: the top row, the columns' children, the bottom row's children,
+    // the phone's bar). HOME-BUTTONS (#856): Edit, Settings, Play and the bar had none since #910 and took no tap.
     <div ref={measures.box} data-slot="home-overlays" data-camera={camera || undefined} className="pointer-events-none absolute inset-0">
       {/*
         Top: the profile at the left, the balances at the right, both the HUD's inset (HOME-HUD-PADDING, `--hud-inset` in theme.css,
@@ -523,7 +518,7 @@ function ViewOverlays({
           </div>
         </div>
       </div>
-      {/* The columns and the dial, in the box's frame, so they stand as in it; each leaves the screen in the Camera mode (`data-out`). */}
+      {/* The columns and the bottom left, in the box's frame, so they stand as in it; each leaves the screen in the Camera mode (`data-out`). */}
       <div className="absolute inset-0">
         {/*
           HOME-EDGES (the owner's asks of 2026-11-04, the Paved UX Book's main screen): the right column at every width, its four blue
@@ -544,9 +539,9 @@ function ViewOverlays({
           </Suspense>
         </div>
         {/*
-          The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the dial;
+          The left column under the profile (#829), from its band's top, 24 px under it (#929, which revises #856's centring), above the bottom left;
           clear of the right column's tiles (HOME-EDGES). Taller than its band (the score
-          unfolded while shielded, on a short screen), it scrolls within it (its edge fading where more waits), never over the dial;
+          unfolded while shielded, on a short screen), it scrolls within it (its edge fading where more waits), never over the bottom left;
           its padding keeps the controls' shadows inside the scroll box. Its own box slides off in the Camera mode (`data-out`): the edge
           hint's transition (`scroll-hint`, a utility) would take the place of the slide's.
         */}
@@ -562,22 +557,15 @@ function ViewOverlays({
 
         {/*
           The bottom left, from the dock up (HOME-EDGES): the mission in progress just above the dock (the owner's ask: at the left, not
-          over the dock), the Chat tab on the screen's edge, then the season dial. The left column stops above the three.
+          over the dock), then the Chat tab on the screen's edge. The left column stops above the two.
         */}
-        <div ref={measures.dial} data-dial-place data-out="l0" className={cn("pointer-events-none absolute left-0 flex flex-col items-start gap-2 [&>*]:pointer-events-auto", ABOVE_BAR)} style={{ marginBottom: "var(--dock-crest)" }}>
-          {props.seasonWheel && (
-            <div data-bubble-avoid className="pl-(--hud-inset-left)">
-              <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
-                <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
-              </Suspense>
-            </div>
-          )}
+        <div ref={measures.bottomLeft} data-bottom-left data-out="l0" className={cn("pointer-events-none absolute left-0 flex flex-col items-start gap-2 [&>*]:pointer-events-auto", ABOVE_BAR)} style={{ marginBottom: "var(--dock-crest)" }}>
           <Suspense fallback={CHAT_STAND_IN}>
             <LazyChatAndMission chat={props.chat} mission={props.mission} onChat={props.onChat} onMissions={props.onMissions} />
           </Suspense>
         </div>
       </div>
-      <div ref={measures.actions} data-corner data-bubble-avoid className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div ref={measures.actions} data-corner data-bubble-avoid className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR)}>
         {/*
           The Camera mode's button (#875), at the bottom right; in the mode, Exit and the controls' hint, in the corner: Found
           leaves the row (`data-collapse`).

@@ -57,14 +57,17 @@ export function DropdownMenuCheckboxItem({ className, children, checked, ...prop
     </MenuPrimitive.CheckboxItem>
   );
 }
-export function DropdownMenuRadioItem({ className, children, ...props }: ComponentProps<typeof MenuPrimitive.RadioItem>) {
+/** `indicator`: the dot before the chosen item ("dot", the default), or none, where the item draws its own mark ("none"). */
+export function DropdownMenuRadioItem({ className, children, indicator = "dot", ...props }: ComponentProps<typeof MenuPrimitive.RadioItem> & { indicator?: "dot" | "none" }) {
   return (
-    <MenuPrimitive.RadioItem data-slot="dropdown-menu-radio-item" className={cn(item, "pl-8", className)} {...props}>
-      <span className="absolute left-2 flex size-4 items-center justify-center">
-        <MenuPrimitive.ItemIndicator>
-          <DotIcon />
-        </MenuPrimitive.ItemIndicator>
-      </span>
+    <MenuPrimitive.RadioItem data-slot="dropdown-menu-radio-item" className={cn(item, indicator === "dot" && "pl-8", className)} {...props}>
+      {indicator === "dot" && (
+        <span className="absolute left-2 flex size-4 items-center justify-center">
+          <MenuPrimitive.ItemIndicator>
+            <DotIcon />
+          </MenuPrimitive.ItemIndicator>
+        </span>
+      )}
       {children}
     </MenuPrimitive.RadioItem>
   );

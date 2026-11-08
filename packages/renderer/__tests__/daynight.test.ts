@@ -343,7 +343,7 @@ describe("the backdrop pass", () => {
 
 describe("a still cycle and a frozen moment", () => {
   const frozen = (freezeAt: number | null) => resolveDayNightSettings({ enabled: true, season: "summer", freezeAt });
-  it("holds a moment frozen in a day as asked (the season wheel's fixed states), still or not", () => {
+  it("holds a moment frozen in a day as asked (a season's day held in Settings), still or not", () => {
     for (const at of [0.3125, 1.3125, 2.3125, 3.3125]) {
       expect(momentOf(frozen(at), 0, true)).toBe(at);
       expect(momentOf(frozen(at), 0, false)).toBe(at);

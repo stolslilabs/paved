@@ -36,7 +36,7 @@ export interface CoachMarkProps {
  * control (its box is `relative isolate`, the mark first in it): a flash as it comes, at once; two fans of the painted rays
  * (`chest-art/fx/rays`, painted by Codex on black, the black turned to transparency) in the hold rings' gold, turning either way; a
  * white glow breathing at its heart; waves of light springing out one after the other. The same mark on every target (the tile's
- * Confirm and trash, the stack's trash, the tile stack, the season wheel, the gear). Its rays are a shape (a starburst round the
+ * Confirm and trash, the stack's trash, the tile stack, the gear). Its rays are a shape (a starburst round the
  * control, bright on the dark board), never a colour alone; under reduced motion the fans and the glow stay, still.
  */
 export function CoachMark({ spread = 2.2, at = { x: 0.5, y: 0.5 }, px = 96, className }: CoachMarkProps) {

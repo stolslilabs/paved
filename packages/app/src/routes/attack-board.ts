@@ -27,12 +27,12 @@ export function useAttackLegality(run: AttackRun | null, plan: number | null) {
 
 /**
  * The scout's board, and a visit's (#772): a rival's village on the 3D board of every game, read only, in its owner's skins and the
- * rival's red void, on summer's day whatever the season wheel says (#788: no night, no smoke, no season dial); `canvas` undefined
+ * rival's red void, on summer's day whatever Settings say (#788: no night, no smoke); `canvas` undefined
  * where the plan view draws it (no WebGL, the renderer failed). The tiles' art, renders and skins are the deck sheet's.
  */
 export function useScoutBoard(defender: string | null, tiles: BoardTile[]) {
   const skins = useBoardSkins(defender);
-  const { scene } = useGameBoard({ skins, side: "rival", summerDay: true, resetKey: defender, placement: READ_ONLY_PLACEMENT });
+  const { scene } = useGameBoard({ skins, side: "rival", summerDay: true, placement: READ_ONLY_PLACEMENT });
   const { canvas, tileArt, tileRenders } = scene({ tiles, bubble: null });
   return { canvas, tileArt, tileRenders, skins };
 }

@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import type { DayTimeChoice, SeasonsChoice } from "../../data/day-night";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+import { SettingChoice, type SettingOption } from "../elements/setting-choice";
 import { SETTING_LABEL, SETTING_ROW, SettingSwitch } from "../elements/setting-switch";
 import { UiIcon } from "../elements/ui-icon";
 import { VolumeSlider } from "../elements/volume-slider";
@@ -14,8 +16,10 @@ export type GraphicsQuality = "auto" | "low" | "medium" | "high";
 /** The device settings the panel shows (`DeviceSettings`, `data/settings.ts`, without the chain). */
 export interface DevicePreferences {
   quality: GraphicsQuality;
-  /** The board's day and night cycle: a moving sky, the sun's shadows, the city lights at night. */
-  dayNight: boolean;
+  /** The board's seasons: turning ("cycle") or one held. */
+  seasons: SeasonsChoice;
+  /** The board's day and night: turning ("cycle": a moving sky, the sun's shadows, the city lights at night) or the day or the night held. */
+  dayTime: DayTimeChoice;
   /** The ambient effects (#572 to #574): what moves on the board on its own. Off on the Low tier and under reduced motion. */
   ambient: boolean;
   /** The music volume, 0 to 1; 0 is muted, and `musicBefore` the level an unmute returns to. */
@@ -54,6 +58,22 @@ const QUALITY: { value: GraphicsQuality; label: string }[] = [
   { value: "high", label: "High" },
 ];
 
+/** Settings' Seasons (SEASONS-SETTINGS): the cycle (the arrow going round), then each season in the cycle's order, summer first. */
+export const SEASON_OPTIONS: readonly SettingOption<SeasonsChoice>[] = [
+  { value: "cycle", label: "Cycle", art: "rotate" },
+  { value: "summer", label: "Summer", art: "summer" },
+  { value: "autumn", label: "Autumn", art: "autumn" },
+  { value: "winter", label: "Winter", art: "winter" },
+  { value: "spring", label: "Spring", art: "spring" },
+];
+
+/** Settings' Day and night: the cycle, then the day held or the night held. */
+export const DAY_TIME_OPTIONS: readonly SettingOption<DayTimeChoice>[] = [
+  { value: "cycle", label: "Cycle", art: "rotate" },
+  { value: "day", label: "Day", art: "sun" },
+  { value: "night", label: "Night", art: "moon" },
+];
+
 /** A quality as the pill and the choice name it: "Auto (Medium)" for auto on a device whose tier is known, else its word. */
 export function qualityLabel(quality: GraphicsQuality, autoQuality?: Exclude<GraphicsQuality, "auto">): string {
   const label = QUALITY.find((q) => q.value === quality)!.label;
@@ -61,8 +81,8 @@ export function qualityLabel(quality: GraphicsQuality, autoQuality?: Exclude<Gra
 }
 
 /**
- * The device settings, once (#541), in the Paved UX Book's rows (SETTINGS-PAGE): Visuals (the quality's pill, the day and night
- * cycle, the ambient effects), Sound (the music and sound effects sliders, the music player of #569) and Gameplay (tile preview,
+ * The device settings, once (#541), in the Paved UX Book's rows (SETTINGS-PAGE): Visuals (the quality's pill, the seasons' and the
+ * day and night's choices, SEASONS-SETTINGS, the ambient effects), Sound (the music and sound effects sliders, the music player of #569) and Gameplay (tile preview,
  * placement highlight, the square grid). The Settings page and the sheet over the board both draw this; the account and the links
  * stay on the page.
  */
@@ -85,13 +105,8 @@ export function DeviceSettingsPanel({ preferences: p, autoQuality, visualsExtra,
             <Icon name="chevron-right" size="xs" />
           </button>
         </div>
-        <SettingSwitch
-          label="Day/night cycle"
-          hint="The sky changes with the seasons, the shadows turn, the cities light up at night"
-          art="sun"
-          checked={p.dayNight}
-          onCheckedChange={(v) => onChange?.("dayNight", v)}
-        />
+        <SettingChoice label="Seasons" art="autumn" value={p.seasons} options={SEASON_OPTIONS} onChange={(v) => onChange?.("seasons", v)} />
+        <SettingChoice label="Day and night" art="sun" value={p.dayTime} options={DAY_TIME_OPTIONS} onChange={(v) => onChange?.("dayTime", v)} />
         <SettingSwitch
           label="Ambient effects"
           hint="Gentle motion on the board. Off on Low quality and with reduced motion"

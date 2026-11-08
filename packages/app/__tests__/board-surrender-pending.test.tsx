@@ -23,7 +23,6 @@ describe("BoardScene, the Surrender dialog still loading", () => {
   beforeAll(async () => {
     await Promise.all([
       vi.importActual("../src/components/containers/surrender-dialog"),
-      import("../src/components/containers/board-season-wheel"),
       import("../src/components/containers/deck-sheet"),
       import("../src/components/containers/device-settings-sheet"),
     ]);
