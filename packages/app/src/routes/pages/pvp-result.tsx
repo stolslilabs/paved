@@ -8,6 +8,8 @@ import { shortAddress } from "../../components/elements/short-address";
 import { PvpResultScene, type PvpReward } from "../../components/scenes/pvp-result-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { SearchVoid } from "../search-void";
+import { PvpLoading } from "../pvp-loading";
+import { loadPvpV2End, loadedPvpV2End } from "../pvp-v2-end-chunk";
 import { starsFor } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
@@ -35,7 +37,7 @@ const nextDay = (now: number) => (Math.floor(now / 86_400) + 1) * 86_400;
  * sheet places one or takes the Cobbles (`useVillageWrites`).
  */
 /** PvP v2's end screen (#790), its own chunk: loaded where the sources serve v2. */
-const PvpV2End = lazy(() => import("../pvp-v2-end"));
+const PvpV2End = lazy(loadPvpV2End);
 
 export default function Page() {
   const { id } = useParams();
@@ -52,14 +54,19 @@ function Pick({ id }: { id: number }) {
   const onBack = useUpTo("/play");
   const me = useDataSources().signer?.address ?? null;
   const v2 = useAttackV2Of(me, id);
+  // The end's chunk when the last tile loaded it ahead (`pvp-v2.tsx`): drawn straight, so the end follows the board with nothing
+  // between; picked once, so the end is never mounted twice.
+  const [Loaded] = useState(() => loadedPvpV2End()?.default ?? null);
   if (me === null || v2.data === null) return <Result id={id} />;
   const self = { name: wallet.username ?? null, address: me, level: 0, crowns: 0 };
+  // Reading is no search (RANKED-SCAN-TIMING, #1067): the rival's void with a spinner, never the scan.
   if (!v2.data) {
     if (v2.error) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
-    return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
+    return <PvpLoading />;
   }
+  if (Loaded) return <Loaded me={me} attack={v2.data} self={self} />;
   return (
-    <Suspense fallback={<PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />}>
+    <Suspense fallback={<PvpLoading />}>
       <PvpV2End me={me} attack={v2.data} self={self} />
     </Suspense>
   );
@@ -95,8 +102,8 @@ function Result({ id }: { id: number }) {
   const error = status.error ?? settled.error ?? defender.error;
   const target = last?.target ?? settled.data?.target;
   const score = settled.data?.score ?? last?.score;
-  // No guest (NO-GUEST): until the account is in, the page waits.
-  if (me === null) return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
+  // No guest (NO-GUEST): the account still coming in is no search, so the neutral loading (#1067).
+  if (me === null) return <PvpLoading />;
   if (status.data === null) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="PvP is not on this network yet." onCancel={onBack} />;
   if (!status.data || !settled.data || !defender.data || target === undefined || score === undefined) {
     // Not the attacker's last attack: its target and defender are the indexer's row's. Read and absent (a cached receipt alone,

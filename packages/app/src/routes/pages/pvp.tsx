@@ -8,6 +8,7 @@ import { PvpAttackScene } from "../../components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../../components/scenes/pvp-scout-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { SearchVoid } from "../search-void";
+import { PvpLoading } from "../pvp-loading";
 import { NEXT_PRICE, type PvpPlayer } from "../../lib/pvp-rules";
 import { useBoardSkins } from "../../data/board-skins";
 import { useCobbleAccount } from "../../data/cobbles";
@@ -46,10 +47,11 @@ export default function Page() {
   if (me === null || v2.data === null) return <PvpV1 />;
   if (!v2.data) {
     if (v2.error) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error={v2.error.message} errorDetail={errorDetail(v2.error)} onCancel={onBack} />;
-    return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
+    // Reading is no search (RANKED-SCAN-TIMING, #1067): a resumed attack never flashes the scan. The search's own scan is v2's.
+    return <PvpLoading />;
   }
   return (
-    <Suspense fallback={<PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />}>
+    <Suspense fallback={<PvpLoading />}>
       <PvpV2 me={me} self={self} state={v2.data} onBack={onBack} />
     </Suspense>
   );
@@ -102,8 +104,8 @@ function PvpV1() {
   }, [found]);
 
   const self = player.data ?? { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };
-  // No guest (NO-GUEST): until the account is in, the search waits.
-  if (me === null) return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
+  // No guest (NO-GUEST): the account still coming in is no search, so the neutral loading (#1067).
+  if (me === null) return <PvpLoading />;
   if (status.data === null) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error="PvP is not on this network yet: no village can be attacked here." onCancel={onBack} />;
   if (!s) {
     if (status.error) return <PvpSearchScene canvas={<SearchVoid />} state="error" player={self} error={status.error.message} errorDetail={errorDetail(status.error)} onRetry={() => void client.invalidateQueries({ queryKey: pvpKeys.all })} onCancel={onBack} />;
