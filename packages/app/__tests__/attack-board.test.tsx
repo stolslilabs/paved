@@ -176,7 +176,7 @@ describe("/pvp/replay on the board module", { timeout: slow(30_000) }, () => {
       },
       true,
     );
-    await screen.findByRole("heading", { name: /Defeat|VICTORY/ }, WAIT);
+    await screen.findByRole("heading", { name: /DEFEAT|VICTORY/ }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Replay/ }));
     const bar = await screen.findByRole("group", { name: "Replay" }, WAIT);
     await waitFor(() => expect(drawn.board.length).toBeGreaterThan(0), WAIT);

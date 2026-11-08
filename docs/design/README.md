@@ -722,11 +722,11 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   The window's cross shows the board, free to pan and zoom, and the gold Scores pill brings the window back at once. A Challenge's end
   keeps its layout.
   END-VERDICTS (2026-11-08, the owner's ask: "VICTORY (en uppercase) ou GAME OVER pour Story, Challenge, Training et les victoires
-  en Ranked"): the ends' verdicts in capitals (`EndVerdict` in `game-end.tsx`). Ranked: VICTORY at one, two or three stars (no more
-  "Triumph": the stars say how large), "Defeat" and "Surrendered" kept, on the v2 end and the older one alike. Story: VICTORY, or
-  GAME OVER with no star. Training: VICTORY on a new best, else GAME OVER. A Challenge's end, which had no verdict, gets one over its
-  score, in the same gold: VICTORY rewarded or at the score to beat (the trophy of the HUD's meter), GAME OVER below it, expired,
-  free or with its reward unread.
+  en Ranked"): the ends' verdicts in capitals (`EndVerdict` in `game-end.tsx`). Ranked, on the v2 end and the older one alike:
+  VICTORY at one, two or three stars (no more "Triumph": the stars say how large), DEFEAT at none (the owner: "Defeat pour les
+  Ranked game plutôt que Game Over"), "Surrendered" kept. Story: VICTORY, or GAME OVER with no star. Training: VICTORY on a new
+  best, else GAME OVER. A Challenge's end, which had no verdict, gets one over its score, in the same gold: VICTORY rewarded or at
+  the score to beat (the trophy of the HUD's meter), GAME OVER below it, expired, free or with its reward unread.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.

@@ -26,7 +26,7 @@ function show(data: Omit<PvpEndSceneProps, "onOpenChest" | "onVillage" | "onAgai
 
 describe("PvpEndScene (#790)", () => {
   it.each([
-    ["zeroStars", 0, "Defeat"],
+    ["zeroStars", 0, "DEFEAT"],
     ["oneStar", 1, "VICTORY"],
     ["twoStars", 2, "VICTORY"],
     ["threeStars", 3, "VICTORY"],

@@ -24,7 +24,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Under 80 %: "Defeat", crowns lost, no chest. */
+/** Under 80 %: "DEFEAT", crowns lost, no chest. */
 export const ZeroStars: Story = { args: PVP_END.zeroStars };
 /** 80 %: a basic chest. */
 export const OneStar: Story = { args: PVP_END.oneStar };

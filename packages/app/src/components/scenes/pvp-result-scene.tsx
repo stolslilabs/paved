@@ -73,8 +73,8 @@ export interface PvpResultSceneProps {
   onHome?: () => void;
 }
 
-// A win at any star count is a VICTORY, in capitals (the owner's ask of 2026-11-08); the stars say how large.
-const VERDICT = ["Defeat", "VICTORY", "VICTORY", "VICTORY"] as const;
+// In capitals (the owner's asks of 2026-11-08): a win at any star count is a VICTORY, the stars saying how large; a loss a DEFEAT.
+const VERDICT = ["DEFEAT", "VICTORY", "VICTORY", "VICTORY"] as const;
 
 /**
  * The end of an attack (#647): the stars won, the score against the village's, the crowns won or lost and the league they
