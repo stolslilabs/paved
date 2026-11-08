@@ -130,16 +130,29 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   a changed file directly (a barrel such as `src/data/index.ts` is seen through) plus the changed tests; the app's whole suite when
   its test setup (`vitest.config.ts`, `vitest.setup.ts`, `test-slow.ts`, `package.json`, `tsconfig.json`) or a root file every
   package reads changed. It skips the dependents' tests, the Vercel builds, the budget and the Storybook build; the full check and
-  the CI keep all of them. The quick check is enough between steps and before finishing a change that stays within source files
-  with their own tests (a component, a hook, a rule and its tests). The full check is due before the pull request and whenever
-  the change reaches what the quick check skips: a shared module many files import (the app's `App.tsx`, the router, the data
-  layer's sources), a workspace package the app depends on (game-core, chain, renderer, ui), the client's or the Storybook's
-  build (stories, `vite.config.ts`, `.storybook/`, `public/`, a new dependency), or the bundle's size.
+  the CI keep all of them.
+- **The local check is the quick check (R3).** Before every push, the first one included:
+  `PAVED_CHECK_QUICK=1 check-run -- bun run check`. Cairo: `snforge test <filter>` of what changed, as today. The full check is
+  not due before the pull request: the CI runs it on GitHub's runners. It is the tool to reproduce a CI failure locally.
+- **Push early (R4).** Open the pull request as soon as the first quick check passes, as a draft while the work is not finished.
+  The CI runs while you go on.
 - One `check` at a time per worktree (the pre-push run included): its builds write shared folders (`packages/app/storybook-static`, `dist`), so a second run clobbers the
   first. A lock in the worktree's git dir makes the second run exit 1 at once, naming the pid of the first. To wait, poll that pid
   (`while kill -0 <pid> 2>/dev/null; do sleep 5; done`); never `pgrep -f check-run`, whose pattern matches its own shell.
 - The pre-push hook `.githooks/pre-push` runs the cheap part (format, typecheck, guard tests of the touched packages); a clone turns it
   on with `git config core.hooksPath .githooks`. Skip once with `PAVED_SKIP_PREPUSH=1 git push`. A missing tool lets the push through.
+
+## Pull requests
+
+- **Small pull requests (R8).** One brief, one pull request of at most about 400 lines of hand-written change. Generated files,
+  assets, the lockfile and the ABIs do not count. Mechanical changes (renames, moves, batches of assets, notices) go first, in
+  their own pull request. The 400-line limit holds until the owner settles it (open point 1 of #1120).
+
+## Flaky tests
+
+- **A flaky test stops the line (R7).** A test is flaky when it fails on main, in the queue, or in a pull request on code that
+  pull request does not touch, and passes on a rerun. Report it at once to the orchestrator with the run link. Do not raise its
+  timeout without a measure, and do not rerun until green and say nothing.
 
 ## Previews
 
