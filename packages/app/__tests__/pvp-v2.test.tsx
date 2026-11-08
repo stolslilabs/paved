@@ -113,7 +113,7 @@ describe("PvP v2 scenes (#740)", () => {
     const guild = document.querySelector("[data-guild]")!;
     expect(guild).toHaveTextContent(badge.tag);
     expect(guild).not.toHaveTextContent(badge.name);
-    expect(within(guild as HTMLElement).getByRole("img", { name: `${badge.name} guild, ${badge.tag}` }).querySelector("[data-slot=guild-emblem]")).not.toBeNull();
+    expect(within(guild as HTMLElement).getByRole("img", { name: `${badge.name} allegiance, ${badge.tag}` }).querySelector("[data-slot=guild-emblem]")).not.toBeNull();
     const stakes = within(screen.getByRole("list", { name: "Crowns at stake" })).getAllByRole("listitem");
     expect(stakes.map((s) => s.getAttribute("aria-label")?.split(":")[0])).toEqual(["No star, under 2,573 points", "1 star, 2,573 points", "2 stars, 2,895 points", "3 stars, 3,216 points"]);
     expect(screen.getByRole("img", { name: /^Board of 20 tiles$/ })).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe("PvP v2 scenes (#740)", () => {
     expect(await screen.findByText("You play the village's 19 tiles and 4 extras, shuffled, on an open board. You see the tile in hand and the next two.")).toBeInTheDocument();
     cleanup();
     render(wrap(<PvpScoutScene {...PVP_V2_SCOUT.small} />));
-    expect(screen.getByRole("img", { name: "No guild" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "No allegiance" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Deck, 11 tiles" })).toBeInTheDocument();
   });
 

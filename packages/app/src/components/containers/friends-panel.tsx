@@ -388,7 +388,7 @@ interface BlockedSheetProps {
 function BlockedSheet({ open, onOpenChange, blocked, now, busy, onOpenPlayer, onUnblock, error }: BlockedSheetProps) {
   return (
     <HudDrawer open={open} onOpenChange={onOpenChange} title="Blocked players" side="right" phone="sheet" slot="blocked-players" inPlace>
-      <p className="text-sm font-semibold text-muted-foreground">They cannot follow you, message you or invite you to a guild, and they are not told.</p>
+      <p className="text-sm font-semibold text-muted-foreground">They cannot follow you, message you or invite you to an allegiance, and they are not told.</p>
       {blocked === null && <Skeleton aria-busy className="h-18 rounded-xl" />}
       {blocked?.length === 0 && <p className={CARVED_NOTE}>You block no one. Block a player from their profile.</p>}
       {blocked && blocked.length > 0 && (

@@ -137,8 +137,8 @@ describe("useFriendsRanking (LEADERBOARD-PAGE)", () => {
 });
 
 /** The scene with every callback a spy. */
-function scene(props: Partial<LeaderboardSceneProps> & Pick<LeaderboardSceneProps, "tab" | "players" | "guilds" | "alliances" | "friends">) {
-  const spies = { onTabChange: vi.fn(), onOpenPlayer: vi.fn(), onOpenGuild: vi.fn(), onOpenAlliance: vi.fn(), onBack: vi.fn() };
+function scene(props: Partial<LeaderboardSceneProps> & Pick<LeaderboardSceneProps, "tab" | "players" | "guilds" | "friends">) {
+  const spies = { onTabChange: vi.fn(), onOpenPlayer: vi.fn(), onOpenGuild: vi.fn(), onBack: vi.fn() };
   const view = render(
     <LazyMotion features={domMax}>
       <LeaderboardScene {...spies} {...props} />
@@ -178,24 +178,18 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     expect(onOpenPlayer).toHaveBeenCalledWith(ranking.players[1]!.address);
   });
 
-  it("puts its tabs at the drawer's foot: Players, Guilds, Alliances (live since ALLIANCES), Friends at the end; a press asks for its tab alone", async () => {
+  it("puts its tabs at the drawer's foot: Players, Guilds, Friends at the end; a press asks for its tab alone", async () => {
     const { drawer, onTabChange } = scene(LEADERBOARD.playersInView);
     const tabs = within(drawer).getByRole("tablist", { name: "Ranking" });
     expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(tabs);
     expect(tabs).toHaveAttribute("data-slot", "footer-tabs");
-    expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds", "Alliances", "Friends"]);
-    const alliances = within(tabs).getByRole("tab", { name: "Alliances" });
-    expect(alliances).toBeEnabled();
-    // Alliances under the ranking's own painted shields, Guilds under the dock's Guild (its two banners), the handshake on Friends.
-    expect(alliances.querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/alliances.webp");
-    const guilds = within(tabs).getByRole("tab", { name: "Guilds" });
+    expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Allegiances", "Friends"]);
+    // Guilds under the dock's Guild (its two banners), the HUD's player on Players, the handshake on Friends.
+    const guilds = within(tabs).getByRole("tab", { name: "Allegiances" });
     expect(guilds.querySelector("img[data-icon=guild]")).not.toBeNull();
     expect(guilds.querySelector('img[src*="/ui-art/ranking/"]')).toBeNull();
     expect(within(tabs).getByRole("tab", { name: "Friends" }).querySelector("img[data-icon=friends]")).not.toBeNull();
-    await userEvent.click(alliances);
-    expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["alliances"]));
-    onTabChange.mockClear();
-    await userEvent.click(within(tabs).getByRole("tab", { name: "Guilds" }));
+    await userEvent.click(within(tabs).getByRole("tab", { name: "Allegiances" }));
     // Radix calls twice on a press (the page's change is idempotent: the URL's tab replaced by itself).
     expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["guilds"]));
     onTabChange.mockClear();
@@ -222,13 +216,13 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
 
   it("lists the guilds by score, the viewer's in gold with Yours; a row opens the guild", async () => {
     const { drawer, onOpenGuild } = scene(LEADERBOARD.guilds);
-    const rows = within(within(drawer).getByRole("list", { name: "Guilds by score" })).getAllByRole("button");
+    const rows = within(within(drawer).getByRole("list", { name: "Allegiances by score" })).getAllByRole("button");
     const guilds = LEADERBOARD.guilds.guilds.data!;
     expect(rows).toHaveLength(guilds.length);
     const scores = guilds.map((g) => g.score);
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
     const own = rows.find((r) => r.hasAttribute("data-own"))!;
-    expect(own).toHaveAccessibleName(new RegExp(`^${guilds.findIndex((g) => g.id === LEADERBOARD.guilds.myGuild) + 1}\\. The Quarrymen \\(your guild\\), `));
+    expect(own).toHaveAccessibleName(new RegExp(`^${guilds.findIndex((g) => g.id === LEADERBOARD.guilds.myGuild) + 1}\\. The Quarrymen \\(your allegiance\\), `));
     expect(within(own).getByText("Yours")).toBeInTheDocument();
     await userEvent.click(rows[0]!);
     expect(onOpenGuild).toHaveBeenCalledWith(guilds[0]!.id);
@@ -248,13 +242,13 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
   it("pins the viewer's guild past the list's end at the foot, with its place in the whole ranking; a tap opens its page", async () => {
     const { drawer, onOpenGuild } = scene(LEADERBOARD.guildsPastList);
     const { guild, place } = LEADERBOARD.guildsPastList.myGuildPlace;
-    const rows = within(within(drawer).getByRole("list", { name: "Guilds by score" })).getAllByRole("button");
+    const rows = within(within(drawer).getByRole("list", { name: "Allegiances by score" })).getAllByRole("button");
     expect(rows.some((r) => r.hasAttribute("data-own"))).toBe(false);
     const pinned = drawer.querySelector<HTMLElement>("[data-slot=ranking-pinned]")!;
     expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(pinned);
     const row = within(pinned).getByRole("button");
     expect(place).toBeGreaterThan(rows.length);
-    expect(row).toHaveAccessibleName(new RegExp(`^${place}\\. ${guild.name} \\(your guild\\), `));
+    expect(row).toHaveAccessibleName(new RegExp(`^${place}\\. ${guild.name} \\(your allegiance\\), `));
     expect(row).toHaveAttribute("data-own", "true");
     expect(within(row).getByText("Yours")).toBeInTheDocument();
     await userEvent.click(row);
@@ -376,7 +370,7 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
 
     it("pins the viewer's guild on the side it left too", () => {
       const { drawer } = scene(LEADERBOARD.guilds);
-      const own = within(within(drawer).getByRole("list", { name: "Guilds by score" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
+      const own = within(within(drawer).getByRole("list", { name: "Allegiances by score" })).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
       const watch = observed.find((o) => o.target === own)!;
       act(() => watch.callback([entry(0, 20)], {} as IntersectionObserver));
       expect(pinOf(drawer)).toHaveAttribute("data-side", "top");
@@ -399,7 +393,7 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
       const found = [...el.classList].find((c) => new RegExp(`^-?${prop}-\\d+$`).test(c));
       return found ? (found.startsWith("-") ? -1 : 1) * Number(found.slice(found.lastIndexOf("-") + 1)) : 0;
     };
-    for (const state of [LEADERBOARD.playersInView, LEADERBOARD.guilds, LEADERBOARD.alliances, LEADERBOARD.friends, LEADERBOARD.loading, LEADERBOARD.empty, LEADERBOARD.unavailable]) {
+    for (const state of [LEADERBOARD.playersInView, LEADERBOARD.guilds, LEADERBOARD.friends, LEADERBOARD.loading, LEADERBOARD.empty, LEADERBOARD.unavailable]) {
       const { drawer, unmount } = scene(state);
       const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
       const strip = drawer.querySelector<HTMLElement>("[data-slot=ranking-top]")!;
@@ -528,8 +522,8 @@ describe("/ranking on the mock (LEADERBOARD-PAGE)", { timeout: slow(30_000) }, (
 
   it("opens on Guilds from the URL; a guild's row opens its page", async () => {
     const { router, drawer } = await open("/ranking?tab=guilds");
-    expect(within(drawer).getByRole("tab", { name: "Guilds" })).toHaveAttribute("aria-selected", "true");
-    const list = await within(drawer).findByRole("list", { name: "Guilds by score" }, { timeout: slow(8000) });
+    expect(within(drawer).getByRole("tab", { name: "Allegiances" })).toHaveAttribute("aria-selected", "true");
+    const list = await within(drawer).findByRole("list", { name: "Allegiances by score" }, { timeout: slow(8000) });
     const first = within(list).getAllByRole("button")[0]!;
     await userEvent.click(first);
     // DRAWER-NAV-IN-PLACE (#1064): in the ranking's drawer, in its place, on the Guilds tab still.
@@ -556,6 +550,6 @@ describe("/ranking on the mock (LEADERBOARD-PAGE)", { timeout: slow(30_000) }, (
     expect(new URLSearchParams(router.state.location.search).get("guild")).toMatch(/^\d+$/);
     await userEvent.click(drawerBack(drawer));
     await waitFor(() => expect(shownView()).toBeNull(), { timeout: slow(5000) });
-    expect(within(drawer).getByRole("list", { name: "Guilds by score" })).toBe(list);
+    expect(within(drawer).getByRole("list", { name: "Allegiances by score" })).toBe(list);
   });
 });

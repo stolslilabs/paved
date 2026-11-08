@@ -4,7 +4,6 @@ import { usePvpLeagueOf } from "../../data/pvp-standing";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { useNow } from "../now";
-import { useOpenAlliance, useOpenOwnAlliance } from "../open-alliance";
 import { useOpenPlayer } from "../open-player";
 import { GuildSheet } from "./guild-view";
 
@@ -22,12 +21,9 @@ export function GuildView({ id, open, onClose }: { id: number; open: boolean; on
   const player = usePlayerGuild(me);
   const writes = useGuildWrites(me);
   const openPlayer = useOpenPlayer();
-  // ALLIANCES: a guild's alliance line, and the player's own guild's Alliance tile, open the alliance views of the guild page.
-  const openAlliance = useOpenAlliance();
-  const openOwnAlliance = useOpenOwnAlliance();
   // The level and crowns the requirements read: the home's reads and cache.
   const level = usePlayerProgress(me).data?.level;
   const league = usePvpLeagueOf(sources, me ?? "0x0");
   const candidate = me !== null && level !== undefined && league ? { level, crowns: league.crowns } : null;
-  return <GuildSheet id={id} me={me} player={player.data ?? null} candidate={candidate} now={now} open={open} onClose={onClose} writes={writes} onOpenPlayer={openPlayer} onOpenAlliance={openAlliance} onOpenOwnAlliance={openOwnAlliance} />;
+  return <GuildSheet id={id} me={me} player={player.data ?? null} candidate={candidate} now={now} open={open} onClose={onClose} writes={writes} onOpenPlayer={openPlayer} />;
 }

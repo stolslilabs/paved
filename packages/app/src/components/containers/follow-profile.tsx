@@ -68,7 +68,7 @@ export function FollowProfileActions({ status, name, onAction }: FollowProfileAc
         label="Block"
         onClick={() =>
           ask(
-            { title: `Block ${who}?`, text: "Each of you stops following the other. They can no longer follow you, message you or invite you to a guild, and you no longer see their messages. They are not told.", confirm: "Block", destructive: true },
+            { title: `Block ${who}?`, text: "Each of you stops following the other. They can no longer follow you, message you or invite you to an allegiance, and you no longer see their messages. They are not told.", confirm: "Block", destructive: true },
             () => "block",
           )
         }

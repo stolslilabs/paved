@@ -47,7 +47,7 @@ describe("app", () => {
     // The items are the buttons of the dock's band (`:scope > div > div`); Play sits in a column of its own.
     expect(nav.querySelectorAll(":scope > div > div > button")).toHaveLength(4);
     // #763, HOME-DOCK: the dock's Shop, Ranking (END-CHEST: in the Chests' place, no page yet), Play, Guild, Settings.
-    expect([...nav.querySelectorAll(":scope > div > div > button, :scope > div > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild", "Settings"]);
+    expect([...nav.querySelectorAll(":scope > div > div > button, :scope > div > div > div > button")].map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Allegiance", "Settings"]);
     // The medallion: the swords and PLAY on it.
     expect(within(nav).getByRole("button", { name: "Play" })).toHaveTextContent("Play");
     expect(screen.queryByRole("button", { name: "Ranks" })).not.toBeInTheDocument();

@@ -9,7 +9,7 @@ import { DrawerRow } from "./drawer-row";
 const meta = {
   title: "Elements/DrawerRow",
   component: DrawerRow,
-  args: { art: "settings", label: "Guild settings", next: true, onClick: fn() },
+  args: { art: "settings", label: "Allegiance settings", next: true, onClick: fn() },
   decorators: [(Story) => <div className="flex max-w-md flex-col gap-2 bg-secondary p-4"><Story /></div>],
 } satisfies Meta<typeof DrawerRow>;
 export default meta;
@@ -25,7 +25,7 @@ export const Action: Story = { args: { art: "crown", label: "Make leader", next:
 export const Danger: Story = { args: { art: "kicked", label: "Kick", tone: "danger", next: false } };
 
 /** Not offered now (a leader with members cannot leave): dimmed. */
-export const Disabled: Story = { args: { art: "kicked", label: "Leave the guild", tone: "danger", next: false, disabled: true } };
+export const Disabled: Story = { args: { art: "kicked", label: "Leave the allegiance", tone: "danger", next: false, disabled: true } };
 
 /** A long label wraps between its words. */
 export const Long: Story = { args: { label: "A menu entry whose words run past one line on a phone" } };

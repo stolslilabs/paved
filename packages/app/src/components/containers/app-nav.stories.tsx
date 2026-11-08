@@ -32,7 +32,7 @@ export const Home: Story = { args: { badges: { guild: 1 } } };
 /** A tap on an item asks for its page (the home's `useTabNavigate`). */
 export const Pick: Story = {
   play: async ({ canvasElement, args }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Guild" }));
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Allegiance" }));
     await expect(args.onNavigate).toHaveBeenCalledWith("guild");
     await expect(within(canvasElement).queryByRole("button", { current: "page" })).toBeNull();
   },
