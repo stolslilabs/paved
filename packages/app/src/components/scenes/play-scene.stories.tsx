@@ -11,7 +11,7 @@ import { StoryScene } from "./story-scene";
 /**
  * Play (`/play`, PLAY-PAGE, the Paved UX Book's "modes", the owner's asks of 2026-11-06): the HUD's drawer, a full page on a phone, a side
  * panel docked at the right from `tablet`. Ranked (Attack), Paid (the Challenge), Free (Training, Story), Limited (coming soon), each
- * mode's gift showing what it pays. One story per state; the Viewport control reframes it.
+ * mode's rewards showing what it pays. One story per state; the Viewport control reframes it.
  */
 const meta = {
   title: "Scenes/Play",
