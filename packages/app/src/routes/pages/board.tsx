@@ -4,15 +4,16 @@ import { toast } from "sonner";
 import { DISCARD_POINTS, MAX_UNCONFIRMED, type PredictedState } from "@paved/game-core";
 import type { HandState } from "../../components/containers/tile-stack";
 import { InlineError } from "../../components/elements/inline-error";
-import { Notice } from "../../components/elements/notice";
-import { Button } from "../../components/ui/button";
+import { BoardNotice, NOTICE_ACTION } from "../../components/containers/board-notice";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
 import { challengeQueue, useChallengeSession } from "../../data/challenge";
 import { useChallengeCurve } from "../../data/reward-curve";
 import { remainingOf, useTrainingSession } from "../../data/training";
-import { useDataSources } from "../../data/sources";
+import { trainingStore, useDataSources } from "../../data/sources";
+import { useTrainingBest } from "../../data/training-best";
+import { challengeMeter, trainingMeter } from "../../lib/score-meter";
 import { useErrorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useRoutePage } from "../handle";
@@ -38,9 +39,11 @@ export default function Page() {
 function TrainingBoard() {
   const { game, snapshot, board, restart } = useTrainingSession();
   // The connected player's skins; a guest's board draws the base models.
-  const skins = useBoardSkins(useDataSources().signer?.address ?? null);
+  const sources = useDataSources();
+  const skins = useBoardSkins(sources.signer?.address ?? null);
   const go = useAppNavigate();
   const onBack = useBack();
+  const best = useTrainingBest(trainingStore(sources), `0x${game.seed.toString(16)}`);
 
   const hand = board.hand;
   const slotsAt = useCallback((o: number) => game.slots(o), [game]);
@@ -98,6 +101,8 @@ function TrainingBoard() {
     <BoardScene
       mode="training"
       score={board.score}
+      // The score meter (GAME-OVERLAY): to the device's best; none on its first game.
+      meter={trainingMeter(best, board.score)}
       delta={snapshot.delta}
       remaining={board.remaining}
       discardedPlans={board.discardedPlans}
@@ -241,28 +246,28 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
     <>
       {/* Another player's game says so; the player's own waits for the account (NO-GUEST: made at start, none asked to connect). */}
       {!playable && senders && (
-        <Notice title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
+        <BoardNotice title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
           You are watching this game: only its player can move.
-        </Notice>
+        </BoardNotice>
       )}
       {state.stale && (
-        <Notice
+        <BoardNotice
           tone="warning"
           title="The board may be out of date"
           className="pointer-events-auto w-full max-w-2xl"
           action={
-            <Button size="sm" variant="secondary" onClick={() => void session?.retry()}>
+            <button type="button" className={NOTICE_ACTION} onClick={() => void session?.retry()}>
               Retry
-            </Button>
+            </button>
           }
         >
           The game could not be read again ({state.readError}). Your next move reads it first.
-        </Notice>
+        </BoardNotice>
       )}
       {import.meta.env.DEV && state.fallback && (
-        <Notice tone="warning" title="Prediction off (dev)" className="pointer-events-auto w-full max-w-2xl">
+        <BoardNotice tone="warning" title="Prediction off (dev)" className="pointer-events-auto w-full max-w-2xl">
           {state.fallback}
-        </Notice>
+        </BoardNotice>
       )}
     </>
   );
@@ -295,6 +300,8 @@ function ChallengeBoard({ gameId }: { gameId: number }) {
       expiresAt={state.expiresAt || null}
       // Past its 24 h a game earns nothing: the HUD shows no reward then.
       reward={expired ? null : curve}
+      // The score meter (GAME-OVERLAY): to the score to beat, then to the cap; none once the game earns nothing.
+      meter={expired || !curve ? null : challengeMeter(curve, game?.score ?? 0)}
       now={now}
       hand={{
         // The tile to place in its rotation; one waiting with the move is shown as drawn (#645).

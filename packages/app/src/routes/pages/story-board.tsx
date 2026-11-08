@@ -20,9 +20,11 @@ import { endXp, type EndChest } from "../../components/containers/game-end";
 import { DeckPresentation, FirstStonePanel, StoryCoach, StoryEnd } from "../../components/containers/story-panels";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError } from "../../components/elements/inline-error";
+import { UiIcon } from "../../components/elements/ui-icon";
 import { Notice } from "../../components/elements/notice";
 import { BoardScene } from "../../components/scenes/board-scene";
 import { Button } from "../../components/ui/button";
+import { storyMeter } from "../../lib/score-meter";
 import { useFreeVillage, useFreeVillageWrites } from "../../data/free-village";
 import type { Slot } from "../../data/placement";
 import { useDataSources } from "../../data/sources";
@@ -37,9 +39,10 @@ import { useAppNavigate, useUpTo } from "../ref";
 
 /**
  * The coach marks of the levels that introduce a control (#546), besides the tip of every level's intro (#721): the coach
- * mark names the control, the board rings it. The placement's ring ("place") is on the tile's Confirm, up and right of it (#568,
- * TILE-ACTIONS); the discard's on the trash, the tile stack's or, with the tile on a cell, the one down and right of the tile (#606); the deck's on the tile stack
- * (1-5 opens it, 1-11 plans with it); the rotate and cancel tip has no ring. Keyed by `campaign-level`.
+ * mark names the control, the board lights it (`CoachMark`, GAME-OVERLAY). The placement's light ("place") is behind the tile's Confirm,
+ * up and right of it (#568, TILE-ACTIONS); the discard's behind the trash, the tile stack's or, with the tile on a cell, the one down and
+ * right of the tile (#606); the deck's out of the tile stack's pile (1-5 opens it, 1-11 plans with it); the rotate and cancel tip has
+ * none. 1-7's tip also names Restart, held beside the gear (GAME-OVERLAY: no longer in the settings). Keyed by `campaign-level`.
  */
 export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: string }>> = {
   "1-1": { target: "place", tip: "Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." },
@@ -48,7 +51,7 @@ export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: s
   "1-4": { target: "discard", tip: "With points on the board, a discard takes 50 of them. Count what the next tile is worth first." },
   "1-5": { target: "deck", tip: "Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." },
   "1-6": { target: "wheel", tip: "The season wheel turns the board through the seasons. Tap it to step on; the score does not change." },
-  "1-7": { target: "settings", tip: "The gear opens the settings (sound, the placement highlight, Restart level) without leaving the level." },
+  "1-7": { target: "settings", tip: "The gear opens the settings (sound, the placement highlight) without leaving the level. Hold the arrow beside it to restart." },
   "1-11": { target: "deck", tip: "Tap the tile stack: the deck sheet lists the tiles still to come, in order. Plan with it." },
 };
 
@@ -99,7 +102,7 @@ export default function Page() {
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <TopBar title="Story" onBack={onBack} />
         <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
-          <Notice title={found ? "This level is locked" : "No such level"} icon="lock" action={<Button size="sm" onClick={() => go("/story")}>Levels</Button>}>
+          <Notice title={found ? "This level is locked" : "No such level"} icon={<UiIcon name="lock" px={20} className="size-5" />} action={<Button size="sm" onClick={() => go("/story")}>Levels</Button>}>
             {found ? "Finish the level before it first (and the Tutorial, for the other campaigns)." : "Story mode has no level at this address."}
           </Notice>
         </main>
@@ -287,6 +290,9 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   }
 
   const handState = !hand || over ? "empty" : state.writeError ? "refused" : "placing";
+  const liveScore = state.game?.score ?? 0;
+  const live = levelResult(level, liveScore);
+  const meter = storyMeter(live.stars, storyStarFills(live, liveScore));
   const coachTarget = phase === "play" && !over && coachOn ? (coach?.target ?? null) : null;
   const bubble =
     placement.chosen && phase === "play"
@@ -311,6 +317,8 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
         deckOrder={deckOrder}
         onPresentDeck={over ? undefined : () => setPresenting(true)}
         coach={coachTarget}
+        // The score meter (GAME-OVERLAY): the stars by their shares, live; the thresholds never shown (#593).
+        meter={meter}
         score={state.game?.score ?? 0}
         delta={snapshot.delta}
         remaining={state.game ? remainingOf(state.game) : 0}

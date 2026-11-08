@@ -8,7 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CENTER } from "@paved/game-core";
 import { attackDeck } from "@paved/game-core";
 import { ATTACK_DECK_PERCENT, ATTACK_STAR_PERCENTS, ATTACK_VIEW, attackDeckSize, attackExtras, attackStarPoints, attackStars } from "../src/lib/pvp-v2-rules";
-import { StarMeter } from "../src/components/elements/star-meter";
+import { ScoreMeter } from "../src/components/elements/score-meter";
+import { attackMeter } from "../src/lib/score-meter";
 import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../src/components/scenes/pvp-scout-scene";
 import { PVP_V2_ATTACK, PVP_V2_SCOUT, RIVAL_V2_SLOTS, RIVAL_V2_VILLAGE, V2_ATTACK_STEPS, V2_DECK, V2_DECK_SIZE, V2_MIDWAY } from "../src/mocks/pvp-v2";
@@ -63,8 +64,10 @@ describe("PvP v2 scenes (#740)", () => {
     expect(screen.getByRole("button", { name: /^Tiles left/ })).toHaveTextContent(String(V2_DECK_SIZE));
     const meter = screen.getByRole("meter");
     expect(meter).toHaveAttribute("aria-valuemax", "115");
-    const marks = [...meter.querySelectorAll<HTMLElement>("[data-reached]")].map((m) => parseFloat(m.style.left));
-    expect(marks.map((m) => Math.round(m * 1.15))).toEqual([80, 90, 100]);
+    // GAME-OVERLAY: the marks in even steps (the Missions' rail), each star named by its share of the village.
+    const marks = [...meter.querySelectorAll<HTMLElement>("[data-reached]")];
+    expect(marks.map((m) => Math.round(parseFloat(m.style.left)))).toEqual([33, 67, 100]);
+    expect(marks.map((m) => m.title)).toEqual(["Star 1: 80% of the village", "Star 2: 90% of the village", "Star 3: 100% of the village"]);
   });
 
   it("attack: the tile in hand and the next two of the deck, fewer at its end", () => {
@@ -94,11 +97,11 @@ describe("PvP v2 scenes (#740)", () => {
   });
 
   it("star meter: v1's marks stay where they were without `percents`", () => {
-    render(<StarMeter score={5_300} target={5_831} />);
+    render(<ScoreMeter {...attackMeter(5_300, 5_831)} />);
     expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "2");
     expect(screen.getByRole("meter")).toHaveAttribute("aria-valuemax", "125");
     cleanup();
-    render(<StarMeter score={5_300} target={5_831} percents={ATTACK_STAR_PERCENTS} />);
+    render(<ScoreMeter {...attackMeter(5_300, 5_831, ATTACK_STAR_PERCENTS)} />);
     expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "2");
   });
 

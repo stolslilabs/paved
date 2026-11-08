@@ -7,7 +7,8 @@ import { cn } from "../../lib/utils";
 import { haptic } from "../../lib/haptics";
 import { useHold, type Hold } from "../../lib/use-hold";
 import { useSfx } from "./audio-provider";
-import { COACH_RING } from "./coach";
+import { CoachMark } from "../elements/coach-mark";
+import { COACH_BOX } from "./coach";
 import { DiscardHold } from "./discard-hold";
 import { ActionArt, PAINTED, useFollowTile } from "./tile-action";
 import { ACTION_SIDES, type ActionSide } from "./tile-actions-layout";
@@ -43,7 +44,7 @@ export interface TileBubbleProps {
   canConfirm?: boolean;
   /** The move (or the editor's save) is on its way: Confirm shows a spinner and is disabled, Discard and Back to the inventory wait. */
   busy?: boolean;
-  /** A Story coach mark points at the placement (Confirm is ringed) or at Discard (the trash is). */
+  /** A Story coach mark points at the placement (the light behind Confirm, GAME-OVERLAY) or at Discard (behind the trash). */
   coach?: boolean | "place" | "discard";
   /** The tile's rotation now: a change during a hold on Confirm drops the hold (it never places a rotation not shown). */
   orientation?: number;
@@ -150,6 +151,8 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
     };
   }, [holdRef]);
 
+  // The coach mark (GAME-OVERLAY): the light behind Confirm or the trash while a Story tip names it.
+  const coached: Partial<Record<ActionSide, "place" | "discard">> = coachPlace && onConfirm ? { "top-right": "place" } : coach === "discard" && onDiscard ? { "bottom-right": "discard" } : {};
   const actions: Record<ActionSide, ReactNode> = {
     "top-left": cancelButton && <ActionButton art="tile-cancel" label="Cancel placement" title="Cancel (Esc)" onClick={onClose} />,
     "top-right": onConfirm && (
@@ -162,7 +165,7 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
         disabled={!canConfirm}
         busy={busy}
         onComplete={confirm}
-        className={cn(PAINTED, coachPlace && COACH_RING, coachPlace && "rounded-full")}
+        className={PAINTED}
       />
     ),
     "bottom-left": canRotate && <ActionButton art="tile-rotate" label="Rotate tile" title="Rotate (R)" onClick={rotate} />,
@@ -173,7 +176,7 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
         disabled={!canDiscard || busy}
         holdMs={holdMs}
         glyph={<ActionArt art="tile-discard" />}
-        className={cn(PAINTED, coach === "discard" && COACH_RING, coach === "discard" && "rounded-full")}
+        className={PAINTED}
       />
     ) : (
       onReturn && <ActionButton art="tile-return" label="Back to the inventory" title="Back to the inventory" disabled={busy} onClick={onReturn} />
@@ -195,9 +198,11 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
             <div
               key={side}
               data-side={side}
+              data-coach={coached[side] ?? undefined}
               style={scene ? { visibility: "hidden" } : undefined}
-              className={cn("flex rounded-full", scene && "pointer-events-auto absolute top-0 left-0 will-change-transform")}
+              className={cn(COACH_BOX, "flex rounded-full", scene && "pointer-events-auto absolute top-0 left-0 will-change-transform")}
             >
+              {coached[side] && <CoachMark />}
               {actions[side]}
             </div>
           ),

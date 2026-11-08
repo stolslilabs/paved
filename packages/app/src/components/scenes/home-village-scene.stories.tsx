@@ -338,10 +338,8 @@ export const Refused: Story = { args: HOME_VILLAGE.refused };
 
 /** The die (#803) beside Reset all, on the browser's Web Worker: each press builds another compact village into the draft. */
 export const Die: Story = { args: HOME_VILLAGE.editing };
-/** The die pressed: busy, spinning (not under reduced motion), the hint saying it builds. */
+/** The die pressed: busy, still (no spin, the owner's ask of 2026-11-08), the hint saying it builds. */
 export const DieBusy: Story = { args: HOME_VILLAGE.dieBusy };
-/** The same under reduced motion: no spin. */
-export const DieBusyReducedMotion: Story = { args: HOME_VILLAGE.dieBusy, parameters: { reducedMotion: "always" } };
 /** Past a second: "Still building…" with a cancel, under the die. */
 export const DieStillBuilding: Story = { args: HOME_VILLAGE.dieSlow };
 /** The die's worker failed: its message, the draft kept. */
