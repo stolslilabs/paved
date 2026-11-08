@@ -149,8 +149,14 @@ export function FooterTab({ art, label, word, badge = 0, badgeWord = "waiting", 
         </span>
         {soon ? (
           // Where a count would be, the Tiles' carved "Soon" (`tiles-scene.tsx`): on the card's charcoal, so it reads on the dark bar.
-          <span aria-hidden data-slot="footer-tab-soon" className="drawer-carved absolute top-0.5 left-1/2 ml-1 flex h-4 translate-y-2.5 items-center rounded-full px-1.5 text-xs leading-none font-bold text-muted-foreground">
-            Soon
+          // Its row spans the tab; a spacer to the icon's corner (half the column and 0.25 rem) gives way before the mark does: where
+          // the column is too narrow for it (four tabs in a 288 px sheet, 72 px each), the mark slides left over the icon and ends on
+          // the tab's edge, never past it (WRAP360).
+          <span aria-hidden className="absolute inset-x-0 top-0.5 flex translate-y-2.5">
+            <span className="min-w-0 shrink basis-[calc(50%+0.25rem)]" />
+            <span data-slot="footer-tab-soon" className="drawer-carved flex h-4 shrink-0 items-center rounded-full px-1.5 text-xs leading-none font-bold text-muted-foreground">
+              Soon
+            </span>
           </span>
         ) : badge > 0 && (
           // On the icon's top right corner, as the dock's are, inside the tab's own box (the trigger is `relative`); it rises with the icon.
