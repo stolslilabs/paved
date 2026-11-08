@@ -67,7 +67,7 @@ function RewardIcon({ reward }: { reward: Reward }) {
     return (
       <span className="relative -m-0.5 grid size-8 shrink-0 place-items-center">
         <UiIcon name="level-star" px={32} className={cn("absolute inset-0 size-full", ON_SCENE)} />
-        <span className="text-outline relative text-[0.625rem] leading-none font-bold text-foreground tabular-nums">XP</span>
+        <span className="text-outline relative text-xs leading-none font-bold text-foreground tabular-nums">XP</span>
       </span>
     );
   if (reward === "crown") return <UiIcon name="crown" px={28} className={cn("size-7", ON_SCENE)} />;
@@ -144,7 +144,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
  * says it (hidden from a screen reader, which reads each group's own title).
  */
 function Chip({ children, className }: { children: ReactNode; className?: string }) {
-  return <span aria-hidden className={cn("text-outline pointer-events-none w-fit rounded-[0.4375rem] bg-background/80 px-2 py-px text-[0.6875rem] leading-4 font-extrabold tracking-[0.12em] uppercase", className)}>{children}</span>;
+  return <span aria-hidden className={cn("text-outline pointer-events-none w-fit rounded-[0.4375rem] bg-background/80 px-2 py-px text-xs leading-4 font-extrabold tracking-widest uppercase", className)}>{children}</span>;
 }
 
 /** The card's whole face is its button (`after:inset-0`); what sits over it (Resume) is lifted above that layer. */

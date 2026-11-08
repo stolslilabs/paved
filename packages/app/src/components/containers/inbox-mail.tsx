@@ -13,6 +13,7 @@ import { SectionTitle } from "../elements/section-title";
 import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 import { useSfx } from "./audio-provider";
 import { PuzzleRankRow } from "./leaderboard";
 import { GIFT_REVEAL_S } from "./milestones-bar";
@@ -201,7 +202,8 @@ export function PrizeMail({ day, score, players, top, me, claimed, claiming = fa
   const state: GiftArtState = opening ? "opening" : claimed ? "open" : claiming ? "shaking" : "ready";
   const date = shortDay(day);
   return (
-    <article aria-label={`Puzzle of ${date}`} className="drawer-carved flex min-h-80 min-w-0 flex-1 flex-col gap-3 overflow-y-auto rounded-2xl p-2.5">
+    <article aria-label={`Puzzle of ${date}`} className="drawer-carved flex min-h-80 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">
+      <ScrollRegion className="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain p-2.5">
       <div className="flex items-center gap-1">
         {onBack && (
           <button type="button" aria-label="Back to the Inbox" onClick={onBack} className="state-layer grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none">
@@ -260,6 +262,7 @@ export function PrizeMail({ day, score, players, top, me, claimed, claiming = fa
         </ol>
       </section>
       {burst !== burstDone && <CobblesBurst key={burst} from={() => gift.current} onDone={() => setBurstDone(burst)} />}
+      </ScrollRegion>
     </article>
   );
 }
