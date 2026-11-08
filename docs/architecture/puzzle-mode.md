@@ -255,5 +255,6 @@ and a local hide.
    - the prize paid to the first place among accounts older than a day.
 2. **The day's first spawn pays the day's draw.** It pays one VRF draw, as every spawn does. Only the Poseidon and the extra
    seed write are added, about 120,000 L2 gas, once per day.
-3. **A player who abandons a game.** An open game blocks the next spawn until it is surrendered. The client always offers
-   Resume or Surrender. Should the chain also let a spawn of a new day close the previous day's open game by itself?
+3. **A player who abandons a game.** Only an unfinished game of the current UTC day blocks another spawn (section 3.2). An
+   unfinished game of a prior day does not block today's spawn, and it stays open unless it is surrendered. The client always
+   offers Resume or Surrender. A separate, optional cleanup: should the chain close old open games by itself?
