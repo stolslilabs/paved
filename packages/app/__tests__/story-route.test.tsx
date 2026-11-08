@@ -273,7 +273,8 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     // The sheet's order is the presentation's; the first tile is in hand, none is out yet.
     expect(slots.map((li) => li.getAttribute("data-plan"))).toEqual(level.deck);
     expect(slots.map((li) => li.getAttribute("data-slot-state"))).toEqual(["hand", ...level.deck.slice(1).map(() => "next")]);
-    expect(screen.getByRole("heading", { name: `Order ${level.deck.length}` })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the order's length is its slots' (above) and the band's.
+    expect(screen.getByRole("heading", { name: "Order" })).toBeInTheDocument();
     expect(screen.getByTestId("deck-summary")).toHaveTextContent(`Left${level.deck.length}Played0Discarded0`);
   });
 

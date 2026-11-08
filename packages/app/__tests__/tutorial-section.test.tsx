@@ -13,6 +13,10 @@ const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 const card = () => within(screen.getByRole("region", { name: "Selected mission" }));
 const section = () => within(screen.getByRole("region", { name: /^Tutorial/ }));
 const names = () => section().getAllByRole("button").map((b) => b.getAttribute("aria-label"));
+/** The steps done, read on the medallions (claimed: Done; done, not claimed: Cobbles to claim): the title holds no count (TILE-COUNTS). */
+const stepsDone = () => names().filter((n) => /: (?:Done|Cobbles to claim)$/.test(n ?? "")).length;
+/** The section's title: the fixed word alone. */
+const title = () => expect(section().getByRole("heading", { level: 3 })).toHaveTextContent(/^Tutorial$/);
 
 describe("the Tutorial's section (#977)", () => {
   it("a new player: above the Daily, step 1 open and selected, steps 2 to 8 locked, in order", () => {
@@ -21,7 +25,8 @@ describe("the Tutorial's section (#977)", () => {
     const body = document.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
     const order = [...body.querySelectorAll("section[aria-label], section[aria-labelledby]")].filter((el) => el.parentElement === body).map((el) => el.getAttribute("aria-label") ?? el.getAttribute("aria-labelledby"));
     expect(order).toEqual(["Selected mission", "missions-tutorial", "missions-daily", "missions-weekly", "missions-achievements"]);
-    expect(section().getByRole("heading", { level: 3 })).toHaveTextContent("Tutorial0/8");
+    title();
+    expect(stepsDone()).toBe(0);
     expect(names()).toEqual([
       "Step 1, Builder: To do",
       "Step 2, Challenger: Locked",
@@ -50,9 +55,10 @@ describe("the Tutorial's section (#977)", () => {
     expect(card().getAllByRole("button")).toEqual([gift]);
   });
 
-  it("three steps done: 3/8, Victor selected", () => {
+  it("three steps done, Victor selected", () => {
     render(wrap(<MissionsScene {...MISSIONS.tutorialThree} />));
-    expect(section().getByRole("heading", { level: 3 })).toHaveTextContent("Tutorial3/8");
+    title();
+    expect(stepsDone()).toBe(3);
     expect(names().slice(0, 5)).toEqual(["Step 1, Builder: Done", "Step 2, Challenger: Done", "Step 3, Raider: Done", "Step 4, Victor: To do", "Step 5, Treasure: Locked"]);
     expect(card().getByRole("article")).toHaveAccessibleName("Victor");
     expect(section().getByRole("button", { name: /^Step 4, Victor/ })).toHaveAttribute("aria-pressed", "true");
@@ -62,7 +68,8 @@ describe("the Tutorial's section (#977)", () => {
     const onClaimTutorial = vi.fn();
     const { unmount } = render(wrap(<MissionsScene {...MISSIONS.tutorialToClaim} onClaimTutorial={onClaimTutorial} />));
     expect(section().getByRole("button", { name: "Step 2, Challenger: Cobbles to claim" })).toHaveAttribute("data-state", "claimable");
-    expect(section().getByRole("heading", { level: 3 })).toHaveTextContent("Tutorial2/8");
+    title();
+    expect(stepsDone()).toBe(2);
     await userEvent.click(card().getByRole("button", { name: "Claim 10 Cobbles: Challenger" }));
     expect(onClaimTutorial).toHaveBeenCalledExactlyOnceWith(2);
     unmount();
@@ -99,7 +106,8 @@ describe("the Tutorial's section (#977)", () => {
 
   it("stays while a step waits to be claimed; once every step is claimed, the section is gone and the Daily leads", () => {
     const { unmount } = render(wrap(<MissionsScene {...MISSIONS.tutorialLastToClaim} />));
-    expect(section().getByRole("heading", { level: 3 })).toHaveTextContent("Tutorial8/8");
+    title();
+    expect(stepsDone()).toBe(8);
     expect(card().getByRole("button", { name: "Claim 50 Cobbles: Rising" })).toBeInTheDocument();
     unmount();
     render(wrap(<MissionsScene {...MISSIONS.tutorialAllClaimed} />));

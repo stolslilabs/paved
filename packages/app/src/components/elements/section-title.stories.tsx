@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { SectionTitle } from "./section-title";
+import { UiIcon } from "./ui-icon";
 
 /**
  * A section's title in the HUD's drawer (PROFILE-PAGE, MISSIONS-PAGE): the display font, the engraved rule after it across the row,
- * and what the row holds at its end. Drawn on the drawer's face.
+ * and a control at its end if any. Drawn on the drawer's face. The title is a fixed word: no count, X/Y, total or timer in it nor at
+ * its end (TILE-COUNTS, the owner's rule of 2026-11-07); `__tests__/section-title-rule.test.ts` enforces it.
  */
 const meta = {
   title: "Elements/SectionTitle",
@@ -17,22 +19,26 @@ type Story = StoryObj<typeof meta>;
 /** The title alone, the rule to the row's end (the profile's Level, League, Hall of Fame). */
 export const Plain: Story = {};
 
-/** A count beside the title (the Missions' sections: "Tutorial 3/8"). */
-export const WithCount: Story = {
+/** A painted icon before the word (Play's Ranked, Paid, Free, Limited). */
+export const WithIcon: Story = {
   args: {
     children: (
       <>
-        Tutorial
-        <span className="numeric font-sans text-base font-bold text-muted-foreground">3/8</span>
+        <UiIcon name="crown" px={28} className="drawer-icon size-7 self-center" />
+        Ranked
       </>
     ),
   },
 };
 
-/** What the row holds at its end (the Missions' reset countdown, the Stats' badge), a gap either side of the rule. */
-export const WithEnd: Story = {
+/** A control at the row's end (the profile's Stats span: a filter's chip and its cross), a gap either side of the rule. */
+export const WithControl: Story = {
   args: {
-    children: "Daily",
-    end: <span className="drawer-carved rounded-full px-2.5 py-1 text-xs font-bold">6h 12m</span>,
+    children: "Stats",
+    end: (
+      <span className="flex h-7 items-center gap-1 rounded-full bg-card/40 pr-1 pl-2.5 text-xs font-bold">
+        <span className="text-outline pr-1.5">All time</span>
+      </span>
+    ),
   },
 };
