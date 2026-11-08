@@ -32,13 +32,3 @@ export const Emerald: Story = {
   ),
 };
 export const IconOnly: Story = { args: { iconOnly: true, size: "lg" } };
-/** A player outside the leagues (#917): Unranked's crest and name, at each size. */
-export const Unranked: Story = {
-  render: () => (
-    <div className="flex flex-wrap items-center gap-4">
-      {(["sm", "md", "lg"] as const).map((size) => (
-        <LeagueCrest key={size} league={LEAGUES[0]!} unranked size={size} />
-      ))}
-    </div>
-  ),
-};

@@ -548,15 +548,9 @@ Game icons (src/components/elements/game-icon-shapes.ts, #844). The HUD's
 icons in relief, drawn by the app as SVG. Their shapes are Font Awesome Pro
 6.6.0 solid icons, under the owner's Font Awesome Commercial License (above),
 redrawn: cut into parts, each part toned, outlined, lit and shadowed by
-src/components/elements/game-icon.tsx. The source icons: `gear`,
-`hammer`, `house`, `piggy-bank`, `plus`, `scroll`, `shield-halved`, `store`,
-`swords`, `trophy`; and (#870) the village's `house-tree`, the categories'
-`tree`, `road`, `castle`, `landmark-dome`, and the season wheel's `sun`,
-`wheat-awn`, `fire-flame-curved`, `umbrella-beach`, `leaf`, `snowflake`,
-`seedling`, `moon`; and (#873) the Chests'
-`treasure-chest`; and (#875) the Camera mode's `video`; and (#928) the profile badge's `user`; and (#973)
-the home's Chat `comments`; and (#952) the home's Social button's `users`
-(Friends' since #973). The "+"'s button and the relief style itself are
+src/components/elements/game-icon.tsx. The source icons: (#870) the village's
+`house-tree`, the categories' `tree`, `road`, `castle`, `landmark-dome`
+(src/components/elements/world-icon-shapes.ts). The relief style itself is
 written for Paved (Apache 2.0).
 
 ================================================================================

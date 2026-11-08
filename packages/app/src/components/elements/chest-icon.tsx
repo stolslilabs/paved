@@ -2,8 +2,8 @@ import { cn } from "../../lib/utils";
 import { CHEST_NAME, type ChestRank } from "./chest-designs";
 import { chestIconSources } from "./chest-images";
 
-/** The sizes, as the rem of the icon's height (its width 1.25em, as `GameIcon`): 12 to 48 px; `inherit` takes the parent's. */
-const SIZE_REM = { xs: 0.75, sm: 1, md: 1.5, lg: 2, xl: 3, inherit: null } as const;
+/** The sizes, as the rem of the icon's height (its width 1.25em, as `GameIcon`): 24 px (a battle log's row) or 48 px (an end's chest); `inherit` takes the parent's. */
+const SIZE_REM = { md: 1.5, xl: 3, inherit: null } as const;
 export type ChestIconSize = keyof typeof SIZE_REM;
 /** The height `inherit` picks its copy for (3.75rem): sharp up to the largest box a parent gives it. */
 const INHERIT_PX = 60;

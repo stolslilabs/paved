@@ -21,7 +21,7 @@ const UNIT: Record<TokenKind, Pick<ResourcePlateProps, "decimals" | "fraction"> 
 };
 
 /** The amount goes up, then down, then back, every 1.8 s: the pop and the "+N", then the dip and the "−N". */
-function Cycling({ kind, size, side }: { kind: TokenKind; size?: ResourcePlateProps["size"]; side?: ResourcePlateProps["side"] }) {
+function Cycling({ kind, size }: { kind: TokenKind; size?: ResourcePlateProps["size"] }) {
   const u = UNIT[kind];
   const [step, setStep] = useState(0);
   useEffect(() => {
@@ -29,7 +29,7 @@ function Cycling({ kind, size, side }: { kind: TokenKind; size?: ResourcePlatePr
     return () => clearInterval(timer);
   }, []);
   const amount = step === 1 ? u.start + u.step : step === 2 ? u.start - u.step / 2n : u.start;
-  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} size={size} side={side} tone={kind === "cobbles" ? "invite" : "default"} />;
+  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} size={size} tone={kind === "cobbles" ? "invite" : "default"} />;
 }
 
 /**
@@ -48,40 +48,34 @@ export const Unavailable: Story = { args: { amount: null } };
 export const Large: Story = { args: { size: "md" } };
 export const LargeCobbles: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite", size: "md" } };
 
-/** Every plate at both sizes, and mirrored (`side="left"`, the plates on the left of the screen, #829). */
+/** Every plate at both sizes. */
 export const AllPlates: Story = {
   render: () => (
     <div className="flex flex-col gap-6">
-      {(["right", "left"] as const).map((side) =>
-        (["sm", "md"] as const).map((size) => (
-          <div key={`${side}-${size}`} className={side === "left" ? "flex flex-col items-start gap-1" : "flex flex-col items-end gap-1"}>
-            {(Object.keys(UNIT) as TokenKind[]).map((kind) => (
-              <ResourcePlate key={kind} kind={kind} amount={UNIT[kind].start} decimals={UNIT[kind].decimals} fraction={UNIT[kind].fraction} size={size} side={side} tone={kind === "cobbles" ? "invite" : "default"} />
-            ))}
-          </div>
-        )),
-      )}
+      {(["sm", "md"] as const).map((size) => (
+        <div key={size} className="flex flex-col items-end gap-1">
+          {(Object.keys(UNIT) as TokenKind[]).map((kind) => (
+            <ResourcePlate key={kind} kind={kind} amount={UNIT[kind].start} decimals={UNIT[kind].decimals} fraction={UNIT[kind].fraction} size={size} tone={kind === "cobbles" ? "invite" : "default"} />
+          ))}
+        </div>
+      ))}
     </div>
   ),
 };
-/** The mirrored plate (#829): the icon over the left end. */
-export const Mirrored: Story = { args: { kind: "cobbles", amount: 240n, decimals: 0, fraction: 0, tone: "invite", side: "left" } };
-export const MirroredUsdc: Story = { args: { side: "left" } };
 
 /** A gain, once: the count up, the green, the "+N" rising and the icon's pop. */
-function Once({ kind, by, side }: { kind: TokenKind; by: bigint; side?: ResourcePlateProps["side"] }) {
+function Once({ kind, by }: { kind: TokenKind; by: bigint }) {
   const u = UNIT[kind];
   const [amount, setAmount] = useState(u.start);
   useEffect(() => {
     const timer = setTimeout(() => setAmount(u.start + by), 600);
     return () => clearTimeout(timer);
   }, [u.start, by]);
-  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} side={side} tone={kind === "cobbles" ? "invite" : "default"} />;
+  return <ResourcePlate kind={kind} amount={amount} decimals={u.decimals} fraction={u.fraction} tone={kind === "cobbles" ? "invite" : "default"} />;
 }
 export const Gain: Story = { render: () => <div className="pt-6"><Once kind="cobbles" by={100n} /></div> };
 /** A loss, once: the count down, the warning's colour, the "−N" dropping and the icon's dip. */
 export const Loss: Story = { render: () => <div className="pt-6"><Once kind="paved" by={-UNIT.paved.step} /></div> };
-export const MirroredGain: Story = { render: () => <div className="pt-6"><Once kind="cobbles" by={100n} side="left" /></div> };
 
 /** A change up and down for each currency, at both sizes. */
 export const Changes: Story = {
@@ -92,7 +86,6 @@ export const Changes: Story = {
           {(Object.keys(UNIT) as TokenKind[]).map((kind) => (
             <Cycling key={kind} kind={kind} size={size} />
           ))}
-          <Cycling kind="cobbles" size={size} side="left" />
         </div>
       ))}
     </div>

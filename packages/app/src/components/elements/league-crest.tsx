@@ -14,8 +14,6 @@ const ICON_SIZE: Record<NonNullable<VariantProps<typeof crestVariants>["size"]>,
 
 export interface LeagueCrestProps extends VariantProps<typeof crestVariants> {
   league: Pick<League, "id" | "name" | "index">;
-  /** The player has not entered the leagues (the League page's `unranked`): Unranked's crest and name, whatever `league`. */
-  unranked?: boolean;
   /** The crest alone (the name is then its accessible name). */
   iconOnly?: boolean;
   className?: string;
@@ -23,14 +21,15 @@ export interface LeagueCrestProps extends VariantProps<typeof crestVariants> {
 
 /**
  * A league (issue 644's, `pvp-rules.ts`): its tier's crest in its icon form (issue 917, the division's numeral at its foot) and its name beside it
- * ("Silver II"). Unranked when the player has not entered the leagues.
+ * ("Silver II"). Its places name a league the player is in (an attack's end, a search's result); the Unranked placeholder is the
+ * League control's and the player card's (`LeagueCrestIcon`).
  */
-export function LeagueCrest({ league, unranked, size, iconOnly, className }: LeagueCrestProps) {
-  const tier = unranked ? "unranked" : tierOf(league);
-  const name = unranked ? "Unranked" : league.name;
+export function LeagueCrest({ league, size, iconOnly, className }: LeagueCrestProps) {
+  const tier = tierOf(league);
+  const name = league.name;
   return (
     <span data-league={league.id} data-tier={tier} className={cn(crestVariants({ size }), className)}>
-      <LeagueCrestIcon tier={tier} division={unranked ? null : divisionOf(league)} size={ICON_SIZE[size ?? "md"]} label={iconOnly ? (unranked ? name : `${name} league`) : undefined} />
+      <LeagueCrestIcon tier={tier} division={divisionOf(league)} size={ICON_SIZE[size ?? "md"]} label={iconOnly ? `${name} league` : undefined} />
       {!iconOnly && <span>{name}</span>}
     </span>
   );

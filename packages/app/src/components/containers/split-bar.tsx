@@ -8,23 +8,22 @@ export { formatBps };
 export interface SplitBarProps {
   /** `Economy.split_bps()` (V1b): burn + vault = 10,000; the referral is paid out of the Vault's part. */
   split: SplitView;
-  /** The part the page is about: drawn in gold, the others muted. */
-  highlight?: "burn" | "vault" | "referral";
   className?: string;
 }
 
 /**
  * Where each purchase's price goes, as one bar: the burn's part, then the Vault's, the referral cut out of the Vault's end
- * (paid to a referrer when there is one, else kept by the Vault). Owner-set: the figures are the chain's, never constants.
+ * (paid to a referrer when there is one, else kept by the Vault). Owner-set: the figures are the chain's, never constants. Its page is
+ * the Referral's: the referral's part in gold, the others muted.
  */
-export function SplitBar({ split, highlight, className }: SplitBarProps) {
+export function SplitBar({ split, className }: SplitBarProps) {
   const parts = [
     { key: "burn", label: "Burned", bps: split.burn, hint: "buys PAVED, burns it" },
     { key: "vault", label: "Vault", bps: split.vault - split.referral, hint: "the referral included" },
     { key: "referral", label: "Referral", bps: split.referral, hint: "out of the Vault's part" },
   ] as const;
   const fill = (key: (typeof parts)[number]["key"]) =>
-    highlight === key ? "bg-primary" : key === "burn" ? "bg-input-surface" : key === "vault" ? "bg-primary/45" : "bg-primary/70";
+    key === "referral" ? "bg-primary" : key === "burn" ? "bg-input-surface" : "bg-primary/45";
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div role="img" aria-label={parts.map((p) => `${p.label} ${formatBps(p.bps)}`).join(", ")} className="flex h-3 w-full overflow-hidden rounded-full bg-input">
@@ -40,7 +39,7 @@ export function SplitBar({ split, highlight, className }: SplitBarProps) {
               <span aria-hidden className={cn("mt-1 size-2 shrink-0 rounded-full", fill(p.key))} />
               <span className="wrap-anywhere">{p.label}</span>
             </dt>
-            <dd className={cn("numeric text-sm font-semibold", highlight === p.key && "text-primary")}>
+            <dd className={cn("numeric text-sm font-semibold", p.key === "referral" && "text-primary")}>
               {formatBps(p.key === "vault" ? split.vault : p.bps)}
             </dd>
             {/* The description wraps (WRAP360): a third of a phone is too narrow for one line, and a cut sentence says nothing. */}

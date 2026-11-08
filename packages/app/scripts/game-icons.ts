@@ -22,45 +22,11 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE = join(ROOT, "vendor/fontawesome/solid.min.js");
 export const SHAPES_PATH = join(ROOT, "src/components/elements/game-icon-shapes.ts");
 
-/** The HUD's icons (#844's list): the overlay buttons, the phone's bar, the plates, Play, Edit, Found; the village's (#870); the Chests' (#873, in the gift's place); the profile badge's User (#928); the home's Friends (#952, then #973) and Chat (#973). Solid, by name. */
-export const GAME_ICON_NAMES = [
-  "comments",
-  "gear",
-  "hammer",
-  "house",
-  "house-tree",
-  "piggy-bank",
-  "plus",
-  "scroll",
-  "shield-halved",
-  "store",
-  "swords",
-  "treasure-chest",
-  "trophy",
-  "user",
-  "users",
-] as const;
+/** The HUD's icons (#844's list), those the app draws today: the village's house-tree (#870), on Found and the village's notes. Solid, by name. */
+export const GAME_ICON_NAMES = ["house-tree"] as const;
 
-/**
- * The world's icons (#870): the four structure categories, then the season wheel's seasons and its day and night marks (#930's
- * follow-up: the Sun marks the day, summer takes a wheat sheaf, its flame and beach umbrella the candidates shown beside it until
- * the owner picks); the home's Camera mode's camera (#875), whose button is a lazy chunk too.
- */
-export const WORLD_ICON_NAMES = [
-  "tree",
-  "road",
-  "castle",
-  "landmark-dome",
-  "sun",
-  "wheat-awn",
-  "fire-flame-curved",
-  "umbrella-beach",
-  "leaf",
-  "snowflake",
-  "seedling",
-  "moon",
-  "video",
-] as const;
+/** The world's icons (#870), those the app draws today: the four structure categories (the end's closings, the feed). */
+export const WORLD_ICON_NAMES = ["tree", "road", "castle", "landmark-dome"] as const;
 
 export const WORLD_SHAPES_PATH = join(ROOT, "src/components/elements/world-icon-shapes.ts");
 
