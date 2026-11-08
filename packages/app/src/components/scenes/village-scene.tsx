@@ -13,7 +13,7 @@ import { pickCellAt } from "../containers/cell-picker";
 import { RewardSheet, type RewardOffer } from "../containers/reward-sheet";
 import { SkinsStatusView, type SkinsStatus } from "../containers/skins-status";
 import { TopBar } from "../containers/top-bar";
-import { VillageBoard, type VillageBoardProps, type VillageFog, type VillagePlacing } from "../containers/village-board";
+import { VillageBoard, type VillageBoardProps, type VillagePlacing } from "../containers/village-board";
 import { dropOrientation, legalCells, type Cell, type Village } from "../containers/village-rules";
 
 /** A reward's tile placed on a free cell (`Rewards.claim_reward`'s place, #642). */
@@ -48,8 +48,6 @@ export interface VillageSceneProps {
   from?: "scout" | "profile";
   /** A reward waiting (after a game): its sheet shows under the board. */
   reward?: RewardOffer | null;
-  /** The plan's fog (#633's village variant), when the plan is drawn. */
-  fog?: VillageFog;
   /**
    * The board, given by the page: the 3D village with the fog of war (`VillageViewport`, #648), from the board's props the scene
    * computes. Unset: the plan (`VillageBoard`), which is also the fallback without WebGL.
@@ -134,7 +132,6 @@ function VillageView({
   refusalDetail,
   rewardError = null,
   reward = null,
-  fog = "village",
   renderBoard,
   tileArt,
   busy,
@@ -260,7 +257,6 @@ function VillageView({
           </div>
           {(renderBoard ?? ((props: VillageBoardProps) => <VillageBoard {...props} />))({
             village,
-            fog,
             placing,
             over: drag?.over ?? null,
             tileArt,

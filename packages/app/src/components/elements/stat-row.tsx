@@ -9,14 +9,12 @@ export interface StatRowProps {
   icon?: string | ReactNode;
   /** A second line under the label (a unit, a rule): it wraps, it is never cut. */
   hint?: ReactNode;
-  tone?: "default" | "gold" | "success" | "danger" | "muted";
+  tone?: "default" | "danger" | "muted";
   className?: string;
 }
 
 const TONE = {
   default: "text-foreground",
-  gold: "text-primary",
-  success: "text-success",
   danger: "text-destructive-text",
   muted: "text-muted-foreground",
 } as const;

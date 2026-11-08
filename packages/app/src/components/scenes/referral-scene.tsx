@@ -109,7 +109,7 @@ export function ReferralScene(props: ReferralSceneProps) {
           {split ? (
             <section aria-label="Your share" data-slot="card" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
               <h2 className="font-display text-sm font-semibold">Where your share comes from</h2>
-              <SplitBar split={split} highlight="referral" />
+              <SplitBar split={split} />
               <p className="text-xs text-muted-foreground">
                 The buyer pays the same price. Your share is paid out of the Vault's part, in USDC, when they buy; without a referrer the Vault keeps it.
               </p>

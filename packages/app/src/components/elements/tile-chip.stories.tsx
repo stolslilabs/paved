@@ -7,7 +7,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
-export const Selected: Story = { args: { state: "selected" } };
 /** A move sent, its receipt awaited. */
 export const Pending: Story = { args: { state: "pending" } };
 export const Refused: Story = { args: { state: "refused" } };
@@ -58,13 +57,12 @@ export const Unknown: Story = {
   ),
 };
 
-/** The unknown tile beside a known one, in the chip's states: in hand (selected), and played (crossed out, as the deck sheet does). */
+/** The unknown tile beside a known one, and played (crossed out, as the deck sheet does). */
 export const UnknownStates: Story = {
   render: (args) => (
     <div className="flex flex-wrap items-end gap-3">
       <TileChip {...args} size="md" />
       <UnknownTileChip size="md" />
-      <UnknownTileChip size="md" state="selected" />
       <span className="relative inline-flex opacity-40">
         <UnknownTileChip size="md" />
         <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center text-foreground before:h-0.5 before:w-[130%] before:-rotate-45 before:bg-current" />

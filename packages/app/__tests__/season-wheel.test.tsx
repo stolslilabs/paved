@@ -6,7 +6,7 @@ import { DEFAULT_DAYNIGHT_SETTINGS, DAY_PHASE_AT, SEASONS } from "@paved/rendere
 // The cycle's own chunk, from its source: the renderer's barrel does not export its keyframes.
 import { DAY_SHARE as RENDERER_DAY_SHARE, KEYFRAMES } from "../../renderer/src/core/daynight";
 import { DAY_AT, DAY_SHARE, WHEEL_SEASONS, initialWheelRound, isNight, nextWheelRound, useSeasonWheel, type WheelRound, wheelDayNight } from "../src/data/season-wheel";
-import { CENTRE_TURNS, DIAL_PX, NIGHT_ENDS, RING, SeasonWheel, TIME_DISC, TIME_ICON_AT, TIME_ICON_RADIUS, TIME_ICON_SIZE, TIME_TURNS_PER_YEAR } from "../src/components/elements/season-wheel";
+import { DIAL_PX, NIGHT_ENDS, RING, SeasonWheel, TIME_DISC, TIME_ICON_AT, TIME_ICON_RADIUS, TIME_ICON_SIZE, TIME_TURNS_PER_YEAR } from "../src/components/elements/season-wheel";
 import { WHEEL_ART, wheelArtSources, wheelArtUrl } from "../src/components/elements/wheel-art";
 import { OUT, expected, masters, problems } from "../scripts/compress-wheel-art.ts";
 
@@ -156,20 +156,15 @@ describe("the season dial's art (V4-WHEEL-ART)", () => {
   /** Clockwise from the top, in degrees. */
   const bearing = (p: { x: number; y: number }) => ((Math.atan2(p.x - 50, 50 - p.y) * 180) / Math.PI + 360) % 360;
 
-  it("sets the sun in the middle of the disc's day and the moon in the middle of its night, as painted, each way it turns", () => {
+  it("sets the sun in the middle of the disc's day and the moon in the middle of its night, as painted", () => {
     // Painted to turn clockwise: its night from the top to 135°, its day from there round to the top.
     expect(NIGHT_ENDS).toBe(135);
-    expect(bearing(TIME_ICON_AT.against.night)).toBeCloseTo(67.5);
-    expect(bearing(TIME_ICON_AT.against.day)).toBeCloseTo(247.5);
-    // Mirrored, turning with the ring.
-    expect(bearing(TIME_ICON_AT.with.night)).toBeCloseTo(292.5);
-    expect(bearing(TIME_ICON_AT.with.day)).toBeCloseTo(112.5);
+    expect(bearing(TIME_ICON_AT.night)).toBeCloseTo(67.5);
+    expect(bearing(TIME_ICON_AT.day)).toBeCloseTo(247.5);
     // Both round, inside the disc clear of the inner gold ring, clear of the hub (r 4), and apart.
-    for (const turn of CENTRE_TURNS) {
-      for (const t of ["day", "night"] as const) {
-        const p = TIME_ICON_AT[turn][t];
-        expect(Math.hypot(p.x - 50, p.y - 50) + TIME_ICON_SIZE / 2, `${turn} ${t}`).toBeLessThan(TIME_DISC);
-      }
+    for (const t of ["day", "night"] as const) {
+      const p = TIME_ICON_AT[t];
+      expect(Math.hypot(p.x - 50, p.y - 50) + TIME_ICON_SIZE / 2, t).toBeLessThan(TIME_DISC);
     }
     expect(TIME_ICON_RADIUS - TIME_ICON_SIZE / 2).toBeGreaterThan(4);
     expect(TIME_ICON_RADIUS * 2).toBeGreaterThan(TIME_ICON_SIZE);
@@ -217,12 +212,11 @@ describe("<SeasonWheel>", () => {
   const angle = (el: Element | null) => Number((el as HTMLElement).style.transform.match(/^rotate\((-?[\d.]+)deg\)$/)![1]);
   const layer = (c: HTMLElement, name: string) => angle(c.querySelector(`[data-${name}]`));
   /**
-   * What the pointer's inner notch is on: the disc as painted (its night from the top to `NIGHT_ENDS`, clockwise) turned by `deg`;
-   * mirrored, when it turns with the ring, the painting's angle under the notch is the other way round. The top itself is dawn,
-   * the day's first moment; `NIGHT_ENDS` is dusk, the night's.
+   * What the pointer's inner notch is on: the disc as painted (its night from the top to `NIGHT_ENDS`, clockwise) turned by `deg`.
+   * The top itself is dawn, the day's first moment; `NIGHT_ENDS` is dusk, the night's.
    */
-  const underNotch = (deg: number, turn: (typeof CENTRE_TURNS)[number] = "against") => {
-    const painted = (((turn === "against" ? -deg : deg) % 360) + 360) % 360;
+  const underNotch = (deg: number) => {
+    const painted = ((-deg % 360) + 360) % 360;
     return painted > 0 && painted <= NIGHT_ENDS ? "night" : "day";
   };
 
@@ -255,22 +249,7 @@ describe("<SeasonWheel>", () => {
         last = now;
       }
     }
-    expect(screen.getByRole("button")).toHaveAttribute("data-centre-turn", "against");
     expect(container.querySelector("[data-layer=time-disc]")).not.toHaveClass("-scale-x-100");
-  });
-
-  it("turned with the ring, mirrors the disc so its day is under the notch exactly while the cycle is in day", () => {
-    const { rerender, container } = render(<SeasonWheel state="auto" point={{ season: "summer", position: 0 }} centreTurn="with" />);
-    for (const season of SEASONS) {
-      for (let i = 0; i < 40; i++) {
-        const point = { season, position: i / 40 };
-        rerender(<SeasonWheel state="auto" point={point} centreTurn="with" />);
-        expect(underNotch(layer(container, "time-disc"), "with"), `${season} ${point.position}`).toBe(isNight(point) ? "night" : "day");
-        expect(layer(container, "time-disc")).toBeCloseTo(4 * layer(container, "dial-disc"));
-      }
-    }
-    expect(screen.getByRole("button")).toHaveAttribute("data-centre-turn", "with");
-    expect(container.querySelector("[data-layer=time-disc]")).toHaveClass("-scale-x-100");
   });
 
   it("rests a fixed season under the pointer in the middle of its day, and only ever turns one way", () => {

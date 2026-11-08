@@ -111,7 +111,6 @@ export const VILLAGE = {
   start: { village: VILLAGE_START },
   growing: { village: VILLAGE_GROWING },
   full: { village: VILLAGE_FULL },
-  fogOff: { village: VILLAGE_GROWING, fog: "off" },
   reward: { village: VILLAGE_GROWING, reward: REWARD },
   rewardChosen: { village: VILLAGE_GROWING, reward: REWARD, initialSelected: 0 },
   rewardCramped: { village: VILLAGE_CRAMPED, reward: REWARD_CRAMPED },

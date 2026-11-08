@@ -15,8 +15,6 @@ const SIZES: readonly { size: TokenIconSize; px: number }[] = [
   { size: "sm", px: 20 },
   { size: "md", px: 24 },
   { size: "lg", px: 32 },
-  { size: "xl", px: 48 },
-  { size: "2xl", px: 64 },
 ];
 
 /** Every kind at every size, on the app's dark surface and on a light one. */
@@ -182,9 +180,9 @@ export const BalanceSpacing: Story = {
         ))}
       </section>
       <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold">Cobbles (the shop, rewards) at sm, md and lg</h3>
+        <h3 className="text-sm font-semibold">Cobbles (the shop, rewards) at sm and md</h3>
         <div className="flex flex-wrap items-start gap-6">
-          {(["sm", "md", "lg"] as const).map((size) => (
+          {(["sm", "md"] as const).map((size) => (
             <Measured key={size}>
               <Cobbles value={1250} size={size} />
             </Measured>

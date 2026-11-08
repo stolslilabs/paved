@@ -51,12 +51,12 @@ describe("TokenIcon", () => {
     });
     const { container } = render(
       <>
-        <TokenIcon kind="usdc" size="xl" label="USDC" />
+        <TokenIcon kind="usdc" size="lg" label="USDC" />
         <TokenIcon kind="cobbles" px={52} className="size-13" />
       </>,
     );
     const usdc = screen.getByRole("img", { name: "USDC" });
-    expect(usdc).toHaveAttribute("sizes", "48px");
+    expect(usdc).toHaveAttribute("sizes", "32px");
     expect(usdc.getAttribute("srcset")).not.toMatch(/(https?:)?\/\//);
     expect(usdc).toHaveAttribute("draggable", "false");
     const stone = container.querySelectorAll("img")[1]!;
@@ -85,11 +85,7 @@ describe("the balance plate on the HUD's frame (HOME-UI-CAPSULES)", () => {
     expect(container.querySelector(".numeric")).toHaveClass("text-outline");
   });
 
-  it("is mirrored on the left of the screen, as the shield's capsule is", () => {
-    const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} side="left" size="md" />));
-    const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
-    expect(plate.className).toContain("flex-row-reverse");
-    expect(plate.querySelector("[data-slot=hud-frame]")!.parentElement).toHaveClass("pl-8.5");
+  it("shares its frame with the shield's capsule, on the left of the screen", () => {
     const shield = render(wrap(<ShieldPlate endsAt={2_000_000_000} now={1_900_000_000} />));
     expect(shield.container.querySelector("[data-slot=shield-plate] [data-slot=hud-frame]")).not.toBeNull();
     expect(shield.container.querySelector("[data-slot=shield-plate] [data-slot=ui-icon][data-icon=shield]")).not.toBeNull();
