@@ -141,6 +141,14 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 - The pre-push hook `.githooks/pre-push` runs the cheap part (format, typecheck, guard tests of the touched packages); a clone turns it
   on with `git config core.hooksPath .githooks`. Skip once with `PAVED_SKIP_PREPUSH=1 git push`. A missing tool lets the push through.
 
+## Previews
+
+- An agent's preview of the client is silent: in the Claude desktop app's browser pane (its user agent names `Claude/`), each
+  load starts with the music and the sound effects muted (`withSoundMutedOnLoad`, `packages/app/src/data/settings.ts`). A slider
+  or the player's play turns its channel on for the visit, to check the sound; the next load mutes it again. The Storybook plays
+  no music (`.storybook/preview.tsx`); in the pane, its one story with effects (`parameters.sfx`) is silent too, and
+  "Containers/MusicPlayer > Live" starts muted (its Play turns it on).
+
 ## Skills
 
 Agent skills follow the Overseer's ruling (2026-10-14):

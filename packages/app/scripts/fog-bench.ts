@@ -70,7 +70,7 @@ interface Run {
 
 const browser = await chromium.launch(
   GPU
-    ? { headless: !HEADED, args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"] }
+    ? { headless: !HEADED, args: ["--mute-audio", "--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"] }
     : { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
 );
 const results = new Map<string, { times: number[]; lifting: number[]; buildMs: number[]; calls: Set<number>; run: Run }>();
