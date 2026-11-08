@@ -763,10 +763,12 @@ export const Interactive: Story = { args: HOME_VILLAGE.view, render: (args) => <
 export const InteractiveScene: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} scene />, ...PHONE_375 };
 
 /**
- * LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows a bubble by the tile with Edit (the
- * hammer, as the home's Edit since #807) and its ring, which fills as the press goes on; at its end, edit mode opens as from the
- * Edit button. Let go early, the ring rewinds and Edit stays tappable about 3 s, then fades. On the plan view the bubble stands
- * by the tile; on the scene it follows it. A read-only village and a visit show none.
+ * LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows Edit village by the tile and its ring, which
+ * fills as the press goes on; at its end, edit mode opens as from the Edit button. Let go early, the ring rewinds and Edit stays
+ * tappable about 3 s, then fades. PRESS-BUILD: the button is one of the tile's actions (TILE-ACTIONS), the white hammer on the blue
+ * disc at Confirm's place (up and to the right), a constant gap from the tile at every zoom, clear of the HUD and the dock, its ring the
+ * Missions' gold rail. On the plan view it stands by the tile by the same rules; on the scene it follows it. A read-only village and a
+ * visit show none.
  */
 const pressPlan = async (canvasElement: HTMLElement, letGo = false) => {
   const plan = await within(canvasElement).findByRole("img", { name: /^Village layout/ });
@@ -804,7 +806,7 @@ const expectLingering = async (canvasElement: HTMLElement) => {
   expect(within(canvasElement).getByRole("button", { name: "Edit village" })).toBeInTheDocument();
 };
 
-/** The press held on the starter: Edit by it, its ring filling (a 6 s hold here, so it can be looked at). */
+/** The press held on the starter: Edit village out of it, its ring filling (a 6 s hold here, so it can be looked at). */
 export const PressHolding: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement) };
 /** Let go early: the ring rewinds, Edit stays tappable about 3 s, then fades. */
 export const PressLetGo: Story = {
@@ -816,7 +818,7 @@ export const PressLetGo: Story = {
 };
 /** Held to its end (`HOLD_MS`): edit mode opens, as from the Edit button. */
 export const PressIntoEdit: Story = { args: { ...HOME_VILLAGE.view, holdMs: 800 }, render: (args) => <Playground {...args} />, play: ({ canvasElement }) => pressPlan(canvasElement) };
-/** The same on the scene at 375 px (touch) and 1440 px (mouse): the bubble by the pressed tile, following it. */
+/** The same on the scene at 375 px (touch) and 1440 px (mouse): Edit village out of the pressed tile, following it. */
 export const ScenePressPhone: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, render: (args) => <InScene {...args} />, play: ({ canvasElement }) => pressScene(canvasElement), ...PHONE_375 };
 export const ScenePressWide: Story = { ...ScenePressPhone, ...WIDE_1440 };
 /** Let go early on the scene: Edit lingers by the tile, then fades. */

@@ -5,6 +5,7 @@ import type { LayoutBreakdown } from "@paved/game-core";
 import type { FrameInsets } from "@paved/renderer";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { type TileArt } from "../elements/tile-chip";
+import type { UiIconName } from "../elements/ui-art";
 import { VillageFog, type VillageArrival } from "../elements/village-fog";
 import { Button } from "../ui/button";
 import { LayoutBoard, type LayoutBoardView } from "./layout-board";
@@ -96,8 +97,8 @@ const NONE: VillageLayout = { owner: "", level: 1, tiles: [], score: 0 };
 /** The points in view: none computed, nothing lit (the structure lines are edit mode's, #831). */
 const NO_POINTS: LayoutBreakdown = { lines: [], other: 0, score: 0 };
 
-/** The Edit of the press bubble (#799): the hammer, as the home's Edit since #807. */
-const EDIT_ICON = "hammer";
+/** The long press's Edit village (#799; PRESS-BUILD): the white hammer on the blue disc, one of the tile actions' painted set. */
+const EDIT_ART: UiIconName = "tile-edit";
 
 
 const NO_LAYOUTS: readonly (readonly BoardTile[])[] = [];
@@ -261,7 +262,7 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
     if (editing && editLit !== null && !points.lines.some((l) => l.key === editLit)) setEditLit(null);
   }, [editing, editLit, points]);
   const onEdit = props.onEdit;
-  const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", icon: EDIT_ICON, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
+  const press = useMemo(() => (editable && !editing && onEdit ? { label: "Edit village", art: EDIT_ART, onAct: onEdit, holdMs: props.holdMs } : null), [editable, editing, onEdit, props.holdMs]);
   const lit = litLine?.lit ?? null;
   // The tile's actions on the scene (TILE-ACTIONS: the boards' own, Back to the inventory in Discard's place).
   const bubble = scene ? editor.bubble : null;

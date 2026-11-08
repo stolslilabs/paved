@@ -224,6 +224,13 @@
  * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked beside `close` at 128, 44,
  * 32 and 24 px on the drawer's charcoal and on a light ground. Edit mode's bubble's three (`rotate-tile`, `to-inventory`, `cancel`) left
  * with it.
+ * PRESS-BUILD (2026-11-08): the home village's long press into edit mode (#799) in the tile actions' style, the owner's ask: Edit
+ * village (`tile-edit`, the book draws none), a white hammer on the blue disc, drawn by Codex's built-in image tool (`codex exec -c
+ * model_provider=openai`, its `image_gen`) by editing `tile-rotate` (its arrow replaced, the disc kept), the HUD's `hammer` the
+ * shape's reference and `tile-confirm` and `tile-return` the style's; three variants on a transparent 1254 px square (two white
+ * hammers, one in the HUD hammer's own steel and orange), the first kept, the coloured one the alternative. Trimmed to its alpha box
+ * (alpha 8 and over: the tool's faint specks left out), fitted to the 240 px box by a premultiplied area average and centred on the
+ * icons' frame, checked beside the other tile actions at 128, 44, 32 and 24 px on the drawer's charcoal and on a light ground.
  * STAR-ART (2026-11-07): the star (`star`: the ends', Story's and the Attack's), the owner's ask: MATCH-PAGE's flood fill had left
  * specks, a brown halo and light bites in its outline. Extracted again from the same original, the middle star of the Paved UX Book's
  * result screen (`screens/attack-end.jpg`, 768 px wide, the star about 168 px), by Codex's built-in image tool (`codex exec -c
