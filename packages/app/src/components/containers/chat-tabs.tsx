@@ -1,20 +1,21 @@
 import type { ReactNode } from "react";
-import { formatInteger } from "@paved/game-core";
 import type { ChatTab } from "../../routes/chat-param";
 import { Button } from "../ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Tabs, TabsContent } from "../ui/tabs";
+import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 import { GOLD_RAISED } from "./chat-conversation";
-import { CountBadge } from "./chat-list";
+import { FooterTab, FooterTabsList } from "./footer-tabs";
+import { DrawerFooter } from "./hud-drawer";
 
 /** What waits in the Guild and the Private tabs (#973): the guild's unread messages; the private ones and the requests. */
 export type ChatBadges = Readonly<Record<"guild" | "private", number>>;
 
 /** Each tab, left to right. The World has no badge. */
-export const CHAT_TABS: readonly { id: ChatTab; label: string }[] = [
-  { id: "world", label: "World" },
-  { id: "guild", label: "Guild" },
-  { id: "private", label: "Private" },
+export const CHAT_TABS: readonly { id: ChatTab; label: string; art: UiIconName }[] = [
+  { id: "world", label: "World", art: "chat" },
+  { id: "guild", label: "Guild", art: "guild" },
+  { id: "private", label: "Private", art: "letter" },
 ];
 
 export interface ChatTabsProps {
@@ -26,29 +27,27 @@ export interface ChatTabsProps {
 }
 
 /**
- * The chat page's three tabs (#973; CHAT-PAGE, the Paved UX Book's): World, Guild and Private as words, the shown one white and
- * underlined in gold (the Shop's tabs), each on one line at 320 px; Guild badges its unread messages, Private its unread messages and
- * the requests, in the book's red square. Only the shown tab's content is drawn, as tall as the drawer leaves it.
+ * The chat page's three tabs (#973; CHAT-PAGE, the Paved UX Book's; FOOTER-TABS since #1062, the owner's standard for a page's tabs):
+ * World, Guild and Private as the footer's tabs (`FooterTabsList` in the drawer's `DrawerFooter`), each its painted icon, the current
+ * one's word under it; Guild badges its unread messages, Private its unread messages and the requests, the dock's red count. Only the
+ * shown tab's content is drawn, as tall as the drawer leaves it, the composer at its foot over the tabs; a private conversation opened
+ * over the Private list keeps the tabs, Private current (#1062's open point 1).
  */
 export function ChatTabs({ tab, onTabChange, badges, children }: ChatTabsProps) {
   return (
-    <Tabs value={tab} onValueChange={(v) => CHAT_TABS.some((t) => t.id === v) && onTabChange?.(v as ChatTab)} rememberAs="chat" className="min-h-0 flex-1 gap-3">
-      <TabsList aria-label="Conversations" className="h-auto w-full shrink-0 bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
-        {CHAT_TABS.map(({ id, label }) => {
-          const count = id === "world" ? 0 : (badges?.[id] ?? 0);
-          return (
-            <TabsTrigger key={id} value={id} aria-label={`${label}${count > 0 ? `, ${formatInteger(count)} waiting` : ""}`} className="text-outline h-11 gap-1 px-1 text-lg font-bold">
-              <span>{label}</span>
-              <CountBadge count={count} className="-translate-y-1.5" />
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
+    <Tabs value={tab} onValueChange={(v) => v !== tab && CHAT_TABS.some((t) => t.id === v) && onTabChange?.(v as ChatTab)} rememberAs="chat" className="min-h-0 flex-1 gap-3">
       {CHAT_TABS.map(({ id }) => (
         <TabsContent key={id} value={id} className="flex min-h-0 min-w-0 flex-col gap-3">
           {id === tab && children}
         </TabsContent>
       ))}
+      <DrawerFooter>
+        <FooterTabsList aria-label="Conversations">
+          {CHAT_TABS.map(({ id, label, art }) => (
+            <FooterTab key={id} value={id} label={label} badge={id === "world" ? 0 : (badges?.[id] ?? 0)} art={<UiIcon name={art} px={36} className="drawer-icon size-9" />} />
+          ))}
+        </FooterTabsList>
+      </DrawerFooter>
     </Tabs>
   );
 }

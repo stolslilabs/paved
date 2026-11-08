@@ -1,13 +1,16 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import * as m from "motion/react-m";
 import { BalancesSlot } from "../containers/balances-context";
 import type { ShownBalance } from "../containers/balances";
-import { HudDrawer } from "../containers/hud-drawer";
+import { FooterTab, FooterTabsList } from "../containers/footer-tabs";
+import { DrawerFooter, HudDrawer } from "../containers/hud-drawer";
 import { ShopPacks, type ShopPacksProps } from "../containers/shop-packs";
 import { ShopTheme, ShopThemes, type ShopThemesProps } from "../containers/shop-themes";
 import { ShopTiles, type ShopTilesProps } from "../containers/shop-tiles";
 import { THEMES, type SkinThemeId } from "../containers/theme-card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { TokenIcon } from "../elements/token-icon";
+import { UiIcon } from "../elements/ui-icon";
+import { Tabs, TabsContent } from "../ui/tabs";
 
 /** The Shop's tabs (SHOP-PAGE), in the book's order: the day's tiles, the Cobble packs, the themes. */
 export type ShopTab = "tiles" | "cobbles" | "themes";
@@ -16,6 +19,13 @@ export const SHOP_TABS: readonly { id: ShopTab; label: string }[] = [
   { id: "cobbles", label: "Cobbles" },
   { id: "themes", label: "Themes" },
 ];
+
+/** Each footer tab's painted icon, 36 px (FOOTER-TABS, #1062): the home's pile of tiles, the Cobbles' paving stone, the Forest theme's. */
+const TAB_ART: Record<ShopTab, ReactNode> = {
+  tiles: <UiIcon name="tile-stack" px={36} className="drawer-icon size-9" />,
+  cobbles: <TokenIcon kind="cobbles" px={36} className="drawer-icon size-9" />,
+  themes: <UiIcon name="theme-forest" px={36} className="drawer-icon size-9" />,
+};
 
 export interface ShopSceneProps {
   tab: ShopTab;
@@ -49,10 +59,11 @@ const keepForDialogs = (event: Event) => {
  * The Shop (SHOP-PAGE, the Paved UX Book's Shop, the owner's approved mockups: "Tiles, Cobbles and Themes as tabs of one shop, one
  * card style"): the HUD's drawer, as Missions (`HudDrawer`): a full page with Back on a phone, a side panel docked at the right from
  * `tablet` (the owner's choice of 2026-11-05 over the book's centred window), the Cobbles at its header's end (and USDC on the Cobbles
- * tab). Under the header the three tabs, the book's: words, the current one lit and underlined in gold. Tiles: the day's three
- * (`ShopTiles`); Cobbles: the packs, paid in USDC (`ShopPacks`); Themes: each theme's tiles, in Cobbles (`ShopThemes`). A theme's
- * All tiles opens its own view in place of the tabs, sliding in, its Back to the tab: never a sheet over the Shop (the owner's ask of
- * 2026-11-05). The tab is the URL's (`/village/shop?tab=cobbles`), so the Cobbles balance opens the Cobbles tab.
+ * tab). The three tabs at its foot, the footer's tabs (FOOTER-TABS, #1062: the owner's standard for a page's tabs). Tiles: the day's
+ * three (`ShopTiles`); Cobbles: the packs, paid in USDC (`ShopPacks`); Themes: each theme's tiles, in Cobbles (`ShopThemes`). A theme's
+ * All tiles opens its own view in the Themes tab's place, sliding in, its Back to the tab: never a sheet over the Shop (the owner's ask
+ * of 2026-11-05); the tabs stay, Themes current, and a tap on another tab leaves the view (#1062's open point 3). The tab is the
+ * URL's (`/village/shop?tab=cobbles`), so the Cobbles balance opens the Cobbles tab.
  */
 export function ShopScene({ tab, theme = null, tiles, packs, themes, open = true, returnFocus, onTab, onBack, onThemeBack }: ShopSceneProps) {
   const option = theme ? THEMES.find((t) => t.id === theme) : undefined;
@@ -96,38 +107,51 @@ export function ShopScene({ tab, theme = null, tiles, packs, themes, open = true
       onBack={option ? onThemeBack : undefined}
       onInteractOutside={keepForDialogs}
     >
-      <m.div
-        key={view}
-        ref={body}
-        // The theme's view comes in from the right, the tabs back from the left (no slide under reduced motion: `MotionConfig`).
-        initial={moved && { x: option ? 48 : -48, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.22, ease: "easeOut" }}
-        className="flex flex-col gap-3"
+      <Tabs
+        value={option ? "themes" : tab}
+        // Radix calls it twice on a press (pointer down, then focus): a change to the tab shown is no change. From a theme's view,
+        // another tab leaves it (the route drops `?theme=`).
+        onValueChange={(next) => {
+          if (next !== (option ? "themes" : tab) && SHOP_TABS.some((t) => t.id === next)) onTab?.(next as ShopTab);
+        }}
+        rememberAs="shop"
+        className="gap-3"
       >
-        {option ? (
-          <ShopTheme {...themes} theme={option.id as SkinThemeId} />
-        ) : (
-          <Tabs value={tab} onValueChange={(next) => onTab?.(next as ShopTab)} rememberAs="shop" className="gap-4">
-            <TabsList aria-label="Shop" className="h-auto w-full bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
-              {SHOP_TABS.map(({ id, label }) => (
-                <TabsTrigger key={id} value={id} className="text-outline h-11 text-lg font-bold">
-                  {label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent value="tiles" className="flex flex-col gap-3">
-              <ShopTiles {...tiles} />
+        <m.div
+          key={view}
+          ref={body}
+          // The theme's view comes in from the right, the tabs back from the left (no slide under reduced motion: `MotionConfig`).
+          initial={moved && { x: option ? 48 : -48, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          className="flex flex-col gap-3"
+        >
+          {option ? (
+            <TabsContent value="themes" className="flex flex-col gap-3">
+              <ShopTheme {...themes} theme={option.id as SkinThemeId} />
             </TabsContent>
-            <TabsContent value="cobbles" className="flex flex-col gap-3">
-              <ShopPacks {...packs} />
-            </TabsContent>
-            <TabsContent value="themes" className="flex flex-col gap-4">
-              <ShopThemes {...themes} />
-            </TabsContent>
-          </Tabs>
-        )}
-      </m.div>
+          ) : (
+            <>
+              <TabsContent value="tiles" className="flex flex-col gap-3">
+                <ShopTiles {...tiles} />
+              </TabsContent>
+              <TabsContent value="cobbles" className="flex flex-col gap-3">
+                <ShopPacks {...packs} />
+              </TabsContent>
+              <TabsContent value="themes" className="flex flex-col gap-4">
+                <ShopThemes {...themes} />
+              </TabsContent>
+            </>
+          )}
+        </m.div>
+        <DrawerFooter>
+          <FooterTabsList aria-label="Shop">
+            {SHOP_TABS.map(({ id, label }) => (
+              <FooterTab key={id} value={id} label={label} art={TAB_ART[id]} />
+            ))}
+          </FooterTabsList>
+        </DrawerFooter>
+      </Tabs>
     </HudDrawer>
   );
 }

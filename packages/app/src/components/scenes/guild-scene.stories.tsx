@@ -10,6 +10,7 @@ import { GuildBrowse, GuildFinder } from "../containers/guild-finder";
 import { GuildPage, type GuildPageProps } from "../containers/guild-page";
 import { PlayerSearch } from "../containers/player-search";
 import { GuildScene } from "./guild-scene";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The guild page (`/guild`, #973, the Social page's Guild tab of #953 before; GUILD-PAGE: the HUD's drawer, after the Paved UX Book's
@@ -94,6 +95,13 @@ export const StressRequests: Story = { args: { children: page(GUILD_PAGE.stress,
 export const StressLog: Story = { args: { children: page(GUILD_PAGE.stress, { defaultTab: "log" }) } };
 /** WRAP360: the menu with the longest names. */
 export const StressMenu: Story = { args: { children: page(GUILD_PAGE.stress, { initialView: "menu" }) } };
+
+/** FOOTER-TABS (#1062): the tabs at the foot, pinned at the widths the owner checks; four tabs for an Officer, two in the finder. */
+export const OfficerPhone: Story = { ...Officer, ...PHONE_375 };
+export const OfficerPhone320: Story = { ...Officer, ...PHONE_320 };
+export const OfficerWide: Story = { ...Officer, ...WIDE_1440 };
+export const GuildlessPhone: Story = { ...Guildless, ...PHONE_375 };
+export const GuildlessWide: Story = { ...Guildless, ...WIDE_1440 };
 
 // --- The alliances (ALLIANCES): an alliance's page, a view of the guild page's drawer --------------------------------------
 
