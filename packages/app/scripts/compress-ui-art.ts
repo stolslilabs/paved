@@ -209,7 +209,8 @@
  * frame, checked beside the bronze on the drawer's charcoal. The footer's Alliances and Guilds tabs' icons (the owner's asks of
  * 2026-11-07: the handshake went to the Friends tab), painted the same way: `alliances` with the HUD's guild, friends, shield, swords
  * and members icons as its references, one of three ideas (two shields bound by a gold chain link; three banners in a fan; two shields
- * over a laurel), the owner's pick the third; `guilds` the red shield of it alone, with it as its reference.
+ * over a laurel), the owner's pick the third; `guilds` the red shield of it alone, with it as its reference. Since RANKING-GUILD-ICON
+ * the Guilds tab draws the dock's `guild` (the owner's ask) and `guilds` stays as an alliance's guild count's (`GuildCount`).
  * TILE-ACTIONS (2026-11-07): the actions on a tile being placed, the Paved UX Book's board screen's round buttons (mockup 3 of "Resume
  * a Challenge", `screens/board.jpg`): the trash (`tile-discard`), the blue turning arrow (`tile-rotate`) and the gold check on its
  * bronze face (`tile-confirm`), each cropped from the book (about 64 px, upscaled 4x) and drawn by Codex's built-in image tool (`codex

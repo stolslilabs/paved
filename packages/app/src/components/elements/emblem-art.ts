@@ -57,8 +57,8 @@ export function emblemChargeMask(name: GuildEmblemCharge): string {
 export const ALLIANCE_ART = ["alliance-laurel"] as const;
 export const ALLIANCE_ART_FRAME = { width: 512, height: 512, side: "width", sizes: [64, 128, 256] } as const satisfies Frame;
 /**
- * ALLIANCES: the alliance menu's and a guild page's actions, Invite a guild and Remove a guild: the Guilds tab's red shield
- * (`ranking-art.ts`) with Invite a player's green plus and Kick's red minus (`ui-art.ts`), painted by Codex in the HUD icons'
+ * ALLIANCES: the alliance menu's and a guild page's actions, Invite a guild and Remove a guild: the ranking's red guild shield
+ * (`ranking-art.ts`'s `guilds`) with Invite a player's green plus and Kick's red minus (`ui-art.ts`), painted by Codex in the HUD icons'
  * rendering. On the icons' frame (256 px, the drawing fitted to 240 px), copies of 64 and 128 px; apart from `UI_ICONS`, so the first
  * load does not carry them.
  */
