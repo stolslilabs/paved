@@ -268,7 +268,7 @@ export const HOME_VILLAGE = {
   leaving: { ...home, editing: true, initialDraft: DRAFT_VALID, initialLeaving: true },
   /** The chain refused the save: what happened, the draft kept. */
   refused: { ...home, editing: true, initialDraft: DRAFT_VALID, refusal: "The layout changed on another device: read it again. Nothing was saved." },
-  /** The die pressed (#803): busy, its spin, the hint saying it builds; the draft as it was. */
+  /** The die pressed (#803): busy (the die still), the hint saying it builds; the draft as it was. */
   dieBusy: { ...home, editing: true, randomizer: PENDING_RANDOMIZER, initialRolling: true },
   /** The die past a second: "Still building…" with a cancel under it. */
   dieSlow: { ...home, editing: true, randomizer: PENDING_RANDOMIZER, initialRolling: true, slowRollMs: 0 },

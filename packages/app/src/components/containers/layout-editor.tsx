@@ -1,7 +1,5 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { BoardTile } from "@paved/chain";
-import { useReducedMotionConfig } from "motion/react";
-import * as m from "motion/react-m";
 import { browserRandomLayoutRunner, freshSeed, type RandomLayoutRunner } from "../../lib/random-layout-runner";
 import { distinctRotations } from "../../lib/rotations";
 import { cn } from "../../lib/utils";
@@ -170,7 +168,6 @@ export function useLayoutEditor({
   const [rolling, setRolling] = useState<number | null>(null);
   const [slowRoll, setSlowRoll] = useState(false);
   const [rollError, setRollError] = useState<string | null>(null);
-  const [rolls, setRolls] = useState(0);
   const press = useRef(0);
   // A build at work, known at once (the busy state follows in a transition, so an edit made before it lands still cancels).
   const building = useRef(false);
@@ -351,7 +348,6 @@ export function useLayoutEditor({
     // The stage re-renders whole (the board included): a transition, cut into short tasks, so the press never holds a frame.
     startTransition(() => {
       setRolling(n);
-      setRolls(n);
       setSlowRoll(false);
       setRollError(null);
     });
@@ -490,7 +486,6 @@ export function useLayoutEditor({
     save,
     canRoll: !!randomizer,
     rolling: rolling !== null,
-    rolls,
     slowRoll,
     rollError,
     roll,
@@ -534,12 +529,11 @@ export function ResetAllHold({ editor, holdMs, look = "plain", className }: { ed
 
 /**
  * The die (#803), beside Reset all: a press builds a random compact village from every tile the player holds, off the main
- * thread, and puts it in the draft (never saved by itself); each press another. It spins once per press, and on while it
- * builds (not under reduced motion); past a second it says "Still building…" with a cancel, under it. Hidden where Web Workers
- * are missing.
+ * thread, and puts it in the draft (never saved by itself); each press another. The die stays still (the owner, 2026-11-08: its
+ * spin was bad UX): the village redrawn on the board is the feedback; while it builds the button is busy, and past a second it
+ * says "Still building…" with a cancel, under it. Hidden where Web Workers are missing.
  */
 export function RandomDie({ editor, look = "plain", className }: { editor: LayoutEditor; look?: EditButtonLook; className?: string }) {
-  const still = useReducedMotionConfig() ?? false;
   if (!editor.canRoll) return null;
   const hud = look === "hud";
   return (
@@ -556,16 +550,7 @@ export function RandomDie({ editor, look = "plain", className }: { editor: Layou
         title="Random village"
         className={cn("size-11 rounded-full", hud && HUD_DISC)}
       >
-        <m.span
-          key={editor.rolls}
-          data-rolling={editor.rolling || undefined}
-          className="inline-flex"
-          initial={{ rotate: 0 }}
-          animate={{ rotate: editor.rolls > 0 && !still ? 360 : 0 }}
-          transition={editor.rolling ? { duration: 0.6, ease: "linear", repeat: Infinity } : { duration: 0.5, ease: "easeOut" }}
-        >
-          {hud ? <UiIcon name="die" size="sm" className="drawer-icon" px={24} /> : <Icon name="dice" size="md" />}
-        </m.span>
+        {hud ? <UiIcon name="die" size="sm" className="drawer-icon" px={24} /> : <Icon name="dice" size="md" />}
       </Button>
       {editor.slowRoll && (
         <div

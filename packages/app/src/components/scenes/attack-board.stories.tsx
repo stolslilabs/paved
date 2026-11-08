@@ -19,7 +19,7 @@ import { PvpScoutScene } from "./pvp-scout-scene";
 /**
  * BOARD-MODULE-2 (#772): an attack is a Training game on someone else's village. The attack is `BoardScene`'s attack mode, so it
  * has the same 3D board, assets, stack, bubble, closing feed, season dial, weather and fog as Training. Only the attack's own
- * pieces differ (the star meter, the defender in the title, the deck's count) and the void: red around a rival's village,
+ * pieces differ (the meter's star marks, the defender in the title, the deck's count) and the void: red around a rival's village,
  * green around the player's own.
  *
  * The board's settings are the module's: `useGameBoard`'s square grid and fog for the side (`sideSettings`). They are held at a
@@ -59,7 +59,7 @@ export const Attack: StoryObj = {
 /** A Training game, its tile placed and the bubble up, to compare with Attack: the same scene, the player's green void. */
 export const Training: StoryObj = {
   render: () => {
-    const t = { ...BOARD.slotChosen, mode: "training" as const, gameId: undefined, expiresAt: null, bubble: bubble(BOARD.slotChosen.bubble as BoardBubble) };
+    const t = { ...BOARD.slotChosen, mode: "training" as const, gameId: undefined, expiresAt: null, meter: BOARD.training.meter, bubble: bubble(BOARD.slotChosen.bubble as BoardBubble) };
     return <BoardScene {...t} now={0} tileRenders={appRenders} {...board3d("own", t)} onBack={fn()} onDiscard={fn()} onRestart={fn()} />;
   },
 };
