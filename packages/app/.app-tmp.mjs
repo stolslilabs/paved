@@ -23,7 +23,7 @@ for (const w of process.argv.slice(2).map(Number)) {
   console.log(w, "load", JSON.stringify(await check(page)));
   await snap(page, `${shots}/app-${w}-load.png`);
   for (let i = 1; i <= 3; i++) {
-    await page.getByRole("button", { name: /^Edit village, score/ }).click();
+    await page.getByRole("button", { name: /^Edit village, score/ }).click({ timeout: 120000 });
     await page.getByRole("button", { name: "Leave edit mode" }).click({ timeout: 120000 });
     await page.getByRole("button", { name: /^Edit village, score/ }).waitFor({ timeout: 120000 });
     await page.waitForTimeout(1500);
@@ -32,7 +32,7 @@ for (const w of process.argv.slice(2).map(Number)) {
   await snap(page, `${shots}/app-${w}-after-edit.png`);
   const explore = page.getByRole("button", { name: "Explore" });
   if (await explore.count()) {
-    await explore.click();
+    await explore.click({ timeout: 120000 });
     await page.getByRole("button", { name: "Exit camera" }).click({ timeout: 120000 });
     await page.waitForTimeout(1500);
     console.log(w, "camera", JSON.stringify(await check(page)));
