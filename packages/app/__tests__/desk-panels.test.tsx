@@ -243,7 +243,7 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("button", { name: /^Guild/ })).toHaveFocus());
   });
 
-  it("the dock's Ranking opens the Leaderboard's HUD drawer at the right (LEADERBOARD-PAGE): its tabs at its foot, Alliances live (ALLIANCES), the tab the URL's", async () => {
+  it("the dock's Ranking opens the Leaderboard's HUD drawer at the right (LEADERBOARD-PAGE): its tabs at its foot, the tab the URL's", async () => {
     wide();
     const router = open("/");
     const dock = await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
@@ -254,10 +254,9 @@ describe("from desktop, the overlay's pages open in the side panel over the vill
     expect(drawer).toHaveAttribute("data-side", "right");
     expect(village()).toBeInTheDocument();
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
-    // The tabs in the drawer's footer, out of its scrolling body; Alliances live since ALLIANCES.
+    // The tabs in the drawer's footer, out of its scrolling body: Players, Guilds, Friends.
     const tabs = within(drawer).getAllByRole("tab");
-    expect(tabs.map((t) => t.closest("[data-slot=hud-drawer-footer]") !== null)).toEqual([true, true, true, true]);
-    expect(within(drawer).getByRole("tab", { name: /^Alliances/ })).toBeEnabled();
+    expect(tabs.map((t) => t.closest("[data-slot=hud-drawer-footer]") !== null)).toEqual([true, true, true]);
     // The chain's sources serve no social source: no ranking here (the lists: ranking.test.tsx).
     expect(within(drawer).getByText("Rankings are not on this network yet.")).toBeInTheDocument();
     // A tab is the URL's, its entry replaced: the close still goes back to the village's own entry.

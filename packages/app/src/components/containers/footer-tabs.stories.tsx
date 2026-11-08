@@ -90,13 +90,13 @@ export const Badges: Story = {
   },
 };
 
-/** A tab not in the game yet (the Leaderboard's Alliances): in its place, disabled, a carved "Soon" where a count would be (a count waiting on it is not shown). */
+/** A tab not in the game yet: in its place, disabled, a carved "Soon" where a count would be (a count waiting on it is not shown). */
 export const Soon: Story = {
   args: {
     tabs: [
       { id: "players", label: "Players", art: art("user") },
       { id: "guilds", label: "Guilds", art: art("guild") },
-      { id: "alliances", label: "Alliances", art: art("friends"), badge: 5, soon: true },
+      { id: "friends", label: "Friends", art: art("friends"), badge: 5, soon: true },
     ],
   },
 };

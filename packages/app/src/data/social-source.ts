@@ -5,11 +5,6 @@ import type { FollowRefusal } from "@paved/game-core";
 // follows (#954) add `follows`, the messages (#955) `chat`; the guilds (#953) add their part on the source itself.
 
 import type {
-  AllianceDraft,
-  AllianceEmblem,
-  AllianceRefusal,
-  AllianceRole,
-  AllianceSettings,
   ChatKind,
   ChatRefusal,
   ChatReportReason,
@@ -331,148 +326,6 @@ export interface GuildSource {
   visitGuildTab(player: string): Promise<void>;
 }
 
-// --- The alliances (ALLIANCES), on the same source (`allianceSource`) ----------------------------------------------------
-
-/** A guild of an alliance as the alliance's page lists it: the guild's card, its role, when it joined. */
-export interface AllianceGuild {
-  guild: GuildSummary;
-  role: AllianceRole;
-  /** When it joined the alliance (its founding, for the founder), in seconds since the epoch. */
-  joinedAt: number;
-}
-
-/** An alliance as its row, the search and the ranking show it. */
-export interface AllianceSummary {
-  id: number;
-  name: string;
-  emblem: AllianceEmblem;
-  description: string;
-  /** Its guild count, out of `ALLIANCE_MAX_GUILDS`. */
-  guilds: number;
-  /** Its players: the sum of its guilds' member counts. */
-  members: number;
-  /** The sum of its guilds' scores (game-core's `allianceScore`), so of every member's crowns. */
-  score: number;
-  /** Its head guild. */
-  head: { id: number; name: string };
-}
-
-/** A guild's alliance as the guild's page shows it, under its tag. */
-export interface AllianceBadge {
-  id: number;
-  name: string;
-  emblem: AllianceEmblem;
-  /** The guild's role in it. */
-  role: AllianceRole;
-}
-
-/** A guild's request to join, as the alliance's leader sees it. */
-export interface AllianceRequest {
-  guild: GuildSummary;
-  sentAt: number;
-}
-
-/** An invitation the alliance sent a guild, as the alliance's leader sees it. */
-export interface AllianceSentInvitation {
-  guild: GuildSummary;
-  sentAt: number;
-  /** When it lapses (7 days on). */
-  expiresAt: number;
-}
-
-/**
- * An alliance's page as a viewer sees it: its summary and its guilds; for the alliance's leader (the head guild's leader), the
- * requests and the invitations sent.
- */
-export interface AllianceView extends AllianceSummary {
-  /** The head first, then by score (game-core's `sortAllianceGuilds`). */
-  roster: AllianceGuild[];
-  /** The viewer's guild's role in it, or null: their guild is not in it (or no viewer). */
-  role: AllianceRole | null;
-  /** The viewer leads the alliance (the head guild's leader): they invite, answer, remove, hand the head over and edit. */
-  leads: boolean;
-  /** The viewer leads their guild, a guild of this alliance: they may take it out (Leave). */
-  leadsGuild: boolean;
-  /** Oldest first; null but for the alliance's leader. */
-  requests: AllianceRequest[] | null;
-  /** Newest first; null but for the alliance's leader. */
-  invitations: AllianceSentInvitation[] | null;
-}
-
-/** An alliance's place in the whole ranking (1 first) and its summary: the viewer's own row, pinned past the list's end. */
-export interface AlliancePlace {
-  place: number;
-  alliance: AllianceSummary;
-}
-
-/** An invitation the player's guild holds, as its leader sees it. */
-export interface AllianceInvitation {
-  alliance: AllianceSummary;
-  /** Who sent it: the alliance's leader then. */
-  inviter: string;
-  inviterName: string | null;
-  sentAt: number;
-  expiresAt: number;
-}
-
-/** The connected player's alliance, through their guild: what the guild page's Alliance opens on, and its badge. */
-export interface PlayerAlliance {
-  /** Their guild and their rank in it, or null: in no guild. */
-  guild: { id: number; name: string; rank: GuildRank } | null;
-  /** Their guild's alliance's page, or null: in none. */
-  alliance: AllianceView | null;
-  /** Their guild's pending request; only its leader sees it (null for the others, and for none). */
-  request: { alliance: AllianceSummary; sentAt: number } | null;
-  /** The invitations their guild holds, open ones only, newest first; only its leader sees them (empty for the others). */
-  invitations: AllianceInvitation[];
-  /** The Alliance tile's badge: the invitations (a guild's leader) and, for the alliance's leader, the requests waiting. */
-  badge: number;
-}
-
-/** An alliance write refused by game-core's rules (`packages/game-core/src/social/alliance.ts`): the page shows its reason. */
-export class AllianceRefusedError extends Error {
-  constructor(readonly reason: AllianceRefusal) {
-    super(`alliance: ${reason}`);
-    this.name = "AllianceRefusedError";
-  }
-}
-
-/**
- * The alliances' reads and writes (ALLIANCES). `player` is the connected player, who acts for their guild when they lead it: the
- * mock trusts it, a service or the contract will authenticate it. A write resolves once applied, or rejects with an
- * `AllianceRefusedError`.
- */
-export interface AllianceSource {
-  playerAlliance(player: string): Promise<PlayerAlliance>;
-  /** An alliance's page as `viewer` sees it (null: anyone), or null when no alliance has that ID. */
-  alliance(id: number, viewer: string | null): Promise<AllianceView | null>;
-  /** The alliance a guild is in, as the guild's page shows it, or null. */
-  allianceOfGuild(guild: number): Promise<AllianceBadge | null>;
-  /** The alliances a query finds by name (game-core's `searchAlliances`); "" lists them by score. */
-  searchAlliances(query: string): Promise<AllianceSummary[]>;
-  /** The alliances by score (game-core's `rankAlliances`), the first `ALLIANCE_LIST_LIMIT`. */
-  allianceRanking(): Promise<AllianceSummary[]>;
-  /** An alliance's place in the whole ranking, past the list's end too, or null when no alliance has that ID. */
-  alliancePlace(id: number): Promise<AlliancePlace | null>;
-  /** Creates an alliance; the player's guild becomes its head. Resolves with its ID. */
-  createAlliance(player: string, draft: AllianceDraft): Promise<number>;
-  editAlliance(player: string, settings: AllianceSettings): Promise<void>;
-  /** The player's guild asks to join `alliance`. */
-  requestAlliance(player: string, alliance: number): Promise<void>;
-  cancelAllianceRequest(player: string): Promise<void>;
-  answerAllianceRequest(player: string, guild: number, accept: boolean): Promise<void>;
-  /** The alliance invites `guild`. */
-  inviteGuild(player: string, guild: number): Promise<void>;
-  answerAllianceInvitation(player: string, alliance: number, accept: boolean): Promise<void>;
-  removeGuild(player: string, guild: number): Promise<void>;
-  /** Hands the head to `guild`; the player's guild becomes a member. */
-  makeHeadGuild(player: string, guild: number): Promise<void>;
-  /** Takes the player's guild out of its alliance; its last guild disbands it. */
-  leaveAlliance(player: string): Promise<void>;
-  /** The player opened the alliance view: the mock's invitation comes a minute after the first visit of a guild's leader in none. */
-  visitAlliance(player: string): Promise<void>;
-}
-
 // --- The messages (#955), on the same source (`chat`) ------------------------------------------------------------------
 
 /** A message's author as the conversation shows them: avatar in their league's rim (CHAT-PAGE), name, level, and their guild's tag. */
@@ -670,13 +523,4 @@ export interface SocialSource {
 export function guildSource(social: SocialSource | null | undefined): GuildSource | null {
   const s = social as (SocialSource & Partial<GuildSource>) | null | undefined;
   return s && typeof s.playerGuild === "function" && typeof s.createGuild === "function" ? (s as SocialSource & GuildSource) : null;
-}
-
-/**
- * The alliance part of a social source (ALLIANCES), or null when it serves none (then the alliance hooks answer `unavailable`). Its
- * methods sit on the source itself, as the guilds' do.
- */
-export function allianceSource(social: SocialSource | null | undefined): AllianceSource | null {
-  const s = social as (SocialSource & Partial<AllianceSource>) | null | undefined;
-  return s && typeof s.playerAlliance === "function" && typeof s.createAlliance === "function" ? (s as SocialSource & AllianceSource) : null;
 }

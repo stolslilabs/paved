@@ -10,7 +10,6 @@ import {
   guildNameRefusal,
   guildSettingsInvalid,
   type GuildDraft,
-  type GuildEmblem as Emblem,
   type GuildJoinType,
   type GuildSettings,
 } from "@paved/game-core";
@@ -26,7 +25,7 @@ import { SectionTitle } from "../elements/section-title";
 import { UiIcon } from "../elements/ui-icon";
 
 /** A field written into, carved (the drawer's: carved informs, and holds what is typed). */
-export const FIELD = "drawer-carved w-full min-w-0 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none placeholder:text-muted-foreground";
+const FIELD = "drawer-carved w-full min-w-0 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none placeholder:text-muted-foreground";
 /** The emblem's grids, six to a row (the owner's ask of 2026-11-05: the charges and colours fill the width); inline, no CSS of its own. */
 const SIX: CSSProperties = { gridTemplateColumns: "repeat(6, minmax(0, 1fr))" };
 /** A cell of the emblem's grids. */
@@ -36,7 +35,7 @@ const CELL = "aspect-square h-auto w-full min-w-0 rounded-xl bg-transparent px-0
  * A section of the form, the drawer's: its engraved title in the display font, a fixed word (TILE-COUNTS), then its content, then
  * what counts it (the characters typed) on a line of its own under it, at the right.
  */
-export function FormSection({ title, count, children }: { title: string; count?: ReactNode; children: ReactNode }) {
+function FormSection({ title, count, children }: { title: string; count?: ReactNode; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
       <SectionTitle>{title}</SectionTitle>
@@ -47,7 +46,7 @@ export function FormSection({ title, count, children }: { title: string; count?:
 }
 
 /** A count of characters under its field, at the right: "83/150", in the warning colour past its maximum. */
-export function CharCount({ count, max }: { count: number; max: number }) {
+function CharCount({ count, max }: { count: number; max: number }) {
   return (
     <span aria-hidden className={cn("numeric font-sans text-sm font-bold", count > max ? "text-warning" : "text-muted-foreground")}>
       {formatInteger(count)}/{formatInteger(max)}
@@ -83,46 +82,6 @@ const count = (text: string, max: number): number => Math.min(max, Math.max(0, M
 
 /** The emblem's three colours as the picker names them (the charge's, GUILD-PAGE: its silhouette's). */
 const PART_NAMES = { primary: "Shield", secondary: "Band", charge: "Charge" } as const;
-
-/**
- * The emblem's picker (GUILD-PAGE; an alliance's too, ALLIANCES): under the drawer's engraved title, on a carved panel, the charges then
- * each colour (the shield's, the band's, the charge's), six to a row.
- */
-export function EmblemFields({ emblem, onChange }: { emblem: Emblem; onChange: (emblem: Emblem) => void }) {
-  return (
-    <FormSection title="Emblem">
-      <div className="drawer-carved flex flex-col gap-3 rounded-xl p-2">
-        <ToggleGroup type="single" aria-label="Icon" className="grid w-full gap-1" style={SIX} value={String(emblem.icon)} onValueChange={(v) => v && onChange({ ...emblem, icon: Number(v) })}>
-          {GUILD_EMBLEM_CHARGES.map((charge, i) => (
-            <ToggleGroupItem key={charge} value={String(i)} aria-label={charge} className={CELL}>
-              <EmblemCharge name={charge} className="size-7" />
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        {(["primary", "secondary", "charge"] as const).map((part) => (
-          <div key={part} className="flex flex-col gap-1">
-            <span aria-hidden className="px-1 text-xs font-bold text-muted-foreground">
-              {PART_NAMES[part]}
-            </span>
-            <ToggleGroup
-              type="single"
-              aria-label={`${PART_NAMES[part]} colour`}
-              className="grid w-full gap-1" style={SIX}
-              value={String(emblem[part] ?? GUILD_EMBLEM_SILVER)}
-              onValueChange={(v) => v && onChange({ ...emblem, [part]: Number(v) })}
-            >
-              {GUILD_EMBLEM_PALETTE.map((i) => (
-                <ToggleGroupItem key={i} value={String(i)} aria-label={`${PART_NAMES[part]}: ${GUILD_EMBLEM_COLOUR_NAMES[i]}`} className={CELL}>
-                  <span aria-hidden className="size-7 rounded-full border-2 border-background" style={{ background: `var(--emblem-${i})` }} />
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
-        ))}
-      </div>
-    </FormSection>
-  );
-}
 
 /** A new guild's settings: Open, no requirements, the first emblem. */
 export const NEW_GUILD: GuildDraft = { name: "", emblem: { icon: 0, primary: 0, secondary: 7 }, description: "", joinType: "open", requirements: { level: 0, crowns: 0 } };
@@ -175,7 +134,37 @@ export function GuildForm({ mode, initial, onSubmit, pending, error }: GuildForm
         </FormSection>
       )}
 
-      <EmblemFields emblem={draft.emblem} onChange={(emblem) => set({ emblem })} />
+      <FormSection title="Emblem">
+        <div className="drawer-carved flex flex-col gap-3 rounded-xl p-2">
+          <ToggleGroup type="single" aria-label="Icon" className="grid w-full gap-1" style={SIX} value={String(draft.emblem.icon)} onValueChange={(v) => v && set({ emblem: { ...draft.emblem, icon: Number(v) } })}>
+            {GUILD_EMBLEM_CHARGES.map((charge, i) => (
+              <ToggleGroupItem key={charge} value={String(i)} aria-label={charge} className={CELL}>
+                <EmblemCharge name={charge} className="size-7" />
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {(["primary", "secondary", "charge"] as const).map((part) => (
+            <div key={part} className="flex flex-col gap-1">
+              <span aria-hidden className="px-1 text-xs font-bold text-muted-foreground">
+                {PART_NAMES[part]}
+              </span>
+              <ToggleGroup
+                type="single"
+                aria-label={`${PART_NAMES[part]} colour`}
+                className="grid w-full gap-1" style={SIX}
+                value={String(draft.emblem[part] ?? GUILD_EMBLEM_SILVER)}
+                onValueChange={(v) => v && set({ emblem: { ...draft.emblem, [part]: Number(v) } })}
+              >
+                {GUILD_EMBLEM_PALETTE.map((i) => (
+                  <ToggleGroupItem key={i} value={String(i)} aria-label={`${PART_NAMES[part]}: ${GUILD_EMBLEM_COLOUR_NAMES[i]}`} className={CELL}>
+                    <span aria-hidden className="size-7 rounded-full border-2 border-background" style={{ background: `var(--emblem-${i})` }} />
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          ))}
+        </div>
+      </FormSection>
 
       <FormSection title="Description" count={<CharCount count={draft.description.length} max={GUILD_DESCRIPTION_MAX} />}>
         <textarea id={descriptionId} aria-label="Description" rows={3} className={cn(FIELD, "resize-none")} value={draft.description} onChange={(e) => set({ description: e.target.value })} />
