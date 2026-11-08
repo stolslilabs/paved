@@ -1,27 +1,25 @@
 import { useState } from "react";
 import { autoQuality, deviceSettings, useDeviceSettings, withVolume } from "../../data/settings";
-import { cn } from "../../lib/utils";
 import { UiIcon } from "../elements/ui-icon";
 import { DeviceSettingsPanel, QualityChoice, type DeviceSettingsPanelProps } from "./device-settings-panel";
 import { HudDrawer } from "./hud-drawer";
 import { SettingsGroup } from "./settings-group";
 
 /**
- * What the board offers on its game, at the top of its settings (#606): Surrender in a Challenge, Restart in Training (Story's
- * Restart is held on the board, GAME-OVERLAY). Each asks first (the board's dialogs); the drawer closes on the tap.
+ * What the board offers on its game, at the top of its settings (#606): Surrender in a Challenge (Story's and Training's Restart is held
+ * on the board, GAME-OVERLAY, TRAINING-END). It asks first (the board's dialog); the drawer closes on the tap.
  */
 export interface GameAction {
-  kind: "surrender" | "restart";
+  kind: "surrender";
   label: string;
   hint: string;
   onSelect: () => void;
-  /** A move on its way, or nothing left to restart: the row is shown, disabled. */
+  /** A move on its way, or the game over: the row is shown, disabled. */
   disabled?: boolean;
 }
 
-/** The game's row: a whole-width raised press (the drawer's), its painted icon (the white flag, the red arrow), Surrender's word in red. */
+/** The game's row: a whole-width raised press (the drawer's), its painted white flag, Surrender's word in red. */
 export function GameActionRow({ action }: { action: GameAction }) {
-  const destructive = action.kind === "surrender";
   return (
     <button
       type="button"
@@ -29,13 +27,9 @@ export function GameActionRow({ action }: { action: GameAction }) {
       disabled={action.disabled}
       className="drawer-raised state-layer flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left outline-none disabled:pointer-events-none disabled:opacity-50"
     >
-      {destructive ? (
-        <UiIcon name="surrender" px={32} className="drawer-icon size-8 shrink-0" />
-      ) : (
-        <UiIcon name="restart" px={32} className="drawer-icon size-8 shrink-0" />
-      )}
+      <UiIcon name="surrender" px={32} className="drawer-icon size-8 shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col wrap-anywhere">
-        <span className={cn("text-outline font-semibold", destructive && "text-destructive-text")}>{action.label}</span>
+        <span className="text-outline font-semibold text-destructive-text">{action.label}</span>
         <span className="text-sm text-muted-foreground">{action.hint}</span>
       </span>
     </button>
@@ -45,7 +39,7 @@ export function GameActionRow({ action }: { action: GameAction }) {
 export interface DeviceSettingsSheetProps extends DeviceSettingsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The board's game: its Surrender or Restart, above the device settings. */
+  /** The board's game: its Surrender, above the device settings. */
   game?: GameAction;
 }
 

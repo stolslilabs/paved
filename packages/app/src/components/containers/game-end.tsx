@@ -20,6 +20,7 @@ import { EMPTY_STAR } from "../elements/painted-stars";
 import type { TileArt } from "../elements/tile-chip";
 import type { PlayerProgress } from "../elements/xp-motion";
 import { tileName } from "../elements/tile-render";
+import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
 import { useSfx } from "./audio-provider";
@@ -74,11 +75,16 @@ export interface EndAction {
 }
 
 export interface GameEndProps {
-  /** The stars won, 0 to 3. */
-  stars: number;
+  /** The stars won, 0 to 3 (none drawn when `mark` crowns the window instead). */
+  stars?: number;
   /** Each star's share filled, 0 to 1, from the score (the stars' bar's place, the owner's ask of 2026-11-06); unset, the won ones full. */
   fills?: readonly number[];
-  /** The verdict over the window: "Triumph", "Level complete". */
+  /**
+   * What crowns the window in place of the three stars (TRAINING-END: Training's crown, `EndMark`, the mark of its score meter). Unset:
+   * the stars.
+   */
+  mark?: ReactNode;
+  /** The verdict over the window, in capitals (the owner's ask of 2026-11-08): "VICTORY", "GAME OVER". */
   verdict: string;
   /** Under it: "against Wren of Hollowmere", a level's title. */
   subtitle?: ReactNode;
@@ -108,6 +114,15 @@ export interface GameEndProps {
 
 /** The verdict, the book's: large, gold, outlined thick in black. */
 const VERDICT: CSSProperties = { textShadow: BLACK_OUTLINE };
+
+/** The end's verdict ("VICTORY", "GAME OVER"), the book's: large, gold, outlined thick in black; a long one a size down. */
+export function EndVerdict({ verdict, className }: { verdict: string; className?: string }) {
+  return (
+    <h2 className={cn("font-game leading-none text-balance text-primary", verdict.length > 10 ? "text-4xl" : "text-5xl", className)} style={VERDICT}>
+      {verdict}
+    </h2>
+  );
+}
 /** The soft rule between two rows of the carved card (the Shop's panels'). */
 const ROW_RULE: CSSProperties = { borderTop: "1px solid color-mix(in oklab, var(--drawer-bevel) 45%, transparent)" };
 /** The raised grey answer (the drawer's rule: raised presses), its word outlined in black as the gold one's. */
@@ -263,7 +278,7 @@ function Glints({ px, spots, delay = 0, still }: { px: number; spots: readonly S
  * others greyed; the verdict large in gold, what it was against, the score; a carved card of rows (the crowns, the XP); the chest's
  * panel; the raised and gold answers, and smaller ones under them.
  */
-export function GameEnd({ stars, fills, verdict, subtitle, score, rows, notes, chest, secondary, middle, primary, onClose, instant, children, className }: GameEndProps) {
+export function GameEnd({ stars = 0, fills, mark, verdict, subtitle, score, rows, notes, chest, secondary, middle, primary, onClose, instant, children, className }: GameEndProps) {
   const answers = [secondary, middle, primary].filter(Boolean).length;
   // Three on one row: a step smaller, so each word keeps its line at 320 px.
   const word = answers === 3 ? "px-2 text-base" : "px-3 text-lg";
@@ -284,10 +299,8 @@ export function GameEnd({ stars, fills, verdict, subtitle, score, rows, notes, c
           <UiIcon name="close" px={36} className="drawer-icon size-9" />
         </button>
       )}
-      <EndStars stars={stars} fills={fills} instant={instant} className="absolute -top-14 left-1/2 -translate-x-1/2" />
-      <h2 className={cn("font-game leading-none text-balance text-primary", verdict.length > 10 ? "text-4xl" : "text-5xl")} style={VERDICT}>
-        {verdict}
-      </h2>
+      {mark ?? <EndStars stars={stars} fills={fills} instant={instant} className="absolute -top-14 left-1/2 -translate-x-1/2" />}
+      <EndVerdict verdict={verdict} />
       {subtitle && <p className="-mt-1 text-sm font-semibold text-muted-foreground">{subtitle}</p>}
       <p aria-label="Score" className="text-outline text-2xl leading-none font-bold text-foreground tabular-nums">
         {score}
@@ -376,41 +389,76 @@ export function EndStars({ stars, fills, instant, timing = END_STARS, className 
   return (
     <span role="img" aria-label={`${won} of 3 stars`} data-stars={won} data-testid="star-fill" className={cn("isolate flex items-end", className)}>
       {[0, 1, 2].map((i) => {
-        const f = fill(i);
-        const full = f >= 1;
         const big = i === 1;
-        const px = big ? 92 : 72;
-        return (
-          <span key={i} data-fill={Math.round(f * 100)} className={cn("relative grid shrink-0 place-items-center", big ? "-mx-2 -translate-y-4" : "")} style={{ width: px, height: px }}>
-            {/* Its light bursts in as its gold reaches the end (the fill takes 0.35 s from its turn). */}
-            {full && <StarLight px={px} delay={now ? 0 : at(i) + 0.25} still={now} />}
-            {/* The star to win, grey: its outline and its relief. */}
-            <span aria-hidden className="absolute inset-0" style={EMPTY_STAR}>
-              <UiIcon name="star" px={px} className="size-full" />
-            </span>
-            {f > 0 && (
-              // Its gold, from the left up to its share; a full one pops once filled.
-              <m.span
-                data-lit={full ? "" : undefined}
-                className="absolute inset-0"
-                initial={now ? false : { clipPath: "inset(0% 100% 0% 0%)" }}
-                animate={{ clipPath: `inset(0% ${((1 - f) * 100).toFixed(1)}% 0% 0%)` }}
-                transition={{ delay: now ? 0 : at(i), duration: now ? 0 : 0.35 * Math.max(f, 0.3), ease: "easeOut" }}
-              >
-                <m.span
-                  className="block size-full"
-                  initial={false}
-                  animate={full && !now ? { scale: [1, 1.25, 1] } : { scale: 1 }}
-                  transition={{ delay: at(i) + 0.3, duration: 0.35, ease: "easeOut" }}
-                >
-                  <UiIcon name="star" px={px} className="size-full" />
-                </m.span>
-              </m.span>
-            )}
-            {full && <Glints px={px} spots={STAR_GLINTS} delay={at(i) + 0.3} still={now} />}
-          </span>
-        );
+        return <FilledMark key={i} name="star" px={big ? 92 : 72} fill={fill(i)} at={at(i)} now={now} className={big ? "-mx-2 -translate-y-4" : undefined} />;
       })}
+    </span>
+  );
+}
+
+/** A painting that fills with its gold: a star of the ends, Training's crown. Its own alias, so the Font Awesome subset reads no name in it. */
+type MarkArt = UiIconName;
+
+/**
+ * One painted mark `px` wide filling with its gold at its turn `at` (s): grey (its outline and its relief), its gold from the left up
+ * to `fill` (0 to 1), and once full it pops, its light bursting in behind it (`StarLight`) and its glints twinkling (the ends' stars);
+ * a partly filled one does not shine. At once when `now`.
+ */
+function FilledMark({ name, px, fill: f, at, now, className }: { name: MarkArt; px: number; fill: number; at: number; now: boolean; className?: string }) {
+  const full = f >= 1;
+  return (
+    <span data-fill={Math.round(f * 100)} className={cn("relative grid shrink-0 place-items-center", className)} style={{ width: px, height: px }}>
+      {/* Its light bursts in as its gold reaches the end (the fill takes 0.35 s from its turn). */}
+      {full && <StarLight px={px} delay={now ? 0 : at + 0.25} still={now} />}
+      {/* The mark to win, grey: its outline and its relief. */}
+      <span aria-hidden className="absolute inset-0" style={EMPTY_STAR}>
+        <UiIcon name={name} px={px} className="size-full" />
+      </span>
+      {f > 0 && (
+        // Its gold, from the left up to its share; a full one pops once filled.
+        <m.span
+          data-lit={full ? "" : undefined}
+          className="absolute inset-0"
+          initial={now ? false : { clipPath: "inset(0% 100% 0% 0%)" }}
+          animate={{ clipPath: `inset(0% ${((1 - f) * 100).toFixed(1)}% 0% 0%)` }}
+          transition={{ delay: now ? 0 : at, duration: now ? 0 : 0.35 * Math.max(f, 0.3), ease: "easeOut" }}
+        >
+          <m.span className="block size-full" initial={false} animate={full && !now ? { scale: [1, 1.25, 1] } : { scale: 1 }} transition={{ delay: at + 0.3, duration: 0.35, ease: "easeOut" }}>
+            <UiIcon name={name} px={px} className="size-full" />
+          </m.span>
+        </m.span>
+      )}
+      {full && <Glints px={px} spots={STAR_GLINTS} delay={at + 0.3} still={now} />}
+    </span>
+  );
+}
+
+/**
+ * One painted mark crowning the window in place of the three stars (TRAINING-END: Training's crown, the one mark of its score meter,
+ * the device's best): the stars' middle place and size, filling with its gold as the score goes (`fill`, 0 to 1, the share of the mark's
+ * goal), the first star's beat; reached (`fill` 1), it pops with the third star's sound and buzz, its light and glints alive as theirs;
+ * short of it, its gold stops short and nothing shines; grey with none. At once under reduced motion or `instant`.
+ */
+export function EndMark({ name, fill, label, instant, className }: { name: MarkArt; fill: number; label: string; instant?: boolean; className?: string }) {
+  const reduced = useReducedMotionConfig() ?? false;
+  const play = useSfx();
+  const now = Boolean(instant) || reduced;
+  const f = fill >= 1 ? 1 : Math.min(0.96, Math.max(0, fill));
+  const reached = f >= 1;
+  useEffect(() => {
+    if (!reached || now) return;
+    const timer = setTimeout(
+      () => {
+        play("wonder");
+        haptic("firm");
+      },
+      (END_STARS.lead + 0.3) * 1000,
+    );
+    return () => clearTimeout(timer);
+  }, [reached, now, play]);
+  return (
+    <span role="img" aria-label={label} data-reached={reached || undefined} data-testid="end-mark" className={cn("absolute -top-18 left-1/2 isolate flex -translate-x-1/2", className)}>
+      <FilledMark name={name} px={92} fill={f} at={END_STARS.lead} now={now} />
     </span>
   );
 }

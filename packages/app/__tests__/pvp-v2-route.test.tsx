@@ -105,7 +105,7 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     await discardTile();
     expect(await screen.findByRole("heading", { level: 1, name: "Attack over" }, WAIT)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "0 of 3 stars" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Defeat" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "DEFEAT" })).toBeInTheDocument();
     // No star: no chest to open.
     expect(screen.queryByRole("region", { name: "Chest" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Open the / })).toBeNull();

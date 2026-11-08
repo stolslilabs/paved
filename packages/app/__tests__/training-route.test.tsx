@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TRAINING_KEY, replayTraining, type KeyValueStore } from "@paved/game-core";
@@ -160,7 +160,8 @@ describe("/training (P3)", () => {
     expect(started).toHaveBeenCalledTimes(1);
     const game = lastGame().snapshot.state.game!;
     expect(game.over).toBe(true);
-    expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent(`Tiles placed${game.placedCount - 1}`);
+    // The starter tile not counted.
+    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(new RegExp(`^${game.placedCount - 1} placed`));
   // The whole game is real work (one click and a re-render of the board per tile): 10.7 to 18.1 s over 5 runs, 11.2 to 23.2 s over 10 more, 28.5 s once under
   // heavy load.
   }, slow(60_000));
@@ -184,28 +185,30 @@ describe("/training (P3)", () => {
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
   });
 
-  it("Restart, from the settings, asks first, then plays the same game again from its start (#606); no Surrender", async () => {
+  it("Restart, held in the header (TRAINING-END), plays the same game again from its start (#606); a tap does nothing; no Surrender", async () => {
     open("/training");
     expect(await tilesOnBoard()).toBe(1);
     const seed = lastGame().seed;
     await chooseSlot();
     await holdToPlace();
     expect(await tilesOnBoard()).toBe(2);
-    const restart = async () => {
-      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-      const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
-      expect(within(sheet).queryByRole("button", { name: /Surrender/ })).toBeNull();
-      await userEvent.click(within(sheet).getByRole("button", { name: /^Restart/ }));
-      return screen.findByRole("dialog", { name: "Restart this game?" });
-    };
-    await restart();
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
+    expect(within(sheet).queryByRole("button", { name: /Surrender|Restart/ })).toBeNull();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(await tilesOnBoard()).toBe(2);
 
-    await userEvent.click(within(await restart()).getByRole("button", { name: "Restart" }));
+    const restart = screen.getByRole("button", { name: "Hold to restart the game" });
+    // A tap: nothing.
+    fireEvent.pointerDown(restart, { button: 0 });
+    fireEvent.pointerUp(restart, { button: 0 });
+    fireEvent.click(restart, { detail: 1 });
+    expect(await tilesOnBoard()).toBe(2);
+    // Held its whole length: the same game from its first tile.
+    fireEvent.pointerDown(restart, { button: 0 });
+    await waitFor(() => expect(started).toHaveBeenCalledTimes(2), { timeout: slow(3000) });
+    fireEvent.pointerUp(restart, { button: 0 });
     expect(await tilesOnBoard()).toBe(1);
-    expect(started).toHaveBeenCalledTimes(2);
     expect(lastGame().seed).toBe(seed);
   });
 });
@@ -218,8 +221,8 @@ describe("/training/over (P3)", () => {
     await playToEnd(played);
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
     expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    const metrics = screen.getByRole("region", { name: "Game metrics" });
-    expect(metrics).toHaveTextContent(`Tiles placed${played.snapshot.state.game!.placedCount - 1}`);
+    // The starter tile not counted.
+    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(new RegExp(`^${played.snapshot.state.game!.placedCount - 1} placed`));
 
     await userEvent.click(screen.getByRole("button", { name: "Play again" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
@@ -238,17 +241,18 @@ describe("/training/over (P3)", () => {
     expect(score).toBeGreaterThan(1);
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
     expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.getByText("New best")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "VICTORY" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Crown: a new best" })).toBeInTheDocument();
     expect(JSON.parse(store.getItem(TRAINING_BEST_KEY)!)).toEqual({ score, seed: `0x${played.seed.toString(16)}`, previous: 1 });
 
-    const toggle = screen.getByRole("radiogroup", { name: "Show" });
-    await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
-    // The board under the scores from the start (#720), freed by Board.
+    // The window's cross shows the board (TRAINING-END), freed.
+    await userEvent.click(screen.getByRole("button", { name: "Close the scores" }));
     await waitFor(() => expect(screen.getByTestId("final-board")).not.toHaveAttribute("aria-hidden", "true"));
     const built = played.snapshot.state.game!.placedCount;
     expect(await within(screen.getByTestId("final-board")).findByRole("img", { name: `Board of ${built} tiles` })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/training/over");
-    await userEvent.click(within(toggle).getByRole("radio", { name: "Scores" }));
+    // The gold Scores pill brings the window back (the board's entry left: one Back).
+    await userEvent.click(screen.getByRole("button", { name: "Show the scores" }));
     await waitFor(() => expect(screen.getByTestId("final-board")).toHaveAttribute("aria-hidden", "true"));
     expect(screen.getByTestId("scores-overlay").closest('[aria-hidden="true"]')).toBeNull();
     expect(router.state.location.pathname).toBe("/training/over");

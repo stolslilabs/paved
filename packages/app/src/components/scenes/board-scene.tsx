@@ -180,7 +180,6 @@ export function BoardScene(props: BoardSceneProps) {
   const { mode, gameId, tiles, hand, now } = props;
   const title = props.title ?? (mode === "challenge" && gameId != null ? `Challenge #${gameId}` : TITLES[mode]);
   const [surrendering, setSurrendering] = useState(false);
-  const [restarting, setRestarting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deckOpen, setDeckOpen] = useState(false);
   // On a phone the sheets come from the bottom and cover the board: its ambient effects stop meanwhile (#572). From tablet up
@@ -204,9 +203,8 @@ export function BoardScene(props: BoardSceneProps) {
       cancel();
     };
   }, []);
-  const surrenderDialog = useDeferred(loadSurrenderDialog, surrendering || restarting, (e) => {
+  const surrenderDialog = useDeferred(loadSurrenderDialog, surrendering, (e) => {
     setSurrendering(false);
-    setRestarting(false);
     toastError({ title: "Surrender", message: "The Surrender dialog could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
   const settingsSheet = useDeferred(loadSettingsSheet, settingsOpen, (e) => {
@@ -225,19 +223,19 @@ export function BoardScene(props: BoardSceneProps) {
     play("tap");
     setDeckOpen(true);
   };
-  // The game's row in the settings: Surrender (Challenge, while the game takes moves), Restart (Story mode and Training).
+  // The game's row in the settings: Surrender (Challenge, while the game takes moves). Story's and Training's Restart is on the board,
+  // held (GAME-OVERLAY, TRAINING-END): their settings have no game row.
   const pick = (open: (on: boolean) => void) => () => {
     setSettingsOpen(false);
     open(true);
   };
-  // Story's Restart is on the board, held (GAME-OVERLAY): its settings have no game row.
-  const gameAction: GameAction | undefined = props.readOnly || mode === "attack" || mode === "story"
-    ? undefined
-    : mode === "challenge"
+  const gameAction: GameAction | undefined =
+    !props.readOnly && mode === "challenge"
       ? { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: pick(setSurrendering), disabled: !props.onSurrender || hand.state === "pending" || hand.state === "empty" }
-      : props.onRestart
-        ? { kind: "restart", label: "Restart", hint: "Play this game again from its first tile, same deck.", onSelect: pick(setRestarting) }
-        : undefined;
+      : undefined;
+  // Restart, held in the header: Story's level, Training's game; dimmed in its place while the board is read only (a level's intro or
+  // end) or Training's game is over (its end on its way).
+  const restartable = mode === "story" || mode === "training";
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {props.canvas ? (
@@ -260,8 +258,9 @@ export function BoardScene(props: BoardSceneProps) {
             play("tap");
             setSettingsOpen(true);
           }}
-          onRestart={mode === "story" ? props.onRestart : undefined}
-          restartDisabled={props.readOnly}
+          onRestart={restartable ? props.onRestart : undefined}
+          restartLabel={mode === "training" ? "Hold to restart the game" : undefined}
+          restartDisabled={props.readOnly || (mode === "training" && hand.state === "empty")}
           coach={props.coach}
           className="pointer-events-auto w-full max-w-2xl"
         />
@@ -368,9 +367,6 @@ export function BoardScene(props: BoardSceneProps) {
 
       {surrenderDialog && (
         <surrenderDialog.SurrenderDialog open={surrendering} onOpenChange={setSurrendering} expired={promptSurrender} score={props.score} onSurrender={() => props.onSurrender?.()} />
-      )}
-      {surrenderDialog && mode === "training" && (
-        <surrenderDialog.RestartDialog open={restarting} onOpenChange={setRestarting} onRestart={() => props.onRestart?.()} />
       )}
     </div>
   );

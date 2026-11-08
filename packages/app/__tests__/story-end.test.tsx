@@ -28,9 +28,9 @@ describe("Story's end (STORY-PAGE, after the Ranked end)", () => {
     expect(answers()[1]).not.toHaveClass("drawer-raised");
   });
 
-  it("no star: \"Level failed\", Retry the gold answer, Next disabled in its place (a control never leaves)", () => {
+  it("no star: \"GAME OVER\", Retry the gold answer, Next disabled in its place (a control never leaves)", () => {
     render(wrap(<StoryEnd {...END} stars={0} onNext={undefined} nextLocked />));
-    expect(screen.getByRole("heading", { name: "Level failed" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "GAME OVER" })).toBeInTheDocument();
     expect(answers().map((b) => b.textContent)).toEqual(["Retry", "Levels", "Next"]);
     expect(answers()[0]).toHaveAttribute("data-tone", "gold");
     expect(answers()[2]).toHaveAttribute("data-tone", "raised");
