@@ -8,4 +8,4 @@ type Story = StoryObj<typeof meta>;
 
 export const Two: Story = {};
 export const None: Story = { args: { stars: 0 } };
-export const Three: Story = { args: { stars: 3, size: "md" } };
+export const Three: Story = { args: { stars: 3 } };

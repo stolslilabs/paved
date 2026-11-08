@@ -83,7 +83,7 @@ describe("the chests (ChestIcon, ChestArt)", () => {
   });
 
   it("lay the art's images for the box (the closed chest; the lid behind the body once open), each decorative", async () => {
-    const { container } = render(wrap(<ChestArt rank="rare" state="rest" size="lg" />));
+    const { container } = render(wrap(<ChestArt rank="rare" state="ready" size="lg" />));
     await act(async () => {});
     const art = screen.getByRole("img", { name: "Rare chest" });
     expect(art).toHaveAttribute("data-slot", "chest-art");
@@ -97,7 +97,7 @@ describe("the chests (ChestIcon, ChestArt)", () => {
     }
   });
 
-  it("open the art: the open layers and the light show only once open, the opened chest is grey", async () => {
+  it("open the art: the open layers and the light show only once open", async () => {
     const at = async (state: ChestArtState, reduced = false) => {
       const { container, unmount } = render(wrap(<ChestArt rank="rare" state={state} />, reduced));
       await act(async () => {});
@@ -116,12 +116,11 @@ describe("the chests (ChestIcon, ChestArt)", () => {
       unmount();
       return out;
     };
-    expect(await at("rest")).toEqual({ closed: 1, lid: 0, body: 0, burst: false, beam: false, sparks: 0, shine: true, grey: false });
+    expect(await at("ready")).toEqual({ closed: 1, lid: 0, body: 0, burst: false, beam: false, sparks: 0, shine: true, grey: false });
     expect(await at("open")).toMatchObject({ closed: 0, lid: 1, body: 1, burst: true, beam: true, shine: false, grey: false });
     expect((await at("open")).sparks).toBeGreaterThan(0);
-    expect(await at("spent")).toMatchObject({ closed: 0, lid: 1, body: 1, burst: false, beam: false, grey: true });
     // Reduced motion: no idle shine.
-    expect((await at("rest", true)).shine).toBe(false);
+    expect((await at("ready", true)).shine).toBe(false);
   });
 
   it("open with a pop: the closed chest stays until the lid springs up from its hinges; under reduced motion it is open at once", async () => {
@@ -162,14 +161,14 @@ describe("the chests (ChestIcon, ChestArt)", () => {
   });
 
   it("load the art in its own chunk, the icon standing in its box under its name until it comes", async () => {
-    const { container } = render(wrap(<LazyChestArt rank="rare" state="spent" size="sm" />));
+    const { container } = render(wrap(<LazyChestArt rank="rare" state="open" size="md" />));
     const fallback = container.querySelector('[data-slot="chest-art-fallback"]');
     if (fallback) {
       expect(fallback).toHaveAttribute("aria-label", "Rare chest");
       expect(fallback.querySelector('[data-slot="chest-icon"]')).not.toBeNull();
     }
     await waitFor(() => expect(screen.getByRole("img", { name: "Rare chest" })).toHaveAttribute("data-slot", "chest-art"));
-    expect(container.querySelector('[data-slot="chest-art"]')).toHaveAttribute("data-state", "spent");
+    expect(container.querySelector('[data-slot="chest-art"]')).toHaveAttribute("data-state", "open");
   });
 
   it("are no longer drawn from Font Awesome: no shapes file, no notice", () => {

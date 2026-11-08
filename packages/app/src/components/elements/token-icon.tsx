@@ -15,8 +15,8 @@ export const TOKEN_ICONS: Record<TokenKind, { name: string }> = {
 
 const tokenIconVariants = cva("inline-block shrink-0 select-none", {
   variants: {
-    // In px: 16, 20, 24, 32, 48, 64. `em`: a little taller than the text it sits in, never under 16 px.
-    size: { xs: "size-4", sm: "size-5", md: "size-6", lg: "size-8", xl: "size-12", "2xl": "size-16", em: "size-[max(1rem,1.25em)]" },
+    // In px: 16, 20, 24, 32. `em`: a little taller than the text it sits in, never under 16 px. A plate's end sizes its own (`px`).
+    size: { xs: "size-4", sm: "size-5", md: "size-6", lg: "size-8", em: "size-[max(1rem,1.25em)]" },
   },
   defaultVariants: { size: "md" },
 });
@@ -24,7 +24,7 @@ const tokenIconVariants = cva("inline-block shrink-0 select-none", {
 export type TokenIconSize = NonNullable<VariantProps<typeof tokenIconVariants>["size"]>;
 
 /** Each size's width in CSS px, for the copy it loads; `em` at the largest text it sits in (a 24 px figure, so 30 px). */
-const SIZE_PX: Record<TokenIconSize, number> = { xs: 16, sm: 20, md: 24, lg: 32, xl: 48, "2xl": 64, em: 30 };
+const SIZE_PX: Record<TokenIconSize, number> = { xs: 16, sm: 20, md: 24, lg: 32, em: 30 };
 
 /**
  * The balances' spacing rule (issue 668), the same for every balance (`Amount`, `Cobbles`, `ResourcePlate`, so the resource bar, the

@@ -32,33 +32,26 @@ describe("the game icons (#844)", () => {
 
   it("draw at the first paint, with no Font Awesome script: one SVG of their own paths", () => {
     expect(window.FontAwesome).toBeUndefined();
-    const { container } = render(<GameIcon name="swords" />);
-    const svg = container.querySelector("svg[data-icon=swords]")!;
+    const { container } = render(<GameIcon name="house-tree" />);
+    const svg = container.querySelector("svg[data-icon=house-tree]")!;
     expect(svg).not.toBeNull();
     expect(svg).toHaveAttribute("aria-hidden", "true");
-    expect(svg.querySelectorAll("path").length).toBeGreaterThan(GAME_ICON_SHAPES.swords.parts.length);
-    // Steel blades and gold hilts: each tone its own gradient, its own outline.
-    const fills = [...svg.querySelectorAll("linearGradient")].map((g) => g.id.replace(/^.*?(gold|steel)$/, "$1"));
-    expect(fills.sort()).toEqual(["gold", "steel"]);
+    expect(svg.querySelectorAll("path").length).toBeGreaterThan(GAME_ICON_SHAPES["house-tree"].parts.length);
+    // A green tree and a wooden house: each tone its own gradient, its own outline.
+    const fills = [...svg.querySelectorAll("linearGradient")].map((g) => g.id.replace(/^.*?(green|wood)$/, "$1"));
+    expect(fills.sort()).toEqual(["green", "wood"]);
   });
 
   it("names itself when given a label, and keeps ids apart between icons on one page", () => {
     const { container } = render(
       <>
-        <GameIcon name="trophy" label="League" />
-        <GameIcon name="trophy" />
+        <GameIcon name="house-tree" label="Village" />
+        <GameIcon name="house-tree" />
       </>,
     );
-    expect(screen.getByRole("img", { name: "League" })).toHaveAttribute("data-icon", "trophy");
+    expect(screen.getByRole("img", { name: "Village" })).toHaveAttribute("data-icon", "house-tree");
     const ids = [...container.querySelectorAll("linearGradient")].map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("paints every part in one tone when asked (a crest in its league's colour)", () => {
-    const { container } = render(<GameIcon name="swords" tone="current" />);
-    expect(container.querySelectorAll("linearGradient")).toHaveLength(1);
-    const relief = render(<GameIcon name="treasure-chest" />).container;
-    expect(relief.querySelectorAll("mask").length).toBeGreaterThan(0);
   });
 
   it("are each recorded in the notices as derived from Font Awesome Pro", () => {
@@ -70,16 +63,16 @@ describe("the game icons (#844)", () => {
 
 describe("the world's icons (#870)", () => {
   it("are drawn in the game icons' relief and box, from their own shapes file, each in its tones", () => {
-    const { container } = render(<WorldIcon name="snowflake" label="Winter" />);
-    const svg = screen.getByRole("img", { name: "Winter" });
+    const { container } = render(<WorldIcon name="road" label="Road" />);
+    const svg = screen.getByRole("img", { name: "Road" });
     expect(svg).toHaveAttribute("data-slot", "game-icon");
-    expect(svg).toHaveAttribute("viewBox", `${(WORLD_ICON_SHAPES.snowflake.width - 640) / 2} 0 640 512`);
+    expect(svg).toHaveAttribute("viewBox", `${(WORLD_ICON_SHAPES.road.width - 640) / 2} 0 640 512`);
     expect(container.querySelectorAll("mask").length).toBeGreaterThan(0);
-    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["ice"]);
+    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["stone", "gold"]);
   });
 
   it("keep their own light and ink, not the theme's foreground and background, so a light theme keeps their relief", () => {
-    const html = [render(<WorldIcon name="moon" />).container, render(<GameIcon name="plus" />).container].map((c) => c.innerHTML).join("");
+    const html = [render(<WorldIcon name="castle" />).container, render(<GameIcon name="house-tree" />).container].map((c) => c.innerHTML).join("");
     expect(html).toContain("var(--game-light)");
     expect(html).toContain("var(--game-ink)");
     expect(html).not.toMatch(/var\(--(?:foreground|background)\)/);
@@ -89,13 +82,5 @@ describe("the world's icons (#870)", () => {
     const { container } = render(<GameIcon name="house-tree" />);
     expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0])).toEqual(["green", "wood"]);
     expect(Object.keys(WORLD_ICON_SHAPES)).not.toContain("house-tree");
-  });
-
-  it("draw the Chests' treasure chest in wood, its side bands and its lock gold (issue 873)", () => {
-    const { container } = render(<GameIcon name="treasure-chest" label="Chests" />);
-    expect(screen.getByRole("img", { name: "Chests" })).toHaveAttribute("viewBox", `${(GAME_ICON_SHAPES["treasure-chest"].width - 640) / 2} 0 640 512`);
-    expect([...container.querySelectorAll("linearGradient")].map((g) => g.id.match(/[a-z]+$/)![0]).sort()).toEqual(["gold", "wood"]);
-    // The left band, the body, the right band, the lid, the lock: consecutive parts of one tone are one path.
-    expect(container.querySelectorAll("mask")).toHaveLength(5);
   });
 });

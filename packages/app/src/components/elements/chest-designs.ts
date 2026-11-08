@@ -15,7 +15,7 @@ export const CHEST_NAME: Readonly<Record<ChestRank, string>> = { basic: "Basic c
 export const CHEST_RANKS: readonly ChestRank[] = ["basic", "rare", "epic"];
 
 /** The detailed art's sizes, as the rem of its square box: the slots' chests (`xs` three in a row once won, `sm`), the modal's (`lg`, `xl`). */
-export const CHEST_ART_REM = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16 } as const;
+export const CHEST_ART_REM = { md: 8, lg: 12 } as const;
 export type ChestArtSize = keyof typeof CHEST_ART_REM;
 /** The opened chest, grey and dimmed: inline, so the stylesheet gains nothing. */
 export const CHEST_SPENT = { filter: "grayscale(1)", opacity: 0.6 } as const;

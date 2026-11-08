@@ -62,4 +62,4 @@ export const FRIENDS_SEARCH = {
   searching: { search: SEARCH.results },
   unavailable: { search: SEARCH.unavailable },
   stress: { search: SEARCH.stress },
-} satisfies Record<string, FriendsSceneProps>;
+} satisfies Record<string, Pick<FriendsSceneProps, "search">>;

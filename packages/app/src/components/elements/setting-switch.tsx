@@ -19,13 +19,12 @@ export interface SettingSwitchProps {
   /** Its painted icon (`UI_ICONS`). */
   art?: UiIconName;
   checked: boolean;
-  disabled?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   className?: string;
 }
 
 /** One on/off setting (the book's rows): the icon, the name, the book's green switch at its end. */
-export function SettingSwitch({ label, hint, art, checked, disabled, onCheckedChange, className }: SettingSwitchProps) {
+export function SettingSwitch({ label, hint, art, checked, onCheckedChange, className }: SettingSwitchProps) {
   const id = useId();
   return (
     <div data-slot="setting-row" className={cn(SETTING_ROW, className)}>
@@ -39,7 +38,7 @@ export function SettingSwitch({ label, hint, art, checked, disabled, onCheckedCh
           {hint}
         </span>
       )}
-      <Switch id={id} tone="success" aria-describedby={hint ? `${id}-hint` : undefined} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+      <Switch id={id} tone="success" aria-describedby={hint ? `${id}-hint` : undefined} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
 }

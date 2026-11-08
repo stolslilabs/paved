@@ -31,7 +31,6 @@ export const chipVariants = cva("relative inline-grid shrink-0 overflow-hidden r
     size: { sm: "size-8", md: "size-14", lg: "size-24", xl: "size-32" },
     state: {
       default: "border-border",
-      selected: "border-primary shadow-[0_0_0_3px_var(--state-selected)]",
       pending: "border-info animate-pulse motion-reduce:animate-none",
       refused: "border-destructive-text",
     },
@@ -102,24 +101,24 @@ const VOXELS: readonly (readonly [number, number, number])[] = [
   [0, 0, 1], [2, 0, -1], [1, 1, -1], [3, 1, 1], [0, 2, -1], [2, 2, 1], [1, 3, 1], [3, 3, -1],
 ];
 
-export interface UnknownTileChipProps extends VariantProps<typeof chipVariants> {
+export interface UnknownTileChipProps extends Pick<VariantProps<typeof chipVariants>, "size"> {
   className?: string;
 }
 
 /**
  * A tile not known yet (V2-DECK-SHEET): an extra of a PvP attack's deck, drawn at random, whose plan shows only once it is drawn. The
- * chip's frame, sizes and states, on a muted stone fill with a faint voxel texture and a large "?" in the display font.
+ * chip's frame and sizes, on a muted stone fill with a faint voxel texture and a large "?" in the display font.
  */
-export function UnknownTileChip({ size, state, className }: UnknownTileChipProps) {
+export function UnknownTileChip({ size, className }: UnknownTileChipProps) {
   // An id fit for `url(#…)`: React's own carries punctuation.
   const stone = `stone${useId().replace(/[^\w-]/g, "")}`;
   return (
     <span
       role="img"
       aria-label="Unknown tile"
-      data-state={state ?? "default"}
+      data-state="default"
       data-view="unknown"
-      className={cn(chipVariants({ size, state }), "place-items-center bg-muted", className)}
+      className={cn(chipVariants({ size }), "place-items-center bg-muted", className)}
     >
       <svg aria-hidden viewBox="0 0 4 4" className="absolute inset-0 size-full" shapeRendering="crispEdges">
         <defs>

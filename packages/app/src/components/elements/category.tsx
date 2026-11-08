@@ -1,6 +1,6 @@
 import { CategoryType } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import { Icon, type IconSize } from "../ui/icon";
+import { Icon } from "../ui/icon";
 import { WorldIcon, type WorldIconName } from "./world-icon";
 import { CATEGORY_NAMES, type CategoryName } from "./category-names";
 
@@ -33,7 +33,7 @@ export const CLOSING_CATEGORIES = [CategoryType.City, CategoryType.Road, Categor
 );
 
 /** A category's game icon, in its tones; 1.25em wide, as a fixed-width `Icon`, so a column of them lines up. */
-export function CategoryIcon({ category, size = "md", className }: { category: number; size?: IconSize; className?: string }) {
+export function CategoryIcon({ category, size = "sm", className }: { category: number; size?: "xs" | "sm"; className?: string }) {
   const { glyph } = categoryInfo(category);
   if (!glyph) return <Icon name="star" size={size} fixedWidth className={cn("text-muted-foreground", className)} />;
   return <WorldIcon name={glyph} size={size} className={className} />;
