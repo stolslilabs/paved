@@ -105,7 +105,8 @@ async function expectGroovesFull(canvasElement: HTMLElement) {
 /**
  * A tab not in the game yet (the Leaderboard's Alliances): in its place, disabled, a carved "Soon" where a count would be (a count
  * waiting on it is not shown). Its content dims, not its trigger (FOOTER-TAB-GROOVE, the owner's decision of 2026-11-07): the groove on
- * its left edge is as every other one. The play checks it with Players, then Guilds current.
+ * its left edge is as every other one. The play checks it with Players, then Guilds, then Friends current
+ * (with Players and Friends, the groove on Alliances' own left edge shows).
  */
 export const Soon: Story = {
   args: {
@@ -123,11 +124,13 @@ export const Soon: Story = {
     // The content at half opacity, as the whole tab was.
     await expect(getComputedStyle(alliances.querySelector<HTMLElement>("[data-slot=footer-tab-content]")!).opacity).toBe("0.5");
     await expectGroovesFull(canvasElement);
-    await userEvent.click(canvas.getByRole("tab", { name: "Guilds" }));
-    await expect(canvas.getByRole("tab", { name: "Guilds" })).toHaveAttribute("data-state", "active");
-    // The grooves fade over 200 ms as the ground slides: wait for them to settle.
-    await new Promise((r) => setTimeout(r, 300));
-    await expectGroovesFull(canvasElement);
+    for (const name of ["Guilds", "Friends"]) {
+      await userEvent.click(canvas.getByRole("tab", { name }));
+      await expect(canvas.getByRole("tab", { name })).toHaveAttribute("data-state", "active");
+      // The grooves fade over 200 ms as the ground slides: wait for them to settle.
+      await new Promise((r) => setTimeout(r, 300));
+      await expectGroovesFull(canvasElement);
+    }
   },
 };
 
