@@ -165,15 +165,30 @@ export interface FreeVillageHeld extends FreeVillageView {
  * reads it in its first chunk (#753). The same reads, so the same cache. Null where they are not served; disabled without a
  * player.
  */
+/** A village's two reads (its board, its inventory): `useFreeVillageHeld`'s, and the prefetch's. */
+const villageQueries = (v2: FreeVillageViews | null, id: string) =>
+  [
+    { queryKey: queryKeys.chain.v2.village(id), queryFn: () => orNone(() => v2!.freeVillage(id)) },
+    { queryKey: queryKeys.chain.v2.inventory(id), queryFn: () => orNone(() => v2!.inventory(id)) },
+  ] as const;
+
+/** Reads a player's village into the cache, for `useFreeVillage` to have it at once (a rival drawn under the scan, #1067). */
+export function prefetchFreeVillage(client: QueryClient, views: GameViews, playerId: string): Promise<void> {
+  const v2 = freeVillageViews(views);
+  if (v2 === null) return Promise.resolve();
+  return Promise.all(villageQueries(v2, playerId).map((q) => client.prefetchQuery<unknown>(q))).then(() => undefined);
+}
+
 export function useFreeVillageHeld(playerId: string | null): Result<FreeVillageHeld> {
   const { views } = useDataSources();
   const v2 = freeVillageViews(views);
   const id = playerId ?? "0x0";
   const enabled = playerId !== null && v2 !== null;
+  const [village, inventory] = villageQueries(v2, id);
   return useQueries({
     queries: [
-      { queryKey: queryKeys.chain.v2.village(id), queryFn: () => orNone(() => v2!.freeVillage(id)), enabled },
-      { queryKey: queryKeys.chain.v2.inventory(id), queryFn: () => orNone(() => v2!.inventory(id)), enabled },
+      { ...village, enabled },
+      { ...inventory, enabled },
     ],
     combine: (results) => {
       const [village, inventory] = results as unknown as [UseQueryResult<FreeVillageView | null>, UseQueryResult<number[] | null>];
