@@ -28,7 +28,7 @@ function keepForDialogs(event: Event) {
  * The friends page (`/friends`, #973; FRIENDS-PAGE, the Paved UX Book's "Friends and followers"): the HUD's drawer, as Missions and the
  * Shop (`HudDrawer`): a full page with Back on a phone, a side panel docked at the right from `tablet`, where the home's Friends button
  * is (the book's tablet and desktop centre it, which no drawer does: the right, the brief's default). Under its header the book's
- * carved search, "Find a player by name or ID" (#952), then the list shown under its title and its count, the Suggestions and the
+ * carved search, "Find a player by name or ID" (#952), then the list shown under its title, the Suggestions and the
  * blocked players (#954); the three lists, Friends, Following and Followers, the footer's tabs (#1062). A row opens the player's
  * profile over it.
  */

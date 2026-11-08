@@ -77,9 +77,9 @@ describe("the pages' footer tabs (#1062)", () => {
     expect(onTab).toHaveBeenCalledWith("tiles");
   });
 
-  it("Friends: each list's count by its title, as the Ranking's", async () => {
+  it("Friends: each list's title holds no count (the book's rule of 2026-11-08)", async () => {
     render(inDrawer(<FriendsPanel {...FRIENDS_TAB.friends} />));
-    expect(within(screen.getByRole("region", { name: "Friends" })).getByRole("heading")).toHaveTextContent(/^Friends4$/);
+    expect(within(screen.getByRole("region", { name: "Friends" })).getByRole("heading")).toHaveTextContent(/^Friends$/);
   });
 
   it("leaves the old words underlined in gold to the avatar's categories and the match's view switch only", () => {

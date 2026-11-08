@@ -78,11 +78,15 @@ describe("/friends on the mock (#954, a page since #973)", { timeout: slow(40_00
 
   const lists = () => screen.findByRole("tablist", { name: "Lists" }, T(10_000));
   const list = (name: "Friends" | "Following" | "Followers") => screen.getByRole("region", { name });
-  // A list's count by its title (FOOTER-TABS, #1062: no longer in its tab), its tab shown first.
+  // A list's rows (no count in its tab since FOOTER-TABS, #1062, nor by its title since the book's rule of 2026-11-08), its tab shown first.
   const count = async (name: "Friends" | "Following" | "Followers", n: number) => {
     const tab = screen.getByRole("tab", { name: new RegExp(`^${name}`) });
     if (tab.getAttribute("aria-selected") !== "true") await userEvent.click(tab);
-    await waitFor(() => expect(within(list(name)).getByRole("heading").textContent).toBe(`${name}${n}`), T(8_000));
+    await waitFor(() => {
+      const region = list(name);
+      expect(region.querySelector("[aria-busy]")).toBeNull();
+      expect(within(region).queryAllByRole("listitem")).toHaveLength(n);
+    }, T(8_000));
   };
 
   async function confirm(title: string | RegExp, button: string) {

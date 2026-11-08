@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { formatCompact, formatInteger, isOnline } from "@paved/game-core";
+import { formatInteger, isOnline } from "@paved/game-core";
 import type { FollowLists, FollowRow, GuildBadge, PublicProfile } from "../../data/social-source";
 import { followErrorText } from "../../lib/follow-text";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
@@ -51,9 +51,6 @@ const keyOf = (address: string): string => {
     return address.toLowerCase();
   }
 };
-
-/** A list's count by its title, the book's "Friends 6": whole up to 999, short from 1,000 ("1.2K"). */
-const tabCount = (n: number) => (n < 1_000 ? formatInteger(n) : formatCompact(n));
 
 /**
  * The rows' buttons (FRIENDS-PAGE, the book's pills): 32 px tall and round; their touch target 44 px (a band past their top and
@@ -193,8 +190,8 @@ export const CARVED_NOTE = "drawer-carved rounded-xl px-4 py-6 text-center text-
 /**
  * The friends page's lists (`/friends`, #973; the Social page's Friends tab of #954 before), redrawn after the Paved UX Book's
  * "Friends and followers" (FRIENDS-PAGE): three tabs, Friends (the mutual follows), Following and Followers, the footer's tabs since
- * #1062 (FOOTER-TABS, the owner's standard), the new followers' count on Followers in the dock's red. Each list under its title and its
- * count, a carved panel of rows, online players first, then the most recently seen; a tap on a row opens the player's profile (Message,
+ * #1062 (FOOTER-TABS, the owner's standard), the new followers' count on Followers in the dock's red. Each list under its title (no count,
+ * the book's rule of 2026-11-08), a carved panel of rows, online players first, then the most recently seen; a tap on a row opens the player's profile (Message,
  * Following, Block are there, as the book's). Friends: online or when last seen at each row's end. Following: Following (unfollows,
  * confirmed). Followers: the new ones first and marked New, Follow back in gold, or Following. Then the Suggestions (the book's: the
  * name and the guild, Follow, or Follow back in gold), and the blocked players, a sheet of their own with Unblock.
@@ -302,11 +299,8 @@ export function FriendsPanel({ lists, error, errorDetail, onRetry, suggestions, 
           <TabsContent key={id} value={id}>
             {id === list && (
               <section aria-label={meta.label} className="flex flex-col gap-3">
-                {/* The list's count by its title, as the Ranking shows its own (#1062). */}
-                <SectionTitle>
-                  {meta.label}
-                  {rows !== null && <span className="numeric font-sans text-base font-bold text-muted-foreground">{tabCount(rows.length)}</span>}
-                </SectionTitle>
+                {/* The list's title, no count (the UX Book's rule of 2026-11-08: no changing figure in a section title). */}
+                <SectionTitle>{meta.label}</SectionTitle>
                 {rows === null && !error && (
                   <div aria-busy className="flex flex-col gap-2">
                     {[0, 1, 2].map((i) => (
