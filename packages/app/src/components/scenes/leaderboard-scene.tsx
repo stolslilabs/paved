@@ -69,20 +69,20 @@ function keepForDialogs(event: Event) {
 
 /**
  * The footer's tabs (FOOTER-TABS, the Vault's bottom navigation): Players, Guilds, Alliances (live since ALLIANCES), and Friends at
- * the right end (the owner's ask of 2026-11-07). Each its painted icon at 36 px: the player and the handshake of `ui-art.ts`; the
- * Guilds' shield and the Alliances' two shields over a laurel, the ranking's own (`ranking-art.ts`, the owner's asks of 2026-11-07).
+ * the right end (the owner's ask of 2026-11-07). Each its painted icon at 36 px: the player, the dock's Guild (its two banners, the
+ * owner's ask) and the handshake of `ui-art.ts`; the Alliances' two shields over a laurel, the ranking's own (`ranking-art.ts`).
  */
-type TabArt = "user" | "guilds" | "alliances" | "friends";
+type TabArt = "user" | "guild" | "alliances" | "friends";
 const TABS: readonly { id: LeaderboardTab; label: string; art: TabArt }[] = [
   { id: "players", label: "Players", art: "user" },
-  { id: "guilds", label: "Guilds", art: "guilds" },
+  { id: "guilds", label: "Guilds", art: "guild" },
   { id: "alliances", label: "Alliances", art: "alliances" },
   { id: "friends", label: "Friends", art: "friends" },
 ];
 
 /** A tab's painted icon, 36 px (the drawers' icons' look, `drawer-icon`). */
 const tabArt = (art: TabArt) =>
-  art === "alliances" || art === "guilds" ? <img {...rankingArtSources(art, 36)} alt="" draggable={false} decoding="async" className="drawer-icon size-9" /> : <UiIcon name={art} px={36} className="drawer-icon size-9" />;
+  art === "alliances" ? <img {...rankingArtSources(art, 36)} alt="" draggable={false} decoding="async" className="drawer-icon size-9" /> : <UiIcon name={art} px={36} className="drawer-icon size-9" />;
 
 /** An empty list's words, or the network's: on the drawer's carved surface (the friends' lists'). */
 const NOTE = "drawer-carved rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground";
