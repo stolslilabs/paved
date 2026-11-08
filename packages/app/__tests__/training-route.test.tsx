@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TRAINING_KEY, replayTraining, type KeyValueStore } from "@paved/game-core";
@@ -185,28 +185,30 @@ describe("/training (P3)", () => {
     expect(screen.queryByText(/Storage is off|Last move not saved/)).not.toBeInTheDocument();
   });
 
-  it("Restart, from the settings, asks first, then plays the same game again from its start (#606); no Surrender", async () => {
+  it("Restart, held in the header (TRAINING-END), plays the same game again from its start (#606); a tap does nothing; no Surrender", async () => {
     open("/training");
     expect(await tilesOnBoard()).toBe(1);
     const seed = lastGame().seed;
     await chooseSlot();
     await holdToPlace();
     expect(await tilesOnBoard()).toBe(2);
-    const restart = async () => {
-      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-      const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
-      expect(within(sheet).queryByRole("button", { name: /Surrender/ })).toBeNull();
-      await userEvent.click(within(sheet).getByRole("button", { name: /^Restart/ }));
-      return screen.findByRole("dialog", { name: "Restart this game?" });
-    };
-    await restart();
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
+    expect(within(sheet).queryByRole("button", { name: /Surrender|Restart/ })).toBeNull();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(await tilesOnBoard()).toBe(2);
 
-    await userEvent.click(within(await restart()).getByRole("button", { name: "Restart" }));
+    const restart = screen.getByRole("button", { name: "Hold to restart the game" });
+    // A tap: nothing.
+    fireEvent.pointerDown(restart, { button: 0 });
+    fireEvent.pointerUp(restart, { button: 0 });
+    fireEvent.click(restart, { detail: 1 });
+    expect(await tilesOnBoard()).toBe(2);
+    // Held its whole length: the same game from its first tile.
+    fireEvent.pointerDown(restart, { button: 0 });
+    await waitFor(() => expect(started).toHaveBeenCalledTimes(2), { timeout: slow(3000) });
+    fireEvent.pointerUp(restart, { button: 0 });
     expect(await tilesOnBoard()).toBe(1);
-    expect(started).toHaveBeenCalledTimes(2);
     expect(lastGame().seed).toBe(seed);
   });
 });

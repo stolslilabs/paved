@@ -2,29 +2,14 @@ import type { CSSProperties } from "react";
 import type { ScoredStructure } from "@paved/chain";
 import { CategoryType, formatInteger, type GameStats } from "@paved/game-core";
 import { cn } from "../../lib/utils";
-import { CLOSING_CATEGORIES, CategoryIcon, categoryInfo } from "../elements/category";
+import { CLOSING_CATEGORIES, categoryInfo } from "../elements/category";
 import { SectionTitle } from "../elements/section-title";
-import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 import { ScrollRegion } from "../ui/scroll-region";
+import { ClosingArt } from "./closing-feed";
 import { EndMark, GameEnd } from "./game-end";
 
-/** A category's painting: a name of the HUD's paintings (its own alias, so the Font Awesome subset reads no name in the table). */
-type Painting = UiIconName;
-/** Each category's painting (the Tiles page's, the closings feed's), by the contracts' index: the castle, the road, the forest, the wonder. */
-const PAINTED: Readonly<Partial<Record<string, Painting>>> = {
-  [CategoryType.City]: "city",
-  [CategoryType.Road]: "road",
-  [CategoryType.Forest]: "forest",
-  [CategoryType.Wonder]: "wonder",
-};
 const CATEGORY_CODES = Object.values(CategoryType);
-
-/** A category's painting `px` wide, or its relief icon where none is painted (a category the client does not know). */
-function CategoryArt({ category, px, className }: { category: number; px: number; className?: string }) {
-  const art = PAINTED[CATEGORY_CODES[category] as string];
-  return art ? <UiIcon name={art} px={px} className={cn("drawer-icon shrink-0", className)} /> : <CategoryIcon category={category} size="sm" />;
-}
 
 /** A row's large figure and its line under it, the Ranked end's (`CrownsRow`) and Story's: outlined, the figure tabular. */
 const FIGURE = "text-outline text-4xl leading-none font-bold tabular-nums";
@@ -159,7 +144,7 @@ function ClosedBoxes({ stats, closings }: { stats?: GameStats; closings: readonl
             style={i > 0 ? RULE_LEFT : undefined}
             className="flex min-w-0 flex-col items-center gap-1 px-1 py-0.5"
           >
-            <CategoryArt category={c.category} px={40} className={cn("size-10", c.closed === 0 && "opacity-45")} />
+            <ClosingArt category={c.category} px={40} className={cn("size-10", c.closed === 0 && "opacity-45")} />
             <span aria-hidden className={cn("text-outline text-2xl leading-none font-bold tabular-nums", c.closed === 0 ? "text-muted-foreground" : "text-foreground")}>
               {formatInteger(c.closed)}
             </span>
@@ -192,7 +177,7 @@ function ClosingList({ closings, stats, note }: { closings: readonly ScoredStruc
             const { label } = categoryInfo(c.category);
             return (
               <li key={i} style={i > 0 ? RULE_TOP : undefined} className="flex items-center gap-2 py-1">
-                <CategoryArt category={c.category} px={24} className="size-6" />
+                <ClosingArt category={c.category} px={24} className="size-6" />
                 <span className="text-outline flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 text-sm font-bold">
                   <span>{label}</span>
                   <span className="text-xs text-muted-foreground">{formatInteger(tiles?.[i]?.tiles ?? c.size)} tiles</span>
