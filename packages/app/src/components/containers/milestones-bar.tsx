@@ -10,7 +10,7 @@ import { TokenIcon } from "../elements/token-icon";
 import { CheckBadge } from "../elements/check-badge";
 import { CobblesBurst } from "../elements/cobbles-burst";
 import { GIFT_LIGHT_S, GiftArt, type GiftArtState } from "../elements/gift-art";
-import { missionPartImage } from "../elements/medallion-art";
+import { missionPartImage, missionRail } from "../elements/medallion-art";
 import { useSfx } from "./audio-provider";
 
 /** The period whose milestones the bar shows: the day's (#869) or the week's (#976). */
@@ -79,8 +79,8 @@ const NODE = 2;
 
 /**
  * MISSIONS-PAGE (the Paved UX Book's milestones, the owner's asks of 2026-11-04: on target with the mockup, its painted look): the
- * book's rail (`rail-track`, `rail-fill` in theme.css: its painted colours in CSS, so it takes any length, its ends round), its steel the
- * whole line and its gold from the start to the last quest done; a node reached the book's gold orb, glowing, one ahead its dark bead. Inline, in the page's chunk.
+ * book's painted rail (`missionRail`: its ends round, its painting never stretched), its steel the whole line and its gold from
+ * the start to the last quest done; a node reached the book's gold orb, glowing, one ahead its dark bead. Inline, in the page's chunk.
  */
 const LIT_NODE: CSSProperties = {
   background: `${missionPartImage("orb")} center / 100% 100% no-repeat`,
@@ -144,13 +144,13 @@ export function MilestonesBar({ period = "daily", done, claimed, claiming = null
   return (
     <div data-graph={`${period}-milestones`} className={cn("relative", className)} style={{ height: `${height}rem` }}>
       {/* The painted rail: its steel the whole line, its gold to the last quest done. */}
-      <span aria-hidden data-slot="milestones-track" className="rail-track absolute h-2 -translate-y-1/2" style={{ left: `${NODE / 2}rem`, right: `${NODE / 2}rem`, top: `${height / 2}rem` }} />
+      <span aria-hidden data-slot="milestones-track" className="absolute -translate-y-1/2" style={{ ...missionRail("rail-track", 8), left: `${NODE / 2}rem`, right: `${NODE / 2}rem`, top: `${height / 2}rem` }} />
       {count > 0 && (
         <span
           aria-hidden
           data-slot="milestones-fill"
-          className="rail-fill absolute h-2 -translate-y-1/2"
-          style={{ left: `${NODE / 2}rem`, top: `${height / 2}rem`, width: `calc((100% - ${NODE}rem) * ${count / quests})` }}
+          className="absolute -translate-y-1/2"
+          style={{ ...missionRail("rail-fill", 8), left: `${NODE / 2}rem`, top: `${height / 2}rem`, width: `calc((100% - ${NODE}rem) * ${count / quests})` }}
         />
       )}
       <div

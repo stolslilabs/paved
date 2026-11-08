@@ -238,12 +238,24 @@ const THUMB_PX = 24;
 
 /**
  * The Missions' painted rail and nodes (the owner's ask of 2026-11-05: the replay's bar in the Daily's and Weekly's style, their
- * `MilestonesBar`): the steel rail the whole line and its gold up to the move shown (`rail-track`, `rail-fill`: CSS, any length);
- * a passed dot the gold orb, glowing, one ahead the dark bead. The nodes' copies are `MISSION_PARTS`' of
- * `elements/medallion-art.ts` (orb and bead, 32 and 64 px), their URLs written here: importing that module splits it out of the Missions'
- * chunk into a chunk of its own, one more in the entry's preload lists (5 bytes of the first load's budget, measured).
+ * `MilestonesBar`): the steel rail the whole line and its gold up to the move shown, their rounded ends whole and their middle never
+ * stretched (RAILS); a passed dot the gold orb, glowing, one ahead the dark bead. Their copies are `MISSION_PARTS`' of
+ * `elements/medallion-art.ts` (rail 12 and 17 px tall, orb and bead 32 and 64 px), their URLs written here (the rail drawn
+ * as `missionRail` draws it): importing that module splits it out of the Missions' chunk into a chunk of its own, one more in the entry's
+ * preload lists (5 bytes of the first load's budget, measured).
  */
 const part = (name: string, size: number) => `url("/ui-art/missions/${size}/${name}.webp")`;
+/** The rail 8 px tall, drawn as `missionRail` draws it (RAILS): its painting's middle repeated at the rails' grain, its ends round. */
+const rail = (name: "rail-track" | "rail-fill", size: number, width: number): CSSProperties => ({
+  height: 8,
+  minWidth: 8,
+  borderRadius: 9999,
+  backgroundImage: part(name, size),
+  backgroundSize: `${((width * 8) / size / 3).toFixed(1)}px 100%`,
+  backgroundRepeat: "repeat-x",
+  backgroundPosition: "0 50%",
+  boxShadow: "inset 0 0 0 1px color-mix(in oklab, var(--hud-outline) 85%, transparent)",
+});
 const node = (name: "orb" | "bead") => `image-set(${part(name, 32)} 1x, ${part(name, 64)} 2x) center / 100% 100% no-repeat`;
 const ORB: CSSProperties = { background: node("orb"), boxShadow: "0 0 9px 1px color-mix(in oklab, var(--primary) 70%, transparent)" };
 const BEAD: CSSProperties = { background: node("bead") };
@@ -292,8 +304,8 @@ function MoveTimeline({ replay, onSeek }: { replay: PvpReplay; onSeek: (move: nu
       {/* Radix's track, bare: the pointer's measure. The painted rail is drawn over it, inset by half the big orb. */}
       <SliderPrimitive.Track className="relative mx-3 h-2 grow" />
       <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 left-3">
-        <span data-slot="match-rail" className="rail-track absolute inset-x-0 top-1/2 h-2 -translate-y-1/2" />
-        {move > 0 && <span data-slot="match-rail-fill" className="rail-fill absolute top-1/2 left-0 h-2 -translate-y-1/2" style={{ width: `${(move / span) * 100}%` }} />}
+        <span data-slot="match-rail" className="absolute inset-x-0 top-1/2 -translate-y-1/2" style={rail("rail-track", 12, 1325)} />
+        {move > 0 && <span data-slot="match-rail-fill" className="absolute top-1/2 left-0 -translate-y-1/2" style={{ ...rail("rail-fill", 17, 1313), width: `${(move / span) * 100}%` }} />}
         {dots.map((at) => (
           <span
             key={at}

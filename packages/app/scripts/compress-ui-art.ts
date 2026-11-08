@@ -266,8 +266,11 @@
  * its hill in the late afternoon, the Puzzle the tiles' grid from above at midday (each the first of two variants). Scaled to
  * 960 x 640 (`cwebp -resize`), stored as lossless WebP.
  *
- * RAILS (2026-11-08): the milestones' rails (`rail-track`, `rail-fill`) left; CSS draws them (theme.css, their colours sampled from
- * these masters row by row), so the score meter's, the milestones' and the match's bars take any length without a stretched painting.
+ * RAILS (2026-11-08, the owner's asks: the score bar's ends round, its inside never stretched, any length, the painted look kept): the
+ * milestones' rails (`rail-track`, `rail-fill`) recut. Their paintings taper over about twice their height at each end, so a 9-slice
+ * at half their height cut into the taper and squeezed the rest with the bar's length. Each master is now its painting's middle (60
+ * px past each end), its last 80 columns crossfaded into its first so it repeats without a seam (1,325 x 12 and 1,313 x 17); the
+ * client repeats it along the bar at a fixed grain and rounds the ends (`missionRail`, `medallion-art.ts`). Stored as lossless WebP.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
