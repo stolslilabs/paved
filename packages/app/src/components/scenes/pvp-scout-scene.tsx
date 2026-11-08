@@ -268,7 +268,7 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
         </div>
       </div>
 
-      <HudDrawer open={rulesOpen} onOpenChange={setRulesOpen} title="How an attack works" side="right" phone="sheet" slot="attack-rules">
+      <HudDrawer open={rulesOpen} onOpenChange={setRulesOpen} title="How an attack works" side="right" phone="sheet" slot="attack-rules" inPlace>
         <p className="text-sm leading-snug font-semibold text-muted-foreground">
           {deck
             ? `You play the village's ${deck.placed} tiles and ${Math.max(0, deck.size - deck.placed)} extras, shuffled, on an open board. You see the tile in hand and the next two.`

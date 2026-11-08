@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
 import { fn } from "storybook/test";
 import { HudDrawer } from "./hud-drawer";
 
@@ -54,3 +55,26 @@ export const RightWithEnd: Story = {
  * as its content, its top rounded under the grab bar, the red close at its header's end; from `tablet` the side panel at its edge.
  */
 export const PhoneSheet: Story = { args: { title: "Wren of Hollowmere", side: "right", phone: "sheet" } };
+
+/** The drawer's list, a row opening its page in the drawer's place (`inPlace`): Back to the list, at its scroll. */
+function InPlaceDemo(props: Parameters<typeof HudDrawer>[0]) {
+  const [shown, setShown] = useState<number | null>(null);
+  return (
+    <HudDrawer {...props} title="Members" side="right">
+      {Array.from({ length: 24 }, (_, i) => (
+        <button key={i} type="button" onClick={() => setShown(i + 1)} className="drawer-raised cursor-pointer rounded-xl p-3 text-left text-sm font-bold">
+          Member {i + 1}
+        </button>
+      ))}
+      <HudDrawer open={shown !== null} onOpenChange={(next) => !next && setShown(null)} title="Profile" side="right" inPlace>
+        <p className="text-sm font-bold">Member {shown}&apos;s profile, in the drawer&apos;s place: Back returns to the list as it was.</p>
+      </HudDrawer>
+    </HudDrawer>
+  );
+}
+
+/**
+ * DRAWER-NAV-IN-PLACE (#1064): a page opened from a drawer (a player's profile, another guild, a list) replaces its content in place,
+ * as a navigation: the header shows its title, Back (the header's, Escape) returns to the page it covers, kept under it.
+ */
+export const PageInPlace: Story = { render: (args) => <InPlaceDemo {...args} /> };
