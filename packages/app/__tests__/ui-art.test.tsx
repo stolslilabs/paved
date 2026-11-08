@@ -42,8 +42,9 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     // Rotate, Back to the inventory and Cancel (`rotate-tile`, `to-inventory`, `cancel`), 17,070, which left with it. STAR-ART
     // (2026-11-07): lowered by exactly the measured change, 406 bytes: the star's copies, redrawn clean (`star`, 64 px 1,890 to 1,880,
     // 128 px 3,956 to 3,560). STORY-INTRO (2026-11-07): raised by exactly the copies of a Story level's tip's painted bulb (`bulb`, 64
-    // and 128 px), 4,892 bytes.
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196 + 8_034 + 15_184 - 406 + 4_892);
+    // and 128 px), 4,892 bytes. PRESS-BUILD (2026-11-08): raised by exactly the copies of the long press's painted Edit village
+    // (`tile-edit`, 64 and 128 px), 5,844 bytes.
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196 + 8_034 + 15_184 - 406 + 4_892 + 5_844);
   });
 
   it("ships the ranking's gold and silver medals and its Alliances tab's and guild count's icons (LEADERBOARD-PAGE): the icons' frame, two light copies each", () => {

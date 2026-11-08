@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import type { GameScene } from "@paved/renderer";
 import { Button } from "../ui/button";
 import { HoldButton } from "../elements/hold-button";
-import { UiIcon } from "../elements/ui-icon";
 import type { UiIconName } from "../elements/ui-art";
 import { cn } from "../../lib/utils";
 import { haptic } from "../../lib/haptics";
@@ -10,7 +9,8 @@ import { useHold, type Hold } from "../../lib/use-hold";
 import { useSfx } from "./audio-provider";
 import { COACH_RING } from "./coach";
 import { DiscardHold } from "./discard-hold";
-import { ACTION_PX, ACTION_SIDES, avoidOf, layoutTileActions, type ActionSide } from "./tile-actions-layout";
+import { ActionArt, PAINTED, useFollowTile } from "./tile-action";
+import { ACTION_SIDES, type ActionSide } from "./tile-actions-layout";
 
 export interface TileBubbleProps {
   /** How many rotations the tile has at its cell; Rotate shows only when there is more than one. */
@@ -63,9 +63,6 @@ export interface TileBubbleProps {
   className?: string;
 }
 
-/** A painted action: the book's round button, the whole 44 px target; hover and press are every button's white states (`state-layer`). */
-const PAINTED = "size-11 rounded-full p-0";
-
 /** One of the actions tapped (Cancel, Rotate, Back to the inventory): the book's painted round button alone, its name for assistive technology and a desktop's tooltip. */
 function ActionButton({ art, label, title, disabled, onClick }: { art: UiIconName; label: string; title: string; disabled?: boolean; onClick: () => void }) {
   return (
@@ -81,14 +78,9 @@ function ActionButton({ art, label, title, disabled, onClick }: { art: UiIconNam
         onClick();
       }}
     >
-      <Painted art={art} />
+      <ActionArt art={art} />
     </Button>
   );
-}
-
-/** A painted button's art at the target's size. */
-function Painted({ art }: { art: UiIconName }) {
-  return <UiIcon name={art} px={ACTION_PX} className="pointer-events-none size-11" />;
 }
 
 /**
@@ -122,34 +114,9 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
   const play = useSfx();
   const canRotate = rotations > 1;
 
-  const place = useCallback(() => {
-    const el = ref.current;
-    if (!el || !scene || !cell) return;
-    const outline = scene.projectCellOutline(cell.x, cell.y);
-    if (!outline) return;
-    const box = el.getBoundingClientRect();
-    const at = layoutTileActions(outline, box, Array.from(document.querySelectorAll("[data-bubble-avoid]"), avoidOf));
-    for (const button of el.querySelectorAll<HTMLElement>("[data-side]")) {
-      const p = at[button.dataset.side as ActionSide];
-      if (!p) continue;
-      button.style.transform = `translate(${Math.round(p.x - ACTION_PX / 2)}px, ${Math.round(p.y - ACTION_PX / 2)}px)`;
-      button.style.visibility = "visible";
-    }
-  }, [scene, cell?.x, cell?.y]);
-
-  // An action that comes or goes (Rotate, Cancel) is placed with the others.
-  const shown = `${cancelButton}:${!!(onDiscard || onReturn)}:${canRotate}:${!!onConfirm}`;
-  useLayoutEffect(() => {
-    place();
-    return scene?.onCameraChange(place);
-  }, [place, scene, shown]);
-  // The hand panel resizes (a refusal appears), the editor's panel or bar moves: the actions are placed again.
-  useEffect(() => {
-    if (!scene || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(place);
-    for (const e of document.querySelectorAll("[data-bubble-avoid]")) observer.observe(e);
-    return () => observer.disconnect();
-  }, [scene, place]);
+  // The actions follow the tile (`useFollowTile`); one that comes or goes (Rotate, Cancel) is placed with the others, and all of them
+  // again when the hand panel resizes (a refusal appears) or the editor's panel or bar moves.
+  useFollowTile(ref, scene, cell, `${cancelButton}:${!!(onDiscard || onReturn)}:${canRotate}:${!!onConfirm}`);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -190,7 +157,7 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
         painted
         label="Hold to place the tile"
         title="Hold to place"
-        glyph={<Painted art="tile-confirm" />}
+        glyph={<ActionArt art="tile-confirm" />}
         hold={hold}
         disabled={!canConfirm}
         busy={busy}
@@ -205,7 +172,7 @@ export function TileBubble({ rotations, onRotate, onClose, cancelButton = true, 
         cost={discardCost}
         disabled={!canDiscard || busy}
         holdMs={holdMs}
-        glyph={<Painted art="tile-discard" />}
+        glyph={<ActionArt art="tile-discard" />}
         className={cn(PAINTED, coach === "discard" && COACH_RING, coach === "discard" && "rounded-full")}
       />
     ) : (

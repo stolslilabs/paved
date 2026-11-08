@@ -296,7 +296,7 @@ function HomeBar({ children }: { children: ReactNode }) {
   // The dock's box: the band's top to the foot, and its foot (the safe area, or its lift); empty, so nothing for assistive technology.
   const standIn = <div className="box-content" style={{ height: DOCK_ART.height * DOCK_ART.scale, paddingBottom: "calc(var(--dock-foot) + var(--dock-lift))" }} />;
   return (
-    <div ref={ref} data-out="d0" className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
+    <div ref={ref} data-out="d0" data-bubble-avoid className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
@@ -394,7 +394,13 @@ const TILES_STAND_IN = <span aria-hidden className="block w-16" style={{ height:
 /** The bottom left's stand-in: the Chat tab (56 x 64 px); the mission comes with its read, after the chunk. */
 const CHAT_STAND_IN = <span aria-hidden className="block h-16 w-14" />;
 
-/** The view's overlays: the corners, the left column, the edges' buttons (HOME-EDGES), the dial and the bottom's controls, the chips. */
+/**
+ * The view's overlays: the corners, the left column, the edges' buttons (HOME-EDGES), the dial and the bottom's controls, the chips.
+ * Each piece the long press's Edit village keeps clear of (PRESS-BUILD, the tile actions' rules: `layoutTileActions`) is marked
+ * `data-bubble-avoid` on its own box, so the room is the HUD's real edges: the profile, the balances and the capsules from the top; the
+ * dial, the Chat tab, the mission, the bottom right's controls and the dock from the foot; the right column of tiles, which stands
+ * across the middle, as a side (`data-bubble-avoid="side"`), from the right. Edit mode draws none of them.
+ */
 function ViewOverlays({
   village,
   editable,
@@ -421,7 +427,7 @@ function ViewOverlays({
         shield's while shielded, stretched to one width, the widest's, and close (their 44 px targets 4 px apart). The group lets taps
         through between them.
       */}
-      <div data-slot="home-capsules" className={cn("relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto", HUD_CAPSULES_NUDGE)}>
+      <div data-slot="home-capsules" data-bubble-avoid className={cn("relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto", HUD_CAPSULES_NUDGE)}>
         <Suspense fallback={LEAGUE_STAND_IN}>
           <LazyLeagueControl crowns={props.league?.crowns} attacks={props.league?.attacks} onLeague={props.onLeague} />
         </Suspense>
@@ -474,7 +480,7 @@ function ViewOverlays({
       */}
       <div className={cn("absolute inset-x-0 top-0", HUD_INSET_BOX)}>
         <div className="relative flex items-start justify-between gap-2">
-          <div ref={measures.profile} data-out="u2" className="pointer-events-auto min-w-0">
+          <div ref={measures.profile} data-out="u2" data-bubble-avoid className="pointer-events-auto min-w-0">
             {/* The player card (#787): its rim the league of the crowns below it. */}
             <PlayerBadge league={props.league} />
           </div>
@@ -483,7 +489,7 @@ function ViewOverlays({
             panel's page: one under the other at every width (HOME-UI-CAPSULES, the mockup's), the phone's plates below `desktop`, the larger ones from it.
             Out of the row's flow: only the profile's line stands beside them, so at 320 px the badge keeps its whole width.
           */}
-          <div ref={measures.balances} data-out="u2" className="pointer-events-auto absolute top-0 right-0 flex items-start">
+          <div ref={measures.balances} data-out="u2" data-bubble-avoid className="pointer-events-auto absolute top-0 right-0 flex items-start">
             {/* HOME-HUD-PADDING: the phone's plates on the profile's painted edge (`HUD_PLATES_NUDGE`); Connect keeps the plain inset. */}
             <div data-slot="home-phone-balances" className={cn("relative desktop:hidden", HUD_PLATES_NUDGE)}>
               <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" beside={BESIDE_LEAGUE} />
@@ -499,7 +505,7 @@ function ViewOverlays({
           tiles (Missions, Vault, Friends, Tiles) centred in the band under the balances; taller than the band (a landscape phone),
           it starts at its top and wraps leftwards.
         */}
-        <div data-out="r0" className="pointer-events-none absolute top-(--right-top) right-(--hud-inset-right) bottom-(--right-bottom) flex flex-col justify-center-safe [&>*]:pointer-events-auto">
+        <div data-out="r0" data-bubble-avoid="side" className="pointer-events-none absolute top-(--right-top) right-(--hud-inset-right) bottom-(--right-bottom) flex flex-col justify-center-safe [&>*]:pointer-events-auto">
           <Suspense fallback={TILES_STAND_IN}>
             <LazyEdgeTiles
               missions={props.missions}
@@ -535,7 +541,7 @@ function ViewOverlays({
         */}
         <div ref={measures.dial} data-dial-place data-out="l0" className={cn("pointer-events-none absolute left-0 flex flex-col items-start gap-2 [&>*]:pointer-events-auto", ABOVE_BAR)} style={{ marginBottom: "var(--dock-crest)" }}>
           {props.seasonWheel && (
-            <div className="pl-(--hud-inset-left)">
+            <div data-bubble-avoid className="pl-(--hud-inset-left)">
               <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
                 <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
               </Suspense>
@@ -546,7 +552,7 @@ function ViewOverlays({
           </Suspense>
         </div>
       </div>
-      <div ref={measures.actions} data-corner className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div ref={measures.actions} data-corner data-bubble-avoid className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {/*
           The Camera mode's button (#875), at the bottom right; in the mode, Exit and the controls' hint, in the corner: Found
           leaves the row (`data-collapse`).

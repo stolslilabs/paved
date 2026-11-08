@@ -188,23 +188,29 @@ export function bubbleLimits(box: DOMRect, avoid: Iterable<DOMRect>, x: number, 
   return limits;
 }
 
-/** A part of the screen the actions keep clear of: its box, and whether it is the editor's side menu (#1033). */
+/**
+ * A part of the screen the actions keep clear of: its box, and whether it stands along the right side (the editor's side menu, #1033;
+ * the home's right column, PRESS-BUILD).
+ */
 export interface BubbleAvoid {
   rect: DOMRect;
   side: boolean;
 }
 
-/** An element marked `data-bubble-avoid` as the actions keep clear of it: the side menu by its marks, not its place or size. */
+/**
+ * An element marked `data-bubble-avoid` as the actions keep clear of it: a side by its marks, not its place or size (the editor's side
+ * menu by its own, `data-edit-panel="side"` and `data-edit-bar="docked"`; any other by `data-bubble-avoid="side"`).
+ */
 export const avoidOf = (e: Element): BubbleAvoid => ({
   rect: e.getBoundingClientRect(),
-  side: e.getAttribute("data-edit-panel") === "side" || e.getAttribute("data-edit-bar") === "docked",
+  side: e.getAttribute("data-bubble-avoid") === "side" || e.getAttribute("data-edit-panel") === "side" || e.getAttribute("data-edit-bar") === "docked",
 });
 
 /**
- * The actions' room in `box`: the editor's side menu from `tablet` (`data-edit-panel="side"`, its bar docked in its head:
- * `data-edit-bar="docked"`, #1033) narrows it from the right, wherever its edge falls (half a tablet's screen to the pixel, or its
- * 22 rem past the half of a narrow one); the HUD, the hand panel, the floating bar and a phone's sheet from the top and the foot
- * (`bubbleLimits`).
+ * The actions' room in `box`: a side narrows it from the right, wherever its edge falls (the editor's side menu from `tablet`,
+ * `data-edit-panel="side"`, its bar docked in its head: `data-edit-bar="docked"`, #1033: half a tablet's screen to the pixel, or its
+ * 22 rem past the half of a narrow one; the home's right column of tiles, PRESS-BUILD); the HUD, the hand panel, the floating bar and a
+ * phone's sheet from the top and the foot (`bubbleLimits`).
  */
 export function actionRoom(box: DOMRect, avoid: readonly BubbleAvoid[], x: number, width: number): BubbleLimits {
   const room = bubbleLimits(
@@ -650,6 +656,65 @@ function byPlace(places: [Point, Point, Point, Point]): ActionPlaces {
   return { "top-left": tl, "top-right": tr, "bottom-left": bl, "bottom-right": br };
 }
 
+/** The parts of the screen marked to avoid, other than the sides, each grown by the margin and a button's half: where a centre may not be. */
+function blocksOf(box: DOMRect, avoid: readonly BubbleAvoid[]): BubbleLimits[] {
+  const grow = MARGIN_PX + R;
+  return avoid
+    .filter((a) => !a.side)
+    .map(({ rect: r }) => ({ left: r.left - box.left - grow, right: r.left - box.left + r.width + grow, top: r.top - box.top - grow, bottom: r.top - box.top + r.height + grow }));
+}
+
+/**
+ * One action alone by the tile (PRESS-BUILD: the long press's Edit village, at Confirm's place): `layoutTileActions`' rules for a single
+ * button, which has no neighbour to keep apart from, so nothing absent moves it.
+ *
+ * 1. Its place out of the tile (`tileActionPlaces`): the same gap in screen px at every zoom.
+ * 2. Kept in the room (`actionRoom`), the HUD's limits measured on its own span, as `layoutTileActions` measures the four's.
+ * 3. Where the room moved it, the nearest place to its own that keeps `ACTION_GAP_PX` from the tile and every part of the screen it
+ *    avoids (measured exactly): the kept place, or one of the tile's own candidates (its four action places, its corners pushed out
+ *    to the gap, the places sliding along its sides on screen: `tileCandidates`). So a tile under the HUD keeps its button beside it,
+ *    not pushed far off or onto it. None (the tile covers the room): the kept place.
+ */
+export function layoutTileAction(side: ActionSide, outline: readonly Point[], box: DOMRect, avoid: readonly BubbleAvoid[]): Point {
+  const places = tileActionPlaces(outline);
+  const own = places[side];
+  const keep = (room: BubbleLimits): Point => ({ x: clamp(own.x, room.left + R, room.right - R), y: clamp(own.y, room.top + R, room.bottom - R) });
+  const sides = actionRoom(box, avoid.filter((a) => a.side), 0, box.width);
+  let at = keep({ ...sides, top: -Infinity, bottom: Infinity });
+  for (let i = 0; i < 3; i++) {
+    const room = actionRoom(box, avoid, at.x - R, ACTION_PX);
+    const next = keep(room);
+    if (i > 0 && next.x === at.x && next.y === at.y) break;
+    at = next;
+  }
+  if (outline.length < 3 || (at.x === own.x && at.y === own.y)) return at;
+  const open = actionRoom(box, avoid.filter((a) => a.side), 0, box.width);
+  const blocks = blocksOf(box, avoid);
+  const room = { x0: open.left + R, x1: open.right - R, y0: open.top + R, y1: open.bottom - R };
+  if (room.x0 > room.x1 || room.y0 > room.y1) return at;
+  const clear = R + ACTION_GAP_PX;
+  const fits = (p: Point) =>
+    p.x >= room.x0 - 1e-6 &&
+    p.x <= room.x1 + 1e-6 &&
+    p.y >= room.y0 - 1e-6 &&
+    p.y <= room.y1 + 1e-6 &&
+    !blocked(p, blocks) &&
+    !within(p, outline) &&
+    toOutline(p, outline) >= clear - 1e-6;
+  const { corners, slides } = tileCandidates(outline, room, clear);
+  let best: Point | null = null;
+  let least = Infinity;
+  for (const p of [at, ...ACTION_SIDES.map((s) => places[s]), ...corners, ...slides]) {
+    if (!fits(p)) continue;
+    const d = hyp(p.x - own.x, p.y - own.y);
+    if (d < least - 1e-9) {
+      least = d;
+      best = p;
+    }
+  }
+  return best ?? at;
+}
+
 /**
  * Where the buttons stand around the tile whose outline on screen is `outline`, in `box`, clear of `avoid` (`data-bubble-avoid`):
  *
@@ -674,11 +739,7 @@ export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid
   if (outline.length > 2 && actionsClearance(at, outline) < ACTION_GAP_PX - 1e-6) {
     // Each part of the screen the buttons avoid measured exactly, so a place may stand beside a part that does not span it.
     const open = actionRoom(box, avoid.filter((a) => a.side), 0, box.width);
-    const grow = MARGIN_PX + R;
-    const blocks = avoid
-      .filter((a) => !a.side)
-      .map(({ rect: r }) => ({ left: r.left - box.left - grow, right: r.left - box.left + r.width + grow, top: r.top - box.top - grow, bottom: r.top - box.top + r.height + grow }));
-    const found = searchActions(outline, open, free, at, blocks);
+    const found = searchActions(outline, open, free, at, blocksOf(box, avoid));
     if (found && clearOf(found, outline) >= clearOf(at, outline)) at = found;
   }
   return at;
