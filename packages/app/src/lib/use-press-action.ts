@@ -34,13 +34,14 @@ export interface PressAction<C> {
   cancel(): void;
   /** A tap elsewhere, Escape: the bubble goes at once. */
   dismiss(): void;
-  /** The bubble's button tapped: acts at once, with the firm tick. */
+  /** The bubble's button tapped: acts at once, with the strong buzz. */
   act(): void;
 }
 
 /**
- * A long press into an action (LONGPRESS-EDIT, #799, the village's Edit): a press that stays still for `showMs` shows a bubble
- * by its cell with one button, whose ring (`useHold`) fills as the press goes on; held to its end, it acts, with the firm tick.
+ * A long press into an action (LONGPRESS-EDIT, #799, the village's Edit): a press that stays still for `showMs` shows one button by
+ * its cell (PRESS-BUILD: one of the tile's painted actions), whose ring (`useHold`, charged) fills as the press goes on; held to its end,
+ * it acts, with the strong buzz.
  * Let go early, the ring rewinds and the bubble stays `lingerMs` with its button tappable, then fades. A pan or a second finger
  * before the bubble shows does nothing; after, it hides the bubble at once, as a new press anywhere does. The surface (the 3D
  * board's presses, the plan view's pointer events) says which cells can be pressed and reports the press.
@@ -58,7 +59,8 @@ export function usePressAction<C>({ onAct, enabled, holdMs, showMs = PRESS_SHOW_
     acted.current = true;
     action.current();
   }, []);
-  const hold = useHold({ onComplete: complete, holdMs, disabled: !enabled });
+  // Charged as every painted hold (PRESS-BUILD: the tile actions' look and feel): ticks quickening as it fills, a strong buzz at its end.
+  const hold = useHold({ onComplete: complete, holdMs, disabled: !enabled, charge: true });
   const holdRef = useRef(hold);
   holdRef.current = hold;
 

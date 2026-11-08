@@ -11,7 +11,8 @@
  * edit mode's die, the Layouts' padlock, Use's gold pill (a frame) and the bar's Save and Erase (EDIT-VILLAGE, 2026-11-05),
  * the actions on a tile being placed, on the boards and in the editor: the grey cross, the red trash, the blue turning arrow, the gold
  * check and the blue box with its arrow (TILE-ACTIONS, 2026-11-07; edit mode's bubble's bare Rotate, Back to the inventory and Cancel
- * left with its bubble),
+ * left with its bubble) and the long press's Edit village by a tile of the home village, a white hammer on the blue disc (PRESS-BUILD,
+ * 2026-11-08),
  * the Settings' rows (SETTINGS-PAGE, 2026-11-06), the Challenge's stake's burned coin, Vault, referral, break even, top win, split
  * and money bag (PLAY-PAGE, 2026-11-06; its open gift under a mode's rewards left on 2026-11-08, PLAY-REWARDS),
  * and the frames the home draws with them: the XP bar's track and fill, and the dock's wood, parchment, divider and PLAY medallion
@@ -119,6 +120,8 @@ export const UI_ICONS = [
   "countdown",
   "surrender",
   "caution",
+  // PRESS-BUILD: the home village's long press into edit mode, its Edit village a white hammer on the blue disc, painted by Codex.
+  "tile-edit",
   "padlock",
   "save",
   "erase",
