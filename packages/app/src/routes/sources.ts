@@ -127,6 +127,7 @@ const MOCK_SOURCES: DataSources = {
   pool: lazyMock((app) => app.pool),
   indexer: lazyMock((app) => app.indexer),
   social: lazyMock((app) => app.social, { follows: (app) => app.social.follows!, chat: (app) => app.social.chat! }),
+  puzzle: lazyMock((app) => app.puzzle),
   signer: null,
   purchases: (signer) => ({
     purchase: async (request) => (await mockApp()).purchases(signer).purchase(request),
@@ -158,7 +159,8 @@ const CHAIN_SOURCES: DataSources = {
   economy: lazyEconomy((c) => c.views),
   pool: lazyEconomy((c) => c.poolQuoter),
   indexer: lazyIndexer(),
-  // No `social`: the social features have no chain or service yet (#956), their hooks answer `unavailable`.
+  // No `social`: the social features have no chain or service yet (#956), their hooks answer `unavailable`. No `puzzle`: the Puzzle
+  // has no contract yet (`docs/architecture/puzzle-mode.md`), Play's card stays "Coming soon".
   signer: null,
   purchases: lazyPurchases,
   settlements: lazySettlements,

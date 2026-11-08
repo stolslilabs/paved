@@ -62,6 +62,7 @@ const PAGES = {
       import("../src/routes/pages/play"),
       import("../src/routes/pages/purchase"),
       import("../src/routes/pages/story"),
+      import("../src/routes/pages/puzzle"),
       import("../src/routes/home-hosts"),
     ]),
   purchase: () => import("../src/routes/pages/purchase"),

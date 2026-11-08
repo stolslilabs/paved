@@ -8,7 +8,7 @@ export type { KeyValueStore } from "./storage";
 export { randomSeed } from "./seed";
 export { closedOf } from "./closed";
 export { TRAINING_KEY, clearGame } from "./training-storage";
-export { LocalSession, TRAINING_LOOKAHEAD, replayTraining, startTraining } from "./local-session";
+export { LocalSession, TRAINING_LOOKAHEAD, pageStateOf, replayTraining, startTraining } from "./local-session";
 export type { TrainingMove } from "./local-session";
 export { MAX_UNCONFIRMED, PredictedSession, replayChallenge, replayVrfChallenge, supplyKnown } from "./predicted-session";
 export type { ChainDraw, ChainGame, ChainTile, Mismatch, MoveReceipt, PredictedOptions, PredictedState, PredictedViews } from "./predicted-session";

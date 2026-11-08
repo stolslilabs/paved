@@ -125,7 +125,7 @@ export function TrainingEnd({ score, previousBest, stats, closings, closingsNote
  * The structures closed, by category, in carved boxes side by side (the city, the road, the forest, the wonder): the painting, the
  * count, the points they scored (green, grey at none). A category closed by nothing is dimmed, never left out.
  */
-function ClosedBoxes({ stats, closings }: { stats?: GameStats; closings: readonly ScoredStructure[] }) {
+export function ClosedBoxes({ stats, closings }: { stats?: GameStats; closings: readonly ScoredStructure[] }) {
   const cells = CLOSING_CATEGORIES.map((category) => {
     const of = stats?.categories.find((c) => c.category === CATEGORY_CODES[category]);
     if (of) return { category, closed: of.closed, points: of.points };
@@ -162,7 +162,7 @@ function ClosedBoxes({ stats, closings }: { stats?: GameStats; closings: readonl
  * Every closing of the game in move order, in a carved list (the closings feed's look): the category's painting, its name and its
  * size in tiles, the points in green. Long, it scrolls in its box (`ScrollRegion`, three rows and a cut one), so the answers stay on a phone's screen. None: said so.
  */
-function ClosingList({ closings, stats, note }: { closings: readonly ScoredStructure[]; stats?: GameStats; note?: string }) {
+export function ClosingList({ closings, stats, note }: { closings: readonly ScoredStructure[]; stats?: GameStats; note?: string }) {
   // Their distinct tiles (`gameStats`, D-19) where the figures match the list; the areas they span otherwise.
   const tiles = stats?.closings.length === closings.length ? stats.closings : null;
   return (

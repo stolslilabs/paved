@@ -61,7 +61,7 @@ describe("the social pages' scenes (#973)", () => {
     render(wrap(<ChatScene tab="guild" badges={{ guild: 2, private: 0 }}>{<p>guild conversation</p>}</ChatScene>));
     const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
     // A tab's name: its word, and the count waiting in it (`FooterTab`).
-    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 2 waiting", "Private"]);
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 2 waiting", "Inbox"]);
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("guild conversation")).toBeInTheDocument();
     // No bottom bar: no page carries the dock (DOCK-UNDER-PAGES).

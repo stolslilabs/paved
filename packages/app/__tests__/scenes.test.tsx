@@ -610,7 +610,7 @@ describe("Play", () => {
     expect(screen.getByRole("img", { name: "Rewards: crowns, XP, chests" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Training/ })).toHaveTextContent("TrainingA full game, just for practice");
     expect(screen.getByRole("button", { name: /^Training/ })).not.toHaveAccessibleName(/Rewards/);
-    expect(screen.getByRole("button", { name: /^Story/ })).toHaveTextContent(/^StoryLearn the rules, level by level/);
+    expect(screen.getByRole("button", { name: /^Story/ })).toHaveTextContent(/^StoryLearn and play fun levels/);
     expect(screen.getByRole("button", { name: /^Story/ })).toHaveAccessibleName(/Rewards: Cobbles, XP, chests$/);
     // The rewards' icons alone: no gift under them (the owner's ask of 2026-11-08); Story's Cobbles are the token's own icon.
     expect(document.querySelector('img[src*="gift-open"]')).toBeNull();

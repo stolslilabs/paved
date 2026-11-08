@@ -142,6 +142,26 @@ export function challengeMeter(curve: RewardCurve, score: number): ScoreMeterVal
 }
 
 /**
+ * A Puzzle game's meter (Play's Limited mode): one step to the day's first place, the trophy at its end, lit once the score passes it.
+ * `target` is the best result of the day, another player's or the player's own (`mine`: their best, to beat for a new one). None while
+ * the day has no result.
+ */
+export function puzzleMeter(target: number | null, score: number, mine = false): ScoreMeterValue | null {
+  if (target === null || target <= 0) return null;
+  const share = shareOf(score, target);
+  const pct = percent(share);
+  const beaten = score > target;
+  return {
+    ...steps([beaten ? 1 : Math.min(0.99, share)], [{ art: "trophy", reached: beaten, name: mine ? `Your best: ${formatInteger(target)}` : `First place: ${formatInteger(target)}` }]),
+    label: mine ? `Score ${pct} of your best` : `Score ${pct} of first place`,
+    valueText: beaten ? `${pct}, ${mine ? "a new best" : "first place"}` : pct,
+    now: Math.round(share * 100),
+    max: Math.max(100, Math.round(share * 100)),
+    figure: pct,
+  };
+}
+
+/**
  * A Training game's meter: one step to the device's best (`paved.training-best.v1`, #539), the crown at its end, lit by a new best; the
  * share of the best after the bar. None on the device's first game (no best to beat) or with no storage.
  */

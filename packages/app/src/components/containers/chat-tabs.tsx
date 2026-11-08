@@ -15,7 +15,8 @@ export type ChatBadges = Readonly<Record<"guild" | "private", number>>;
 export const CHAT_TABS: readonly { id: ChatTab; label: string; art: UiIconName }[] = [
   { id: "world", label: "World", art: "chat" },
   { id: "guild", label: "Guild", art: "guild" },
-  { id: "private", label: "Private", art: "letter" },
+  // The mailbox (the owner's ask of 2026-11-08): the DMs and the system's mail, a Puzzle prize's; its path stays `/chat/private`.
+  { id: "private", label: "Inbox", art: "letter" },
 ];
 
 export interface ChatTabsProps {

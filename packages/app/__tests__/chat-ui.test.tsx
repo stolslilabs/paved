@@ -110,7 +110,7 @@ describe("New message (#973)", () => {
 });
 
 describe("the chat page's tabs (#973)", () => {
-  it("shows World, Guild and Private, Guild and Private with their badges, the World none", async () => {
+  it("shows World, Guild and Inbox (the Private tab), Guild and Inbox with their badges, the World none", async () => {
     const onTabChange = vi.fn();
     render(
       wrap(
@@ -121,7 +121,7 @@ describe("the chat page's tabs (#973)", () => {
     );
     const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
     // A tab's name: its word, and the count waiting in it (`FooterTab`).
-    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 3 waiting", "Private, 120 waiting"]);
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 3 waiting", "Inbox, 120 waiting"]);
     expect(within(tabs[2]!).getByText("99+")).toBeInTheDocument();
     expect(screen.getByText("world content")).toBeInTheDocument();
     await userEvent.click(tabs[2]!);

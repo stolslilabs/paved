@@ -25,7 +25,7 @@ const pvp: PageLoader = () => {
   return import("./pages/pvp");
 };
 
-/** Play, its stake (PLAY-PAGE) and Story's campaigns (STORY-PAGE): one loader, so one component, the drawer kept as a view opens. */
+/** Play, its stake (PLAY-PAGE), Story's campaigns (STORY-PAGE) and the Puzzle: one loader, so one component, the drawer kept as a view opens. */
 const play: PageLoader = () => import("./pages/play");
 
 /** The chat page and its tabs' paths (#973): one loader, so one component, kept across a tab change. */
@@ -61,6 +61,10 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "game/:gameId": board,
   training: board,
   story: play,
+  // The Puzzle's view is Play's (its drawer kept); a game is the board's chunk, its end the game-over pages'.
+  "play/puzzle": play,
+  "puzzle/:gameId": board,
+  "puzzle/:gameId/over": over,
   // A Story level is its own chunk (#546), with the board's manifest asked for as the board's.
   "story/:campaign/:level": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
@@ -74,6 +78,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   // The social pages (#973, the Social page's tabs of #952 before), a chunk each.
   chat,
   "chat/private/:player": chat,
+  "chat/mail/:mail": chat,
   "chat/:tab": chat,
   guild: () => import("./pages/guild"),
   friends: () => import("./pages/friends"),

@@ -271,13 +271,13 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     expect(within(log).getByText("hello friend")).toBeInTheDocument();
   });
 
-  it("brings a stranger's request after the first visit: badged on Private, opened, then accepted", async () => {
+  it("brings a stranger's request after the first visit: badged on the Inbox, opened, then accepted", async () => {
     const { later, router } = open("/chat/private");
     await screen.findByRole("button", { name: "New message" }, T(10_000));
     expect(screen.queryByRole("region", { name: "Requests" })).toBeNull();
     await later(MOCK_REQUEST_S + 1);
     const requests = await screen.findByRole("region", { name: "Requests" }, T(8_000));
-    expect(screen.getByRole("tab", { name: /^Private, \d+ waiting$/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Inbox, \d+ waiting$/ })).toBeInTheDocument();
     await userEvent.click(within(requests).getAllByRole("button")[0]!);
     await screen.findByRole("region", { name: /conversation$/ }, T(8_000));
     await userEvent.click(await screen.findByRole("button", { name: "Accept" }, T(5_000)));
@@ -338,7 +338,7 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     await waitFor(() => expect(router.state.location.pathname).toBe("/chat/guild"), T(10_000));
     await conversation("Stone Road");
     // A tab change takes the entry's place: Back leaves the page.
-    await userEvent.click(await tab("Private"));
+    await userEvent.click(await tab("Inbox"));
     await waitFor(() => expect(router.state.location.pathname).toBe("/chat/private"), T(8_000));
     await act(() => router.navigate(-1));
     await waitFor(() => expect(router.state.location.pathname).toBe("/friends"), T(8_000));

@@ -101,6 +101,13 @@ export interface EngineConfig {
    * `supplyPlan` (the plan a receipt's `Queued` names).
    */
   readonly vrf?: boolean;
+  /**
+   * Deck `simple` only: the seed the deck's cards are withdrawn from at the start (`withdrawExtra`), in place of `seed`. A Puzzle
+   * game (`docs/architecture/puzzle-mode.md`) takes the day's seed here, so every game of the day deals the same 38 cards, and its
+   * own random as `seed`, so each draws them in its own order. Left out: `seed`, the deck and the draws from one seed (bit-exact
+   * with the contracts before the Puzzle).
+   */
+  readonly deckSeed?: bigint;
 }
 
 /** A tile of the hand or of the queue; `plan` is `null` while it is not drawn yet. */
@@ -333,7 +340,9 @@ export class EngineGame {
     });
     game._tiles = game.deck === "story" || game.deck === "village" ? 0n : bit(game.rules.starter);
     if (game.deck === "simple") {
-      game._tiles = withdrawExtra(game._tiles, game._seed, game.rules.total, game.rules.count);
+      game._tiles = withdrawExtra(game._tiles, config.deckSeed ?? game._seed, game.rules.total, game.rules.count);
+    } else if (config.deckSeed !== undefined) {
+      throw new EngineError("Game: only a simple deck takes a deck seed");
     }
     config.placed?.forEach((tile, index) => game.write({ ...tile, id: PREPLACED_ID + index }));
     if (game.vrf) game.fill(game._seed);

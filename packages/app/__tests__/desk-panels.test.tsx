@@ -82,11 +82,13 @@ describe("the route map (#762)", () => {
       "village/shop",
       "pvp/league",
       "story",
+      "play/puzzle",
       "missions",
       "tiles",
       "vault",
       "chat",
       "chat/private/:player",
+      "chat/mail/:mail",
       "chat/:tab",
       "guild",
       "friends",
@@ -111,11 +113,13 @@ describe("the route map (#762)", () => {
       "village/shop",
       "pvp/league",
       "story",
+      "play/puzzle",
       "missions",
       "tiles",
       "vault",
       "chat",
       "chat/private/:player",
+      "chat/mail/:mail",
       "chat/:tab",
       "guild",
       "friends",
@@ -124,7 +128,7 @@ describe("the route map (#762)", () => {
       "settings/credits",
       "settings",
     ]);
-    expect(PAGES.filter((p) => p.drawer && !["play/challenge", "story"].includes(p.path)).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
+    expect(PAGES.filter((p) => p.drawer && !["play/challenge", "story", "play/puzzle"].includes(p.path)).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
 

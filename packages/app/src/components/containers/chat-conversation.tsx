@@ -48,6 +48,31 @@ export const GOLD_RAISED: CSSProperties = {
   backgroundImage: "linear-gradient(var(--layer, transparent), var(--layer, transparent)), linear-gradient(var(--primary), var(--accent-scale-400))",
   boxShadow: "inset 0 1px 0 color-mix(in oklab, var(--primary) 55%, var(--foreground)), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline)",
 };
+/** A raised face of a request's answer, the guild's requests' (`guild-page.tsx`): 36 px in its 44 px target. */
+const ANSWER_FACE = "state-layer drawer-raised grid size-9 place-items-center rounded-lg";
+
+/**
+ * A request's check and cross (the owner's ask of 2026-11-08: the app's own answers, the guild's requests'): two raised faces, the check
+ * in green to accept, the cross to decline, each in its 44 px target; both wait while one answer is on its way.
+ */
+export function AnswerButtons({ name, answering, onAnswer }: { name?: string; answering: boolean | null; onAnswer: (accept: boolean) => void }) {
+  const button = "grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg outline-none disabled:cursor-default disabled:opacity-50";
+  return (
+    <>
+      <button type="button" aria-label={name ? `Accept ${name}` : "Accept"} aria-busy={answering === true || undefined} disabled={answering !== null} onClick={() => onAnswer(true)} className={button}>
+        <span className={cn(ANSWER_FACE, "text-success")}>
+          <Icon name="check" size="sm" />
+        </span>
+      </button>
+      <button type="button" aria-label={name ? `Decline ${name}` : "Decline"} aria-busy={answering === false || undefined} disabled={answering !== null} onClick={() => onAnswer(false)} className={button}>
+        <span className={ANSWER_FACE}>
+          <Icon name="xmark" size="sm" />
+        </span>
+      </button>
+    </>
+  );
+}
+
 /** The share of the limit past which the draft's count shows (CHAT-PAGE: the book's composer has none until then). */
 const COUNT_FROM = 0.8;
 
@@ -619,13 +644,8 @@ export function ChatConversation({
                 <PlayerName name={c.other.name} address={c.other.address} className="font-bold whitespace-normal wrap-anywhere" /> wants to message you. Reply or accept to let them write to you; decline and they cannot write again.
               </p>
               {/* The book's check and cross alone (the owner's ask of 2026-11-05: no words on them), as the list's request row. */}
-              <div className="flex justify-end gap-2">
-                <Button aria-label="Accept" className="size-11 shrink-0 rounded-xl px-0" style={GOLD_RAISED} loading={answering === true} disabled={answering !== null} onClick={() => answer(true)}>
-                  <UiIcon name="check" px={28} className="drawer-icon size-7" />
-                </Button>
-                <Button aria-label="Decline" variant="secondary" className="drawer-raised size-11 shrink-0 rounded-xl px-0" loading={answering === false} disabled={answering !== null} onClick={() => answer(false)}>
-                  <UiIcon name="cross" px={24} className="drawer-icon size-6" />
-                </Button>
+              <div className="flex justify-end gap-1">
+                <AnswerButtons answering={answering} onAnswer={answer} />
               </div>
               <InlineError title="Request" message={answerError} />
             </div>

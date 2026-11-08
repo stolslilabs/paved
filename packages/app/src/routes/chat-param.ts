@@ -33,6 +33,9 @@ export const chatTabPath = (tab: ChatTab): string => `/chat/${tab}`;
 /** The private conversation with `player`, over the Private tab's list. */
 export const privateChatPath = (player: string): string => `/chat/private/${encodeURIComponent(player)}`;
 
+/** A mail of the Inbox (the Private tab's), over its list: a Puzzle prize's (`puzzle-<day>`). */
+export const mailPath = (mail: string): string => `/chat/mail/${encodeURIComponent(mail)}`;
+
 /**
  * Where an old link to the conversation `id` lands for `me`: the World's tab, the Guild's, or the private conversation with the
  * other player (the Private tab's list when the conversation is not the player's).

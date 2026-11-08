@@ -13,6 +13,12 @@ import { Button } from "../../components/ui/button";
 import { curveOf, rewardOf, settleProps, useOverRead, useOverStanding, useSettle, type OverReward } from "../../data/over";
 import { trainingStore, useDataSources } from "../../data/sources";
 import { remainingOf, useFinishedTraining } from "../../data/training";
+import { gameStats, pageStateOf } from "@paved/game-core";
+import { formatDay } from "../../components/elements/day-picker";
+import { addressKey } from "../../data/keys";
+import { usePuzzleGameRecord, usePuzzleResult, usePuzzleStanding } from "../../data/puzzle";
+import { replayPuzzle } from "../../data/puzzle-game";
+import { usePlayPuzzle } from "../puzzle-play";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
@@ -25,10 +31,89 @@ import type { GameMission } from "../../components/containers/game-missions";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useUpTo } from "../ref";
 
-/** `/training/over` (P3) and `/game/:gameId/over` (P7a). */
+/** `/training/over` (P3), `/game/:gameId/over` (P7a) and `/puzzle/:gameId/over` (Play's Limited mode). */
 export default function Page() {
   const page = useRoutePage();
-  return page?.path === "training/over" ? <TrainingOver /> : page?.path === "game/:gameId/over" ? <ChallengeRoute /> : <Placeholder />;
+  if (page?.path === "training/over") return <TrainingOver />;
+  if (page?.path === "game/:gameId/over") return <ChallengeRoute />;
+  if (page?.path === "puzzle/:gameId/over") return <PuzzleRoute />;
+  return <Placeholder />;
+}
+
+/** `/puzzle/:gameId/over`: a game id is digits; anything else is not a game. */
+function PuzzleRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <PuzzleOver key={gameId} gameId={Number(gameId)} /> : <NotFound />;
+}
+
+/**
+ * The end of a Puzzle game (Play's Limited mode): the game read from the source and played again on the engine (its board, its
+ * figures, every closing, so a reload shows it the same), its effect on the day (`result`: the best and the place before and after), the
+ * day's first place before it (the trophy's goal). A game still in play goes back to its board, an unknown one is "Game not found".
+ * Leaderboard opens the Puzzle view; Play again the open game of today, else a new one.
+ */
+function PuzzleOver({ gameId }: { gameId: number }) {
+  const go = useAppNavigate();
+  const record = usePuzzleGameRecord(gameId);
+  const data = record.data ?? null;
+  const over = data?.over ?? false;
+  const result = usePuzzleResult(over ? gameId : null);
+  const standing = usePuzzleStanding(data?.day ?? null, data?.player ?? null);
+  const [view, setView] = useOverView();
+  const skins = useBoardSkins(data?.player ?? null);
+  const boardSettings = useBoardSettings();
+  const replay = useMemo(() => (data ? replayPuzzle(data) : null), [data]);
+  const stats = useMemo(() => (replay ? gameStats(replay.engine.rules) : undefined), [replay]);
+  const tiles = useMemo(() => (replay ? pageStateOf(replay.engine.rules).tiles : []), [replay]);
+  const board = useMemo(() => ({ tiles, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer }), [tiles, skins, boardSettings.renderer]);
+  const { play } = usePlayPuzzle(data?.player ?? null, { replace: true });
+
+  useEffect(() => {
+    if (data && !data.over) go(`/puzzle/${gameId}`, { replace: true });
+  }, [data, gameId, go]);
+  if (record.error) return <NotFound />;
+  if (!data || !data.over || !replay) return null;
+
+  // The trophy's goal: the day's best before this game, another player's or the player's own.
+  const me = addressKey(data.player);
+  const others = standing.data?.entries.find((e) => addressKey(e.profile.address) !== me)?.score ?? 0;
+  const firstPlace = Math.max(others, result.data?.bestBefore ?? 0) || null;
+  const engine = replay.engine.rules;
+  // The Puzzle's game in the over page's shape: its counters, and zeros where a Challenge game has a value.
+  const gameView: GameView = {
+    id: data.id,
+    playerId: data.player,
+    mode: 0,
+    seed: data.seed,
+    score: data.score,
+    over: true,
+    tileCount: engine.tileCount,
+    placedCount: engine.built + 1,
+    discardedCount: engine.discarded,
+    tileId: 0,
+    plan: 0,
+    remainingCount: engine.tileLimit - engine.tileCount,
+    deckSize: engine.tileLimit,
+    startTime: data.start,
+    endTime: data.end,
+    dayId: data.day,
+    expiresAt: 0,
+  };
+  return (
+    <OverScene
+      mode="puzzle"
+      game={gameView}
+      closings={replay.closings}
+      stats={stats}
+      board={board}
+      view={view}
+      onViewChange={setView}
+      reward={{ state: "free" }}
+      puzzle={{ result: result.data ?? null, firstPlace, dayLabel: formatDay(data.day), onLeaderboard: () => go("/play/puzzle") }}
+      onPlayAgain={play}
+      onHome={() => go("/")}
+    />
+  );
 }
 
 /** The history entry the Board switch pushed: the scores are one Back away. */
