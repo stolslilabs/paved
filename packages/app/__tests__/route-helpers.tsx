@@ -41,7 +41,7 @@ const PAGES = {
   story: () => Promise.all([import("../src/routes/pages/story"), import("../src/routes/pages/play"), import("../src/routes/home-hosts")]),
   "story-board": () => import("../src/routes/pages/story-board"),
   // The home and the chunks it draws on every visit: its stage (the editor, the engine, the village's stage and its Camera
-  // button), the phone's bar, the League control and the season wheel. A file whose test ends before they are in left their
+  // button), the phone's bar and the League control. A file whose test ends before they are in left their
   // imports running past the environment's teardown, an unhandled error that failed the run (wallet-claims.test, 1 run in 4).
   // The drawers' pages' host (MISSIONS-PAGE) mounts with the home at every width.
   home: () =>
@@ -51,7 +51,6 @@ const PAGES = {
       import("../src/routes/home-stage"),
       import("../src/components/containers/app-nav"),
       import("../src/components/containers/league-control"),
-      import("../src/components/containers/board-season-wheel"),
     ]),
   over: () => import("../src/routes/pages/over"),
   // Play is the HUD's drawer over the home (PLAY-PAGE): its host comes with it, and its views' chunks (the stake's `pages/purchase`,

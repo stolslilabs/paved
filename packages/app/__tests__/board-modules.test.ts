@@ -12,8 +12,9 @@ const built = existsSync(join(DIST, "index.html"));
 const MOVED = [
   "src/components/containers/surrender-dialog.tsx",
   "src/components/containers/device-settings-sheet.tsx",
-  "src/components/containers/board-season-wheel.tsx",
-  "src/components/elements/season-wheel.tsx",
+  // SEASONS-SETTINGS: the Settings' menus (Radix's dropdown), the sheet's, never the board's first frame.
+  "src/components/elements/setting-choice.tsx",
+  "@radix-ui/react-menu/",
   "src/components/ui/sheet.tsx",
   "src/components/ui/dialog.tsx",
   "@radix-ui/react-dialog/",
@@ -60,7 +61,7 @@ describe.skipIf(!built)("the board's route chunk in the production build", () =>
 
   it("loads the moved modules with import(), as chunks of their own", () => {
     const loaded = firstFrame.flatMap((chunk) => dynamicImports(readFileSync(join(DIST, "assets", chunk), "utf8")));
-    for (const moved of ["src/components/containers/surrender-dialog.tsx", "src/components/containers/device-settings-sheet.tsx", "src/components/containers/board-season-wheel.tsx"]) {
+    for (const moved of ["src/components/containers/surrender-dialog.tsx", "src/components/containers/device-settings-sheet.tsx"]) {
       const chunk = loaded.find((f) => existsSync(join(DIST, "assets", `${f}.map`)) && sourcesOf(f).some((s) => s.includes(moved)));
       expect(chunk, moved).toBeDefined();
     }

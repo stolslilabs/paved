@@ -212,11 +212,24 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     }
   });
 
-  it("the Low tier's still noon wins over a frozen night: never a night it is meant to skip", async () => {
+  it("the Low tier's still noon wins over a frozen night: never a night it is meant to skip, the frozen season's noon instead", async () => {
     const { scene, tiles } = await createScene({ quality: "low", dayNight: { enabled: true, season: "spring", freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
-    expect(scene.getDayNight()).toMatchObject({ season: "spring", phase: "day" });
+    expect(scene.getDayNight()).toMatchObject({ season: "winter", phase: "day" });
     expect(scene.getDayNight()!.position).toBe(DAY_PHASE_AT.day);
     expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), DEFAULT_WINDOW_LIGHT);
+    scene.dispose();
+  });
+
+  it("turns what Settings ask (`runs`, SEASONS-SETTINGS): the seasons at their night or their day, or one season's day and night", async () => {
+    for (const [runs, phase] of [["seasons-night", "night"], ["seasons-day", "day"]] as const) {
+      const { scene, tiles } = await createScene({ dayNight: { enabled: true, season: "autumn", runs, reducedMotion: false } });
+      expect(scene.getDayNight(), runs).toMatchObject({ season: "autumn", phase, position: DAY_PHASE_AT[phase] });
+      // It runs (its own steps), the night lights on for the night.
+      expect(tiles.setNightLights).toHaveBeenLastCalledWith(true, expect.any(String), DEFAULT_WINDOW_LIGHT);
+      scene.dispose();
+    }
+    const { scene } = await createScene({ dayNight: { enabled: true, season: "winter", runs: "day-night", reducedMotion: false } });
+    expect(scene.getDayNight()).toMatchObject({ season: "winter", phase: "day" });
     scene.dispose();
   });
 

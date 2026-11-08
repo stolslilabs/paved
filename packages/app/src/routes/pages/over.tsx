@@ -4,7 +4,7 @@ import type { GameView } from "@paved/chain";
 import { OverScene, type OverSceneProps, type OverView } from "../../components/scenes/over-scene";
 import { useBoardSkins } from "../../data/board-skins";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
-import { useBoardSettings } from "../../data/settings";
+import { useBoardSettings } from "../../data/board-settings";
 import { useTrainingPreviousBest } from "../../data/training-best";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";

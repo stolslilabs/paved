@@ -80,15 +80,15 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     return { router, later, me };
   }
 
-  const finder = () => screen.findByText("You are in no guild", undefined, T(10_000));
+  const finder = () => screen.findByText("You are in no allegiance", undefined, T(10_000));
   const ownPage = (name: string) => screen.findByRole("heading", { level: 2, name }, T(8_000));
 
   async function create(name: string, joinType: "Open" | "By request" | "Invite only") {
-    await userEvent.click(await screen.findByRole("button", { name: "Create a guild" }, T(8_000)));
-    const sheet = await screen.findByRole("dialog", { name: "Create a guild" }, T(5_000));
+    await userEvent.click(await screen.findByRole("button", { name: "Create an allegiance" }, T(8_000)));
+    const sheet = await screen.findByRole("dialog", { name: "Create an allegiance" }, T(5_000));
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), name);
     await userEvent.click(within(sheet).getByRole("radio", { name: joinType }));
-    await userEvent.click(within(sheet).getByRole("button", { name: "Create the guild" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create the allegiance" }));
     await ownPage(name);
   }
 
@@ -96,8 +96,8 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
   const tab = (name: string) => userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
   /** Picks an item of the guild page's menu (GUILD-PAGE: a view in the drawer, in the page's place). */
   async function menuItem(name: string | RegExp) {
-    await userEvent.click(screen.getByRole("button", { name: "Guild menu" }));
-    const list = await screen.findByRole("list", { name: "Guild menu" }, T(5_000));
+    await userEvent.click(screen.getByRole("button", { name: "Allegiance menu" }));
+    const list = await screen.findByRole("list", { name: "Allegiance menu" }, T(5_000));
     await userEvent.click(within(list).getByRole("button", { name }));
   }
   /** The drawer's Back: one view back. */
@@ -147,7 +147,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
         await confirm("Post an announcement", "Post", "First stones laid today");
         expect(await screen.findByText("First stones laid today", undefined, T(5_000))).toBeInTheDocument();
       }
-      await menuItem("Disband the guild");
+      await menuItem("Disband the allegiance");
       await confirm(`Disband ${name}?`, "Disband");
       await finder();
     }
@@ -172,7 +172,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await waitFor(() => expect(router.state.location.pathname).toBe("/chat/guild"), T(5_000));
     await act(() => router.navigate(-1));
     await ownPage("Ashford Lanterns");
-    await menuItem("Leave the guild");
+    await menuItem("Leave the allegiance");
     await confirm("Leave Ashford Lanterns?", "Leave");
     await finder();
   });
@@ -185,7 +185,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await screen.findByRole("dialog", { name: "Thistle Watch" }, T(8_000));
     // In the guild drawer's place (DRAWER-NAV-IN-PLACE), the finder kept under it.
     const sheet = shownView("guild-sheet")!;
-    expect(within(sheet).getByText("Your level is below the guild's requirement.")).toBeInTheDocument();
+    expect(within(sheet).getByText("Your level is below the allegiance's requirement.")).toBeInTheDocument();
     expect(within(sheet).queryByRole("button", { name: "Join" })).toBeNull();
   });
 
@@ -278,7 +278,7 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     // Back from the search to the menu, then to the page.
     await waitFor(onlyTheDrawer, T(5_000));
     await back();
-    await screen.findByRole("list", { name: "Guild menu" }, T(5_000));
+    await screen.findByRole("list", { name: "Allegiance menu" }, T(5_000));
     await back();
     await later(MOCK_INVITE_ANSWER_S + 1);
     await waitFor(() => expect(screen.getByRole("region", { name: "Members" })).toHaveTextContent(target.name), T(8_000));

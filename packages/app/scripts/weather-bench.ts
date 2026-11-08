@@ -1,7 +1,7 @@
 /**
  * WEATHER-STUDY (#607 PR 2), WEATHER-WIRE (#658): the frame time of the board with each season's weather on and off, on the phone
  * profile (360 x 780 at DPR 3, CPU throttled 4x through CDP), at the Medium tier and the Low tier, at a phone's play distance (160),
- * on the recorded 72-tile board of the stories `Renderer/Weather` (one per season, the wheel fixed at its day). The weather is the
+ * on the recorded 72-tile board of the stories `Renderer/Weather` (one per season, held at its day). The weather is the
  * scene's own (`RendererSettings.weather`), as on every board.
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up)

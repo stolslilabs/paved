@@ -209,7 +209,7 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
     await chat.send(THIRD, guildConversation(gid), "a member's line");
     await act(() => queryClient.invalidateQueries({ queryKey: ["social"] }));
     // Guild badges the unread message.
-    await userEvent.click(await screen.findByRole("tab", { name: /^Guild, \d+ waiting$/ }, T(10_000)));
+    await userEvent.click(await screen.findByRole("tab", { name: /^Allegiance, \d+ waiting$/ }, T(10_000)));
     await conversation("Stone Road");
     const log = screen.getByRole("log", { name: "Messages" });
     expect(await within(log).findByText(/promoted .* to Officer/, undefined, T(8_000))).toBeInTheDocument();
@@ -348,8 +348,8 @@ describe("/chat on the mock (#955, a page since #973)", { timeout: slow(60_000) 
 
   it("shows a player in no guild the Guild tab's empty state, with the way to the guild page", async () => {
     const { router } = open("/chat/guild");
-    expect(await screen.findByText("You are in no guild", undefined, T(10_000))).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Find a guild" }));
+    expect(await screen.findByText("You are in no allegiance", undefined, T(10_000))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Find an allegiance" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/guild"), T(8_000));
   });
 

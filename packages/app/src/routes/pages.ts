@@ -105,7 +105,7 @@ export const PAGES: readonly PageDef[] = [
   { path: "chat/mail/:mail", title: "Chat", nav: "chat", panel: true, drawer: true },
   { path: "chat/:tab", title: "Chat", nav: "chat", panel: true, drawer: true },
   // The Guild (GUILD-PAGE, the book's "Run my guild"): the HUD's drawer at every width, docked at the right from `tablet`, as the Shop.
-  { path: "guild", title: "Guild", nav: "guild", panel: true, drawer: true },
+  { path: "guild", title: "Allegiance", nav: "guild", panel: true, drawer: true },
   // FRIENDS-PAGE: the HUD's drawer at every width, docked at the right from `tablet`, as the home's Friends button.
   { path: "friends", title: "Friends", nav: "friends", panel: true, drawer: true },
   // The Leaderboard (LEADERBOARD-PAGE, the dock's Ranking): the HUD's drawer at every width, docked at the right from `tablet`, as the
@@ -131,7 +131,7 @@ export const TABS: readonly { id: Tab; label: string; to: string }[] = [
   { id: "league", label: "League", to: "/pvp/league" },
   { id: "settings", label: "Settings", to: "/settings" },
   { id: "chat", label: "Chat", to: "/chat" },
-  { id: "guild", label: "Guild", to: "/guild" },
+  { id: "guild", label: "Allegiance", to: "/guild" },
   { id: "friends", label: "Friends", to: "/friends" },
   { id: "ranking", label: "Ranking", to: "/ranking" },
 ];

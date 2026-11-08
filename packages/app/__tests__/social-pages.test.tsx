@@ -36,7 +36,7 @@ describe("the social pages' scenes (#973)", () => {
     const onBack = vi.fn();
     for (const [scene, title] of [
       [<ChatScene onBack={onBack}><p>body</p></ChatScene>, "Chat"],
-      [<GuildScene onBack={onBack}><p>body</p></GuildScene>, "Guild"],
+      [<GuildScene onBack={onBack}><p>body</p></GuildScene>, "Allegiance"],
       [<FriendsScene {...FRIENDS_SEARCH.idle} onBack={onBack}><p>body</p></FriendsScene>, "Friends"],
     ] as const) {
       const { unmount } = render(wrap(scene));
@@ -61,7 +61,7 @@ describe("the social pages' scenes (#973)", () => {
     render(wrap(<ChatScene tab="guild" badges={{ guild: 2, private: 0 }}>{<p>guild conversation</p>}</ChatScene>));
     const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
     // A tab's name: its word, and the count waiting in it (`FooterTab`).
-    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 2 waiting", "Inbox"]);
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Allegiance, 2 waiting", "Inbox"]);
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("guild conversation")).toBeInTheDocument();
     // No bottom bar: no page carries the dock (DOCK-UNDER-PAGES).
@@ -128,8 +128,8 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
   it("opens the guild page on the finder of a player in no guild", async () => {
     open("/guild");
-    expect(await screen.findByRole("dialog", { name: "Guild" }, { timeout: slow(8000) })).toBeInTheDocument();
-    expect(await screen.findByText("You are in no guild", undefined, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Allegiance" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByText("You are in no allegiance", undefined, { timeout: slow(8000) })).toBeInTheDocument();
   });
 
   it("opens the friends page on its three tabs, Friends selected, under the search", async () => {
@@ -174,7 +174,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
     it("with ?guild= opens that guild on the guild page", async () => {
       const { router } = open("/social?guild=2");
-      expect(await screen.findByRole("dialog", { name: /Guild/ }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: /Allegiance/ }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
       // The guild's page in the guild drawer's place (DRAWER-NAV-IN-PLACE, #1064): one drawer, no sheet over it.
@@ -184,7 +184,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
     it("a guild's link, /guild/<id>, opens that guild's page over the guild page, the ?ref= kept", async () => {
       const { router } = open("/guild/2?ref=abc");
-      expect(await screen.findByRole("dialog", { name: /Guild/ }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: /Allegiance/ }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
@@ -193,7 +193,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
       expect(screen.getAllByRole("dialog")).toHaveLength(1);
       expect(sheet).toBeInTheDocument();
       // Its title on the drawer's header (no guild 2 in the mock: "Guild not found").
-      expect(await within(screen.getByRole("dialog")).findByRole("heading", { level: 2, name: /Guild/ }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await within(screen.getByRole("dialog")).findByRole("heading", { level: 2, name: /Allegiance/ }, { timeout: slow(8000) })).toBeInTheDocument();
     });
 
     it("with ?chat= opens that conversation's tab on the chat page", async () => {

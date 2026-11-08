@@ -37,7 +37,7 @@ export interface ScoreProps extends VariantProps<typeof scoreVariants> {
    * the primary colour and in brackets, beside the value. With a label it rides on the label's line, in place of the last
    * move's gain (`delta`, green, moving in), which it outdates, and in place of the label (kept for screen readers): "(+154)"
    * over "1,000". The HUD keeps its width down to 320 px, where "1,000 (+154)" on one line left no room for the title beside
-   * the season wheel and the deck. Unset or null: none.
+   * the board's other controls. Unset or null: none.
    */
   preview?: number | null;
   /** Drawn in place of the figure (the village page's count after a save, issue 802, from its own chunk). */

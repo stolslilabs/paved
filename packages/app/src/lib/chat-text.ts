@@ -15,7 +15,7 @@ export const CHAT_REFUSALS: Record<ChatWriteRefusal, string> = {
   "too-fast": "You are writing too fast: wait a moment.",
   "per-minute": `${formatInteger(CHAT_WORLD_PER_MINUTE)} messages a minute in the World, the most: wait a moment.`,
   repeat: "You just sent this: write something new.",
-  "not-in-guild": "Only the guild's members write here.",
+  "not-in-guild": "Only the allegiance's members write here.",
   "not-yours": "This conversation is not yours.",
   blocking: "You block this player: unblock them from their profile first.",
   blocked: "This is not available.",
@@ -45,7 +45,7 @@ export const REPORT_REASONS: Record<ChatReportReason, { label: string; line: str
 /** A conversation's name: the World, the guild's name, or the other player's name (their short address when they have none). */
 export function conversationName(c: Pick<ConversationSummary, "kind" | "guild" | "other">, short: (address: string) => string): string {
   if (c.kind === "world") return "World";
-  if (c.kind === "guild") return c.guild?.name ?? "Guild";
+  if (c.kind === "guild") return c.guild?.name ?? "Allegiance";
   return c.other ? (c.other.name ?? short(c.other.address)) : "Private";
 }
 
@@ -58,7 +58,7 @@ export const PRIVATE_NOTICE = "Your private messages are end-to-end encrypted. P
 /** The line at the top of a conversation: what is encrypted, and for whom (#997, point 8). */
 export function encryptionLine(mode: "private" | "guild" | "public", otherName: string): string {
   if (mode === "private") return `End-to-end encrypted: only you and ${otherName} can read these messages`;
-  if (mode === "guild") return "End-to-end encrypted for the guild's members";
+  if (mode === "guild") return "End-to-end encrypted for the allegiance's members";
   return "Public: every player can read the World";
 }
 

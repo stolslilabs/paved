@@ -25,7 +25,7 @@ describe("what a conversation's encryption is (#997, point 8)", () => {
     expect(line()!.tagName).toBe("P");
     unmount();
     const guild = render(wrap(<ChatConversation {...CHAT_CONVERSATION.guild} />));
-    expect(line()).toHaveTextContent("End-to-end encrypted for the guild's members");
+    expect(line()).toHaveTextContent("End-to-end encrypted for the allegiance's members");
     expect(screen.queryByText("Messages from before you joined are not shown")).toBeNull();
     guild.unmount();
     const empty = render(wrap(<ChatConversation {...CHAT_CONVERSATION.empty} />));

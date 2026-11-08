@@ -29,13 +29,13 @@ const { candidate, query, filters, results, suggested, ranking } = GUILD_FINDER.
 
 /** Each page's tabs, by their list's name, in order (a tab's name is its word, and the count waiting in it). */
 const PAGES: readonly { page: string; list: string; ui: () => ReactNode; tabs: readonly string[] }[] = [
-  { page: "Chat", list: "Conversations", ui: () => inDrawer(<ChatTabs tab="world" badges={{ guild: 3, private: 2 }}>{<p>world</p>}</ChatTabs>), tabs: ["World", "Guild, 3 waiting", "Inbox, 2 waiting"] },
+  { page: "Chat", list: "Conversations", ui: () => inDrawer(<ChatTabs tab="world" badges={{ guild: 3, private: 2 }}>{<p>world</p>}</ChatTabs>), tabs: ["World", "Allegiance, 3 waiting", "Inbox, 2 waiting"] },
   { page: "Shop", list: "Shop", ui: () => wrap(<ShopScene {...SHOP.tiles} />), tabs: ["Tiles", "Cobbles", "Themes"] },
   { page: "Friends", list: "Lists", ui: () => inDrawer(<FriendsPanel {...FRIENDS_TAB.friends} />), tabs: ["Friends", "Following", "Followers, 2 new"] },
-  { page: "Guild", list: "Guild", ui: () => inDrawer(<GuildPage {...GUILD_PAGE.officer} defaultTab="announcements" />), tabs: ["Announcements", "Members", "Requests, 2 waiting", "Log"] },
+  { page: "Allegiance", list: "Allegiance", ui: () => inDrawer(<GuildPage {...GUILD_PAGE.officer} defaultTab="announcements" />), tabs: ["Announcements", "Members", "Requests, 2 waiting", "Log"] },
   {
-    page: "Guild finder",
-    list: "Guilds",
+    page: "Allegiance finder",
+    list: "Allegiances",
     ui: () => inDrawer(<GuildBrowse candidate={candidate} query={query} filters={filters} results={results} suggested={suggested} ranking={ranking} />),
     tabs: ["Suggested", "Ranking"],
   },

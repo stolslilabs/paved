@@ -86,7 +86,7 @@ describe("New message (#973)", () => {
     render(wrap(<ChatNewMessage {...data} open onOpenChange={onOpenChange} onPick={onPick} />));
     const sheet = await screen.findByRole("dialog", { name: "New message" });
     const friends = within(within(sheet).getByRole("region", { name: "Friends" })).getAllByRole("button");
-    const mates = within(within(sheet).getByRole("region", { name: "Guildmates" })).getAllByRole("button");
+    const mates = within(within(sheet).getByRole("region", { name: "Allegiance" })).getAllByRole("button");
     expect(friends).toHaveLength(data.friends.length);
     // The first guildmate is a friend too: listed once, among the friends.
     expect(mates).toHaveLength(data.guildmates.length - 1);
@@ -102,7 +102,7 @@ describe("New message (#973)", () => {
     const data = CHAT_NEW_MESSAGE.searching;
     render(wrap(<ChatNewMessage {...data} open onOpenChange={vi.fn()} onPick={onPick} />));
     const sheet = await screen.findByRole("dialog", { name: "New message" });
-    expect(within(sheet).queryByRole("region", { name: "Guildmates" })).toBeNull();
+    expect(within(sheet).queryByRole("region", { name: "Allegiance" })).toBeNull();
     const found = within(within(sheet).getByRole("list", { name: "Players found" })).getAllByRole("button");
     await userEvent.click(found[0]!);
     expect(onPick).toHaveBeenCalledWith(data.search.results[0]!.address);
@@ -110,7 +110,7 @@ describe("New message (#973)", () => {
 });
 
 describe("the chat page's tabs (#973)", () => {
-  it("shows World, Guild and Inbox (the Private tab), Guild and Inbox with their badges, the World none", async () => {
+  it("shows World, Allegiance and Inbox (the Private tab), Allegiance and Inbox with their badges, the World none", async () => {
     const onTabChange = vi.fn();
     render(
       wrap(
@@ -121,7 +121,7 @@ describe("the chat page's tabs (#973)", () => {
     );
     const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
     // A tab's name: its word, and the count waiting in it (`FooterTab`).
-    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 3 waiting", "Inbox, 120 waiting"]);
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Allegiance, 3 waiting", "Inbox, 120 waiting"]);
     expect(within(tabs[2]!).getByText("99+")).toBeInTheDocument();
     expect(screen.getByText("world content")).toBeInTheDocument();
     await userEvent.click(tabs[2]!);

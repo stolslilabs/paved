@@ -202,7 +202,7 @@ export function PvpScoutScene(props: PvpScoutSceneProps) {
                 {/* Their guild (the user's asks): its emblem and its tag, or an empty shield without one. */}
                 <span data-guild className="flex min-w-0 items-center">
                   {props.guild ? (
-                    <span role="img" aria-label={`${props.guild.name} guild, ${props.guild.tag}`} title={props.guild.name} className="flex min-w-0 items-center gap-x-1">
+                    <span role="img" aria-label={`${props.guild.name} allegiance, ${props.guild.tag}`} title={props.guild.name} className="flex min-w-0 items-center gap-x-1">
                       <GuildEmblem emblem={props.guild.emblem} size="sm" />
                       <span aria-hidden className="text-outline min-w-0 truncate pr-0.5 text-sm leading-tight font-bold">
                         {props.guild.tag}
@@ -295,14 +295,14 @@ const SHIELD = "M20 2 37 8v14c0 11-7 19-17 24C10 41 3 33 3 22V8Z";
  */
 function NoGuild() {
   return (
-    <span role="img" aria-label="No guild" data-slot="no-guild" className="flex min-w-0 items-center gap-x-1">
+    <span role="img" aria-label="No allegiance" data-slot="no-guild" className="flex min-w-0 items-center gap-x-1">
       <span aria-hidden className="relative inline-block h-8 w-7 shrink-0">
         <svg viewBox="0 0 40 48" className="absolute inset-0 size-full">
           <path d={SHIELD} fill="var(--drawer-raised)" stroke="var(--emblem-rim)" strokeWidth="3" strokeLinejoin="round" />
         </svg>
       </span>
       <span aria-hidden className="min-w-0 truncate pr-0.5 text-sm leading-tight font-semibold text-muted-foreground">
-        No guild
+        No allegiance
       </span>
     </span>
   );

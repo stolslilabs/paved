@@ -150,8 +150,8 @@ export type { BackdropPattern, DistanceField, GhostCell, SurfaceLight, GridCell,
 export { OverlayPass, createOverlayDepth, overlayDepthTest } from "./core/overlay-pass";
 export type { Overlay, OverlayDepth } from "./core/overlay-pass";
 // The day and night cycle's settings; the cycle itself (`core/daynight.ts`) is a chunk of its own, loaded by the scene.
-export { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, WINDOW_DETECTIONS, resolveDayNightSettings, resolveWindowLight } from "./core/daynight-settings";
-export type { DayNightInput, DayNightSettings, DayPhase, Season, WindowDetection, WindowLightSettings } from "./core/daynight-settings";
+export { DAY_NIGHT_RUNS, DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, WINDOW_DETECTIONS, resolveDayNightSettings, resolveWindowLight } from "./core/daynight-settings";
+export type { DayNightInput, DayNightRuns, DayNightSettings, DayPhase, Season, WindowDetection, WindowLightSettings } from "./core/daynight-settings";
 // The voxel grid of a tile model, once per model type (VOXELIZER, P-84): the voxel drop and the night windows build on it.
 export { PALETTE_SIZE, VoxelCache, cellIndex, paletteU, voxelize } from "./core/voxelizer";
 export type { VoxelFailure, VoxelGrid, VoxelSource, VoxelizeOptions } from "./core/voxelizer";
