@@ -6,6 +6,9 @@ import { lazy } from "react";
  */
 export const LazyTileBubble = lazy(() => import("./tile-bubble"));
 
-/** The press bubble's chunk (`press-bubble.tsx`, #799): asked for once a press can show it, so it is in by the first one. */
+/**
+ * The long press's chunk (`press-bubble.tsx`, #799; PRESS-BUILD: its button one of the tile actions', their shared parts in
+ * `tile-action.tsx`): asked for once a press can show it, so it is in by the first one.
+ */
 export const loadPressBubble = () => import("./press-bubble");
 export const LazyPressBubble = lazy(loadPressBubble);
