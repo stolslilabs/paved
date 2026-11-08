@@ -55,6 +55,13 @@ const CLIP = "[clip-path:inset(-1px_0_-100%)]";
 const NEIGHBOURS =
   "[&:has(>button:not(:first-of-type)[data-state=active])>[data-slot=tabs-indicator]]:rounded-bl-2xl [&:has(>button:not(:last-of-type)[data-state=active])>[data-slot=tabs-indicator]]:rounded-br-2xl";
 
+/**
+ * The tab's content, in one layer (FOOTER-TAB-GROOVE): laid out as the trigger lays it out (a column, centred, its own width), the
+ * count and the "Soon" still placed on the trigger (an opacity makes no containing block). Disabled, the layer is at half opacity, the
+ * look the trigger's own `disabled:opacity-50` gave it, while the trigger and its groove stay at full strength.
+ */
+const CONTENT = "flex w-full min-w-0 flex-col items-center gap-0.5 group-disabled:opacity-50";
+
 /** The icon's and the word's moves, 200 ms as the ground's slide. */
 const MOVE = "transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none";
 
@@ -131,24 +138,28 @@ export function FooterTab({ art, label, word, badge = 0, badgeWord = "waiting", 
       data-footer-tab=""
       aria-label={soon ? `${label}, coming soon` : badge > 0 ? `${label}, ${formatInteger(badge)} ${badgeWord}` : word ? label : undefined}
       disabled={soon || disabled}
-      className={cn("group h-auto min-h-16 min-w-0 flex-col gap-0.5 rounded-none px-1 pt-1.5 pb-2 text-sm leading-tight font-bold whitespace-normal", "footer-tab-groove", className)}
+      // Disabled, the trigger stays at full opacity (FOOTER-TAB-GROOVE, the owner's decision of 2026-11-07): its groove, the `::before`
+      // on its left edge, keeps the strength of every other one, and its content dims inside it (`CONTENT`), as the whole tab did.
+      className={cn("group h-auto min-h-16 min-w-0 flex-col gap-0.5 rounded-none px-1 pt-1.5 pb-2 text-sm leading-tight font-bold whitespace-normal disabled:opacity-100", "footer-tab-groove", className)}
       {...props}
     >
-      <span aria-hidden className={cn("grid size-9 translate-y-2.5 place-items-center opacity-60 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>
-        {art}
+      <span data-slot="footer-tab-content" className={CONTENT}>
+        <span aria-hidden className={cn("grid size-9 translate-y-2.5 place-items-center opacity-60 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>
+          {art}
+        </span>
+        {soon ? (
+          // Where a count would be, the Tiles' carved "Soon" (`tiles-scene.tsx`): on the card's charcoal, so it reads on the dark bar.
+          <span aria-hidden data-slot="footer-tab-soon" className="drawer-carved absolute top-0.5 left-1/2 ml-1 flex h-4 translate-y-2.5 items-center rounded-full px-1.5 text-xs leading-none font-bold text-muted-foreground">
+            Soon
+          </span>
+        ) : badge > 0 && (
+          // On the icon's top right corner, as the dock's are, inside the tab's own box (the trigger is `relative`); it rises with the icon.
+          <span aria-hidden data-slot="footer-tab-badge" className={cn("numeric absolute top-0.5 left-1/2 ml-1 grid h-4 min-w-4 translate-y-2.5 place-items-center rounded-[0.3rem] bg-dock-badge px-0.5 text-xs leading-none font-bold text-foreground ring-2 ring-background group-data-[state=active]:translate-y-0", MOVE)}>
+            {badge > 99 ? "99+" : formatInteger(badge)}
+          </span>
+        )}
+        <span className={cn("text-outline max-w-full translate-y-1 text-center hyphens-auto wrap-anywhere text-foreground opacity-0 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>{word ?? label}</span>
       </span>
-      {soon ? (
-        // Where a count would be, the Tiles' carved "Soon" (`tiles-scene.tsx`): on the card's charcoal, so it reads on the dark bar.
-        <span aria-hidden data-slot="footer-tab-soon" className="drawer-carved absolute top-0.5 left-1/2 ml-1 flex h-4 translate-y-2.5 items-center rounded-full px-1.5 text-xs leading-none font-bold text-muted-foreground">
-          Soon
-        </span>
-      ) : badge > 0 && (
-        // On the icon's top right corner, as the dock's are, inside the tab's own box (the trigger is `relative`); it rises with the icon.
-        <span aria-hidden data-slot="footer-tab-badge" className={cn("numeric absolute top-0.5 left-1/2 ml-1 grid h-4 min-w-4 translate-y-2.5 place-items-center rounded-[0.3rem] bg-dock-badge px-0.5 text-xs leading-none font-bold text-foreground ring-2 ring-background group-data-[state=active]:translate-y-0", MOVE)}>
-          {badge > 99 ? "99+" : formatInteger(badge)}
-        </span>
-      )}
-      <span className={cn("text-outline max-w-full translate-y-1 text-center hyphens-auto wrap-anywhere text-foreground opacity-0 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>{word ?? label}</span>
     </TabsTrigger>
   );
 }
