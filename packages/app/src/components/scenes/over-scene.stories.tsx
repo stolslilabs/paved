@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { DAY, MOCK_NOW } from "../../mocks/clock";
 import { OVER } from "../../mocks/scenes";
+import { PUZZLE_END } from "../../mocks/puzzle";
 import { BalancesProvider } from "../containers/balances-context";
 import { OverScene } from "./over-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
@@ -129,3 +130,26 @@ export const Stress: Story = { args: OVER.stress };
 
 /** WRAP360: the longest relative time ("41 d 15 h") with the UTC date, in a sentence. */
 export const SettlesAfterStress: Story = { args: { ...settling, settle: { state: "after", at: MOCK_NOW + 999 * 3600 + 59 * 60 } } };
+
+/**
+ * A Puzzle game's end (PUZZLE-MODE): Training's window, the trophy filled by the score's share of the day's first place, the rows
+ * Score and Placement; "VICTORY" when this game is the day's first.
+ */
+const puzzle = (end: keyof typeof PUZZLE_END): Story => {
+  const { score, result, firstPlace, dayLabel } = PUZZLE_END[end];
+  return { args: { ...OVER.training, mode: "puzzle", game: { ...OVER.training.game, score }, previousBest: undefined, puzzle: { result, firstPlace, dayLabel, onLeaderboard: fn() } } };
+};
+/** First of the day: "VICTORY", the trophy full, the best and the place before → after. */
+export const PuzzleVictory: Story = puzzle("victory");
+/** A new best below the first place: "GAME OVER", the place climbing. */
+export const PuzzleNewBest: Story = puzzle("newBest");
+/** The player's first game of the day: "Your first today". */
+export const PuzzleFirstToday: Story = puzzle("firstToday");
+/** Below the player's best: the best kept ("Best 1,270"), the place unchanged. */
+export const PuzzleBelowBest: Story = puzzle("belowBest");
+/** Ended after its day: "Too late to rank". */
+export const PuzzleLate: Story = puzzle("late");
+/** The game's effect still being read: the rows wait. */
+export const PuzzleReading: Story = puzzle("reading");
+export const PuzzleVictoryPhone: Story = { ...PuzzleVictory, ...PHONE_375 };
+export const PuzzleVictoryWide: Story = { ...PuzzleVictory, ...WIDE_1440 };

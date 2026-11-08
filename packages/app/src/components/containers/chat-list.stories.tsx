@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { CHAT_LIST } from "../../mocks/chat";
+import { INBOX_MAIL } from "../../mocks/puzzle";
 import { ChatList } from "./chat-list";
+import { MailSection } from "./inbox-mail";
 
 /**
  * The chat page's Private tab (#973; CHAT-PAGE, the Paved UX Book's "chat-private"): New message at the top right, then a stranger's
@@ -20,6 +22,8 @@ type Story = StoryObj<typeof meta>;
 
 /** Three private conversations, with their unread counts. */
 export const Conversations: Story = {};
+/** The Inbox with its Mail at the top (PUZZLE-MODE): two Puzzle prizes waiting, Claim all, a claimed one; then the Messages. */
+export const WithMail: Story = { args: { mail: <MailSection {...INBOX_MAIL.stacked} onClaimAll={fn()} onOpen={fn()} /> } };
 /** No private conversation yet. */
 export const Empty: Story = { args: CHAT_LIST.guildless };
 /** A stranger's request over the conversations: "Wants to chat", the check and the cross. */
