@@ -349,7 +349,7 @@ export function AlliancePage({ alliance, myGuild = null, now, apply, onAction, o
           <InlineError title={alliance.name} message={error} />
         </header>
 
-        <TabSection title="Guilds" count={alliance.roster.length}>
+        <TabSection title="Guilds">
           <ul aria-label="Guilds" className="drawer-carved flex flex-col rounded-xl">
             {alliance.roster.map((g, i) => (
               <li key={g.guild.id} className={cn("flex", rowRule(i))}>
@@ -360,7 +360,7 @@ export function AlliancePage({ alliance, myGuild = null, now, apply, onAction, o
         </TabSection>
 
         {alliance.requests && (
-          <TabSection title="Requests" count={alliance.requests.length}>
+          <TabSection title="Requests">
             {alliance.requests.length === 0 ? (
               <p className={EMPTY}>No request waiting.</p>
             ) : (
@@ -386,7 +386,7 @@ export function AlliancePage({ alliance, myGuild = null, now, apply, onAction, o
         )}
 
         {alliance.invitations && (
-          <TabSection title="Invitations sent" count={alliance.invitations.length}>
+          <TabSection title="Invitations sent">
             {alliance.invitations.length === 0 ? (
               <p className={EMPTY}>None waiting. Invite a guild from the alliance's menu.</p>
             ) : (

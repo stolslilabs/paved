@@ -67,7 +67,7 @@ export function AllianceBrowse({ query, onQueryChange, list, mine = null, onOpen
         <UiIcon name="find" px={20} className="size-5 shrink-0" />
         <input type="search" aria-label="Search alliances" placeholder="Alliance name" autoComplete="off" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm font-semibold outline-none placeholder:text-muted-foreground" value={query} onChange={(e) => onQueryChange?.(e.target.value)} />
       </label>
-      <TabSection title={query.trim() === "" ? "Alliances" : "Found"} count={items?.length ?? 0}>
+      <TabSection title={query.trim() === "" ? "Alliances" : "Found"}>
         <InlineError title="Could not load the alliances" message={list.error} detail={list.errorDetail} />
         {items === null && !list.error && (
           <div role="status" aria-label="Loading the alliances" className="flex flex-col gap-2">
@@ -102,7 +102,7 @@ export function GuildPicker({ query, onQueryChange, guilds, error, errorDetail, 
         <UiIcon name="find" px={20} className="size-5 shrink-0" />
         <input type="search" aria-label="Search guilds" placeholder="Guild name or #tag" autoComplete="off" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm font-semibold outline-none placeholder:text-muted-foreground" value={query} onChange={(e) => onQueryChange?.(e.target.value)} />
       </label>
-      <TabSection title={query.trim() === "" ? "Guilds" : "Found"} count={guilds?.length ?? 0}>
+      <TabSection title={query.trim() === "" ? "Guilds" : "Found"}>
         <InlineError title="Could not load the guilds" message={error} detail={errorDetail} />
         {guilds === null && !error && (
           <div role="status" aria-label="Loading the guilds" className="flex flex-col gap-2">
@@ -210,7 +210,7 @@ export function NoAlliance({ player, onAction, onOpenAlliance, query, onQueryCha
         <InlineError title="Alliance" message={error} />
 
         {leader && player.invitations.length > 0 && (
-          <TabSection title="Invitations" count={player.invitations.length}>
+          <TabSection title="Invitations">
             <ul className="drawer-carved flex flex-col rounded-xl">
               {player.invitations.map((v, i) => (
                 <li key={v.alliance.id} data-slot="alliance-invited" className={cn("flex min-w-0 flex-col gap-1.5 pb-2.5", rowRule(i))}>
@@ -233,7 +233,7 @@ export function NoAlliance({ player, onAction, onOpenAlliance, query, onQueryCha
         )}
 
         {leader && player.request && (
-          <TabSection title="Request" count={1}>
+          <TabSection title="Request">
             <div data-slot="alliance-requested" className="drawer-carved flex min-w-0 items-center gap-1 rounded-xl py-1 pr-1.5">
               <AllianceRow alliance={player.request.alliance} onOpen={() => onOpenAlliance?.(player.request!.alliance.id)} className="flex-1" />
               <button type="button" aria-label="Cancel the request" disabled={pending} onClick={() => void run({ type: "cancel-request" })} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg outline-none disabled:opacity-50">

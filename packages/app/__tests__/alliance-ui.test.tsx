@@ -224,7 +224,7 @@ describe("the Leaderboard's Alliances tab (ALLIANCES)", () => {
     const tab = within(drawer).getByRole("tab", { name: /Alliances/ });
     expect(tab).toBeEnabled();
     expect(tab).not.toHaveAccessibleName(/coming soon/);
-    // The section's title is the word alone (the owner's word of 2026-11-08), where Players, Guilds and Friends keep their count.
+    // The section's title is the word alone (the owner's word of 2026-11-08; TILE-COUNTS: no section title carries a figure).
     expect(within(within(drawer).getByRole("region", { name: "Alliances" })).getByRole("heading")).toHaveTextContent(/^Alliances$/);
     const rows = within(within(drawer).getByRole("list", { name: "Alliances by score" })).getAllByRole("button");
     expect(rows.map((r) => r.getAttribute("aria-label")?.split(",")[0])).toEqual(["1. Harbour Union", "2. Ember Crown", "3. Northern Accord", "4. Stone Pact (your alliance)", "5. Moorland Oath", "6. Lantern Road"]);

@@ -58,7 +58,6 @@ function InventoryTrayBase({ tray, held = null, full = false, busy = false, tile
     .map(([plan, count]) => ({ plan: Number(plan), count }))
     .filter((p) => p.count >= 0)
     .sort((a, b) => b.count - a.count || a.plan - b.plan);
-  const total = plans.reduce((n, p) => n + p.count, 0);
   const card = ({ plan, count }: { plan: number; count: number }) => (
     <InventoryCard plan={plan} count={count} chosen={held === plan} disabled={count === 0 || full || busy} tileArt={tileArt} onSelect={onSelect} />
   );
@@ -66,7 +65,7 @@ function InventoryTrayBase({ tray, held = null, full = false, busy = false, tile
     <section aria-labelledby="inventory-title" data-full={full || undefined} className={cn("flex min-w-0 flex-col gap-2", desktop && "min-h-0 flex-1", className)}>
       <header className="flex items-baseline justify-between gap-2 px-1">
         <h2 id="inventory-title" className="text-sm font-semibold">
-          Inventory <span className="numeric text-muted-foreground">{total}</span>
+          Inventory
         </h2>
         <p className="text-xs text-muted-foreground" aria-live="polite">
           {full ? "Every slot is used" : held != null ? "Tap a lit cell to place it" : "Choose a tile to place"}

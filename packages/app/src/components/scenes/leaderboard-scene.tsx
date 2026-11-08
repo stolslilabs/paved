@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
-import { formatInteger } from "@paved/game-core";
 import type { AlliancePlace, AllianceSummary, GuildPlace, GuildSummary, PlayerRanking } from "../../data/social-source";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
@@ -147,15 +146,13 @@ function useOutOfView(el: HTMLElement | null): OutOfViewSide | null {
   return el === null ? null : side;
 }
 
-/** A list's states: still read (its skeletons), failed (Retry), empty, or its rows on the carved panel; its title with its count, unless `count` is false. */
-function RankedList<T>({ title, read, empty, label, rows, count = true }: { title: string; read: RankingRead<T>; empty: string; label: string; rows: (data: T) => ReactNode[]; count?: boolean }) {
+/** A list's states: still read (its skeletons), failed (Retry), empty, or its rows on the carved panel. */
+function RankedList<T>({ title, read, empty, label, rows }: { title: string; read: RankingRead<T>; empty: string; label: string; rows: (data: T) => ReactNode[] }) {
   const items = read.data === null ? null : rows(read.data);
   return (
     <section aria-label={title} className="flex flex-col gap-2">
-      <SectionTitle>
-        {title}
-        {count && items !== null && <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(items.length)}</span>}
-      </SectionTitle>
+      {/* A fixed word (TILE-COUNTS): the rows' ranks say how many. */}
+      <SectionTitle>{title}</SectionTitle>
       <InlineError
         title={`Could not load the ${title.toLowerCase()}`}
         message={read.error}
@@ -196,9 +193,9 @@ const rowRule = (index: number) => cn("flex", index > 0 && "border-t border-bord
  * members' rows above all). The HUD's drawer, docked at the right from `tablet` as the dock's other pages, a full page with Back on a
  * phone. Its tabs at its foot, the Vault's bottom navigation (`FooterTabsList`): Players (by crowns, the points the HUD and the guilds
  * show), Guilds (by score, the sum of their members' crowns), Alliances (ALLIANCES: by score, the sum of their guilds' scores, each
- * on its laurel), and Friends at the right end (the viewer among their friends, by the same crowns). Each tab a section title
- * with its count (Alliances without one, the owner's word of 2026-11-08), then the ranking on a carved list, a row per place: the first three in the medals' colours, the viewer's own on the
- * Guild page's gold wash with its tag. While the viewer's row is out of view, it is pinned on the side it left (the owner's decision of
+ * on its laurel), and Friends at the right end (the viewer among their friends, by the same crowns). Each tab a section title, a
+ * fixed word (TILE-COUNTS: the ranks say how many), then the ranking on a carved list, a row per place: the first three in the medals'
+ * colours, the viewer's own on the Guild page's gold wash with its tag. While the viewer's row is out of view, it is pinned on the side it left (the owner's decision of
  * 2026-11-07): at the top of the body, under the header, when it is above the view, the list scrolling under it; at the foot over the
  * tabs when it is below, or past the list's end. A tap brings it into view (past the list, opens their profile).
  */
@@ -346,7 +343,6 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, alliances,
             <TabsContent value="alliances" className="flex flex-col">
               <RankedList
                 title="Alliances"
-                count={false}
                 label="Alliances by score"
                 read={alliances}
                 empty="No alliance is ranked yet: a guild's leader creates one from the guild's Alliance."

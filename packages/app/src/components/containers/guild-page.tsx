@@ -196,14 +196,14 @@ function MemberPortrait({ profile }: { profile: PublicProfile }) {
   );
 }
 
-/** A section of a tab, the drawer's (the Missions'): its engraved title and its count beside it, then its content. */
-export function TabSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+/**
+ * A section of a tab, the drawer's (the Missions'): its engraved title, a fixed word (TILE-COUNTS: the Requests tab's badge and the
+ * rows say how many), then its content.
+ */
+export function TabSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
-      <SectionTitle>
-        {title}
-        <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(count)}</span>
-      </SectionTitle>
+      <SectionTitle>{title}</SectionTitle>
       {children}
     </section>
   );
@@ -512,7 +512,7 @@ export function GuildPage({
   else if (tab === "requests" && guild.requests)
     body = (
       <div className="flex flex-col gap-5">
-        <TabSection title="Requests" count={guild.requests.length}>
+        <TabSection title="Requests">
           {guild.requests.length === 0 ? (
             <p className={EMPTY}>No request waiting.</p>
           ) : (
@@ -548,7 +548,7 @@ export function GuildPage({
           )}
         </TabSection>
         {guild.invitations && (
-          <TabSection title="Invitations sent" count={guild.invitations.length}>
+          <TabSection title="Invitations sent">
             {guild.invitations.length === 0 ? (
               <p className={EMPTY}>None waiting. Invite a player from the guild's menu.</p>
             ) : (
@@ -754,10 +754,8 @@ export function GuildPage({
 
     {rank === null ? (
       <section aria-label="Members" className="flex flex-col gap-2">
-        <SectionTitle>
-          Members
-          <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(guild.roster.length)}</span>
-        </SectionTitle>
+        {/* A fixed word (TILE-COUNTS): the figures' band above holds the members against the cap. */}
+        <SectionTitle>Members</SectionTitle>
         {roster}
       </section>
     ) : (

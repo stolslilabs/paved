@@ -70,7 +70,8 @@ const GRID = "drawer-carved grid grid-cols-4 gap-1 rounded-xl p-1";
  * the header, #606), four a row on a carved panel. A random draw: one tile per plan, the tiles left of it in the dock's red square, the
  * plan of the tile in hand in Tiles' gold. A Story level: the draw in its order, each tile numbered, the one in hand "Now" (#613). A
  * PvP attack: the village's tiles by plan, then the extras drawn at random as unknown tiles until drawn (#789), the next two ringed.
- * Played and discarded tiles are dimmed and marked. Numbers, not sentences.
+ * Played and discarded tiles are dimmed and marked. Numbers, not sentences; the sections' titles fixed words (TILE-COUNTS: the band at
+ * the top holds the totals).
  */
 export function DeckSheet({ open, onOpenChange, deck, handPlan, tileArt, renders, skins, view = "real", onViewChange, edge = "left", onPresent }: DeckSheetProps) {
   const { total, placed, discarded } = deckTotals(deck);
@@ -116,9 +117,7 @@ export function DeckSheet({ open, onOpenChange, deck, handPlan, tileArt, renders
         <AttackDeck attack={deck.attack} look={look} view={view} />
       ) : (
         <section aria-labelledby="deck-tiles" className="flex flex-col gap-2">
-          <SectionTitle id="deck-tiles">
-            Tiles <Count value={deck.counts.total} />
-          </SectionTitle>
+          <SectionTitle id="deck-tiles">Tiles</SectionTitle>
           <ul aria-label="Tiles" className={GRID} data-testid="deck-plans" data-view={view}>
             {deck.counts.plans.map((plan) => (
               <PlanCell key={plan.plan} plan={plan.plan} total={plan.total} placed={plan.placed} discarded={plan.discarded} hand={handPlan === plan.plan && plan.total - plan.placed - plan.discarded > 0} look={look} />
@@ -170,11 +169,6 @@ function Figure({ term, value, art }: { term: string; value: number; art: ReactN
       </dd>
     </div>
   );
-}
-
-/** A section's count beside its title, as Tiles' and the Missions'. */
-function Count({ value }: { value: number }) {
-  return <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatNumber(value)}</span>;
 }
 
 /** How a tile is drawn: the real view's image (`deckArt`) or the plan's nine areas (the simplified view). */
@@ -254,9 +248,7 @@ const SLOT_LABEL = { placed: "played", discarded: "discarded", hand: "in hand", 
 function OrderedDeck({ order, look, view }: { order: DeckSheetOrder; look: CardLook; view: DeckView }) {
   return (
     <section aria-labelledby="deck-order-title" className="flex flex-col gap-2">
-      <SectionTitle id="deck-order-title">
-        Order <Count value={order.slots.length} />
-      </SectionTitle>
+      <SectionTitle id="deck-order-title">Order</SectionTitle>
       <ol aria-label="Order" className={GRID} data-testid="deck-order" data-view={view}>
         {order.slots.map((slot, i) => {
           const out = slot.state === "placed" || slot.state === "discarded";
@@ -285,9 +277,7 @@ function AttackDeck({ attack, look, view }: { attack: AttackDeckSheet; look: Car
   return (
     <>
       <section aria-labelledby="deck-village" className="flex flex-col gap-2">
-        <SectionTitle id="deck-village">
-          Village <Count value={village} />
-        </SectionTitle>
+        <SectionTitle id="deck-village">Village</SectionTitle>
         <ul aria-label="Village" className={GRID} data-testid="deck-plans" data-view={view}>
           {attack.plans.map((plan) => (
             <PlanCell
@@ -305,9 +295,7 @@ function AttackDeck({ attack, look, view }: { attack: AttackDeckSheet; look: Car
       </section>
       {attack.extras.length > 0 && (
         <section aria-labelledby="deck-extras-title" className="flex flex-col gap-2">
-          <SectionTitle id="deck-extras-title">
-            Extras <Count value={attack.extras.length} />
-          </SectionTitle>
+          <SectionTitle id="deck-extras-title">Extras</SectionTitle>
           <ul aria-label="Extras" className={GRID} data-testid="deck-extras">
             {attack.extras.map((card, i) => {
               const out = card.state === "placed" || card.state === "discarded";

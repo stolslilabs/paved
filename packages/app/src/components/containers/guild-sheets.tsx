@@ -32,20 +32,21 @@ const SIX: CSSProperties = { gridTemplateColumns: "repeat(6, minmax(0, 1fr))" };
 /** A cell of the emblem's grids. */
 const CELL = "aspect-square h-auto w-full min-w-0 rounded-xl bg-transparent px-0";
 
-/** A section of the form, the drawer's: its engraved title in the display font, what it holds at the title's end, then its content. */
-export function FormSection({ title, end, children }: { title: string; end?: ReactNode; children: ReactNode }) {
+/**
+ * A section of the form, the drawer's: its engraved title in the display font, a fixed word (TILE-COUNTS), then its content, then
+ * what counts it (the characters typed) on a line of its own under it, at the right.
+ */
+export function FormSection({ title, count, children }: { title: string; count?: ReactNode; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
-      <SectionTitle>
-        {title}
-        {end}
-      </SectionTitle>
+      <SectionTitle>{title}</SectionTitle>
       {children}
+      {count && <div className="-mt-1 flex justify-end px-1">{count}</div>}
     </section>
   );
 }
 
-/** A count of characters at a section title's end: "83/150", in the warning colour past its maximum. */
+/** A count of characters under its field, at the right: "83/150", in the warning colour past its maximum. */
 export function CharCount({ count, max }: { count: number; max: number }) {
   return (
     <span aria-hidden className={cn("numeric font-sans text-sm font-bold", count > max ? "text-warning" : "text-muted-foreground")}>
@@ -169,14 +170,14 @@ export function GuildForm({ mode, initial, onSubmit, pending, error }: GuildForm
       </div>
 
       {mode === "create" && (
-        <FormSection title="Name" end={<CharCount count={draft.name.trim().length} max={GUILD_NAME_MAX} />}>
+        <FormSection title="Name" count={<CharCount count={draft.name.trim().length} max={GUILD_NAME_MAX} />}>
           <input id={nameId} aria-label="Name" className={FIELD} value={draft.name} maxLength={GUILD_NAME_MAX + 5} autoComplete="off" placeholder="The Quarrymen" onChange={(e) => set({ name: e.target.value })} />
         </FormSection>
       )}
 
       <EmblemFields emblem={draft.emblem} onChange={(emblem) => set({ emblem })} />
 
-      <FormSection title="Description" end={<CharCount count={draft.description.length} max={GUILD_DESCRIPTION_MAX} />}>
+      <FormSection title="Description" count={<CharCount count={draft.description.length} max={GUILD_DESCRIPTION_MAX} />}>
         <textarea id={descriptionId} aria-label="Description" rows={3} className={cn(FIELD, "resize-none")} value={draft.description} onChange={(e) => set({ description: e.target.value })} />
       </FormSection>
 

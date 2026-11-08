@@ -51,14 +51,14 @@ export function AllianceForm({ mode, initial, onSubmit, pending, error }: Allian
       </div>
 
       {mode === "create" && (
-        <FormSection title="Name" end={<CharCount count={draft.name.trim().length} max={ALLIANCE_NAME_MAX} />}>
+        <FormSection title="Name" count={<CharCount count={draft.name.trim().length} max={ALLIANCE_NAME_MAX} />}>
           <input id={nameId} aria-label="Name" className={FIELD} value={draft.name} maxLength={ALLIANCE_NAME_MAX + 5} autoComplete="off" placeholder="Stone Pact" onChange={(e) => set({ name: e.target.value })} />
         </FormSection>
       )}
 
       <EmblemFields emblem={draft.emblem} onChange={(emblem) => set({ emblem })} />
 
-      <FormSection title="Description" end={<CharCount count={draft.description.length} max={ALLIANCE_DESCRIPTION_MAX} />}>
+      <FormSection title="Description" count={<CharCount count={draft.description.length} max={ALLIANCE_DESCRIPTION_MAX} />}>
         <textarea id={descriptionId} aria-label="Description" rows={3} className={cn(FIELD, "resize-none")} value={draft.description} onChange={(e) => set({ description: e.target.value })} />
       </FormSection>
 
