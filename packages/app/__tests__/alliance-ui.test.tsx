@@ -1,11 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { ALLIANCE_MAX_GUILDS } from "@paved/game-core";
-import { NoAlliance } from "../src/components/containers/alliance-finder";
+import { NoAlliance, type AllianceList } from "../src/components/containers/alliance-finder";
 import { AlliancePage } from "../src/components/containers/alliance-page";
 import { AllianceGuildActions, AllianceLine, AllianceTile } from "../src/components/containers/alliance-parts";
 import { AllianceEmblem } from "../src/components/elements/alliance-emblem";
@@ -170,6 +170,57 @@ describe("NoAlliance (ALLIANCES)", () => {
     render(wrap(<NoAlliance player={PLAYER_ALLIANCE.none} query="" list={list} />));
     expect(screen.getByRole("region", { name: "No alliance" })).toHaveTextContent("Your guild's leader can create one or ask to join one.");
     expect(button("Create an alliance")).toBeNull();
+  });
+});
+
+describe("Find an alliance's failed read (ALLIANCE-FIXES)", () => {
+  /** The route's read as the finder sees it: failed first, read again on Retry. */
+  function FailedThenRead({ onRetry }: { onRetry: () => void }) {
+    const [list, setList] = useState<AllianceList>({ alliances: null, error: "The alliance source did not answer." });
+    const retry = () => {
+      onRetry();
+      setList({ alliances: ALLIANCE_LISTS.ranking });
+    };
+    return <NoAlliance player={PLAYER_ALLIANCE.free} query="" list={{ ...list, onRetry: retry }} initialView="find" />;
+  }
+
+  it("shows the error with Retry in place, and the alliances once the read again answers", async () => {
+    const onRetry = vi.fn();
+    render(wrap(<FailedThenRead onRetry={onRetry} />));
+    expect(screen.getByText("Could not load the alliances")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Alliances" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Could not load the alliances")).toBeNull();
+    expect(within(screen.getByRole("list", { name: "Alliances" })).getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("no Retry without a read to retry", () => {
+    render(wrap(<NoAlliance player={PLAYER_ALLIANCE.free} query="" list={{ alliances: null, error: "The alliance source did not answer." }} initialView="find" />));
+    expect(screen.getByText("Could not load the alliances")).toBeInTheDocument();
+    expect(button("Retry")).toBeNull();
+  });
+});
+
+describe("the stress alliance (ALLIANCE-FIXES)", () => {
+  it("five guilds of their own, only the viewer's Yours; the score short from a million, whole for screen readers, never broken", () => {
+    render(wrap(<AlliancePage {...ALLIANCE_PAGE.stress} />));
+    const ids = ALLIANCE_PAGE.stress.alliance.roster.map((g) => g.guild.id);
+    expect(new Set(ids).size).toBe(5);
+    expect(guildRows().filter((r) => r.hasAttribute("data-own"))).toHaveLength(1);
+    const figures = document.querySelector('[data-slot="alliance-figures"]') as HTMLElement;
+    const score = within(figures).getByLabelText("2,499,750");
+    expect(score).toHaveTextContent(/^2\.5M$/);
+    const value = score.querySelector('[data-slot="alliance-score"]')!;
+    expect(value).toHaveAttribute("title", "2,499,750");
+    expect(value).toHaveClass("whitespace-nowrap");
+  });
+
+  it("a score under a million stays whole", () => {
+    render(wrap(<AlliancePage {...ALLIANCE_PAGE.leader} />));
+    const score = document.querySelector('[data-slot="alliance-score"]')!;
+    expect(score).toHaveTextContent(new Intl.NumberFormat("en-US").format(ALLIANCE_PAGE.leader.alliance.score));
+    expect(score).not.toHaveAttribute("title");
   });
 });
 

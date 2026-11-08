@@ -142,9 +142,9 @@ function ViewerRank({ rank }: { rank: GuildRank }) {
 }
 
 /** One figure of the header's band, the profile's: its label over it, bold and outlined; `children` beside the value (the crown). */
-export function Figure({ term, children, label }: { term: string; children: ReactNode; label?: string }) {
+export function Figure({ term, children, label, className }: { term: string; children: ReactNode; label?: string; className?: string }) {
   return (
-    <div className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 px-0.5 py-2">
+    <div className={cn("flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 px-0.5 py-2", className)}>
       <dt className="text-center text-xs leading-tight font-bold text-muted-foreground">{term}</dt>
       <dd aria-label={label} className="text-outline flex max-w-full items-center gap-1 text-lg leading-tight font-bold tabular-nums wrap-anywhere">
         {children}

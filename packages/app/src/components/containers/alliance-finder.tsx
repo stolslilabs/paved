@@ -41,8 +41,8 @@ export function AllianceRow({ alliance, own = false, onOpen, className }: { alli
   );
 }
 
-/** An invitation's answer: the raised grey, its icon before its word. */
-const ANSWER = "text-outline h-10 min-w-0 gap-1.5 rounded-xl px-2 text-sm font-bold";
+/** An invitation's answer: the raised grey, its icon before its word, 44 px high (the touch floor). */
+const ANSWER = "text-outline h-11 min-w-0 gap-1.5 rounded-xl px-2 text-sm font-bold";
 
 /** A list read as the finder shows it: the alliances (null while read), or why it failed, with Retry. */
 export interface AllianceList {
@@ -68,7 +68,18 @@ export function AllianceBrowse({ query, onQueryChange, list, mine = null, onOpen
         <input type="search" aria-label="Search alliances" placeholder="Alliance name" autoComplete="off" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm font-semibold outline-none placeholder:text-muted-foreground" value={query} onChange={(e) => onQueryChange?.(e.target.value)} />
       </label>
       <TabSection title={query.trim() === "" ? "Alliances" : "Found"}>
-        <InlineError title="Could not load the alliances" message={list.error} detail={list.errorDetail} />
+        <InlineError
+          title="Could not load the alliances"
+          message={list.error}
+          detail={list.errorDetail}
+          action={
+            list.onRetry && (
+              <Button size="sm" variant="secondary" onClick={list.onRetry}>
+                Retry
+              </Button>
+            )
+          }
+        />
         {items === null && !list.error && (
           <div role="status" aria-label="Loading the alliances" className="flex flex-col gap-2">
             {[0, 1, 2].map((i) => (

@@ -12,7 +12,7 @@ import { RAISED, allianceArt, useAllianceActions } from "./alliance-page";
 
 /**
  * A guild's alliance under its tag (ALLIANCES): a small raised pill (it presses: it opens the alliance) with the alliance's emblem on its
- * laurel and its name; for a guild in none, "No alliance" written out, muted, not pressed. Left out of a page while it is read.
+ * laurel and its name, its face 32 px high and its hit area 44 (the friends' pills'); for a guild in none, "No alliance" written out, muted, not pressed. Left out of a page while it is read.
  */
 export function AllianceLine({ badge, onOpen }: { badge: AllianceBadge | null; onOpen?: (id: number) => void }) {
   if (badge === null)
@@ -28,7 +28,7 @@ export function AllianceLine({ badge, onOpen }: { badge: AllianceBadge | null; o
       aria-label={`Alliance: ${badge.name}`}
       title={badge.name}
       onClick={() => onOpen?.(badge.id)}
-      className="state-layer drawer-raised flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1 rounded-lg pr-2.5 pl-0.5 outline-none"
+      className="state-layer drawer-raised relative flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1 rounded-lg pr-2.5 pl-0.5 outline-none after:absolute after:inset-x-0 after:-inset-y-1.5"
     >
       <AllianceEmblem emblem={badge.emblem} size="xs" />
       <span className="text-outline min-w-0 truncate pr-0.5 text-xs leading-snug font-bold">{badge.name}</span>

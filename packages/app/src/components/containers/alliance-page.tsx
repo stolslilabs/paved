@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import * as m from "motion/react-m";
-import { ALLIANCE_ACTOR_RANK, ALLIANCE_MAX_GUILDS, GUILD_MAX_MEMBERS, formatInteger, leaveAllianceRefusal, leaveDisbandsAlliance, type AllianceRole, type AllianceSettings } from "@paved/game-core";
+import { ALLIANCE_ACTOR_RANK, ALLIANCE_MAX_GUILDS, GUILD_MAX_MEMBERS, formatCompact, formatInteger, leaveAllianceRefusal, leaveDisbandsAlliance, type AllianceRole, type AllianceSettings } from "@paved/game-core";
 import type { AllianceView, GuildSummary } from "../../data/social-source";
 import { ALLIANCE_REFUSALS, ROLE_NAMES, allianceErrorText } from "../../lib/alliance-text";
 import { cn } from "../../lib/utils";
@@ -234,6 +234,22 @@ export function useAllianceActions<A>(onAction?: (action: A) => Promise<unknown>
 const daysLeft = (expiresAt: number, now: number) => Math.max(1, Math.ceil((expiresAt - now) / 86_400));
 
 /**
+ * From a million, the score is short ("2.5M", the profile's figures). Its cell takes 1.4 shares of the band, so at 320 px it holds the
+ * crown and "999,999" whole (101 px), Guilds and Players keeping their words.
+ */
+const SCORE_COMPACT_FROM = 1_000_000;
+
+/** The alliance's score on its band, a sum of up to five guilds': whole up to "999,999", then short with the whole in its tooltip; never broken. */
+function AllianceScore({ value }: { value: number }) {
+  const short = value >= SCORE_COMPACT_FROM;
+  return (
+    <span data-slot="alliance-score" title={short ? formatInteger(value) : undefined} className="whitespace-nowrap">
+      {short ? formatCompact(value) : formatInteger(value)}
+    </span>
+  );
+}
+
+/**
  * An alliance's page (ALLIANCES; the Paved UX Book draws none: the Guild page's look and parts). In the guild page's drawer, as a view
  * of it (Back, the red cross). For anyone: the identity on the drawer's face (the emblem on its laurel; the name, and for a guild's
  * leader in it the menu as a small raised square; their guild's role in a carved pill), the figures on a carved band (the guilds against
@@ -339,9 +355,9 @@ export function AlliancePage({ alliance, myGuild = null, now, apply, onAction, o
             <Figure term="Guilds" label={`${formatInteger(alliance.guilds)} of ${ALLIANCE_MAX_GUILDS} guilds`}>
               {formatInteger(alliance.guilds)}/{ALLIANCE_MAX_GUILDS}
             </Figure>
-            <Figure term="Score" label={formatInteger(alliance.score)}>
+            <Figure term="Score" label={formatInteger(alliance.score)} className="grow-[1.4]">
               <UiIcon name="crown" px={20} className="drawer-icon size-5" />
-              {formatInteger(alliance.score)}
+              <AllianceScore value={alliance.score} />
             </Figure>
             <Figure term="Players">{formatInteger(alliance.members)}</Figure>
           </dl>
