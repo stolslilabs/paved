@@ -393,7 +393,7 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
       const found = [...el.classList].find((c) => new RegExp(`^-?${prop}-\\d+$`).test(c));
       return found ? (found.startsWith("-") ? -1 : 1) * Number(found.slice(found.lastIndexOf("-") + 1)) : 0;
     };
-    for (const state of [LEADERBOARD.playersInView, LEADERBOARD.guilds, LEADERBOARD.alliances, LEADERBOARD.friends, LEADERBOARD.loading, LEADERBOARD.empty, LEADERBOARD.unavailable]) {
+    for (const state of [LEADERBOARD.playersInView, LEADERBOARD.guilds, LEADERBOARD.friends, LEADERBOARD.loading, LEADERBOARD.empty, LEADERBOARD.unavailable]) {
       const { drawer, unmount } = scene(state);
       const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
       const strip = drawer.querySelector<HTMLElement>("[data-slot=ranking-top]")!;
