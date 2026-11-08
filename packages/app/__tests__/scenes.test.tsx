@@ -30,7 +30,7 @@ import { CURVE_PLAYING } from "../src/mocks/games";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38, CLOSINGS_38 } from "../src/mocks/board";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
-import { BOARD, LOADING, OVER, PLAY, PURCHASE } from "../src/mocks/scenes";
+import { BOARD, OVER, PLAY, PURCHASE } from "../src/mocks/scenes";
 import { DRAFT_VALID, HOME_POINTS, HOME_VILLAGE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_RIVAL, LAYOUT_START, WONDER_POINTS } from "../src/mocks/village-v2";
 import { canLift, layoutPoints, layoutScore, legalSpots } from "../src/components/containers/layout-rules";
 import { PLAN } from "../src/mocks/village";
@@ -67,13 +67,10 @@ describe("element helpers", () => {
 });
 
 describe("Loading", () => {
-  it("shows an indeterminate bar while booting and the percentage while assets load", () => {
-    const { unmount } = render(wrap(<LoadingScene {...LOADING.booting} />));
-    expect(screen.getByRole("progressbar", { name: "Starting" })).not.toHaveAttribute("aria-valuenow");
-    unmount();
-    render(wrap(<LoadingScene {...LOADING.assets} />));
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "64");
-    expect(screen.getByText("64%")).toBeInTheDocument();
+  it("shows an indeterminate bar while the app boots: no value, the length unknown", () => {
+    render(wrap(<LoadingScene />));
+    expect(screen.getByRole("progressbar", { name: "Loading" })).not.toHaveAttribute("aria-valuenow");
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 });
 
@@ -752,16 +749,13 @@ describe("Board", () => {
   });
 
   it("falls back to the tile art when there is no WebGL, without an error", () => {
-    // jsdom has no WebGL: the renderer's tile view and the board scene's hand both show the PNG chip.
+    // jsdom has no WebGL: the renderer's tile view shows the PNG chip.
     const { unmount } = render(wrap(<TileView plan={BOARD_38.next.plan} orientation={2} basePath={SOURCE_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />));
     const chip = screen.getByRole("img", { name: /^Tile / });
     expect(chip).toHaveAttribute("data-view", "art");
     expect(chip.querySelector("img")).toHaveAttribute("src", `${SOURCE_ASSETS}/assets/tiles/${planCode(BOARD_38.next.plan).toLowerCase()}.png`);
     expect(document.querySelector("canvas")).toBeNull();
     unmount();
-    render(wrap(<BoardScene {...BOARD.placing} renderHandTile={(t) => <TileView {...t} basePath={SOURCE_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />} />));
-    const hand = screen.getByRole("region", { name: "Your tile" });
-    expect(within(hand).getByRole("img", { name: /^Tile / })).toHaveAttribute("data-view", "art");
   });
 
   it("falls back to the plan's nine areas without the art", () => {

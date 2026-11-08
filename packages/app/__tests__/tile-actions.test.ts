@@ -289,4 +289,11 @@ describe("the side menu is told by its marks", () => {
     expect(avoidOf(mark({ "data-bubble-avoid": "", "data-edit-bar": "float" })).side).toBe(false);
     expect(avoidOf(mark({ "data-bubble-avoid": "" })).side).toBe(false);
   });
+
+  it("reads a side marked as one (PRESS-BUILD: the home's right column of tiles)", () => {
+    const e = document.createElement("div");
+    e.setAttribute("data-bubble-avoid", "side");
+    document.body.append(e);
+    expect(avoidOf(e).side).toBe(true);
+  });
 });

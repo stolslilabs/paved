@@ -24,8 +24,6 @@ export interface PlayerSearchProps {
   onOpen?: (address: string) => void;
   /** No social source on this network: the field is shown disabled, with why. */
   unavailable?: boolean;
-  /** A result's action beside it (the follows' Follow, #954); none: the row only opens the profile. */
-  renderAction?: (player: PublicProfile) => ReactNode;
   /**
    * The look: `plain` (the default, the chat's and the guild's), or `drawer` (FRIENDS-PAGE, the HUD's drawer: the book's carved field
    * "Find a player by name or ID" with no hint under it, the results as rows of one carved panel, `renderResult`'s).
@@ -42,19 +40,16 @@ export const CARVED_ROWS = "drawer-carved flex flex-col rounded-xl px-3";
 /** The faint rule over a carved panel's row after its first (the Shop's: the bevel's grey, half see-through), inline: no new class. */
 export const rowRule = (index: number): CSSProperties | undefined => (index > 0 ? { borderTop: "1px solid color-mix(in oklab, var(--drawer-bevel) 45%, transparent)" } : undefined);
 
-/** One player found: the avatar, the name, the level and the league; a tap opens their profile. Its action (Follow) beside it. */
-export function PlayerResult({ player, onOpen, action }: { player: PublicProfile; onOpen?: (address: string) => void; action?: ReactNode }) {
+/** One player found: the avatar, the name, the level and the league; a tap opens their profile (the friends page draws its own row, `renderResult`). */
+export function PlayerResult({ player, onOpen }: { player: PublicProfile; onOpen?: (address: string) => void }) {
   const league = LEAGUES[player.league] ?? leagueOf(player.crowns);
-  const row = (
+  return (
     <button
       type="button"
       data-slot="player-result"
       aria-label={`${player.name ?? player.address}, level ${formatPoints(player.level)}, ${league.name} league`}
       onClick={() => onOpen?.(player.address)}
-      className={cn(
-        "state-layer flex min-h-14 w-full min-w-0 items-center gap-3 text-left outline-none",
-        action ? "flex-[1_1_12rem] rounded-lg px-1 py-1" : "rounded-xl border border-border bg-card px-3 py-2",
-      )}
+      className="state-layer flex min-h-14 w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left outline-none"
     >
       <PlayerAvatar player={{ name: player.name, address: player.address }} look={player.look} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -66,16 +61,8 @@ export function PlayerResult({ player, onOpen, action }: { player: PublicProfile
           <LeagueCrest league={league} size="sm" />
         </span>
       </span>
-      {!action && <Icon name="chevron-right" size="xs" className="shrink-0 text-muted-foreground" />}
+      <Icon name="chevron-right" size="xs" className="shrink-0 text-muted-foreground" />
     </button>
-  );
-  if (!action) return row;
-  return (
-    // The action goes under the player when the row is too narrow for both.
-    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-border bg-card p-1 pr-3">
-      {row}
-      <div className="ml-auto flex shrink-0 items-center pb-1 pl-1">{action}</div>
-    </div>
   );
 }
 
@@ -83,7 +70,7 @@ export function PlayerResult({ player, onOpen, action }: { player: PublicProfile
  * The player search (#952): a field, and the players it finds by name (from the start of a word, whatever the case) or by
  * player ID, each opening their public profile. The follows (#954) and the guilds (#953) use it.
  */
-export function PlayerSearch({ query, onQueryChange, results, error, errorDetail, onRetry, onOpen, unavailable, renderAction, look = "plain", renderResult, className }: PlayerSearchProps) {
+export function PlayerSearch({ query, onQueryChange, results, error, errorDetail, onRetry, onOpen, unavailable, look = "plain", renderResult, className }: PlayerSearchProps) {
   const typed = query.trim() !== "";
   const drawer = look === "drawer";
   return (
@@ -143,7 +130,7 @@ export function PlayerSearch({ query, onQueryChange, results, error, errorDetail
             <ul aria-label="Players found" className={drawer ? CARVED_ROWS : "flex flex-col gap-2"}>
               {results.map((p, i) => (
                 <li key={p.address} style={drawer ? rowRule(i) : undefined}>
-                  {drawer && renderResult ? renderResult(p) : <PlayerResult player={p} onOpen={onOpen} action={renderAction?.(p)} />}
+                  {drawer && renderResult ? renderResult(p) : <PlayerResult player={p} onOpen={onOpen} />}
                 </li>
               ))}
             </ul>

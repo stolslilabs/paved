@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { LiveMusicPlayer, MusicPlayer } from "./music-player";
 import { AudioProvider } from "./audio-provider";
-import { DEFAULT_SETTINGS } from "../../data/settings";
+import { DEFAULT_SETTINGS, inClaudePane } from "../../data/settings";
 import { artOf } from "../../lib/music/track-info";
 import { STORY_TRACKS } from "../../mocks/music";
 import { CROSSFADE_S, createMusicPlayer, type MusicPlayer as Player } from "../../lib/music/player";
@@ -52,7 +52,8 @@ export const ImageFailed: Story = { args: { art: "/music-art/128/missing.webp" }
 export const LongTitle: Story = { args: { title: "Secrets of the Old Kingdom, the extended version for a very long evening" } };
 
 function Live_() {
-  const [volume, setVolume] = useState(DEFAULT_SETTINGS.musicVolume);
+  // Muted on the load in an agent's preview (the Claude app's pane, AGENT-PREVIEW-MUTE), as the app is: Play brings it back.
+  const [volume, setVolume] = useState(() => (inClaudePane() ? 0 : DEFAULT_SETTINGS.musicVolume));
   const [before, setBefore] = useState(DEFAULT_SETTINGS.musicBefore);
   return (
     <AudioProvider

@@ -5,7 +5,7 @@ import { TOKEN_GAP, TokenIcon } from "./token-icon";
 
 const cobblesVariants = cva(["inline-flex items-center whitespace-nowrap", TOKEN_GAP], {
   variants: {
-    size: { sm: "text-xs", md: "text-sm", lg: "text-2xl" },
+    size: { sm: "text-xs", md: "text-sm" },
     tone: { default: "text-foreground", muted: "text-muted-foreground" },
   },
   defaultVariants: { size: "md", tone: "default" },

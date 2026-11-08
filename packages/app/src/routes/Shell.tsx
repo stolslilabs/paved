@@ -14,7 +14,7 @@ import { usePrefetchTabs } from "./prefetch";
 import { StaleChunkGate } from "./stale-chunk-gate";
 
 /** The boot screen: also the router's `hydrateFallbackElement` and every route's `Suspense` fallback (section 6.1). */
-export const bootScreen = <LoadingScene progress={null} />;
+export const bootScreen = <LoadingScene />;
 
 /** The music volume from the player's pause (0) or resume, stored like a move of the slider. */
 const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));

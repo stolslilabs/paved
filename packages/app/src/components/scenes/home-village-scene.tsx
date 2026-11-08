@@ -296,7 +296,7 @@ function HomeBar({ children }: { children: ReactNode }) {
   // The dock's box: the band's top to the foot, and its foot (the safe area, or its lift); empty, so nothing for assistive technology.
   const standIn = <div className="box-content" style={{ height: DOCK_ART.height * DOCK_ART.scale, paddingBottom: "calc(var(--dock-foot) + var(--dock-lift))" }} />;
   return (
-    <div ref={ref} data-out="d0" className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
+    <div ref={ref} data-out="d0" data-bubble-avoid className="pointer-events-none fixed inset-x-0 bottom-0 z-20 [&>*]:pointer-events-auto">
       <Suspense fallback={standIn}>{children}</Suspense>
     </div>
   );
@@ -323,6 +323,26 @@ function leftColumnHint(el: HTMLDivElement) {
 const GAP_PX = 12;
 
 /**
+ * An element's layout box in the overlays' box (HOME-COLUMNS-AFTER-EDIT, #1068): its offsets summed up to the box, which transforms
+ * (`translate`, `transform`) do not move, unlike `getBoundingClientRect`. Each offset parent's border is added on the way.
+ */
+function layoutBox(el: HTMLElement, box: HTMLElement) {
+  let top = 0;
+  let left = 0;
+  for (let at: HTMLElement | null = el; at && at !== box; ) {
+    top += at.offsetTop;
+    left += at.offsetLeft;
+    const parent = at.offsetParent as HTMLElement | null;
+    if (parent) {
+      top += parent.clientTop;
+      left += parent.clientLeft;
+    }
+    at = parent;
+  }
+  return { top, left, height: el.offsetHeight, bottom: top + el.offsetHeight };
+}
+
+/**
  * The overlays' measures, on their box. The profile beside the balances' first plate: `--profile-room`, the width the badge may
  * take (its name plate grows with the name), so it stops a gap short of the plate whatever the amounts (a 999,999 Cobbles plate
  * at 320 px, #828).
@@ -343,25 +363,30 @@ function useOverlayMeasures(dial: boolean) {
   useLayoutEffect(() => {
     const els = [refs.box, refs.balances, refs.profile, refs.actions, refs.dial].map((ref) => ref.current);
     const [box] = els as HTMLElement[];
-    // Its first notice comes before the first paint: the bands are in place when the overlays show. In the Camera mode the groups are
-    // off the screen (`data-out`, CAMERA-EXPLORE): nothing is measured until they stand back, every slide over.
+    // Its first notice comes before the first paint: the bands are in place when the overlays show. HOME-COLUMNS-AFTER-EDIT (#1068):
+    // it reads the layout's boxes (`layoutBox`), which no transform moves, so neither the Camera mode's slides (`translate`,
+    // CAMERA-EXPLORE) nor the season wheel's turn shifts it, and it runs at each mount, the wheel turning or not. In the Camera mode
+    // the corner's row goes down (`bottom`): nothing is measured until the mode is left (its slide's `transitionend` measures again).
     const measure = () => {
-      if (box.hasAttribute("data-camera") || box.getAnimations?.({ subtree: true }).some((a) => a instanceof CSSTransition)) return;
-      const [frame, balances, profile, foot, wheel] = els.map((el) => el?.getBoundingClientRect()) as DOMRect[];
+      if (box.hasAttribute("data-camera")) return;
+      const [, balances, profile, foot, wheel] = els.map((el) => (el ? layoutBox(el, box) : undefined));
+      const height = box.offsetHeight;
       // The badge's foot as drawn: its rim runs past the card's (the player card's negative margins) and its crest a tenth of the rim
       // further (`PlayerRim`, -bottom-[10%]; the rim's box is there before the league's chunk, its stand-in the same size).
-      const rim = refs.profile.current?.querySelector("[data-slot=avatar-rim]")?.getBoundingClientRect();
+      const rimEl = refs.profile.current?.querySelector<HTMLElement>("[data-slot=avatar-rim]");
+      const rim = rimEl ? layoutBox(rimEl, box) : undefined;
       const drawnFoot = Math.max(profile!.bottom + GAP_PX, rim ? rim.bottom + rim.height * 0.1 : 0);
       const edges = {
-        "--right-top": balances!.bottom - frame!.top,
-        "--right-bottom": frame!.bottom - foot!.top,
-        "--left-top": drawnFoot - frame!.top,
-        "--left-bottom": frame!.bottom - (wheel?.top ?? foot!.bottom),
+        "--right-top": balances!.bottom,
+        "--right-bottom": height - foot!.top,
+        "--left-top": drawnFoot,
+        "--left-bottom": height - (wheel?.top ?? foot!.bottom),
       };
       for (const [name, px] of Object.entries(edges)) box.style.setProperty(name, `${px + GAP_PX}px`);
       // The profile's room, from its left to a gap short of the balances: the badge's name plate ends there.
       box.style.setProperty("--profile-room", `${balances!.left - profile!.left - GAP_PX}px`);
     };
+    measure();
     const observer = new ResizeObserver(measure);
     // The box and what the bands stand off (not the columns, which the bands size).
     for (const el of els) if (el) observer.observe(el);
@@ -394,7 +419,13 @@ const TILES_STAND_IN = <span aria-hidden className="block w-16" style={{ height:
 /** The bottom left's stand-in: the Chat tab (56 x 64 px); the mission comes with its read, after the chunk. */
 const CHAT_STAND_IN = <span aria-hidden className="block h-16 w-14" />;
 
-/** The view's overlays: the corners, the left column, the edges' buttons (HOME-EDGES), the dial and the bottom's controls, the chips. */
+/**
+ * The view's overlays: the corners, the left column, the edges' buttons (HOME-EDGES), the dial and the bottom's controls, the chips.
+ * Each piece the long press's Edit village keeps clear of (PRESS-BUILD, the tile actions' rules: `layoutTileActions`) is marked
+ * `data-bubble-avoid` on its own box, so the room is the HUD's real edges: the profile, the balances and the capsules from the top; the
+ * dial, the Chat tab, the mission, the bottom right's controls and the dock from the foot; the right column of tiles, which stands
+ * across the middle, as a side (`data-bubble-avoid="side"`), from the right. Edit mode draws none of them.
+ */
 function ViewOverlays({
   village,
   editable,
@@ -421,7 +452,7 @@ function ViewOverlays({
         shield's while shielded, stretched to one width, the widest's, and close (their 44 px targets 4 px apart). The group lets taps
         through between them.
       */}
-      <div data-slot="home-capsules" className={cn("relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto", HUD_CAPSULES_NUDGE)}>
+      <div data-slot="home-capsules" data-bubble-avoid className={cn("relative flex flex-col items-stretch gap-1 pointer-events-none! [&>*]:pointer-events-auto", HUD_CAPSULES_NUDGE)}>
         <Suspense fallback={LEAGUE_STAND_IN}>
           <LazyLeagueControl crowns={props.league?.crowns} attacks={props.league?.attacks} onLeague={props.onLeague} />
         </Suspense>
@@ -474,7 +505,7 @@ function ViewOverlays({
       */}
       <div className={cn("absolute inset-x-0 top-0", HUD_INSET_BOX)}>
         <div className="relative flex items-start justify-between gap-2">
-          <div ref={measures.profile} data-out="u2" className="pointer-events-auto min-w-0">
+          <div ref={measures.profile} data-out="u2" data-bubble-avoid className="pointer-events-auto min-w-0">
             {/* The player card (#787): its rim the league of the crowns below it. */}
             <PlayerBadge league={props.league} />
           </div>
@@ -483,7 +514,7 @@ function ViewOverlays({
             panel's page: one under the other at every width (HOME-UI-CAPSULES, the mockup's), the phone's plates below `desktop`, the larger ones from it.
             Out of the row's flow: only the profile's line stands beside them, so at 320 px the badge keeps its whole width.
           */}
-          <div ref={measures.balances} data-out="u2" className="pointer-events-auto absolute top-0 right-0 flex items-start">
+          <div ref={measures.balances} data-out="u2" data-bubble-avoid className="pointer-events-auto absolute top-0 right-0 flex items-start">
             {/* HOME-HUD-PADDING: the phone's plates on the profile's painted edge (`HUD_PLATES_NUDGE`); Connect keeps the plain inset. */}
             <div data-slot="home-phone-balances" className={cn("relative desktop:hidden", HUD_PLATES_NUDGE)}>
               <BalancesSlot layout="pill" kinds={HOME_BALANCES} direction="column" beside={BESIDE_LEAGUE} />
@@ -499,7 +530,7 @@ function ViewOverlays({
           tiles (Missions, Vault, Friends, Tiles) centred in the band under the balances; taller than the band (a landscape phone),
           it starts at its top and wraps leftwards.
         */}
-        <div data-out="r0" className="pointer-events-none absolute top-(--right-top) right-(--hud-inset-right) bottom-(--right-bottom) flex flex-col justify-center-safe [&>*]:pointer-events-auto">
+        <div data-out="r0" data-bubble-avoid="side" className="pointer-events-none absolute top-(--right-top) right-(--hud-inset-right) bottom-(--right-bottom) flex flex-col justify-center-safe [&>*]:pointer-events-auto">
           <Suspense fallback={TILES_STAND_IN}>
             <LazyEdgeTiles
               missions={props.missions}
@@ -535,7 +566,7 @@ function ViewOverlays({
         */}
         <div ref={measures.dial} data-dial-place data-out="l0" className={cn("pointer-events-none absolute left-0 flex flex-col items-start gap-2 [&>*]:pointer-events-auto", ABOVE_BAR)} style={{ marginBottom: "var(--dock-crest)" }}>
           {props.seasonWheel && (
-            <div className="pl-(--hud-inset-left)">
+            <div data-bubble-avoid className="pl-(--hud-inset-left)">
               <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
                 <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
               </Suspense>
@@ -546,7 +577,7 @@ function ViewOverlays({
           </Suspense>
         </div>
       </div>
-      <div ref={measures.actions} data-corner className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
+      <div ref={measures.actions} data-corner data-bubble-avoid className={cn("absolute right-(--hud-inset-right) flex items-end gap-2 desktop:gap-4 [&>*]:pointer-events-auto", ABOVE_BAR, props.seasonWheel && "left-28 justify-end min-[24.375rem]:left-31 tablet:left-44")}>
         {/*
           The Camera mode's button (#875), at the bottom right; in the mode, Exit and the controls' hint, in the corner: Found
           leaves the row (`data-collapse`).

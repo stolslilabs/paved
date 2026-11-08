@@ -16,10 +16,10 @@ const meta = {
   title: "Elements/ChestArt",
   component: ChestArt,
   parameters: { layout: "padded" },
-  args: { rank: "epic", state: "rest", size: "lg" },
+  args: { rank: "epic", state: "ready", size: "lg" },
   argTypes: {
     rank: { control: "inline-radio", options: CHEST_RANKS },
-    state: { control: "inline-radio", options: ["rest", "ready", "opening", "open", "spent"] },
+    state: { control: "inline-radio", options: ["ready", "opening", "open"] },
     drop: { control: "boolean" },
   },
 } satisfies Meta<typeof ChestArt>;
@@ -28,16 +28,12 @@ type Story = StoryObj<typeof meta>;
 
 const RANK_LABEL: Record<ChestRank, string> = { basic: "Basic", rare: "Rare", epic: "Epic" };
 const STATES: readonly { state: ChestArtState; name: string }[] = [
-  { state: "rest", name: "At rest" },
   { state: "ready", name: "Ready" },
   { state: "open", name: "Open" },
-  { state: "spent", name: "Opened" },
 ];
-/** #874's range for the simple version: 16 to 48 px. */
+/** The simple version's sizes in the app: 24 px (a battle log's row), 48 px (an end's chest). */
 const ICON_SIZES: readonly { size: ChestIconSize; px: number }[] = [
-  { size: "sm", px: 16 },
   { size: "md", px: 24 },
-  { size: "lg", px: 32 },
   { size: "xl", px: 48 },
 ];
 
@@ -45,23 +41,18 @@ const Caption = ({ children }: { children: React.ReactNode }) => <span className
 
 export const Default: Story = {};
 
-// One story per state of the detailed art, an epic chest.
-export const Rest: Story = { args: { state: "rest" } };
 export const Ready: Story = { args: { state: "ready" } };
 export const Opening: Story = { args: { state: "opening" } };
 export const Open: Story = { args: { state: "open" } };
-/** #874's open point 2: the slots' opened chest, open and empty, grey. */
-export const Spent: Story = { args: { state: "spent" } };
 
-/** The three ranks side by side: each one's simple icon at 16, 24 and 48 px beside its detailed art at rest. */
+/** The three ranks side by side: each one's simple icon at 24 and 48 px beside its detailed art, ready. */
 export const Ranks: Story = {
   render: () => (
     <div className="flex flex-wrap gap-x-4 gap-y-3 rounded-2xl bg-card p-3">
       {CHEST_RANKS.map((rank) => (
         <figure key={rank} className="m-0 flex flex-col items-center gap-1.5">
-          <ChestArt rank={rank} size="sm" label={CHEST_NAME[rank]} />
+          <ChestArt rank={rank} state="ready" size="md" label={CHEST_NAME[rank]} />
           <span className="flex items-end gap-2">
-            <ChestIcon rank={rank} size="sm" label={null} />
             <ChestIcon rank={rank} size="md" label={null} />
             <ChestIcon rank={rank} size="xl" label={null} />
           </span>
@@ -82,7 +73,7 @@ export const Layers: Story = {
           <div className="flex flex-wrap gap-x-2 gap-y-2">
             {[["closed"], ["lid"], ["body"], ["lid", "body"]].map((layers) => (
               <figure key={layers.join("+")} className="m-0 flex flex-col items-center gap-1">
-                <span className="relative block" style={{ width: `${CHEST_ART_REM.sm}rem`, height: `${CHEST_ART_REM.sm}rem` }}>
+                <span className="relative block" style={{ width: `${CHEST_ART_REM.md}rem`, height: `${CHEST_ART_REM.md}rem` }}>
                   {layers.map((layer) => (
                     <img key={layer} alt="" src={chestImageUrl(rank, layer as "closed" | "lid" | "body", 320)} className="absolute inset-0 size-full" />
                   ))}
@@ -139,7 +130,7 @@ function Openable({ rank, opens }: { rank: ChestRank; opens: number }) {
         }}
         className="grid place-items-center rounded-2xl outline-none"
       >
-        <ChestArt key={run} rank={rank} state={open ? "opening" : "ready"} size="sm" label={null} />
+        <ChestArt key={run} rank={rank} state={open ? "opening" : "ready"} size="md" label={null} />
       </button>
       <span className="text-xs text-foreground">{RANK_LABEL[rank]}</span>
     </div>
@@ -171,17 +162,18 @@ export const TapToOpen: Story = {
 /** The opening under reduced motion: still frames, the chest open at once, the light only fades in, nothing shakes, turns or flies. */
 export const ReducedMotion: Story = { ...TapToOpen, parameters: { reducedMotion: "always" } };
 
-/** Each rank in each state: at rest, ready (shaking), open in its light, opened and grey. */
+/** Each rank in each state: ready (shaking), open in its light. */
 export const States: Story = {
   render: () => (
-    <div className="flex flex-col gap-3 rounded-2xl bg-card p-3">
+    // The ready chest's halo runs past its box: the card clips it, so the row keeps to a 320 px phone.
+    <div className="flex flex-col gap-3 overflow-hidden rounded-2xl bg-card p-3">
       {CHEST_RANKS.map((rank) => (
         <div key={rank} className="flex flex-col gap-1">
           <Caption>{RANK_LABEL[rank]}</Caption>
           <div className="flex flex-wrap gap-x-2 gap-y-2">
             {STATES.map(({ state, name }) => (
               <figure key={state} className="m-0 flex flex-col items-center gap-1">
-                <ChestArt rank={rank} state={state} size="xs" label={`${CHEST_NAME[rank]}, ${name.toLowerCase()}`} />
+                <ChestArt rank={rank} state={state} size="md" label={`${CHEST_NAME[rank]}, ${name.toLowerCase()}`} />
                 <figcaption className="text-xs text-foreground">{name}</figcaption>
               </figure>
             ))}
@@ -199,7 +191,7 @@ const GROUNDS = [
   { name: "Summer day sky", style: { background: "linear-gradient(to bottom, var(--sky-summer-day-top), var(--sky-summer-day-bottom))" } },
 ] as const;
 
-/** The icons from 16 to 48 px on each ground: the ranks told apart by their silhouettes as well as their colours. */
+/** The icons at 24 and 48 px on each ground: the ranks told apart by their silhouettes as well as their colours. */
 export const Icons: Story = {
   render: () => (
     <div className="flex flex-col gap-3">

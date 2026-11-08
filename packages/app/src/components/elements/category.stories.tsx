@@ -22,11 +22,11 @@ export const All: Story = {
   ),
 };
 
-/** The game icons at the sizes their lists use: 12 px (the village's kinds, the highlights), 16 px (the closings), 20 and 32 px. */
+/** The game icons at the sizes their lists use: 12 px (the end's highlights), 16 px (the closings). */
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-col gap-2 rounded-xl bg-background p-3">
-      {(["xs", "sm", "md", "xl"] as const).map((size) => (
+      {(["xs", "sm"] as const).map((size) => (
         <div key={size} className="flex items-center gap-3">
           <span className="w-6 text-xs text-muted-foreground">{size}</span>
           {CLOSING_CATEGORIES.map((c) => (

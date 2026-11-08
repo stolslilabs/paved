@@ -11,15 +11,27 @@ import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { PRESS_FADE_MS, PRESS_LINGER_MS, PRESS_SHOW_MS } from "../src/lib/use-press-action";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 
-// LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows a bubble by the tile with Edit and
-// its ring; held to its end, edit mode opens as from the Edit button. On the plan view (pointer events on its cells) and on the
+// LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows Edit by the tile (PRESS-BUILD: one of the
+// tile's painted actions) and its ring; held to its end, edit mode opens as from the Edit button. On the plan view (pointer events on its cells) and on the
 // 3D board (the renderer's presses, its canvas mocked as the boards' tests do).
 
 const canvas = vi.hoisted(() => ({ props: null as GameCanvasProps | null }));
 vi.mock("@paved/renderer/react", () => ({
   GameCanvas: (props: GameCanvasProps) => {
     canvas.props = props;
-    useEffect(() => props.onReady?.({ projectCell: () => ({ x: 200, y: 300, visible: true }), onCameraChange: () => () => {} } as never), []);
+    useEffect(
+      () =>
+        props.onReady?.({
+          projectCellOutline: () => [
+            { x: 160, y: 300, visible: true },
+            { x: 200, y: 300, visible: true },
+            { x: 200, y: 340, visible: true },
+            { x: 160, y: 340, visible: true },
+          ],
+          onCameraChange: () => () => {},
+        } as never),
+      [],
+    );
     return <canvas data-testid="renderer" />;
   },
 }));
@@ -151,7 +163,7 @@ describe("the 3D board: the renderer's presses into the action (#799)", () => {
   const setup = (action: Partial<BoardPress> = {}) => {
     const onAct = vi.fn();
     const onCellClick = vi.fn();
-    const props = { tiles, onCellClick, press: { label: "Edit village", icon: "hammer", onAct, holdMs: HOLD, ...action } };
+    const props = { tiles, onCellClick, press: { label: "Edit village", art: "tile-edit" as const, onAct, holdMs: HOLD, ...action } };
     const view = render(<BoardViewport {...props} />);
     return { onAct, onCellClick, rerender: (p: Partial<Parameters<typeof BoardViewport>[0]>) => view.rerender(<BoardViewport {...props} {...p} />) };
   };
@@ -209,7 +221,7 @@ describe("the 3D board: the renderer's presses into the action (#799)", () => {
     const { rerender } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} renderCanvas={renderCanvas} onEditingChange={onEditingChange} />));
     await screen.findByTestId("canvas", {}, WAIT);
     const view = views[views.length - 1]!;
-    expect(view.press).toMatchObject({ label: "Edit village", icon: "hammer" });
+    expect(view.press).toMatchObject({ label: "Edit village", art: "tile-edit" });
     act(() => view.press!.onAct());
     expect(onEditingChange).toHaveBeenCalledWith(true);
     rerender(wrap(<HomeVillageScene {...HOME_VILLAGE.view} editing renderCanvas={renderCanvas} onEditingChange={onEditingChange} />));
