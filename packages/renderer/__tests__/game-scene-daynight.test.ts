@@ -113,11 +113,11 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     scene.dispose();
   });
 
-  it("hands the windows' light to the tiles by default (#583), never while the cycle is still", async () => {
+  it("hands the windows' light to the tiles by default (#583), never on the Low tier (still, STILL-NIGHT)", async () => {
     const lit = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
     expect(lit.tiles.setNightLights).toHaveBeenLastCalledWith(true, "#ffb57a", DEFAULT_WINDOW_LIGHT);
     lit.scene.dispose();
-    const still = await createScene({ dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: true } });
+    const still = await createScene({ quality: "low", dayNight: { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
     expect(still.tiles.setNightLights).toHaveBeenLastCalledWith(false, "#ffb57a", DEFAULT_WINDOW_LIGHT);
     still.scene.dispose();
     // The windows' own light (#571), field by field over its defaults.
@@ -212,12 +212,55 @@ describe("GameScene: the day and night cycle (DAYNIGHT)", () => {
     }
   });
 
-  it("the Low tier's still noon wins over a frozen night: never a night it is meant to skip, the frozen season's noon instead", async () => {
-    const { scene, tiles } = await createScene({ quality: "low", dayNight: { enabled: true, season: "spring", freezeAt: 2 + DAY_PHASE_AT.night, reducedMotion: false } });
-    expect(scene.getDayNight()).toMatchObject({ season: "winter", phase: "day" });
-    expect(scene.getDayNight()!.position).toBe(DAY_PHASE_AT.day);
-    expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), DEFAULT_WINDOW_LIGHT);
-    scene.dispose();
+  // STILL-NIGHT (#1119): Settings' Night is honoured in a still scene, on the game's board and on the home's village (its camera
+  // framed under the overlays, `useFramedSettings`), as Settings give it (`cycleDayNight`: Winter and Night freeze winter's night;
+  // Cycle and Night turn the seasons at their night). Still: no clock, no redraw of its own; the night lights under reduced motion
+  // alone, never on the Low tier.
+  const boards: Array<[string, RendererSettingsInput]> = [
+    ["the board", {}],
+    ["the village", { cameraFit: { insets: { top: 120, bottom: 160, left: 0, right: 0 } } }],
+  ];
+  const stills: Array<[string, RendererSettingsInput, boolean]> = [
+    ["reduced motion", { dayNight: { reducedMotion: true } }, true],
+    ["the Low tier", { quality: "low", dayNight: { reducedMotion: false } }, false],
+  ];
+  const nights: Array<[string, RendererSettingsInput["dayNight"], string]> = [
+    ["Winter and Night", { enabled: true, freezeAt: 2 + DAY_PHASE_AT.night }, "winter"],
+    ["Cycle and Night", { enabled: true, season: "autumn", runs: "seasons-night" }, "autumn"],
+  ];
+  for (const [board, base] of boards) {
+    for (const [still, tier, lit] of stills) {
+      for (const [choice, dayNight, season] of nights) {
+        it(`keeps ${choice} a night on ${board} under ${still}: held, no redraw of its own${lit ? ", the windows lit" : ", no night lights"}`, async () => {
+          const { scene, tiles, renders, frame } = await createScene({ ...base, ...tier, dayNight: { ...dayNight, ...tier.dayNight } });
+          expect(scene.getDayNight()).toMatchObject({ season, phase: "night", blend: 0 });
+          expect(scene.getDayNight()!.position).toBeCloseTo(DAY_PHASE_AT.night, 9);
+          expect(tiles.setNightLights).toHaveBeenLastCalledWith(lit, expect.any(String), DEFAULT_WINDOW_LIGHT);
+          frame();
+          const after = renders.length;
+          for (let i = 0; i < 10; i++) frame(5000);
+          expect(renders.length).toBe(after);
+          expect(scene.getDayNight()).toMatchObject({ season, phase: "night" });
+          scene.dispose();
+        });
+      }
+    }
+  }
+
+  it("keeps a held season's day and the cycles' still noon: Spring and Day, Cycle and Day, a season and Cycle, Cycle and Cycle", async () => {
+    const cases: Array<[RendererSettingsInput["dayNight"], string]> = [
+      [{ enabled: true, freezeAt: 3 + DAY_PHASE_AT.day }, "spring"],
+      [{ enabled: true, season: "autumn", runs: "seasons-day" }, "autumn"],
+      [{ enabled: true, season: "winter", runs: "day-night" }, "winter"],
+      [{ enabled: true, season: "summer" }, "summer"],
+    ];
+    for (const [dayNight, season] of cases) {
+      const { scene, tiles } = await createScene({ dayNight: { ...dayNight, reducedMotion: true } });
+      expect(scene.getDayNight(), season).toMatchObject({ season, phase: "day" });
+      expect(scene.getDayNight()!.position, season).toBeCloseTo(DAY_PHASE_AT.day, 9);
+      expect(tiles.setNightLights).toHaveBeenLastCalledWith(false, expect.any(String), DEFAULT_WINDOW_LIGHT);
+      scene.dispose();
+    }
   });
 
   it("turns what Settings ask (`runs`, SEASONS-SETTINGS): the seasons at their night or their day, or one season's day and night", async () => {
