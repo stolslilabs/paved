@@ -233,6 +233,10 @@
  * the outline 6 to 8 px all round with no bump (the old one fell to 0); on white, black, magenta, the drawer's charcoal and the end
  * window's ground, at 256 px and 6x on each tip and notch. Trimmed to its alpha box, fitted to 240 px by a premultiplied area average
  * and centred on the icons' frame; stored as lossless WebP.
+ * GAME-OVERLAY (2026-11-07): Story's Restart on the board (`restart`, the owner's ask: an icon held, no word), a red arrow going back
+ * round counter-clockwise (the book draws none), drawn by Codex's built-in image tool from the HUD's `rotate` (whose clockwise turn it
+ * must not look like), `settings`, `info` and `close` as the style's references, three variants (orange, red, white on a red disc),
+ * the red kept (a destructive action, as the red trash; the disc read as `close`). Trimmed, fitted and centred as TILE-ACTIONS'.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

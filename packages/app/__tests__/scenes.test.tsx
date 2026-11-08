@@ -899,20 +899,45 @@ describe("Board", () => {
     expect(onSurrender).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ["training", "Restart", "Restart this game?"],
-    ["story", "Restart level", "Restart this level?"],
-  ] as const)("%s: Restart in the settings, confirmed first; no Surrender", async (mode, row, title) => {
+  it("training: Restart in the settings, confirmed first; no Surrender, no Restart on the board", async () => {
     const onRestart = vi.fn();
-    render(wrap(<BoardScene {...BOARD.training} mode={mode} onRestart={onRestart} />));
+    render(wrap(<BoardScene {...BOARD.training} onRestart={onRestart} />));
+    expect(screen.queryByRole("button", { name: "Hold to restart the level" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
     expect(within(sheet).queryByRole("button", { name: /Surrender/ })).not.toBeInTheDocument();
-    await userEvent.click(within(sheet).getByRole("button", { name: new RegExp(`^${row}`) }));
-    const dialog = await screen.findByRole("dialog", { name: title });
+    await userEvent.click(within(sheet).getByRole("button", { name: /^Restart/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Restart this game?" });
     expect(onRestart).not.toHaveBeenCalled();
     await userEvent.click(within(dialog).getByRole("button", { name: "Restart" }));
     expect(onRestart).toHaveBeenCalledOnce();
+  });
+
+  it("story (GAME-OVERLAY): Restart is the painted arrow on the board, held as the tile's Discard; the settings have no game row", async () => {
+    const onRestart = vi.fn();
+    const { unmount } = render(wrap(<BoardScene {...BOARD.training} mode="story" onRestart={onRestart} />));
+    const restart = screen.getByRole("button", { name: "Hold to restart the level" });
+    // In the header, before the gear: the painted icon is the whole button, no word.
+    expect(restart.closest("header")).not.toBeNull();
+    expect(restart).toHaveTextContent("");
+    expect(restart.querySelector("img")).toHaveAttribute("src", expect.stringContaining("/restart.webp"));
+    expect(restart.querySelector("[data-tube='red']")).not.toBeNull();
+    // A tap does nothing; a hold of HOLD_MS restarts, with no dialog.
+    fireEvent.pointerDown(restart, { button: 0 });
+    fireEvent.pointerUp(restart, { button: 0 });
+    fireEvent.click(restart, { detail: 1 });
+    expect(onRestart).not.toHaveBeenCalled();
+    fireEvent.pointerDown(restart, { button: 0 });
+    await waitFor(() => expect(onRestart).toHaveBeenCalledOnce(), { timeout: slow(2000) });
+    fireEvent.pointerUp(restart, { button: 0 });
+    expect(screen.queryByRole("dialog", { name: /Restart/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
+    expect(within(sheet).queryByRole("button", { name: /Restart|Surrender/ })).not.toBeInTheDocument();
+    unmount();
+    // The level's intro or end over the board: the arrow keeps its place, dimmed.
+    render(wrap(<BoardScene {...BOARD.training} mode="story" readOnly onRestart={onRestart} />));
+    expect(screen.getByRole("button", { name: "Hold to restart the level" })).toBeDisabled();
   });
 
   it("plays on the plan view's slots", async () => {

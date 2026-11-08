@@ -27,7 +27,7 @@ const meta = {
   args: { tile, state: "placing", remaining: 38, discardCost: 50, tileArt: originalTileArt(SOURCE_ASSETS), renders: appRenders, onDeck: fn(), onDiscard: fn(), onSurrender: fn() },
   decorators: [
     (Story) => (
-      <div className="relative h-[420px] w-full max-w-[375px] bg-board">
+      <div className="relative h-[420px] w-full max-w-[375px] overflow-x-clip bg-board">
         <div className="absolute right-2 bottom-2 left-2 flex flex-col items-end">
           <Story />
         </div>
@@ -79,9 +79,9 @@ export const Empty: Story = { args: { tile: null, state: "empty", remaining: 0 }
 export const ReadOnly: Story = { args: { readOnly: true, remaining: 12, coming: [{ plan: 7 }, { plan: 12 }] } };
 /** Read only once the game is over: the pile's shadow and the deck, no badge. */
 export const ReadOnlyOver: Story = { args: { tile: null, state: "empty", readOnly: true, remaining: 0 } };
-/** A Story coach mark on the deck: the stack's outline is ringed. */
+/** A Story coach mark on the deck: the light out of the pile (GAME-OVERLAY: no outline). */
 export const CoachDeck: Story = { args: { coach: "deck" } };
-/** A Story coach mark on the discard: the stack's trash is ringed. */
+/** A Story coach mark on the discard: the light behind the stack's trash. */
 export const CoachDiscard: Story = { args: { coach: "discard", discardCost: 0 } };
 /** The tiles drawn by the renderer in 3D, their height and voxels, as the board scene shows them (`StackView`). */
 export const Stack3D: Story = { args: { remaining: 20, coming: [{ plan: 7 }, { plan: 12 }], renderStack: (v) => <StackView {...v} basePath={APP_ASSETS} /> } };

@@ -1,7 +1,9 @@
 import type { PvpCell, PvpPlayer } from "../../lib/pvp-rules";
-import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
-import { StarMeter } from "../elements/star-meter";
+import { attackMeter } from "../../lib/score-meter";
+import { cn } from "../../lib/utils";
+import { Arrow } from "../elements/arrow";
+import { HudFrame } from "../elements/hud-frame";
+import { UiIcon } from "../elements/ui-icon";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
 
@@ -46,28 +48,35 @@ export interface PvpAttackSceneProps extends AttackBoardProps {
   replay?: PvpReplay | null;
 }
 
-/** The replay's controls: back a move, play or pause, on a move, and where it stands. */
+/** A replay's control: the HUD drawer's 44 px round target and its white states. */
+const CONTROL = "state-layer grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none disabled:pointer-events-none disabled:opacity-40";
+
+/**
+ * The replay's controls (GAME-OVERLAY: on the HUD's frame): back a move and on a move with the thin arrows (the League's), play or pause
+ * painted, and where it stands, outlined.
+ */
 export function ReplayBar({ replay }: { replay: PvpReplay }) {
   return (
-    <div role="group" aria-label="Replay" className="pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur">
-      <Button variant="ghost" size="icon" aria-label="Previous move" disabled={replay.move <= 0} onClick={() => replay.onStep?.(-1)}>
-        <Icon name="backward-step" />
-      </Button>
+    <div role="group" aria-label="Replay" className="pointer-events-auto relative isolate flex items-center gap-0.5 py-1 pr-3 pl-1">
+      <HudFrame px={13} />
+      <button type="button" className={cn(CONTROL, "text-muted-foreground hover:text-foreground")} aria-label="Previous move" disabled={replay.move <= 0} onClick={() => replay.onStep?.(-1)}>
+        <Arrow to="left" />
+      </button>
       {replay.playing ? (
-        <Button variant="ghost" size="icon" aria-label="Pause" onClick={replay.onPause}>
-          <Icon name="pause" />
-        </Button>
+        <button type="button" className={CONTROL} aria-label="Pause" onClick={replay.onPause}>
+          <UiIcon name="pause" px={32} className="drawer-icon size-8" />
+        </button>
       ) : (
-        <Button variant="ghost" size="icon" aria-label={replay.move >= replay.total ? "Play from the start" : "Play"} disabled={replay.total === 0} onClick={replay.onPlay}>
-          <Icon name="play" />
-        </Button>
+        <button type="button" className={CONTROL} aria-label={replay.move >= replay.total ? "Play from the start" : "Play"} disabled={replay.total === 0} onClick={replay.onPlay}>
+          <UiIcon name="play" px={32} className="drawer-icon size-8" />
+        </button>
       )}
-      <Button variant="ghost" size="icon" aria-label="Next move" disabled={replay.move >= replay.total} onClick={() => replay.onStep?.(1)}>
-        <Icon name="forward-step" />
-      </Button>
-      <span className="px-2 text-xs text-muted-foreground">
+      <button type="button" className={cn(CONTROL, "text-muted-foreground hover:text-foreground")} aria-label="Next move" disabled={replay.move >= replay.total} onClick={() => replay.onStep?.(1)}>
+        <Arrow to="right" />
+      </button>
+      <span className="text-outline px-1 text-sm font-bold">
         Move{" "}
-        <span className="numeric font-semibold text-foreground">
+        <span className="numeric">
           {replay.move}/{replay.total}
         </span>
       </span>
@@ -79,8 +88,8 @@ export function ReplayBar({ replay }: { replay: PvpReplay }) {
  * A PvP attack (#647): the defender's village and the tiles placed on it, the tile in hand, the live score as a share of the
  * village's with its three star marks, the tiles left on the stack. Since #772 it is `BoardScene`'s attack mode: the same
  * board, stack, bubble, HUD, closing feed, season dial and sounds as a Training game, the attack's own pieces in its slots (the
- * star meter under the HUD, the replay's bar in place of the stack). With `replay` the same board steps through a finished
- * attack, read only, the defence log's replay.
+ * replay's bar in place of the stack); its score meter is the Ranked's (`attackMeter`), under the HUD as every mode's. With
+ * `replay` the same board steps through a finished attack, read only, the defence log's replay.
  *
  * PvP v2 (#740) is the same scene with no `territory` (an unbounded board from the starter), its marks at 80 / 90 / 100 %
  * (`starPercents`), the stack's next two tiles (`hand.coming`) and the attack's deck as the tiles left; the stack opens the
@@ -95,12 +104,8 @@ export function PvpAttackScene({ defender, target, territory, starPercents, deck
       title={title}
       now={0}
       readOnly={replay != null}
+      meter={attackMeter(board.score, target, starPercents)}
       attack={{
-        meter: (
-          <div className="w-full max-w-2xl rounded-xl border border-border bg-card/90 px-3 pt-1 pb-2 shadow-lg backdrop-blur">
-            <StarMeter score={board.score} target={target} percents={starPercents} />
-          </div>
-        ),
         replay: replay ? <ReplayBar replay={replay} /> : null,
         territory: territory ?? undefined,
         deck: deck ?? undefined,

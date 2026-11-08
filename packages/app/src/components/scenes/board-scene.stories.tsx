@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
@@ -10,7 +10,8 @@ import { BOARD_FOG } from "../../data/settings";
 import { APP_ASSETS, SOURCE_ASSETS, appRenders, originalTileArt } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
-import { Notice } from "../elements/notice";
+import { storyMeter, type ScoreMeterValue } from "../../lib/score-meter";
+import { BoardNotice } from "../containers/board-notice";
 import { toastCompletion } from "../containers/completion-toasts";
 import { Toaster } from "../ui/sonner";
 import { BoardViewport } from "../containers/board-viewport";
@@ -152,7 +153,7 @@ export const SettingsOpen: Story = { args: { ...BOARD.placing, ...inHand(HAND.or
 export const SettingsTraining: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null) }, play: openSettings };
 /** The settings in Story mode: Restart level, confirmed by a dialog. */
 export const SettingsStory: Story = {
-  args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees" },
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, meter: storyStars(BOARD.placing.score), title: "Tutorial 5: Under the trees" },
   play: openSettings,
 };
 
@@ -211,9 +212,9 @@ export const ReadOnly: Story = {
     ...BOARD.queue,
     readOnly: true,
     notices: (
-      <Notice title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
+      <BoardNotice title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
         You are watching this game: only its player can move.
-      </Notice>
+      </BoardNotice>
     ),
   },
 };
@@ -260,7 +261,30 @@ function WithDial(args: BoardSceneProps) {
  */
 export const SeasonDial: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
 
-/** The dial ringed by a Story coach mark (Tutorial 6). */
+/**
+ * A Story level's score meter by its score (the route's `levelResult` and `storyStarFills`, then `storyMeter`, GAME-OVERLAY), on a
+ * stand-in level: two stars from 800, three from 1,200. Shares only: the meter never shows the thresholds.
+ */
+function storyStars(score: number): ScoreMeterValue {
+  const [two, target] = [800, 1200];
+  const share = (from: number, to: number) => Math.min(1, Math.max(0, (score - from) / (to - from)));
+  return storyMeter(score >= target ? 3 : score >= two ? 2 : 1, [1, share(0, two), share(two, target)]);
+}
+
+/** The score climbing through a level's stars, a move every 1.4 s, then again (the meter filling, each star reached beating). */
+const CLIMB = [0, 300, 600, 900, 1050, 1300] as const;
+function StoryStarsClimbing(args: BoardSceneProps) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setStep((s) => (s + 1) % CLIMB.length), 1400);
+    return () => clearInterval(timer);
+  }, []);
+  const score = CLIMB[step]!;
+  const delta = step > 0 ? score - CLIMB[step - 1]! : null;
+  return renderBoard({ ...args, score, delta, meter: storyStars(score) });
+}
+
+/** The dial lit by a Story coach mark (Tutorial 6). */
 export const StoryCoachWheel: Story = {
   args: {
     ...BOARD.placing,
@@ -268,6 +292,7 @@ export const StoryCoachWheel: Story = {
     mode: "story",
     gameId: undefined,
     expiresAt: null,
+    meter: storyStars(BOARD.placing.score),
     title: "Tutorial 6: Seasons",
     coach: "wheel",
     notices: <StoryCoach tip="The season wheel turns the board through the seasons. Tap it to step on; the score does not change." onDismiss={fn()} />,
@@ -298,7 +323,7 @@ export const SeasonDialReadOnly: Story = { args: { ...ReadOnly.args, ...inHand(H
 
 /**
  * A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces
- * ringed; the stack shows the next two tiles of the level's order (#701).
+ * lit (the coach mark, the light out of the pile); the stack shows the next two tiles of the level's order (#701).
  */
 export const StoryCoachDeck: Story = {
   args: {
@@ -308,13 +333,14 @@ export const StoryCoachDeck: Story = {
     mode: "story",
     gameId: undefined,
     expiresAt: null,
+    meter: storyStars(BOARD.placing.score),
     title: "Tutorial 5: Under the trees",
     coach: "deck",
     notices: <StoryCoach tip="Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." onDismiss={fn()} />,
   },
 };
 
-/** Story coach marks on the stack: its Discard ringed (Tutorial 3), no Surrender in Story mode. */
+/** Story coach marks on the stack: its Discard lit (Tutorial 3), no Surrender in Story mode. */
 export const StoryCoachDiscard: Story = {
   args: {
     ...BOARD.placing,
@@ -322,6 +348,7 @@ export const StoryCoachDiscard: Story = {
     mode: "story",
     gameId: undefined,
     expiresAt: null,
+    meter: storyStars(0),
     title: "Tutorial 3: Not this one",
     coach: "discard",
     score: 0,
@@ -329,7 +356,7 @@ export const StoryCoachDiscard: Story = {
   },
 };
 
-/** A Story level's coach on the placement, the tile on a cell (Tutorial 1, TILE-ACTIONS): the tile's Confirm, up and right of it, ringed. */
+/** A Story level's coach on the placement, the tile on a cell (Tutorial 1, TILE-ACTIONS): the tile's Confirm, up and right of it, lit. */
 export const StoryCoachPlace: Story = {
   args: {
     ...BOARD.placing,
@@ -338,13 +365,14 @@ export const StoryCoachPlace: Story = {
     mode: "story",
     gameId: undefined,
     expiresAt: null,
+    meter: storyStars(BOARD.placing.score),
     title: "Tutorial 1: First stone",
     coach: "place",
     notices: <StoryCoach tip="Tap a lit cell next to the starter, then hold the check on the tile to place it. Roads must meet roads." onDismiss={fn()} />,
   },
 };
 
-/** A Story level's coach on the discard, the tile on a cell (Tutorial 3, TILE-ACTIONS): the trash down and right of the tile ringed. */
+/** A Story level's coach on the discard, the tile on a cell (Tutorial 3, TILE-ACTIONS): the trash down and right of the tile lit. */
 export const StoryCoachDiscardOnTile: Story = {
   args: {
     ...BOARD.placing,
@@ -353,10 +381,35 @@ export const StoryCoachDiscardOnTile: Story = {
     mode: "story",
     gameId: undefined,
     expiresAt: null,
+    meter: storyStars(0),
     title: "Tutorial 3: Not this one",
     coach: "discard",
     score: 0,
     notices: <StoryCoach tip="This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." onDismiss={fn()} />,
+  },
+};
+
+/**
+ * A Story level in play, its score climbing through the level's stars (GAME-OVERLAY, the owner's ask of 2026-11-08): the score meter
+ * under the header fills as it grows, by the stars' shares; each star reached pops and flashes its light once.
+ */
+export const StoryMeter: Story = {
+  args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, meter: storyStars(0), title: "Tutorial 7: Crossroads" },
+  render: (args) => <StoryStarsClimbing {...args} />,
+};
+
+/** A Story level's coach on the gear (Tutorial 7): the settings' light. */
+export const StoryCoachSettings: Story = {
+  args: {
+    ...BOARD.placing,
+    ...inHand(HAND.orientation, null),
+    mode: "story",
+    gameId: undefined,
+    expiresAt: null,
+    meter: storyStars(BOARD.placing.score),
+    title: "Tutorial 7: Crossroads",
+    coach: "settings",
+    notices: <StoryCoach tip="The gear opens the settings (sound, the placement highlight) without leaving the level. Hold the arrow beside it to restart." onDismiss={fn()} />,
   },
 };
 
@@ -367,6 +420,7 @@ export const StoryEndOnBoard: Story = {
     mode: "story",
     gameId: undefined,
     expiresAt: null,
+    meter: storyStars(BOARD.placing.score),
     title: "Open Country 11: A full road",
     score: 9120,
     remaining: 0,
