@@ -123,6 +123,7 @@ export function PuzzleEnd({ score, result, firstPlace, dayLabel, stats, closings
         <EndMark
           name="trophy"
           fill={fill}
+          reached={first}
           instant={instant}
           label={first ? "Trophy: the day's first place" : firstPlace === null ? "Trophy: no first place to beat yet" : `Trophy: ${Math.round(fill * 100)}% of first place`}
         />
