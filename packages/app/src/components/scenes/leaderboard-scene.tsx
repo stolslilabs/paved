@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import { formatInteger } from "@paved/game-core";
-import type { GuildPlace, GuildSummary, PlayerRanking } from "../../data/social-source";
+import type { AlliancePlace, AllianceSummary, GuildPlace, GuildSummary, PlayerRanking } from "../../data/social-source";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
@@ -12,13 +12,13 @@ import { SectionTitle } from "../elements/section-title";
 import { UiIcon } from "../elements/ui-icon";
 import { FooterTab, FooterTabsList } from "../containers/footer-tabs";
 import { DrawerFooter, HudDrawer } from "../containers/hud-drawer";
-import { GuildRankRow, PlayerRankRow } from "../containers/leaderboard";
+import { AllianceRankRow, GuildRankRow, PlayerRankRow } from "../containers/leaderboard";
 import { listRowShape } from "../elements/list-row";
 
-/** The Leaderboard's tabs (`?tab=`); Alliances is shown, disabled, until the game has alliances. */
-export type LeaderboardTab = "players" | "guilds" | "friends";
+/** The Leaderboard's tabs (`?tab=`): Alliances live since ALLIANCES. */
+export type LeaderboardTab = "players" | "guilds" | "alliances" | "friends";
 
-export const LEADERBOARD_TABS: readonly LeaderboardTab[] = ["players", "guilds", "friends"];
+export const LEADERBOARD_TABS: readonly LeaderboardTab[] = ["players", "guilds", "alliances", "friends"];
 
 /** A ranking's read as the scene shows it: the list (null while read), or why it failed, with Retry. */
 export interface RankingRead<T> {
@@ -36,18 +36,26 @@ export interface LeaderboardSceneProps {
   players: RankingRead<PlayerRanking>;
   /** The guilds by score, the sum of their members' crowns: the first `GUILD_LIST_LIMIT`. */
   guilds: RankingRead<readonly GuildSummary[]>;
+  /** The alliances by score, the sum of their guilds' scores (ALLIANCES): the first `ALLIANCE_LIST_LIMIT`. */
+  alliances: RankingRead<readonly AllianceSummary[]>;
   /** The viewer among their friends (the mutual follows) by crowns, and their place among them; no friend, an empty ranking. */
   friends: RankingRead<PlayerRanking>;
   /** The viewer's guild (its row in gold), or null: in none. */
   myGuild?: number | null;
   /** The viewer's guild's place in the whole ranking and its summary (null: in none, or still read): pinned when past the list's end. */
   myGuildPlace?: GuildPlace | null;
+  /** The viewer's alliance, through their guild (its row in gold), or null: in none. */
+  myAlliance?: number | null;
+  /** The viewer's alliance's place in the whole ranking and its summary (null: in none, or still read): pinned when past the list's end. */
+  myAlliancePlace?: AlliancePlace | null;
   /** No ranking on this network: no social source. */
   unavailable?: boolean;
   /** A player's row: their profile (Friends' profile sheet, `?player=`). */
   onOpenPlayer?: (address: string) => void;
   /** A guild's row: its page. */
   onOpenGuild?: (id: number) => void;
+  /** An alliance's row: its page (ALLIANCES). */
+  onOpenAlliance?: (id: number) => void;
   /** Whether the drawer is shown (its route is the current one); false while it slides out. Omitted, shown. */
   open?: boolean;
   /** The drawer's close: Back on a phone, the red cross from `tablet`, Escape, a tap on the village. */
@@ -61,15 +69,15 @@ function keepForDialogs(event: Event) {
 }
 
 /**
- * The footer's tabs (FOOTER-TABS, the Vault's bottom navigation): Players, Guilds, Alliances in its place, coming soon, and Friends at
+ * The footer's tabs (FOOTER-TABS, the Vault's bottom navigation): Players, Guilds, Alliances (live since ALLIANCES), and Friends at
  * the right end (the owner's ask of 2026-11-07). Each its painted icon at 36 px: the player and the handshake of `ui-art.ts`; the
  * Guilds' shield and the Alliances' two shields over a laurel, the ranking's own (`ranking-art.ts`, the owner's asks of 2026-11-07).
  */
 type TabArt = "user" | "guilds" | "alliances" | "friends";
-const TABS: readonly { id: LeaderboardTab | "alliances"; label: string; art: TabArt; soon?: true }[] = [
+const TABS: readonly { id: LeaderboardTab; label: string; art: TabArt }[] = [
   { id: "players", label: "Players", art: "user" },
   { id: "guilds", label: "Guilds", art: "guilds" },
-  { id: "alliances", label: "Alliances", art: "alliances", soon: true },
+  { id: "alliances", label: "Alliances", art: "alliances" },
   { id: "friends", label: "Friends", art: "friends" },
 ];
 
@@ -139,14 +147,14 @@ function useOutOfView(el: HTMLElement | null): OutOfViewSide | null {
   return el === null ? null : side;
 }
 
-/** A list's states: still read (its skeletons), failed (Retry), empty, or its rows on the carved panel. */
-function RankedList<T>({ title, read, empty, label, rows }: { title: string; read: RankingRead<T>; empty: string; label: string; rows: (data: T) => ReactNode[] }) {
+/** A list's states: still read (its skeletons), failed (Retry), empty, or its rows on the carved panel; its title with its count, unless `count` is false. */
+function RankedList<T>({ title, read, empty, label, rows, count = true }: { title: string; read: RankingRead<T>; empty: string; label: string; rows: (data: T) => ReactNode[]; count?: boolean }) {
   const items = read.data === null ? null : rows(read.data);
   return (
     <section aria-label={title} className="flex flex-col gap-2">
       <SectionTitle>
         {title}
-        {items !== null && <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(items.length)}</span>}
+        {count && items !== null && <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(items.length)}</span>}
       </SectionTitle>
       <InlineError
         title={`Could not load the ${title.toLowerCase()}`}
@@ -187,14 +195,14 @@ const rowRule = (index: number) => cn("flex", index > 0 && "border-t border-bord
  * The Leaderboard (LEADERBOARD-PAGE, `/ranking`, the dock's Ranking; the Paved UX Book draws none: the integrated pages' style, the Guild
  * members' rows above all). The HUD's drawer, docked at the right from `tablet` as the dock's other pages, a full page with Back on a
  * phone. Its tabs at its foot, the Vault's bottom navigation (`FooterTabsList`): Players (by crowns, the points the HUD and the guilds
- * show), Guilds (by score, the sum of their members' crowns), Alliances in its place, disabled, its carved "Soon" (`FooterTab`'s `soon`),
- * until the game has them, and Friends at the right end (the viewer among their friends, by the same crowns). Each tab a section title
- * with its count, then the ranking on a carved list, a row per place: the first three in the medals' colours, the viewer's own on the
+ * show), Guilds (by score, the sum of their members' crowns), Alliances (ALLIANCES: by score, the sum of their guilds' scores, each
+ * on its laurel), and Friends at the right end (the viewer among their friends, by the same crowns). Each tab a section title
+ * with its count (Alliances without one, the owner's word of 2026-11-08), then the ranking on a carved list, a row per place: the first three in the medals' colours, the viewer's own on the
  * Guild page's gold wash with its tag. While the viewer's row is out of view, it is pinned on the side it left (the owner's decision of
  * 2026-11-07): at the top of the body, under the header, when it is above the view, the list scrolling under it; at the foot over the
  * tabs when it is below, or past the list's end. A tap brings it into view (past the list, opens their profile).
  */
-export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, myGuild = null, myGuildPlace = null, unavailable = false, onOpenPlayer, onOpenGuild, open = true, onBack, returnFocus }: LeaderboardSceneProps) {
+export function LeaderboardScene({ tab, onTabChange, players, guilds, alliances, friends, myGuild = null, myGuildPlace = null, myAlliance = null, myAlliancePlace = null, unavailable = false, onOpenPlayer, onOpenGuild, onOpenAlliance, open = true, onBack, returnFocus }: LeaderboardSceneProps) {
   const reduced = useReducedMotionConfig();
   // The viewer's own row in the list shown, observed while it is mounted.
   const [ownRow, setOwnRow] = useState<HTMLButtonElement | null>(null);
@@ -241,6 +249,20 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
     } else if (myGuildPlace && myGuildPlace.guild.id === myGuild && myGuildPlace.place > guildList.length) {
       const { guild, place } = myGuildPlace;
       pinned = <GuildRankRow guild={guild} place={place} own onOpen={() => onOpenGuild?.(guild.id)} />;
+    }
+  }
+  // The viewer's alliance (ALLIANCES): the guilds' rule, its row out of view on the side it left, past the list's end at the foot.
+  const allianceList = alliances.data;
+  const alliancePlace = myAlliance === null || !allianceList ? -1 : allianceList.findIndex((a) => a.id === myAlliance);
+  if (!unavailable && tab === "alliances" && allianceList) {
+    if (alliancePlace >= 0) {
+      if (outOfView) {
+        pinned = <AllianceRankRow alliance={allianceList[alliancePlace]!} place={alliancePlace + 1} own onOpen={reveal} />;
+        pinSide = outOfView;
+      }
+    } else if (myAlliancePlace && myAlliancePlace.alliance.id === myAlliance && myAlliancePlace.place > allianceList.length) {
+      const { alliance, place } = myAlliancePlace;
+      pinned = <AllianceRankRow alliance={alliance} place={place} own onOpen={() => onOpenAlliance?.(alliance.id)} />;
     }
   }
   // The pin's strip (FOOTER-TABS' rule, the Vault's bill): on the body's charcoal, full width, the row carved as the list it stands for.
@@ -321,6 +343,25 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
                 }
               />
             </TabsContent>
+            <TabsContent value="alliances" className="flex flex-col">
+              <RankedList
+                title="Alliances"
+                count={false}
+                label="Alliances by score"
+                read={alliances}
+                empty="No alliance is ranked yet: a guild's leader creates one from the guild's Alliance."
+                rows={(list) =>
+                  list.map((a, i) => {
+                    const own = a.id === myAlliance;
+                    return (
+                      <li key={a.id} className={rowRule(i)}>
+                        <AllianceRankRow ref={own ? setOwnRow : undefined} alliance={a} place={i + 1} own={own} onOpen={() => onOpenAlliance?.(a.id)} className={listRowShape(i, list.length)} />
+                      </li>
+                    );
+                  })
+                }
+              />
+            </TabsContent>
             <TabsContent value="friends" className="flex flex-col">
               <RankedList title="Friends" label="Friends by crowns" read={friends} empty="No friend to rank yet: friends are the players you follow who follow you back." rows={playerRows} />
             </TabsContent>
@@ -331,8 +372,8 @@ export function LeaderboardScene({ tab, onTabChange, players, guilds, friends, m
             {/* The viewer's row over the tabs, below the view or past the list: flush with the bar, so the current tab hangs from it. */}
             {pinSide === "below" && pin}
             <FooterTabsList aria-label="Ranking">
-              {TABS.map(({ id, label, art, soon }) => (
-                <FooterTab key={id} value={id} label={label} soon={soon} art={tabArt(art)} />
+              {TABS.map(({ id, label, art }) => (
+                <FooterTab key={id} value={id} label={label} art={tabArt(art)} />
               ))}
             </FooterTabsList>
           </div>

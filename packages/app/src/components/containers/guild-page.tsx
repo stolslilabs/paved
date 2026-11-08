@@ -20,7 +20,7 @@ import { cn } from "../../lib/utils";
 import type { GuildTab } from "../../routes/guild-tab";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { DrawerRow } from "../elements/drawer-row";
+import { DrawerRow, type DrawerRowProps } from "../elements/drawer-row";
 import { GuildEmblem } from "../elements/guild-emblem";
 import { InlineError } from "../elements/inline-error";
 import { LeagueCrestIcon } from "../elements/league-crest-art";
@@ -29,7 +29,6 @@ import { divisionOf, tierOf } from "../elements/league-standards";
 import { PlayerAvatar } from "../elements/player-avatar";
 import { PlayerName } from "../elements/player-name";
 import { SectionTitle } from "../elements/section-title";
-import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
 import { GuildForm, useGuildActions } from "./guild-sheets";
 import { GuildTabs } from "./guild-tabs";
@@ -103,18 +102,24 @@ export interface GuildPageProps {
   initialView?: GuildPageView;
   /** Where the description starts: unfolded for its story. */
   initialUnfolded?: boolean;
+  /** ALLIANCES: the guild's alliance under its tag (`AllianceLine`); left out, nothing there (still read). */
+  alliance?: ReactNode;
+  /** ALLIANCES: a member's Alliance tile beside Chat (`AllianceTile`). */
+  allianceTile?: ReactNode;
+  /** ALLIANCES: what the alliance's leader may do to this guild (`AllianceGuildActions`), under its header. */
+  allianceActions?: ReactNode;
 }
 
 /** What is the viewer's (their own row) or first (the pinned announcement): a discreet wash of the primary gold, no ring (the owner's ask of 2026-11-05). */
-const CHOSEN = "bg-primary/15";
+export const CHOSEN = "bg-primary/15";
 /** The join types as the figures' band names them, short (the owner's ask of 2026-11-05: "Request", not "By request"). */
 const JOIN_SHORT: Record<GuildView["joinType"], string> = { open: "Open", request: "Request", invite: "Invite only" };
 /** A row's portrait with its rim: 48 px, the height of the name and the rank's pill beside it. */
 const RIM_BOX: CSSProperties = { fontSize: "3rem" };
 /** A pill of the page, Tiles' (the rank, an invitation's lapse): carved, it informs. */
-const PILL = "flex h-6 w-fit items-center rounded-full px-2.5 text-xs leading-none font-bold whitespace-nowrap";
+export const PILL = "flex h-6 w-fit items-center rounded-full px-2.5 text-xs leading-none font-bold whitespace-nowrap";
 /** A small raised control in the drawer's grey (the profile's Edit name): what presses is raised. Its 44 px target is its button's. */
-const RAISED_FACE = "state-layer drawer-raised grid size-8 place-items-center rounded-lg";
+export const RAISED_FACE = "state-layer drawer-raised grid size-8 place-items-center rounded-lg";
 /** A raised button of the page (Post, Show all): the drawer's raised grey, its words outlined. */
 const RAISED_BUTTON = "state-layer drawer-raised text-outline h-10 cursor-pointer gap-1.5 rounded-xl px-4 text-sm font-bold";
 
@@ -137,7 +142,7 @@ function ViewerRank({ rank }: { rank: GuildRank }) {
 }
 
 /** One figure of the header's band, the profile's: its label over it, bold and outlined; `children` beside the value (the crown). */
-function Figure({ term, children, label }: { term: string; children: ReactNode; label?: string }) {
+export function Figure({ term, children, label }: { term: string; children: ReactNode; label?: string }) {
   return (
     <div className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 px-0.5 py-2">
       <dt className="text-center text-xs leading-tight font-bold text-muted-foreground">{term}</dt>
@@ -192,7 +197,7 @@ function MemberPortrait({ profile }: { profile: PublicProfile }) {
 }
 
 /** A section of a tab, the drawer's (the Missions'): its engraved title and its count beside it, then its content. */
-function TabSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+export function TabSection({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
       <SectionTitle>
@@ -234,9 +239,9 @@ function LogMark({ kind }: { kind: GuildLogEntry["kind"] }) {
 }
 
 /** An empty list's line, in the panel's place (the battle logs'). */
-const EMPTY = "drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semibold text-muted-foreground";
+export const EMPTY = "drawer-carved rounded-xl px-4 py-6 text-center text-xs font-semibold text-muted-foreground";
 /** A row of a carved list: the battle logs' rule above every row but the first. */
-const rowRule = (index: number) => (index > 0 ? "border-t border-border" : undefined);
+export const rowRule = (index: number) => (index > 0 ? "border-t border-border" : undefined);
 
 /** A member's row: their portrait in their league's rim, their name ("You" on their own, on the gold wash), their rank, their crowns. */
 function MemberRow({ member, me, onOpen, className }: { member: GuildMember; me: string | null; onOpen?: (address: string) => void; className?: string }) {
@@ -264,7 +269,7 @@ function MemberRow({ member, me, onOpen, className }: { member: GuildMember; me:
 }
 
 /** The description, folded to two lines; More unfolds it when it is longer (measured, so a short one has no More). */
-function GuildDescription({ text, initialUnfolded = false }: { text: string; initialUnfolded?: boolean }) {
+export function GuildDescription({ text, initialUnfolded = false }: { text: string; initialUnfolded?: boolean }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [unfolded, setUnfolded] = useState(initialUnfolded);
   const [long, setLong] = useState(initialUnfolded);
@@ -292,10 +297,10 @@ function GuildDescription({ text, initialUnfolded = false }: { text: string; ini
 }
 
 /** An item of the guild's menu. */
-interface GuildMenuItem {
+export interface GuildMenuItem {
   label: string;
-  /** Its painted icon (Codex's, the owner's ask of 2026-11-05). */
-  art: UiIconName;
+  /** Its painted icon (Codex's, the owner's ask of 2026-11-05): a HUD icon's name, or an image (`DrawerRow`'s). */
+  art: DrawerRowProps["art"];
   onSelect: () => void;
   /** It opens a view in the drawer (Invite a player, Guild settings, Find guilds): the chevron at its end. */
   next?: boolean;
@@ -309,9 +314,9 @@ interface GuildMenuItem {
  * The guild's menu (#973), a view in the drawer (GUILD-PAGE): what the viewer's rank allows, Invite a player (officers and the leader),
  * Guild settings (the leader), Find guilds, then Leave or Disband apart, each a raised row with its painted icon.
  */
-function GuildMenu({ items }: { items: readonly GuildMenuItem[] }) {
+export function GuildMenu({ items, label = "Guild menu" }: { items: readonly GuildMenuItem[]; label?: string }) {
   return (
-    <ul data-slot="guild-menu" aria-label="Guild menu" className="flex flex-col gap-2">
+    <ul data-slot="guild-menu" aria-label={label} className="flex flex-col gap-2">
       {items.map((item) => (
         <li key={item.label} className={cn("flex flex-col gap-1", item.destructive && "mt-3")}>
           <DrawerRow art={item.art} label={item.label} tone={item.destructive ? "danger" : "default"} next={item.next} disabled={item.refused !== undefined} onClick={item.onSelect} />
@@ -323,7 +328,7 @@ function GuildMenu({ items }: { items: readonly GuildMenuItem[] }) {
 }
 
 /** A view's line under its title, what it is for (the sheets' descriptions before GUILD-PAGE). */
-const VIEW_LINE = "text-sm font-semibold text-muted-foreground";
+export const VIEW_LINE = "text-sm font-semibold text-muted-foreground";
 
 /**
  * A guild's page (#953, its header, menu and tabs since #973; GUILD-PAGE: the Paved UX Book's "Run my guild", in the HUD drawer's
@@ -358,6 +363,9 @@ export function GuildPage({
   find,
   initialView,
   initialUnfolded,
+  alliance,
+  allianceTile,
+  allianceActions,
 }: GuildPageProps) {
   const { run, ask, dialog, pending, error } = useGuildActions(onAction);
   const [allLog, setAllLog] = useState(false);
@@ -641,6 +649,7 @@ export function GuildPage({
             )}
           </span>
           <span className="numeric max-w-full text-sm font-semibold wrap-anywhere text-muted-foreground">{guild.tag}</span>
+          {alliance}
           {rank !== null && <ViewerRank rank={rank} />}
         </div>
       </div>
@@ -659,6 +668,7 @@ export function GuildPage({
       {(guild.description || rank !== null) && (
         <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0 flex-1">{guild.description && <GuildDescription text={guild.description} initialUnfolded={initialUnfolded} />}</div>
+          {rank !== null && allianceTile}
           {rank !== null && (
             <button
               type="button"
@@ -738,6 +748,7 @@ export function GuildPage({
           {apply.kind !== "blocked" && guild.joinType !== "invite" && <p className="text-xs text-muted-foreground">{JOIN_TYPES[guild.joinType].line}</p>}
         </div>
       )}
+      {allianceActions}
       <InlineError title={guild.name} message={error} />
     </header>
 

@@ -1,8 +1,9 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
-import { formatInteger, GUILD_MAX_MEMBERS } from "@paved/game-core";
-import type { GuildSummary, PublicProfile } from "../../data/social-source";
+import { ALLIANCE_MAX_GUILDS, formatInteger, GUILD_MAX_MEMBERS } from "@paved/game-core";
+import type { AllianceSummary, GuildSummary, PublicProfile } from "../../data/social-source";
 import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
+import { AllianceEmblem, GuildCount } from "../elements/alliance-emblem";
 import { GuildEmblem } from "../elements/guild-emblem";
 import { LevelStar } from "../elements/level-star";
 import { PlayerName } from "../elements/player-name";
@@ -138,6 +139,45 @@ export function GuildRankRow({ guild, place, own = false, onOpen, ref, className
         </span>
       </span>
       <Points value={guild.score} />
+    </button>
+  );
+}
+
+export interface AllianceRankRowProps {
+  alliance: AllianceSummary;
+  place: number;
+  /** The viewer's alliance: the gold wash and "Yours". */
+  own?: boolean;
+  onOpen?: () => void;
+  ref?: Ref<HTMLButtonElement>;
+  className?: string;
+}
+
+/**
+ * An alliance of the ranking (ALLIANCES): its place, its emblem on its laurel, its name and its guilds against the cap, its score (the sum
+ * of its guilds' scores, so of every member's crowns). A tap opens its page.
+ */
+export function AllianceRankRow({ alliance, place, own = false, onOpen, ref, className }: AllianceRankRowProps) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      data-slot="ranking-alliance"
+      data-own={own || undefined}
+      aria-label={`${formatInteger(place)}. ${alliance.name}${own ? " (your alliance)" : ""}, ${formatInteger(alliance.guilds)} of ${ALLIANCE_MAX_GUILDS} guilds, ${formatInteger(alliance.score)} ${alliance.score === 1 ? "crown" : "crowns"}`}
+      onClick={onOpen}
+      className={cn(ROW, "gap-2.5", own && OWN, className)}
+    >
+      <RankPlace place={place} />
+      <AllianceEmblem emblem={alliance.emblem} size="sm" />
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+        <span className="text-outline max-w-full min-w-0 pr-0.5 text-sm leading-snug font-bold wrap-anywhere">{alliance.name}</span>
+        <span className="flex min-h-6 max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <GuildCount guilds={alliance.guilds} className="text-xs leading-tight font-bold text-muted-foreground" />
+          {own && <OwnTag>Yours</OwnTag>}
+        </span>
+      </span>
+      <Points value={alliance.score} />
     </button>
   );
 }
