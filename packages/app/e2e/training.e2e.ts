@@ -28,6 +28,7 @@ import {
   sameLayout,
   seedFromTest,
   setSeed,
+  shownLeft,
   shownSlots,
   slotName,
   tapValidate,
@@ -82,7 +83,8 @@ beforeAll(async () => {
     if (!address || typeof address === "string") throw new Error("no dev server address");
     base = `http://127.0.0.1:${address.port}`;
   }
-  browser = await chromium.launch({ headless: true });
+  // Muted: a bot run on a desk machine plays the app's music otherwise (the owner's ask of 2026-11-08).
+  browser = await chromium.launch({ headless: true, args: ["--mute-audio"] });
 }, 180_000);
 
 afterAll(async () => {
@@ -366,7 +368,7 @@ describe("Training, played by a bot in a headless browser", () => {
     });
   }, 600_000);
 
-  it("restarts from the settings (#606): the same game from its first tile, same seed, nothing played", async () => {
+  it("restarts by the header's arrow, held (#606, TRAINING-END): the same game from its first tile, same seed, nothing played", async () => {
     await withPage("restart", async (page) => {
       const seed = newSeed();
       await firstSeed(page, seed);
@@ -377,12 +379,27 @@ describe("Training, played by a bot in a headless browser", () => {
       expect(model.built + model.discarded, "moves were played").toBe(8);
       // A seed for a new game: the restart must not take it, it plays the same seed again.
       await setSeed(page, newSeed());
-      // Training has no Surrender (a Challenge's): its settings offer Restart, confirmed by a dialog.
+      // Training has no Surrender (a Challenge's), and its settings no game row: Restart is the header's red arrow, held as Story's.
       await page.getByRole("button", { name: "Settings" }).click();
       const sheet = page.getByRole("dialog", { name: "Settings" });
-      expect(await sheet.getByRole("button", { name: /Surrender/ }).count(), "no Surrender in Training").toBe(0);
-      await sheet.getByRole("button", { name: /^Restart/ }).click();
-      await page.getByRole("dialog", { name: "Restart this game?" }).getByRole("button", { name: "Restart", exact: true }).click();
+      await sheet.waitFor();
+      expect(await sheet.getByRole("button", { name: /Surrender|Restart/ }).count(), "no game row in Training's settings").toBe(0);
+      await page.keyboard.press("Escape");
+      await sheet.waitFor({ state: "detached" });
+      const restart = page.getByRole("button", { name: "Hold to restart the game" });
+      const left = await shownLeft(page);
+      // A tap restarts nothing: the hold is the confirmation.
+      await restart.click();
+      await page.waitForTimeout(1_200);
+      expect(await shownLeft(page), "a tap on Restart: nothing").toBe(left);
+      // Held until the page has a new game (the tiles left back to the whole deck), then let go.
+      await restart.hover();
+      await page.mouse.down();
+      try {
+        await page.waitForFunction((n) => Number(document.querySelector('[data-testid="tiles-left"]')?.textContent ?? -1) > n, left ?? 0, { timeout: 20_000 });
+      } finally {
+        await page.mouse.up();
+      }
       const fresh = await expectNewGame(page, seed, "after the restart");
       expect(await readHand(page), "the game's first tile again").toEqual(first);
       // The restarted game plays on.

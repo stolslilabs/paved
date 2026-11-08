@@ -148,7 +148,7 @@ function ClosedBoxes({ stats, closings }: { stats?: GameStats; closings: readonl
             <span aria-hidden className={cn("text-outline text-2xl leading-none font-bold tabular-nums", c.closed === 0 ? "text-muted-foreground" : "text-foreground")}>
               {formatInteger(c.closed)}
             </span>
-            <span aria-hidden className={cn("text-outline max-w-full truncate pr-0.5 text-sm leading-tight font-bold tabular-nums", c.points > 0 ? "text-success" : "text-muted-foreground")}>
+            <span aria-hidden title={`+${formatInteger(c.points)}`} className={cn("text-outline max-w-full truncate pr-0.5 text-sm leading-tight font-bold tabular-nums", c.points > 0 ? "text-success" : "text-muted-foreground")}>
               +{formatInteger(c.points)}
             </span>
           </li>
