@@ -64,8 +64,8 @@ export interface EditPanelProps {
  * drawers' body, the bar docked in their band's place (the owner's asks: from `desktop`, then from `tablet` too). Both in the HUD drawers' look (the profile's
  * and the missions' side panel): the card's charcoal, one hairline along the inner edge. The inventory under the drawers' section
  * title: each card the tile's top-down art with its count in the dock's red badge, a carousel swiped or dragged on a phone (no scroll
- * bar), a grid that wraps and scrolls in the side menu; the slots used at the title's end, after the drawers' engraved rule (the
- * owner's asks). The hint is for assistive technology, but a refusal of a lift (the tile holds the village together) and a full
+ * bar), a grid that wraps and scrolls in the side menu; the slots used in a carved chip under the title (the owner's rule of
+ * 2026-11-07, TILE-COUNTS: a title holds no figure; the title's end held it before). The hint is for assistive technology, but a refusal of a lift (the tile holds the village together) and a full
  * village, which show over the cards.
  */
 export function EditPanel({ editor, tileArt, refusal, above, layouts }: EditPanelProps) {
@@ -106,10 +106,17 @@ export function EditPanel({ editor, tileArt, refusal, above, layouts }: EditPane
             {layouts}
           </>
         )}
-        <SectionTitle end={<SlotsUsed editor={editor} />}>Inventory</SectionTitle>
-        <p role="status" aria-live="polite" className={cn("px-1 text-xs", warn ? "text-warning" : "sr-only")}>
-          {editor.hint}
-        </p>
+        <SectionTitle>Inventory</SectionTitle>
+        {/* The slots used, out of the title (TILE-COUNTS: a title holds no figure), in a carved chip on the section's first line; the
+            hint beside it when it warns. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span data-slot="edit-slots" className="drawer-carved flex h-7 shrink-0 items-center rounded-full px-2.5">
+            <SlotsUsed editor={editor} />
+          </span>
+          <p role="status" aria-live="polite" className={cn("min-w-0 text-xs", warn ? "text-warning" : "sr-only")}>
+            {editor.hint}
+          </p>
+        </div>
         <InventoryCards
           layout={docked ? "grid" : "carousel"}
           tray={editor.tray}

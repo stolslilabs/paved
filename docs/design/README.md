@@ -629,6 +629,43 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   words on the HUD's frame (the header's above it; a carved box belongs inside a frame), "Got it" the raised grey answer. The bulb
   (`ui-sources/icons/bulb.webp`, `UI_ICONS`) was drawn by Codex's built-in image tool, the HUD's trophy, star, info and open lock as
   its style's references; the pile, trophy and star are the HUD's own icons.
+  TILE-COUNTS (2026-11-07), the owner's two asks of the same day. First, Tiles' All tiles shows each tile's copies in the deck: the
+  dock's red square at its top right (the deck page's `Left`, the same classes), read from game-core's base deck (`baseCopies`, the 72
+  cards of the Challenge's draw, the shop's rarity and the chests' odds; Tutorial and Story levels bring their own, so Tiles means
+  this one, as its Description's "In deck" already did), each tile's button named "City corner, 5 in deck"; a pick not saved yet keeps
+  its gold dot, now at the top left. Second, the owner's rule: a section's title is a fixed word, with no count, X/Y, total, timer or
+  amount in it nor in its `end` slot, which holds a control at most (`SectionTitle`'s doc, `__tests__/section-title-rule.test.ts`
+  fails on a figure's marks in either). Each figure was dropped where the page already shows it, or moved into the section's content:
+  Skins' owned of five (dropped); Missions' Tutorial, Daily, Weekly and Achievements counts (dropped: the medallions and the
+  milestones' bars say them) and the Daily's and Weekly's reset timers (moved to a carved chip on the section's first line); the
+  Ranking's list counts (dropped: the ranks); the deck page's Tiles, Order, Village and Extras counts (dropped: the band of Left,
+  Played and Discarded, the red squares); the guild's Requests, Invitations sent and a visitor's Members counts (dropped: the
+  Requests tab's badge, the rows, the figures' band's members against the cap), the guild finder's Invitations and the Chat's
+  Requests (dropped: the rows, the Private tab's badge); the name's characters in Rename (moved to the end of the "3 to 15
+  characters" rule, under the field) and in the guild form's Name and Description (moved under the field, at the right); the
+  village editor's slots used (moved to a carved chip under Inventory, the hint beside it), the old layout editor's inventory
+  total (dropped: each card's ×N) and a Story level's opening's Deck count (dropped: the tiles are numbered in draw order, the
+  last number the count; its section no longer a named region, "Deck" alone repeating the board's stack under the veil). Kept: the Profile's Stats span at its title's end, a filter's chip with its cross (a control);
+  the drawers' Cobbles at their headers' end (the HUD's balance, a press opens the packs: a header, not a section's title); and
+  the pages' names that identify what they show ("Challenge #1234", a Story level's name, a village owner's): fixed for the
+  page's life, names rather than figures. This supersedes the counts beside the titles described in MISSIONS-PAGE, COLLECTION-PAGE,
+  ATTACK-SCOUT, LEADERBOARD-PAGE, GUILD-PAGE, EDIT-VILLAGE, PLAYER-RENAME and STORY-INTRO above.
+
+  ALLIANCES (2026-11-07), the alliance feature on the mock (client only; the contracts' spec comes once the owner is satisfied): the
+  Paved UX Book draws no alliance, so in the Guild page's look and parts. An alliance is a union of up to five guilds (the Leaderboard's
+  Alliances icon, two guilds' shields over a laurel), ranked by the sum of its guilds' scores; guild leaders act for their guilds, the
+  founding guild is its head and its leader leads it (game-core's `social/alliance.ts`). Its page is a view of the Guild drawer ("Alliance",
+  Back, the red cross; `/guild?alliance=<id>`, the player's own at `/guild?view=alliance`): the emblem, the name and the viewer's guild's
+  role in a carved pill, the figures on the carved band (guilds out of 5, score, players), the description folded, its guilds on carved
+  rows (the head with its crown, the viewer's on the gold wash); for its leader the requests (raised Accept and Decline) and the
+  invitations sent; for an outside guild's leader, the drawer's footer: Cancel or Decline raised grey at the left, the gold Request to
+  join or Accept at the right, in their places whatever the state. The emblem: a guild emblem's shield (the same charges, colours and
+  picker) standing on the gold laurel of the Alliances icon, which Codex's built-in image tool painted alone (three variants, the third
+  kept). The Guild page: the guild's alliance under its tag (a small raised pill, or "No alliance" written out), an Alliance tile beside
+  Chat (the Alliances icon, its red count what waits), a "No alliance" view (the invitations, the request, Create an alliance, Find an
+  alliance as the menu's raised rows); another guild's page carries the alliance leader's Invite, or Make head and Remove (Codex painted
+  Invite a guild and Remove a guild: the Guilds tab's red shield with Invite a player's plus and Kick's minus). The Leaderboard's
+  Alliances tab is live, its rows the guilds' with the laurelled emblem and the guilds out of 5.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.

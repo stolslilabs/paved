@@ -131,7 +131,9 @@ describe("PvP v2 scenes (#740)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Deck, 23 tiles" }));
     const page = await screen.findByRole("dialog", { name: "Deck" });
     expect(within(page).getByTestId("deck-summary")).toHaveTextContent("Left23Played0Discarded0");
-    expect(within(page).getByRole("heading", { name: "Village 19" })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the village's 19 read on its plans' red squares.
+    expect(within(page).getByRole("heading", { name: "Village" })).toBeInTheDocument();
+    expect(within(page).getByRole("heading", { name: "Extras" })).toBeInTheDocument();
     const village = [...within(page).getByTestId("deck-plans").querySelectorAll("li")];
     expect(village.reduce((n, li) => n + Number(li.getAttribute("data-left")), 0)).toBe(19);
     expect(within(page).getByTestId("deck-extras").querySelectorAll("li")).toHaveLength(4);

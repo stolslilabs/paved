@@ -413,13 +413,22 @@ describe("Missions (#832)", () => {
     expect(weekly.getByRole("progressbar", { name: "Weeklies done this week" })).toHaveAttribute("aria-valuenow", "0");
     expect(daily.getByRole("timer", { name: "Daily missions reset in 9:00:00" })).toBeInTheDocument();
     expect(weekly.getByRole("timer", { name: "Weekly missions reset in 105:00:00" })).toBeInTheDocument();
+    // TILE-COUNTS: the titles are fixed words, the timers out of their row, in a chip on the section's first line.
+    for (const [region, word] of [[daily, "Daily"], [weekly, "Weekly"]] as const) {
+      const heading = region.getByRole("heading", { level: 3 });
+      expect(heading).toHaveTextContent(new RegExp(`^${word}$`));
+      expect(heading.parentElement!.querySelector('[role="timer"]')).toBeNull();
+      expect(region.getByRole("timer").closest('[data-slot="missions-reset"]')).not.toBeNull();
+    }
     // A daily pays nothing on its own (#869): no Cobbles under its icon. No tile shows Cobbles at all (#988): a claimable one
     // glows and keeps its state in its name, its Cobbles on the card alone.
     for (const icon of daily.getAllByRole("button")) expect(within(icon).queryByRole("img", { name: /Cobbles/ })).toBeNull();
     expect(lifetime().getByRole("button", { name: "Settler II: Cobbles to claim" })).toHaveAttribute("data-state", "claimable");
     for (const icon of lifetime().getAllByRole("button")) expect(within(icon).queryByRole("img", { name: /Cobbles/ })).toBeNull();
     expect(names(lifetime())).toHaveLength(16);
-    expect(lifetime().getByRole("heading", { level: 3 })).toHaveTextContent("Achievements4/16");
+    // The title is the fixed word (TILE-COUNTS); the four earned read on their medallions (claimed: Done; not yet: Cobbles to claim).
+    expect(lifetime().getByRole("heading", { level: 3 })).toHaveTextContent(/^Achievements$/);
+    expect(names(lifetime()).filter((n) => /: (?:Done|Cobbles to claim)$/.test(n ?? ""))).toHaveLength(4);
     // Today only, Cobbles only: no day picker, no free game, no tabs.
     expect(screen.queryByRole("button", { name: "Previous day" })).not.toBeInTheDocument();
     expect(screen.queryByText(/free game/i)).not.toBeInTheDocument();
@@ -441,7 +450,9 @@ describe("Missions (#832)", () => {
     expect(card().getByRole("progressbar", { name: "stars earned: 15 of 15" })).toBeInTheDocument();
     expect(card().queryByRole("button", { name: /Claim/ })).not.toBeInTheDocument();
     const weekly = within(screen.getByRole("region", { name: /^Weekly/ }));
-    expect(within(weekly.getByRole("heading", { level: 3 })).getByText("5/5")).toBeInTheDocument();
+    // Five of five done: the week's bar says it (the title is the fixed word, TILE-COUNTS).
+    expect(weekly.getByRole("heading", { level: 3 })).toHaveTextContent(/^Weekly$/);
+    expect(weekly.getByRole("progressbar", { name: "Weeklies done this week" })).toHaveAttribute("aria-valuenow", "5");
     stars.unmount();
   });
 

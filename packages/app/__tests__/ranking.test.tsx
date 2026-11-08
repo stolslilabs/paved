@@ -137,8 +137,8 @@ describe("useFriendsRanking (LEADERBOARD-PAGE)", () => {
 });
 
 /** The scene with every callback a spy. */
-function scene(props: Partial<LeaderboardSceneProps> & Pick<LeaderboardSceneProps, "tab" | "players" | "guilds" | "friends">) {
-  const spies = { onTabChange: vi.fn(), onOpenPlayer: vi.fn(), onOpenGuild: vi.fn(), onBack: vi.fn() };
+function scene(props: Partial<LeaderboardSceneProps> & Pick<LeaderboardSceneProps, "tab" | "players" | "guilds" | "alliances" | "friends">) {
+  const spies = { onTabChange: vi.fn(), onOpenPlayer: vi.fn(), onOpenGuild: vi.fn(), onOpenAlliance: vi.fn(), onBack: vi.fn() };
   const view = render(
     <LazyMotion features={domMax}>
       <LeaderboardScene {...spies} {...props} />
@@ -154,7 +154,8 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     const rows = within(list).getAllByRole("button");
     const ranking = LEADERBOARD.playersInView.players.data!;
     expect(rows).toHaveLength(ranking.players.length);
-    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Players\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the rows say how many.
+    expect(within(drawer).getByRole("heading", { name: "Players" })).toBeInTheDocument();
     const first = ranking.players[0]!;
     expect(rows[0]).toHaveAccessibleName(`1. ${first.name}, level ${first.level}, ${formatInteger(first.crowns)} crowns`);
     expect(rows.slice(0, 4).map((r) => r.querySelector("[data-slot=ranking-place]")!.tagName)).toEqual(["IMG", "IMG", "SPAN", "SPAN"]);
@@ -177,20 +178,21 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     expect(onOpenPlayer).toHaveBeenCalledWith(ranking.players[1]!.address);
   });
 
-  it("puts its tabs at the drawer's foot: Players, Guilds, Alliances disabled, Friends at the end; a press asks for its tab alone", async () => {
+  it("puts its tabs at the drawer's foot: Players, Guilds, Alliances (live since ALLIANCES), Friends at the end; a press asks for its tab alone", async () => {
     const { drawer, onTabChange } = scene(LEADERBOARD.playersInView);
     const tabs = within(drawer).getByRole("tablist", { name: "Ranking" });
     expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(tabs);
     expect(tabs).toHaveAttribute("data-slot", "footer-tabs");
-    expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds", "Alliances, coming soon", "Friends"]);
-    const alliances = within(tabs).getByRole("tab", { name: "Alliances, coming soon" });
-    expect(alliances).toBeDisabled();
+    expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds", "Alliances", "Friends"]);
+    const alliances = within(tabs).getByRole("tab", { name: "Alliances" });
+    expect(alliances).toBeEnabled();
     // Guilds and Alliances under the ranking's own painted shields, the handshake gone to Friends.
     expect(alliances.querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/alliances.webp");
     expect(within(tabs).getByRole("tab", { name: "Guilds" }).querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/guilds.webp");
     expect(within(tabs).getByRole("tab", { name: "Friends" }).querySelector("img[data-icon=friends]")).not.toBeNull();
     await userEvent.click(alliances);
-    expect(onTabChange).not.toHaveBeenCalled();
+    expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["alliances"]));
+    onTabChange.mockClear();
     await userEvent.click(within(tabs).getByRole("tab", { name: "Guilds" }));
     // Radix calls twice on a press (the page's change is idempotent: the URL's tab replaced by itself).
     expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["guilds"]));
@@ -204,7 +206,7 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     const ranking = LEADERBOARD.friends.friends.data!;
     const rows = within(within(drawer).getByRole("list", { name: "Friends by crowns" })).getAllByRole("button");
     expect(rows).toHaveLength(ranking.players.length);
-    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Friends\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    expect(within(drawer).getByRole("heading", { name: "Friends" })).toBeInTheDocument();
     const own = rows.find((r) => r.hasAttribute("data-own"))!;
     expect(rows.indexOf(own) + 1).toBe(ranking.me!.place);
     expect(own).toHaveAccessibleName(new RegExp(`^${ranking.me!.place}\\. .+ \\(you\\), `));
