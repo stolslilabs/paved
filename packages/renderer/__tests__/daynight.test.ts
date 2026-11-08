@@ -27,7 +27,7 @@ import {
   startSeason,
   sunAt,
 } from "../src/core/daynight";
-import { DAY_NIGHT_RUNS, DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, resolveDayNightSettings, resolveWindowLight } from "../src/core/daynight-settings";
+import { DAY_NIGHT_RUNS, DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, resolveDayNightSettings, resolveWindowLight, type DayNightRuns } from "../src/core/daynight-settings";
 import { resolveRendererSettings } from "../src/core/settings";
 import { Effects } from "../src/core/Effects";
 import { LOOK_PRESETS } from "../src/core/look";
@@ -349,9 +349,15 @@ describe("a still cycle and a frozen moment", () => {
       expect(momentOf(frozen(at), 0, false)).toBe(at);
     }
   });
-  it("still wins over a frozen night or dawn: a still scene never shows one, it shows that season's noon", () => {
-    expect(momentOf(frozen(1 + DAY_PHASE_AT.night), 0, true)).toBe(1 + DAY_PHASE_AT.day);
-    expect(momentOf(frozen(2 + DAY_PHASE_AT.dawn), 0, true)).toBe(2 + DAY_PHASE_AT.day);
+  it("holds a frozen night or dawn when still too (STILL-NIGHT, #1119): a held moment does not move", () => {
+    for (const at of [1 + DAY_PHASE_AT.night, 2 + DAY_PHASE_AT.night, 2 + DAY_PHASE_AT.dawn]) expect(momentOf(frozen(at), 0, true)).toBe(at);
+    expect(cycleAt(momentOf(frozen(2 + DAY_PHASE_AT.night), 0, true), "all")).toMatchObject({ season: "winter", phase: "night", blend: 0 });
+  });
+  it("still and running: the start season's night when the seasons turn at their night, any other cycle's noon", () => {
+    const running = (runs: DayNightRuns) => resolveDayNightSettings({ enabled: true, season: "autumn", runs });
+    expect(momentOf(running("seasons-night"), 5000, true)).toBe(1 + DAY_PHASE_AT.night);
+    expect(cycleAt(momentOf(running("seasons-night"), 5000, true), runsOf(running("seasons-night"), true))).toMatchObject({ season: "autumn", phase: "night", blend: 0 });
+    for (const runs of ["all", "day-night", "seasons-day"] as const) expect(momentOf(running(runs), 5000, true), runs).toBe(1 + DAY_PHASE_AT.day);
     expect(momentOf(frozen(null), 5000, true)).toBe(DAY_PHASE_AT.day);
   });
   it("reads a frozen or still moment as every season's day and night, a running one as the settings turn it", () => {

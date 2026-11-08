@@ -21,8 +21,8 @@ const meta = {
     speed: { control: "inline-radio", options: [1, 10], description: "x1: real time; x10: a cycle in 12 s" },
     nightLights: { control: "boolean", description: "The windows and doors lit at night" },
     brightnessFloor: { control: { type: "range", min: 0, max: 1, step: 0.05 }, description: "The night's floor: the sky light at least this share of the day's (default 0.85)" },
-    reducedMotion: { control: "boolean", description: "Reduced motion: a still day (unset: the device's)" },
-    quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Graphics quality: Low is a still day too" },
+    reducedMotion: { control: "boolean", description: "Reduced motion: a still scene, a held moment kept, else a day (unset: the device's)" },
+    quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Graphics quality: Low is still too, with no night lights" },
     view: { control: "select", options: VIEWS, description: "The camera's view (default: the game's opening view)" },
     distance: { control: { type: "range", min: MIN_DISTANCE, max: MAX_DISTANCE, step: 1 }, description: "Camera distance; unset, the view's own" },
     redraw: { control: "boolean", description: "Draw every frame even when nothing moves (frame-time measures)" },
@@ -59,6 +59,9 @@ export const NightNoLights: Story = { args: { phase: "night", season: "spring", 
 
 /** Reduced motion: a still day of the start season, no moving shadow. */
 export const ReducedMotion: Story = { args: { reducedMotion: true } };
+
+/** Reduced motion over a held night (Settings' Night, STILL-NIGHT): the night kept, still, the windows lit. */
+export const ReducedMotionNight: Story = { args: { reducedMotion: true, phase: "night", season: "winter" } };
 
 /** A tile in hand at a night: its plates over the dark backdrop. */
 export const SlotsAtNight: Story = { args: { phase: "night", season: "autumn", placement: "slots" } };
