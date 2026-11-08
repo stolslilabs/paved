@@ -70,6 +70,19 @@ describe("the score meter under the header, every mode", () => {
     expect(past.fill).toBeCloseTo(0.75);
   });
 
+  it("a Challenge past its cap: aria-valuenow held within its range, the true share in its words and its figure", () => {
+    const cap = capScore(CURVE_PLAYING.threshold, CURVE_PLAYING.slopeBps, CURVE_PLAYING.cap);
+    const value = challengeMeter(CURVE_PLAYING, cap * 2);
+    expect(value.now).toBeGreaterThan(value.max);
+    render(wrap(<ScoreMeter {...value} />));
+    const meter = screen.getByRole("meter");
+    expect(meter).toHaveAttribute("aria-valuemax", String(value.max));
+    expect(meter).toHaveAttribute("aria-valuenow", String(value.max));
+    expect(meter).toHaveAttribute("aria-valuetext", `${value.now}%, beaten`);
+    expect(meter).toHaveTextContent(`${value.now}%`);
+    expect(fill(meter)).toBe(100);
+  });
+
   it("Training: the crown at the device's best, lit by a new best; none on the device's first game", () => {
     const { unmount } = render(wrap(<BoardScene {...BOARD.training} />));
     const meter = screen.getByRole("meter", { name: /of your best/ });
@@ -109,6 +122,14 @@ describe("a mark reached in play", () => {
     rerender(wrap(<ScoreMeter {...at(1250)} />));
     expect(document.querySelectorAll("[data-part=mark-flash]")).toHaveLength(1);
     expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "3");
+  });
+
+  it("a move reaching two marks beats both", () => {
+    const { rerender } = render(wrap(<ScoreMeter {...storyMeter(1, [1, 0.9, 0])} />));
+    rerender(wrap(<ScoreMeter {...storyMeter(3, [1, 1, 1])} />));
+    expect(screen.getByRole("meter")).toHaveAttribute("data-stars", "3");
+    const flashed = marks(screen.getByRole("meter")).map((m) => m.querySelector("[data-part=mark-flash]") !== null);
+    expect(flashed).toEqual([false, true, true]);
   });
 
   it("nothing beats under reduced motion, and the gold moves at once", () => {
