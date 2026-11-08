@@ -266,6 +266,9 @@
  * its hill in the late afternoon, the Puzzle the tiles' grid from above at midday (each the first of two variants). Scaled to
  * 960 x 640 (`cwebp -resize`), stored as lossless WebP.
  *
+ * RAILS (2026-11-08): the milestones' rails (`rail-track`, `rail-fill`) left; CSS draws them (theme.css, their colours sampled from
+ * these masters row by row), so the score meter's, the milestones' and the match's bars take any length without a stretched painting.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.

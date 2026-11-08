@@ -60,14 +60,12 @@ export function medallionSources(name: MedallionName | RingName, px: number) {
 }
 
 /**
- * The milestones' and the card's painted pieces, each on its own frame (the master's size): the rail's steel and its gold (rounded
- * ends, 9-sliced across), a node ahead (the bead) and one reached (the orb), the gold halo a waiting gift sits in (its rays fading
- * out, the owner's ask of 2026-11-04) and the green check a done medallion and a claimed gift wear. One copy for the rails, at their
- * own height; two for the nodes, the halo and the check.
+ * The milestones' and the card's painted pieces, each on its own frame (the master's size): a node ahead (the bead) and one reached
+ * (the orb), the gold halo a waiting gift sits in (its rays fading out, the owner's ask of 2026-11-04) and the green check a done
+ * medallion and a claimed gift wear, two copies each. The rail's steel and gold left on 2026-11-08 (RAILS): CSS draws them
+ * (`rail-track`, `rail-fill` in theme.css, their colours sampled from these masters), so they take any length.
  */
 export const MISSION_PARTS = {
-  "rail-track": { width: 1525, height: 12, side: "height", sizes: [12] },
-  "rail-fill": { width: 1513, height: 17, side: "height", sizes: [17] },
   orb: { width: 128, height: 128, side: "width", sizes: [32, 64] },
   bead: { width: 128, height: 128, side: "width", sizes: [32, 64] },
   "gift-glow": { width: 256, height: 256, side: "width", sizes: [96, 192] },
@@ -95,6 +93,3 @@ export function missionPartSources(name: MissionPart, px: number) {
     sizes: `${Math.ceil(px)}px`,
   };
 }
-
-/** A 9-slice's slice in a piece's copy (its first): half the copy's height, so the rounded ends stay whole. */
-export const missionPartSlice = (name: MissionPart) => MISSION_PARTS[name].sizes[0] / 2;

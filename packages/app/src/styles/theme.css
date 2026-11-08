@@ -743,6 +743,22 @@
   background-color: var(--drawer-raised);
   box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
 }
+/*
+ * RAILS (the owner's ask of 2026-11-08): the Missions' painted rail, its steel and its gold, drawn in CSS so that it takes any length
+ * without stretching a painting: a pill (its ends round at every length, the fill's too), its colours the painted masters' own rows
+ * (the Missions' `rail-track` and `rail-fill`, MISSIONS-PAGE, left with this: each row's mean over the middle third, top to bottom: the steel's light
+ * line under its top edge, the gold's pale shine), the HUD's outline round it. The score meter's, the milestones' and the match's.
+ */
+@utility rail-track {
+  border-radius: 9999px;
+  background-image: linear-gradient(180deg, #466780 5%, #79acd0 15%, #3d688e 25%, #2f5578 35%, #294c6c 45%, #1f3d5b 55%, #17304c 65%, #112741 75%, #0d1f38 85%, #071427 95%);
+  box-shadow: 0 0 0 1px var(--hud-outline);
+}
+@utility rail-fill {
+  border-radius: 9999px;
+  background-image: linear-gradient(180deg, #a47200 4%, #fed62c 12%, #fdf489 19%, #fad31a 27%, #f8bf01 35%, #f7bb03 42%, #f5b003 50%, #f4a503 58%, #f39602 65%, #e87b02 73%, #d96502 81%, #cc5601 88%, #c34f01 96%);
+  box-shadow: 0 0 0 1px var(--hud-outline);
+}
 @utility drawer-tile {
   background-image: linear-gradient(var(--drawer-raised), var(--secondary));
   box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
