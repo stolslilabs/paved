@@ -59,13 +59,16 @@ export const ACTION_SPREAD_PX = ACTION_PX + 8;
 
 const R = ACTION_PX / 2;
 
+/** The length of (`x`, `y`): `Math.hypot` without its cost (it runs in the close-zoom search's inner loops). */
+const hyp = (x: number, y: number) => Math.sqrt(x * x + y * y);
+
 /** The distance from `p` to the segment `a`-`b`. */
 function toSegment(p: Point, a: Point, b: Point): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = dx * dx + dy * dy;
   const t = len > 0 ? Math.min(1, Math.max(0, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len)) : 0;
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  return hyp(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
 /** The distance from `p` to the outline (its edges; a point inside is counted by its distance to them too). */
@@ -130,7 +133,7 @@ export function tileActionPlaces(outline: readonly Point[]): ActionPlaces {
     for (let j = i + 1; j < ACTION_SIDES.length; j++) {
       const a = ACTION_SIDES[i]!;
       const b = ACTION_SIDES[j]!;
-      const d = Math.hypot(OUT[a].x * reach[a] - OUT[b].x * reach[b], OUT[a].y * reach[a] - OUT[b].y * reach[b]);
+      const d = hyp(OUT[a].x * reach[a] - OUT[b].x * reach[b], OUT[a].y * reach[a] - OUT[b].y * reach[b]);
       if (d > 0 && d < ACTION_SPREAD_PX) spread = Math.max(spread, ACTION_SPREAD_PX / d);
     }
   const places = {} as ActionPlaces;
@@ -249,97 +252,10 @@ export function actionsClearance(places: ActionPlaces, outline: readonly Point[]
   let least = Infinity;
   for (const side of ACTION_SIDES) {
     const p = places[side];
-    const d = outline.length > 1 ? toOutline(p, outline) : outline.length ? Math.hypot(p.x - outline[0]!.x, p.y - outline[0]!.y) : Infinity;
+    const d = outline.length > 1 ? toOutline(p, outline) : outline.length ? hyp(p.x - outline[0]!.x, p.y - outline[0]!.y) : Infinity;
     least = Math.min(least, outline.length > 2 && within(p, outline) ? -d - R : d - R);
   }
   return least;
-}
-
-/**
- * The close-zoom fallback's shapes, each button's offset from the shape's centre, in order of preference: the four in a square (each
- * still at its corner of the group: Cancel up left, Confirm up right), then a row (the left column's two, then the right one's) for a
- * strip above or below the tile, then a column (the top two, then the bottom two) for a strip beside it.
- */
-const S = ACTION_SPREAD_PX;
-const SHAPES: ActionPlaces[] = [
-  { "top-left": { x: -S / 2, y: -S / 2 }, "top-right": { x: S / 2, y: -S / 2 }, "bottom-left": { x: -S / 2, y: S / 2 }, "bottom-right": { x: S / 2, y: S / 2 } },
-  { "top-left": { x: -1.5 * S, y: 0 }, "bottom-left": { x: -S / 2, y: 0 }, "top-right": { x: S / 2, y: 0 }, "bottom-right": { x: 1.5 * S, y: 0 } },
-  { "top-left": { x: 0, y: -1.5 * S }, "top-right": { x: 0, y: -S / 2 }, "bottom-left": { x: 0, y: S / 2 }, "bottom-right": { x: 0, y: 1.5 * S } },
-];
-
-/**
- * Close in, the tile larger than the room leaves round it: the four buttons together, out of the tile's side nearest its centre that
- * the room shows, `ACTION_GAP_PX` clear of the outline and wholly in the room. For each shape and each side of the (convex) outline,
- * the shape's centres that keep every button beyond that side's line by the clearance and inside the room are a rectangle cut by a
- * half-plane; the one nearest the tile's centre is kept, the nearest of all sides wins, the first shape that fits anywhere is used.
- * Null when none fits: the tile covers the room (a centred tile at the closest distance fills a phone's screen).
- */
-function closeZoom(outline: readonly Point[], room: BubbleLimits): ActionPlaces | null {
-  const n = outline.length;
-  const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
-  const clear = R + ACTION_GAP_PX;
-  for (const shape of SHAPES) {
-    const offs = ACTION_SIDES.map((s) => shape[s]);
-    const x0 = room.left + R - Math.min(...offs.map((o) => o.x));
-    const x1 = room.right - R - Math.max(...offs.map((o) => o.x));
-    const y0 = room.top + R - Math.min(...offs.map((o) => o.y));
-    const y1 = room.bottom - R - Math.max(...offs.map((o) => o.y));
-    if (x0 > x1 || y0 > y1) continue;
-    let best: Point | null = null;
-    let bestD = Infinity;
-    for (let i = 0; i < n; i++) {
-      const a = outline[i]!;
-      const b = outline[(i + 1) % n]!;
-      const len = Math.hypot(b.x - a.x, b.y - a.y);
-      if (len < 1e-6) continue;
-      let nx = (b.y - a.y) / len;
-      let ny = -(b.x - a.x) / len;
-      if (nx * (centre.x - a.x) + ny * (centre.y - a.y) > 0) {
-        nx = -nx;
-        ny = -ny;
-      }
-      // Every button beyond the side's line by the clearance: n . c >= k.
-      const k = clear + nx * a.x + ny * a.y - Math.min(...offs.map((o) => nx * o.x + ny * o.y));
-      let c: Point | null = { x: Math.min(Math.max(centre.x, x0), x1), y: Math.min(Math.max(centre.y, y0), y1) };
-      if (nx * c.x + ny * c.y < k) {
-        // On the line n . c = k, within the rectangle: c = n k + s u, u along the side.
-        const ux = -ny;
-        const uy = nx;
-        let lo = -Infinity;
-        let hi = Infinity;
-        for (const [p, u, min, max] of [
-          [nx * k, ux, x0, x1],
-          [ny * k, uy, y0, y1],
-        ] as const) {
-          if (Math.abs(u) < 1e-9) {
-            if (p < min - 1e-6 || p > max + 1e-6) lo = Infinity;
-            continue;
-          }
-          const s0 = (min - p) / u;
-          const s1 = (max - p) / u;
-          lo = Math.max(lo, Math.min(s0, s1));
-          hi = Math.min(hi, Math.max(s0, s1));
-        }
-        if (lo > hi) c = null;
-        else {
-          const s = Math.min(Math.max(ux * (centre.x - nx * k) + uy * (centre.y - ny * k), lo), hi);
-          c = { x: nx * k + s * ux, y: ny * k + s * uy };
-        }
-      }
-      if (!c) continue;
-      const d = Math.hypot(c.x - centre.x, c.y - centre.y);
-      if (d < bestD) {
-        bestD = d;
-        best = c;
-      }
-    }
-    if (best) {
-      const places = {} as ActionPlaces;
-      for (const side of ACTION_SIDES) places[side] = { x: best.x + shape[side].x, y: best.y + shape[side].y };
-      if (actionsClearance(places, outline) >= ACTION_GAP_PX - 1e-6 && inside(places, room)) return places;
-    }
-  }
-  return null;
 }
 
 /** How many of the buttons stand `ACTION_GAP_PX` clear of the outline. */
@@ -389,7 +305,7 @@ function crossings(p: Curve, q: Curve): Point[] {
   if ("c" in p && "c" in q) {
     const dx = q.c.x - p.c.x;
     const dy = q.c.y - p.c.y;
-    const d = Math.hypot(dx, dy);
+    const d = hyp(dx, dy);
     if (d < 1e-9 || d > p.r + q.r || d < Math.abs(p.r - q.r)) return [];
     const along = (p.r * p.r - q.r * q.r + d * d) / (2 * d);
     const h = Math.sqrt(Math.max(0, p.r * p.r - along * along));
@@ -404,7 +320,7 @@ function crossings(p: Curve, q: Curve): Point[] {
 }
 
 /** The most nodes `criticalPacking`'s search visits. */
-const CRITICAL_SEARCH_NODES = 20_000;
+const CRITICAL_SEARCH_NODES = 5_000;
 /** The slack `criticalPacking` keeps past each bound, screen px: its places rest on the bounds, so rounding never crosses one. */
 const CRITICAL_SLACK_PX = 0.05;
 
@@ -430,7 +346,7 @@ function criticalPacking(outline: readonly Point[], box: { x0: number; x1: numbe
   for (let i = 0; i < n; i++) {
     const a = outline[i]!;
     const b = outline[(i + 1) % n]!;
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const len = hyp(b.x - a.x, b.y - a.y);
     curves.push({ c: a, r: clear });
     if (len < 1e-9) continue;
     let nx = (b.y - a.y) / len;
@@ -464,7 +380,7 @@ function criticalPacking(outline: readonly Point[], box: { x0: number; x1: numbe
   let best: Point[] = [];
   let nodes = 0;
   const taken: Point[] = [];
-  const apart = (p: Point) => taken.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= spread - 1e-6);
+  const apart = (p: Point) => taken.every((q) => hyp(p.x - q.x, p.y - q.y) >= spread - 1e-6);
   const grow = (from: number) => {
     if (taken.length > best.length) best = [...taken];
     if (best.length === ACTION_SIDES.length || nodes >= CRITICAL_SEARCH_NODES) return;
@@ -497,9 +413,9 @@ function criticalPacking(outline: readonly Point[], box: { x0: number; x1: numbe
   return best;
 }
 
-/** The grid step of `splitActions`' search, screen px. */
+/** The grid step of `searchActions`' places, screen px. */
 const SPLIT_STEP_PX = 4;
-/** The most places `splitActions`' exhaustive search tries, so a camera frame stays cheap. */
+/** The most places `searchActions`' exhaustive search tries, so a camera frame stays cheap. */
 const SPLIT_SEARCH_NODES = 20_000;
 
 /** `lo` to `hi` by `step`, `hi` included. */
@@ -510,28 +426,140 @@ function steps(lo: number, hi: number, step: number): number[] {
   return out;
 }
 
+/** The rows of places along each side of the tile that `actionCandidates` slides on: at the gap, then one spread farther out. */
+const SLIDE_ROWS = 2;
+
 /**
- * Close in, when no group fits beyond a single side of the tile (a turned tile whose corner splits the room in two): each button on
- * its own, wholly in `room`, its centre `ACTION_SPREAD_PX` from the others, as many as the room outside the tile holds
- * `ACTION_GAP_PX` clear of the outline. The places are searched on a grid of the room. Each button in turn takes the free place
- * outside the tile that its rule prefers, apart from those taken. Three rules are tried: nearest where the clamp put it, nearest the
- * tile's centre, and farthest from it (which packs a narrow strip from its end). The one that puts the most outside is kept; when none
- * puts all four there, the packing is looked for exactly on the region's bounds (`criticalPacking`: a narrow corner holds four only
- * so packed, off any grid), then by a bounded exhaustive search of the free places (every other one of the grid each way). Any button left over takes the place in the room
- * nearest where the clamp put it. The four are then named by their places on screen: the two on
- * the left are the left column (Cancel above Rotate), the two on the right the right one (Confirm above Discard). Null when no button
- * fits outside the tile: the tile covers the room.
+ * The tile's candidate places close in, shared by the four actions (after the Overseer's steer of #1078): its four corners pushed out
+ * to the gap, and places sliding along each of its sides on screen, at the gap and a spread farther out, every `SPLIT_STEP_PX`
+ * (clipped to the centres' rectangle `room`).
  */
-function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: ActionPlaces, blocks: readonly BubbleLimits[]): ActionPlaces | null {
+function tileCandidates(outline: readonly Point[], room: { x0: number; x1: number; y0: number; y1: number }, clear: number): { corners: Point[]; slides: Point[] } {
+  const n = outline.length;
+  const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
+  // A corner pushed out from the centre through it until it is `clear` from the outline.
+  const corners = outline.map((v) => {
+    const len = hyp(v.x - centre.x, v.y - centre.y) || 1;
+    const dir = { x: (v.x - centre.x) / len, y: (v.y - centre.y) / len };
+    let lo = len;
+    let hi = len + clear * 4;
+    for (let i = 0; i < 32; i++) {
+      const mid = (lo + hi) / 2;
+      if (toOutline({ x: centre.x + dir.x * mid, y: centre.y + dir.y * mid }, outline) < clear) lo = mid;
+      else hi = mid;
+    }
+    return { x: centre.x + dir.x * hi, y: centre.y + dir.y * hi };
+  });
+  const slides: Point[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = outline[i]!;
+    const b = outline[(i + 1) % n]!;
+    const len = hyp(b.x - a.x, b.y - a.y);
+    if (len < 1e-9) continue;
+    const ux = (b.x - a.x) / len;
+    const uy = (b.y - a.y) / len;
+    let nx = uy;
+    let ny = -ux;
+    if (nx * (centre.x - a.x) + ny * (centre.y - a.y) > 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    for (let row = 0; row < SLIDE_ROWS; row++) {
+      const off = clear + CRITICAL_SLACK_PX + row * ACTION_SPREAD_PX;
+      // The side's line pushed out, clipped to the room (its part on screen), sampled along.
+      let lo = 0;
+      let hi = len;
+      const ox = a.x + nx * off;
+      const oy = a.y + ny * off;
+      for (const [o, u, min, max] of [
+        [ox, ux, room.x0, room.x1],
+        [oy, uy, room.y0, room.y1],
+      ] as const) {
+        if (Math.abs(u) < 1e-9) {
+          if (o < min || o > max) hi = -1;
+          continue;
+        }
+        const t0 = (min - o) / u;
+        const t1 = (max - o) / u;
+        lo = Math.max(lo, Math.min(t0, t1));
+        hi = Math.min(hi, Math.max(t0, t1));
+      }
+      if (lo > hi) continue;
+      // Snapped into the room: the clip's rounding never leaves a place a hair past its edge.
+      for (const t of steps(lo, hi, SPLIT_STEP_PX))
+        slides.push({ x: Math.min(Math.max(ox + ux * t, room.x0), room.x1), y: Math.min(Math.max(oy + uy * t, room.y0), room.y1) });
+    }
+  }
+  return { corners, slides };
+}
+
+/**
+ * Close in, where the clamp would put a button on the tile: the four placed again, after the Overseer's steer of #1078. Each place is
+ * wholly in `room` (the screen less its margins and the side menu), clear of each of `blocks` (the HUD's pieces, the hand panel, the
+ * editor's bar and sheet, each measured exactly, so a place may stand beside a part that does not span the screen), `ACTION_GAP_PX`
+ * outside the real outline, and `ACTION_SPREAD_PX` from the places already taken.
+ *
+ * 1. Each action in reading order takes the first such candidate: the tile's four action places (`tileActionPlaces`, its own
+ *    first), then the nearest of its four corners pushed out to the gap (to where the clamp put the action), then the nearest place
+ *    sliding along a side of the tile on screen (`tileCandidates`) to the room's place nearest the tile's centre: along the nearest
+ *    side on screen first, the four gathered round the middle of its part on screen.
+ * 2. When that leaves one over, the room outside the tile is searched for more such places: three greedy rules on a grid, the exact
+ *    places of a tight packing on the region's bounds (`criticalPacking`: a narrow corner holds four only so, off any grid), then a
+ *    bounded exhaustive search of the grid. The most found is kept.
+ * 3. Any action still over takes the closest place in the room outside the outline (nearer than the gap), else the closest in the
+ *    room at all, apart from the others.
+ *
+ * The four are then named by their places on screen: the two on the left are the left column (Cancel above Rotate), the two on the
+ * right the right one (Confirm above Discard). Null when no place outside the tile exists: the tile covers the room.
+ */
+function searchActions(outline: readonly Point[], room: BubbleLimits, free: ActionPlaces, clamped: ActionPlaces, blocks: readonly BubbleLimits[]): ActionPlaces | null {
   const clear = R + ACTION_GAP_PX;
   const x0 = room.left + R;
   const x1 = room.right - R;
   const y0 = room.top + R;
   const y1 = room.bottom - R;
   if (x0 > x1 || y0 > y1) return null;
+  const dist = (p: Point, q: Point) => hyp(p.x - q.x, p.y - q.y);
+  const onScreen = (p: Point) => p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && !blocked(p, blocks);
+  const fits = (p: Point) => onScreen(p) && !within(p, outline) && toOutline(p, outline) >= clear;
+  const apart = (p: Point, taken: readonly Point[]) => taken.every((q) => dist(p, q) >= ACTION_SPREAD_PX - 1e-6);
+  const box = { x0, x1, y0, y1 };
+
+  // 1. Each action's own candidates.
+  const tile = tileCandidates(outline, box, clear);
+  const corners = tile.corners.filter(fits);
+  const slides = tile.slides.filter(fits);
+  const nearest = (from: readonly Point[], t: Point, taken: readonly Point[]) => {
+    let found: Point | undefined;
+    let least = Infinity;
+    for (const p of from) {
+      const d = dist(p, t);
+      if (d < least && apart(p, taken)) {
+        least = d;
+        found = p;
+      }
+    }
+    return found;
+  };
+  // Along a side, the four gather round one place: the room's nearest to the tile's centre (the middle of the side on screen).
+  const n = outline.length;
+  const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
+  const focus = { x: Math.min(Math.max(centre.x, x0), x1), y: Math.min(Math.max(centre.y, y0), y1) };
+  let best: Point[] = [];
+  for (const side of ACTION_SIDES) {
+    const p =
+      [free[side], ...ACTION_SIDES.filter((s) => s !== side).map((s) => free[s])].find((q) => fits(q) && apart(q, best)) ??
+      nearest(corners, clamped[side], best) ??
+      nearest(slides, focus, best);
+    if (!p) break;
+    best.push(p);
+  }
+
+  if (best.length === ACTION_SIDES.length) return byPlace(best as [Point, Point, Point, Point]);
+
+  // 2. The room outside the tile searched for more.
   const all: Point[] = [];
-  const free: Point[] = [];
-  // The exhaustive search's places: every other one of the grid each way (8 px), so it stays within a frame.
+  const room4: Point[] = [];
   const coarse: Point[] = [];
   steps(x0, x1, SPLIT_STEP_PX).forEach((x, i) =>
     steps(y0, y1, SPLIT_STEP_PX).forEach((y, j) => {
@@ -539,69 +567,84 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
       if (blocked(p, blocks)) return;
       all.push(p);
       if (within(p, outline) || toOutline(p, outline) < clear) return;
-      free.push(p);
+      room4.push(p);
       if (i % 2 === 0 && j % 2 === 0) coarse.push(p);
     }),
   );
-  const n = outline.length;
-  const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
-  const dist = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y);
-  const rules: ((p: Point, side: ActionSide) => number)[] = [(p, side) => dist(p, clamped[side]), (p) => dist(p, centre), (p) => -dist(p, centre)];
-  const pick = (from: readonly Point[], taken: readonly Point[], score: (p: Point) => number) => {
-    let best: Point | null = null;
-    let bestScore = Infinity;
-    for (const p of from) {
-      if (taken.some((q) => dist(p, q) < ACTION_SPREAD_PX)) continue;
-      const v = score(p);
-      if (v < bestScore) {
-        bestScore = v;
-        best = p;
+  if (best.length < ACTION_SIDES.length && room4.length + best.length > 0) {
+    const pick = (from: readonly Point[], taken: readonly Point[], score: (p: Point) => number) => {
+      let found: Point | null = null;
+      let least = Infinity;
+      for (const p of from) {
+        if (!apart(p, taken)) continue;
+        const v = score(p);
+        if (v < least) {
+          least = v;
+          found = p;
+        }
       }
-    }
-    return best;
-  };
-  // The most places outside the tile, apart: the rules first, then, when they leave a button over, an exhaustive search (the
-  // farthest places from the tile's centre first, which pack a strip from its end), bounded.
-  let best: Point[] = [];
-  for (const rule of rules) {
-    const taken: Point[] = [];
-    for (const side of ACTION_SIDES) {
-      const p = pick(free, taken, (q) => rule(q, side));
-      if (!p) break;
-      taken.push(p);
-    }
-    if (taken.length > best.length) best = taken;
-    if (best.length === ACTION_SIDES.length) break;
-  }
-  if (best.length < ACTION_SIDES.length) {
-    const found = criticalPacking(outline, { x0, x1, y0, y1 }, clear, blocks);
-    if (found.length > best.length) best = found;
-  }
-  if (best.length < ACTION_SIDES.length) {
-    const order = coarse.sort((p, q) => dist(q, centre) - dist(p, centre));
-    let nodes = 0;
-    const taken: Point[] = [];
-    const grow = (from: number) => {
-      if (taken.length > best.length) best = [...taken];
-      for (let i = from; i < order.length && best.length < ACTION_SIDES.length && nodes < SPLIT_SEARCH_NODES; i++) {
-        const p = order[i]!;
-        nodes++;
-        if (taken.some((q) => dist(p, q) < ACTION_SPREAD_PX)) continue;
-        taken.push(p);
-        grow(i + 1);
-        taken.pop();
-      }
+      return found;
     };
-    grow(0);
+    const rules: ((p: Point, side: ActionSide) => number)[] = [(p, side) => dist(p, clamped[side]), (p) => dist(p, centre), (p) => -dist(p, centre)];
+    for (const rule of rules) {
+      if (best.length === ACTION_SIDES.length) break;
+      const taken: Point[] = [];
+      for (const side of ACTION_SIDES) {
+        const p = pick(room4, taken, (q) => rule(q, side));
+        if (!p) break;
+        taken.push(p);
+      }
+      if (taken.length > best.length) best = taken;
+    }
+    if (best.length < ACTION_SIDES.length) {
+      const found = criticalPacking(outline, box, clear, blocks);
+      if (found.length > best.length) best = found;
+    }
+    if (best.length < ACTION_SIDES.length) {
+      const order = coarse.sort((p, q) => dist(q, centre) - dist(p, centre));
+      let nodes = 0;
+      const taken: Point[] = [];
+      const grow = (from: number) => {
+        if (taken.length > best.length) best = [...taken];
+        for (let i = from; i < order.length && best.length < ACTION_SIDES.length && nodes < SPLIT_SEARCH_NODES; i++) {
+          const p = order[i]!;
+          nodes++;
+          if (!apart(p, taken)) continue;
+          taken.push(p);
+          grow(i + 1);
+          taken.pop();
+        }
+      };
+      grow(0);
+    }
   }
   if (best.length === 0) return null;
+
+  // 3. The actions over: the closest place outside the outline, else the closest in the room.
   const chosen = [...best];
   for (const side of ACTION_SIDES.slice(chosen.length)) {
-    const p = pick(all, chosen, (q) => dist(q, clamped[side]));
+    const t = clamped[side];
+    const p = nearest(all.filter((q) => !within(q, outline)), t, chosen) ?? nearest(all, t, chosen);
     if (!p) return null;
     chosen.push(p);
   }
-  const [a, b, c, d] = chosen.sort((p, q) => p.x - q.x || p.y - q.y) as [Point, Point, Point, Point];
+  return byPlace(chosen as [Point, Point, Point, Point]);
+}
+
+/**
+ * Four places named by where they stand on screen: in two columns (the left one Cancel above Rotate, the right one Confirm above
+ * Discard), or, when they stand taller than wide, in two rows (the top one Cancel then Confirm, the bottom one Rotate then Discard).
+ */
+function byPlace(places: [Point, Point, Point, Point]): ActionPlaces {
+  const xs = places.map((p) => p.x);
+  const ys = places.map((p) => p.y);
+  if (Math.max(...ys) - Math.min(...ys) > Math.max(...xs) - Math.min(...xs)) {
+    const [a, b, c, d] = [...places].sort((p, q) => p.y - q.y || p.x - q.x) as [Point, Point, Point, Point];
+    const [tl, tr] = a.x <= b.x ? [a, b] : [b, a];
+    const [bl, br] = c.x <= d.x ? [c, d] : [d, c];
+    return { "top-left": tl, "top-right": tr, "bottom-left": bl, "bottom-right": br };
+  }
+  const [a, b, c, d] = [...places].sort((p, q) => p.x - q.x || p.y - q.y) as [Point, Point, Point, Point];
   const [tl, bl] = a.y <= b.y ? [a, b] : [b, a];
   const [tr, br] = c.y <= d.y ? [c, d] : [d, c];
   return { "top-left": tl, "top-right": tr, "bottom-left": bl, "bottom-right": br };
@@ -615,10 +658,8 @@ function splitActions(outline: readonly Point[], room: BubbleLimits, clamped: Ac
  *    panned far to one side brings its buttons back across, under the HUD it was not over (#1078);
  * 3. each button clamped into it (`clampActions`), the room tested again on where they ended;
  * 4. close in, where that clamp puts a button on the tile or nearer it than `ACTION_GAP_PX` (the tile larger than the room round it,
- *    or against an edge), the four together out of its nearest side the room shows (`closeZoom`), or, where no group fits beyond a
- *    single side (a turned tile's corner splitting the room), each on its own, as many outside it as the room there holds
- *    (`splitActions`, clear of each part of the screen the buttons avoid, so also beside a part that does not span it; the group
- *    treats every part as across the whole width). When the tile covers the whole room there is no such place: the clamped ones stay.
+ *    or against an edge), each placed again by a search over its candidates, every part of the screen it avoids measured exactly
+ *    (`searchActions`). When the tile covers the whole room there is no place outside it: the clamped ones stay.
  */
 export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid: readonly BubbleAvoid[]): ActionPlaces {
   const free = tileActionPlaces(outline);
@@ -631,17 +672,14 @@ export function layoutTileActions(outline: readonly Point[], box: DOMRect, avoid
     at = clampActions(free, room);
   }
   if (outline.length > 2 && actionsClearance(at, outline) < ACTION_GAP_PX - 1e-6) {
-    const room = actionRoom(box, avoid, -1e6, 2e6);
-    const group = closeZoom(outline, room);
-    // On their own, the buttons may stand beside a part that does not span the screen (a panel, a dial): each part a block.
+    // Each part of the screen the buttons avoid measured exactly, so a place may stand beside a part that does not span it.
     const open = actionRoom(box, avoid.filter((a) => a.side), 0, box.width);
     const grow = MARGIN_PX + R;
     const blocks = avoid
       .filter((a) => !a.side)
       .map(({ rect: r }) => ({ left: r.left - box.left - grow, right: r.left - box.left + r.width + grow, top: r.top - box.top - grow, bottom: r.top - box.top + r.height + grow }));
-    const split = group ? null : splitActions(outline, open, at, blocks);
-    if (group) at = group;
-    else if (split && clearOf(split, outline) >= clearOf(at, outline)) at = split;
+    const found = searchActions(outline, open, free, at, blocks);
+    if (found && clearOf(found, outline) >= clearOf(at, outline)) at = found;
   }
   return at;
 }

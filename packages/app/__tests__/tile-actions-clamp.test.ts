@@ -157,9 +157,12 @@ describe("the gap kept close in (#1078)", () => {
           const at = layoutTileActions(outline, box, avoid);
           expect(actionsClearance(at, outline), JSON.stringify(target)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 1e-6);
           onScreenClear(at);
-          // Each still at its corner of the group: Cancel left of Confirm, not below Rotate.
-          expect(at["top-left"].x).toBeLessThan(at["top-right"].x);
+          // Named by their places on screen: Cancel not right of Confirm nor below Rotate, Discard not left of Rotate nor above
+          // Confirm (a column along the tile's side reads down: Cancel, Confirm, Rotate, Discard).
+          expect(at["top-left"].x).toBeLessThanOrEqual(at["top-right"].x);
           expect(at["top-left"].y).toBeLessThanOrEqual(at["bottom-left"].y);
+          expect(at["bottom-left"].x).toBeLessThanOrEqual(at["bottom-right"].x);
+          expect(at["top-right"].y).toBeLessThanOrEqual(at["bottom-right"].y);
         }
       });
 
