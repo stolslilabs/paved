@@ -47,6 +47,8 @@ export const GuildsPastList: Story = { args: LEADERBOARD.guildsPastList };
 export const Friends: Story = { args: LEADERBOARD.friends };
 /** Friends: none yet, nothing to rank against. */
 export const NoFriends: Story = { args: LEADERBOARD.noFriends };
+/** Players at levels 9, 10, 20 and 15 in turn (#1065), the viewer second: both figures inside the star. */
+export const TwoFigureLevels: Story = { args: LEADERBOARD.twoFigures };
 /** The rankings on their way. */
 export const Loading: Story = { args: LEADERBOARD.loading };
 /** Nothing ranked yet. */

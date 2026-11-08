@@ -127,7 +127,7 @@ export function FollowPlayerRow({ profile, guild, isNew, variant = "list", onOpe
           <PlayerName name={profile.name} address={profile.address} className={cn("text-outline max-w-full min-w-0 pr-0.5 text-base font-bold", profile.name ? "leading-snug" : "leading-normal")} />
           {variant === "list" && (
             <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm leading-tight font-bold whitespace-nowrap">
-              <LevelStar level={profile.level} className="size-6" />
+              <LevelStar level={profile.level} size="sm" />
               <span className="inline-flex items-center gap-1">
                 <UiIcon name="crown" px={20} className="size-5" />
                 <span className="text-outline tabular-nums">{formatPoints(profile.crowns)}</span>
@@ -401,7 +401,7 @@ interface BlockedSheetProps {
  */
 function BlockedSheet({ open, onOpenChange, blocked, now, busy, onOpenPlayer, onUnblock, error }: BlockedSheetProps) {
   return (
-    <HudDrawer open={open} onOpenChange={onOpenChange} title="Blocked players" side="right" phone="sheet" slot="blocked-players">
+    <HudDrawer open={open} onOpenChange={onOpenChange} title="Blocked players" side="right" phone="sheet" slot="blocked-players" inPlace>
       <p className="text-sm font-semibold text-muted-foreground">They cannot follow you, message you or invite you to a guild, and they are not told.</p>
       {blocked === null && <Skeleton aria-busy className="h-18 rounded-xl" />}
       {blocked?.length === 0 && <p className={CARVED_NOTE}>You block no one. Block a player from their profile.</p>}

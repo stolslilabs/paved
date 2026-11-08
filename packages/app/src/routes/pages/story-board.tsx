@@ -226,18 +226,18 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     })();
   const best = levelProgress(progress, campaign.id, level.id);
   // The level's chest on its end (STORY-PAGE, the owner's ask of 2026-11-07: opened there, or why this run won none): won, to open;
-  // already won (before this run on this device, or the report gave none for 3 stars); missed (3 stars win it); no chests without
-  // the v2 writes; while the report is on its way, loading; a failed report, its message and Retry, which sends it again.
+  // no chests without the v2 writes; the report's own states first (#1088: the device's stars never prove the account's chest), a
+  // failed report its message and Retry, which sends it again, one on its way loading; then, the report landed with no chest,
+  // already won (3 stars, or 3 stars before this run) or missed (3 stars win it).
   const rank = storyRankAt(level.id, campaign.levels.length);
   let chest: EndChest;
   if (!reporting && !answer) chest = { state: "unavailable", rank };
   else if (wonChest) chest = end.chest;
-  else if (previousStars >= 3) chest = { state: "already", rank };
-  else if (result.stars < 3) chest = { state: "missed", rank };
   else if (answer?.state === "failed")
     chest = { state: "error", rank, message: answer.error.message, detail: errorDetail(answer.error), onRetry: () => send(attempt, result.stars) };
-  else if (answer?.state === "done") chest = { state: "already", rank };
-  else chest = { state: "loading", rank };
+  else if (answer?.state !== "done") chest = { state: "loading", rank };
+  else if (result.stars >= 3 || previousStars >= 3) chest = { state: "already", rank };
+  else chest = { state: "missed", rank };
   const xp = answer?.state === "done" && answer.xp > 0 && village.data ? endXp(village.data.xp, answer.xp) : null;
 
   let notices;
@@ -245,6 +245,7 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
     notices = (
       <DeckPresentation
         campaign={campaign.name}
+        campaignId={campaign.id}
         levelIndex={level.id}
         title={level.title}
         intro={level.intro}

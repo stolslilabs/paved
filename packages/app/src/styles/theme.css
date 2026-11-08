@@ -843,6 +843,17 @@
 @utility text-outline {
   text-shadow: 1px 0 var(--background), -1px 0 var(--background), 0 1px var(--background), 0 -1px var(--background), 0 2px 3px var(--background);
 }
+/*
+ * Room for an outline inside a box that clips (OUTLINE-DESCENDERS, #1063): a `truncate` word at a tight line height cuts its
+ * outline flat under p, g and y, since `overflow: hidden` clips at the padding box. Padding as wide as the outline's reach
+ * (2 px on the sides and above, 4 px below: the dock's 1.5 px and its 2 px drop with 2 px of blur, `text-outline`'s 1 px and its
+ * 2 px drop with 3 px of blur) and negative margins of the same size, so the word and the layout stand where they did and the
+ * ellipsis is kept. A `max-w-full` box takes `max-w-[calc(100%+4px)]` beside it, so it truncates where it did.
+ */
+@utility outline-room {
+  padding: 2px 2px 4px;
+  margin: -2px -2px -4px;
+}
 
 /*
  * The plan view's pending tile (#681): its opacity from 80 to 100 % and back on a sine (easeInOutSine), one cycle every
