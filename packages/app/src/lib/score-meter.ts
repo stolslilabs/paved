@@ -31,7 +31,10 @@ export interface ScoreMeterValue {
   label: string;
   /** Its value in words. */
   valueText: string;
-  /** `aria-valuenow` and `aria-valuemax`, whole numbers: percent of the goal where it is public, of the bar in Story. */
+  /**
+   * `aria-valuenow` and `aria-valuemax`, whole numbers: percent of the goal where it is public, of the bar in Story. `now` may pass `max`
+   * (a Challenge past its cap): the meter holds `aria-valuenow` to the range, the true share in `valueText` and `figure`.
+   */
   now: number;
   max: number;
   /** The figure after the bar: the score's share of the goal, or none (Story, #593). */
