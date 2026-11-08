@@ -117,7 +117,7 @@ export const EndOneStarLast: Story = {
 };
 
 /**
- * No star: "Level failed", Retry the gold answer, Next disabled in its place, the next level still locked (a finished level gives one
+ * No star: "GAME OVER", Retry the gold answer, Next disabled in its place, the next level still locked (a finished level gives one
  * star today; the screen holds the case).
  */
 export const EndNoStar: Story = {

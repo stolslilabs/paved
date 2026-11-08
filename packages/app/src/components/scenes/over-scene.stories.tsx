@@ -16,10 +16,10 @@ const meta = { title: "Scenes/Over", component: OverScene, args: { onSettle: fn(
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A Training end short of the device's best (TRAINING-END): "Game over", the crown's gold stopping at the score's share, no light. */
+/** A Training end short of the device's best (TRAINING-END): "GAME OVER", the crown's gold stopping at the score's share, no light. */
 export const Training: Story = { args: OVER.training };
 
-/** A new best (TRAINING-END): the crown fills, pops and lights; "New best!", the best before → the score. */
+/** A new best (TRAINING-END): the crown fills, pops and lights; "VICTORY", the best before → the score. */
 export const TrainingNewBest: Story = { args: { ...OVER.training, previousBest: 1_180 } };
 
 /** The device's first Training game: no best to beat, the crown grey; the score is the best. */

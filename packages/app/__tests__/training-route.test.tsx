@@ -241,7 +241,7 @@ describe("/training/over (P3)", () => {
     expect(score).toBeGreaterThan(1);
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
     expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "New best!" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "VICTORY" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Crown: a new best" })).toBeInTheDocument();
     expect(JSON.parse(store.getItem(TRAINING_BEST_KEY)!)).toEqual({ score, seed: `0x${played.seed.toString(16)}`, previous: 1 });
 

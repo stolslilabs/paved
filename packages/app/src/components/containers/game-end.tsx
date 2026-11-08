@@ -84,7 +84,7 @@ export interface GameEndProps {
    * the stars.
    */
   mark?: ReactNode;
-  /** The verdict over the window: "Triumph", "Level complete". */
+  /** The verdict over the window, in capitals (the owner's ask of 2026-11-08): "VICTORY", "GAME OVER". */
   verdict: string;
   /** Under it: "against Wren of Hollowmere", a level's title. */
   subtitle?: ReactNode;
@@ -114,6 +114,15 @@ export interface GameEndProps {
 
 /** The verdict, the book's: large, gold, outlined thick in black. */
 const VERDICT: CSSProperties = { textShadow: BLACK_OUTLINE };
+
+/** The end's verdict ("VICTORY", "GAME OVER"), the book's: large, gold, outlined thick in black; a long one a size down. */
+export function EndVerdict({ verdict, className }: { verdict: string; className?: string }) {
+  return (
+    <h2 className={cn("font-game leading-none text-balance text-primary", verdict.length > 10 ? "text-4xl" : "text-5xl", className)} style={VERDICT}>
+      {verdict}
+    </h2>
+  );
+}
 /** The soft rule between two rows of the carved card (the Shop's panels'). */
 const ROW_RULE: CSSProperties = { borderTop: "1px solid color-mix(in oklab, var(--drawer-bevel) 45%, transparent)" };
 /** The raised grey answer (the drawer's rule: raised presses), its word outlined in black as the gold one's. */
@@ -291,9 +300,7 @@ export function GameEnd({ stars = 0, fills, mark, verdict, subtitle, score, rows
         </button>
       )}
       {mark ?? <EndStars stars={stars} fills={fills} instant={instant} className="absolute -top-14 left-1/2 -translate-x-1/2" />}
-      <h2 className={cn("font-game leading-none text-balance text-primary", verdict.length > 10 ? "text-4xl" : "text-5xl")} style={VERDICT}>
-        {verdict}
-      </h2>
+      <EndVerdict verdict={verdict} />
       {subtitle && <p className="-mt-1 text-sm font-semibold text-muted-foreground">{subtitle}</p>}
       <p aria-label="Score" className="text-outline text-2xl leading-none font-bold text-foreground tabular-nums">
         {score}

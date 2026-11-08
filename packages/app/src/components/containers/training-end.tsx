@@ -51,7 +51,7 @@ export function crownFill(score: number, previousBest: number | null | undefined
 /**
  * A Training game's end (TRAINING-END, in the Ranked end's family, `GameEnd`): the book's window over the final board, crowned by the
  * crown of Training's score meter (the device's best: gold, lit and popping when beaten, its gold stopping at the score's share short
- * of it, grey on the device's first game); "New best!" or "Game over", the mode, the score; the carved card of rows: the best (the
+ * of it, grey on the device's first game); "VICTORY" on a new best, else "GAME OVER", the mode, the score; the carved card of rows: the best (the
  * figure, the best before → the score when beaten) and the tiles (placed, discarded and what the discards took); the closed
  * structures by category in carved boxes (the count, the points); every closing; Home and the gold Play again at the foot. The cross
  * shows the final board.
@@ -103,7 +103,7 @@ export function TrainingEnd({ score, previousBest, stats, closings, closingsNote
           label={record ? "Crown: a new best" : previousBest == null ? "Crown: no best to beat yet" : `Crown: ${Math.round(fill * 100)}% of your best`}
         />
       }
-      verdict={record ? "New best!" : "Game over"}
+      verdict={record ? "VICTORY" : "GAME OVER"}
       subtitle="Training"
       score={
         <span data-testid="final-score">

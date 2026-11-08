@@ -61,7 +61,8 @@ export interface PvpEndSceneProps {
   onAgain?: () => void;
 }
 
-const VERDICT = ["Defeat", "Victory", "Victory", "Triumph"] as const;
+// A win at any star count is a VICTORY, in capitals (the owner's ask of 2026-11-08); the stars say how large.
+const VERDICT = ["Defeat", "VICTORY", "VICTORY", "VICTORY"] as const;
 
 /**
  * Each star's share filled by the score (the stars in the bar's place, the owner's ask of 2026-11-06): the first from nothing to the

@@ -192,7 +192,7 @@ describe("/pvp/result/:id", { timeout: slow(30_000) }, () => {
         await writes.claimReward({ choice: "cobbles" });
       }
     });
-    const verdict = ["Defeat", "Victory", "Victory", "Triumph"][attack!.stars]!;
+    const verdict = ["Defeat", "VICTORY", "VICTORY", "VICTORY"][attack!.stars]!;
     expect(await screen.findByRole("heading", { name: verdict }, WAIT)).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: /Open the reward/ }, WAIT));
     expect(await screen.findByRole("button", { name: /Choose/ }, WAIT)).toBeInTheDocument();
@@ -202,7 +202,7 @@ describe("/pvp/result/:id", { timeout: slow(30_000) }, () => {
 
   it("replays the attack move by move", async () => {
     const s = await open("/pvp/result/1", attacked);
-    await screen.findByRole("heading", { name: /Defeat|Victory|Triumph/ }, WAIT);
+    await screen.findByRole("heading", { name: /Defeat|VICTORY/ }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Replay/ }));
     const bar = await screen.findByRole("group", { name: "Replay" }, WAIT);
     const total = (await s.ledger.pvpMoves(s.me, 1)).length;
@@ -217,7 +217,7 @@ describe("Back never cycles (BACK-RULE #783)", { timeout: slow(45_000) }, () => 
     const s = await open("/pvp/league", attacked);
     await screen.findByRole("dialog", { name: "League" }, WAIT);
     await s.router.navigate("/pvp/result/1");
-    await screen.findByRole("heading", { name: /Defeat|Victory|Triumph/ }, WAIT);
+    await screen.findByRole("heading", { name: /Defeat|VICTORY/ }, WAIT);
     await userEvent.click(screen.getByRole("button", { name: /Replay/ }));
     await screen.findByRole("group", { name: "Replay" }, WAIT);
     const seen: string[] = [];

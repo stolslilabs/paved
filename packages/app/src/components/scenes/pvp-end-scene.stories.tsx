@@ -73,7 +73,7 @@ export const ChestUnavailable: Story = {
 };
 /** The chest's tile taken (Claim): the panel says it, carved. */
 export const ChestKept: Story = { args: { ...PVP_END.twoStars, chest: { state: "kept", rank: "rare", plan: PLAN.wonder } } };
-/** Past the village's score: "Triumph", an epic chest, and the crowns carry the attacker into Bronze I. */
+/** Past the village's score: "VICTORY" under three stars, an epic chest, and the crowns carry the attacker into Bronze I. */
 export const ThreeStars: Story = { args: PVP_END.threeStars };
 /** A promotion said in words (three stars over the league's floor). */
 export const Promoted: Story = { args: PVP_END.threeStars };

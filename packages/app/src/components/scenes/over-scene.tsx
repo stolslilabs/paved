@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameView, ScoredStructure } from "@paved/chain";
-import { CategoryType, type ClosedStructure, type GameStats, type OpenStructure } from "@paved/game-core";
+import { CategoryType, winningScore, type ClosedStructure, type GameStats, type OpenStructure } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { useDeferred } from "../../lib/deferred";
 import { failedModuleUrl, reimport } from "../../lib/reimport";
@@ -27,7 +27,7 @@ import { GameMissions, type GameMission } from "../containers/game-missions";
 import { RewardPanel, type RewardState } from "../containers/reward-panel";
 import type { RewardCurve } from "../containers/reward-estimate";
 import { GameHud } from "../containers/game-hud";
-import { END_STARS, ShowScores } from "../containers/game-end";
+import { END_STARS, EndVerdict, ShowScores } from "../containers/game-end";
 import { TrainingEnd } from "../containers/training-end";
 
 // The final board (#539) is its own chunk, with the renderer: loaded when the end screen opens (#720), the scores' background.
@@ -301,6 +301,19 @@ export function OverScene(props: OverSceneProps) {
   );
 }
 
+/**
+ * A Challenge won, its end's verdict (the owner's ask of 2026-11-08: "VICTORY" or "GAME OVER"): rewarded, or its score at the score
+ * to beat (the trophy of the HUD's meter: the day's threshold once it is fixed, else its curve's). Below the threshold, expired, a
+ * free game (no reward to win) or a reward that cannot be read: not.
+ */
+export function challengeWon(score: number, reward: OverSceneProps["reward"], noReward?: boolean): boolean {
+  if (noReward) return false;
+  if (reward.state === "rewarded") return true;
+  if (reward.state !== "awaiting" && reward.state !== "settle") return false;
+  const toBeat = reward.threshold ?? (reward.curve ? winningScore(reward.curve.threshold) : undefined);
+  return toBeat != null && score >= toBeat;
+}
+
 /** A Challenge's scores: the over screen's overlay, a translucent panel (as the HUD) scrolled on its own over the board. */
 function Scores({ game, closings, previousBest, reward, settling, onSettle, settle, freeGame, rewardUnavailable, deadline, closingsNote, now, stats, board, missions, onMissions, onPlayAgain, onHome }: OverSceneProps) {
   const clock = useClock(now);
@@ -327,6 +340,7 @@ function Scores({ game, closings, previousBest, reward, settling, onSettle, sett
             data-testid="final-score"
             className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-[radial-gradient(80%_70%_at_50%_0%,var(--glow),var(--card))] px-4 py-6 text-center"
           >
+            <EndVerdict verdict={challengeWon(game.score, reward, freeGame || rewardUnavailable) ? "VICTORY" : "GAME OVER"} />
             <Score value={game.score} size="xl" tone="gold" className="items-center" />
             <span className="flex flex-wrap justify-center gap-2">
               {freeGame && <Badge variant="secondary">Free game</Badge>}

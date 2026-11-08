@@ -2,12 +2,13 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { describe, expect, it, vi } from "vitest";
-import { CategoryType, formatInteger } from "@paved/game-core";
+import { CategoryType, formatInteger, winningScore } from "@paved/game-core";
 import { CLOSING_CATEGORIES, categoryInfo } from "../src/components/elements/category";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { END_STARS } from "../src/components/containers/game-end";
-import { OverScene, type SettleProps } from "../src/components/scenes/over-scene";
+import { OverScene, challengeWon, type SettleProps } from "../src/components/scenes/over-scene";
 import { DAY, MOCK_NOW } from "../src/mocks/clock";
+import { CURVE_PLAYING } from "../src/mocks/games";
 import { OVER } from "../src/mocks/scenes";
 
 /** Points as the end writes them. */
@@ -165,6 +166,30 @@ describe("OverScene: the figures and the final board (#539)", () => {
     expect(screen.getByRole("heading", { level: 1, name: `Challenge #${OVER.rewarded.game.id}` })).toBeInTheDocument();
   });
 
+  it("a Challenge's end says VICTORY when rewarded and GAME OVER below the threshold, over its score", () => {
+    const { unmount } = show(<OverScene {...OVER.rewarded} />);
+    expect(within(screen.getByTestId("final-score")).getByRole("heading", { level: 2, name: "VICTORY" })).toBeInTheDocument();
+    unmount();
+    show(<OverScene {...OVER.below} />);
+    expect(within(screen.getByTestId("final-score")).getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
+  });
+
+  it("a Challenge is won rewarded or at the score to beat (the HUD's trophy), never below it, expired, free or unread", () => {
+    const toBeat = Math.ceil(OVER.awaiting.reward.threshold);
+    expect(challengeWon(0, OVER.rewarded.reward)).toBe(true);
+    expect(challengeWon(toBeat, OVER.awaiting.reward)).toBe(true);
+    expect(challengeWon(toBeat - 1, OVER.awaiting.reward)).toBe(false);
+    expect(challengeWon(toBeat, OVER.settle.reward)).toBe(true);
+    // The day still open: the score to beat at its curve's threshold.
+    const least = winningScore(CURVE_PLAYING.threshold);
+    expect(challengeWon(least, OVER.awaitingEstimate.reward)).toBe(true);
+    expect(challengeWon(least - 1, OVER.awaitingEstimate.reward)).toBe(false);
+    expect(challengeWon(toBeat, { state: "awaiting", stake: 3 })).toBe(false);
+    expect(challengeWon(toBeat, OVER.below.reward)).toBe(false);
+    expect(challengeWon(toBeat, OVER.expired.reward)).toBe(false);
+    expect(challengeWon(toBeat, OVER.awaiting.reward, true)).toBe(false);
+  });
+
   it("has no toggle without a board", () => {
     show(<OverScene {...OVER.noBoard} />);
     expect(screen.queryByRole("radiogroup", { name: "Show" })).toBeNull();
@@ -184,7 +209,7 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
     const mark = screen.getByRole("img", { name: "Crown: a new best" });
     expect(mark).toHaveAttribute("data-reached", "true");
     expect(mark.querySelector("[data-lit]")).not.toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "New best!" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "VICTORY" })).toBeInTheDocument();
     const best = screen.getByRole("region", { name: "Best" });
     expect(best).toHaveAttribute("data-record", "true");
     expect(best).toHaveTextContent(`${pts(score)}1,180 → ${pts(score)}`);
@@ -198,7 +223,7 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
     expect(mark).not.toHaveAttribute("data-reached");
     expect(mark.querySelector("[data-lit]")).toBeNull();
     expect(mark.querySelector(`[data-fill="${share}"]`)).not.toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "Game over" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Best" })).toHaveTextContent("1,420Your best");
   });
 
@@ -206,7 +231,7 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
     show(<OverScene {...OVER.training} previousBest={null} />);
     const mark = screen.getByRole("img", { name: "Crown: no best to beat yet" });
     expect(mark.querySelector('[data-fill="0"]')).not.toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "Game over" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Best" })).toHaveTextContent(`${pts(score)}Your best`);
   });
 
