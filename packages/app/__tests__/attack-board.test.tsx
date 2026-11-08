@@ -122,7 +122,7 @@ describe("/pvp on the board module", { timeout: slow(30_000) }, () => {
     expect(last()).toMatchObject({ basePath: RENDERER_ASSETS });
     expect(last().slots).toBeUndefined();
     expect(backdropOf(last())).toMatchObject(RIVAL_BACKDROP);
-    // On summer's day whatever the season wheel says (#788): the cycle off, so no night and no smoke.
+    // On summer's day whatever Settings say (#788): the cycle off, so no night and no smoke.
     expect(last().settings?.dayNight).toEqual({ enabled: false, freezeAt: null });
   });
 

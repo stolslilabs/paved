@@ -84,7 +84,7 @@ function Replay({ attacker, id }: { attacker: string; id: number }) {
   const me = useDataSources().signer?.address ?? null;
   const own = me !== null && attack !== null && addressKey(attack.defender) === addressKey(me);
   const skins = useBoardSkins(attack?.defender ?? null);
-  const { scene } = useGameBoard({ skins, side: own ? "own" : "rival", resetKey: id, placement: READ_ONLY_PLACEMENT });
+  const { scene } = useGameBoard({ skins, side: own ? "own" : "rival", placement: READ_ONLY_PLACEMENT });
 
   const client = useQueryClient();
   /** Reads the attack's metadata, its moves and the attacker's state again. */

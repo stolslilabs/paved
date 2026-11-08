@@ -16,7 +16,6 @@ const wrap = (ui: ReactNode, reduced = false) => (
     <MotionConfig reducedMotion={reduced ? "always" : "never"}>{ui}</MotionConfig>
   </LazyMotion>
 );
-const wheel = { state: "summer" as const, onNext: vi.fn(), read: null };
 const marks = () => document.querySelectorAll("[data-coach-mark]");
 
 /** The coached control's box and the mark in it: one mark on the board, inside the box that names the target. */
@@ -48,9 +47,8 @@ describe("the coach mark (GAME-OVERLAY)", () => {
     ["deck", "tile-stack"],
     ["discard", "stack's trash"],
     ["settings", "gear"],
-    ["wheel", "season wheel"],
   ] as const)("%s: the light behind the %s, nothing else coached", (target) => {
-    const { container } = render(wrap(<BoardScene {...BOARD.training} mode="story" seasonWheel={wheel} onDiscard={vi.fn()} coach={target as CoachTarget} />));
+    const { container } = render(wrap(<BoardScene {...BOARD.training} mode="story" onDiscard={vi.fn()} coach={target as CoachTarget} />));
     const mark = markOf(target);
     // The painted rays (the opened chest's, white so the code tints them), two fans, the glow, the waves and the flash.
     expect(mark.querySelectorAll("[data-part=rays]")).toHaveLength(2);
@@ -91,14 +89,14 @@ describe("the coach mark (GAME-OVERLAY)", () => {
   });
 
   it("no target, no mark: a level that introduces no control shows none", () => {
-    const { container } = render(wrap(<BoardScene {...BOARD.training} mode="story" seasonWheel={wheel} coach={null} />));
+    const { container } = render(wrap(<BoardScene {...BOARD.training} mode="story" coach={null} />));
     expect(marks()).toHaveLength(0);
     expect(container.querySelector("[data-coach]")).toBeNull();
     noOldMarks(container);
   });
 
-  it("every Story level: the coached ones name one of the five targets, every other level none", () => {
-    const targets = new Set<CoachTarget | null>(["place", "discard", "deck", "settings", "wheel", null]);
+  it("every Story level: the coached ones name one of the four targets, every other level none", () => {
+    const targets = new Set<CoachTarget | null>(["place", "discard", "deck", "settings", null]);
     for (const [key, entry] of Object.entries(COACH)) {
       const [campaign, level] = key.split("-").map(Number);
       expect(CAMPAIGNS.find((c) => c.id === campaign)?.levels.some((l) => l.id === level), key).toBe(true);
@@ -106,5 +104,8 @@ describe("the coach mark (GAME-OVERLAY)", () => {
     }
     // The deck's mark (the old yellow outline) on the Tutorial's 5 and 11 only.
     expect(Object.entries(COACH).filter(([, e]) => e.target === "deck").map(([k]) => k)).toEqual(["1-5", "1-11"]);
+    // Tutorial 6 introduced the board's dial (SEASONS-SETTINGS: gone): no coach of its own, its intro's tip alone.
+    expect(COACH["1-6"]).toBeUndefined();
+    expect(Object.values(COACH).some((e) => /wheel/i.test(e.tip))).toBe(false);
   });
 });

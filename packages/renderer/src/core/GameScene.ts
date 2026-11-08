@@ -52,9 +52,9 @@ import type * as WeatherChunk from "./weather";
 // The chimney smoke too (CHIMNEY-SMOKE-2, #770): loaded the first time a board scene can draw it (`syncSmoke`).
 import type * as SmokeChunk from "./chimney-smoke";
 import { weatherCloudFactor, weatherMode, type WeatherMode } from "./weather-settings";
-import { DAY_PHASE_AT } from "./daynight-settings";
+import { DAY_PHASE_AT, type DayNightRuns } from "./daynight-settings";
 
-/** What the weather sees with the day and night cycle off: the look's fixed lights, a summer's noon (the wheel's summer day). */
+/** What the weather sees with the day and night cycle off: the look's fixed lights, a summer's noon (Settings' Summer and Day). */
 const CYCLE_OFF_POINT = { season: "summer", position: DAY_PHASE_AT.day } as const;
 import { lightDirection, resolveLook, resolveQuality, type LookSettings, type QualityTier } from "./look";
 import {
@@ -213,6 +213,8 @@ export class GameScene {
   private dayNightPoint: DayNight.CyclePoint | null = null;
   /** The cycle's moment last drawn, in seasons (`applyDayNight`): the square grid's backdrop reads its sun there. */
   private dayNightDrawnAt = 0;
+  /** How that moment was read (`runsOf`: the settings' `runs`, or "all" when frozen or still). */
+  private dayNightDrawnAs: DayNightRuns = "all";
   /**
    * The one ambient loop (`ambient-loop.ts`): every ambient effect moves on its time uniform, stepped from this scene's render
    * loop at its capped rate, paused while the tab is hidden or the board covered (`setCovered`), off with the effects.
@@ -649,7 +651,7 @@ export class GameScene {
 
   /**
    * The weather (WEATHER-WIRE, #658) in every board: its chunk loads the first time it shows, then it follows the settings, the
-   * clouds' wind, its mode and the cycle's point (`syncWeatherCycle`: the wheel's season, auto or fixed, by day and at night).
+   * clouds' wind, its mode and the cycle's point (`syncWeatherCycle`: the season Settings choose, turning or held, by day and at night).
    */
   private syncWeather(): void {
     const mode = this.weatherModeNow();
@@ -666,7 +668,7 @@ export class GameScene {
 
   /**
    * The cycle's point to the weather: its season and daylight. With the cycle off in the settings, the look's own fixed lights are
-   * the wheel's summer day (`wheelDayNight`: summer with Day and night off), so summer's noon; with the cycle on but not drawn yet
+   * the app's summer day (Settings' Summer and Day: the cycle off), so summer's noon; with the cycle on but not drawn yet
    * (its chunk on its way), none, so its first season shows at once rather than fading in from summer.
    */
   private syncWeatherCycle(): void {
@@ -895,7 +897,7 @@ export class GameScene {
    */
   private syncGridLight(): void {
     if (!backdropShown(this.settings.squareGrid)) return;
-    const frame = this.dayNightOn && this.dayNight ? this.dayNight.dayNightFrame(this.dayNightDrawnAt, this.settings.dayNight.brightnessFloor) : null;
+    const frame = this.dayNightOn && this.dayNight ? this.dayNight.dayNightFrame(this.dayNightDrawnAt, this.settings.dayNight.brightnessFloor, this.dayNightDrawnAs) : null;
     const ground = frame && new THREE.Color().setRGB(...this.dayNight!.seasonGroundAt(frame.point), THREE.LinearSRGBColorSpace);
     if (this.squareGrid.setLight(backdropLight(this.sceneLights(frame?.sun), this.lookLights), ground)) this.requestRender();
   }
@@ -946,6 +948,7 @@ export class GameScene {
   private applyDayNight(seasons: number): void {
     const look = this.getLook();
     this.dayNightDrawnAt = seasons;
+    this.dayNightDrawnAs = this.dayNight!.runsOf(this.settings.dayNight, this.dayNightStill());
     this.dayNightPoint = this.dayNight!.drawDayNight(
       {
         key: look.key.enabled ? this.directionalLight : null,
@@ -964,6 +967,7 @@ export class GameScene {
       },
       seasons,
       this.settings.dayNight.brightnessFloor,
+      this.dayNightDrawnAs,
     );
     this.syncCloudLight();
     this.syncGridLight();

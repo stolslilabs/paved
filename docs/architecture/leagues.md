@@ -66,10 +66,11 @@ June solstice, autumn from the September equinox, winter from the December solst
 astronomical events. Seasons last 89 to 94 days (winter is the shortest), about 13 weeks, so the weekly missions still
 fit.
 
-**The game's own seasons.** The board's season dial (`packages/app/src/data/season-wheel.ts`, the renderer's
-`daynight-settings.ts`) is a visual cycle of summer, autumn, winter and spring. It has no calendar: each of its seasons
-lasts one 2-minute day-and-night cycle (`cycleMs`), started from the player's setting or at random. The contracts had no
-calendar either. So the PvP seasons follow the sky, not the dial, and the dial is unchanged. The order is the same.
+**The game's own seasons.** The board's seasons (Settings' Seasons and Day and night, `packages/app/src/data/day-night.ts`, the
+renderer's `daynight-settings.ts`; the season dial until SEASONS-SETTINGS) are a visual cycle of summer, autumn, winter and spring.
+It has no calendar: each of its seasons lasts one 2-minute day-and-night cycle (`cycleMs`), started at random or held by the
+player's choice. The contracts had no calendar either. So the PvP seasons follow the sky, not the board's cycle, which is unchanged.
+The order is the same.
 
 **The table** (`SEASON_STARTS` in `paved::matchmaker::leagues`): the 200 events of 2026 to 2075, four a year (spring,
 summer, autumn, winter), as Unix timestamps rounded to the second.

@@ -58,7 +58,7 @@ const ARGS: WeatherBoardProps = {
   springBirds: false,
   season: "summer",
   fadeTo: null,
-  wheel: "fixed",
+  cycle: "held",
   time: "day",
   speed: 1,
   view: "phone-play",
@@ -73,7 +73,7 @@ const ARGS: WeatherBoardProps = {
 
 /**
  * The weather (WEATHER-STUDY, #607 PR 2; wired by WEATHER-WIRE, #658, as the owner validated it on 2026-10-20): every board's scene
- * draws it (`RendererSettings.weather`), in every mode, on the season wheel (#547: auto, the cycle's season; fixed, the chosen one)
+ * draws it (`RendererSettings.weather`), in every mode, on the season as Settings choose it (auto, the cycle's season; held, the chosen one)
  * and with the day and the night. This story hands the controls to the scene's settings, as the game's board hands the defaults:
  *
  * - **Summer**: a stronger, warmer light, nothing more (no glare, no shimmer: no glow, no halo).
@@ -85,7 +85,7 @@ const ARGS: WeatherBoardProps = {
  *   so the board does not draw them (the switch here shows them).
  *
  * Everything moves in its vertex shader on the one ambient loop: one draw per layer shown, one for the grade. Off on the Low tier
- * and with the 'Ambient effects' off; with the day and night cycle off, the board is the wheel's summer day, so summer's; under reduced motion, nothing falls: the grades, the
+ * and with the 'Ambient effects' off; with the day and night cycle off, the board is Settings' Summer and Day, so summer's; under reduced motion, nothing falls: the grades, the
  * brightness and the snow on the tops stay. At night the grades and the brightness go with the sun; the rain and the snow fall on,
  * dimmer. A change of season fades over three seconds.
  *
@@ -129,11 +129,11 @@ const meta = {
     ...layerControls("petals", "petals", "spring"),
     springBirds: { control: "boolean", description: "The birds of #574 in spring (not validated yet: the board does not draw them)", ...category("spring") },
 
-    season: { control: "inline-radio", options: SEASONS, description: "The season: the wheel's fixed one, or where the cycle starts on auto", ...category("board") },
-    wheel: { control: "inline-radio", options: ["fixed", "auto"], description: "The season wheel: fixed holds the season's day (as the game), auto runs the cycle", ...category("board") },
-    fadeTo: { control: "inline-radio", options: [null, ...SEASONS], description: "With the wheel fixed: two seconds in, the wheel turns to this season (a fade)", ...category("board") },
-    time: { control: "inline-radio", options: ["day", "night"], description: "With the wheel fixed: its day (the game's) or its night", ...category("board") },
-    speed: { ...range(1, 20, 1), description: "With the wheel on auto: how fast the cycle runs (1 the game's: a day and a night in two minutes)", ...category("board") },
+    season: { control: "inline-radio", options: SEASONS, description: "The season: the one held, or where the cycle starts on auto", ...category("board") },
+    cycle: { control: "inline-radio", options: ["held", "auto"], description: "The cycle: held holds the season's day (as Settings' season and Day), auto runs the cycle", ...category("board") },
+    fadeTo: { control: "inline-radio", options: [null, ...SEASONS], description: "Held: two seconds in, the season held turns to this one (a fade)", ...category("board") },
+    time: { control: "inline-radio", options: ["day", "night"], description: "Held: its day (the game's) or its night", ...category("board") },
+    speed: { ...range(1, 20, 1), description: "On auto: how fast the cycle runs (1 the game's: a day and a night in two minutes)", ...category("board") },
     view: { control: "inline-radio", options: ["game", "phone-play"], description: `The game's opening camera, or a phone's play distance (${PHONE_PLAY_DISTANCE})`, ...category("board") },
     clouds: { control: "boolean", description: "The cloud shadows (#573), whose wind the weather takes", ...category("board") },
     windDirection: { ...range(0, 360, 5), description: `The clouds' wind, where it blows toward, degrees (default ${DEFAULT_CLOUD_SHADOWS.windDirection})`, ...category("board") },
@@ -148,7 +148,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Summer, the wheel fixed (its day held, as the game): a stronger, warmer light. */
+/** Summer, held (its day, as the game's Summer and Day): a stronger, warmer light. */
 export const Summer: Story = { args: { season: "summer" } };
 
 /** Autumn: a fine rain along the clouds' wind, a few splashes, leaves blown along it, more clouds, a grey grade. */
@@ -172,11 +172,11 @@ export const WinterNight: Story = { args: { season: "winter", time: "night" } };
 /** Spring's night: the brighter light goes with the sun. */
 export const SpringNight: Story = { args: { season: "spring", time: "night" } };
 
-/** The wheel on auto, the cycle ten times as fast from summer: each season's weather fades into the next's, by day and by night. */
-export const Cycle: Story = { args: { wheel: "auto", speed: 10, view: "game" } };
+/** The cycle on auto, ten times as fast from summer: each season's weather fades into the next's, by day and by night. */
+export const Cycle: Story = { args: { cycle: "auto", speed: 10, view: "game" } };
 
 /**
- * A season fade: the wheel fixed, the season changed (autumn to winter here, as a tap on the wheel does): the rain and the leaves
+ * A season fade: the season held, then changed (autumn to winter here, as a new choice in Settings does): the rain and the leaves
  * fade out as the snow and its veil fade in, over three seconds. Change the season control to see another.
  */
 export const SeasonFade: Story = { args: { season: "autumn", fadeTo: "winter" } };

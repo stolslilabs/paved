@@ -167,8 +167,7 @@ export default function Page() {
         activeGame={wallet.address ? (active.data ?? null) : null}
         spawnPaused={paused.data ?? false}
         now={now}
-        seasonWheel={board.wheel}
-        renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} onScene={board.onScene} />}
+        renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} />}
         onPlay={() => go("/play")}
         onChat={() => go("/chat")}
         onGuild={() => go("/guild")}

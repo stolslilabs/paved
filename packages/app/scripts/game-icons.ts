@@ -3,7 +3,7 @@
  * file (`vendor/fontawesome/solid.min.js`, the whole file, outside `public/`), one entry per HUD icon, so the icons are in the
  * bundle and draw at the first paint, with no script to wait for. `GameIcon` paints each part in its own tone. The world's
  * icons (#870: the structure categories, the seasons) are a second file, `world-icon-shapes.ts`, drawn by `WorldIcon`: only
- * the lazy chunks that show them (the closings, the village's kinds, the season wheel) load it, not the home's first load.
+ * the lazy chunks that show them (the closings, the village's kinds) load it, not the home's first load.
  *
  *   node scripts/game-icons.ts            write the shapes files
  *   node scripts/game-icons.ts --check    fail when a committed file differs from what the source gives

@@ -35,11 +35,11 @@ export interface ChimneySmokeBoardProps {
   plan: string;
   /** Every plan on its Forest variants (their smoking chimneys), or the base models. */
   forest: boolean;
-  /** The wheel's fixed season, held at its day (or its night). */
+  /** The season held at its day (or its night), as Settings hold it. */
   season: Season;
-  /** Two seconds after the board is up, the wheel turns to this season (the smoke fades in or out); null, it stays. */
+  /** Two seconds after the board is up, the season held turns to this one (the smoke fades in or out); null, it stays. */
   fadeTo: Season | null;
-  /** Four seconds after that, the wheel turns again, to this season; null, it stays. */
+  /** Four seconds after that, it turns again, to this season; null, it stays. */
   fadeThen?: Season | null;
   /** The tile layout: the tile starts pending (the tile in hand: its white voxels), and is placed and dropped two seconds after the board is up. */
   place?: boolean;
@@ -144,7 +144,7 @@ interface Readout {
 }
 
 /**
- * The chimney smoke (CHIMNEY-SMOKE-1 and -2, #770) on one tile or on the recorded 72-tile board, the season held by the wheel, as
+ * The chimney smoke (CHIMNEY-SMOKE-1 and -2, #770) on one tile or on the recorded 72-tile board, the season held (Settings' season and Day), as
  * a board draws it: the scene's own smoke (`RendererSettings.smoke` on, as the app's boards set it), which loads its chunk, finds
  * each drawn model type's chimneys, smoking and bare, places their mouths on the ambient loop, and swaps the placed tiles to their
  * types' smoke-free twins. The white smoke voxels are hidden while the smoke can be drawn (in summer too: neither smoke nor white
@@ -157,7 +157,7 @@ export function ChimneySmokeBoard(props: ChimneySmokeBoardProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   const [ready, setReady] = useState(false);
   const [readout, setReadout] = useState<Readout | null>(null);
-  /** The wheel's turns taken since the board is up (`fadeTo`, then `fadeThen`); the tile placed (`place`). */
+  /** The season's turns taken since the board is up (`fadeTo`, then `fadeThen`); the tile placed (`place`). */
   const [turned, setTurned] = useState(0);
   const [dropped, setDropped] = useState(false);
   /** Bumped when the chimneys drawn change (the models come in): the camera is set again after the board's own fit. */
@@ -167,7 +167,7 @@ export function ChimneySmokeBoard(props: ChimneySmokeBoardProps) {
   const skins = forest ? FOREST_SKINS : NO_SKINS;
   const close = view === "close" || layout === "tile";
   const season = (turned >= 2 && fadeThen) || (turned >= 1 && fadeTo) || props.season;
-  const dayNightKey = JSON.stringify(weatherDayNight({ wheel: "fixed", season, time: props.time, speed: 1, reducedMotion }));
+  const dayNightKey = JSON.stringify(weatherDayNight({ cycle: "held", season, time: props.time, speed: 1, reducedMotion }));
   const smokeKey = JSON.stringify(smokeInput(props));
   const settings = useMemo<RendererSettingsInput>(
     () => ({
@@ -187,7 +187,7 @@ export function ChimneySmokeBoard(props: ChimneySmokeBoardProps) {
     (window as unknown as { __smokeScene?: GameScene }).__smokeScene = s;
   }, []);
 
-  // The wheel's turns: to `fadeTo` two seconds after the board is up, then to `fadeThen` four seconds later.
+  // The season's turns: to `fadeTo` two seconds after the board is up, then to `fadeThen` four seconds later.
   useEffect(() => {
     setTurned(0);
     if (!ready || !fadeTo) return;
