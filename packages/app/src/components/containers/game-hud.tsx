@@ -55,7 +55,7 @@ const GROOVE: CSSProperties = {
  * The board's header over the scene (GAME-OVERLAY, the Paved UX Book's board screen, mockup 3 of "Resume a Challenge"): on the HUD's
  * frame, as the Scout's; Back (the drawers'), the title outlined in the display font and under it the score beside the painted star,
  * the last move's gain in green or the placed tile's points in gold; then, for a Challenge, behind a carved groove, the time left by the
- * painted stopwatch and the reward by the PAVED coin; Story's Restart, held; the painted gear. The tiles left are on the tile stack (#606).
+ * painted stopwatch and the reward by the PAVED coin ("max" under it from the cap's score); Story's Restart, held; the painted gear. The tiles left are on the tile stack (#606).
  */
 export function GameHud({ title, score, delta, preview, expiresAt, reward, now, onBack, onSettings, onRestart, restartDisabled, coach, className }: GameHudProps) {
   const challenge = expiresAt != null || reward;
@@ -69,7 +69,8 @@ export function GameHud({ title, score, delta, preview, expiresAt, reward, now, 
       )}
       {/* The title, a name, is cut first and stays whole in its title (WRAP360): `w-0 min-w-full` keeps its length out of the
           column's width. The mark on the title's line, after it (#622): a Challenge game is the mock's on a mock build (#927). */}
-      <div className={cn("flex min-w-0 flex-1 flex-col gap-0.5", !onBack && "pl-2")}>
+      {/* The score is the column's floor (WRAP360): the title is cut first, the gain goes under the score where it does not fit beside it. */}
+      <div className={cn("flex flex-1 flex-col gap-0.5", !onBack && "pl-2")}>
         <div className="flex w-0 min-w-full items-center gap-1.5">
           <h1 title={title} className="text-outline min-w-0 truncate pr-0.5 font-display text-base leading-snug tracking-wide mobile:text-lg tablet:text-xl">
             {title}
@@ -115,14 +116,16 @@ export function GameHud({ title, score, delta, preview, expiresAt, reward, now, 
  */
 function HudScore({ score, delta, preview }: { score: number; delta?: number | null; preview?: number | null }) {
   return (
-    <div className="flex min-w-0 items-center gap-1">
-      <UiIcon name="star" px={20} className="drawer-icon size-4.5 shrink-0 tablet:size-5" />
-      <span className="sr-only">Score</span>
-      <span data-testid="score-value" className="numeric text-outline text-base leading-none font-bold tracking-tight tablet:text-lg">
-        {formatPoints(score)}
+    <div className="flex flex-wrap items-center gap-x-1">
+      <span className="inline-flex shrink-0 items-center gap-1">
+        <UiIcon name="star" px={20} className="drawer-icon size-4.5 shrink-0 tablet:size-5" />
+        <span className="sr-only">Score</span>
+        <span data-testid="score-value" className="numeric text-outline text-base leading-none font-bold tracking-tight tablet:text-lg">
+          {formatPoints(score)}
+        </span>
       </span>
       {preview != null ? (
-        <span data-testid="score-preview" title="The points this tile would score" className="numeric text-outline text-xs font-bold text-primary tablet:text-sm">
+        <span data-testid="score-preview" title="The points this tile would score" className="numeric text-outline text-xs font-bold whitespace-nowrap text-primary tablet:text-sm">
           (+{formatPoints(preview)})<span className="sr-only"> if placed</span>
         </span>
       ) : (
@@ -147,7 +150,7 @@ function HudScore({ score, delta, preview }: { score: number; delta?: number | n
 
 /**
  * The HUD's reward (#705): "Beat 1,150" by the painted trophy under the threshold, then "≈ 172.84" over "PAVED" beside the PAVED coin
- * (the book's), what the score earns at the day's threshold (`curve::payout`), and "max" from the cap's score. An estimate while the day
+ * (the book's), what the score earns at the day's threshold (`curve::payout`), and "max" beside "PAVED" from the cap's score. An estimate while the day
  * is open: its mean fixes the threshold when it closes.
  */
 function HudReward({ curve, score }: { curve: RewardCurve; score: number }) {
@@ -172,12 +175,13 @@ function HudReward({ curve, score }: { curve: RewardCurve; score: number }) {
         <span className="numeric text-sm whitespace-nowrap tablet:text-base">
           <span className="sr-only">Estimated reward </span>≈ {amount}
         </span>
-        <span className="text-xs tracking-wide">
+        {/* "max" on the coin's line, under the figure: the header keeps its width at 320 px (WRAP360). */}
+        <span className="text-xs tracking-wide whitespace-nowrap">
           <span className="sr-only"> </span>
           {TOKENS.paved.symbol}
+          {capped && " max"}
         </span>
       </span>
-      {capped && <span className="text-xs">max</span>}
     </span>
   );
 }
