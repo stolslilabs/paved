@@ -66,19 +66,32 @@ export class SeededChallenge {
   /** The tiles the moves played, in id order: placed, or discarded at (0, 0). */
   private readonly played: ChainTile[] = [];
 
+  /**
+   * `deckSeed`: the seed the deck's cards are withdrawn from (a Puzzle game's day seed, `EngineConfig.deckSeed`); left out, `seed`'s,
+   * as a Challenge game's.
+   */
   constructor(
     readonly seed: bigint,
     readonly player: bigint,
+    readonly deckSeed?: bigint,
   ) {
-    this.engine = EngineGame.start({ deck: "simple", seed, player, vrf: true });
+    this.engine = EngineGame.start({ deck: "simple", seed, player, vrf: true, ...(deckSeed === undefined ? {} : { deckSeed }) });
     this.drawPending();
   }
 
-  /** The game of `seed` with `moves` played again, in order. Throws when a move is not legal. */
-  static replay(seed: bigint, player: bigint, moves: readonly SeededMove[]): SeededChallenge {
-    const game = new SeededChallenge(seed, player);
+  /** The game of `seed` (its deck from `deckSeed` when given) with `moves` played again, in order. Throws when a move is not legal. */
+  static replay(seed: bigint, player: bigint, moves: readonly SeededMove[], deckSeed?: bigint): SeededChallenge {
+    const game = new SeededChallenge(seed, player, deckSeed);
     for (const move of moves) game.play(move);
     return game;
+  }
+
+  /**
+   * The engine, for reads only: the legal placements of the tile in hand, a move's points on a clone, the game's figures
+   * (`gameStats`), its state as a board shows it (`pageStateOf`). A move goes through `play`, which draws what it leaves to draw.
+   */
+  get rules(): EngineGame {
+    return this.engine;
   }
 
   get over(): boolean {

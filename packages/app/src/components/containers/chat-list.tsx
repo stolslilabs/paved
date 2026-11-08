@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { formatInteger, type ConversationId } from "@paved/game-core";
 import type { ChatMessage, ChatOverview, ConversationSummary } from "../../data/social-source";
 import { UNREADABLE_MESSAGE, chatErrorText, conversationName } from "../../lib/chat-text";
@@ -14,7 +14,7 @@ import { PlayerName } from "../elements/player-name";
 import { SectionTitle } from "../elements/section-title";
 import { shortAddress } from "../elements/short-address";
 import { UiIcon } from "../elements/ui-icon";
-import { GOLD_RAISED, chatLeague, messageTime } from "./chat-conversation";
+import { AnswerButtons, chatLeague, messageTime } from "./chat-conversation";
 import { LeaguePortrait } from "./league-control";
 
 /** A count on a row, a tab or a button: "99+" past 99. */
@@ -134,16 +134,7 @@ function RequestRow({ request: c, onOpen, onAnswer }: RequestRowProps) {
             <span className="drawer-carved self-start rounded-lg px-2.5 py-1 text-sm font-semibold text-muted-foreground">Wants to chat</span>
           </span>
         </button>
-        {onAnswer && (
-          <>
-            <Button aria-label={`Accept ${name}`} className="size-11 shrink-0 rounded-xl px-0" style={GOLD_RAISED} loading={answering === true} disabled={answering !== null} onClick={() => answer(true)}>
-              <UiIcon name="check" px={28} className="drawer-icon size-7" />
-            </Button>
-            <Button aria-label={`Decline ${name}`} variant="secondary" className="drawer-raised size-11 shrink-0 rounded-xl px-0" loading={answering === false} disabled={answering !== null} onClick={() => answer(false)}>
-              <UiIcon name="cross" px={24} className="drawer-icon size-6" />
-            </Button>
-          </>
-        )}
+        {onAnswer && <AnswerButtons name={name} answering={answering} onAnswer={answer} />}
       </div>
       <InlineError title="Request" message={error} />
     </div>
@@ -162,17 +153,20 @@ export interface ChatListProps {
   onOpen?: (id: ConversationId) => void;
   /** A request's check and cross: accept or decline it from the list. */
   onAnswer?: (id: ConversationId, accept: boolean) => Promise<unknown>;
-  /** New message (#973): the friends, the guildmates, then the player search. */
+  /** New message (#973): the friends, the guildmates, then the player search; the plus at the Messages' title's end. */
   onNewMessage?: () => void;
+  /** The Inbox's Mail at the top (`MailSection`): the system's mail, a Puzzle prize's; none without one. */
+  mail?: ReactNode;
 }
 
 /**
- * The chat page's Private tab (#973; CHAT-PAGE, the Paved UX Book's "chat-private"): in one carved panel that scrolls, New message at
- * its top right, then the requests from strangers under their title, each with its check and cross, then the private conversations
- * by their last message on a raised card, each with its unread count. A row opens the conversation over the list. The World and the
- * guild have tabs of their own.
+ * The chat page's Inbox tab (#973 "Private"; CHAT-PAGE, the Paved UX Book's "chat-private"; the mailbox since the owner's ask of
+ * 2026-11-08): in one carved panel that scrolls, the system's Mail first (`mail`: a Puzzle prize's, Claim all its one primary button),
+ * then the requests from strangers under their title, each with its check and cross (the guild's requests' raised faces), then
+ * "Messages", New message the plus at its end, and the private conversations by their last message on a raised card, each with its
+ * unread count. A row opens the conversation over the list. The World and the guild have tabs of their own.
  */
-export function ChatList({ overview, error, errorDetail, onRetry, now, timeZone, onOpen, onAnswer, onNewMessage }: ChatListProps) {
+export function ChatList({ overview, error, errorDetail, onRetry, now, timeZone, onOpen, onAnswer, onNewMessage, mail }: ChatListProps) {
   const requests = overview?.requests ?? [];
   const privates = overview?.conversations.filter((c) => c.kind === "private") ?? [];
   return (
@@ -190,11 +184,7 @@ export function ChatList({ overview, error, errorDetail, onRetry, now, timeZone,
             )
           }
         />
-        {onNewMessage && (
-          <Button className="text-outline h-11 shrink-0 self-end rounded-xl px-4 text-base font-bold text-foreground" style={GOLD_RAISED} onClick={onNewMessage}>
-            New message
-          </Button>
-        )}
+        {mail}
         {requests.length > 0 && (
           <section aria-label="Requests" className="flex shrink-0 flex-col gap-1.5">
             {/* A fixed word (TILE-COUNTS): the Private tab's badge and the rows say how many. */}
@@ -208,6 +198,20 @@ export function ChatList({ overview, error, errorDetail, onRetry, now, timeZone,
             </ul>
           </section>
         )}
+        {/* New message, an icon at the title's end (the owner's ask of 2026-11-08: one primary button in the Inbox, Claim all's). */}
+        <SectionTitle
+            end={
+              onNewMessage && (
+                <button type="button" aria-label="New message" onClick={onNewMessage} className="-my-1 grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg outline-none">
+                  <span className="state-layer drawer-raised grid size-9 place-items-center rounded-lg">
+                    <UiIcon name="plus" px={24} className="drawer-icon size-6" />
+                  </span>
+                </button>
+              )
+            }
+          >
+            Messages
+          </SectionTitle>
         <section aria-label="Conversations" className="flex shrink-0 flex-col">
           {overview === null && !error && (
             <div aria-busy className="flex flex-col gap-2">
@@ -226,7 +230,7 @@ export function ChatList({ overview, error, errorDetail, onRetry, now, timeZone,
             </ul>
           )}
           {overview && privates.length === 0 && (
-            <p className="rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground">No private messages yet. Tap New message, or Message on a friend's profile.</p>
+            <p className="rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground">No private messages yet. Tap + to write one, or Message on a friend's profile.</p>
           )}
         </section>
       </ScrollRegion>

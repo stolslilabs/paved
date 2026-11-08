@@ -2,6 +2,9 @@ import { Suspense, lazy } from "react";
 import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
+import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
+import type { PuzzleCard } from "../../components/containers/play-modes";
+import { usePuzzleActiveGame, usePuzzleAvailable, usePuzzleStanding } from "../../data/puzzle";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { useDrawerRoute } from "../drawer-route";
@@ -16,6 +19,9 @@ const ChallengeStake = lazy(loadStake);
 /** Story's campaigns (`/story`, STORY-PAGE): their progress and the cards' pictures, a chunk of their own, fetched as Play is pointed at. */
 const loadStory = () => import("./story");
 const StoryCampaigns = lazy(loadStory);
+/** The Puzzle (`/play/puzzle`, Play's Limited mode): its leaderboard and its deck, a chunk of their own, fetched as Play is pointed at. */
+const loadPuzzle = () => import("./puzzle");
+const PuzzleView = lazy(loadPuzzle);
 
 /**
  * `/play`, `/play/challenge` and `/story` (PLAY-PAGE, the Paved UX Book's "modes" and "challenge", then the owner's asks of 2026-11-06;
@@ -42,12 +48,20 @@ export default function Page() {
   const active = useActiveGame(wallet.address);
   const now = useNow();
   const running = wallet.address ? (active.data ?? null) : null;
+  // The Puzzle's card (Limited): today's time left, the player's best and place, their game still open; "Coming soon" without a Puzzle.
+  const me = wallet.address ?? null;
+  const puzzleOn = usePuzzleAvailable();
+  const today = puzzleDayOf(now);
+  const standing = usePuzzleStanding(puzzleOn ? today : null, me);
+  const puzzleGame = usePuzzleActiveGame(puzzleOn ? me : null).data ?? null;
+  const puzzle: PuzzleCard | null = puzzleOn ? { endsAt: puzzleDayEnd(today), best: standing.data?.me ?? null, playing: puzzleGame ? { score: puzzleGame.score } : null } : null;
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
     if (!prefetchAllowed()) return;
     void loadStake().catch(() => {});
     void loadStory().catch(() => {});
+    void loadPuzzle().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -72,14 +86,25 @@ export default function Page() {
             </Suspense>
           ) : null
         }
+        puzzle={
+          path === "play/puzzle" ? (
+            // The view's own code may still be on its way: the view holds its place, the drawer stays.
+            <Suspense fallback={null}>
+              <PuzzleView />
+            </Suspense>
+          ) : null
+        }
         onBack={onBack}
         onChallengeBack={onViewBack}
         onStoryBack={onViewBack}
+        onPuzzleBack={onViewBack}
         onChallenge={() => go("/play/challenge")}
         onResume={(id) => go(`/game/${id}`)}
         onTraining={() => go("/training")}
         onStory={() => go("/story")}
         onAttack={() => go("/pvp")}
+        puzzleCard={puzzle}
+        onPuzzle={() => go(puzzleGame ? `/puzzle/${puzzleGame.id}` : "/play/puzzle")}
       />
     </div>
   );

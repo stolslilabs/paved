@@ -1,6 +1,7 @@
 import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter, RenameRequest } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
+import type { PuzzleSource } from "../puzzle-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -117,6 +118,24 @@ export function mockEvents<T extends Pick<EventReader, "playerGames">>(chain: T,
 /** The pool's quote of the ledger (#927): the mock's rate, no pool read. */
 export function mockPool(ledger: MockLedger): PoolQuoter {
   return { quoteSwap: (usdcIn) => ledger.quoteSwap(usdcIn) };
+}
+
+/**
+ * The Puzzle's source of the ledger (Play's Limited mode, `puzzle.ts`): the days' leaderboards with the seeded players, the accounts'
+ * games by game-core's rules, the prizes and their claims. No chain part lies beneath: the Puzzle has no contract yet.
+ */
+export function mockPuzzle(ledger: MockLedger): PuzzleSource {
+  return {
+    standing: (day, viewer) => ledger.puzzleStanding(day, viewer),
+    activeGame: (player) => ledger.puzzleActiveGame(player),
+    game: (gameId) => ledger.puzzleGame(gameId),
+    result: (gameId) => ledger.puzzleResult(gameId),
+    prizes: (player) => ledger.puzzlePrizes(player),
+    visit: (player) => ledger.puzzleVisit(player),
+    start: (player) => ledger.puzzleStart(player),
+    play: (player, gameId, move) => ledger.puzzlePlay(player, gameId, move),
+    claim: (player, days) => ledger.puzzleClaim(player, days),
+  };
 }
 
 /**

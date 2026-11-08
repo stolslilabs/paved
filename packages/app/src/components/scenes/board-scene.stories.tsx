@@ -10,7 +10,8 @@ import { BOARD_FOG } from "../../data/settings";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
-import { storyMeter, type ScoreMeterValue } from "../../lib/score-meter";
+import { puzzleMeter, storyMeter, type ScoreMeterValue } from "../../lib/score-meter";
+import { MOCK_NOW } from "../../mocks/clock";
 import { BoardNotice } from "../containers/board-notice";
 import { toastCompletion } from "../containers/completion-toasts";
 import { Toaster } from "../ui/sonner";
@@ -156,6 +157,11 @@ export const SettingsTraining: Story = { args: { ...BOARD.training, ...inHand(HA
 export const Training: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null) } };
 /** Training on the device's first game: no best, so no meter; the header the same. */
 export const TrainingFirstGame: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null), meter: null } };
+/**
+ * A Puzzle game (PUZZLE-MODE): "Puzzle" and the score, the day's time left (a game ranks only when it ends before the day does), the
+ * score meter to the day's first place and its trophy; Surrender ends it, no Restart.
+ */
+export const Puzzle: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null), mode: "puzzle", expiresAt: MOCK_NOW + 5 * 3_600 + 12 * 60, meter: puzzleMeter(1_640, BOARD.training.score) } };
 /** The settings in Story mode: no game row (its Restart is held on the board). */
 export const SettingsStory: Story = {
   args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, meter: storyStars(BOARD.placing.score), title: "Tutorial 5: Under the trees" },

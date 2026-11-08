@@ -88,8 +88,8 @@ export interface GameEndProps {
   verdict: string;
   /** Under it: "against Wren of Hollowmere", a level's title. */
   subtitle?: ReactNode;
-  /** The score: "4,037 / 3,216" (against the village's), "4,037". */
-  score: ReactNode;
+  /** The score: "4,037 / 3,216" (against the village's), "4,037". Left out: none over the rows (the Puzzle's, whose first row is its score). */
+  score?: ReactNode;
   /** The carved card's rows (the crowns, the XP), soft rules between them. */
   rows?: readonly ReactNode[];
   /** Lines under the rows: a new best, the points short of the next star. */
@@ -302,9 +302,11 @@ export function GameEnd({ stars = 0, fills, mark, verdict, subtitle, score, rows
       {mark ?? <EndStars stars={stars} fills={fills} instant={instant} className="absolute -top-14 left-1/2 -translate-x-1/2" />}
       <EndVerdict verdict={verdict} />
       {subtitle && <p className="-mt-1 text-sm font-semibold text-muted-foreground">{subtitle}</p>}
-      <p aria-label="Score" className="text-outline text-2xl leading-none font-bold text-foreground tabular-nums">
-        {score}
-      </p>
+      {score !== undefined && (
+        <p aria-label="Score" className="text-outline text-2xl leading-none font-bold text-foreground tabular-nums">
+          {score}
+        </p>
+      )}
       {rows && rows.length > 0 && (
         <div className="drawer-carved flex w-full flex-col rounded-2xl px-3 text-left">
           {rows.map((row, i) => (
