@@ -149,5 +149,12 @@ export const EndChestError: Story = {
   args: TUTORIAL_1,
   render: () => <StoryEnd {...END} score={321} stars={3} fills={fillsOf(321)} chest={{ state: "error", rank: "basic", message: "The RPC did not answer.", onRetry: fn() }} onOpenChest={fn()} />,
 };
+/** Under 3 stars, the report failed (#1088): its failure and Retry, never "No chest this time" nor "Chest already won" from the device's stars. */
+export const EndChestErrorUnderThree: Story = {
+  args: TUTORIAL_1,
+  render: () => (
+    <StoryEnd {...END} score={300} stars={2} fills={fillsOf(300)} toNextStar={21} previousBest={321} chest={{ state: "error", rank: "basic", message: "The RPC did not answer.", onRetry: fn() }} />
+  ),
+};
 /** The network serves no chests (no v2 writes): carved, nothing to open here. */
 export const EndChestUnavailable: Story = { args: TUTORIAL_1, render: () => <StoryEnd {...END} score={321} stars={3} fills={fillsOf(321)} chest={{ state: "unavailable", rank: "basic" }} /> };
