@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import type { ChestArtProps } from "./chest-art";
 import { CHEST_NAME } from "./chest-designs";
-import { CHEST_ART_REM, CHEST_SPENT } from "./chest-designs";
+import { CHEST_ART_REM } from "./chest-designs";
 import { ChestIcon } from "./chest-icon";
 
 const ChestArt = lazy(() => import("./chest-art"));
@@ -11,7 +11,7 @@ const ChestArt = lazy(() => import("./chest-art"));
  * chunk is in, the chest's icon (`ChestIcon`) stands in the art's box, under the same name, so nothing moves when the art comes.
  */
 export function LazyChestArt(props: ChestArtProps) {
-  const { rank, state = "rest", size = "md", label, className } = props;
+  const { rank, size = "md", label, className } = props;
   const name = label === undefined ? CHEST_NAME[rank] : label;
   const fallback = (
     <span
@@ -19,7 +19,7 @@ export function LazyChestArt(props: ChestArtProps) {
       data-slot="chest-art-fallback"
       data-rank={rank}
       className={className}
-      style={{ display: "inline-grid", placeItems: "center", fontSize: `${CHEST_ART_REM[size]}rem`, width: "1em", height: "1em", ...(state === "spent" && CHEST_SPENT) }}
+      style={{ display: "inline-grid", placeItems: "center", fontSize: `${CHEST_ART_REM[size]}rem`, width: "1em", height: "1em" }}
     >
       {/* The icon's box is 1.25em wide: 0.6 of the art's box spans three quarters of it, as the art's chests do (70 to 82 %). */}
       <span style={{ fontSize: `${CHEST_ART_REM[size] * 0.6}rem` }}>

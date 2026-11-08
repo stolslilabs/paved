@@ -7,7 +7,7 @@ import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
 import { useBoardSettings } from "../../data/board-settings";
 import { BOARD_FOG } from "../../data/settings";
-import { APP_ASSETS, SOURCE_ASSETS, appRenders, originalTileArt } from "../../mocks/assets";
+import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
 import { storyMeter, type ScoreMeterValue } from "../../lib/score-meter";
@@ -16,7 +16,6 @@ import { toastCompletion } from "../containers/completion-toasts";
 import { Toaster } from "../ui/sonner";
 import { BoardViewport } from "../containers/board-viewport";
 import { DeckPresentation, StoryCoach, StoryEnd } from "../containers/story-panels";
-import { TileView } from "../containers/tile-view";
 import { BoardScene, type BoardSceneProps } from "./board-scene";
 
 /** The cells next to a cell (the contracts' coordinates, y north) and the side of the new tile that faces each. */
@@ -94,7 +93,6 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
           settings={settings}
         />
       }
-      renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
     />
   );
 }
@@ -250,7 +248,6 @@ function WithDial(args: BoardSceneProps) {
       {...args}
       seasonWheel={board.wheel}
       canvas={<BoardViewport tiles={args.tiles} basePath={APP_ASSETS} slots={args.slots} ghost={args.ghost} bubble={args.bubble} settings={settings} onScene={board.onScene} />}
-      renderHandTile={(t) => <TileView {...t} basePath={APP_ASSETS} tileArt={originalTileArt(SOURCE_ASSETS)} />}
     />
   );
 }

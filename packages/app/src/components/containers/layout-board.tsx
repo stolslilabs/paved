@@ -44,8 +44,9 @@ export interface LayoutBoardProps {
    */
   fit?: boolean;
   /**
-   * In view, a long press on a tile (the starter included) opens this action (#799: the village's Edit), through a one-button
-   * bubble standing by the tile, its ring filling as the press goes on, as on the 3D scene. Unset: the plan is inert in view.
+   * In view, a long press on a tile (the starter included) opens this action (#799: the village's Edit), through one painted button
+   * standing by the tile by the tile actions' rules (PRESS-BUILD), its ring filling as the press goes on, as on the 3D scene. Unset: the
+   * plan is inert in view.
    */
   press?: BoardPress | null;
   /** A placed tile chosen (never the starter): lift it into the hand. */
@@ -257,12 +258,12 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
       >
         {cells}
         {press && presses.shown && (
-          // Standing still by the pressed tile, above its top-right corner.
+          // On the pressed tile's box: the button stands out of it as on the scene, the plan's scrolling region its room.
           <div style={at(presses.shown.cell)} className="pointer-events-none relative z-30 min-h-0 min-w-0">
             <Suspense fallback={null}>
               <LazyPressBubble
                 label={press.label}
-                icon={press.icon}
+                art={press.art}
                 hold={presses.hold}
                 phase={presses.shown.phase}
                 onTap={presses.act}

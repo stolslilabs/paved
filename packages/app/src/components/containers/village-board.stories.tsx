@@ -30,8 +30,6 @@ export const Start: Story = { args: { village: VILLAGE_START } };
 export const Full: Story = { args: { village: VILLAGE_FULL } };
 /** Someone else's village (a visit, the attack's territory). */
 export const ReadOnly: Story = { args: { village: VILLAGE_RIVAL } };
-/** No fog. */
-export const FogOff: Story = { args: { fog: "off" } };
 /** A road being placed: its legal cells lit. */
 export const Placing: Story = { args: { placing: placing(VILLAGE_GROWING, PLAN.road) } };
 /** Dragged over a lit cell: the tile previewed there. */

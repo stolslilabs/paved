@@ -92,7 +92,6 @@ export interface HoldButtonProps {
 export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = HOLD_MS, disabled = false, busy = false, title, holdKey, tone = "primary", hold: shared, painted = false, className }: HoldButtonProps) {
   const off = disabled || busy;
   const own = useHold({ onComplete, holdMs, holdKey, disabled: off, charge: painted });
-  const reduce = useReducedMotionConfig() ?? false;
   const hold = shared ?? own;
   const { state } = hold;
   // A press (pointer or key) on the button began: the click that follows it is not an activation of its own, and only
@@ -164,32 +163,49 @@ export function HoldButton({ onComplete, label, icon = "check", glyph, holdMs = 
       className={cn("relative touch-none select-none [-webkit-touch-callout:none]", className, painted && busy && "disabled:opacity-100")}
     >
       {painted ? (
-        // The charge: the painting swells a little as the hold fills (slowly, then fast), and springs back when let go.
-        <span
-          data-charge
-          className={cn("pointer-events-none grid size-full place-items-center", busy && "opacity-70")}
-          style={
-            reduce
-              ? undefined
-              : { transform: state === "holding" ? "scale(1.09)" : "scale(1)", transition: state === "holding" ? `transform ${hold.holdMs}ms cubic-bezier(0.6, 0, 0.9, 0.4)` : `transform ${REWIND_MS}ms ease-out` }
-          }
-        >
-          {glyph}
-        </span>
+        <PaintedHold glyph={glyph} state={state} holdMs={hold.holdMs} tone={tone} busy={busy} />
       ) : (
-        !busy && (glyph ?? <Icon name={icon} size="md" />)
+        <>
+          {!busy && (glyph ?? <Icon name={icon} size="md" />)}
+          <HoldRing state={state} holdMs={hold.holdMs} tone={tone} />
+        </>
       )}
-      <HoldRing state={state} holdMs={hold.holdMs} tone={tone} painted={painted} busy={painted && busy} />
     </Button>
   );
 }
 
 /**
- * The hold's ring around a 44 px button's icon (`HoldButton`'s, and the press bubble's, issue 799): it fills clockwise from the top
- * over `holdMs` while held, stays full once done, and rewinds when let go early. The fill is the hold's progress, so it shows
- * under reduced motion too.
+ * A painted hold's face (TILE-ACTIONS): the painting, which swells a little as the hold fills (slowly, then fast) and springs back when
+ * let go, and the painted ring round it (`HoldRing`). `HoldButton`'s painted look, and the long press's Edit village by a tile of the
+ * home village (PRESS-BUILD, `press-bubble.tsx`), whose hold is the board's press: one look and one motion for every painted hold.
+ * Under reduced motion the painting keeps its size (the ring's fill and glow still show the hold).
  */
-export function HoldRing({ state, holdMs, tone = "primary", painted = false, busy = false }: { state: HoldState; holdMs: number; tone?: HoldTone; painted?: boolean; busy?: boolean }) {
+export function PaintedHold({ glyph, state, holdMs, tone = "primary", busy = false }: { glyph: ReactNode; state: HoldState; holdMs: number; tone?: HoldTone; busy?: boolean }) {
+  const reduce = useReducedMotionConfig() ?? false;
+  return (
+    <>
+      <span
+        data-charge
+        className={cn("pointer-events-none grid size-full place-items-center", busy && "opacity-70")}
+        style={
+          reduce
+            ? undefined
+            : { transform: state === "holding" ? "scale(1.09)" : "scale(1)", transition: state === "holding" ? `transform ${holdMs}ms cubic-bezier(0.6, 0, 0.9, 0.4)` : `transform ${REWIND_MS}ms ease-out` }
+        }
+      >
+        {glyph}
+      </span>
+      <HoldRing state={state} holdMs={holdMs} tone={tone} painted busy={busy} />
+    </>
+  );
+}
+
+/**
+ * The hold's ring around a 44 px button's icon (`HoldButton`'s; painted, `PaintedHold`'s): it fills clockwise from the top over
+ * `holdMs` while held, stays full once done, and rewinds when let go early. The fill is the hold's progress, so it shows under
+ * reduced motion too.
+ */
+function HoldRing({ state, holdMs, tone = "primary", painted = false, busy = false }: { state: HoldState; holdMs: number; tone?: HoldTone; painted?: boolean; busy?: boolean }) {
   if (painted) return <PaintedRing state={state} holdMs={holdMs} tone={tone} busy={busy} />;
   const offset = state === "idle" ? RING_C : 0;
   const transition = state === "holding" ? `stroke-dashoffset ${holdMs}ms linear` : state === "idle" ? `stroke-dashoffset ${REWIND_MS}ms ease-out, opacity ${REWIND_MS}ms ease-out` : "none";

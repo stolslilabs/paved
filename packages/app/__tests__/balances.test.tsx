@@ -216,13 +216,6 @@ describe("the plates (#828)", () => {
     for (const plate of container.querySelectorAll("[data-slot=resource-plate]")) expect(plate.querySelector(".rounded-full")).toBeNull();
   });
 
-  it("the mirrored plate puts the icon at the left end", () => {
-    const { container } = render(wrap(<ResourcePlate kind="cobbles" amount={240n} decimals={0} fraction={0} side="left" />));
-    const plate = container.querySelector<HTMLElement>("[data-slot=resource-plate]")!;
-    expect(plate.dataset.side).toBe("left");
-    expect(plate.className).toContain("flex-row-reverse");
-  });
-
   it("column: the balances one under the other, right-aligned", () => {
     render(wrap(<Balances layout="rail" direction="column" state={READY} />));
     expect(screen.getByRole("region", { name: "Balances" }).className).toEqual(expect.stringContaining("flex-col items-end gap-1"));

@@ -7,6 +7,7 @@ import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
 import type { Hold } from "../../lib/use-hold";
 import { PRESS_SHOW_MS, usePressAction } from "../../lib/use-press-action";
+import type { UiIconName } from "../elements/ui-art";
 import { BoardCovered } from "./board-covered";
 import { LazyPressBubble, LazyTileBubble, loadPressBubble } from "./lazy-tile-bubble";
 
@@ -122,8 +123,9 @@ export interface BoardViewportProps {
    */
   bubble?: BoardBubble | null;
   /**
-   * A long press on a tile opens this action (LONGPRESS-EDIT, #799: the village's Edit in view), through a one-button bubble by
-   * the tile whose ring fills as the press goes on (`usePressAction`). Unset, or a tile bubble up: a press is a tap or a pan.
+   * A long press on a tile opens this action (LONGPRESS-EDIT, #799: the village's Edit in view), through one painted button out of the
+   * tile, one of the tile's actions (PRESS-BUILD), whose ring fills as the press goes on (`usePressAction`). Unset, or a tile bubble up:
+   * a press is a tap or a pan.
    */
   press?: BoardPress | null;
   /**
@@ -138,10 +140,10 @@ export interface BoardViewportProps {
   className?: string;
 }
 
-/** The action a long press on a tile opens (#799): its button's name and icon, and the action. */
+/** The action a long press on a tile opens (#799): its button's name and painting (PRESS-BUILD: one of the tile actions' set), and the action. */
 export interface BoardPress {
   label: string;
-  icon: string;
+  art: UiIconName;
   onAct: () => void;
   /** The hold's length, ms (`HOLD_MS` by default; the stories tune it). */
   holdMs?: number;
@@ -486,7 +488,7 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
             scene={scene}
             cell={pressAction.shown.cell}
             label={press.label}
-            icon={press.icon}
+            art={press.art}
             hold={pressAction.hold}
             phase={pressAction.shown.phase}
             onTap={pressAction.act}

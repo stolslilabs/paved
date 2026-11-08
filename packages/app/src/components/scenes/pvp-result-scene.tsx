@@ -56,10 +56,6 @@ export interface PvpResultSceneProps {
   balance: number;
   /** Seconds since the epoch: the cap's countdown. */
   now: number;
-  /** The result is being recorded (#643's finish): the crowns are not final yet. */
-  pending?: boolean;
-  error?: string | null;
-  errorDetail?: ErrorDetail;
   tileArt?: TileArt;
   /** The reward's tile placed on a free cell of the village (#646's sheet). */
   onPlace?: (place: VillagePlace) => void;
@@ -153,8 +149,6 @@ export function PvpResultScene(props: PvpResultSceneProps) {
           <LeagueCrest league={after} />
         </div>
 
-        <InlineError title="Result" message={props.error} detail={props.errorDetail} className="w-full" />
-
         <section aria-label="Reward" data-input-surface className="flex w-full flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <h3 className="font-semibold">Village reward</h3>
           {reward.state === "offer" && (
@@ -167,7 +161,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
                 <span className="text-xs text-muted-foreground">or</span>
                 <Cobbles value={reward.offer.cobbles} sign="+" />
               </div>
-              <Button size="lg" onClick={() => setChoosing(true)} disabled={props.pending} loading={choosing && !villageScene}>
+              <Button size="lg" onClick={() => setChoosing(true)} loading={choosing && !villageScene}>
                 <Icon name="treasure-chest" size="sm" />
                 Choose
               </Button>
@@ -176,7 +170,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
           {reward.state === "sealed" && (
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted-foreground">Your reward is waiting: open it to draw its three tiles.</p>
-              <Button size="lg" onClick={props.onOpenReward} disabled={props.pending} loading={props.opening}>
+              <Button size="lg" onClick={props.onOpenReward} loading={props.opening}>
                 <Icon name="treasure-chest" size="sm" />
                 Open the reward
               </Button>
@@ -226,7 +220,7 @@ export function PvpResultScene(props: PvpResultSceneProps) {
             <Icon name="film" size="sm" />
             Replay
           </Button>
-          <Button variant={reward.state === "offer" ? "secondary" : "default"} size="lg" onClick={props.onAgain} loading={props.pending}>
+          <Button variant={reward.state === "offer" ? "secondary" : "default"} size="lg" onClick={props.onAgain}>
             <Icon name="swords" size="sm" />
             Attack again
           </Button>

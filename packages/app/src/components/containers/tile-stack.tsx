@@ -136,8 +136,6 @@ export interface TileStackProps {
   renderStack?: (view: StackFrame) => ReactNode;
   /** The deck's plans (chain ids, a card each), the pile's tiles in the 3D view are drawn from; unset: every plan. */
   pilePlans?: readonly number[];
-  /** Draws the tile in hand with the renderer (`TileView`) on its CSS slab, without `renderStack`. */
-  renderTile?: (tile: { plan: number; orientation: number }) => ReactNode;
   /** A tap on the stack: the deck sheet (#540). */
   onDeck?: () => void;
   /** The end of a hold on the stack's Discard. */
@@ -328,7 +326,6 @@ export function TileStack({
   skins,
   renderStack,
   pilePlans = ALL_PLANS,
-  renderTile,
   onDeck,
   onDiscard,
   discardCost,
@@ -548,15 +545,7 @@ export function TileStack({
                       height={SLAB_T}
                       faded={cellChosen}
                       face={
-                        // Each `GameCanvas` owns its canvas and frees its WebGL context on unmount (R-dispose, #397).
-                        renderTile ? (
-                          <span data-view="render" className={cn(chipVariants({ size: "lg", state: chipState }), "size-full", handFace)}>
-                            {/* The view frames the tile with a little of the board around it: the face shows the tile only. */}
-                            <span className="block size-full scale-110">{renderTile(tile)}</span>
-                          </span>
-                        ) : (
-                          <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} size="lg" state={chipState} className={cn("size-full", handFace)} />
-                        )
+                        <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} size="lg" state={chipState} className={cn("size-full", handFace)} />
                       }
                     />
                   )}

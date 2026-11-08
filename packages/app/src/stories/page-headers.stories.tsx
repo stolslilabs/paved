@@ -28,6 +28,7 @@ import { VaultScene } from "../components/scenes/vault-scene";
 import { ChatScene } from "../components/scenes/chat-scene";
 import { FriendsScene } from "../components/scenes/friends-scene";
 import { GuildScene } from "../components/scenes/guild-scene";
+import { Skeleton } from "../components/ui/skeleton";
 import { LeaderboardScene } from "../components/scenes/leaderboard-scene";
 import { LEADERBOARD } from "../mocks/ranking";
 import { FRIENDS_SEARCH } from "../mocks/social";
@@ -70,9 +71,11 @@ export const Play: Story = { render: () => <PlayScene {...PLAY.connected} onBack
 export const Missions: Story = { render: () => <MissionsScene {...MISSIONS.daily} /> };
 export const Tiles: Story = { render: () => <TilesScene {...TILES.owned} onBack={fn()} /> };
 export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> };
-export const Chat: Story = { render: () => <ChatScene /> };
-export const Guild: Story = { render: () => <GuildScene /> };
-export const Friends: Story = { render: () => <FriendsScene {...FRIENDS_SEARCH.idle} /> };
+/** The social pages as they open, their body loading (the app's own wait while the account is read): the header is what is compared. */
+const loading = <Skeleton aria-busy className="h-40 rounded-xl" />;
+export const Chat: Story = { render: () => <ChatScene>{loading}</ChatScene> };
+export const Guild: Story = { render: () => <GuildScene>{loading}</GuildScene> };
+export const Friends: Story = { render: () => <FriendsScene {...FRIENDS_SEARCH.idle}>{loading}</FriendsScene> };
 export const Ranking: Story = { render: () => <LeaderboardScene {...LEADERBOARD.playersInView} /> };
 export const Settings: Story = { render: () => <SettingsScene {...SETTINGS.connected} /> };
 export const StoryCampaigns: Story = {

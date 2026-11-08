@@ -7,7 +7,7 @@ import { ChatList } from "../../components/containers/chat-list";
 import { ChatMenu } from "../../components/containers/chat-menu";
 import { ChatNewMessage } from "../../components/containers/chat-new-message";
 import { ChatGuildless, type ChatBadges } from "../../components/containers/chat-tabs";
-import { SocialUnavailable } from "../../components/containers/social-empty";
+import { SocialUnavailable } from "../../components/containers/social-unavailable";
 import { ChatScene } from "../../components/scenes/chat-scene";
 import { Skeleton } from "../../components/ui/skeleton";
 import { chatKeys, useChatMutes, useChatOverview, useChatWrites, useConversation, type ChatOverview, type ChatWrites } from "../../data/chat";

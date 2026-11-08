@@ -5,13 +5,13 @@ import { Icon, type IconSize } from "../ui/icon";
 
 const crownsVariants = cva("inline-flex items-center gap-1 whitespace-nowrap", {
   variants: {
-    size: { sm: "text-xs", md: "text-sm", lg: "text-2xl" },
+    size: { sm: "text-xs", lg: "text-2xl" },
     tone: { default: "text-foreground", gain: "text-success", loss: "text-warning", muted: "text-muted-foreground" },
   },
-  defaultVariants: { size: "md", tone: "default" },
+  defaultVariants: { size: "sm", tone: "default" },
 });
 
-const ICON_SIZE: Record<NonNullable<VariantProps<typeof crownsVariants>["size"]>, IconSize> = { sm: "xs", md: "sm", lg: "lg" };
+const ICON_SIZE: Record<NonNullable<VariantProps<typeof crownsVariants>["size"]>, IconSize> = { sm: "xs", lg: "lg" };
 
 export interface CrownsProps extends VariantProps<typeof crownsVariants> {
   value: number;
@@ -30,7 +30,7 @@ export function Crowns({ value, signed, size, tone, className }: CrownsProps) {
   const shown = tone ?? (signed ? (value > 0 ? "gain" : value < 0 ? "loss" : "muted") : "default");
   return (
     <span role="img" aria-label={`${value < 0 ? "-" : signed && value > 0 ? "+" : ""}${formatInteger(Math.abs(value))} ${Math.abs(value) === 1 ? "crown" : "crowns"}`} className={cn(crownsVariants({ size, tone: shown }), className)}>
-      <Icon name="crown" size={ICON_SIZE[size ?? "md"]} className="text-crown" />
+      <Icon name="crown" size={ICON_SIZE[size ?? "sm"]} className="text-crown" />
       <span aria-hidden className="numeric font-semibold">
         {text}
       </span>

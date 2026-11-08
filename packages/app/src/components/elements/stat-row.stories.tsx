@@ -16,8 +16,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const WithHint: Story = { args: { hint: "450 pts" } };
-export const Gold: Story = { args: { label: "Score", value: "1,270", icon: "star", tone: "gold" } };
-export const Success: Story = { args: { label: "Burn boost", value: "+3%", icon: "arrow-trend-up", tone: "success" } };
 export const Danger: Story = { args: { label: "Missed by", value: "210", icon: "triangle-exclamation", tone: "danger" } };
 export const NoIcon: Story = { args: { icon: undefined } };
 /** WRAP360: a long label and hint wrap (the icon stays on the first line), a compound word breaks, a large figure keeps one line. */

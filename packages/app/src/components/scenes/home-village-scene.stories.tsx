@@ -4,6 +4,7 @@ import type { BoardTile } from "@paved/chain";
 import type { GameScene } from "@paved/renderer";
 import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
+import { WHEEL_SEASONS } from "../../data/season-wheel";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { HALL_OF_FAME, PLAYER_STATUS, PROFILE, RECORDS } from "../../mocks/scenes";
@@ -284,6 +285,73 @@ export const ButtonsReachable: Story = {
 export const ButtonsReachablePhone320: Story = { ...ButtonsReachable, ...PHONE_320 };
 export const ButtonsReachablePhone375: Story = { ...ButtonsReachable, ...PHONE_375 };
 export const ButtonsReachableWide1440: Story = { ...ButtonsReachable, ...WIDE_1440 };
+
+/** A day and night every 8 s, read from the clock: the dial turns at each of its reads (once a second), as on the deployed app. */
+function turningCycle() {
+  const start = Date.now();
+  return () => {
+    const seasons = (((Date.now() - start) / 8000) % WHEEL_SEASONS.length + WHEEL_SEASONS.length) % WHEEL_SEASONS.length;
+    return { season: WHEEL_SEASONS[Math.floor(seasons)]!, position: seasons % 1 };
+  };
+}
+
+/** The scene with its edit mode in hand (the page's URL in the app) and the dial turning. */
+function EditRoundTrip(args: HomeVillageSceneProps) {
+  const [editing, setEditing] = useState(false);
+  const [read] = useState(turningCycle);
+  return (
+    <HomeVillageScene
+      {...args}
+      seasonWheel={{ state: "auto", onNext: fn(), read }}
+      editing={editing}
+      onEditingChange={(next) => {
+        args.onEditingChange?.(next);
+        setEditing(next);
+      }}
+    />
+  );
+}
+
+/** The columns stand clear of the profile and the balances: their tops a gap under each, as measured (`--left-top`, `--right-top`). */
+async function expectColumnsInPlace(canvasElement: HTMLElement) {
+  const box = canvasElement.querySelector<HTMLElement>("[data-slot=home-overlays]")!;
+  await waitFor(() => expect(box.style.getPropertyValue("--left-top")).not.toBe(""), { timeout: 5000 });
+  const [profile, balances] = [...box.querySelectorAll<HTMLElement>("[data-out=u2]")].map((el) => el.getBoundingClientRect());
+  const left = box.querySelector("[data-slot=scroll-region]")!.getBoundingClientRect();
+  const right = box.querySelector("[data-out=r0]")!.getBoundingClientRect();
+  await expect(left.top).toBeGreaterThanOrEqual(profile!.bottom);
+  await expect(right.top).toBeGreaterThanOrEqual(balances!.bottom);
+  // The left column's controls start under the profile, the right one's tiles under the balances.
+  const score = within(box).getByRole("button", { name: /^Edit village, score/ }).getBoundingClientRect();
+  await expect(score.top).toBeGreaterThanOrEqual(profile!.bottom);
+  const tiles = within(box).getByRole("navigation", { name: "Village" }).getBoundingClientRect();
+  await expect(tiles.top).toBeGreaterThanOrEqual(balances!.bottom);
+}
+
+/**
+ * HOME-COLUMNS-AFTER-EDIT (#1068, the owner's decision of 2026-11-07: the overlay keeps its layout however the player comes back to
+ * it): the dial turning all along, in and out of edit mode three times, the columns under the profile and the balances each time.
+ */
+export const ColumnsAfterEdit: Story = {
+  ...PHONE_375,
+  args: HOME_VILLAGE.view,
+  render: (args) => <EditRoundTrip {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole("button", { name: /^Season/ }, { timeout: 10_000 });
+    await canvas.findByRole("navigation", { name: "Village" }, { timeout: 10_000 });
+    await expectColumnsInPlace(canvasElement);
+    for (let i = 0; i < 3; i++) {
+      await userEvent.click(canvas.getByRole("button", { name: /^Edit village, score/ }));
+      await userEvent.click(await canvas.findByRole("button", { name: "Leave edit mode" }, { timeout: 10_000 }));
+      // Back on the home: the dial's chunk is in, so it turns from the overlays' first frame.
+      await canvas.findByRole("navigation", { name: "Village" }, { timeout: 10_000 });
+      await expectColumnsInPlace(canvasElement);
+    }
+  },
+};
+export const ColumnsAfterEditPhone320: Story = { ...ColumnsAfterEdit, ...PHONE_320 };
+export const ColumnsAfterEditWide1440: Story = { ...ColumnsAfterEdit, ...WIDE_1440 };
 /** Not founded yet: the starter alone, Found in Edit's place. */
 export const Unfounded: Story = { args: HOME_VILLAGE.unfounded };
 /** The village on its way: the overlays paint first, over the sky. */
@@ -695,10 +763,12 @@ export const Interactive: Story = { args: HOME_VILLAGE.view, render: (args) => <
 export const InteractiveScene: Story = { args: HOME_VILLAGE.view, render: (args) => <Playground {...args} scene />, ...PHONE_375 };
 
 /**
- * LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows a bubble by the tile with Edit (the
- * hammer, as the home's Edit since #807) and its ring, which fills as the press goes on; at its end, edit mode opens as from the
- * Edit button. Let go early, the ring rewinds and Edit stays tappable about 3 s, then fades. On the plan view the bubble stands
- * by the tile; on the scene it follows it. A read-only village and a visit show none.
+ * LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows Edit village by the tile and its ring, which
+ * fills as the press goes on; at its end, edit mode opens as from the Edit button. Let go early, the ring rewinds and Edit stays
+ * tappable about 3 s, then fades. PRESS-BUILD: the button is one of the tile's actions (TILE-ACTIONS), the white hammer on the blue
+ * disc at Confirm's place (up and to the right), a constant gap from the tile at every zoom, clear of the HUD and the dock, its ring the
+ * Missions' gold rail. On the plan view it stands by the tile by the same rules; on the scene it follows it. A read-only village and a
+ * visit show none.
  */
 const pressPlan = async (canvasElement: HTMLElement, letGo = false) => {
   const plan = await within(canvasElement).findByRole("img", { name: /^Village layout/ });
@@ -736,7 +806,7 @@ const expectLingering = async (canvasElement: HTMLElement) => {
   expect(within(canvasElement).getByRole("button", { name: "Edit village" })).toBeInTheDocument();
 };
 
-/** The press held on the starter: Edit by it, its ring filling (a 6 s hold here, so it can be looked at). */
+/** The press held on the starter: Edit village out of it, its ring filling (a 6 s hold here, so it can be looked at). */
 export const PressHolding: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, play: ({ canvasElement }) => pressPlan(canvasElement) };
 /** Let go early: the ring rewinds, Edit stays tappable about 3 s, then fades. */
 export const PressLetGo: Story = {
@@ -748,7 +818,7 @@ export const PressLetGo: Story = {
 };
 /** Held to its end (`HOLD_MS`): edit mode opens, as from the Edit button. */
 export const PressIntoEdit: Story = { args: { ...HOME_VILLAGE.view, holdMs: 800 }, render: (args) => <Playground {...args} />, play: ({ canvasElement }) => pressPlan(canvasElement) };
-/** The same on the scene at 375 px (touch) and 1440 px (mouse): the bubble by the pressed tile, following it. */
+/** The same on the scene at 375 px (touch) and 1440 px (mouse): Edit village out of the pressed tile, following it. */
 export const ScenePressPhone: Story = { args: { ...HOME_VILLAGE.view, holdMs: 6000 }, render: (args) => <InScene {...args} />, play: ({ canvasElement }) => pressScene(canvasElement), ...PHONE_375 };
 export const ScenePressWide: Story = { ...ScenePressPhone, ...WIDE_1440 };
 /** Let go early on the scene: Edit lingers by the tile, then fades. */

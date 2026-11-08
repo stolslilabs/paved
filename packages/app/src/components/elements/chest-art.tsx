@@ -2,15 +2,14 @@ import type { CSSProperties } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "../../lib/utils";
-import { CHEST_ART_REM, CHEST_DROP_S, CHEST_NAME, CHEST_SPENT, RANK_LIGHT, type ChestArtSize, type ChestRank } from "./chest-designs";
+import { CHEST_ART_REM, CHEST_DROP_S, CHEST_NAME, RANK_LIGHT, type ChestArtSize, type ChestRank } from "./chest-designs";
 import { CHEST_BASE, CHEST_EFFECTS, CHEST_LAYERS, CHEST_MEASURES, chestEffectUrl, chestImageUrl, pickSize, type ChestLayer } from "./chest-images";
 
 /**
- * A chest's state: `rest` idles (a shine crosses it now and then; epic glows), `ready` glows and shakes as issue 784's, `opening`
- * crouches, springs up and pops its lid as the light bursts, `open` holds the opened chest in its light, `spent` is an opened chest,
- * empty and grey (the slots' opened chest).
+ * A chest's state: `ready` glows, a shine crossing it now and then, and shakes as issue 784's; `opening` crouches, springs up and pops
+ * its lid as the light bursts; `open` holds the opened chest in its light.
  */
-export type ChestArtState = "rest" | "ready" | "opening" | "open" | "spent";
+export type ChestArtState = "ready" | "opening" | "open";
 
 /**
  * The opening's beats (s), the chest's squash and stretch over `JUMP_S`: it crouches, springs up and pops its lid at `POP_S` (the
@@ -74,7 +73,7 @@ const density = () => (typeof window === "undefined" ? 2 : Math.min(3, Math.max(
 
 export interface ChestArtProps {
   rank: ChestRank;
-  state?: ChestArtState;
+  state: ChestArtState;
   size?: ChestArtSize;
   /** Ready: shakes as issue 784's (the default); false when a parent shakes it (the modal, faster while its draw comes) or holds it still (the slots). */
   shake?: boolean;
@@ -88,24 +87,24 @@ export interface ChestArtProps {
 /**
  * A chest's art (the owner's direction of 2026-10-31), for the chest slots and the opening's modal: images in layers, the closed
  * chest, then once open the raised lid behind, the light, and the body in front, in a box 1em square (`CHEST_ART_REM`), animated with
- * Motion. At rest a shine crosses the chest now and then, and an epic chest glows; ready, it shakes and squashes as issue 784's;
+ * Motion. Ready, it glows, a shine crosses it now and then, and it shakes and squashes as issue 784's;
  * opening, it crouches, springs up and pops its lid on its hinges with a flash, light bursts out of it (rays turning in the rank's
  * colour, a glow, a beam out of the mouth and sparks) and it lands in a puff of dust. Under reduced motion nothing moves: the open
  * chest shows at once and its light only fades in. The copies are picked for the box and the screen's density, the open chest's
  * layers loaded with the closed one so it opens with no wait. The app loads it in its own chunk (`LazyChestArt`).
  */
-export function ChestArt({ rank, state = "rest", size = "md", shake = true, drop = false, label, className }: ChestArtProps) {
+export function ChestArt({ rank, state, size = "md", shake = true, drop = false, label, className }: ChestArtProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const light = RANK_LIGHT[rank];
   const { mouth, hinge } = CHEST_MEASURES[rank];
   const name = label === undefined ? CHEST_NAME[rank] : label;
-  const opened = state === "opening" || state === "open" || state === "spent";
-  const lit = state === "opening" || state === "open";
+  const opened = state !== "ready";
+  const lit = opened;
   // Motion when the state brings it in: the opening's beats; `open` shows its end at once.
   const animateIn = state === "opening" && !reduced;
   // Under reduced motion the opening's light only fades in: no scale, no delay, no flight.
   const fadeIn = state === "opening" && reduced;
-  const idle = !reduced && (state === "rest" || state === "ready");
+  const idle = !reduced && state === "ready";
   const dropIn = drop && !reduced;
   const shaking = state === "ready" && shake && !reduced;
 
@@ -135,10 +134,10 @@ export function ChestArt({ rank, state = "rest", size = "md", shake = true, drop
       data-rank={rank}
       data-state={state}
       className={cn("relative inline-block shrink-0 select-none", className)}
-      style={{ fontSize: `${CHEST_ART_REM[size]}rem`, width: "1em", height: "1em", ...(state === "spent" && CHEST_SPENT) }}
+      style={{ fontSize: `${CHEST_ART_REM[size]}rem`, width: "1em", height: "1em" }}
     >
-      {/* An epic chest's glow at rest (and every chest's, ready): a soft halo that breathes. */}
-      {!opened && (rank === "epic" || state === "ready") && (
+      {/* The ready chest's glow: a soft halo that breathes. */}
+      {!opened && (
         <m.span
           data-part="glow"
           style={{ ...at(0.5, 0.68, 1.15), borderRadius: "50%", background: `radial-gradient(closest-side, ${light}, transparent)` }}

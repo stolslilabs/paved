@@ -12,6 +12,7 @@ import { provideManifest } from "@paved/renderer";
 import { APP_ASSETS, APP_MANIFEST } from "../src/mocks/assets";
 import { ProfileProvider, type ProfileValue } from "../src/components/containers/profile-context";
 import { AudioProvider } from "../src/components/containers/audio-provider";
+import { inClaudePane } from "../src/data/settings";
 
 // Dark only: the `dark:` variant of shadcn's components needs this on <html> (F1's correction to section 2.2).
 document.documentElement.dataset.theme = "dark";
@@ -81,11 +82,15 @@ function Providers({
   return <QueryClientProvider client={client}>{ownRouter ? story : <MemoryRouter initialEntries={[route]}>{story}</MemoryRouter>}</QueryClientProvider>;
 }
 
-/** The sound effects for a story that asks for them (`parameters.sfx`), the music off and no playlist. */
+/**
+ * The sound effects for a story that asks for them (`parameters.sfx`), the music off and no playlist. Silent in an agent's preview
+ * (the Claude app's pane, AGENT-PREVIEW-MUTE), as the app is on its load.
+ */
 const NO_TRACKS: readonly string[] = [];
+const SILENT = inClaudePane();
 function WithSfx({ volume, children }: { volume?: number; children: React.ReactNode }) {
   return volume === undefined ? children : (
-    <AudioProvider musicVolume={0} sfxVolume={volume} tracks={NO_TRACKS}>
+    <AudioProvider musicVolume={0} sfxVolume={SILENT ? 0 : volume} tracks={NO_TRACKS}>
       {children}
     </AudioProvider>
   );

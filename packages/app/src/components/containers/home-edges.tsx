@@ -87,6 +87,7 @@ export function ChatTab({ badge = 0, onClick }: { badge?: number; onClick?: () =
       onClick={onClick}
       whileTap={{ scale: 0.94 }}
       aria-label={named("Chat", badge)}
+      data-bubble-avoid
       className="relative grid shrink-0 cursor-pointer place-items-center outline-none"
       style={{ width: `calc(${TAB_PX}px + env(safe-area-inset-left))`, height: TAB_H, paddingLeft: "env(safe-area-inset-left)" }}
     >
@@ -110,7 +111,7 @@ export function ChatAndMission({ chat, mission, onChat, onMissions }: { chat?: n
     <>
       <ChatTab badge={chat} onClick={onChat} />
       {mission && (
-        <div className="max-w-full pl-(--hud-inset-left)">
+        <div data-bubble-avoid className="max-w-full pl-(--hud-inset-left)">
           <MissionTab mission={mission} onClick={onMissions} />
         </div>
       )}

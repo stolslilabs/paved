@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { GUILD_SIZES, GuildBrowse, GuildFinder, GuildInvitations, NO_GUILD_FILTERS, type GuildFinderAction, type GuildFinderFilters } from "../../components/containers/guild-finder";
-import { SocialUnavailable } from "../../components/containers/social-empty";
+import { SocialUnavailable } from "../../components/containers/social-unavailable";
 import { Skeleton } from "../../components/ui/skeleton";
 import { InlineError } from "../../components/elements/inline-error";
 import { useGuildRanking, useGuildSearch, useGuildWrites, usePlayerGuild, useSuggestedGuilds, type GuildWriteRun } from "../../data/guilds";
