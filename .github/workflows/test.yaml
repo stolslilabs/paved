@@ -4,9 +4,13 @@ on:
   pull_request:
   push:
     branches: [main]
+  # GitHub's merge queue: each group is tested on top of main and of the groups ahead of it.
+  merge_group:
+    types: [checks_requested]
 
 # A newer push to a PR cancels the run of its previous head. A push to main gets a group of its own
-# (its run id), so it is never cancelled nor queued behind another.
+# (its run id), so it is never cancelled nor queued behind another. A merge_group run also gets its own
+# group (its run id) and is never cancelled here: the queue cancels and re-creates its own runs.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -34,8 +38,11 @@ jobs:
       - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
         id: filter
         with:
-          # On push to main, compare with the previous commit; on a PR, with its base.
-          base: ${{ github.event_name == 'push' && github.event.before || '' }}
+          # On push to main, compare with the previous commit; on a PR, with its base; on a merge queue group,
+          # its own range (base_sha..head_sha: what the group adds to main). Two SHAs take the action's plain
+          # `git diff base..head` path, fetching what the shallow checkout lacks.
+          base: ${{ github.event_name == 'push' && github.event.before || github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
+          ref: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || '' }}
           filters: |
             contracts:
               - 'contracts/**'
