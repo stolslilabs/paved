@@ -7,6 +7,7 @@ import { ChatMenu } from "../containers/chat-menu";
 import { ChatNewMessage } from "../containers/chat-new-message";
 import { ChatGuildless } from "../containers/chat-tabs";
 import { ChatScene } from "./chat-scene";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The chat page (`/chat`, #973; CHAT-PAGE, the Paved UX Book's "Chat" flow): the HUD's drawer, a full page with Back on a phone, a
@@ -74,3 +75,9 @@ export const ReducedMotion: Story = { args: { tab: "private", badges: CHAT_BADGE
 export const Stress: Story = { args: { tab: "private", badges: CHAT_BADGES.stress, children: list(CHAT_LIST.stress) } };
 /** WRAP360: the guild's stress conversation in its tab. */
 export const StressConversation: Story = { args: { tab: "guild", badges: CHAT_BADGES.stress, children: conversation(CHAT_CONVERSATION.stress) } };
+
+/** FOOTER-TABS (#1062): the tabs at the foot, pinned at the widths the owner checks. */
+export const GuildPhone: Story = { ...Guild, ...PHONE_375 };
+export const GuildPhone320: Story = { ...Guild, ...PHONE_320 };
+export const GuildWide: Story = { ...Guild, ...WIDE_1440 };
+export const PrivateConversationPhone: Story = { ...PrivateConversation, ...PHONE_375 };

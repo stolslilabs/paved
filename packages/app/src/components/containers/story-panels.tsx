@@ -1,30 +1,35 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { formatInteger, type Stars } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { BLACK_OUTLINE } from "../elements/black-outline";
-import { EMPTY_STAR } from "../elements/painted-stars";
-import { StarRow } from "../elements/star-row";
+import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
+import { HudFrame } from "../elements/hud-frame";
+import { EMPTY_STAR, PaintedStars } from "../elements/painted-stars";
+import { SectionTitle } from "../elements/section-title";
 import { planCode, type TileArt } from "../elements/tile-chip";
-import { TileRender, type TileRenders } from "../elements/tile-render";
+import { StoryBackground, TileRender, type TileRenders } from "../elements/tile-render";
 import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 import { EndChestPanel, END_STARS, GameEnd, ShowScores, XpRow, type EndChest, type EndXp } from "./game-end";
 
-const CARD = "pointer-events-auto flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card/95 p-3 text-sm shadow-lg backdrop-blur tablet:p-4";
-
-/** The whole presentation's entrance, seconds: the tiles land one after another within it, however many there are. */
-const PRESENT_SECONDS = 0.9;
+/** The tiles' deal, seconds: they land one after another within it, however many there are. */
+const DEAL_SECONDS = 0.9;
+/** When the first tile lands (s): the window is in. */
+const DEAL_LEAD = 0.2;
+/** A tile's landing (s). */
+const LAND = 0.32;
 
 export interface DeckPresentationProps {
   campaign: string;
+  /** The campaign's id: its picture (`StoryBackground`, Story's campaign head) behind the level's name. Unset: no picture. */
+  campaignId?: number;
   levelIndex: number;
   title: string;
   intro: string;
-  /** The level's tip (`StoryLevel.tip`, #721): one sentence, set apart under the tiles. None: no tip block. */
+  /** The level's tip (`StoryLevel.tip`, #721): one sentence, in its carved box under the tiles. None: no box. */
   tip?: string;
   /** The tiles the level deals after the starter, in draw order (chain plan ids). */
   deck: readonly number[];
@@ -32,22 +37,58 @@ export interface DeckPresentationProps {
   theme?: number;
   /** The build-time renders the tiles are drawn from; the plan's chip without one. */
   renders?: TileRenders;
-  /** The best score so far on this device, with its stars. */
+  /** The best score so far on this device, with its stars; none: "No best yet". */
   best?: { score: number; stars: Stars } | null;
   onStart?: () => void;
   className?: string;
 }
 
+/** The deck page's grid (`deck-sheet.tsx`): four tiles a row on a carved panel. */
+const GRID = "drawer-carved grid gap-1 self-center rounded-xl p-1";
+const COLUMNS = 4;
 /**
- * A level's opening (#593, #721): its title and intro, then the tiles it deals in draw order, in its campaign's theme,
- * numbered, the order the deck sheet shows (#613), landing one after another, then its tip, set apart under a bulb; a tap
- * anywhere, or Start, opens the board. No star threshold is shown. Under reduced motion the tiles are there at once.
+ * The grid's width: the whole row from four tiles; a shorter deck's panel hugs its tiles at the same tile size (the 2-tile Tutorial
+ * level: half the row, in its middle), so a cell is the same whatever the deck.
  */
-export function DeckPresentation({ campaign, levelIndex, title, intro, tip, deck, theme = 0, renders, best, onStart, className }: DeckPresentationProps) {
-  const reduced = useReducedMotionConfig();
-  const step = Math.min(0.07, PRESENT_SECONDS / Math.max(1, deck.length));
-  // A plan the theme has no render of keeps the base one, as the deck sheet's (`deckArt`).
-  const shownIn = (plan: number) => (renders?.(theme, planCode(plan).toLowerCase()) ? theme : 0);
+function gridStyle(tiles: number): CSSProperties {
+  const columns = Math.max(1, Math.min(COLUMNS, tiles));
+  return {
+    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+    // The four columns' share, less the panel's padding (0.5rem) and three gaps (0.75rem), plus this grid's own.
+    width: columns === COLUMNS ? "100%" : `calc((100% - 1.25rem) * ${columns / COLUMNS} + ${(columns - 1) * 0.25 + 0.5}rem)`,
+  };
+}
+
+/** The campaign's picture behind the level's name (Story's campaign head): whole at the window's top, clear by the end of its words. */
+const PICTURE: CSSProperties = {
+  ["--hud-px" as string]: 16,
+  bottom: "auto",
+  height: "11rem",
+  maskImage: "linear-gradient(to bottom, #000 30%, transparent)",
+  WebkitMaskImage: "linear-gradient(to bottom, #000 30%, transparent)",
+};
+
+/**
+ * A level's opening (#593, #721; STORY-INTRO: the Paved UX Book draws none, so each piece from the integrated page that shows the
+ * same information). Over the blurred board, as the level's end (`StoryEnd`), the HUD's framed window (`HudFrame`): at its head the
+ * level's campaign and number, its title in the display font and its intro, on the campaign's picture fading into the window (Story's
+ * campaign head); then the tiles it deals (the deck page's: a section title with the painted pile and "Deck", its one short line,
+ * the tiles seen from above in the campaign's theme, four a row on a carved panel, each numbered in draw order, the last number the
+ * deck's count), landing one after another; the tip in a carved box under the painted bulb; at the foot, as Story's footer, the
+ * device's best and its painted stars (or "No best yet") on the left and the window's one gold action, Start, on the right. A tap
+ * anywhere, Escape or Start opens the board.
+ * No star threshold is shown. Under reduced motion everything is there at once.
+ */
+export function DeckPresentation({ campaign, campaignId, levelIndex, title, intro, tip, deck, theme = 0, renders, best, onStart, className }: DeckPresentationProps) {
+  const reduced = useReducedMotionConfig() ?? false;
+  const step = Math.min(0.07, DEAL_SECONDS / Math.max(1, deck.length));
+  const dealt = DEAL_LEAD + Math.max(0, deck.length - 1) * step + LAND;
+  // A plan the theme has no top-down render of keeps the base one, as the deck page's (`deckArt`).
+  const shownIn = (plan: number) => (renders?.(theme, `${planCode(plan).toLowerCase()}-top`) ? theme : 0);
+  // Start takes the focus without scrolling to it (#1090): a long deck's opening on a short phone shows its head first, never its foot.
+  const startRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => startRef.current?.focus({ preventScroll: true }), []);
+  const after = (delay: number) => (reduced ? { initial: false as const } : { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { delay, duration: 0.25 } });
   return (
     <section
       aria-label="Level deck"
@@ -56,77 +97,107 @@ export function DeckPresentation({ campaign, levelIndex, title, intro, tip, deck
       onKeyDown={(e) => {
         if (e.key === "Escape") onStart?.();
       }}
-      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer bg-background/80 backdrop-blur-sm", className)}
+      className={cn("pointer-events-auto fixed inset-0 z-50 cursor-pointer bg-background/40 backdrop-blur-sm", className)}
     >
-      {/* The veil stays whole; the content scrolls inside it with the edge hint (NO-SCROLLBARS, #609). */}
+      {/* The veil stays whole; the window scrolls inside it with the edge hint (NO-SCROLLBARS, #609). */}
       <ScrollRegion className="h-full">
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-4 py-6 tablet:max-w-2xl">
-          <m.header className="flex flex-col gap-1" initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-            <span className="text-xs text-muted-foreground">
-              {campaign} · Level {levelIndex}
-            </span>
-            <h2 className="font-display text-2xl font-semibold wrap-anywhere">{title}</h2>
-            <p className="text-sm wrap-anywhere">{intro}</p>
-          </m.header>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm text-muted-foreground">
-              This level deals <span className="numeric text-foreground">{deck.length}</span> {deck.length === 1 ? "tile" : "tiles"}, in this order:
-            </span>
-            <ol data-testid="presented-tiles" className="grid grid-cols-5 gap-2 tablet:grid-cols-8 desktop:grid-cols-10">
-              {deck.map((plan, i) => (
-                <m.li
-                  key={i}
-                  data-plan={plan}
-                  data-theme={shownIn(plan)}
-                  aria-label={`Tile ${i + 1}`}
-                  className="relative aspect-square overflow-hidden rounded-lg border border-border bg-board shadow-md"
-                  initial={reduced ? false : { opacity: 0, y: 14, scale: 0.85 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ delay: 0.25 + i * step, duration: 0.3, ease: "easeOut" }}
-                >
-                  <TileRender plan={plan} theme={shownIn(plan)} renders={renders} />
-                  <span className="numeric absolute top-1 left-1 rounded-md bg-card/90 px-1.5 text-xs font-semibold text-card-foreground shadow-sm" aria-hidden>
-                    {i + 1}
+        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-3 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] mobile:px-4">
+          <m.div
+            data-slot="intro-window"
+            className="relative isolate flex w-full flex-col gap-3 p-4 text-left"
+            initial={reduced ? false : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <HudFrame px={16} />
+            {campaignId !== undefined && (
+              <span aria-hidden data-slot="intro-picture" className="hud-face absolute -z-10 overflow-hidden" style={PICTURE}>
+                <StoryBackground campaign={campaignId} theme={theme} renders={renders} fallback={null} />
+              </span>
+            )}
+            <header className="flex flex-col gap-1">
+              <span className="text-outline text-sm leading-tight font-bold text-foreground/85">
+                {campaign} · Level <span className="numeric">{formatInteger(levelIndex)}</span>
+              </span>
+              <h2 className="text-outline font-display text-3xl leading-tight tracking-wide wrap-anywhere">{title}</h2>
+              <p className="text-outline text-sm leading-snug font-semibold text-foreground/85 wrap-anywhere">{intro}</p>
+            </header>
+            {/* Not a named region: "Deck" alone would repeat the board's stack under the veil; the window is the "Level deck" region. */}
+            <section className="flex flex-col gap-2">
+              <SectionTitle>
+                <UiIcon name="tile-stack" px={28} className="drawer-icon size-7 self-center" />
+                {/* A fixed word (TILE-COUNTS): the tiles' numbers below already count the deck. */}
+                Deck
+              </SectionTitle>
+              <p className="text-sm leading-snug font-semibold text-muted-foreground">Dealt in this order.</p>
+              <ol aria-label="Tiles in draw order" data-testid="presented-tiles" className={GRID} style={gridStyle(deck.length)}>
+                {deck.map((plan, i) => (
+                  <m.li
+                    key={i}
+                    data-plan={plan}
+                    data-theme={shownIn(plan)}
+                    aria-label={`Tile ${i + 1}`}
+                    className="flex flex-col items-center"
+                    initial={reduced ? false : { opacity: 0, y: -12, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: DEAL_LEAD + i * step, duration: LAND, ease: "backOut" }}
+                  >
+                    <span className="relative block aspect-square w-full rounded-lg p-1.5">
+                      <span className="block size-full overflow-hidden rounded-md shadow-[0_2px_0_var(--hud-outline)]">
+                        <TileRender plan={plan} theme={shownIn(plan)} renders={renders} top className="scale-105" />
+                      </span>
+                    </span>
+                    <span aria-hidden className="text-outline pb-1 text-xs leading-tight font-bold text-muted-foreground tabular-nums">
+                      {i + 1}
+                    </span>
+                  </m.li>
+                ))}
+              </ol>
+            </section>
+            {tip && (
+              <m.aside aria-label="Tip" data-testid="level-tip" className="drawer-carved flex items-center gap-3 rounded-2xl px-3 py-2.5" {...after(dealt)}>
+                <UiIcon name="bulb" px={40} className="drawer-icon size-10 shrink-0" />
+                <p className="min-w-0 flex-1 text-sm leading-snug font-semibold wrap-anywhere">{tip}</p>
+              </m.aside>
+            )}
+            <div className="flex items-center gap-3 pt-1">
+              <m.section
+                aria-label={best ? `Your best: ${formatInteger(best.score)}, ${best.stars} of 3 stars` : "No best yet"}
+                data-slot="intro-best"
+                className="flex min-w-0 flex-1 items-center gap-2"
+                {...after(dealt + 0.1)}
+              >
+                <span aria-hidden className="drawer-icon size-10 shrink-0">
+                  <span className="block size-full" style={best ? undefined : EMPTY_STAR}>
+                    <UiIcon name="trophy" px={40} className="size-full" />
                   </span>
-                </m.li>
-              ))}
-            </ol>
-          </div>
-          {tip && (
-            <m.aside
-              aria-label="Tip"
-              data-testid="level-tip"
-              className="flex items-start gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3"
-              initial={reduced ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 + deck.length * step + 0.1, duration: 0.3 }}
-            >
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
-                <Icon name="lightbulb" size="sm" />
-              </span>
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-xs font-semibold tracking-wide text-primary uppercase">Tip</span>
-                <span className="text-sm wrap-anywhere">{tip}</span>
-              </span>
-            </m.aside>
-          )}
-          {best && (
-            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              Your best: <span className="numeric text-foreground">{formatInteger(best.score)}</span> <StarRow stars={best.stars} />
-            </p>
-          )}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              autoFocus
-              onClick={(e) => {
-                e.stopPropagation();
-                onStart?.();
-              }}
-            >
-              <Icon name="play" size="sm" /> Start
-            </Button>
-            <span className="text-xs text-muted-foreground">or tap anywhere</span>
-          </div>
+                </span>
+                {best ? (
+                  <span aria-hidden className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-outline text-xl leading-none font-bold tabular-nums">{formatInteger(best.score)}</span>
+                    <PaintedStars stars={best.stars} className="-ml-0.5" />
+                  </span>
+                ) : (
+                  <span aria-hidden className="text-sm leading-snug font-semibold text-muted-foreground">
+                    No best yet
+                  </span>
+                )}
+              </m.section>
+              <Button
+                ref={startRef}
+                variant="ghost"
+                style={GOLD_ACTION}
+                className="relative h-12 min-w-28 shrink-0 px-1 text-lg font-black text-foreground mobile:text-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStart?.();
+                }}
+              >
+                <GoldShine />
+                Start
+              </Button>
+            </div>
+          </m.div>
         </div>
       </ScrollRegion>
     </section>
@@ -140,16 +211,24 @@ export interface StoryCoachProps {
   className?: string;
 }
 
-/** A coach mark's text (#546): one tip under the header while the control it names is ringed on the board. */
+/** "Got it": the raised grey answer (the drawers' raised press), its word outlined in black as the end's. */
+const GOT_IT: CSSProperties = { textShadow: BLACK_OUTLINE };
+
+/**
+ * A coach mark's text (#546; STORY-INTRO: the tip's look, the painted bulb and its words, as the level's opening shows its tip): one
+ * tip under the header, on the HUD's frame as the header over it (the board's panels; a carved box belongs inside a frame), while the
+ * control it names is ringed on the board; the raised grey "Got it" puts it away.
+ */
 export function StoryCoach({ tip, onDismiss, className }: StoryCoachProps) {
   return (
-    <section aria-label="Tip" data-testid="story-coach" className={cn(CARD, "flex-row items-start gap-2 py-2", className)}>
-      <Icon name="book-open" size="sm" className="mt-0.5 shrink-0 text-primary" />
-      <p role="status" aria-live="polite" className="min-w-0 flex-1 wrap-anywhere">
+    <section aria-label="Tip" data-testid="story-coach" className={cn("pointer-events-auto relative isolate flex w-full max-w-2xl items-center gap-2.5 py-2 pr-2 pl-2.5", className)}>
+      <HudFrame px={13} />
+      <UiIcon name="bulb" px={36} className="drawer-icon size-9 shrink-0" />
+      <p role="status" aria-live="polite" className="min-w-0 flex-1 text-sm leading-snug font-semibold wrap-anywhere">
         {tip}
       </p>
       {onDismiss && (
-        <Button size="sm" variant="ghost" onClick={onDismiss}>
+        <Button variant="ghost" style={GOT_IT} className="drawer-raised h-11 shrink-0 rounded-xl px-3 text-base font-black text-foreground" onClick={onDismiss}>
           Got it
         </Button>
       )}

@@ -197,9 +197,8 @@ export function ChatList({ overview, error, errorDetail, onRetry, now, timeZone,
         )}
         {requests.length > 0 && (
           <section aria-label="Requests" className="flex shrink-0 flex-col gap-1.5">
-            <SectionTitle>
-              Requests <span className="font-sans font-bold">{formatInteger(requests.length)}</span>
-            </SectionTitle>
+            {/* A fixed word (TILE-COUNTS): the Private tab's badge and the rows say how many. */}
+            <SectionTitle>Requests</SectionTitle>
             <ul className="flex flex-col gap-1">
               {requests.map((c) => (
                 <li key={c.id}>

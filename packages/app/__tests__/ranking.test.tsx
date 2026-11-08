@@ -8,7 +8,7 @@ import { queryClient } from "../src/lib/query-client";
 import { PlayerProfileHost } from "../src/routes/player-profile";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
-import { preloadPages } from "./route-helpers";
+import { drawerBack, preloadPages, shownView } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PLAYER_RANKING_LIMIT, formatInteger, guildScore, rankPlayers } from "@paved/game-core";
@@ -137,8 +137,8 @@ describe("useFriendsRanking (LEADERBOARD-PAGE)", () => {
 });
 
 /** The scene with every callback a spy. */
-function scene(props: Partial<LeaderboardSceneProps> & Pick<LeaderboardSceneProps, "tab" | "players" | "guilds" | "friends">) {
-  const spies = { onTabChange: vi.fn(), onOpenPlayer: vi.fn(), onOpenGuild: vi.fn(), onBack: vi.fn() };
+function scene(props: Partial<LeaderboardSceneProps> & Pick<LeaderboardSceneProps, "tab" | "players" | "guilds" | "alliances" | "friends">) {
+  const spies = { onTabChange: vi.fn(), onOpenPlayer: vi.fn(), onOpenGuild: vi.fn(), onOpenAlliance: vi.fn(), onBack: vi.fn() };
   const view = render(
     <LazyMotion features={domMax}>
       <LeaderboardScene {...spies} {...props} />
@@ -154,7 +154,8 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     const rows = within(list).getAllByRole("button");
     const ranking = LEADERBOARD.playersInView.players.data!;
     expect(rows).toHaveLength(ranking.players.length);
-    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Players\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the rows say how many.
+    expect(within(drawer).getByRole("heading", { name: "Players" })).toBeInTheDocument();
     const first = ranking.players[0]!;
     expect(rows[0]).toHaveAccessibleName(`1. ${first.name}, level ${first.level}, ${formatInteger(first.crowns)} crowns`);
     expect(rows.slice(0, 4).map((r) => r.querySelector("[data-slot=ranking-place]")!.tagName)).toEqual(["IMG", "IMG", "SPAN", "SPAN"]);
@@ -177,20 +178,21 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     expect(onOpenPlayer).toHaveBeenCalledWith(ranking.players[1]!.address);
   });
 
-  it("puts its tabs at the drawer's foot: Players, Guilds, Alliances disabled, Friends at the end; a press asks for its tab alone", async () => {
+  it("puts its tabs at the drawer's foot: Players, Guilds, Alliances (live since ALLIANCES), Friends at the end; a press asks for its tab alone", async () => {
     const { drawer, onTabChange } = scene(LEADERBOARD.playersInView);
     const tabs = within(drawer).getByRole("tablist", { name: "Ranking" });
     expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toContainElement(tabs);
     expect(tabs).toHaveAttribute("data-slot", "footer-tabs");
-    expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds", "Alliances, coming soon", "Friends"]);
-    const alliances = within(tabs).getByRole("tab", { name: "Alliances, coming soon" });
-    expect(alliances).toBeDisabled();
+    expect(within(tabs).getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Players", "Guilds", "Alliances", "Friends"]);
+    const alliances = within(tabs).getByRole("tab", { name: "Alliances" });
+    expect(alliances).toBeEnabled();
     // Guilds and Alliances under the ranking's own painted shields, the handshake gone to Friends.
     expect(alliances.querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/alliances.webp");
     expect(within(tabs).getByRole("tab", { name: "Guilds" }).querySelector("img")!.getAttribute("src")).toBe("/ui-art/ranking/128/guilds.webp");
     expect(within(tabs).getByRole("tab", { name: "Friends" }).querySelector("img[data-icon=friends]")).not.toBeNull();
     await userEvent.click(alliances);
-    expect(onTabChange).not.toHaveBeenCalled();
+    expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["alliances"]));
+    onTabChange.mockClear();
     await userEvent.click(within(tabs).getByRole("tab", { name: "Guilds" }));
     // Radix calls twice on a press (the page's change is idempotent: the URL's tab replaced by itself).
     expect(new Set(onTabChange.mock.calls.flat())).toEqual(new Set(["guilds"]));
@@ -204,7 +206,7 @@ describe("the Leaderboard's scene (LEADERBOARD-PAGE)", () => {
     const ranking = LEADERBOARD.friends.friends.data!;
     const rows = within(within(drawer).getByRole("list", { name: "Friends by crowns" })).getAllByRole("button");
     expect(rows).toHaveLength(ranking.players.length);
-    expect(within(drawer).getByRole("heading", { name: new RegExp(`^Friends\\s*${ranking.players.length}$`) })).toBeInTheDocument();
+    expect(within(drawer).getByRole("heading", { name: "Friends" })).toBeInTheDocument();
     const own = rows.find((r) => r.hasAttribute("data-own"))!;
     expect(rows.indexOf(own) + 1).toBe(ranking.me!.place);
     expect(own).toHaveAccessibleName(new RegExp(`^${ranking.me!.place}\\. .+ \\(you\\), `));
@@ -447,19 +449,46 @@ describe("/ranking on the mock (LEADERBOARD-PAGE)", { timeout: slow(30_000) }, (
     return { router, me: s.me, drawer: await screen.findByRole("dialog", { name: "Ranking" }, { timeout: slow(8000) }) };
   }
 
-  it("lists the players with the viewer's own row; a player's row opens their profile over the drawer", async () => {
+  it("lists the players with the viewer's own row; a player's row opens their profile in the drawer's place, Back to the list at its scroll", async () => {
     const { router, drawer } = await open("/ranking");
     const list = await within(drawer).findByRole("list", { name: "Players by crowns" }, { timeout: slow(8000) });
     const own = within(list).getAllByRole("button").find((r) => r.hasAttribute("data-own"))!;
     expect(own).toHaveAccessibleName(/\(you\), level \d+, 90 crowns$/);
+    // jsdom lays nothing out: the body keeps the scroll it is given.
+    const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    body.scrollTop = 420;
     const first = within(list).getAllByRole("button")[0]!;
     const name = first.getAttribute("aria-label")!.replace(/^1\. /, "").split(",")[0]!;
     await userEvent.click(first);
-    expect(await screen.findByRole("dialog", { name }, { timeout: slow(8000) })).toBeInTheDocument();
+    // DRAWER-NAV-IN-PLACE (#1064): one drawer, the profile in its place, named after the player; no second drawer over it.
+    expect(await screen.findByRole("dialog", { name }, { timeout: slow(8000) })).toBe(drawer);
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(drawer).toContainElement(shownView("public-profile"));
+    expect(within(drawer).queryByRole("list", { name: "Players by crowns" })).toBeNull();
+    // The tabs at the foot are the list's: hidden under the profile.
+    expect(drawer.querySelector("[data-slot=hud-drawer-footer]")).toHaveClass("hidden");
     expect(router.state.location.pathname).toBe("/ranking");
     expect(new URLSearchParams(router.state.location.search).get("player")).not.toBeNull();
-    // The drawer stays open under the profile.
-    expect(document.querySelector('[data-hud-drawer="ranking"][data-state="open"]')).not.toBeNull();
+    // Back: the list again, at its scroll, the URL's profile gone.
+    await userEvent.click(drawerBack(drawer));
+    await waitFor(() => expect(shownView()).toBeNull(), { timeout: slow(5000) });
+    expect(new URLSearchParams(router.state.location.search).get("player")).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Ranking" })).toBe(drawer);
+    expect(within(drawer).getByRole("list", { name: "Players by crowns" })).toBe(list);
+    expect(body.scrollTop).toBe(420);
+  });
+
+  it("goes Back from the profile on Escape, and the drawer stays", async () => {
+    const { router, drawer } = await open("/ranking");
+    const list = await within(drawer).findByRole("list", { name: "Players by crowns" }, { timeout: slow(8000) });
+    const first = within(list).getAllByRole("button")[0]!;
+    const name = first.getAttribute("aria-label")!.replace(/^1\. /, "").split(",")[0]!;
+    await userEvent.click(first);
+    await screen.findByRole("dialog", { name }, { timeout: slow(8000) });
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(shownView()).toBeNull(), { timeout: slow(5000) });
+    expect(router.state.location.pathname).toBe("/ranking");
+    expect(screen.getByRole("dialog", { name: "Ranking" })).toBe(drawer);
   });
 
   it("opens on Friends from the URL: the viewer, new, has none yet", async () => {
@@ -474,7 +503,30 @@ describe("/ranking on the mock (LEADERBOARD-PAGE)", { timeout: slow(30_000) }, (
     const list = await within(drawer).findByRole("list", { name: "Guilds by score" }, { timeout: slow(8000) });
     const first = within(list).getAllByRole("button")[0]!;
     await userEvent.click(first);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/guild"), { timeout: slow(8000) });
+    // DRAWER-NAV-IN-PLACE (#1064): in the ranking's drawer, in its place, on the Guilds tab still.
+    await waitFor(() => expect(drawer).toContainElement(shownView("guild-sheet")), { timeout: slow(8000) });
+    expect(router.state.location.pathname).toBe("/ranking");
+    const search = new URLSearchParams(router.state.location.search);
+    expect(search.get("guild")).toMatch(/^\d+$/);
+    expect(search.get("tab")).toBe("guilds");
+    // A member of it: their profile over the guild, which stays under it as it was (DRAWER-NAV-IN-PLACE: a chain, one step at a time).
+    const guild = shownView("guild-sheet")!;
+    const members = await within(guild).findByRole("list", { name: "Members" }, { timeout: slow(8000) });
+    guild.scrollTop = 300;
+    await userEvent.click(within(members).getAllByRole("button")[0]!);
+    await waitFor(() => expect(shownView()).toBe(shownView("public-profile")), { timeout: slow(8000) });
+    expect(guild).toHaveAttribute("inert");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(new URLSearchParams(router.state.location.search).get("guild")).toBeNull();
+    // Back: the same guild page (not mounted again), at its scroll; then the list.
+    await userEvent.click(drawerBack(drawer));
+    await waitFor(() => expect(shownView()).toBe(guild), { timeout: slow(5000) });
+    expect(guild).not.toHaveAttribute("inert");
+    expect(guild.scrollTop).toBe(300);
+    expect(within(guild).getByRole("list", { name: "Members" })).toBe(members);
     expect(new URLSearchParams(router.state.location.search).get("guild")).toMatch(/^\d+$/);
+    await userEvent.click(drawerBack(drawer));
+    await waitFor(() => expect(shownView()).toBeNull(), { timeout: slow(5000) });
+    expect(within(drawer).getByRole("list", { name: "Guilds by score" })).toBe(list);
   });
 });

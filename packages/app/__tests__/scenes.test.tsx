@@ -376,13 +376,15 @@ describe("Home (#753): the village with its overlays", () => {
 
   it("holds the inventory alone in a phone's bottom sheet, the points at the top left, no tab and no fold (EDIT-VILLAGE)", async () => {
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.editing} />));
-    // jsdom has no wide screen: a phone's sheet, the inventory under its title, the slots used at its end.
+    // jsdom has no wide screen: a phone's sheet, the inventory under its title, the slots used in a carved chip under it (TILE-COUNTS).
     const panel = await screen.findByRole("complementary", { name: "Editor" }, { timeout: slow(5000) });
     expect(panel).toHaveAttribute("data-edit-panel", "sheet");
     // The floating bar's title: "Edit" at every phone's width (the owner's ask: room down to 320 px).
     expect(screen.getByRole("heading", { name: "Edit" })).not.toHaveClass("hidden");
     expect(within(panel).getByRole("heading", { name: "Inventory" })).toBeInTheDocument();
-    expect(within(panel).getByRole("img", { name: /^\d+ of \d+ slots used$/ })).toBeInTheDocument();
+    const slots = within(panel).getByRole("img", { name: /^\d+ of \d+ slots used$/ });
+    expect(slots.closest('[data-slot="edit-slots"]')).not.toBeNull();
+    expect(within(panel).getByRole("heading", { name: "Inventory" }).parentElement).not.toContainElement(slots);
     expect(within(panel).getByRole("region", { name: "Inventory tiles" })).toBeInTheDocument();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("button", { name: /editor/i })).toBeNull();

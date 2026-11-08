@@ -1,16 +1,12 @@
 import type { ChatEncryption } from "../../data/social-source";
 import { JOINER_LINE, encryptionLine, encryptionSheetLines, keyChangedLine } from "../../lib/chat-text";
-import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { HudDrawer } from "./hud-drawer";
 
 // End-to-end encryption on the pages (#997): the line at the top of each conversation, the joiner's line, the other's key change,
 // and the Encryption sheet with the safety code. The page head (`ChatPage.encryption`) says what to show.
-
-/** The side panel from `desktop`; the bottom sheet under it (as the chat's muted players). */
-const DESKTOP_QUERY = "(min-width: 64rem)";
 
 export interface EncryptionLineProps {
   mode: ChatEncryption["mode"];
@@ -89,23 +85,21 @@ export interface EncryptionSheetProps {
 
 /**
  * The Encryption sheet of a private conversation (#997, point 9, open point 4): what is encrypted, in two lines, and the safety
- * code. Two players who compare it in person, and find it the same, know nobody stands between them. The side panel from
- * `desktop`, a bottom sheet under it.
+ * code. Two players who compare it in person, and find it the same, know nobody stands between them. DRAWER-NAV-IN-PLACE (#1064, open
+ * point 1's default: a page of text): in the chat's drawer, in its place, with Back to the conversation; alone, its own drawer.
  */
 export function EncryptionSheet({ open, onOpenChange, otherName, safetyCode }: EncryptionSheetProps) {
-  const desktop = useSidePanel(DESKTOP_QUERY);
   const [first, second] = encryptionSheetLines(otherName);
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="chat-encryption" className={desktop ? undefined : "max-h-[92dvh]"}>
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Icon name="lock" size="sm" className="text-primary" />
-            Encryption
-          </SheetTitle>
-          <SheetDescription className="wrap-anywhere">{first}</SheetDescription>
-          <p className="text-sm text-muted-foreground">{second}</p>
-        </SheetHeader>
+    <HudDrawer open={open} onOpenChange={onOpenChange} title="Encryption" side="right" slot="chat-encryption" inPlace>
+      <div data-slot="chat-encryption" className="flex flex-col gap-3">
+        <div className="flex items-start gap-2">
+          <Icon name="lock" size="sm" className="mt-0.5 text-primary" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <p className="text-sm font-semibold wrap-anywhere">{first}</p>
+            <p className="text-sm text-muted-foreground">{second}</p>
+          </div>
+        </div>
         <section aria-label="Safety code" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <h3 className="text-sm font-semibold">Safety code</h3>
           {safetyCode ? (
@@ -123,7 +117,7 @@ export function EncryptionSheet({ open, onOpenChange, otherName, safetyCode }: E
             <p className="text-sm text-muted-foreground">The code shows once both of you have a security key.</p>
           )}
         </section>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </HudDrawer>
   );
 }

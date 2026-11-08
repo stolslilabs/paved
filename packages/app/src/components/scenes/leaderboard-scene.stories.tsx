@@ -6,18 +6,18 @@ import { LeaderboardScene } from "./leaderboard-scene";
 /**
  * The Leaderboard (`/ranking`, the dock's Ranking; LEADERBOARD-PAGE, in the integrated pages' style, the Paved UX Book drawing none):
  * the HUD's drawer, a full page with Back on a phone, a side panel docked at the right from `tablet`; Players by crowns, Guilds by
- * score (the sum of their members' crowns), Alliances disabled, Friends (the viewer among their friends), the tabs at the drawer's foot. One story per state; the viewport is the
+ * score (the sum of their members' crowns), Alliances by score (the sum of their guilds'), Friends (the viewer among their friends), the tabs at the drawer's foot. One story per state; the viewport is the
  * toolbar's (VP).
  */
 const meta = {
   title: "Scenes/Leaderboard",
   component: LeaderboardScene,
-  args: { ...LEADERBOARD.playersInView, onTabChange: fn(), onOpenPlayer: fn(), onOpenGuild: fn(), onBack: fn() },
+  args: { ...LEADERBOARD.playersInView, onTabChange: fn(), onOpenPlayer: fn(), onOpenGuild: fn(), onOpenAlliance: fn(), onBack: fn() },
 } satisfies Meta<typeof LeaderboardScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const retry = <T extends { players: object; guilds: object; friends: object }>(state: T) => ({ ...state, players: { ...state.players, onRetry: fn() }, guilds: { ...state.guilds, onRetry: fn() }, friends: { ...state.friends, onRetry: fn() } });
+const retry = <T extends { players: object; guilds: object; alliances: object; friends: object }>(state: T) => ({ ...state, players: { ...state.players, onRetry: fn() }, guilds: { ...state.guilds, onRetry: fn() }, alliances: { ...state.alliances, onRetry: fn() }, friends: { ...state.friends, onRetry: fn() } });
 
 /** Players: the viewer fourth, their row in view on the gold wash; the first three under their medals. */
 export const PlayersInView: Story = { args: LEADERBOARD.playersInView };
@@ -43,10 +43,18 @@ export const PlayersPastList: Story = { args: LEADERBOARD.playersPastList };
 export const Guilds: Story = { args: LEADERBOARD.guilds };
 /** Guilds: the viewer's guild ranked past the list's end, pinned with its place; a tap opens its page. */
 export const GuildsPastList: Story = { args: LEADERBOARD.guildsPastList };
+/** Alliances (ALLIANCES): by score, the sum of their guilds' scores, each on its laurel; the viewer's alliance in gold. */
+export const Alliances: Story = { args: LEADERBOARD.alliances };
+/** Alliances: the viewer's ranked past the list's end, pinned with its place; a tap opens its page. */
+export const AlliancesPastList: Story = { args: LEADERBOARD.alliancesPastList };
+/** Alliances: none yet. */
+export const NoAlliances: Story = { args: LEADERBOARD.noAlliances };
 /** Friends, at the right end: the viewer among their friends by crowns, their row in gold. */
 export const Friends: Story = { args: LEADERBOARD.friends };
 /** Friends: none yet, nothing to rank against. */
 export const NoFriends: Story = { args: LEADERBOARD.noFriends };
+/** Players at levels 9, 10, 20 and 15 in turn (#1065), the viewer second: both figures inside the star. */
+export const TwoFigureLevels: Story = { args: LEADERBOARD.twoFigures };
 /** The rankings on their way. */
 export const Loading: Story = { args: LEADERBOARD.loading };
 /** Nothing ranked yet. */

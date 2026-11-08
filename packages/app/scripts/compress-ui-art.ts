@@ -65,7 +65,8 @@
  * out). Play: cropped from the book's "Battle log" phone screen (about 100 px), its navy panel keyed out as the League's badge was.
  * The star: the middle one of the book's result screen (about 170 px), cut from its glow and sparkles by a flood fill of its face from
  * its centre over the pixels lighter than its outline, then its near-black outline grown outward from the face through darker pixels
- * (at most 10 px), the outline's outer ring faded by its lightness. Each fitted to the 240 px box by a premultiplied bicubic scale (no
+ * (at most 10 px), the outline's outer ring faded by its lightness (that cut left specks, a brown halo and light bites in the outline:
+ * the star was extracted again by Codex, STAR-ART, below). Each fitted to the 240 px box by a premultiplied bicubic scale (no
  * navy bleeds into the edge) and centred on the icons' frame, checked side by side with its crop. Pause, which the book does not
  * draw: the Play master with its triangle (measured on the master, and 7 px round it for its shade) erased by interpolating the disc
  * row by row from either side, then two rounded bars painted where it stood, centred on the disc, in the triangle's own colours (its
@@ -221,6 +222,35 @@
  * box, fitted to the 240 px box by a premultiplied area average and centred on the icons' frame, checked beside `close` at 128, 44,
  * 32 and 24 px on the drawer's charcoal and on a light ground. Edit mode's bubble's three (`rotate-tile`, `to-inventory`, `cancel`) left
  * with it.
+ * STAR-ART (2026-11-07): the star (`star`: the ends', Story's and the Attack's), the owner's ask: MATCH-PAGE's flood fill had left
+ * specks, a brown halo and light bites in its outline. Extracted again from the same original, the middle star of the Paved UX Book's
+ * result screen (`screens/attack-end.jpg`, 768 px wide, the star about 168 px), by Codex's built-in image tool (`codex exec -c
+ * model_provider=openai`, its `image_gen`): the crop (234 x 214 px, upscaled 4x) given, the star asked for alone on a transparent
+ * ground, its shape, faces, colours and outline kept; three variants (1254 px RGBA), the third kept (registered on the book by least
+ * colour error, its gold faces the closest, 1.5, -2.1 and -4.2 off per channel on average, and its outline the most even). Its cut
+ * cleaned by script, the drawing untouched: the tool's near-opaque body (alpha 253) brought to 255, its faint fringe (alpha under 16,
+ * 464 specks) cleared. Checked: one alpha island, no hole, no edge pixel lighter than the outline or blue (the old glow and ground),
+ * the outline 6 to 8 px all round with no bump (the old one fell to 0); on white, black, magenta, the drawer's charcoal and the end
+ * window's ground, at 256 px and 6x on each tip and notch. Trimmed to its alpha box, fitted to 240 px by a premultiplied area average
+ * and centred on the icons' frame; stored as lossless WebP.
+ * STORY-INTRO (2026-11-07): a Story level's tip, its opening's and the coach mark's (the book draws none): the lit bulb (`bulb`), drawn by
+ * Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`) with the HUD's trophy, star, info and unlock as
+ * the style's references, three variants on a transparent 1024 px square (a plain lit bulb; the same with five gold rays; an amber one
+ * with a painted halo, whose halo left red fringes in its alpha), the first kept; trimmed to its alpha box, fitted to the 240 px box
+ * (canvas, premultiplied, stepped by halves) and centred on the icons' frame, checked beside the trophy, star and info at 128, 40 and
+ * 24 px on the drawer's charcoal and on a light ground.
+ *
+ * ALLIANCES (2026-11-07): the alliance emblem's laurel (`ui-sources/emblems/alliance-laurel.webp`, `ALLIANCE_ART`, on
+ * `ALLIANCE_ART_FRAME`, 512 px, copies 64, 128 and 256 px, in `emblem-art.ts`): the gold wreath and bow of the Leaderboard's Alliances
+ * icon alone, its middle left empty for the alliance's shield, drawn by Codex's built-in image tool (`codex exec -c
+ * model_provider=openai`, its `image_gen`) with that icon, the Guilds icon and the HUD's crown and medal as references, three variants
+ * on a transparent 1024 px square, the third kept (its branches rise highest round the shield, as the icon's); trimmed to its alpha
+ * box, fitted to the 480 px box (canvas, high-quality scale) and centred on the frame, checked with a shield on it at 200, 96, 64 and
+ * 52 px on the drawer's charcoal. Then the alliance's two actions (`ui-sources/emblems/invite-guild.webp` and `remove-guild.webp`,
+ * `ALLIANCE_ICONS`, on `ALLIANCE_ICON_FRAME`, the icons' 256 px, copies 64 and 128 px): Invite a guild and Remove a guild, the Guilds
+ * tab's red shield with Invite a player's green plus and Kick's red minus, drawn the same way with those three icons as references,
+ * three variants each, the first of each kept (the same shield in both); fitted to the 240 px box and centred on the frame, checked
+ * beside Invite a player and Kick at 128 and 36 px on the drawer's charcoal.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
@@ -233,7 +263,7 @@ import { fileURLToPath } from "node:url";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, copySize } from "../src/components/elements/ui-art.ts";
 import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS } from "../src/components/elements/medallion-art.ts";
 import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.ts";
-import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
+import { ALLIANCE_ART, ALLIANCE_ART_FRAME, ALLIANCE_ICONS, ALLIANCE_ICON_FRAME, EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
 import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
 import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
 import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
@@ -256,6 +286,8 @@ const IMAGES = [
   ...UI_SHOP_PARTS.map((name) => ({ kind: "shop" as const, name, frame: SHOP_PARTS[name] })),
   ...UI_FRIENDS_PARTS.map((name) => ({ kind: "friends" as const, name, frame: FRIENDS_PARTS[name] })),
   ...GUILD_EMBLEM_CHARGES.map((name) => ({ kind: "emblems" as const, name, frame: EMBLEM_FRAME })),
+  ...ALLIANCE_ART.map((name) => ({ kind: "emblems" as const, name, frame: ALLIANCE_ART_FRAME })),
+  ...ALLIANCE_ICONS.map((name) => ({ kind: "emblems" as const, name, frame: ALLIANCE_ICON_FRAME })),
   ...PLAY_ART.map((name) => ({ kind: "play" as const, name, frame: PLAY_ART_FRAME })),
   ...STAKE_ART.map((name) => ({ kind: "play" as const, name, frame: STAKE_ART_FRAME })),
   ...VAULT_ART.map((name) => ({ kind: "vault" as const, name, frame: VAULT_ART_FRAME })),

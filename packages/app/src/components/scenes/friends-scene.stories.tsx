@@ -6,11 +6,12 @@ import type { PlayerSearchProps } from "../containers/player-search";
 import { FollowResultButton, type FollowResultState } from "../containers/follow-result-button";
 import { CARVED_NOTE, FollowPlayerRow, FriendsPanel } from "../containers/friends-panel";
 import { FriendsScene } from "./friends-scene";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The friends page (`/friends`, #973; FRIENDS-PAGE, the Paved UX Book's "Friends and followers"): the HUD's drawer, a full page with
- * Back on a phone, a side panel docked at the right from `tablet`; the book's carved search at the top, then the three tabs,
- * Friends, Following and Followers, each with its count, the Suggestions and the blocked players. One story per state; the viewport
+ * Back on a phone, a side panel docked at the right from `tablet`; the book's carved search at the top, then the list shown
+ * under its title (Friends, Following, Followers: the footer's tabs, #1062), the Suggestions and the blocked players. One story per state; the viewport
  * is the toolbar's (VP).
  */
 const meta = {
@@ -59,3 +60,8 @@ export const Unavailable: Story = { args: { ...FRIENDS_SEARCH.unavailable, child
 export const ReducedMotion: Story = { args: { children: panel(FRIENDS_TAB.friends) }, parameters: { reducedMotion: "always" } };
 /** WRAP360: the longest name in the results and the lists, four-digit counts. */
 export const Stress: Story = { args: { search: withFollow(FRIENDS_SEARCH.stress.search), children: panel(FRIENDS_TAB.stress) } };
+
+/** FOOTER-TABS (#1062): the tabs at the foot, pinned at the widths the owner checks. */
+export const FollowersPhone: Story = { ...Followers, ...PHONE_375 };
+export const FollowersPhone320: Story = { ...Followers, ...PHONE_320 };
+export const FollowersWide: Story = { ...Followers, ...WIDE_1440 };

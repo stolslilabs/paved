@@ -14,7 +14,7 @@ import { ProfileFollowActions } from "./profile-follow";
 import { ProfileGuildActions, ProfileGuildLine } from "./profile-guild";
 import { ProfileMessageAction } from "./profile-message";
 
-// The public profile's chunk (#952): the sheet and its read, fetched at the first opening (`player-profile-host.tsx`).
+// The public profile's chunk (#952): the sheet and its read, fetched at the first opening (`page-views-host.tsx`).
 
 /** The clipboard, or a failed copy without it (an insecure origin, an old browser). */
 const copy = (text: string) => (navigator.clipboard?.writeText ? navigator.clipboard.writeText(text) : Promise.reject(new Error("No Clipboard API")));
@@ -52,7 +52,7 @@ export default function PlayerProfile({ playerId, open, onClose }: { playerId: s
   const onOpenChange = (next: boolean) => {
     if (!next) onClose();
   };
-  if (self) return <ProfileSheet {...own} open={open} onOpenChange={onOpenChange} />;
+  if (self) return <ProfileSheet {...own} open={open} onOpenChange={onOpenChange} inPlace />;
   const state: PublicProfileState = restoring
     ? { status: "loading" }
     : read.unavailable

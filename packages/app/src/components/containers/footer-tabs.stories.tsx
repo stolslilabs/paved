@@ -15,6 +15,7 @@ interface Tab {
   id: string;
   label: string;
   art: ReactNode;
+  badge?: number;
   soon?: boolean;
 }
 
@@ -39,7 +40,7 @@ function Sheet({ tabs, disabled, action }: { tabs: readonly Tab[]; disabled?: bo
         {action}
         <FooterTabsList aria-label="Sheet">
           {tabs.map((t) => (
-            <FooterTab key={t.id} value={t.id} label={t.label} art={t.art} soon={t.soon} disabled={disabled} />
+            <FooterTab key={t.id} value={t.id} label={t.label} art={t.art} badge={t.badge} soon={t.soon} disabled={disabled} />
           ))}
         </FooterTabsList>
       </div>
@@ -77,13 +78,25 @@ export const ThreeTabs: Story = {
   },
 };
 
-/** A tab not in the game yet (the Leaderboard's Alliances): in its place, disabled, a carved "Soon" at its icon's corner. */
+/** Four tabs with counts waiting (the Guild's today): the dock's red square at the icon's top right, read out with the word. */
+export const Badges: Story = {
+  args: {
+    tabs: [
+      { id: "announcements", label: "News", art: art("letter"), badge: 3 },
+      { id: "members", label: "Members", art: art("members") },
+      { id: "requests", label: "Requests", art: art("invite-player"), badge: 120 },
+      { id: "log", label: "Log", art: art("missions") },
+    ],
+  },
+};
+
+/** A tab not in the game yet (the Leaderboard's Alliances): in its place, disabled, a carved "Soon" where a count would be (a count waiting on it is not shown). */
 export const Soon: Story = {
   args: {
     tabs: [
       { id: "players", label: "Players", art: art("user") },
       { id: "guilds", label: "Guilds", art: art("guild") },
-      { id: "alliances", label: "Alliances", art: art("friends"), soon: true },
+      { id: "alliances", label: "Alliances", art: art("friends"), badge: 5, soon: true },
     ],
   },
 };
@@ -107,7 +120,7 @@ export const WithAction: Story = {
 export const Stress: Story = {
   args: {
     tabs: [
-      { id: "a", label: "Announcements and news", art: art("letter") },
+      { id: "a", label: "Announcements and news", art: art("letter"), badge: 7 },
       { id: "b", label: "Members", art: art("members") },
       { id: "c", label: "Requestsrequestsrequests", art: art("invite-player") },
     ],

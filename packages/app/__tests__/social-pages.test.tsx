@@ -19,7 +19,7 @@ import { PlayerProfileHost } from "../src/routes/player-profile";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
-import { preloadPages } from "./route-helpers";
+import { preloadPages, shownView } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // SOCIAL-SPLIT (#973, PR 1): the Chat, Guild and Friends pages in place of the Social page (#952): each its header and empty
@@ -60,7 +60,8 @@ describe("the social pages' scenes (#973)", () => {
   it("draws the chat page's three tabs around the tab's content, with no bottom bar", () => {
     render(wrap(<ChatScene tab="guild" badges={{ guild: 2, private: 0 }}>{<p>guild conversation</p>}</ChatScene>));
     const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["World", "Guild, 2 waiting", "Private"]);
+    // A tab's name: its word, and the count waiting in it (`FooterTab`).
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 2 waiting", "Private"]);
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("guild conversation")).toBeInTheDocument();
     // No bottom bar: no page carries the dock (DOCK-UNDER-PAGES).
@@ -137,7 +138,7 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
     expect(await screen.findByRole("heading", { level: 2, name: "Friends" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Name or player ID" })).toBeInTheDocument();
     const tabs = within(await screen.findByRole("tablist", { name: "Lists" }, { timeout: slow(8000) })).getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("aria-label")?.split(",")[0])).toEqual(["Friends", "Following", "Followers"]);
+    expect(tabs.map((t) => (t.getAttribute("aria-label") ?? t.textContent)?.split(",")[0])).toEqual(["Friends", "Following", "Followers"]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
   });
 
@@ -173,29 +174,26 @@ describe("the social pages on the mock (#973)", { timeout: slow(20_000) }, () =>
 
     it("with ?guild= opens that guild on the guild page", async () => {
       const { router } = open("/social?guild=2");
-      // The guild's sheet is modal: the page's drawer under it is hidden from assistive technology while it is open.
-      expect(await screen.findByRole("dialog", { name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: /Guild/ }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
-      // The guild's sheet over the drawer: the one dialog left in the accessibility tree.
-      await waitFor(() => expect(screen.getByRole("dialog")).not.toHaveAttribute("data-hud-drawer"), { timeout: slow(8000) });
+      // The guild's page in the guild drawer's place (DRAWER-NAV-IN-PLACE, #1064): one drawer, no sheet over it.
+      await waitFor(() => expect(document.querySelector("[data-hud-drawer=guild]")).toContainElement(shownView("guild-sheet")), { timeout: slow(8000) });
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
     });
 
     it("a guild's link, /guild/<id>, opens that guild's page over the guild page, the ?ref= kept", async () => {
       const { router } = open("/guild/2?ref=abc");
-      expect(await screen.findByRole("dialog", { name: "Guild", hidden: true }, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: /Guild/ }, { timeout: slow(8000) })).toBeInTheDocument();
       expect(router.state.location.pathname).toBe("/guild");
       expect(new URLSearchParams(router.state.location.search).get("guild")).toBe("2");
       expect(new URLSearchParams(router.state.location.search).get("ref")).toBe("abc");
-      const sheet = await waitFor(
-        () => {
-          const dialog = screen.getByRole("dialog");
-          expect(dialog).not.toHaveAttribute("data-hud-drawer");
-          return dialog;
-        },
-        { timeout: slow(8000) },
-      );
-      expect(await within(sheet).findByRole("heading", { level: 2 }, { timeout: slow(8000) })).toBeInTheDocument();
+      // In the guild drawer's place (DRAWER-NAV-IN-PLACE, #1064).
+      const sheet = await waitFor(() => shownView("guild-sheet")!, { timeout: slow(8000) });
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      expect(sheet).toBeInTheDocument();
+      // Its title on the drawer's header (no guild 2 in the mock: "Guild not found").
+      expect(await within(screen.getByRole("dialog")).findByRole("heading", { level: 2, name: /Guild/ }, { timeout: slow(8000) })).toBeInTheDocument();
     });
 
     it("with ?chat= opens that conversation's tab on the chat page", async () => {

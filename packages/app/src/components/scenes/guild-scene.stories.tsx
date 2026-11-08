@@ -1,11 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { ALLIANCE_BADGE, ALLIANCE_LISTS, ALLIANCE_PAGE, PLAYER_ALLIANCE } from "../../mocks/alliances";
 import { GUILD_FINDER, GUILD_PAGE } from "../../mocks/guilds";
 import { FRIENDS_SEARCH } from "../../mocks/social";
+import { GuildPicker, NoAlliance, type NoAllianceProps } from "../containers/alliance-finder";
+import { AlliancePage, type AlliancePageProps } from "../containers/alliance-page";
+import { AllianceGuildActions, AllianceLine, AllianceTile, type AllianceGuildState } from "../containers/alliance-parts";
 import { GuildBrowse, GuildFinder } from "../containers/guild-finder";
 import { GuildPage, type GuildPageProps } from "../containers/guild-page";
 import { PlayerSearch } from "../containers/player-search";
 import { GuildScene } from "./guild-scene";
+import { PHONE_320, PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
  * The guild page (`/guild`, #973, the Social page's Guild tab of #953 before; GUILD-PAGE: the HUD's drawer, after the Paved UX Book's
@@ -88,3 +93,85 @@ export const StressRequests: Story = { args: { children: page(GUILD_PAGE.stress,
 export const StressLog: Story = { args: { children: page(GUILD_PAGE.stress, { defaultTab: "log" }) } };
 /** WRAP360: the menu with the longest names. */
 export const StressMenu: Story = { args: { children: page(GUILD_PAGE.stress, { initialView: "menu" }) } };
+
+/** FOOTER-TABS (#1062): the tabs at the foot, pinned at the widths the owner checks; four tabs for an Officer, two in the finder. */
+export const OfficerPhone: Story = { ...Officer, ...PHONE_375 };
+export const OfficerPhone320: Story = { ...Officer, ...PHONE_320 };
+export const OfficerWide: Story = { ...Officer, ...WIDE_1440 };
+export const GuildlessPhone: Story = { ...Guildless, ...PHONE_375 };
+export const GuildlessWide: Story = { ...Guildless, ...WIDE_1440 };
+
+// --- The alliances (ALLIANCES): an alliance's page, a view of the guild page's drawer --------------------------------------
+
+/** Invite a guild's content, as the route draws it: the guild search, every guild by score while empty. */
+const guildPicker = <GuildPicker query="" guilds={ranking.guilds} onOpenGuild={fn()} onQueryChange={fn()} />;
+
+const alliance = (data: Pick<AlliancePageProps, "alliance" | "myGuild" | "now" | "apply">, over: Partial<AlliancePageProps> = {}) => <AlliancePage {...data} onAction={fn(async () => {})} onOpenGuild={fn()} onClose={fn()} invite={guildPicker} {...over} />;
+
+/** The alliance's leader (the head guild's): the menu, the guilds (the head first, theirs in gold), the requests and the invitations sent. */
+export const AllianceLeader: Story = { args: { children: alliance(ALLIANCE_PAGE.leader) } };
+/** The alliance's leader's menu: Invite a guild, Alliance settings; Leave waits for another head. */
+export const AllianceLeaderMenu: Story = { args: { children: alliance(ALLIANCE_PAGE.leader, { initialView: "menu" }) } };
+/** A member guild's leader: the menu holds Leave. */
+export const AllianceMemberLeader: Story = { args: { children: alliance(ALLIANCE_PAGE.memberLeader) } };
+/** A player of a member guild: the page, no menu. */
+export const AllianceMember: Story = { args: { children: alliance(ALLIANCE_PAGE.member) } };
+/** Another alliance, seen by a guild leader in none: Request to join at the drawer's foot. */
+export const AllianceVisitor: Story = { args: { children: alliance(ALLIANCE_PAGE.visitor) } };
+/** The guild's request waiting: Cancel. */
+export const AllianceRequested: Story = { args: { children: alliance(ALLIANCE_PAGE.requested) } };
+/** The alliance invites the guild: Decline or Accept. */
+export const AllianceInvited: Story = { args: { children: alliance(ALLIANCE_PAGE.invited) } };
+/** The alliance's leader's menu's Invite a guild: the guild search; a guild found opens its page, where Invite is. */
+export const AllianceLeaderInvite: Story = { args: { children: alliance(ALLIANCE_PAGE.leader, { initialView: "invite" }) } };
+/** The alliance's leader's Alliance settings: the emblem on its laurel, the guild emblems' picker, the description. */
+export const AllianceLeaderSettings: Story = { args: { children: alliance(ALLIANCE_PAGE.leader, { initialView: "settings" }) } };
+/** A member guild's leader's menu: Leave the alliance. */
+export const AllianceMemberLeaderMenu: Story = { args: { children: alliance(ALLIANCE_PAGE.memberLeader, { initialView: "menu" }) } };
+/** The only guild's leader: the menu's Disband. */
+export const AllianceAloneMenu: Story = { args: { children: alliance(ALLIANCE_PAGE.alone, { initialView: "menu" }) } };
+/** The guild's request waiting at another alliance: why not, the controls in their places. */
+export const AllianceRequestedElsewhere: Story = { args: { children: alliance(ALLIANCE_PAGE.requestedElsewhere) } };
+/** The alliance full: why not. */
+export const AllianceFull: Story = { args: { children: alliance(ALLIANCE_PAGE.full) } };
+/** Anyone (no guild): the page alone. */
+export const AllianceAnyone: Story = { args: { children: alliance(ALLIANCE_PAGE.anyone) } };
+/** WRAP360: the longest names, the largest figures, the description unfolded. */
+export const AllianceStress: Story = { args: { children: alliance(ALLIANCE_PAGE.stress, { initialUnfolded: true }) } };
+
+const noAlliance = (player: NoAllianceProps["player"], over: Partial<NoAllianceProps> = {}) => (
+  <NoAlliance player={player} query="" list={{ alliances: ALLIANCE_LISTS.ranking }} onAction={fn(async () => {})} onOpenAlliance={fn()} onQueryChange={fn()} onClose={fn()} {...over} />
+);
+/** A guild's leader in no alliance: "No alliance", Create an alliance, Find an alliance. */
+export const NoAllianceLeader: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.free) } };
+/** Their guild invited: the invitation with Accept and Decline. */
+export const NoAllianceInvited: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.invited) } };
+/** Their guild's request waiting: Cancel. */
+export const NoAllianceRequested: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.requested) } };
+/** A player of a guild in none who does not lead it: one line. */
+export const NoAllianceMember: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.none) } };
+/** Create an alliance, a view in the drawer. */
+export const NoAllianceCreate: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.free, { initialView: "create" }) } };
+/** Find an alliance, a view in the drawer: the search, the alliances by score. */
+export const NoAllianceFind: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.free, { initialView: "find" }) } };
+/** Find an alliance, a search: found by name. */
+export const NoAllianceSearch: Story = { args: { children: noAlliance(PLAYER_ALLIANCE.free, { initialView: "find", query: "nor", list: { alliances: ALLIANCE_LISTS.search } }) } };
+
+/** The guild page with its alliance: its line under the tag, the Alliance tile beside Chat with what waits (a request). */
+export const LeaderInAlliance: Story = { args: { children: page(GUILD_PAGE.leader, { alliance: <AllianceLine badge={ALLIANCE_BADGE.head} onOpen={fn()} />, allianceTile: <AllianceTile count={1} onOpen={fn()} /> }) } };
+/** A member's guild in no alliance: "No alliance" written out, the tile. */
+export const MemberNoAlliance: Story = { args: { children: page(GUILD_PAGE.member, { alliance: <AllianceLine badge={null} />, allianceTile: <AllianceTile onOpen={fn()} /> }) } };
+/** WRAP360 with the longest alliance name and a large count. */
+export const StressAlliance: Story = { args: { children: page(GUILD_PAGE.stress, { alliance: <AllianceLine badge={ALLIANCE_BADGE.stress} onOpen={fn()} />, allianceTile: <AllianceTile count={120} onOpen={fn()} /> }) } };
+
+/** Another guild's page as the alliance's leader sees it: its alliance (or none) under its tag, and what they may do to it. */
+const otherGuild = (state: AllianceGuildState, badge: typeof ALLIANCE_BADGE.member | null) =>
+  page({ ...GUILD_PAGE.join, apply: undefined }, { alliance: <AllianceLine badge={badge} onOpen={fn()} />, allianceActions: <AllianceGuildActions alliance="Stone Pact" guild={GUILD_PAGE.join.guild.name} state={state} onAction={fn(async () => {})} /> });
+/** A guild in no alliance: Invite to Stone Pact. */
+export const OtherGuildInvite: Story = { args: { children: otherGuild({ kind: "invite", refused: null }, null) } };
+/** The invitation out: Invited, dimmed. */
+export const OtherGuildInvited: Story = { args: { children: otherGuild({ kind: "invited" }, null) } };
+/** A guild in another alliance: why not. */
+export const OtherGuildInAlliance: Story = { args: { children: otherGuild({ kind: "invite", refused: "This guild is in an alliance already." }, ALLIANCE_BADGE.member) } };
+/** A guild of the alliance: Make head and Remove. */
+export const OtherGuildMember: Story = { args: { children: otherGuild({ kind: "member" }, { ...ALLIANCE_BADGE.head, role: "member" }) } };

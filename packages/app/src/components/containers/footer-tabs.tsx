@@ -1,4 +1,5 @@
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
+import { formatInteger } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { TabsList, TabsTrigger } from "../ui/tabs";
 
@@ -97,26 +98,38 @@ export interface FooterTabProps extends Omit<ComponentProps<typeof TabsTrigger>,
   /** The tab's word, under its icon on the current tab only: its accessible name always. */
   label: string;
   /**
-   * Not in the game yet (LEADERBOARD-PAGE's Alliances): the tab keeps its place, disabled, a carved "Soon" at the icon's corner (the
-   * Tiles' mark), read "Alliances, coming soon".
+   * The word as drawn, where it differs from `label`: a long one with its soft hyphen ("Announce\u00ADments", the Guild's), so it breaks
+   * there in a narrow column, not anywhere (a browser without hyphenation rules breaks it anywhere otherwise).
+   */
+  word?: string;
+  /** What waits in the tab (the dock's red count at the icon's top right); 0 or none, no count. */
+  badge?: number;
+  /** The word the count is read with ("Followers, 2 new"); omitted, "waiting". */
+  badgeWord?: string;
+  /**
+   * Not in the game yet (LEADERBOARD-PAGE's Alliances): the tab keeps its place, disabled, a carved "Soon" where a count would be (the
+   * Tiles' mark), read "Alliances, coming soon". It wins over a count.
    */
   soon?: boolean;
 }
 
 /**
  * A footer's tab. In the background: its painted icon alone, dimmed, in the bar's middle. The current one: on the body's charcoal (the
- * list's sliding ground), its icon lit and lifted, its word under it, outlined as the drawer's words are. Disabled (a write on its way),
- * it keeps its place; coming soon (`soon`), too, a carved "Soon" at the icon's corner.
+ * list's sliding ground), its icon lit and lifted, its word under it, outlined as the drawer's words are. A count waiting is the dock's
+ * red square at the icon's corner, read out with the word ("Requests, 3 waiting"). Disabled (a write on its way), it keeps its place;
+ * coming soon (`soon`), too, a carved "Soon" at the icon's corner in place of a count.
  * Two tabs in the background are parted by a carved groove on the second's left edge (`footer-tab-groove`, `theme.css`: none before the
  * first tab, none beside the current one, fading as the ground slides; the owner's ask of 2026-11-07).
- * The word stays in the layout, hidden, so the bar keeps one height whichever tab is current.
+ * The word stays in the layout, hidden, so the bar keeps one height whichever tab is current; a word too long for its column (the
+ * Guild's Announcements on a 320 px phone, four columns) breaks at its soft hyphen (`word`), else at the page's English rules
+ * (`lang="en"`) where the browser has them, else anywhere.
  */
-export function FooterTab({ art, label, soon = false, disabled, className, ...props }: FooterTabProps) {
+export function FooterTab({ art, label, word, badge = 0, badgeWord = "waiting", soon = false, disabled, className, ...props }: FooterTabProps) {
   return (
     <TabsTrigger
       // The list's indicator finds its tabs by `data-slot="tabs-trigger"` (`TabsList`): this one keeps it, and says it is a footer's.
       data-footer-tab=""
-      aria-label={soon ? `${label}, coming soon` : undefined}
+      aria-label={soon ? `${label}, coming soon` : badge > 0 ? `${label}, ${formatInteger(badge)} ${badgeWord}` : word ? label : undefined}
       disabled={soon || disabled}
       className={cn("group h-auto min-h-16 min-w-0 flex-col gap-0.5 rounded-none px-1 pt-1.5 pb-2 text-sm leading-tight font-bold whitespace-normal", "footer-tab-groove", className)}
       {...props}
@@ -124,13 +137,18 @@ export function FooterTab({ art, label, soon = false, disabled, className, ...pr
       <span aria-hidden className={cn("grid size-9 translate-y-2.5 place-items-center opacity-60 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>
         {art}
       </span>
-      {soon && (
-        // At the icon's top right corner, the Tiles' carved "Soon" (`tiles-scene.tsx`): on the card's charcoal, so it reads on the dark bar.
+      {soon ? (
+        // Where a count would be, the Tiles' carved "Soon" (`tiles-scene.tsx`): on the card's charcoal, so it reads on the dark bar.
         <span aria-hidden data-slot="footer-tab-soon" className="drawer-carved absolute top-0.5 left-1/2 ml-1 flex h-4 translate-y-2.5 items-center rounded-full px-1.5 text-xs leading-none font-bold text-muted-foreground">
           Soon
         </span>
+      ) : badge > 0 && (
+        // On the icon's top right corner, as the dock's are, inside the tab's own box (the trigger is `relative`); it rises with the icon.
+        <span aria-hidden data-slot="footer-tab-badge" className={cn("numeric absolute top-0.5 left-1/2 ml-1 grid h-4 min-w-4 translate-y-2.5 place-items-center rounded-[0.3rem] bg-dock-badge px-0.5 text-xs leading-none font-bold text-foreground ring-2 ring-background group-data-[state=active]:translate-y-0", MOVE)}>
+          {badge > 99 ? "99+" : formatInteger(badge)}
+        </span>
       )}
-      <span className={cn("text-outline max-w-full translate-y-1 text-center wrap-anywhere text-foreground opacity-0 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>{label}</span>
+      <span className={cn("text-outline max-w-full translate-y-1 text-center hyphens-auto wrap-anywhere text-foreground opacity-0 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>{word ?? label}</span>
     </TabsTrigger>
   );
 }

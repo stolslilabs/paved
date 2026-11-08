@@ -1,13 +1,8 @@
 import { useMemo } from "react";
 import type { PublicProfile } from "../../data/social-source";
-import { useSidePanel } from "../../lib/side-panel";
-import { ScrollRegion } from "../ui/scroll-region";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { Skeleton } from "../ui/skeleton";
+import { HudDrawer } from "./hud-drawer";
 import { PlayerResult, PlayerSearch, type PlayerSearchProps } from "./player-search";
-
-/** The side panel from `desktop`; the bottom sheet under it. */
-const DESKTOP_QUERY = "(min-width: 64rem)";
 
 /** The key a list compares players by: the address in small letters, without leading zeros. */
 const keyOf = (address: string): string => {
@@ -60,10 +55,10 @@ function Contacts({ title, players, empty, onPick }: { title: string; players: r
 /**
  * New message (#973), from the chat page's Private tab: the friends first, then the guildmates who are not friends, then the
  * player search (#952). Picking a player opens the private conversation with them (a friend's or a guildmate's at once; anyone
- * else's waits in their Requests, #955). A sheet: the side panel from `desktop`, a bottom sheet under it.
+ * else's waits in their Requests, #955). DRAWER-NAV-IN-PLACE (#1064): a page in the chat's drawer, in its place, with Back to the
+ * chat; alone (no drawer open), its own drawer.
  */
 export function ChatNewMessage({ open, onOpenChange, friends, guildmates, search, onPick }: ChatNewMessageProps) {
-  const desktop = useSidePanel(DESKTOP_QUERY);
   // A friend who is also a guildmate shows once, among the friends.
   const mates = useMemo(() => {
     if (!guildmates || !friends) return guildmates ?? null;
@@ -75,23 +70,16 @@ export function ChatNewMessage({ open, onOpenChange, friends, guildmates, search
     onPick(address);
   };
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={desktop ? "right" : "bottom"} data-slot="chat-new-message" className={desktop ? undefined : "max-h-[92dvh]"}>
-        <SheetHeader>
-          <SheetTitle>New message</SheetTitle>
-          <SheetDescription>Write to a friend or a guildmate, or find any player.</SheetDescription>
-        </SheetHeader>
-        <ScrollRegion className="-mx-6 min-h-0 px-6">
-          <div className="flex flex-col gap-5 pb-2">
-            <Contacts title="Friends" players={friends} empty="No friends yet: when a player you follow follows you back, you are friends." onPick={pick} />
-            {guildmates !== undefined && <Contacts title="Guildmates" players={mates} empty="No other guildmate yet." onPick={pick} />}
-            <section aria-label="Someone else" className="flex flex-col gap-2">
-              <h3 className="font-semibold">Someone else</h3>
-              <PlayerSearch {...search} onOpen={pick} />
-            </section>
-          </div>
-        </ScrollRegion>
-      </SheetContent>
-    </Sheet>
+    <HudDrawer open={open} onOpenChange={onOpenChange} title="New message" side="right" slot="chat-new-message" inPlace>
+      <div data-slot="chat-new-message" className="flex flex-col gap-5 pb-2">
+        <p className="text-sm font-semibold text-muted-foreground">Write to a friend or a guildmate, or find any player.</p>
+        <Contacts title="Friends" players={friends} empty="No friends yet: when a player you follow follows you back, you are friends." onPick={pick} />
+        {guildmates !== undefined && <Contacts title="Guildmates" players={mates} empty="No other guildmate yet." onPick={pick} />}
+        <section aria-label="Someone else" className="flex flex-col gap-2">
+          <h3 className="font-semibold">Someone else</h3>
+          <PlayerSearch {...search} onOpen={pick} />
+        </section>
+      </div>
+    </HudDrawer>
   );
 }
