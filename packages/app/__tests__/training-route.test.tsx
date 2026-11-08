@@ -160,7 +160,8 @@ describe("/training (P3)", () => {
     expect(started).toHaveBeenCalledTimes(1);
     const game = lastGame().snapshot.state.game!;
     expect(game.over).toBe(true);
-    expect(screen.getByRole("region", { name: "Game metrics" })).toHaveTextContent(`Tiles placed${game.placedCount - 1}`);
+    // The starter tile not counted.
+    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(new RegExp(`^${game.placedCount - 1} placed`));
   // The whole game is real work (one click and a re-render of the board per tile): 10.7 to 18.1 s over 5 runs, 11.2 to 23.2 s over 10 more, 28.5 s once under
   // heavy load.
   }, slow(60_000));
@@ -218,8 +219,8 @@ describe("/training/over (P3)", () => {
     await playToEnd(played);
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
     expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    const metrics = screen.getByRole("region", { name: "Game metrics" });
-    expect(metrics).toHaveTextContent(`Tiles placed${played.snapshot.state.game!.placedCount - 1}`);
+    // The starter tile not counted.
+    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(new RegExp(`^${played.snapshot.state.game!.placedCount - 1} placed`));
 
     await userEvent.click(screen.getByRole("button", { name: "Play again" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
@@ -238,17 +239,18 @@ describe("/training/over (P3)", () => {
     expect(score).toBeGreaterThan(1);
     await waitFor(() => expect(router.state.location.pathname).toBe("/training/over"), { timeout: GAME_OVER_HOLD_MS + slow(5000) });
     expect(await screen.findByTestId("final-score", {}, { timeout: slow(5000) })).toBeInTheDocument();
-    expect(screen.getByText("New best")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "New best!" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Crown: a new best" })).toBeInTheDocument();
     expect(JSON.parse(store.getItem(TRAINING_BEST_KEY)!)).toEqual({ score, seed: `0x${played.seed.toString(16)}`, previous: 1 });
 
-    const toggle = screen.getByRole("radiogroup", { name: "Show" });
-    await userEvent.click(within(toggle).getByRole("radio", { name: "Board" }));
-    // The board under the scores from the start (#720), freed by Board.
+    // The window's cross shows the board (TRAINING-END), freed.
+    await userEvent.click(screen.getByRole("button", { name: "Close the scores" }));
     await waitFor(() => expect(screen.getByTestId("final-board")).not.toHaveAttribute("aria-hidden", "true"));
     const built = played.snapshot.state.game!.placedCount;
     expect(await within(screen.getByTestId("final-board")).findByRole("img", { name: `Board of ${built} tiles` })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/training/over");
-    await userEvent.click(within(toggle).getByRole("radio", { name: "Scores" }));
+    // The gold Scores pill brings the window back (the board's entry left: one Back).
+    await userEvent.click(screen.getByRole("button", { name: "Show the scores" }));
     await waitFor(() => expect(screen.getByTestId("final-board")).toHaveAttribute("aria-hidden", "true"));
     expect(screen.getByTestId("scores-overlay").closest('[aria-hidden="true"]')).toBeNull();
     expect(router.state.location.pathname).toBe("/training/over");

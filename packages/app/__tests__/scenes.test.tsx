@@ -984,10 +984,15 @@ describe("Over", () => {
     ["settle", /Settle and claim/],
     ["below", /stake is lost/],
     ["expired", /within 24 h/],
-    ["training", /no stake, no reward/],
   ] as const)("tells the %s reward state", (state, text) => {
     render(wrap(<OverScene {...OVER[state]} />));
     expect(screen.getByRole("region", { name: "Reward" })).toHaveTextContent(text);
+  });
+
+  it("Training's end (TRAINING-END) has no reward to tell: no stake, nothing to settle", () => {
+    render(wrap(<OverScene {...OVER.training} />));
+    expect(screen.queryByRole("region", { name: "Reward" })).toBeNull();
+    expect(within(screen.getByTestId("final-score")).getByTestId("score-value")).toHaveTextContent(pts(OVER.training.game.score));
   });
 
   it("says so when the game closed nothing", () => {
