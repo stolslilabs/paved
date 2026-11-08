@@ -139,7 +139,7 @@ describe("/story (#546): campaigns, levels, stars and locks", { timeout: slow(30
     const intro = await screen.findByTestId("deck-presentation", {}, { timeout: slow(5000) });
     const level = TUTORIAL.levels[0]!;
     expect(intro).toHaveTextContent(level.intro);
-    expect(intro).toHaveTextContent(`This level deals ${level.deck.length} tiles`);
+    expect(within(intro).getByRole("heading", { name: `Deck ${level.deck.length}` })).toBeInTheDocument();
     // Its two tiles in draw order, numbered (#613): the same plan twice, never grouped.
     expect(within(intro).getByTestId("presented-tiles").querySelectorAll("li")).toHaveLength(level.deck.length);
     expect(within(intro).getByLabelText("Tile 2")).toBeInTheDocument();
