@@ -148,6 +148,21 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   assets, the lockfile and the ABIs do not count. Mechanical changes (renames, moves, batches of assets, notices) go first, in
   their own pull request. The 400-line limit holds until the owner settles it (open point 1 of #1120).
 
+## Scheduling briefs (orchestrator)
+
+- **One brief at a time per hotspot (R9).** Do not run two briefs at once that will edit the same file of this list; the
+  second waits or is reshaped:
+  - `packages/app/src/components/scenes/home-village-scene.tsx`
+  - `docs/design/README.md`
+  - `packages/app/src/styles/theme.css`
+  - `packages/app/__tests__/scenes.test.tsx`
+  - `packages/app/src/data/mock/ledger.ts`
+  - `.claude/skills/paved-ui/SKILL.md`
+  - `packages/app/public/THIRD_PARTY_NOTICES.txt`
+  - `packages/app/src/routes/pages.ts`
+
+  The list shrinks as #1133 and #1134 land. A brief that will go over R8 is reshaped before it starts.
+
 ## Flaky tests
 
 - **A flaky test stops the line (R7).** A test is flaky when it fails on main, in the queue, or in a pull request on code that
