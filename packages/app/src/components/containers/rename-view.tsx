@@ -122,7 +122,7 @@ export function RenameView(props: RenameViewProps) {
         </p>
       </section>
       <section aria-label="New name" className="flex flex-col gap-2">
-        <SectionTitle end={<CharCount count={nameLength(name)} max={PLAYER_NAME_MAX} />}>
+        <SectionTitle>
           <label htmlFor={fieldId}>New name</label>
         </SectionTitle>
         <input
@@ -162,6 +162,8 @@ export function RenameView(props: RenameViewProps) {
                 {/* A name taken: said on its own rule's line, the chain's answer. */}
                 <span>{rule === "unique" && taken ? "Taken by another player" : RULE_TEXT[rule]}</span>
                 <span className="sr-only">{state === "met" ? ", met" : state === "broken" ? ", not met" : ""}</span>
+                {/* The characters typed, at the end of the length's rule, right under the field (TILE-COUNTS: out of the title). */}
+                {rule === "length" && <CharCount count={nameLength(name)} max={PLAYER_NAME_MAX} />}
               </li>
             );
           })}
@@ -220,10 +222,10 @@ export function RenameView(props: RenameViewProps) {
   );
 }
 
-/** The count of characters at the field's title: "7/15", in the warning colour past the most. */
+/** The count of characters at the end of the length's rule: "7/15", in the warning colour past the most. */
 function CharCount({ count, max }: { count: number; max: number }) {
   return (
-    <span aria-hidden className={cn("numeric font-sans text-sm font-bold", count > max ? "text-warning" : "text-muted-foreground")}>
+    <span aria-hidden data-slot="rename-count" className={cn("numeric ml-auto shrink-0 font-sans text-sm font-bold", count > max ? "text-warning" : "text-muted-foreground")}>
       {formatInteger(count)}/{formatInteger(max)}
     </span>
   );

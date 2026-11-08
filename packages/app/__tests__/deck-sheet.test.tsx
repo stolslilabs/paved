@@ -27,7 +27,8 @@ describe("DeckSheet", () => {
     expect(plans.querySelectorAll("[data-hand]")).toHaveLength(1);
     expect(plans.querySelector('[data-plan="CCCCCFFFC"]')).toHaveAttribute("data-hand", "true");
     expect(screen.getByLabelText(/^Capital: 0 of 1 left, 1 played$/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Tiles 72" })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the 72 read in the band at the top.
+    expect(screen.getByRole("heading", { name: "Tiles" })).toBeInTheDocument();
     expect(screen.getByText(/some never come/)).toBeInTheDocument();
     expect(screen.getByTestId("deck-summary")).toHaveTextContent("Left67Played3Discarded2");
   });
