@@ -4,7 +4,7 @@ import { community, communityProfile } from "../data/mock/community";
 import type { GuildSummary, PlayerRanking, PublicProfile } from "../data/social-source";
 import { generatedLook } from "./avatar";
 import { MOCK_NOW } from "./clock";
-import { FRIENDS_TAB } from "./follows";
+import { FRIENDS_TAB, TWO_FIGURE_LEVELS } from "./follows";
 import { GUILD_FINDER } from "./guilds";
 import { LONG_ADDRESS, LONG_NAME } from "./stress";
 
@@ -39,6 +39,9 @@ const QUARRY = GUILDS.find((g) => g.name === "The Quarrymen")!.id;
 const LOW_GUILD: GuildSummary = { ...GUILDS[GUILDS.length - 1]!, id: 4_242, tag: "#4242", name: "Mossy Kerb", members: 2, score: 12 };
 const LOW_PLACE = { place: 42, guild: LOW_GUILD };
 
+/** The ranking with the levels at 9, 10, 20 and 15 in turn (#1065), the viewer second. */
+const TWO_FIGURES: readonly PublicProfile[] = RANKED.map((p, i) => ({ ...p, level: TWO_FIGURE_LEVELS[i % TWO_FIGURE_LEVELS.length]! }));
+
 /** WRAP360: the longest name and address, the largest figures. */
 const STRESS_PLAYER: PublicProfile = { address: LONG_ADDRESS, name: LONG_NAME, look: null, level: 120, crowns: 123_456, league: 22, score: 0, lastSeen: MOCK_NOW };
 /** Another long address (its own row and key), no name. */
@@ -71,6 +74,8 @@ export const LEADERBOARD = {
   error: { tab: "players", players: FAILED, guilds: FAILED, friends: FAILED, myGuild: null },
   /** No social source on this network. */
   unavailable: { tab: "players", players: read(null), guilds: read(null), friends: read(null), myGuild: null, unavailable: true },
+  /** Two-figure levels (#1065): the players at levels 9, 10, 20 and 15 in turn, the star holding both figures. */
+  twoFigures: { tab: "players", players: read({ players: [...TWO_FIGURES], me: { place: 2, profile: TWO_FIGURES[1]! } }), guilds: read(GUILDS), friends: read(friendsAt(4)), myGuild: QUARRY },
   /** WRAP360: the longest name, a long address with no name, the largest figures. */
   stress: { tab: "players", players: read({ players: [STRESS_PLAYER, STRESS_NO_NAME, ...RANKED.slice(0, 98)], me: { place: 1, profile: STRESS_PLAYER } }), guilds: read(GUILDS), friends: read(rankAmongFriends([STRESS_NO_NAME, ...FRIENDS], STRESS_PLAYER)), myGuild: QUARRY },
 } satisfies Record<string, Data<LeaderboardSceneProps>>;

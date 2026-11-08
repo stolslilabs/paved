@@ -45,6 +45,8 @@ export const Guild: Story = { args: CHAT_CONVERSATION.guild };
 /** A private conversation with a friend: past its first message, no encryption line or notice (the conversation's menu keeps Encryption). */
 export const Private: Story = { args: CHAT_CONVERSATION.private };
 /** A stranger's request: Accept or Decline. */
+/** Two-figure levels (#1065): the friend at level 10, in the head and beside their messages, both figures inside the star. */
+export const TwoFigureLevels: Story = { args: CHAT_CONVERSATION.twoFigures };
 export const Request: Story = { args: CHAT_CONVERSATION.request };
 /** The player's own request, waiting in the other's Requests. */
 export const AwaitingReply: Story = { args: CHAT_CONVERSATION.awaitingReply };

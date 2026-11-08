@@ -49,6 +49,9 @@ const STRESS_PROFILE: PublicProfile = { address: LONG_ADDRESS, name: LONG_NAME, 
 /** `n` rows, each a player of its own (the community's profiles under new addresses); with `isNew`, the first 119 new. */
 const many = (n: number, isNew = false) => Array.from({ length: n }, (_, i) => row({ ...member(i % 40, (i + 1) * HOUR), address: `0x5eed${i.toString(16).padStart(4, "0")}` }, i * HOUR, isNew && i < 119));
 
+/** The levels a star is checked at (#1065): the largest one-figure, the first two-figure, the cap, one between. */
+export const TWO_FIGURE_LEVELS = [9, 10, 20, 15] as const;
+
 type PanelData = Omit<FriendsPanelProps, "onAction" | "onOpenPlayer" | "onMessage" | "onListChange" | "onRetry">;
 const panel = (data: Partial<PanelData>): PanelData => ({ lists: full, suggestions, list: "friends", now: MOCK_NOW, guildOf, ...data });
 
@@ -67,6 +70,8 @@ export const FRIENDS_TAB = {
   noneBlocked: panel({ lists: lists({}), initialBlockedOpen: true }),
   loading: panel({ lists: null, suggestions: null }),
   failed: panel({ lists: null, suggestions: [], error: "The social source did not answer: try again in a moment." }),
+  /** Two-figure levels (#1065): the friends at levels 9, 10, 20 and 15, the star holding both figures. */
+  twoFigures: panel({ lists: lists({ friends: FRIENDS.map((r, i) => ({ ...r, profile: { ...r.profile, level: TWO_FIGURE_LEVELS[i % TWO_FIGURE_LEVELS.length]! } })) }) }),
   /** WRAP360: the longest name and address, four-digit counts, 120 new followers. */
   stress: panel({
     list: "followers",

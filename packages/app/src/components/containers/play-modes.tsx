@@ -45,13 +45,13 @@ const TITLE = "text-outline text-lg leading-tight font-bold mobile:text-xl";
 type Reward = "paved" | "xp" | "chest" | "crown";
 const REWARD_NAMES: Record<Reward, string> = { paved: "PAVED", xp: "XP", chest: "chests", crown: "crowns" };
 
-/** A reward's icon, 28 px: the PAVED coin, the level bar's blue star with "XP" in it (the HUD's `LevelStar`), the dock's chest, the crown. */
+/** A reward's icon, 28 px: the PAVED coin, the dock's chest, the crown; the level bar's blue star with "XP" in it 32 px, as the HUD's `LevelStar` (#1065), centred with them. */
 function RewardIcon({ reward }: { reward: Reward }) {
   if (reward === "paved") return <TokenIcon kind="paved" size="lg" className="drawer-icon size-7" px={28} />;
   if (reward === "xp")
     return (
-      <span className="relative grid size-7 shrink-0 place-items-center">
-        <UiIcon name="level-star" px={28} className="absolute inset-0 size-full [filter:drop-shadow(0_1px_0_var(--background))]" />
+      <span className="relative -m-0.5 grid size-8 shrink-0 place-items-center">
+        <UiIcon name="level-star" px={32} className="absolute inset-0 size-full [filter:drop-shadow(0_1px_0_var(--background))]" />
         <span className="text-outline relative text-xs leading-none font-bold text-foreground tabular-nums">XP</span>
       </span>
     );
