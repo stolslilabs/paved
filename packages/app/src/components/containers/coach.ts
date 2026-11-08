@@ -1,5 +1,8 @@
-/** A control a Story coach mark points at (#546): the board rings it while the tip names it ("place": the bubble's Validate, #568). */
+/**
+ * A control a Story coach mark points at (#546): the board lights it (`CoachMark`, GAME-OVERLAY) while the tip names it ("place": the
+ * tile's Confirm, #568).
+ */
 export type CoachTarget = "place" | "discard" | "deck" | "settings" | "wheel";
 
-/** The ring of a coached control. */
-export const COACH_RING = "rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-card animate-pulse motion-reduce:animate-none";
+/** The box of a control that may be coached: the mark lies behind the control, inside it (`CoachMark`'s `-z-10`). */
+export const COACH_BOX = "relative isolate";

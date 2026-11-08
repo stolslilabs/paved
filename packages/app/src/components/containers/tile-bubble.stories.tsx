@@ -119,9 +119,9 @@ export const Holding: Story = { args: { holdMs: 6000 }, play: hold("Hold to plac
 export const DiscardHolding: Story = { args: { holdMs: 6000 }, play: hold(/^Hold to discard the tile/) };
 /** At 0 points a discard is free: its name says so. */
 export const FreeDiscard: Story = { args: { discardCost: 0 } };
-/** A Story level's coach mark on the placement: Confirm is ringed. */
+/** A Story level's coach mark on the placement: the light behind Confirm (GAME-OVERLAY). */
 export const Coached: Story = { args: { coach: "place" } };
-/** A Story level's coach mark on the discard: the trash is ringed. */
+/** A Story level's coach mark on the discard: the light behind the trash. */
 export const CoachedDiscard: Story = { args: { coach: "discard" } };
 /** The village editor's tile from the inventory (#756): Back to the inventory in Discard's place and Rotate; no Cancel (Escape cancels), no Confirm. */
 export const Editor: Story = { args: { onDiscard: undefined, onConfirm: undefined, onReturn: fn(), cancelButton: false } };

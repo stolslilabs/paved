@@ -113,6 +113,12 @@ export const UI_ICONS = [
   "tile-rotate",
   "tile-confirm",
   "tile-return",
+  // GAME-OVERLAY: the in-game overlay's paintings by Codex in the HUD icons' look: Story's Restart on the board, held (a red arrow going
+  // back round); a Challenge's time left (the book's stopwatch); Surrender (a white flag); a board notice's warning (an amber sign).
+  "restart",
+  "countdown",
+  "surrender",
+  "caution",
   "padlock",
   "save",
   "erase",

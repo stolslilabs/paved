@@ -7,7 +7,7 @@ import { DISCARD_POINTS, PlanType, baseDeckPlans, type DeckSheetOrder } from "@p
 import { cn } from "../../lib/utils";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
-import { Notice } from "../elements/notice";
+import { BoardNotice } from "../containers/board-notice";
 import { BoardMap } from "../containers/board-map";
 import { BoardCovered } from "../containers/board-covered";
 import { useSidePanel } from "../../lib/side-panel";
@@ -24,7 +24,11 @@ import { useBoardSounds } from "../containers/board-sounds";
 import { useSfx } from "../containers/audio-provider";
 import { TileStack, type HandState, type StackFrame } from "../containers/tile-stack";
 import type { GameAction } from "../containers/device-settings-sheet";
-import { COACH_RING, type CoachTarget } from "../containers/coach";
+import type { CoachTarget } from "../containers/coach";
+import { CoachMark } from "../elements/coach-mark";
+import { HudFrame } from "../elements/hud-frame";
+import { ScoreMeter } from "../elements/score-meter";
+import type { ScoreMeterValue } from "../../lib/score-meter";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 export type { CoachTarget } from "../containers/coach";
 
@@ -35,8 +39,6 @@ export type BoardMode = "challenge" | "training" | "story" | "attack";
  * feed, the bubble, the stack, the season dial and the sounds.
  */
 export interface AttackSlots {
-  /** Under the HUD: the star meter against the defender's village. */
-  meter: ReactNode;
   /** A replay (#647): its bar in place of the stack, the board read only. */
   replay?: ReactNode;
   /** v1's territory (the defender's owned cells), drawn by the plan view; v2's open board has none. */
@@ -74,13 +76,18 @@ export interface BoardSceneProps {
   title?: string;
   /** A Story level's draw where it stands (`deckSheetOrder`): the deck sheet shows it in order (#613); the counted base deck otherwise. */
   deckOrder?: DeckSheetOrder;
-  /** The attack's own pieces (`mode: "attack"`): the star meter, the replay's bar, v1's territory. */
+  /** The attack's own pieces (`mode: "attack"`): the replay's bar, v1's territory, v2's deck. */
   attack?: AttackSlots;
   /** The plans the stack's pile draws (chain ids): an attack's deck; the Story level's or the base deck when left out. */
   pilePlans?: readonly number[];
   /** A Story level: the deck sheet offers the level's deck presentation again (#593). */
   onPresentDeck?: () => void;
-  /** The control a Story coach mark points at: ringed. */
+  /**
+   * The score meter under the HUD, every mode's (GAME-OVERLAY, `lib/score-meter.ts`): the Attack's stars (the Ranked's), Story's stars by
+   * their shares, a Challenge's score to beat and cap, Training's best. None: no goal to show (Training's first game on a device).
+   */
+  meter?: ScoreMeterValue | null;
+  /** The control a Story coach mark points at: lit (`CoachMark`, GAME-OVERLAY). */
   coach?: CoachTarget | null;
   tiles: BoardTile[];
   score: number;
@@ -225,12 +232,13 @@ export function BoardScene(props: BoardSceneProps) {
     setSettingsOpen(false);
     open(true);
   };
-  const gameAction: GameAction | undefined = props.readOnly || mode === "attack"
+  // Story's Restart is on the board, held (GAME-OVERLAY): its settings have no game row.
+  const gameAction: GameAction | undefined = props.readOnly || mode === "attack" || mode === "story"
     ? undefined
     : mode === "challenge"
       ? { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: pick(setSurrendering), disabled: !props.onSurrender || hand.state === "pending" || hand.state === "empty" }
       : props.onRestart
-        ? { kind: "restart", label: mode === "story" ? "Restart level" : "Restart", hint: mode === "story" ? "Play this level again from its first tile." : "Play this game again from its first tile, same deck.", onSelect: pick(setRestarting) }
+        ? { kind: "restart", label: "Restart", hint: "Play this game again from its first tile, same deck.", onSelect: pick(setRestarting) }
         : undefined;
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
@@ -254,14 +262,22 @@ export function BoardScene(props: BoardSceneProps) {
             play("tap");
             setSettingsOpen(true);
           }}
+          onRestart={mode === "story" ? props.onRestart : undefined}
+          restartDisabled={props.readOnly}
           coach={props.coach}
           className="pointer-events-auto w-full max-w-2xl"
         />
-        {attack?.meter}
+        {/* The score meter (GAME-OVERLAY): on the HUD's frame as the header, the gestures passing through to the board. */}
+        {props.meter && (
+          <div data-slot="score-meter" className="relative isolate w-full max-w-2xl px-2.5 py-1 tablet:px-3">
+            <HudFrame px={13} />
+            <ScoreMeter {...props.meter} />
+          </div>
+        )}
         {props.storageDisabled && (
-          <Notice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
+          <BoardNotice tone="warning" title="Storage is off" className="pointer-events-auto w-full max-w-2xl">
             This browser refuses local storage: this game is not saved and ends if the page closes.
-          </Notice>
+          </BoardNotice>
         )}
         {props.notices}
         <ClosingFeed closings={props.lastScored} className="mt-1" />
@@ -273,8 +289,9 @@ export function BoardScene(props: BoardSceneProps) {
           data-bubble-avoid
           data-dial-place
           data-coach={props.coach === "wheel" ? "wheel" : undefined}
-          className={cn("pointer-events-auto absolute bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 tablet:bottom-4 tablet:left-4", props.coach === "wheel" && COACH_RING)}
+          className="pointer-events-auto absolute isolate bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 tablet:bottom-4 tablet:left-4"
         >
+          {props.coach === "wheel" && <CoachMark spread={1.8} px={240} />}
           {/* The dial's size (`DIAL_SIZE`, written out: the element is the lazy chunk's). */}
           <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
             <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
@@ -355,8 +372,8 @@ export function BoardScene(props: BoardSceneProps) {
       {surrenderDialog && (
         <surrenderDialog.SurrenderDialog open={surrendering} onOpenChange={setSurrendering} expired={promptSurrender} score={props.score} onSurrender={() => props.onSurrender?.()} />
       )}
-      {surrenderDialog && (mode === "training" || mode === "story") && (
-        <surrenderDialog.RestartDialog open={restarting} onOpenChange={setRestarting} mode={mode} onRestart={() => props.onRestart?.()} />
+      {surrenderDialog && mode === "training" && (
+        <surrenderDialog.RestartDialog open={restarting} onOpenChange={setRestarting} onRestart={() => props.onRestart?.()} />
       )}
     </div>
   );

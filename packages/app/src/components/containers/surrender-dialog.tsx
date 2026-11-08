@@ -1,6 +1,5 @@
-import { Button } from "../ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { formatPoints } from "../elements/score";
+import { HudDialog } from "./hud-dialog";
 
 export interface SurrenderDialogProps {
   open: boolean;
@@ -12,75 +11,64 @@ export interface SurrenderDialogProps {
 }
 
 /**
- * The Surrender confirmation (from the in-game settings since #606, or by itself when a Challenge game expired). Its own module so that the board's route chunk does not carry the dialog and Radix under it
- * (BOARD-CHUNK): `BoardScene` loads it at the first Surrender, and in the browser's idle time before.
+ * The Surrender confirmation (from the in-game settings since #606, or by itself when a Challenge game expired), in the HUD's look
+ * (GAME-OVERLAY: `HudDialog`, the band, the red close keeps playing, one answer in red with the painted white flag). Its own module so
+ * that the board's route chunk does not carry the dialog and Radix under it (BOARD-CHUNK): `BoardScene` loads it at the first
+ * Surrender, and in the browser's idle time before.
  */
 export function SurrenderDialog({ open, onOpenChange, expired, score, onSurrender }: SurrenderDialogProps) {
   return (
     // Radix closes it on Esc and on a click outside (P3); the game goes on.
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showClose={false}>
-        <DialogHeader>
-          <DialogTitle>Surrender this game?</DialogTitle>
-          <DialogDescription>
-            {expired && "Its 24 hours are over: it takes no more moves, and only a surrender closes it. "}
-            It ends now with your score of <span className="numeric">{formatPoints(score)}</span>. This cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="secondary">Keep playing</Button>
-          </DialogClose>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              onOpenChange(false);
-              onSurrender();
-            }}
-          >
-            Surrender
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <HudDialog
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      cancel="Keep playing"
+      title="Surrender this game?"
+      description={
+        <>
+          {expired && "Its 24 hours are over: it takes no more moves, and only a surrender closes it. "}
+          It ends now with your score of <span className="numeric">{formatPoints(score)}</span>. This cannot be undone.
+        </>
+      }
+      action={{
+        label: "Surrender",
+        art: "surrender",
+        tone: "destructive",
+        onClick: () => {
+          onOpenChange(false);
+          onSurrender();
+        },
+      }}
+    />
   );
 }
 
 export interface RestartDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Story mode restarts the level; Training the same game from its start (its seed, its deck). */
-  mode: "story" | "training";
   onRestart: () => void;
 }
 
-/** The Restart confirmation of the in-game settings (#606), in the Surrender dialog's module: the same chunk, loaded the same way. */
-export function RestartDialog({ open, onOpenChange, mode, onRestart }: RestartDialogProps) {
+/**
+ * Training's Restart confirmation, from its in-game settings (#606; Story's Restart is held on the board, GAME-OVERLAY), in the
+ * Surrender dialog's module and look: the same chunk, loaded the same way; the answer raised grey with the painted red arrow.
+ */
+export function RestartDialog({ open, onOpenChange, onRestart }: RestartDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showClose={false}>
-        <DialogHeader>
-          <DialogTitle>{mode === "story" ? "Restart this level?" : "Restart this game?"}</DialogTitle>
-          <DialogDescription>
-            {mode === "story"
-              ? "The level starts again from its first tile. This run's moves and points are lost."
-              : "The same game starts again from its first tile, with the same deck. This game's moves and points are lost."}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="secondary">Keep playing</Button>
-          </DialogClose>
-          <Button
-            onClick={() => {
-              onOpenChange(false);
-              onRestart();
-            }}
-          >
-            Restart
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <HudDialog
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      cancel="Keep playing"
+      title="Restart this game?"
+      description="The same game starts again from its first tile, with the same deck. This game's moves and points are lost."
+      action={{
+        label: "Restart",
+        art: "restart",
+        onClick: () => {
+          onOpenChange(false);
+          onRestart();
+        },
+      }}
+    />
   );
 }
