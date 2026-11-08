@@ -165,8 +165,8 @@ const SQUARE_PX = 280;
  * hero, the Challenge wide, Training and Story two square tiles side by side, the Puzzle wide. Every card a stone slab in a painted
  * scene of its mode, its icon breaking out of its top edge, its group as a tag (the groups' titles kept for a screen reader). Attack
  * (Ranked): the catapult, "Raid a rival village", its rewards: crowns, XP and chests. The Challenge (Paid): the war horn, "Beat the
- * threshold", its rewards: PAVED, XP and chests; with a game still open, its time left, its score and Resume in their place
- * ("modes-resume"). Training (Free): the straw dummy and its line. Story (Free): the map, its line and its rewards in a column:
+ * threshold", its rewards: PAVED, XP and chests; with a game still open, its time left and its score as its line, Resume in
+ * the rewards' place ("modes-resume"). Training (Free): the straw dummy and its line. Story (Free): the map, its line and its rewards in a column:
  * Cobbles, XP and chests. The Puzzle (Limited, `PuzzleMode`): the jigsaw tile, the day's deck for every player, its first place paid
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
@@ -199,13 +199,9 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
           <Chip className="absolute top-2.5 left-3">Paid</Chip>
           <button type="button" disabled={spawnPaused} onClick={onChallenge} className={cn(COVER, "flex-1")}>
             <span className={cn(TITLE, "text-[1.75rem]")}>Challenge</span>
-            <span className={LINE}>Beat the threshold</span>
-            {spawnPaused && <span className="text-outline text-sm text-warning">Purchases are paused for now.</span>}
-          </button>
-          {running ? (
-            <div className="relative z-10 flex shrink-0 items-end gap-2 self-end">
-              <span className="text-outline flex flex-col items-end font-bold">
-                <span className="flex items-center gap-1 text-[0.8125rem] whitespace-nowrap">
+            {running ? (
+              <span className="text-outline flex flex-wrap items-center gap-x-2 text-[0.8125rem] leading-tight font-bold">
+                <span className="flex items-center gap-1 whitespace-nowrap">
                   <Icon name="clock" size="sm" />
                   {left > 0 ? (
                     <span>
@@ -215,15 +211,20 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
                     "Expired"
                   )}
                 </span>
-                <span className="flex items-center gap-1 text-base leading-tight" aria-label={`Score ${formatPoints(running.score)}`}>
-                  <UiIcon name="star" px={20} className="size-5" />
+                <span className="flex items-center gap-1 whitespace-nowrap" aria-label={`Score ${formatPoints(running.score)}`}>
+                  <UiIcon name="star" px={16} className="size-4" />
                   <span className="numeric">{formatPoints(running.score)}</span>
                 </span>
               </span>
-              <button type="button" onClick={() => onResume?.(running.id)} aria-label={`Resume Challenge #${running.id}`} style={SAVE_PILL} className="gold-pill h-9 shrink-0 cursor-pointer rounded-lg px-3 text-base">
-                Resume
-              </button>
-            </div>
+            ) : (
+              <span className={LINE}>Beat the threshold</span>
+            )}
+            {spawnPaused && <span className="text-outline text-sm text-warning">Purchases are paused for now.</span>}
+          </button>
+          {running ? (
+            <button type="button" onClick={() => onResume?.(running.id)} aria-label={`Resume Challenge #${running.id}`} style={SAVE_PILL} className="gold-pill relative z-10 h-9 shrink-0 cursor-pointer self-end rounded-lg px-3 text-base">
+              Resume
+            </button>
           ) : (
             <Rewards rewards={CHALLENGE_REWARDS} className="right-3.5 bottom-3" />
           )}

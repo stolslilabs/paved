@@ -117,12 +117,13 @@ export function MailSection({ mails, now, onClaimAll, claiming = false, error, o
             >
               <MailGift state={m.claimed ? "open" : "ready"} px={44} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="text-outline text-base leading-snug font-bold">Puzzle: you won!</span>
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="drawer-carved min-w-0 truncate rounded-lg px-2.5 py-1 text-sm font-semibold text-muted-foreground">
-                    {shortDay(m.day)} · {m.claimed ? "claimed" : `${PUZZLE_PRIZE_COBBLES} Cobbles`}
-                  </span>
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="text-outline text-base leading-snug font-bold">Puzzle: you won!</span>
                   <span className="ml-auto shrink-0 pl-1 text-xs font-semibold text-muted-foreground tabular-nums">{mailTime(m.at, now)}</span>
+                </span>
+                {/* The bubble whole at every width (WRAP360): the time on the title's line, the bubble's words wrap rather than cut. */}
+                <span className="drawer-carved w-fit max-w-full rounded-lg px-2.5 py-1 text-[0.8125rem] leading-snug font-semibold text-muted-foreground">
+                  {shortDay(m.day)} · {m.claimed ? "claimed" : `${PUZZLE_PRIZE_COBBLES} Cobbles`}
                 </span>
               </span>
             </button>
