@@ -55,7 +55,7 @@ interface Run {
 
 const browser = await chromium.launch(
   GPU
-    ? { headless: !HEADED, args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist", "--enable-unsafe-webgpu"] }
+    ? { headless: !HEADED, args: ["--mute-audio", "--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist", "--enable-unsafe-webgpu"] }
     : { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
 );
 const results = new Map<string, { times: number[]; calls: Set<number>; run: Run }>();
