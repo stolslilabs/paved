@@ -402,8 +402,7 @@ async function main() {
 
   async function worker() {
     // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.
-    // Muted: the stories that play music would play it on the machine running the sweep (the owner's ask of 2026-11-08).
-    const browser = await chromium.launch({ headless: true, args: ["--mute-audio"] });
+    const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: opts.widths[0], height: 740 }, reducedMotion: "reduce" });
     let page = await context.newPage();
     // The next page, the last one closed (its frames stop).

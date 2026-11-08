@@ -83,8 +83,7 @@ beforeAll(async () => {
     if (!address || typeof address === "string") throw new Error("no dev server address");
     base = `http://127.0.0.1:${address.port}`;
   }
-  // Muted: a bot run on a desk machine plays the app's music otherwise (the owner's ask of 2026-11-08).
-  browser = await chromium.launch({ headless: true, args: ["--mute-audio"] });
+  browser = await chromium.launch({ headless: true });
 }, 180_000);
 
 afterAll(async () => {
