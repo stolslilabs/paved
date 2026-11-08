@@ -47,6 +47,48 @@ function scoredOf(scored: readonly Scored[]): ScoredStructure[] {
 }
 
 /**
+ * An engine game as a board reads it (`PageState`), played on the device: Training's (`LocalSession`) and a Puzzle game's on the
+ * mock. The tiles known after the hand are the queue's: a Training game's local one, or a VRF game's drawn ones (`queue`, its
+ * tiles still to draw left out). `gameId` and `playerId` name the game; the move's `lastScored` and refusal are the caller's.
+ */
+export function pageStateOf(g: EngineGame, options: { lastScored?: ScoredStructure[]; writeError?: string | null; gameId?: number; playerId?: string } = {}): PageState {
+  const hand = g.over ? null : g.hand;
+  const tiles: BoardTile[] = g.placed().map((t) => ({
+    id: t.id,
+    plan: PLANS.indexOf(t.plan),
+    orientation: ORIENTATIONS.indexOf(t.orientation),
+    x: CENTER + t.x,
+    y: CENTER + t.y,
+  }));
+  const coming = !hand ? [] : g.vrf ? g.queue.flatMap((t) => (t.plan ? [{ tileId: t.id, plan: PLANS.indexOf(t.plan) }] : [])) : g.coming.map((t) => ({ tileId: t.id, plan: PLANS.indexOf(t.plan) }));
+  return {
+    key: { gameId: options.gameId ?? 1 },
+    status: "ready",
+    error: null,
+    message: null,
+    game: {
+      playerId: options.playerId ?? PLAYER,
+      score: g.score,
+      over: g.over,
+      // As on chain: the starter counts as placed, the page shows built = placedCount - 1.
+      placedCount: g.built + 1,
+      deckSize: g.tileLimit,
+      discardedCount: g.discarded,
+    },
+    tiles,
+    discardedPlans: [...g.discardedPlans],
+    hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
+    coming,
+    lastScored: options.lastScored ?? [],
+    closed: closedOf(g.closings()),
+    readonly: false,
+    pending: false,
+    writeError: options.writeError ?? null,
+    readError: null,
+  };
+}
+
+/**
  * A game of Training over the off-chain engine, in the shape the game page renders. Nothing here reaches a chain: the
  * `send` the page passes is never called. The engine game is kept between moves: a move is applied to it, never
  * replayed. Nothing is saved (#718): the game lives as long as the object, and every entry to Training starts a new one.
@@ -104,40 +146,7 @@ export class LocalSession implements PageSession {
   }
 
   private project(lastScored: ScoredStructure[], writeError: string | null): PageState {
-    const g = this.game;
-    const hand = g.over ? null : g.hand;
-    const tiles: BoardTile[] = g.placed().map((t) => ({
-      id: t.id,
-      plan: PLANS.indexOf(t.plan),
-      orientation: ORIENTATIONS.indexOf(t.orientation),
-      x: CENTER + t.x,
-      y: CENTER + t.y,
-    }));
-    return {
-      key: { gameId: 1 },
-      status: "ready",
-      error: null,
-      message: null,
-      game: {
-        playerId: PLAYER,
-        score: g.score,
-        over: g.over,
-        // As on chain: the starter counts as placed, the page shows built = placedCount - 1.
-        placedCount: g.built + 1,
-        deckSize: g.tileLimit,
-        discardedCount: g.discarded,
-      },
-      tiles,
-      discardedPlans: [...g.discardedPlans],
-      hand: hand ? { tileId: hand.id, plan: PLANS.indexOf(hand.plan) } : null,
-      coming: hand ? g.coming.map((t) => ({ tileId: t.id, plan: PLANS.indexOf(t.plan) })) : [],
-      lastScored,
-      closed: closedOf(g.closings()),
-      readonly: false,
-      pending: false,
-      writeError,
-      readError: null,
-    };
+    return pageStateOf(this.game, { lastScored, writeError, playerId: PLAYER });
   }
 
   private set(state: PageState): void {

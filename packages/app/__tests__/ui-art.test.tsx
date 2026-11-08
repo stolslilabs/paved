@@ -8,7 +8,7 @@ import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RIN
 import { PILES, RARITY_END, SHOP_PARTS, UI_SHOP_PARTS, shopPartImage, shopPartSources } from "../src/components/elements/shop-art";
 import { FRIENDS_PARTS, GOLD_PILL_END, UI_FRIENDS_PARTS, friendsPartImage } from "../src/components/elements/friends-art";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES, emblemChargeMask } from "../src/components/elements/emblem-art";
-import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME, playArtSources, stakeArtName, stakeArtSources } from "../src/components/elements/play-art";
+import { MODE_ICONS, MODE_ICON_FRAME, MODE_SCENES, MODE_SCENE_FRAME, STAKE_ART, STAKE_ART_FRAME, modeIconSources, modeSceneSources, stakeArtName, stakeArtSources } from "../src/components/elements/play-art";
 import { AVATAR_ART, AVATAR_ART_FRAME, avatarArtSources } from "../src/components/elements/avatar-art";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME, vaultArtSources } from "../src/components/elements/vault-art";
 import { RANKING_ART, RANKING_ART_FRAME, rankingArtSources } from "../src/components/elements/ranking-art";
@@ -18,11 +18,11 @@ import { expected, masters, OUT, problems } from "../scripts/compress-ui-art.ts"
 
 describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => {
   it("ships each icon and frame as a WebP of its size, from a master on its frame (scripts/compress-ui-art.ts)", () => {
-    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + PLAY_ART.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length + AVATAR_ART.length + RANKING_ART.length + RADAR_ART.length);
+    expect(masters()).toHaveLength(UI_ICONS.length + UI_FRAMES.length + UI_MEDALLIONS.length + UI_RINGS.length + UI_MISSION_PARTS.length + UI_SHOP_PARTS.length + UI_FRIENDS_PARTS.length + GUILD_EMBLEM_CHARGES.length + MODE_ICONS.length + MODE_SCENES.length + STAKE_ART.length + VAULT_ART.length + VAULT_LIGHTS.length + AVATAR_ART.length + RANKING_ART.length + RADAR_ART.length);
     expect(problems()).toEqual([]);
     // Small: about 2 KiB an icon at 64 px, 5 KiB at 128 (a screen loads a few); two copies an image.
     const parts = UI_MISSION_PARTS.reduce((sum, name) => sum + MISSION_PARTS[name].sizes.length, 0);
-    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * PLAY_ART.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length + 2 * AVATAR_ART.length + 2 * RANKING_ART.length + 2 * RADAR_ART.length);
+    expect(expected()).toHaveLength(2 * UI_ICONS.length + 2 * UI_FRAMES.length + 2 * (UI_MEDALLIONS.length + UI_RINGS.length) + parts + 2 * UI_SHOP_PARTS.length + 2 * UI_FRIENDS_PARTS.length + 2 * GUILD_EMBLEM_CHARGES.length + 2 * MODE_ICONS.length + 2 * MODE_SCENES.length + 2 * STAKE_ART.length + 2 * VAULT_ART.length + 2 * VAULT_LIGHTS.length + 2 * AVATAR_ART.length + 2 * RANKING_ART.length + 2 * RADAR_ART.length);
     const size = (f: string) => statSync(join(OUT, f)).size;
     const hud = expected().filter((f) => !f.startsWith("medallions/") && !f.startsWith("missions/") && !f.startsWith("shop/") && !f.startsWith("friends/") && !f.startsWith("emblems/") && !f.startsWith("play/") && !f.startsWith("vault/") && !f.startsWith("avatar/") && !f.startsWith("ranking/") && !f.startsWith("attack/"));
     // GUILD-PAGE (2026-11-05): raised by exactly the measured growth over main, the copies of the guild's icons (each in line with the
@@ -71,16 +71,28 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     expect(emblemChargeMask("wolf")).toBe('image-set(url("/ui-art/emblems/64/wolf.webp") 1x, url("/ui-art/emblems/128/wolf.webp") 2x)');
   });
 
-  it("ships the Play page's mode paintings (PLAY-PAGE): one 3:2 frame, two copies each, light", () => {
-    expect(PLAY_ART_FRAME).toMatchObject({ width: 384, height: 256, sizes: [128, 256] });
-    // Measured on 2026-11-06: 4.6 to 7.4 KiB at 128 px, 11.7 to 17.5 KiB at 256 px.
-    for (const name of PLAY_ART) for (const s of PLAY_ART_FRAME.sizes) expect(statSync(join(OUT, "play", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 256 ? 20 * 1024 : 8 * 1024);
-    expect(playArtSources("story", 104)).toEqual({
-      src: "/ui-art/play/256/story.webp",
-      srcSet: "/ui-art/play/128/story.webp 128w, /ui-art/play/256/story.webp 256w",
-      sizes: "104px",
-      width: 384,
+  it("ships the Play page's mode icons and scenes (PLAY-MODES): one of each per mode, two copies each", () => {
+    expect(MODE_ICONS).toEqual(["mode-attack", "mode-challenge", "mode-training", "mode-story", "mode-puzzle"]);
+    expect(MODE_SCENES).toEqual(["scene-attack", "scene-challenge", "scene-training", "scene-story", "scene-puzzle"]);
+    expect(MODE_ICON_FRAME).toMatchObject({ width: 256, height: 256, sizes: [128, 256] });
+    expect(MODE_SCENE_FRAME).toMatchObject({ width: 960, height: 640, sizes: [400, 800] });
+    // Measured on 2026-11-08: the icons 3.9 to 5.4 KiB at 128 px, 9.3 to 12.6 KiB at 256 px; the scenes 23.8 to 52.9 KiB at 400 px,
+    // 67.1 to 165.3 KiB at 800 px (the Puzzle's grid of towns the heaviest).
+    for (const name of MODE_ICONS) for (const s of MODE_ICON_FRAME.sizes) expect(statSync(join(OUT, "play", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 256 ? 16 * 1024 : 7 * 1024);
+    for (const name of MODE_SCENES) for (const s of MODE_SCENE_FRAME.sizes) expect(statSync(join(OUT, "play", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 800 ? 200 * 1024 : 64 * 1024);
+    expect(modeIconSources("story", 92)).toEqual({
+      src: "/ui-art/play/256/mode-story.webp",
+      srcSet: "/ui-art/play/128/mode-story.webp 128w, /ui-art/play/256/mode-story.webp 256w",
+      sizes: "92px",
+      width: 256,
       height: 256,
+    });
+    expect(modeSceneSources("puzzle", 357.5)).toEqual({
+      src: "/ui-art/play/800/scene-puzzle.webp",
+      srcSet: "/ui-art/play/400/scene-puzzle.webp 400w, /ui-art/play/800/scene-puzzle.webp 800w",
+      sizes: "358px",
+      width: 960,
+      height: 640,
     });
   });
 

@@ -106,6 +106,68 @@ export function PlayerRankRow({ profile, place, own = false, onOpen, ref, classN
   );
 }
 
+/** A day's score at a row's end: the painted star and the figure, outlined (the Puzzle's leaderboard; the crowns' place in Ranking's). */
+function DayScore({ value }: { value: number }) {
+  return (
+    <span role="img" aria-label={`${formatInteger(value)} points`} className="flex shrink-0 items-center gap-1">
+      <UiIcon name="star" px={20} className="drawer-icon size-5" />
+      <span aria-hidden className="numeric text-outline min-w-12 text-right font-sans text-base leading-tight font-bold">
+        {formatInteger(value)}
+      </span>
+    </span>
+  );
+}
+
+export interface PuzzleRankRowProps {
+  profile: PublicProfile;
+  /** Their place of the day, 1 first. */
+  place: number;
+  /** Their best score of the day. */
+  score: number;
+  /** The viewer's own row: the gold wash and "You". */
+  own?: boolean;
+  /** The mail's top ten: no portrait nor level, the row a line. */
+  compact?: boolean;
+  onOpen?: () => void;
+  ref?: Ref<HTMLButtonElement>;
+  className?: string;
+}
+
+/**
+ * A player of a Puzzle day's leaderboard (Play's Limited mode): Ranking's player row (`PlayerRankRow`), their best score of the day by
+ * the star in place of the crowns; compact (a prize mail's top ten), their place, name and score alone. A tap opens them.
+ */
+export function PuzzleRankRow({ profile, place, score, own = false, compact = false, onOpen, ref, className }: PuzzleRankRowProps) {
+  const league = LEAGUES[profile.league] ?? leagueOf(profile.crowns);
+  const name = profile.name ?? shortAddress(profile.address);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      data-slot="puzzle-player"
+      data-own={own || undefined}
+      aria-label={`${formatInteger(place)}. ${name}${own ? " (you)" : ""}, ${formatInteger(score)} points`}
+      onClick={onOpen}
+      className={cn(ROW, compact && "gap-2.5 py-1.5", own && OWN, className)}
+    >
+      <RankPlace place={place} />
+      {!compact && <LeaguePortrait player={{ name: profile.name, address: profile.address }} look={profile.look} league={league} slot="ranking-rim" style={PORTRAIT} />}
+      <span className={cn("flex min-w-0 flex-1 items-start gap-1", compact ? "flex-row items-center gap-1.5" : "flex-col")}>
+        <PlayerName name={profile.name} address={profile.address} className={cn("text-outline max-w-full min-w-0 pr-0.5 text-sm font-bold", profile.name ? "leading-snug" : "leading-normal")} />
+        {compact ? (
+          own && <OwnTag>You</OwnTag>
+        ) : (
+          <span className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <LevelStar level={profile.level} size="sm" />
+            {own && <OwnTag>You</OwnTag>}
+          </span>
+        )}
+      </span>
+      <DayScore value={score} />
+    </button>
+  );
+}
+
 export interface GuildRankRowProps {
   guild: GuildSummary;
   place: number;

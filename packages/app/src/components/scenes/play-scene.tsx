@@ -21,16 +21,25 @@ export interface PlaySceneProps extends PlayModesProps {
    * omitted: the modes.
    */
   story?: ReactNode;
+  /**
+   * The Puzzle (`/play/puzzle`, Play's Limited mode): its body (`PuzzleScene`), the panel's view in the modes' place, as Story's. Null or
+   * omitted: the modes.
+   */
+  puzzle?: ReactNode;
   /** Play's close, back to the village. */
   onBack?: () => void;
   /** The stake's Back, to the modes. */
   onChallengeBack?: () => void;
   /** Story's Back, to the modes (never into the level just played). */
   onStoryBack?: () => void;
+  /** The Puzzle's Back, to the modes (never into the game just played). */
+  onPuzzleBack?: () => void;
 }
 
 /** The stake's balance at the header's end (the drawers' rule: the page's balance at the top right), USDC, what it spends. */
 const USDC: readonly ShownBalance[] = ["usdc"];
+/** The Puzzle's balance at its header's end: the Cobbles, what its prize pays. */
+const COBBLES: readonly ShownBalance[] = ["cobbles"];
 
 /** A press on a dialog over the drawer (a wallet's) is no tap on the village. */
 const keepForDialogs = (event: Event) => {
@@ -46,8 +55,8 @@ const keepForDialogs = (event: Event) => {
  * header's end (the drawers' rule, where the book writes it under the title). Story's campaigns (`/story`, STORY-PAGE) are a view of
  * the same kind, "Story" on the header, its Back to the modes. A pause says so under the modes: Training and Story stay open.
  */
-export function PlayScene({ open = true, returnFocus, challenge = null, story = null, onBack, onChallengeBack, onStoryBack, ...modes }: PlaySceneProps) {
-  const view = challenge !== null ? "challenge" : story !== null ? "story" : "modes";
+export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, onBack, onChallengeBack, onStoryBack, onPuzzleBack, ...modes }: PlaySceneProps) {
+  const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : "modes";
   // The first view comes with the drawer's own slide; only a move between views slides.
   const [last, setLast] = useState(view);
   const [moved, setMoved] = useState(false);
@@ -61,13 +70,19 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
       onOpenChange={(next) => {
         if (!next) onBack?.();
       }}
-      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : "Play"}
+      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : view === "puzzle" ? "Puzzle" : "Play"}
       side="right"
       slot="play"
       returnFocus={returnFocus}
       // The title, the plate and both controls do not fit a phone under 360 px (the Shop's rule): there the title keeps the row.
-      end={view === "challenge" ? <BalancesSlot layout="pill" kinds={USDC} className="hidden mobile:flex" /> : undefined}
-      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : undefined}
+      end={
+        view === "challenge" ? (
+          <BalancesSlot layout="pill" kinds={USDC} className="hidden mobile:flex" />
+        ) : view === "puzzle" ? (
+          <BalancesSlot layout="pill" kinds={COBBLES} className="hidden mobile:flex" />
+        ) : undefined
+      }
+      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : view === "puzzle" ? onPuzzleBack : undefined}
       onInteractOutside={keepForDialogs}
     >
       <m.div
@@ -82,6 +97,8 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
           challenge
         ) : view === "story" ? (
           story
+        ) : view === "puzzle" ? (
+          puzzle
         ) : (
           <>
             <PlayModes {...modes} />
