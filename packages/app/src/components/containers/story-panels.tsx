@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { formatInteger, type Stars } from "@paved/game-core";
@@ -84,6 +84,9 @@ export function DeckPresentation({ campaign, campaignId, levelIndex, title, intr
   const dealt = DEAL_LEAD + Math.max(0, deck.length - 1) * step + LAND;
   // A plan the theme has no top-down render of keeps the base one, as the deck page's (`deckArt`).
   const shownIn = (plan: number) => (renders?.(theme, `${planCode(plan).toLowerCase()}-top`) ? theme : 0);
+  // Start takes the focus without scrolling to it (#1090): a long deck's opening on a short phone shows its head first, never its foot.
+  const startRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => startRef.current?.focus({ preventScroll: true }), []);
   const after = (delay: number) => (reduced ? { initial: false as const } : { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { delay, duration: 0.25 } });
   return (
     <section
@@ -178,7 +181,7 @@ export function DeckPresentation({ campaign, campaignId, levelIndex, title, intr
                 )}
               </m.section>
               <Button
-                autoFocus
+                ref={startRef}
                 variant="ghost"
                 style={GOLD_ACTION}
                 className="relative h-12 min-w-28 shrink-0 px-1 text-lg font-black text-foreground mobile:text-xl"
