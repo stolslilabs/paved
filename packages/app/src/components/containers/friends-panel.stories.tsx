@@ -30,6 +30,8 @@ export const NewFollowers: Story = { args: FRIENDS_TAB.newFollowers };
 export const Blocked: Story = { args: FRIENDS_TAB.blocked };
 /** The menu with no one blocked. */
 export const NoneBlocked: Story = { args: FRIENDS_TAB.noneBlocked };
+/** Two-figure levels (#1065): friends at levels 9, 10, 20 and 15, both figures inside the star. */
+export const TwoFigureLevels: Story = { args: FRIENDS_TAB.twoFigures };
 export const Loading: Story = { args: FRIENDS_TAB.loading };
 export const Failed: Story = { args: FRIENDS_TAB.failed };
 /** A refused write: the reason under the list (a hidden block says only that it is not available). */

@@ -95,7 +95,7 @@ export function PlayerBadge({ league, className }: PlayerBadgeProps) {
             </span>
           )}
           {connected && (
-            <Suspense fallback={<span aria-hidden className="block h-7 w-36 max-w-full tablet:w-40" />}>
+            <Suspense fallback={<span aria-hidden className="block h-7 w-[9.125rem] max-w-full tablet:w-[10.125rem]" />}>
               <LazyLevelBar progress={progress} />
             </Suspense>
           )}
