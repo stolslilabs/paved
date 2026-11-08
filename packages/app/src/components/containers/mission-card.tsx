@@ -178,7 +178,7 @@ export function MissionCard({ mission, canClaim = true, onClaim, className }: Mi
       </MissionMedallion>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
         <span className="drawer-carved shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold">{KIND_LABEL[kind]}</span>
-        <h2 title={title} className="text-outline max-w-full truncate text-xl leading-tight font-bold">
+        <h2 title={title} className="text-outline outline-room max-w-[calc(100%+4px)] truncate text-xl leading-tight font-bold">
           {title}
         </h2>
         <p title={task || undefined} aria-hidden={task ? undefined : true} data-slot="mission-task" className="min-h-lh max-w-full truncate text-xs font-semibold text-muted-foreground">
