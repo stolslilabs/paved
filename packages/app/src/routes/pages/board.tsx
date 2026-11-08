@@ -14,6 +14,7 @@ import { boardOf, remainingOf, useTrainingSession } from "../../data/training";
 import { PuzzleGame, usePuzzleSession, type PuzzleSnapshot } from "../../data/puzzle-game";
 import { usePuzzleStanding } from "../../data/puzzle";
 import { addressKey } from "../../data/keys";
+import { usePuzzleViewer } from "../puzzle-play";
 import { trainingStore, useDataSources } from "../../data/sources";
 import { useTrainingBest } from "../../data/training-best";
 import { challengeMeter, puzzleMeter, trainingMeter } from "../../lib/score-meter";
@@ -46,10 +47,12 @@ function PuzzleRoute() {
  * sent in order. As Training's board: the player picks a lit slot, turns the tile and places it. The HUD shows the day's time left (its
  * end: a game ranks only when it ends before), the score meter the day's first place; Surrender ends it, no Restart (the game is on
  * chain). Past the day's end the hand takes only a surrender, its dialog open by itself. A refused move stops the board until it is read
- * again. A finished game goes to `/puzzle/:gameId/over` once its last move is taken.
+ * again. Another account's game (or a game opened without an account) is shown read-only: only its own player plays it. A finished
+ * game goes to `/puzzle/:gameId/over` once its last move is taken.
  */
 function PuzzleBoard({ gameId }: { gameId: number }) {
-  const { game, snapshot, record, settled, reload } = usePuzzleSession(gameId);
+  const viewer = usePuzzleViewer();
+  const { game, snapshot, record, settled, reload } = usePuzzleSession(gameId, viewer);
   const onBack = useBack();
   const readErrorDetail = useErrorDetail(record.error, gameId);
   if (!game || !snapshot) {
@@ -82,9 +85,10 @@ function PuzzlePlay({ game, snapshot, settled, onReload, onBack }: { game: Puzzl
   const endsAt = puzzleDayEnd(record.day);
   const dayOver = !board.over && now >= endsAt;
   const refused = snapshot.refused;
+  const watching = !game.writable;
   const slotsAt = useCallback((o: number) => game.slots(o), [game]);
   const orientationsAt = useCallback((cell: Slot) => game.orientationsAt(cell), [game]);
-  const playable = !refused && !dayOver;
+  const playable = !watching && !refused && !dayOver;
   const { placement, scene } = useGameBoard({ skins, placement: { plan: playable ? (hand?.plan ?? null) : null, slotsAt, orientationsAt, version: snapshot, resetKey: game } });
   const { orientation, move, slots } = placement;
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
@@ -117,7 +121,7 @@ function PuzzlePlay({ game, snapshot, settled, onReload, onBack }: { game: Puzzl
   const leader = standing.data?.entries[0] ?? null;
   const mine = leader !== null && addressKey(leader.profile.address) === addressKey(record.player);
   const state = snapshot.state;
-  const handState: HandState = !hand || board.over ? "empty" : dayOver ? "expired" : state.writeError ? "refused" : "placing";
+  const handState: HandState = !hand || board.over || watching ? "empty" : dayOver ? "expired" : state.writeError ? "refused" : "placing";
   const bubble =
     placement.chosen && playable
       ? {
@@ -133,7 +137,11 @@ function PuzzlePlay({ game, snapshot, settled, onReload, onBack }: { game: Puzzl
           busy: false,
         }
       : null;
-  const notices = refused ? (
+  const notices = watching ? (
+    <BoardNotice tone="info" title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
+      Only its player can play this game.
+    </BoardNotice>
+  ) : refused ? (
     <BoardNotice
       tone="warning"
       title="This move was refused"
@@ -175,9 +183,9 @@ function PuzzlePlay({ game, snapshot, settled, onReload, onBack }: { game: Puzzl
       }}
       lastScored={board.lastScored}
       {...scene({ tiles: board.tiles, closed: board.closed, bubble })}
-      readOnly={!!refused}
+      readOnly={watching || !!refused}
       notices={notices}
-      promptSurrender={dayOver}
+      promptSurrender={!watching && dayOver}
       onBack={onBack}
       onDiscard={discard}
       onSurrender={surrender}

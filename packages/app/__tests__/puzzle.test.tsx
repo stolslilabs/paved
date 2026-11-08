@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
@@ -11,16 +11,18 @@ import { PuzzleScene } from "../src/components/scenes/puzzle-scene";
 import { MockLedger } from "../src/data/mock/ledger";
 import { mockPuzzle } from "../src/data/mock/overlay";
 import { mockDaySeed, seededResults } from "../src/data/mock/puzzle";
-import { PuzzleGame, replayPuzzle } from "../src/data/puzzle-game";
+import { PuzzleGame, replayPuzzle, usePuzzleSession } from "../src/data/puzzle-game";
 import { puzzleMailDay, puzzleMailId } from "../src/data/puzzle";
 import type { PuzzleGameRecord, PuzzleSource, PuzzleStanding } from "../src/data/puzzle-source";
 import { puzzleMeter } from "../src/lib/score-meter";
-import { memoryStore } from "./data-fakes";
+import { fakeSources, memoryStore, renderData } from "./data-fakes";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
 const DAY = 20_400;
 const PLAYER = "0xabc123";
+/** Another account of the device. */
+const OTHER = "0xabc456";
 const ORIENTATIONS = Object.values(OrientationType);
 
 /** A ledger on a memory store, its clock `clock.t` (seconds). */
@@ -72,6 +74,42 @@ describe("the mock's Puzzle", () => {
     const second = await playOut(source, (await source.start(PLAYER)).id, () => ({ kind: "discard" }));
     expect(second.score).toBe(0);
     expect(await source.result(second.id)).toMatchObject({ bestBefore: first.score, bestAfter: first.score, placeBefore: result.placeAfter, placeAfter: result.placeAfter });
+  });
+
+  it("ranks equal scores of the same second by completion order: the standings, each game's place and the prize agree", async () => {
+    const clock = { t: DAY * 86_400 };
+    const { source } = ledgerAt(clock);
+    expect(seededResults(DAY, clock.t)).toEqual([]);
+    // PLAYER starts first, OTHER finishes first: both at 0 points, in the day's first second.
+    const mine = await source.start(PLAYER);
+    const theirs = await source.start(OTHER);
+    await source.play(OTHER, theirs.id, { kind: "surrender" });
+    await source.play(PLAYER, mine.id, { kind: "surrender" });
+    const standing = await source.standing(DAY, PLAYER);
+    expect(standing.entries.map((e) => [e.profile.address, e.place])).toEqual([
+      [OTHER, 1],
+      [PLAYER, 2],
+    ]);
+    expect(standing.me).toEqual({ place: 2, score: 0 });
+    expect(await source.result(theirs.id)).toMatchObject({ placeAfter: 1, bestAfter: 0 });
+    expect(await source.result(mine.id)).toMatchObject({ placeAfter: 2, bestAfter: 0 });
+  });
+
+  it("gives an equal first place to the result completed first: two accounts' welcome prizes of the same day", async () => {
+    const clock = { t: DAY * 86_400 + 600 };
+    const { source } = ledgerAt(clock);
+    await source.visit(PLAYER);
+    await source.visit(OTHER);
+    const standing = await source.standing(DAY - 1, OTHER);
+    expect(standing.entries.slice(0, 2).map((e) => [e.profile.address, e.place])).toEqual([
+      [PLAYER, 1],
+      [OTHER, 2],
+    ]);
+    expect(standing.entries[0]!.score).toBe(standing.entries[1]!.score);
+    expect((await source.prizes(PLAYER)).map((p) => p.day)).toEqual([DAY - 1]);
+    expect(await source.prizes(OTHER)).toEqual([]);
+    await expect(source.claim(OTHER, [DAY - 1])).rejects.toThrow("Puzzle: not the day's winner");
+    expect(await source.claim(PLAYER, [DAY - 1])).toEqual({ cobbles: PUZZLE_PRIZE_COBBLES });
   });
 
   it("refuses a second game while one is open, and a move past the game's day but a surrender", async () => {
@@ -140,6 +178,43 @@ describe("a Puzzle game on the board", () => {
     await vi.waitFor(() => expect(game.snapshot.refused).toBe("Puzzle: the day is over"));
     expect(game.discard()).toBe(false);
     expect(game.slots(1)).toEqual([]);
+  });
+});
+
+describe("a Puzzle game as the current account sees it (`usePuzzleSession`)", () => {
+  it("shows another account's game read-only: no slot, no move taken, nothing sent as its player", async () => {
+    const { source } = ledgerAt({ t: DAY * 86_400 + 600 });
+    const record = await source.start(PLAYER);
+    const { result } = renderData(() => usePuzzleSession(record.id, OTHER), fakeSources({ puzzle: source }).sources);
+    await waitFor(() => expect(result.current.game).not.toBeNull());
+    const game = result.current.game!;
+    expect(game.writable).toBe(false);
+    expect([1, 2, 3, 4].flatMap((o) => game.slots(o))).toEqual([]);
+    expect(game.discard()).toBe(false);
+    expect(game.surrender()).toBe(false);
+    expect(await source.game(record.id)).toMatchObject({ moves: [], over: false });
+  });
+
+  it("opens the game again on a switch of account, its moves sent as the current account only", async () => {
+    const { source } = ledgerAt({ t: DAY * 86_400 + 600 });
+    const record = await source.start(PLAYER);
+    let viewer: string | null = PLAYER;
+    const { result, rerender } = renderData(() => usePuzzleSession(record.id, viewer), fakeSources({ puzzle: source }).sources);
+    await waitFor(() => expect(result.current.game?.writable).toBe(true));
+    viewer = OTHER;
+    rerender();
+    await waitFor(() => expect(result.current.game?.writable).toBe(false));
+    expect(result.current.game!.discard()).toBe(false);
+    viewer = null;
+    rerender();
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    expect(result.current.game!.writable).toBe(false);
+    viewer = PLAYER;
+    rerender();
+    await waitFor(() => expect(result.current.game?.writable).toBe(true));
+    expect(result.current.game!.discard()).toBe(true);
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect((await source.game(record.id)).moves).toEqual([{ kind: "discard" }]);
   });
 });
 

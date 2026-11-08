@@ -13,6 +13,7 @@ import {
   type PlanType,
   type SeededMove,
 } from "@paved/game-core";
+import { addressKey } from "./keys";
 import { puzzleKeys, usePuzzleGameRecord } from "./puzzle";
 import type { PuzzleGameRecord } from "./puzzle-source";
 import { useDataSources } from "./sources";
@@ -66,16 +67,24 @@ export class PuzzleGame {
     readonly record: PuzzleGameRecord,
     private readonly engine: SeededChallenge,
     closings: Closing[],
-    private readonly send: (move: SeededMove) => Promise<void>,
+    private readonly send: ((move: SeededMove) => Promise<void>) | null,
   ) {
     this.deck = puzzleDeck(BigInt(record.deckSeed));
     this.current = { state: this.project([], null), delta: null, closings, sending: 0, refused: null };
   }
 
-  /** The game of `record`, its moves played again; `send` takes each new move to the source. */
-  static open(record: PuzzleGameRecord, send: (move: SeededMove) => Promise<void>): PuzzleGame {
+  /**
+   * The game of `record`, its moves played again; `send` takes each new move to the source. Without `send` (another player's game)
+   * the game is only shown: it takes no move.
+   */
+  static open(record: PuzzleGameRecord, send: ((move: SeededMove) => Promise<void>) | null): PuzzleGame {
     const { engine, closings } = replayPuzzle(record);
     return new PuzzleGame(record, engine, closings, send);
+  }
+
+  /** Whether the game takes moves: the viewer's own game. Another player's is only shown. */
+  get writable(): boolean {
+    return this.send !== null;
   }
 
   get snapshot(): PuzzleSnapshot {
@@ -90,7 +99,7 @@ export class PuzzleGame {
   /** Every legal slot of the tile in hand at `orientation` (1 North to 4 West), in the chain's coordinates. */
   slots(orientation: number): { x: number; y: number }[] {
     const rules = this.engine.rules;
-    if (rules.over || this.current.refused) return [];
+    if (rules.over || this.current.refused || !this.writable) return [];
     const wanted = ORIENTATIONS[orientation];
     return rules
       .legalPlacements()
@@ -101,7 +110,7 @@ export class PuzzleGame {
   /** The orientations (1 North to 4 West) the tile in hand may take at `slot`; none when it cannot go there. */
   orientationsAt(slot: { x: number; y: number }): number[] {
     const rules = this.engine.rules;
-    if (rules.over || this.current.refused) return [];
+    if (rules.over || this.current.refused || !this.writable) return [];
     return [1, 2, 3, 4].filter((o) => rules.canPlace(toPlacement({ orientation: o, ...slot })!));
   }
 
@@ -132,7 +141,8 @@ export class PuzzleGame {
 
   /** Applies `move` on the board at once (an illegal one refused, nothing moved), then sends it after the moves before it. */
   private run(move: SeededMove): boolean {
-    if (this.engine.over || this.current.refused) return false;
+    const send = this.send;
+    if (!send || this.engine.over || this.current.refused) return false;
     const before = this.engine.score;
     let outcome;
     try {
@@ -152,7 +162,7 @@ export class PuzzleGame {
     this.queue = this.queue.then(async () => {
       if (this.current.refused) return;
       try {
-        await this.send(move);
+        await send(move);
         this.set({ ...this.current, sending: this.current.sending - 1 });
       } catch (error) {
         this.set({ ...this.current, sending: 0, refused: error instanceof Error ? error.message : String(error) });
@@ -172,24 +182,30 @@ export class PuzzleGame {
 }
 
 /**
- * The board's Puzzle game `gameId`: read once from the source (`game`), then played on the device, each move sent in order. A refused
- * move (another tab played it, the day ended) stops the game until `reload` reads it again. Once the last move is taken, the day's
- * reads are refreshed (the leaderboard, the open game, the result).
+ * The board's Puzzle game `gameId` as `viewer` (the current account, null for none) sees it: read once from the source (`game`), then
+ * played on the device, each move sent in order as the viewer's. Only the game's own player plays it: another account's game (or any
+ * game without an account) is shown read-only, and a switch of account opens the game again for the new one. A refused move (another
+ * tab played it, the day ended) stops the game until `reload` reads it again. Once the last move is taken, the day's reads are
+ * refreshed (the leaderboard, the open game, the result).
  */
-export function usePuzzleSession(gameId: number) {
+export function usePuzzleSession(gameId: number, viewer: string | null) {
   const { puzzle } = useDataSources();
   const client = useQueryClient();
   const record = usePuzzleGameRecord(gameId);
   const [game, setGame] = useState<PuzzleGame | null>(null);
   const [opened, setOpened] = useState(0);
-  // The game from the first record read (and from the next after a reload): a refetch of the record never resets the board.
-  const [built, setBuilt] = useState(-1);
+  // The game from the first record read (and from the next after a reload or a switch of account): a refetch of the record never
+  // resets the board.
+  const viewerKey = viewer === null ? null : addressKey(viewer);
+  const version = `${opened}:${viewerKey}`;
+  const [built, setBuilt] = useState<string | null>(null);
   useEffect(() => {
-    if (!record.data || !puzzle || built === opened) return;
+    if (!record.data || !puzzle || built === version) return;
     const data = record.data;
-    setGame(PuzzleGame.open(data, (move) => puzzle.play(data.player, gameId, move)));
-    setBuilt(opened);
-  }, [record.data, puzzle, gameId, built, opened]);
+    const own = viewerKey !== null && viewerKey === addressKey(data.player);
+    setGame(PuzzleGame.open(data, own ? (move) => puzzle.play(viewerKey, gameId, move) : null));
+    setBuilt(version);
+  }, [record.data, puzzle, gameId, built, version, viewerKey]);
 
   const subscribe = useCallback((listener: () => void) => (game ? game.subscribe(listener) : () => {}), [game]);
   const snapshot = useSyncExternalStore(subscribe, () => game?.snapshot ?? null);

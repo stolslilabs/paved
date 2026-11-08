@@ -3,13 +3,11 @@ import { CENTER, OrientationType, PlanType, puzzleDayOf, puzzleDeck } from "@pav
 import { PuzzleScene } from "../../components/scenes/puzzle-scene";
 import { usePuzzleStanding, usePuzzleVisit } from "../../data/puzzle";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
-import { useDataSources } from "../../data/sources";
 import { useTileRenders } from "../../data/tile-renders";
-import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useOpenPlayer } from "../open-player";
-import { usePlayPuzzle } from "../puzzle-play";
+import { usePlayPuzzle, usePuzzleViewer } from "../puzzle-play";
 
 /** The deck sheet (#540), the board's own chunk: loaded at the first tap on Today's deck. */
 const DeckSheet = lazy(() => import("../../components/containers/deck-sheet"));
@@ -24,8 +22,7 @@ const STARTER = { id: 1, plan: Object.values(PlanType).indexOf(PlanType.RFFFRFCF
  * (`puzzleDeck` of the day's seed). A player's row opens their profile over the drawer (`?player=`).
  */
 export default function PuzzleView() {
-  const wallet = useAccount();
-  const me = useDataSources().signer?.address ?? wallet.address ?? null;
+  const me = usePuzzleViewer();
   const now = useNow();
   const day = puzzleDayOf(now);
   usePuzzleVisit(me);

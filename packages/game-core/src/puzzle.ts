@@ -34,21 +34,30 @@ export function puzzleDeck(daySeed: bigint): PlanType[] {
   return deck;
 }
 
-/** One player's result of a day: their best score and when it was set (seconds), which breaks a tie. */
+/**
+ * One player's result of a day: their best score, when it was set (seconds), and its completion order, which break a tie. `order` is
+ * the place of the result's transaction in the chain's order (the indexer's block number, then the transaction's index in it): two
+ * results of a day never share one, so the ranking below is a total order.
+ */
 export interface PuzzleResult {
   score: number;
   at: number;
+  order: number;
 }
 
 /**
- * A day's ranking: the best score first; an equal score set earlier ranks first (the earlier submission keeps its place, as the
- * Daily tournaments ranked). Each entry with its place, 1 first.
+ * The order of a day's ranking, negative when `a` ranks above `b`: the best score first; at an equal score the earlier result (the
+ * earlier submission keeps its place, as the Daily tournaments ranked), and in the same second the one completed first. The one order
+ * of the standings, a game's places and the prize.
  */
+export const comparePuzzle = (a: PuzzleResult, b: PuzzleResult): number => b.score - a.score || a.at - b.at || a.order - b.order;
+
+/** A day's ranking (`comparePuzzle`): each entry with its place, 1 first. */
 export function rankPuzzle<T extends PuzzleResult>(results: readonly T[]): (T & { place: number })[] {
-  return [...results].sort((a, b) => b.score - a.score || a.at - b.at).map((r, i) => ({ ...r, place: i + 1 }));
+  return [...results].sort(comparePuzzle).map((r, i) => ({ ...r, place: i + 1 }));
 }
 
 /** The place a result would take among `others` (the player's own left out): one more than the results ranked above it. */
 export function puzzlePlaceAmong(result: PuzzleResult, others: readonly PuzzleResult[]): number {
-  return 1 + others.filter((o) => o.score > result.score || (o.score === result.score && o.at < result.at)).length;
+  return 1 + others.filter((o) => comparePuzzle(o, result) < 0).length;
 }
