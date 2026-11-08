@@ -55,7 +55,7 @@ interface Run {
 }
 
 const browser = await chromium.launch(
-  GPU ? { headless: false } : { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
+  GPU ? { headless: false, args: ["--mute-audio"] } : { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
 );
 const results = new Map<string, { times: number[]; calls: Set<number>; flying: number; run: Run }>();
 const quantile = (values: number[], q: number) => [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * q))]!;
