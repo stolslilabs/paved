@@ -71,10 +71,22 @@ function PuzzleBoard({ gameId }: { gameId: number }) {
       </div>
     );
   }
-  return <PuzzlePlay game={game} snapshot={snapshot} settled={settled} onReload={reload} onBack={onBack} />;
+  // Another account's game says so, as a Challenge game does; without an account yet (the wallet restoring) the board waits read-only.
+  const otherAccount = viewer !== null && !game.writable;
+  return <PuzzlePlay game={game} snapshot={snapshot} settled={settled} otherAccount={otherAccount} onReload={reload} onBack={onBack} />;
 }
 
-function PuzzlePlay({ game, snapshot, settled, onReload, onBack }: { game: PuzzleGame; snapshot: PuzzleSnapshot; settled: boolean; onReload: () => void; onBack: () => void }) {
+interface PuzzlePlayProps {
+  game: PuzzleGame;
+  snapshot: PuzzleSnapshot;
+  settled: boolean;
+  /** The game is another account's: shown read-only, with a notice. */
+  otherAccount: boolean;
+  onReload: () => void;
+  onBack: () => void;
+}
+
+function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack }: PuzzlePlayProps) {
   const { record } = game;
   const skins = useBoardSkins(record.player);
   const go = useAppNavigate();
@@ -137,9 +149,9 @@ function PuzzlePlay({ game, snapshot, settled, onReload, onBack }: { game: Puzzl
           busy: false,
         }
       : null;
-  const notices = watching ? (
-    <BoardNotice tone="info" title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
-      Only its player can play this game.
+  const notices = otherAccount ? (
+    <BoardNotice title="Another player's game" className="pointer-events-auto w-full max-w-2xl">
+      You are watching this game: only its player can move.
     </BoardNotice>
   ) : refused ? (
     <BoardNotice
