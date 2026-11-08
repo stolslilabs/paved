@@ -120,7 +120,8 @@ describe("the chat page's tabs (#973)", () => {
       ),
     );
     const tabs = within(screen.getByRole("tablist", { name: "Conversations" })).getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["World", "Guild, 3 waiting", "Private, 120 waiting"]);
+    // A tab's name: its word, and the count waiting in it (`FooterTab`).
+    expect(tabs.map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["World", "Guild, 3 waiting", "Private, 120 waiting"]);
     expect(within(tabs[2]!).getByText("99+")).toBeInTheDocument();
     expect(screen.getByText("world content")).toBeInTheDocument();
     await userEvent.click(tabs[2]!);

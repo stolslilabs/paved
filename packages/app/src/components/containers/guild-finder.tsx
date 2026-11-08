@@ -8,7 +8,7 @@ import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { Switch } from "../ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Tabs, TabsContent } from "../ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import { DrawerRow } from "../elements/drawer-row";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
@@ -17,7 +17,8 @@ import { SectionTitle } from "../elements/section-title";
 import { UiIcon } from "../elements/ui-icon";
 import { GuildCard } from "./guild-card";
 import { GuildForm, NEW_GUILD, useGuildActions } from "./guild-sheets";
-import { ViewHeader, useDrawerView } from "./hud-drawer";
+import { FooterTab, FooterTabsList } from "./footer-tabs";
+import { DrawerFooter, ViewHeader, useDrawerView } from "./hud-drawer";
 import { listRowShape } from "../elements/list-row";
 
 /** The search's member-count filter: any, small (under 10), mid (10 to 29), large (30 and more). */
@@ -279,7 +280,7 @@ const FILTER = "bg-transparent font-bold";
  * The search by name or `#` tag with its filters (join type, requirements met, size); without a query, the guilds suggested to the
  * player (those they may join, the most active first) or the ranking by score. Each card opens the guild's page. GUILD-PAGE: under the
  * drawer's engraved title; the search carved with the painted magnifier; the filters on a carved panel, the join types under their
- * painted icons; Suggested and Ranking the Shop's word tabs; the guilds the drawer's carved list.
+ * painted icons; Suggested and Ranking the footer's tabs (FOOTER-TABS, #1062); the guilds the drawer's carved list.
  */
 export function GuildBrowse({ candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, suggestedEmpty = "No guild you can join right now: search one, or create yours." }: GuildBrowseProps) {
   const [list, setList] = useState<"suggested" | "ranking">("suggested");
@@ -333,21 +334,20 @@ export function GuildBrowse({ candidate, query, onQueryChange, filters, onFilter
       {searching ? (
         <Cards list={results} player={candidate} empty="No guild found." onOpen={onOpenGuild} />
       ) : (
-        <Tabs value={list} onValueChange={(v) => setList(v as typeof list)} className="gap-3">
-          <TabsList aria-label="Guilds" className="h-auto w-full bg-transparent p-0" indicatorClassName="top-auto bottom-0 h-1 rounded-full bg-primary">
-            <TabsTrigger value="suggested" className="text-outline h-11 text-lg font-bold">
-              Suggested
-            </TabsTrigger>
-            <TabsTrigger value="ranking" className="text-outline h-11 text-lg font-bold">
-              Ranking
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={list} onValueChange={(v) => (v === "suggested" || v === "ranking") && setList(v)} className="gap-3">
           <TabsContent value="suggested" className="flex flex-col gap-2">
             <Cards list={suggested} player={candidate} empty={suggestedEmpty} onOpen={onOpenGuild} />
           </TabsContent>
           <TabsContent value="ranking" className="flex flex-col gap-2">
             <Cards list={ranking} player={candidate} ranked empty="No guild yet." onOpen={onOpenGuild} />
           </TabsContent>
+          {/* FOOTER-TABS (#1062): the two lists as the footer's tabs, the search and the filters over both. */}
+          <DrawerFooter>
+            <FooterTabsList aria-label="Guilds">
+              <FooterTab value="suggested" label="Suggested" art={<UiIcon name="find" px={36} className="drawer-icon size-9" />} />
+              <FooterTab value="ranking" label="Ranking" art={<UiIcon name="trophy" px={36} className="drawer-icon size-9" />} />
+            </FooterTabsList>
+          </DrawerFooter>
         </Tabs>
       )}
     </FinderSection>
