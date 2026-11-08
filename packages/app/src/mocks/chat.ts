@@ -8,6 +8,7 @@ import type { ChatBadges } from "../components/containers/chat-tabs";
 import { community, communityProfile } from "../data/mock/community";
 import type { ChatAuthor, ChatMessage, ChatOverview, ChatPageHead, ConversationSummary, GuildLogEntry, PublicProfile } from "../data/social-source";
 import { DAY, HOUR, MOCK_NOW, MOCK_TIME_ZONE } from "./clock";
+import { TWO_FIGURE_LEVELS } from "./follows";
 import { GUILD_BADGE } from "./guilds";
 import { generatedLook } from "./avatar";
 import { LONG_ADDRESS, LONG_NAME, LONG_WORD } from "./stress";
@@ -101,6 +102,14 @@ const STRESS_NONAME: PublicProfile = { ...STRESS_PROFILE, address: `${LONG_ADDRE
 const STRESS_AUTHOR: ChatAuthor = { address: LONG_ADDRESS, name: LONG_NAME, look: STRESS_PROFILE.look, level: 1_000, league: 22, guildTag: GUILD_BADGE.stress.tag };
 const STRESS_TEXT = `${LONG_WORD}${LONG_WORD}${LONG_WORD}${LONG_WORD}`.slice(0, CHAT_MESSAGE_MAX);
 
+/** Two-figure levels (#1065): the friend at level 10, the other private conversations at 9 and 20. */
+const leveled = (p: PublicProfile, level: number): PublicProfile => ({ ...p, level });
+const FRIEND_10 = leveled(FRIEND, 10);
+const FRIEND_10_AUTHOR = authorOf(FRIEND_10, GUILD.tag);
+const PRIVATE_MESSAGES_10 = PRIVATE_MESSAGES.map((x) => (x.author?.address === FRIEND.address ? { ...x, author: FRIEND_10_AUTHOR } : x));
+const FRIEND_10_SUMMARY = summary({ ...FRIEND_SUMMARY, other: FRIEND_10, last: PRIVATE_MESSAGES_10.at(-1)! });
+const TWO_FIGURE_DMS = OTHER_DMS.map((c, i) => ({ ...c, other: leveled(c.other!, TWO_FIGURE_LEVELS[(i * 2) % TWO_FIGURE_LEVELS.length]!) }));
+
 type ListData = Omit<ChatListProps, "onOpen" | "onAnswer" | "onRetry" | "onNewMessage">;
 const list = (l: Partial<ListData>): ListData => ({ overview: overview({}), now: MOCK_NOW, timeZone: MOCK_TIME_ZONE, ...l });
 
@@ -112,6 +121,8 @@ export const CHAT_LIST = {
   guildless: list({ overview: overview({ conversations: [{ ...WORLD, unread: 0 }], badge: 0 }) }),
   /** A stranger's request, waiting under the conversations. */
   request: list({ overview: overview({ requests: [REQUEST], badge: 6 }) }),
+  /** Two-figure levels (#1065): the friend at level 10, the others at 9 and 20, the star holding both figures. */
+  twoFigures: list({ overview: overview({ conversations: [WORLD, GUILD_SUMMARY, FRIEND_10_SUMMARY, ...TWO_FIGURE_DMS] }) }),
   loading: list({ overview: null }),
   failed: list({ overview: null, error: "The chat did not answer: try again in a moment." }),
   /** WRAP360: the longest names and addresses, three-digit counts, a long last line. */
@@ -197,6 +208,8 @@ export const CHAT_CONVERSATION = {
   guildUnpinned: conversation({ head: head(GUILD_SUMMARY), messages: GUILD_MESSAGES }),
   /** A private conversation with a friend: no encryption line or notice once it has messages (CHAT-PAGE). */
   private: conversation({ head: head(FRIEND_SUMMARY, { standing: "open" }), messages: PRIVATE_MESSAGES }),
+  /** Two-figure levels (#1065): the friend at level 10, in the head and beside their messages, the star holding both figures. */
+  twoFigures: conversation({ head: head(FRIEND_10_SUMMARY, { standing: "open" }), messages: PRIVATE_MESSAGES_10 }),
   /** A stranger's request: Accept or Decline; replying accepts it too. */
   request: conversation({ head: head(REQUEST, { standing: "request" }), messages: REQUEST_MESSAGES }),
   /** The player's own request to a stranger, waiting in their Requests. */

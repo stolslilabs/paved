@@ -74,11 +74,11 @@ const PAGES = {
   referral: () => import("../src/routes/pages/referral"),
   // The Vault is the HUD's drawer over the home (VAULT-PAGE): its host comes with it.
   vault: () => Promise.all([import("../src/routes/pages/vault"), import("../src/routes/home-hosts")]),
-  chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/player-profile-host")]),
-  guild: () => Promise.all([import("../src/routes/pages/guild"), import("../src/routes/social/guild-view"), import("../src/routes/player-profile-host"), import("../src/routes/home-hosts")]),
-  friends: () => Promise.all([import("../src/routes/pages/friends"), import("../src/routes/player-profile-host")]),
+  chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/page-views-host")]),
+  guild: () => Promise.all([import("../src/routes/pages/guild"), import("../src/routes/social/guild-view"), import("../src/routes/social/guild-view-host"), import("../src/routes/page-views-host"), import("../src/routes/home-hosts")]),
+  friends: () => Promise.all([import("../src/routes/pages/friends"), import("../src/routes/page-views-host")]),
   // The Leaderboard is the HUD's drawer over the home (LEADERBOARD-PAGE): its host and the profiles' come with it.
-  ranking: () => Promise.all([import("../src/routes/pages/ranking"), import("../src/routes/player-profile-host"), import("../src/routes/home-hosts")]),
+  ranking: () => Promise.all([import("../src/routes/pages/ranking"), import("../src/routes/social/guild-view-host"), import("../src/routes/page-views-host"), import("../src/routes/home-hosts")]),
   // Settings is the HUD's drawer over the home (SETTINGS-PAGE), Credits and Themes its views: its host comes with it.
   settings: () => Promise.all([import("../src/routes/pages/settings"), import("../src/routes/home-hosts")]),
   theme: () => import("../src/routes/pages/theme"),
@@ -155,3 +155,15 @@ export async function discardTile(): Promise<void> {
   if (!button) throw new Error("discardTile: the stack offers no Discard");
   fireEvent.click(button);
 }
+
+/**
+ * The page shown in a drawer's place (DRAWER-NAV-IN-PLACE, #1064: a profile, another guild, a list), the last one opened, by its slot
+ * (`public-profile`, `guild-sheet`...); null when the drawer shows its own page.
+ */
+export function shownView(slot?: string): HTMLElement | null {
+  const views = [...document.querySelectorAll<HTMLElement>(slot ? `[data-hud-drawer-view="${slot}"]` : "[data-hud-drawer-view]")].filter((v) => !v.hasAttribute("inert"));
+  return views.at(-1) ?? null;
+}
+
+/** The drawer's header Back (`hud-drawer-back`): one page back, from a page shown in its place too. */
+export const drawerBack = (drawer: HTMLElement): HTMLElement => drawer.querySelector<HTMLElement>("[data-slot=hud-drawer-back]")!;

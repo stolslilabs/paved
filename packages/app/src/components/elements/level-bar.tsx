@@ -71,7 +71,13 @@ function useFillIn(fill: RefObject<HTMLSpanElement | null>, progress: PlayerProg
   }, [to === null, reduced]);
 }
 
-/** `card`: the player card's, 144 px (160 from `tablet`); `profile`: the profile drawer's, its row's width, the XP's unit written. */
+/**
+ * The card's bar: its track 130 px (146 from `tablet`), plus the 16 px of the star's half on its left (LEVEL-STAR-SIZE: the star grew from 28 to
+ * 32 px so that two figures fit inside, the track kept its size). `PlayerBadge`'s stand-in while the bar loads has the same width.
+ */
+const CARD_WIDTH = "w-[9.125rem] tablet:w-[10.125rem]";
+
+/** `card`: the player card's, 146 px (162 from `tablet`); `profile`: the profile drawer's, its row's width, the XP's unit written. */
 export type LevelBarVariant = "card" | "profile";
 
 export interface LevelBarProps {
@@ -105,7 +111,7 @@ export function LevelBar({ progress, variant = "card", star = true, className }:
     <span
       data-slot="level-bar"
       aria-hidden
-      className={cn("relative flex h-7 max-w-full items-center", star && "pl-3.5", variant === "card" ? "w-36 tablet:w-40" : "w-full", className)}
+      className={cn("relative flex h-7 max-w-full items-center", star && "pl-4", variant === "card" ? CARD_WIDTH : "w-full", className)}
     >
       {/*
         The mockup's track (`xp-track`: a near-black outline, a silver bevel, a dark recess) with its drop shadow, and over it, inside
@@ -138,9 +144,9 @@ export function LevelBar({ progress, variant = "card", star = true, className }:
           {progress ? xpText(progress, variant) : ""}
         </span>
       </span>
-      {/* The star over the bar's left end, the level in it. */}
-      {star && <span className="absolute top-0 left-0 grid size-7 place-items-center perspective-[200px]">
-        <UiIcon name="level-star" px={28} className="absolute inset-0 size-full [filter:drop-shadow(0_1px_0_var(--background))]" />
+      {/* The star centred on the track's left end, the level in it: 32 px, 2 px past the bar above and below (LEVEL-STAR-SIZE). */}
+      {star && <span data-slot="level-star" className="absolute -top-0.5 left-0 grid size-8 place-items-center perspective-[200px]">
+        <UiIcon name="level-star" px={32} className="absolute inset-0 size-full [filter:drop-shadow(0_1px_0_var(--background))]" />
         <span data-slot="level" className="numeric text-outline relative text-xs leading-none font-bold text-foreground">
           {progress && level !== undefined ? (
             <m.span key={level} className="inline-block" initial={burst === null ? false : { rotateX: -90 }} animate={{ rotateX: 0 }} transition={{ duration: 0.3, ease: "easeOut" }}>

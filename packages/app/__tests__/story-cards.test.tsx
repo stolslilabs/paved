@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CAMPAIGNS, EMPTY_PROGRESS, PlanType, recordRun } from "@paved/game-core";
 import { CampaignHero } from "../src/components/containers/campaign-hero";
-import { DeckPresentation } from "../src/components/containers/story-panels";
+import { DeckPresentation, StoryCoach } from "../src/components/containers/story-panels";
 import { StoryScene } from "../src/components/scenes/story-scene";
 
 const wrap = (ui: ReactNode, reducedMotion: "never" | "always" = "never") => (
@@ -109,22 +109,36 @@ describe("Story's campaigns (#592; STORY-PAGE: written on their picture, no card
   });
 });
 
-describe("a level's intro (#593, #721)", () => {
+describe("a level's intro (#593, #721; STORY-INTRO: the HUD's window over the board)", () => {
   const ids = (deck: readonly PlanType[]) => deck.map((plan) => Object.values(PlanType).indexOf(plan));
+  const TUTORIAL_1 = CAMPAIGNS[0]!.levels[0]!;
+  const intro = (props: Partial<Parameters<typeof DeckPresentation>[0]> = {}, reducedMotion: "never" | "always" = "never") =>
+    render(
+      wrap(
+        <DeckPresentation campaign="Tutorial" campaignId={1} levelIndex={1} title={TUTORIAL_1.title} intro={TUTORIAL_1.intro} tip={TUTORIAL_1.tip} deck={ids(TUTORIAL_1.deck)} onStart={vi.fn()} {...props} />,
+        reducedMotion,
+      ),
+    );
 
   for (const campaign of CAMPAIGNS) {
-    it(`every level of ${campaign.name} opens on its title, intro, tiles in draw order and its tip, set apart with a bulb and a label`, () => {
+    it(`every level of ${campaign.name} opens on its title, intro, tiles in draw order and its tip, in a carved box under the painted bulb`, () => {
       for (const level of campaign.levels) {
         const { unmount } = render(
-          wrap(<DeckPresentation campaign={campaign.name} levelIndex={level.id} title={level.title} intro={level.intro} tip={level.tip} deck={ids(level.deck)} theme={campaign.theme} />),
+          wrap(<DeckPresentation campaign={campaign.name} campaignId={campaign.id} levelIndex={level.id} title={level.title} intro={level.intro} tip={level.tip} deck={ids(level.deck)} theme={campaign.theme} />),
         );
         const intro = screen.getByTestId("deck-presentation");
-        expect(within(intro).getByRole("heading", { name: level.title })).toBeInTheDocument();
+        expect(within(intro).getByRole("heading", { level: 2, name: level.title })).toBeInTheDocument();
+        expect(intro).toHaveTextContent(`${campaign.name} · Level ${level.id}`);
         expect(intro).toHaveTextContent(level.intro);
-        expect([...within(intro).getByTestId("presented-tiles").querySelectorAll("li")].map((li) => Number(li.getAttribute("data-plan")))).toEqual(ids(level.deck));
+        // The deck page's section: the painted pile, "Deck" and its count, then the tiles numbered in draw order.
+        expect(within(intro).getByRole("heading", { level: 3, name: `Deck ${level.deck.length}` })).toBeInTheDocument();
+        const tiles = [...within(intro).getByTestId("presented-tiles").querySelectorAll("li")];
+        expect(tiles.map((li) => Number(li.getAttribute("data-plan")))).toEqual(ids(level.deck));
+        expect(tiles.map((li) => li.textContent)).toEqual(level.deck.map((_, i) => String(i + 1)));
         const tip = within(intro).getByRole("complementary", { name: "Tip" });
-        expect(tip).toHaveTextContent(`Tip${level.tip}`);
-        expect(tip.querySelector("[data-icon='lightbulb']")).not.toBeNull();
+        expect(tip).toHaveTextContent(level.tip);
+        expect(tip).toHaveClass("drawer-carved");
+        expect(tip.querySelector("[data-icon='bulb']")).not.toBeNull();
         // Never a star threshold, in the tip or anywhere on the intro.
         expect(intro).not.toHaveTextContent(String(level.target));
         unmount();
@@ -132,13 +146,109 @@ describe("a level's intro (#593, #721)", () => {
     });
   }
 
-  it("draws its tiles in the campaign's theme, the base render for a plan the theme has none of; no tip, no block", () => {
-    const renders = (theme: number, key: string) => (theme === 1 && key === "ccccccccc" ? null : `/r/${key}.${theme}.webp`);
+  it("draws its tiles from above in the campaign's theme, the base render for a plan the theme has none of; no tip, no box", () => {
+    const renders = (theme: number, key: string) => (theme === 1 && key === "ccccccccc-top" ? null : `/r/${key}.${theme}.webp`);
     const deck = ids([PlanType.RFRFFFFFR, PlanType.CCCCCCCCC]);
     render(wrap(<DeckPresentation campaign="Dark Forest" levelIndex={1} title="Pines" intro="Into the woods." deck={deck} theme={1} renders={renders} />));
     const tiles = [...screen.getByTestId("presented-tiles").querySelectorAll("li")];
     expect(tiles.map((li) => li.getAttribute("data-theme"))).toEqual(["1", "0"]);
-    expect(tiles.map((li) => li.querySelector("img")?.getAttribute("src"))).toEqual(["/r/rfrfffffr.1.webp", "/r/ccccccccc.0.webp"]);
+    expect(tiles.map((li) => li.querySelector("img")?.getAttribute("src"))).toEqual(["/r/rfrfffffr-top.1.webp", "/r/ccccccccc-top.0.webp"]);
     expect(screen.queryByTestId("level-tip")).toBeNull();
+  });
+
+  it("puts the campaign's picture behind the level's name, the theme's (Story's campaign head), and none without the campaign's id", () => {
+    const renders = (theme: number, key: string) => (key.startsWith("story-") ? `/r/${key}.${theme}.webp` : null);
+    const { unmount } = intro({ campaignId: 3, theme: 1, renders });
+    expect(screen.getByTestId("deck-presentation").querySelector("[data-slot='intro-picture'] img")).toHaveAttribute("src", "/r/story-3-1040.1.webp");
+    unmount();
+    intro({ campaignId: undefined, renders });
+    expect(screen.getByTestId("deck-presentation").querySelector("[data-slot='intro-picture']")).toBeNull();
+  });
+
+  it("a short deck's carved panel hugs its tiles at the deck page's size; four tiles and more fill the row, four a row", () => {
+    const { unmount } = intro();
+    const two = screen.getByTestId("presented-tiles");
+    expect(two.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
+    expect(two.style.width).toContain("calc(");
+    unmount();
+    const long = CAMPAIGNS[1]!.levels[11]!;
+    intro({ deck: ids(long.deck) });
+    const fifteen = screen.getByTestId("presented-tiles");
+    expect(fifteen.querySelectorAll("li")).toHaveLength(15);
+    expect(fifteen.style.gridTemplateColumns).toBe("repeat(4, minmax(0, 1fr))");
+    expect(fifteen.style.width).toBe("100%");
+  });
+
+  it("shows the device's best and its painted stars by Start, or writes out that there is none yet", () => {
+    const { unmount } = intro({ best: { score: 10200, stars: 2 } });
+    const best = screen.getByRole("region", { name: "Your best: 10,200, 2 of 3 stars" });
+    expect(best).toHaveTextContent("10,200");
+    expect(within(best).getByRole("img", { name: "2 of 3 stars", hidden: true })).toBeInTheDocument();
+    unmount();
+    intro({ best: null });
+    expect(screen.getByRole("region", { name: "No best yet" })).toHaveTextContent("No best yet");
+  });
+
+  it("starts from its one gold action, Escape or a tap anywhere; Start is focused and shines", async () => {
+    const onStart = vi.fn();
+    intro({ onStart });
+    const start = screen.getByRole("button", { name: "Start" });
+    expect(start).toHaveFocus();
+    expect(start.querySelector("[data-slot='gold-shine']")).not.toBeNull();
+    fireEvent.click(start);
+    expect(onStart).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(start, { key: "Escape" });
+    expect(onStart).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByText(TUTORIAL_1.intro));
+    expect(onStart).toHaveBeenCalledTimes(3);
+  });
+
+  it("under reduced motion the window and every tile are there at once", () => {
+    intro({}, "always");
+    for (const li of screen.getByTestId("presented-tiles").querySelectorAll("li")) expect((li as HTMLElement).style.opacity).not.toBe("0");
+    expect(screen.getByTestId("level-tip").style.opacity).not.toBe("0");
+  });
+
+  // #1090: a long deck (Open Country 12) on a short phone (568 px tall) opened on its foot, the focus on Start scrolling the window down
+  // at once (scrollTop 222 to 250 at 320, 360 and 375 in Chromium). jsdom lays nothing out: its focus is given the browser's scroll into
+  // view (the scroller to the focused control, unless `preventScroll`), with the measured offset.
+  for (const width of [320, 360, 375]) {
+    it(`a long deck opens at its head on a short phone (${width} x 568): Start focused, the window not scrolled`, () => {
+      vi.stubGlobal("innerWidth", width);
+      vi.stubGlobal("innerHeight", 568);
+      const scrolled = new Map<Element, number>();
+      const focus = HTMLElement.prototype.focus;
+      const spy = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (this: HTMLElement, options?: FocusOptions) {
+        const scroller = this.closest("[data-slot='scroll-region']");
+        if (scroller && !options?.preventScroll) scrolled.set(scroller, 250);
+        focus.call(this, options);
+      });
+      try {
+        const country = CAMPAIGNS[1]!;
+        const level = country.levels[11]!;
+        intro({ campaign: country.name, campaignId: country.id, levelIndex: level.id, title: level.title, intro: level.intro, tip: level.tip, deck: ids(level.deck) });
+        expect(level.deck.length).toBeGreaterThan(8);
+        const scroller = screen.getByTestId("deck-presentation").querySelector("[data-slot='scroll-region']")!;
+        expect(screen.getByRole("button", { name: "Start" })).toHaveFocus();
+        expect(scrolled.get(scroller) ?? scroller.scrollTop).toBe(0);
+        expect(screen.getByRole("button", { name: "Start" })).not.toHaveAttribute("autofocus");
+      } finally {
+        spy.mockRestore();
+        vi.unstubAllGlobals();
+      }
+    });
+  }
+});
+
+describe("a coach mark (#546; STORY-INTRO: the tip's look on the HUD's frame)", () => {
+  it("shows its tip by the painted bulb, on the HUD's frame, and Got it puts it away", () => {
+    const onDismiss = vi.fn();
+    render(wrap(<StoryCoach tip="Tap the tile stack." onDismiss={onDismiss} />));
+    const coach = screen.getByTestId("story-coach");
+    expect(within(coach).getByRole("status")).toHaveTextContent("Tap the tile stack.");
+    expect(coach.querySelector("[data-icon='bulb']")).not.toBeNull();
+    expect(coach.querySelector("[data-slot='hud-frame']")).not.toBeNull();
+    fireEvent.click(within(coach).getByRole("button", { name: "Got it" }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

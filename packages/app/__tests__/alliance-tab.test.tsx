@@ -12,7 +12,7 @@ import { createTestRouter } from "../src/routes/router";
 import { resetGuildTabForTests } from "../src/routes/guild-tab";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
-import { preloadPages } from "./route-helpers";
+import { preloadPages, shownView } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // ALLIANCES on the mock, through the pages: the guild page's Alliance (create, a community guild's request, Accept), the guild's alliance
@@ -131,12 +131,22 @@ describe("alliances on the mock, through the pages (ALLIANCES)", { timeout: slow
     expect(within(screen.getByRole("list", { name: "Guilds" })).getByRole("button", { name: /^Mill Lane \(your guild\)/ })).toBeInTheDocument();
   });
 
-  it("opens an alliance from the Leaderboard's Alliances tab, in the guild page's drawer, Back to the ranking", async () => {
+  it("opens an alliance from the Leaderboard's Alliances tab, in the guild page's drawer, its guilds in its place, Back to the ranking", async () => {
     const { router } = open("/ranking?tab=alliances");
     const ranking = await screen.findByRole("list", { name: "Alliances by score" }, T(10_000));
     await userEvent.click(within(ranking).getByRole("button", { name: /^2\. Stone Pact/ }));
     await screen.findByRole("heading", { level: 2, name: "Stone Pact" }, T(10_000));
     expect(router.state.location.pathname).toBe("/guild");
+    expect(router.state.location.search).toBe("?alliance=700");
+    await title("Alliance");
+    // A guild of the alliance: its page in the drawer's place (DRAWER-NAV-IN-PLACE), the alliance kept under it; Back to the alliance.
+    await userEvent.click(within(screen.getByRole("list", { name: "Guilds" })).getByRole("button", { name: /^Order of the Millstone/ }));
+    await waitFor(() => expect(shownView("guild-sheet")).not.toBeNull(), T(8_000));
+    expect(drawer()).toContainElement(shownView("guild-sheet"));
+    expect(router.state.location.search).toBe("?alliance=700&guild=20003");
+    expect(await within(shownView("guild-sheet")!).findByRole("button", { name: "Alliance: Stone Pact" }, T(8_000))).toBeInTheDocument();
+    await back();
+    await waitFor(() => expect(shownView()).toBeNull(), T(8_000));
     expect(router.state.location.search).toBe("?alliance=700");
     await title("Alliance");
     await back();

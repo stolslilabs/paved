@@ -1,5 +1,6 @@
-import { createContext, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import * as m from "motion/react-m";
 import { useSidePanel } from "../../lib/side-panel";
 import { cn } from "../../lib/utils";
 import { UiIcon } from "../elements/ui-icon";
@@ -41,6 +42,117 @@ interface DrawerView {
 }
 
 const DrawerViewContext = createContext<((view: DrawerView | null) => void) | null>(null);
+
+/**
+ * DRAWER-NAV-IN-PLACE (#1064, the owner's decision of 2026-11-07): a page opened from a drawer (a player's profile, another guild, a
+ * list) replaces the drawer's content in place, as a navigation, with Back to the page before. The open drawer is the host: its pages
+ * (`HudDrawer` with `inPlace`) are its guests, a stack, the last one shown. Each guest draws its body over the drawer's own, which
+ * stays mounted under it (its scroll and its tab as they were), and its title in the header, whose Back calls the guest's. A guest
+ * opened by the URL (`?player=`, `?guild=`) is mounted outside the drawer's tree, so the open drawers are also listed here, the last
+ * one opened serving.
+ */
+interface DrawerHost {
+  /** Where the guests' bodies and titles are drawn; null until the drawer's header and body are there. */
+  readonly slots: { layer: HTMLElement | null; title: HTMLElement | null; end: HTMLElement | null };
+  /** Whether the drawer is open: a guest stays in it while it slides out. */
+  readonly open: boolean;
+  /** The guests, oldest first. */
+  readonly stack: readonly string[];
+  /** A guest enters, on top, or at its place in a chain (`order`, `DrawerOrderContext`) under those that come after it. */
+  enter(id: string, back: () => void, order?: number): void;
+  leave(id: string): void;
+  /** The Back of the guest shown; null with none. */
+  back(): (() => void) | null;
+  subscribe(listener: () => void): () => void;
+  /** Sets a field and tells the guests. */
+  set(patch: Partial<{ layer: HTMLElement | null; title: HTMLElement | null; end: HTMLElement | null; open: boolean }>): void;
+}
+
+function createHost(): DrawerHost {
+  const listeners = new Set<() => void>();
+  const backs = new Map<string, () => void>();
+  const orders = new Map<string, number | undefined>();
+  const host = {
+    slots: { layer: null as HTMLElement | null, title: null as HTMLElement | null, end: null as HTMLElement | null },
+    open: false,
+    stack: [] as readonly string[],
+    enter(id: string, back: () => void, order?: number) {
+      backs.set(id, back);
+      orders.set(id, order);
+      if (!host.stack.includes(id)) {
+        const at = order === undefined ? -1 : host.stack.findIndex((s) => (orders.get(s) ?? -1) > order);
+        host.stack = at < 0 ? [...host.stack, id] : [...host.stack.slice(0, at), id, ...host.stack.slice(at)];
+      }
+      notify();
+    },
+    leave(id: string) {
+      backs.delete(id);
+      orders.delete(id);
+      if (!host.stack.includes(id)) return;
+      host.stack = host.stack.filter((s) => s !== id);
+      notify();
+    },
+    back: () => {
+      const top = host.stack.at(-1);
+      return top === undefined ? null : (backs.get(top) ?? null);
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    set(patch: Partial<{ layer: HTMLElement | null; title: HTMLElement | null; end: HTMLElement | null; open: boolean }>) {
+      const { open, ...slots } = patch;
+      const moved = Object.entries(slots).some(([k, v]) => host.slots[k as keyof typeof slots] !== v);
+      if ((open === undefined || open === host.open) && !moved) return;
+      if (open !== undefined) host.open = open;
+      if (moved) host.slots = { ...host.slots, ...slots };
+      notify();
+    },
+  };
+  const notify = () => listeners.forEach((l) => l());
+  return host;
+}
+
+/**
+ * A value read from a store the drawers write in their layout effects (a guest entering, a drawer opening): subscribed in a layout
+ * effect, and read again as it subscribes, so a write of the same commit is never missed (`useSyncExternalStore` subscribes after paint,
+ * and missed it in the production build). The new value comes before paint.
+ */
+function useStore<T>(subscribe: (listener: () => void) => () => void, read: () => T): T {
+  const [value, setValue] = useState(read);
+  const latest = useRef(read);
+  useLayoutEffect(() => {
+    latest.current = read;
+  });
+  useLayoutEffect(() => {
+    const update = () => setValue(() => latest.current());
+    update();
+    return subscribe(update);
+  }, [subscribe]);
+  return value;
+}
+
+/** The drawers open now, the last opened last: a guest the URL mounted goes to the last one. */
+let openHosts: readonly DrawerHost[] = [];
+const hostListeners = new Set<() => void>();
+const hostsChanged = () => hostListeners.forEach((l) => l());
+const subscribeHosts = (listener: () => void) => {
+  hostListeners.add(listener);
+  return () => void hostListeners.delete(listener);
+};
+const lastHost = () => openHosts.at(-1) ?? null;
+
+/** Whether a drawer is open, which a page the URL opens (`?player=`, `?guild=`) is drawn in (DRAWER-NAV-IN-PLACE). */
+export const useOpenDrawer = (): boolean => useStore(subscribeHosts, () => openHosts.length > 0);
+
+/**
+ * A page's place in a chain the URL names (`page-views-host.tsx`: a profile, its guild, a member), so that the drawer stacks them in
+ * that order whichever code comes first (a reload); unset elsewhere, a page goes on top.
+ */
+export const DrawerOrderContext = createContext<number | undefined>(undefined);
+
+/** The drawer a guest in it draws its own guests into (a profile's guild, then a member): the same one. */
+const DrawerHostContext = createContext<DrawerHost | null>(null);
 
 /** The drawer's foot, where a page's footer is drawn (`DrawerFooter`); null outside a drawer. */
 const DrawerFooterContext = createContext<HTMLElement | null>(null);
@@ -91,7 +203,7 @@ export interface HudDrawerProps {
   side?: "left" | "right";
   /**
    * What it is on a phone: a full page with Back (`page`, the default), or a sheet from the bottom with the red close (`sheet`,
-   * FRIENDS-PAGE: another player's profile and the blocked players, over the page that opened them, as the book draws the first).
+   * FRIENDS-PAGE). Opened from a drawer with `inPlace` (the blocked players, How an attack works), it is drawn in that drawer instead.
    */
   phone?: "page" | "sheet";
   /** What the header holds at its outer end, opposite its control (the page's balance: the Missions' Cobbles). */
@@ -108,6 +220,12 @@ export interface HudDrawerProps {
   returnFocus?: () => HTMLElement | null;
   /** The drawer's own test hook and styles' handle (`data-slot`). */
   slot?: string;
+  /**
+   * A page opened from a drawer (DRAWER-NAV-IN-PLACE, #1064: a player's profile, another guild, a list): drawn in the open drawer's place,
+   * its title on that drawer's header and Back (`onBack`, else a close) to the page it covers, which stays as it was. With no drawer open
+   * (from the home, a link), it is its own drawer, as without it. `side` and `phone` are then its own drawer's.
+   */
+  inPlace?: boolean;
   className?: string;
   children: ReactNode;
 }
@@ -139,7 +257,109 @@ export function ViewHeader({ title, onBack }: { title: string; onBack: () => voi
  * Inside, the phone's layout whatever the width (`data-page-panel`). The village beside the side panel is veiled lightly and blurred,
  * Escape or a tap on it closing the drawer. It takes the focus itself as it opens. The slide is the Sheet's (Motion).
  */
-export function HudDrawer({ open, onOpenChange, title, subtitle, side: edge = "left", phone = "page", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps) {
+export function HudDrawer(props: HudDrawerProps) {
+  const near = useContext(DrawerHostContext);
+  const last = useStore(subscribeHosts, lastHost);
+  const [own] = useState(createHost);
+  // The host is chosen once the drawers opened in the same commit are listed (their layout effects come before this one's), and kept
+  // while the page is open and while it slides out; each opening chooses again.
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => setReady(true), []);
+  const [pick, setPick] = useState<{ open: boolean; host: DrawerHost | null } | null>(null);
+  if (props.inPlace && ready) {
+    if (pick === null || (props.open && !pick.open)) setPick({ open: props.open, host: near ?? (last !== own ? last : null) });
+    else if (pick.open !== props.open) setPick({ ...pick, open: props.open });
+  }
+  if (props.inPlace) {
+    if (pick === null) return null;
+    if (pick.host) return <DrawerGuest host={pick.host} {...props} />;
+  }
+  return <DrawerFrame host={own} {...props} />;
+}
+
+/** The body's padding, the drawer's and its guests'. */
+const BODY = "flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overscroll-contain px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]";
+
+/**
+ * A page drawn in an open drawer's place (`inPlace`): its body over the drawer's, sliding in from the right as the drawers' views do
+ * (no slide under reduced motion), its title in the header; covered by a later guest, it stays as it was under it. While the drawer
+ * slides out, it stays in it. The focus goes to it as it opens, and back to what opened it as it leaves.
+ */
+function DrawerGuest({ host, open, onOpenChange, title, end, onBack, slot = "hud-drawer", children }: HudDrawerProps & { host: DrawerHost }) {
+  const id = useId();
+  const order = useContext(DrawerOrderContext);
+  const hostOpen = useStore(host.subscribe, () => host.open);
+  const slots = useStore(host.subscribe, () => host.slots);
+  const top = useStore(host.subscribe, () => host.stack.at(-1) === id);
+  // A view the guest opens in its own place (`useDrawerView`: the guild's menu): its title and Back over the guest's.
+  const [view, setView] = useState<DrawerView | null>(null);
+  const back = useRef<() => void>(() => undefined);
+  useLayoutEffect(() => {
+    back.current = view?.onBack ?? onBack ?? (() => onOpenChange(false));
+  });
+  // In the drawer while open, and while the drawer itself slides out with it.
+  const shown = open || !hostOpen;
+  useLayoutEffect(() => {
+    if (!shown) return;
+    host.enter(id, () => back.current(), order);
+    return () => host.leave(id);
+  }, [shown, host, id, order]);
+  const body = useRef<HTMLDivElement>(null);
+  // Drawn once the drawer's slots are there (the first pass draws nothing).
+  const placed = slots.layer !== null && slots.title !== null;
+  useLayoutEffect(() => {
+    if (!open || !placed) return;
+    const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    body.current?.focus({ preventScroll: true });
+    return () => {
+      // Once the page under it is no longer inert.
+      requestAnimationFrame(() => {
+        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
+      });
+    };
+  }, [open, placed]);
+  if (!shown || !slots.layer || !slots.title) return null;
+  return (
+    <>
+      {createPortal(<span hidden={!top}>{view?.title ?? title}</span>, slots.title)}
+      {/* What the page shows at the header's end (the rename's Cobbles), while it is the one shown. */}
+      {top &&
+        end &&
+        slots.end &&
+        createPortal(
+          <span data-slot="hud-drawer-end" className="flex min-w-0 items-center">
+            {end}
+          </span>,
+          slots.end,
+        )}
+      {createPortal(
+        <ScrollRegion
+          ref={body}
+          tabIndex={-1}
+          data-hud-drawer-body=""
+          data-hud-drawer-view={slot}
+          inert={!top}
+          aria-hidden={!top || undefined}
+          className={cn(BODY, "absolute inset-0 bg-secondary outline-none", !top && "invisible")}
+        >
+          <m.div initial={{ x: 48, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.22, ease: "easeOut" }} className="flex flex-col gap-3">
+            <DrawerHostContext.Provider value={host}>
+              <DrawerOrderContext.Provider value={undefined}>
+                <DrawerViewContext.Provider value={setView}>
+                  <DrawerFooterContext.Provider value={null}>{children}</DrawerFooterContext.Provider>
+                </DrawerViewContext.Provider>
+              </DrawerOrderContext.Provider>
+            </DrawerHostContext.Provider>
+          </m.div>
+        </ScrollRegion>,
+        slots.layer,
+      )}
+    </>
+  );
+}
+
+/** The drawer itself: its Sheet, its header and body, and the host of the pages opened in its place. */
+function DrawerFrame({ host, open, onOpenChange, title, subtitle, side: edge = "left", phone = "page", end, onBack, onInteractOutside, returnFocus, slot = "hud-drawer", className, children }: HudDrawerProps & { host: DrawerHost }) {
   const wide = useSidePanel(SIDE_QUERY);
   // A phone's sheet closes as the side panel does: its red cross at the header's end.
   const sheet = !wide && phone === "sheet";
@@ -148,7 +368,22 @@ export function HudDrawer({ open, onOpenChange, title, subtitle, side: edge = "l
   const [view, setView] = useState<DrawerView | null>(null);
   // The foot a page's `DrawerFooter` is drawn into.
   const [foot, setFoot] = useState<HTMLElement | null>(null);
-  const toBack = view?.onBack ?? onBack;
+  // The pages opened in its place (`inPlace`): the last one shown, its Back the header's.
+  const guested = useStore(host.subscribe, () => host.stack.length > 0);
+  useLayoutEffect(() => {
+    host.set({ open });
+    if (!open) return;
+    openHosts = [...openHosts, host];
+    hostsChanged();
+    return () => {
+      openHosts = openHosts.filter((h) => h !== host);
+      hostsChanged();
+    };
+  }, [host, open]);
+  const titleSlot = useCallback((el: HTMLElement | null) => host.set({ title: el }), [host]);
+  const layerSlot = useCallback((el: HTMLElement | null) => host.set({ layer: el }), [host]);
+  const endSlot = useCallback((el: HTMLElement | null) => host.set({ end: el }), [host]);
+  const toBack = guested ? () => host.back()?.() : (view?.onBack ?? onBack);
   // The phone's Back at the top left, the title right after it; the side panel's close at the header's right end, after what the page
   // shows there (the owner's ask of 2026-11-04: the title on the left, the balance at the top right).
   const close = (
@@ -182,6 +417,13 @@ export function HudDrawer({ open, onOpenChange, title, subtitle, side: edge = "l
         data-hud-drawer={slot}
         overlayClassName="drawer-veil backdrop-blur-sm"
         onInteractOutside={onInteractOutside}
+        // Escape over a guest goes Back from it, as its header's Back; over the drawer's own page, it closes the drawer.
+        onEscapeKeyDown={(e) => {
+          const guest = host.back();
+          if (!guest) return;
+          e.preventDefault();
+          guest();
+        }}
         // The focus on the drawer itself as it opens, not on its Back or close; Tab reaches them next.
         onOpenAutoFocus={(e) => {
           e.preventDefault();
@@ -198,27 +440,31 @@ export function HudDrawer({ open, onOpenChange, title, subtitle, side: edge = "l
         {/* One row: Back (a phone's, or a view's), the title on the left, what the page shows at the end, the close (a side panel's, or a view's) last. */}
         <SheetHeader className="drawer-band flex shrink-0 flex-row items-center gap-1 px-2 py-2.5">
           {back || (!side && control)}
-          {subtitle && !view ? (
-            // The title over its line, one column in the title's place.
-            <div data-slot="hud-drawer-title" className={cn("flex min-w-0 flex-1 flex-col", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
-              <SheetTitle className="text-outline truncate text-left font-display text-2xl leading-tight tracking-wide">{title}</SheetTitle>
-              <p className="text-sm leading-snug font-semibold text-muted-foreground">{subtitle}</p>
-            </div>
-          ) : (
-            <SheetTitle data-slot="hud-drawer-title" className={cn("text-outline min-w-0 flex-1 truncate text-left font-display text-2xl leading-tight tracking-wide", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
-              {view?.title ?? title}
+          {/* The title over its line, one column in the title's place; a guest's title in its stead (`inPlace`). */}
+          <div data-slot="hud-drawer-title" className={cn("flex min-w-0 flex-1 flex-col", side && !back ? "pl-2" : TITLE_AFTER_BACK)}>
+            <SheetTitle className="text-outline truncate text-left font-display text-2xl leading-tight tracking-wide">
+              <span hidden={guested}>{view?.title ?? title}</span>
+              <span ref={titleSlot} />
             </SheetTitle>
-          )}
-          {ends}
+            {subtitle && !view && !guested && <p className="text-sm leading-snug font-semibold text-muted-foreground">{subtitle}</p>}
+          </div>
+          {/* A guest's own end in the drawer's (`DrawerGuest`), in the place of the drawer's. */}
+          {guested ? <span ref={endSlot} className="contents" /> : ends}
           {(side || back) && close}
         </SheetHeader>
         {/* Down only: what glows past the content's edge (a waiting gift's halo at a row's end) is cut at the drawer's, never scrolled to. */}
-        <ScrollRegion data-hud-drawer-body="" className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overscroll-contain px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <DrawerViewContext.Provider value={setView}>
-            <DrawerFooterContext.Provider value={foot}>{children}</DrawerFooterContext.Provider>
-          </DrawerViewContext.Provider>
-        </ScrollRegion>
-        <div ref={setFoot} data-slot="hud-drawer-footer" style={FOOT} className="shrink-0 empty:hidden" />
+        {/* Its pages' layer over it (`inPlace`): the body stays laid out under a guest, hidden and inert, its scroll kept. */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <ScrollRegion data-hud-drawer-body="" inert={guested} aria-hidden={guested || undefined} className={cn(BODY, guested && "invisible")}>
+            <DrawerHostContext.Provider value={host}>
+              <DrawerViewContext.Provider value={setView}>
+                <DrawerFooterContext.Provider value={foot}>{children}</DrawerFooterContext.Provider>
+              </DrawerViewContext.Provider>
+            </DrawerHostContext.Provider>
+          </ScrollRegion>
+          <div ref={layerSlot} className="contents" />
+        </div>
+        <div ref={setFoot} data-slot="hud-drawer-footer" style={FOOT} className={cn("shrink-0 empty:hidden", guested && "hidden")} />
       </SheetContent>
     </Sheet>
   );

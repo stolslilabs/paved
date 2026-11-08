@@ -98,7 +98,7 @@ export function PlayerRankRow({ profile, place, own = false, onOpen, ref, classN
       <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
         <PlayerName name={profile.name} address={profile.address} className={cn("text-outline max-w-full min-w-0 pr-0.5 text-sm font-bold", profile.name ? "leading-snug" : "leading-normal")} />
         <span className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5">
-          <LevelStar level={profile.level} className="size-6" />
+          <LevelStar level={profile.level} size="sm" />
           {own && <OwnTag>You</OwnTag>}
         </span>
       </span>

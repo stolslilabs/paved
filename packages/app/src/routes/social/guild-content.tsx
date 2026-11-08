@@ -11,16 +11,17 @@ import type { GuildSummary } from "../../data/social-source";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
 import { errorDetail } from "../error-detail";
-import { GUILD_PARAM, guildParamOf, type GuildSheetState } from "../guild-param";
+import { GUILD_PARAM } from "../guild-param";
 import { useNow } from "../now";
 import { useOpenGuild } from "../open-guild";
 import { useOpenPlayer } from "../open-player";
 import { ALLIANCE_PARAM, ALLIANCE_VIEW, VIEW_PARAM, allianceParamOf, type AllianceViewState } from "../open-alliance";
 import { AllianceViews } from "./alliance-view";
-import { GuildSheet, OwnGuild } from "./guild-view";
+import { OwnGuild } from "./guild-view";
 
 // The guild page's content (#953; the Social page's Guild tab until #973): the player's guild with its header, menu and tabs
-// (#973), or the finder of a player in none; any other guild's page in a sheet over it (`?guild=`). The guild's page
+// (#973), or the finder of a player in none; any other guild's page (`?guild=`) is drawn in its drawer's place by the pages' host
+// (`page-views-host.tsx`, DRAWER-NAV-IN-PLACE); an alliance's page in the guild page's place (ALLIANCES, `?alliance=`). The guild's page
 // (`guild-view.tsx`) is in the page's chunk since #973: a chunk of its own put one more name in the first load's preload map.
 
 /** A finder action as the guild source's write. */
@@ -70,30 +71,12 @@ export function GuildContent() {
     if (!unavailable) void run((g, p) => g.visitGuildTab(p)).catch(() => undefined);
   }, [unavailable, run]);
 
-  // Another guild's page, at `?guild=`: kept in the sheet while it slides out.
+  // ALLIANCES: an alliance's page (`?alliance=<id>`) or the player's own Alliance (`?view=alliance`), views of the drawer in the guild
+  // page's place; Back goes back where it was opened from (a history entry), or drops the parameter on a link or a reload.
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const asked = guildParamOf(params.get(GUILD_PARAM));
   const own = player.data?.guild?.id ?? null;
-  const [shown, setShown] = useState<number | null>(asked);
-  if (asked !== null && asked !== shown) setShown(asked);
-  const closeGuild = useCallback(() => {
-    if ((location.state as GuildSheetState | null)?.guildSheet) return void navigate(-1);
-    setParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        next.delete(GUILD_PARAM);
-        return next;
-      },
-      { replace: true, preventScrollReset: true },
-    );
-  }, [location.state, navigate, setParams]);
-  // The player's own guild is the page itself: no sheet over it.
-  const sheetOpen = asked !== null && asked !== own;
-
-  // ALLIANCES: an alliance's page (`?alliance=<id>`) or the player's own Alliance (`?view=alliance`), views of the drawer in the guild
-  // page's place; Back goes back where it was opened from (a history entry), or drops the parameter on a link or a reload.
   const allianceId = allianceParamOf(params.get(ALLIANCE_PARAM));
   const ownAlliance = params.get(VIEW_PARAM) === ALLIANCE_VIEW;
   const openAlliance = useCallback(
@@ -135,31 +118,14 @@ export function GuildContent() {
       { replace: true, preventScrollReset: true },
     );
   }, [location.state, navigate, setParams]);
-  // A guild of an alliance's page opens over it (the alliance kept in the URL); the player's own guild is the page under it: Back to it,
-  // or, the view opened from outside the guild page (the Leaderboard), the view replaced by it.
+  // A guild of an alliance's page opens in the drawer's place, Back to the alliance (DRAWER-NAV-IN-PLACE); the player's own guild,
+  // the view opened from their guild page, is the page under it: Back to it.
   const openGuildOver = useCallback(
     (id: number) => {
-      if (id === own && (location.state as AllianceViewState | null)?.outside)
-        return setParams(
-          (current) => {
-            const next = new URLSearchParams(current);
-            next.delete(ALLIANCE_PARAM);
-            next.delete(VIEW_PARAM);
-            return next;
-          },
-          { replace: true, preventScrollReset: true },
-        );
-      if (id === own) return closeAlliance();
-      setParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          next.set(GUILD_PARAM, String(id));
-          return next;
-        },
-        { state: { guildSheet: true } satisfies GuildSheetState, preventScrollReset: true },
-      );
+      if (id === own && !(location.state as AllianceViewState | null)?.outside) return closeAlliance();
+      openGuild(id);
     },
-    [own, closeAlliance, location.state, setParams],
+    [own, closeAlliance, location.state, openGuild],
   );
 
   if (player.unavailable) return <SocialUnavailable>Guilds are not on this network yet.</SocialUnavailable>;
@@ -185,9 +151,6 @@ export function GuildContent() {
     return (
       <div className="flex flex-col gap-5">
         <AllianceViews key={allianceId ?? "own"} id={allianceId} me={me} now={now} onClose={closeAlliance} onOpenGuild={openGuildOver} onOpenAlliance={openAlliance} />
-        {shown !== null && shown !== own && (
-          <GuildSheet key={shown} id={shown} me={me} player={state ?? null} candidate={candidate} now={now} open={sheetOpen} onClose={closeGuild} writes={writes} onOpenPlayer={openPlayer} onOpenAlliance={openAlliance} />
-        )}
       </div>
     );
   return (
@@ -205,7 +168,7 @@ export function GuildContent() {
             writes={writes}
             onOpenPlayer={openPlayer}
             // The member's Find guilds (#973): the finder's search and lists, in its view in the drawer (GUILD-PAGE); a guild found
-            // opens in its sheet over it.
+            // opens in its place.
             find={find}
             onOpenAlliance={openAlliance}
             onOpenOwnAlliance={openOwnAlliance}
@@ -228,9 +191,6 @@ export function GuildContent() {
             onAction={(a) => writes.run(finderWrite(a))}
           />
         )
-      )}
-      {shown !== null && shown !== own && (
-        <GuildSheet key={shown} id={shown} me={me} player={state ?? null} candidate={candidate} now={now} open={sheetOpen} onClose={closeGuild} writes={writes} onOpenPlayer={openPlayer} onOpenAlliance={openAlliance} />
       )}
     </div>
   );

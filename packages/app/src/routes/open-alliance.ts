@@ -13,7 +13,10 @@ export const ALLIANCE_VIEW = "alliance";
 /** What an opening leaves in the history entry: Back then goes back, so the entry before is not left twice. */
 export interface AllianceViewState {
   allianceView?: true;
-  /** Opened from outside the guild page (the Leaderboard): Back leaves the guild page, so the player's own guild replaces the view. */
+  /**
+   * Opened from outside the guild page's own views (the Leaderboard, a guild's page in a drawer's place): the player's own guild then
+   * opens in the drawer's place, as any guild; else it is the guild page under the view, and its row goes Back to it.
+   */
   outside?: true;
 }
 
@@ -24,4 +27,10 @@ export const allianceParamOf = (value: string | null): number | null => (value !
 export function useOpenAlliance(): (id: number) => void {
   const go = useAppNavigate();
   return useCallback((id: number) => void go(`/guild?${ALLIANCE_PARAM}=${id}`, { state: { allianceView: true, outside: true } satisfies AllianceViewState }), [go]);
+}
+
+/** Opens the player's own Alliance from anywhere (their guild's page in a drawer's place: its Alliance tile): Back closes it. */
+export function useOpenOwnAlliance(): () => void {
+  const go = useAppNavigate();
+  return useCallback(() => void go(`/guild?${VIEW_PARAM}=${ALLIANCE_VIEW}`, { state: { allianceView: true, outside: true } satisfies AllianceViewState }), [go]);
 }

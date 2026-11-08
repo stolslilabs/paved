@@ -118,6 +118,8 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
       // Back at every width (the owner's ask of 2026-11-05): to the page it was opened from, the friends' list in its place.
       onBack={() => onOpenChange(false)}
       slot="public-profile"
+      // DRAWER-NAV-IN-PLACE (#1064): opened from a drawer (the guild's members, the friends, the ranking, the chat), in its place.
+      inPlace
     >
       <div data-slot="public-profile" data-status={state.status} className="flex flex-col gap-3">
         {profile ? (
@@ -127,7 +129,7 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
               <Portrait profile={profile} />
               <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
                 {/* With no name, the short address in Space Mono, whose glyphs stand taller than a tight line (the profile's rule). */}
-                <PlayerName name={profile.name} address={profile.address} className={cn("text-outline max-w-full text-2xl font-bold", profile.name ? "leading-tight" : "leading-normal")} />
+                <PlayerName name={profile.name} address={profile.address} className={cn("text-outline outline-room max-w-[calc(100%+4px)] text-2xl font-bold", profile.name ? "leading-tight" : "leading-normal")} />
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <Presence lastSeen={profile.lastSeen} now={now} className={cn("text-sm font-bold", isOnline(profile.lastSeen, now) && "text-success")} />
                   {follow && <FollowMark status={follow} />}
