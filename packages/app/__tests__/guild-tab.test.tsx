@@ -13,7 +13,7 @@ import { createTestRouter } from "../src/routes/router";
 import { resetGuildTabForTests } from "../src/routes/guild-tab";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { mockImplementation } from "./mock-fakes";
-import { preloadPages } from "./route-helpers";
+import { preloadPages, shownView } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
 // The guild page on the mock (#953, PR 2; the Social page's Guild tab until #973): the acceptance's flows through the page, the sheets and the profiles, on the ledger's
@@ -44,8 +44,11 @@ const plainHome = (routes: RouteObject[]): RouteObject[] =>
 const guildless = () => community().filter((m) => !seededGuildWorld().guilds.some((g) => g.members.some((x) => BigInt(x.address) === BigInt(m.address))));
 
 const T = (ms: number) => ({ timeout: slow(ms) });
-/** No dialog over the page: the Guild's HUD drawer (GUILD-PAGE) is the only one left. */
-const onlyTheDrawer = () => expect(screen.getAllByRole("dialog").map((d) => d.getAttribute("data-hud-drawer"))).toEqual(["guild"]);
+/** No dialog over the page and no page in its place (DRAWER-NAV-IN-PLACE): the Guild's HUD drawer (GUILD-PAGE) on its own page. */
+const onlyTheDrawer = () => {
+  expect(screen.getAllByRole("dialog").map((d) => d.getAttribute("data-hud-drawer"))).toEqual(["guild"]);
+  expect(shownView()).toBeNull();
+};
 
 describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000) }, () => {
   preloadPages("guild");
@@ -99,19 +102,20 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
   }
   /** The drawer's Back: one view back. */
   const back = () => userEvent.click(within(document.querySelector<HTMLElement>("[data-hud-drawer=guild]")!).getByRole("button", { name: "Back" }));
-  /** Taps a member's row, the `index`-th of the Members tab: their profile (FRIENDS-PAGE's drawer) over the guild's. */
+  /** Taps a member's row, the `index`-th of the Members tab: their profile in the guild's drawer, in its place (DRAWER-NAV-IN-PLACE). */
   async function profileOf(index: number) {
     const members = await screen.findByRole("region", { name: "Members" }, T(5_000));
     await userEvent.click(within(members).getAllByRole("button")[index]!);
     return waitFor(() => {
-      const profile = screen.getAllByRole("dialog").find((d) => d.getAttribute("data-hud-drawer") !== "guild");
-      expect(profile).toBeDefined();
+      const profile = shownView("public-profile");
+      expect(profile).not.toBeNull();
+      expect(document.querySelector("[data-hud-drawer=guild]")).toContainElement(profile);
       return profile!;
     }, T(8_000));
   }
-  /** The profile's Back: the guild's drawer alone again. */
-  async function closeProfile(profile: HTMLElement) {
-    await userEvent.click(within(profile).getByRole("button", { name: "Back" }));
+  /** The drawer's Back from the profile: the guild's own page again. */
+  async function closeProfile() {
+    await back();
     await waitFor(onlyTheDrawer, T(5_000));
   }
 
@@ -178,7 +182,9 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await finder();
     await userEvent.click(screen.getByRole("tab", { name: "Ranking" }));
     await userEvent.click(await screen.findByRole("button", { name: /^Thistle Watch/ }, T(5_000)));
-    const sheet = await screen.findByRole("dialog", { name: "Thistle Watch" }, T(8_000));
+    await screen.findByRole("dialog", { name: "Thistle Watch" }, T(8_000));
+    // In the guild drawer's place (DRAWER-NAV-IN-PLACE), the finder kept under it.
+    const sheet = shownView("guild-sheet")!;
     expect(within(sheet).getByText("Your level is below the guild's requirement.")).toBeInTheDocument();
     expect(within(sheet).queryByRole("button", { name: "Join" })).toBeNull();
   });
@@ -197,15 +203,38 @@ describe("/guild on the mock (#953, a page since #973)", { timeout: slow(40_000)
     await waitFor(() => expect(screen.getByRole("tab", { name: "Requests" })).toBeInTheDocument(), T(5_000));
     await tab("Members");
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Members" })).getAllByRole("button")).toHaveLength(2), T(5_000));
-    // Their row: their profile, the Leader's actions on a Recruit (GUILD-PAGE: who joins is one) as its tiles (FRIENDS-PAGE).
+    // The members scrolled (jsdom lays nothing out: the body keeps the scroll it is given).
+    const drawer = document.querySelector<HTMLElement>("[data-hud-drawer=guild]")!;
+    const body = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
+    body.scrollTop = 240;
+    // Their row: their profile, the Leader's actions on a Recruit (GUILD-PAGE: who joins is one) as its tiles (FRIENDS-PAGE), in the
+    // guild drawer's place (DRAWER-NAV-IN-PLACE, #1064): one drawer, no second one over it.
     const profile = await profileOf(1);
+    expect(screen.getAllByRole("dialog")).toEqual([drawer]);
+    expect(screen.queryByRole("region", { name: "Members" })).toBeNull();
     await userEvent.click(await within(profile).findByRole("button", { name: "Promote to Member" }, T(5_000)));
     await confirm(/^Promote /, "Promote to Member");
     await userEvent.click(await within(profile).findByRole("button", { name: "Demote to Recruit" }, T(5_000)));
     await confirm(/^Demote /, "Demote to Recruit");
     await userEvent.click(await within(profile).findByRole("button", { name: "Make leader" }, T(5_000)));
     await confirm(/^Make .* the leader\?$/, "Make leader");
-    await closeProfile(profile);
+    // Their guild line: the player's own guild, in place over the profile (DRAWER-NAV-IN-PLACE), its tabs; Back to the profile, kept.
+    await userEvent.click(within(profile).getByRole("button", { name: /^Mill Lane,/ }));
+    const own = await waitFor(() => {
+      const view = shownView("guild-sheet");
+      expect(view).not.toBeNull();
+      return view!;
+    }, T(8_000));
+    expect(drawer).toContainElement(own);
+    expect(await within(own).findByRole("tab", { name: "Members" }, T(5_000))).toBeInTheDocument();
+    expect(profile).toHaveAttribute("inert");
+    await back();
+    await waitFor(() => expect(shownView()).toBe(profile), T(5_000));
+    await closeProfile();
+    // Back: the members again, on their tab, at their scroll.
+    expect(screen.getByRole("tab", { name: "Members" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Members" })).toBeInTheDocument();
+    expect(body.scrollTop).toBe(240);
     // Now an Officer: on the new Leader, no rank action.
     await waitFor(() => expect(screen.getByRole("heading", { level: 2, name: "Mill Lane" }).closest("header")).toHaveTextContent("Officer"), T(5_000));
     const leader = await profileOf(0);
