@@ -26,7 +26,7 @@ export interface DayNightBoardProps {
   at?: number;
   /** The night's floor: the sky light and ambient at least this share of the day's. */
   brightnessFloor?: number;
-  /** Reduced motion: a still day (unset: the device's). */
+  /** Reduced motion: a still scene, a held moment kept, else a day (unset: the device's). */
   reducedMotion?: boolean;
   quality?: QualityTier | "auto";
   view: View;

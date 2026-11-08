@@ -30,7 +30,7 @@ const meta = {
     margin: { control: { type: "range", min: 0, max: 16, step: 1 }, description: `Past the tile's border, in voxels (default ${DEFAULT_WINDOW_LIGHT.margin}; 0: stops at the border)` },
     stagger: { control: { type: "range", min: 0.1, max: 2, step: 0.05 }, description: `The spread of the switch-on levels (default ${DEFAULT_WINDOW_LIGHT.stagger}: every window on by full night)` },
     detection: { control: "inline-radio", options: WINDOW_DETECTIONS, description: "Which windows are found: through the walls into rooms (#571), or recesses only (#513)" },
-    quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Low is a still noon: no night lights" },
+    quality: { control: "inline-radio", options: ["auto", ...QUALITY_TIERS], description: "Low is still: the night held, no night lights" },
     force: { control: "inline-radio", options: ["auto", "on", "off"] },
     forest: { control: "boolean", description: "Every plan on its Forest variants" },
   },
@@ -69,7 +69,7 @@ export const Ramp: Story = { args: { phase: "running", speed: 10 } };
 /** The zoomed-in view, where a window or a door and the pool of light in front of it, past the border, read. */
 export const ZoomedIn: Story = { args: { view: "zoomed-in" } };
 
-/** The phone's Low tier is a still noon: no night lights, no volume built. */
+/** The phone's Low tier is still: the night held (STILL-NIGHT), lit by the moon and the floor alone, no volume built. */
 export const LowTier: Story = { args: { quality: "low" } };
 
 /** Every plan on its Forest variants. */

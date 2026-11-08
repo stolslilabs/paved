@@ -476,19 +476,16 @@ export function drawDayNight(target: DayNightTarget, seasons: number, floor: num
 }
 
 /**
- * The cycle's moment to draw for the settings, in seasons since a summer's dawn (read as `runsOf` says): when still (the Low tier,
- * reduced motion) a noon, since a still scene never shows a night: a moment frozen in a day as chosen (a season's day held in
- * Settings), any other frozen moment its season's noon, else the first season's noon; else `freezeAt` when frozen; else where
- * `elapsedMs` of the clock has run it to, within the first season for "day-night".
+ * The cycle's moment to draw for the settings, in seasons since a summer's dawn (read as `runsOf` says): `freezeAt` when frozen
+ * (a held moment is still already: a night held in Settings stays a night under reduced motion and on the Low tier, STILL-NIGHT);
+ * else when still (the Low tier, reduced motion) its start season's night when the seasons turn at their night ("seasons-night",
+ * Settings' Cycle and Night), any other cycle its start season's noon; else where `elapsedMs` of the clock has run it to, within
+ * the first season for "day-night".
  */
 export function momentOf(settings: DayNightSettings, elapsedMs: number, still: boolean): number {
-  const start = startSeason(settings.season, settings.seed);
-  if (still) {
-    const held = settings.freezeAt !== null ? cycleAt(settings.freezeAt) : null;
-    if (held && held.phase === "day" && held.blend === 0) return settings.freezeAt!;
-    return SEASONS.indexOf(held?.season ?? start) + DAY_PHASE_AT.day;
-  }
   if (settings.freezeAt !== null) return settings.freezeAt;
+  const start = startSeason(settings.season, settings.seed);
+  if (still) return SEASONS.indexOf(start) + DAY_PHASE_AT[settings.runs === "seasons-night" ? "night" : "day"];
   const seasons = seasonsAt(elapsedMs, settings.cycleMs, start);
   return settings.runs === "day-night" ? SEASONS.indexOf(start) + (seasons - Math.floor(seasons)) : seasons;
 }
