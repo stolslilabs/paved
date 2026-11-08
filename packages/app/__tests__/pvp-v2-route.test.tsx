@@ -16,7 +16,7 @@ import { fakeWallet } from "./wallet-fakes";
 
 // `/pvp` on PvP v2 (#740) on the mock's rules and ledger (#741): the search draws a rival village, the scout shows the deck
 // the attack will have (ceil(1.15 x S)), the attack plays it on an unbounded board with the tile in hand and the next two, its
-// marks at 80 / 90 / 100 %; the last tile ends it on its end screen (`/pvp/result/:id`, #790), whose Back goes to the league.
+// marks at 80 / 90 / 100 %; the last tile ends it on its end screen (`/pvp/result/:id`, #790), whose Back goes to the Play page (#1066).
 
 const WAIT = { timeout: slow(8000) };
 
