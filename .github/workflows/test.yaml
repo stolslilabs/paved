@@ -329,8 +329,10 @@ jobs:
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     name: Training e2e (headless)
-    # About 1 min of tests locally for the default 2 games; the setup and the build come on top.
-    timeout-minutes: 15
+    # About 1 min of tests locally for the default 2 games; the setup and the build come on top. On CI the whole job
+    # took 733 to 899 s in its successful runs of 2026-11-08 (Stolsis CI, last 40 runs), so 15 min cut runs whose
+    # tests all passed; the ceiling is 1.5x the longest, rounded up to a whole minute.
+    timeout-minutes: 23
     permissions:
       contents: read
     env:
