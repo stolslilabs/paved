@@ -42,33 +42,3 @@ export function SurrenderDialog({ open, onOpenChange, expired, score, onSurrende
     />
   );
 }
-
-export interface RestartDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onRestart: () => void;
-}
-
-/**
- * Training's Restart confirmation, from its in-game settings (#606; Story's Restart is held on the board, GAME-OVERLAY), in the
- * Surrender dialog's module and look: the same chunk, loaded the same way; the answer raised grey with the painted red arrow.
- */
-export function RestartDialog({ open, onOpenChange, onRestart }: RestartDialogProps) {
-  return (
-    <HudDialog
-      open={open}
-      onCancel={() => onOpenChange(false)}
-      cancel="Keep playing"
-      title="Restart this game?"
-      description="The same game starts again from its first tile, with the same deck. This game's moves and points are lost."
-      action={{
-        label: "Restart",
-        art: "restart",
-        onClick: () => {
-          onOpenChange(false);
-          onRestart();
-        },
-      }}
-    />
-  );
-}

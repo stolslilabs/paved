@@ -24,9 +24,7 @@ type Story = StoryObj<typeof meta>;
 
 /** On the board in a Challenge (#606): "This game" first, Surrender with the painted white flag. */
 export const BoardChallenge: Story = { args: { game: { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: fn() } } };
-/** On the board in Training: Restart, with the painted red arrow. */
-export const BoardTraining: Story = { args: { game: { kind: "restart", label: "Restart", hint: "Play this game again from its first tile, same deck.", onSelect: fn() } } };
-/** On the board in Story mode and in an attack: no game row (Story's Restart is on the board). */
+/** On the board in Story mode, Training and an attack: no game row (Story's and Training's Restart is on the board, held). */
 export const BoardStory: Story = {};
 /** The quality's choice, a view in the drawer's place, with Back to the settings. */
 export const Quality: Story = {

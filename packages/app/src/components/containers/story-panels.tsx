@@ -285,12 +285,12 @@ const UNDER = "text-outline text-lg leading-tight font-bold text-muted-foregroun
 /**
  * A finished level (#593, #546; END-SCREENS; STORY-PAGE: as close as its content allows to the Ranked end, `PvpEndScene`): over the
  * board, blurred, the book's window (`GameEnd`) crowned by its three painted stars on the Ranked end's beats and lights, each filling
- * with gold as the score goes (`fills`, never a threshold), "Level complete" and the level's title, the score; the carved card of rows
+ * with gold as the score goes (`fills`, never a threshold), "VICTORY" and the level's title, the score; the carved card of rows
  * the Ranked end draws for its crowns and XP: the best (the trophy: the best score, a new best said with the one before it), the points
  * the next star was missing (never the thresholds), the XP the run's report gave (`XpRow`, only when it gave some); the level's chest
  * (`EndChestPanel`: to open here, or why this run won none: already won, or 3 stars win it); then the raised grey and gold answers on
  * one row (the owner's asks of 2026-11-06 and 2026-11-07): Retry, Levels and Next, or Retry and Levels in gold when no level follows;
- * with no star, "Level failed", Retry in gold and Next disabled in its place.
+ * with no star, "GAME OVER", Retry in gold and Next disabled in its place.
  * A tap skips the stars; under reduced motion they are there at once. The window's cross shows the finished board, the gold Scores
  * pill bringing the result back.
  */
@@ -374,7 +374,7 @@ export function StoryEnd({ title, score, stars, fills, toNextStar, bestKnown, pr
               stars={stars}
               fills={fills}
               instant={instant}
-              verdict={failed ? "Level failed" : "Level complete"}
+              verdict={failed ? "GAME OVER" : "VICTORY"}
               subtitle={<span className="wrap-anywhere">{title}</span>}
               score={formatInteger(score)}
               rows={rows}

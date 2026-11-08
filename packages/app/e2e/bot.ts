@@ -196,7 +196,7 @@ export async function readPreview(page: Page): Promise<number | null> {
 }
 
 /** The tiles left on the stack's badge; null when it shows none (the deck spent, or the over page). */
-const shownLeft = async (page: Page): Promise<number | null> => {
+export const shownLeft = async (page: Page): Promise<number | null> => {
   const text = await page.evaluate(() => document.querySelector('[data-testid="tiles-left"]')?.textContent ?? null);
   return text === null ? null : Number(text);
 };
