@@ -87,6 +87,11 @@ export class PuzzleGame {
     return this.send !== null;
   }
 
+  /** Settles once every move applied so far has been sent (taken or refused). */
+  idle(): Promise<void> {
+    return this.queue;
+  }
+
   get snapshot(): PuzzleSnapshot {
     return this.current;
   }
@@ -184,7 +189,8 @@ export class PuzzleGame {
 /**
  * The board's Puzzle game `gameId` as `viewer` (the current account, null for none) sees it: read once from the source (`game`), then
  * played on the device, each move sent in order as the viewer's. Only the game's own player plays it: another account's game (or any
- * game without an account) is shown read-only, and a switch of account opens the game again for the new one. A refused move (another
+ * game without an account) is shown read-only. A switch of account shows no game until the moves sent so far are taken and the game
+ * is read again from the source, then opens it for the new account (never from the record first read). A refused move (another
  * tab played it, the day ended) stops the game until `reload` reads it again. Once the last move is taken, the day's reads are
  * refreshed (the leaderboard, the open game, the result).
  */
@@ -197,18 +203,35 @@ export function usePuzzleSession(gameId: number, viewer: string | null) {
   // The game from the first record read (and from the next after a reload or a switch of account): a refetch of the record never
   // resets the board.
   const viewerKey = viewer === null ? null : addressKey(viewer);
-  const version = `${opened}:${viewerKey}`;
-  const [built, setBuilt] = useState<string | null>(null);
+  const [built, setBuilt] = useState<{ opened: number; viewer: string | null } | null>(null);
   useEffect(() => {
-    if (!record.data || !puzzle || built === version) return;
+    if (!record.data || !puzzle || built?.opened === opened) return;
     const data = record.data;
     const own = viewerKey !== null && viewerKey === addressKey(data.player);
     setGame(PuzzleGame.open(data, own ? (move) => puzzle.play(viewerKey, gameId, move) : null));
-    setBuilt(version);
-  }, [record.data, puzzle, gameId, built, version, viewerKey]);
+    setBuilt({ opened, viewer: viewerKey });
+  }, [record.data, puzzle, gameId, built, opened, viewerKey]);
 
-  const subscribe = useCallback((listener: () => void) => (game ? game.subscribe(listener) : () => {}), [game]);
-  const snapshot = useSyncExternalStore(subscribe, () => game?.snapshot ?? null);
+  // A switch of account: the moves on their way are sent first, then the game is read again and opened for the new account. The record
+  // first read is never refreshed by the moves, so opening from it would roll the board back.
+  const switching = game !== null && built !== null && built.opened === opened && built.viewer !== viewerKey;
+  useEffect(() => {
+    if (!switching || !game) return;
+    let live = true;
+    void game
+      .idle()
+      .then(() => client.invalidateQueries({ queryKey: puzzleKeys.game(gameId) }))
+      .then(() => {
+        if (live) setOpened((n) => n + 1);
+      });
+    return () => {
+      live = false;
+    };
+  }, [switching, game, client, gameId]);
+  const current = switching ? null : game;
+
+  const subscribe = useCallback((listener: () => void) => (current ? current.subscribe(listener) : () => {}), [current]);
+  const snapshot = useSyncExternalStore(subscribe, () => current?.snapshot ?? null);
 
   const settled = snapshot !== null && snapshot.sending === 0;
   const over = snapshot?.state.game?.over ?? false;
@@ -220,6 +243,6 @@ export function usePuzzleSession(gameId: number, viewer: string | null) {
     void client.invalidateQueries({ queryKey: puzzleKeys.game(gameId) }).then(() => setOpened((n) => n + 1));
   }, [client, gameId]);
 
-  const deck = useMemo(() => game?.deck ?? null, [game]);
-  return { game, snapshot, record, settled, reload, deck };
+  const deck = useMemo(() => current?.deck ?? null, [current]);
+  return { game: current, snapshot, record, settled, reload, deck };
 }

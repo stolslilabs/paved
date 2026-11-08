@@ -218,6 +218,48 @@ describe("a Puzzle game as the current account sees it (`usePuzzleSession`)", ()
   });
 });
 
+describe("a Puzzle game across a switch of account (#1137 review)", () => {
+  it("reads the game again after a switch away and back: the board never rolls back, the next moves match storage", async () => {
+    const { source } = ledgerAt({ t: DAY * 86_400 + 600 });
+    const record = await source.start(PLAYER);
+    let viewer: string | null = PLAYER;
+    const { result, rerender } = renderData(() => usePuzzleSession(record.id, viewer), fakeSources({ puzzle: source }).sources);
+    const discarded = () => result.current.snapshot?.state.game?.discardedCount;
+    await waitFor(() => expect(result.current.game?.writable).toBe(true));
+    expect(result.current.game!.discard()).toBe(true);
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect(discarded()).toBe(1);
+    viewer = OTHER;
+    rerender();
+    await waitFor(() => expect(result.current.game?.writable).toBe(false));
+    expect(discarded()).toBe(1);
+    viewer = PLAYER;
+    rerender();
+    await waitFor(() => expect(result.current.game?.writable).toBe(true));
+    expect(discarded()).toBe(1);
+    expect(result.current.game!.discard()).toBe(true);
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect(discarded()).toBe(2);
+    expect((await source.game(record.id)).moves).toEqual([{ kind: "discard" }, { kind: "discard" }]);
+  });
+
+  it("sends a move still on its way before the switch reads the game again", async () => {
+    const { source } = ledgerAt({ t: DAY * 86_400 + 600 });
+    const record = await source.start(PLAYER);
+    let viewer: string | null = PLAYER;
+    const { result, rerender } = renderData(() => usePuzzleSession(record.id, viewer), fakeSources({ puzzle: source }).sources);
+    await waitFor(() => expect(result.current.game?.writable).toBe(true));
+    expect(result.current.game!.discard()).toBe(true);
+    // Switched at once, the discard not taken yet: no game shown until it is, then the game as stored.
+    viewer = OTHER;
+    rerender();
+    expect(result.current.game).toBeNull();
+    await waitFor(() => expect(result.current.game?.writable).toBe(false));
+    expect(result.current.snapshot?.state.game?.discardedCount).toBe(1);
+    expect((await source.game(record.id)).moves).toHaveLength(1);
+  });
+});
+
 describe("the Puzzle's meter and mails", () => {
   it("runs to the day's first place, lit once passed", () => {
     expect(puzzleMeter(null, 500)).toBeNull();
