@@ -831,9 +831,11 @@ export class GameScene {
 
   /**
    * The day and night cycle (DAYNIGHT) over the look just applied: when it is on, its chunk loaded, it draws the backdrop,
-   * the sun, the moon, the sky and the night lights; off, the look's own stay. Still (reduced motion, the Low tier) it
-   * holds its first season's noon, even when frozen (`freezeAt`, a night included); else a frozen cycle holds that moment. The look's values were set just before: turning the
-   * cycle off leaves them.
+   * the sun, the moon, the sky and the night lights; off, the look's own stay. A frozen cycle holds that moment, still or not (a
+   * night held in Settings stays a night, STILL-NIGHT); a still one (reduced motion, the Low tier) holds its first season's noon, or
+   * its night when the seasons turn at their night (`momentOf`). The night lights while the cycle runs, and at a still night under
+   * reduced motion (a lit window does not move); never on the Low tier, nor for a still day. The look's values were set just
+   * before: turning the cycle off leaves them.
    */
   private syncDayNight(): void {
     const settings = this.settings.dayNight;
@@ -862,10 +864,12 @@ export class GameScene {
     // The scene is cleared to transparent: the finish pass lays the backdrop under what it leaves uncovered.
     this.scene.background = null;
     this.renderer.setClearColor(0x000000, 0);
-    this.tiles.setNightLights(settings.nightLights && !this.dayNightStill(), settings.nightLightColor, settings.windowLight);
     const now = performance.now();
     this.dayNightClock ??= new this.dayNight.DayNightClock(now, this.dayNight.pageCycleTime(now, settings.cycleMs));
-    this.applyDayNight(this.dayNightSeasons());
+    const seasons = this.dayNightSeasons();
+    const lit = !this.dayNightStill() || (this.getQuality() !== "low" && this.dayNight.cycleAt(seasons).phase !== "day");
+    this.tiles.setNightLights(settings.nightLights && lit, settings.nightLightColor, settings.windowLight);
+    this.applyDayNight(seasons);
   }
 
   /**
@@ -930,7 +934,7 @@ export class GameScene {
     return (reducedMotion === "auto" ? prefersReducedMotion() : reducedMotion) || this.getQuality() === "low";
   }
 
-  /** The cycle's moment to draw, in seasons since a summer's dawn: frozen, still (the first season's noon) or running. */
+  /** The cycle's moment to draw, in seasons since a summer's dawn: frozen, still (the first season's noon or night) or running. */
   private dayNightSeasons(): number {
     return this.dayNight!.momentOf(this.settings.dayNight, this.dayNightClock!.time, this.dayNightStill());
   }

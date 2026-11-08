@@ -28,6 +28,10 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   training: NONE,
   story: NONE,
   "story/:campaign/:level": NONE,
+  // The Puzzle's view: the Cobbles its prize pays, at its header's end (`PlayScene`); a game and its end show none.
+  "play/puzzle": COBBLES,
+  "puzzle/:gameId": NONE,
+  "puzzle/:gameId/over": NONE,
   "game/:gameId/over": NONE,
   "training/over": NONE,
   missions: COBBLES,
@@ -35,6 +39,7 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   vault: ["paved", "vpaved"],
   chat: NONE,
   "chat/private/:player": NONE,
+  "chat/mail/:mail": NONE,
   "chat/:tab": NONE,
   guild: NONE,
   friends: NONE,

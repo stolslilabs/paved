@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { deckSheetCounts, baseDeckPlans, formatNumber, type DeckSheetCounts, type DeckSheetOrder } from "@paved/game-core";
+import { deckSheetCounts, baseDeckPlans, formatNumber, type DeckSheetCounts, type DeckSheetOrder, type PlanType } from "@paved/game-core";
 import type { BoardTile } from "@paved/chain";
 import type { TileSkins } from "@paved/renderer";
 import { useDeckView, type DeckView } from "../../data/deck-view";
@@ -320,7 +320,8 @@ function AttackDeck({ attack, look, view }: { attack: AttackDeckSheet; look: Car
 /**
  * The deck on the board's tiles: what the board opens from the tile stack, and the scout from its deck. Its own chunk (`BoardScene` and
  * the scout import it on demand). With a PvP attack's deck (`attack`, #789), the defender's tiles and the extras; with a Story level's
- * `order`, the draw in its order; otherwise the base deck counted against the board and the discards. The view is the device's
+ * `order`, the draw in its order; otherwise the game's deck (`plans`: a Puzzle day's 38 cards; the base deck when left out) counted
+ * against the board and the discards. The view is the device's
  * (`useDeckView`), kept across games.
  */
 export default function BoardDeckSheet({
@@ -336,12 +337,19 @@ export default function BoardDeckSheet({
   skins,
   edge,
   onPresent,
-}: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt" | "renders" | "skins" | "edge" | "onPresent"> & { tiles: readonly BoardTile[]; discardedPlans?: readonly number[]; order?: DeckSheetOrder; attack?: AttackDeckSheet }) {
+  plans,
+}: Pick<DeckSheetProps, "open" | "onOpenChange" | "handPlan" | "tileArt" | "renders" | "skins" | "edge" | "onPresent"> & {
+  tiles: readonly BoardTile[];
+  discardedPlans?: readonly number[];
+  order?: DeckSheetOrder;
+  attack?: AttackDeckSheet;
+  plans?: readonly PlanType[];
+}) {
   const deck: DeckSheetDeck = attack
     ? { mode: "attack", attack }
     : order
       ? { mode: "ordered", order }
-      : { mode: "counted", counts: deckSheetCounts(baseDeckPlans(), tiles.map((t) => t.plan), discardedPlans) };
+      : { mode: "counted", counts: deckSheetCounts(plans ?? baseDeckPlans(), tiles.map((t) => t.plan), discardedPlans) };
   const [view, setView] = useDeckView();
   return (
     <DeckSheet

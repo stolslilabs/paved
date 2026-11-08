@@ -114,8 +114,8 @@ export interface DayNightSettings {
   /** How often a moving cycle redraws the board, in ms (the sun, the colours, the shadows): 33, about 30 frames a second. */
   frameMs: number;
   /**
-   * A still scene: a fixed day (the start season's noon), no moving shadow. "auto" follows `prefers-reduced-motion`; the
-   * Low tier is always still.
+   * A still scene: no clock, no moving shadow; a frozen moment held (a night too), else the start season's noon, or its night
+   * when the seasons turn at their night (`momentOf`). "auto" follows `prefers-reduced-motion`; the Low tier is always still.
    */
   reducedMotion: boolean | "auto";
 }

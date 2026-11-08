@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
-import { DISCARD_POINTS, MAX_UNCONFIRMED, type PredictedState } from "@paved/game-core";
+import { DISCARD_POINTS, MAX_UNCONFIRMED, puzzleDayEnd, type PredictedState } from "@paved/game-core";
 import type { HandState } from "../../components/containers/tile-stack";
 import { InlineError } from "../../components/elements/inline-error";
 import { BoardNotice, NOTICE_ACTION } from "../../components/containers/board-notice";
@@ -10,10 +10,13 @@ import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
 import { challengeQueue, useChallengeSession } from "../../data/challenge";
 import { useChallengeCurve } from "../../data/reward-curve";
-import { remainingOf, useTrainingSession } from "../../data/training";
+import { boardOf, remainingOf, useTrainingSession } from "../../data/training";
+import { PuzzleGame, usePuzzleSession, type PuzzleSnapshot } from "../../data/puzzle-game";
+import { usePuzzleStanding } from "../../data/puzzle";
+import { addressKey } from "../../data/keys";
 import { trainingStore, useDataSources } from "../../data/sources";
 import { useTrainingBest } from "../../data/training-best";
-import { challengeMeter, trainingMeter } from "../../lib/score-meter";
+import { challengeMeter, puzzleMeter, trainingMeter } from "../../lib/score-meter";
 import { useErrorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useRoutePage } from "../handle";
@@ -23,12 +26,163 @@ import { useAfterGameOver } from "../game-over";
 import type { Slot } from "../../data/placement";
 import { useGameBoard } from "../game-board";
 
-/** `/training` (P3) and `/game/:gameId` (P5); Story levels have their own page (`story-board.tsx`). */
+/** `/training` (P3), `/game/:gameId` (P5) and `/puzzle/:gameId` (Play's Limited mode); Story levels have their own page (`story-board.tsx`). */
 export default function Page() {
   const page = useRoutePage();
   if (page?.path === "training") return <TrainingBoard />;
   if (page?.path === "game/:gameId") return <ChallengeRoute />;
+  if (page?.path === "puzzle/:gameId") return <PuzzleRoute />;
   return <Placeholder />;
+}
+
+/** `/puzzle/:gameId`: a game id is digits; anything else is not a game. */
+function PuzzleRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <PuzzleBoard key={gameId} gameId={Number(gameId)} /> : <Placeholder />;
+}
+
+/**
+ * A Puzzle game (Play's Limited mode) on its session (`usePuzzleSession`): read from the source, then played on the device, each move
+ * sent in order. As Training's board: the player picks a lit slot, turns the tile and places it. The HUD shows the day's time left (its
+ * end: a game ranks only when it ends before), the score meter the day's first place; Surrender ends it, no Restart (the game is on
+ * chain). Past the day's end the hand takes only a surrender, its dialog open by itself. A refused move stops the board until it is read
+ * again. A finished game goes to `/puzzle/:gameId/over` once its last move is taken.
+ */
+function PuzzleBoard({ gameId }: { gameId: number }) {
+  const { game, snapshot, record, settled, reload } = usePuzzleSession(gameId);
+  const onBack = useBack();
+  const readErrorDetail = useErrorDetail(record.error, gameId);
+  if (!game || !snapshot) {
+    return (
+      <div className="flex min-h-dvh flex-col bg-board text-foreground">
+        <TopBar title="Puzzle" onBack={onBack} />
+        <main aria-busy={!record.error} className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
+          {record.error ? (
+            <InlineError title="This game cannot be read" message={record.error.message} detail={readErrorDetail} />
+          ) : record.unavailable ? (
+            <p className="text-center text-sm text-muted-foreground">The Puzzle is not on this network yet.</p>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
+          )}
+        </main>
+      </div>
+    );
+  }
+  return <PuzzlePlay game={game} snapshot={snapshot} settled={settled} onReload={reload} onBack={onBack} />;
+}
+
+function PuzzlePlay({ game, snapshot, settled, onReload, onBack }: { game: PuzzleGame; snapshot: PuzzleSnapshot; settled: boolean; onReload: () => void; onBack: () => void }) {
+  const { record } = game;
+  const skins = useBoardSkins(record.player);
+  const go = useAppNavigate();
+  const now = useNow();
+  const standing = usePuzzleStanding(record.day, record.player);
+  const board = boardOf(snapshot.state);
+  const hand = board.hand;
+  const endsAt = puzzleDayEnd(record.day);
+  const dayOver = !board.over && now >= endsAt;
+  const refused = snapshot.refused;
+  const slotsAt = useCallback((o: number) => game.slots(o), [game]);
+  const orientationsAt = useCallback((cell: Slot) => game.orientationsAt(cell), [game]);
+  const playable = !refused && !dayOver;
+  const { placement, scene } = useGameBoard({ skins, placement: { plan: playable ? (hand?.plan ?? null) : null, slotsAt, orientationsAt, version: snapshot, resetKey: game } });
+  const { orientation, move, slots } = placement;
+  const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
+  const handErrorDetail = useErrorDetail(snapshot.state.writeError, record.id);
+
+  // The scores once the last move has played out on the board and the source has taken every move.
+  const [surrendered, setSurrendered] = useState(false);
+  useAfterGameOver(board.over, () => go(`/puzzle/${record.id}/over`, { replace: true }), { settled, hold: !surrendered });
+
+  const confirm = useCallback(() => {
+    if (!placement.canConfirm || !move || preview === null) return;
+    const ghost = placement.ghost;
+    if (game.place(move)) {
+      placement.accepted(ghost);
+      placement.setOrientation(1);
+    }
+  }, [game, placement, move, preview]);
+
+  const discard = useCallback(() => {
+    placement.clear();
+    game.discard();
+  }, [game, placement]);
+
+  const surrender = useCallback(() => {
+    setSurrendered(true);
+    if (!game.surrender()) setSurrendered(false);
+  }, [game]);
+
+  // The meter's goal: the day's first place (the player's own best when they hold it).
+  const leader = standing.data?.entries[0] ?? null;
+  const mine = leader !== null && addressKey(leader.profile.address) === addressKey(record.player);
+  const state = snapshot.state;
+  const handState: HandState = !hand || board.over ? "empty" : dayOver ? "expired" : state.writeError ? "refused" : "placing";
+  const bubble =
+    placement.chosen && playable
+      ? {
+          cell: placement.chosen,
+          rotations: placement.rotations.length,
+          onRotate: placement.rotate,
+          onClose: placement.clear,
+          onDiscard: discard,
+          discardCost: Math.min(board.score, DISCARD_POINTS),
+          orientation,
+          onConfirm: confirm,
+          canConfirm: placement.canConfirm && preview !== null,
+          busy: false,
+        }
+      : null;
+  const notices = refused ? (
+    <BoardNotice
+      tone="warning"
+      title="This move was refused"
+      className="pointer-events-auto w-full max-w-2xl"
+      action={
+        <button type="button" className={NOTICE_ACTION} onClick={onReload}>
+          Reload
+        </button>
+      }
+    >
+      {refused}. The board reads the game again.
+    </BoardNotice>
+  ) : dayOver ? (
+    <BoardNotice tone="warning" title="The day is over" className="pointer-events-auto w-full max-w-2xl">
+      This game no longer ranks: surrender to end it, then play today's Puzzle.
+    </BoardNotice>
+  ) : null;
+  return (
+    <BoardScene
+      mode="puzzle"
+      score={board.score}
+      meter={puzzleMeter(leader?.score ?? null, board.score, mine)}
+      delta={snapshot.delta}
+      remaining={board.remaining}
+      discardedPlans={board.discardedPlans}
+      expiresAt={endsAt}
+      now={now}
+      deckPlans={game.deck}
+      hand={{
+        tile: hand && { plan: hand.plan, orientation },
+        state: handState,
+        coming: board.coming,
+        slotChosen: placement.canConfirm && preview !== null,
+        cellChosen: placement.chosen !== null,
+        fitsNowhere: hand !== null && slots?.length === 0,
+        preview,
+        error: state.writeError,
+        errorDetail: handErrorDetail,
+      }}
+      lastScored={board.lastScored}
+      {...scene({ tiles: board.tiles, closed: board.closed, bubble })}
+      readOnly={!!refused}
+      notices={notices}
+      promptSurrender={dayOver}
+      onBack={onBack}
+      onDiscard={discard}
+      onSurrender={surrender}
+    />
+  );
 }
 
 /**
