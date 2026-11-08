@@ -43,7 +43,7 @@ export function GuildTabs({ tab, onTabChange, tabs, badges, children }: GuildTab
         </TabsContent>
       ))}
       <DrawerFooter>
-        <FooterTabsList aria-label="Guild">
+        <FooterTabsList aria-label="Allegiance">
           {shown.map(({ id, label, art, word }) => (
             // 12 px words under `mobile` (360), 14 from it: four columns of a 320 px phone.
             <FooterTab key={id} value={id} label={label} word={word} className="text-xs mobile:text-sm" badge={id === "announcements" || id === "requests" ? (badges?.[id] ?? 0) : 0} art={<UiIcon name={art} px={36} className="drawer-icon size-9" />} />

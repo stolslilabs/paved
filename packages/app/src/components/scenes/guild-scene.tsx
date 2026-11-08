@@ -33,7 +33,7 @@ export function GuildScene({ children, onBack, open = true, returnFocus }: Guild
       onOpenChange={(next) => {
         if (!next) onBack?.();
       }}
-      title="Guild"
+      title="Allegiance"
       side="right"
       slot="guild"
       returnFocus={returnFocus}

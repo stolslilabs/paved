@@ -36,6 +36,6 @@ export const FullGuild: Story = { args: GUILD_PAGE.full };
 /** Requirements not met: which one. */
 export const RequirementsNotMet: Story = { args: GUILD_PAGE.requirementsNotMet };
 /** A refused write keeps its dialog with why (Leave and Join, here). */
-export const Refused: Story = { args: { ...GUILD_PAGE.join, onAction: fn(async () => Promise.reject(new Error("The guild is full."))) } };
+export const Refused: Story = { args: { ...GUILD_PAGE.join, onAction: fn(async () => Promise.reject(new Error("The allegiance is full."))) } };
 /** WRAP360: the longest name, description, announcement, request and log line; the largest figures. */
 export const Stress: Story = { args: GUILD_PAGE.stress };
