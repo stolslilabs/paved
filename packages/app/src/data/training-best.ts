@@ -50,3 +50,25 @@ export function trainingPreviousBest(store: () => KeyValueStore | null, seed: st
 export function useTrainingPreviousBest(store: () => KeyValueStore | null, seed: string, score: number | null): number | null {
   return useMemo(() => (score === null ? null : trainingPreviousBest(store, seed, score)), [store, seed, score]);
 }
+
+/**
+ * The best a Training game (`seed`) plays against (GAME-OVERLAY, the board's score meter): the device's best, or the best before this
+ * game when this game set it (its over page's). Read once per game, nothing written; null on the device's first game, or when the
+ * browser gives no storage.
+ */
+export function trainingBestBefore(store: () => KeyValueStore | null, seed: string): number | null {
+  let kv: KeyValueStore | null;
+  try {
+    kv = store();
+  } catch {
+    return null;
+  }
+  const record = read(kv);
+  if (!record) return null;
+  return record.seed === seed ? record.previous : record.score;
+}
+
+/** `trainingBestBefore` once per game. */
+export function useTrainingBest(store: () => KeyValueStore | null, seed: string): number | null {
+  return useMemo(() => trainingBestBefore(store, seed), [store, seed]);
+}
