@@ -149,7 +149,8 @@
  * nothing), Attack, Training and Story redrawn by the same tool without any foliage, from the first drawings (what to draw) and the
  * Challenge's trophy (how, the one kept): Training's target now on a wooden easel, an arrow in its bullseye. And the HUD's gift
  * opened (`gift-open`, under a mode's rewards), drawn by the same tool from the closed gift (`invite`) and the icons' sheet, on a
- * transparent 1254 px square, trimmed and fitted to the icons' frame. And the Challenge's stake's icons (the owner's ask of the same
+ * transparent 1254 px square, trimmed and fitted to the icons' frame (left on the owner's ask of 2026-11-08, PLAY-REWARDS: the
+ * rewards' icons alone in its place). And the Challenge's stake's icons (the owner's ask of the same
  * day: colourful icons for where the USDC goes and what a stake can win): the burned coin (`flow-burn`, a PAVED coin in flames), the
  * Vault (`flow-vault`, the HUD's piggy bank fed a vPAVED coin), the referral (`flow-referral`, a handshake under a coin), the top
  * win (`max-gain`, a pile of PAVED) and break even (`break-even`, a level scale, USDC's coin against PAVED's), drawn by the same tool from a prompt each with the HUD's vault, friends, PAVED, vPAVED, trophy and

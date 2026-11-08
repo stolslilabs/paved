@@ -13,8 +13,8 @@
  * check and the blue box with its arrow (TILE-ACTIONS, 2026-11-07; edit mode's bubble's bare Rotate, Back to the inventory and Cancel
  * left with its bubble) and the long press's Edit village by a tile of the home village, a white hammer on the blue disc (PRESS-BUILD,
  * 2026-11-08),
- * the Settings' rows (SETTINGS-PAGE, 2026-11-06), the Play page's open gift under a mode's rewards and the Challenge's stake's
- * burned coin, Vault, referral, break even, top win, split and money bag (PLAY-PAGE, 2026-11-06),
+ * the Settings' rows (SETTINGS-PAGE, 2026-11-06), the Challenge's stake's burned coin, Vault, referral, break even, top win, split
+ * and money bag (PLAY-PAGE, 2026-11-06; its open gift under a mode's rewards left on 2026-11-08, PLAY-REWARDS),
  * and the frames the home draws with them: the XP bar's track and fill, and the dock's wood, parchment, divider and PLAY medallion
  * (HOME-DOCK, the owner's ask of 2026-11-03: the mockup's footer at every width, its pieces cut from the mockup's footer decomposed and
  * checked against it: `DOCK_ART`). The season dial's frame and the
@@ -125,7 +125,6 @@ export const UI_ICONS = [
   "padlock",
   "save",
   "erase",
-  "gift-open",
   "flow-burn",
   "flow-vault",
   "flow-referral",

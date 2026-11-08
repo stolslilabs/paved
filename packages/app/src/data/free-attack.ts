@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { GameViews, WriteResult } from "@paved/chain";
 import { AttackRun, attackStarPoints, type ChestRank, type QueuedMove } from "@paved/game-core";
-import { invalidateV2 } from "./free-village";
+import { invalidateV2, prefetchFreeVillage } from "./free-village";
 import { orNone } from "./avatar";
 import { queryKeys } from "./keys";
 import { useDataSources, type DataSources } from "./sources";
@@ -129,6 +129,41 @@ export function useAttackV2Of(attacker: string | null, id: number): { data: Atta
   });
   if (attacker === null || v2 === null) return { data: null, error: null };
   return { data: query.data, error: query.error };
+}
+
+/**
+ * Reads the player's v2 attack `id` into the cache ahead of its end screen (RANKED-SCAN-TIMING, #1067): the last tile waits on it,
+ * so `useAttackV2Of` has it at once and the end comes up with no loading screen between. Never rejects; nothing off v2.
+ */
+export function usePrefetchAttackV2Of(attacker: string | null): (id: number) => Promise<void> {
+  const { views } = useDataSources();
+  const client = useQueryClient();
+  const v2 = attackV2Views(views);
+  return (id) =>
+    attacker === null || v2 === null
+      ? Promise.resolve()
+      : client.prefetchQuery({ queryKey: queryKeys.chain.v2.attackOf(attacker, id), queryFn: () => orNone(() => v2.attackV2Of(attacker, id)) });
+}
+
+/**
+ * Reads a draw's answer in (#1067): the attacker's match and attack again, then the village of the rival drawn. The search's scan
+ * holds on it, so the rival the draw answered is the one shown after it (never the last one's scout again), with nothing left to
+ * wait for. Never rejects (a failed read says so on the page).
+ */
+export function useReadDraw(attacker: string | null): () => Promise<void> {
+  const client = useQueryClient();
+  const { views } = useDataSources();
+  return async () => {
+    if (attacker === null) return;
+    const key = queryKeys.chain.v2.attack(attacker);
+    try {
+      await client.refetchQueries({ queryKey: key });
+      const opponent = client.getQueryData<AttackV2State | null>(key)?.match?.opponent;
+      if (opponent) await prefetchFreeVillage(client, views, opponent);
+    } catch {
+      // The page reads it again, and says a failure.
+    }
+  };
 }
 
 export type AttackV2Write = { kind: "search" } | { kind: "next" } | { kind: "start" } | { kind: "play"; move: QueuedMove } | { kind: "surrender" };

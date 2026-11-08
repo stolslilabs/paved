@@ -374,11 +374,12 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   (the crown), Attack, its castle and crossed swords, "Raid a rival village"; Paid (the USDC coin), the Challenge, its trophy and coins,
   "Beat the threshold"; Free (the Shop's Forest leaf), one raised card, the Shop's soft rule between its rows, Training ("A full game,
   just for practice") and Story ("Learn the rules, level by level"); Limited (the season's calendar), a mode to come, off ("Coming
-  soon"). In place of the book's tags ("from 2 USDC", "Crowns · chests", the owner's asks), a mode's gift shows what it pays: the
-  HUD's gift opened (`gift-open`) under its rewards' icons, fanned and bobbing in turn (the PAVED coin, the level bar's star with "XP",
-  the dock's chest, the crown): the Challenge's PAVED, XP and chests; Attack's crowns, XP and chests; Story's XP and chests; Training
-  none. With a Challenge game still open (the home's `useActiveGame`) its time left and its score, stacked, and
-  Resume on edit mode's gold pill take the gift's place. Free Challenge (a free game from the missions' credits) left with the owner's
+  soon"). In place of the book's tags ("from 2 USDC", "Crowns · chests", the owner's asks), a mode's rewards show what it pays, the
+  HUD's icons at its end, bobbing in turn: first under the open gift, fanned over it; since the owner's ask of 2026-11-08
+  (PLAY-REWARDS) the icons alone in the gift's 76 x 68 px box, upright, in a pile, the mode's own reward on top and XP (the level
+  bar's star with "XP") and the dock's chest side by side under it: the Challenge's PAVED, Attack's crowns, Story's Cobbles (paid
+  for its stars); Training none. With a Challenge game still open (the home's `useActiveGame`) its time left and its score, stacked,
+  and Resume on edit mode's gold pill take the rewards' place. Free Challenge (a free game from the missions' credits) left with the owner's
   ask, and Multiplayer ("coming soon") with the book. The stake (`/play/challenge`, one component with Play) is a panel of its own in
   the modes' place at every width (the owner's ask: no sheet from the bottom), sliding in, its Back to the modes and the red cross
   out, the USDC balance at its header's end (the drawers' rule, from 360 px). Its body left the book's sheet on the owner's asks of
@@ -401,7 +402,7 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   each for a reason: the house's greys and charcoal, not the book's navy; the Free card's rows at every width (the drawer is a phone's
   width; the book's tablet draws three columns in its wider window); the title on the left (the drawers'). The four paintings were redrawn by Codex's built-in image tool from their crops of the
   book, each checked beside its crop on navy and on gold; then Attack, Training and Story drawn again without the book's bushes and
-  grass (the owner's ask), in the Challenge trophy's rendering, the open gift drawn from the HUD's closed one, and the stake's
+  grass (the owner's ask), in the Challenge trophy's rendering, the open gift drawn from the HUD's closed one (left on 2026-11-08), and the stake's
   burned coin, Vault (the HUD's piggy bank fed a vPAVED coin), referral handshake, break-even scale and top win drawn in the HUD
   icons' rendering
   (`packages/app/ui-sources/play/`, `ui-sources/icons/`, `scripts/compress-ui-art.ts`); the mode cards' board renders left with them.
