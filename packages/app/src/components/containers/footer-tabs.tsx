@@ -97,8 +97,15 @@ export interface FooterTabProps extends Omit<ComponentProps<typeof TabsTrigger>,
   art: ReactNode;
   /** The tab's word, under its icon on the current tab only: its accessible name always. */
   label: string;
+  /**
+   * The word as drawn, where it differs from `label`: a long one with its soft hyphen ("Announce\u00ADments", the Guild's), so it breaks
+   * there in a narrow column, not anywhere (a browser without hyphenation rules breaks it anywhere otherwise).
+   */
+  word?: string;
   /** What waits in the tab (the dock's red count at the icon's top right); 0 or none, no count. */
   badge?: number;
+  /** The word the count is read with ("Followers, 2 new"); omitted, "waiting". */
+  badgeWord?: string;
   /**
    * Not in the game yet (LEADERBOARD-PAGE's Alliances): the tab keeps its place, disabled, a carved "Soon" where a count would be (the
    * Tiles' mark), read "Alliances, coming soon". It wins over a count.
@@ -113,14 +120,16 @@ export interface FooterTabProps extends Omit<ComponentProps<typeof TabsTrigger>,
  * coming soon (`soon`), too, a carved "Soon" at the icon's corner in place of a count.
  * Two tabs in the background are parted by a carved groove on the second's left edge (`footer-tab-groove`, `theme.css`: none before the
  * first tab, none beside the current one, fading as the ground slides; the owner's ask of 2026-11-07).
- * The word stays in the layout, hidden, so the bar keeps one height whichever tab is current.
+ * The word stays in the layout, hidden, so the bar keeps one height whichever tab is current; a word too long for its column (the
+ * Guild's Announcements on a 320 px phone, four columns) breaks at its soft hyphen (`word`), else at the page's English rules
+ * (`lang="en"`) where the browser has them, else anywhere.
  */
-export function FooterTab({ art, label, badge = 0, soon = false, disabled, className, ...props }: FooterTabProps) {
+export function FooterTab({ art, label, word, badge = 0, badgeWord = "waiting", soon = false, disabled, className, ...props }: FooterTabProps) {
   return (
     <TabsTrigger
       // The list's indicator finds its tabs by `data-slot="tabs-trigger"` (`TabsList`): this one keeps it, and says it is a footer's.
       data-footer-tab=""
-      aria-label={soon ? `${label}, coming soon` : badge > 0 ? `${label}, ${formatInteger(badge)} waiting` : undefined}
+      aria-label={soon ? `${label}, coming soon` : badge > 0 ? `${label}, ${formatInteger(badge)} ${badgeWord}` : word ? label : undefined}
       disabled={soon || disabled}
       className={cn("group h-auto min-h-16 min-w-0 flex-col gap-0.5 rounded-none px-1 pt-1.5 pb-2 text-sm leading-tight font-bold whitespace-normal", "footer-tab-groove", className)}
       {...props}
@@ -139,7 +148,7 @@ export function FooterTab({ art, label, badge = 0, soon = false, disabled, class
           {badge > 99 ? "99+" : formatInteger(badge)}
         </span>
       )}
-      <span className={cn("text-outline max-w-full translate-y-1 text-center wrap-anywhere text-foreground opacity-0 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>{label}</span>
+      <span className={cn("text-outline max-w-full translate-y-1 text-center hyphens-auto wrap-anywhere text-foreground opacity-0 group-data-[state=active]:translate-y-0 group-data-[state=active]:opacity-100", MOVE)}>{word ?? label}</span>
     </TabsTrigger>
   );
 }
