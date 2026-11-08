@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import type { BoardTile, WriteResult } from "@paved/chain";
 import { AttackRun, CENTER, CategoryType, DISCARD_POINTS, OrientationType, PlanType, STARTER_TILE, type LayoutTile } from "@paved/game-core";
@@ -7,13 +7,16 @@ import { PvpAttackScene } from "../components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../components/scenes/pvp-scout-scene";
 import { PvpSearchScene } from "../components/scenes/pvp-search-scene";
 import { SearchVoid } from "./search-void";
+import { PvpLoading } from "./pvp-loading";
+import { loadPvpV2End } from "./pvp-v2-end-chunk";
+import { PAGE_LOADERS } from "./page-loaders";
 import { NEXT_PRICE, stakesOf, type PvpPlayer, type PvpVillage } from "../lib/pvp-rules";
 import { ATTACK_STAR_PERCENTS } from "../lib/pvp-v2-rules";
 import { attackDeckSheet } from "../lib/attack-deck-sheet";
 import { useBoardSkins } from "../data/board-skins";
 import { useCobbleAccount } from "../data/cobbles";
 import { layoutBoard } from "../data/matches";
-import { useAttackV2Writes, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
+import { useAttackV2Writes, usePrefetchAttackV2Of, useReadDraw, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
 import { V2RefusedError, useFreeVillage, useFreeVillageWrites } from "../data/free-village";
 import { savedLook, useAvatar } from "../data/avatar";
 import { usePvpStatus } from "../data/pvp";
@@ -36,6 +39,17 @@ const CATEGORIES = Object.values(CategoryType);
 
 /** How long the search shows the village found before the scout. */
 const FOUND_MS = 1_200;
+
+/** The search's scan lasts at least this long, longer while the search has not answered (RANKED-SCAN-TIMING, #1067). */
+export const SEARCH_SCAN_MS = 3_000;
+
+/** Next, and Search again for a shielded rival, show the scan this long between two rivals (#1067). */
+export const NEXT_SCAN_MS = 1_000;
+
+/** A write held on the scan: its answer no sooner than `ms` after it was sent; a refusal at once (the screen says why). */
+function held<T>(write: Promise<T>, ms: number): Promise<T> {
+  return Promise.all([write, new Promise<void>((done) => setTimeout(done, ms))]).then(([answer]) => answer);
+}
 
 /** What a refusal of the v2 writes tells the player; another error's own text. */
 export function v2ErrorText(error: Error | null): string | null {
@@ -82,26 +96,39 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
   const writes = useAttackV2Writes(me);
   const village = useFreeVillageWrites(me);
   const [found, setFound] = useState(false);
+  // The scan held on a search or a Next (#1067): it stays up until the write answered and its time is out.
+  const [scanning, setScanning] = useState(false);
   const searched = useRef(false);
-  // Set once the last tile ended the attack: the page leaves, and no new search starts meanwhile.
+  // Set once the last tile ended the attack: no new search starts meanwhile (a ref, as the receipt's callback reads it at once).
   const ended = useRef(false);
+  // The attack whose last tile ended it: its board stays as that tile left it until the end screen is ready (#1067).
+  const [ending, setEnding] = useState<AttackV2 | null>(null);
   const open = state.attack?.status === "open" ? state.attack : null;
+  const shownAttack = open ?? (ending && state.attack?.id === ending.id ? state.attack : ending);
   const opponentLook = savedLook(useAvatar(state.match?.opponent ?? null).data);
-  const phase = open ? "attack" : state.match ? "scout" : "search";
+  const readDraw = useReadDraw(me);
+  const phase = shownAttack ? "attack" : state.match ? "scout" : "search";
 
   // The search starts as the page opens on no match: the player came here to attack. Once per visit; Retry after a refusal.
+  // Its scan lasts SEARCH_SCAN_MS at least, and until the draw and the rival's village are read, then the rival found; a refusal
+  // shows at once. The scan gives way in a transition: up until the next screen's code is in too, never a loading screen between.
   useEffect(() => {
     if (phase !== "search" || searched.current || ended.current || writes.pending) return;
     searched.current = true;
     writes.reset();
-    writes.search().then(
-      () => setFound(true),
-      () => undefined,
+    setScanning(true);
+    held(writes.search().then(readDraw), SEARCH_SCAN_MS).then(
+      () =>
+        startTransition(() => {
+          setScanning(false);
+          setFound(true);
+        }),
+      () => setScanning(false),
     );
-  }, [phase, writes]);
+  }, [phase, writes, readDraw]);
   useEffect(() => {
     if (!found) return;
-    const timer = setTimeout(() => setFound(false), FOUND_MS);
+    const timer = setTimeout(() => startTransition(() => setFound(false)), FOUND_MS);
     return () => clearTimeout(timer);
   }, [found]);
 
@@ -109,6 +136,20 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
     writes.reset();
     searched.current = false;
   };
+  // Next, or Search again (#1067): the scan for NEXT_SCAN_MS, and until the new rival and their village are read (never the last
+  // one's scout again), then the new rival's scout with no found screen; a refusal back on the scout with its message.
+  const scan = (write: () => Promise<WriteResult>) => {
+    setScanning(true);
+    held(write().then(readDraw), NEXT_SCAN_MS).then(
+      () => startTransition(() => setScanning(false)),
+      () => setScanning(false),
+    );
+  };
+  const onEnd = (attack: AttackV2) => {
+    ended.current = true;
+    setEnding(attack);
+  };
+  if (scanning && !shownAttack) return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
   if (found && state.match) return <PvpSearchScene canvas={<SearchVoid />} state="found" player={self} opponent={playerOf(state.match, opponentLook)} />;
   if (phase === "search") {
     if (writes.error) {
@@ -120,8 +161,8 @@ export default function PvpV2({ me, self, state, onBack }: PvpV2Props) {
     }
     return <PvpSearchScene canvas={<SearchVoid />} state="searching" player={self} onCancel={onBack} />;
   }
-  if (phase === "scout") return <Scout me={me} match={state.match!} writes={writes} onBack={onBack} />;
-  return <Attack attack={open!} match={state.match} writes={writes} ended={ended} onBack={onBack} />;
+  if (phase === "scout") return <Scout me={me} match={state.match!} writes={writes} onScan={scan} onBack={onBack} />;
+  return <Attack me={me} attack={shownAttack!} match={state.match} writes={writes} ending={ending !== null} onEnd={onEnd} onBack={onBack} />;
 }
 
 /** The rival drawn as the PvP screens show them, with the look they saved (#926) once read. */
@@ -155,7 +196,7 @@ function useDeckViewParam() {
 }
 
 /** The scout of the rival drawn: its village and score, the stars' points, the deck the attack will have, Next and Attack. */
-function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writes: Writes; onBack: () => void }) {
+function Scout({ me, match, writes, onScan, onBack }: { me: string; match: MatchV2; writes: Writes; onScan: (write: () => Promise<WriteResult>) => void; onBack: () => void }) {
   const now = useNow();
   const rival = useFreeVillage(match.opponent);
   const look = savedLook(useAvatar(match.opponent).data);
@@ -173,10 +214,18 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
     writes.reset();
     write().catch(() => undefined);
   };
+  // Another rival (Next, Search again): a search, so the scan (#1067).
+  const draw = (write: () => Promise<WriteResult>) => {
+    if (writes.pending) return;
+    writes.reset();
+    onScan(write);
+  };
   const deckView = useDeckViewParam();
   if (!rival.data) {
     const message = rival.data === null ? "This village cannot be read on this network." : rival.error?.message;
-    return <PvpSearchScene canvas={<SearchVoid />} state={message ? "error" : "searching"} player={playerOf(match, look)} error={message} onCancel={onBack} />;
+    // Reading the rival's village is no search: the neutral loading, never the scan (#1067).
+    if (!message) return <PvpLoading />;
+    return <PvpSearchScene canvas={<SearchVoid />} state="error" player={playerOf(match, look)} error={message} onCancel={onBack} />;
   }
   const village: PvpVillage = { cells: tiles.map(({ x, y }) => ({ x, y })), tiles, score: match.target };
   const shield = status.data?.shield;
@@ -199,17 +248,18 @@ function Scout({ me, match, writes, onBack }: { me: string; match: MatchV2; writ
       error={v2ErrorText(writes.error)}
       errorDetail={writes.error ? errorDetail(writes.error) : undefined}
       onBack={onBack}
-      onNext={() => send(writes.next)}
+      onNext={() => draw(writes.next)}
       onAttack={() => send(writes.start)}
-      onSearchAgain={shielded ? () => send(writes.search) : undefined}
+      onSearchAgain={shielded ? () => draw(writes.search) : undefined}
       searching={writes.pending?.kind === "search"}
     />
   );
 }
 
 /** The open attack: the deck played on an unbounded board, as a Training game places (`usePlacement`), each move a write; the last one ends it. */
-function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; match: MatchV2 | null; writes: Writes; ended: { current: boolean }; onBack: () => void }) {
+function Attack({ me, attack, match, writes, ending, onEnd, onBack }: { me: string; attack: AttackV2; match: MatchV2 | null; writes: Writes; ending: boolean; onEnd: (attack: AttackV2) => void; onBack: () => void }) {
   const go = useAppNavigate();
+  const prefetchEnd = usePrefetchAttackV2Of(me);
   const rival = useFreeVillage(attack.defender);
   const skins = useBoardSkins(attack.defender);
   const { run, last, tiles } = useMemo(() => boardOf(attack.moves), [attack.moves]);
@@ -220,14 +270,15 @@ function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; ma
     () => (defenderTiles ? attackDeckSheet({ defenderPlans: defenderTiles.map((t) => t.plan), size: attack.deck, moves: attack.moves, view: attack.view }) : null),
     [defenderTiles, attack.deck, attack.moves, attack.view],
   );
-  const pending = writes.pending?.kind === "play";
+  // The last tile in: the end on its way, the board holds (#1067).
+  const pending = writes.pending?.kind === "play" || ending;
   const legal = useAttackLegality(run, hand);
   // The rival's village in red (#772); the season wheel starts again with each attack.
   const { placement, scene } = useGameBoard({ skins, side: "rival", resetKey: attack.id, placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: attack.moves.length } });
   const { orientation, move } = placement;
   const preview = move && hand !== null ? run.preview(hand, move.orientation, fromBoard(move)) : null;
   const play = (next: Parameters<Writes["play"]>[0], ghost: BoardGhost | null = null) => {
-    if (writes.pending) return;
+    if (writes.pending || ending) return;
     writes.reset();
     writes.play(next).then(
       (receipt) => {
@@ -236,9 +287,12 @@ function Attack({ attack, match, writes, ended, onBack }: { attack: AttackV2; ma
         placement.setOrientation(1);
         const finished = receipt.events.find((e) => e.name === "AttackFinished");
         if (!finished) return;
-        ended.current = true;
-        // Its end screen (#790), in place of the attack: Back from it never returns into the finished attack.
-        go(`/pvp/result/${attack.id}`, { replace: true });
+        onEnd(attack);
+        // Its end screen (#790), in place of the attack: Back from it never returns into the finished attack. The board stays as
+        // the last tile left it while the end's page, its chunk and the attack's read come in, then the end comes up with no
+        // loading screen between (#1067); a failed load still moves on (the end page says what failed).
+        const ready = Promise.all([PAGE_LOADERS["pvp/result/:id"]!(), loadPvpV2End(), prefetchEnd(attack.id)]);
+        void ready.catch(() => undefined).then(() => go(`/pvp/result/${attack.id}`, { replace: true }));
       },
       () => undefined,
     );
