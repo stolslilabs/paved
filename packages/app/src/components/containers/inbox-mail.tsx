@@ -88,7 +88,7 @@ export function MailSection({ mails, now, onClaimAll, claiming = false, error, o
         end={
           waiting &&
           onClaimAll && (
-            // The 36 px pill in its 44 px target, the title's line kept (`-my-1`).
+            // The 36 px pill in its 44 px target; `-my-1` keeps the row as tall as before.
             <button
               type="button"
               disabled={claiming}
