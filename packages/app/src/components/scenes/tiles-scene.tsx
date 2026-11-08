@@ -295,7 +295,7 @@ function SkinCell({ plan, theme, renders, state, disabled, onPress }: { plan: nu
           </span>
         )}
       </span>
-      <span className="text-outline max-w-full truncate text-xs leading-tight font-bold">{theme.name}</span>
+      <span className="text-outline outline-room max-w-[calc(100%+4px)] truncate text-xs leading-tight font-bold">{theme.name}</span>
       {chosen && <span className={cn(PILL, "drawer-carved text-medal-1")}>Active</span>}
       {state === "owned" && <span className={cn(PILL, "drawer-raised text-outline")}>Use</span>}
       {state === "locked" && <span className={cn(PILL, "drawer-raised text-outline")}>Shop</span>}

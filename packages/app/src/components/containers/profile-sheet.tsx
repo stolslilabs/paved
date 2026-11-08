@@ -580,7 +580,7 @@ export function ProfileSheet({
                     <PlayerName
                       name={connected.player.name}
                       address={connected.player.playerId}
-                      className={cn("text-outline text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
+                      className={cn("text-outline outline-room text-2xl font-bold", connected.player.name ? "leading-tight" : "leading-normal")}
                     />
                     {/* PLAYER-RENAME: the HUD's painted pencil (the guild's Post's; the owner's pick over a quill), raised: it opens the name's view in the drawer. */}
                     {canRename && (
