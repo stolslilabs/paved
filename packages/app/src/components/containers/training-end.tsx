@@ -41,7 +41,7 @@ export interface TrainingEndProps {
   onHome?: () => void;
 }
 
-/** The share of the best the score reached, for the crown's gold: 1 once beaten, none without a best (the device's first game). */
+/** The share of the best the score reached, for the crown's gold: 1 once beaten or equalled, none without a best (the device's first game). */
 export function crownFill(score: number, previousBest: number | null | undefined): number {
   if (previousBest == null) return 0;
   if (score > previousBest) return 1;
@@ -99,6 +99,7 @@ export function TrainingEnd({ score, previousBest, stats, closings, closingsNote
         <EndMark
           name="crown"
           fill={fill}
+          reached={record}
           instant={instant}
           label={record ? "Crown: a new best" : previousBest == null ? "Crown: no best to beat yet" : `Crown: ${Math.round(fill * 100)}% of your best`}
         />

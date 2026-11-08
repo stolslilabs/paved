@@ -22,6 +22,9 @@ export const Training: Story = { args: OVER.training };
 /** A new best (TRAINING-END): the crown fills, pops and lights; "VICTORY", the best before → the score. */
 export const TrainingNewBest: Story = { args: { ...OVER.training, previousBest: 1_180 } };
 
+/** A tied best (#1115): no new best, so "GAME OVER", "Your best", the crown's gold stopping short, no light, no sound. */
+export const TrainingTiedBest: Story = { args: { ...OVER.training, previousBest: OVER.training.game.score } };
+
 /** The device's first Training game: no best to beat, the crown grey; the score is the best. */
 export const TrainingFirstGame: Story = { args: { ...OVER.training, previousBest: null } };
 
