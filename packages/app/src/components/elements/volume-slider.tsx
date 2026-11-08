@@ -64,7 +64,7 @@ export function VolumeSlider({ label, art, value, before, onChange, className }:
         aria-pressed={muted}
         title={muted ? `Unmute ${name}` : `Mute ${name}`}
         onClick={toggle}
-        className="state-layer relative grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none"
+        className="state-layer state-layer-quiet relative grid size-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none"
       >
         <UiIcon name={art} px={32} className={cn("drawer-icon size-8 transition-opacity", muted && "opacity-40")} />
         {muted && <UiIcon name="close" px={20} className="drawer-icon absolute right-0 bottom-0 size-5" />}

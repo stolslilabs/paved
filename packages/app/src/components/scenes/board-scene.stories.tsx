@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { CAMPAIGNS, Direction, DirectionType, Layout, Orientation, Plan, PlanType } from "@paved/game-core";
 import { DAY_PHASE_AT, type RendererSettingsInput } from "@paved/renderer";
 import { boardSlots, type BoardSlot, type Slot } from "../../data/placement";
-import { useBoardSettings } from "../../data/board-settings";
+import { cycleDayNight, type DayTimeChoice, type SeasonsChoice } from "../../data/day-night";
 import { BOARD_FOG } from "../../data/settings";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
@@ -97,7 +97,7 @@ function renderBoard(args: BoardSceneProps, settings?: RendererSettingsInput) {
   );
 }
 
-/** The day and night cycle as the game turns it on (Settings, "Day/night cycle"), ten times as fast; and held at a night. */
+/** The day and night cycle as the game turns it on (Settings' two cycles), ten times as fast; and held at a night. */
 const DAY_NIGHT_FAST: RendererSettingsInput = { dayNight: { enabled: true, speed: 10 } };
 const DAY_NIGHT_NIGHT: RendererSettingsInput = { dayNight: { enabled: true, season: "summer", freezeAt: DAY_PHASE_AT.night } };
 /** The fog as the game turns it on, the ambient effects on, held at a summer's day or night. */
@@ -246,24 +246,23 @@ export const Fog: Story = { args: BOARD.large, render: (args) => renderBoard(arg
 /** The fog at a summer night. */
 export const FogAtNight: Story = { args: BOARD.large, render: (args) => renderBoard(args, FOG_NIGHT) };
 
-function WithDial(args: BoardSceneProps) {
-  const board = useBoardSettings();
-  // The cycle ten times as fast (a day and a night every 12 s), so the dial's turn shows.
-  const settings = useMemo<RendererSettingsInput>(() => ({ ...board.renderer, dayNight: { ...board.renderer.dayNight, speed: 10 } }), [board.renderer]);
-  return (
-    <BoardScene
-      {...args}
-      seasonWheel={board.wheel}
-      canvas={<BoardViewport tiles={args.tiles} basePath={APP_ASSETS} slots={args.slots} ghost={args.ghost} bubble={args.bubble} settings={settings} onScene={board.onScene} />}
-    />
-  );
-}
-
 /**
- * The season dial on the board (#607), at its bottom left on every screen size (#682), on the stack's bottom line. Wired as the game wires it (`useBoardSettings`), the cycle ten times as fast; a tap goes auto, summer, autumn, winter,
- * spring, auto (the Day and night setting off starts it on summer).
+ * The board under Settings' Seasons and Day and night (SEASONS-SETTINGS: `cycleDayNight`, as the game's board), the ambient effects
+ * and the fog on, ten times as fast where a cycle turns.
  */
-export const SeasonDial: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
+const cycle = (seasons: SeasonsChoice, dayTime: DayTimeChoice): RendererSettingsInput => ({ ...FOG_DAY, dayNight: { ...cycleDayNight(seasons, dayTime), speed: 10 } });
+
+/** Settings' Winter and Night: winter's night held. */
+export const WinterNight: Story = { args: BOARD.large, render: (args) => renderBoard(args, cycle("winter", "night")) };
+
+/** Settings' Winter and Cycle: winter's day and night turning, looping, its night easing into winter's dawn again. */
+export const WinterDayAndNight: Story = { args: BOARD.large, render: (args) => renderBoard(args, cycle("winter", "cycle")) };
+
+/** Settings' Cycle and Day: the seasons turning, each held at its day, then blended into the next. */
+export const SeasonsByDay: Story = { args: BOARD.large, render: (args) => renderBoard(args, cycle("cycle", "day")) };
+
+/** Settings' Cycle and Night: the seasons turning, each held at its night, the cities lit throughout. */
+export const SeasonsByNight: Story = { args: BOARD.large, render: (args) => renderBoard(args, cycle("cycle", "night")) };
 
 /**
  * A Story level's score meter by its score (the route's `levelResult` and `storyStarFills`, then `storyMeter`, GAME-OVERLAY), on a
@@ -287,43 +286,6 @@ function StoryStarsClimbing(args: BoardSceneProps) {
   const delta = step > 0 ? score - CLIMB[step - 1]! : null;
   return renderBoard({ ...args, score, delta, meter: storyStars(score) });
 }
-
-/** The dial lit by a Story coach mark (Tutorial 6). */
-export const StoryCoachWheel: Story = {
-  args: {
-    ...BOARD.placing,
-    ...inHand(HAND.orientation, null),
-    mode: "story",
-    gameId: undefined,
-    expiresAt: null,
-    meter: storyStars(BOARD.placing.score),
-    title: "Tutorial 6: Seasons",
-    coach: "wheel",
-    notices: <StoryCoach tip="The season wheel turns the board through the seasons. Tap it to step on; the score does not change." onDismiss={fn()} />,
-  },
-  render: (args) => <WithDial {...args} />,
-};
-
-/** A dial that stays put, for the boards without a scene (the plan view). */
-const STILL_WHEEL: BoardSceneProps["seasonWheel"] = { state: "summer", onNext: fn(), read: null };
-
-/**
- * #682: the dial beside the widest hand, the stack's Discard and the two coming tiles. They sit side by side from 375 px
- * (the dial 64 px under 390 px); at 320 and 360 px the Discard and the queue go above the stack rather than overlap the dial.
- */
-export const SeasonDialQueue: Story = {
-  args: { ...BOARD.queue, ...inHand(HAND.orientation, null), hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE } },
-  render: (args) => <WithDial {...args} />,
-};
-
-/** #682: the plan view (no WebGL), a slot chosen: the bubble centred above the stack, clear of the dial. */
-export const SeasonDialBubble: Story = {
-  args: { ...BOARD.placing, ...inHand(HAND.orientation, CHOSEN), hand: { ...inHand(HAND.orientation, CHOSEN).hand, coming: QUEUE }, seasonWheel: STILL_WHEEL },
-  render: (args) => <BoardScene {...args} />,
-};
-
-/** #682: a read-only board (spectating, a final board) keeps the dial at its bottom left, the stack alone at the right. */
-export const SeasonDialReadOnly: Story = { args: { ...ReadOnly.args, ...inHand(HAND.orientation, null) }, render: (args) => <WithDial {...args} /> };
 
 /**
  * A Story level in play (#546): its name in the header, its fixed deck on the deck sheet, the tip of the control it introduces

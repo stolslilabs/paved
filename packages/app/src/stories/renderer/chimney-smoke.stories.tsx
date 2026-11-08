@@ -46,7 +46,7 @@ export const BoardSpring: Story = { args: { season: "spring" } };
 /** On the board, summer: neither smoke nor white voxels. */
 export const BoardSummer: Story = { args: { season: "summer" } };
 
-/** The fade: winter, then the wheel turns to summer two seconds after the board is up, and the smoke fades out over 2 s. */
+/** The fade: winter, then the season held turns to summer two seconds after the board is up, and the smoke fades out over 2 s. */
 export const FadeToSummer: Story = { args: { season: "winter", fadeTo: "summer" } };
 /** At night: the smoke takes the scene's light (dimmer, bluer), it does not stop. */
 export const WinterNight: Story = { args: { season: "winter", time: "night" } };

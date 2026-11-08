@@ -266,7 +266,7 @@ export const VAULT = {
 
 // Settings and theme
 
-export const PREFERENCES: Preferences = { quality: "high", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true, showSkins: true };
+export const PREFERENCES: Preferences = { quality: "high", seasons: "cycle", dayTime: "cycle", ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true, showSkins: true };
 
 /** What Credits names: the album's titles and two sound effects' credits. */
 const CREDITS = { tracks: TRACKS.map(titleOf), sounds: ["Tile placed", "Road closed"] };

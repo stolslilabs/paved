@@ -4,7 +4,6 @@ import type { BoardTile } from "@paved/chain";
 import type { GameScene } from "@paved/renderer";
 import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
 import { useBoardSettings } from "../../data/board-settings";
-import { WHEEL_SEASONS } from "../../data/season-wheel";
 import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { SAVED_LOOK } from "../../mocks/avatar";
 import { HALL_OF_FAME, PLAYER_STATUS, PROFILE, RECORDS } from "../../mocks/scenes";
@@ -29,7 +28,7 @@ import { PHONE_320, PHONE_375, PHONE_SIDEWAYS, TABLET_768, VIEWPORT_OPTIONS, WID
 /**
  * Home (`/`, #753): the player's village full screen with Clash of Clans' overlays, and edit mode in the same scene. One story
  * per state of `HOME_VILLAGE` (`mocks/village-v2.ts`) on the plan view; the `Scene` stories put the real renderer under the
- * overlays (the fog, the day and night, the season dial), at 375, 768 and 1440 px in view and in edit mode. The avatar and the
+ * overlays (the fog, the day and night), at 375, 768 and 1440 px in view and in edit mode. The avatar and the
  * balances are the shell's (`ProfileProvider`, `BalancesProvider`).
  */
 const meta = {
@@ -114,15 +113,13 @@ const LONG_NAME = (Story: () => React.JSX.Element) => (
   </ProfileProvider>
 );
 /**
- * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the profile at the season dial's size (96, 108 and 144 px), no League
+ * HOME-OVERLAYS (#856, the owner's decisions of 2026-10-28): the profile at 96, 108 and 144 px (the season dial's size then), no League
  * in the right column. HOME-STACK (#929, the owner's decisions of 2026-10-30): the League control and the village score stacked at
  * the top, 24 px under the profile, at every width, the chips under them. HOME-EDGES (the owner's asks of 2026-11-04, the Paved UX
  * Book's main screen): the right column's four tiles (Missions, Vault, Friends, Tiles) at every width, centred under the
- * balances; at the bottom left the dial, the Chat tab on the edge and the mission in progress, just above the dock. At 320, 375,
+ * balances; at the bottom left the Chat tab on the edge and the mission in progress, just above the dock. At 320, 375,
  * 390, 768 and 1440 px, shielded or not, and with the longest name.
  */
-/** The season dial in its corner (the plan view has none of its own): the left column stands clear of it. */
-const DIAL = { seasonWheel: { state: "auto", onNext: fn(), read: null } } satisfies Partial<HomeVillageSceneProps>;
 /** A large phone (390 x 844), one of #929's widths. */
 const PHONE_390 = {
   parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, phone390: { name: "iPhone 390", styles: { width: "390px", height: "844px" }, type: "mobile" } } } },
@@ -133,49 +130,49 @@ const SHORT_1024 = {
   parameters: { viewport: { options: { ...VIEWPORT_OPTIONS, short: { name: "Laptop 1024 x 600", styles: { width: "1024px", height: "600px" }, type: "desktop" } } } },
   globals: { viewport: { value: "short", isRotated: false } },
 };
-export const OverlaysPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.view, ...DIAL } };
-export const OverlaysPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL } };
-export const OverlaysPhone390: Story = { ...PHONE_390, args: { ...HOME_VILLAGE.view, ...DIAL } };
-export const OverlaysTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.view, ...DIAL } };
-export const OverlaysWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.view, ...DIAL } };
-export const OverlaysShieldedPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
-export const OverlaysShieldedPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
-export const OverlaysShieldedPhone390: Story = { ...PHONE_390, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
-export const OverlaysShieldedTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
-export const OverlaysShieldedWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
-export const OverlaysLongNamePhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
-export const OverlaysLongNamePhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
-export const OverlaysLongNameTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
-export const OverlaysLongNameWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.view, ...DIAL }, decorators: [LONG_NAME] };
-/** Shielded on a short laptop: the left column under the profile, never under the dial. */
-export const OverlaysShieldedShort1024: Story = { ...SHORT_1024, args: { ...HOME_VILLAGE.shielded, ...DIAL } };
+export const OverlaysPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.view } };
+export const OverlaysPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view } };
+export const OverlaysPhone390: Story = { ...PHONE_390, args: { ...HOME_VILLAGE.view } };
+export const OverlaysTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.view } };
+export const OverlaysWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.view } };
+export const OverlaysShieldedPhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.shielded } };
+export const OverlaysShieldedPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.shielded } };
+export const OverlaysShieldedPhone390: Story = { ...PHONE_390, args: { ...HOME_VILLAGE.shielded } };
+export const OverlaysShieldedTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.shielded } };
+export const OverlaysShieldedWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.shielded } };
+export const OverlaysLongNamePhone320: Story = { ...PHONE_320, args: { ...HOME_VILLAGE.view }, decorators: [LONG_NAME] };
+export const OverlaysLongNamePhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view }, decorators: [LONG_NAME] };
+export const OverlaysLongNameTablet768: Story = { ...TABLET_768, args: { ...HOME_VILLAGE.view }, decorators: [LONG_NAME] };
+export const OverlaysLongNameWide1440: Story = { ...WIDE_1440, args: { ...HOME_VILLAGE.view }, decorators: [LONG_NAME] };
+/** Shielded on a short laptop: the left column under the profile, never under the Chat tab. */
+export const OverlaysShieldedShort1024: Story = { ...SHORT_1024, args: { ...HOME_VILLAGE.shielded } };
 /**
  * HOME-STACK (#929) on the short phone (320 x 568) with every control of the left column: shielded, and the chips (Resume, the
- * spawn pause) last. The column scrolls within its band, never under the dial or the bar.
+ * spawn pause) last. The column scrolls within its band, never under the Chat tab or the bar.
  */
 export const OverlaysEverythingPhone320: Story = {
   ...PHONE_320,
-  args: { ...HOME_VILLAGE.shielded, ...DIAL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true },
+  args: { ...HOME_VILLAGE.shielded, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true },
 };
 /** The same at 375 px: the chips under the village score. */
-export const OverlaysChipsPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, ...DIAL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
+export const OverlaysChipsPhone375: Story = { ...PHONE_375, args: { ...HOME_VILLAGE.view, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
 /**
  * SOCIAL-SPLIT (#973), as HOME-EDGES places them: Chat the orange tab on the left edge, Friends a tile of the right column, Guild
- * the dock's, each with its count. Three-digit counts and shielded: nothing overlaps the profile, the balances, the dial, the mission
+ * the dock's, each with its count. Three-digit counts and shielded: nothing overlaps the profile, the balances, the mission
  * or the other column. At 320, 375, 768 and 1440 px.
  */
 const SOCIAL_COUNTS = { chat: 128, guild: 12, friends: 7 } satisfies Partial<HomeVillageSceneProps>;
-const SOCIAL_FULL = { ...HOME_VILLAGE.shielded, ...DIAL, ...SOCIAL_COUNTS } satisfies HomeVillageSceneProps;
+const SOCIAL_FULL = { ...HOME_VILLAGE.shielded, ...SOCIAL_COUNTS } satisfies HomeVillageSceneProps;
 export const OverlaysSocialPhone320: Story = { ...PHONE_320, args: SOCIAL_FULL };
 export const OverlaysSocialPhone375: Story = { ...PHONE_375, args: SOCIAL_FULL };
 export const OverlaysSocialTablet768: Story = { ...TABLET_768, args: SOCIAL_FULL };
 export const OverlaysSocialWide1440: Story = { ...WIDE_1440, args: SOCIAL_FULL };
-/** The same with the chips (Resume, the spawn pause) on a short laptop: the left column stops above the dial and the Chat tab. */
+/** The same with the chips (Resume, the spawn pause) on a short laptop: the left column stops above the Chat tab. */
 export const OverlaysSocialChipsShort1024: Story = { ...SHORT_1024, args: { ...SOCIAL_FULL, activeGame: HOME_VILLAGE.resume.activeGame, spawnPaused: true } };
 /**
  * HOME-HUD-PADDING (the owner's request of 2026-11-03): one inset at the top and on both sides (`--hud-inset` of theme.css: 8 px on a
  * phone, 16 from `tablet`, the notch's safe area added), drawn as the red bands. The profile, the balances, the crowns' and the
- * village's capsules, the right column, the dial, the mission and the bottom row stand on it (the Chat tab runs to the edge), their painted edges on one line: at 320 and
+ * village's capsules, the right column, the mission and the bottom row stand on it (the Chat tab runs to the edge), their painted edges on one line: at 320 and
  * 375 px, at 1440, and on a notched phone (the safe area simulated on the tokens, as `env(safe-area-inset-*)`
  * adds it). Their play reads the painted pixels (`expectHudInset`).
  */
@@ -248,15 +245,14 @@ export const PlayCentredPhone375: Story = { ...PlayCentred, ...PHONE_375 };
 export const PlayCentredWide1440: Story = { ...PlayCentred, ...WIDE_1440 };
 
 /**
- * HOME-BUTTONS (#856): the dock's Play and Settings, Edit at the bottom right, and the season dial, take the pointer at every
+ * HOME-BUTTONS (#856): the dock's Play and Settings and Edit at the bottom right take the pointer at every
  * width. The play checks that the topmost element at each drawn button's centre is the button (not the village under the overlays'
  * pass-through), then clicks it: Play and Settings are the dock's at every width (HOME-DOCK).
  */
 export const ButtonsReachable: Story = {
-  args: { ...HOME_VILLAGE.view, ...DIAL },
+  args: { ...HOME_VILLAGE.view },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole("button", { name: /^Season/ }, { timeout: 10_000 });
     await canvas.findByRole("navigation", { name: "Main" }, { timeout: 10_000 }).catch(() => null);
     const drawn = (el: HTMLElement) => el.getClientRects().length > 0 && el.checkVisibility({ visibilityProperty: true });
     const reach = async (el: HTMLElement) => {
@@ -275,7 +271,6 @@ export const ButtonsReachable: Story = {
     await reach(canvas.getByRole("button", { name: /^Chat/ }));
     await reach(canvas.getByRole("button", { name: /^Public Works/ }));
     await reach(canvas.getByRole("button", { name: /^Edit village, score/ }));
-    await reach(canvas.getByRole("button", { name: /^Season/ }));
     await expect(args.onNavigate).toHaveBeenCalledWith("play");
     await expect(args.onNavigate).toHaveBeenCalledWith("settings");
     for (const handler of [args.onMissions, args.onVault, args.onFriends, args.onTiles, args.onChat]) await expect(handler).toHaveBeenCalled();
@@ -286,23 +281,12 @@ export const ButtonsReachablePhone320: Story = { ...ButtonsReachable, ...PHONE_3
 export const ButtonsReachablePhone375: Story = { ...ButtonsReachable, ...PHONE_375 };
 export const ButtonsReachableWide1440: Story = { ...ButtonsReachable, ...WIDE_1440 };
 
-/** A day and night every 8 s, read from the clock: the dial turns at each of its reads (once a second), as on the deployed app. */
-function turningCycle() {
-  const start = Date.now();
-  return () => {
-    const seasons = (((Date.now() - start) / 8000) % WHEEL_SEASONS.length + WHEEL_SEASONS.length) % WHEEL_SEASONS.length;
-    return { season: WHEEL_SEASONS[Math.floor(seasons)]!, position: seasons % 1 };
-  };
-}
-
-/** The scene with its edit mode in hand (the page's URL in the app) and the dial turning. */
+/** The scene with its edit mode in hand (the page's URL in the app). */
 function EditRoundTrip(args: HomeVillageSceneProps) {
   const [editing, setEditing] = useState(false);
-  const [read] = useState(turningCycle);
   return (
     <HomeVillageScene
       {...args}
-      seasonWheel={{ state: "auto", onNext: fn(), read }}
       editing={editing}
       onEditingChange={(next) => {
         args.onEditingChange?.(next);
@@ -330,7 +314,7 @@ async function expectColumnsInPlace(canvasElement: HTMLElement) {
 
 /**
  * HOME-COLUMNS-AFTER-EDIT (#1068, the owner's decision of 2026-11-07: the overlay keeps its layout however the player comes back to
- * it): the dial turning all along, in and out of edit mode three times, the columns under the profile and the balances each time.
+ * it): in and out of edit mode three times, the columns under the profile and the balances each time.
  */
 export const ColumnsAfterEdit: Story = {
   ...PHONE_375,
@@ -338,13 +322,11 @@ export const ColumnsAfterEdit: Story = {
   render: (args) => <EditRoundTrip {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole("button", { name: /^Season/ }, { timeout: 10_000 });
     await canvas.findByRole("navigation", { name: "Village" }, { timeout: 10_000 });
     await expectColumnsInPlace(canvasElement);
     for (let i = 0; i < 3; i++) {
       await userEvent.click(canvas.getByRole("button", { name: /^Edit village, score/ }));
       await userEvent.click(await canvas.findByRole("button", { name: "Leave edit mode" }, { timeout: 10_000 }));
-      // Back on the home: the dial's chunk is in, so it turns from the overlays' first frame.
       await canvas.findByRole("navigation", { name: "Village" }, { timeout: 10_000 });
       await expectColumnsInPlace(canvasElement);
     }
@@ -519,7 +501,7 @@ function StoryVillageCanvas({
   view,
   board,
   onReady,
-  onScene = board.onScene,
+  onScene,
 }: {
   view: LayoutBoardView;
   board: ReturnType<typeof useBoardSettings>;
@@ -530,7 +512,7 @@ function StoryVillageCanvas({
 }
 
 /**
- * The scene as the page wires it: the board's renderer under the overlays, its settings and the season dial (`useBoardSettings`).
+ * The scene as the page wires it: the board's renderer under the overlays, with its settings (`useBoardSettings`).
  * `held`: the canvas's ready signal never reaches the stage (the fog stays).
  */
 function InScene({ held, ...args }: HomeVillageSceneProps & { held?: boolean }) {
@@ -538,14 +520,13 @@ function InScene({ held, ...args }: HomeVillageSceneProps & { held?: boolean }) 
   return (
     <HomeVillageScene
       {...args}
-      seasonWheel={board.wheel}
       renderCanvas={(view, onDrawn) => <StoryVillageCanvas view={view} board={board} onReady={held ? undefined : onDrawn} />}
     />
   );
 }
 
 /**
- * The village in the game scene (the fog, the weather, the day and night, the dial), in view, shielded: every capsule of the HUD; the
+ * The village in the game scene (the fog, the weather, the day and night), in view, shielded: every capsule of the HUD; the
  * player's saved avatar living in the badge.
  */
 export const Scene: Story = {
@@ -626,7 +607,6 @@ const degrees = (d: number) => (d * Math.PI) / 180;
 function InCamera({ tilt, turn = 0, ...args }: HomeVillageSceneProps & { tilt?: number; turn?: number }) {
   const board = useBoardSettings();
   const onScene = (scene: GameScene | null) => {
-    board.onScene(scene);
     if (!scene || tilt === undefined) return;
     void scene.tileImagesReady().then(
       () => requestAnimationFrame(() => scene.setCameraAngles(degrees(tilt), degrees(turn))),
@@ -637,7 +617,6 @@ function InCamera({ tilt, turn = 0, ...args }: HomeVillageSceneProps & { tilt?: 
     <HomeVillageScene
       {...args}
       initialCamera
-      seasonWheel={board.wheel}
       renderCanvas={(view, onDrawn) => <StoryVillageCanvas view={view} board={board} onReady={onDrawn} onScene={onScene} />}
     />
   );
@@ -716,7 +695,7 @@ export const CameraEnterLeaveReducedMotion: Story = {
 
 /**
  * PHONE-NAV (#763): the app's bar on the home below `desktop` (Shop, Chests with the chests waiting, Play, League, Settings; no
- * item current), the right column's tiles, no gear and no large Play; the dial, the Chat tab and the mission above the bar. At
+ * item current), the right column's tiles, no gear and no large Play; the Chat tab and the mission above the bar. At
  * 320, 375 and 768 px; edit mode has no bar (`SceneEditingPhone`); from 1440 px none of it (`SceneWide`).
  */
 export const BarPhone320: Story = { ...Scene, ...PHONE_320 };
@@ -752,7 +731,7 @@ function Playground({ scene = false, ...props }: HomeVillageSceneProps & { scene
       }}
       onSave={save}
       onDismissSaved={() => setSaved(null)}
-      {...(scene && { seasonWheel: board.wheel, renderCanvas: (view) => <StoryVillageCanvas view={view} board={board} /> })}
+      {...(scene && { renderCanvas: (view) => <StoryVillageCanvas view={view} board={board} /> })}
     />
   );
 }
@@ -842,7 +821,7 @@ export const ScenePressIntoEditPhone: Story = {
  * the left (the Viewport control), the dock over both.
  */
 export const ProfileOpen: Story = {
-  args: { ...HOME_VILLAGE.view, ...DIAL },
+  args: { ...HOME_VILLAGE.view },
   play: async ({ canvasElement }) => {
     await userEvent.click(await within(canvasElement).findByRole("button", { name: /^Profile: / }));
     await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByRole("dialog", { name: "Profile" })).toBeInTheDocument());

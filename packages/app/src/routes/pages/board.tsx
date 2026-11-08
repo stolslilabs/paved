@@ -50,8 +50,7 @@ function TrainingBoard() {
   const orientationsAt = useCallback((cell: Slot) => game.orientationsAt(cell), [game]);
   // The slots of every rotation, the slot chosen, the ghost (SLOTS). Another game (another tab's save followed, a new
   // game): the slot and orientation chosen for the old hand go. `snapshot` changes with every move.
-  // The season wheel starts again with a new game.
-  const { placement, scene } = useGameBoard({ skins, resetKey: game, placement: { plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game } });
+  const { placement, scene } = useGameBoard({ skins, placement: { plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game } });
   const { orientation, move, slots } = placement;
   const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
   const handErrorDetail = useErrorDetail(snapshot.state.writeError);
