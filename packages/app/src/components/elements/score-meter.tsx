@@ -34,32 +34,32 @@ export interface ScoreMeterProps extends ScoreMeterValue {
   className?: string;
 }
 
-/** A mark reached during play: its index and a count, so the same mark reached again (after a restart) beats again. */
-type Beat = { mark: number; n: number };
+/** The marks reached by one move: their indices and a count, so the same mark reached again (after a restart) beats again. */
+type Beat = { marks: readonly number[]; n: number };
 
 /**
  * The board's score meter (GAME-OVERLAY, the owner's ask of 2026-11-08: the Ranked's bar, restyled, in every mode; `lib/score-meter.ts`
  * says what each mode puts on it): the Missions' painted rail, its steel the whole line and its gold to the score, and the marks painted
  * on it, greyed until the score reaches them, then gold and glowing; the score's share of the goal outlined after it (none in Story,
  * whose thresholds stay hidden). A mark reached during play beats: it pops, its light flashes once and the device gives a light buzz (no sound: the move plays
- * its own); a mark held from the start does not. Under reduced motion the gold moves at once and nothing beats. A `meter` for assistive
- * technology.
+ * its own); a move reaching several marks beats each of them, with one buzz; a mark held from the start does not. Under reduced motion the
+ * gold moves at once and nothing beats. A `meter` for assistive technology, its `aria-valuenow` held within its range (a Challenge goes on
+ * past its cap): the true share stays in its words and its figure.
  */
 export function ScoreMeter({ fill, marks, label, valueText, now, max, figure, className }: ScoreMeterProps) {
   const reduced = useReducedMotionConfig() ?? false;
   const f = Math.min(Math.max(fill, 0), 1);
-  // The marks reached, one character each ("1" reached): the last one newly reached beats.
+  // The marks reached, one character each ("1" reached): each one newly reached beats.
   const reached = marks.map((mark) => (mark.reached ? "1" : "0")).join("");
   const before = useRef(reached);
   const [beat, setBeat] = useState<Beat | null>(null);
   useEffect(() => {
     const was = before.current;
     before.current = reached;
-    let mark = -1;
-    for (let i = reached.length - 1; i >= 0 && mark < 0; i--) if (reached[i] === "1" && was[i] !== "1") mark = i;
-    if (mark < 0) return;
+    const fresh = [...reached].flatMap((r, i) => (r === "1" && was[i] !== "1" ? [i] : []));
+    if (fresh.length === 0) return;
     haptic("light");
-    setBeat((b) => ({ mark, n: (b?.n ?? 0) + 1 }));
+    setBeat((b) => ({ marks: fresh, n: (b?.n ?? 0) + 1 }));
   }, [reached]);
   const stars = marks.filter((mark) => mark.art === "star" && mark.reached).length;
   return (
@@ -68,7 +68,7 @@ export function ScoreMeter({ fill, marks, label, valueText, now, max, figure, cl
       aria-label={label}
       aria-valuemin={0}
       aria-valuemax={max}
-      aria-valuenow={now}
+      aria-valuenow={Math.min(Math.max(now, 0), max)}
       aria-valuetext={valueText}
       data-stars={stars}
       className={cn("flex items-center gap-2", className)}
@@ -89,7 +89,7 @@ export function ScoreMeter({ fill, marks, label, valueText, now, max, figure, cl
         {/* The marks' line: the rail's, so a mark's `left` is its place on the bar. */}
         <div className="absolute inset-y-0" style={{ left: MARK / 2, right: MARK / 2 }}>
           {marks.map((mark, i) => (
-            <Mark key={i} mark={mark} beat={!reduced && beat?.mark === i && mark.reached ? beat.n : null} still={reduced} />
+            <Mark key={i} mark={mark} beat={!reduced && beat?.marks.includes(i) && mark.reached ? beat.n : null} still={reduced} />
           ))}
         </div>
       </div>
