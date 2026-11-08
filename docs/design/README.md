@@ -694,6 +694,19 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   bottom sheet), Surrender and Training's Restart asked in `HudDialog`. New paintings by Codex's built-in image tool, three variants
   for Restart (orange, red, white on a red disc; the red kept), one each for the stopwatch (from its crop of the book), the white flag
   and the amber sign (`restart`, `countdown`, `surrender`, `caution` in `UI_ICONS`).
+
+  TRAINING-END (2026-11-08), Training's header and score screen (the owner's words: "on est encore sur un vieux layout"; the book draws
+  neither, so in the integrated pages' style: GAME-OVERLAY's HUD, the Ranked and Story ends). The header: Training takes Story's held
+  red Restart before the gear (one place for one action, the hold its confirmation), its settings lose their game row, and the Restart
+  dialog is gone; the rest was already Story's (Back, the title, the score, the crown's meter to the device's best). The end
+  (`/training/over`, `containers/training-end.tsx` on `GameEnd`): the book's window over the final board blurred, crowned by the crown of
+  Training's meter in the middle star's place (`EndMark`: gold from the left by the score's share of the best, popping with the third
+  star's sound and buzz and lit as a won star once beaten, grey on the device's first game); "New best!" or "Game over", "Training",
+  the score; the carved card of the Ranked end's rows, the best (the crown, the figure, the best before → the score when beaten) and the
+  tiles (placed, discarded, what the discards took); the closed structures by category in carved boxes (the painted city, road, forest
+  and wonder, the count, the points); every closing in a carved list that scrolls in its box; Home and the gold Play again at the foot.
+  The window's cross shows the board, free to pan and zoom, and the gold Scores pill brings the window back at once. A Challenge's end
+  keeps its layout.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.

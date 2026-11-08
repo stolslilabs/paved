@@ -184,13 +184,16 @@ export function OverScene(props: OverSceneProps) {
     const message = failedModuleUrl(e) ? "The board could not load. Check your connection and try again." : "The board could not load. Check your connection and reload the page.";
     toastError({ title: "Final board", message, detail: errorDetail(e) });
   });
-  // Training's window shown again from the board: at once, its crown's beats and sounds not played again.
+  const onBoard = view === "board";
+  // Training's window shown again from the board (the gold pill, the system Back): at once, its crown's beats and sounds not played again.
   const [back, setBack] = useState(false);
+  useEffect(() => {
+    if (onBoard) setBack(true);
+  }, [onBoard]);
   useEffect(() => {
     if (training) play("gameover");
   }, [training, play]);
 
-  const onBoard = view === "board";
   const boardLayer = board && wanted && (
     // Under the scores it takes no input (`inert`), and its ambient effects stop (#572); "Board" frees it.
     <div data-testid="final-board" aria-hidden={!onBoard} inert={!onBoard} className={cn("absolute inset-0", !onBoard && "pointer-events-none")}>
@@ -216,12 +219,7 @@ export function OverScene(props: OverSceneProps) {
         {/* The page's name for a reader: the book's window draws no title bar. */}
         <h1 className="sr-only">Training over</h1>
         {onBoard ? (
-          <ShowScores
-            onClick={() => {
-              setBack(true);
-              setView("scores");
-            }}
-          />
+          <ShowScores onClick={() => setView("scores")} />
         ) : (
           <>
             {/* The book's backdrop: the board blurred and dimmed under the window. */}
