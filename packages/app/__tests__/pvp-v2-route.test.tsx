@@ -63,7 +63,9 @@ describe("/pvp on PvP v2 (#740)", { timeout: slow(30_000) }, () => {
     expect(s.router.state.location.search).toContain("view=deck");
     const extras = attackDeckSize(rival.slots) - rival.tiles.length;
     expect(within(sheet).getByTestId("deck-summary")).toHaveTextContent(`Left${attackDeckSize(rival.slots)}Played0Discarded0`);
-    expect(within(sheet).getByRole("heading", { name: `Village ${rival.tiles.length}` })).toBeInTheDocument();
+    // The title is the fixed word (TILE-COUNTS): the rival's tiles read on their plans' red squares.
+    expect(within(sheet).getByRole("heading", { name: "Village" })).toBeInTheDocument();
+    expect([...within(sheet).getByTestId("deck-plans").querySelectorAll("li")].reduce((n, li) => n + Number(li.getAttribute("data-left")), 0)).toBe(rival.tiles.length);
     expect(within(sheet).queryAllByRole("img", { name: "Unknown tile" })).toHaveLength(extras);
     // Back to the scout: the entry pushed over it goes.
     await userEvent.click(within(sheet).getByRole("button", { name: "Back" }));

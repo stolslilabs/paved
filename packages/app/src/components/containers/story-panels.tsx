@@ -72,10 +72,11 @@ const PICTURE: CSSProperties = {
  * A level's opening (#593, #721; STORY-INTRO: the Paved UX Book draws none, so each piece from the integrated page that shows the
  * same information). Over the blurred board, as the level's end (`StoryEnd`), the HUD's framed window (`HudFrame`): at its head the
  * level's campaign and number, its title in the display font and its intro, on the campaign's picture fading into the window (Story's
- * campaign head); then the tiles it deals (the deck page's: a section title with the painted pile and the count, its one short line,
- * the tiles seen from above in the campaign's theme, four a row on a carved panel, each numbered in draw order), landing one after
- * another; the tip in a carved box under the painted bulb; at the foot, as Story's footer, the device's best and its painted stars (or
- * "No best yet") on the left and the window's one gold action, Start, on the right. A tap anywhere, Escape or Start opens the board.
+ * campaign head); then the tiles it deals (the deck page's: a section title with the painted pile and "Deck", its one short line,
+ * the tiles seen from above in the campaign's theme, four a row on a carved panel, each numbered in draw order, the last number the
+ * deck's count), landing one after another; the tip in a carved box under the painted bulb; at the foot, as Story's footer, the
+ * device's best and its painted stars (or "No best yet") on the left and the window's one gold action, Start, on the right. A tap
+ * anywhere, Escape or Start opens the board.
  * No star threshold is shown. Under reduced motion everything is there at once.
  */
 export function DeckPresentation({ campaign, campaignId, levelIndex, title, intro, tip, deck, theme = 0, renders, best, onStart, className }: DeckPresentationProps) {
@@ -121,10 +122,12 @@ export function DeckPresentation({ campaign, campaignId, levelIndex, title, intr
               <h2 className="text-outline font-display text-3xl leading-tight tracking-wide wrap-anywhere">{title}</h2>
               <p className="text-outline text-sm leading-snug font-semibold text-foreground/85 wrap-anywhere">{intro}</p>
             </header>
-            <section aria-labelledby="intro-deck" className="flex flex-col gap-2">
-              <SectionTitle id="intro-deck">
+            {/* Not a named region: "Deck" alone would repeat the board's stack under the veil; the window is the "Level deck" region. */}
+            <section className="flex flex-col gap-2">
+              <SectionTitle>
                 <UiIcon name="tile-stack" px={28} className="drawer-icon size-7 self-center" />
-                Deck <span className="numeric font-sans text-base font-bold text-muted-foreground">{formatInteger(deck.length)}</span>
+                {/* A fixed word (TILE-COUNTS): the tiles' numbers below already count the deck. */}
+                Deck
               </SectionTitle>
               <p className="text-sm leading-snug font-semibold text-muted-foreground">Dealt in this order.</p>
               <ol aria-label="Tiles in draw order" data-testid="presented-tiles" className={GRID} style={gridStyle(deck.length)}>

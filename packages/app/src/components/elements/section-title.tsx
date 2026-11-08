@@ -14,8 +14,16 @@ const TITLE_RULE: CSSProperties = {
 const TITLE_DIAMOND: CSSProperties = { background: "var(--drawer-bevel)", boxShadow: "0 1px 0 var(--hud-outline)", transform: "rotate(45deg)" };
 
 export interface SectionTitleProps {
+  /**
+   * The title: a fixed word, a painted icon before it at most. Never a figure that changes (the owner's rule of 2026-11-07,
+   * TILE-COUNTS): no count, no X/Y, no total, no timer, no amount. Such a figure goes into the section's content (a carved box, a
+   * chip on its first line, a row's pill) or is dropped. `__tests__/section-title-rule.test.ts` fails on a figure written in it.
+   */
   children: ReactNode;
-  /** What the row holds at its end (the profile's Stats badge, a mission row's countdown). */
+  /**
+   * A control at the row's end, never a figure (the same rule): a toggle, a filter's chip and its cross (the profile's Stats span),
+   * a button. A count, a timer or a progress ("3/8", "9h 0m", "21/28") goes into the section's content, not here.
+   */
   end?: ReactNode;
   /** The heading's id, for a section's `aria-labelledby`. */
   id?: string;
@@ -24,8 +32,8 @@ export interface SectionTitleProps {
 
 /**
  * A section's title in the HUD's drawer (the profile, the missions): in the display font (the owner's ask of 2026-11-04: titles in
- * it), the engraved rule after it across the row, and what the row holds at its end, a gap either side of the rule so nothing
- * touches it.
+ * it), the engraved rule after it across the row, and a control at its end if any, a gap either side of the rule so nothing
+ * touches it. The title is a fixed word: no changing figure in it nor at its end (TILE-COUNTS, the owner's rule of 2026-11-07).
  */
 export function SectionTitle({ children, end, id, className }: SectionTitleProps) {
   return (

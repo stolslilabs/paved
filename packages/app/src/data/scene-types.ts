@@ -14,10 +14,12 @@ import type { PvpScoutSceneProps } from "../components/scenes/pvp-scout-scene";
 import type { PvpSearchSceneProps } from "../components/scenes/pvp-search-scene";
 import type { PlayerSearchProps } from "../components/containers/player-search";
 import type { PublicProfileState } from "../components/containers/public-profile-sheet";
+import type { AlliancePageProps } from "../components/containers/alliance-page";
 import type { LeaderboardSceneProps } from "../components/scenes/leaderboard-scene";
 import type { RenameViewProps } from "../components/containers/rename-view";
 import type * as avatar from "./avatar";
 import type * as avatarCatalogue from "./avatar-catalogue";
+import type * as alliances from "./alliances";
 import type * as avatarOffers from "./avatar-offers";
 import type * as chain from "./chain";
 import type * as guilds from "./guilds";
@@ -85,4 +87,8 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof playerRanking.useFriendsRanking>, NonNullable<LeaderboardSceneProps["friends"]["data"]>>>,
   Expect<Equal<Data<typeof guilds.useGuildRanking>, NonNullable<LeaderboardSceneProps["guilds"]["data"]>>>,
   Expect<Equal<Data<typeof guilds.useGuildPlace>, Exclude<LeaderboardSceneProps["myGuildPlace"], undefined>>>,
+  // the alliances (ALLIANCES): by score, and the viewer's alliance's place; an alliance's page as its view takes it
+  Expect<Equal<Data<typeof alliances.useAllianceRanking>, NonNullable<LeaderboardSceneProps["alliances"]["data"]>>>,
+  Expect<Equal<Data<typeof alliances.useAlliancePlace>, Exclude<LeaderboardSceneProps["myAlliancePlace"], undefined>>>,
+  Expect<Equal<NonNullable<Data<typeof alliances.useAlliance>>, AlliancePageProps["alliance"]>>,
 ];
