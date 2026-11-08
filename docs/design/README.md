@@ -664,8 +664,11 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   kept). The Guild page: the guild's alliance under its tag (a small raised pill, or "No alliance" written out), an Alliance tile beside
   Chat (the Alliances icon, its red count what waits), a "No alliance" view (the invitations, the request, Create an alliance, Find an
   alliance as the menu's raised rows); another guild's page carries the alliance leader's Invite, or Make head and Remove (Codex painted
-  Invite a guild and Remove a guild: the Guilds tab's red shield with Invite a player's plus and Kick's minus). The Leaderboard's
+  Invite a guild and Remove a guild: the ranking's red guild shield with Invite a player's plus and Kick's minus). The Leaderboard's
   Alliances tab is live, its rows the guilds' with the laurelled emblem and the guilds out of 5.
+  RANKING-GUILD-ICON (2026-11-08, the owner's ask): the Leaderboard's Guilds tab draws the dock's Guild (`UiIcon` `guild`, its two
+  banners) at 36 px, as Players and Friends draw theirs, in place of the red shield. The shield (`ranking-art.ts`'s `guilds`) stays as an
+  alliance's guild count's (`GuildCount`, the Alliances rows and the alliance finder), beside the Alliances icon's two shields.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.
