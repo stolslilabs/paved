@@ -76,10 +76,11 @@ const open = (path = "/settings", wallet = fakeWallet({ restored: true })) => {
 };
 
 describe("/settings", () => {
-  it("shows the defaults: Auto with what it resolves to, the day and night cycle on, music at 40 %, sound effects at 70 %, preview and highlight on, skins shown", async () => {
+  it("shows the defaults: Auto with what it resolves to, the seasons and the day and night turning, music at 40 %, sound effects at 70 %, preview and highlight on, skins shown", async () => {
     open();
     await qualityPill(/Auto \((Low|Medium)\)/);
-    expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Seasons: Cycle" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Day and night: Cycle" })).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "Music volume" })).toHaveAttribute("aria-valuenow", "40");
     expect(screen.getByRole("slider", { name: "Sound effects volume" })).toHaveAttribute("aria-valuenow", "70");
     expect(screen.getByRole("button", { name: "Mute music" })).toHaveAttribute("aria-pressed", "false");
@@ -99,12 +100,18 @@ describe("/settings", () => {
     // Back to Settings, in the drawer: the pill says the choice.
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await qualityPill("Low");
-    await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
+    // SEASONS-SETTINGS: each pill's menu over the drawer, a choice made there; the drawer stays open, the pill says the choice.
+    await userEvent.click(screen.getByRole("button", { name: "Seasons: Cycle" }));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: "Winter" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Day and night: Cycle" }));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: "Night" }));
+    expect(await screen.findByRole("button", { name: "Seasons: Winter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Day and night: Night" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: /Ambient effects/ }));
     await userEvent.click(screen.getByRole("button", { name: "Mute sound effects" }));
     await userEvent.click(screen.getByRole("switch", { name: /Tile preview/ }));
     await userEvent.click(screen.getByRole("switch", { name: /Placement highlight/ }));
-    expect(stored()).toEqual({ quality: "low", dayNight: false, ambient: false, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0, sfxBefore: 0.7, tilePreview: false, placementHighlight: false, squareGrid: true });
+    expect(stored()).toEqual({ quality: "low", seasons: "winter", dayTime: "night", ambient: false, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0, sfxBefore: 0.7, tilePreview: false, placementHighlight: false, squareGrid: true });
   });
 
   it("warns that High is heavier, in the quality's view, once High is picked", async () => {
@@ -219,14 +226,19 @@ describe("/settings", () => {
 });
 
 describe("the board reads the settings", () => {
-  it("passes the quality, the day and night cycle and the ambient effects to the renderer's settings, and a change applies to the open board without a reload", async () => {
+  it("passes the quality, the seasons and the day and night, and the ambient effects to the renderer's settings, and a change applies to the open board without a reload", async () => {
     const fakes = fakeSources({ signer: null });
     render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
     await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
     expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true }, smoke: { enabled: true }, squareGrid: { enabled: true } });
     act(() => deviceSettings.set({ ...deviceSettings.get(), quality: "high" }));
     await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true }, smoke: { enabled: true }, squareGrid: { enabled: true } }));
-    act(() => deviceSettings.set({ ...deviceSettings.get(), dayNight: false }));
+    // SEASONS-SETTINGS: winter's night held; the seasons turning by night; Summer and Day, the cycle off (the cheap path).
+    act(() => deviceSettings.set({ ...deviceSettings.get(), seasons: "winter", dayTime: "night" }));
+    await waitFor(() => expect(lastBoard()?.settings?.dayNight).toEqual({ enabled: true, freezeAt: 2.805 }));
+    act(() => deviceSettings.set({ ...deviceSettings.get(), seasons: "cycle", dayTime: "night" }));
+    await waitFor(() => expect(lastBoard()?.settings?.dayNight).toEqual({ enabled: true, freezeAt: null, runs: "seasons-night" }));
+    act(() => deviceSettings.set({ ...deviceSettings.get(), seasons: "summer", dayTime: "day" }));
     await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true }, smoke: { enabled: true }, squareGrid: { enabled: true } }));
     act(() => deviceSettings.set({ ...deviceSettings.get(), ambient: false }));
     await waitFor(() => expect(lastBoard()?.settings).toEqual({ quality: "high", dayNight: { enabled: false, freezeAt: null }, ambient: { enabled: false }, fog: { enabled: true }, smoke: { enabled: true }, squareGrid: { enabled: true } }));

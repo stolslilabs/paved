@@ -68,12 +68,22 @@ export function resolveWindowLight(input: Partial<WindowLightSettings> = {}, bas
   };
 }
 
+/**
+ * What the cycle turns (`DayNightSettings.runs`, SEASONS-SETTINGS): "all", a day and a night of each season in turn; "day-night",
+ * the day and the night of its first season (`season`), looping, its night easing into the same season's dawn; "seasons-day" and
+ * "seasons-night", the seasons in turn, each held at its day (or its night) and blended into the next's.
+ */
+export const DAY_NIGHT_RUNS = ["all", "day-night", "seasons-day", "seasons-night"] as const;
+export type DayNightRuns = (typeof DAY_NIGHT_RUNS)[number];
+
 export interface DayNightSettings {
   /**
    * The cycle on the board: a gradient behind it, the sun and moon moving over it, the night lights. Off (the renderer's
-   * default; the app's board turns it on from its settings row), the look's fixed lights and flat background.
+   * default; the app's board turns it on from its settings rows), the look's fixed lights and flat background.
    */
   enabled: boolean;
+  /** What the cycle turns while it runs (neither frozen nor still): every season's day and night ("all", the default), or a part. */
+  runs: DayNightRuns;
   /** One cycle, a day then a night of one season, in ms: 120,000 (about 75 s of day with its dawn and dusk, 45 s of night). */
   cycleMs: number;
   /** How fast the cycle runs: 1 is real time, 10 the stories' fast forward. */
@@ -115,6 +125,7 @@ export const DAY_PHASE_AT: Record<DayPhase, number> = { dawn: 0.025, day: 0.3125
 
 export const DEFAULT_DAYNIGHT_SETTINGS: DayNightSettings = {
   enabled: false,
+  runs: "all",
   cycleMs: 120_000,
   speed: 1,
   season: "random",
@@ -138,6 +149,7 @@ export function resolveDayNightSettings(input: DayNightInput = {}, base: DayNigh
   const share = (value: number | undefined, fallback: number) => (typeof value === "number" && value >= 0 && value <= 1 ? value : fallback);
   return {
     enabled: typeof input.enabled === "boolean" ? input.enabled : base.enabled,
+    runs: DAY_NIGHT_RUNS.includes(input.runs!) ? input.runs! : base.runs,
     cycleMs: positive(input.cycleMs, base.cycleMs),
     speed: positive(input.speed, base.speed),
     season: input.season === "random" || SEASONS.includes(input.season!) ? input.season! : base.season,

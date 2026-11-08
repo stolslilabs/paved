@@ -247,16 +247,22 @@ describe("Vault", () => {
 });
 
 describe("Settings", () => {
-  it("sets the graphics in the pill's view, the day and night cycle, the volumes, tile preview and placement highlight", async () => {
+  it("sets the graphics in the pill's view, the seasons and the day and night in their menus, the volumes, tile preview and placement highlight", async () => {
     const onChange = vi.fn();
     const onView = vi.fn();
     render(wrap(<SettingsScene {...SETTINGS.connected} onChange={onChange} onView={onView} />));
     // SETTINGS-PAGE: the book's pill says the quality in use, its choice a view of the drawer.
     await userEvent.click(screen.getByRole("button", { name: "Graphics quality: High" }));
     expect(onView).toHaveBeenCalledWith("quality");
-    expect(screen.getByRole("switch", { name: /Day\/night cycle/ })).toBeChecked();
-    await userEvent.click(screen.getByRole("switch", { name: /Day\/night cycle/ }));
-    expect(onChange).toHaveBeenCalledWith("dayNight", false);
+    // SEASONS-SETTINGS: two pills in the Day/night cycle switch's place, each a menu of its choices, the one in use checked.
+    expect(screen.queryByRole("switch", { name: /Day\/night cycle/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Seasons: Cycle" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Day and night: Cycle" }));
+    const choices = await screen.findAllByRole("menuitemradio");
+    expect(choices.map((c) => [c.textContent, c.getAttribute("aria-checked")])).toEqual([["Cycle", "true"], ["Day", "false"], ["Night", "false"]]);
+    await userEvent.click(screen.getByRole("menuitemradio", { name: "Night" }));
+    expect(onChange).toHaveBeenCalledWith("dayTime", "night");
+    expect(screen.queryByRole("menu")).toBeNull();
     const onVolumeChange = vi.fn();
     cleanup();
     render(wrap(<SettingsScene {...SETTINGS.connected} onChange={onChange} onVolumeChange={onVolumeChange} />));

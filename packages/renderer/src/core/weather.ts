@@ -307,7 +307,7 @@ const SEASON_LIST: Season[] = ["summer", "autumn", "winter", "spring"];
 /**
  * The weather on the board. The caller adds `object` to the scene (world space, not the board's group: the box follows the camera's
  * target) and registers the weather on the scene's ambient loop; `snow` is the tile shader's snow (`TileRenderer.snowUniforms`).
- * The season comes from the cycle (`setCycle`, the wheel: auto, the cycle's season; fixed, the chosen one), the wind from the cloud
+ * The season comes from the cycle (`setCycle`: turning, the cycle's season; held in Settings, the chosen one), the wind from the cloud
  * shadows (`setWind`), the mode from the settings, the tier and reduced motion (`setMode`, `weatherMode`). Each change calls
  * `onChange` (a frame). `dispose` frees what it made and turns the snow off.
  */
@@ -425,7 +425,7 @@ export class Weather implements AmbientEffect {
   }
 
   /**
-   * The cycle's point (`GameScene.getDayNight`): its season (with the wheel fixed, the chosen one, since the cycle holds it) and
+   * The cycle's point (`GameScene.getDayNight`): its season (held in Settings, the chosen one, since the cycle holds it) and
    * its position, for the daylight (the sun's height, 0 at night). Null with the cycle off: no season, no weather.
    */
   setCycle(point: { season: Season; position: number } | null): void {

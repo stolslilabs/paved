@@ -74,14 +74,14 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
     for (const [name, path, heading] of [
       ["Shop", "/village/shop", "Shop"],
       ["Ranking", "/ranking", "Ranking"],
-      ["Guild", "/guild", "Guild"],
+      ["Allegiance", "/guild", "Allegiance"],
       ["Settings", "/settings", "Settings"],
     ] as const) {
       const router = open("/");
       await screen.findByRole("heading", { level: 1, name: "Home" }, { timeout: slow(5000) });
       await userEvent.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("button", { name: new RegExp(`^${name}`) }));
       await waitFor(() => expect(router.state.location.pathname).toBe(path), { timeout: slow(5000) });
-      if (name === "Shop" || name === "Ranking" || name === "Guild" || name === "Settings") await screen.findByRole("dialog", { name: heading }, { timeout: slow(5000) });
+      if (name === "Shop" || name === "Ranking" || name === "Allegiance" || name === "Settings") await screen.findByRole("dialog", { name: heading }, { timeout: slow(5000) });
       else await screen.findByRole("heading", { level: 1, name: heading }, { timeout: slow(5000) });
       expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
       cleanup();

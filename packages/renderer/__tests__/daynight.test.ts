@@ -7,8 +7,10 @@ import {
   DayNightClock,
   HOLDS,
   KEYFRAMES,
+  SEASON_BLEND,
   START_POSITION,
   SHADOW_STEP,
+  SUN_ELEVATION,
   cycleAt,
   dayNightFrame,
   drawDayNight,
@@ -18,13 +20,14 @@ import {
   linearToOklab,
   oklabToLinear,
   pageCycleTime,
+  runsOf,
   seasonGroundAt,
   seasonsAt,
   seededSeason,
   startSeason,
   sunAt,
 } from "../src/core/daynight";
-import { DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, resolveDayNightSettings, resolveWindowLight } from "../src/core/daynight-settings";
+import { DAY_NIGHT_RUNS, DAY_PHASES, DAY_PHASE_AT, DEFAULT_DAYNIGHT_SETTINGS, DEFAULT_WINDOW_LIGHT, SEASONS, resolveDayNightSettings, resolveWindowLight } from "../src/core/daynight-settings";
 import { resolveRendererSettings } from "../src/core/settings";
 import { Effects } from "../src/core/Effects";
 import { LOOK_PRESETS } from "../src/core/look";
@@ -199,6 +202,10 @@ describe("the cycle's settings", () => {
     const set = resolveDayNightSettings({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: -1, brightnessFloor: 4 });
     expect(set).toMatchObject({ enabled: true, speed: 10, season: "winter", seed: 3, freezeAt: 1.5, cycleMs: 120_000, brightnessFloor: 0.85 });
     expect(resolveDayNightSettings({ season: "monsoon" as never, reducedMotion: "sometimes" as never })).toMatchObject({ season: "random", reducedMotion: "auto" });
+    // What the cycle turns (SEASONS-SETTINGS): all of it by default, a part when named, the base's for an unknown one.
+    expect(DEFAULT_DAYNIGHT_SETTINGS.runs).toBe("all");
+    for (const runs of DAY_NIGHT_RUNS) expect(resolveDayNightSettings({ runs }).runs).toBe(runs);
+    expect(resolveDayNightSettings({ runs: "weekly" as never }, resolveDayNightSettings({ runs: "seasons-day" })).runs).toBe("seasons-day");
     expect(resolveRendererSettings({ dayNight: { enabled: true } }).dayNight.enabled).toBe(true);
   });
 });
@@ -336,14 +343,154 @@ describe("the backdrop pass", () => {
 
 describe("a still cycle and a frozen moment", () => {
   const frozen = (freezeAt: number | null) => resolveDayNightSettings({ enabled: true, season: "summer", freezeAt });
-  it("holds a moment frozen in a day as asked (the season wheel's fixed states), still or not", () => {
+  it("holds a moment frozen in a day as asked (a season's day held in Settings), still or not", () => {
     for (const at of [0.3125, 1.3125, 2.3125, 3.3125]) {
       expect(momentOf(frozen(at), 0, true)).toBe(at);
       expect(momentOf(frozen(at), 0, false)).toBe(at);
     }
   });
-  it("still wins over a frozen night or dawn: a still scene never shows one", () => {
-    expect(momentOf(frozen(1 + DAY_PHASE_AT.night), 0, true)).toBe(DAY_PHASE_AT.day);
+  it("still wins over a frozen night or dawn: a still scene never shows one, it shows that season's noon", () => {
+    expect(momentOf(frozen(1 + DAY_PHASE_AT.night), 0, true)).toBe(1 + DAY_PHASE_AT.day);
+    expect(momentOf(frozen(2 + DAY_PHASE_AT.dawn), 0, true)).toBe(2 + DAY_PHASE_AT.day);
     expect(momentOf(frozen(null), 5000, true)).toBe(DAY_PHASE_AT.day);
+  });
+  it("reads a frozen or still moment as every season's day and night, a running one as the settings turn it", () => {
+    const set = (freezeAt: number | null) => resolveDayNightSettings({ enabled: true, runs: "seasons-night", freezeAt });
+    expect(runsOf(set(null), false)).toBe("seasons-night");
+    expect(runsOf(set(null), true)).toBe("all");
+    expect(runsOf(set(2.3125), false)).toBe("all");
+  });
+});
+
+/**
+ * Every jump between two frames `dt` seasons apart over `span` seasons from `from`: the backdrop (OKLab), the lights' strengths, and the
+ * sun's turn while it shines (radians).
+ */
+function worstJumps(at: (seasons: number) => ReturnType<typeof dayNightFrame>, from: number, span: number, dt: number) {
+  let previous = at(from);
+  let backdrop = 0;
+  let light = 0;
+  let sunTurn = 0;
+  for (let s = from + dt; s <= from + span; s += dt) {
+    const frame = at(s);
+    for (const end of ["top", "bottom"] as const) backdrop = Math.max(backdrop, Math.hypot(...frame.backdrop[end].map((v, k) => v - previous.backdrop[end][k])));
+    light = Math.max(light, Math.abs(frame.sun.intensity - previous.sun.intensity), Math.abs(frame.lights - previous.lights), Math.abs(frame.sky.intensity - previous.sky.intensity));
+    if (Math.max(frame.sun.intensity, previous.sun.intensity) > 0) {
+      sunTurn = Math.max(sunTurn, Math.acos(Math.min(1, frame.sun.direction.reduce((sum, v, k) => sum + v * previous.sun.direction[k], 0))));
+    }
+    previous = frame;
+  }
+  return { backdrop, light, sunTurn };
+}
+
+/** Two frames alike to 1e-9 in every figure (a moment summed from a season and a phase's moment rounds differently). */
+function expectSameFrame(a: unknown, b: unknown, path = "frame"): void {
+  if (typeof a === "number") return void expect(a, path).toBeCloseTo(b as number, 9);
+  if (typeof a !== "object" || a === null) return void expect(a, path).toEqual(b);
+  expect(Object.keys(a).sort(), path).toEqual(Object.keys(b as object).sort());
+  for (const [k, v] of Object.entries(a)) expectSameFrame(v, (b as Record<string, unknown>)[k], `${path}.${k}`);
+}
+
+describe("what the cycle turns (SEASONS-SETTINGS: Settings' seasons and day and night, each a cycle or held)", () => {
+  const running = (input: Parameters<typeof resolveDayNightSettings>[0]) => resolveDayNightSettings({ enabled: true, ...input });
+
+  it("\"day-night\": the first season's day and night, looping, its night easing into the same season's dawn", () => {
+    const settings = running({ runs: "day-night", season: "winter" });
+    for (let ms = 0; ms < 9 * CYCLE_MS; ms += CYCLE_MS / 7) {
+      const point = cycleAt(momentOf(settings, ms, false), "day-night");
+      expect(point.season, `${ms} ms`).toBe("winter");
+      expect(point.to.season).toBe("winter");
+    }
+    const late = cycleAt(2.97, "day-night");
+    expect(late.from).toEqual({ season: "winter", phase: "night" });
+    expect(late.to).toEqual({ season: "winter", phase: "dawn" });
+    // Every phase in turn, as the whole cycle runs them.
+    const phases = new Set(Array.from({ length: 100 }, (_, i) => cycleAt(momentOf(settings, (i * CYCLE_MS) / 100, false), "day-night").phase));
+    expect([...phases].sort()).toEqual([...DAY_PHASES].sort());
+    // Smooth over two loops, the night's turn into dawn included: as the whole cycle's bounds.
+    const jumps = worstJumps((s) => dayNightFrame(2 + (s - Math.floor(s)), 0.5, "day-night"), 0, 2, 1 / 4000);
+    expect(jumps.backdrop).toBeLessThan(0.01);
+    expect(jumps.light).toBeLessThan(0.05);
+  });
+
+  it("\"seasons-day\": every season in turn at its day, held, then blended into the next season's day", () => {
+    for (const season of SEASONS) {
+      const s = SEASONS.indexOf(season);
+      const held = cycleAt(s + 0.5, "seasons-day");
+      expect(held).toMatchObject({ season, phase: "day", position: DAY_PHASE_AT.day, blend: 0, from: { season, phase: "day" }, to: { season, phase: "day" } });
+      // The held day is the season's day as Settings hold it (`freezeAt`), the wheel's fixed state: the same frame.
+      expectSameFrame(dayNightFrame(s + 0.5, 0.85, "seasons-day"), dayNightFrame(s + DAY_PHASE_AT.day, 0.85));
+      const changing = cycleAt(s + 1 - SEASON_BLEND / 2, "seasons-day");
+      expect(changing.to).toEqual({ season: SEASONS[(s + 1) % 4], phase: "day" });
+      expect(changing.blend).toBeCloseTo(0.5, 9);
+      expect(dayNightFrame(s + 0.5, 0, "seasons-day").lights).toBe(0);
+    }
+    // The sun stays at noon and shines throughout; its height moves to the next season's as the seasons blend.
+    const mid = dayNightFrame(1 - SEASON_BLEND / 2, 0, "seasons-day");
+    const elevation = (Math.asin(mid.sun.direction[1]) * 180) / Math.PI;
+    expect(elevation).toBeCloseTo((SUN_ELEVATION.summer + SUN_ELEVATION.autumn) / 2, 6);
+    const jumps = worstJumps((s) => dayNightFrame(s, 0.5, "seasons-day"), 0, 4, 1 / 4000);
+    expect(jumps.backdrop).toBeLessThan(0.01);
+    expect(jumps.light).toBeLessThan(0.05);
+    // A thousandth of a season (120 ms at real speed) turns the sun by under half a degree.
+    expect(jumps.sunTurn).toBeLessThan(0.5 * (Math.PI / 180));
+  });
+
+  it("\"seasons-night\": every season in turn at its night, held then blended, the sun down and the cities lit throughout", () => {
+    for (const season of SEASONS) {
+      const s = SEASONS.indexOf(season);
+      expect(cycleAt(s + 0.4, "seasons-night")).toMatchObject({ season, phase: "night", position: DAY_PHASE_AT.night, blend: 0 });
+      expectSameFrame(dayNightFrame(s + 0.4, 0.85, "seasons-night"), dayNightFrame(s + DAY_PHASE_AT.night, 0.85));
+    }
+    // At the app's floor (0.85), which lifts every night: the floor eases into the next season's too.
+    const jumps = worstJumps((s) => dayNightFrame(s, 0.85, "seasons-night"), 0, 4, 1 / 4000);
+    expect(jumps.backdrop).toBeLessThan(0.01);
+    expect(jumps.light).toBeLessThan(0.05);
+    for (let s = 0; s < 4; s += 0.01) {
+      const frame = dayNightFrame(s, 0.5, "seasons-night");
+      expect(frame.sun.intensity).toBe(0);
+      expect(frame.lights).toBe(1);
+    }
+  });
+
+  it("\"all\" at the app's floor (0.85): a night eases into the next season's dawn with no step in the sky light", () => {
+    const jumps = worstJumps((s) => dayNightFrame(s, 0.85), 0, 4, 1 / 4000);
+    expect(jumps.backdrop).toBeLessThan(0.01);
+    expect(jumps.light).toBeLessThan(0.05);
+  });
+
+  it("runs the seasons from the clock as the whole cycle does: one season a cycle, from the first", () => {
+    const settings = running({ runs: "seasons-day", season: "autumn" });
+    expect(cycleAt(momentOf(settings, 0, false), "seasons-day").season).toBe("autumn");
+    expect(cycleAt(momentOf(settings, CYCLE_MS * 1.5, false), "seasons-day").season).toBe("winter");
+    expect(cycleAt(momentOf(settings, CYCLE_MS * 3.5, false), "seasons-day").season).toBe("summer");
+  });
+
+  it("crossfades the sun's height across a change of season held at its day: a light moves only while its weight is 0", () => {
+    const scene = new THREE.Scene();
+    const key = new THREE.DirectionalLight();
+    key.castShadow = true;
+    scene.add(key);
+    const shadowMoved = vi.fn();
+    const t = { key, fill: null, sky: null, ambient: null, fog: null, distance: 100, crossfade: true, shadowMoved, backdrop: vi.fn(), lights: vi.fn() };
+    let before: { key: THREE.Vector3; twin: THREE.Vector3; weights: [number, number] } | null = null;
+    // Fine steps through two changes of season (summer into autumn, autumn into winter): a twentieth of a degree of height a draw at most.
+    for (let s = 0.9; s < 2.05; s += s > 1.05 && s < 1.9 ? 0.01 : 1 / 20_000) {
+      drawDayNight(t, s, 0, "seasons-day");
+      const twin = scene.children.find((c) => c !== key && c instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
+      const total = key.intensity + twin.intensity;
+      expect(total).toBeCloseTo(dayNightFrame(s, 0, "seasons-day").sun.intensity, 9);
+      const now = { key: key.position.clone(), twin: twin.position.clone(), weights: [key.intensity / total, twin.intensity / total] as [number, number] };
+      if (before) {
+        if (!now.key.equals(before.key)) expect(Math.min(now.weights[0], before.weights[0])).toBeLessThan(0.03);
+        if (!now.twin.equals(before.twin)) expect(Math.min(now.weights[1], before.weights[1])).toBeLessThan(0.03);
+      }
+      before = now;
+    }
+    // Held between the changes, the shadow map is never drawn again.
+    shadowMoved.mockClear();
+    for (let s = 2.2; s < 2.8; s += 0.01) drawDayNight(t, s, 0, "seasons-day");
+    expect(shadowMoved).not.toHaveBeenCalled();
+    releaseDayNight(key);
   });
 });

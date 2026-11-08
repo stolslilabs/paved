@@ -133,7 +133,7 @@ export interface BoardViewportProps {
    * `free`, the home's Camera mode (#875: the tilt between 15 and 85 degrees, the turn free; back to `play`, it eases home).
    */
   cameraMode?: CameraMode;
-  /** The scene is up (or gone, null): the season wheel reads the cycle from it. */
+  /** The scene is up (or gone, null): a caller that reads it (the village's arrival, a story's readout). */
   onScene?: (scene: GameScene | null) => void;
   /** The renderer could not start (no WebGL, a model that does not load). */
   onError?: (error: unknown) => void;

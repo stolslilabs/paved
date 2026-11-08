@@ -30,7 +30,7 @@ export const RANK_ART: RankArt = {
 
 /** What each rank may do, as a promotion's confirmation says it: the rights it adds to those under it. */
 export const RANK_RIGHTS: Record<GuildRank, string> = {
-  [GUILD_RANK.recruit]: "Recruits read the announcements and chat with the guild.",
+  [GUILD_RANK.recruit]: "Recruits read the announcements and chat with the allegiance.",
   [GUILD_RANK.member]: "Members also invite players.",
   [GUILD_RANK.veteran]: "Veterans also answer the requests and post announcements.",
   [GUILD_RANK.officer]: "Officers also kick, and promote up to Veteran.",
@@ -63,7 +63,7 @@ export function logLine(e: GuildLogEntry): string {
   const target = who(e.targetName);
   switch (e.kind) {
     case "created":
-      return `${actor} founded the guild`;
+      return `${actor} founded the allegiance`;
     case "joined":
       return `${actor} joined`;
     case "left":
@@ -85,23 +85,23 @@ export function logLine(e: GuildLogEntry): string {
 
 /** Why an action is refused, in the player's words (game-core's `GuildRefusal`). */
 export const REFUSALS: Record<GuildRefusal, string> = {
-  "in-guild": "You are in a guild already.",
-  "not-in-guild": "You are not in this guild.",
-  "member-already": "This player is in the guild already.",
+  "in-guild": "You are in an allegiance already.",
+  "not-in-guild": "You are not in this allegiance.",
+  "member-already": "This player is in the allegiance already.",
   "name-length": "A name has 3 to 20 characters.",
   "name-chars": "A name has letters, digits and spaces only.",
-  "name-taken": "Another guild has this name.",
+  "name-taken": "Another allegiance has this name.",
   "description-length": "The description is too long.",
   emblem: "Pick an emblem.",
   "join-type": "Pick how players join.",
   requirements: "The requirements are out of range.",
-  full: "The guild is full.",
-  "level-low": "Your level is below the guild's requirement.",
-  "crowns-low": "Your crowns are below the guild's requirement.",
-  open: "This guild is open: join it.",
-  "by-request": "This guild takes requests.",
-  "invite-only": "This guild is invite only.",
-  "request-pending": "You have a request waiting at another guild.",
+  full: "The allegiance is full.",
+  "level-low": "Your level is below the allegiance's requirement.",
+  "crowns-low": "Your crowns are below the allegiance's requirement.",
+  open: "This allegiance is open: join it.",
+  "by-request": "This allegiance takes requests.",
+  "invite-only": "This allegiance is invite only.",
+  "request-pending": "You have a request waiting at another allegiance.",
   "no-request": "You have no request waiting.",
   "message-length": "The message is too long.",
   rank: "Your rank does not allow it.",
@@ -115,7 +115,7 @@ export const REFUSALS: Record<GuildRefusal, string> = {
   "announcement-empty": "Write something first.",
   "announcement-length": "The announcement is too long.",
   "not-author": "Only the leader edits another's announcements.",
-  "invited-already": "This player has an invitation from the guild already.",
+  "invited-already": "This player has an invitation from the allegiance already.",
   blocked: "This player does not take invitations from you.",
   "invite-expired": "This invitation has lapsed.",
   "not-found": "It is not there any more.",

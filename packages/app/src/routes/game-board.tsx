@@ -37,26 +37,25 @@ export interface GameBoardInput {
   bubble: BoardBubble | null;
 }
 
-/** The board scene's props the module gives: the 3D board or its plan view, the stack, the season dial, the placement. */
+/** The board scene's props the module gives: the 3D board or its plan view, the stack, the placement. */
 export type GameBoardSceneProps = Pick<
   BoardSceneProps,
-  "tiles" | "canvas" | "renderHandStack" | "seasonWheel" | "placementHighlight" | "tileArt" | "tileRenders" | "skins" | "slots" | "ghost" | "confirmed" | "bubble" | "onSlotClick"
+  "tiles" | "canvas" | "renderHandStack" | "placementHighlight" | "tileArt" | "tileRenders" | "skins" | "slots" | "ghost" | "confirmed" | "bubble" | "onSlotClick"
 >;
 
 /**
  * The one board of every game (#772): from one set of inputs, the 3D board (`BoardCanvas`, with the renderer's settings,
  * the skins, the fog, the weather and the day and night) or its plan view fallback (the scene's `BoardMap`, without WebGL or
- * once the renderer cannot start), the stack's 3D tiles (`StackView`) or its CSS pile, the season dial, and the placement
- * (`usePlacement`: the plates, the ghost, the hold to confirm). `resetKey` starts the season wheel again (a new game, a
- * restarted level). The page builds its bubble from `placement`, then spreads `scene(...)` into `BoardScene`. The 3D board is
+ * once the renderer cannot start), the stack's 3D tiles (`StackView`) or its CSS pile, and the placement
+ * (`usePlacement`: the plates, the ghost, the hold to confirm). The page builds its bubble from `placement`, then spreads `scene(...)` into `BoardScene`. The 3D board is
  * the module's canvas (`board-canvas.tsx`), the village's too; no route draws `BoardViewport` or `StackView` itself.
  *
  * `side` is whose board it is: `own` (the default) keeps the green void, `rival` (an attack, its scout, the replay of an attack
  * on another village) gives it red tones (#772). A read-only board (a replay, the scout) gives `plan: null`: no plate, no ghost.
- * `summerDay` (the scout and a visit, #788) holds the board on summer's day, with no season dial: no night, no smoke.
+ * `summerDay` (the scout and a visit, #788) holds the board on summer's day, whatever Settings say: no night, no smoke.
  */
-export function useGameBoard({ skins, resetKey, side = "own", summerDay = false, placement: input }: { skins?: TileSkins; resetKey?: unknown; side?: BoardSide; summerDay?: boolean; placement: GameBoardPlacement }) {
-  const board = useBoardSettings(resetKey, summerDay);
+export function useGameBoard({ skins, side = "own", summerDay = false, placement: input }: { skins?: TileSkins; side?: BoardSide; summerDay?: boolean; placement: GameBoardPlacement }) {
+  const board = useBoardSettings(summerDay);
   // The void's colours for the side, over the board's renderer settings (memoised there: a new object only when they change).
   const renderer = useMemo(() => {
     const { squareGrid, fog } = board.renderer;
@@ -83,7 +82,6 @@ export function useGameBoard({ skins, resetKey, side = "own", summerDay = false,
     bubble,
     onSlotClick: placement.choose,
     placementHighlight: settings.placementHighlight,
-    seasonWheel: summerDay ? undefined : settings.wheel,
     canvas:
       view === "3d" ? (
         <BoardCanvas

@@ -22,7 +22,7 @@ export const Create: Story = {};
 /** A name too short: why, and Create disabled. */
 export const CreateInvalid: Story = { args: { initial: { ...NEW_GUILD, name: "Wy" } } };
 /** The source refused it: the name is taken. */
-export const CreateRefused: Story = { args: { initial: { ...NEW_GUILD, name: "The Quarrymen" }, error: "Another guild has this name." } };
+export const CreateRefused: Story = { args: { initial: { ...NEW_GUILD, name: "The Quarrymen" }, error: "Another allegiance has this name." } };
 export const Settings: Story = { args: { mode: "edit", initial: { name: quarry.name, emblem: quarry.emblem, description: quarry.description, joinType: quarry.joinType, requirements: quarry.requirements } } };
 /** A charge in a colour of its own (GUILD-PAGE): the third row. */
 export const SettingsChargeColour: Story = { args: { mode: "edit", initial: { name: quarry.name, emblem: { ...quarry.emblem, charge: 12 }, description: quarry.description, joinType: "invite", requirements: { level: 12, crowns: 900 } } } };
@@ -39,5 +39,5 @@ export const ConfirmKick: Story = {
 };
 /** A refused confirmation keeps the dialog, with why. */
 export const ConfirmRefused: Story = {
-  render: () => <GuildConfirmDialog confirmation={{ title: "Leave The Quarrymen?", text: "You can join another guild.", confirm: "Leave", destructive: true }} onCancel={fn()} onConfirm={fn()} error="Make another member leader first." />,
+  render: () => <GuildConfirmDialog confirmation={{ title: "Leave The Quarrymen?", text: "You can join another allegiance.", confirm: "Leave", destructive: true }} onCancel={fn()} onConfirm={fn()} error="Make another member leader first." />,
 };

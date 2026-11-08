@@ -23,12 +23,11 @@ function canvas() {
   return { renderCanvas, last: () => views[views.length - 1]! };
 }
 
-const DIAL = { seasonWheel: { state: "summer" as const, onNext: vi.fn(), read: null } };
 
 describe("Home's Camera mode (#875)", () => {
   it("puts the Camera mode's button, Explore, in the bottom right's row, its icon and its word on a 64 px hit box (CAMERA-EXPLORE), on the 3D village only", async () => {
     const scene = canvas();
-    const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} renderCanvas={scene.renderCanvas} />));
+    const { unmount } = render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} renderCanvas={scene.renderCanvas} />));
     const camera = await screen.findByRole("button", { name: "Explore" }, { timeout: slow(5000) });
     expect(camera).toHaveClass("size-16");
     expect(camera).toHaveTextContent("Explore");
@@ -40,7 +39,7 @@ describe("Home's Camera mode (#875)", () => {
     expect(scene.last().camera).toBe(false);
     unmount();
     // The plan view (no WebGL, the low quality) has no camera to free.
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} />));
     await screen.findByRole("button", { name: /^Edit village, score/ });
     expect(screen.queryByRole("button", { name: "Explore" })).toBeNull();
   });
@@ -48,7 +47,7 @@ describe("Home's Camera mode (#875)", () => {
   it("frees the camera and sends every overlay but Exit off the screen by its nearest edge, in three waves; a second tap leaves", async () => {
     const user = userEvent.setup();
     const scene = canvas();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} chests={2} renderCanvas={scene.renderCanvas} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} chests={2} renderCanvas={scene.renderCanvas} />));
     await user.click(await screen.findByRole("button", { name: "Explore" }, { timeout: slow(5000) }));
 
     expect(scene.last().camera).toBe(true);
@@ -66,7 +65,7 @@ describe("Home's Camera mode (#875)", () => {
     // the dock and the edges first, the capsules' column, then the profile and the balances (the owner's ask: they go too).
     const out = (el: Element) => el.closest("[data-out]")?.getAttribute("data-out");
     expect(out(await screen.findByRole("navigation", { name: "Village" }, { timeout: slow(5000) }))).toBe("r0");
-    expect(out(document.querySelector("[data-dial-place]")!)).toBe("l0");
+    expect(out(document.querySelector("[data-bottom-left]")!)).toBe("l0");
     expect(out(screen.getByRole("button", { name: /^Chat/ }))).toBe("l0");
     for (const shop of screen.getAllByRole("button", { name: "Shop" })) expect(out(shop)).toBe("d0");
     expect(out(document.querySelector("[data-slot=scroll-region]")!)).toBe("l1");

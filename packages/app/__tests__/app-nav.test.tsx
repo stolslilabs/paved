@@ -18,13 +18,19 @@ import { preloadPages } from "./route-helpers";
 describe("the dock", () => {
   it("holds Shop, Ranking, Play, Guild, Settings in that order, at every width (#763, HOME-DOCK; END-CHEST: Ranking in the Chests' place), none of them current", () => {
     render(<AppNav />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild", "Settings"]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Allegiance", "Settings"]);
     expect(screen.queryByRole("button", { current: "page" })).toBeNull();
     expect(screen.getByRole("navigation", { name: "Main" })).not.toHaveClass("desktop:hidden");
     // The labels from `mobile` (a 320 px phone too narrow for the five).
-    for (const name of ["Shop", "Ranking", "Guild", "Settings"]) {
+    for (const name of ["Shop", "Ranking", "Allegiance", "Settings"]) {
       expect(screen.getByRole("button", { name }).querySelector('[data-slot="app-nav-label"]')!.className).toContain("mobile:block");
     }
+    // The Allegiance rename (2026-11-08): "Allegiance", too long for a phone's column at 12 px, takes its size from its column (an inline-size container);
+    // the other labels keep 12 px at every width.
+    const fitted = screen.getByRole("button", { name: "Allegiance" });
+    expect(fitted).toHaveClass("@container");
+    expect(fitted.querySelector<HTMLElement>('[data-slot="app-nav-label"]')!.style.fontSize).toBe("min(0.75rem, 17cqw)");
+    for (const name of ["Shop", "Ranking", "Settings"]) expect(screen.getByRole("button", { name }).querySelector<HTMLElement>('[data-slot="app-nav-label"]')!.style.fontSize).toBe("");
     // The painted wood and parchment under it (the mockup's pieces, 9-slices), and the four dividers between its columns.
     for (const slot of ["dock-wood", "dock-panel"]) expect(document.querySelector(`[data-slot="${slot}"]`), slot).not.toBeNull();
     expect(document.querySelectorAll('[data-slot="dock-divider"]')).toHaveLength(4);
@@ -33,7 +39,7 @@ describe("the dock", () => {
   it("on the home, shows the guild's count on Guild; Ranking opens the Leaderboard (LEADERBOARD-PAGE)", async () => {
     const onNavigate = vi.fn();
     render(<AppNav badges={{ guild: 1 }} onNavigate={onNavigate} />);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild, 1 waiting", "Settings"]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Allegiance, 1 waiting", "Settings"]);
     expect([...document.querySelectorAll('[data-slot="app-nav-badge"]')].map((b) => b.textContent)).toEqual(["1"]);
     const ranking = screen.getByRole("button", { name: "Ranking" });
     expect(ranking).not.toHaveAttribute("aria-disabled");

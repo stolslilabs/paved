@@ -176,11 +176,10 @@ import { MOCK_SEASON_STARTS, mockRival, mockRivals, mockSeasonOf } from "./pvp";
 import { TASK } from "./definitions";
 import { seededPlayer } from "./players";
 import { communityMember, communityProfile, community, leagueIndex, levelAt, searchCommunity, seededVillage } from "./community";
-import { FollowRefusedError, type AllianceBadge, type AlliancePlace, type AllianceSummary, type AllianceView, type PlayerAlliance, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildPlace, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PlayerRanking, type PublicProfile } from "../social-source";
+import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildPlace, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PlayerRanking, type PublicProfile } from "../social-source";
 import { forgetFollows, freshFollows, graphOf, listsOf, seededFollows, settleFollows, type StoredFollows } from "./follows";
-import { playerPlace, rankPlayers, type AllianceDraft, type AllianceSettings, type GuildDraft, type GuildSettings } from "@paved/game-core";
+import { playerPlace, rankPlayers, type GuildDraft, type GuildSettings } from "@paved/game-core";
 import * as guilds from "./guilds";
-import * as alliances from "./alliances";
 import * as chat from "./chat";
 import type { ChatEvent, ChatSource } from "../social-source";
 import type { ConversationId, TutorialCounts, TutorialTask } from "@paved/game-core";
@@ -503,8 +502,6 @@ interface StoredState {
   follows?: StoredFollows;
   /** The guilds (#953, `guilds.ts`); absent: the seeded world, before any guild write. */
   guilds?: guilds.GuildWorld;
-  /** The alliances (ALLIANCES, `alliances.ts`); absent: the seeded world, before any alliance write. */
-  alliances?: alliances.AllianceWorld;
   /** The messages (#955, `chat.ts`): the device's own, the mock's answers and requests; absent: none yet. */
   chat?: chat.AnyStoredChat;
 }
@@ -1570,87 +1567,6 @@ export class MockLedger {
   }
   visitGuildTab(player: string): Promise<void> {
     return this.guildWrite(player, (w) => guilds.visitGuildTabIn(w));
-  }
-
-  // --- The alliances (ALLIANCES, `alliances.ts`) -------------------------------------------------------------------------
-
-  /** The alliances' world as stored, settled at `now` over the guilds' world settled at the same time (copies: the caller stores the alliances' or not). */
-  private allianceWorlds(now: number): alliances.AllianceRead {
-    const guildWorld = this.settledGuilds(now);
-    const world = structuredClone(alliances.parseAllianceWorld(this.state.alliances) ?? alliances.seededAllianceWorld());
-    alliances.settleAlliances(world, guildWorld, now);
-    return { alliances: world, guilds: guildWorld, people: this.personOf(guildWorld, now), now };
-  }
-
-  /** The alliances settled at the ledger's clock for a read (not stored: the next write settles them again). */
-  private allianceRead<T>(read: (r: alliances.AllianceRead) => T): T {
-    this.sync();
-    return read(this.allianceWorlds(this.second()));
-  }
-
-  /** One alliance write under the lock: the worlds settled, the change applied and the alliances stored, or, refused, left as they were. */
-  private async allianceWrite<T>(player: string, change: (w: alliances.AllianceWrite) => T): Promise<T> {
-    await sleep(this.latency);
-    return this.lock(() => {
-      this.sync();
-      const w: alliances.AllianceWrite = { ...this.allianceWorlds(this.second()), player: addressKey(player) };
-      const result = change(w);
-      this.state = { ...this.state, alliances: w.alliances };
-      this.save();
-      return result;
-    });
-  }
-
-  async playerAlliance(player: string): Promise<PlayerAlliance> {
-    return this.allianceRead((r) => alliances.playerAllianceOf(r, player));
-  }
-  async alliance(id: number, viewer: string | null): Promise<AllianceView | null> {
-    return this.allianceRead((r) => alliances.allianceViewOf(r, id, viewer));
-  }
-  async allianceOfGuild(guild: number): Promise<AllianceBadge | null> {
-    return this.allianceRead((r) => alliances.allianceBadgeOf(r.alliances, guild));
-  }
-  async searchAlliances(query: string): Promise<AllianceSummary[]> {
-    return this.allianceRead((r) => alliances.searchAlliancesOf(r, query));
-  }
-  async allianceRanking(): Promise<AllianceSummary[]> {
-    return this.allianceRead((r) => alliances.allianceRankingOf(r));
-  }
-  async alliancePlace(id: number): Promise<AlliancePlace | null> {
-    return this.allianceRead((r) => alliances.alliancePlaceOf(r, id));
-  }
-  createAlliance(player: string, draft: AllianceDraft): Promise<number> {
-    return this.allianceWrite(player, (w) => alliances.createAllianceIn(w, draft));
-  }
-  editAlliance(player: string, settings: AllianceSettings): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.editAllianceIn(w, settings));
-  }
-  requestAlliance(player: string, alliance: number): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.requestAllianceIn(w, alliance));
-  }
-  cancelAllianceRequest(player: string): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.cancelAllianceRequestIn(w));
-  }
-  answerAllianceRequest(player: string, guild: number, accept: boolean): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.answerAllianceRequestIn(w, guild, accept));
-  }
-  inviteGuild(player: string, guild: number): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.inviteGuildIn(w, guild));
-  }
-  answerAllianceInvitation(player: string, alliance: number, accept: boolean): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.answerAllianceInvitationIn(w, alliance, accept));
-  }
-  removeGuild(player: string, guild: number): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.removeGuildIn(w, guild));
-  }
-  makeHeadGuild(player: string, guild: number): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.makeHeadGuildIn(w, guild));
-  }
-  leaveAlliance(player: string): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.leaveAllianceIn(w));
-  }
-  visitAlliance(player: string): Promise<void> {
-    return this.allianceWrite(player, (w) => alliances.visitAllianceIn(w));
   }
 
   /** A rival village's name (the mock's opponents, PvP v1's and v2's) or a seeded player's (`players.ts`), or null for any other player. */

@@ -12,7 +12,7 @@ export const WORLD_LINES: readonly string[] = [
   "gg to whoever raided my village last night, that was clean",
   "My village finally hit a thousand. Taking the afternoon off.",
   "Is the Challenge harder this week or is it just me?",
-  "Looking for an open guild, level 9, plays most evenings.",
+  "Looking for an open allegiance, level 9, plays most evenings.",
   "Who keeps building farms next to my rivers?",
   "Shield's up, coffee's on. Good luck in the league today.",
   "Three stars on a Silver village with a city still open. Lucky draw.",
@@ -46,7 +46,7 @@ export const GUILD_LINES: readonly string[] = [
   "Welcome to the new faces! Ask anything.",
   "Who's close to the next league? Let's push together.",
   "Dropping off for the night. Keep the roads safe.",
-  "Our score passed another guild today. Keep it up.",
+  "Our score passed another allegiance today. Keep it up.",
   "Anyone else stuck on the weekly with the long roads?",
   "I'll be away a couple of days, don't kick me!",
   "Village redone. Fewer gaps, more fields.",
@@ -69,7 +69,7 @@ export const REPLY_LINES: readonly string[] = [
 /** What a stranger of the community writes to a player, the request the mock sends after the first visit. */
 export const REQUEST_LINES: readonly string[] = [
   "Hi! Saw your village on the board, nice layout. Fancy swapping tips?",
-  "Hello, are you looking for a guild? We have room.",
+  "Hello, are you looking for an allegiance? We have room.",
   "Hey, good attack earlier. How did you close that city?",
 ];
 

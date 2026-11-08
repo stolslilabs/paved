@@ -13,7 +13,7 @@ const meta = {
   args: {
     open: true,
     onOpenChange: fn(),
-    preferences: { quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true },
+    preferences: { quality: "auto", seasons: "cycle", dayTime: "cycle", ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true },
     autoQuality: "medium",
     onChange: fn(),
     onVolumeChange: fn(),
@@ -26,6 +26,13 @@ type Story = StoryObj<typeof meta>;
 export const BoardChallenge: Story = { args: { game: { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: fn() } } };
 /** On the board in Story mode, Training and an attack: no game row (Story's and Training's Restart is on the board, held). */
 export const BoardStory: Story = {};
+/** SEASONS-SETTINGS: the Seasons pill tapped on the board, its choices over the drawer. */
+export const Seasons: Story = {
+  play: async () => {
+    await userEvent.click(await screen.findByRole("button", { name: "Seasons: Cycle" }));
+    await screen.findByRole("menu");
+  },
+};
 /** The quality's choice, a view in the drawer's place, with Back to the settings. */
 export const Quality: Story = {
   play: async () => {

@@ -1,7 +1,7 @@
 /**
  * WEATHER-STUDY (#607 PR 2), WEATHER-WIRE (#658): stills of each season by day and at night at 375 x 812 and 1440 x 900 (DPR 2 by default), a
  * GIF per season with things falling, and a GIF of a season fade, from the stories `Renderer/Weather` (the weather the scene draws on
- * every board), at a phone's play distance, the wheel fixed.
+ * every board), at a phone's play distance, the season held.
  *
  *   bun run storybook                 (in another shell, or pass --url to a Storybook already up)
  *   node scripts/weather-captures.ts --out <folder> [--url http://localhost:6006] [--frames 45] [--fps 15] [--dpr 2] [--gpu]
@@ -9,7 +9,7 @@
  *
  * Each capture opens a fresh page, waits for the board and the season's weather in full, stops the render loop and draws its frames
  * one by one: the ambient time moved 1 / fps, every effect on the loop stepped (the weather, the clouds), `scene.render()`, and a
- * screenshot of the page. The fade turns the wheel (the cycle's held moment, as a tap does) after its first second. ffmpeg (on the
+ * screenshot of the page. The fade changes the season held (the cycle's held moment, as a new choice in Settings does) after its first second. ffmpeg (on the
  * PATH) makes the GIF from the frames, with one palette for the clip. The time steps are the loop's own, so the GIF plays at the
  * speed the board would, whatever the capture's own pace.
  *
@@ -46,7 +46,7 @@ interface Capture {
   frames: number;
   width: number;
   height: number;
-  /** The fade: at this frame the wheel turns to `turnTo` (the cycle's held moment, in seasons since a summer's dawn). */
+  /** The fade: at this frame the held moment turns to `turnTo` (the cycle's held moment, in seasons since a summer's dawn). */
   turnAt?: number;
   turnTo?: number;
 }

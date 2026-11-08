@@ -973,7 +973,8 @@ Forest take it from the Challenge's own draw (`packages/game-core/src/story/deck
   - **Coach marks**: the level that introduces a control shows one tip under the header and lights that control on the
     board (GAME-OVERLAY: the opened chest's light behind it, the same mark on every target, still under reduced motion):
     Place tile (1-1), the rotate and cancel buttons by the tile (1-2, a tip only: they stand round the tile),
-    Discard (1-3, 1-4), the tile stack (1-5, 1-11), the season wheel (1-6), the settings gear (1-7). "Got it" hides it.
+    Discard (1-3, 1-4), the tile stack (1-5, 1-11), the settings gear (1-7). "Got it" hides it. The season wheel's (1-6) left
+    with the wheel (SEASONS-SETTINGS): the seasons and the day and night are Settings' choices.
   - **The tip and the theme** (#721, STORY-SCREENS): the intro also shows the level's tip, set apart, and every tile of a
     level (the board, the starter, the hand, the stack, the intro, the deck sheet) is drawn in its campaign's theme.
     STORY-SCREENS may move the "Tiles left" coach mark from 2-1 to the new 1-11, which introduces the deck sheet.

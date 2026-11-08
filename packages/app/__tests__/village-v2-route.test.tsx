@@ -183,7 +183,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     ["Shop", "/village/shop"],
     [/^Missions/, "/missions"],
     ["Vault", "/vault"],
-    [/^Guild/, "/guild"],
+    [/^Allegiance/, "/guild"],
     [/^League: /, "/pvp/league"],
     ["Settings", "/settings"],
     [/^Play/, "/play"],
@@ -212,7 +212,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
   // One test per page, each with its own ceiling: the seven trips in one test outlasted a single ceiling on a loaded machine.
   it.each([
     ["Shop", "/village/shop"],
-    [/^Guild/, "/guild"],
+    [/^Allegiance/, "/guild"],
     [/^League: /, "/pvp/league"],
     [/^Play/, "/play"],
     [/^Missions/, "/missions"],
