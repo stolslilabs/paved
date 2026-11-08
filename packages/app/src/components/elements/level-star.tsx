@@ -16,7 +16,7 @@ export interface LevelStarProps {
  * A player's level as the HUD draws it (CHAT-PAGE, the owner's ask of 2026-11-05: the profile's blue star, not a "Lv" chip): the
  * level bar's star (`level-bar.tsx`, the player card's and the profile's) with the level in it, two figures at most ("99+" past
  * them), still: no level up's turn. Named for screen readers ("Level 14").
- * Sized so two figures (12 px, outlined, about 18 px wide) sit inside the drawing, which is 62 % of its box across them (#1065): 32 px,
+ * Sized so two figures (12 px, outlined, about 18 px wide) sit inside the drawing, which is 62 % of its box across them (LEVEL-STAR-SIZE): 32 px,
  * the bar's, or 28 px in a row. Its 2 px above and below overhang the line (`-my-0.5`): a row keeps the height it had with the smaller star.
  */
 export function LevelStar({ level, size = "md", className }: LevelStarProps) {

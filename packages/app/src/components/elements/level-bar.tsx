@@ -72,7 +72,7 @@ function useFillIn(fill: RefObject<HTMLSpanElement | null>, progress: PlayerProg
 }
 
 /**
- * The card's bar: its track 130 px (146 from `tablet`), plus the 16 px of the star's half on its left (#1065: the star grew from 28 to
+ * The card's bar: its track 130 px (146 from `tablet`), plus the 16 px of the star's half on its left (LEVEL-STAR-SIZE: the star grew from 28 to
  * 32 px so that two figures fit inside, the track kept its size). `PlayerBadge`'s stand-in while the bar loads has the same width.
  */
 const CARD_WIDTH = "w-[9.125rem] tablet:w-[10.125rem]";
@@ -144,7 +144,7 @@ export function LevelBar({ progress, variant = "card", star = true, className }:
           {progress ? xpText(progress, variant) : ""}
         </span>
       </span>
-      {/* The star centred on the track's left end, the level in it: 32 px, 2 px past the bar above and below (#1065). */}
+      {/* The star centred on the track's left end, the level in it: 32 px, 2 px past the bar above and below (LEVEL-STAR-SIZE). */}
       {star && <span data-slot="level-star" className="absolute -top-0.5 left-0 grid size-8 place-items-center perspective-[200px]">
         <UiIcon name="level-star" px={32} className="absolute inset-0 size-full [filter:drop-shadow(0_1px_0_var(--background))]" />
         <span data-slot="level" className="numeric text-outline relative text-xs leading-none font-bold text-foreground">
