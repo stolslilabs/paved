@@ -597,9 +597,9 @@ describe("Home's points by structure (#758)", () => {
 });
 
 describe("Play", () => {
-  // PLAY-PAGE: the Paved UX Book's "modes", then the owner's asks of 2026-11-06: Ranked before Paid, each mode's gift of what it pays,
-  // no Free Challenge, a Limited section to come.
-  it("lists the groups in the owner's order, each mode with its gift of rewards", async () => {
+  // PLAY-PAGE: the Paved UX Book's "modes", then the owner's asks of 2026-11-06: Ranked before Paid, each mode's rewards (since
+  // 2026-11-08 without the gift under them, Story's Cobbles added), no Free Challenge, a Limited section to come.
+  it("lists the groups in the owner's order, each mode with its rewards", async () => {
     const onChallenge = vi.fn();
     render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} onAttack={() => {}} />));
     expect(screen.getByRole("dialog", { name: "Play" })).toBeInTheDocument();
@@ -614,7 +614,10 @@ describe("Play", () => {
     expect(screen.getByRole("button", { name: /^Training/ })).toHaveTextContent("TrainingA full game, just for practice");
     expect(screen.getByRole("button", { name: /^Training/ })).not.toHaveAccessibleName(/Rewards/);
     expect(screen.getByRole("button", { name: /^Story/ })).toHaveTextContent(/^StoryLearn the rules, level by level/);
-    expect(screen.getByRole("button", { name: /^Story/ })).toHaveAccessibleName(/Rewards: XP, chests$/);
+    expect(screen.getByRole("button", { name: /^Story/ })).toHaveAccessibleName(/Rewards: Cobbles, XP, chests$/);
+    // The rewards' icons alone: no gift under them (the owner's ask of 2026-11-08); Story's Cobbles are the token's own icon.
+    expect(document.querySelector('img[src*="gift-open"]')).toBeNull();
+    expect(screen.getByRole("img", { name: "Rewards: Cobbles, XP, chests" }).querySelector('[data-token="cobbles"]')).not.toBeNull();
     expect(screen.getByRole("button", { name: "Coming soon" })).toBeDisabled();
     // No price tag, no free game, no Multiplayer.
     expect(screen.queryByText(/USDC|earn PAVED/)).toBeNull();
@@ -622,7 +625,7 @@ describe("Play", () => {
     expect(screen.queryByText(/Multiplayer/)).toBeNull();
   });
 
-  it("shows a running Challenge's time left and score in place of its gift, and resumes it", async () => {
+  it("shows a running Challenge's time left and score in place of its rewards, and resumes it", async () => {
     const onResume = vi.fn();
     const onChallenge = vi.fn();
     render(wrap(<PlayScene {...PLAY.running} onResume={onResume} onChallenge={onChallenge} />));
@@ -644,9 +647,9 @@ describe("Play", () => {
     expect(screen.queryByText(/connect/i)).toBeNull();
   });
 
-  // #1041: the gift is drawn above the card's stretched button (`after:inset-0`); it takes no pointer, so a tap on it is the button's.
+  // #1041: the rewards are drawn above the card's stretched button (`after:inset-0`); they take no pointer, so a tap on them is the button's.
   // jsdom has no layout: `tapAt` stands in for the browser's hit test, the topmost element under the point that takes pointers.
-  it("a tap on Attack's or the Challenge's gift chooses that mode; Resume stays its own control", async () => {
+  it("a tap on Attack's or the Challenge's rewards chooses that mode; Resume stays its own control", async () => {
     const tapAt = async (el: HTMLElement) => {
       const through = el.closest(".pointer-events-none");
       const beneath = through ? through.closest(".drawer-tile")!.querySelector<HTMLElement>("button[class*='after:inset-0']")! : el;
@@ -655,15 +658,15 @@ describe("Play", () => {
     const onChallenge = vi.fn();
     const onAttack = vi.fn();
     const { unmount } = render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} onAttack={onAttack} />));
-    const gifts = [screen.getByRole("img", { name: "Rewards: crowns, XP, chests" }), screen.getByRole("img", { name: "Rewards: PAVED, XP, chests" })];
-    for (const gift of gifts) {
-      expect(gift).toHaveClass("pointer-events-none");
+    const prizes = [screen.getByRole("img", { name: "Rewards: crowns, XP, chests" }), screen.getByRole("img", { name: "Rewards: PAVED, XP, chests" })];
+    for (const prize of prizes) {
+      expect(prize).toHaveClass("pointer-events-none");
       // Each of its images too: none takes a tap of its own.
-      for (const img of gift.querySelectorAll<HTMLElement>("*")) expect(img.closest(".pointer-events-none")).toBe(gift);
+      for (const img of prize.querySelectorAll<HTMLElement>("*")) expect(img.closest(".pointer-events-none")).toBe(prize);
     }
-    await tapAt(gifts[0]!.querySelector("img") ?? gifts[0]!);
+    await tapAt(prizes[0]!.querySelector("img") ?? prizes[0]!);
     expect(onAttack).toHaveBeenCalledOnce();
-    await tapAt(gifts[1]!.querySelector("img") ?? gifts[1]!);
+    await tapAt(prizes[1]!.querySelector("img") ?? prizes[1]!);
     expect(onChallenge).toHaveBeenCalledOnce();
     unmount();
 
