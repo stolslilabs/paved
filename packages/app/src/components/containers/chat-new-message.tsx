@@ -72,9 +72,9 @@ export function ChatNewMessage({ open, onOpenChange, friends, guildmates, search
   return (
     <HudDrawer open={open} onOpenChange={onOpenChange} title="New message" side="right" slot="chat-new-message" inPlace>
       <div data-slot="chat-new-message" className="flex flex-col gap-5 pb-2">
-        <p className="text-sm font-semibold text-muted-foreground">Write to a friend or a guildmate, or find any player.</p>
+        <p className="text-sm font-semibold text-muted-foreground">Write to a friend or a member of your allegiance, or find any player.</p>
         <Contacts title="Friends" players={friends} empty="No friends yet: when a player you follow follows you back, you are friends." onPick={pick} />
-        {guildmates !== undefined && <Contacts title="Guildmates" players={mates} empty="No other guildmate yet." onPick={pick} />}
+        {guildmates !== undefined && <Contacts title="Allegiance" players={mates} empty="No other member yet." onPick={pick} />}
         <section aria-label="Someone else" className="flex flex-col gap-2">
           <h3 className="font-semibold">Someone else</h3>
           <PlayerSearch {...search} onOpen={pick} />

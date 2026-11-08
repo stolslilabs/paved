@@ -490,9 +490,8 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   LEADERBOARD-PAGE (2026-11-07), the dock's Ranking: the Paved UX Book draws no leaderboard, so in the integrated pages' style (the
   Guild page's members' rows above all, the Profile's and the Missions' titles and carved surfaces). `/ranking` is the HUD's drawer, a
   full page with Back on a phone, from `tablet` a side panel docked at the right, as the dock's other pages. Its tabs at its foot, the
-  Vault's bottom navigation (`containers/footer-tabs.tsx`): Players, Guilds, Alliances and Friends under the HUD's painted player, a red
-  shield, two shields over a laurel and the HUD's handshake; Alliances in its place but disabled until the game has alliances, a carved
-  "Soon" at its icon's corner (`FooterTab`'s `soon`, the Tiles' mark); Friends at the right end (the owner's ask of 2026-11-07), the
+  Vault's bottom navigation (`containers/footer-tabs.tsx`): Players, Guilds and Friends under the HUD's painted player, a red shield and
+  the HUD's handshake; Friends at the right end (the owner's ask of 2026-11-07), the
   viewer among their friends, the mutual follows, by the same crowns (game-core's `rankAmongFriends`); the tab the URL's (`?tab=guilds`,
   `?tab=friends`). Each tab the drawers' section title with its count over one carved list, a row per place: the first three under a
   painted medal (gold, silver, bronze), then the figure; the player's portrait in their league's rim with its crest (the guild's
@@ -501,8 +500,7 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   ("Yours" on their guild's); while it is out of view (or past the list's end), the same row pinned at the foot over the tabs on the
   body's charcoal (the Vault's bill's place), a tap bringing it into view. A player's row opens their profile over the drawer, a guild's
   its page. Painted assets: the gold and silver medals redrawn by Codex's built-in image tool from the HUD's bronze medal, and the tabs'
-  Alliances icon (a blue and a red shield over a gold laurel, the owner's pick of three ideas, 2026-11-07) and Guilds icon (its red
-  shield alone, the owner's ask) painted by it in the HUD icons' rendering (`scripts/compress-ui-art.ts`, kind `ranking`).
+  Guilds icon (a red shield, the owner's ask) painted by it in the HUD icons' rendering (`scripts/compress-ui-art.ts`, kind `ranking`).
   ATTACK-SCOUT (2026-11-07), after the Paved UX Book's "Attack a rival" (`search`, `scout`), the user's direction of the same day
   (the search, the scout's Next and Attack under its header, the village with the deck at its bottom right, the deck to inspect, the
   deck page in the Tiles page's style). The search (`/pvp`, full screen) is an empty village in the rival's animated void (the user's
@@ -652,24 +650,8 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   page's life, names rather than figures. This supersedes the counts beside the titles described in MISSIONS-PAGE, COLLECTION-PAGE,
   ATTACK-SCOUT, LEADERBOARD-PAGE, GUILD-PAGE, EDIT-VILLAGE, PLAYER-RENAME and STORY-INTRO above.
 
-  ALLIANCES (2026-11-07), the alliance feature on the mock (client only; the contracts' spec comes once the owner is satisfied): the
-  Paved UX Book draws no alliance, so in the Guild page's look and parts. An alliance is a union of up to five guilds (the Leaderboard's
-  Alliances icon, two guilds' shields over a laurel), ranked by the sum of its guilds' scores; guild leaders act for their guilds, the
-  founding guild is its head and its leader leads it (game-core's `social/alliance.ts`). Its page is a view of the Guild drawer ("Alliance",
-  Back, the red cross; `/guild?alliance=<id>`, the player's own at `/guild?view=alliance`): the emblem, the name and the viewer's guild's
-  role in a carved pill, the figures on the carved band (guilds out of 5, score, players), the description folded, its guilds on carved
-  rows (the head with its crown, the viewer's on the gold wash); for its leader the requests (raised Accept and Decline) and the
-  invitations sent; for an outside guild's leader, the drawer's footer: Cancel or Decline raised grey at the left, the gold Request to
-  join or Accept at the right, in their places whatever the state. The emblem: a guild emblem's shield (the same charges, colours and
-  picker) standing on the gold laurel of the Alliances icon, which Codex's built-in image tool painted alone (three variants, the third
-  kept). The Guild page: the guild's alliance under its tag (a small raised pill, or "No alliance" written out), an Alliance tile beside
-  Chat (the Alliances icon, its red count what waits), a "No alliance" view (the invitations, the request, Create an alliance, Find an
-  alliance as the menu's raised rows); another guild's page carries the alliance leader's Invite, or Make head and Remove (Codex painted
-  Invite a guild and Remove a guild: the ranking's red guild shield with Invite a player's plus and Kick's minus). The Leaderboard's
-  Alliances tab is live, its rows the guilds' with the laurelled emblem and the guilds out of 5.
   RANKING-GUILD-ICON (2026-11-08, the owner's ask): the Leaderboard's Guilds tab draws the dock's Guild (`UiIcon` `guild`, its two
-  banners) at 36 px, as Players and Friends draw theirs, in place of the red shield. The shield (`ranking-art.ts`'s `guilds`) stays as an
-  alliance's guild count's (`GuildCount`, the Alliances rows and the alliance finder), beside the Alliances icon's two shields.
+  banners) at 36 px, as Players and Friends draw theirs, in place of the red shield.
 
   GAME-OVERLAY (2026-11-07), the in-game overlay after the Paved UX Book's board screen (mockup 3 of "Resume a Challenge") and the
   owner's words ("un genre de wireframe autour du deck en jaune qui pulse", "plus proche du style du reste de l'app", Story's Restart
@@ -727,6 +709,14 @@ Reference images the client is drawn after. They are not shipped: nothing under 
   Ranked game plutôt que Game Over"), "Surrendered" kept. Story: VICTORY, or GAME OVER with no star. Training: VICTORY on a new
   best, else GAME OVER. A Challenge's end, which had no verdict, gets one over its score, in the same gold: VICTORY rewarded or at
   the score to beat (the trophy of the HUD's meter), GAME OVER below it, expired, free or with its reward unread.
+  NO-ALLIANCES (2026-11-08, the owner's decision): alliances dropped, 2026-11-08; guilds stand alone, with no level above them
+  (their rules, mock, pages, the Ranking's tab and their paintings removed). In the same change the app names a guild an Allegiance
+  in what it shows (en-US, P-66): "Allegiance" and "Allegiances" for "Guild" and "Guilds", "allegiance" inside a sentence, "an
+  allegiance" for "a guild": the dock's and the Chat's tabs, the Ranking's tab and list, the page's title, its menu, finder, form,
+  refusals, confirmations, empty states and labels. The code, the routes (`/guild`, `?tab=guilds`), the data and the contracts keep
+  "guild". The Ranking's footer is Players, Allegiances, Friends. The dock's "Allegiance", too long at 12 px for a phone's column
+  (64 px of text, a 59 px column at 360 px), takes its size from its column (`min(0.75rem, 17cqw)`, the button an inline-size
+  container) where it would not fit, never truncated; from 390 px it is 12 px, as the other labels always are.
 - `avatar-king.webp`: the avatar's render target (2026-10-31): the king as a voxel bust, three-quarter view, on a blurred village.
   The client's bust is built from cuboids measured on it (`packages/renderer/src/core/avatar/avatar-king-spec.ts`) and its view
   fitted to it (`KING_VIEW`). Generated with OpenAI's image model through the Codex CLI.

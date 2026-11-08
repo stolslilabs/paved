@@ -114,8 +114,8 @@ export interface FooterTabProps extends Omit<ComponentProps<typeof TabsTrigger>,
   /** The word the count is read with ("Followers, 2 new"); omitted, "waiting". */
   badgeWord?: string;
   /**
-   * Not in the game yet (LEADERBOARD-PAGE's Alliances): the tab keeps its place, disabled, a carved "Soon" where a count would be (the
-   * Tiles' mark), read "Alliances, coming soon". It wins over a count.
+   * Not in the game yet (LEADERBOARD-PAGE): the tab keeps its place, disabled, a carved "Soon" where a count would be (the Tiles'
+   * mark), read "<label>, coming soon". It wins over a count.
    */
   soon?: boolean;
 }

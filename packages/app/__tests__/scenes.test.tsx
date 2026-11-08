@@ -89,7 +89,7 @@ describe("Home (#753): the village with its overlays", () => {
     expect(within(column).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Missions, 3 waiting", "Vault", "Friends, 2 waiting", "Tiles"]);
     // The overlays outside the dock (the dock's own are tested below): no Ranking, Shop, Guild, Settings or Play of their own.
     const overlay = (name: string | RegExp) => screen.getAllByRole("button", { name }).find((b) => !b.closest("nav[aria-label=Main]"))!;
-    for (const name of ["Ranking", "Shop", "Guild, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
+    for (const name of ["Ranking", "Shop", "Allegiance, 1 waiting", "Settings", "Play"]) expect(overlay(name), name).toBeUndefined();
     for (const [name, handler] of [
       ["Chat, 3 waiting", on.onChat],
       ["Friends, 2 waiting", on.onFriends],
@@ -120,10 +120,10 @@ describe("Home (#753): the village with its overlays", () => {
     expect(nav.parentElement!.className.split(" ")).toEqual(expect.arrayContaining(["pointer-events-none", "[&>*]:pointer-events-auto"]));
     expect(nav.parentElement!.className).not.toContain("desktop:hidden");
     const items = within(nav).getAllByRole("button");
-    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Guild, 1 waiting", "Settings"]);
+    expect(items.map((b) => b.getAttribute("aria-label"))).toEqual(["Shop", "Ranking", "Play", "Allegiance, 1 waiting", "Settings"]);
     // No item current on the home; the guild's count on Guild; Ranking opens the Leaderboard (LEADERBOARD-PAGE).
     expect(within(nav).queryByRole("button", { current: "page" })).toBeNull();
-    expect(within(within(nav).getByRole("button", { name: "Guild, 1 waiting" })).getByText("1")).toBeInTheDocument();
+    expect(within(within(nav).getByRole("button", { name: "Allegiance, 1 waiting" })).getByText("1")).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Ranking" })).not.toHaveAttribute("aria-disabled");
     for (const item of items) await userEvent.click(item);
     expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "ranking", "play", "guild", "settings"]);
@@ -1340,7 +1340,7 @@ describe("Element feedback (EL)", () => {
 
   it("draws the dock's icons as the mockup's (HOME-DOCK), its own colours", () => {
     render(wrap(<AppNav />));
-    for (const [tab, icon] of [["Shop", "shop"], ["Ranking", "trophy"], ["Play", "swords"], ["Guild", "guild"], ["Settings", "settings"]]) {
+    for (const [tab, icon] of [["Shop", "shop"], ["Ranking", "trophy"], ["Play", "swords"], ["Allegiance", "guild"], ["Settings", "settings"]]) {
       expect(screen.getByRole("button", { name: new RegExp(`^${tab}`) }).querySelector(`[data-slot=ui-icon][data-icon=${icon}]`), tab).not.toBeNull();
     }
   });

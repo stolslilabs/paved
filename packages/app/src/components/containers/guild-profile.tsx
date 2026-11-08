@@ -120,7 +120,7 @@ export function GuildMemberActions({ viewer, target, now, onAction, look = "butt
     const refused = inviteRefusal(viewer.rank, { id: viewer.guild.id, members: viewer.guild.members }, { guild: target.guild, blockedInviter: false, invited: target.invited });
     if (refused !== "rank")
       buttons.push(
-        <Button key="invite" variant="outline" disabled={refused !== null || pending} onClick={() => ask({ title: `Invite ${who} to ${viewer.guild.name}?`, text: "The invitation waives the guild's requirements and lapses after 7 days.", confirm: "Invite" }, () => ({ type: "invite" }))}>
+        <Button key="invite" variant="outline" disabled={refused !== null || pending} onClick={() => ask({ title: `Invite ${who} to ${viewer.guild.name}?`, text: "The invitation waives the allegiance's requirements and lapses after 7 days.", confirm: "Invite" }, () => ({ type: "invite" }))}>
           <Icon name={refused === "invited-already" ? "check" : "plus"} size="xs" />
           {refused === "invited-already" ? `Invited to ${viewer.guild.name}` : `Invite to ${viewer.guild.name}`}
         </Button>,
@@ -147,7 +147,7 @@ export function GuildMemberActions({ viewer, target, now, onAction, look = "butt
       );
     if (makeLeaderRefusal(actor, t) === null)
       buttons.push(
-        <Button key="leader" variant="outline" onClick={() => ask({ title: `Make ${who} the leader?`, text: "They lead the guild; you become an Officer.", confirm: "Make leader" }, () => ({ type: "make-leader" }))}>
+        <Button key="leader" variant="outline" onClick={() => ask({ title: `Make ${who} the leader?`, text: "They lead the allegiance; you become an Officer.", confirm: "Make leader" }, () => ({ type: "make-leader" }))}>
           <Icon name="crown" size="xs" />
           Make leader
         </Button>,
@@ -171,7 +171,7 @@ export function GuildMemberActions({ viewer, target, now, onAction, look = "butt
   return (
     <div data-slot="guild-actions" className="flex flex-col gap-2">
       {buttons}
-      <InlineError title="Guild" message={error} />
+      <InlineError title="Allegiance" message={error} />
       {dialog}
     </div>
   );
@@ -208,7 +208,7 @@ function GuildActionTiles({ viewer, target, now, who, actor, same, ask, dialog, 
           label={invited ? "Invited" : "Invite"}
           name={invited ? `Invited to ${viewer.guild.name}` : `Invite to ${viewer.guild.name}`}
           disabled={refused !== null || pending}
-          onClick={() => ask({ title: `Invite ${who} to ${viewer.guild.name}?`, text: "The invitation waives the guild's requirements and lapses after 7 days.", confirm: "Invite" }, () => ({ type: "invite" }))}
+          onClick={() => ask({ title: `Invite ${who} to ${viewer.guild.name}?`, text: "The invitation waives the allegiance's requirements and lapses after 7 days.", confirm: "Invite" }, () => ({ type: "invite" }))}
         >
           {invited ? (
             <span className={`${MARK} bg-success`}>
@@ -235,7 +235,7 @@ function GuildActionTiles({ viewer, target, now, who, actor, same, ask, dialog, 
         <ActionTile key="demote" art="guild-demote" label="Demote" name={`Demote to ${rankName(down)}`} onClick={() => ask({ title: `Demote ${who}?`, text: `They become a ${rankName(down)}.`, confirm: `Demote to ${rankName(down)}` }, () => ({ type: "demote" }))} />,
       );
     if (makeLeaderRefusal(actor, t) === null)
-      tiles.push(<ActionTile key="leader" art="guild-leader" label="Leader" name="Make leader" onClick={() => ask({ title: `Make ${who} the leader?`, text: "They lead the guild; you become an Officer.", confirm: "Make leader" }, () => ({ type: "make-leader" }))} />);
+      tiles.push(<ActionTile key="leader" art="guild-leader" label="Leader" name="Make leader" onClick={() => ask({ title: `Make ${who} the leader?`, text: "They lead the allegiance; you become an Officer.", confirm: "Make leader" }, () => ({ type: "make-leader" }))} />);
     if (kickRefusal({ ...actor, lastKick: null }, t, now) === null) {
       const wait = viewer.nextKickAt !== null && viewer.nextKickAt > now ? viewer.nextKickAt - now : 0;
       tiles.push(
@@ -255,7 +255,7 @@ function GuildActionTiles({ viewer, target, now, who, actor, same, ask, dialog, 
     <div data-slot="guild-actions" className="grid grid-cols-3 gap-1.5">
       {tiles}
       {notes}
-      <InlineError title="Guild" message={error} className="col-span-3" />
+      <InlineError title="Allegiance" message={error} className="col-span-3" />
       {dialog}
     </div>
   );

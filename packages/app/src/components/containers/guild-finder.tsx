@@ -70,7 +70,7 @@ function Cards({ list, player, ranked, empty, onOpen }: { list: GuildList; playe
   return (
     <>
       <InlineError
-        title="Guilds"
+        title="Allegiances"
         message={list.error}
         detail={list.errorDetail}
         action={
@@ -190,7 +190,7 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
     setMoved(true);
     setCreating(next);
   };
-  const inDrawer = useDrawerView(creating ? "Create a guild" : null, () => open(false));
+  const inDrawer = useDrawerView(creating ? "Create an allegiance" : null, () => open(false));
   // A move between the finder and Create starts at the top of the drawer's body, as the guild page's views (#1030): Create takes the
   // focus on its view, the finder gives it back to the Create row it left from (else the focus falls to the drawer, the next Tab to Back).
   // Neither focus scrolls (`preventScroll`): a Create row under several invitations would otherwise pull the finder off its top.
@@ -205,7 +205,7 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
   }, [creating, moved]);
   return (
     <div data-slot="guild-finder" className="flex flex-col gap-5">
-      {!inDrawer && creating && <ViewHeader title="Create a guild" onBack={() => open(false)} />}
+      {!inDrawer && creating && <ViewHeader title="Create an allegiance" onBack={() => open(false)} />}
       <m.div
         key={creating ? "create" : "finder"}
         ref={shown}
@@ -243,10 +243,10 @@ export function GuildFinder({ player, now, candidate, query, onQueryChange, filt
 
             <div data-slot="guild-none" className="drawer-carved flex flex-col gap-3 rounded-xl p-3">
               <div className="flex flex-col gap-1">
-                <p className="text-outline font-display text-xl leading-tight tracking-wide">You are in no guild</p>
+                <p className="text-outline font-display text-xl leading-tight tracking-wide">You are in no allegiance</p>
                 <p className="text-sm font-semibold text-muted-foreground">Join one to share announcements and climb its ranking, or found your own.</p>
               </div>
-              <DrawerRow ref={createRow} art="plus" label="Create a guild" next onClick={() => open(true)} />
+              <DrawerRow ref={createRow} art="plus" label="Create an allegiance" next onClick={() => open(true)} />
             </div>
 
             <GuildBrowse
@@ -282,18 +282,18 @@ const FILTER = "bg-transparent font-bold";
  * drawer's engraved title; the search carved with the painted magnifier; the filters on a carved panel, the join types under their
  * painted icons; Suggested and Ranking the footer's tabs (FOOTER-TABS, #1062); the guilds the drawer's carved list.
  */
-export function GuildBrowse({ candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, suggestedEmpty = "No guild you can join right now: search one, or create yours." }: GuildBrowseProps) {
+export function GuildBrowse({ candidate, query, onQueryChange, filters, onFiltersChange, results, suggested, ranking, onOpenGuild, suggestedEmpty = "No allegiance you can join right now: search one, or create yours." }: GuildBrowseProps) {
   const [list, setList] = useState<"suggested" | "ranking">("suggested");
   const searching = query.trim() !== "" || filtered(filters);
   const set = (change: Partial<GuildFinderFilters>) => onFiltersChange?.({ ...filters, ...change });
   return (
-    <FinderSection title="Find a guild">
+    <FinderSection title="Find an allegiance">
       <label className="drawer-carved flex min-h-11 items-center gap-2 rounded-xl px-3">
         <UiIcon name="find" px={24} className="size-6" />
         <input
           type="search"
-          aria-label="Guild name or tag"
-          placeholder="Guild name or #tag"
+          aria-label="Allegiance name or tag"
+          placeholder="Allegiance name or #tag"
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="search"
@@ -332,18 +332,18 @@ export function GuildBrowse({ candidate, query, onQueryChange, filters, onFilter
         </label>
       </div>
       {searching ? (
-        <Cards list={results} player={candidate} empty="No guild found." onOpen={onOpenGuild} />
+        <Cards list={results} player={candidate} empty="No allegiance found." onOpen={onOpenGuild} />
       ) : (
         <Tabs value={list} onValueChange={(v) => (v === "suggested" || v === "ranking") && setList(v)} className="gap-3">
           <TabsContent value="suggested" className="flex flex-col gap-2">
             <Cards list={suggested} player={candidate} empty={suggestedEmpty} onOpen={onOpenGuild} />
           </TabsContent>
           <TabsContent value="ranking" className="flex flex-col gap-2">
-            <Cards list={ranking} player={candidate} ranked empty="No guild yet." onOpen={onOpenGuild} />
+            <Cards list={ranking} player={candidate} ranked empty="No allegiance yet." onOpen={onOpenGuild} />
           </TabsContent>
           {/* FOOTER-TABS (#1062): the two lists as the footer's tabs, the search and the filters over both. */}
           <DrawerFooter>
-            <FooterTabsList aria-label="Guilds">
+            <FooterTabsList aria-label="Allegiances">
               <FooterTab value="suggested" label="Suggested" art={<UiIcon name="find" px={36} className="drawer-icon size-9" />} />
               <FooterTab value="ranking" label="Ranking" art={<UiIcon name="trophy" px={36} className="drawer-icon size-9" />} />
             </FooterTabsList>
