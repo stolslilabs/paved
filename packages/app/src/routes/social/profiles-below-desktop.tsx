@@ -2,8 +2,8 @@ import { lazy, Suspense } from "react";
 import { useSidePanel } from "../../lib/side-panel";
 import { DESKTOP_QUERY } from "../home-layout";
 
-/** The public profile's host (#952), its own chunk: fetched with the page's code, not after it renders. */
-const loadHost = () => import("../player-profile-host");
+/** The pages host (`?player=`, `?guild=`, #952, #1064), its own chunk: fetched with the page's code, not after it renders. */
+const loadHost = () => import("../page-views-host");
 const PlayerProfileHost = lazy(loadHost);
 void loadHost().catch(() => {});
 

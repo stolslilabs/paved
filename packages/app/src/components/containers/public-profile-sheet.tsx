@@ -118,6 +118,8 @@ export function PublicProfileSheet({ state, now, open, onOpenChange, onCopy, onR
       // Back at every width (the owner's ask of 2026-11-05): to the page it was opened from, the friends' list in its place.
       onBack={() => onOpenChange(false)}
       slot="public-profile"
+      // DRAWER-NAV-IN-PLACE (#1064): opened from a drawer (the guild's members, the friends, the ranking, the chat), in its place.
+      inPlace
     >
       <div data-slot="public-profile" data-status={state.status} className="flex flex-col gap-3">
         {profile ? (
