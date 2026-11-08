@@ -179,6 +179,17 @@ describe("the name's reads and write (`useRename`, `useRenameWrite`)", () => {
     expect(result.current.isPending).toBe(false);
   });
 
+  it("`refetch` reads the failed ones again: the network back, the cost and the Cobbles", async () => {
+    const { sources, views } = fakeSources();
+    views.avatarFail = new Error("down");
+    const { result } = renderData(() => useRename(PLAYER_ID), sources);
+    await waitFor(() => expect(result.current.error?.message).toBe("down"));
+    views.avatarFail = null;
+    result.current.refetch();
+    await waitFor(() => expect(result.current.data).toMatchObject({ name: null, count: 0, cost: 0 }));
+    expect(result.current.error).toBeNull();
+  });
+
   it("renames through the signer: the name and the count in the cache at once, the Cobbles debited, every name read invalidated", async () => {
     const { sources, views } = fakeSources();
     views.names.price = 50;
@@ -324,6 +335,37 @@ describe("the route: the profile's pencil, the name's view, the new name at once
       expect(await within(sheet).findByText("Quarry Queen")).toBeInTheDocument();
       // Under the drawer (a modal: hidden from the tree while it is open).
       expect(screen.getAllByRole("button", { name: /^Profile: Quarry Queen/, hidden: true }).length).toBeGreaterThan(0);
+    },
+    slow(20_000),
+  );
+
+  it(
+    "a failed read (#1080): Names cannot be read and Retry in the drawer, Rename held; Retry reads again and the view recovers",
+    async () => {
+      const fakes = fakeSources();
+      fakes.views.names.price = 50;
+      // The price read fails until the network is back, past the query client's own retry.
+      let down = true;
+      const price = fakes.views.renamePrice.bind(fakes.views);
+      vi.spyOn(fakes.views, "renamePrice").mockImplementation(() => (down ? Promise.reject(new Error("The chain did not answer")) : price()));
+      const writer = new FakeAvatarWriter(fakes.views, PLAYER_ID);
+      const wallet = fakeWallet({ address: PLAYER_ID, restored: true });
+      wallet.connector.signer = () => writer as unknown as GameSigner;
+      render(<App router={createTestRouter("/")} sources={fakes.sources} connector={wallet.load} />);
+      await userEvent.click(await screen.findByRole("button", { name: /^Profile:/ }, { timeout: slow(5000) }));
+      const sheet = await screen.findByRole("dialog", { name: "Profile" }, { timeout: slow(5000) });
+      await userEvent.click(await within(sheet).findByRole("button", { name: "Edit name" }, { timeout: slow(5000) }));
+      expect(await within(sheet).findByText("Names cannot be read", undefined, { timeout: slow(8000) })).toBeInTheDocument();
+      expect(within(sheet).getByText("The chain did not answer")).toBeInTheDocument();
+      expect(within(sheet).getByRole("button", { name: "Rename" })).toBeDisabled();
+      // The network back: Retry reads the price again, the error gone, the first change free.
+      down = false;
+      await userEvent.click(within(sheet).getByRole("button", { name: "Retry" }));
+      await waitFor(() => expect(within(within(sheet).getByRole("group", { name: "Cost" })).getByText("Free")).toBeInTheDocument(), { timeout: slow(5000) });
+      expect(within(sheet).queryByText("Names cannot be read")).not.toBeInTheDocument();
+      expect(within(sheet).queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+      await userEvent.type(within(sheet).getByRole("textbox", { name: "New name" }), "Quarry Queen");
+      expect(within(sheet).getByRole("button", { name: "Rename" })).toBeEnabled();
     },
     slow(20_000),
   );
