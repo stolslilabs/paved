@@ -1,8 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, screen } from "storybook/test";
-import { dragDown, pause } from "../../stories/sheet-drag";
+import { fn, screen, userEvent } from "storybook/test";
 import { DeviceSettingsSheet } from "./device-settings-sheet";
 
+/**
+ * The board's settings (#541) in the HUD's drawer (GAME-OVERLAY): a full page with Back on a phone, a side panel at the right from
+ * `tablet` (the Viewport toolbar picks the width).
+ */
 const meta = {
   title: "Containers/DeviceSettingsSheet",
   component: DeviceSettingsSheet,
@@ -19,33 +22,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** On the board in a Challenge (#606): "This game" first, with Surrender. */
-export const BoardChallenge: Story = { args: { side: "bottom", game: { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: fn() } } };
-/** On the board in Training: Restart. */
-export const BoardTraining: Story = { args: { side: "bottom", game: { kind: "restart", label: "Restart", hint: "Play this game again from its first tile, same deck.", onSelect: fn() } } };
-/** On the board in Story mode: Restart level. */
-export const BoardStory: Story = { args: { side: "bottom", game: { kind: "restart", label: "Restart level", hint: "Play this level again from its first tile.", onSelect: fn() } } };
-/** On a phone (375 px): a bottom sheet. */
-export const Bottom: Story = { args: { side: "bottom" }, parameters: { viewport: { defaultViewport: "mobile1" } } };
-/** From the tablet width up (1440 px): a side panel. */
-export const Side: Story = { args: { side: "right" } };
-
-/**
- * Scrolled (#581): the sheet's content scrolls at 85dvh, so a drag down in its scrolled content is the content's (it scrolls back up),
- * never a close. The same drag from the top of a sheet not scrolled closes it; the header and the grab bar always do.
- */
-export const BottomScrolled: Story = {
-  args: { side: "bottom" },
-  parameters: { viewport: { defaultViewport: "mobile1" }, reducedMotion: "never" },
-  play: async ({ args }) => {
-    const panel = await screen.findByRole("dialog");
-    await pause(800); // the slide in
-    // The header stays; the settings scroll in the panel's own region (NO-SCROLLBARS, #609).
-    const content = panel.querySelector<HTMLElement>("[data-slot=scroll-region]")!;
-    content.scrollTop = 160;
-    await dragDown(screen.getByText("Day/night cycle"), 200);
-    await expect(args.onOpenChange).not.toHaveBeenCalled();
-    await expect(panel.style.translate).toBe("");
-    await expect(content.scrollTop).toBeGreaterThan(0);
+/** On the board in a Challenge (#606): "This game" first, Surrender with the painted white flag. */
+export const BoardChallenge: Story = { args: { game: { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: fn() } } };
+/** On the board in Training: Restart, with the painted red arrow. */
+export const BoardTraining: Story = { args: { game: { kind: "restart", label: "Restart", hint: "Play this game again from its first tile, same deck.", onSelect: fn() } } };
+/** On the board in Story mode and in an attack: no game row (Story's Restart is on the board). */
+export const BoardStory: Story = {};
+/** The quality's choice, a view in the drawer's place, with Back to the settings. */
+export const Quality: Story = {
+  play: async () => {
+    await userEvent.click(await screen.findByRole("button", { name: /Graphics quality|Quality/ }));
   },
 };

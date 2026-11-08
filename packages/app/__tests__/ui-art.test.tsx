@@ -42,8 +42,9 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     // Rotate, Back to the inventory and Cancel (`rotate-tile`, `to-inventory`, `cancel`), 17,070, which left with it. STAR-ART
     // (2026-11-07): lowered by exactly the measured change, 406 bytes: the star's copies, redrawn clean (`star`, 64 px 1,890 to 1,880,
     // 128 px 3,956 to 3,560). STORY-INTRO (2026-11-07): raised by exactly the copies of a Story level's tip's painted bulb (`bulb`, 64
-    // and 128 px), 4,892 bytes.
-    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196 + 8_034 + 15_184 - 406 + 4_892);
+    // and 128 px), 4,892 bytes. GAME-OVERLAY (2026-11-07): raised by exactly the copies of the overlay's paintings (64 and 128 px):
+    // Story's Restart (`restart`), the timer (`countdown`), Surrender (`surrender`) and a notice's warning (`caution`), 25,208 bytes.
+    expect(hud.reduce((sum, f) => sum + size(f), 0)).toBeLessThan(400 * 1024 + 39_462 + 29_790 + 14_600 + 40_932 + 49_176 + 6_970 + 42_700 + 8_392 + 8_196 + 8_034 + 15_184 - 406 + 4_892 + 25_208);
   });
 
   it("ships the ranking's gold and silver medals and its Alliances tab's and guild count's icons (LEADERBOARD-PAGE): the icons' frame, two light copies each", () => {

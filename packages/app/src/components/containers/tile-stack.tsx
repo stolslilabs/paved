@@ -3,13 +3,15 @@ import { useReducedMotionConfig } from "motion/react";
 import type { TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { SpinnerIcon } from "../ui/icons";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { TileChip, chipVariants, planCode, type TileArt } from "../elements/tile-chip";
 import { TileRender, type TileRenders } from "../elements/tile-render";
 import { Slab, TILT, TURN } from "../elements/tile-slab";
-import { COACH_RING, type CoachTarget } from "./coach";
+import { CoachMark } from "../elements/coach-mark";
+import { HudFrame } from "../elements/hud-frame";
+import { UiIcon } from "../elements/ui-icon";
+import { COACH_BOX, type CoachTarget } from "./coach";
 import { DiscardHold } from "./discard-hold";
 import type { StackTile } from "./stack-view";
 
@@ -80,12 +82,15 @@ const GAP_PILE = 2;
 const STEP_NEXT = 108;
 const STEP_HAND = 150;
 /**
- * How far around the tiles-left badge's centre the stack's outline reaches, px of the scene: the badge is 32 px (and its
- * shadow) whatever `--stack-s`, so at the phone's 0.8 the outline must reach (16 + 3) / 0.8, or it cuts the badge.
+ * How far around the tiles-left badge's centre the stack's outline reaches, px of the scene: the badge (the dock's red square since
+ * GAME-OVERLAY) is 24 px high and up to about 36 wide with three figures (and its ring) whatever `--stack-s`, so at the phone's 0.8 the
+ * outline must reach (18 + 2) / 0.8, or it cuts the badge.
  */
-const BADGE = 24;
+const BADGE = 25;
 /** The badge's height on the pile's edge, px: the same at every count. */
 const BADGE_Z = 6;
+/** The coach mark's light round the pile (GAME-OVERLAY): its width, in the pile's widths. */
+const PILE_LIGHT = 3;
 /** The draw order the stack's tiles are known by in the 3D view: the next keeps its id as it becomes the tile in hand. */
 const DRAW_IDS = 10_000;
 /** The hint comes back after this long without a move or a cell chosen, ms. */
@@ -145,7 +150,7 @@ export interface TileStackProps {
   onSurrender?: () => void;
   /** The Surrender dialog's module is on its way (BOARD-CHUNK): the banner's button shows it is busy. */
   surrenderPending?: boolean;
-  /** A Story coach mark points at the deck (the stack is ringed) or at Discard (the stack's Discard is). */
+  /** A Story coach mark points at the deck (the light out of the pile, GAME-OVERLAY) or at Discard (behind the stack's trash). */
   coach?: CoachTarget | null;
   /**
    * A board the viewer does not play (another player's game, a Story level's intro or end): the same stack, its tiles and the
@@ -372,7 +377,10 @@ export function TileStack({
   const [badgeX, badgeY] = project(-TILE / 2, TILE / 2, BADGE_Z);
   const badgeCorners = remaining > 0 ? [-BADGE, BADGE].flatMap((dx) => [-BADGE, BADGE].map((dy): Point => [badgeX + dx, badgeY + dy])) : [];
   const frame = frameOf(levels, tops, HAND_REACH, badgeCorners);
-  const outline = frame.outline.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  // The pile's top in the box (the coach mark's centre): the light comes out of the pile, round the tile it deals next.
+  const [pileDx, pileDy] = project(0, 0, pileHeight);
+  const pileX = frame.left + pileDx;
+  const pileY = frame.height - frame.bottom + pileDy;
 
   // The next tile comes up (the Web Animations API, no frame of React's): the tile in hand from the next's place, each coming
   // tile from the slot under it, the last out of the pile. None under reduced motion. The 3D view glides its own.
@@ -446,14 +454,15 @@ export function TileStack({
         action={
           live === "expired" && onSurrender ? (
             <Button size="sm" variant="destructive" onClick={onSurrender} loading={surrenderPending}>
-              <Icon name="flag" size="sm" /> Surrender
+              <UiIcon name="surrender" px={20} className="size-5" /> Surrender
             </Button>
           ) : undefined
         }
         className="pointer-events-auto w-full rounded-xl bg-card shadow-lg"
       />
       {(hint || busy) && (
-        <p data-testid="hand-hint" className="rounded-full bg-card/95 px-3 py-1 text-xs text-muted-foreground shadow-sm">
+        <p data-testid="hand-hint" className="text-outline relative isolate rounded-full px-3 py-1 text-xs font-semibold">
+          <HudFrame px={10} />
           {busy ? "Placing…" : "Tap a lit slot on the board."}
         </p>
       )}
@@ -461,12 +470,34 @@ export function TileStack({
       <div className="flex flex-wrap items-end justify-end gap-2">
         {/* The stack's Discard: while no cell is chosen (then it is the bubble's, on the tile). */}
         {canDiscard && !cellChosen && onDiscard && (
-          <div data-testid="stack-discard" className="pointer-events-auto mb-3 flex items-center gap-2 rounded-full border bg-card p-1 shadow-lg">
-            {fitsNowhere && <span className="pl-2 text-xs text-muted-foreground">This tile fits nowhere</span>}
-            <DiscardHold onDiscard={onDiscard} cost={discardCost} holdMs={holdMs} className={cn("size-11 rounded-full", coach === "discard" && cn(COACH_RING, "rounded-full"))} />
+          <div data-testid="stack-discard" className="pointer-events-auto mb-3 flex items-center gap-2">
+            {fitsNowhere && (
+              <span className="text-outline relative isolate rounded-full px-3 py-1 text-xs font-semibold">
+                <HudFrame px={10} />
+                This tile fits nowhere
+              </span>
+            )}
+            {/* The tile's painted trash (TILE-ACTIONS), the whole button, its red rail round it: the same Discard wherever it is. */}
+            <span data-coach={coach === "discard" ? "discard" : undefined} className={cn(COACH_BOX, "grid")}>
+              {coach === "discard" && <CoachMark />}
+              <DiscardHold
+                onDiscard={onDiscard}
+                cost={discardCost}
+                holdMs={holdMs}
+                glyph={<UiIcon name="tile-discard" px={44} className="pointer-events-none size-11" />}
+                className="size-11 rounded-full p-0"
+              />
+            </span>
           </div>
         )}
-        <div data-testid="tile-stack" className="relative shrink-0 [--stack-s:0.8] tablet:[--stack-s:1]" style={{ width: scaled(frame.width), height: scaled(frame.height) }}>
+        <div
+          data-testid="tile-stack"
+          data-coach={coach === "deck" ? "deck" : undefined}
+          className={cn(COACH_BOX, "shrink-0 [--stack-s:0.8] tablet:[--stack-s:1]")}
+          style={{ width: scaled(frame.width), height: scaled(frame.height) }}
+        >
+          {/* The coach mark (GAME-OVERLAY): the light behind the pile, the stack's foot, where the tap opens the deck. */}
+          {coach === "deck" && <CoachMark spread={(PILE_LIGHT * TILE) / frame.width} at={{ x: pileX / frame.width, y: pileY / frame.height }} px={PILE_LIGHT * TILE} />}
           <Pile layers={layers} step={step} frame={frame} shadowOnly={solid} />
           {/* The scene: its origin the pile's foot, its plane turned and tilted as the renders' view; every level keeps the 3D. */}
           <div className="absolute size-0" style={{ left: scaled(frame.left), bottom: scaled(frame.bottom), transform: "scale(var(--stack-s))", transformOrigin: "0 0" }}>
@@ -541,29 +572,19 @@ export function TileStack({
             onClick={onDeck}
             disabled={!onDeck}
             aria-label={`Tiles left: ${remaining}. Show the deck`}
-            data-coach={coach === "deck" ? "deck" : undefined}
             className="pointer-events-auto absolute inset-0 cursor-pointer outline-none"
             style={{ clipPath: `polygon(${frame.outline.map(([x, y]) => `${scaled(x)} ${scaled(y)}`).join(", ")})` }}
           >
             {remaining > 0 && (
               <span
                 data-testid="tiles-left"
-                className="numeric absolute flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-card bg-foreground text-sm font-bold text-background shadow-md"
+                className="numeric absolute grid h-6 min-w-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[0.3rem] bg-dock-badge px-1 text-sm leading-none font-bold text-foreground ring-2 ring-background"
                 style={{ left: scaled(frame.left + badgeX), top: scaled(frame.height - frame.bottom + badgeY) }}
               >
                 {remaining}
               </span>
             )}
           </button>
-          {/* The coach mark follows the stack's outline. */}
-          <svg
-            aria-hidden
-            viewBox={`0 0 ${frame.width.toFixed(1)} ${frame.height.toFixed(1)}`}
-            preserveAspectRatio="none"
-            className={cn("pointer-events-none absolute inset-0 size-full overflow-visible", coach === "deck" ? "animate-pulse text-primary motion-reduce:animate-none" : "hidden")}
-          >
-            <polygon points={outline} fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-          </svg>
         </div>
       </div>
     </section>
