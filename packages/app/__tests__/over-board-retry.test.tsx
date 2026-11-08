@@ -1,9 +1,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { OVER } from "../src/mocks/scenes";
+import { slow } from "../test-slow";
 
 // The final board's chunk fails twice (a dropped connection), then loads (#539): at the screen's open, under the scores
 // (#720), and at the first "Board". On a Challenge's end, whose toggle shows which view is up; Training's shares the load.
@@ -14,6 +15,13 @@ vi.mock("../src/components/containers/final-board", async (actual) => {
 });
 
 describe("OverScene: the final board after a failed load", () => {
+  // The final board's real module and the renderer under it, transformed and evaluated ahead of the test (`importActual` bypasses
+  // the mock and its failure count), so the load that answers costs cache hits, not the cold transform a loaded CI stretched past
+  // the wait (5.9 s on #1118's first run, about 1 s on main's).
+  beforeAll(async () => {
+    await vi.importActual("../src/components/containers/final-board");
+  }, slow(30000));
+
   it("under the scores a failure is silent; asked for, it falls back to the scores, and the next Board loads it again", async () => {
     render(
       <LazyMotion features={domMax}>

@@ -252,9 +252,8 @@
 }
 
 /* 3b. Each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle paints them (`KEYFRAMES`
-   in `packages/renderer/src/core/daynight.ts`; `__tests__/season-wheel.test.tsx` keeps them in step). Hex, not palette steps:
-   the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). The season dial is painted art since
-   V4-WHEEL-ART (`wheel-sources/`, `elements/wheel-art.ts`), its skies anchored on these. */
+   in `packages/renderer/src/core/daynight.ts`; `__tests__/day-night.test.ts` keeps them in step). Hex, not palette steps:
+   the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). */
 :root {
   --sky-summer-day-top: #1f65a1;
   --sky-summer-day-bottom: #6bb7ff;
@@ -569,6 +568,15 @@
   }
   &:where(:active:not(:disabled, [aria-disabled="true"]), [data-force="pressed"]) {
     --layer: var(--state-pressed);
+  }
+}
+/*
+ * A pressed toggle whose art already says so (the volume's mute: the icon dimmed, the red cross, the owner's ask of 2026-11-08): no
+ * selected layer at rest, `aria-pressed` kept. Under the pointer and while pressed it takes `state-layer`'s, as before.
+ */
+@utility state-layer-quiet {
+  &[aria-pressed="true"]:not(:hover, :active) {
+    --layer: transparent;
   }
 }
 

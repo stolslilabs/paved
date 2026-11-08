@@ -146,12 +146,11 @@ The card grows with the name (at most 15 characters, `PLAYER_NAME_MAX`); the hom
 the name ends there with an ellipsis. To match a mockup's component, have Codex decompose it first (its layers, measures, colours,
 what must be an image), then generate each image part alone on a flat key colour and cut it.
 
-Season wheel (the board's and the home's bottom left, `docs/design/season-wheel.webp`, 2026-10-31): `elements/season-wheel.tsx` stacks square layers, the dial centred on each: the seasons as one little planet (turning
-counterclockwise; its centre the landscape's vanishing point, so a turn never breaks the perspective), the painted day and night
-disc (turning the other way), the upright sun and moon, then the fixed shade, inner gold ring, badge-ring frame, gold arrow
-pointer and hub. Only the fixed layers carry a directional light. The masters are `wheel-sources/<layer>.webp` on the frames of
-`WHEEL_ART` (`elements/wheel-art.ts`); `node scripts/compress-wheel-art.ts` writes `public/wheel-art/` (`--check` verifies it).
-Generated as the badge's were; the two painted discs carry a warm-grey treatment baked in, so the gold reads over them.
+Seasons and day and night (SEASONS-SETTINGS, 2026-11-08; the board's season wheel is gone): two rows of Settings' Visuals,
+`elements/setting-choice.tsx` (`SettingChoice`), each the book's raised pill opening Radix's menu (`ui/dropdown-menu.tsx`, its
+`DropdownMenuRadioItem indicator="none"`) as a carved list of 44 px rows with their paintings and the painted check. The choices
+(`SEASON_OPTIONS`, `DAY_TIME_OPTIONS` in `containers/device-settings-panel.tsx`) map to the renderer's cycle in `data/day-night.ts`
+(`cycleDayNight`: a held moment, the cycle's `runs`, or Summer and Day's cycle off).
 
 Chests (the owner's direction of 2026-10-31, `docs/design/chests.webp`, which supersedes #874's SVG drawings): images in a
 Supercell-like mobile game's rendering, basic oak and iron, rare silver and sapphire, epic gold, crown and rubies.

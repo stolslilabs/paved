@@ -69,7 +69,7 @@ function Match({ id }: { id: string }) {
   const side = match?.side ?? "attack";
   // The attacked village's skins: the rival's in an attack, the player's own in a defence.
   const skins = useBoardSkins(match ? (side === "attack" ? match.rival.address : me) : null);
-  const { scene } = useGameBoard({ skins, side: matchBoardSide(side, view), summerDay: true, resetKey: id, placement: READ_ONLY_PLACEMENT });
+  const { scene } = useGameBoard({ skins, side: matchBoardSide(side, view), summerDay: true, placement: READ_ONLY_PLACEMENT });
 
   const client = useQueryClient();
   const self = { name: wallet.username ?? null, address: me ?? "0x0", level: 0, crowns: 0 };

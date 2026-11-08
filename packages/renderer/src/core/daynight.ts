@@ -3,7 +3,7 @@
 // tiles' night lights (here, not in the board's chunk).
 import type { AmbientLight, DirectionalLight, Fog, FogExp2, HemisphereLight } from "three";
 import { lightDirection } from "./look";
-import { DAY_PHASE_AT, SEASONS, type DayNightSettings, type DayPhase, type Season } from "./daynight-settings";
+import { DAY_PHASE_AT, SEASONS, type DayNightRuns, type DayNightSettings, type DayPhase, type Season } from "./daynight-settings";
 
 /** A colour in OKLab (L, a, b), or in linear sRGB (r, g, b). */
 export type Vec3 = [number, number, number];
@@ -143,11 +143,27 @@ export interface CyclePoint {
 
 const seasonAt = (index: number): Season => SEASONS[((index % 4) + 4) % 4];
 
-/** The cycle at `seasons`, the seasons since a summer's dawn (`DayNightSettings.freezeAt`'s unit). */
-export function cycleAt(seasons: number): CyclePoint {
+/**
+ * The share of a season its change takes when the seasons turn held at a day or a night ("seasons-day", "seasons-night"): the
+ * auto cycle's, from the end of its night's hold to the next dawn (8.4 s of a 120 s cycle at real speed).
+ */
+export const SEASON_BLEND = 1 - HOLDS[HOLDS.length - 1][2];
+
+/**
+ * The cycle at `seasons`, the seasons since a summer's dawn (`DayNightSettings.freezeAt`'s unit), read as `runs` turns it
+ * (SEASONS-SETTINGS): "all" and "day-night" run a season's day and night, "day-night" easing its night into the same season's
+ * dawn; "seasons-day" and "seasons-night" hold each season at that phase's moment (`DAY_PHASE_AT`) and blend it into the next
+ * season's over the last `SEASON_BLEND` of it.
+ */
+export function cycleAt(seasons: number, runs: DayNightRuns = "all"): CyclePoint {
   const index = Math.floor(seasons);
   const position = seasons - index;
   const season = seasonAt(index);
+  if (runs === "seasons-day" || runs === "seasons-night") {
+    const phase: DayPhase = runs === "seasons-day" ? "day" : "night";
+    const blend = smoothstep((position - (1 - SEASON_BLEND)) / SEASON_BLEND);
+    return { season, phase, position: DAY_PHASE_AT[phase], from: { season, phase }, to: { season: blend > 0 ? seasonAt(index + 1) : season, phase }, blend };
+  }
   for (let i = 0; i < HOLDS.length; i++) {
     const [phase, start, end] = HOLDS[i];
     if (position >= start && position <= end) return { season, phase, position, from: { season, phase }, to: { season, phase }, blend: 0 };
@@ -155,7 +171,7 @@ export function cycleAt(seasons: number): CyclePoint {
     const [nextPhase, nextStart] = last ? [HOLDS[0][0], 1] : [HOLDS[i + 1][0], HOLDS[i + 1][1]];
     if (position > end && position < nextStart) {
       const blend = smoothstep((position - end) / (nextStart - end));
-      const to = { season: last ? seasonAt(index + 1) : season, phase: nextPhase };
+      const to = { season: last && runs === "all" ? seasonAt(index + 1) : season, phase: nextPhase };
       return { season, phase: blend < 0.5 ? phase : nextPhase, position, from: { season, phase }, to, blend };
     }
   }
@@ -188,8 +204,13 @@ const SHADOW_MIN_ELEVATION = 8;
 
 /** The sun's compass angle and height at a position of the cycle (east at its rise, west at its set), and how up it is (0 to 1). */
 export function sunAt(season: Season, position: number): { azimuth: number; elevation: number; up: number } {
+  return sunUnder(SUN_ELEVATION[season], position);
+}
+
+/** `sunAt` for a noon height in degrees (`peak`): a season's (`SUN_ELEVATION`), or one between two seasons' as they blend. */
+function sunUnder(peak: number, position: number): { azimuth: number; elevation: number; up: number } {
   const u = Math.min(1, position / DAY_SHARE);
-  const elevation = position < DAY_SHARE ? SUN_ELEVATION[season] * Math.sin(Math.PI * u) : 0;
+  const elevation = position < DAY_SHARE ? peak * Math.sin(Math.PI * u) : 0;
   // Azimuth 90 is east (+X, the board's east), 0 the south (+Z, the screen's bottom), -90 the west.
   return { azimuth: 90 - 180 * u, elevation, up: smoothstep(elevation / 8) };
 }
@@ -207,21 +228,25 @@ export function fillAt(position: number): { azimuth: number; elevation: number }
 }
 
 /**
- * The frame at `seasons` (`cycleAt`): the keyframes blended in OKLab (colours) and linearly (strengths), the sun on its
- * arc, the moon on its own, and the night's floor: the sky light and the ambient at least `floor` of the season's day.
+ * The frame at `seasons` (`cycleAt`, read as `runs` turns it): the keyframes blended in OKLab (colours) and linearly (strengths),
+ * the sun on its arc (its noon height blended too across a change of season, so a day held through the seasons moves smoothly),
+ * the moon on its own, and the night's floor: the sky light and the ambient at least `floor` of the season's day.
  */
-export function dayNightFrame(seasons: number, floor = 0): DayNightFrame {
-  const point = cycleAt(seasons);
+export function dayNightFrame(seasons: number, floor = 0, runs: DayNightRuns = "all"): DayNightFrame {
+  const point = cycleAt(seasons, runs);
   const a = KEYFRAMES[point.from.season][point.from.phase];
   const b = KEYFRAMES[point.to.season][point.to.phase];
   const t = point.blend;
   const color = (key: "top" | "bottom" | "sun" | "fill" | "sky" | "ground") => mix3(lab(a[key]), lab(b[key]), t);
   const value = (key: "sunIntensity" | "fillIntensity" | "skyIntensity" | "ambient" | "lights") => mix(a[key], b[key], t);
-  const day = KEYFRAMES[point.season].day;
+  // The night's floor is a share of the season's day, blended across a change of season as the colours are (no step at the turn).
+  const day = (key: "skyIntensity" | "ambient") => mix(KEYFRAMES[point.from.season].day[key], KEYFRAMES[point.to.season].day[key], t);
 
-  const sun = sunAt(point.season, point.position);
+  // Only a change of season held at its day blends two heights: through a day the seasons are one, and a night's change has no sun.
+  const peak = mix(SUN_ELEVATION[point.from.season], SUN_ELEVATION[point.to.season], t);
+  const sun = sunUnder(peak, point.position);
   // Under the horizon the light stays at its setting place: the shadow map is not drawn again until the next sunrise.
-  const shadowFrom = point.position < DAY_SHARE ? sun : sunAt(point.season, DAY_SHARE);
+  const shadowFrom = point.position < DAY_SHARE ? sun : sunUnder(peak, DAY_SHARE);
   const fill = fillAt(point.position);
   const top = color("top");
   const bottom = color("bottom");
@@ -236,8 +261,8 @@ export function dayNightFrame(seasons: number, floor = 0): DayNightFrame {
     sky: {
       color: oklabToLinear(color("sky")),
       ground: oklabToLinear(color("ground")),
-      intensity: Math.max(value("skyIntensity"), floor * day.skyIntensity),
-      ambient: Math.max(value("ambient"), floor * day.ambient),
+      intensity: Math.max(value("skyIntensity"), floor * day("skyIntensity")),
+      ambient: Math.max(value("ambient"), floor * day("ambient")),
     },
     backdrop: { top, bottom },
     fog: oklabToLinear(mix3(top, bottom, 0.5)),
@@ -344,6 +369,24 @@ export interface DayNightTarget {
 /** The steps the sun's shadows are held at: 1 degree of its 180 degree arc. */
 export const SHADOW_STEP = 1 / 180;
 
+/**
+ * The sun's shadow path at `point` (read as `runs` turns it), for `drawDayNight`'s crossfade: how far along it the sun is, in steps,
+ * and the light's direction at a step. Through a day a step is `SHADOW_STEP` of the sun's arc. With the seasons held at their day
+ * ("seasons-day") the sun stays at its moment and a step is a degree of its height, from the old season's noon to the new one's
+ * across a change (step 0, its own noon, while a season holds).
+ */
+export function shadowPath(point: CyclePoint, runs: DayNightRuns = "all"): { q: number; at: (step: number) => Vec3 } {
+  const { from, to, position } = point;
+  const toward = (sun: { azimuth: number; elevation: number }): Vec3 => lightDirection(sun.azimuth, Math.max(SHADOW_MIN_ELEVATION, sun.elevation));
+  if (runs === "seasons-day") {
+    const low = SUN_ELEVATION[from.season];
+    const rise = SUN_ELEVATION[to.season] - low;
+    const steps = Math.max(1, Math.round(Math.abs(rise)));
+    return { q: point.blend * steps, at: (step) => toward(sunUnder(low + rise * Math.min(1, step / steps), position)) };
+  }
+  return { q: Math.min(1, position / DAY_SHARE) / SHADOW_STEP, at: (step) => toward(sunAt(point.season, Math.min(1, step * SHADOW_STEP) * DAY_SHARE)) };
+}
+
 /** The key light's twin (`drawDayNight`): a copy of it, its shadow included, in the same scene, made once a key. */
 const TWINS = new WeakMap<DirectionalLight, DirectionalLight>();
 
@@ -371,12 +414,12 @@ export function releaseDayNight(key: DirectionalLight | null): void {
 const LINEAR = "srgb-linear";
 
 /**
- * Draws the cycle at `seasons` (`dayNightFrame`) on the scene: the key light (the sun, the shadows' light: a new direction
- * redraws the shadow map), the fill (the moon at night), the sky light and ambient, the fog, the backdrop and the night
- * lights' level. Only values change: no light, material or pass is made. Returns the point drawn.
+ * Draws the cycle at `seasons` (`dayNightFrame`, read as `runs` turns it) on the scene: the key light (the sun, the shadows' light:
+ * a new direction redraws the shadow map), the fill (the moon at night), the sky light and ambient, the fog, the backdrop and the
+ * night lights' level. Only values change: no light, material or pass is made. Returns the point drawn.
  */
-export function drawDayNight(target: DayNightTarget, seasons: number, floor: number): CyclePoint {
-  const frame = dayNightFrame(seasons, floor);
+export function drawDayNight(target: DayNightTarget, seasons: number, floor: number, runs: DayNightRuns = "all"): CyclePoint {
+  const frame = dayNightFrame(seasons, floor, runs);
   const { key, fill, sky, ambient, distance: d } = target;
   if (key && !target.crossfade) {
     // A still or held cycle: the key light alone, at the sun's own place (no twin, no second shadow map or lookup).
@@ -392,10 +435,11 @@ export function drawDayNight(target: DayNightTarget, seasons: number, floor: num
     // The sun's shadows in steps of `SHADOW_STEP` of its arc, crossfaded between the key light and its twin (`twinOf`): a
     // shadow map drawn again from a light turned by a fraction of a degree re-aliases every small shadow's edge, and the
     // board boils. Each light holds one step (the key the even ones, the twin the odd ones), the weight moves linearly
-    // from one to the next, and a light jumps two steps on only while its weight is 0. Under the horizon both are dark.
+    // from one to the next, and a light jumps two steps on only while its weight is 0. Under the horizon both are dark. A step
+    // is one of the sun's path (`shadowPath`): its arc through a day, its height across a change of season held at its day.
     const twin = twinOf(key);
-    const { season, position } = frame.point;
-    const q = Math.min(1, position / DAY_SHARE) / SHADOW_STEP;
+    const path = shadowPath(frame.point, runs);
+    const q = path.q;
     const k = Math.floor(q);
     const even = k % 2 === 0;
     const toTwin = even ? q - k : 1 - (q - k);
@@ -405,8 +449,7 @@ export function drawDayNight(target: DayNightTarget, seasons: number, floor: num
     let moved = false;
     for (const [light, step, weight] of [[key, even ? k : k + 1, 1 - toTwin], [twin, even ? k + 1 : k, toTwin]] as const) {
       light.intensity = frame.sun.intensity * weight;
-      const sun = sunAt(season, Math.min(1, step * SHADOW_STEP) * DAY_SHARE);
-      const [x, y, z] = lightDirection(sun.azimuth, Math.max(SHADOW_MIN_ELEVATION, sun.elevation));
+      const [x, y, z] = path.at(step);
       if (light.position.x !== x * d || light.position.y !== y * d || light.position.z !== z * d) {
         light.position.set(x * d, y * d, z * d);
         moved = true;
@@ -433,18 +476,24 @@ export function drawDayNight(target: DayNightTarget, seasons: number, floor: num
 }
 
 /**
- * The cycle's moment to draw for the settings, in seasons since a summer's dawn: the first season's noon when still (the
- * Low tier, reduced motion: a still scene never shows a night, so it wins over a frozen moment, except one frozen in a
- * day: the season wheel's fixed states, which a still scene shows as chosen), else `freezeAt` when frozen, else where
- * `elapsedMs` of the clock has run it to.
+ * The cycle's moment to draw for the settings, in seasons since a summer's dawn (read as `runsOf` says): when still (the Low tier,
+ * reduced motion) a noon, since a still scene never shows a night: a moment frozen in a day as chosen (a season's day held in
+ * Settings), any other frozen moment its season's noon, else the first season's noon; else `freezeAt` when frozen; else where
+ * `elapsedMs` of the clock has run it to, within the first season for "day-night".
  */
 export function momentOf(settings: DayNightSettings, elapsedMs: number, still: boolean): number {
   const start = startSeason(settings.season, settings.seed);
   if (still) {
     const held = settings.freezeAt !== null ? cycleAt(settings.freezeAt) : null;
     if (held && held.phase === "day" && held.blend === 0) return settings.freezeAt!;
-    return SEASONS.indexOf(start) + DAY_PHASE_AT.day;
+    return SEASONS.indexOf(held?.season ?? start) + DAY_PHASE_AT.day;
   }
   if (settings.freezeAt !== null) return settings.freezeAt;
-  return seasonsAt(elapsedMs, settings.cycleMs, start);
+  const seasons = seasonsAt(elapsedMs, settings.cycleMs, start);
+  return settings.runs === "day-night" ? SEASONS.indexOf(start) + (seasons - Math.floor(seasons)) : seasons;
+}
+
+/** How `momentOf`'s moment is read (`cycleAt`): as the settings' `runs` while the cycle runs; a frozen or still moment, as "all". */
+export function runsOf(settings: DayNightSettings, still: boolean): DayNightRuns {
+  return still || settings.freezeAt !== null ? "all" : settings.runs;
 }

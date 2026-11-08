@@ -53,7 +53,7 @@ const SHAPES: Record<FogShape, FogCell[]> = {
 export type FogView = "game" | "phone-play" | "far" | "close";
 /** The distance of each view but the game's opening (`CameraController`'s `maxDistance` for the farthest). */
 const VIEW_DISTANCE: Record<Exclude<FogView, "game">, number> = { "phone-play": PHONE_PLAY_DISTANCE, far: 300, close: 40 };
-/** The light: the look alone (the cycle off), or a summer's day or night held (the wheel fixed, as the game's board). */
+/** The light: the look alone (the cycle off), or a summer's day or night held (as Settings hold one, the game's board). */
 export type FogTime = "look" | "day" | "night";
 
 export interface FogBoardProps {

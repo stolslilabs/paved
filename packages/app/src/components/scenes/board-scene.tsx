@@ -1,10 +1,9 @@
 import type { TileArt } from "../elements/tile-chip";
 import type { TileRenders } from "../elements/tile-render";
 import type { TileSkins } from "@paved/renderer";
-import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import type { BoardTile, ScoredStructure } from "@paved/chain";
 import { DISCARD_POINTS, PlanType, baseDeckPlans, type DeckSheetOrder } from "@paved/game-core";
-import { cn } from "../../lib/utils";
 import { toastError } from "../containers/error-toast";
 import { errorDetail } from "../../routes/error-detail";
 import { BoardNotice } from "../containers/board-notice";
@@ -18,14 +17,12 @@ import { LazyTileBubble } from "../containers/lazy-tile-bubble";
 import { ClosingFeed } from "../containers/closing-feed";
 import { GameHud } from "../containers/game-hud";
 import type { RewardCurve } from "../containers/reward-estimate";
-import type { BoardWheel } from "../../data/board-settings";
 import type { ErrorDetail } from "../elements/inline-error";
 import { useBoardSounds } from "../containers/board-sounds";
 import { useSfx } from "../containers/audio-provider";
 import { TileStack, type HandState, type StackFrame } from "../containers/tile-stack";
 import type { GameAction } from "../containers/device-settings-sheet";
 import type { CoachTarget } from "../containers/coach";
-import { CoachMark } from "../elements/coach-mark";
 import { HudFrame } from "../elements/hud-frame";
 import { ScoreMeter } from "../elements/score-meter";
 import type { ScoreMeterValue } from "../../lib/score-meter";
@@ -36,7 +33,7 @@ export type BoardMode = "challenge" | "training" | "story" | "attack";
 
 /**
  * An attack's own pieces (`mode: "attack"`, #772), in the board's slots; everything else is the boards': the HUD, the closing
- * feed, the bubble, the stack, the season dial and the sounds.
+ * feed, the bubble, the stack and the sounds.
  */
 export interface AttackSlots {
   /** A replay (#647): its bar in place of the stack, the board read only. */
@@ -53,15 +50,9 @@ export interface AttackSlots {
 const loadSurrenderDialog = () => import("../containers/surrender-dialog");
 // The settings sheet (#541) is its own chunk too: loaded at the first tap on the gear, not with the board.
 const loadSettingsSheet = () => import("../containers/device-settings-sheet");
-// The season wheel (#547) is its own chunk, loaded after the first frame: its slot in the HUD keeps its size meanwhile.
-const LazySeasonWheel = lazy(() => import("../containers/board-season-wheel"));
 // The deck sheet (#540) too: its own chunk, loaded at the first tap on the tile stack.
 const loadDeckSheet = () => import("../containers/deck-sheet");
 const PREFETCH_AFTER_MS = 3000;
-// The stack beside the dial (#682): it keeps to the right of the dial and a gap, its row wrapping (Discard and queue above
-// the stack) where the two do not fit side by side. 8.25rem is the two side insets, the 108 px dial and the gap; 7.5rem
-// the same with the 96 px dial under 390 px. From tablet up the stack's own 20rem keeps it clear of the 144 px dial.
-const STACK_BESIDE_DIAL = "max-w-[min(20rem,calc(100vw-7.5rem))] min-[24.375rem]:max-w-[min(20rem,calc(100vw-8.25rem))]";
 
 /** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
 const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
@@ -153,8 +144,6 @@ export interface BoardSceneProps {
    * in the plan view (no `canvas`), above the tile stack.
    */
   bubble?: BoardBubble | null;
-  /** The season wheel of this game (`useBoardSettings`); none: no wheel (the stories without a cycle). */
-  seasonWheel?: BoardWheel;
   onBack?: () => void;
   /** The end of a hold on the stack's Discard (the bubble's is the page's, in `bubble`). */
   onDiscard?: () => void;
@@ -280,22 +269,6 @@ export function BoardScene(props: BoardSceneProps) {
         <ClosingFeed closings={props.lastScored} className="mt-1" />
       </div>
 
-      {/* The season dial (#607) at the board's bottom left (#682), on the stack's bottom line, read-only boards too. */}
-      {props.seasonWheel && (
-        <div
-          data-bubble-avoid
-          data-dial-place
-          data-coach={props.coach === "wheel" ? "wheel" : undefined}
-          className="pointer-events-auto absolute isolate bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-2 tablet:bottom-4 tablet:left-4"
-        >
-          {props.coach === "wheel" && <CoachMark spread={1.8} px={240} />}
-          {/* The dial's size (`DIAL_SIZE`, written out: the element is the lazy chunk's). */}
-          <Suspense fallback={<span aria-hidden className="block size-24 min-[24.375rem]:size-27 tablet:size-36" />}>
-            <LazySeasonWheel state={props.seasonWheel.state} onNext={props.seasonWheel.onNext} read={props.seasonWheel.read} />
-          </Suspense>
-        </div>
-      )}
-
       {/* One stack, read-only boards too (#701): the same tiles and deck, nothing to play there. */}
       <div className="pointer-events-none absolute inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col items-end gap-2 tablet:right-4 tablet:bottom-4">
         {!props.readOnly && !props.canvas && props.bubble && (
@@ -315,9 +288,9 @@ export function BoardScene(props: BoardSceneProps) {
             />
           </Suspense>
         )}
-        {/* A replay's bar takes the stack's place, beside the dial as the stack is. */}
+        {/* A replay's bar takes the stack's place. */}
         {attack?.replay ? (
-          <div className={cn("flex justify-end", props.seasonWheel && STACK_BESIDE_DIAL)}>{attack.replay}</div>
+          <div className="flex justify-end">{attack.replay}</div>
         ) : (
           <TileStack
             tile={hand.tile}
@@ -341,7 +314,6 @@ export function BoardScene(props: BoardSceneProps) {
             surrenderPending={surrendering && !surrenderDialog}
             coach={props.coach}
             readOnly={props.readOnly}
-            className={props.seasonWheel ? STACK_BESIDE_DIAL : undefined}
           />
         )}
       </div>

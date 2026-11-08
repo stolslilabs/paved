@@ -19,7 +19,7 @@ describe("the device settings store", () => {
   beforeEach(() => localStorage.clear());
 
   it("starts from the defaults: quality auto, music at 0.4, sound effects at 0.7, preview and highlight on", () => {
-    expect(createSettingsStore().get()).toEqual({ quality: "auto", dayNight: true, ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true });
+    expect(createSettingsStore().get()).toEqual({ quality: "auto", seasons: "cycle", dayTime: "cycle", ambient: true, musicVolume: 0.4, musicBefore: 0.4, sfxVolume: 0.7, sfxBefore: 0.7, tilePreview: true, placementHighlight: true, squareGrid: true });
     expect(DEFAULT_SETTINGS.quality).toBe("auto");
   });
 
@@ -32,9 +32,9 @@ describe("the device settings store", () => {
 
   it("round-trips under the one versioned key, and a second store reads what the first wrote", () => {
     const a = createSettingsStore();
-    a.set({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false, squareGrid: false });
+    a.set({ quality: "high", seasons: "winter", dayTime: "night", ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false, squareGrid: false });
     expect(SETTINGS_KEY).toBe("paved.settings.v1");
-    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", dayNight: false, ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false, squareGrid: false });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual({ quality: "high", seasons: "winter", dayTime: "night", ambient: false, musicVolume: 0.7, musicBefore: 0.7, sfxVolume: 0, sfxBefore: 0.5, tilePreview: false, placementHighlight: false, squareGrid: false });
     expect(createSettingsStore().get()).toEqual(a.get());
   });
 
@@ -92,6 +92,29 @@ describe("the device settings store", () => {
   });
 });
 
+describe("the seasons and the day and night (SEASONS-SETTINGS)", () => {
+  it("turn by default: Cycle and Cycle", () => {
+    expect(DEFAULT_SETTINGS).toMatchObject({ seasons: "cycle", dayTime: "cycle" });
+    expect(parseSettings("{}")).toMatchObject({ seasons: "cycle", dayTime: "cycle" });
+  });
+
+  it("migrate the Day/night cycle switch: off is Summer and Day (the board it drew), on Cycle and Cycle; the new shape never writes it", () => {
+    expect(parseSettings(JSON.stringify({ dayNight: false }))).toMatchObject({ seasons: "summer", dayTime: "day" });
+    expect(parseSettings(JSON.stringify({ dayNight: true }))).toMatchObject({ seasons: "cycle", dayTime: "cycle" });
+    expect(parseSettings(JSON.stringify({ dayNight: "off" }))).toMatchObject({ seasons: "cycle", dayTime: "cycle" });
+    expect(parseSettings(JSON.stringify({ dayNight: false }))).not.toHaveProperty("dayNight");
+    // A choice stored by the new shape wins over the switch.
+    expect(parseSettings(JSON.stringify({ dayNight: false, seasons: "winter", dayTime: "cycle" }))).toMatchObject({ seasons: "winter", dayTime: "cycle" });
+  });
+
+  it("keep each choice strict: one the menus do not offer is the default (or the switch's migration)", () => {
+    for (const seasons of ["cycle", "summer", "autumn", "winter", "spring"] as const) expect(parseSettings(JSON.stringify({ seasons })).seasons).toBe(seasons);
+    for (const dayTime of ["cycle", "day", "night"] as const) expect(parseSettings(JSON.stringify({ dayTime })).dayTime).toBe(dayTime);
+    expect(parseSettings(JSON.stringify({ seasons: "monsoon", dayTime: "dusk" }))).toMatchObject({ seasons: "cycle", dayTime: "cycle" });
+    expect(parseSettings(JSON.stringify({ seasons: 2, dayTime: null, dayNight: false }))).toMatchObject({ seasons: "summer", dayTime: "day" });
+  });
+});
+
 describe("the ambient effects (#572)", () => {
   it("are on by default, and on for a store written before the setting existed", () => {
     expect(DEFAULT_SETTINGS.ambient).toBe(true);
@@ -112,7 +135,7 @@ describe("the volumes", () => {
     expect(parseSettings(JSON.stringify({ sound: false, music: true, musicVolume: 0.8 }))).toMatchObject({ sfxVolume: 0, sfxBefore: 0.7, musicVolume: 0.8, musicBefore: 0.8 });
     expect(parseSettings(JSON.stringify({ sound: true, music: false, musicVolume: 0.6 }))).toMatchObject({ sfxVolume: 0.7, musicVolume: 0, musicBefore: 0.6 });
     expect(parseSettings(JSON.stringify({ music: false }))).toMatchObject({ musicVolume: 0, musicBefore: 0.4 });
-    expect(parseSettings(JSON.stringify({ quality: "low", dayNight: false, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: false }))).toEqual({ ...DEFAULT_SETTINGS, quality: "low", dayNight: false, placementHighlight: false });
+    expect(parseSettings(JSON.stringify({ quality: "low", dayNight: false, sound: true, music: true, musicVolume: 0.4, tilePreview: true, placementHighlight: false }))).toEqual({ ...DEFAULT_SETTINGS, quality: "low", seasons: "summer", dayTime: "day", placementHighlight: false });
   });
 
   it("writes only the new shape, so a migrated store reads back the same", () => {

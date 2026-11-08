@@ -14,7 +14,7 @@ import { useFreeVillage, type ChestOrigin } from "../data/free-village";
 import { usePlayerStatus } from "../data/indexer";
 import { usePvpLeague } from "../data/pvp-league";
 import { RENDERER_ASSETS } from "../data/renderer-manifest";
-import { useBoardSettings } from "../data/settings";
+import { useBoardSettings } from "../data/board-settings";
 import { useNow } from "./now";
 import { useEndChest } from "./end-chest";
 import { useAppNavigate, useUpTo } from "./ref";

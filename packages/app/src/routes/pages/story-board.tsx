@@ -50,7 +50,6 @@ export const COACH: Readonly<Record<string, { target: CoachTarget | null; tip: s
   "1-3": { target: "discard", tip: "This tile only gets in the way: hold the trash by the tile stack to discard it. At 0 points a discard is free." },
   "1-4": { target: "discard", tip: "With points on the board, a discard takes 50 of them. Count what the next tile is worth first." },
   "1-5": { target: "deck", tip: "Tap the tile stack: the deck sheet shows every tile this level deals, and the ones already played." },
-  "1-6": { target: "wheel", tip: "The season wheel turns the board through the seasons. Tap it to step on; the score does not change." },
   "1-7": { target: "settings", tip: "The gear opens the settings (sound, the placement highlight) without leaving the level. Hold the arrow beside it to restart." },
   "1-11": { target: "deck", tip: "Tap the tile stack: the deck sheet lists the tiles still to come, in order. Plan with it." },
 };
@@ -145,8 +144,8 @@ function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: Story
   const hand = over ? null : state.hand;
   const slotsAt = useCallback((o: number) => run.slots(o), [run]);
   const orientationsAt = useCallback((cell: Slot) => run.orientationsAt(cell), [run]);
-  // A new attempt starts the season wheel again. Off the play phase there is no tile to place: no plate.
-  const { placement, renders, scene } = useGameBoard({ skins, resetKey: attempt, placement: { plan: phase === "play" && hand ? hand.plan : null, slotsAt, orientationsAt, version: snapshot, resetKey: attempt } });
+  // Off the play phase there is no tile to place: no plate.
+  const { placement, renders, scene } = useGameBoard({ skins, placement: { plan: phase === "play" && hand ? hand.plan : null, slotsAt, orientationsAt, version: snapshot, resetKey: attempt } });
   const { orientation, move, slots } = placement;
   const preview = useMemo(() => (move ? run.preview(move) : null), [run, snapshot, move]);
   const handErrorDetail = useErrorDetail(state.writeError);

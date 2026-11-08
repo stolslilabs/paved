@@ -283,8 +283,8 @@ function Attack({ me, attack, match, writes, ending, onEnd, onBack }: { me: stri
   // The last tile in: the end on its way, the board holds (#1067).
   const pending = writes.pending?.kind === "play" || ending;
   const legal = useAttackLegality(run, hand);
-  // The rival's village in red (#772); the season wheel starts again with each attack.
-  const { placement, scene } = useGameBoard({ skins, side: "rival", resetKey: attack.id, placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: attack.moves.length } });
+  // The rival's village in red (#772).
+  const { placement, scene } = useGameBoard({ skins, side: "rival", placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: attack.moves.length } });
   const { orientation, move } = placement;
   const preview = move && hand !== null ? run.preview(hand, move.orientation, fromBoard(move)) : null;
   const play = (next: Parameters<Writes["play"]>[0], ghost: BoardGhost | null = null) => {

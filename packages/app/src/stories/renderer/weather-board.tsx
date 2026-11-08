@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameCanvas } from "@paved/renderer/react";
 import {
-  DAY_PHASE_AT,
   DEFAULT_BIRD_SETTINGS,
   PLAY_DEFAULT_POLAR_ANGLE,
   loadBirds,
@@ -14,14 +13,14 @@ import {
   type WeatherSettingsInput,
 } from "@paved/renderer";
 import { toRenderTiles } from "../../components/containers/board-viewport";
-import { WHEEL_SEASONS, wheelDayNight, type WheelState } from "../../data/season-wheel";
+import { CYCLE_SEASONS, DAY_AT, NIGHT_AT } from "../../data/day-night";
 import { APP_ASSETS, APP_MANIFEST } from "../../mocks/assets";
 import { BOARD_72 } from "../../mocks/board";
 import { PHONE_PLAY_DISTANCE, sourcesOf } from "./birds-board";
 import { skinsFor } from "./skins-board";
 
-/** The wheel (#547, `data/season-wheel.ts`): auto, the cycle's season; fixed, the chosen season's day held (or its night here). */
-export type WeatherWheel = "auto" | "fixed";
+/** The cycle as Settings choose it (`data/day-night.ts`): auto, the whole cycle from the season; held, the season's day (or its night). */
+export type WeatherCycle = "auto" | "held";
 /** The game's opening camera (`focusBoard`) or a phone's play distance at the game's tilt. */
 export type WeatherView = "game" | "phone-play";
 
@@ -58,14 +57,14 @@ export type WeatherBoardProps = LayerProps<"rain"> &
     springBrightness: number;
     /** The birds of #574 in spring (not validated yet: off by default, and the board does not draw them). */
     springBirds: boolean;
-    /** The season: the wheel's fixed one, or where the cycle starts with the wheel on auto. */
+    /** The season: the one held, or where the cycle starts on auto. */
     season: Season;
-    /** With the wheel fixed: two seconds after the board is up, the wheel turns to this season (a season fade); null, it stays. */
+    /** Held: two seconds after the board is up, the season held turns to this one (a season fade); null, it stays. */
     fadeTo: Season | null;
-    wheel: WeatherWheel;
-    /** With the wheel fixed: its day (the game's) or its night (to judge the weather at night). */
+    cycle: WeatherCycle;
+    /** Held: its day (the game's) or its night (to judge the weather at night). */
     time: "day" | "night";
-    /** With the wheel on auto: how fast the cycle runs (1 the game's, a day and a night in two minutes). */
+    /** On auto: how fast the cycle runs (1 the game's, a day and a night in two minutes). */
     speed: number;
     view: WeatherView;
     /** The cloud shadows of #573 (their wind blows the rain, the leaves, the snow and the petals). */
@@ -121,14 +120,12 @@ export function weatherInput(props: WeatherBoardProps): WeatherSettingsInput {
 }
 
 /**
- * The cycle's settings for the wheel (`wheelDayNight`, as the game's board): auto runs the cycle from `season`; fixed holds the
+ * The cycle's settings (as the game's board, `cycleDayNight`, the cycle kept on for summer's day): auto runs the cycle from `season`; held holds the
  * season's day, or here its night. The season is the cycle's first too: under reduced motion the cycle holds its first season.
  */
-export function weatherDayNight(props: Pick<WeatherBoardProps, "wheel" | "season" | "time" | "speed" | "reducedMotion">): RendererSettingsInput["dayNight"] {
-  const state: WheelState = props.wheel === "auto" ? "auto" : props.season;
-  const { enabled, freezeAt } = wheelDayNight(state, true);
-  const held = freezeAt === null ? null : props.time === "night" ? WHEEL_SEASONS.indexOf(props.season) + DAY_PHASE_AT.night : freezeAt;
-  return { enabled, season: props.season, speed: props.speed, freezeAt: held, reducedMotion: props.reducedMotion };
+export function weatherDayNight(props: Pick<WeatherBoardProps, "cycle" | "season" | "time" | "speed" | "reducedMotion">): RendererSettingsInput["dayNight"] {
+  const held = props.cycle === "auto" ? null : CYCLE_SEASONS.indexOf(props.season) + (props.time === "night" ? NIGHT_AT : DAY_AT);
+  return { enabled: true, season: props.season, speed: props.speed, freezeAt: held, reducedMotion: props.reducedMotion };
 }
 
 const p95 = (values: number[]) => (values.length ? [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * 0.95))]! : 0);
@@ -147,7 +144,7 @@ interface Readout {
 
 /**
  * The weather (WEATHER-WIRE, #658) on the recorded 72-tile board at the game's camera, under the day and night cycle and the season
- * wheel, drawn by the scene itself as on every board: the controls go to `RendererSettings.weather`, the scene loads the weather's
+ * held or not, drawn by the scene itself as on every board: the controls go to `RendererSettings.weather`, the scene loads the weather's
  * chunk, registers it on its one ambient loop, and hands it its mode (the tier, the 'Ambient effects', reduced motion), the cycle's
  * point and the clouds' wind. Every knob is a control; the readout gives the weather's draws and the frame's, the frames a second and
  * the frame's CPU time, p95. The scene is exposed to the measuring scripts as `window.__weatherScene`.
@@ -158,9 +155,9 @@ export function WeatherBoard(props: WeatherBoardProps) {
   const [season, setSeason] = useState<Season | null>(null);
   const [ready, setReady] = useState(false);
   const [readout, setReadout] = useState<Readout | null>(null);
-  // The season fade: two seconds after the board is up, the wheel turns (as a tap on it does).
+  // The season fade: two seconds after the board is up, the season held changes (as a new choice in Settings does).
   const [turned, setTurned] = useState(false);
-  const shown = turned && fadeTo && props.wheel === "fixed" ? { ...props, season: fadeTo } : props;
+  const shown = turned && fadeTo && props.cycle === "held" ? { ...props, season: fadeTo } : props;
   const weatherKey = JSON.stringify(weatherInput(props));
   const dayNightKey = JSON.stringify(weatherDayNight(shown));
   const settings = useMemo<RendererSettingsInput>(

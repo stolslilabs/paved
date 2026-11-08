@@ -210,7 +210,7 @@ function AttackView({ me, attack, deck, writes, onBack }: { me: string; attack: 
   const run = data?.run ?? null;
   const legal = useAttackLegality(run, hand);
   // The rival's village in red (#772), on the same board as every game; v1 gets it with no further work (open point 4).
-  const { placement, scene } = useGameBoard({ skins, side: "rival", resetKey: attack.id, placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: data?.remaining } });
+  const { placement, scene } = useGameBoard({ skins, side: "rival", placement: { plan: hand, slotsAt: legal.slotsAt, orientationsAt: legal.orientationsAt, version: run, resetKey: data?.remaining } });
   if (!data || !run) {
     const message = data === null ? "This attack cannot be read on this network." : read.error?.message;
     return <PvpSearchScene canvas={<SearchVoid />} state={message ? "error" : "searching"} player={defender} error={message} errorDetail={read.error ? errorDetail(read.error) : undefined} onCancel={onBack} />;

@@ -24,7 +24,6 @@ function pointerEvents(el: Element): "auto" | "none" {
   return "auto";
 }
 
-const DIAL = { seasonWheel: { state: "summer" as const, onNext: vi.fn(), read: null } };
 
 describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
   it("clicks the village's capsule into edit mode, the edges' buttons (HOME-EDGES) and the dock's items (HOME-DOCK)", async () => {
@@ -34,7 +33,7 @@ describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
     const onMissions = vi.fn();
     const onTiles = vi.fn();
     const onChat = vi.fn();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...DIAL} onEditingChange={onEditingChange} onNavigate={onNavigate} onMissions={onMissions} onTiles={onTiles} onChat={onChat} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onEditingChange={onEditingChange} onNavigate={onNavigate} onMissions={onMissions} onTiles={onTiles} onChat={onChat} />));
     const box = document.querySelector("[data-slot=home-overlays]") as HTMLElement;
     // The hammer left with HOME-EDGES (the book's): the village score's capsule opens edit mode.
     const edit = await within(box).findByRole("button", { name: /^Edit village, score/ });
@@ -60,21 +59,21 @@ describe("the home's buttons take taps (HOME-BUTTONS, #856)", () => {
     expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["play", "settings"]);
   });
 
-  it("leaves no control of the overlays under the box's pass-through, the dial included; the bottom row's gaps stay the village's", async () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.shielded} {...DIAL} chests={2} />));
+  it("leaves no control of the overlays under the box's pass-through, and no Season dial (SEASONS-SETTINGS); the bottom row's gaps stay the village's", async () => {
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.shielded} chests={2} />));
     const box = document.querySelector("[data-slot=home-overlays]") as HTMLElement;
     await screen.findByRole("navigation", { name: "Main" }, { timeout: slow(5000) });
-    await within(box).findByRole("button", { name: /^Season/ }, { timeout: slow(5000) });
     await within(box).findByRole("button", { name: /^League: / }, { timeout: slow(5000) });
     await within(box).findByRole("navigation", { name: "Village" }, { timeout: slow(5000) });
     const controls = within(box).getAllByRole("button");
     const named = (el: HTMLElement) => el.getAttribute("aria-label") ?? el.textContent ?? "";
-    // The capsules, the right column's four tiles, the dial, the Chat tab, the mission and the dock's five, among the rest.
-    const expected = [/^League: /, /^Edit village, score/, /^Missions/, /^Vault/, /^Friends/, /^Tiles/, /^Season/, /^Chat/, /^Public Works/, /^Shop/, /^Ranking/, /^Play/, /^Allegiance/, /^Settings/];
+    // The capsules, the right column's four tiles, the Chat tab, the mission and the dock's five, among the rest.
+    const expected = [/^League: /, /^Edit village, score/, /^Missions/, /^Vault/, /^Friends/, /^Tiles/, /^Chat/, /^Public Works/, /^Shop/, /^Ranking/, /^Play/, /^Allegiance/, /^Settings/];
     expect(controls.map(named)).toEqual(expect.arrayContaining(expected.map((re) => expect.stringMatching(re))));
+    expect(controls.map(named).filter((n) => /^Season/.test(n))).toEqual([]);
     const blocked = controls.filter((el) => pointerEvents(el) === "none").map(named);
     expect(blocked).toEqual([]);
-    // The bottom left's stack (the dial, the Chat tab, the mission) passes taps through between its items: the village takes them.
+    // The bottom left's stack (the Chat tab, the mission) passes taps through between its items: the village takes them.
     const stack = within(box).getByRole("button", { name: /^Chat/ }).parentElement!;
     expect(stack).toHaveClass("pointer-events-none");
     expect(stack).not.toHaveClass("pointer-events-auto");

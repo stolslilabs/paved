@@ -129,10 +129,10 @@ describe("Home (#753): the village with its overlays", () => {
     expect(onNavigate.mock.calls.map(([tab]) => tab)).toEqual(["shop", "ranking", "play", "guild", "settings"]);
   });
 
-  it("HOME-EDGES: the right column at every width; the dial, the Chat tab and the mission stacked at the bottom left, above the dock", async () => {
+  it("HOME-EDGES: the right column at every width; the Chat tab and the mission stacked at the bottom left, above the dock", async () => {
     const onMissions = vi.fn();
     const onVault = vi.fn();
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onMissions={onMissions} onVault={onVault} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} onMissions={onMissions} onVault={onVault} />));
     // The right column at every width (no `hidden`), centred in the band under the balances; taller than it, it wraps leftwards.
     const column = await screen.findByRole("navigation", { name: "Village" });
     expect(column.className.split(" ")).not.toContain("hidden");
@@ -152,15 +152,14 @@ describe("Home (#753): the village with its overlays", () => {
     expect(left.className.split(" ")).toEqual(expect.arrayContaining(["right-20", "tablet:right-24"]));
     // Settings and Play are the dock's alone, at every width (HOME-DOCK).
     for (const name of ["Settings", "Play"]) expect(screen.getAllByRole("button", { name }).every((b) => b.closest("nav[aria-label=Main]"))).toBe(true);
-    // The bottom left (the owner's ask: the mission at the left, just above the dock, as the chat): the dial, the Chat tab, the
+    // The bottom left (the owner's ask: the mission at the left, just above the dock, as the chat): the Chat tab, the
     // mission, in that order, clear of the dock's measured height below `desktop` and of its crest (the PLAY medallion) on a phone.
-    const place = document.querySelector<HTMLElement>("[data-dial-place]")!;
+    const place = document.querySelector<HTMLElement>("[data-bottom-left]")!;
     expect(place.className).toContain("bottom-[calc(var(--app-nav-h)+0.5rem)]");
     expect(place.style.marginBottom).toBe("var(--dock-crest)");
     const chat = await within(place).findByRole("button", { name: "Chat, 3 waiting" });
     const mission = within(place).getByRole("button", { name: "Public Works, 4 of 8" });
-    const dial = await within(place).findByRole("button", { name: /^Season/ });
-    expect(dial.compareDocumentPosition(chat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(place).queryByRole("button", { name: /^Season/ })).toBeNull();
     expect(chat.compareDocumentPosition(mission) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(mission);
     expect(onMissions).toHaveBeenCalledTimes(1);
@@ -181,7 +180,7 @@ describe("Home (#753): the village with its overlays", () => {
   });
 
   it("HOME-OVERLAYS (#856, #929, HOME-EDGES): the right column's tiles 8 px apart and centred in its band, the left one's controls 12 px apart at its top; no League in the right column; no Edit button", async () => {
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.shielded} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.shielded} />));
     await screen.findByRole("button", { name: /^League: / });
     const right = await screen.findByRole("navigation", { name: "Village" });
     const league = screen.getByRole("button", { name: /^League: / });
@@ -222,7 +221,7 @@ describe("Home (#753): the village with its overlays", () => {
     const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
     expect(css).toMatch(/--hud-inset: calc\(var\(--spacing\) \* 2\);\s*@media \(width >= 40rem\) \{\s*--hud-inset: calc\(var\(--spacing\) \* 4\);/);
     for (const edge of ["top", "left", "right"]) expect(css).toContain(`--hud-inset-${edge}: calc(var(--hud-inset) + env(safe-area-inset-${edge}));`);
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} chat={3} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} chat={3} />));
     const box = document.querySelector<HTMLElement>("[data-slot=home-overlays]")!;
     const classes = (el: Element | null | undefined) => el!.className.split(" ");
     // The top row: the profile and the balances off the top and both sides by the token alone.
@@ -239,12 +238,11 @@ describe("Home (#753): the village with its overlays", () => {
     expect(classes(box.querySelector("[data-slot=home-capsules]"))).toEqual(expect.arrayContaining(["-ml-0.75", "desktop:ml-0"]));
     expect(balances.className).not.toMatch(/(^|\s)(desktop:)?-m[trxy]?-/);
     expect(classes(balances)).toEqual(expect.arrayContaining(["top-0", "right-0"]));
-    // The capsules' column, the dial, the mission, the right column and the bottom row on the same sides. The Chat tab alone runs
+    // The capsules' column, the mission, the right column and the bottom row on the same sides. The Chat tab alone runs
     // to the screen's edge (the book's), the left safe area inside it.
     expect(classes(box.querySelector("[data-slot=scroll-region]"))).toContain("pl-(--hud-inset-left)");
-    const place = box.querySelector<HTMLElement>("[data-dial-place]")!;
+    const place = box.querySelector<HTMLElement>("[data-bottom-left]")!;
     expect(classes(place)).toContain("left-0");
-    expect(classes(place.firstElementChild)).toContain("pl-(--hud-inset-left)");
     const chat = await within(place).findByRole("button", { name: "Chat, 3 waiting" });
     // jsdom drops `env()`: the tab's safe area (its width and padding) is the stories' (HudInsetNotchSideways).
     expect(chat.parentElement).toBe(place);
@@ -255,7 +253,7 @@ describe("Home (#753): the village with its overlays", () => {
 
   it("HOME-EDGES: Chat a tab on the screen's left edge, Friends a tile of the right column, each with its count; no Social nav (Guild the dock's)", async () => {
     const on = { onChat: vi.fn(), onFriends: vi.fn() };
-    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} seasonWheel={{ state: "summer", onNext: vi.fn(), read: null }} />));
+    render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} {...on} />));
     const chat = await screen.findByRole("button", { name: "Chat, 3 waiting" });
     const friends = within(await screen.findByRole("navigation", { name: "Village" })).getByRole("button", { name: "Friends, 2 waiting" });
     expect(screen.queryAllByRole("navigation", { name: "Social" })).toEqual([]);
@@ -721,21 +719,14 @@ describe("Board", () => {
     expect(screen.getByText("Placing…")).toBeInTheDocument();
   });
 
-  it("the season dial (#682): at the bottom left, out of the top HUD, the stack kept clear of it; read-only boards too", () => {
-    // The wrapper and its placeholder render at once; the dial itself is a lazy chunk, not awaited here.
-    const wheel = { state: "summer" as const, onNext: vi.fn(), read: null };
-    const { container, unmount } = render(wrap(<BoardScene {...BOARD.queue} seasonWheel={wheel} coach="wheel" />));
-    const place = container.querySelector<HTMLElement>("[data-dial-place]")!;
-    expect(place).toHaveAttribute("data-bubble-avoid");
-    expect(place).toHaveAttribute("data-coach", "wheel");
-    expect(place.className).toMatch(/\bleft-2\b/);
-    expect(place.className).toMatch(/bottom-\[max\(0\.5rem,env\(safe-area-inset-bottom\)\)\]/);
-    // Not in the top HUD block, nor in the stack's: a child of the board itself.
-    expect(place.parentElement?.className).toMatch(/\bh-dvh\b/);
-    expect(screen.getByRole("region", { name: "Your tile" }).className).toMatch(/calc\(100vw-8\.25rem\)/);
+  it("no dial at the bottom left (SEASONS-SETTINGS: the seasons and the day and night are Settings' choices): the stack has the board's width, read-only boards too", () => {
+    const { container, unmount } = render(wrap(<BoardScene {...BOARD.queue} />));
+    expect(container.querySelector("[data-dial-place]")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Season/ })).toBeNull();
+    expect(screen.getByRole("region", { name: "Your tile" }).className).not.toMatch(/calc\(100vw-8\.25rem\)/);
     unmount();
-    const readOnly = render(wrap(<BoardScene {...BOARD.placing} readOnly seasonWheel={wheel} />));
-    expect(readOnly.container.querySelector("[data-dial-place]")).not.toBeNull();
+    const readOnly = render(wrap(<BoardScene {...BOARD.placing} readOnly />));
+    expect(readOnly.container.querySelector("[data-dial-place]")).toBeNull();
     expect(screen.getByRole("region", { name: "Deck" })).toBeInTheDocument();
   });
 

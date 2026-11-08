@@ -34,15 +34,11 @@ function held(side: BoardSide, season: Season = "summer", phase: DayPhase = "day
   return { ambient: { enabled: true }, dayNight: { enabled: true, season, freezeAt: DAY_PHASE_AT[phase] }, ...sideSettings(side, squareGridSettings(true, "")) };
 }
 
-/** The dial held at the board's season, as `useGameBoard` gives it. */
-const wheel = (season: Season): BoardSceneProps["seasonWheel"] => ({ state: season, onNext: fn(), read: null });
-
 /** The 3D board and stack as the module draws them, for the stories (the routes draw them through `useGameBoard`). */
 function board3d(side: BoardSide, b: { tiles: BoardTile[]; slots?: { x: number; y: number; fits?: boolean }[]; ghost?: BoardGhost | null; bubble?: BoardBubble | null }, season?: Season, phase?: DayPhase) {
   return {
     canvas: <BoardViewport tiles={b.tiles} slots={b.slots} ghost={b.ghost} bubble={b.bubble} basePath={APP_ASSETS} settings={held(side, season, phase)} />,
     renderHandStack: (v: StackFrame): ReactNode => <StackView {...v} basePath={APP_ASSETS} />,
-    seasonWheel: wheel(season ?? "summer"),
   };
 }
 
