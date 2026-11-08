@@ -16,7 +16,12 @@ import { addressKey } from "../../data/keys";
 import { useFollowLists, usePlayerSearch } from "../../data/social";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
-import { CHAT_PARAM, chatParamOf, chatPathOf, chatPlayerOf, chatTabOf, chatTabPath, privateChatPath, type ChatSheetState, type ChatTab } from "../chat-param";
+import { CHAT_PARAM, chatParamOf, chatPathOf, chatPlayerOf, chatTabOf, chatTabPath, mailPath, privateChatPath, type ChatSheetState, type ChatTab } from "../chat-param";
+import { puzzleDayEnd } from "@paved/game-core";
+import { MailSection, PrizeMail, type InboxMail } from "../../components/containers/inbox-mail";
+import { GIFT_REVEAL_S } from "../../components/containers/milestones-bar";
+import { puzzleMailDay, puzzleMailId, useClaimPuzzle, useHiddenMails, usePuzzlePrizes, usePuzzleVisit, type PuzzlePrize } from "../../data/puzzle";
+import { chatErrorText } from "../../lib/chat-text";
 import { chatTabStored, storeChatTab } from "../chat-tab";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
@@ -102,6 +107,9 @@ function ConversationView({ me, id, now, noticeSeen, onBack }: ConversationViewP
   );
 }
 
+/** The Inbox's badge with its mails' gifts waiting (the owner's asks of 2026-11-08): the DMs' unread, the requests and the prizes. */
+export const withMail = (badges: ChatBadges, gifts: number): ChatBadges => ({ ...badges, private: badges.private + gifts });
+
 /** The tabs' badges (#973): Guild, the guild's unread messages; Private, the private unread messages and the requests. */
 export function chatBadges(overview: ChatOverview | undefined): ChatBadges {
   if (!overview) return { guild: 0, private: 0 };
@@ -137,6 +145,46 @@ function NewMessage({ me, open, onOpenChange, onPick }: { me: string; open: bool
         unavailable: search.unavailable,
       }}
       onPick={onPick}
+    />
+  );
+}
+
+/** One Puzzle prize's mail of the Inbox (the owner's asks of 2026-11-08): its gift claims it; its bin claims a waiting gift, then hides it. */
+function PrizeMailView({ me, prize, claim, onHide, onBack }: { me: string; prize: PuzzlePrize; claim: ReturnType<typeof useClaimPuzzle>; onHide: () => void; onBack: () => void }) {
+  const openPlayer = useOpenPlayer();
+  const [deleting, setDeleting] = useState(false);
+  const claiming = claim.isPending && (claim.variables?.includes(prize.day) ?? false);
+  // A delete waits for the gift's opening (its claim landed): then the mail goes, back to the list.
+  useEffect(() => {
+    if (!deleting || !prize.claimed) return;
+    const timer = setTimeout(() => {
+      onHide();
+      onBack();
+    }, GIFT_REVEAL_S * 1000);
+    return () => clearTimeout(timer);
+  }, [deleting, prize.claimed, onHide, onBack]);
+  return (
+    <PrizeMail
+      day={prize.day}
+      score={prize.score}
+      players={prize.players}
+      top={prize.top}
+      me={me}
+      claimed={prize.claimed}
+      claiming={claiming || (deleting && !prize.claimed)}
+      error={claim.error && !claim.isPending ? chatErrorText(claim.error) : null}
+      onClaim={() => claim.mutate([prize.day])}
+      onDelete={() => {
+        if (prize.claimed) {
+          onHide();
+          onBack();
+          return;
+        }
+        setDeleting(true);
+        claim.mutate([prize.day], { onError: () => setDeleting(false) });
+      }}
+      onBack={onBack}
+      onOpenPlayer={openPlayer}
     />
   );
 }
@@ -182,7 +230,9 @@ export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
   // Whether the player is in a guild: unknown while the overview is read (a failed read opens on the World).
   const member = data ? guildConversation !== null : overview.error ? false : null;
   const player = params.player === undefined ? null : chatPlayerOf(params.player);
-  const urlTab: ChatTab | null = params.player !== undefined ? "private" : chatTabOf(params.tab);
+  // A mail of the Inbox (`/chat/mail/puzzle-<day>`), over the Private tab's list.
+  const mailDay = puzzleMailDay(params.mail);
+  const urlTab: ChatTab | null = params.player !== undefined || params.mail !== undefined ? "private" : chatTabOf(params.tab);
   const legacy = chatParamOf(searchParams.get(CHAT_PARAM));
   const opening = urlTab ?? chatTabStored() ?? (member === null ? null : member ? "guild" : "world");
 
@@ -191,7 +241,27 @@ export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
   const rest = new URLSearchParams(searchParams);
   rest.delete(CHAT_PARAM);
   const query = rest.toString() === "" ? "" : `?${rest}`;
-  const target = me === null ? null : legacy !== null ? chatPathOf(legacy, me) : urlTab === null && opening !== null ? chatTabPath(opening) : params.player !== undefined && player === null ? chatTabPath("private") : null;
+  // The Inbox's mails (the owner's asks of 2026-11-08): the Puzzle's prizes the player won, but those they deleted on this device.
+  usePuzzleVisit(me);
+  const prizes = usePuzzlePrizes(me);
+  const { hidden, hide } = useHiddenMails(me);
+  const claim = useClaimPuzzle(me);
+  const kept = (prizes.data ?? []).filter((p) => !hidden.has(puzzleMailId(p.day)));
+  const mails: InboxMail[] = kept.map((p) => ({ id: puzzleMailId(p.day), day: p.day, at: puzzleDayEnd(p.day), claimed: p.claimed }));
+  const waiting = kept.filter((p) => !p.claimed).map((p) => p.day);
+  const mailPrize = mailDay === null ? null : (kept.find((p) => p.day === mailDay) ?? null);
+  // A mail that is none (no such prize, or deleted) once the prizes are read: the Inbox's list.
+  const lostMail = params.mail !== undefined && (mailDay === null || (prizes.data !== undefined && mailPrize === null));
+  const target =
+    me === null
+      ? null
+      : legacy !== null
+        ? chatPathOf(legacy, me)
+        : urlTab === null && opening !== null
+          ? chatTabPath(opening)
+          : (params.player !== undefined && player === null) || lostMail
+            ? chatTabPath("private")
+            : null;
   useEffect(() => {
     if (target !== null) go(target + query, { replace: true, state: location.state });
   }, [target, query, go, location.state]);
@@ -211,6 +281,10 @@ export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
     if ((location.state as ChatSheetState | null)?.chatSheet) return void navigate(-1);
     go(chatTabPath("private"), { replace: true });
   }, [location.state, navigate, go]);
+  const openMail = useCallback((mail: InboxMail) => go(mailPath(mail.id), { state: { chatSheet: true } satisfies ChatSheetState }), [go]);
+  const hideMail = useCallback(() => {
+    if (mailDay !== null) hide(puzzleMailId(mailDay));
+  }, [hide, mailDay]);
 
   const frame = { onBack, open, returnFocus };
   if (overview.unavailable)
@@ -242,7 +316,13 @@ export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
       );
   else if (tab === "private")
     body =
-      player !== null ? (
+      params.mail !== undefined ? (
+        mailPrize ? (
+          <PrizeMailView key={mailPrize.day} me={me} prize={mailPrize} claim={claim} onHide={hideMail} onBack={closePrivate} />
+        ) : (
+          <Skeleton aria-busy className="h-64 rounded-xl" />
+        )
+      ) : player !== null ? (
         <ConversationView key={player} me={me} id={privateConversation(me, player)} now={now} noticeSeen={noticeSeen} onBack={closePrivate} />
       ) : (
         <>
@@ -255,6 +335,16 @@ export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
             onOpen={openConversation}
             onAnswer={(id, accept) => writes.run((c, p) => c.answerRequest(p, id, accept))}
             onNewMessage={() => setComposing(true)}
+            mail={
+              <MailSection
+                mails={mails}
+                now={now}
+                claiming={claim.isPending}
+                error={claim.error && !claim.isPending ? chatErrorText(claim.error) : null}
+                onClaimAll={waiting.length > 0 ? () => claim.mutate(waiting) : undefined}
+                onOpen={openMail}
+              />
+            }
           />
           <NewMessage me={me} open={composing} onOpenChange={setComposing} onPick={openPrivate} />
         </>
@@ -265,7 +355,7 @@ export function ChatContent({ onBack, open, returnFocus }: ChatContentProps) {
       {...frame}
       tab={tab}
       onTabChange={(next) => go(chatTabPath(next), { replace: true })}
-      badges={chatBadges(data)}
+      badges={withMail(chatBadges(data), waiting.length)}
       menu={<ChatMenu mutes={mutes.data ?? null} onUnmute={(address) => writes.run((c, p) => c.unmute(p, address))} onOpenPlayer={openPlayer} />}
     >
       {body}

@@ -6,6 +6,8 @@
 export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "",
   "play/challenge",
+  // The Puzzle's view: the Cobbles its first place wins.
+  "play/puzzle",
   "avatar",
   "village/:player",
   "village/shop",

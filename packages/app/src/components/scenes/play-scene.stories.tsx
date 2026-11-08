@@ -3,26 +3,30 @@ import { fn } from "storybook/test";
 import { CAMPAIGNS } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
 import { PLAY, PURCHASE } from "../../mocks/scenes";
+import { PUZZLE, PUZZLE_CARD } from "../../mocks/puzzle";
 import { STORY } from "../../mocks/story";
 import { PlayScene } from "./play-scene";
 import { PurchaseScene } from "./purchase-scene";
+import { PuzzleScene } from "./puzzle-scene";
 import { StoryScene } from "./story-scene";
 
 /**
- * Play (`/play`, PLAY-PAGE, the Paved UX Book's "modes", the owner's asks of 2026-11-06): the HUD's drawer, a full page on a phone, a side
- * panel docked at the right from `tablet`. Ranked (Attack), Paid (the Challenge), Free (Training, Story), Limited (coming soon), each
- * mode's rewards showing what it pays. One story per state; the Viewport control reframes it.
+ * Play (`/play`, PLAY-PAGE, the Paved UX Book's "modes", the owner's asks of 2026-11-06, then PLAY-MODES, the owner's direction C of
+ * 2026-11-08): the HUD's drawer, a full page on a phone, a side panel docked at the right from `tablet`. Attack the hero, the Challenge
+ * wide, Training and Story square tiles, the Puzzle wide (coming soon where the network has none), each a stone slab on its mode's
+ * scene, its icon breaking out of its top edge, its rewards static. One story per state; the Viewport control reframes it.
  */
 const meta = {
   title: "Scenes/Play",
   component: PlayScene,
-  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn() },
+  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Connected: Story = { args: PLAY.connected };
-
+/** No Attack on this network (no `onAttack`): the Challenge leads, its war horn breaking out at the top. */
+export const NoAttack: Story = { args: { ...PLAY.connected, onAttack: undefined } };
 
 /** New Challenge games paused: the Challenge is off and says why; Training and Story stay open. */
 export const PurchasesPaused: Story = { args: PLAY.paused };
@@ -47,3 +51,37 @@ export const StoryUnlocking: Story = story("unlocking");
 export const StoryComplete: Story = story("complete");
 /** Story with the browser's storage refused: the stars last for this visit. */
 export const StoryStorageOff: Story = story("storageOff");
+
+/** The Puzzle's card (PUZZLE-MODE, Limited): not played today, "One deck for all"; the day's time left in its carved corner. */
+export const PuzzleNotPlayed: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed } };
+/** Played: the place of the day beside the title ("#28", no total), the best of the day (PB) as its line. */
+export const PuzzlePlayed: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.played } };
+/** First of the day: "#1", carved the same as every place. */
+export const PuzzleFirst: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.first } };
+/** A game still open: its score "in play" (a tap opens the game). */
+export const PuzzlePlaying: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.playing } };
+/** The day's last hour: the time left in amber. */
+export const PuzzleLastHour: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.lastHour } };
+
+/** The Puzzle's view (PUZZLE-MODE) in the drawer: a view of its own in the modes' place, "Puzzle" and the Cobbles on the header. */
+const puzzle = (state: keyof typeof PUZZLE): Story => ({ args: { ...PLAY.connected, puzzle: <PuzzleScene onPlay={fn()} onDeck={fn()} onOpenPlayer={fn()} onRetry={fn()} {...PUZZLE[state]} /> } });
+/** Today's Puzzle, the viewer fourth: the day's figures, the prize, today's deck, the leaderboard, their best and Play in the footer. */
+export const PuzzleToday: Story = puzzle("today");
+/** A first visit today: no best yet, Play. */
+export const PuzzleFirstVisit: Story = puzzle("firstVisit");
+/** The viewer first. */
+export const PuzzleLeading: Story = puzzle("leading");
+/** The viewer past the list (57th): their row after it. */
+export const PuzzlePastList: Story = puzzle("pastList");
+/** A game still open: Resume in Play's place. */
+export const PuzzleResume: Story = puzzle("playing");
+/** Play pressed: the game being started. */
+export const PuzzleStarting: Story = puzzle("starting");
+/** No one has played today yet. */
+export const PuzzleEmpty: Story = puzzle("empty");
+/** The day's last hour: the time left in amber. */
+export const PuzzleViewLastHour: Story = puzzle("lastHour");
+export const PuzzleLoading: Story = puzzle("loading");
+export const PuzzleFailed: Story = puzzle("failed");
+/** WRAP360: the longest name and address, the largest figures. */
+export const PuzzleStress: Story = puzzle("stress");
