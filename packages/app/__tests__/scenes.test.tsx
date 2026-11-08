@@ -593,7 +593,8 @@ describe("Home's points by structure (#758)", () => {
 
 describe("Play", () => {
   // PLAY-PAGE: the Paved UX Book's "modes", then the owner's asks of 2026-11-06: Ranked before Paid, each mode's rewards (since
-  // 2026-11-08 without the gift under them, Story's Cobbles added), no Free Challenge, a Limited section to come.
+  // 2026-11-08 without the gift under them, Story's Cobbles added), no Free Challenge, a Limited section to come. PLAY-MODES
+  // (direction C, 2026-11-08): the groups' titles kept for a screen reader only, each card its scene, its icon and its tag.
   it("lists the groups in the owner's order, each mode with its rewards", async () => {
     const onChallenge = vi.fn();
     render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} onAttack={() => {}} />));
@@ -608,12 +609,18 @@ describe("Play", () => {
     expect(screen.getByRole("img", { name: "Rewards: crowns, XP, chests" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Training/ })).toHaveTextContent("TrainingA full game, just for practice");
     expect(screen.getByRole("button", { name: /^Training/ })).not.toHaveAccessibleName(/Rewards/);
-    expect(screen.getByRole("button", { name: /^Story/ })).toHaveTextContent(/^StoryLearn and play fun levels/);
-    expect(screen.getByRole("button", { name: /^Story/ })).toHaveAccessibleName(/Rewards: Cobbles, XP, chests$/);
+    expect(screen.getByRole("button", { name: /^Story/ })).toHaveTextContent(/^StoryLearn and play fun levels$/);
+    expect(screen.getByRole("img", { name: "Rewards: Cobbles, XP, chests" })).toBeInTheDocument();
     // The rewards' icons alone: no gift under them (the owner's ask of 2026-11-08); Story's Cobbles are the token's own icon.
     expect(document.querySelector('img[src*="gift-open"]')).toBeNull();
     expect(screen.getByRole("img", { name: "Rewards: Cobbles, XP, chests" }).querySelector('[data-token="cobbles"]')).not.toBeNull();
     expect(screen.getByRole("button", { name: "Coming soon" })).toBeDisabled();
+    // PLAY-MODES: each card on its mode's scene, its mode's icon over its edge.
+    for (const mode of ["attack", "challenge", "training", "story", "puzzle"]) {
+      const card = document.querySelector(`[data-mode="${mode}"]`)!;
+      expect(card.querySelector(`img[src$="/scene-${mode}.webp"]`), mode).not.toBeNull();
+      expect(card.querySelector(`img[src$="/mode-${mode}.webp"]`), mode).not.toBeNull();
+    }
     // No price tag, no free game, no Multiplayer.
     expect(screen.queryByText(/USDC|earn PAVED/)).toBeNull();
     expect(screen.queryByRole("button", { name: /Free Challenge/ })).toBeNull();
@@ -647,7 +654,7 @@ describe("Play", () => {
   it("a tap on Attack's or the Challenge's rewards chooses that mode; Resume stays its own control", async () => {
     const tapAt = async (el: HTMLElement) => {
       const through = el.closest(".pointer-events-none");
-      const beneath = through ? through.closest(".drawer-tile")!.querySelector<HTMLElement>("button[class*='after:inset-0']")! : el;
+      const beneath = through ? through.closest("[data-mode]")!.querySelector<HTMLElement>("button[class*='after:inset-0']")! : el;
       await userEvent.click(beneath);
     };
     const onChallenge = vi.fn();

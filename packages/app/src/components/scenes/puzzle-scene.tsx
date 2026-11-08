@@ -11,7 +11,7 @@ import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { DrawerFooter } from "../containers/hud-drawer";
 import { PuzzleRankRow } from "../containers/leaderboard";
-import { PUZZLE_LATE_S, PuzzleArt, puzzleTimeLeft } from "../containers/play-modes";
+import { ModeIcon, PUZZLE_LATE_S, puzzleTimeLeft } from "../containers/play-modes";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 
@@ -61,7 +61,7 @@ function Figure({ art, value, word, warn, className }: { art: "countdown" | "til
 
 /**
  * The Puzzle (`/play/puzzle`, Play's Limited mode, the owner's approved mockups of 2026-11-08): a view of Play's drawer, as Story's
- * campaigns, its Back to the modes. On the page itself (no frame): the stand-in painting, "Daily Puzzle", the day and its number, then
+ * campaigns, its Back to the modes. On the page itself (no frame): the jigsaw tile (the Puzzle's icon), "Daily Puzzle", the day and its number, then
  * the day's figures: the time left (amber under an hour), the deck's 38 tiles, how many played. The prize in a carved strip on the gold
  * wash: the gold medal, "First place wins" (the owner's ask: one winner, no plural to read), at 00:00 UTC, 250 Cobbles. Today's deck, a raised row: the deck
  * sheet on the day's cards. Today's leaderboard (`PuzzleRankRow`, Ranking's rows with the score), the viewer's row in gold, listed after
@@ -77,7 +77,7 @@ export function PuzzleScene({ standing, error, errorDetail, onRetry, now, me = n
     <section aria-label="Puzzle" className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
-          <PuzzleArt className="w-21" />
+          <ModeIcon mode="puzzle" px={72} className="w-18 [filter:drop-shadow(0_3px_0_var(--hud-outline))]" />
           <div className="flex min-w-0 flex-col">
             <h2 className="text-outline font-display text-[1.75rem] leading-tight font-bold">Daily Puzzle</h2>
             {standing ? (

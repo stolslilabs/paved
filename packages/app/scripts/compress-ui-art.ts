@@ -7,7 +7,7 @@
  * `src/components/elements/ui-art.ts`, `ui-sources/medallions/<name>.webp` (`UI_MEDALLIONS` and `UI_RINGS`, on `MEDALLION_FRAME`, in
  * `medallion-art.ts`), `ui-sources/missions/<name>.webp` (`MISSION_PARTS`, there too), `ui-sources/shop/<name>.webp` (`SHOP_PARTS`,
  * in `shop-art.ts`), `ui-sources/friends/<name>.webp` (`FRIENDS_PARTS`, in `friends-art.ts`) and `ui-sources/emblems/<name>.webp`
- * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`), `ui-sources/play/<name>.webp` (`PLAY_ART`, on `PLAY_ART_FRAME`, in
+ * (`GUILD_EMBLEM_CHARGES`, on `EMBLEM_FRAME`, in `emblem-art.ts`), `ui-sources/play/<name>.webp` (`MODE_ICONS` on `MODE_ICON_FRAME`, `MODE_SCENES` on `MODE_SCENE_FRAME`, `STAKE_ART`, in
  * `play-art.ts`), `ui-sources/avatar/<name>.webp` (`AVATAR_ART`, on `AVATAR_ART_FRAME`, in `avatar-art.ts`),
  * `ui-sources/ranking/<name>.webp` (`RANKING_ART`, on `RANKING_ART_FRAME`, in `ranking-art.ts`) and `ui-sources/attack/<name>.webp`
  * (`RADAR_ART`, in `attack-art.ts`), transparent lossless WebP
@@ -250,6 +250,22 @@
  * must not look like), `settings`, `info` and `close` as the style's references, three variants (orange, red, white on a red disc),
  * the red kept (a destructive action, as the red trash; the disc read as `close`). Trimmed, fitted and centred as TILE-ACTIONS'.
  *
+ * PLAY-MODES (2026-11-08): the Play page's cards redrawn (the owner's direction C: a hero, wide cards and two square tiles, each
+ * a painted scene in an irregular stone frame, its icon breaking out of its top edge), the four mode paintings of PLAY-PAGE left.
+ * Drawn by Codex's built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`; no API key, no other service), with
+ * the HUD's `chests`, `crown`, `star` and `season` as the style's references. The icons (`MODE_ICONS`), one object per mode used
+ * nowhere else, three variants each, the owner's picks: Attack's catapult (a battering ram and a siege tower the others), the
+ * Challenge's war horn (a laurel wreath and a pennant on a summit), Training's straw dummy (a target shield, an hourglass), Story's
+ * rolled map (a quill, a lantern), the Puzzle's landscape tile cut as a jigsaw piece (tiles tied with a ribbon, a sundial); each a
+ * transparent 1254 px square, trimmed to its alpha box, fitted to the 240 px box (libwebp's premultiplied rescale) and centred on
+ * the icons' frame, checked on the drawer's charcoal and on a light ground at 96, 32 and 24 px. The scenes (`MODE_SCENES`), 1536 x
+ * 1024, whole landscapes with no hole, one series in the game's look with only its own pieces (walled towns, roads, forests, fields,
+ * water, its wonders), each mode its own subject and light; drawn in three rounds (the owner: whole landscapes, then one style with
+ * no invented buildings, then less alike): Attack the first round's siege at a gate at dusk (kept on the owner's ask), the
+ * Challenge close on the great walled city at golden hour, Training a misty meadow with a lone farm, Story the stepped wonder on
+ * its hill in the late afternoon, the Puzzle the tiles' grid from above at midday (each the first of two variants). Scaled to
+ * 960 x 640 (`cwebp -resize`), stored as lossless WebP.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.
@@ -263,7 +279,7 @@ import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RIN
 import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.ts";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
 import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
-import { PLAY_ART, PLAY_ART_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
+import { MODE_ICONS, MODE_ICON_FRAME, MODE_SCENES, MODE_SCENE_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
 import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME } from "../src/components/elements/vault-art.ts";
 import { RANKING_ART, RANKING_ART_FRAME } from "../src/components/elements/ranking-art.ts";
@@ -284,7 +300,8 @@ const IMAGES = [
   ...UI_SHOP_PARTS.map((name) => ({ kind: "shop" as const, name, frame: SHOP_PARTS[name] })),
   ...UI_FRIENDS_PARTS.map((name) => ({ kind: "friends" as const, name, frame: FRIENDS_PARTS[name] })),
   ...GUILD_EMBLEM_CHARGES.map((name) => ({ kind: "emblems" as const, name, frame: EMBLEM_FRAME })),
-  ...PLAY_ART.map((name) => ({ kind: "play" as const, name, frame: PLAY_ART_FRAME })),
+  ...MODE_ICONS.map((name) => ({ kind: "play" as const, name, frame: MODE_ICON_FRAME })),
+  ...MODE_SCENES.map((name) => ({ kind: "play" as const, name, frame: MODE_SCENE_FRAME })),
   ...STAKE_ART.map((name) => ({ kind: "play" as const, name, frame: STAKE_ART_FRAME })),
   ...VAULT_ART.map((name) => ({ kind: "vault" as const, name, frame: VAULT_ART_FRAME })),
   ...VAULT_LIGHTS.map((name) => ({ kind: "vault" as const, name, frame: VAULT_LIGHT_FRAME })),
