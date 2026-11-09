@@ -496,9 +496,19 @@ describe("the database", () => {
     store.close();
   });
 
-  test("PLAYER-RENAME: schema 21 (the names set on Avatar; 20 was the Vault's USDC claims, D-31; 19 was the PvP attacks, #643; 18 was the XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56; 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1), and a database of schema 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8 or 7 is refused, naming rebuild", () => {
+  // PLAYER-RENAME: schema 21 is the names set on Avatar; 20 was the Vault's USDC claims, D-31; 19 was the PvP attacks, #643; 18 was the
+  // XP gains, #641; 17 was the cobble spends, #639; 16 was the skin prices, purchases and active sets; 15 was the packs, the sales and
+  // the pack purchases; 14 was the Cobbles ledger; 13 was the same ledger under its first names; 12 added purchases.vault_paved, P-56;
+  // 11 renamed Daily Challenge, D-23b; 10 added the names cache, N1.
+  test("PLAYER-RENAME: the schema is 21", () => {
     expect(SCHEMA_VERSION).toBe("21");
-    for (const old of ["20", "19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"]) {
+  });
+
+  // One test per old schema (FLAKY-QUARANTINE, #1128): the fourteen in one test took 1.7 to 4.5 s on a loaded machine, and timed
+  // out at vitest's 5 s on a loaded CI (main, and a pull request that did not touch the indexer). Each is about a fourteenth of it.
+  test.each(["20", "19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"])(
+    "a database of schema %s is refused, naming rebuild, and rebuilt at 21 on request",
+    (old) => {
       const path = tempDb();
       const raw = new DatabaseSync(path);
       raw.exec(`CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema', '${old}')`);
@@ -510,8 +520,8 @@ describe("the database", () => {
       rebuilt.open(CONFIG);
       expect(rebuilt.meta("schema")).toBe("21");
       rebuilt.close();
-    }
-  });
+    },
+  );
 
   test("a schema 8 database with its tables (players with a name and a master) is refused as it is, and rebuilt on request", () => {
     const path = tempDb();
