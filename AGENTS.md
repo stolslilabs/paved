@@ -173,7 +173,6 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   second waits or is reshaped:
   - `packages/app/src/components/scenes/home-village-scene.tsx`
   - `packages/app/src/styles/theme.css`
-  - `packages/app/__tests__/scenes.test.tsx`
   - `packages/app/src/data/mock/ledger.ts`
   - `.claude/skills/paved-ui/SKILL.md`
   - `packages/app/public/THIRD_PARTY_NOTICES.txt`
