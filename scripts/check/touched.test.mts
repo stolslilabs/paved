@@ -91,6 +91,7 @@ test("isInput reads the excludes as git does", () => {
 test("a change of the guards runs their own tests", () => {
   assert.equal(at(["scripts/check/check.mts"]).guards, true);
   assert.equal(at([".githooks/pre-push"]).guards, true);
+  assert.equal(at(["scripts/ci/nightly-flaky.mts"]).guards, true);
   assert.equal(at(["scripts/deploy.sh"]).guards, false);
 });
 
