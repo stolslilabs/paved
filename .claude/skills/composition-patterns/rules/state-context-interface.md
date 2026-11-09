@@ -7,7 +7,7 @@ impactDescription: enables dependency-injectable state across use-cases
 tags: composition, context, state, typescript, dependency-injection
 ---
 
-<!-- Paved: the samples call data hooks inside providers (`useGlobalChannel`, `useForwardMessage`). In `packages/app`, `elements/`, `containers/` and `scenes/` fetch nothing, read no store and call no session, and may not import values from `@paved/chain` or `@paved/indexer` (`paved-ui`; `__tests__/scenes.test.tsx` fails on it). So a provider there is fed by props. A provider that reads data lives in a route, wired through the hooks of `paved-data`. Samples use `TextInput` and `onPress` upstream; use DOM elements here. -->
+<!-- Paved: the samples call data hooks inside providers (`useGlobalChannel`, `useForwardMessage`). In `packages/app`, `elements/`, `containers/` and `scenes/` fetch nothing, read no store and call no session, and may not import values from `@paved/chain` or `@paved/indexer` (`paved-ui`; `__tests__/scenes-no-wiring.test.tsx` fails on it). So a provider there is fed by props. A provider that reads data lives in a route, wired through the hooks of `paved-data`. Samples use `TextInput` and `onPress` upstream; use DOM elements here. -->
 
 ## Define Generic Context Interfaces for Dependency Injection
 

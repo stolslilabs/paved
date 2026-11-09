@@ -21,7 +21,7 @@ Paths below are relative to
 | `scenes/` | one per page (section 6 of the architecture) | `scenes/home-scene.tsx` |
 
 - A scene takes all its data as props, plus `onX` callbacks. It fetches nothing, reads no store, calls no session.
-  `__tests__/scenes.test.tsx` ("no wiring") fails on a value import from `@paved/chain` or `@paved/indexer`, or on a
+  `__tests__/scenes-no-wiring.test.tsx` fails on a value import from `@paved/chain` or `@paved/indexer`, or on a
   `fetch(` call, in `elements/`, `containers/`, `scenes/` and `mocks/`. Types may be imported; values may not.
 - The routes in `src/routes/` do not import the scenes yet (same test); wiring is a later phase, not part of UI work.
 - Mock data lives in `src/mocks/` (`scenes.ts` assembles one object per scene, one key per state), checked with `satisfies Record<string, Data<HomeSceneProps>>`
@@ -42,7 +42,7 @@ Paths below are relative to
 - The preview supplies the providers (QueryClient seeded by `parameters.queryFixtures`, `MemoryRouter` at
   `parameters.route`, `MotionConfig` with `parameters.reducedMotion`). A story that needs a provider sets a
   parameter; it does not wrap itself.
-- **A render test per scene** in `__tests__/scenes.test.tsx` or `scenes-2.test.tsx`: Testing Library, wrapped in
+- **A render test per scene** in `__tests__/scenes-<scene>.test.tsx` or `scenes-2.test.tsx`: Testing Library, wrapped in
   `<LazyMotion features={domMax}>` (the `wrap` helper), asserting what the player sees per state.
 - The CI `client` job runs `build-storybook`: a broken story fails the PR.
 

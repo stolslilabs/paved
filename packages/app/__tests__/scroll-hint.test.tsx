@@ -64,7 +64,7 @@ describe("the scrollable regions", () => {
     // The tab page's region is the page's document (#611): the page's hint, not the mask (`TabFrame`); so is the side panel's body
     // from `desktop` (#762), where the page is drawn (`PagePanel`), and the body of a sheet over a page (BACK-RULE #783, `PageSheet`).
     // The home's left column (#856) is `ScrollRegion`'s box with its hint attached once the stage's chunk is in (kept off the first
-    // load): checked by scenes.test.
+    // load): checked by scenes-home.test.
     const allowed = new Set([
       "components/ui/scroll-region.tsx",
       "components/containers/tab-frame.tsx",
