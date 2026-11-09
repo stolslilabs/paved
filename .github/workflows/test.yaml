@@ -38,7 +38,6 @@ jobs:
       story_files: ${{ steps.stories.outputs.story_files }}
       shards: ${{ steps.stories.outputs.shards }}
       shard_count: ${{ steps.stories.outputs.shard_count }}
-      slow_shards: ${{ steps.stories.outputs.slow_shards }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # dorny/paths-filter v3.0.4
@@ -135,10 +134,10 @@ jobs:
               - 'scripts/signer/**'
               - '.github/workflows/test.yaml'
       # CI-TIERS (#1129): a pull request sweeps only the stories its change reaches (scripts/check/stories.mts, a static
-      # walk of the app's import graph), in up to 10 shards of about 20 story files; every story when it reaches what every
-      # story reads. The merge queue and main sweep every story in MAX_SHARDS (12) shards, SLOW_SHARDS (6) of them the stories
-      # slow to render at two workers, as a pull request that reaches every story does (SWEEP-SPEED, #1130; scripts/check/stories.mts,
-      # `stories.test.mts` holds them equal): no story leaves the gate of main. A client run is then 18 jobs (6 + 12).
+      # walk of the app's import graph), in up to MAX_SHARDS (5) shards of about 20 story files; every story when it reaches
+      # what every story reads. The merge queue and main sweep every story in MAX_SHARDS shards, balanced by each story's CI
+      # time (SWEEP-SPEED, #1130; `stories.test.mts` holds the two equal): no story leaves the gate of main. With the client
+      # run's 9 other jobs, 14 jobs: the budget. Measured (two full CI sweeps): about 13 min of sweep a shard.
       # The pull request's files come from the API (at most 3000; a longer list sweeps every story).
       # actions/setup-node v7.0.0
       - if: github.event_name == 'pull_request'
@@ -153,7 +152,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           if [ "$EVENT" != pull_request ]; then
-            printf 'stories=all\nstory_files=[]\nshards=[1,2,3,4,5,6,7,8,9,10,11,12]\nshard_count=12\nslow_shards=6\n' >> "$GITHUB_OUTPUT"
+            printf 'stories=all\nstory_files=[]\nshards=[1,2,3,4,5]\nshard_count=5\n' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
@@ -417,7 +416,7 @@ jobs:
   # WRAP360: the stories at 360 and 320 px, headless; fails on text that overflows, is cut without its full value, or
   # scrolls the page (packages/app/scripts/wrap-sweep.ts). In shards (`--shard i/n`, SWEEP-SHARD-1): every story of the
   # list is in exactly one, the shards balanced by each story's time (packages/app/scripts/wrap-sweep-times.json, SWEEP-SPEED).
-  # One failing shard does not cancel the others. The list is every story on the merge queue and main (twelve shards, six of them slow); on a
+  # One failing shard does not cancel the others. The list is every story on the merge queue and main (five shards); on a
   # pull request, the stories its change reaches (the `stories` step of `changes`), and no job when it reaches none.
   wrap-sweep:
     needs: changes
@@ -455,10 +454,9 @@ jobs:
         env:
           MODE: ${{ needs.changes.outputs.stories }}
           SHARD: ${{ matrix.shard }}/${{ needs.changes.outputs.shard_count }}
-          SLOW: ${{ needs.changes.outputs.slow_shards }}
         run: |
-          if [ "$MODE" = some ]; then node scripts/wrap-sweep.ts --stories "$RUNNER_TEMP/stories.txt" --shard "$SHARD" --slow-shards "$SLOW" --json "$RUNNER_TEMP/wrap-sweep.json"
-          else node scripts/wrap-sweep.ts --shard "$SHARD" --slow-shards "$SLOW" --json "$RUNNER_TEMP/wrap-sweep.json"; fi
+          if [ "$MODE" = some ]; then node scripts/wrap-sweep.ts --stories "$RUNNER_TEMP/stories.txt" --shard "$SHARD" --json "$RUNNER_TEMP/wrap-sweep.json"
+          else node scripts/wrap-sweep.ts --shard "$SHARD" --json "$RUNNER_TEMP/wrap-sweep.json"; fi
         shell: bash
       # Each story's time (SWEEP-SPEED): `node scripts/wrap-sweep-times.ts --run <run id>` refreshes the times file the shards
       # are balanced on from the reports of a full sweep (a merge-queue or main run).

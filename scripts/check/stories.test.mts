@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { MAX_SHARDS, SLOW_SHARDS, selectStories, shardCount, slowShardCount, storyIds, storySources } from "./stories.mts";
+import { MAX_SHARDS, selectStories, shardCount, storyIds, storySources } from "./stories.mts";
 import type { Pkg } from "./touched.mts";
 
 const PKGS: Pkg[] = [
@@ -158,20 +158,10 @@ test("the real app: the preview is read, a story selects itself, theme.css and a
   assert.deepEqual(own, { all: false, files: [`${A}/src/components/elements/amount.stories.tsx`] });
 });
 
-test("the merge queue and main sweep every story in MAX_SHARDS shards, SLOW_SHARDS slow, as a pull request that reaches every story", () => {
+test("the merge queue and main sweep every story in MAX_SHARDS shards, as a pull request that reaches every story", () => {
   const yaml = readFileSync(join(import.meta.dirname, "../../.github/workflows/test.yaml"), "utf8");
-  const m = /printf 'stories=all\\nstory_files=\[\]\\nshards=(\[[\d,]+\])\\nshard_count=(\d+)\\nslow_shards=(\d+)\\n'/.exec(yaml);
+  const m = /printf 'stories=all\\nstory_files=\[\]\\nshards=(\[[\d,]+\])\\nshard_count=(\d+)\\n'/.exec(yaml);
   assert.ok(m, "the queue's shards line of test.yaml");
   assert.deepEqual(JSON.parse(m[1]!), Array.from({ length: MAX_SHARDS }, (_, k) => k + 1));
   assert.equal(Number(m[2]), MAX_SHARDS);
-  assert.equal(Number(m[3]), slowShardCount(shardCount(ALL)));
-  assert.equal(slowShardCount(MAX_SHARDS), SLOW_SHARDS);
-});
-
-test("slow shards: none for one shard, one at least for more, always one shard left for the others", () => {
-  assert.equal(slowShardCount(1), 0);
-  assert.equal(slowShardCount(2), 1);
-  for (let n = 2; n <= MAX_SHARDS; n++) {
-    assert.ok(slowShardCount(n) >= 1 && slowShardCount(n) <= n - 1, String(n));
-  }
 });

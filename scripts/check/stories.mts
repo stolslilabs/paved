@@ -139,26 +139,15 @@ export function storyIds(index: { entries: Record<string, { id: string; type: st
 
 /**
  * The wrap-sweep shards of a pull request: one per SHARD_FILES story files, at most MAX_SHARDS, and MAX_SHARDS for every
- * story, as the merge queue and main do (test.yaml, SWEEP-SPEED). Each shard pays its setup and the Storybook build (about 4 to
- * 5 min: the header-sweep job, which adds three short checks, takes 6.0 min p50), then about 15 s a story file (a full shard,
+ * story, as the merge queue and main (test.yaml, held to it by `stories.test.mts`). SWEEP-SPEED (#1130): a client run's 9
+ * other jobs and these 5 keep it at the budget of about 14 jobs; the shards are balanced by time (wrap-sweep-times.json).
+ * Each shard pays its setup and the Storybook build (about 4 to 5 min: the header-sweep job, which adds three short checks, takes 6.0 min p50), then about 15 s a story file (a full shard,
  * 52 files of the 210, takes 17.2 min p50): 20 files keep a shard near 10 min.
  */
 export const SHARD_FILES = 20;
-export const MAX_SHARDS = 12;
+export const MAX_SHARDS = 5;
 export function shardCount(s: Selection): number {
   return s.all ? MAX_SHARDS : Math.min(MAX_SHARDS, Math.max(1, Math.ceil(s.files.length / SHARD_FILES)));
-}
-
-/**
- * Of a sweep's `n` shards, how many take the stories slow to render, with two workers (SWEEP-SPEED, `--slow-shards` of
- * wrap-sweep.ts): SLOW_SHARDS of MAX_SHARDS for every story, the same share of fewer (one at least, none for a single shard).
- * Measured on CI (two full sweeps of #1149): the 118 stories that render in 20 s or more take 5596 of 15596 worker-seconds;
- * four of them at once on a runner passed the 60 s render timeout. Six shards of them at two workers and six of the others at
- * four make about 7 min of sweep a shard.
- */
-export const SLOW_SHARDS = 6;
-export function slowShardCount(n: number): number {
-  return n < 2 ? 0 : Math.min(n - 1, Math.max(1, Math.round((n * SLOW_SHARDS) / MAX_SHARDS)));
 }
 
 if (import.meta.main) {
@@ -175,7 +164,6 @@ if (import.meta.main) {
     console.log(`story_files=${JSON.stringify(s.files)}`);
     console.log(`shards=${JSON.stringify(Array.from({ length: n }, (_, k) => k + 1))}`);
     console.log(`shard_count=${n}`);
-    console.log(`slow_shards=${slowShardCount(n)}`);
   } else if (cmd === "ids" && rest.length === 2) {
     const ids = storyIds(JSON.parse(readFileSync(rest[0]!, "utf8")), JSON.parse(readFileSync(rest[1]!, "utf8")));
     if (ids.length) console.log(ids.join("\n"));

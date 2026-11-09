@@ -3,7 +3,7 @@
  * from the reports of one full sweep (every story, every shard).
  *
  *   node scripts/wrap-sweep-times.ts --run <run id>...   # CI runs' `wrap-sweep-timings-*` artifacts, through `gh` (several runs:
- *                                                        # each story keeps its longest time, the safer for the slow split)
+ *                                                        # each story keeps its longest time)
  *   node scripts/wrap-sweep-times.ts <report.json>...    # `wrap-sweep.ts --json` files at hand
  *   ... --partial                                        # accept the reports of some shards only (a sample: the stories of
  *                                                        # the others weigh their title's median)
@@ -65,9 +65,9 @@ try {
     if (seen.size < count) source += `, shard(s) ${[...seen].sort((a, b) => a - b).join(", ")} of ${count}`;
   }
   const reports = [...groups.values()].flat();
-  const { seconds, render } = timesFromReports(reports);
+  const seconds = timesFromReports(reports);
   const total = Object.values(seconds).reduce((sum, s) => sum + s, 0);
-  writeFileSync(OUT, `${JSON.stringify({ source, generated: new Date().toISOString().slice(0, 10), seconds, render }, null, 1)}\n`);
+  writeFileSync(OUT, `${JSON.stringify({ source, generated: new Date().toISOString().slice(0, 10), seconds }, null, 1)}\n`);
   console.log(`${Object.keys(seconds).length} stories, ${(total / 60).toFixed(1)} worker-minutes, from ${reports.length} report(s) of ${source}: ${OUT}`);
 } finally {
   if (scratch) rmSync(scratch, { recursive: true, force: true });
