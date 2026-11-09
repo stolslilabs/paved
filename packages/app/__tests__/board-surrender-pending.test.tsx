@@ -1,14 +1,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { BOARD } from "../src/mocks/scenes";
 import { slow } from "../test-slow";
-import { settleBoardChunks } from "./lazy-chunks";
-
-// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
-afterAll(settleBoardChunks, slow(30_000));
 
 // The Surrender dialog's module arrives when the test lets it (BOARD-CHUNK).
 const gate = vi.hoisted(() => {
