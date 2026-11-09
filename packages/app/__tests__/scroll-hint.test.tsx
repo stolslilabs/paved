@@ -70,7 +70,7 @@ describe("the scrollable regions", () => {
       "components/containers/tab-frame.tsx",
       "components/containers/page-panel.tsx",
       "components/containers/page-sheet.tsx",
-      "components/scenes/home-village-scene.tsx",
+      "components/scenes/home-village-overlays.tsx",
     ]);
     const offenders = files(root)
       .map((f) => relative(root, f))
