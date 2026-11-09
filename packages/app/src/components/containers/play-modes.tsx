@@ -222,8 +222,11 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
             {spawnPaused && <span className="text-outline text-sm text-warning">Purchases are paused for now.</span>}
           </button>
           {running ? (
-            <button type="button" onClick={() => onResume?.(running.id)} aria-label={`Resume Challenge #${running.id}`} style={SAVE_PILL} className="gold-pill relative z-10 h-9 shrink-0 cursor-pointer self-end rounded-lg px-3 text-base">
-              Resume
+            // The 36 px pill in its 44 px target (`-my-1` keeps the card's line).
+            <button type="button" onClick={() => onResume?.(running.id)} aria-label={`Resume Challenge #${running.id}`} className="relative z-10 -my-1 grid h-11 shrink-0 cursor-pointer place-items-center self-end rounded-lg">
+              <span style={SAVE_PILL} className="gold-pill grid h-9 place-items-center rounded-lg px-3 text-base">
+                Resume
+              </span>
             </button>
           ) : (
             <Rewards rewards={CHALLENGE_REWARDS} className="right-3.5 bottom-3" />

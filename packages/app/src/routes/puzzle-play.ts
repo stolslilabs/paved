@@ -1,11 +1,19 @@
 import { useCallback } from "react";
 import { toastError } from "../components/containers/error-toast";
 import { usePuzzleActiveGame, useStartPuzzle } from "../data/puzzle";
+import { useDataSources } from "../data/sources";
+import { useAccount } from "../wallet/wallet";
 import { errorDetail } from "./error-detail";
 import { useAppNavigate } from "./ref";
 
 /** A Puzzle game's board. */
 export const puzzleGamePath = (gameId: number): string => `/puzzle/${gameId}`;
+
+/** The current account: the signer's, else the wallet's; null for none. The Puzzle's writes are this account's. */
+export function usePuzzleViewer(): string | null {
+  const wallet = useAccount();
+  return useDataSources().signer?.address ?? wallet.address ?? null;
+}
 
 /**
  * Play (the Puzzle view's, a game end's Play again): the player's game of today still open, else a new one (`start`), its board

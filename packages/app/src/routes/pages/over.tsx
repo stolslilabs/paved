@@ -18,7 +18,7 @@ import { formatDay } from "../../components/elements/day-picker";
 import { addressKey } from "../../data/keys";
 import { usePuzzleGameRecord, usePuzzleResult, usePuzzleStanding } from "../../data/puzzle";
 import { replayPuzzle } from "../../data/puzzle-game";
-import { usePlayPuzzle } from "../puzzle-play";
+import { usePlayPuzzle, usePuzzleViewer } from "../puzzle-play";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
@@ -50,7 +50,8 @@ function PuzzleRoute() {
  * The end of a Puzzle game (Play's Limited mode): the game read from the source and played again on the engine (its board, its
  * figures, every closing, so a reload shows it the same), its effect on the day (`result`: the best and the place before and after), the
  * day's first place before it (the trophy's goal). A game still in play goes back to its board, an unknown one is "Game not found".
- * Leaderboard opens the Puzzle view; Play again the open game of today, else a new one.
+ * Leaderboard opens the Puzzle view; Play again the current account's open game of today, else a new one of its own (whoever played
+ * this game), and without an account the Puzzle view.
  */
 function PuzzleOver({ gameId }: { gameId: number }) {
   const go = useAppNavigate();
@@ -66,7 +67,8 @@ function PuzzleOver({ gameId }: { gameId: number }) {
   const stats = useMemo(() => (replay ? gameStats(replay.engine.rules) : undefined), [replay]);
   const tiles = useMemo(() => (replay ? pageStateOf(replay.engine.rules).tiles : []), [replay]);
   const board = useMemo(() => ({ tiles, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer }), [tiles, skins, boardSettings.renderer]);
-  const { play } = usePlayPuzzle(data?.player ?? null, { replace: true });
+  const viewer = usePuzzleViewer();
+  const { play } = usePlayPuzzle(viewer, { replace: true });
 
   useEffect(() => {
     if (data && !data.over) go(`/puzzle/${gameId}`, { replace: true });
@@ -110,7 +112,7 @@ function PuzzleOver({ gameId }: { gameId: number }) {
       onViewChange={setView}
       reward={{ state: "free" }}
       puzzle={{ result: result.data ?? null, firstPlace, dayLabel: formatDay(data.day), onLeaderboard: () => go("/play/puzzle") }}
-      onPlayAgain={play}
+      onPlayAgain={viewer === null ? () => go("/play/puzzle") : play}
       onHome={() => go("/")}
     />
   );

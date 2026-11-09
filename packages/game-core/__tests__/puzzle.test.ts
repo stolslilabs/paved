@@ -5,6 +5,7 @@ import {
   PUZZLE_TILES,
   PlanType,
   SeededChallenge,
+  comparePuzzle,
   pageStateOf,
   puzzleDayEnd,
   puzzleDayOf,
@@ -69,9 +70,9 @@ describe("the Puzzle's day", () => {
 describe("the Puzzle's ranking", () => {
   it("puts the best score first, an equal score set earlier before", () => {
     const ranked = rankPuzzle([
-      { id: "a", score: 900, at: 30 },
-      { id: "b", score: 1_200, at: 50 },
-      { id: "c", score: 900, at: 10 },
+      { id: "a", score: 900, at: 30, order: 2 },
+      { id: "b", score: 1_200, at: 50, order: 3 },
+      { id: "c", score: 900, at: 10, order: 1 },
     ]);
     expect(ranked.map((r) => [r.id, r.place])).toEqual([
       ["b", 1],
@@ -82,12 +83,30 @@ describe("the Puzzle's ranking", () => {
 
   it("places a result among the others", () => {
     const others = [
-      { score: 1_000, at: 5 },
-      { score: 800, at: 1 },
+      { score: 1_000, at: 5, order: 2 },
+      { score: 800, at: 1, order: 1 },
     ];
-    expect(puzzlePlaceAmong({ score: 1_200, at: 9 }, others)).toBe(1);
-    expect(puzzlePlaceAmong({ score: 800, at: 9 }, others)).toBe(3);
-    expect(puzzlePlaceAmong({ score: 800, at: 0 }, others)).toBe(2);
+    expect(puzzlePlaceAmong({ score: 1_200, at: 9, order: 3 }, others)).toBe(1);
+    expect(puzzlePlaceAmong({ score: 800, at: 9, order: 3 }, others)).toBe(3);
+    expect(puzzlePlaceAmong({ score: 800, at: 0, order: 0 }, others)).toBe(2);
+  });
+
+  it("breaks an equal score in the same second by completion order, the ranking and a result's place agreeing", () => {
+    const results = [
+      { id: "second", score: 0, at: 100, order: 8 },
+      { id: "first", score: 0, at: 100, order: 7 },
+      { id: "third", score: 0, at: 100, order: 9 },
+    ];
+    const ranked = rankPuzzle(results);
+    expect(ranked.map((r) => [r.id, r.place])).toEqual([
+      ["first", 1],
+      ["second", 2],
+      ["third", 3],
+    ]);
+    for (const r of ranked) {
+      expect(puzzlePlaceAmong(r, results.filter((o) => o.id !== r.id))).toBe(r.place);
+    }
+    expect(comparePuzzle(results[1]!, results[0]!)).toBeLessThan(0);
   });
 });
 

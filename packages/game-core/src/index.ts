@@ -145,7 +145,7 @@ export type { StructureAreas, StructureTileInput } from "./engine/structures";
 export * from "./sessions";
 
 // The Puzzle (Play's Limited mode): the day, its deck, its prize and its ranking
-export { PUZZLE_DAY_S, PUZZLE_PRIZE_COBBLES, PUZZLE_TILES, puzzleDayEnd, puzzleDayOf, puzzleDeck, puzzlePlaceAmong, rankPuzzle } from "./puzzle";
+export { PUZZLE_DAY_S, PUZZLE_PRIZE_COBBLES, PUZZLE_TILES, comparePuzzle, puzzleDayEnd, puzzleDayOf, puzzleDeck, puzzlePlaceAmong, rankPuzzle } from "./puzzle";
 export type { PuzzleResult } from "./puzzle";
 
 // Story mode (#546): campaigns, levels, runs and the device progress

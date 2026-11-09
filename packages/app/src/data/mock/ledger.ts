@@ -197,9 +197,9 @@ import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
 import { PLAYER_NAME_MAX } from "../../lib/name-limit";
-import { PUZZLE_PRIZE_COBBLES, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
+import { PUZZLE_PRIZE_COBBLES, comparePuzzle, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
 import { PUZZLE_PRIZE_TOP, PUZZLE_STANDING_LIMIT, type PuzzleEntry, type PuzzleGameRecord, type PuzzleGameResult, type PuzzlePrize, type PuzzleStanding } from "../puzzle-source";
-import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle } from "./puzzle";
+import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
 import {
   SPAWN_DRAW,
   builderOf,
@@ -1248,8 +1248,9 @@ export class MockLedger {
   }
 
   /**
-   * `PuzzleSource.result`: the player's best of the day before the game (their games ranked before it) and after, and their place
-   * before and after among the day's other results now. A game that ended past its day ranks nowhere (`late`).
+   * `PuzzleSource.result`: the player's best of the day before the game (their games completed and ranked before it) and after, and
+   * their place before and after among the day's other results now, in the standings' order (`comparePuzzle`). A game that ended past
+   * its day ranks nowhere (`late`).
    */
   async puzzleResult(gameId: number): Promise<PuzzleGameResult> {
     const puzzle = this.puzzle();
@@ -1257,13 +1258,19 @@ export class MockLedger {
     if (!game) throw new ViewError("game-not-found", "Puzzle: game does not exist");
     if (!game.over) throw new ViewError("not-available", "Puzzle: the game is not over");
     const dayEnd = puzzleDayEnd(game.day);
-    const before = Object.values(puzzle.games)
-      .filter((g) => g.player === game.player && g.day === game.day && g.over && g.end < dayEnd && g.id !== game.id && (g.end < game.end || (g.end === game.end && g.id < game.id)))
-      .sort((a, b) => b.score - a.score || a.end - b.end)[0];
+    const resultOf = (g: StoredPuzzleGame) => ({ score: g.score, at: g.end, order: g.order ?? 0 });
+    const mine = resultOf(game);
+    // Completed before this game: an earlier end, else an earlier order; two games stored before the order was kept (both 0) by
+    // their ids, as then.
+    const before = (g: StoredPuzzleGame) => g.end < game.end || (g.end === game.end && ((g.order ?? 0) < mine.order || ((g.order ?? 0) === mine.order && g.id < game.id)));
+    const prior =
+      Object.values(puzzle.games)
+        .filter((g) => g.player === game.player && g.day === game.day && g.over && g.end < dayEnd && g.id !== game.id && before(g))
+        .map(resultOf)
+        .sort(comparePuzzle)[0] ?? null;
     const others = dayResults(puzzle, game.day, this.second()).filter((r) => r.address !== game.player);
     const late = game.end >= dayEnd;
-    const prior = before ? { score: before.score, at: before.end } : null;
-    const after = late ? prior : prior && prior.score >= game.score ? prior : { score: game.score, at: game.end };
+    const after = late ? prior : prior && prior.score >= game.score ? prior : mine;
     return {
       gameId,
       day: game.day,
@@ -1332,7 +1339,8 @@ export class MockLedger {
       const now = this.second();
       if (move.kind !== "surrender" && now >= puzzleDayEnd(game.day)) throw new WriteError("Puzzle: the day is over");
       try {
-        playPuzzleMove(game, move, now);
+        // The move's transaction number (`commit`'s): the game's completion order when it ends it.
+        playPuzzleMove(game, move, now, this.state.transactions + 1);
       } catch (error) {
         throw new WriteError(error instanceof Error ? error.message : String(error));
       }
