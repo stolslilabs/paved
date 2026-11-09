@@ -36,18 +36,24 @@ function median(values: number[], fallback: number): number {
 const title = (id: string) => id.split("--")[0];
 
 /**
- * Each story's weight, in seconds: its time in `times`; for a story the file lacks (a new one), the median of the timed stories
- * of its own title (the stories of one title cost alike: a new 3D story weighs as the other 3D ones), else the median of every
- * timed story of the list; with no time at all, 1 (every story weighs the same).
+ * Each story's weight, in seconds: its time in `times`; for a story the file lacks (a new one), the median of the file's stories
+ * of its own title (the stories of one title cost alike: a new 3D story weighs as the other 3D ones), else the median of the
+ * whole file; with no time at all, 1 (every story weighs the same). The medians come from the whole file, not from `ids`: a
+ * selection of new stories alone (a pull request's) still weighs them as their titles.
  */
 export function weigh(ids: readonly string[], times: Times = {}): Map<string, number> {
   const byTitle = new Map<string, number[]>();
-  for (const id of ids) {
-    const t = times[id];
-    if (known(t)) byTitle.set(title(id), [...(byTitle.get(title(id)) ?? []), t]);
+  const all: number[] = [];
+  for (const [id, t] of Object.entries(times)) {
+    if (!known(t)) continue;
+    all.push(t);
+    const list = byTitle.get(title(id));
+    if (list) list.push(t);
+    else byTitle.set(title(id), [t]);
   }
-  const all = median([...byTitle.values()].flat(), 1);
-  return new Map(ids.map((id) => [id, known(times[id]) ? times[id] : median(byTitle.get(title(id)) ?? [], all)]));
+  const fallback = median(all, 1);
+  const titleMedian = new Map([...byTitle].map(([k, v]) => [k, median(v, fallback)]));
+  return new Map(ids.map((id) => [id, known(times[id]) ? times[id] : (titleMedian.get(title(id)) ?? fallback)]));
 }
 
 /**

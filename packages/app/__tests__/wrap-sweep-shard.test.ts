@@ -105,6 +105,17 @@ describe("wrap sweep shard", () => {
   const RENDER: Times = { "avatar--a": 40, "avatar--b": 30, "ui--a": 1, "ui--b": 2, "renderer--x": 3 };
   const IDS = [...Object.keys(RENDER), "avatar--new", "ui--new", ...STORIES];
 
+  it("weighs a new story by the whole file, even in a selection without its timed siblings", () => {
+    const file = TIMES_FILE as { seconds: Times; render: Times };
+    const alone = ["scenes-avatarcreator--new"];
+    const creator = Object.entries(file.seconds).filter(([id]) => id.startsWith("scenes-avatarcreator--")).map(([, t]) => t).sort((a, b) => a - b);
+    expect(weigh(alone, file.seconds).get(alone[0])).toBe(creator.length % 2 ? creator[creator.length >> 1] : (creator[(creator.length >> 1) - 1] + creator[creator.length >> 1]) / 2);
+    expect(weigh(alone, file.seconds).get(alone[0])).toBeGreaterThan(1);
+    expect([...slowStories(alone, file.render)]).toEqual(alone);
+    // A title the file lacks: the whole file's median, not 1.
+    expect(weigh(["brand-new--story"], { "a--1": 4, "b--1": 6, "c--1": 100 }).get("brand-new--story")).toBe(6);
+  });
+
   it("finds the slow stories by their render, a new one of a slow title included", () => {
     expect([...slowStories(IDS, RENDER)].sort()).toEqual(["avatar--a", "avatar--b", "avatar--new"]);
     expect(slowStories(IDS).size).toBe(0);
