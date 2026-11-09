@@ -6,7 +6,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import type { ComponentProps } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { slow } from "../test-slow";
 import { formatInteger, randomLayout } from "@paved/game-core";
 import { layoutScore, stockOf } from "../src/components/containers/layout-rules";
@@ -14,6 +14,10 @@ import type { LayoutSlotsProps } from "../src/components/containers/layout-slots
 import VillageStage from "../src/components/containers/village-stage";
 import { STILL } from "../src/mocks/random-layout";
 import { DRAFT_VALID, INVENTORY, LAYOUT_GROWING, LAYOUT_SLOTS } from "../src/mocks/village-v2";
+import { settleStageChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleStageChunks, slow(30_000));
 
 afterEach(cleanup);
 

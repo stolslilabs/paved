@@ -4,7 +4,7 @@ import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { Cobbles, formatCobbles } from "../src/components/elements/cobbles";
 import { formatUsd } from "../src/components/containers/cobble-packs";
 import { PLANS, applySkinChanges, chooseTheme, isClaimed, packDiscount, pickSkin, referencePrice, themeInUse, themeSet } from "../src/components/containers/cobble-types";
@@ -24,6 +24,11 @@ import { QUEST_DEFINITIONS, QUESTS_ALL_DONE, QUESTS_TODAY, QUESTS_TODAY_ALL_DONE
 import { TODAY } from "../src/mocks/players";
 import { isLiveOnDay, questPeriod } from "../src/lib/quest-window";
 import { COBBLES, MISSIONS, PLAY, PURCHASE, THEME_SHOP, TILES } from "../src/mocks/scenes";
+import { slow } from "../test-slow";
+import { settleHomeChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleHomeChunks, slow(30_000));
 
 /** The app's providers in miniature: `m` components and the nav's `layoutId` need a LazyMotion with `domMax`. */
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;

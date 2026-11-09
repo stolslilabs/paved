@@ -1,13 +1,18 @@
 import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { CAMPAIGNS } from "@paved/game-core";
 import type { CoachTarget } from "../src/components/containers/coach";
 import { TileBubble } from "../src/components/containers/tile-bubble";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { BOARD } from "../src/mocks/scenes";
 import { COACH } from "../src/routes/pages/story-board";
+import { slow } from "../test-slow";
+import { settleBoardChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleBoardChunks, slow(30_000));
 
 // GAME-OVERLAY (the owner's words of 2026-11-07: "un genre de wireframe autour du deck en jaune qui pulse"): one coach mark, the opened
 // chest's light behind the control a Story tip names, on every target; no outline, no ring, no CSS pulse.

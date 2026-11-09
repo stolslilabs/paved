@@ -2,12 +2,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { formatInteger } from "@paved/game-core";
 import { VillageScore } from "../src/components/containers/village-score";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { slow } from "../test-slow";
+import { settleHomeChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleHomeChunks, slow(30_000));
 
 // The home's lazy parts loaded before its render, so none is still loading when the file ends (CI threw an EnvironmentTeardownError on
 // the stage's chain, village-stage then layout-board then tile-render, after every test had passed).

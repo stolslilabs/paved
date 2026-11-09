@@ -5,11 +5,15 @@ import { LazyMotion, domMax } from "motion/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { useLayoutCanvas } from "../src/components/containers/village-layout-canvas";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
+import { settleHomeChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleHomeChunks, slow(30_000));
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 

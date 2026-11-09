@@ -3,12 +3,16 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import { useContext } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import type { GameCanvasProps } from "@paved/renderer/react";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { BoardCovered } from "../src/components/containers/board-covered";
 import { BoardViewport } from "../src/components/containers/board-viewport";
 import { BOARD } from "../src/mocks/scenes";
+import { settleBoardChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleBoardChunks, slow(30_000));
 
 // The board is covered while a sheet hides it (#572): the renderer's ambient loop stops (`GameScene.setCovered`).
 
