@@ -157,8 +157,11 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   its `ci` job is the required check there as on the pull request.
 - Two tiers (CI-TIERS, #1129). The pull request runs a fast gate: the wrap sweep of only the stories its change reaches
   (`scripts/check/stories.mts`, tested by `stories.test.mts`; every story when the change reaches what every story reads), and
-  the Training e2e only when `packages/app/e2e/**` or `packages/game-core/**` change. The merge queue and main run everything:
+  the Training e2e only when `packages/app/e2e/**` or `packages/game-core/**` change. The merge queue runs everything:
   the whole sweep in four shards and the e2e on its full filter.
+- Where `main` is tested (MAIN-PUSH-TRIM, #1132): by the queue on each merge, and by the nightly run (`nightly.yaml`, its
+  `full` job) each night, every job of `Stolsis CI`. A push to `main` runs the path-filtered jobs without the Storybook checks,
+  the wrap sweep and the e2e.
 - `gh pr merge --admin` skips the queue and is never used. The flow rules themselves land in #1126.
 
 ## Pull requests
