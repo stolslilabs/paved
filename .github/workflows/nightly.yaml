@@ -3,7 +3,11 @@ name: Nightly
 # FLAKY-QUARANTINE (#1128, R7 of AGENTS.md): main's client suites run once a night, the app's three times, and every test that
 # failed at least once gets a comment on its `flaky` issue, or a new one (scripts/ci/nightly-flaky.mts). A test that fails in
 # one run of three, on a main that passed its pull request, is what the line stops for. The job blocks nothing: no pull request
-# waits on it, and a failed test does not fail it (only a broken setup or build does). #1132 adds the rest of the full suite.
+# waits on it, and a failed test does not fail it (only a broken setup or build does).
+# MAIN-PUSH-TRIM (#1132): the `full` job runs every job of Stolsis CI (test.yaml, through `workflow_call`) on main, with no
+# path filter: the contracts' format, build, ABIs and tests, the indexer, the client, the Storybook checks, the whole wrap
+# sweep, the e2e, the signer and the Vercel builds. It catches what time changes on a main no merge touched (flaky tests,
+# external pins); its `ci` job fails the night when one of them fails.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -65,3 +69,13 @@ jobs:
           name: nightly-reports
           path: nightly/
           retention-days: 14
+
+  full:
+    name: Full suite on main
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/test.yaml
+    with:
+      full: true
+      ref: main

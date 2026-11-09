@@ -7,6 +7,17 @@ on:
   # GitHub's merge queue: each group is tested on top of main and of the groups ahead of it.
   merge_group:
     types: [checks_requested]
+  # The nightly full run (nightly.yaml, #1132): every job, whatever changed, on `ref`.
+  workflow_call:
+    inputs:
+      full:
+        description: Run every job, with no path filter.
+        type: boolean
+        default: false
+      ref:
+        description: The commit to check out (empty is the caller's).
+        type: string
+        default: ""
 
 # A newer push to a PR cancels the run of its previous head. A push to main gets a group of its own
 # (its run id), so it is never cancelled nor queued behind another. A merge_group run also gets its own
@@ -26,12 +37,12 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      contracts: ${{ steps.filter.outputs.contracts }}
-      indexer: ${{ steps.filter.outputs.indexer }}
-      client: ${{ steps.filter.outputs.client }}
-      e2e: ${{ steps.filter.outputs.e2e }}
-      signer: ${{ steps.filter.outputs.signer }}
-      vercel: ${{ steps.filter.outputs.vercel }}
+      contracts: ${{ inputs.full && 'true' || steps.filter.outputs.contracts }}
+      indexer: ${{ inputs.full && 'true' || steps.filter.outputs.indexer }}
+      client: ${{ inputs.full && 'true' || steps.filter.outputs.client }}
+      e2e: ${{ inputs.full && 'true' || steps.filter.outputs.e2e }}
+      signer: ${{ inputs.full && 'true' || steps.filter.outputs.signer }}
+      vercel: ${{ inputs.full && 'true' || steps.filter.outputs.vercel }}
       e2e_pr: ${{ steps.filter.outputs.e2e_pr }}
       # The wrap sweep's selection (CI-TIERS, #1129): all, some or none; the story files of `some`; the shards.
       stories: ${{ steps.stories.outputs.stories }}
@@ -40,13 +51,17 @@ jobs:
       shard_count: ${{ steps.stories.outputs.shard_count }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       # dorny/paths-filter v3.0.4
       - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
+        if: ${{ !inputs.full }}
         id: filter
         with:
           # On push to main, compare with the previous commit; on a PR, with its base; on a merge queue group,
           # its own range (base_sha..head_sha: what the group adds to main). Two SHAs take the action's plain
           # `git diff base..head` path, fetching what the shallow checkout lacks.
+          # Skipped on the nightly full run (`inputs.full`): every filter's output is then true.
           base: ${{ github.event_name == 'push' && github.event.before || github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
           ref: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || '' }}
           filters: |
@@ -135,7 +150,8 @@ jobs:
               - '.github/workflows/test.yaml'
       # CI-TIERS (#1129): a pull request sweeps only the stories its change reaches (scripts/check/stories.mts, a static
       # walk of the app's import graph), in up to 10 shards of about 20 story files; every story when it reaches what every
-      # story reads. The merge queue and main sweep every story in four shards, as before: no story leaves the gate of main.
+      # story reads. The merge queue and the nightly sweep every story in four shards: no story leaves the gate of main (a push
+      # to main sweeps none, MAIN-PUSH-TRIM).
       # The pull request's files come from the API (at most 3000; a longer list sweeps every story).
       # actions/setup-node v7.0.0
       - if: github.event_name == 'pull_request'
@@ -164,6 +180,8 @@ jobs:
     name: Check format
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/setup
       - name: Format
         working-directory: ${{ env.WORKING_DIRECTORY }}
@@ -177,6 +195,8 @@ jobs:
     name: Build game
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/setup
       # Static (reads contracts/src, deploy.sh and scripts/signer/**; no build, no node): first, so a wrong name fails
       # in seconds and not after the build. This job runs on contracts/**, deploy.sh and signer/** (the `contracts` filter).
@@ -212,6 +232,8 @@ jobs:
     name: Contract ABIs up to date
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/setup
       - name: Regenerate ABIs
         run: scripts/abis.sh
@@ -230,6 +252,8 @@ jobs:
     name: Test game
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/setup
         with:
           foundry: "true"
@@ -247,6 +271,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       # The same setup as the client job: the engines' Node (the daemon runs its TypeScript natively) and the pinned Bun.
       # actions/setup-node v7.0.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -275,6 +301,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/client-setup
       - name: Build
         run: bun run build
@@ -296,13 +324,16 @@ jobs:
 
   client-storybook:
     needs: changes
-    if: needs.changes.outputs.client == 'true'
+    # Not on a push to main (MAIN-PUSH-TRIM, #1132): the merge queue ran it on the tree that lands, the nightly runs it again.
+    if: needs.changes.outputs.client == 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     name: Client header sweep and mobile feel
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/client-setup
         with:
           browser: "true"
@@ -332,7 +363,8 @@ jobs:
   # (the `stories` step of `changes`), and no job when it reaches none.
   wrap-sweep:
     needs: changes
-    if: needs.changes.outputs.client == 'true' && needs.changes.outputs.stories != 'none'
+    # Not on a push to main (MAIN-PUSH-TRIM, #1132): the merge queue swept the tree that lands, the nightly sweeps it again.
+    if: needs.changes.outputs.client == 'true' && needs.changes.outputs.stories != 'none' && github.event_name != 'push'
     runs-on: ubuntu-latest
     name: Wrap sweep (shard ${{ matrix.shard }}/${{ needs.changes.outputs.shard_count }})
     permissions:
@@ -343,6 +375,8 @@ jobs:
         shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/client-setup
         with:
           browser: "true"
@@ -379,8 +413,9 @@ jobs:
   # this one would.
   e2e:
     needs: changes
-    # The merge queue and main: the whole `e2e` filter. A pull request: its own `e2e_pr` filter (CI-TIERS).
-    if: needs.changes.outputs.e2e == 'true' && (github.event_name != 'pull_request' || needs.changes.outputs.e2e_pr == 'true')
+    # The merge queue and the nightly: the whole `e2e` filter. A pull request: its own `e2e_pr` filter (CI-TIERS). A push to
+    # main: none (MAIN-PUSH-TRIM, #1132), the queue played the tree that lands.
+    if: needs.changes.outputs.e2e == 'true' && github.event_name != 'push' && (github.event_name != 'pull_request' || needs.changes.outputs.e2e_pr == 'true')
     runs-on: ubuntu-latest
     name: Training e2e (headless)
     # About 1 min of tests locally for the default 2 games; the setup and the build come on top. On CI the whole job
@@ -396,6 +431,8 @@ jobs:
       PAVED_E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       # actions/setup-node v7.0.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -464,6 +501,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
       # actions/setup-node v7.0.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -489,6 +528,7 @@ jobs:
       # The whole history: the ignore step's test judges real commits of main.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
       # The same setup and cache as the client job.
       # actions/setup-node v7.0.0
