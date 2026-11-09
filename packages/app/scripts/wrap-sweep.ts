@@ -4,7 +4,7 @@
  * served on the loopback by this script.
  *
  *   bun run --filter @paved/app build-storybook
- *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--stories <file>] [--workers 4] [--shard i/n] [--json <file>]
+ *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--stories <file>] [--workers 4] [--shard i/n] [--times <file>] [--json <file>]
  *
  * Node 24 runs it as is (type stripping): the syntax stays erasable. The browser is the one `playwright-core`
  * names: `bunx playwright-core install chromium-headless-shell` once.
@@ -25,7 +25,9 @@
  * `--stories <file>` sweeps only the story ids the file lists, one a line (CI-TIERS: a pull request's selection,
  * `scripts/check/stories.mts`); an empty file sweeps nothing and passes at once. `--shard i/n` sweeps the i-th of n parts
  * of the story list (after `--filter` and `--stories`), each story in exactly one part for a given n
- * (`wrap-sweep-shard.ts`). Without them, every story.
+ * (`wrap-sweep-shard.ts`), the parts balanced by the times of `--times` (default `wrap-sweep-times.json`, refreshed from a
+ * CI run by `wrap-sweep-times.ts`; a story it lacks counts as the median). Without them, every story.
+ * `--json <file>` writes the findings and each story's time (its render and each width) there.
  *
  * Exit code 1 when a finding is not in ALLOWED.
  */
@@ -35,7 +37,7 @@ import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
 import { sweepStory } from "./wrap-sweep-retry.ts";
-import { parseShard, shardStories } from "./wrap-sweep-shard.ts";
+import { parseShard, shardStories, type Times } from "./wrap-sweep-shard.ts";
 
 type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
 
@@ -150,6 +152,8 @@ function args() {
     // A `--shard` with no value is an error, not the whole list.
     shard: argv.includes("--shard") ? parseShard(get("shard") ?? "") : undefined,
     json: get("json"),
+    // The times `--shard` balances on (SWEEP-SPEED): `wrap-sweep-times.ts` refreshes the file from a CI run.
+    times: resolve(get("times") ?? join(here, "wrap-sweep-times.json")),
   };
 }
 
@@ -388,6 +392,16 @@ async function readSelection(file: string): Promise<Set<string>> {
   return new Set((await readFile(file, "utf8")).split("\n").map((l) => l.trim()).filter(Boolean));
 }
 
+/** The `seconds` of a times file; none (every story weighs the same) when the file is missing. */
+async function readTimes(file: string): Promise<Times> {
+  try {
+    return (JSON.parse(await readFile(file, "utf8")) as { seconds: Times }).seconds;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw e;
+  }
+}
+
 async function main() {
   const opts = args();
   const index = JSON.parse(await readFile(join(opts.dir, "index.json"), "utf8")) as { entries: Record<string, { id: string; type: string }> };
@@ -399,9 +413,14 @@ async function main() {
     const missing = [...selected].filter((id) => !Object.values(index.entries).some((e) => e.type === "story" && e.id === id));
     if (missing.length) throw new Error(`--stories names ${missing.length} id(s) not in index.json: ${missing.slice(0, 5).join(", ")}`);
   }
-  const stories = opts.shard ? shardStories(listed, opts.shard) : listed;
+  const times = await readTimes(opts.times);
+  const stories = opts.shard ? shardStories(listed, opts.shard, times) : listed;
   if (selected) console.log(`Selection: ${listed.length} of ${Object.values(index.entries).filter((e) => e.type === "story").length} stories (${opts.stories}).`);
-  if (opts.shard) console.log(`Shard ${opts.shard.index}/${opts.shard.count}: ${stories.length} of ${listed.length} stories.`);
+  if (opts.shard) {
+    const known = stories.filter((id) => id in times);
+    const expected = known.reduce((sum, id) => sum + times[id], 0) / Math.max(1, opts.workers) / 60;
+    console.log(`Shard ${opts.shard.index}/${opts.shard.count}: ${stories.length} of ${listed.length} stories (${known.length} timed, about ${expected.toFixed(1)} min).`);
+  }
   if (stories.length === 0) {
     console.log("No story to sweep: pass.");
     process.exitCode = 0;
@@ -412,6 +431,8 @@ async function main() {
   const findings: Finding[] = [];
   /** How long each story took to open (navigation and render), ms: the summary names the slowest. */
   const opened: { story: string; ms: number }[] = [];
+  /** Each story's whole time in its worker (render, every width, the page change after it), ms, and its parts. */
+  const timings: { story: string; ms: number; render: number; widths: Record<number, number> }[] = [];
   // The 3D stories (board, tiles, outlines) take seconds each in software WebGL; spread them over the workers
   // rather than let four of them start together: a fixed shuffle, so two runs take the same order.
   let seed = 360;
@@ -431,6 +452,7 @@ async function main() {
       return context.newPage();
     };
     for (let id = queue.shift(); id; id = queue.shift()) {
+      const at = performance.now();
       // A navigation timeout is retried once on a fresh page (a slow runner, not a wrap defect), and logged.
       const swept = await sweepStory(page, id, opts.widths, {
         render: async (p, story) => {
@@ -455,6 +477,7 @@ async function main() {
       // 0.1 s a story). The same after a story that did not render.
       const failed = swept.findings.some((f) => f.kind === "error");
       if (failed || (await page.evaluate(() => document.querySelector("canvas") !== null).catch(() => true))) page = await fresh(page);
+      timings.push({ story: id, ms: performance.now() - at, render: swept.timing.render, widths: swept.timing.widths });
     }
     await browser.close();
   }
@@ -478,9 +501,29 @@ async function main() {
   const part = opts.shard ? ` (shard ${opts.shard.index}/${opts.shard.count})` : "";
   console.log(`\n${stories.length} stories${part} x ${opts.widths.join(", ")} px in ${seconds} s: ${open.length} finding(s), ${findings.length - open.length} allowed.`);
   console.log(`Slowest to open: ${slowest.join(", ")}.`);
+  timings.sort((a, b) => b.ms - a.ms);
+  const busy = timings.reduce((sum, t) => sum + t.ms, 0) / 1000;
+  console.log(`Worker time: ${busy.toFixed(1)} s over ${timings.length} stories; slowest: ${timings.slice(0, 5).map((t) => `${t.story} ${(t.ms / 1000).toFixed(1)} s`).join(", ")}.`);
   if (opts.json) {
-    const timings = opened.map((o) => ({ story: o.story, ms: Math.round(o.ms) }));
-    await writeFile(opts.json, JSON.stringify({ stories: stories.length, widths: opts.widths, seconds: Number(seconds), findings, opened: timings }, null, 2));
+    const round = (ms: number) => Math.round(ms);
+    await writeFile(
+      opts.json,
+      JSON.stringify(
+        {
+          stories: stories.length,
+          widths: opts.widths,
+          workers: opts.workers,
+          shard: opts.shard ?? null,
+          seconds: Number(seconds),
+          findings,
+          opened: opened.map((o) => ({ story: o.story, ms: round(o.ms) })),
+          // Per story: the whole (`ms`), its render, and each width (settle and inspection).
+          timings: timings.map((t) => ({ story: t.story, ms: round(t.ms), render: round(t.render), widths: Object.fromEntries(Object.entries(t.widths).map(([w, ms]) => [w, round(ms)])) })),
+        },
+        null,
+        2,
+      ),
+    );
   }
   process.exitCode = open.length ? 1 : 0;
 }

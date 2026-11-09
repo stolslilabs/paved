@@ -1,5 +1,7 @@
 /** The wrap sweep's selection of scripts/check/stories.mts (CI-TIERS): `node --test scripts/check/stories.test.mts`. */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import { MAX_SHARDS, selectStories, shardCount, storyIds, storySources } from "./stories.mts";
 import type { Pkg } from "./touched.mts";
@@ -154,4 +156,12 @@ test("the real app: the preview is read, a story selects itself, theme.css and a
   assert.deepEqual(selectStories([`${A}/src/data/device-store.ts`], sources), ALL);
   const own = selectStories([`${A}/src/components/elements/amount.stories.tsx`], sources);
   assert.deepEqual(own, { all: false, files: [`${A}/src/components/elements/amount.stories.tsx`] });
+});
+
+test("the merge queue and main sweep every story in MAX_SHARDS shards, as a pull request that reaches every story", () => {
+  const yaml = readFileSync(join(import.meta.dirname, "../../.github/workflows/test.yaml"), "utf8");
+  const m = /printf 'stories=all\\nstory_files=\[\]\\nshards=(\[[\d,]+\])\\nshard_count=(\d+)\\n'/.exec(yaml);
+  assert.ok(m, "the queue's shards line of test.yaml");
+  assert.deepEqual(JSON.parse(m[1]!), Array.from({ length: MAX_SHARDS }, (_, k) => k + 1));
+  assert.equal(Number(m[2]), MAX_SHARDS);
 });

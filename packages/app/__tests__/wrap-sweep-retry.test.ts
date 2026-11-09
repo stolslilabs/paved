@@ -87,4 +87,30 @@ describe("sweepStory", () => {
     ]);
     expect(d.inspect).not.toHaveBeenCalled();
   });
+
+  it("times the render and each width", async () => {
+    // A clock that each step of the browser moves on: render 5 ms, each settle 2 ms, each inspect 1 ms.
+    let t = 0;
+    const d = deps([null], []);
+    d.render.mockImplementation(async () => ((t += 5), null));
+    d.settle.mockImplementation(async () => void (t += 2));
+    d.inspect.mockImplementation(async () => ((t += 1), []));
+    const { timing } = await sweepStory(0, "s", [360, 320], { ...d, now: () => t });
+    expect(timing).toEqual({ render: 5, widths: { 360: 3, 320: 3 } });
+  });
+
+  it("looks a second time after any finding, an allowed one included, and reports the second look", async () => {
+    // The review's case: an allowed clip at first, an overflow that is not allowed once the layout has settled.
+    const clip = { kind: "clip", element: "div[carousel-content]" };
+    const d = deps([null], []);
+    let looks = 0;
+    d.inspect.mockImplementation(async () => (looks++ % 2 === 0 ? [clip] : [overflow]));
+    const { findings } = await sweepStory(0, "s", [360, 320], d);
+    expect(d.inspect).toHaveBeenCalledTimes(4);
+    expect(d.wait).toHaveBeenCalledTimes(2);
+    expect(findings).toEqual([
+      { story: "s", width: 360, ...overflow },
+      { story: "s", width: 320, ...overflow },
+    ]);
+  });
 });
