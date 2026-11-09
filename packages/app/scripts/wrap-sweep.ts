@@ -37,7 +37,7 @@ import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Page } from "playwright-core";
 import { sweepStory } from "./wrap-sweep-retry.ts";
-import { heavyLightOrder, parseShard, shardStories, type Times } from "./wrap-sweep-shard.ts";
+import { parseShard, shardStories, type Times } from "./wrap-sweep-shard.ts";
 
 type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
 
@@ -433,15 +433,14 @@ async function main() {
   const opened: { story: string; ms: number }[] = [];
   /** Each story's whole time in its worker (render, every width, the page change after it), ms, and its parts. */
   const timings: { story: string; ms: number; render: number; widths: Record<number, number> }[] = [];
-  // Long and short stories in turn (SWEEP-SPEED, `heavyLightOrder`), by the times file: the long ones (3D, avatar stills) start
-  // early but not together. Ties (every story, without the file) in a fixed shuffle, so two runs take the same order and the
-  // stories of one title do not run together.
+  // The 3D stories (board, tiles, outlines) take seconds each in software WebGL; spread them over the workers
+  // rather than let four of them start together: a fixed shuffle, so two runs take the same order. (SWEEP-SPEED tried the longest
+  // first, then long and short in turn: both put more slow renders side by side and passed the 60 s render timeout on CI.)
   let seed = 360;
-  const shuffled = stories
+  const queue = stories
     .map((id) => ({ id, key: (seed = (seed * 1103515245 + 12345) % 2147483648) }))
     .sort((a, b) => a.key - b.key)
     .map((s) => s.id);
-  const queue = heavyLightOrder(shuffled, times);
 
   async function worker() {
     // One browser per worker: each has its own GPU process, and software WebGL (the 3D stories) is its bottleneck.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import TIMES_FILE from "../scripts/wrap-sweep-times.json";
-import { dealStories, heavyLightOrder, parseShard, shardStories, timesFromReports, weigh, type Times } from "../scripts/wrap-sweep-shard.ts";
+import { dealStories, parseShard, shardStories, timesFromReports, weigh, type Times } from "../scripts/wrap-sweep-shard.ts";
 
 /** A story list in no particular order, as `index.json` may give it. */
 const STORIES = Array.from({ length: 37 }, (_, k) => `title-${(k * 7) % 5}--story-${(k * 13) % 37}`);
@@ -73,14 +73,6 @@ describe("wrap sweep shard", () => {
     expect(weigh(["a--x", "b--y"]).get("a--x")).toBe(1);
   });
 
-  it("orders a shard's stories long and short in turn, ties as given, each once", () => {
-    const times = { "a--1": 1, "a--2": 9, "b--1": 5, "c--1": 7, "c--2": 3 };
-    // b--2 is new: it weighs b's median (5), a tie with b--1, and comes before it as given.
-    expect(heavyLightOrder(["b--2", "a--1", "a--2", "b--1", "c--1", "c--2"], times)).toEqual(["a--2", "a--1", "c--1", "c--2", "b--2", "b--1"]);
-    expect(heavyLightOrder(["z--1", "y--1", "x--1"])).toEqual(["z--1", "x--1", "y--1"]);
-    const many = STORIES.slice(0, 31);
-    expect([...heavyLightOrder(many, TIMES)].sort()).toEqual([...many].sort());
-  });
 
   it("by time, does not hang on the input order or on duplicates", () => {
     const reversed = [...STORIES].reverse();
