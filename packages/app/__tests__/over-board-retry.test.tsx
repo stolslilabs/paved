@@ -1,25 +1,33 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { OverScene } from "../src/components/scenes/over-scene";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { OVER } from "../src/mocks/scenes";
 import { slow } from "../test-slow";
 
 // The final board's chunk fails twice (a dropped connection), then loads (#539): at the screen's open, under the scores
 // (#720), and at the first "Board". On a Challenge's end, whose toggle shows which view is up; Training's shares the load.
-const load = vi.hoisted(() => ({ failures: 2 }));
-vi.mock("../src/components/containers/final-board", async (actual) => {
-  if (load.failures-- > 0) throw new Error("Failed to fetch dynamically imported module");
-  return actual();
-});
+const load = { failures: 2, module: null as unknown };
 
 describe("OverScene: the final board after a failed load", () => {
-  // The final board's real module and the renderer under it, transformed and evaluated ahead of the test (`importActual` bypasses
-  // the mock and its failure count), so the load that answers costs cache hits, not the cold transform a loaded CI stretched past
-  // the wait (5.9 s on #1118's first run, about 1 s on main's).
+  // The final board's real module and the renderer under it, transformed and evaluated ahead of the test (before the mock is
+  // registered, so it holds no failure count), and the load that answers is that module, already in hand: the wait for the board holds no
+  // module work (the cold transform a loaded CI stretched past the wait, 5.9 s on #1118's first run; then `actual()` inside the
+  // wait, 3 to 356 ms on a loaded machine, while the test failed on main and in 3 pull requests: #1128).
   beforeAll(async () => {
-    await vi.importActual("../src/components/containers/final-board");
+    load.module = await vi.importActual("../src/components/containers/final-board");
+  }, slow(30000));
+  // Each attempt from the start: its two failures, and a scene whose module-level load is not the last attempt's. Under the slow
+  // profile a failed test runs once more (`retry: 1`); that run had no failure left and the board cached, so it always failed.
+  let OverScene: typeof import("../src/components/scenes/over-scene").OverScene;
+  beforeEach(async () => {
+    load.failures = 2;
+    vi.resetModules();
+    vi.doMock("../src/components/containers/final-board", async () => {
+      if (load.failures-- > 0) throw new Error("Failed to fetch dynamically imported module");
+      return load.module;
+    });
+    ({ OverScene } = await import("../src/components/scenes/over-scene"));
   }, slow(30000));
 
   it("under the scores a failure is silent; asked for, it falls back to the scores, and the next Board loads it again", async () => {
