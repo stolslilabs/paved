@@ -31,7 +31,7 @@ vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers"
 preloadPages("home", "play", "chat");
 
 // The Puzzle's day is the UTC day, and its seeded players' results come in as that day goes (`seededResults`): read on the real
-// clock, today's leaderboard is still empty just after 00:00 UTC and the test failed each night (#1123, R7). So `Date` (and only it:
+// clock, today's leaderboard is still empty just after 00:00 UTC and the test failed each night (#1141). So `Date` (and only it:
 // the timers stay real for the waits) stands at one fixed noon for the whole file, for the page's clock (`useNow`) and the ledger's.
 const NOON = new Date("2026-11-09T12:00:00Z");
 

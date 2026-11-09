@@ -1126,7 +1126,7 @@ describe("a wallet that never answers (writer timeout)", () => {
       act(() => result.current.mutation.mutate(request));
       // The writer reads its quotes before signing, and the limit's timer is armed before them: let those settle with the fake
       // clock standing still (0 ms steps), so the timer and the send are both at 0 however many turns the reads take. With 1 ms
-      // steps, a loaded run that took a second turn had used 1 ms of the limit before the send, and timed out at "limit - 1".
+      // steps, a loaded run that took a second turn had used 1 ms of the limit before the send, and timed out at "limit - 1" (#1140).
       await flush(() => s.sent.length === 1, 0);
       expect(s.sent).toHaveLength(1);
       await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS - 1));

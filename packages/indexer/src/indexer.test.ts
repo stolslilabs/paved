@@ -504,7 +504,7 @@ describe("the database", () => {
     expect(SCHEMA_VERSION).toBe("21");
   });
 
-  // One test per old schema (FLAKY-QUARANTINE, #1128): the fourteen in one test took 1.7 to 4.5 s on a loaded machine, and timed
+  // One test per old schema (#1142): the fourteen in one test took 1.7 to 4.5 s on a loaded machine, and timed
   // out at vitest's 5 s on a loaded CI (main, and a pull request that did not touch the indexer). Each is about a fourteenth of it.
   test.each(["20", "19", "18", "17", "16", "15", "14", "13", "12", "11", "10", "9", "8", "7"])(
     "a database of schema %s is refused, naming rebuild, and rebuilt at 21 on request",
