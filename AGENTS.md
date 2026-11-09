@@ -167,7 +167,6 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   second waits or is reshaped:
   - `.claude/skills/paved-ui/SKILL.md`
   - `packages/app/public/THIRD_PARTY_NOTICES.txt`
-  - `packages/app/src/routes/pages.ts`
 
   The list shrinks as #1133 and #1134 land. A brief that will go over R8 is reshaped before it starts.
 
