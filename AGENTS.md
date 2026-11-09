@@ -162,7 +162,6 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
   - `packages/app/src/components/scenes/home-village-scene.tsx`
   - `docs/design/README.md`
   - `packages/app/src/styles/theme.css`
-  - `packages/app/src/data/mock/ledger.ts`
   - `.claude/skills/paved-ui/SKILL.md`
   - `packages/app/public/THIRD_PARTY_NOTICES.txt`
   - `packages/app/src/routes/pages.ts`
