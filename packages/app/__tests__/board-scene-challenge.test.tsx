@@ -1,12 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { PlanType, deckSheetOrder } from "@paved/game-core";
 import type { StackFrame } from "../src/components/containers/tile-stack";
 import { Notice } from "../src/components/elements/notice";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { BOARD } from "../src/mocks/scenes";
+import { slow } from "../test-slow";
+import { settleBoardChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleBoardChunks, slow(30_000));
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 

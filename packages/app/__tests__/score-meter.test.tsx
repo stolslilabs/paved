@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { capScore, winningScore } from "@paved/game-core";
 import { GameHud } from "../src/components/containers/game-hud";
 import { ScoreMeter } from "../src/components/elements/score-meter";
@@ -13,6 +13,11 @@ import { CURVE_PLAYING } from "../src/mocks/games";
 import { PVP_ATTACK } from "../src/mocks/pvp";
 import { BOARD, TRAINING_BEST } from "../src/mocks/scenes";
 import { storyStarFills } from "../src/routes/pages/story-board";
+import { slow } from "../test-slow";
+import { settleBoardChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleBoardChunks, slow(30_000));
 
 // GAME-OVERLAY (the owner's ask of 2026-11-08: "une barre de progression comme dans les game en Ranked", restyled, in every mode).
 const wrap = (ui: ReactNode, reduced = false) => (

@@ -3,13 +3,17 @@ import { useEffect, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameCanvasProps } from "@paved/renderer/react";
 import { BoardViewport, type BoardPress } from "../src/components/containers/board-viewport";
 import { LayoutBoard, type LayoutBoardView } from "../src/components/containers/layout-board";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { PRESS_FADE_MS, PRESS_LINGER_MS, PRESS_SHOW_MS } from "../src/lib/use-press-action";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
+import { settleHomeChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleHomeChunks, slow(30_000));
 
 // LONGPRESS-EDIT (#799): a long press on a tile of the player's own village, in view, shows Edit by the tile (PRESS-BUILD: one of the
 // tile's painted actions) and its ring; held to its end, edit mode opens as from the Edit button. On the plan view (pointer events on its cells) and on the

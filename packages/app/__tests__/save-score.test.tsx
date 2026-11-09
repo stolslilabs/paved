@@ -1,11 +1,16 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { formatInteger } from "@paved/game-core";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
 import { HOME_VILLAGE, VILLAGE_LAYOUT } from "../src/mocks/village-v2";
+import { slow } from "../test-slow";
+import { settleHomeChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleHomeChunks, slow(30_000));
 
 // V2-SAVE-SCORE (#802): no "Layout saved" notice after a save; back in view, the village score counts to the new one once,
 // the balances' way (the change's colour, a "+N" or "−N", the icon's pop), and a polite message says it.

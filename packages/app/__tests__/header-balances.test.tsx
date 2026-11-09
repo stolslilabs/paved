@@ -2,7 +2,7 @@ import { routeOf } from "./route-helpers";
 import { slow } from "../test-slow";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
 import { BalancesProvider } from "../src/components/containers/balances-context";
 import { TopBar } from "../src/components/containers/top-bar";
@@ -17,6 +17,10 @@ import { PAGES } from "../src/routes/pages";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { settleHomeChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleHomeChunks, slow(30_000));
 
 // BALANCES-BY-PAGE (#855, the owner's decisions of 2026-10-28, revising #781): a page shows only the balances it uses, the same
 // set on a phone and from `desktop`, in the header's row; nothing under the header; none in the game scenes and the pages that use none.

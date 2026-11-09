@@ -1,12 +1,17 @@
 /** The die's draft saved with its own score (#803, review round 5): never the score of the panel's draft, a render behind. */
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, expect, it, vi } from "vitest";
 import { randomLayout } from "@paved/game-core";
 import { stockOf } from "../src/components/containers/layout-rules";
 import VillageStage from "../src/components/containers/village-stage";
 import { STILL } from "../src/mocks/random-layout";
 import { INVENTORY, LAYOUT_GROWING } from "../src/mocks/village-v2";
+import { slow } from "../test-slow";
+import { settleStageChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleStageChunks, slow(30_000));
 
 // The panel's view of the draft (`useDeferredValue`) held at its first value for good: the moment the review caught, between
 // the board's commit and the panel's, made to last.

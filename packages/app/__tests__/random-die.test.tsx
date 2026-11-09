@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { layoutBreakdown, layoutRefusal, randomLayout, type LayoutTile } from "@paved/game-core";
 import { ROLL_FAILED } from "../src/components/containers/layout-editor";
 import { STARTER, checkLayout, draftOf, slotsFor, stockOf, trayOf } from "../src/components/containers/layout-rules";
@@ -12,6 +12,11 @@ import { answerRandomLayout, type RandomLayoutRequest } from "../src/lib/random-
 import { browserRandomLayoutRunner, workerRunner, type WorkerLike } from "../src/lib/random-layout-runner";
 import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, STILL, mainThreadRandomizer, seedsOf } from "../src/mocks/random-layout";
 import { DIE_VILLAGES, INVENTORY, LAYOUT_GROWING, LAYOUT_START, VILLAGE_LAYOUT } from "../src/mocks/village-v2";
+import { slow } from "../test-slow";
+import { settleStageChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleStageChunks, slow(30_000));
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 afterEach(() => {

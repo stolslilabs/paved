@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { ProfileProvider, type ProfileValue } from "../src/components/containers/profile-context";
 import { ShieldPlate } from "../src/components/elements/shield-plate";
 import { formatHoursMinutes, shieldEnd, spokenHoursMinutes } from "../src/components/elements/shield-time";
@@ -11,6 +11,11 @@ import { HOUR, MOCK_NOW } from "../src/mocks/clock";
 import { PROGRESS } from "../src/mocks/players";
 import { PROFILE } from "../src/mocks/scenes";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
+import { slow } from "../test-slow";
+import { settleHomeChunks } from "./lazy-chunks";
+
+// The scene's lazy chunks loaded before the environment goes (`lazy-chunks.ts`).
+afterAll(settleHomeChunks, slow(30_000));
 
 const wrap = (ui: ReactNode, reduced: "never" | "always" = "never") => (
   <LazyMotion features={domMax}>
