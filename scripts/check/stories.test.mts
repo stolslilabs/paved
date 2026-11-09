@@ -17,7 +17,8 @@ const APP = new Map(
     [`${A}/.storybook/preview.tsx`]: 'import "../src/styles/theme.css";\nimport { Provider } from "../src/providers/provider";\nimport { provideManifest } from "@paved/renderer";',
     [`${A}/.storybook/main.ts`]: 'export default { staticDirs: ["renderer-assets"] };',
     [`${A}/src/providers/provider.tsx`]: 'import { Sheet } from "../sheet/sheet";\nexport const Provider = Sheet;',
-    [`${A}/src/sheet/sheet.tsx`]: 'import { Amount } from "../ui/amount";\nexport const Sheet = Amount;',
+    [`${A}/src/sheet/sheet.tsx`]: 'import { tone } from "./tone";\nexport const Sheet = tone;',
+    [`${A}/src/sheet/tone.ts`]: "export const tone = 1;",
     [`${A}/src/sheet/sheet.stories.tsx`]: 'import { Sheet } from "./sheet";',
     [`${A}/src/ui/amount.tsx`]: 'import { format } from "../lib/format";\nexport const Amount = format;',
     [`${A}/src/ui/amount.stories.tsx`]: 'import { Amount } from "./amount";',
@@ -40,7 +41,7 @@ const some = (...files: string[]) => ({ all: false, files: files.map((f) => `${A
 const ALL = { all: true, files: [] };
 
 test("a changed module selects the stories that import it, directly, through a chain or a barrel", () => {
-  assert.deepEqual(at([`${A}/src/lib/format.ts`]), some("ui/amount.stories.tsx", "sheet/sheet.stories.tsx", "ui/button.stories.tsx"));
+  assert.deepEqual(at([`${A}/src/lib/format.ts`]), some("ui/amount.stories.tsx", "ui/button.stories.tsx"));
   assert.deepEqual(at([`${A}/src/ui/button.tsx`]), some("ui/button.stories.tsx"));
 });
 
@@ -51,9 +52,13 @@ test("a changed story selects itself; a dynamic import and a worker URL are foll
 
 test("a workspace package selects the stories that import it, by name or subpath, and those of the packages that depend on it", () => {
   assert.deepEqual(at(["packages/ui/src/icons.tsx"]), some("ui/button.stories.tsx"));
-  assert.deepEqual(at(["packages/renderer/src/core/TileRenderer.ts"]), some("board/board.stories.tsx"));
-  assert.deepEqual(at(["packages/game-core/src/rules.ts"]), some("board/board.stories.tsx", "rules/rules.stories.tsx"));
-  assert.deepEqual(at(["contracts/abis/Setup.json"]), some("board/board.stories.tsx", "rules/rules.stories.tsx"));
+  // The renderer is imported by the preview (below); game-core reaches it as the renderer's dependency.
+  assert.deepEqual(at(["packages/game-core/src/rules.ts"]), ALL);
+  assert.deepEqual(at(["contracts/abis/Setup.json"]), ALL);
+  const noRenderer = new Map(APP);
+  noRenderer.set(`${A}/.storybook/preview.tsx`, 'import "../src/styles/theme.css";');
+  assert.deepEqual(selectStories(["packages/renderer/src/core/TileRenderer.ts"], noRenderer, PKGS), some("board/board.stories.tsx"));
+  assert.deepEqual(selectStories(["packages/game-core/src/rules.ts"], noRenderer, PKGS), some("board/board.stories.tsx", "rules/rules.stories.tsx"));
 });
 
 test("the tests, docs and Markdown of a package, the app's tests, e2e and scripts, and files outside the client select nothing", () => {
@@ -95,11 +100,11 @@ test("what every story reads selects every story", () => {
     assert.deepEqual(at([f]), ALL, f);
 });
 
-test("the preview's own app imports select every story; what they import further selects its own stories", () => {
+test("whatever the preview imports, at any depth and through a workspace package, selects every story", () => {
   assert.deepEqual(at([`${A}/src/providers/provider.tsx`]), ALL);
-  assert.deepEqual(at([`${A}/src/sheet/sheet.tsx`]), some("sheet/sheet.stories.tsx"));
-  // The preview's workspace package is not followed: the renderer reaches the stories that draw with it.
-  assert.notDeepEqual(at(["packages/renderer/src/index.ts"]), ALL);
+  assert.deepEqual(at([`${A}/src/sheet/sheet.tsx`]), ALL);
+  assert.deepEqual(at([`${A}/src/sheet/tone.ts`]), ALL);
+  assert.deepEqual(at(["packages/renderer/src/index.ts"]), ALL);
 });
 
 test("a story of src/styles/ is a story like another; its stylesheets are every story", () => {
@@ -117,7 +122,7 @@ test("a file of public/ selects the sources that name its folder, every story wh
 test("a deleted module still selects the stories that imported it", () => {
   const gone = new Map(APP);
   gone.delete(`${A}/src/lib/format.ts`);
-  assert.deepEqual(selectStories([`${A}/src/lib/format.ts`], gone, PKGS), some("ui/amount.stories.tsx", "sheet/sheet.stories.tsx", "ui/button.stories.tsx"));
+  assert.deepEqual(selectStories([`${A}/src/lib/format.ts`], gone, PKGS), some("ui/amount.stories.tsx", "ui/button.stories.tsx"));
 });
 
 test("storyIds maps story files to their ids through index.json's importPath, docs entries left out", () => {
@@ -141,10 +146,12 @@ test("shards: one per 20 story files, at most the cap, the cap for every story",
   assert.equal(shardCount(ALL), MAX_SHARDS);
 });
 
-test("the real app: the preview is read, a leaf element selects a few stories, theme.css every story", () => {
+test("the real app: the preview is read, a story selects itself, theme.css and a module deep in the preview's graph every story", () => {
   const sources = storySources();
   assert.ok(sources.has(`${A}/.storybook/preview.tsx`));
   assert.deepEqual(selectStories([`${A}/src/styles/theme.css`], sources), ALL);
+  // preview.tsx -> src/data/settings.ts -> src/data/device-store.ts.
+  assert.deepEqual(selectStories([`${A}/src/data/device-store.ts`], sources), ALL);
   const own = selectStories([`${A}/src/components/elements/amount.stories.tsx`], sources);
   assert.deepEqual(own, { all: false, files: [`${A}/src/components/elements/amount.stories.tsx`] });
 });

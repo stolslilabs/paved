@@ -6,8 +6,8 @@
  * `*.stories.tsx` files that import them, directly or through any chain of modules, then to their story ids through the
  * built Storybook's `index.json` (`importPath`). A change of a workspace package (game-core, chain, renderer, ui) reaches
  * the sources that import it by name (`@paved/<name>`, any subpath), and so does a change of a package it depends on.
- * Every story is due when the change reaches what every story reads: the sweep and its helpers, `.storybook/**` and the app
- * modules its preview imports itself, the stylesheets of `src/styles/`, the build setup (vite.config.ts, vite/, vendor/),
+ * Every story is due when the change reaches what every story reads: the sweep and its helpers, `.storybook/**` and
+ * everything its files import (at any depth, workspace packages included), the stylesheets of `src/styles/`, the build setup (vite.config.ts, vite/, vendor/),
  * the fonts (the app's package.json), a root file every package reads (bun.lock, package.json, ...), the workflow. A file
  * of `public/` reaches the sources that name its URL folder, every story when none does.
  *
@@ -23,7 +23,6 @@ import { ROOT } from "./vercel-build.mts";
 
 const APP = "packages/app";
 const APP_NAME = "@paved/app";
-const PREVIEW = `${APP}/.storybook/preview.tsx`;
 
 /**
  * The files of the app that select nothing by themselves: its tests, the e2e, its Markdown, the test setup, its scripts
@@ -113,24 +112,19 @@ export function selectStories(files: string[], sources: Map<string, string>, pkg
     const base = posix.normalize(posix.join(posix.dirname(from), spec));
     return [base, ...[".ts", ".tsx", ".mts", ".js", ".jsx"].map((e) => base + e), ...["ts", "tsx"].map((e) => `${base}/index.${e}`)].find(exists);
   };
-  // The preview wraps every story: a change of it, or of an app module it imports itself (its decorators' providers, the
-  // viewports, the tokens), is a change of every story. What those modules import further down reaches only the stories
-  // that import it (the preview's closure is about a third of the app, mostly what the closed profile sheet imports), and
-  // the merge queue sweeps every story. Its workspace package (the renderer, for the asset manifest) is not followed
-  // either: a story that draws with the renderer imports it.
-  const previewImports = specifiers(sources.get(PREVIEW) ?? "").filter((s) => s.startsWith(".")).map((s) => resolve(PREVIEW, s));
-  if ([...changed].some((f) => f.startsWith(`${APP}/.storybook/`) || previewImports.includes(f))) return ALL;
-  /** Who imports each node: file -> the files that name it. The `.storybook/` files are left out (above). */
+  /** Who imports each node: file -> the files that name it. */
   const importers = new Map<string, string[]>();
   for (const [file, text] of sources)
-    if (!file.startsWith(`${APP}/.storybook/`))
-      for (const spec of specifiers(text)) {
-        const to = spec.startsWith(".") ? resolve(file, spec) : packageOf(spec, pkgs);
-        if (to && to !== file) importers.set(to, [...(importers.get(to) ?? []), file]);
-      }
+    for (const spec of specifiers(text)) {
+      const to = spec.startsWith(".") ? resolve(file, spec) : packageOf(spec, pkgs);
+      if (to && to !== file) importers.set(to, [...(importers.get(to) ?? []), file]);
+    }
   const reached = new Set(changed);
   for (const queue = [...changed]; queue.length; )
     for (const by of importers.get(queue.pop()!) ?? []) if (!reached.has(by)) reached.add(by), queue.push(by);
+  // The preview wraps every story and `.storybook/main.ts` sets what the build carries: a change that reaches either, at
+  // any depth, through app modules or workspace packages (the renderer, for the asset manifest), reaches every story.
+  if ([...reached].some((f) => f.startsWith(`${APP}/.storybook/`))) return ALL;
   return { all: false, files: [...reached].filter((f) => f.startsWith(`${APP}/src/`) && f.endsWith(".stories.tsx") && sources.has(f)).sort() };
 }
 
