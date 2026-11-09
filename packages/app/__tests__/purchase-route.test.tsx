@@ -1099,9 +1099,9 @@ describe("a wallet that never answers (writer timeout)", () => {
     return renderHook(() => usePurchase(PLAYER), { wrapper });
   }
   const request = { playerId: PLAYER, stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null };
-  /** The fake clock only moves by hand: let the pending promises settle. */
-  const flush = async (until: () => boolean = () => false) => {
-    for (let i = 0; i < 60 && !until(); i++) await act(() => vi.advanceTimersByTimeAsync(1));
+  /** The fake clock only moves by hand: let the pending promises settle, `step` ms of fake time at each turn. */
+  const flush = async (until: () => boolean = () => false, step = 1) => {
+    for (let i = 0; i < 60 && !until(); i++) await act(() => vi.advanceTimersByTimeAsync(step));
   };
   /** A hung send, past its limit: the page has the timeout error. */
   async function timedOut(s: ReturnType<typeof setup>, result: ReturnType<typeof hook>["result"]) {
@@ -1124,8 +1124,10 @@ describe("a wallet that never answers (writer timeout)", () => {
       // The wallet's promise never settles.
       s.state.gate = new Promise<void>(() => {});
       act(() => result.current.mutation.mutate(request));
-      // The writer reads its quotes before signing: let those settle (the fake clock only moves by hand).
-      await flush(() => s.sent.length === 1);
+      // The writer reads its quotes before signing, and the limit's timer is armed before them: let those settle with the fake
+      // clock standing still (0 ms steps), so the timer and the send are both at 0 however many turns the reads take. With 1 ms
+      // steps, a loaded run that took a second turn had used 1 ms of the limit before the send, and timed out at "limit - 1".
+      await flush(() => s.sent.length === 1, 0);
       expect(s.sent).toHaveLength(1);
       await act(() => vi.advanceTimersByTimeAsync(PURCHASE_TIMEOUT_MS - 1));
       expect(result.current.mutation.status).toBe("pending");
