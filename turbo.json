@@ -3,7 +3,9 @@
   "agentGuidance": false,
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/package.json",
@@ -15,10 +17,14 @@
         "$TURBO_ROOT$/contracts/src/**",
         "$TURBO_ROOT$/scripts/**"
       ],
-      "outputs": ["dist/**"]
+      "outputs": [
+        "dist/**"
+      ]
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/package.json",
@@ -30,7 +36,71 @@
         "$TURBO_ROOT$/contracts/src/**",
         "$TURBO_ROOT$/scripts/**"
       ],
-      "env": ["PAVED_TEST_SLOW"]
+      "env": [
+        "PAVED_TEST_SLOW"
+      ]
+    },
+    "@paved/chain#test": {
+      "dependsOn": [
+        "build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/tsconfig.base.json",
+        "$TURBO_ROOT$/assets/**",
+        "$TURBO_ROOT$/contracts/abis/**",
+        "$TURBO_ROOT$/contracts/deployments/**",
+        "$TURBO_ROOT$/contracts/fixtures/**",
+        "$TURBO_ROOT$/contracts/src/**",
+        "$TURBO_ROOT$/scripts/**",
+        "$TURBO_ROOT$/packages/indexer/src/**"
+      ],
+      "env": [
+        "PAVED_TEST_SLOW"
+      ]
+    },
+    "@paved/indexer#test": {
+      "dependsOn": [
+        "build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/tsconfig.base.json",
+        "$TURBO_ROOT$/assets/**",
+        "$TURBO_ROOT$/contracts/abis/**",
+        "$TURBO_ROOT$/contracts/deployments/**",
+        "$TURBO_ROOT$/contracts/fixtures/**",
+        "$TURBO_ROOT$/contracts/src/**",
+        "$TURBO_ROOT$/scripts/**",
+        "$TURBO_ROOT$/packages/chain/src/**"
+      ],
+      "env": [
+        "PAVED_TEST_SLOW"
+      ]
+    },
+    "@paved/renderer#test": {
+      "dependsOn": [
+        "build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/tsconfig.base.json",
+        "$TURBO_ROOT$/assets/**",
+        "$TURBO_ROOT$/contracts/abis/**",
+        "$TURBO_ROOT$/contracts/deployments/**",
+        "$TURBO_ROOT$/contracts/fixtures/**",
+        "$TURBO_ROOT$/contracts/src/**",
+        "$TURBO_ROOT$/scripts/**",
+        "$TURBO_ROOT$/packages/app/asset-sources/**",
+        "$TURBO_ROOT$/packages/app/public/renderer-assets/**",
+        "$TURBO_ROOT$/packages/app/src/styles/**"
+      ],
+      "env": [
+        "PAVED_TEST_SLOW"
+      ]
     },
     "lint": {},
     "clean": {

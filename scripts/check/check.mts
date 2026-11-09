@@ -227,7 +227,7 @@ step("guard tests", () => {
   }
   if (p.guards || !prePush) {
     n++;
-    outcomes.push(sh("node", ["--test", "scripts/check/touched.test.mts", "scripts/check/stories.test.mts"]));
+    outcomes.push(sh("node", ["--test", "scripts/check/touched.test.mts", "scripts/check/stories.test.mts", "scripts/check/turbo-inputs.test.mts"]));
     outcomes.push(sh("node", ["--test", "scripts/ci/nightly-flaky.test.mts", "scripts/ci/turbo-cache-prune.test.mts"]));
     outcomes.push(sh("sh", ["scripts/vercel/ignore-build.test.sh"]));
   }

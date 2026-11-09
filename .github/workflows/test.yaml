@@ -269,8 +269,9 @@ jobs:
   # artifact. The `ci` job requires all of them.
   #
   # Turbo's cache (APP-TEST-SHARD, #1131): the build and test jobs keep `.turbo/cache` between runs, so a package whose
-  # inputs did not change replays its build and tests (turbo.json lists each task's inputs: its package's files and the
-  # root files the packages read, contracts/ABIs and deployments included). Keyed on the run's SHA; restored from the
+  # inputs did not change replays its build and tests (turbo.json lists each task's inputs: its package's files, the
+  # root files the packages read, contracts/ABIs and deployments included, and the sibling packages' files a test reads;
+  # scripts/check/turbo-inputs.test.mts fails on a read outside them). Keyed on the run's SHA; restored from the
   # branch's last run, else main's. Before the save, the cache is pruned to the tasks of this run
   # (scripts/ci/turbo-cache-prune.mts), so it never grows past one run's builds. The app's tests do not go through turbo:
   # they run on every client run.
@@ -298,6 +299,10 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-client-${{ github.head_ref || github.ref_name }}-
             turbo-${{ runner.os }}-client-main-
+      # A file a cached task reads outside its package (a sibling's assets, the ABIs) must be in its turbo.json inputs,
+      # or the cache replays a stale success: scripts/check/turbo-inputs.test.mts scans the packages for such reads.
+      - name: Turbo inputs cover what the tasks read
+        run: node --test scripts/check/turbo-inputs.test.mts
       - name: Build
         run: bun run build
       # Every package's tests but the app's, which the client-app shards run.
@@ -596,7 +601,7 @@ jobs:
       # The guards' own tests: the touched set of `bun run check` and the Vercel ignore step on real commits.
       - name: Guard scripts
         run: |
-          node --test scripts/check/touched.test.mts scripts/check/stories.test.mts
+          node --test scripts/check/touched.test.mts scripts/check/stories.test.mts scripts/check/turbo-inputs.test.mts
           node --test scripts/ci/nightly-flaky.test.mts scripts/ci/turbo-cache-prune.test.mts
           sh scripts/vercel/ignore-build.test.sh
         shell: bash
