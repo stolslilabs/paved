@@ -54,7 +54,10 @@ describe("/play: the Puzzle's card in Limited", () => {
 
 describe("/play/puzzle: the day's leaderboard and Play", () => {
   it("lists the day's players and starts a game of today, its board opened", async () => {
-    const { router, puzzle } = open("/play/puzzle");
+    // The seeded players' results come in as the UTC day goes (`seededResults`): just after 00:00 UTC today's leaderboard is still
+    // empty, so the ledger's clock stands at today's noon, whenever the test runs.
+    const noon = Math.floor(Date.now() / 86_400_000) * 86_400 + 43_200;
+    const { router, puzzle } = open("/play/puzzle", new MockLedger({ store: () => memoryStore(), seller: "0x3", latencyMs: 0, now: () => noon }));
     await screen.findByRole("list", { name: "Today's leaderboard" }, { timeout: slow(8000) });
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/puzzle\/\d+$/), { timeout: slow(5000) });
