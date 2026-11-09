@@ -438,15 +438,15 @@ function FilledMark({ name, px, fill: f, at, now, className }: { name: MarkArt; 
 /**
  * One painted mark crowning the window in place of the three stars (TRAINING-END: Training's crown, the one mark of its score meter,
  * the device's best): the stars' middle place and size, filling with its gold as the score goes (`fill`, 0 to 1, the share of the mark's
- * goal), the first star's beat; reached (`fill` 1), it pops with the third star's sound and buzz, its light and glints alive as theirs;
- * short of it, its gold stops short and nothing shines; grey with none. At once under reduced motion or `instant`.
+ * goal), the first star's beat; `reached` (the goal beaten, never merely equalled: #1115), it fills and pops with the third star's sound
+ * and buzz, its light and glints alive as theirs; short of it, a tie included, its gold stops short and nothing shines; grey with none.
+ * At once under reduced motion or `instant`.
  */
-export function EndMark({ name, fill, label, instant, className }: { name: MarkArt; fill: number; label: string; instant?: boolean; className?: string }) {
+export function EndMark({ name, fill, reached, label, instant, className }: { name: MarkArt; fill: number; reached: boolean; label: string; instant?: boolean; className?: string }) {
   const reduced = useReducedMotionConfig() ?? false;
   const play = useSfx();
   const now = Boolean(instant) || reduced;
-  const f = fill >= 1 ? 1 : Math.min(0.96, Math.max(0, fill));
-  const reached = f >= 1;
+  const f = reached ? 1 : Math.min(0.96, Math.max(0, fill));
   useEffect(() => {
     if (!reached || now) return;
     const timer = setTimeout(
