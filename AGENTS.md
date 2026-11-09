@@ -153,7 +153,36 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 - `main` takes pull requests through GitHub's merge queue (once the owner's ruleset turns it on). The queue tests each
   pull request on top of the real `main` and of the pull requests ahead of it: `Stolsis CI` runs on `merge_group`, and
   its `ci` job is the required check there as on the pull request.
-- `gh pr merge --admin` skips the queue and is never used. The flow rules themselves land in #1126.
+- `gh pr merge --admin` skips the queue and is never used. The flow rules are in "Merge flow" below.
+
+## Merge flow
+
+The flow of #1120 (MERGE-FLOW):
+
+```
+brief → implement → quick check (≤ 5 min) → push, open the pull request
+      → PR CI → review
+      → approval = enqueue (gh pr merge <n> --squash --auto)
+      → merge queue: main + a group of up to 4 pull requests, the full CI → GitHub merges
+      → main: deploy; the post-merge Codex review as today
+```
+
+A thread never waits for main and never merges main to stay current. The queue tests each pull request on top of the real
+`main` and of the pull requests ahead of it, and removes only the one that breaks.
+
+- **R1. No merge of main to stay current.** Never merge origin/main to stay current. Merge it (never rebase) only when the
+  pull request shows a conflict (`mergeStateStatus` `DIRTY`) or when the merge queue removed it for a failure it causes.
+- **R2. A clean merge of main needs no re-check and no re-review.** After a merge of main, run
+  `git show --remerge-diff HEAD`. If it prints nothing, git resolved the merge alone: push it as it is, with no local check
+  and no review. If it prints a resolution, that resolution, and only it, gets a scoped review before the pull request is
+  enqueued again. (`--remerge-diff` needs git 2.36 or later; the VPS has 2.43.0.)
+- **R5. Approval enqueues.** The approver (the review thread, or the owning thread for a merge without review) runs
+  `gh pr merge <n> --squash --auto` as soon as it approves. GitHub adds the pull request to the queue when its checks pass.
+  Nobody waits for green to merge, nobody merges by hand, and nobody uses `--admin`.
+- **R6. A pull request removed from the queue goes back to its owner.** When the queue removes a pull request, the owning
+  thread reads the failed queue run (`ci-log`), fixes on its branch and pushes. The fix gets a scoped review, then the
+  approver enqueues it again. A failure in a test of the `flaky` list (#1128) is not the pull request's: enqueue it again
+  unchanged and report the test there (see "Flaky tests").
 
 ## Pull requests
 
