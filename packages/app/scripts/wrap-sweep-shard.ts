@@ -75,22 +75,55 @@ export function dealStories(ids: readonly string[], count: number, times: Times 
   return shards.map((s) => s.ids.sort());
 }
 
-/** The stories of one shard: the `index`-th part of `dealStories`. */
-export function shardStories(ids: readonly string[], { index, count }: Shard, times: Times = {}): string[] {
-  return dealStories(ids, count, times)[index - 1];
-}
+/** A story whose render takes this long on CI (its avatar stills, in software WebGL) goes to a slow shard. */
+export const SLOW_RENDER_S = 20;
 
-/** What `wrap-sweep.ts --json` writes that the times are read from: each story's whole time in its worker, ms. */
-export interface SweepReport {
-  timings?: readonly { story: string; ms: number }[];
+/**
+ * The stories slow to render (their CI render `SLOW_RENDER_S` or more): the avatar creator, the friends, guild, chat, league and
+ * leaderboard scenes, the page headers. A story `render` lacks weighs its title's median render (`weigh`), so a new story of a
+ * slow title is slow too.
+ */
+export function slowStories(ids: readonly string[], render: Times = {}): Set<string> {
+  const r = weigh(ids, render);
+  return new Set(ids.filter((id) => Object.keys(render).length > 0 && (r.get(id) ?? 0) >= SLOW_RENDER_S));
 }
 
 /**
- * The times of one full sweep, from its shards' reports: each story's seconds, to a tenth, ids sorted (a stable file). A story
- * swept twice (two reports of one shard) keeps the longer time.
+ * Every shard of `ids` with the slow stories (`slowStories`) on the first `slow` shards and the others on the rest, each group
+ * balanced by time (`dealStories`). A slow shard runs fewer workers (SWEEP-SPEED: four avatar-still renders side by side on a
+ * four-core runner passed the 60 s render timeout). With `slow` 0, or no shard left for the others, plain `dealStories`. Every
+ * story lands in exactly one shard.
  */
-export function timesFromReports(reports: readonly SweepReport[]): Record<string, number> {
+export function planShards(ids: readonly string[], count: number, slow: number, times: Times = {}, render: Times = {}): string[][] {
+  if (slow <= 0 || slow >= count) return dealStories(ids, count, times);
+  const unique = [...new Set(ids)];
+  const slowIds = slowStories(unique, render);
+  return [...dealStories(unique.filter((id) => slowIds.has(id)), slow, times), ...dealStories(unique.filter((id) => !slowIds.has(id)), count - slow, times)];
+}
+
+/** The stories of one shard: the `index`-th part of `planShards` (of `dealStories` with no slow shard). */
+export function shardStories(ids: readonly string[], { index, count }: Shard, times: Times = {}, slow = 0, render: Times = {}): string[] {
+  return planShards(ids, count, slow, times, render)[index - 1];
+}
+
+/** What `wrap-sweep.ts --json` writes that the times are read from: each story's whole time in its worker, and its render, ms. */
+export interface SweepReport {
+  timings?: readonly { story: string; ms: number; render?: number }[];
+}
+
+/**
+ * The times of one full sweep, from its shards' reports: each story's seconds, to a tenth, ids sorted (a stable file), its whole
+ * time and its render. A story swept twice (two reports of one shard, or two runs) keeps the longer time.
+ */
+export function timesFromReports(reports: readonly SweepReport[]): { seconds: Record<string, number>; render: Record<string, number> } {
   const seconds = new Map<string, number>();
-  for (const r of reports) for (const t of r.timings ?? []) seconds.set(t.story, Math.max(seconds.get(t.story) ?? 0, Math.round(t.ms / 100) / 10));
-  return Object.fromEntries([...seconds].sort(([a], [b]) => (a < b ? -1 : 1)));
+  const render = new Map<string, number>();
+  const tenth = (ms: number) => Math.round(ms / 100) / 10;
+  for (const r of reports)
+    for (const t of r.timings ?? []) {
+      seconds.set(t.story, Math.max(seconds.get(t.story) ?? 0, tenth(t.ms)));
+      render.set(t.story, Math.max(render.get(t.story) ?? 0, tenth(t.render ?? 0)));
+    }
+  const sorted = (m: Map<string, number>) => Object.fromEntries([...m].sort(([a], [b]) => (a < b ? -1 : 1)));
+  return { seconds: sorted(seconds), render: sorted(render) };
 }

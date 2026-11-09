@@ -4,7 +4,7 @@
  * served on the loopback by this script.
  *
  *   bun run --filter @paved/app build-storybook
- *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--stories <file>] [--workers 4] [--shard i/n] [--times <file>] [--json <file>]
+ *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--stories <file>] [--workers 4] [--shard i/n] [--slow-shards k] [--slow-workers 2] [--times <file>] [--json <file>]
  *
  * Node 24 runs it as is (type stripping): the syntax stays erasable. The browser is the one `playwright-core`
  * names: `bunx playwright-core install chromium-headless-shell` once.
@@ -27,6 +27,8 @@
  * of the story list (after `--filter` and `--stories`), each story in exactly one part for a given n
  * (`wrap-sweep-shard.ts`), the parts balanced by the times of `--times` (default `wrap-sweep-times.json`, refreshed from a
  * CI run by `wrap-sweep-times.ts`; a story it lacks counts as the median). Without them, every story.
+ * With `--slow-shards k`, the first k of the n shards take the stories slow to render (the file's `render`, 20 s or more on CI:
+ * the avatar stills) with `--slow-workers` browsers (2 by default), the others the rest (SWEEP-SPEED).
  * `--json <file>` writes the findings and each story's time (its render and each width) there.
  *
  * Exit code 1 when a finding is not in ALLOWED.
@@ -149,6 +151,10 @@ function args() {
     // A `--stories` with no value is an error too (no such file), not the whole list.
     stories: argv.includes("--stories") ? (get("stories") ?? "") : undefined,
     workers: Number(get("workers") ?? 4),
+    // SWEEP-SPEED: the first `--slow-shards` of `--shard`'s n take the stories slow to render (`slowStories`), with
+    // `--slow-workers` browsers rather than `--workers`.
+    slowShards: Number(get("slow-shards") ?? 0),
+    slowWorkers: Number(get("slow-workers") ?? 2),
     // A `--shard` with no value is an error, not the whole list.
     shard: argv.includes("--shard") ? parseShard(get("shard") ?? "") : undefined,
     json: get("json"),
@@ -392,12 +398,13 @@ async function readSelection(file: string): Promise<Set<string>> {
   return new Set((await readFile(file, "utf8")).split("\n").map((l) => l.trim()).filter(Boolean));
 }
 
-/** The `seconds` of a times file; none (every story weighs the same) when the file is missing. */
-async function readTimes(file: string): Promise<Times> {
+/** The `seconds` and `render` of a times file; none (every story weighs the same, none is slow) when the file is missing. */
+async function readTimes(file: string): Promise<{ seconds: Times; render: Times }> {
   try {
-    return (JSON.parse(await readFile(file, "utf8")) as { seconds: Times }).seconds;
+    const t = JSON.parse(await readFile(file, "utf8")) as { seconds: Times; render?: Times };
+    return { seconds: t.seconds, render: t.render ?? {} };
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return { seconds: {}, render: {} };
     throw e;
   }
 }
@@ -413,13 +420,16 @@ async function main() {
     const missing = [...selected].filter((id) => !Object.values(index.entries).some((e) => e.type === "story" && e.id === id));
     if (missing.length) throw new Error(`--stories names ${missing.length} id(s) not in index.json: ${missing.slice(0, 5).join(", ")}`);
   }
-  const times = await readTimes(opts.times);
-  const stories = opts.shard ? shardStories(listed, opts.shard, times) : listed;
+  const { seconds: times, render: renderTimes } = await readTimes(opts.times);
+  const stories = opts.shard ? shardStories(listed, opts.shard, times, opts.slowShards, renderTimes) : listed;
+  const slowShard = !!opts.shard && opts.slowShards > 0 && opts.slowShards < opts.shard.count && opts.shard.index <= opts.slowShards;
+  const workers = slowShard ? opts.slowWorkers : opts.workers;
   if (selected) console.log(`Selection: ${listed.length} of ${Object.values(index.entries).filter((e) => e.type === "story").length} stories (${opts.stories}).`);
   if (opts.shard) {
     const known = stories.filter((id) => id in times);
-    const expected = known.reduce((sum, id) => sum + times[id], 0) / Math.max(1, opts.workers) / 60;
-    console.log(`Shard ${opts.shard.index}/${opts.shard.count}: ${stories.length} of ${listed.length} stories (${known.length} timed, about ${expected.toFixed(1)} min).`);
+    const expected = known.reduce((sum, id) => sum + times[id], 0) / Math.max(1, workers) / 60;
+    const kind = slowShard ? `, a slow shard (${workers} workers)` : "";
+    console.log(`Shard ${opts.shard.index}/${opts.shard.count}${kind}: ${stories.length} of ${listed.length} stories (${known.length} timed, about ${expected.toFixed(1)} min).`);
   }
   if (stories.length === 0) {
     console.log("No story to sweep: pass.");
@@ -484,7 +494,7 @@ async function main() {
   }
 
   try {
-    await Promise.all(Array.from({ length: Math.min(opts.workers, stories.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(workers, stories.length) }, worker));
   } finally {
     server.close();
   }
@@ -513,7 +523,7 @@ async function main() {
         {
           stories: stories.length,
           widths: opts.widths,
-          workers: opts.workers,
+          workers,
           shard: opts.shard ?? null,
           seconds: Number(seconds),
           findings,

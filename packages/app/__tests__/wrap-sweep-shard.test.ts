@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import TIMES_FILE from "../scripts/wrap-sweep-times.json";
-import { dealStories, parseShard, shardStories, timesFromReports, weigh, type Times } from "../scripts/wrap-sweep-shard.ts";
+import { dealStories, parseShard, planShards, SLOW_RENDER_S, shardStories, slowStories, timesFromReports, weigh, type Times } from "../scripts/wrap-sweep-shard.ts";
 
 /** A story list in no particular order, as `index.json` may give it. */
 const STORIES = Array.from({ length: 37 }, (_, k) => `title-${(k * 7) % 5}--story-${(k * 13) % 37}`);
@@ -91,13 +91,51 @@ describe("wrap sweep shard", () => {
     }
   });
 
-  it("reads the times of a sweep's reports in seconds, to a tenth, the longer of two", () => {
+  it("reads the times of a sweep's reports in seconds, to a tenth, the longer of two, with the render", () => {
     const times = timesFromReports([
-      { timings: [{ story: "b--x", ms: 1234 }, { story: "a--y", ms: 49 }] },
-      { timings: [{ story: "b--x", ms: 2050 }] },
+      { timings: [{ story: "b--x", ms: 1234, render: 400 }, { story: "a--y", ms: 49 }] },
+      { timings: [{ story: "b--x", ms: 2050, render: 300 }] },
       {},
     ]);
-    expect(times).toEqual({ "a--y": 0, "b--x": 2.1 });
-    expect(Object.keys(times)).toEqual(["a--y", "b--x"]);
+    expect(times).toEqual({ seconds: { "a--y": 0, "b--x": 2.1 }, render: { "a--y": 0, "b--x": 0.4 } });
+    expect(Object.keys(times.seconds)).toEqual(["a--y", "b--x"]);
+  });
+
+  /** Slow renders: two avatar stories and a new one of the same title; the others are quick. */
+  const RENDER: Times = { "avatar--a": 40, "avatar--b": 30, "ui--a": 1, "ui--b": 2, "renderer--x": 3 };
+  const IDS = [...Object.keys(RENDER), "avatar--new", "ui--new", ...STORIES];
+
+  it("finds the slow stories by their render, a new one of a slow title included", () => {
+    expect([...slowStories(IDS, RENDER)].sort()).toEqual(["avatar--a", "avatar--b", "avatar--new"]);
+    expect(slowStories(IDS).size).toBe(0);
+    expect(SLOW_RENDER_S).toBe(20);
+  });
+
+  for (const [count, slow] of [[12, 6], [4, 1], [3, 2], [2, 1], [5, 0], [3, 3]] as const) {
+    it(`puts the slow stories on the first ${slow} of ${count} shards, every story in exactly one`, () => {
+      const shards = planShards(IDS, count, slow, TIMES, RENDER);
+      expect(shards).toHaveLength(count);
+      const all = shards.flat();
+      expect(all).toHaveLength(new Set(IDS).size);
+      expect(new Set(all)).toEqual(new Set(IDS));
+      const slowIds = slowStories(IDS, RENDER);
+      if (slow > 0 && slow < count) {
+        for (const s of shards.slice(0, slow)) expect(s.every((id) => slowIds.has(id))).toBe(true);
+        for (const s of shards.slice(slow)) expect(s.some((id) => slowIds.has(id))).toBe(false);
+      } else expect(shards).toEqual(dealStories(IDS, count, TIMES));
+      for (let index = 1; index <= count; index++) expect(shardStories(IDS, { index, count }, TIMES, slow, RENDER)).toEqual(shards[index - 1]);
+    });
+  }
+
+  it("plans the committed file's stories, and new ones, into exactly one shard each, the slow ones on the slow shards", () => {
+    const file = TIMES_FILE as { seconds: Times; render: Times };
+    const ids = [...Object.keys(file.seconds), "scenes-avatarcreator--new", "new-story--one"];
+    const slowIds = slowStories(ids, file.render);
+    expect(slowIds.has("scenes-avatarcreator--new")).toBe(true);
+    expect(slowIds.size).toBeGreaterThan(50);
+    const shards = planShards(ids, 12, 6, file.seconds, file.render);
+    expect(new Set(shards.flat())).toEqual(new Set(ids));
+    expect(shards.flat()).toHaveLength(ids.length);
+    for (const s of shards.slice(0, 6)) expect(s.every((id) => slowIds.has(id))).toBe(true);
   });
 });

@@ -2,7 +2,8 @@
  * SWEEP-SPEED: refreshes `wrap-sweep-times.json`, the time of each story that `--shard` balances the wrap sweep's shards on,
  * from the reports of one full sweep (every story, every shard).
  *
- *   node scripts/wrap-sweep-times.ts --run <run id>      # a CI run's `wrap-sweep-timings-*` artifacts, through `gh`
+ *   node scripts/wrap-sweep-times.ts --run <run id>...   # CI runs' `wrap-sweep-timings-*` artifacts, through `gh` (several runs:
+ *                                                        # each story keeps its longest time, the safer for the slow split)
  *   node scripts/wrap-sweep-times.ts <report.json>...    # `wrap-sweep.ts --json` files at hand
  *   ... --partial                                        # accept the reports of some shards only (a sample: the stories of
  *                                                        # the others weigh their title's median)
@@ -15,7 +16,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { timesFromReports, type SweepReport } from "./wrap-sweep-shard.ts";
 
@@ -36,28 +37,37 @@ let files = argv;
 let source = "local reports";
 let scratch: string | undefined;
 if (runAt >= 0) {
-  const run = argv[runAt + 1];
-  if (!run || !/^\d+$/.test(run)) throw new Error("--run takes a GitHub Actions run id");
+  const ids = argv.slice(runAt + 1);
+  if (ids.length === 0 || !ids.every((r) => /^\d+$/.test(r))) throw new Error("--run takes GitHub Actions run ids");
   scratch = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), "wrap-sweep-times-"));
-  execFileSync("gh", ["run", "download", run, "--pattern", "wrap-sweep-timings-*", "--dir", scratch], { stdio: "inherit" });
+  for (const run of ids) execFileSync("gh", ["run", "download", run, "--pattern", "wrap-sweep-timings-*", "--dir", join(scratch, run)], { stdio: "inherit" });
   files = jsonFiles(scratch);
-  source = `Stolsis CI run ${run}`;
+  source = `Stolsis CI run${ids.length > 1 ? "s" : ""} ${ids.join(", ")}`;
 }
 if (files.length === 0) {
-  console.error("usage: wrap-sweep-times.ts --run <run id> | wrap-sweep-times.ts <report.json>...");
+  console.error("usage: wrap-sweep-times.ts --run <run id>... | wrap-sweep-times.ts <report.json>... [--partial]");
   process.exit(2);
 }
 try {
-  const reports = files.map((f) => JSON.parse(readFileSync(f, "utf8")) as SweepReport & { shard?: { index: number; count: number } | null });
-  const counts = new Set(reports.map((r) => r.shard?.count ?? 1));
-  if (counts.size > 1) throw new Error(`the reports come from different shard counts (${[...counts].join(", ")}): one full sweep only`);
-  const [count] = counts;
-  const seen = new Set(reports.map((r) => r.shard?.index ?? 1));
-  if (seen.size < count && !partial) throw new Error(`${seen.size} of ${count} shards' reports: every shard of the sweep is needed (or --partial)`);
-  if (seen.size < count) source += `, shard(s) ${[...seen].sort((a, b) => a - b).join(", ")} of ${count}`;
-  const seconds = timesFromReports(reports);
+  type Report = SweepReport & { shard?: { index: number; count: number } | null };
+  // One group a run (its own folder under the download), or the local files as one sweep: each must hold every shard of it.
+  const groups = new Map<string, Report[]>();
+  for (const f of files) {
+    const key = scratch ? relative(scratch, f).split(sep)[0] : "local";
+    groups.set(key, [...(groups.get(key) ?? []), JSON.parse(readFileSync(f, "utf8")) as Report]);
+  }
+  for (const [key, group] of groups) {
+    const counts = new Set(group.map((r) => r.shard?.count ?? 1));
+    if (counts.size > 1) throw new Error(`${key}: the reports come from different shard counts (${[...counts].join(", ")}): one full sweep a run`);
+    const [count] = counts;
+    const seen = new Set(group.map((r) => r.shard?.index ?? 1));
+    if (seen.size < count && !partial) throw new Error(`${key}: ${seen.size} of ${count} shards' reports: every shard of the sweep is needed (or --partial)`);
+    if (seen.size < count) source += `, shard(s) ${[...seen].sort((a, b) => a - b).join(", ")} of ${count}`;
+  }
+  const reports = [...groups.values()].flat();
+  const { seconds, render } = timesFromReports(reports);
   const total = Object.values(seconds).reduce((sum, s) => sum + s, 0);
-  writeFileSync(OUT, `${JSON.stringify({ source, generated: new Date().toISOString().slice(0, 10), seconds }, null, 1)}\n`);
+  writeFileSync(OUT, `${JSON.stringify({ source, generated: new Date().toISOString().slice(0, 10), seconds, render }, null, 1)}\n`);
   console.log(`${Object.keys(seconds).length} stories, ${(total / 60).toFixed(1)} worker-minutes, from ${reports.length} report(s) of ${source}: ${OUT}`);
 } finally {
   if (scratch) rmSync(scratch, { recursive: true, force: true });
