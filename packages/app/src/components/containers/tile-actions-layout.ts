@@ -325,22 +325,25 @@ function crossings(p: Curve, q: Curve): Point[] {
   return [];
 }
 
-/** The most nodes `criticalPacking`'s search visits. */
-const CRITICAL_SEARCH_NODES = 5_000;
-/** The slack `criticalPacking` keeps past each bound, screen px: its places rest on the bounds, so rounding never crosses one. */
-const CRITICAL_SLACK_PX = 0.05;
+/** The point of `curve` nearest `p` (a circle's: along the ray from its centre; `p` at the centre, its rightmost point). */
+function projectOnto(p: Point, curve: Curve): Point {
+  if ("c" in curve) {
+    const d = hyp(p.x - curve.c.x, p.y - curve.c.y);
+    return d < 1e-9 ? { x: curve.c.x + curve.r, y: curve.c.y } : { x: curve.c.x + ((p.x - curve.c.x) * curve.r) / d, y: curve.c.y + ((p.y - curve.c.y) * curve.r) / d };
+  }
+  const dx = curve.b.x - curve.a.x;
+  const dy = curve.b.y - curve.a.y;
+  const len = dx * dx + dy * dy;
+  const t = len > 0 ? Math.min(1, Math.max(0, ((p.x - curve.a.x) * dx + (p.y - curve.a.y) * dy) / len)) : 0;
+  return { x: curve.a.x + t * dx, y: curve.a.y + t * dy };
+}
 
 /**
- * Up to four button centres outside the tile, `clear` from its outline, inside the centres' rectangle `x0`..`x1` by `y0`..`y1`, each
- * `ACTION_SPREAD_PX` from the others, found among the critical places of a tight packing: where two of the region's bounding curves
- * cross (the rectangle's sides; the tile's sides pushed out by `clear` and the circles of that radius round its corners; the circle of
- * `ACTION_SPREAD_PX` round each centre already placed). A packing pushed as far as it goes into a corner of the region rests on such
- * crossings, so a narrow region that holds four is packed exactly here where a grid would miss it. A depth-first search, bounded.
+ * The curves that bound the places a centre may take: the centres' rectangle `x0`..`x1` by `y0`..`y1` (its sides), the tile's sides
+ * pushed out by `clear` and the circles of that radius round its corners, and the sides of each of `blocks`.
  */
-function criticalPacking(outline: readonly Point[], box: { x0: number; x1: number; y0: number; y1: number }, clear: number, blocks: readonly BubbleLimits[]): Point[] {
+function boundCurves(outline: readonly Point[], box: { x0: number; x1: number; y0: number; y1: number }, clear: number, blocks: readonly BubbleLimits[]): Curve[] {
   const { x0, x1, y0, y1 } = box;
-  clear += CRITICAL_SLACK_PX;
-  const spread = ACTION_SPREAD_PX + CRITICAL_SLACK_PX;
   const n = outline.length;
   const centre = { x: outline.reduce((s, p) => s + p.x, 0) / n, y: outline.reduce((s, p) => s + p.y, 0) / n };
   const curves: Curve[] = [
@@ -372,6 +375,26 @@ function criticalPacking(outline: readonly Point[], box: { x0: number; x1: numbe
     ];
     for (let i = 0; i < 4; i++) curves.push({ a: c[i]!, b: c[(i + 1) % 4]! });
   }
+  return curves;
+}
+
+/** The most nodes `criticalPacking`'s search visits. */
+const CRITICAL_SEARCH_NODES = 5_000;
+/** The slack `criticalPacking` keeps past each bound, screen px: its places rest on the bounds, so rounding never crosses one. */
+const CRITICAL_SLACK_PX = 0.05;
+
+/**
+ * Up to four button centres outside the tile, `clear` from its outline, inside the centres' rectangle `x0`..`x1` by `y0`..`y1`, each
+ * `ACTION_SPREAD_PX` from the others, found among the critical places of a tight packing: where two of the region's bounding curves
+ * cross (the rectangle's sides; the tile's sides pushed out by `clear` and the circles of that radius round its corners; the circle of
+ * `ACTION_SPREAD_PX` round each centre already placed). A packing pushed as far as it goes into a corner of the region rests on such
+ * crossings, so a narrow region that holds four is packed exactly here where a grid would miss it. A depth-first search, bounded.
+ */
+function criticalPacking(outline: readonly Point[], box: { x0: number; x1: number; y0: number; y1: number }, clear: number, blocks: readonly BubbleLimits[]): Point[] {
+  const { x0, x1, y0, y1 } = box;
+  clear += CRITICAL_SLACK_PX;
+  const spread = ACTION_SPREAD_PX + CRITICAL_SLACK_PX;
+  const curves = boundCurves(outline, box, clear, blocks);
   const ok = (p: Point) =>
     p.x >= x0 - 1e-6 &&
     p.x <= x1 + 1e-6 &&
@@ -671,9 +694,11 @@ function blocksOf(box: DOMRect, avoid: readonly BubbleAvoid[]): BubbleLimits[] {
  * 1. Its place out of the tile (`tileActionPlaces`): the same gap in screen px at every zoom.
  * 2. Kept in the room (`actionRoom`), the HUD's limits measured on its own span, as `layoutTileActions` measures the four's.
  * 3. Where the room moved it, the nearest place to its own that keeps `ACTION_GAP_PX` from the tile and every part of the screen it
- *    avoids (measured exactly): the kept place, or one of the tile's own candidates (its four action places, its corners pushed out
- *    to the gap, the places sliding along its sides on screen: `tileCandidates`). So a tile under the HUD keeps its button beside it,
- *    not pushed far off or onto it. None (the tile covers the room): the kept place.
+ *    avoids (measured exactly), found exactly (#1111): the region's nearest place to a point lies on its bounds (`boundCurves`: the
+ *    room's sides, the tile's sides pushed out to the gap and the arcs round its corners, each HUD piece's sides), its own place
+ *    projected onto one bound or where two cross; the kept place and the tile's four action places are tried too. So a tile under
+ *    the HUD keeps its button beside it, not pushed far off or onto it, and by a corner of the room the gap is never lost when a place
+ *    keeps it. None (the tile covers the room): the kept place.
  */
 export function layoutTileAction(side: ActionSide, outline: readonly Point[], box: DOMRect, avoid: readonly BubbleAvoid[]): Point {
   const places = tileActionPlaces(outline);
@@ -701,10 +726,15 @@ export function layoutTileAction(side: ActionSide, outline: readonly Point[], bo
     !blocked(p, blocks) &&
     !within(p, outline) &&
     toOutline(p, outline) >= clear - 1e-6;
-  const { corners, slides } = tileCandidates(outline, room, clear);
+  // The nearest place to its own in the region that keeps the gap lies on its bounds: its own place projected onto one of them, or
+  // where two of them cross (a corner of the room, the room's or a HUD piece's edge across a corner's arc). So these are all searched.
+  const curves = boundCurves(outline, room, clear + CRITICAL_SLACK_PX, blocks);
+  const candidates: Point[] = [at, ...ACTION_SIDES.map((s) => places[s])];
+  for (const c of curves) candidates.push(projectOnto(own, c));
+  for (let i = 0; i < curves.length; i++) for (let j = i + 1; j < curves.length; j++) candidates.push(...crossings(curves[i]!, curves[j]!));
   let best: Point | null = null;
   let least = Infinity;
-  for (const p of [at, ...ACTION_SIDES.map((s) => places[s]), ...corners, ...slides]) {
+  for (const p of candidates) {
     if (!fits(p)) continue;
     const d = hyp(p.x - own.x, p.y - own.y);
     if (d < least - 1e-9) {

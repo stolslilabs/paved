@@ -13,6 +13,7 @@ import {
   actionsClearance,
   actionsSpan,
   clampActions,
+  layoutTileAction,
   layoutTileActions,
   tileActionPlaces,
   type ActionPlaces,
@@ -302,4 +303,42 @@ describe("the gap kept close in (#1078)", () => {
     ];
     expect(layoutTileActions(outline, rect(0, 0, 375, 812), [])).toEqual(tileActionPlaces(outline));
   });
+});
+
+describe("one action alone keeps the gap by a corner of the room (#1111)", () => {
+  /**
+   * The Codex review of PRESS-BUILD's figures at 375 x 812: the tile's outline on screen, the mission above the dock and the home's
+   * right column of tiles (a side). The clamp left Edit village at (275, 645), 3.8 px from the tile, though (275, 641) keeps the gap.
+   * At 320 and 360 px the outline and the column move with the right edge.
+   */
+  const OUTLINE: Point[] = [
+    { x: 278.2632285902623, y: 670.5927862230449 },
+    { x: 321.7367714097377, y: 670.5927862230449 },
+    { x: 321.8357672085515, y: 709.4072137769549 },
+    { x: 278.1642327914485, y: 709.4072137769549 },
+  ];
+  const MISSION = rect(10, 675, 285, 40);
+  const one = (p: Point): ActionPlaces => ({ "top-left": p, "top-right": p, "bottom-left": p, "bottom-right": p });
+
+  for (const width of PHONES) {
+    it(`at ${width} px: the gap kept, the HUD clear, no farther from its own place than the review's (275, 641)`, () => {
+      const dx = width - 375;
+      const outline = OUTLINE.map((p) => ({ x: p.x + dx, y: p.y }));
+      const column = rect(305 + dx, 270, 60, 275);
+      const avoid: BubbleAvoid[] = [
+        { rect: MISSION, side: false },
+        { rect: column, side: true },
+      ];
+      const at = layoutTileAction("top-right", outline, rect(0, 0, width, 812), avoid);
+      const known = { x: 275 + dx, y: 641 };
+      expect(actionsClearance(one(known), outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX);
+      expect(actionsClearance(one(at), outline)).toBeGreaterThanOrEqual(ACTION_GAP_PX - 1e-6);
+      expect(meets(at, MISSION)).toBe(false);
+      expect(at.x + R).toBeLessThanOrEqual(column.left - MARGIN_PX + 1e-6);
+      expect(at.x - R).toBeGreaterThanOrEqual(MARGIN_PX - 1e-6);
+      expect(at.y - R).toBeGreaterThanOrEqual(MARGIN_PX - 1e-6);
+      const own = tileActionPlaces(outline)["top-right"];
+      expect(Math.hypot(at.x - own.x, at.y - own.y)).toBeLessThanOrEqual(Math.hypot(known.x - own.x, known.y - own.y) + 1e-6);
+    });
+  }
 });
