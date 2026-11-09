@@ -139,7 +139,7 @@ export function storyIds(index: { entries: Record<string, { id: string; type: st
 
 /**
  * The wrap-sweep shards of a pull request: one per SHARD_FILES story files, at most MAX_SHARDS, and MAX_SHARDS for every
- * story. The merge queue and main take eight (test.yaml). Each shard pays its setup and the Storybook build (about 4 to
+ * story, as the merge queue and main do (test.yaml, SWEEP-SPEED). Each shard pays its setup and the Storybook build (about 4 to
  * 5 min: the header-sweep job, which adds three short checks, takes 6.0 min p50), then about 15 s a story file (a full shard,
  * 52 files of the 210, takes 17.2 min p50): 20 files keep a shard near 10 min.
  */

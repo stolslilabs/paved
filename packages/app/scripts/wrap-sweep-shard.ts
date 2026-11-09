@@ -76,12 +76,20 @@ export function dealStories(ids: readonly string[], count: number, times: Times 
 }
 
 /**
- * The order a shard's workers take its stories in: the longest first (a long story started last would leave the other workers
- * idle at the end), ties in the order given. Every story once.
+ * The order a shard's workers take its stories in: the longest, the shortest, the next longest, the next shortest... The long
+ * ones start early (one started last would keep its worker busy while the others are done), but never four together: the 3D
+ * and avatar stories render in software WebGL, and four of them at once on four cores passed the render timeout on CI. Ties in
+ * the order given. Every story once.
  */
-export function longestFirst(ids: readonly string[], times: Times = {}): string[] {
+export function heavyLightOrder(ids: readonly string[], times: Times = {}): string[] {
   const weights = weigh(ids, times);
-  return ids.map((id, k) => ({ id, k, w: weights.get(id) ?? 1 })).sort((a, b) => b.w - a.w || a.k - b.k).map((s) => s.id);
+  const sorted = ids.map((id, k) => ({ id, k, w: weights.get(id) ?? 1 })).sort((a, b) => b.w - a.w || a.k - b.k).map((s) => s.id);
+  const out: string[] = [];
+  for (let lo = 0, hi = sorted.length - 1; lo <= hi; lo++, hi--) {
+    out.push(sorted[lo]);
+    if (hi > lo) out.push(sorted[hi]);
+  }
+  return out;
 }
 
 /** The stories of one shard: the `index`-th part of `dealStories`. */
