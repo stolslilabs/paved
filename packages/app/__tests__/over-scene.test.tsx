@@ -227,6 +227,29 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
     expect(screen.getByRole("region", { name: "Best" })).toHaveTextContent("1,420Your best");
   });
 
+  it("a tied best (#1115): no new best, so Game over, the crown's gold stopping short, nothing lit, no sound and no buzz", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    try {
+      show(<OverScene {...OVER.training} previousBest={score} />);
+      const mark = screen.getByRole("img", { name: "Crown: 100% of your best" });
+      expect(mark).not.toHaveAttribute("data-reached");
+      expect(mark.querySelector("[data-lit]")).toBeNull();
+      expect(mark.querySelector('[data-fill="96"]')).not.toBeNull();
+      expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
+      const best = screen.getByRole("region", { name: "Best" });
+      expect(best).not.toHaveAttribute("data-record");
+      expect(best).toHaveTextContent(`${pts(score)}Your best`);
+      // Past the beat a beaten best pops at (the wonder's sound and the firm buzz): nothing.
+      await act(() => vi.advanceTimersByTimeAsync((END_STARS.lead + 1) * 1000));
+      expect(vibrate).not.toHaveBeenCalled();
+    } finally {
+      delete (navigator as { vibrate?: unknown }).vibrate;
+      vi.useRealTimers();
+    }
+  });
+
   it("the device's first game: no best to beat, the crown grey, the score the best", () => {
     show(<OverScene {...OVER.training} previousBest={null} />);
     const mark = screen.getByRole("img", { name: "Crown: no best to beat yet" });
