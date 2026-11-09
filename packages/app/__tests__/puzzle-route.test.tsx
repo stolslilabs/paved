@@ -30,12 +30,19 @@ function open(path: string, ledger = new MockLedger({ store: () => memoryStore()
 vi.mock("../src/routes/pages/board", async () => (await import("./route-helpers")).boardStandInModule);
 preloadPages("home", "play", "chat");
 
+// The Puzzle's day is the UTC day, and its seeded players' results come in as that day goes (`seededResults`): read on the real
+// clock, today's leaderboard is still empty just after 00:00 UTC and the test failed each night (#1123, R7). So `Date` (and only it:
+// the timers stay real for the waits) stands at one fixed noon for the whole file, for the page's clock (`useNow`) and the ledger's.
+const NOON = new Date("2026-11-09T12:00:00Z");
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: NOON });
   localStorage.clear();
   resetWelcomedForTests();
   markWelcomed();
 });
 afterEach(() => {
+  vi.useRealTimers();
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();
@@ -54,10 +61,7 @@ describe("/play: the Puzzle's card in Limited", () => {
 
 describe("/play/puzzle: the day's leaderboard and Play", () => {
   it("lists the day's players and starts a game of today, its board opened", async () => {
-    // The seeded players' results come in as the UTC day goes (`seededResults`): just after 00:00 UTC today's leaderboard is still
-    // empty, so the ledger's clock stands at today's noon, whenever the test runs.
-    const noon = Math.floor(Date.now() / 86_400_000) * 86_400 + 43_200;
-    const { router, puzzle } = open("/play/puzzle", new MockLedger({ store: () => memoryStore(), seller: "0x3", latencyMs: 0, now: () => noon }));
+    const { router, puzzle } = open("/play/puzzle");
     await screen.findByRole("list", { name: "Today's leaderboard" }, { timeout: slow(8000) });
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/puzzle\/\d+$/), { timeout: slow(5000) });
