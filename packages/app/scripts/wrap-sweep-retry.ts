@@ -42,6 +42,14 @@ export interface StoryDeps<P> {
   inspect: (page: P) => Promise<StoryFinding[]>;
   wait: (page: P, ms: number) => Promise<void>;
   log: (message: string) => void;
+  /** The clock, ms (a test passes its own). */
+  now?: () => number;
+}
+
+/** Where one story's time went, ms: its render (the retry included), then each width's settle and inspection. */
+export interface StoryTiming {
+  render: number;
+  widths: Record<number, number>;
 }
 
 /**
@@ -54,26 +62,32 @@ export async function sweepStory<P>(
   id: string,
   widths: number[],
   deps: StoryDeps<P>,
-): Promise<{ page: P; findings: (StoryFinding & { story: string; width: number })[] }> {
+): Promise<{ page: P; findings: (StoryFinding & { story: string; width: number })[]; timing: StoryTiming }> {
+  const now = deps.now ?? (() => performance.now());
+  let at = now();
   await deps.setWidth(page, widths[0]);
   const rendered = await renderWithRetry(page, (p) => deps.render(p, id), deps.fresh, deps.log, `${id} ${widths[0]}`);
   page = rendered.page;
+  const timing: StoryTiming = { render: now() - at, widths: {} };
   const findings: (StoryFinding & { story: string; width: number })[] = [];
   for (const width of widths) {
+    at = now();
     await deps.setWidth(page, width);
     if (rendered.error) {
       findings.push({ story: id, width, kind: "error", element: rendered.error });
+      timing.widths[width] = now() - at;
       continue;
     }
     await deps.settle(page);
     let found = await deps.inspect(page);
     if (found.length) {
       // Something late (a font swap, a layout animation) can settle after the first look: look again once, after a
-      // second, before reporting.
+      // second, before reporting. Any finding, an allowed one included: a later look can turn up one that is not.
       await deps.wait(page, 1000);
       found = await deps.inspect(page);
     }
     for (const f of found) findings.push({ story: id, width, ...f });
+    timing.widths[width] = now() - at;
   }
-  return { page, findings };
+  return { page, findings, timing };
 }
