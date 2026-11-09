@@ -135,7 +135,9 @@ jobs:
               - '.github/workflows/test.yaml'
       # CI-TIERS (#1129): a pull request sweeps only the stories its change reaches (scripts/check/stories.mts, a static
       # walk of the app's import graph), in up to 10 shards of about 20 story files; every story when it reaches what every
-      # story reads. The merge queue and main sweep every story in four shards, as before: no story leaves the gate of main.
+      # story reads. The merge queue and main sweep every story in eight shards (SWEEP-SPEED, #1130): no story leaves the gate
+      # of main. Eight is the most a client run takes within about 14 jobs (6 other client jobs); balanced by time, the local
+      # measure put a shard near 8 min, setup included (the shards were 20.7, 20.3, 10.4 and 9.9 min of sweep in four by count).
       # The pull request's files come from the API (at most 3000; a longer list sweeps every story).
       # actions/setup-node v7.0.0
       - if: github.event_name == 'pull_request'
@@ -150,7 +152,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           if [ "$EVENT" != pull_request ]; then
-            printf 'stories=all\nstory_files=[]\nshards=[1,2,3,4]\nshard_count=4\n' >> "$GITHUB_OUTPUT"
+            printf 'stories=all\nstory_files=[]\nshards=[1,2,3,4,5,6,7,8]\nshard_count=8\n' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
@@ -264,8 +266,8 @@ jobs:
 
   # The client is checked by three kinds of job that run side by side (CI-SPLIT), each from the cached node_modules
   # (.github/actions/client-setup): the build and unit tests, the Storybook's header, feel and locale checks, and the wrap
-  # sweep in four shards. Each Storybook job builds the workspace packages and the Storybook itself (about half a minute
-  # under the cached install) rather than sharing an artifact. The `ci` job requires all of them.
+  # sweep in shards (eight on the merge queue and main). Each Storybook job builds the workspace packages and the Storybook
+  # itself (about half a minute under the cached install) rather than sharing an artifact. The `ci` job requires all of them.
   client:
     needs: changes
     if: needs.changes.outputs.client == 'true'
@@ -327,9 +329,9 @@ jobs:
 
   # WRAP360: the stories at 360 and 320 px, headless; fails on text that overflows, is cut without its full value, or
   # scrolls the page (packages/app/scripts/wrap-sweep.ts). In shards (`--shard i/n`, SWEEP-SHARD-1): every story of the
-  # list is in exactly one, and the slow 3D stories are spread across them. One failing shard does not cancel the others.
-  # The list is every story on the merge queue and main (four shards); on a pull request, the stories its change reaches
-  # (the `stories` step of `changes`), and no job when it reaches none.
+  # list is in exactly one, the shards balanced by each story's time (packages/app/scripts/wrap-sweep-times.json, SWEEP-SPEED).
+  # One failing shard does not cancel the others. The list is every story on the merge queue and main (eight shards); on a
+  # pull request, the stories its change reaches (the `stories` step of `changes`), and no job when it reaches none.
   wrap-sweep:
     needs: changes
     if: needs.changes.outputs.client == 'true' && needs.changes.outputs.stories != 'none'
@@ -367,9 +369,20 @@ jobs:
           MODE: ${{ needs.changes.outputs.stories }}
           SHARD: ${{ matrix.shard }}/${{ needs.changes.outputs.shard_count }}
         run: |
-          if [ "$MODE" = some ]; then node scripts/wrap-sweep.ts --stories "$RUNNER_TEMP/stories.txt" --shard "$SHARD"
-          else node scripts/wrap-sweep.ts --shard "$SHARD"; fi
+          if [ "$MODE" = some ]; then node scripts/wrap-sweep.ts --stories "$RUNNER_TEMP/stories.txt" --shard "$SHARD" --json "$RUNNER_TEMP/wrap-sweep.json"
+          else node scripts/wrap-sweep.ts --shard "$SHARD" --json "$RUNNER_TEMP/wrap-sweep.json"; fi
         shell: bash
+      # Each story's time (SWEEP-SPEED): `node scripts/wrap-sweep-times.ts --run <run id>` refreshes the times file the shards
+      # are balanced on from the reports of a full sweep (a merge-queue or main run).
+      # actions/upload-artifact v4.6.2
+      - name: Upload the sweep's report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wrap-sweep-timings-${{ matrix.shard }}
+          path: ${{ runner.temp }}/wrap-sweep.json
+          retention-days: 30
+          if-no-files-found: ignore
 
   # The Training battle test (P-79, packages/app/e2e): complete games played by a bot in headless Chromium on the plan
   # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. It runs

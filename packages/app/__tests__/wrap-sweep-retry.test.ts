@@ -87,4 +87,27 @@ describe("sweepStory", () => {
     ]);
     expect(d.inspect).not.toHaveBeenCalled();
   });
+
+  it("times the render and each width", async () => {
+    // A clock that each step of the browser moves on: render 5 ms, each settle 2 ms, each inspect 1 ms.
+    let t = 0;
+    const d = deps([null], []);
+    d.render.mockImplementation(async () => ((t += 5), null));
+    d.settle.mockImplementation(async () => void (t += 2));
+    d.inspect.mockImplementation(async () => ((t += 1), []));
+    const { timing } = await sweepStory(0, "s", [360, 320], { ...d, now: () => t });
+    expect(timing).toEqual({ render: 5, widths: { 360: 3, 320: 3 } });
+  });
+
+  it("looks a second time only when a finding would fail", async () => {
+    const allowedOnly = deps([null], [overflow]);
+    const once = await sweepStory(0, "s", [360, 320], { ...allowedOnly, failing: () => false });
+    expect(once.findings).toHaveLength(2);
+    expect(allowedOnly.wait).not.toHaveBeenCalled();
+    expect(allowedOnly.inspect).toHaveBeenCalledTimes(2);
+    const failing = deps([null], [overflow]);
+    await sweepStory(0, "s", [360, 320], { ...failing, failing: (width) => width === 320 });
+    expect(failing.wait).toHaveBeenCalledTimes(1);
+    expect(failing.inspect).toHaveBeenCalledTimes(3);
+  });
 });

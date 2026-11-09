@@ -158,7 +158,8 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 - Two tiers (CI-TIERS, #1129). The pull request runs a fast gate: the wrap sweep of only the stories its change reaches
   (`scripts/check/stories.mts`, tested by `stories.test.mts`; every story when the change reaches what every story reads), and
   the Training e2e only when `packages/app/e2e/**` or `packages/game-core/**` change. The merge queue and main run everything:
-  the whole sweep in four shards and the e2e on its full filter.
+  the whole sweep in eight shards, balanced by each story's time (`packages/app/scripts/wrap-sweep-times.json`, refreshed
+  from a full run's reports by `node scripts/wrap-sweep-times.ts --run <run id>`), and the e2e on its full filter.
 - `gh pr merge --admin` skips the queue and is never used. The flow rules themselves land in #1126.
 
 ## Pull requests
