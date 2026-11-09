@@ -16,6 +16,8 @@ whole suite is the CI's job on the pull request, gated by paths. Pre-push hooks 
 **Slow profile for a loaded machine.** `PAVED_TEST_SLOW` multiplies every wait ceiling of `@paved/app`'s tests (the vitest
 `testTimeout`, Testing Library's `asyncUtilTimeout`, each explicit `{ timeout }` and per-test timeout of the load-bound route
 files, through `slow()` of `packages/app/test-slow.ts`): unset is 1 (CI, a quiet machine), `1` is 3, any other number is the factor.
+`@paved/indexer`'s vitest config reads it the same way (its test and hook timeouts, and the retry): its command-line tests start a
+Node process each.
 `bun run check` sets it to `1` by itself when the 1-minute load average passes the core count (never in CI), keeps a value you
 set (`PAVED_TEST_SLOW=0` forces it off), and prints which. By hand: `PAVED_TEST_SLOW=1 NODE_OPTIONS=--max-old-space-size=1536 bun run test --filter @paved/app`.
 A ceiling costs a passing test nothing (it returns as soon as its state is there), so a test given one states a measure, not a guess.

@@ -516,6 +516,7 @@ jobs:
       - name: Guard scripts
         run: |
           node --test scripts/check/touched.test.mts scripts/check/stories.test.mts
+          node --test scripts/ci/nightly-flaky.test.mts
           sh scripts/vercel/ignore-build.test.sh
         shell: bash
       # Each command runs its vercel.json's installCommand first (bun install --frozen-lockfile), as Vercel does.
