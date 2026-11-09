@@ -3,9 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { contrast, hexToRgb, oklchToRgb, parseOklch, rgbToHex } from "../src/styles/color-math";
 import { STEPS, board, breakpoints, radiusBase, scales, semantic } from "../src/styles/tokens";
-import { readThemeCss } from "./theme-css";
 
-const css = readThemeCss();
+const css = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
 
 describe("the token reader of the Foundations stories", () => {
   it("reads the seven scales, 11 steps each", () => {

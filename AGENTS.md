@@ -165,8 +165,12 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 
 - **One brief at a time per hotspot (R9).** Do not run two briefs at once that will edit the same file of this list; the
   second waits or is reshaped:
+  - `packages/app/src/components/scenes/home-village-scene.tsx`
+  - `packages/app/src/styles/theme.css`
+  - `packages/app/src/data/mock/ledger.ts`
   - `.claude/skills/paved-ui/SKILL.md`
   - `packages/app/public/THIRD_PARTY_NOTICES.txt`
+  - `packages/app/src/routes/pages.ts`
 
   The list shrinks as #1133 and #1134 land. A brief that will go over R8 is reshaped before it starts.
 

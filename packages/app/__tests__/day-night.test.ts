@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DAY_NIGHT_RUNS, DAY_PHASE_AT, SEASONS } from "@paved/renderer";
 // The cycle's own chunk, from its source: the renderer's barrel does not export its keyframes.
 import { KEYFRAMES, cycleAt } from "../../renderer/src/core/daynight";
 import { CYCLE_SEASONS, DAY_AT, DAY_TIME_CHOICES, NIGHT_AT, SEASONS_CHOICES, SUMMER_DAY, cycleDayNight } from "../src/data/day-night";
 import { DAY_TIME_OPTIONS, SEASON_OPTIONS } from "../src/components/containers/device-settings-panel";
-import { readThemeCss } from "./theme-css";
 
 // SEASONS-SETTINGS (the owner's ask of 2026-11-08): Settings' Seasons and Day and night, each a cycle or one held, in the season
 // wheel's place; what each pair asks of the renderer's day and night cycle.
@@ -60,7 +61,7 @@ describe("Settings' seasons and day and night", () => {
   });
 
   it("keep the sky tokens the 3D cycle's, its keyframes' top and bottom", () => {
-    const theme = readThemeCss();
+    const theme = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
     const token = (name: string) => theme.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1]?.trim();
     for (const season of SEASONS) {
       for (const phase of ["day", "night"] as const) {

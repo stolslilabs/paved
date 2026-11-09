@@ -1,21 +1,945 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* The app's theme, split by area into the files it imports, in this order: the custom variants, the tokens (the base scales, the
-   aliases, the semantic tokens, the game's palettes, their Tailwind colours), the base layer, then one file per component family.
-   The tests and the stories read it whole, its imports inlined (`__tests__/theme-css.ts`, `tokens.ts`). */
-@import "./theme/variants.css";
-@import "./theme/scales.css";
-@import "./theme/aliases.css";
-@import "./theme/semantic.css";
-@import "./theme/palettes.css";
-@import "./theme/colors.css";
-@import "./theme/base.css";
-@import "./theme/page.css";
-@import "./theme/camera.css";
-@import "./theme/hud.css";
-@import "./theme/footer-tabs.css";
-@import "./theme/edit-village.css";
-@import "./theme/board.css";
-@import "./theme/motion.css";
-@import "./theme/balances-stack.css";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* NO-SCROLLBARS (#609): the tab page's region has more below (`pageScrollHintRef`, lib/page-scroll-hint.ts sets the mark on `<html>`). */
+@custom-variant page-more (&:where(html[data-scroll-end] *));
+/* PAGE-HEADER (#760): the page has more above, under its sticky header (the tab page's region or a flow's document, `data-scroll-start` on `<html>`). */
+@custom-variant page-less (&:where(html[data-scroll-start] *));
+/* DESK-PANELS (#762): a page in the side panel (`data-page-panel`, containers/page-panel.tsx) is laid out as on a phone, so the
+   breakpoints past `mobile` skip what is inside it: the same media queries as the theme's breakpoints below, and not in a panel.
+   The `max-*` variants keep their media queries (only the phone's bar uses one, and it is never in a panel). */
+@custom-variant tablet {
+  @media (width >= 40rem) {
+    &:not(:where([data-page-panel] *)) {
+      @slot;
+    }
+  }
+}
+@custom-variant desktop {
+  @media (width >= 64rem) {
+    &:not(:where([data-page-panel] *)) {
+      @slot;
+    }
+  }
+}
+@custom-variant wide {
+  @media (width >= 90rem) {
+    &:not(:where([data-page-panel] *)) {
+      @slot;
+    }
+  }
+}
+
+/* 1. Base scales: the standard 50-950 declension. */
+@theme {
+  /* gold: primary, the mockups' buttons; measured anchor 300 = #F0BF5B */
+  --color-gold-50: oklch(0.975 0.021 83.0); /* #FEF6E7 */
+  --color-gold-100: oklch(0.945 0.043 83.0); /* #FBEBCD */
+  --color-gold-200: oklch(0.895 0.078 83.0); /* #F6D8A1 */
+  --color-gold-300: oklch(0.829 0.130 83.0); /* #F0BF5B */
+  --color-gold-400: oklch(0.760 0.155 83.0); /* #E0A605 */
+  --color-gold-500: oklch(0.680 0.139 83.0); /* #C28F04 */
+  --color-gold-600: oklch(0.585 0.119 83.0); /* #9E7403 */
+  --color-gold-700: oklch(0.495 0.101 83.0); /* #7D5B02 */
+  --color-gold-800: oklch(0.405 0.083 83.0); /* #5F4401 */
+  --color-gold-900: oklch(0.320 0.065 83.0); /* #432F00 */
+  --color-gold-950: oklch(0.235 0.048 83.0); /* #291C00 */
+
+  /* charcoal: neutral, page, panels and borders (#537, direction D, the owner's pick of 2026-10-19): the mockups' charcoal,
+     anchors 950 = #121316 (page), 900 = #1C1E22 (cards), 800 = #2A2D33 (raised), 700 = #363941 (hairlines), 300 = #CDCFD4
+     (secondary text), 50 = #F4F1EA (text, warm). It replaces the navy `ink`, which read as Cartridge's. */
+  --color-charcoal-50: oklch(0.959 0.010 87.5); /* #F4F1EA */
+  --color-charcoal-100: oklch(0.929 0.003 286.3); /* #E7E7E9 */
+  --color-charcoal-200: oklch(0.892 0.006 275.0); /* #DADBDF */
+  --color-charcoal-300: oklch(0.854 0.007 268.5); /* #CDCFD4 */
+  --color-charcoal-400: oklch(0.722 0.012 269.5); /* #A2A5AD */
+  --color-charcoal-500: oklch(0.603 0.014 266.6); /* #7D818A */
+  --color-charcoal-600: oklch(0.506 0.015 266.6); /* #61656E */
+  --color-charcoal-700: oklch(0.345 0.015 269.3); /* #363941 */
+  --color-charcoal-800: oklch(0.297 0.012 264.4); /* #2A2D33 */
+  --color-charcoal-900: oklch(0.235 0.008 264.4); /* #1C1E22 */
+  --color-charcoal-950: oklch(0.187 0.006 271.1); /* #121316 */
+
+  /* ink: the 3D scene's night sky only. The renderer's day/night keyframes paint the backdrop with these steps (a test in
+     packages/renderer holds them to this file); no part of the interface paints them since direction D (#537), whose
+     neutral is `charcoal` above. It was the navy of the first palette (anchors 800 = #23303A, 900 = #172129, 950 = #0A141C). */
+  --color-ink-50: oklch(0.975 0.006 241.7); /* #F3F7FB */
+  --color-ink-100: oklch(0.940 0.006 241.7); /* #E8ECEF */
+  --color-ink-200: oklch(0.880 0.012 241.7); /* #D1D9DF */
+  --color-ink-300: oklch(0.800 0.022 241.7); /* #B2C0CB */
+  --color-ink-400: oklch(0.700 0.022 241.7); /* #93A0AB */
+  --color-ink-500: oklch(0.600 0.026 241.7); /* #73838F */
+  --color-ink-600: oklch(0.500 0.026 241.7); /* #576571 */
+  --color-ink-700: oklch(0.410 0.026 241.7); /* #3E4C57 */
+  --color-ink-800: oklch(0.302 0.025 241.7); /* #23303A */
+  --color-ink-900: oklch(0.242 0.021 242.8); /* #172129 */
+  --color-ink-950: oklch(0.186 0.022 243.5); /* #0A141C */
+
+  /* meadow: success, meadows; chosen anchor 500 = #4CAF50 */
+  --color-meadow-50: oklch(0.975 0.019 144.2); /* #EFFBEF */
+  --color-meadow-100: oklch(0.945 0.041 144.2); /* #DDF5DC */
+  --color-meadow-200: oklch(0.895 0.073 144.2); /* #C0EABE */
+  --color-meadow-300: oklch(0.830 0.122 144.2); /* #95DC94 */
+  --color-meadow-400: oklch(0.760 0.154 144.2); /* #6ECA6F */
+  --color-meadow-500: oklch(0.673 0.162 144.2); /* #4CAF50 */
+  --color-meadow-600: oklch(0.585 0.154 144.2); /* #349239 */
+  --color-meadow-700: oklch(0.495 0.138 144.2); /* #217527 */
+  --color-meadow-800: oklch(0.405 0.117 144.2); /* #135819 */
+  --color-meadow-900: oklch(0.320 0.094 144.2); /* #093E0E */
+  --color-meadow-950: oklch(0.235 0.073 144.2); /* #012604 */
+
+  /* river: info, water; chosen anchor 500 = #3B8FD9 */
+  --color-river-50: oklch(0.975 0.012 248.5); /* #F1F8FE */
+  --color-river-100: oklch(0.945 0.027 248.5); /* #DFEFFF */
+  --color-river-200: oklch(0.895 0.053 248.5); /* #C2E0FF */
+  --color-river-300: oklch(0.830 0.088 248.5); /* #9ACDFF */
+  --color-river-400: oklch(0.760 0.129 248.5); /* #6BB7FF */
+  --color-river-500: oklch(0.633 0.138 248.5); /* #3B8FD9 */
+  --color-river-600: oklch(0.585 0.131 248.5); /* #3180C5 */
+  --color-river-700: oklch(0.495 0.117 248.5); /* #1F65A1 */
+  --color-river-800: oklch(0.405 0.099 248.5); /* #114C7C */
+  --color-river-900: oklch(0.320 0.080 248.5); /* #083559 */
+  --color-river-950: oklch(0.235 0.062 248.5); /* #011F3A */
+
+  /* ember: danger, give up; chosen anchor 600 = #D9493B */
+  --color-ember-50: oklch(0.975 0.012 29.1); /* #FFF4F2 */
+  --color-ember-100: oklch(0.945 0.027 29.1); /* #FFE7E3 */
+  --color-ember-200: oklch(0.895 0.054 29.1); /* #FFD0C8 */
+  --color-ember-300: oklch(0.830 0.094 29.1); /* #FFB0A4 */
+  --color-ember-400: oklch(0.760 0.143 29.1); /* #FF8B7B */
+  --color-ember-500: oklch(0.680 0.192 29.1); /* #F85E4D */
+  --color-ember-600: oklch(0.604 0.183 29.1); /* #D9493B */
+  --color-ember-700: oklch(0.495 0.163 29.1); /* #AB2E24 */
+  --color-ember-800: oklch(0.405 0.138 29.1); /* #841E16 */
+  --color-ember-900: oklch(0.320 0.111 29.1); /* #5F110C */
+  --color-ember-950: oklch(0.235 0.086 29.1); /* #3E0503 */
+
+  /* amber: warning; chosen anchor 500 = #E8892E */
+  --color-amber-50: oklch(0.975 0.014 59.2); /* #FFF5EE */
+  --color-amber-100: oklch(0.945 0.034 59.2); /* #FFE8D7 */
+  --color-amber-200: oklch(0.895 0.067 59.2); /* #FFD2B0 */
+  --color-amber-300: oklch(0.830 0.114 59.2); /* #FFB57A */
+  --color-amber-400: oklch(0.760 0.145 59.2); /* #F49848 */
+  --color-amber-500: oklch(0.717 0.152 59.2); /* #E8892E */
+  --color-amber-600: oklch(0.585 0.138 59.2); /* #B66403 */
+  --color-amber-700: oklch(0.495 0.116 59.2); /* #914E02 */
+  --color-amber-800: oklch(0.405 0.096 59.2); /* #6E3A00 */
+  --color-amber-900: oklch(0.320 0.075 59.2); /* #4E2800 */
+  --color-amber-950: oklch(0.235 0.055 59.2); /* #311600 */
+
+  /* The board: behind the 3D scene, the overlays of dialogs and sheets, and the Storybook background; direction D's
+     shade under the page, #0C0D0F (was the navy #07111A). */
+  --color-board: oklch(0.159 0.005 264.4); /* #0C0D0F */
+
+  /* The placement plates (PLATES, P-74; #588): one grey with no hue for both states, told apart by opacity alone (the
+     playable plate less transparent than the invalid one). The renderer's colour (`DEFAULT_PLACEMENT_SETTINGS.colors.plate`)
+     is this hex value; a test keeps them in step. */
+  --color-plate: oklch(0.833 0.000 0.0); /* #C8C8C8 */
+
+  /* Fonts (section 2.3): the owner's choice, 2026-10-14. Fallbacks are system fonts of the same kind. */
+  --font-sans: "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Almendra", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-numeric: var(--font-mono);
+  /* END-SCREENS: the book's lettering on the games' ends and the chests' opening, Lilita One large, Fredoka for the rest. */
+  --font-game: "Lilita One", "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-round: "Fredoka", "Rubik Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* Breakpoints (section 3.4): mobile first, the base is the small mobile. Tailwind's defaults (sm, md, lg, xl, 2xl)
+     stay: shadcn's components use them. The named ones sit beside. */
+  --breakpoint-mobile: 22.5rem;   /* 360px */
+  --breakpoint-tablet: 40rem;     /* 640px */
+  --breakpoint-desktop: 64rem;    /* 1024px */
+  --breakpoint-wide: 90rem;       /* 1440px */
+
+  --radius: 0.75rem;
+}
+
+/* 2. Theme aliases: what the Theme page and a future event re-point (glitchbomb's mechanics). */
+:root {
+  --accent-scale-300: var(--color-gold-300);
+  --accent-scale-400: var(--color-gold-400);
+}
+
+/* 2b. Interaction states (#537, owner decision of 2026-10-18): white with transparency, the same on every button, toggle,
+   menu item and nav item, whatever its own colour. Painted over the part's background by the `state-layer` utility below. */
+:root {
+  --state-hover: rgb(255 255 255 / 0.1);
+  --state-selected: rgb(255 255 255 / 0.15);
+  --state-pressed: rgb(255 255 255 / 0.2);
+  /* The soft light behind a hero figure (loading, welcome, the final score): the one action colour, faint. */
+  --glow: color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+/* 2c. HEADER-HEIGHT (#676, owner decision of 2026-10-21): one header height per breakpoint, the same on every page outside
+   the board. PAGE-HEADER (#760, owner decisions of 2026-10-25): a page's header is one short row at every width (Back, the
+   title, an action); below `desktop` the balances sit in the page, under the header, never in a second row. From `desktop`
+   the navigation's header, a flow's top bar, and a tab page's title row (then the first row of its content) are one row too.
+   The `page-header` utility below puts a header on it; every page has one at its top, and the content below starts at the
+   same height on every page. The values are a flow's title row as measured at 375 px (56 px) and the navigation's header at
+   1440 px (64 px). */
+:root {
+  --header-h: 3.5rem;
+  @media (width >= 64rem) {
+    --header-h: 4rem;
+  }
+}
+/* HOME-HUD-PADDING: the home HUD's one inset, top and sides, for everything pinned to an edge (the profile, the balances, the
+   capsules' column, the social column, the dial, the bottom row): the spacing scale's 2 (8 px) on a phone, its 4 (16 px) from
+   `tablet`. The notch's safe area is added to it here, per edge, never by an element.
+   HOME-DOCK's foot (the owner's ask of 2026-11-04): on a phone the dock sits on the screen's foot, the safe area under it in the
+   plank's colour (`--dock-foot`); from `tablet` it floats the HUD's inset above it, the safe area in that gap (`--dock-lift`). On a
+   phone the dock spans the screen and its PLAY medallion rises 20 px over its top at its peak: the home's bottom left stands 8 px
+   higher (`--dock-crest`, HOME-EDGES), 16 above the dock, its mission's bar clear of the medallion's curve (measured at 320 and 375
+   px, the owner's ask of 2026-11-04: the mission close to the dock); from `tablet` the dock is centred, far from it. */
+:root {
+  --dock-foot: env(safe-area-inset-bottom);
+  --dock-lift: 0px;
+  --dock-crest: 0.5rem;
+  --hud-inset: calc(var(--spacing) * 2);
+  @media (width >= 40rem) {
+    --hud-inset: calc(var(--spacing) * 4);
+    --dock-foot: 0px;
+    --dock-lift: calc(var(--hud-inset) + env(safe-area-inset-bottom));
+    --dock-crest: 0px;
+  }
+  --hud-inset-top: calc(var(--hud-inset) + env(safe-area-inset-top));
+  --hud-inset-left: calc(var(--hud-inset) + env(safe-area-inset-left));
+  --hud-inset-right: calc(var(--hud-inset) + env(safe-area-inset-right));
+}
+/* A page in the side panel (#762) is laid out as on a phone: the phone's header height. */
+[data-page-panel] {
+  --header-h: 3.5rem;
+}
+
+/* 3. Semantic tokens (shadcn names), dark values. Dark only: no light block yet. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: var(--color-charcoal-950);
+  --foreground: var(--color-charcoal-50);
+  --card: var(--color-charcoal-900);
+  --card-foreground: var(--color-charcoal-50);
+  --popover: var(--color-charcoal-900);
+  --popover-foreground: var(--color-charcoal-50);
+  --primary: var(--accent-scale-300);
+  --primary-foreground: var(--color-charcoal-950);
+  --secondary: var(--color-charcoal-800);
+  --secondary-foreground: var(--color-charcoal-50);
+  --muted: var(--color-charcoal-800);
+  --muted-foreground: var(--color-charcoal-300); /* the mockups' secondary text: 10.68:1 on --card */
+  /* shadcn's accent is a raised surface here, not a hover colour: hover, selected and pressed are the white states (2b). */
+  --accent: var(--color-charcoal-800);
+  --accent-foreground: var(--color-charcoal-50);
+  --destructive: var(--color-ember-700);
+  --destructive-foreground: var(--color-charcoal-50);
+  --destructive-text: var(--color-ember-300); /* destructive text on --popover / --card */
+  --success: var(--color-meadow-400);
+  --info: var(--color-river-400);
+  --warning: var(--color-amber-400);
+  --border: var(--color-charcoal-700); /* the mockups' hairline, 1.61:1 on --background: decorative */
+  --input: var(--color-charcoal-600); /* 3.17:1 on --background (WCAG 1.4.11) */
+  --input-surface: var(--color-charcoal-500); /* --input on --card / --popover: 4.27:1 */
+  --ring: var(--accent-scale-400);
+  /* The podium's medals: gold, silver, bronze. The v2 village's chests take them by rank (#739): Epic, Rare, Basic. */
+  --medal-1: var(--color-gold-300);
+  --medal-2: var(--color-charcoal-200);
+  --medal-3: var(--color-amber-400);
+  --board: var(--color-board);
+  /* The village's fog in the plan view (#633's rule, until #648 draws the chosen one): a grey veil over the board. */
+  --fog: var(--color-charcoal-400);
+}
+
+/* 3b. Each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle paints them (`KEYFRAMES`
+   in `packages/renderer/src/core/daynight.ts`; `__tests__/day-night.test.ts` keeps them in step). Hex, not palette steps:
+   the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). */
+:root {
+  --sky-summer-day-top: #1f65a1;
+  --sky-summer-day-bottom: #6bb7ff;
+  --sky-summer-night-top: #0a141c;
+  --sky-summer-night-bottom: #083559;
+  --sky-autumn-day-top: #114c7c;
+  --sky-autumn-day-bottom: #ffb57a;
+  --sky-autumn-night-top: #0a141c;
+  --sky-autumn-night-bottom: #3e0503;
+  --sky-winter-day-top: #3e4c57;
+  --sky-winter-day-bottom: #93a0ab;
+  --sky-winter-night-top: #0a141c;
+  --sky-winter-night-bottom: #23303a;
+  --sky-spring-day-top: #3180c5;
+  --sky-spring-day-bottom: #95dc94;
+  --sky-spring-night-top: #0a141c;
+  --sky-spring-night-bottom: #012604;
+}
+
+/* 3c. The balances' resource bar (#620): each currency on a dark plate, sunk a little, a hairline edge; the light that
+   crosses the Cobbles' plate. */
+:root {
+  --resource-plate: var(--color-charcoal-950);
+  --resource-edge: var(--color-charcoal-700);
+  --resource-shade: rgb(0 0 0 / 0.45);
+  --resource-glint: rgb(255 255 255 / 0.14);
+}
+
+/* 3d. The PvP flow (#647): the crowns, and each league group's crest (#644's leagues: Wood, Iron to Master in three divisions
+   each, Grand Master). The crests are told apart by their names too, never by colour alone. The search's clouds and their sky
+   left with ATTACK-SCOUT (the user's ask of 2026-11-07: the search over the board's void). */
+:root {
+  --crown: var(--color-gold-300);
+  /* USDC's own logo (PLAY-PAGE, the owner's ask: the token's native mark, not the painted coin): Circle's blue and its white. */
+  --usdc-blue: #2775ca;
+  --usdc-white: #ffffff;
+  /* The match's board panel (MATCH-PAGE, the Paved UX Book's "Battle log"): its bright blue rim and glow (`match-frame`). */
+  --match-rim: var(--color-river-500);
+  --match-glow: var(--color-river-400);
+  /*
+   * The player card (HOME-UI-CARD, docs/design/home.webp): its see-through dark grey face (the interface's neutral scale: the navy
+   * ink is the night sky's, #537), its frame and its XP bar being images; the XP fill's light cyan, its level up's flash.
+   */
+  --hud-card: var(--color-charcoal-800);
+  /*
+   * The HUD's frame (HUD-FRAME-CSS, `hud-frame` below): its near-black outline, its grey rim (lighter at its top, darker at its foot,
+   * one width whatever the box's size), the light along the rim's top and the shade along its inside; the rim's painted patches a tiled
+   * noise (`--hud-noise`, `public/hud-noise.svg`: an SVG turbulence in greys, soft-light over the rim; a file, not a data URI, which the
+   * one stylesheet's budget could not carry). HUD-RIM-GREY (the owner's asks of 2026-11-04: the book's frame, less blue than ours, its
+   * patches kept, one border width for every box): sampled on `docs/design/home.webp`'s capsules, a cool grey in place of the blue
+   * slate, the noise's blue and violet cast gone.
+   */
+  --hud-rim-w: 3px;
+  --hud-noise: url("/hud-noise.svg");
+  --hud-outline: #050407;
+  --hud-rim-top: #686d79;
+  --hud-rim: #555b67;
+  --hud-rim-foot: #434955;
+  --hud-rim-light: #9ea3b2;
+  --hud-rim-shade: #1c2129;
+  /* The HUD's drawer's raised surfaces (PROFILE-DRAWER, direction C of 2026-11-03): a step over its charcoal-800 face, lit along their top. */
+  --drawer-raised: var(--color-charcoal-700);
+  --drawer-bevel: var(--color-charcoal-500);
+  /* CHESTS-PAGE (the Paved UX Book's Chests): the ranks' words on their gold slots, EPIC pink-violet, RARE the XP's cyan. */
+  --rank-epic: oklch(0.74 0.2 322);
+  --rank-rare: var(--xp-light);
+  /* The dock's ink (HOME-DOCK): its plank's wood, under the current item (a shade on the parchment, where white would not show) and the safe area. */
+  --dock-ink: #5b3415;
+  /* The dock's badges (HOME-DOCK): the mockup's red squares, a count waiting, not an error (`--destructive` is the errors'). */
+  --dock-badge: var(--color-ember-600);
+  --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
+  --league-iron: var(--color-amber-500);
+  --league-bronze: var(--color-charcoal-300);
+  --league-silver: var(--color-gold-400);
+  --league-gold: var(--color-river-300);
+  --league-emerald: var(--color-meadow-600);
+  --league-diamond: var(--color-meadow-400);
+  --league-master: var(--color-charcoal-500);
+  --league-grandmaster: var(--color-gold-100);
+  --league-wood: var(--color-charcoal-400);
+}
+
+/* 3d'. The guilds' emblems (#953, `elements/guild-emblem.tsx`): a shield in a pair of these eighteen colours, by index (game-core's
+   `GUILD_EMBLEM_COLOURS`), under a dark rim; its charge a flat silhouette in a third (GUILD-PAGE, `emblem-art.ts`), Silver (8) by
+   default, its edge drawn in the rim's colour, so any three read. The first eight are those of #953; 9 to 17 came with GUILD-PAGE
+   (the owner's ask of three rows of six), Rose, Plum, Violet and Teal outside the palettes, the heraldry's own. */
+:root {
+  --emblem-0: var(--color-gold-500);
+  --emblem-1: var(--color-ember-600);
+  --emblem-2: var(--color-meadow-700);
+  --emblem-3: var(--color-river-700);
+  --emblem-4: var(--color-charcoal-500);
+  --emblem-5: var(--color-river-900);
+  --emblem-6: var(--color-amber-600);
+  --emblem-7: var(--color-gold-800);
+  --emblem-8: var(--color-charcoal-50);
+  --emblem-9: var(--color-charcoal-900);
+  --emblem-10: var(--color-ember-800);
+  --emblem-11: var(--color-ember-400);
+  --emblem-12: oklch(0.66 0.16 358);
+  --emblem-13: oklch(0.42 0.13 330);
+  --emblem-14: oklch(0.55 0.16 295);
+  --emblem-15: var(--color-meadow-400);
+  --emblem-16: var(--color-meadow-900);
+  --emblem-17: oklch(0.6 0.1 192);
+  --emblem-rim: var(--color-charcoal-950);
+}
+
+/* 3e. The tile stack (after Dorfromantik's): a tile's base as the renders draw it, a stone rim over earth; the pile, one
+   layer per tile left, a row of grass over a row of earth (a look, not the tiles' own), its east sides in shade. The edge
+   is the board's outline colour (`core/outlines.ts`). */
+:root {
+  --slab-rim: var(--color-charcoal-200);
+  --slab-earth: var(--color-amber-800);
+  --slab-edge: #1f1f1f;
+  --slab-shade: rgb(0 0 0 / 0.32);
+  --slab-shadow: rgb(0 0 0 / 0.45);
+  --pile-grass-top: color-mix(in oklab, var(--color-meadow-700) 60%, var(--color-amber-800));
+  --pile-grass: color-mix(in oklab, var(--color-meadow-800) 60%, var(--color-amber-800));
+  --pile-grass-shade: color-mix(in oklab, var(--color-meadow-900) 60%, var(--color-amber-950));
+  --pile-earth: var(--color-amber-800);
+  --pile-earth-shade: var(--color-amber-900);
+  --pile-gap: var(--color-amber-950);
+}
+
+/* 3f. The game icons (issue 844, `elements/game-icon.tsx`), in the spirit of Supercell's: one base per tone, from which the icon
+   mixes its lit top (toward `--game-light`), its shaded foot and its thick outline of the same hue, darker (toward `--game-ink`).
+   The light tone is `--game-light`; the shadow is the ink at low opacity, the light on the upper parts `--game-light`. The light
+   and the ink are the relief's own, not the theme's foreground and background (#870): the dark theme's values, so an icon keeps
+   its light on top and its dark outline whatever the theme's surface. */
+:root {
+  --game-light: var(--color-charcoal-50);
+  --game-ink: var(--color-charcoal-950);
+  --game-gold: var(--color-gold-300);
+  --game-steel: var(--color-charcoal-200);
+  --game-red: var(--color-ember-400);
+  --game-blue: var(--color-river-400);
+  --game-green: var(--color-meadow-400);
+  --game-wood: var(--color-amber-500);
+  --game-stone: var(--color-charcoal-400);
+  --game-rose: var(--color-ember-300);
+  /* Issue 870's: autumn's leaf, winter's snowflake, spring's seedling, the night's moon. */
+  --game-orange: var(--color-amber-400);
+  --game-ice: var(--color-river-200);
+  --game-sprout: var(--color-meadow-300);
+  --game-silver: var(--color-charcoal-100);
+}
+
+/* 3g. The holds' rings on the tile's painted actions (TILE-ACTIONS, `HoldRing`'s painted look): the Missions' gold rail (`rail-fill`,
+   the Daily and Weekly progress) across the ring's width, its colours sampled from the rail, from its foot inside to its top outside
+   (a dark edge, the deep and shaded orange, the gold, the bright yellow, the pale shine, the rim, the edge); Discard's the same tube
+   in the red of the HUD's close (`close`), the owner's ask of 2026-11-07; its shine and bright pushed whiter for the glow, the head's
+   spark and the burst (the owner: shinier, a feeling of power). */
+:root {
+  --hold-gold-edge: #2b1100;
+  --hold-gold-deep: #c24d01;
+  --hold-gold-shade: #e07202;
+  --hold-gold-base: #f7b802;
+  --hold-gold-bright: #ffe94d;
+  --hold-gold-shine: #fffbe6;
+  --hold-gold-rim: #a47200;
+  --hold-red-edge: #2a0303;
+  --hold-red-deep: #8c0001;
+  --hold-red-shade: #d00306;
+  --hold-red-base: #fd1e1a;
+  --hold-red-bright: #ff6e5a;
+  --hold-red-shine: #ffe7e0;
+  --hold-red-rim: #a30a06;
+}
+
+
+@theme inline {
+  --color-slab-edge: var(--slab-edge);
+  --color-slab-shadow: var(--slab-shadow);
+  --color-pile-grass-top: var(--pile-grass-top);
+  --color-pile-grass: var(--pile-grass);
+  --color-pile-grass-shade: var(--pile-grass-shade);
+  --color-pile-earth: var(--pile-earth);
+  --color-pile-earth-shade: var(--pile-earth-shade);
+  --color-pile-gap: var(--pile-gap);
+}
+
+@theme inline {
+  --color-crown: var(--crown);
+  --color-hud-card: var(--hud-card);
+  --color-dock-ink: var(--dock-ink);
+  --color-dock-badge: var(--dock-badge);
+  --color-xp-light: var(--xp-light);
+  --color-league-iron: var(--league-iron);
+  --color-league-bronze: var(--league-bronze);
+  --color-league-silver: var(--league-silver);
+  --color-league-gold: var(--league-gold);
+  --color-league-emerald: var(--league-emerald);
+  --color-league-diamond: var(--league-diamond);
+  --color-league-master: var(--league-master);
+  --color-league-grandmaster: var(--league-grandmaster);
+  --color-league-wood: var(--league-wood);
+}
+
+/* 4. Expose the semantic tokens as Tailwind colours (bg-background, text-primary…). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-surface: var(--input-surface);
+  --color-ring: var(--ring);
+  --color-state-hover: var(--state-hover);
+  --color-state-selected: var(--state-selected);
+  --color-state-pressed: var(--state-pressed);
+  --color-glow: var(--glow);
+  --color-medal-1: var(--medal-1);
+  --color-medal-2: var(--medal-2);
+  --color-medal-3: var(--medal-3);
+  --color-resource-plate: var(--resource-plate);
+  --color-resource-edge: var(--resource-edge);
+  --color-fog: var(--fog);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  /* NO-FOCUS-RING (the owner's ask of 2026-11-03): no ring and no outline on a focused control, whatever focused it; the keyboard
+     still moves the focus (Tab, Radix's arrows and trap). */
+  * { @apply border-border outline-none; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+
+  /* APP-FEEL (P-69): the app feels native, not like a page. Text, icons and images never highlight on a tap, a long press
+     or a double click (`select-none`); only a copy target opts back in with `select-text`, and a field always does (iOS
+     Safari makes an input unusable under `user-select: none`). No page zoom (the viewport meta, and `touch-action:
+     manipulation` against the double-tap zoom: iOS Safari ignores `user-scalable`, its pinch is stopped by `usePageGestures` in `App.tsx`),
+     no long-press menu, no grey tap flash. The board's canvas owns its pinch, pan and rotate (`touch-action: none`). */
+  html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { @apply select-none touch-manipulation; -webkit-touch-callout: none; }
+  input, textarea, [contenteditable="true"] { @apply select-text; -webkit-touch-callout: default; }
+  canvas { touch-action: none; -webkit-touch-callout: none; }
+  img, svg { -webkit-user-drag: none; user-drag: none; }
+  /* The document never bounces and never pulls to refresh (#611): a pull past the top would drag every page, its
+     navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
+  html, body { overscroll-behavior: none; }
+
+  /* POINTER-CURSOR (#880): everything that can be clicked shows the pointer, as Tailwind 4's upgrade guide suggests (its
+     preflight leaves a button with the arrow). A disabled control keeps the default cursor. A class still wins (utilities come
+     after the base layer): `disabled:cursor-not-allowed`, the hand-written `cursor-pointer` kept on some parts. The board's
+     canvas keeps its own cursors. A slider's root takes it, so its whole track (clicked to set a value), range and thumb show
+     it. Nothing changes on touch, which draws no cursor. */
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="radio"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="slider"], [data-slot="slider"]):not(:disabled, [aria-disabled="true"], [data-disabled]),
+  :where(a[href], summary, label[for], select:not(:disabled)) {
+    cursor: pointer;
+  }
+
+  /* NO-SCROLLBARS (#609, #835): no scrollbar is drawn at any width, on any element, the document included; every scroller
+     still scrolls by touch, wheel, trackpad and keyboard. No bar takes room, so a page's content keeps its width when it
+     starts or stops scrolling (no `scrollbar-gutter` needed). What tells the player a region scrolls is the edge fade,
+     `scroll-hint` below. */
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
+
+  /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
+     `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
+     second class. `data-input-surface` marks any other card or popover surface. */
+  [data-slot="card"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-input-surface] {
+    --input: var(--input-surface);
+  }
+}
+
+/* A page's header (2c): `--header-h` tall, the notch's safe area added above it; never grows, never shrinks. One row. */
+@utility page-header {
+  flex-shrink: 0;
+  height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
+/*
+ * The interaction states (2b) as one utility: a white layer painted over the part's own background (a gradient image over
+ * the background colour), so a gold button, a charcoal card and a transparent nav item take the same 10% on hover, 15% when
+ * selected or current, 20% while pressed. A selected part keeps its 15% under the pointer. `data-force` pins a state (stories).
+ */
+@utility state-layer {
+  --layer: transparent;
+  background-image: linear-gradient(var(--layer), var(--layer));
+  &:where(:hover:not(:disabled, [aria-disabled="true"]), [data-highlighted], [data-force="hover"]) {
+    --layer: var(--state-hover);
+  }
+  &:where([data-state="on"], [data-state="open"], [data-state="active"], [aria-current="page"], [aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [data-state="checked"], [data-selected], [data-force="selected"]) {
+    --layer: var(--state-selected);
+  }
+  &:where(:active:not(:disabled, [aria-disabled="true"]), [data-force="pressed"]) {
+    --layer: var(--state-pressed);
+  }
+}
+/*
+ * A pressed toggle whose art already says so (the volume's mute: the icon dimmed, the red cross, the owner's ask of 2026-11-08): no
+ * selected layer at rest, `aria-pressed` kept. Under the pointer and while pressed it takes `state-layer`'s, as before.
+ */
+@utility state-layer-quiet {
+  &[aria-pressed="true"]:not(:hover, :active) {
+    --layer: transparent;
+  }
+}
+
+/*
+ * NO-SCROLLBARS (#609), the edge hint: a scroller fades its content out over `--scroll-hint-size` on each side where more
+ * waits, so the cut row reads as "there is more". The sides come from `data-scroll-start` / `data-scroll-end` and the axis
+ * from `data-scroll-axis` (`scrollHintRef`, lib/scroll-hint.ts); with nothing to scroll there is no fade. The mask is on the
+ * scroller itself, so a scroller is never the panel that draws a surface (a sheet scrolls an inner `ScrollRegion`). The scroll
+ * padding keeps a focused child clear of the fade.
+ */
+@property --scroll-hint-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-hint-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@utility scroll-hint {
+  --scroll-hint-size: 2rem;
+  --scroll-hint-dir: to bottom;
+  --scroll-hint-mask: linear-gradient(var(--scroll-hint-dir), transparent, black var(--scroll-hint-start), black calc(100% - var(--scroll-hint-end)), transparent);
+  mask-image: var(--scroll-hint-mask);
+  scroll-padding: var(--scroll-hint-size);
+  transition: --scroll-hint-start 150ms ease-out, --scroll-hint-end 150ms ease-out;
+  &[data-scroll-axis="x"] {
+    --scroll-hint-dir: to right;
+  }
+  &[data-scroll-start] {
+    --scroll-hint-start: var(--scroll-hint-size);
+  }
+  &[data-scroll-end] {
+    --scroll-hint-end: var(--scroll-hint-size);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/*
+ * CAMERA-MODE (#875) and CAMERA-EXPLORE (the owner's asks of 2026-11-04): in the Camera mode (`data-camera` on the overlays' box) the
+ * home's overlays leave the screen by their nearest edge (`data-out`: its letter the edge, l, r, u or d; its digit the wave), fading,
+ * then hidden, out of reach (no tap, no focus, nothing read). Three waves 90 ms apart (`--w`, the wave's delay), a group each: the
+ * dock and the edges' buttons, the capsules' column, then the profile and the balances; back in the reverse order (a transition takes
+ * the delays of the state it goes to). Up, past the notch's safe area too. A cut under reduced motion. Found leaves the row (`data-collapse`) and the row (`data-corner`) goes down to the screen's
+ * corner, the dock gone: Exit there. Both over the utilities, out of any layer.
+ */
+[data-camera] [data-collapse] {
+  display: none;
+}
+[data-camera] [data-corner] {
+  bottom: calc(var(--hud-inset) + env(safe-area-inset-bottom));
+}
+@layer base {
+  [data-out],
+  [data-corner] {
+    transition: 450ms cubic-bezier(0.55, 0, 0.25, 1) calc(180ms - var(--w, 0ms));
+    transition-property: translate, bottom, opacity, visibility;
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+  [data-out$="1"] {
+    --w: 90ms;
+  }
+  [data-out$="2"] {
+    --w: 180ms;
+  }
+  [data-camera] :is([data-out], [data-corner]) {
+    transition-delay: var(--w, 0ms);
+  }
+  [data-camera] [data-out] {
+    opacity: 0;
+    visibility: hidden;
+  }
+  [data-camera] [data-out^="l"] {
+    translate: calc(-100% - 2rem);
+  }
+  [data-camera] [data-out^="r"] {
+    translate: calc(100% + 2rem);
+  }
+  [data-camera] [data-out^="u"] {
+    translate: 0 calc(-100% - var(--hud-inset-top) - 2rem);
+  }
+  [data-camera] [data-out^="d"] {
+    translate: 0 calc(100% + 2rem);
+  }
+}
+
+/* The Cobbles' plate (#620): a soft light crosses it now and then, an invitation to tap; none under reduced motion. */
+@keyframes plate-shine {
+  0%, 75% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@utility plate-shine {
+  background-image: linear-gradient(100deg, transparent 30%, var(--resource-glint) 50%, transparent 70%);
+  animation: plate-shine 7s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+
+/*
+ * HUD-FRAME-CSS (the owner's ask of 2026-11-03): the HUD's frame in CSS, in place of the painted 9-slice whose brush strokes stretched
+ * with each box's shape. `--hud-px` (a number, the corner in CSS px: 10 a capsule, 13 the player card, 16 the HUD's drawer) sizes its
+ * corner's curve, 0.9 of it; the rim is `--hud-rim-w` on every box (HUD-RIM-GREY). `hud-frame`: the near-black outline with a crisp
+ * drop and a soft shade (outside its box), the grey rim (`::before`, a ring: its grey from its top's to its foot's, its painted patches
+ * the tiled noise at one scale whatever the box, lit along its top, shaded along its foot) and a dark line inside the rim (`::after`). `hud-face`: the face under it, inside the rim (its fill the
+ * caller's). Both absolutely placed by the caller.
+ */
+@utility hud-frame {
+  border-radius: calc(var(--hud-px) * 0.9px);
+  box-shadow: 0 0 0 1.5px var(--hud-outline), 0 1.5px 0 1.5px var(--hud-outline), 0 3px 5px 1.5px var(--background);
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+  &::before {
+    inset: 0;
+    padding: var(--hud-rim-w);
+    border-radius: inherit;
+    background: var(--hud-noise) 0 0 / 128px 128px, linear-gradient(var(--hud-rim-top), var(--hud-rim) 45%, var(--hud-rim-foot));
+    background-blend-mode: soft-light, normal;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--hud-rim-light) 55%, transparent), inset 0 -1px 0 var(--hud-rim-shade);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  &::after {
+    inset: calc(var(--hud-rim-w) - 1px);
+    border: 1px solid var(--hud-rim-shade);
+    border-radius: calc(var(--hud-px) * 0.9px - var(--hud-rim-w) + 1px);
+  }
+}
+@utility hud-face {
+  inset: calc(var(--hud-rim-w) - 1px);
+  border-radius: calc(var(--hud-px) * 0.9px - var(--hud-rim-w) + 1px);
+  box-shadow: inset 0 1px 2px var(--background);
+}
+
+/*
+ * The HUD's drawer (PROFILE-DRAWER, containers/hud-drawer.tsx and profile-sheet.tsx), in the interface's greys and the game-native
+ * direction the owner chose on 2026-11-03 (C, `docs/design/profile.webp`'s README entry): its surfaces, one plain rule each (Tailwind's
+ * shadow, gradient, divide and blur utilities each weigh a few hundred bytes in the one stylesheet). The veil over the village; the side
+ * panel's header band (a step darker, a near-black line under it); a raised surface (a step lighter than the face, lit along its top,
+ * a near-black outline and lip); a tile (the same, its face fading down); a carved surface, information (a step darker, a soft shadow
+ * inside its top, a faint light along its foot: the owner's rule of 2026-11-04, raised presses and carved informs); a row's near-black
+ * rules between its items; an icon's lip.
+ */
+@utility drawer-veil {
+  background-color: color-mix(in oklab, var(--board) 45%, transparent);
+}
+@utility drawer-band {
+  background-color: var(--card);
+  box-shadow: 0 1px 0 var(--hud-outline);
+}
+@utility drawer-raised {
+  background-color: var(--drawer-raised);
+  box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+}
+@utility drawer-tile {
+  background-image: linear-gradient(var(--drawer-raised), var(--secondary));
+  box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+}
+@utility drawer-carved {
+  background-color: var(--card);
+  box-shadow: inset 0 2px 3px color-mix(in oklab, var(--hud-outline) 70%, transparent), 0 1px 0 color-mix(in oklab, var(--drawer-bevel) 40%, transparent);
+}
+@utility drawer-rule {
+  & > * + * {
+    border-left: 1px solid var(--hud-outline);
+  }
+}
+/*
+ * FOOTER-TABS (VAULT-PAGE, the owner's asks of 2026-11-07): the current tab stands in front, on the page's plane. Its ground casts a
+ * near-black shadow sideways onto the tabs behind it (`footer-tab-lift`; the list clips what would rise over the page); two tabs in the
+ * background are parted by a carved groove, the near-black line and the bevel's light beside it (`footer-tab-groove`, on a tab's left
+ * edge, its icon's height, fading as the current tab's ground slides).
+ */
+@utility footer-tab-lift {
+  box-shadow:
+    -2px 0 3px var(--hud-outline),
+    2px 0 3px var(--hud-outline),
+    -10px 0 16px -2px var(--hud-outline),
+    10px 0 16px -2px var(--hud-outline);
+}
+@utility footer-tab-groove {
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: 0.75rem;
+    left: 0;
+    width: 2px;
+    translate: -50% 0;
+    background-image: linear-gradient(to right, var(--hud-outline) 50%, color-mix(in oklab, var(--drawer-bevel) 50%, transparent) 50%);
+    transition: opacity 200ms ease-out;
+  }
+  /* None before the first tab, none beside the current one (on either side of it). */
+  &:first-of-type::before,
+  &[data-state="active"]::before,
+  [data-state="active"] + &::before {
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transition: none;
+    }
+  }
+}
+/* A carved list's near-black rules between its rows (SETTINGS-PAGE: the settings' groups, one row under the other). */
+@utility drawer-rows {
+  & > * + * {
+    border-top: 1px solid var(--hud-outline);
+  }
+}
+@utility drawer-icon {
+  filter: drop-shadow(0 2px 0 var(--background));
+}
+/*
+ * EDIT-VILLAGE (the Paved UX Book's "Edit my village"), one rule each where the editor's classes would be many: the book's gold pill
+ * (its image in `--save-pill`, `save-pill` of ui-art.ts) under a white word outlined in black; the HUD's raised disc under a round
+ * button's icon, 4 px in its 44 px target.
+ */
+@utility gold-pill {
+  position: relative;
+  isolation: isolate;
+  color: var(--foreground);
+  font-weight: 900;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px var(--background);
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 4px 0;
+    z-index: -1;
+    background: var(--save-pill) 0 0 / 100% 100%;
+  }
+}
+@utility hud-disc {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    z-index: -1;
+    border-radius: 9999px;
+    background-color: var(--drawer-raised);
+    box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+  }
+}
+/* The match's board panel (MATCH-PAGE): the book's blue rim, its glow outside and, over the board, inside (`::after`). */
+@utility match-frame {
+  border: 2px solid var(--match-rim);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--match-glow) 45%, transparent);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 10px color-mix(in oklab, var(--match-glow) 40%, transparent), inset 0 0 0 1px var(--match-glow);
+  }
+}
+/* Light text on the player badge's art (its name, its level): a dark outline, the background's colour a pixel each way, and a soft drop. */
+@utility text-outline {
+  text-shadow: 1px 0 var(--background), -1px 0 var(--background), 0 1px var(--background), 0 -1px var(--background), 0 2px 3px var(--background);
+}
+/*
+ * Room for an outline inside a box that clips (OUTLINE-DESCENDERS, #1063): a `truncate` word at a tight line height cuts its
+ * outline flat under p, g and y, since `overflow: hidden` clips at the padding box. Padding as wide as the outline's reach
+ * (2 px on the sides and above, 4 px below: the dock's 1.5 px and its 2 px drop with 2 px of blur, `text-outline`'s 1 px and its
+ * 2 px drop with 3 px of blur) and negative margins of the same size, so the word and the layout stand where they did and the
+ * ellipsis is kept. A `max-w-full` box takes `max-w-[calc(100%+4px)]` beside it, so it truncates where it did.
+ */
+@utility outline-room {
+  padding: 2px 2px 4px;
+  margin: -2px -2px -4px;
+}
+
+/*
+ * The plan view's pending tile (#681): its opacity from 80 to 100 % and back on a sine (easeInOutSine), one cycle every
+ * 1.6 s, the board's `tints.pendingPulseMin`, `pendingPulseMax` and `pendingPulseMs` (a test pins them); a fixed 90 % under
+ * reduced motion (`pendingReducedOpacity`).
+ */
+@keyframes pending-pulse {
+  from { opacity: 0.8; }
+  to { opacity: 1; }
+}
+@utility pending-pulse {
+  opacity: 0.8;
+  animation: pending-pulse 800ms cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
+/*
+ * A refused move on the plan view (#739): the tile that holds the village together shakes, as on the board (0, -5, 5, -4, 4, 0 px
+ * across in 0.4 s). CSS, so the plan view's tiles are plain buttons: a village of motion buttons costs a long task to mount (the
+ * die's new village, #803). None under reduced motion.
+ */
+@keyframes tile-shake {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -5px 0; }
+  40% { translate: 5px 0; }
+  60% { translate: -4px 0; }
+  80% { translate: 4px 0; }
+}
+@utility tile-shake {
+  animation: tile-shake 0.4s ease-in-out;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* The tile stack's slabs (`elements/tile-slab.tsx`): a tile's side, a stone rim over earth; the east sides darker.
+   `--side-dir` is the way down the side, set by each side. */
+@utility slab-side {
+  background: linear-gradient(var(--side-dir, to bottom), var(--slab-rim) 0 35%, var(--slab-earth) 35% 100%);
+}
+@utility slab-side-shade {
+  box-shadow: inset 0 0 0 100vmax var(--slab-shade);
+}
+
+/* Numbers (section 2.3): scores, counters and prices use Space Mono with tabular figures, so digits keep one width. */
+@utility numeric {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 5. Reduced motion for what animates itself: Sonner's toasts move on CSS transitions the app does not own. The
+ * Toaster adds `toaster-reduced-motion` when `MotionConfig` asks for reduced motion (the app's "user" follows the OS,
+ * a story can force it); the media query covers a toaster rendered outside `MotionConfig`.
+ */
+.toaster-reduced-motion [data-sonner-toast],
+.toaster-reduced-motion [data-sonner-toast] * {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast],
+  [data-sonner-toast] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * BALANCES-BY-PAGE (#855): the home's phone stack, crowded beside the League control (`data-crowded`, home-village-scene.tsx),
+ * keeps the Cobbles alone; the other plates leave the flow, hidden, but keep their width. A plain rule: as utilities, the
+ * selector repeated in each of three class names cost the stylesheet 0.7 kB.
+ */
+[data-crowded] [data-kind]:not([data-kind="cobbles"]) {
+  visibility: hidden;
+  position: absolute;
+  right: 0;
+}

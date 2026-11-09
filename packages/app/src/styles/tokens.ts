@@ -1,8 +1,4 @@
-import themeEntry from "./theme.css?raw";
-
-/** theme.css's parts (`./theme/*.css`, one per area), raw, inlined where the entry imports them: the stylesheet as written. */
-const themeParts = import.meta.glob<string>("./theme/*.css", { query: "?raw", import: "default", eager: true });
-const themeCss = themeEntry.replace(/^@import "(\.\/theme\/[^"]+)";$/gm, (_, path: string) => themeParts[path] ?? "");
+import themeCss from "./theme.css?raw";
 
 /** The tokens of theme.css, read from the file itself: the stories can show nothing the stylesheet does not say. */
 

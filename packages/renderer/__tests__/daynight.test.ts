@@ -182,7 +182,7 @@ describe("the cycle's frames", () => {
   });
 
   it("paints the backdrop with the app's Tailwind tokens", () => {
-    const theme = readFileSync(fileURLToPath(new URL("../../app/src/styles/theme/scales.css", import.meta.url)), "utf8");
+    const theme = readFileSync(fileURLToPath(new URL("../../app/src/styles/theme.css", import.meta.url)), "utf8");
     const tokens = new Set([...theme.matchAll(/--color-[a-z]+-\d+: oklch\([^)]*\); \/\* (#[0-9A-F]{6}) \*\//g)].map((m) => m[1].toLowerCase()));
     expect(tokens.size).toBeGreaterThan(50);
     for (const season of SEASONS) {

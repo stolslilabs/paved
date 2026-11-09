@@ -2,13 +2,14 @@ import { slow } from "../test-slow";
 import { fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { useLayoutCanvas } from "../src/components/containers/village-layout-canvas";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
-import { readThemeCss } from "./theme-css";
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 
@@ -81,7 +82,7 @@ describe("Home's Camera mode (#875)", () => {
   });
 
   it("CAMERA-EXPLORE: the waves' rules, out and back in the reverse order, a cut under reduced motion", () => {
-    const css = readThemeCss();
+    const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
     // Out: the wave's delay (0, 90, 180 ms); back: the reverse (a transition takes the delays of the state it goes to).
     expect(css).toContain("transition: 450ms cubic-bezier(0.55, 0, 0.25, 1) calc(180ms - var(--w, 0ms));");
     expect(css).toMatch(/\[data-out\$="1"\] \{\s*--w: 90ms;\s*\}\s*\[data-out\$="2"\] \{\s*--w: 180ms;/);

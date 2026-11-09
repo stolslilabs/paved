@@ -1,13 +1,14 @@
 import { slow } from "../test-slow";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { leagueOf } from "../src/lib/pvp-rules";
 import { wrap } from "./scenes-helpers";
-import { readThemeCss } from "./theme-css";
 
 describe("Home (#753): the village with its overlays", () => {
   // Load-bound: the stage's cold chunk, then ten overlay clicks. Measured 6.7 to 15.4 s on a loaded machine (2026-11-01, after
@@ -153,7 +154,7 @@ describe("Home (#753): the village with its overlays", () => {
 
   it("HOME-HUD-PADDING: one inset at the top and on both sides, the notch's safe area added to the token, the balances on the profile's painted edge", async () => {
     // The token: the spacing scale's 2 on a phone, its 4 from `tablet`, each edge's safe area added there, never by an element.
-    const css = readThemeCss();
+    const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
     expect(css).toMatch(/--hud-inset: calc\(var\(--spacing\) \* 2\);\s*@media \(width >= 40rem\) \{\s*--hud-inset: calc\(var\(--spacing\) \* 4\);/);
     for (const edge of ["top", "left", "right"]) expect(css).toContain(`--hud-inset-${edge}: calc(var(--hud-inset) + env(safe-area-inset-${edge}));`);
     render(wrap(<HomeVillageScene {...HOME_VILLAGE.view} chat={3} />));

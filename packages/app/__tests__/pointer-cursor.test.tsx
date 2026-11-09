@@ -14,13 +14,12 @@ import { Slider } from "../src/components/ui/slider";
 import { MOCK_NOW } from "../src/mocks/clock";
 import { MATCH_CARDS } from "../src/mocks/pvp";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
-import { readThemeCss } from "./theme-css";
 
 // V4-POINTER-CURSOR (#880): on desktop every clickable control shows the pointer, a disabled one the default cursor. The theme's
 // base rule does it (Tailwind 4 leaves a button with the arrow), so the raw buttons need no class. Read from the compiled
 // stylesheet, with the classes the parts carry, so a class that would undo the rule is caught too.
 
-const theme = readThemeCss();
+const theme = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
 let compiled: Awaited<ReturnType<typeof compile>>;
 let style: HTMLStyleElement | undefined;
 

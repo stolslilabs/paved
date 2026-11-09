@@ -1,11 +1,12 @@
 import { render } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PLACEMENT_SETTINGS } from "@paved/renderer";
 import { BoardMap } from "../src/components/containers/board-map";
-import { readThemeCss } from "./theme-css";
 
 const tiles = [{ id: 1, plan: 1, orientation: 1, x: 0, y: 0 }];
-const theme = readThemeCss();
+const theme = readFileSync(join(__dirname, "../src/styles/theme.css"), "utf8");
 /** The hex a theme token is pinned to (the comment beside its oklch value). */
 const hexOf = (token: string) => new RegExp(`--color-${token}: [^;]+; /\\* (#[0-9A-F]{6}) \\*/`).exec(theme)?.[1]?.toLowerCase();
 

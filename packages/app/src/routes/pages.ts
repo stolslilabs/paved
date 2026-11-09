@@ -1,10 +1,3 @@
-import { HOME_PAGES } from "./page-defs/home";
-import { PVP_PAGES } from "./page-defs/pvp";
-import { MODE_PAGES } from "./page-defs/modes";
-import { DRAWER_PAGES } from "./page-defs/drawers";
-import { SOCIAL_PAGES } from "./page-defs/social";
-import { SETTINGS_PAGES } from "./page-defs/settings";
-
 /**
  * The route map of `docs/client/v2-architecture.md` section 6.1: one empty placeholder page per route.
  * `nav` is the bottom-navigation tab a route belongs to; `null` is a full-screen flow (a top bar with Back,
@@ -56,17 +49,77 @@ export interface PageDef {
   drawer?: true;
 }
 
-/**
- * The route table, in its order (`prefetch` matches in table order; the panels' and drawers' lists follow it): one run of pages
- * per area, each in its own file (`routes/page-defs/`).
- */
 export const PAGES: readonly PageDef[] = [
-  ...HOME_PAGES,
-  ...PVP_PAGES,
-  ...MODE_PAGES,
-  ...DRAWER_PAGES,
-  ...SOCIAL_PAGES,
-  ...SETTINGS_PAGES,
+  { path: "", title: "Home", nav: "home" },
+  // Play (PLAY-PAGE): the HUD's drawer at every width, docked at the right from `tablet`, as the Shop. Its stake is a view of the same page
+  // (one loader, `page-loaders.ts`), its Back up to the modes.
+  { path: "play", title: "Play", nav: null, panel: true, drawer: true },
+  { path: "play/challenge", title: "Challenge", nav: null, parent: "/play", panel: true, drawer: true },
+  // The avatar editor (AVATAR-PAGE, the Paved UX Book's "avatar-editor"), from the Profile's Avatar: the HUD's drawer docked at the left
+  // from `tablet`, as the Profile; its Back returns to the Profile (`useBackToProfile`), its cross to the village.
+  { path: "avatar", title: "Avatar", nav: null, panel: true, panelSide: "left", drawer: true },
+  // The v2 village's daily shop (#739), before `village/:player`: `prefetch` matches in table order. Its chests open where they are
+  // won (END-CHEST, the owner's ask of 2026-11-06: the Chests page gone).
+  // The Shop (SHOP-PAGE): Tiles, Cobbles and Themes as tabs (`?tab=`), the HUD's drawer docked at the right from `tablet`.
+  { path: "village/shop", title: "Shop", nav: "shop", panel: true, drawer: true },
+  { path: "village/:player", title: "Village", nav: null },
+  { path: "game/:gameId", title: "Board", nav: null },
+  // The PvP flow (#647): the attack (search, scout, attack), its result, a replay, a match (#786), the league. The defence log's
+  // page is gone (BACK-RULE #783, then #786's cards in the league): its old link lands on the league (`router.tsx`).
+  { path: "pvp", title: "Attack", nav: null },
+  { path: "pvp/result/:id", title: "Result", nav: null },
+  { path: "pvp/replay/:attacker/:id", title: "Replay", nav: null },
+  // A match of the League's list (#786): the attacked village from its snapshot and the attack's build. Back goes up to the League.
+  // MATCH-PAGE: its scene draws its header, "Battle log" (the Paved UX Book's); this title, shown nowhere, stays short (first load).
+  { path: "pvp/match/:id", title: "Match", nav: null, parent: "/pvp/league" },
+  // The HUD's drawer at every width, docked at the left from `tablet`, under the HUD's crowns (LEAGUE-PAGE).
+  { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left", drawer: true },
+  { path: "training", title: "Training", nav: null },
+  // Story's campaigns (STORY-PAGE): a view of Play's drawer, as the stake (one loader), its Back up to the modes; a level is a full-screen flow.
+  { path: "story", title: "Story", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "story/:campaign/:level", title: "Story", nav: null },
+  // The Puzzle (Play's Limited mode): a view of Play's drawer, as Story's campaigns (one loader), its Back up to the modes; a game is a
+  // full-screen flow, its end too.
+  { path: "play/puzzle", title: "Puzzle", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "puzzle/:gameId", title: "Puzzle", nav: null },
+  { path: "puzzle/:gameId/over", title: "Game over", nav: null },
+  { path: "game/:gameId/over", title: "Game over", nav: null },
+  { path: "training/over", title: "Game over", nav: null },
+  // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`
+  // land on it (`router.tsx`). The HUD's drawer at every width, docked at the right from `tablet` (MISSIONS-PAGE).
+  { path: "missions", title: "Missions", nav: "quests", panel: true, drawer: true },
+  // Tiles (COLLECTION-PAGE, the book's Collection, named after the home's button): the skin each tile wears. The HUD's drawer at every
+  // width, docked at the right from `tablet`, under the right column's Tiles; its old Settings sheet `/settings/tiles` lands on it.
+  { path: "tiles", title: "Tiles", nav: null, panel: true, drawer: true },
+  // The Vault (VAULT-PAGE): the HUD's drawer at every width, docked at the right from `tablet`, beside the home's right column's Vault; its
+  // Deposit and Withdraw are the footer's tabs (`?tab=`).
+  { path: "vault", title: "Vault", nav: "vault", panel: true, drawer: true },
+  // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
+  // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
+  // The chat's tabs (#973): `/chat` opens on the last one used, `/chat/<tab>` names one, `/chat/private/<player>` a private
+  // conversation over the Private tab's list; one component (`page-loaders.ts`), so a move between them keeps the page.
+  // CHAT-PAGE: the HUD's drawer at every width, docked at the left from `tablet`, beside the home's Chat tab (the League's rule).
+  { path: "chat", title: "Chat", nav: "chat", panel: true, drawer: true },
+  { path: "chat/private/:player", title: "Chat", nav: "chat", panel: true, drawer: true },
+  // A mail of the Inbox (the Private tab, the system's mail beside the DMs): a Puzzle prize's, over the tab's list.
+  { path: "chat/mail/:mail", title: "Chat", nav: "chat", panel: true, drawer: true },
+  { path: "chat/:tab", title: "Chat", nav: "chat", panel: true, drawer: true },
+  // The Guild (GUILD-PAGE, the book's "Run my guild"): the HUD's drawer at every width, docked at the right from `tablet`, as the Shop.
+  { path: "guild", title: "Allegiance", nav: "guild", panel: true, drawer: true },
+  // FRIENDS-PAGE: the HUD's drawer at every width, docked at the right from `tablet`, as the home's Friends button.
+  { path: "friends", title: "Friends", nav: "friends", panel: true, drawer: true },
+  // The Leaderboard (LEADERBOARD-PAGE, the dock's Ranking): the HUD's drawer at every width, docked at the right from `tablet`, as the
+  // dock's other pages. Its tabs (Players, Guilds) are the URL's `?tab=`.
+  { path: "ranking", title: "Ranking", nav: "ranking", panel: true, drawer: true },
+  // Referral (P10): the player's link, reached from the profile's Invite (the Paved UX Book's), no longer a sheet over Settings
+  // (SETTINGS-PAGE): a page of its own, in the right panel from `desktop`, Back to the village.
+  { path: "referral", title: "Referral", nav: "settings", panel: true },
+  // Settings (SETTINGS-PAGE): the HUD's drawer at every width, docked at the right from `tablet` (the dock's right-most button). Its
+  // Themes and Credits are views in it, each its own URL, one component (`page-loaders.ts`), so a move between them keeps the drawer.
+  // A theme's tiles are the Shop's (SHOP-PAGE).
+  { path: "settings/theme", title: "Themes", nav: "settings", panel: true, drawer: true },
+  { path: "settings/credits", title: "Credits", nav: "settings", panel: true, drawer: true },
+  { path: "settings", title: "Settings", nav: "settings", panel: true, drawer: true },
 ] as const;
 
 export const TABS: readonly { id: Tab; label: string; to: string }[] = [

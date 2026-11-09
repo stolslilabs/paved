@@ -107,9 +107,9 @@ describe("the square grid's settings", () => {
       seasonShare: 0.6,
     });
     const { highlight } = DEFAULT_SQUARE_GRID_SETTINGS;
-    // The app's brown, green and white (amber-700, meadow-400 of theme.css, its base scales in theme/scales.css), bottom to top; the P white, off.
+    // The app's brown, green and white (amber-700, meadow-400 of theme.css), bottom to top; the P white, off.
     expect(highlight.colors).toEqual({ route: "#914e02", middle: "#6eca6f", top: "#ffffff", logo: "#ffffff" });
-    const theme = readFileSync(fileURLToPath(new URL("../../app/src/styles/theme/scales.css", import.meta.url)), "utf8");
+    const theme = readFileSync(fileURLToPath(new URL("../../app/src/styles/theme.css", import.meta.url)), "utf8");
     for (const [token, color] of [["amber-700", highlight.colors.route], ["meadow-400", highlight.colors.middle]]) {
       expect(theme).toContain(`--color-${token}: `);
       expect(theme.match(new RegExp(`--color-${token}: oklch\\([^)]*\\); /\\* (#[0-9A-F]{6}) \\*/`))![1]!.toLowerCase()).toBe(color);

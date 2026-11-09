@@ -86,8 +86,7 @@ Do not copy a query's data into `useState` or a session. The query cache is not 
   overlays of `src/data/mock/overlay.ts`, over `offline` parts (`src/data/mock/app.ts`): nothing is sent to a node or an
   indexer, and a mock build carries no starknet.js (`vite.config.ts`). Never add a second switch or a per-page mock.
 - A new read or write: add it to `MockedReads` or `MockedWrites`, implement it in `MockLedger` with the contract's checks and
-  receipt events (in its domain's link of the class chain: `src/data/mock/ledger-<domain>.ts`, the stored state's types in
-  `ledger-state.ts`; `ledger.ts` keeps the class and its exports), list it in the overlay (else the mock refuses it, `not-configured`), and add its flow to the parity tests of
+  receipt events, list it in the overlay (else the mock refuses it, `not-configured`), and add its flow to the parity tests of
   `__tests__/data-mock.test.tsx` (the same hook on `chain` and `mock`). `__tests__/mock-no-fetch.test.ts` fails if a mock read
   or write makes a request.
 
