@@ -42,11 +42,6 @@ export interface StoryDeps<P> {
   inspect: (page: P) => Promise<StoryFinding[]>;
   wait: (page: P, ms: number) => Promise<void>;
   log: (message: string) => void;
-  /**
-   * Whether findings are worth a second look (SWEEP-SPEED): those that would fail the sweep. An allowed finding passes on either
-   * look, so a story with only those is not held a second. Every finding when absent.
-   */
-  failing?: (width: number, found: StoryFinding[]) => boolean;
   /** The clock, ms (a test passes its own). */
   now?: () => number;
 }
@@ -85,9 +80,9 @@ export async function sweepStory<P>(
     }
     await deps.settle(page);
     let found = await deps.inspect(page);
-    if (found.length && (deps.failing?.(width, found) ?? true)) {
+    if (found.length) {
       // Something late (a font swap, a layout animation) can settle after the first look: look again once, after a
-      // second, before reporting a finding that fails.
+      // second, before reporting. Any finding, an allowed one included: a later look can turn up one that is not.
       await deps.wait(page, 1000);
       found = await deps.inspect(page);
     }

@@ -467,7 +467,6 @@ async function main() {
         setWidth: (p, width) => p.setViewportSize({ width, height: 740 }),
         settle,
         inspect: (p) => p.evaluate(inspect),
-        failing: (width, found) => found.some((f) => !allowed({ story: id, width, kind: f.kind as Kind, element: f.element })),
         wait: (p, ms) => p.waitForTimeout(ms),
         log: (message) => console.log(message),
       });

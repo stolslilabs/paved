@@ -99,15 +99,18 @@ describe("sweepStory", () => {
     expect(timing).toEqual({ render: 5, widths: { 360: 3, 320: 3 } });
   });
 
-  it("looks a second time only when a finding would fail", async () => {
-    const allowedOnly = deps([null], [overflow]);
-    const once = await sweepStory(0, "s", [360, 320], { ...allowedOnly, failing: () => false });
-    expect(once.findings).toHaveLength(2);
-    expect(allowedOnly.wait).not.toHaveBeenCalled();
-    expect(allowedOnly.inspect).toHaveBeenCalledTimes(2);
-    const failing = deps([null], [overflow]);
-    await sweepStory(0, "s", [360, 320], { ...failing, failing: (width) => width === 320 });
-    expect(failing.wait).toHaveBeenCalledTimes(1);
-    expect(failing.inspect).toHaveBeenCalledTimes(3);
+  it("looks a second time after any finding, an allowed one included, and reports the second look", async () => {
+    // The review's case: an allowed clip at first, an overflow that is not allowed once the layout has settled.
+    const clip = { kind: "clip", element: "div[carousel-content]" };
+    const d = deps([null], []);
+    let looks = 0;
+    d.inspect.mockImplementation(async () => (looks++ % 2 === 0 ? [clip] : [overflow]));
+    const { findings } = await sweepStory(0, "s", [360, 320], d);
+    expect(d.inspect).toHaveBeenCalledTimes(4);
+    expect(d.wait).toHaveBeenCalledTimes(2);
+    expect(findings).toEqual([
+      { story: "s", width: 360, ...overflow },
+      { story: "s", width: 320, ...overflow },
+    ]);
   });
 });
