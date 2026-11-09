@@ -1260,11 +1260,13 @@ export class MockLedger {
     const dayEnd = puzzleDayEnd(game.day);
     const resultOf = (g: StoredPuzzleGame) => ({ score: g.score, at: g.end, order: g.order ?? 0 });
     const mine = resultOf(game);
+    // Completed before this game: an earlier end, else an earlier order; two games stored before the order was kept (both 0) by
+    // their ids, as then.
+    const before = (g: StoredPuzzleGame) => g.end < game.end || (g.end === game.end && ((g.order ?? 0) < mine.order || ((g.order ?? 0) === mine.order && g.id < game.id)));
     const prior =
       Object.values(puzzle.games)
-        .filter((g) => g.player === game.player && g.day === game.day && g.over && g.end < dayEnd && g.id !== game.id)
+        .filter((g) => g.player === game.player && g.day === game.day && g.over && g.end < dayEnd && g.id !== game.id && before(g))
         .map(resultOf)
-        .filter((r) => r.at < mine.at || (r.at === mine.at && r.order < mine.order))
         .sort(comparePuzzle)[0] ?? null;
     const others = dayResults(puzzle, game.day, this.second()).filter((r) => r.address !== game.player);
     const late = game.end >= dayEnd;

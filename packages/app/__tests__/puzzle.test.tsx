@@ -8,7 +8,7 @@ import { PlayModes } from "../src/components/containers/play-modes";
 import { PuzzleEnd } from "../src/components/containers/puzzle-end";
 import { MailSection, PrizeMail } from "../src/components/containers/inbox-mail";
 import { PuzzleScene } from "../src/components/scenes/puzzle-scene";
-import { MockLedger } from "../src/data/mock/ledger";
+import { MOCK_KEY, MockLedger } from "../src/data/mock/ledger";
 import { mockPuzzle } from "../src/data/mock/overlay";
 import { mockDaySeed, seededResults } from "../src/data/mock/puzzle";
 import { PuzzleGame, replayPuzzle, usePuzzleSession } from "../src/data/puzzle-game";
@@ -93,6 +93,21 @@ describe("the mock's Puzzle", () => {
     expect(standing.me).toEqual({ place: 2, score: 0 });
     expect(await source.result(theirs.id)).toMatchObject({ placeAfter: 1, bestAfter: 0 });
     expect(await source.result(mine.id)).toMatchObject({ placeAfter: 2, bestAfter: 0 });
+  });
+
+  it("reads a save from before the completion order: two games of the same second still follow each other by id", async () => {
+    const clock = { t: DAY * 86_400 + 600 };
+    const store = memoryStore();
+    const source = mockPuzzle(new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, now: () => clock.t }));
+    for (let i = 0; i < 2; i++) await source.play(PLAYER, (await source.start(PLAYER)).id, { kind: "surrender" });
+    expect(await source.result(2)).toMatchObject({ bestBefore: 0, placeBefore: 1 });
+    // The save as the client before the order wrote it: no `order` on any game.
+    const saved = JSON.parse(store.getItem(MOCK_KEY)!) as { puzzle: { games: Record<string, { order?: number }> } };
+    for (const g of Object.values(saved.puzzle.games)) delete g.order;
+    store.setItem(MOCK_KEY, JSON.stringify(saved));
+    const legacy = mockPuzzle(new MockLedger({ store: () => store, seller: "0x3", latencyMs: 0, now: () => clock.t }));
+    expect(await legacy.result(2)).toMatchObject({ bestBefore: 0, placeBefore: 1 });
+    expect(await legacy.result(1)).toMatchObject({ bestBefore: null, placeBefore: null });
   });
 
   it("gives an equal first place to the result completed first: two accounts' welcome prizes of the same day", async () => {
