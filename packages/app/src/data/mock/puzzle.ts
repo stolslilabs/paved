@@ -1,4 +1,4 @@
-import { SeededChallenge, poseidon, puzzleDayEnd, puzzleDayOf, rankPuzzle, type SeededMove } from "@paved/game-core";
+import { SeededChallenge, comparePuzzle, poseidon, puzzleDayEnd, puzzleDayOf, rankPuzzle, type SeededMove } from "@paved/game-core";
 import { addressKey } from "../keys";
 import type { PuzzleGameRecord } from "../puzzle-source";
 import { SEEDED_PLAYERS } from "./players";
@@ -13,7 +13,10 @@ const DAY_SALT = 0x50555a5a4c45n;
 const GAME_SALT = 0x505a47414d45n;
 const PLAY_SALT = 0x505a504c4159n;
 
-/** One Puzzle game as stored: its player's address key, its random as hex, its moves, its score and its end (0 while open). */
+/**
+ * One Puzzle game as stored: its player's address key, its random as hex, its moves, its score, its end (0 while open) and its
+ * completion order (the ledger's transaction number of the move that ended it, 0 while open).
+ */
 export interface StoredPuzzleGame {
   id: number;
   day: number;
@@ -24,6 +27,8 @@ export interface StoredPuzzleGame {
   over: boolean;
   start: number;
   end: number;
+  /** Absent: a game stored before the order was kept, ranked as the ledger's first transaction. */
+  order?: number;
 }
 
 /** The mock's Puzzle as stored: its games by id, the next id, each account's claimed days and its first visit's day. */
@@ -46,11 +51,16 @@ export const mockDaySeed = (day: number): bigint => poseidon(DAY_SALT, BigInt(da
 
 const hex = (value: bigint): string => `0x${value.toString(16)}`;
 
-/** One player's result of a day: their address key, their best score and when it was set. */
+/**
+ * One player's result of a day: their address key, their best score, when it was set and its completion order (`PuzzleResult`). An
+ * account's order is its game's (a transaction number, from 1); the mock's made-up results take orders below 1, each its own: a seeded
+ * player's is minus its index, a welcome prize's below every seeded player's, in the order of the visits.
+ */
 export interface DayResult {
   address: string;
   score: number;
   at: number;
+  order: number;
 }
 
 /** The k-th draw of a seeded player's Puzzle day, in [0, 1). */
@@ -68,7 +78,7 @@ export function seededResults(day: number, now: number): DayResult[] {
     const at = start + Math.floor(draw(p.index, day, 1) * 86_400);
     if (at > now) return [];
     const score = Math.round((p.skill * (0.35 + 0.3 * draw(p.index, day, 2))) / 10) * 10;
-    return [{ address: addressKey(p.address), score, at }];
+    return [{ address: addressKey(p.address), score, at, order: -p.index }];
   });
 }
 
@@ -78,7 +88,8 @@ function accountResults(puzzle: StoredPuzzle, day: number): DayResult[] {
   for (const g of Object.values(puzzle.games)) {
     if (g.day !== day || !g.over || g.end >= puzzleDayEnd(day)) continue;
     const now = best.get(g.player);
-    if (!now || g.score > now.score || (g.score === now.score && g.end < now.at)) best.set(g.player, { address: g.player, score: g.score, at: g.end });
+    const result = { address: g.player, score: g.score, at: g.end, order: g.order ?? 0 };
+    if (!now || comparePuzzle(result, now) < 0) best.set(g.player, result);
   }
   return [...best.values()];
 }
@@ -89,10 +100,11 @@ function accountResults(puzzle: StoredPuzzle, day: number): DayResult[] {
  * once. Never on chain.
  */
 function welcomeResults(puzzle: StoredPuzzle, day: number): DayResult[] {
-  return Object.entries(puzzle.visits).flatMap(([address, visited]) => {
+  const visits = Object.entries(puzzle.visits);
+  return visits.flatMap(([address, visited], i) => {
     if (visited - 1 !== day) return [];
     const top = Math.max(0, ...seededResults(day, puzzleDayEnd(day)).map((r) => r.score));
-    return [{ address, score: top + 10, at: day * 86_400 + 43_200 }];
+    return [{ address, score: top + 10, at: day * 86_400 + 43_200, order: i - visits.length - SEEDED_PLAYERS.length }];
   });
 }
 
@@ -102,7 +114,7 @@ export function dayResults(puzzle: StoredPuzzle, day: number, now: number): DayR
   for (const r of [...seededResults(day, now), ...welcomeResults(puzzle, day), ...accountResults(puzzle, day)]) {
     if (r.at > now) continue;
     const held = best.get(r.address);
-    if (!held || r.score > held.score || (r.score === held.score && r.at < held.at)) best.set(r.address, r);
+    if (!held || comparePuzzle(r, held) < 0) best.set(r.address, r);
   }
   return [...best.values()];
 }
@@ -135,8 +147,11 @@ export function newGame(puzzle: StoredPuzzle, player: string, now: number): Stor
   return game;
 }
 
-/** `move` played on `game` (the engine's refusal thrown, nothing changed), its score and its end kept. */
-export function playMove(game: StoredPuzzleGame, move: SeededMove, now: number): void {
+/**
+ * `move` played on `game` (the engine's refusal thrown, nothing changed), its score kept; the move that ends it keeps its end and its
+ * completion order, `order` (the move's transaction number).
+ */
+export function playMove(game: StoredPuzzleGame, move: SeededMove, now: number, order: number): void {
   const engine = replayOf(game);
   engine.play(move);
   game.moves.push({ ...move });
@@ -144,5 +159,6 @@ export function playMove(game: StoredPuzzleGame, move: SeededMove, now: number):
   if (engine.over) {
     game.over = true;
     game.end = Math.floor(now);
+    game.order = order;
   }
 }

@@ -23,7 +23,7 @@ rules otherwise:
 |---|---|
 | Attempts per day | Unlimited. The player's best score of the day counts. One game open at a time. |
 | The day's deck | Public before playing: the view shows today's 38 cards (`puzzleDeck`). The order of each game's draws is not known in advance. |
-| Ties | The earlier result ranks first. Its time is the block timestamp of the game's last move. |
+| Ties | The earlier result ranks first. Its time is the block timestamp of the game's last move; in the same second, the result completed first (its transaction first in the chain's order). |
 | The day | A UTC day, `timestamp / 86400`: the Challenge's `day_id`. It ends at 00:00 UTC. A game that ends after its day's end ranks nowhere. |
 | Who wins | The first place at the day's end, one player. There is no prize on a day with no result. |
 | The claim | Any time after the day's end, by the winner, once per day. Several days can be claimed in one call. |
@@ -38,8 +38,13 @@ rules otherwise:
 - `puzzleDeck(daySeed)`: the day's deck is the starter first. It is followed by the base cards that `withdrawExtra(starter bit,
   daySeed, total, count)` keeps, in deck order (`plan(index + 1)`). It is the same walk as a game's start
   (`GameImpl::start` → G1's `withdraw_extra`) with the **day's seed** in place of the game's.
-- `rankPuzzle`: the score in descending order, then the time in ascending order. `puzzlePlaceAmong`: one more than the
-  number of results ranked above.
+- `comparePuzzle`: the one order of a day's ranking. The score in descending order, then the time in ascending order, then the
+  completion order (`order`) in ascending order. Two results of a day never share an `order`, so the order is total: no two
+  results tie. `rankPuzzle` sorts by it; `puzzlePlaceAmong` is one more than the number of results it ranks above. The
+  standings, a game's place before and after it, and the prize all use it.
+- `order`, the completion order: the place of the transaction of the result's last move in the chain's order. On chain it is
+  the counter of section 3.4; the indexer reads it from the event (section 4). The client's mock uses its ledger's transaction
+  number.
 
 The engine takes the split between the deck and the draws as `EngineConfig.deckSeed`
 (`packages/game-core/src/engine/game.ts`). With it, a simple-deck game withdraws its extras with `deckSeed`, while its draws
@@ -108,23 +113,29 @@ these rules:
   - computes the score as a Training game's (the same closings, no XP and no chest: the `rewards` path is not called);
   - if the game ended **before** its day's end, it offers the score to the day's ranking (section 3.4);
   - clears `open_game[player]`;
-  - emits `PuzzleOver { game_id, player, day, score, end_time, ranked: bool }`.
+  - emits `PuzzleOver { game_id, player, day, score, end_time, order, ranked: bool }` (`order`: the completion order of section
+    3.4, 0 for a game that does not rank).
 
 ### 3.4 The day's ranking on chain
 
 The chain keeps only what the prize needs. The leaderboard's list belongs to the indexer (section 4).
 
-- `best[(day, player)] = (score, time)`: the player's best result of the day. A result replaces it only when its score is
-  strictly higher. An equal score keeps the earlier time, because the earlier submission wins a tie.
-- `leader[day] = (player, score, time)`: the day's first place. A result replaces it when its score is higher, or when its score
-  is equal and its time is earlier. The time is the block timestamp of the game's last move. Two equal scores in the same
-  block resolve by transaction order, the first one being written first.
+- `results: u64`: the completion order, a counter of the system. Each game that ranks (it ends before its day's end) takes
+  `results + 1` as its `order` at its end and writes the counter back. It goes up with the chain's transaction order, so the
+  result completed first has the lower `order`, in the same block too. Estimate: one read and one write, about 195,050 L2 gas, at
+  the end of a ranked game only.
+- `best[(day, player)] = (score, time, order)`: the player's best result of the day. A result replaces it only when its score is
+  strictly higher. An equal score keeps the earlier result, because the earlier submission wins a tie.
+- `leader[day] = (player, score, time, order)`: the day's first place, by `comparePuzzle`. A result replaces it only when its
+  score is strictly higher: a later result has a later or equal time and a higher `order`, so an equal score never ranks above
+  the leader. The time is the block timestamp of the game's last move. Two equal scores in the same block resolve by `order`,
+  the transaction first in the block's order holding the lead.
 - `players[day]: u32`: the number of players with a result that day. It goes up by one when `best[(day, player)]` is first
   written.
 - `led_days[player]`: the days the player led **at the day's end**. Section 5 explains how the client derives its mail from
   it.
 
-Event `PuzzleBest { day, player, score, time, leader: bool }` when a player's best changes. `leader` is true when this result
+Event `PuzzleBest { day, player, score, time, order, leader: bool }` when a player's best changes. `leader` is true when this result
 is the day's first place now.
 
 **`led_days` without a closing transaction.** No transaction runs at 00:00, so the chain cannot write "the winner of day `d`"
@@ -171,8 +182,8 @@ The `Setup` credit is added once for the whole call.
 | `day_seed(day) -> felt252` | 0 until the day's first spawn | `PuzzleStanding.seed`, the deck sheet |
 | `open_game(player) -> u32` | 0 for none | `activeGame` |
 | `game(game_id) -> GameView` and `tiles(...)` | the Challenge's views | the board, its replay (`replayPuzzle`) |
-| `best(day, player) -> (u32, u64)` | the player's best and its time | the card's PB |
-| `leader(day) -> (ContractAddress, u32, u64)` | the day's first place | the trophy's goal, the claim's check |
+| `best(day, player) -> (u32, u64, u64)` | the player's best, its time and its order | the card's PB |
+| `leader(day) -> (ContractAddress, u32, u64, u64)` | the day's first place | the trophy's goal, the claim's check |
 | `players(day) -> u32` | the count | "N played" |
 | `led_days(player) -> Span<u64>` and `claimed(day) -> bool` | the days to check, and their claims | the Inbox's mail |
 | `draw(game_id) -> DrawView` | the next draw's salt | the client's VRF request (as `Challenge::draw`) |
@@ -183,12 +194,17 @@ The `Setup` credit is added once for the whole call.
 The leaderboard lists the first 50 players of a day (`PUZZLE_STANDING_LIMIT`), with their profiles, plus the viewer's own
 place. The chain does not sort, so the indexer does (`docs/architecture/indexer.md`):
 
-- From `PuzzleBest`, it keeps per day the best `(score, time)` of each player, ranked by `rankPuzzle`'s order.
+- From `PuzzleBest`, it keeps per day the best `(score, time, order)` of each player, ranked by `comparePuzzle` (`rankPuzzle`).
+  `order` is the event's own. Its equivalent from the indexer's side, which must give the same order, is the event's position
+  in the chain: `(block_number, transaction_index, event_index)` in ascending order. The indexer checks that both agree and
+  ranks by `order`, so a same-second, same-block tie never depends on the order the events were stored in.
 - `standing(day, viewer)` answers the first 50, `players`, and the viewer's place: one more than the results ranked above it,
   as in `puzzlePlaceAmong`.
 - `result(game_id)` answers a finished game's effect from `PuzzleOver` and the player's previous `PuzzleBest`: the best and the
-  place before and after the game, and `late` when the game was not ranked.
-- `prizes(player)` answers each day of `led_days` whose final `leader` is the player, with the day's score, `players`, its first
+  place before and after the game, and `late` when the game was not ranked. The places use the same `comparePuzzle` as the
+  standings, so the end screen's place is the leaderboard's.
+- `prizes(player)` answers each day of `led_days` whose final `leader` is the player (the first of `comparePuzzle`, as the chain's
+  `leader`), with the day's score, `players`, its first
   10 (`PUZZLE_PRIZE_TOP`) and `claimed`.
 
 The indexer is a convenience, not an authority. The chain alone decides the prize: the claim checks `leader[d]`. A client
@@ -239,5 +255,6 @@ and a local hide.
    - the prize paid to the first place among accounts older than a day.
 2. **The day's first spawn pays the day's draw.** It pays one VRF draw, as every spawn does. Only the Poseidon and the extra
    seed write are added, about 120,000 L2 gas, once per day.
-3. **A player who abandons a game.** An open game blocks the next spawn until it is surrendered. The client always offers
-   Resume or Surrender. Should the chain also let a spawn of a new day close the previous day's open game by itself?
+3. **A player who abandons a game.** Only an unfinished game of the current UTC day blocks another spawn (section 3.2). An
+   unfinished game of a prior day does not block today's spawn, and it stays open unless it is surrendered. The client always
+   offers Resume or Surrender. A separate, optional cleanup: should the chain close old open games by itself?

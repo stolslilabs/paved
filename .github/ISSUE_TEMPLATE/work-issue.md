@@ -33,6 +33,10 @@ labels: []
 
 <!-- The PRs, tests, stories, captures, docs. -->
 
+- Design notes (a change drawn after a reference image): write your design notes in `docs/design/notes/<ID>.md` (the brief's ID;
+  first line the reference image it follows and the date) and add one link line under that image's "Notes" in
+  `docs/design/README.md`. Never a paragraph in the README itself.
+
 ## Open points
 
 <!-- Each point with the proposal or default to take when there is no answer. -->
@@ -44,6 +48,7 @@ labels: []
 - Self-hosted: nothing fetched from a CDN.
 - Tests scoped to the touched packages.
 - `check-run -- bun run check` passes.
+- Design notes in `docs/design/notes/<ID>.md`, not in `docs/design/README.md`.
 - Public repository: no machine paths or briefs.
 -->
 

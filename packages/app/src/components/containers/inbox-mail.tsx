@@ -88,15 +88,17 @@ export function MailSection({ mails, now, onClaimAll, claiming = false, error, o
         end={
           waiting &&
           onClaimAll && (
+            // The 36 px pill in its 44 px target; `-my-1` keeps the row as tall as before.
             <button
               type="button"
               disabled={claiming}
               aria-busy={claiming || undefined}
               onClick={onClaimAll}
-              style={GOLD_PILL}
-              className="text-outline relative h-9 shrink-0 cursor-pointer px-1 text-sm font-black text-foreground disabled:cursor-default disabled:opacity-70"
+              className="relative -my-1 grid h-11 shrink-0 cursor-pointer place-items-center disabled:cursor-default disabled:opacity-70"
             >
-              Claim all
+              <span style={GOLD_PILL} className="text-outline grid h-9 place-items-center px-1 text-sm font-black text-foreground">
+                Claim all
+              </span>
             </button>
           )
         }
