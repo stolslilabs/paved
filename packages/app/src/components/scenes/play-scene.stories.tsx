@@ -54,7 +54,7 @@ export const StoryStorageOff: Story = story("storageOff");
 
 /** The Puzzle's card (PUZZLE-MODE, Limited): not played today, "One deck for all"; the day's time left in its carved corner. */
 export const PuzzleNotPlayed: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed } };
-/** Played: the place of the day beside the title ("#28", no total), the best of the day (PB) as its line. */
+/** Played: the place of the day beside the title ("#28", no total), the best of the day as its line (its star and score). */
 export const PuzzlePlayed: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.played } };
 /** First of the day: "#1", carved the same as every place. */
 export const PuzzleFirst: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.first } };

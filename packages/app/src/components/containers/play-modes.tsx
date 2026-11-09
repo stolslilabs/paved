@@ -293,8 +293,9 @@ export const puzzleTimeLeft = (endsAt: number, now: number): string => formatSho
 /**
  * The Puzzle's card (Limited, the owner's asks of 2026-11-08), a wide slab on its scene darkened from the left, the jigsaw tile
  * breaking out at its right. "Puzzle" and the player's place of the day beside it (carved, "#28", no total), then the line: "One deck
- * for all" until they play, their best of the day (PB) once they have one, their game's score while one is open (a tap then opens
- * it). Its reward at its end, the Cobbles alone; the day's time left in a carved tab in its bottom-right corner, amber under an hour.
+ * for all" until they play, their best of the day (its star and score, no "PB": the owner's ask of 2026-11-08) once they have one,
+ * their game's score while one is open (a tap then opens it). Its reward at its end, the Cobbles alone; the day's time left in a
+ * carved tab in its bottom-right corner, amber under an hour.
  */
 function PuzzleMode({ card, now, onSelect }: { card: PuzzleCard; now: number; onSelect?: () => void }) {
   const left = card.endsAt - now;
@@ -308,7 +309,6 @@ function PuzzleMode({ card, now, onSelect }: { card: PuzzleCard; now: number; on
     <span className="text-outline flex items-center gap-1 text-base leading-tight font-bold">
       <UiIcon name="star" px={20} className="size-5" />
       <span className="numeric">{formatPoints(card.best.score)}</span>
-      <span className="text-[0.8125rem] font-semibold text-foreground/90">PB</span>
     </span>
   ) : (
     <span className={LINE}>One deck for all</span>
