@@ -75,7 +75,7 @@ export const PUZZLE = {
 
 const card = (best: PuzzleCard["best"], playing: PuzzleCard["playing"] = null): PuzzleCard => ({ endsAt: ENDS, best, playing });
 
-/** The Play card's states (`PlayModes`' Limited): not played, played (its PB and place), first, a game in play, the last hour. */
+/** The Play card's states (`PlayModes`' Limited): not played, played (its best and place), first, a game in play, the last hour. */
 export const PUZZLE_CARD = {
   notPlayed: { spawnPaused: false, now, puzzleCard: card(null) },
   played: { spawnPaused: false, now, puzzleCard: card({ score: 1_270, place: 28 }) },

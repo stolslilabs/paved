@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { UiIcon } from "../src/components/elements/ui-icon";
 import { FRAME_ART, ICON_FRAME, UI_FRAMES, UI_ICONS, uiFrameSources, uiIconSources } from "../src/components/elements/ui-art";
-import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS, medallionSources, missionPartImage, missionPartSlice, missionPartSources } from "../src/components/elements/medallion-art";
+import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RINGS, medallionSources, RAIL_GRAIN, missionPartImage, missionPartSources, missionRail } from "../src/components/elements/medallion-art";
 import { PILES, RARITY_END, SHOP_PARTS, UI_SHOP_PARTS, shopPartImage, shopPartSources } from "../src/components/elements/shop-art";
 import { FRIENDS_PARTS, GOLD_PILL_END, UI_FRIENDS_PARTS, friendsPartImage } from "../src/components/elements/friends-art";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES, emblemChargeMask } from "../src/components/elements/emblem-art";
@@ -181,10 +181,12 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
     });
   });
 
-  it("ships the milestones' painted pieces (MISSIONS-PAGE) light, the 9-slices cut at half their copy's height", () => {
+  it("ships the milestones' painted pieces (MISSIONS-PAGE) light; the rails repeat their painting's middle, round at the ends (RAILS)", () => {
     const total = UI_MISSION_PARTS.flatMap((name) => MISSION_PARTS[name].sizes.map((s) => statSync(join(OUT, "missions", String(s), `${name}.webp`)).size)).reduce((a, b) => a + b, 0);
     expect(total).toBeLessThan(64 * 1024);
-    expect(missionPartSlice("rail-track")).toBe(6);
+    // The rail 10 px tall: its tile at its painting's aspect, RAIL_GRAIN times narrower, repeated from the bar's start; never stretched.
+    expect(missionRail("rail-fill", 10)).toMatchObject({ height: 10, minWidth: 10, borderRadius: 9999, backgroundSize: `${((1313 * 10) / 17 / RAIL_GRAIN).toFixed(1)}px 100%`, backgroundRepeat: "repeat-x", backgroundPosition: "0 50%" });
+    expect(MISSION_PARTS["rail-track"]).toMatchObject({ width: 1325, height: 12 });
     expect(missionPartImage("rail-track")).toBe('url("/ui-art/missions/12/rail-track.webp")');
     expect(missionPartImage("orb")).toBe('image-set(url("/ui-art/missions/32/orb.webp") 1x, url("/ui-art/missions/64/orb.webp") 2x)');
     // The done badge, 32 px on the card's medallion: its copies by width, the screen picking one.

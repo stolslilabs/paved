@@ -60,14 +60,14 @@ export function medallionSources(name: MedallionName | RingName, px: number) {
 }
 
 /**
- * The milestones' and the card's painted pieces, each on its own frame (the master's size): the rail's steel and its gold (rounded
- * ends, 9-sliced across), a node ahead (the bead) and one reached (the orb), the gold halo a waiting gift sits in (its rays fading
+ * The milestones' and the card's painted pieces, each on its own frame (the master's size): the rail's steel and its gold (since RAILS,
+ * 2026-11-08, each its painting's middle, a tile that repeats seamlessly: `missionRail`), a node ahead (the bead) and one reached (the orb), the gold halo a waiting gift sits in (its rays fading
  * out, the owner's ask of 2026-11-04) and the green check a done medallion and a claimed gift wear. One copy for the rails, at their
  * own height; two for the nodes, the halo and the check.
  */
 export const MISSION_PARTS = {
-  "rail-track": { width: 1525, height: 12, side: "height", sizes: [12] },
-  "rail-fill": { width: 1513, height: 17, side: "height", sizes: [17] },
+  "rail-track": { width: 1325, height: 12, side: "height", sizes: [12] },
+  "rail-fill": { width: 1313, height: 17, side: "height", sizes: [17] },
   orb: { width: 128, height: 128, side: "width", sizes: [32, 64] },
   bead: { width: 128, height: 128, side: "width", sizes: [32, 64] },
   "gift-glow": { width: 256, height: 256, side: "width", sizes: [96, 192] },
@@ -96,5 +96,31 @@ export function missionPartSources(name: MissionPart, px: number) {
   };
 }
 
-/** A 9-slice's slice in a piece's copy (its first): half the copy's height, so the rounded ends stay whole. */
-export const missionPartSlice = (name: MissionPart) => MISSION_PARTS[name].sizes[0] / 2;
+/**
+ * How much narrower than its painting a rail's tile is drawn (RAILS): the grain the rails had on a phone before (the whole painting
+ * squeezed into a bar of about 300 px), now the same at every length.
+ */
+export const RAIL_GRAIN = 3;
+
+/**
+ * A painted rail drawn `height` px tall (RAILS, the owner's asks of 2026-11-08: round ends, the inside never stretched, any length,
+ * the painted look kept). Its master is its painting's middle, cut past the tapered ends and crossfaded at its seam so it repeats
+ * without one; drawn at the rail's height, `RAIL_GRAIN` times narrower, repeated along the bar from its start (a fill that grows keeps
+ * its grain in place). Its ends are round (`border-radius`), ringed in the HUD's outline as the painting's edge is. Any length, nothing
+ * stretched; a bar at least as long as it is tall (its ends then meet in a dot).
+ */
+export function missionRail(name: "rail-track" | "rail-fill", height: number) {
+  const frame = MISSION_PARTS[name];
+  const tile = (frame.width * height) / frame.height / RAIL_GRAIN;
+  return {
+    height,
+    minWidth: height,
+    borderRadius: 9999,
+    backgroundImage: missionPartImage(name),
+    backgroundSize: `${tile.toFixed(1)}px 100%`,
+    backgroundRepeat: "repeat-x",
+    backgroundPosition: "0 50%",
+    boxShadow: "inset 0 0 0 1px color-mix(in oklab, var(--hud-outline) 85%, transparent)",
+  } as const;
+}
+
