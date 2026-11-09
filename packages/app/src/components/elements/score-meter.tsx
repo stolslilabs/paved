@@ -5,17 +5,12 @@ import { haptic } from "../../lib/haptics";
 import type { MeterArt, MeterMark, ScoreMeterValue } from "../../lib/score-meter";
 import { cn } from "../../lib/utils";
 import { CHEST_EFFECTS, chestEffectUrl, pickSize } from "./chest-images";
-import { missionPartImage, missionPartSlice } from "./medallion-art";
+import { missionRail } from "./medallion-art";
 import { TokenIcon } from "./token-icon";
 import { UiIcon } from "./ui-icon";
 
-/** The Missions' painted rail (`milestones-bar.tsx`'s), 9-sliced so its rounded ends stay whole. */
-const rail = (name: "rail-track" | "rail-fill"): CSSProperties => ({
-  borderStyle: "solid",
-  borderColor: "transparent",
-  borderWidth: "0 4px",
-  borderImage: `${missionPartImage(name)} 0 ${missionPartSlice(name)} fill / 0 4px stretch`,
-});
+/** The rail's height (px), its steel and its gold. */
+const RAIL = 10;
 
 /** A mark's side (px): its painting sits on the rail, the rail inset by half of it at each end so the end marks stay whole. */
 const MARK = 26;
@@ -39,7 +34,8 @@ type Beat = { marks: readonly number[]; n: number };
 
 /**
  * The board's score meter (GAME-OVERLAY, the owner's ask of 2026-11-08: the Ranked's bar, restyled, in every mode; `lib/score-meter.ts`
- * says what each mode puts on it): the Missions' painted rail, its steel the whole line and its gold to the score, and the marks painted
+ * says what each mode puts on it): the Missions' painted rail (`missionRail`: its ends round, its painting never stretched), its steel the
+ * whole line and its gold to the score, and the marks painted
  * on it, greyed until the score reaches them, then gold and glowing; the score's share of the goal outlined after it (none in Story,
  * whose thresholds stay hidden). A mark reached during play beats: it pops, its light flashes once and the device gives a light buzz (no sound: the move plays
  * its own); a move reaching several marks beats each of them, with one buzz; a mark held from the start does not. Under reduced motion the
@@ -74,14 +70,15 @@ export function ScoreMeter({ fill, marks, label, valueText, now, max, figure, cl
       className={cn("flex items-center gap-2", className)}
     >
       <div aria-hidden className="relative min-w-0 flex-1" style={{ height: MARK }}>
-        <span className="absolute top-1/2 h-2.5 -translate-y-1/2" style={{ ...rail("rail-track"), left: MARK / 2, right: MARK / 2 }} />
+        <span className="absolute top-1/2 -translate-y-1/2" style={{ ...missionRail("rail-track", RAIL), left: MARK / 2, right: MARK / 2 }} />
         <span
           data-fill={Math.round(f * 100)}
-          className="absolute top-1/2 h-2.5 -translate-y-1/2"
+          className="absolute top-1/2 -translate-y-1/2"
           style={{
-            ...rail("rail-fill"),
+            ...missionRail("rail-fill", RAIL),
             left: MARK / 2,
-            width: `max(0.5rem, calc((100% - ${MARK}px) * ${f}))`,
+            // At least as long as it is tall, so its two rounded ends meet in a dot.
+            width: `max(${RAIL}px, calc((100% - ${MARK}px) * ${f}))`,
             opacity: f > 0 ? 1 : 0,
             transition: reduced ? "none" : `width ${TRAVEL}s ease-out`,
           }}

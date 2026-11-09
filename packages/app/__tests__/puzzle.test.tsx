@@ -318,7 +318,7 @@ describe("the Puzzle's scenes", () => {
     await userEvent.click(card);
     expect(onPuzzle).toHaveBeenCalledOnce();
     rerender(wrap(<PlayModes spawnPaused={false} now={now} puzzleCard={{ endsAt: puzzleDayEnd(DAY), best: { score: 1_270, place: 28 }, playing: null }} />));
-    expect(screen.getByRole("button", { name: "Puzzle" })).toHaveTextContent("Puzzle#281,270PB");
+    expect(screen.getByRole("button", { name: "Puzzle" })).toHaveTextContent(/^Puzzle#281,270$/);
     rerender(wrap(<PlayModes spawnPaused={false} now={now} puzzleCard={{ endsAt: puzzleDayEnd(DAY), best: { score: 1_270, place: 28 }, playing: { score: 860 } }} />));
     expect(screen.getByRole("button", { name: /^Puzzle: resume your game/ })).toHaveTextContent("860in play");
   });
