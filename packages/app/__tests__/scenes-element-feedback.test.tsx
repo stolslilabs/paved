@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { Background } from "../src/components/elements/background";
 import { Countdown } from "../src/components/elements/countdown";
 import { Score } from "../src/components/elements/score";
@@ -8,6 +8,10 @@ import { AppNav } from "../src/components/containers/app-nav";
 import { TabPage } from "../src/components/containers/tab-page";
 import { MOCK_NOW } from "../src/mocks/clock";
 import { wrap } from "./scenes-helpers";
+import { flushPending } from "./lazy-chunks";
+
+// Each test's pending timers and effects run before its tree is unmounted (`lazy-chunks.ts`).
+afterEach(flushPending);
 
 describe("Element feedback (EL)", () => {
   it("puts the icon on the value's row, under the title", () => {

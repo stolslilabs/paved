@@ -1,7 +1,7 @@
 import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { planCode } from "../src/components/elements/tile-chip";
 import { TileView } from "../src/components/containers/tile-view";
 import { BoardScene } from "../src/components/scenes/board-scene";
@@ -9,6 +9,10 @@ import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38 } from "../src/mocks/board";
 import { BOARD } from "../src/mocks/scenes";
 import { pts, settleBoardChunks, wrap } from "./scenes-helpers";
+import { flushPending } from "./lazy-chunks";
+
+// Each test's pending timers and effects run before its tree is unmounted (`lazy-chunks.ts`).
+afterEach(flushPending);
 
 describe("Board", () => {
   // Every chunk the board scene started loaded before the file ends (`scenes-helpers.tsx`).

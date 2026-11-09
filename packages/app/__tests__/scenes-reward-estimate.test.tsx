@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { rewardMarks } from "../src/components/containers/reward-estimate";
+import { flushPending } from "./lazy-chunks";
+
+// Each test's pending timers and effects run before its tree is unmounted (`lazy-chunks.ts`).
+afterEach(flushPending);
 
 describe("RewardEstimate rows (#705)", () => {
   it("leaves out the steps at or past the cap's score", () => {

@@ -4,14 +4,31 @@
  * fetch fails once the file's environment is torn down: `EnvironmentTeardownError: Cannot load 'src/lib/scroll-hint.ts' imported
  * from src/components/ui/scroll-region.tsx` (CI, home-columns.test, through `village-stage` and `layout-board`). Each file that
  * renders a scene awaits every chunk the scene can load, so no load is left when the environment goes. A load already done costs a
- * cache hit. `afterAll`, not `afterEach`: once the trees are unmounted a chunk's arrival renders nothing, so no assertion of a
- * test runs against a tree that changed after it.
+ * cache hit. The chunks are awaited in `afterAll`: once the trees are unmounted a chunk's arrival renders nothing.
+ *
+ * Each test also ends with `flushPending` (`afterEach`): what the test's render scheduled (an effect, a `setTimeout(0)`, a lazy
+ * chunk's resolution already under way) runs inside `act`, before the setup's `cleanup` unmounts the tree, so nothing a test
+ * started is left to run after it, in the next test or after the environment is gone.
  *
  * Kept apart from the scene helpers (which import Motion and the Score) so that any file can take it.
  */
+import { act } from "@testing-library/react";
+import { vi } from "vitest";
 
 /** A turn of the event loop, for what a chunk's arrival scheduled (a `setTimeout(0)`, React's lazy resolution). */
 const turn = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * For a file's `afterEach`: the pending timers and effects of the test that ends, flushed inside `act` while its tree is still
+ * mounted (a file's own `afterEach` runs before the setup's `cleanup`). Under fake timers, the timers due now run (no real wait,
+ * which fake timers would never end).
+ */
+export async function flushPending() {
+  await act(async () => {
+    if (vi.isFakeTimers()) vi.runOnlyPendingTimers();
+    else await turn();
+  });
+}
 
 async function settle(chunks: readonly Promise<unknown>[]) {
   await Promise.all(chunks);

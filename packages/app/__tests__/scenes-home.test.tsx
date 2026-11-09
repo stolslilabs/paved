@@ -3,12 +3,16 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { leagueOf } from "../src/lib/pvp-rules";
 import { settleHomeChunks, wrap } from "./scenes-helpers";
+import { flushPending } from "./lazy-chunks";
+
+// Each test's pending timers and effects run before its tree is unmounted (`lazy-chunks.ts`).
+afterEach(flushPending);
 
 describe("Home (#753): the village with its overlays", () => {
   // Every chunk the scene started loaded before the file ends (`settleHomeChunks`).

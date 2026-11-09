@@ -1,9 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PurchaseScene, breakEvenScore } from "../src/components/scenes/purchase-scene";
 import { PURCHASE } from "../src/mocks/scenes";
 import { wrap, pts } from "./scenes-helpers";
+import { flushPending } from "./lazy-chunks";
+
+// Each test's pending timers and effects run before its tree is unmounted (`lazy-chunks.ts`).
+afterEach(flushPending);
 
 describe("Purchase", () => {
   // PLAY-PAGE, the owner's asks of 2026-11-06: the stake in USDC between the League's arrows, the break-even score and the max gain

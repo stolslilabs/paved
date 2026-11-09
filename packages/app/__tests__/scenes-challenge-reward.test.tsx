@@ -1,6 +1,6 @@
 import { slow } from "../test-slow";
 import { render, screen, within } from "@testing-library/react";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { GameHud } from "../src/components/containers/game-hud";
@@ -8,6 +8,10 @@ import { MOCK_MARK_TEXT, MockMarkProvider } from "../src/components/containers/m
 import { CURVE_PLAYING } from "../src/mocks/games";
 import { BOARD, OVER } from "../src/mocks/scenes";
 import { pts, settleBoardChunks, settleOverChunks, wrap } from "./scenes-helpers";
+import { flushPending } from "./lazy-chunks";
+
+// Each test's pending timers and effects run before its tree is unmounted (`lazy-chunks.ts`).
+afterEach(flushPending);
 
 // #705 during and after the game: the curve of the mocks' game (R = 4.2 PAVED, c 1.222, H 5, threshold 1,150), its score 1,270.
 describe("Challenge reward on the HUD and the over page (#705)", () => {

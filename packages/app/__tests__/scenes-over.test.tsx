@@ -1,10 +1,14 @@
 import { slow } from "../test-slow";
 import { render, screen, within } from "@testing-library/react";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { OverScene } from "../src/components/scenes/over-scene";
 import { CLOSINGS_38 } from "../src/mocks/board";
 import { OVER } from "../src/mocks/scenes";
 import { pts, settleOverChunks, wrap } from "./scenes-helpers";
+import { flushPending } from "./lazy-chunks";
+
+// Each test's pending timers and effects run before its tree is unmounted (`lazy-chunks.ts`).
+afterEach(flushPending);
 
 describe("Over", () => {
   // Every chunk the over scene started loaded before the file ends (`scenes-helpers.tsx`).
