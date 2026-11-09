@@ -4,7 +4,7 @@
  * served on the loopback by this script.
  *
  *   bun run --filter @paved/app build-storybook
- *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--workers 4] [--shard i/n] [--json <file>]
+ *   node scripts/wrap-sweep.ts [--dir storybook-static] [--widths 360,320] [--filter <id part>] [--stories <file>] [--workers 4] [--shard i/n] [--json <file>]
  *
  * Node 24 runs it as is (type stripping): the syntax stays erasable. The browser is the one `playwright-core`
  * names: `bunx playwright-core install chromium-headless-shell` once.
@@ -22,8 +22,10 @@
  *   line: "0x05f1…" over "6e7f". A run too long for any line (a full address in a sentence) may wrap.
  * - `error`: the story failed to render.
  *
- * `--shard i/n` sweeps the i-th of n parts of the story list (after `--filter`), each story in exactly one part for a
- * given n (`wrap-sweep-shard.ts`). Without it, every story.
+ * `--stories <file>` sweeps only the story ids the file lists, one a line (CI-TIERS: a pull request's selection,
+ * `scripts/check/stories.mts`); an empty file sweeps nothing and passes at once. `--shard i/n` sweeps the i-th of n parts
+ * of the story list (after `--filter` and `--stories`), each story in exactly one part for a given n
+ * (`wrap-sweep-shard.ts`). Without them, every story.
  *
  * Exit code 1 when a finding is not in ALLOWED.
  */
@@ -142,6 +144,8 @@ function args() {
     dir: resolve(get("dir") ?? join(here, "..", "storybook-static")),
     widths: (get("widths") ?? "360,320").split(",").map(Number),
     filter: get("filter"),
+    // A `--stories` with no value is an error too (no such file), not the whole list.
+    stories: argv.includes("--stories") ? (get("stories") ?? "") : undefined,
     workers: Number(get("workers") ?? 4),
     // A `--shard` with no value is an error, not the whole list.
     shard: argv.includes("--shard") ? parseShard(get("shard") ?? "") : undefined,
@@ -379,14 +383,30 @@ function allowed(f: Finding) {
   return ALLOWED.some((a) => a.kind === f.kind && (typeof a.story === "string" ? a.story === f.story : a.story.test(f.story)) && f.element.includes(a.element));
 }
 
+/** The ids of a `--stories` file: one a line, blank lines skipped. A missing file is an error, not the whole list. */
+async function readSelection(file: string): Promise<Set<string>> {
+  return new Set((await readFile(file, "utf8")).split("\n").map((l) => l.trim()).filter(Boolean));
+}
+
 async function main() {
   const opts = args();
   const index = JSON.parse(await readFile(join(opts.dir, "index.json"), "utf8")) as { entries: Record<string, { id: string; type: string }> };
+  const selected = opts.stories === undefined ? undefined : await readSelection(opts.stories);
   const listed = Object.values(index.entries)
-    .filter((e) => e.type === "story" && (!opts.filter || e.id.includes(opts.filter)))
+    .filter((e) => e.type === "story" && (!opts.filter || e.id.includes(opts.filter)) && (!selected || selected.has(e.id)))
     .map((e) => e.id);
+  if (selected) {
+    const missing = [...selected].filter((id) => !Object.values(index.entries).some((e) => e.type === "story" && e.id === id));
+    if (missing.length) throw new Error(`--stories names ${missing.length} id(s) not in index.json: ${missing.slice(0, 5).join(", ")}`);
+  }
   const stories = opts.shard ? shardStories(listed, opts.shard) : listed;
+  if (selected) console.log(`Selection: ${listed.length} of ${Object.values(index.entries).filter((e) => e.type === "story").length} stories (${opts.stories}).`);
   if (opts.shard) console.log(`Shard ${opts.shard.index}/${opts.shard.count}: ${stories.length} of ${listed.length} stories.`);
+  if (stories.length === 0) {
+    console.log("No story to sweep: pass.");
+    process.exitCode = 0;
+    return;
+  }
   const { server, origin } = await serve(opts.dir);
   const started = performance.now();
   const findings: Finding[] = [];

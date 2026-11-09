@@ -64,7 +64,7 @@ export const TEST_HEAP_MB: Record<string, number> = {
 };
 
 /** Paths outside packages/ that touch packages, as prefixes. */
-const OUTSIDE: Array<{ prefix: string; packages: string[] }> = [
+export const OUTSIDE: Array<{ prefix: string; packages: string[] }> = [
   { prefix: "contracts/abis/", packages: ["@paved/indexer", "@paved/chain", "@paved/game-core"] },
   { prefix: "contracts/deployments/", packages: ["@paved/indexer", "@paved/chain", "@paved/game-core"] },
   { prefix: "contracts/fixtures/", packages: ["@paved/game-core"] },
