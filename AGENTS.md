@@ -142,6 +142,12 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 - The pre-push hook `.githooks/pre-push` runs the cheap part (format, typecheck, guard tests of the touched packages); a clone turns it
   on with `git config core.hooksPath .githooks`. Skip once with `PAVED_SKIP_PREPUSH=1 git push`. A missing tool lets the push through.
 
+## Design notes
+
+- A change drawn after a reference image of `docs/design/` writes its design notes in `docs/design/notes/<ID>.md` (the brief's
+  ID), first line the image it follows and the date, and adds one link line under that image's "Notes" in `docs/design/README.md`.
+  It never writes its paragraph in the README itself.
+
 ## Merge queue
 
 - `main` takes pull requests through GitHub's merge queue (once the owner's ruleset turns it on). The queue tests each
@@ -159,7 +165,6 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 
 - **One brief at a time per hotspot (R9).** Do not run two briefs at once that will edit the same file of this list; the
   second waits or is reshaped:
-  - `docs/design/README.md`
   - `.claude/skills/paved-ui/SKILL.md`
   - `packages/app/public/THIRD_PARTY_NOTICES.txt`
   - `packages/app/src/routes/pages.ts`
