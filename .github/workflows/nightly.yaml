@@ -1,0 +1,67 @@
+name: Nightly
+
+# FLAKY-QUARANTINE (#1128, R7 of AGENTS.md): main's client suites run once a night, the app's three times, and every test that
+# failed at least once gets a comment on its `flaky` issue, or a new one (scripts/ci/nightly-flaky.mts). A test that fails in
+# one run of three, on a main that passed its pull request, is what the line stops for. The job blocks nothing: no pull request
+# waits on it, and a failed test does not fail it (only a broken setup or build does). #1132 adds the rest of the full suite.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+# One night at a time; a manual run started while one is going waits for it.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    name: Client suites, the app's three times
+    permissions:
+      contents: read
+      issues: write
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # A schedule runs on the default branch; a manual run on main too, whatever branch it was started from.
+          ref: main
+      - uses: ./.github/actions/client-setup
+      - name: Build
+        run: bun run build
+      # The report script's own tests, before it reads the night.
+      - name: Report script
+        run: node --test scripts/ci/nightly-flaky.test.mts
+      # vitest straight, not `bun run test` (turbo): a cached test task would replay its last log instead of running.
+      - name: App suite, run 1
+        continue-on-error: true
+        run: bun run --filter @paved/app test -- --reporter=default --reporter=json --outputFile.json="$GITHUB_WORKSPACE/nightly/app-1.json"
+      - name: App suite, run 2
+        continue-on-error: true
+        run: bun run --filter @paved/app test -- --reporter=default --reporter=json --outputFile.json="$GITHUB_WORKSPACE/nightly/app-2.json"
+      - name: App suite, run 3
+        continue-on-error: true
+        run: bun run --filter @paved/app test -- --reporter=default --reporter=json --outputFile.json="$GITHUB_WORKSPACE/nightly/app-3.json"
+      - name: The other packages, once
+        continue-on-error: true
+        run: |
+          status=0
+          for p in game-core chain renderer ui indexer; do
+            bun run --filter "@paved/$p" test -- --reporter=default --reporter=json --outputFile.json="$GITHUB_WORKSPACE/nightly/$p.json" || status=1
+          done
+          exit $status
+        shell: bash
+      - name: Comment on the flaky issues, or open them
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/nightly-flaky.mts nightly/app-1.json nightly/app-2.json nightly/app-3.json nightly/game-core.json nightly/chain.json nightly/renderer.json nightly/ui.json nightly/indexer.json
+      # actions/upload-artifact v4.6.2
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: nightly-reports
+          path: nightly/
+          retention-days: 14

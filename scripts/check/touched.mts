@@ -151,7 +151,7 @@ export function plan(files: string[], pkgs: Pkg[] = workspace(), inputs = { clie
     reach: [...reach].sort(),
     contracts: files.some((f) => f.startsWith("contracts/")),
     vercel: (["client", "storybook"] as const).filter((v) => files.some((f) => isInput(f, inputs[v]))),
-    guards: files.some((f) => f.startsWith("scripts/check/") || f.startsWith("scripts/vercel/") || f.startsWith(".githooks/")),
+    guards: files.some((f) => f.startsWith("scripts/check/") || f.startsWith("scripts/ci/") || f.startsWith("scripts/vercel/") || f.startsWith(".githooks/")),
   };
 }
 

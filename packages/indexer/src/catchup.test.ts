@@ -54,22 +54,21 @@ function history(node = new FakeNode(0), start = 100 * DAY - 400, firstGame = 1)
 }
 
 describe("the catch-up by range", () => {
-  test("leaves every table as block by block does, whatever the span and the L1 block", async () => {
-    for (const span of [1, 2, 7, 50, 10_000]) {
-      for (const lag of [0, 3, 40]) {
-        const node = history();
-        node.l1Accepted = node.tip - lag;
-        const blockwise = indexerOf(node, 0);
-        const ranged = indexerOf(node, span);
-        await settle(blockwise);
-        await settle(ranged);
-        expect(ranged.status, `span ${span}, lag ${lag}`).toBe("ok");
-        expect(ranged.served?.number).toBe(node.tip);
-        expect(ranged.store.dump(), `span ${span}, lag ${lag}`).toEqual(blockwise.store.dump());
-        expect(blockwise.store.dump().podium.length).toBeGreaterThan(3);
-        if (span >= 50 && lag === 0) expect(callsOf(ranged) * 4).toBeLessThan(callsOf(blockwise));
-      }
-    }
+  // One test per span and L1 lag (FLAKY-QUARANTINE, #1128): the fifteen in one test (thirty indexers) took 0.7 to 1.4 s on a loaded
+  // machine and timed out at vitest's 5 s in the board's check under a heavier one, on a change that did not touch the catch-up.
+  const cases = [1, 2, 7, 50, 10_000].flatMap((span) => [0, 3, 40].map((lag) => [span, lag] as const));
+  test.each(cases)("leaves every table as block by block does: span %i, the L1 block %i below the tip", async (span, lag) => {
+    const node = history();
+    node.l1Accepted = node.tip - lag;
+    const blockwise = indexerOf(node, 0);
+    const ranged = indexerOf(node, span);
+    await settle(blockwise);
+    await settle(ranged);
+    expect(ranged.status).toBe("ok");
+    expect(ranged.served?.number).toBe(node.tip);
+    expect(ranged.store.dump()).toEqual(blockwise.store.dump());
+    expect(blockwise.store.dump().podium.length).toBeGreaterThan(3);
+    if (span >= 50 && lag === 0) expect(callsOf(ranged) * 4).toBeLessThan(callsOf(blockwise));
   });
 
   test("the handover: more blocks, the L1 block moving up, and a replaced tip above it", async () => {
