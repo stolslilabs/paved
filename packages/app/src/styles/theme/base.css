@@ -1,0 +1,49 @@
+@layer base {
+  /* NO-FOCUS-RING (the owner's ask of 2026-11-03): no ring and no outline on a focused control, whatever focused it; the keyboard
+     still moves the focus (Tab, Radix's arrows and trap). */
+  * { @apply border-border outline-none; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+
+  /* APP-FEEL (P-69): the app feels native, not like a page. Text, icons and images never highlight on a tap, a long press
+     or a double click (`select-none`); only a copy target opts back in with `select-text`, and a field always does (iOS
+     Safari makes an input unusable under `user-select: none`). No page zoom (the viewport meta, and `touch-action:
+     manipulation` against the double-tap zoom: iOS Safari ignores `user-scalable`, its pinch is stopped by `usePageGestures` in `App.tsx`),
+     no long-press menu, no grey tap flash. The board's canvas owns its pinch, pan and rotate (`touch-action: none`). */
+  html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body { @apply select-none touch-manipulation; -webkit-touch-callout: none; }
+  input, textarea, [contenteditable="true"] { @apply select-text; -webkit-touch-callout: default; }
+  canvas { touch-action: none; -webkit-touch-callout: none; }
+  img, svg { -webkit-user-drag: none; user-drag: none; }
+  /* The document never bounces and never pulls to refresh (#611): a pull past the top would drag every page, its
+     navigation included. A tab page scrolls in its own region (`TabFrame`), a board does not scroll. */
+  html, body { overscroll-behavior: none; }
+
+  /* POINTER-CURSOR (#880): everything that can be clicked shows the pointer, as Tailwind 4's upgrade guide suggests (its
+     preflight leaves a button with the arrow). A disabled control keeps the default cursor. A class still wins (utilities come
+     after the base layer): `disabled:cursor-not-allowed`, the hand-written `cursor-pointer` kept on some parts. The board's
+     canvas keeps its own cursors. A slider's root takes it, so its whole track (clicked to set a value), range and thumb show
+     it. Nothing changes on touch, which draws no cursor. */
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="radio"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="slider"], [data-slot="slider"]):not(:disabled, [aria-disabled="true"], [data-disabled]),
+  :where(a[href], summary, label[for], select:not(:disabled)) {
+    cursor: pointer;
+  }
+
+  /* NO-SCROLLBARS (#609, #835): no scrollbar is drawn at any width, on any element, the document included; every scroller
+     still scrolls by touch, wheel, trackpad and keyboard. No bar takes room, so a page's content keeps its width when it
+     starts or stops scrolling (no `scrollbar-gutter` needed). What tells the player a region scrolls is the edge fade,
+     `scroll-hint` below. */
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
+
+  /* Fields on a card or a popover: re-point --input inside the surface. `--color-input` is `@theme inline`, so every
+     `border-input` / `bg-input` below resolves `var(--input)` where it is used and picks this up: no primitive needs a
+     second class. `data-input-surface` marks any other card or popover surface. */
+  [data-slot="card"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-input-surface] {
+    --input: var(--input-surface);
+  }
+}

@@ -7,10 +7,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, D
 import { ScrollArea } from "../src/components/ui/scroll-area";
 import { ScrollRegion } from "../src/components/ui/scroll-region";
 import { scrollEdges } from "../src/lib/scroll-hint";
+import { readThemeCss } from "./theme-css";
 
 // NO-SCROLLBARS (#609, #835): no scrollbar at any width, the edge fade says a region scrolls. vitest runs with the package as its
 // working directory.
-const theme = readFileSync("src/styles/theme.css", "utf8");
+const theme = readThemeCss();
 
 const box = (over: Partial<Record<"scrollTop" | "scrollLeft" | "scrollHeight" | "scrollWidth" | "clientHeight" | "clientWidth", number>>) => ({
   scrollTop: 0,

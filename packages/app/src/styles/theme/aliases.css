@@ -1,0 +1,56 @@
+/* 2. Theme aliases: what the Theme page and a future event re-point (glitchbomb's mechanics). */
+:root {
+  --accent-scale-300: var(--color-gold-300);
+  --accent-scale-400: var(--color-gold-400);
+}
+
+/* 2b. Interaction states (#537, owner decision of 2026-10-18): white with transparency, the same on every button, toggle,
+   menu item and nav item, whatever its own colour. Painted over the part's background by the `state-layer` utility below. */
+:root {
+  --state-hover: rgb(255 255 255 / 0.1);
+  --state-selected: rgb(255 255 255 / 0.15);
+  --state-pressed: rgb(255 255 255 / 0.2);
+  /* The soft light behind a hero figure (loading, welcome, the final score): the one action colour, faint. */
+  --glow: color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+/* 2c. HEADER-HEIGHT (#676, owner decision of 2026-10-21): one header height per breakpoint, the same on every page outside
+   the board. PAGE-HEADER (#760, owner decisions of 2026-10-25): a page's header is one short row at every width (Back, the
+   title, an action); below `desktop` the balances sit in the page, under the header, never in a second row. From `desktop`
+   the navigation's header, a flow's top bar, and a tab page's title row (then the first row of its content) are one row too.
+   The `page-header` utility below puts a header on it; every page has one at its top, and the content below starts at the
+   same height on every page. The values are a flow's title row as measured at 375 px (56 px) and the navigation's header at
+   1440 px (64 px). */
+:root {
+  --header-h: 3.5rem;
+  @media (width >= 64rem) {
+    --header-h: 4rem;
+  }
+}
+/* HOME-HUD-PADDING: the home HUD's one inset, top and sides, for everything pinned to an edge (the profile, the balances, the
+   capsules' column, the social column, the dial, the bottom row): the spacing scale's 2 (8 px) on a phone, its 4 (16 px) from
+   `tablet`. The notch's safe area is added to it here, per edge, never by an element.
+   HOME-DOCK's foot (the owner's ask of 2026-11-04): on a phone the dock sits on the screen's foot, the safe area under it in the
+   plank's colour (`--dock-foot`); from `tablet` it floats the HUD's inset above it, the safe area in that gap (`--dock-lift`). On a
+   phone the dock spans the screen and its PLAY medallion rises 20 px over its top at its peak: the home's bottom left stands 8 px
+   higher (`--dock-crest`, HOME-EDGES), 16 above the dock, its mission's bar clear of the medallion's curve (measured at 320 and 375
+   px, the owner's ask of 2026-11-04: the mission close to the dock); from `tablet` the dock is centred, far from it. */
+:root {
+  --dock-foot: env(safe-area-inset-bottom);
+  --dock-lift: 0px;
+  --dock-crest: 0.5rem;
+  --hud-inset: calc(var(--spacing) * 2);
+  @media (width >= 40rem) {
+    --hud-inset: calc(var(--spacing) * 4);
+    --dock-foot: 0px;
+    --dock-lift: calc(var(--hud-inset) + env(safe-area-inset-bottom));
+    --dock-crest: 0px;
+  }
+  --hud-inset-top: calc(var(--hud-inset) + env(safe-area-inset-top));
+  --hud-inset-left: calc(var(--hud-inset) + env(safe-area-inset-left));
+  --hud-inset-right: calc(var(--hud-inset) + env(safe-area-inset-right));
+}
+/* A page in the side panel (#762) is laid out as on a phone: the phone's header height. */
+[data-page-panel] {
+  --header-h: 3.5rem;
+}

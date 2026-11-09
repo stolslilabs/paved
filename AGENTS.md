@@ -160,7 +160,6 @@ On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the P
 - **One brief at a time per hotspot (R9).** Do not run two briefs at once that will edit the same file of this list; the
   second waits or is reshaped:
   - `docs/design/README.md`
-  - `packages/app/src/styles/theme.css`
   - `.claude/skills/paved-ui/SKILL.md`
   - `packages/app/public/THIRD_PARTY_NOTICES.txt`
   - `packages/app/src/routes/pages.ts`

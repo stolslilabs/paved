@@ -3,9 +3,10 @@ import { resolve } from "node:path";
 import { compile } from "tailwindcss";
 import { describe, expect, it } from "vitest";
 import { contrast } from "../src/styles/color-math";
+import { readThemeCss } from "./theme-css";
 
 const read = (rel: string) => readFileSync(resolve(import.meta.dirname, rel), "utf8");
-const theme = read("../src/styles/theme.css");
+const theme = readThemeCss();
 
 /** Compile the token file with Tailwind itself, as the Vite plugin does, resolving its two imports. */
 function compileTheme() {
@@ -142,7 +143,7 @@ describe("theme.css", () => {
 
   it("keeps the navy ink scale out of the interface: it is the 3D night sky's only (#537)", () => {
     const dir = resolve(import.meta.dirname, "../src");
-    const sources = (readdirSync(dir, { recursive: true }) as string[]).filter((f) => /\.(tsx?|css)$/.test(f) && !f.startsWith("directions") && !f.endsWith("theme.css"));
+    const sources = (readdirSync(dir, { recursive: true }) as string[]).filter((f) => /\.(tsx?|css)$/.test(f) && !f.startsWith("directions") && !/^styles\/theme(\.css$|\/)/.test(f));
     expect(sources.filter((f) => /\bink-\d/.test(readFileSync(resolve(dir, f), "utf8")))).toEqual([]);
     // No semantic token points at it.
     const semantic = theme.slice(theme.indexOf(":root,\n[data-theme=\"dark\"]"));

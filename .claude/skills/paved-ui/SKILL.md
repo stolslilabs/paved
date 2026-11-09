@@ -54,7 +54,7 @@ Paths below are relative to
   `theme.css` selects on.
 - **Tokens only.** Use semantic classes (`bg-background`, `text-foreground`, `bg-card`, `text-muted-foreground`,
   `bg-primary`, `border-border`, `ring-ring`, `text-destructive-text`, `success`, `info`, `warning`). Raw colours live in
-  `src/styles/theme.css` alone: no hex, `oklch(`, `rgb(`, `bg-white`, `bg-black`, `bg-[#...]`, and no palette step
+  `src/styles/theme.css` alone (it imports its parts, one per area, from `src/styles/theme/`): no hex, `oklch(`, `rgb(`, `bg-white`, `bg-black`, `bg-[#...]`, and no palette step
   (`gold-300`, `ink-900`) in `ui/` or `elements/`. `__tests__/theme.test.tsx` fails on it ("keeps raw colours..."); it bans palette steps
   only in those two tiers (containers and scenes use some today), but new code uses semantic tokens everywhere.
   A missing colour is a new token in `theme.css`, not a literal in a component.

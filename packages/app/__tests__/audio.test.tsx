@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -15,6 +13,7 @@ import { DEFAULT_SETTINGS, withVolume } from "../src/data/settings";
 import { TRACKS } from "../src/lib/music/tracks";
 import { SOUNDS, render as synth, wav } from "../scripts/make-sfx.ts";
 import { slow } from "../test-slow";
+import { readThemeCss } from "./theme-css";
 
 /** `vi.waitFor`'s own ceiling (1 s), scaled by the slow profile: the engine fetches and decodes the 16 sound files in it. */
 const WAIT = { timeout: slow(1000) };
@@ -105,7 +104,7 @@ describe("DeviceSettingsPanel", () => {
     expect(sounding).toHaveAttribute("aria-pressed", "false");
     for (const button of [muted, sounding]) expect(button).toHaveClass("state-layer", "state-layer-quiet");
     // The opt-out clears the layer of a pressed toggle at rest only: `state-layer`'s hover and press rules are untouched.
-    const theme = readFileSync(resolve(import.meta.dirname, "../src/styles/theme.css"), "utf8");
+    const theme = readThemeCss();
     const quiet = theme.match(/@utility state-layer-quiet \{([\s\S]*?)\n\}/)?.[1] ?? "";
     expect(quiet.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim()).toBe('&[aria-pressed="true"]:not(:hover, :active) { --layer: transparent; }');
     expect(theme.match(/@utility state-layer \{[\s\S]*?\n\}/)?.[0]).toContain('[aria-pressed="true"]');

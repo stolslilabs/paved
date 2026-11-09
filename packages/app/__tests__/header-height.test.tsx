@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AppNav } from "../src/components/containers/app-nav";
@@ -7,6 +5,7 @@ import { TabPage } from "../src/components/containers/tab-page";
 import { TopBar } from "../src/components/containers/top-bar";
 import { PAGES } from "../src/routes/pages";
 import { DRAWER_PAGES, PAGE_HEADER_STORIES } from "../src/stories/page-headers";
+import { readThemeCss } from "./theme-css";
 
 // HEADER-HEIGHT (#676): every page's header takes its height from the token, never its own. The heights themselves are
 // measured in a browser at 375 and 1440 px by `scripts/header-sweep.ts` (jsdom lays nothing out).
@@ -26,7 +25,7 @@ function header(container: HTMLElement): HTMLElement {
 
 describe("the page headers", () => {
   it("the token holds one value below desktop and one from it, and the utility takes it", () => {
-    const css = readFileSync(join(process.cwd(), "src/styles/theme.css"), "utf8");
+    const css = readThemeCss();
     // One row at every width (#760): the title row's 56 px below `desktop`, whatever balances the page shows.
     expect(css).toMatch(/:root \{\s*--header-h: 3\.5rem;\s*@media \(width >= 64rem\) \{\s*--header-h: 4rem;/);
     expect(css).toMatch(/@utility page-header \{[^}]*height: calc\(var\(--header-h\) \+ env\(safe-area-inset-top\)\);/);

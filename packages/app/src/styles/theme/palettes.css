@@ -1,0 +1,203 @@
+/* The game's own palettes (3b to 3g): the skies, the balances' plates, the PvP crests, the guilds' emblems, the tile stack, the game icons and the holds' rings, then their Tailwind colours. (Imported by theme.css, in its order.) */
+
+/* 3b. Each season's sky, the backdrop's top and bottom of its day and of its night, as the 3D cycle paints them (`KEYFRAMES`
+   in `packages/renderer/src/core/daynight.ts`; `__tests__/day-night.test.ts` keeps them in step). Hex, not palette steps:
+   the night's ink is the 3D sky's own (the navy ink scale stays out of the interface). */
+:root {
+  --sky-summer-day-top: #1f65a1;
+  --sky-summer-day-bottom: #6bb7ff;
+  --sky-summer-night-top: #0a141c;
+  --sky-summer-night-bottom: #083559;
+  --sky-autumn-day-top: #114c7c;
+  --sky-autumn-day-bottom: #ffb57a;
+  --sky-autumn-night-top: #0a141c;
+  --sky-autumn-night-bottom: #3e0503;
+  --sky-winter-day-top: #3e4c57;
+  --sky-winter-day-bottom: #93a0ab;
+  --sky-winter-night-top: #0a141c;
+  --sky-winter-night-bottom: #23303a;
+  --sky-spring-day-top: #3180c5;
+  --sky-spring-day-bottom: #95dc94;
+  --sky-spring-night-top: #0a141c;
+  --sky-spring-night-bottom: #012604;
+}
+
+/* 3c. The balances' resource bar (#620): each currency on a dark plate, sunk a little, a hairline edge; the light that
+   crosses the Cobbles' plate. */
+:root {
+  --resource-plate: var(--color-charcoal-950);
+  --resource-edge: var(--color-charcoal-700);
+  --resource-shade: rgb(0 0 0 / 0.45);
+  --resource-glint: rgb(255 255 255 / 0.14);
+}
+
+/* 3d. The PvP flow (#647): the crowns, and each league group's crest (#644's leagues: Wood, Iron to Master in three divisions
+   each, Grand Master). The crests are told apart by their names too, never by colour alone. The search's clouds and their sky
+   left with ATTACK-SCOUT (the user's ask of 2026-11-07: the search over the board's void). */
+:root {
+  --crown: var(--color-gold-300);
+  /* USDC's own logo (PLAY-PAGE, the owner's ask: the token's native mark, not the painted coin): Circle's blue and its white. */
+  --usdc-blue: #2775ca;
+  --usdc-white: #ffffff;
+  /* The match's board panel (MATCH-PAGE, the Paved UX Book's "Battle log"): its bright blue rim and glow (`match-frame`). */
+  --match-rim: var(--color-river-500);
+  --match-glow: var(--color-river-400);
+  /*
+   * The player card (HOME-UI-CARD, docs/design/home.webp): its see-through dark grey face (the interface's neutral scale: the navy
+   * ink is the night sky's, #537), its frame and its XP bar being images; the XP fill's light cyan, its level up's flash.
+   */
+  --hud-card: var(--color-charcoal-800);
+  /*
+   * The HUD's frame (HUD-FRAME-CSS, `hud-frame` below): its near-black outline, its grey rim (lighter at its top, darker at its foot,
+   * one width whatever the box's size), the light along the rim's top and the shade along its inside; the rim's painted patches a tiled
+   * noise (`--hud-noise`, `public/hud-noise.svg`: an SVG turbulence in greys, soft-light over the rim; a file, not a data URI, which the
+   * one stylesheet's budget could not carry). HUD-RIM-GREY (the owner's asks of 2026-11-04: the book's frame, less blue than ours, its
+   * patches kept, one border width for every box): sampled on `docs/design/home.webp`'s capsules, a cool grey in place of the blue
+   * slate, the noise's blue and violet cast gone.
+   */
+  --hud-rim-w: 3px;
+  --hud-noise: url("/hud-noise.svg");
+  --hud-outline: #050407;
+  --hud-rim-top: #686d79;
+  --hud-rim: #555b67;
+  --hud-rim-foot: #434955;
+  --hud-rim-light: #9ea3b2;
+  --hud-rim-shade: #1c2129;
+  /* The HUD's drawer's raised surfaces (PROFILE-DRAWER, direction C of 2026-11-03): a step over its charcoal-800 face, lit along their top. */
+  --drawer-raised: var(--color-charcoal-700);
+  --drawer-bevel: var(--color-charcoal-500);
+  /* CHESTS-PAGE (the Paved UX Book's Chests): the ranks' words on their gold slots, EPIC pink-violet, RARE the XP's cyan. */
+  --rank-epic: oklch(0.74 0.2 322);
+  --rank-rare: var(--xp-light);
+  /* The dock's ink (HOME-DOCK): its plank's wood, under the current item (a shade on the parchment, where white would not show) and the safe area. */
+  --dock-ink: #5b3415;
+  /* The dock's badges (HOME-DOCK): the mockup's red squares, a count waiting, not an error (`--destructive` is the errors'). */
+  --dock-badge: var(--color-ember-600);
+  --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
+  --league-iron: var(--color-amber-500);
+  --league-bronze: var(--color-charcoal-300);
+  --league-silver: var(--color-gold-400);
+  --league-gold: var(--color-river-300);
+  --league-emerald: var(--color-meadow-600);
+  --league-diamond: var(--color-meadow-400);
+  --league-master: var(--color-charcoal-500);
+  --league-grandmaster: var(--color-gold-100);
+  --league-wood: var(--color-charcoal-400);
+}
+
+/* 3d'. The guilds' emblems (#953, `elements/guild-emblem.tsx`): a shield in a pair of these eighteen colours, by index (game-core's
+   `GUILD_EMBLEM_COLOURS`), under a dark rim; its charge a flat silhouette in a third (GUILD-PAGE, `emblem-art.ts`), Silver (8) by
+   default, its edge drawn in the rim's colour, so any three read. The first eight are those of #953; 9 to 17 came with GUILD-PAGE
+   (the owner's ask of three rows of six), Rose, Plum, Violet and Teal outside the palettes, the heraldry's own. */
+:root {
+  --emblem-0: var(--color-gold-500);
+  --emblem-1: var(--color-ember-600);
+  --emblem-2: var(--color-meadow-700);
+  --emblem-3: var(--color-river-700);
+  --emblem-4: var(--color-charcoal-500);
+  --emblem-5: var(--color-river-900);
+  --emblem-6: var(--color-amber-600);
+  --emblem-7: var(--color-gold-800);
+  --emblem-8: var(--color-charcoal-50);
+  --emblem-9: var(--color-charcoal-900);
+  --emblem-10: var(--color-ember-800);
+  --emblem-11: var(--color-ember-400);
+  --emblem-12: oklch(0.66 0.16 358);
+  --emblem-13: oklch(0.42 0.13 330);
+  --emblem-14: oklch(0.55 0.16 295);
+  --emblem-15: var(--color-meadow-400);
+  --emblem-16: var(--color-meadow-900);
+  --emblem-17: oklch(0.6 0.1 192);
+  --emblem-rim: var(--color-charcoal-950);
+}
+
+/* 3e. The tile stack (after Dorfromantik's): a tile's base as the renders draw it, a stone rim over earth; the pile, one
+   layer per tile left, a row of grass over a row of earth (a look, not the tiles' own), its east sides in shade. The edge
+   is the board's outline colour (`core/outlines.ts`). */
+:root {
+  --slab-rim: var(--color-charcoal-200);
+  --slab-earth: var(--color-amber-800);
+  --slab-edge: #1f1f1f;
+  --slab-shade: rgb(0 0 0 / 0.32);
+  --slab-shadow: rgb(0 0 0 / 0.45);
+  --pile-grass-top: color-mix(in oklab, var(--color-meadow-700) 60%, var(--color-amber-800));
+  --pile-grass: color-mix(in oklab, var(--color-meadow-800) 60%, var(--color-amber-800));
+  --pile-grass-shade: color-mix(in oklab, var(--color-meadow-900) 60%, var(--color-amber-950));
+  --pile-earth: var(--color-amber-800);
+  --pile-earth-shade: var(--color-amber-900);
+  --pile-gap: var(--color-amber-950);
+}
+
+/* 3f. The game icons (issue 844, `elements/game-icon.tsx`), in the spirit of Supercell's: one base per tone, from which the icon
+   mixes its lit top (toward `--game-light`), its shaded foot and its thick outline of the same hue, darker (toward `--game-ink`).
+   The light tone is `--game-light`; the shadow is the ink at low opacity, the light on the upper parts `--game-light`. The light
+   and the ink are the relief's own, not the theme's foreground and background (#870): the dark theme's values, so an icon keeps
+   its light on top and its dark outline whatever the theme's surface. */
+:root {
+  --game-light: var(--color-charcoal-50);
+  --game-ink: var(--color-charcoal-950);
+  --game-gold: var(--color-gold-300);
+  --game-steel: var(--color-charcoal-200);
+  --game-red: var(--color-ember-400);
+  --game-blue: var(--color-river-400);
+  --game-green: var(--color-meadow-400);
+  --game-wood: var(--color-amber-500);
+  --game-stone: var(--color-charcoal-400);
+  --game-rose: var(--color-ember-300);
+  /* Issue 870's: autumn's leaf, winter's snowflake, spring's seedling, the night's moon. */
+  --game-orange: var(--color-amber-400);
+  --game-ice: var(--color-river-200);
+  --game-sprout: var(--color-meadow-300);
+  --game-silver: var(--color-charcoal-100);
+}
+
+/* 3g. The holds' rings on the tile's painted actions (TILE-ACTIONS, `HoldRing`'s painted look): the Missions' gold rail (`rail-fill`,
+   the Daily and Weekly progress) across the ring's width, its colours sampled from the rail, from its foot inside to its top outside
+   (a dark edge, the deep and shaded orange, the gold, the bright yellow, the pale shine, the rim, the edge); Discard's the same tube
+   in the red of the HUD's close (`close`), the owner's ask of 2026-11-07; its shine and bright pushed whiter for the glow, the head's
+   spark and the burst (the owner: shinier, a feeling of power). */
+:root {
+  --hold-gold-edge: #2b1100;
+  --hold-gold-deep: #c24d01;
+  --hold-gold-shade: #e07202;
+  --hold-gold-base: #f7b802;
+  --hold-gold-bright: #ffe94d;
+  --hold-gold-shine: #fffbe6;
+  --hold-gold-rim: #a47200;
+  --hold-red-edge: #2a0303;
+  --hold-red-deep: #8c0001;
+  --hold-red-shade: #d00306;
+  --hold-red-base: #fd1e1a;
+  --hold-red-bright: #ff6e5a;
+  --hold-red-shine: #ffe7e0;
+  --hold-red-rim: #a30a06;
+}
+
+
+@theme inline {
+  --color-slab-edge: var(--slab-edge);
+  --color-slab-shadow: var(--slab-shadow);
+  --color-pile-grass-top: var(--pile-grass-top);
+  --color-pile-grass: var(--pile-grass);
+  --color-pile-grass-shade: var(--pile-grass-shade);
+  --color-pile-earth: var(--pile-earth);
+  --color-pile-earth-shade: var(--pile-earth-shade);
+  --color-pile-gap: var(--pile-gap);
+}
+
+@theme inline {
+  --color-crown: var(--crown);
+  --color-hud-card: var(--hud-card);
+  --color-dock-ink: var(--dock-ink);
+  --color-dock-badge: var(--dock-badge);
+  --color-xp-light: var(--xp-light);
+  --color-league-iron: var(--league-iron);
+  --color-league-bronze: var(--league-bronze);
+  --color-league-silver: var(--league-silver);
+  --color-league-gold: var(--league-gold);
+  --color-league-emerald: var(--league-emerald);
+  --color-league-diamond: var(--league-diamond);
+  --color-league-master: var(--league-master);
+  --color-league-grandmaster: var(--league-grandmaster);
+  --color-league-wood: var(--league-wood);
+}

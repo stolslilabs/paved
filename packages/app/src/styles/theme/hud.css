@@ -1,0 +1,90 @@
+/* The HUD: the Cobbles' plate's shine, its frame and face, the drawer's surfaces. (Imported by theme.css, in its order.) */
+
+/* The Cobbles' plate (#620): a soft light crosses it now and then, an invitation to tap; none under reduced motion. */
+@keyframes plate-shine {
+  0%, 75% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@utility plate-shine {
+  background-image: linear-gradient(100deg, transparent 30%, var(--resource-glint) 50%, transparent 70%);
+  animation: plate-shine 7s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+
+/*
+ * HUD-FRAME-CSS (the owner's ask of 2026-11-03): the HUD's frame in CSS, in place of the painted 9-slice whose brush strokes stretched
+ * with each box's shape. `--hud-px` (a number, the corner in CSS px: 10 a capsule, 13 the player card, 16 the HUD's drawer) sizes its
+ * corner's curve, 0.9 of it; the rim is `--hud-rim-w` on every box (HUD-RIM-GREY). `hud-frame`: the near-black outline with a crisp
+ * drop and a soft shade (outside its box), the grey rim (`::before`, a ring: its grey from its top's to its foot's, its painted patches
+ * the tiled noise at one scale whatever the box, lit along its top, shaded along its foot) and a dark line inside the rim (`::after`). `hud-face`: the face under it, inside the rim (its fill the
+ * caller's). Both absolutely placed by the caller.
+ */
+@utility hud-frame {
+  border-radius: calc(var(--hud-px) * 0.9px);
+  box-shadow: 0 0 0 1.5px var(--hud-outline), 0 1.5px 0 1.5px var(--hud-outline), 0 3px 5px 1.5px var(--background);
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+  &::before {
+    inset: 0;
+    padding: var(--hud-rim-w);
+    border-radius: inherit;
+    background: var(--hud-noise) 0 0 / 128px 128px, linear-gradient(var(--hud-rim-top), var(--hud-rim) 45%, var(--hud-rim-foot));
+    background-blend-mode: soft-light, normal;
+    box-shadow: inset 0 1px 0 color-mix(in oklab, var(--hud-rim-light) 55%, transparent), inset 0 -1px 0 var(--hud-rim-shade);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  &::after {
+    inset: calc(var(--hud-rim-w) - 1px);
+    border: 1px solid var(--hud-rim-shade);
+    border-radius: calc(var(--hud-px) * 0.9px - var(--hud-rim-w) + 1px);
+  }
+}
+@utility hud-face {
+  inset: calc(var(--hud-rim-w) - 1px);
+  border-radius: calc(var(--hud-px) * 0.9px - var(--hud-rim-w) + 1px);
+  box-shadow: inset 0 1px 2px var(--background);
+}
+
+/*
+ * The HUD's drawer (PROFILE-DRAWER, containers/hud-drawer.tsx and profile-sheet.tsx), in the interface's greys and the game-native
+ * direction the owner chose on 2026-11-03 (C, `docs/design/profile.webp`'s README entry): its surfaces, one plain rule each (Tailwind's
+ * shadow, gradient, divide and blur utilities each weigh a few hundred bytes in the one stylesheet). The veil over the village; the side
+ * panel's header band (a step darker, a near-black line under it); a raised surface (a step lighter than the face, lit along its top,
+ * a near-black outline and lip); a tile (the same, its face fading down); a carved surface, information (a step darker, a soft shadow
+ * inside its top, a faint light along its foot: the owner's rule of 2026-11-04, raised presses and carved informs); a row's near-black
+ * rules between its items; an icon's lip.
+ */
+@utility drawer-veil {
+  background-color: color-mix(in oklab, var(--board) 45%, transparent);
+}
+@utility drawer-band {
+  background-color: var(--card);
+  box-shadow: 0 1px 0 var(--hud-outline);
+}
+@utility drawer-raised {
+  background-color: var(--drawer-raised);
+  box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+}
+@utility drawer-tile {
+  background-image: linear-gradient(var(--drawer-raised), var(--secondary));
+  box-shadow: inset 0 1px 0 var(--drawer-bevel), 0 0 0 1px var(--hud-outline), 0 2px 0 1px var(--hud-outline);
+}
+@utility drawer-carved {
+  background-color: var(--card);
+  box-shadow: inset 0 2px 3px color-mix(in oklab, var(--hud-outline) 70%, transparent), 0 1px 0 color-mix(in oklab, var(--drawer-bevel) 40%, transparent);
+}
+@utility drawer-rule {
+  & > * + * {
+    border-left: 1px solid var(--hud-outline);
+  }
+}

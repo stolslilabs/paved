@@ -9,11 +9,12 @@ import { CopyField } from "../src/components/elements/copy-field";
 import { RefusalNotice } from "../src/components/containers/purchase-notices";
 import { ShortAddress } from "../src/components/elements/short-address";
 import { stopPageGesture, usePageGestures } from "../src/lib/page-gestures";
+import { readThemeCss } from "./theme-css";
 
 // APP-FEEL (P-69): text is not selectable by default, the page does not zoom, the board owns its gestures. vitest runs
 // with the package as its working directory.
 const read = (path: string) => readFileSync(path, "utf8");
-const baseLayer = read("src/styles/theme.css").match(/@layer base \{[\s\S]*?\n\}/)![0];
+const baseLayer = readThemeCss().match(/@layer base \{[\s\S]*?\n\}/)![0];
 // Every rule of that selector in the base layer, joined.
 const rule = (selector: string) =>
   [...baseLayer.matchAll(new RegExp(`(?:^|\\n)\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`, "g"))].map((m) => m[1]).join(" ");

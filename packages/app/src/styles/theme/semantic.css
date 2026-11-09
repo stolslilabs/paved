@@ -1,0 +1,37 @@
+/* 3. Semantic tokens (shadcn names), dark values. Dark only: no light block yet. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: var(--color-charcoal-950);
+  --foreground: var(--color-charcoal-50);
+  --card: var(--color-charcoal-900);
+  --card-foreground: var(--color-charcoal-50);
+  --popover: var(--color-charcoal-900);
+  --popover-foreground: var(--color-charcoal-50);
+  --primary: var(--accent-scale-300);
+  --primary-foreground: var(--color-charcoal-950);
+  --secondary: var(--color-charcoal-800);
+  --secondary-foreground: var(--color-charcoal-50);
+  --muted: var(--color-charcoal-800);
+  --muted-foreground: var(--color-charcoal-300); /* the mockups' secondary text: 10.68:1 on --card */
+  /* shadcn's accent is a raised surface here, not a hover colour: hover, selected and pressed are the white states (2b). */
+  --accent: var(--color-charcoal-800);
+  --accent-foreground: var(--color-charcoal-50);
+  --destructive: var(--color-ember-700);
+  --destructive-foreground: var(--color-charcoal-50);
+  --destructive-text: var(--color-ember-300); /* destructive text on --popover / --card */
+  --success: var(--color-meadow-400);
+  --info: var(--color-river-400);
+  --warning: var(--color-amber-400);
+  --border: var(--color-charcoal-700); /* the mockups' hairline, 1.61:1 on --background: decorative */
+  --input: var(--color-charcoal-600); /* 3.17:1 on --background (WCAG 1.4.11) */
+  --input-surface: var(--color-charcoal-500); /* --input on --card / --popover: 4.27:1 */
+  --ring: var(--accent-scale-400);
+  /* The podium's medals: gold, silver, bronze. The v2 village's chests take them by rank (#739): Epic, Rare, Basic. */
+  --medal-1: var(--color-gold-300);
+  --medal-2: var(--color-charcoal-200);
+  --medal-3: var(--color-amber-400);
+  --board: var(--color-board);
+  /* The village's fog in the plan view (#633's rule, until #648 draws the chosen one): a grey veil over the board. */
+  --fog: var(--color-charcoal-400);
+}
