@@ -1,7 +1,7 @@
 import { slow } from "../test-slow";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { formatPoints } from "../src/components/elements/score";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
@@ -9,9 +9,12 @@ import { DRAFT_VALID, HOME_POINTS, HOME_VILLAGE, LAYOUT_FULL, LAYOUT_GROWING, LA
 import { canLift, layoutPoints, layoutScore, legalSpots } from "../src/components/containers/layout-rules";
 import { PLAN } from "../src/mocks/village";
 import { sceneTilesOf } from "../src/components/containers/village-layout-canvas";
-import { wrap } from "./scenes-helpers";
+import { settleHomeChunks, wrap } from "./scenes-helpers";
 
 describe("Home's points by structure (#758)", () => {
+  // Every chunk the scene started loaded before the file ends (`settleHomeChunks`).
+  afterAll(settleHomeChunks, slow(30_000));
+
   /** The canvas's view, last drawn. */
   const canvas = () => {
     const views: LayoutBoardView[] = [];

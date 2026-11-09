@@ -1,16 +1,19 @@
 import { slow } from "../test-slow";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { planCode } from "../src/components/elements/tile-chip";
 import { TileView } from "../src/components/containers/tile-view";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { SOURCE_ASSETS, originalTileArt } from "../src/mocks/assets";
 import { BOARD_38 } from "../src/mocks/board";
 import { BOARD } from "../src/mocks/scenes";
-import { wrap, pts } from "./scenes-helpers";
+import { pts, settleBoardChunks, wrap } from "./scenes-helpers";
 
 describe("Board", () => {
+  // Every chunk the board scene started loaded before the file ends (`scenes-helpers.tsx`).
+  afterAll(settleBoardChunks, slow(30_000));
+
   it("draws the recorded board, the score, the tiles left and the time left", () => {
     render(wrap(<BoardScene {...BOARD.placing} />));
     expect(screen.getByRole("img", { name: `Board of ${BOARD_38.tiles.length} tiles` })).toBeInTheDocument();

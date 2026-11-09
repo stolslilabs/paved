@@ -3,14 +3,17 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { HomeVillageScene } from "../src/components/scenes/home-village-scene";
 import type { LayoutBoardView } from "../src/components/containers/layout-board";
 import { HOME_VILLAGE } from "../src/mocks/village-v2";
 import { leagueOf } from "../src/lib/pvp-rules";
-import { wrap } from "./scenes-helpers";
+import { settleHomeChunks, wrap } from "./scenes-helpers";
 
 describe("Home (#753): the village with its overlays", () => {
+  // Every chunk the scene started loaded before the file ends (`settleHomeChunks`).
+  afterAll(settleHomeChunks, slow(30_000));
+
   // Load-bound: the stage's cold chunk, then ten overlay clicks. Measured 6.7 to 15.4 s on a loaded machine (2026-11-01, after
   // #974's currency icons), past the 15 s default: the ceiling is twice the slowest.
   it("shows the village full screen with the right column, the Chat tab and the mission in progress, the rest the dock's", { timeout: slow(30_000) }, async () => {
