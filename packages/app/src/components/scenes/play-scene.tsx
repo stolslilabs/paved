@@ -26,6 +26,12 @@ export interface PlaySceneProps extends PlayModesProps {
    * omitted: the modes.
    */
   puzzle?: ReactNode;
+  /**
+   * The Joust (`/play/joust`, Play's Limited mode): its body (`JoustScene`), the panel's view in the modes' place, as the Puzzle's;
+   * `joustTitle` names its own view on the header ("Both top 10", "Ranking"). Null or omitted: the modes.
+   */
+  joust?: ReactNode;
+  joustTitle?: string;
   /** Play's close, back to the village. */
   onBack?: () => void;
   /** The stake's Back, to the modes. */
@@ -34,6 +40,8 @@ export interface PlaySceneProps extends PlayModesProps {
   onStoryBack?: () => void;
   /** The Puzzle's Back, to the modes (never into the game just played). */
   onPuzzleBack?: () => void;
+  /** The Joust's Back: to the modes, or from one of its views to the joust. */
+  onJoustBack?: () => void;
 }
 
 /** The stake's balance at the header's end (the drawers' rule: the page's balance at the top right), USDC, what it spends. */
@@ -55,8 +63,8 @@ const keepForDialogs = (event: Event) => {
  * header's end (the drawers' rule, where the book writes it under the title). Story's campaigns (`/story`, STORY-PAGE) are a view of
  * the same kind, "Story" on the header, its Back to the modes. A pause says so under the modes: Training and Story stay open.
  */
-export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, onBack, onChallengeBack, onStoryBack, onPuzzleBack, ...modes }: PlaySceneProps) {
-  const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : "modes";
+export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, joust = null, joustTitle, onBack, onChallengeBack, onStoryBack, onPuzzleBack, onJoustBack, ...modes }: PlaySceneProps) {
+  const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : joust !== null ? "joust" : "modes";
   // The first view comes with the drawer's own slide; only a move between views slides.
   const [last, setLast] = useState(view);
   const [moved, setMoved] = useState(false);
@@ -70,7 +78,7 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
       onOpenChange={(next) => {
         if (!next) onBack?.();
       }}
-      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : view === "puzzle" ? "Puzzle" : "Play"}
+      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : view === "puzzle" ? "Puzzle" : view === "joust" ? (joustTitle ?? "Joust") : "Play"}
       side="right"
       slot="play"
       returnFocus={returnFocus}
@@ -78,11 +86,11 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
       end={
         view === "challenge" ? (
           <BalancesSlot layout="pill" kinds={USDC} className="hidden mobile:flex" />
-        ) : view === "puzzle" ? (
+        ) : view === "puzzle" || view === "joust" ? (
           <BalancesSlot layout="pill" kinds={COBBLES} className="hidden mobile:flex" />
         ) : undefined
       }
-      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : view === "puzzle" ? onPuzzleBack : undefined}
+      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : view === "puzzle" ? onPuzzleBack : view === "joust" ? onJoustBack : undefined}
       onInteractOutside={keepForDialogs}
     >
       <m.div
@@ -99,6 +107,8 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
           story
         ) : view === "puzzle" ? (
           puzzle
+        ) : view === "joust" ? (
+          joust
         ) : (
           <>
             <PlayModes {...modes} />

@@ -197,8 +197,10 @@ import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
 import { PLAYER_NAME_MAX } from "../../lib/name-limit";
-import { PUZZLE_PRIZE_COBBLES, comparePuzzle, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
+import { PUZZLE_PRIZE_COBBLES, comparePuzzle, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
 import { PUZZLE_PRIZE_TOP, PUZZLE_STANDING_LIMIT, type PuzzleEntry, type PuzzleGameRecord, type PuzzleGameResult, type PuzzlePrize, type PuzzleStanding } from "../puzzle-source";
+import type { JoustGameRecord, JoustGameResult, JoustRanking, JoustState } from "../joust-source";
+import * as joust from "./joust";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
 import {
   SPAWN_DRAW,
@@ -509,6 +511,8 @@ interface StoredState {
   chat?: chat.AnyStoredChat;
   /** The Puzzle (Play's Limited mode, `puzzle.ts`): the accounts' games, their claims and visits; absent: none yet. */
   puzzle?: StoredPuzzle;
+  /** The Joust (the weekly allegiance event, `joust.ts`): the accounts' games, registrations and claims; absent: none yet. */
+  joust?: joust.StoredJoust;
 }
 
 /** The mock's chat source: `ChatSource`, and `rotateKeys(player)`, a new messaging key, for the tests and the stories (#997). */
@@ -1368,6 +1372,103 @@ export class MockLedger {
         events.push(this.event("PuzzlePrizeClaimed", { playerId: player, day, cobbles: PUZZLE_PRIZE_COBBLES, balance: p.cobbles }));
       }
       return { events, value: { cobbles } };
+    });
+  }
+
+  // --- The Joust (the weekly allegiance event, `joust.ts`) --------------------------------------------------------------
+
+  /** A Joust read: the stored Joust (none yet: a fresh one's) and the guilds' world settled at the ledger's clock. */
+  private joustRead<T>(read: (stored: joust.StoredJoust, world: guilds.GuildWorld, people: guilds.GuildPeople, now: number) => T): T {
+    return this.guildRead((world, people, now) => read(this.state.joust ?? joust.freshJoust(), world, people, now));
+  }
+
+  /**
+   * A Joust write: `change` works on the player's copy, the stored Joust (created on the first write, put back on a throw, `commit`)
+   * and the guilds' world settled at the write's second; a rule's refusal is the writer's `WriteError` with the contract's text.
+   */
+  private async writeJoust<T>(account: string, change: (player: StoredPlayer, stored: joust.StoredJoust, world: guilds.GuildWorld, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      const now = this.second();
+      try {
+        const out = change(p, (this.state.joust ??= joust.freshJoust()), this.settledGuilds(now), now);
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** `JoustSource.state`: the week as `viewer` sees it. */
+  async joustState(viewer: string | null): Promise<JoustState> {
+    return this.joustRead((stored, world, people, now) => joust.stateOf(stored, world.guilds, people, now, viewer));
+  }
+
+  /** `JoustSource.ranking`: the allegiances by rating. */
+  async joustRanking(viewer: string | null): Promise<JoustRanking> {
+    return this.joustRead((stored, world, _people, now) => joust.rankingOf(stored, world.guilds, now, viewer));
+  }
+
+  /** `JoustSource.game`: a game by its id; an id with no game is the view's refusal. */
+  async joustGame(gameId: number): Promise<JoustGameRecord> {
+    this.sync();
+    const stored = this.state.joust ?? joust.freshJoust();
+    const game = stored.games[gameId];
+    if (!game) throw new ViewError("game-not-found", "Joust: game does not exist");
+    return joust.recordOf(stored, game);
+  }
+
+  /** `JoustSource.result`: a finished game's effect on its player's best and their allegiance's total. */
+  async joustResult(gameId: number): Promise<JoustGameResult> {
+    return this.joustRead((stored, world, _people, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new ViewError("game-not-found", "Joust: game does not exist");
+      if (!game.over) throw new ViewError("not-available", "Joust: the game is not over");
+      return joust.gameResultOf(stored, world.guilds, game, now);
+    });
+  }
+
+  /** `JoustSource.register`: the account's allegiance in this week's joust (`JoustRegistered`). */
+  async joustRegister(player: string): Promise<void> {
+    await this.writeJoust(player, (_p, stored, world, now) => {
+      const done = joust.register(stored, world.guilds, player, now);
+      return { events: [this.event("JoustRegistered", { playerId: player, week: done.week, guildId: done.guild })], value: undefined };
+    });
+  }
+
+  /** `JoustSource.start`: a new game of the account, by the Joust's rules (`JoustSpawned`). */
+  async joustStart(player: string): Promise<JoustGameRecord> {
+    return this.writeJoust(player, (_p, stored, world, now) => {
+      const game = joust.newGame(stored, world.guilds, player, now);
+      return { events: [this.event("JoustSpawned", { gameId: game.id, playerId: player, week: game.week })], value: joust.recordOf(stored, game) };
+    });
+  }
+
+  /**
+   * `JoustSource.play`: a move of the account's open game, by the engine's rules; a build or a discard past the joust's end is
+   * refused, a surrender is not. `JoustOver` when the move ends it.
+   */
+  async joustPlay(player: string, gameId: number, move: SeededMove): Promise<void> {
+    await this.writeJoust(player, (_p, stored, _world, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new WriteError("Joust: game does not exist");
+      if (game.player !== addressKey(player)) throw new WriteError("Joust: not the game player");
+      if (game.over) throw new WriteError("Game: is over");
+      if (move.kind !== "surrender" && now >= joustEndsAt(game.week)) throw new WriteError("Joust: the joust is over");
+      joust.playMove(game, move, now);
+      return { events: game.over ? [this.event("JoustOver", { gameId, playerId: player, week: game.week, score: game.score })] : [], value: undefined };
+    });
+  }
+
+  /** `JoustSource.claim`: the Cobbles of a finished joust the account played in, added (`JoustClaimed`). */
+  async joustClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.writeJoust(player, (p, stored, world, now) => {
+      const cobbles = joust.claim(stored, world.guilds, this.personOf(world, now), player, week, now);
+      p.cobbles += cobbles;
+      return { events: [this.event("JoustClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3017,6 +3118,7 @@ export class MockLedger {
     const vault = { ...this.state.vault };
     const challenge = this.state.challenge && structuredClone(this.state.challenge);
     const puzzle = this.state.puzzle && structuredClone(this.state.puzzle);
+    const jousts = this.state.joust && structuredClone(this.state.joust);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
     try {
@@ -3025,6 +3127,7 @@ export class MockLedger {
       this.state.vault = vault;
       this.state.challenge = challenge;
       this.state.puzzle = puzzle;
+      this.state.joust = jousts;
       throw error;
     }
     this.state = { ...this.state, players: { ...this.state.players, [key]: player }, transactions: this.state.transactions + 1 };

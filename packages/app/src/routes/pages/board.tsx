@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
-import { DISCARD_POINTS, MAX_UNCONFIRMED, puzzleDayEnd, type PredictedState } from "@paved/game-core";
+import { DISCARD_POINTS, JOUST_GAMES, MAX_UNCONFIRMED, puzzleDayEnd, type PredictedState } from "@paved/game-core";
 import type { HandState } from "../../components/containers/tile-stack";
 import { InlineError } from "../../components/elements/inline-error";
 import { BoardNotice, NOTICE_ACTION } from "../../components/containers/board-notice";
@@ -13,6 +13,7 @@ import { useChallengeCurve } from "../../data/reward-curve";
 import { boardOf, remainingOf, useTrainingSession } from "../../data/training";
 import { PuzzleGame, usePuzzleSession, type PuzzleSnapshot } from "../../data/puzzle-game";
 import { usePuzzleStanding } from "../../data/puzzle";
+import { useJoustSession, useJoustState, type JoustGameRecord } from "../../data/joust";
 import { addressKey } from "../../data/keys";
 import { usePuzzleViewer } from "../puzzle-play";
 import { trainingStore, useDataSources } from "../../data/sources";
@@ -22,7 +23,7 @@ import { useErrorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useRoutePage } from "../handle";
 import { Placeholder } from "../Placeholder";
-import { useAppNavigate, useBack } from "../ref";
+import { useAppNavigate, useBack, useUpTo } from "../ref";
 import { useAfterGameOver } from "../game-over";
 import type { Slot } from "../../data/placement";
 import { useGameBoard } from "../game-board";
@@ -33,7 +34,61 @@ export default function Page() {
   if (page?.path === "training") return <TrainingBoard />;
   if (page?.path === "game/:gameId") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId") return <PuzzleRoute />;
+  if (page?.path === "joust/:gameId") return <JoustRoute />;
   return <Placeholder />;
+}
+
+/** `/joust/:gameId`: a game id is digits; anything else is not a game. */
+function JoustRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <JoustBoard key={gameId} gameId={Number(gameId)} /> : <Placeholder />;
+}
+
+/**
+ * A Joust game (the weekly allegiance event) on its session (`useJoustSession`): a Puzzle game's board (`PuzzlePlay`), its engine
+ * doubling the week's structure. The header names the game's number and the boost, the HUD shows the joust's time left (a game counts
+ * only when it ends before), the score meter the player's best of the week (the allegiance adds only that one). A finished game goes
+ * to `/joust/:gameId/over` once its last move is taken.
+ */
+function JoustBoard({ gameId }: { gameId: number }) {
+  const viewer = usePuzzleViewer();
+  const { game, snapshot, record, settled, reload } = useJoustSession(gameId, viewer);
+  const onBack = useUpTo("/play/joust");
+  const readErrorDetail = useErrorDetail(record.error, gameId);
+  // The player's best before this game: the meter's goal.
+  const best = useJoustState(viewer, viewer !== null).data?.me?.best ?? null;
+  if (!game || !snapshot || !record.data) {
+    return (
+      <div className="flex min-h-dvh flex-col bg-board text-foreground">
+        <TopBar title="Joust" onBack={onBack} />
+        <main aria-busy={!record.error} className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
+          {record.error ? (
+            <InlineError title="This game cannot be read" message={record.error.message} detail={readErrorDetail} />
+          ) : record.unavailable ? (
+            <p className="text-center text-sm text-muted-foreground">The Joust is not on this network yet.</p>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
+          )}
+        </main>
+      </div>
+    );
+  }
+  const data = game.record as JoustGameRecord;
+  const joust: JoustFlavor = {
+    title: `Joust ${data.game}/${JOUST_GAMES} · ${data.boost} ×2`,
+    endsAt: data.endsAt,
+    best,
+    overPath: `/joust/${data.id}/over`,
+  };
+  return <PuzzlePlay game={game} snapshot={snapshot} settled={settled} otherAccount={viewer !== null && !game.writable} onReload={reload} onBack={onBack} joust={joust} />;
+}
+
+/** What makes `PuzzlePlay` a Joust game's board: its header, its end (the joust's), the player's best (the meter's goal), its end's page. */
+interface JoustFlavor {
+  title: string;
+  endsAt: number;
+  best: number | null;
+  overPath: string;
 }
 
 /** `/puzzle/:gameId`: a game id is digits; anything else is not a game. */
@@ -84,17 +139,19 @@ interface PuzzlePlayProps {
   otherAccount: boolean;
   onReload: () => void;
   onBack: () => void;
+  /** A Joust game: its header, its end and its meter in the Puzzle day's place. */
+  joust?: JoustFlavor;
 }
 
-function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack }: PuzzlePlayProps) {
+function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack, joust }: PuzzlePlayProps) {
   const { record } = game;
   const skins = useBoardSkins(record.player);
   const go = useAppNavigate();
   const now = useNow();
-  const standing = usePuzzleStanding(record.day, record.player);
+  const standing = usePuzzleStanding(joust ? null : record.day, record.player);
   const board = boardOf(snapshot.state);
   const hand = board.hand;
-  const endsAt = puzzleDayEnd(record.day);
+  const endsAt = joust ? joust.endsAt : puzzleDayEnd(record.day);
   const dayOver = !board.over && now >= endsAt;
   const refused = snapshot.refused;
   const watching = !game.writable;
@@ -108,7 +165,7 @@ function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack }:
 
   // The scores once the last move has played out on the board and the source has taken every move.
   const [surrendered, setSurrendered] = useState(false);
-  useAfterGameOver(board.over, () => go(`/puzzle/${record.id}/over`, { replace: true }), { settled, hold: !surrendered });
+  useAfterGameOver(board.over, () => go(joust ? joust.overPath : `/puzzle/${record.id}/over`, { replace: true }), { settled, hold: !surrendered });
 
   const confirm = useCallback(() => {
     if (!placement.canConfirm || !move || preview === null) return;
@@ -167,15 +224,16 @@ function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack }:
       {refused}. The board reads the game again.
     </BoardNotice>
   ) : dayOver ? (
-    <BoardNotice tone="warning" title="The day is over" className="pointer-events-auto w-full max-w-2xl">
-      This game no longer ranks: surrender to end it, then play today's Puzzle.
+    <BoardNotice tone="warning" title={joust ? "The joust is over" : "The day is over"} className="pointer-events-auto w-full max-w-2xl">
+      {joust ? "This game no longer counts: surrender to end it." : "This game no longer ranks: surrender to end it, then play today's Puzzle."}
     </BoardNotice>
   ) : null;
   return (
     <BoardScene
-      mode="puzzle"
+      mode={joust ? "joust" : "puzzle"}
+      title={joust?.title}
       score={board.score}
-      meter={puzzleMeter(leader?.score ?? null, board.score, mine)}
+      meter={joust ? puzzleMeter(joust.best, board.score, true) : puzzleMeter(leader?.score ?? null, board.score, mine)}
       delta={snapshot.delta}
       remaining={board.remaining}
       discardedPlans={board.discardedPlans}

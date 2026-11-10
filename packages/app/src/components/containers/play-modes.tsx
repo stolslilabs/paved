@@ -1,9 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { GameView } from "@paved/chain";
+import type { GuildEmblem as Emblem } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { Icon } from "../ui/icon";
 import { formatShortRemaining } from "../elements/countdown";
-import { modeIconSources, modeSceneSources, type PlayMode } from "../elements/play-art";
+import { GuildEmblem } from "../elements/guild-emblem";
+import { modeIconSources, modeSceneSources, type IconMode, type PlayMode } from "../elements/play-art";
 import { formatPoints } from "../elements/score";
 import { TokenIcon } from "../elements/token-icon";
 import { uiFrameImageSet } from "../elements/ui-art";
@@ -19,6 +21,22 @@ export interface PuzzleCard {
   /** The player's best of today and its place, 1 first; null: no result today. */
   best: { score: number; place: number } | null;
   /** The player's game of today still open: its score (a tap opens the game). Null: none. */
+  playing: { score: number } | null;
+}
+
+/**
+ * The Joust's card (Play's Limited mode, the weekly allegiance event): the week's phase and its time left, the player's allegiance and
+ * its match.
+ */
+export interface JoustCard {
+  phase: "registration" | "live";
+  /** When the phase ends, in seconds since the epoch: Friday 00:00 UTC (the draw), then Sunday 24:00 (the joust's end). */
+  endsAt: number;
+  /** The player's allegiance: its emblem, and whether it is registered this week. Null: they are in none. */
+  guild: { emblem: Emblem; registered: boolean } | null;
+  /** From Friday, a registered allegiance's match: both totals; `opponent` null on a bye. */
+  match: { total: number; opponent: { name: string; emblem: Emblem; total: number } | null } | null;
+  /** The player's joust game still open: its score (a tap opens the game). Null: none. */
   playing: { score: number } | null;
 }
 
@@ -42,10 +60,14 @@ export interface PlayModesProps {
   puzzleCard?: PuzzleCard | null;
   /** A tap on the Puzzle's card: its view, or the game still open. */
   onPuzzle?: () => void;
+  /** The Joust's card (Limited, over the Puzzle's); null or omitted: the Joust is not on this network, no card. */
+  joustCard?: JoustCard | null;
+  /** A tap on the Joust's card: its view, or the game still open. */
+  onJoust?: () => void;
 }
 
 /** A mode's icon (PLAY-MODES): one object, used nowhere else; decorative, the card's words name the mode. `px` its drawn width. */
-export function ModeIcon({ mode, px, className, style }: { mode: PlayMode; px: number; className?: string; style?: CSSProperties }) {
+export function ModeIcon({ mode, px, className, style }: { mode: IconMode; px: number; className?: string; style?: CSSProperties }) {
   return <img {...modeIconSources(mode, px)} alt="" aria-hidden draggable={false} decoding="async" style={style} className={cn("pointer-events-none h-auto shrink-0", className)} />;
 }
 
@@ -109,6 +131,7 @@ const SHAPES = {
   training: "polygon(14px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 46%, 3px 42%, 0 38%, 0 14px)",
   story: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 26px 100%, 0 calc(100% - 6px), 2px 60%, 0 55%)",
   puzzle: "polygon(8px 0, 40% 0, 42% 4px, 100% 2px, 100% 100%, 16px 100%, 0 calc(100% - 16px), 0 8px)",
+  joust: "polygon(0 12px, 12px 0, 46% 0, 49% 5px, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 6px 100%, 0 calc(100% - 6px))",
 } as const satisfies Record<PlayMode, string>;
 
 /** The scene darkened under the words: from the foot (the cards whose title sits at the bottom), or from the left (the Puzzle's). */
@@ -121,7 +144,7 @@ const SHADE_LEFT: CSSProperties = { backgroundImage: "linear-gradient(90deg, col
  * face is its button (`COVER`, `after:inset-0`); hovered or pressed, the scene takes the state layer, inside the slab's cut. The slab
  * is drawn under the card's words (`-z-*` in the card's own stacking context, `isolate`), the words being in the flow.
  */
-function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = false, slot, className, children }: { mode: PlayMode; sceneAt: string; scenePx: number; shade?: CSSProperties; icon: { px: number; style: CSSProperties }; disabled?: boolean; slot?: string; className?: string; children: ReactNode }) {
+function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = false, slot, className, children }: { mode: PlayMode; sceneAt: string; scenePx: number; shade?: CSSProperties; icon?: { px: number; style: CSSProperties }; disabled?: boolean; slot?: string; className?: string; children: ReactNode }) {
   return (
     <div data-slot={slot ?? "play-card"} data-mode={mode} aria-disabled={disabled || undefined} style={{ "--shape": SHAPES[mode] } as CSSProperties} className={cn("group/card relative isolate flex", disabled && "opacity-60", className)}>
       <span aria-hidden className="pointer-events-none absolute inset-0 -z-20 [filter:drop-shadow(0_2px_0_var(--hud-outline))]">
@@ -133,7 +156,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />
+      {icon && mode !== "joust" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -171,7 +194,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -259,10 +282,11 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
         </ModeCard>
       </section>
 
-      <section aria-labelledby="play-limited" className="pt-2">
+      <section aria-labelledby="play-limited" className={cn("flex flex-col gap-3.5", joustCard ? "pt-4" : "pt-2")}>
         <h3 id="play-limited" className="sr-only">
           Limited
         </h3>
+        {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
         {puzzleCard ? (
           <PuzzleMode card={puzzleCard} now={now} onSelect={onPuzzle} />
         ) : (
@@ -334,6 +358,70 @@ function PuzzleMode({ card, now, onSelect }: { card: PuzzleCard; now: number; on
       >
         <UiIcon name="countdown" px={14} className="size-3.5" />
         <span className="numeric">{puzzleTimeLeft(card.endsAt, now)}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Joust's card (Limited, over the Puzzle's; the design proposal of 2026-11-09): a wide slab on the tournament ground darkened from
+ * the left, the two allegiances' emblems breaking out at its right (the player's alone until the draw). "Joust", then the week's line:
+ * the registration (open, or done: "the draw on Friday"), the match from Friday ("vs Ironvale · 18,290 to 17,940", a bye, or the
+ * allegiance sitting the week out), the player's game's score while one is open (a tap then opens it); "Join an allegiance" without
+ * one. Its tag says "Live" in red while the match is on. Its reward, the Cobbles alone; the phase's time left in the corner's tab.
+ */
+function JoustMode({ card, now, onSelect }: { card: JoustCard; now: number; onSelect?: () => void }) {
+  const live = card.phase === "live" && card.match !== null;
+  const opponent = card.match?.opponent ?? null;
+  const line = card.playing ? (
+    <span className="text-outline flex items-center gap-1 text-base leading-tight font-bold">
+      <UiIcon name="star" px={20} className="size-5" />
+      <span className="numeric">{formatPoints(card.playing.score)}</span>
+      <span className="text-[0.8125rem] font-semibold text-foreground/90">in play</span>
+    </span>
+  ) : (
+    <span className={LINE}>
+      {!card.guild ? (
+        "Join an allegiance to joust"
+      ) : card.phase === "registration" ? (
+        card.guild.registered ? (
+          "Registered · the draw on Friday"
+        ) : (
+          "Registration is open"
+        )
+      ) : !card.match ? (
+        "Your allegiance sits this one out"
+      ) : opponent ? (
+        <>
+          vs {opponent.name} · <span className="numeric">{formatPoints(card.match.total)}</span> to <span className="numeric">{formatPoints(opponent.total)}</span>
+        </>
+      ) : (
+        "A bye this week"
+      )}
+    </span>
+  );
+  const left = puzzleTimeLeft(card.endsAt, now);
+  return (
+    <ModeCard mode="joust" slot="joust-card" sceneAt="60% 55%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+      <Chip className={cn("absolute top-2.5 left-3", live && "bg-destructive text-destructive-foreground")}>{live ? "Limited · Live" : "Limited"}</Chip>
+      {card.guild && (
+        <span aria-hidden className="pointer-events-none absolute -top-4 right-3.5 z-10 flex items-start [filter:drop-shadow(0_3px_0_var(--hud-outline))]">
+          <GuildEmblem emblem={card.guild.emblem} size="md" className="-rotate-6" />
+          {opponent && <GuildEmblem emblem={opponent.emblem} size="md" className="-ml-1.5 rotate-6" />}
+        </span>
+      )}
+      <button type="button" onClick={onSelect} aria-label={card.playing ? `Joust: resume your game, ${formatPoints(card.playing.score)} points` : "Joust"} className={cn(COVER, "flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Joust</span>
+        {line}
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span
+        role="timer"
+        aria-label={card.phase === "live" ? `${left} left in the joust` : `${left} until the draw`}
+        className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
+      >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
       </span>
     </ModeCard>
   );

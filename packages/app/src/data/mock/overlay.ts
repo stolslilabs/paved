@@ -1,6 +1,7 @@
 import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter, RenameRequest } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
+import type { JoustSource } from "../joust-source";
 import type { PuzzleSource } from "../puzzle-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -135,6 +136,23 @@ export function mockPuzzle(ledger: MockLedger): PuzzleSource {
     start: (player) => ledger.puzzleStart(player),
     play: (player, gameId, move) => ledger.puzzlePlay(player, gameId, move),
     claim: (player, days) => ledger.puzzleClaim(player, days),
+  };
+}
+
+/**
+ * The Joust's source of the ledger (the weekly allegiance event, `joust.ts`): the week, the match, the ratings, the accounts' games
+ * by game-core's rules and their Cobbles. No chain part lies beneath: the Joust runs on the client alone.
+ */
+export function mockJoust(ledger: MockLedger): JoustSource {
+  return {
+    state: (viewer) => ledger.joustState(viewer),
+    ranking: (viewer) => ledger.joustRanking(viewer),
+    game: (gameId) => ledger.joustGame(gameId),
+    result: (gameId) => ledger.joustResult(gameId),
+    register: (player) => ledger.joustRegister(player),
+    start: (player) => ledger.joustStart(player),
+    play: (player, gameId, move) => ledger.joustPlay(player, gameId, move),
+    claim: (player, week) => ledger.joustClaim(player, week),
   };
 }
 

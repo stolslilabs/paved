@@ -108,7 +108,16 @@ export interface EngineConfig {
    * with the contracts before the Puzzle).
    */
   readonly deckSeed?: bigint;
+  /**
+   * The structure a Joust doubles (`joust.ts`, the weekly allegiance event): `roads`, a closed road scores as a city of its size (the
+   * city's base points); `cities`, a closed city scores double. Wonders and forests score as in every game. Left out: none, the
+   * contracts' scores.
+   */
+  readonly boost?: ScoreBoost;
 }
+
+/** The structure a game doubles (`EngineConfig.boost`). */
+export type ScoreBoost = "roads" | "cities";
 
 /** A tile of the hand or of the queue; `plan` is `null` while it is not drawn yet. */
 export interface QueuedTile {
@@ -274,9 +283,12 @@ export class EngineGame {
   /** The owned cells (`territory`) by key, in order; `null`: no mask. */
   private _territory: Map<string, Cell> | null = null;
   private maxCells = VILLAGE_MAX_CELLS_LIMIT;
+  /** The structure the game doubles (`EngineConfig.boost`); null: none. */
+  readonly boost: ScoreBoost | null;
 
   private constructor(config: EngineConfig) {
     this.deck = config.deck;
+    this.boost = config.boost ?? null;
     this.rules = DECKS[config.deck];
     if (!this.rules) throw new EngineError("Game: invalid mode");
     this.player = config.player ?? 1n;
@@ -1002,7 +1014,9 @@ export class EngineGame {
         scored.push(this.award(CATEGORY_FOREST, record.size, points, record.tiles, root, tile.id));
         this.counters.forests += 1;
       } else {
-        const points = formula(record.size, basePoints(category), record.size);
+        // A Joust's boost: a road on the city's base, a city doubled (the city's base is twice the road's, so each is a doubling).
+        const base = this.boost === "roads" && category === CATEGORY_ROAD ? CITY_BASE_POINTS : basePoints(category);
+        const points = formula(record.size, base, record.size) * (this.boost === "cities" && category === CATEGORY_CITY ? 2 : 1);
         scored.push(this.award(category, record.size, points, record.tiles, root, tile.id));
         this.counters.structures += 1;
         if (record.size >= BIG_SIZE) this.counters.big += 1;

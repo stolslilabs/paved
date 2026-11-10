@@ -120,6 +120,7 @@ export {
 } from "./engine";
 export type {
   EngineConfig,
+  ScoreBoost,
   EngineDeck,
   Placement as EnginePlacement,
   Scored as EngineScored,
@@ -147,6 +148,32 @@ export * from "./sessions";
 // The Puzzle (Play's Limited mode): the day, its deck, its prize and its ranking
 export { PUZZLE_DAY_S, PUZZLE_PRIZE_COBBLES, PUZZLE_TILES, comparePuzzle, puzzleDayEnd, puzzleDayOf, puzzleDeck, puzzlePlaceAmong, rankPuzzle } from "./puzzle";
 export type { PuzzleResult } from "./puzzle";
+// The Joust (the weekly allegiance event): the calendar, the score, the rating, the pairing and the rewards
+export {
+  JOUST_BAND,
+  JOUST_GAMES,
+  JOUST_K,
+  JOUST_LOSS_COBBLES,
+  JOUST_REGISTRATION_S,
+  JOUST_START_RATING,
+  JOUST_TILES,
+  JOUST_TOP,
+  JOUST_WEEK_S,
+  JOUST_WIN_COBBLES,
+  joustBandOf,
+  joustBoostOf,
+  joustEndsAt,
+  joustExpected,
+  joustOpensAt,
+  joustOutcome,
+  joustPairs,
+  joustPhaseOf,
+  joustRatingChange,
+  joustScore,
+  joustWeekOf,
+  joustWeekStart,
+} from "./joust";
+export type { JoustOutcome, JoustPhase, JoustScore } from "./joust";
 
 // Story mode (#546): campaigns, levels, runs and the device progress
 export * from "./story";

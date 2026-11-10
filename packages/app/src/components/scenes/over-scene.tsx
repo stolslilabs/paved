@@ -29,6 +29,8 @@ import type { RewardCurve } from "../containers/reward-estimate";
 import { GameHud } from "../containers/game-hud";
 import { END_STARS, EndVerdict, ShowScores } from "../containers/game-end";
 import { PuzzleEnd, type PuzzleEndResult } from "../containers/puzzle-end";
+import { JoustEnd } from "../containers/joust-end";
+import type { JoustGameResult, JoustGuild } from "../../data/joust-source";
 import { TrainingEnd } from "../containers/training-end";
 
 // The final board (#539) is its own chunk, with the renderer: loaded when the end screen opens (#720), the scores' background.
@@ -76,8 +78,17 @@ export interface OverPuzzle {
   onLeaderboard?: () => void;
 }
 
+/** A Joust game's end (the weekly allegiance event): its effect on the player's best and their allegiance's total. */
+export interface OverJoust {
+  result: JoustGameResult | null;
+  guild: JoustGuild | null;
+  onJoust?: () => void;
+}
+
 export interface OverSceneProps {
-  mode: "challenge" | "training" | "puzzle";
+  mode: "challenge" | "training" | "puzzle" | "joust";
+  /** A Joust game's end (`mode: "joust"`). */
+  joust?: OverJoust;
   /** A Puzzle game's end (`mode: "puzzle"`). */
   puzzle?: OverPuzzle;
   game: GameView;
@@ -160,7 +171,7 @@ const TRAINING_BOARD_AFTER_MS = (END_STARS.lead + 0.9) * 1000;
 export function OverScene(props: OverSceneProps) {
   const { board, onViewChange, loadBoard = loadFinalBoard } = props;
   // Training's and the Puzzle's ends are the book's window over the board (TRAINING-END); a Challenge's, the overlay.
-  const training = props.mode === "training" || props.mode === "puzzle";
+  const training = props.mode !== "challenge";
   const play = useSfx();
   const [inner, setInner] = useState<OverView>("scores");
   const view = board ? (props.view ?? inner) : "scores";
@@ -229,7 +240,7 @@ export function OverScene(props: OverSceneProps) {
       <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
         {boardLayer}
         {/* The page's name for a reader: the book's window draws no title bar. */}
-        <h1 className="sr-only">{props.mode === "puzzle" ? "Puzzle over" : "Training over"}</h1>
+        <h1 className="sr-only">{props.mode === "puzzle" ? "Puzzle over" : props.mode === "joust" ? "Joust game over" : "Training over"}</h1>
         {onBoard ? (
           <ShowScores onClick={() => setView("scores")} />
         ) : (
@@ -242,7 +253,20 @@ export function OverScene(props: OverSceneProps) {
                 data-testid="scores-overlay"
                 className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center overflow-x-clip px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]"
               >
-                {props.mode === "puzzle" ? (
+                {props.mode === "joust" ? (
+                  <JoustEnd
+                    score={game.score}
+                    result={props.joust?.result ?? null}
+                    guild={props.joust?.guild ?? null}
+                    stats={stats}
+                    closings={props.closings}
+                    closingsNote={props.closingsNote}
+                    instant={back}
+                    onClose={board ? () => setView("board") : undefined}
+                    onJoust={props.joust?.onJoust}
+                    onPlayAgain={props.onPlayAgain}
+                  />
+                ) : props.mode === "puzzle" ? (
                   <PuzzleEnd
                     score={game.score}
                     result={props.puzzle?.result ?? null}

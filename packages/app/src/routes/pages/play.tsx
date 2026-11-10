@@ -3,7 +3,9 @@ import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
-import type { PuzzleCard } from "../../components/containers/play-modes";
+import type { JoustCard, PuzzleCard } from "../../components/containers/play-modes";
+import { useSearchParams } from "react-router";
+import { useJoustAvailable, useJoustState } from "../../data/joust";
 import { usePuzzleActiveGame, usePuzzleAvailable, usePuzzleStanding } from "../../data/puzzle";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
@@ -22,6 +24,11 @@ const StoryCampaigns = lazy(loadStory);
 /** The Puzzle (`/play/puzzle`, Play's Limited mode): its leaderboard and its deck, a chunk of their own, fetched as Play is pointed at. */
 const loadPuzzle = () => import("./puzzle");
 const PuzzleView = lazy(loadPuzzle);
+/** The Joust (`/play/joust`, Play's Limited mode): its week, its match and its ranking, a chunk of their own, fetched as Play is pointed at. */
+const loadJoust = () => import("./joust");
+const JoustView = lazy(loadJoust);
+/** The header's title of the Joust's views (`?view=`). */
+const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ranking" };
 
 /**
  * `/play`, `/play/challenge` and `/story` (PLAY-PAGE, the Paved UX Book's "modes" and "challenge", then the owner's asks of 2026-11-06;
@@ -55,6 +62,23 @@ export default function Page() {
   const standing = usePuzzleStanding(puzzleOn ? today : null, me);
   const puzzleGame = usePuzzleActiveGame(puzzleOn ? me : null).data ?? null;
   const puzzle: PuzzleCard | null = puzzleOn ? { endsAt: puzzleDayEnd(today), best: standing.data?.me ?? null, playing: puzzleGame ? { score: puzzleGame.score } : null } : null;
+  // The Joust's card (Limited): the week's phase, the player's allegiance and its match, their game still open; none without a Joust.
+  const joustOn = useJoustAvailable();
+  const joustState = useJoustState(me, joustOn).data ?? null;
+  const joustLive = joustState?.phase === "live";
+  const joustCard: JoustCard | null = joustState
+    ? {
+        phase: joustState.phase,
+        endsAt: joustLive ? joustState.endsAt : joustState.opensAt,
+        guild: joustState.guild && { emblem: joustState.guild.emblem, registered: joustState.registered },
+        match: joustState.match && { total: joustState.match.own.total, opponent: joustState.match.opponent && { name: joustState.match.opponent.guild.name, emblem: joustState.match.opponent.guild.emblem, total: joustState.match.opponent.total } },
+        playing: joustState.me?.open ? { score: joustState.me.open.score } : null,
+      }
+    : null;
+  const joustGame = joustState?.me?.open ?? null;
+  const [params] = useSearchParams();
+  const joustView = path === "play/joust" ? params.get("view") : null;
+  const onJoustTop = useUpTo("/play/joust");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
@@ -62,6 +86,7 @@ export default function Page() {
     void loadStake().catch(() => {});
     void loadStory().catch(() => {});
     void loadPuzzle().catch(() => {});
+    if (joustOn) void loadJoust().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -94,6 +119,17 @@ export default function Page() {
             </Suspense>
           ) : null
         }
+        joust={
+          path === "play/joust" ? (
+            <Suspense fallback={null}>
+              <JoustView />
+            </Suspense>
+          ) : null
+        }
+        joustTitle={joustView ? JOUST_TITLES[joustView] : undefined}
+        onJoustBack={joustView && JOUST_TITLES[joustView] ? onJoustTop : onViewBack}
+        joustCard={joustCard}
+        onJoust={() => go(joustGame ? `/joust/${joustGame.id}` : "/play/joust")}
         onBack={onBack}
         onChallengeBack={onViewBack}
         onStoryBack={onViewBack}
