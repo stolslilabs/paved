@@ -56,9 +56,9 @@ function sameAddress(a: string, b: string): boolean {
   }
 }
 
-/** The sides' colours: the viewer's allegiance in blue, its opponent in red, in words and in bars (never the colour alone: each is named). */
+/** The sides' colours: the viewer's allegiance in blue, its opponent in red (`--joust-rival`, a side's colour, never the errors'), in words and in bars (never the colour alone: each is named). */
 const OWN = "text-info";
-const THEIRS = "text-destructive-text";
+const THEIRS = "text-joust-rival";
 
 const BOOST: Record<ScoreBoost, { title: string; line: string; cap: string }> = {
   roads: { title: "A roads joust: roads score ×2", line: "A road scores as a city of its size. The next joust doubles cities.", cap: "Roads" },
@@ -79,7 +79,7 @@ function Figure({ value, word, tone, name = false }: { value: ReactNode; word: s
 function SplitBar({ own, label }: { own: number; label: string }) {
   const pct = Math.round(Math.min(1, Math.max(0, own)) * 100);
   return (
-    <div role="img" aria-label={label} className="flex h-2.5 overflow-hidden rounded-full bg-destructive">
+    <div role="img" aria-label={label} className="flex h-2.5 overflow-hidden rounded-full bg-joust-rival-fill">
       <span className="bg-info" style={{ width: `${pct}%` }} />
     </div>
   );
@@ -87,7 +87,7 @@ function SplitBar({ own, label }: { own: number; label: string }) {
 
 /** The week's phase on a tag: the registration's in blue, the live joust's in red. */
 function PhaseTag({ live, children }: { live: boolean; children: ReactNode }) {
-  return <span className={cn("w-fit rounded-md px-2 py-0.5 text-xs leading-4 font-extrabold tracking-widest uppercase", live ? "bg-destructive text-destructive-foreground" : "bg-info text-background")}>{children}</span>;
+  return <span className={cn("w-fit rounded-md px-2 py-0.5 text-xs leading-4 font-extrabold tracking-widest uppercase", live ? "bg-joust-rival-fill text-foreground" : "bg-info text-background")}>{children}</span>;
 }
 
 /** The viewer's allegiance: its emblem, its name, its rating and band, the members who may joust. */

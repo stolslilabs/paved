@@ -324,6 +324,9 @@
   --dock-ink: #5b3415;
   /* The dock's badges (HOME-DOCK): the mockup's red squares, a count waiting, not an error (`--destructive` is the errors'). */
   --dock-badge: var(--color-ember-600);
+  /* The Joust's rival side (JOUST): its name and total on a card, and its fill (a bar, the Live tag); a side's colour, not an error. */
+  --joust-rival: var(--color-ember-300);
+  --joust-rival-fill: var(--color-ember-600);
   --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
   --league-iron: var(--color-amber-500);
   --league-bronze: var(--color-charcoal-300);
@@ -474,6 +477,8 @@
   --color-destructive-text: var(--destructive-text);
   --color-success: var(--success);
   --color-info: var(--info);
+  --color-joust-rival: var(--joust-rival);
+  --color-joust-rival-fill: var(--joust-rival-fill);
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);

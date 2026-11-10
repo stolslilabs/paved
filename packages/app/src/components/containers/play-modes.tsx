@@ -403,7 +403,7 @@ function JoustMode({ card, now, onSelect }: { card: JoustCard; now: number; onSe
   const left = puzzleTimeLeft(card.endsAt, now);
   return (
     <ModeCard mode="joust" slot="joust-card" sceneAt="60% 55%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
-      <Chip className={cn("absolute top-2.5 left-3", live && "bg-destructive text-destructive-foreground")}>{live ? "Limited · Live" : "Limited"}</Chip>
+      <Chip className={cn("absolute top-2.5 left-3", live && "bg-joust-rival-fill text-foreground")}>{live ? "Limited · Live" : "Limited"}</Chip>
       {card.guild && (
         <span aria-hidden className="pointer-events-none absolute -top-4 right-3.5 z-10 flex items-start [filter:drop-shadow(0_3px_0_var(--hud-outline))]">
           <GuildEmblem emblem={card.guild.emblem} size="md" className="-rotate-6" />
