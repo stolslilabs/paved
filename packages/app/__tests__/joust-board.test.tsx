@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { joustOpensAt, joustWeekOf, joustWeekStart } from "@paved/game-core";
 import { App } from "../src/App";
@@ -26,8 +26,13 @@ beforeEach(() => {
   resetWelcomedForTests();
   markWelcomed();
 });
-afterEach(() => {
+afterEach(async () => {
   vi.useRealTimers();
+  // The app is unmounted and its reads are stopped before the cache is cleared: a page still mounted over a cleared cache reads again
+  // from its own test's ledger, and the next test's page, on the same key, would join that read and show its answer (the failure of
+  // "registers the Leader's allegiance": the test before it left a ledger with no allegiance).
+  cleanup();
+  await queryClient.cancelQueries();
   queryClient.clear();
   localStorage.clear();
   resetWelcomedForTests();

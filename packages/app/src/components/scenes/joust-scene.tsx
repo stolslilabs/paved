@@ -69,7 +69,10 @@ const BOOST: Record<ScoreBoost, { title: string; line: string; cap: string }> = 
 function Figure({ value, word, tone, name = false }: { value: ReactNode; word: string; tone?: string; /** A name, not a number: the body's face. */ name?: boolean }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-1">
-      <span className={cn("text-outline max-w-full truncate text-lg leading-tight font-bold", !name && "numeric", tone)}>{value}</span>
+      {/* A name is cut with an ellipsis, its whole text in its title (WRAP360); a figure is never cut. */}
+      <span title={name && typeof value === "string" ? value : undefined} className={cn("text-outline text-lg leading-tight font-bold", name ? "max-w-full truncate" : "numeric", tone)}>
+        {value}
+      </span>
       <span className="text-center text-xs font-semibold text-muted-foreground">{word}</span>
     </div>
   );
@@ -97,7 +100,9 @@ function GuildCard({ guild }: { guild: NonNullable<JoustState["guild"]> }) {
     <div data-slot="joust-guild" className="drawer-carved flex items-center gap-3 rounded-2xl px-3.5 py-2.5">
       <GuildEmblem emblem={guild.emblem} size="md" />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-outline truncate text-base leading-tight font-bold">{guild.name}</span>
+        <span title={guild.name} className="text-outline truncate text-base leading-tight font-bold">
+          {guild.name}
+        </span>
         <span className="text-[0.8125rem] font-semibold text-muted-foreground">
           Rating <span className="numeric">{formatInteger(guild.rating)}</span> · band <span className="numeric">{formatInteger(band)}</span> to <span className="numeric">{formatInteger(band + JOUST_BAND - 1)}</span>
         </span>
@@ -156,7 +161,9 @@ function SideHead({ side, tone, end = false }: { side: { guild: JoustGuild; tota
     <div className={cn("flex min-w-0 flex-1 flex-col gap-1", end && "items-end text-right")}>
       <span className={cn("flex min-w-0 items-center gap-2", end && "flex-row-reverse")}>
         <GuildEmblem emblem={side.guild.emblem} size="sm" />
-        <span className="text-outline truncate text-sm font-bold">{side.guild.name}</span>
+        <span title={side.guild.name} className="text-outline truncate text-sm font-bold">
+          {side.guild.name}
+        </span>
       </span>
       <span className={cn("numeric text-outline text-3xl leading-none font-bold", tone)}>{formatInteger(side.total)}</span>
     </div>
@@ -302,7 +309,9 @@ function TopList({ side, tone, me, onOpenPlayer }: { side: JoustSide; tone: stri
                 <button type="button" onClick={() => onOpenPlayer?.(j.profile.address)} data-own={own || undefined} className={cn("state-layer flex min-h-11 w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left", own && "bg-info/15")}>
                   <span className="numeric w-5 shrink-0 text-xs font-bold text-muted-foreground">{i + 1}</span>
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="truncate text-sm leading-none font-semibold">{j.profile.name ?? "Jouster"}</span>
+                    <span title={j.profile.name ?? undefined} className="truncate text-sm leading-none font-semibold">
+                      {j.profile.name ?? "Jouster"}
+                    </span>
                     <Dots played={j.played} />
                   </span>
                   <span className="numeric text-outline text-sm font-bold">{formatInteger(j.best)}</span>
@@ -343,7 +352,9 @@ function RankingList({ ranking }: { ranking: JoustRanking | null }) {
                 <span className="numeric w-6 shrink-0 text-sm font-bold text-muted-foreground">{e.place}</span>
                 <GuildEmblem emblem={e.guild.emblem} size="sm" />
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-bold">{e.guild.name}</span>
+                  <span title={e.guild.name} className="truncate text-sm font-bold">
+                    {e.guild.name}
+                  </span>
                   {own && <span className={cn("text-xs font-semibold", OWN)}>your allegiance</span>}
                 </span>
                 <span className="flex shrink-0 flex-col items-end">
