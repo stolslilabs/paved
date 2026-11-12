@@ -30,6 +30,7 @@ const TABLE: Record<string, readonly string[]> = {
   "play/challenge": ["usdc"],
   // The Puzzle's view: the Cobbles its first place wins.
   "play/puzzle": ["cobbles"],
+  "play/joust": ["cobbles"],
   // SHOP-PAGE: the packs are the Shop's Cobbles tab, paid in USDC; the scene shows the tab's own set.
   "village/shop": ["cobbles", "usdc"],
   missions: ["cobbles"],
@@ -63,6 +64,8 @@ const TABLE: Record<string, readonly string[]> = {
   "pvp/match/:id": [],
   "puzzle/:gameId": [],
   "puzzle/:gameId/over": [],
+  "joust/:gameId": [],
+  "joust/:gameId/over": [],
 };
 
 const concrete = (path: string) => "/" + path.replace(/\/?:\w+\?/, "").replace(/:theme/g, "forest").replace(/:player/g, "0x1").replace(/:(\w+)/g, "1");

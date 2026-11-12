@@ -3,10 +3,12 @@ import { fn } from "storybook/test";
 import { CAMPAIGNS } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
 import { PLAY, PURCHASE } from "../../mocks/scenes";
+import { JOUST, JOUST_CARD } from "../../mocks/joust";
 import { PUZZLE, PUZZLE_CARD } from "../../mocks/puzzle";
 import { STORY } from "../../mocks/story";
 import { PlayScene } from "./play-scene";
 import { PurchaseScene } from "./purchase-scene";
+import { JoustScene } from "./joust-scene";
 import { PuzzleScene } from "./puzzle-scene";
 import { StoryScene } from "./story-scene";
 
@@ -19,7 +21,7 @@ import { StoryScene } from "./story-scene";
 const meta = {
   title: "Scenes/Play",
   component: PlayScene,
-  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn() },
+  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onJoust: fn(), onJoustBack: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -85,3 +87,49 @@ export const PuzzleLoading: Story = puzzle("loading");
 export const PuzzleFailed: Story = puzzle("failed");
 /** WRAP360: the longest name and address, the largest figures. */
 export const PuzzleStress: Story = puzzle("stress");
+
+/** The Joust's card (Limited, over the Puzzle's): the registration open, the player's allegiance's emblem breaking out of its edge. */
+export const JoustOpen: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...JOUST_CARD.open } };
+/** Registered: the draw on Friday. */
+export const JoustRegistered: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...JOUST_CARD.registered } };
+/** The live match: "Live" in red, both emblems, both totals, the joust's time left. */
+export const JoustLive: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...JOUST_CARD.live } };
+/** A joust game still open: its score, a tap resumes it. */
+export const JoustPlaying: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...JOUST_CARD.playing } };
+export const JoustBye: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...JOUST_CARD.bye } };
+/** The allegiance was not registered: it sits the week out. */
+export const JoustSatOut: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...JOUST_CARD.satOut } };
+/** No allegiance: the card says to join one. */
+export const JoustGuildless: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...JOUST_CARD.guildless } };
+
+/** The Joust's view in the drawer: a view of its own in the modes' place, "Joust" and the Cobbles on the header. */
+const joust = (state: keyof typeof JOUST, joustTitle?: string): Story => ({
+  args: { ...PLAY.connected, joustTitle, joust: <JoustScene onRegister={fn()} onPlay={fn()} onClaim={fn()} onTop={fn()} onRanking={fn()} onDeck={fn()} onAllegiance={fn()} onOpenPlayer={fn()} onRetry={fn()} {...JOUST[state]} /> },
+});
+/** Monday to Thursday, an Officer's: how the weekend goes, the boost, Register. */
+export const JoustViewOfficer: Story = joust("officer");
+export const JoustViewRegistering: Story = joust("registering");
+/** A member's: an Officer or the Leader registers. */
+export const JoustViewMember: Story = joust("member");
+export const JoustViewRegistered: Story = joust("registered");
+/** Monday: last week's victory, the rating's move, Claim. */
+export const JoustViewResult: Story = joust("result");
+/** A defeat, its Cobbles claimed. */
+export const JoustViewDefeat: Story = joust("defeat");
+export const JoustViewGuildless: Story = joust("guildless");
+/** Friday to Sunday: both totals, the expected result, the viewer's games, the deck, what a better game would change. */
+export const JoustViewLive: Story = joust("live");
+/** A game still open: Resume. */
+export const JoustViewPlaying: Story = joust("playing");
+export const JoustViewNoGameLeft: Story = joust("noGameLeft");
+/** Joined after Friday 00:00: no game this weekend. */
+export const JoustViewNewcomer: Story = joust("newcomer");
+export const JoustViewBye: Story = joust("bye");
+export const JoustViewSatOut: Story = joust("satOut");
+/** Both top 10 side by side, the viewer's row lit. */
+export const JoustViewTop: Story = joust("top", "Both top 10");
+/** The allegiances by rating. */
+export const JoustViewRanking: Story = joust("ranking", "Ranking");
+export const JoustViewRankingLoading: Story = joust("rankingLoading", "Ranking");
+export const JoustViewLoading: Story = joust("loading");
+export const JoustViewFailed: Story = joust("failed");

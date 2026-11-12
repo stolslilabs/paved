@@ -14,7 +14,7 @@ export {
   BIG_SIZE,
   PREPLACED_ID,
 } from "./game";
-export type { EngineConfig, QueuedTile, Placement, Scored, MoveResult, PlacedTile, Counters, ClosedStructure, ClosedAreas, OpenStructure } from "./game";
+export type { EngineConfig, ScoreBoost, QueuedTile, Placement, Scored, MoveResult, PlacedTile, Counters, ClosedStructure, ClosedAreas, OpenStructure } from "./game";
 export { ALL_AREAS } from "./structures";
 export type { TileAreas } from "./structures";
 export { gameStats, SCORING_CATEGORIES } from "./stats";

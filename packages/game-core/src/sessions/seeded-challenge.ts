@@ -1,4 +1,4 @@
-import { CENTER, EngineGame } from "../engine";
+import { CENTER, EngineGame, type ScoreBoost } from "../engine";
 import { poseidon } from "../engine/draw";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
@@ -68,20 +68,21 @@ export class SeededChallenge {
 
   /**
    * `deckSeed`: the seed the deck's cards are withdrawn from (a Puzzle game's day seed, `EngineConfig.deckSeed`); left out, `seed`'s,
-   * as a Challenge game's.
+   * as a Challenge game's. `boost`: the structure a Joust game doubles (`EngineConfig.boost`); left out, none.
    */
   constructor(
     readonly seed: bigint,
     readonly player: bigint,
     readonly deckSeed?: bigint,
+    readonly boost?: ScoreBoost,
   ) {
-    this.engine = EngineGame.start({ deck: "simple", seed, player, vrf: true, ...(deckSeed === undefined ? {} : { deckSeed }) });
+    this.engine = EngineGame.start({ deck: "simple", seed, player, vrf: true, ...(deckSeed === undefined ? {} : { deckSeed }), ...(boost ? { boost } : {}) });
     this.drawPending();
   }
 
   /** The game of `seed` (its deck from `deckSeed` when given) with `moves` played again, in order. Throws when a move is not legal. */
-  static replay(seed: bigint, player: bigint, moves: readonly SeededMove[], deckSeed?: bigint): SeededChallenge {
-    const game = new SeededChallenge(seed, player, deckSeed);
+  static replay(seed: bigint, player: bigint, moves: readonly SeededMove[], deckSeed?: bigint, boost?: ScoreBoost): SeededChallenge {
+    const game = new SeededChallenge(seed, player, deckSeed, boost);
     for (const move of moves) game.play(move);
     return game;
   }

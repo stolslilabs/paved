@@ -65,6 +65,10 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "play/puzzle": play,
   "puzzle/:gameId": board,
   "puzzle/:gameId/over": over,
+  // The Joust, as the Puzzle: its view is Play's, a game the board's chunk, its end the game-over pages'.
+  "play/joust": play,
+  "joust/:gameId": board,
+  "joust/:gameId/over": over,
   // A Story level is its own chunk (#546), with the board's manifest asked for as the board's.
   "story/:campaign/:level": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});

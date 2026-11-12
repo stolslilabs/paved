@@ -11,10 +11,11 @@ import {
   type PageState,
   type PlaceMove,
   type PlanType,
+  type ScoreBoost,
   type SeededMove,
 } from "@paved/game-core";
 import { addressKey } from "./keys";
-import { puzzleKeys, usePuzzleGameRecord } from "./puzzle";
+import { puzzleKeys, usePuzzleGameRecord, type PuzzleRead } from "./puzzle";
 import type { PuzzleGameRecord } from "./puzzle-source";
 import { useDataSources } from "./sources";
 import type { Closing } from "./training";
@@ -45,9 +46,12 @@ function toPlacement(move: PlaceMove) {
   return { orientation, x: move.x - CENTER, y: move.y - CENTER };
 }
 
+/** A game the board plays as a Puzzle's: a Puzzle game, or a Joust game, whose record names the structure it doubles (`boost`). */
+export type SeededRecord = PuzzleGameRecord & { boost?: ScoreBoost };
+
 /** The game's engine from its record, its moves played again, and its closings with the tile that closed each. */
-export function replayPuzzle(record: PuzzleGameRecord): { engine: SeededChallenge; closings: Closing[] } {
-  const engine = new SeededChallenge(BigInt(record.seed), BigInt(record.player), BigInt(record.deckSeed));
+export function replayPuzzle(record: SeededRecord): { engine: SeededChallenge; closings: Closing[] } {
+  const engine = new SeededChallenge(BigInt(record.seed), BigInt(record.player), BigInt(record.deckSeed), record.boost);
   const closings: Closing[] = [];
   for (const move of record.moves) {
     const outcome = engine.play(move);
@@ -64,7 +68,7 @@ export class PuzzleGame {
   readonly deck: PlanType[];
 
   private constructor(
-    readonly record: PuzzleGameRecord,
+    readonly record: SeededRecord,
     private readonly engine: SeededChallenge,
     closings: Closing[],
     private readonly send: ((move: SeededMove) => Promise<void>) | null,
@@ -77,7 +81,7 @@ export class PuzzleGame {
    * The game of `record`, its moves played again; `send` takes each new move to the source. Without `send` (another player's game)
    * the game is only shown: it takes no move.
    */
-  static open(record: PuzzleGameRecord, send: ((move: SeededMove) => Promise<void>) | null): PuzzleGame {
+  static open(record: SeededRecord, send: ((move: SeededMove) => Promise<void>) | null): PuzzleGame {
     const { engine, closings } = replayPuzzle(record);
     return new PuzzleGame(record, engine, closings, send);
   }
@@ -196,8 +200,22 @@ export class PuzzleGame {
  */
 export function usePuzzleSession(gameId: number, viewer: string | null) {
   const { puzzle } = useDataSources();
+  return useSeededSession(gameId, viewer, usePuzzleGameRecord(gameId), puzzle ?? null, puzzleKeys);
+}
+
+/**
+ * The session of a game played as a Puzzle's (`usePuzzleSession`, the Joust's `useJoustSession`): its record's read, the source that
+ * takes its moves (`play`), and its keys (a constant of its module): the game's own read, refreshed before a reload, and its
+ * domain's, refreshed at its end.
+ */
+export function useSeededSession(
+  gameId: number,
+  viewer: string | null,
+  record: PuzzleRead<SeededRecord>,
+  puzzle: { play(player: string, gameId: number, move: SeededMove): Promise<void> } | null,
+  keys: { game: (gameId: number) => readonly unknown[]; all: readonly unknown[] },
+) {
   const client = useQueryClient();
-  const record = usePuzzleGameRecord(gameId);
   const [game, setGame] = useState<PuzzleGame | null>(null);
   const [opened, setOpened] = useState(0);
   // The game from the first record read (and from the next after a reload or a switch of account): a refetch of the record never
@@ -220,14 +238,14 @@ export function usePuzzleSession(gameId: number, viewer: string | null) {
     let live = true;
     void game
       .idle()
-      .then(() => client.invalidateQueries({ queryKey: puzzleKeys.game(gameId) }))
+      .then(() => client.invalidateQueries({ queryKey: keys.game(gameId) }))
       .then(() => {
         if (live) setOpened((n) => n + 1);
       });
     return () => {
       live = false;
     };
-  }, [switching, game, client, gameId]);
+  }, [switching, game, client, keys, gameId]);
   const current = switching ? null : game;
 
   const subscribe = useCallback((listener: () => void) => (current ? current.subscribe(listener) : () => {}), [current]);
@@ -236,12 +254,12 @@ export function usePuzzleSession(gameId: number, viewer: string | null) {
   const settled = snapshot !== null && snapshot.sending === 0;
   const over = snapshot?.state.game?.over ?? false;
   useEffect(() => {
-    if (settled && over) void client.invalidateQueries({ queryKey: puzzleKeys.all });
-  }, [settled, over, client]);
+    if (settled && over) void client.invalidateQueries({ queryKey: keys.all });
+  }, [settled, over, client, keys]);
 
   const reload = useCallback(() => {
-    void client.invalidateQueries({ queryKey: puzzleKeys.game(gameId) }).then(() => setOpened((n) => n + 1));
-  }, [client, gameId]);
+    void client.invalidateQueries({ queryKey: keys.game(gameId) }).then(() => setOpened((n) => n + 1));
+  }, [client, keys, gameId]);
 
   const deck = useMemo(() => current?.deck ?? null, [current]);
   return { game: current, snapshot, record, settled, reload, deck };

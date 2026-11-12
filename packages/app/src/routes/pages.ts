@@ -83,6 +83,11 @@ export const PAGES: readonly PageDef[] = [
   { path: "play/puzzle", title: "Puzzle", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "puzzle/:gameId", title: "Puzzle", nav: null },
   { path: "puzzle/:gameId/over", title: "Game over", nav: null },
+  // The Joust (Play's Limited mode, the weekly allegiance event): a view of Play's drawer, as the Puzzle's (one loader), its Back up to
+  // the modes; its top 10 and its ranking are views of it (`?view=`). A game is a full-screen flow, its end too.
+  { path: "play/joust", title: "Joust", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "joust/:gameId", title: "Joust", nav: null },
+  { path: "joust/:gameId/over", title: "Game over", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`

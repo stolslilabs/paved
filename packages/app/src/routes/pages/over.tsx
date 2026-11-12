@@ -19,6 +19,8 @@ import { addressKey } from "../../data/keys";
 import { usePuzzleGameRecord, usePuzzleResult, usePuzzleStanding } from "../../data/puzzle";
 import { replayPuzzle } from "../../data/puzzle-game";
 import { usePlayPuzzle, usePuzzleViewer } from "../puzzle-play";
+import { useJoustGameRecord, useJoustResult, useJoustState } from "../../data/joust";
+import { usePlayJoust } from "../joust-play";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
@@ -37,7 +39,80 @@ export default function Page() {
   if (page?.path === "training/over") return <TrainingOver />;
   if (page?.path === "game/:gameId/over") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId/over") return <PuzzleRoute />;
+  if (page?.path === "joust/:gameId/over") return <JoustRoute />;
   return <Placeholder />;
+}
+
+/** `/joust/:gameId/over`: a game id is digits; anything else is not a game. */
+function JoustRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <JoustOver key={gameId} gameId={Number(gameId)} /> : <NotFound />;
+}
+
+/**
+ * The end of a Joust game (the weekly allegiance event), as a Puzzle game's: the game read from the source and played again on the
+ * engine with its boost, its effect on its player's best and on their allegiance's total (`result`). A game still in play goes back
+ * to its board, an unknown one is "Game not found". The joust's view, and the player's next game while they have one left.
+ */
+function JoustOver({ gameId }: { gameId: number }) {
+  const go = useAppNavigate();
+  const record = useJoustGameRecord(gameId);
+  const data = record.data ?? null;
+  const result = useJoustResult(data?.over ? gameId : null);
+  const [view, setView] = useOverView();
+  const skins = useBoardSkins(data?.player ?? null);
+  const boardSettings = useBoardSettings();
+  const replay = useMemo(() => (data ? replayPuzzle(data) : null), [data]);
+  const stats = useMemo(() => (replay ? gameStats(replay.engine.rules) : undefined), [replay]);
+  const tiles = useMemo(() => (replay ? pageStateOf(replay.engine.rules).tiles : []), [replay]);
+  const board = useMemo(() => ({ tiles, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer }), [tiles, skins, boardSettings.renderer]);
+  const viewer = usePuzzleViewer();
+  const state = useJoustState(data?.player ?? null, data !== null);
+  const { play } = usePlayJoust(viewer, { replace: true });
+
+  useEffect(() => {
+    if (data && !data.over) go(`/joust/${gameId}`, { replace: true });
+  }, [data, gameId, go]);
+  if (record.error) return <NotFound />;
+  if (!data || !data.over || !replay) return null;
+
+  const engine = replay.engine.rules;
+  // The Joust's game in the over page's shape: its counters, and zeros where a Challenge game has a value.
+  const gameView: GameView = {
+    id: data.id,
+    playerId: data.player,
+    mode: 0,
+    seed: data.seed,
+    score: data.score,
+    over: true,
+    tileCount: engine.tileCount,
+    placedCount: engine.built + 1,
+    discardedCount: engine.discarded,
+    tileId: 0,
+    plan: 0,
+    remainingCount: engine.tileLimit - engine.tileCount,
+    deckSize: engine.tileLimit,
+    startTime: data.start,
+    endTime: data.end,
+    dayId: data.day,
+    expiresAt: 0,
+  };
+  const guild = state.data?.guild;
+  return (
+    <OverScene
+      mode="joust"
+      game={gameView}
+      closings={replay.closings}
+      stats={stats}
+      board={board}
+      view={view}
+      onViewChange={setView}
+      reward={{ state: "free" }}
+      joust={{ result: result.data ?? null, guild: guild ? { id: guild.id, name: guild.name, emblem: guild.emblem } : null, onJoust: () => go("/play/joust", { replace: true }) }}
+      onPlayAgain={play}
+      onHome={() => go("/")}
+    />
+  );
 }
 
 /** `/puzzle/:gameId/over`: a game id is digits; anything else is not a game. */

@@ -29,7 +29,7 @@ import type { ScoreMeterValue } from "../../lib/score-meter";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 export type { CoachTarget } from "../containers/coach";
 
-export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle";
+export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle" | "joust";
 
 /**
  * An attack's own pieces (`mode: "attack"`, #772), in the board's slots; everything else is the boards': the HUD, the closing
@@ -57,7 +57,7 @@ const PREFETCH_AFTER_MS = 3000;
 /** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
 const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
 
-const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle" };
+const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle", joust: "Joust" };
 
 export interface BoardSceneProps {
   mode: BoardMode;
@@ -220,8 +220,8 @@ export function BoardScene(props: BoardSceneProps) {
     setSettingsOpen(false);
     open(true);
   };
-  // A Puzzle game is on chain too: no Restart, a Surrender.
-  const surrenders = mode === "challenge" || mode === "puzzle";
+  // A Puzzle game is on chain too: no Restart, a Surrender; a Joust game as well (one of the week's three).
+  const surrenders = mode === "challenge" || mode === "puzzle" || mode === "joust";
   const gameAction: GameAction | undefined =
     !props.readOnly && surrenders
       ? { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: pick(setSurrendering), disabled: !props.onSurrender || hand.state === "pending" || hand.state === "empty" }
@@ -243,7 +243,7 @@ export function BoardScene(props: BoardSceneProps) {
           score={props.score}
           delta={props.delta}
           preview={hand.slotChosen ? hand.preview : null}
-          expiresAt={mode === "challenge" || mode === "puzzle" ? props.expiresAt : null}
+          expiresAt={surrenders ? props.expiresAt : null}
           reward={mode === "challenge" ? props.reward : null}
           now={now}
           onBack={props.onBack}
