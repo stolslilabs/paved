@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { CENTER, GUILD_RANK, JOUST_GAMES, JOUST_START_RATING, OrientationType, SeededChallenge, joustEndsAt, joustOpensAt, joustWeekOf, joustWeekStart, type GuildDraft, type SeededMove } from "@paved/game-core";
+import { CENTER, GUILD_RANK, JOUST_GAMES, JOUST_WIN_COBBLES, JOUST_START_RATING, OrientationType, SeededChallenge, joustEndsAt, joustOpensAt, joustWeekOf, joustWeekStart, type GuildDraft, type SeededMove } from "@paved/game-core";
 import type { JoustGameRecord } from "../src/data/joust-source";
-import { JOUST_FIRST_WEEK, claim, historyOf, freshJoust, settleJoust, type StoredJoust } from "../src/data/mock/joust";
+import { JOUST_FIRST_WEEK, claim, cobblesOf, historyOf, freshJoust, settleJoust, stateOf, type StoredJoust } from "../src/data/mock/joust";
 import { seededGuildWorld, type GuildPeople, type StoredGuild } from "../src/data/mock/guilds";
 import { MockLedger } from "../src/data/mock/ledger";
 import { mockJoust, mockSocial } from "../src/data/mock/overlay";
@@ -161,6 +161,20 @@ describe("the mock's Joust keeps a week as it was drawn (#1156, point 1)", () =>
     ours.members = ours.members.filter((m) => m.address !== OTHER);
     expect(historyOf(joust, guilds, MONDAY).weeks.get(WEEK)!.get(ours.id)).toMatchObject({ total: 1_500 });
     expect(claim(joust, guilds, people, OTHER, WEEK, MONDAY)).toBeGreaterThan(0);
+  });
+
+  it("leaves a completed bye's rating where it was and pays its jousters a win's Cobbles (#1156, validation)", () => {
+    const { joust, ours } = drawn();
+    // Alone in the draw: the forced bye.
+    const entry = historyOf(joust, [ours], MONDAY).weeks.get(WEEK)!.get(ours.id)!;
+    expect(entry).toMatchObject({ opponent: null, outcome: "bye", total: 1_500, before: JOUST_START_RATING, after: JOUST_START_RATING });
+    expect(cobblesOf("bye")).toBe(JOUST_WIN_COBBLES);
+    const result = stateOf(joust, [ours], people, MONDAY, OTHER).result!;
+    expect(result).toMatchObject({ outcome: "bye", opponent: null, expected: 1, cobbles: JOUST_WIN_COBBLES });
+    expect(result.ratingAfter).toBe(result.ratingBefore);
+    expect(claim(joust, [ours], people, OTHER, WEEK, MONDAY)).toBe(JOUST_WIN_COBBLES);
+    // ME did not joust: nothing to claim.
+    expect(() => claim(joust, [ours], people, ME, WEEK, MONDAY)).toThrow("Joust: nothing to claim");
   });
 
   it("keeps the recorded rosters, draws and ratings when a drawn member leaves or the allegiance disbands", () => {
