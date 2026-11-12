@@ -148,4 +148,21 @@ describe("/joust/:gameId/over: a game's end", () => {
     await waitFor(async () => expect((await ledger.account(PLAYER_ID)).cobbles).toBeGreaterThan(before), { timeout: slow(5000) });
     expect(await screen.findByText(/Cobbles claimed/, undefined, { timeout: slow(5000) })).toBeInTheDocument();
   });
+
+  it("still shows the Claim to a jouster who left their allegiance after their game (#1156, point 1)", async () => {
+    const ledger = await registered();
+    vi.setSystemTime(SATURDAY);
+    const joust = mockJoust(ledger);
+    const game = await joust.start(PLAYER_ID);
+    await joust.play(PLAYER_ID, game.id, { kind: "surrender" });
+    // The Leader alone leaves: the allegiance disbands.
+    await mockSocial(ledger).leaveGuild(PLAYER_ID);
+    vi.setSystemTime(new Date((joustEndsAt(WEEK) + 3_600) * 1000));
+    open("/play/joust", ledger);
+    expect(await screen.findByRole("button", { name: "Find an allegiance" }, { timeout: slow(8000) })).toBeInTheDocument();
+    const claim = await screen.findByRole("button", { name: /^Claim \+\d+ Cobbles$/ }, { timeout: slow(5000) });
+    const before = (await ledger.account(PLAYER_ID)).cobbles;
+    await userEvent.click(claim);
+    await waitFor(async () => expect((await ledger.account(PLAYER_ID)).cobbles).toBeGreaterThan(before), { timeout: slow(5000) });
+  });
 });

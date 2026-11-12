@@ -335,13 +335,29 @@ export const gamesOf = (joust: StoredJoust, player: string, week: number): Store
     .filter((g) => g.week === week && g.player === addressKey(player))
     .sort((a, b) => a.id - b.id);
 
+/**
+ * Last week's result as `viewer` earned it: the allegiance their games of that week recorded (whatever their allegiance now, or
+ * none), else their allegiance's now (`current`); null: neither jousted.
+ */
+function lastResultOf(joust: StoredJoust, history: JoustHistory, guilds: readonly StoredGuild[], viewer: string, current: number | null, week: number, people: GuildPeople): JoustResult | null {
+  const played = gamesOf(joust, viewer, week)[0]?.guild ?? null;
+  const id = played ?? current;
+  return id === null ? null : resultOf(joust, history, guilds, id, viewer, week, people);
+}
+
 /** `JoustSource.state`: the week at `now` as `viewer` sees it. */
 export function stateOf(joust: StoredJoust, guilds: readonly StoredGuild[], people: GuildPeople, now: number, viewer: string | null): JoustState {
   const week = joustWeekOf(now);
   const phase = joustPhaseOf(now);
   const base = { week, phase, boost: joustBoostOf(week), opensAt: joustOpensAt(week), endsAt: joustEndsAt(week), deckSeed: hex(joustDaySeed(puzzleDayOf(now))) };
   const mine = guildOf(guilds, viewer);
-  if (!mine || viewer === null) return { ...base, guild: null, registered: false, match: null, me: null, result: null };
+  if (viewer === null) return { ...base, guild: null, registered: false, match: null, me: null, result: null };
+  if (!mine) {
+    // Out of every allegiance: last week's result still shows (and is claimed) when they jousted in it.
+    const key = addressKey(viewer);
+    const result = gamesOf(joust, key, week - 1).length ? lastResultOf(joust, historyOf(joust, guilds, now), guilds, key, null, week - 1, people) : null;
+    return { ...base, guild: null, registered: false, match: null, me: null, result };
+  }
   const { guild, member } = mine;
   const key = addressKey(viewer);
   const history = historyOf(joust, guilds, now);
@@ -368,7 +384,7 @@ export function stateOf(joust: StoredJoust, guilds: readonly StoredGuild[], peop
     registered,
     match,
     me,
-    result: resultOf(joust, history, guilds, guild.id, key, week - 1, people),
+    result: lastResultOf(joust, history, guilds, key, guild.id, week - 1, people),
   };
 }
 

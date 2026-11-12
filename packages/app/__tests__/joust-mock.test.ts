@@ -163,6 +163,25 @@ describe("the mock's Joust keeps a week as it was drawn (#1156, point 1)", () =>
     expect(claim(joust, guilds, people, OTHER, WEEK, MONDAY)).toBeGreaterThan(0);
   });
 
+  it("shows the departed jouster their earned result and its Claim in the week's state, in no allegiance or in another", () => {
+    const { guilds, joust, ours } = drawn();
+    const earned = stateOf(joust, guilds, people, MONDAY, OTHER).result!;
+    expect(earned).toMatchObject({ week: WEEK, own: { guild: { id: ours.id }, total: 1_500 }, best: 1_500, place: 1, claimed: false });
+    expect(earned.cobbles).toBeGreaterThan(0);
+    settleJoust(joust, guilds, MONDAY);
+    ours.members = ours.members.filter((m) => m.address !== OTHER);
+    let state = stateOf(joust, guilds, people, MONDAY, OTHER);
+    expect(state).toMatchObject({ guild: null, result: earned });
+    // In another allegiance since: the result shown is still the one their game recorded.
+    const other = guilds.find((g) => g.id !== ours.id)!;
+    other.members.push({ address: OTHER, rank: GUILD_RANK.recruit, joinedAt: MONDAY - 60, lastKick: null, rankChange: { rank: GUILD_RANK.recruit, at: MONDAY - 60 } });
+    state = stateOf(joust, guilds, people, MONDAY, OTHER);
+    expect(state.guild?.id).toBe(other.id);
+    expect(state.result).toEqual(earned);
+    expect(claim(joust, guilds, people, OTHER, WEEK, MONDAY)).toBe(earned.cobbles);
+    expect(stateOf(joust, guilds, people, MONDAY, OTHER).result).toMatchObject({ claimed: true });
+  });
+
   it("leaves a completed bye's rating where it was and pays its jousters a win's Cobbles (#1156, validation)", () => {
     const { joust, ours } = drawn();
     // Alone in the draw: the forced bye.
