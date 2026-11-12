@@ -101,6 +101,17 @@ describe("/play/joust: the week", () => {
     expect((await joust.state(PLAYER_ID)).me?.open).toMatchObject({ id });
   });
 
+  it("reads the week again at Friday 00:00 UTC while it is open: the registered allegiance's Play game 1 comes (#1156, point 2)", async () => {
+    const ledger = await registered();
+    // Two seconds before the draw: the timer to midnight is real, `Date` is moved past it once the registration is shown.
+    vi.setSystemTime(new Date((joustOpensAt(WEEK) - 2) * 1000));
+    open("/play/joust", ledger);
+    expect(await screen.findByText(/Stone Road is registered/, undefined, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Play game 1" })).not.toBeInTheDocument();
+    vi.setSystemTime(new Date((joustOpensAt(WEEK) + 1) * 1000));
+    expect(await screen.findByRole("button", { name: "Play game 1" }, { timeout: slow(8000) })).toBeInTheDocument();
+  });
+
   it("lists the allegiances by rating at ?view=ranking", async () => {
     open("/play/joust?view=ranking");
     expect(await screen.findByRole("list", { name: "Joust ranking" }, { timeout: slow(8000) })).toBeInTheDocument();
@@ -136,5 +147,22 @@ describe("/joust/:gameId/over: a game's end", () => {
     await userEvent.click(claim);
     await waitFor(async () => expect((await ledger.account(PLAYER_ID)).cobbles).toBeGreaterThan(before), { timeout: slow(5000) });
     expect(await screen.findByText(/Cobbles claimed/, undefined, { timeout: slow(5000) })).toBeInTheDocument();
+  });
+
+  it("still shows the Claim to a jouster who left their allegiance after their game (#1156, point 1)", async () => {
+    const ledger = await registered();
+    vi.setSystemTime(SATURDAY);
+    const joust = mockJoust(ledger);
+    const game = await joust.start(PLAYER_ID);
+    await joust.play(PLAYER_ID, game.id, { kind: "surrender" });
+    // The Leader alone leaves: the allegiance disbands.
+    await mockSocial(ledger).leaveGuild(PLAYER_ID);
+    vi.setSystemTime(new Date((joustEndsAt(WEEK) + 3_600) * 1000));
+    open("/play/joust", ledger);
+    expect(await screen.findByRole("button", { name: "Find an allegiance" }, { timeout: slow(8000) })).toBeInTheDocument();
+    const claim = await screen.findByRole("button", { name: /^Claim \+\d+ Cobbles$/ }, { timeout: slow(5000) });
+    const before = (await ledger.account(PLAYER_ID)).cobbles;
+    await userEvent.click(claim);
+    await waitFor(async () => expect((await ledger.account(PLAYER_ID)).cobbles).toBeGreaterThan(before), { timeout: slow(5000) });
   });
 });

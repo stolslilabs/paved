@@ -100,6 +100,10 @@ describe("the Joust's draw", () => {
     expect(bye?.id).toBe(6);
   });
 
+  it("forces a bye on a lone entrant, whatever its band", () => {
+    for (const rating of [700, 1_000, 1_450]) expect(joustPairs([{ id: 1, rating }], random)).toEqual({ pairs: [], bye: { id: 1, rating } });
+  });
+
   it("gives no bye to an even field", () => {
     expect(joustPairs([{ rating: 1_000 }, { rating: 1_300 }], random)).toMatchObject({ pairs: [[{ rating: 1_300 }, { rating: 1_000 }]], bye: null });
   });
