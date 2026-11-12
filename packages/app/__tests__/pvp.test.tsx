@@ -257,6 +257,10 @@ describe("PvP scenes (#647)", () => {
     expect(screen.getByRole("img", { name: "+20 crowns" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Choose/ }));
     const dialog = await screen.findByRole("dialog", { name: "Village reward" });
+    // #1154: the sheet mounts when its lazy module resolves, outside act. Radix's modal layer sets the body's
+    // `pointer-events: none` in an effect and gives the panel its `auto` one render later, so the dialog can be found
+    // in between, when a click on a tile is refused. The panel takes taps once its own style says so.
+    await waitFor(() => expect(dialog).toHaveStyle({ pointerEvents: "auto" }));
     const tiles = within(within(dialog).getByRole("list", { name: "Reward tiles" })).getAllByRole("button");
     expect(tiles).toHaveLength(3);
     await userEvent.click(tiles[0]!);
