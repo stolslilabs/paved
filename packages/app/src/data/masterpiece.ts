@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MASTERPIECE_DAYS, masterpieceDayOf, masterpieceWeekOf } from "@paved/game-core";
 import { cobbleKeys } from "./cobbles";
@@ -10,7 +10,8 @@ import { useDataSources } from "./sources";
 
 // The Masterpiece's hooks (the weekly individual event, game-core's `masterpiece.ts`), read from the sources' `masterpiece` (the mock's
 // ledger: the whole event runs on the client). Without one (the chain) each answers `unavailable`, with no data and no error.
-// Nothing polls: the week is read again on the window's focus and after the player's own writes.
+// Nothing polls: the week is read again on the window's focus, after the player's own writes, and at each UTC midnight while it is
+// shown (a new day's tiles, and on Monday a new week).
 
 export type * from "./masterpiece-source";
 
@@ -26,10 +27,31 @@ export const masterpieceKeys = {
 
 const UNAVAILABLE = { data: undefined, isPending: false, error: null, unavailable: true, refetch: () => undefined } as const;
 
-/** A query of the Masterpiece source: disabled without a source or without its argument (`enabled`). */
+const DAY_MS = 86_400_000;
+
+/** Calls `read` at each UTC midnight while `on`: one timer to the next midnight, armed again once it fires (no polling; the Colossus's). */
+function useAtEachUtcMidnight(on: boolean, read: () => void): void {
+  const latest = useRef(read);
+  latest.current = read;
+  useEffect(() => {
+    if (!on) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      timer = setTimeout(() => {
+        latest.current();
+        arm();
+      }, DAY_MS - (Date.now() % DAY_MS));
+    };
+    arm();
+    return () => clearTimeout(timer);
+  }, [on]);
+}
+
+/** A query of the Masterpiece source: disabled without a source or without its argument (`enabled`); read again at each UTC midnight. */
 function useMasterpieceQuery<T>(key: readonly unknown[], read: (source: MasterpieceSource) => Promise<T>, enabled: boolean): PuzzleRead<T> {
   const { masterpiece } = useDataSources();
   const query = useQuery({ queryKey: key, queryFn: () => read(masterpiece!), enabled: enabled && !!masterpiece, staleTime: 0 });
+  useAtEachUtcMidnight(enabled && !!masterpiece, () => void query.refetch());
   if (!masterpiece) return UNAVAILABLE;
   return { data: query.data, isPending: enabled && query.isPending && !query.error, error: query.error, unavailable: false, refetch: () => void query.refetch() };
 }
