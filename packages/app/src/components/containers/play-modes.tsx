@@ -483,7 +483,7 @@ function FairMode({ card, now, onSelect }: { card: FairCard; now: number; onSele
               </>
             ) : (
               <>
-                {card.stall} on every stall
+                {card.stall.charAt(0).toUpperCase() + card.stall.slice(1)} on every stall
                 {card.me && (
                   <>
                     {" "}

@@ -104,7 +104,7 @@ function deckLine(cards: readonly number[], season: FairSeason): string {
 /** A deck's tiles by plan: each plan's render, its count on it, its name under it. */
 function DeckGrid({ cards, renders, label }: { cards: readonly number[]; renders?: TileRenders; label: string }) {
   return (
-    <ul aria-label={label} className="grid grid-cols-4 gap-2 tablet:grid-cols-5">
+    <ul aria-label={label} className="grid grid-cols-3 gap-2 mobile:grid-cols-4 tablet:grid-cols-5">
       {deckByPlan(cards).map(({ plan, count }) => (
         <li key={plan} className="flex min-w-0 flex-col items-center gap-1">
           <span className="relative block aspect-square w-full overflow-hidden rounded-lg">
@@ -311,7 +311,7 @@ function OfferTile({ card, stall, season, renders, passes, disabled, onPick }: {
         className={cn("drawer-tile state-layer flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-1.5 rounded-2xl p-2 text-center disabled:cursor-default", stall && "bg-linear-to-b from-fair-stall/25 to-transparent")}
       >
         <span className="block aspect-square w-full overflow-hidden rounded-lg">
-          <TileRender plan={plan} theme={0} renders={renders} top alt="" />
+          <TileRender plan={plan} theme={0} renders={renders} alt="" />
         </span>
         <span className="text-outline text-sm leading-tight font-bold">{name}</span>
         <RarityBadge rarity={rarity} />

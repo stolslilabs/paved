@@ -5,6 +5,7 @@ import type { FairDraftView, FairSceneProps } from "../components/scenes/fair-sc
 import type { FairRanking, FairResult, FairState } from "../data/fair-source";
 import { community, communityProfile } from "../data/mock/community";
 import type { PublicProfile } from "../data/social-source";
+import { PLAYER_NAME_MAX } from "../lib/name-limit";
 import { MOCK_NOW } from "./clock";
 
 // The Fair's mocks (the weekly individual event, the design proposal of 2026-11-09): the proposal's own week, a spring Fair on its
@@ -24,7 +25,7 @@ const PLAYERS: readonly PublicProfile[] = community().map((m) => communityProfil
 /** The viewer: the community's fifth player. */
 export const FAIR_ME = PLAYERS[4]!.address;
 /** A legal name of the most and widest letters (WRAP360). */
-const LONGEST: PublicProfile = { ...PLAYERS[0]!, name: "W".repeat(PLAYERS.reduce((max, p) => Math.max(max, p.name?.length ?? 0), 16)) };
+const LONGEST: PublicProfile = { ...PLAYERS[0]!, name: "W".repeat(PLAYER_NAME_MAX) };
 
 /** A spring draft of `seed` answered to offer `until` (the whole draft by default): the stall's tile, a mythic when `mythics`. */
 function drafted(seed: bigint, mythics: boolean, until = Infinity): FairDraft {

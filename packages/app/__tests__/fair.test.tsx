@@ -28,7 +28,7 @@ describe("Play's Fair card", () => {
   it("names the day, the stall and the tries left today, with the week's time left, and opens on a tap", async () => {
     const { button, onFair } = card("week");
     expect(screen.getByText("Limited · Day 4 of 7")).toBeInTheDocument();
-    expect(button).toHaveTextContent("roads on every stall · 2 tries left today");
+    expect(button).toHaveTextContent("Roads on every stall · 2 tries left today");
     expect(screen.getByRole("timer", { name: "3d 9h left in the fair" })).toBeInTheDocument();
     await userEvent.click(button);
     expect(onFair).toHaveBeenCalledOnce();
@@ -37,7 +37,7 @@ describe("Play's Fair card", () => {
   it.each([
     ["lastTry", "1 try left today"],
     ["noTryLeft", "0 tries left today"],
-    ["guest", "roads on every stall"],
+    ["guest", "Roads on every stall"],
   ] as const)("%s: %s", (state, line) => {
     expect(card(state).button).toHaveTextContent(line);
   });
