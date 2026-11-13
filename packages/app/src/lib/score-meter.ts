@@ -179,3 +179,22 @@ export function trainingMeter(best: number | null, score: number): ScoreMeterVal
     figure: pct,
   };
 }
+
+/**
+ * A Tournament game's meter (the weekly individual event): one step to the opponent's score, the trophy at its end, lit once the score
+ * passes it. None while the opponent has not played (or there is none).
+ */
+export function tournamentMeter(target: number | null, score: number): ScoreMeterValue | null {
+  if (target === null || target <= 0) return null;
+  const share = shareOf(score, target);
+  const pct = percent(share);
+  const beaten = score > target;
+  return {
+    ...steps([beaten ? 1 : Math.min(0.99, share)], [{ art: "trophy", reached: beaten, name: `Your opponent: ${formatInteger(target)}` }]),
+    label: `Score ${pct} of your opponent's`,
+    valueText: beaten ? `${pct}, ahead` : pct,
+    now: Math.round(share * 100),
+    max: Math.max(100, Math.round(share * 100)),
+    figure: pct,
+  };
+}

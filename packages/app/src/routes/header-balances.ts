@@ -36,6 +36,10 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "play/joust": COBBLES,
   "joust/:gameId": NONE,
   "joust/:gameId/over": NONE,
+  // The Tournament's view: the Cobbles of the round reached; a game and its end show none.
+  "play/tournament": COBBLES,
+  "tournament/:gameId": NONE,
+  "tournament/:gameId/over": NONE,
   "game/:gameId/over": NONE,
   "training/over": NONE,
   missions: COBBLES,

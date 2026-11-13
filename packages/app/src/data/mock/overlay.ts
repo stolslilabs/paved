@@ -3,6 +3,7 @@ import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
 import type { JoustSource } from "../joust-source";
 import type { PuzzleSource } from "../puzzle-source";
+import type { TournamentSource } from "../tournament-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -153,6 +154,22 @@ export function mockJoust(ledger: MockLedger): JoustSource {
     start: (player) => ledger.joustStart(player),
     play: (player, gameId, move) => ledger.joustPlay(player, gameId, move),
     claim: (player, week) => ledger.joustClaim(player, week),
+  };
+}
+
+/**
+ * The Tournament's source of the ledger (the weekly individual event, `tournament.ts`): the week, the player's run through their
+ * bracket, their one game a round by game-core's rules and their Cobbles. No chain part lies beneath: it runs on the client alone.
+ */
+export function mockTournament(ledger: MockLedger): TournamentSource {
+  return {
+    state: (viewer) => ledger.tournamentState(viewer),
+    game: (gameId) => ledger.tournamentGame(gameId),
+    result: (gameId) => ledger.tournamentResult(gameId),
+    register: (player) => ledger.tournamentRegister(player),
+    start: (player) => ledger.tournamentStart(player),
+    play: (player, gameId, move) => ledger.tournamentPlay(player, gameId, move),
+    claim: (player, week) => ledger.tournamentClaim(player, week),
   };
 }
 

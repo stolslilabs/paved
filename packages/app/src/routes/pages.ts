@@ -88,6 +88,11 @@ export const PAGES: readonly PageDef[] = [
   { path: "play/joust", title: "Joust", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "joust/:gameId", title: "Joust", nav: null },
   { path: "joust/:gameId/over", title: "Game over", nav: null },
+  // The Tournament (Play's Limited mode, the weekly individual event), as the Joust: a view of Play's drawer, its bracket a view of it
+  // (`?view=bracket`); a game is a full-screen flow, its end too.
+  { path: "play/tournament", title: "Tournament", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "tournament/:gameId", title: "Tournament", nav: null },
+  { path: "tournament/:gameId/over", title: "Game over", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`

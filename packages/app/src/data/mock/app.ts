@@ -9,6 +9,8 @@ import { MockLedger } from "./ledger";
 import { mockEconomyViews, mockEvents, mockGameViews, mockJoust, mockPool, mockPurchases, mockPuzzle, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
 import type { JoustSource } from "../joust-source";
 import type { PuzzleSource } from "../puzzle-source";
+import type { TournamentSource } from "../tournament-source";
+import { mockTournament } from "./overlay";
 
 // The app's mock (#549, #927): every source of `DataSources` from the device's ledger, and nothing under it. No chain client,
 // no economy client and no indexer client is built, no node and no indexer is read: the overlays of `overlay.ts` go over
@@ -55,6 +57,8 @@ export interface MockAppSources {
   puzzle: PuzzleSource;
   /** The Joust (the weekly allegiance event), the ledger's alone. */
   joust: JoustSource;
+  /** The Tournament (the weekly individual event), the ledger's alone. */
+  tournament: TournamentSource;
   purchases(signer: GameSigner): Purchases;
   settlements(signer: GameSigner): Settlements;
   vault(signer: GameSigner): VaultWrites;
@@ -97,6 +101,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     social: mockSocial(ledger),
     puzzle: mockPuzzle(ledger),
     joust: mockJoust(ledger),
+    tournament: mockTournament(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),

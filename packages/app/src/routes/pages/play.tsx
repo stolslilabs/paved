@@ -12,6 +12,7 @@ import { useConnectError } from "../connect-error";
 import { useDrawerRoute } from "../drawer-route";
 import { useRoutePage } from "../handle";
 import { useNow } from "../now";
+import { useTournamentCard } from "../tournament-play";
 import { prefetchAllowed } from "../prefetch";
 import { useAppNavigate, useUpTo } from "../ref";
 
@@ -27,6 +28,9 @@ const PuzzleView = lazy(loadPuzzle);
 /** The Joust (`/play/joust`, Play's Limited mode): its week, its match and its ranking, a chunk of their own, fetched as Play is pointed at. */
 const loadJoust = () => import("./joust");
 const JoustView = lazy(loadJoust);
+/** The Tournament (`/play/tournament`, Play's Limited mode): its week and its bracket, a chunk of their own, fetched as Play is pointed at. */
+const loadTournament = () => import("./tournament");
+const TournamentView = lazy(loadTournament);
 /** The header's title of the Joust's views (`?view=`). */
 const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ranking" };
 
@@ -79,6 +83,10 @@ export default function Page() {
   const [params] = useSearchParams();
   const joustView = path === "play/joust" ? params.get("view") : null;
   const onJoustTop = useUpTo("/play/joust");
+  // The Tournament's card (Limited) and its view's own view (`?view=bracket`); none without a Tournament.
+  const tournament = useTournamentCard(me);
+  const tournamentBracket = path === "play/tournament" && params.get("view") === "bracket";
+  const onTournamentTop = useUpTo("/play/tournament");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
@@ -87,6 +95,7 @@ export default function Page() {
     void loadStory().catch(() => {});
     void loadPuzzle().catch(() => {});
     if (joustOn) void loadJoust().catch(() => {});
+    if (tournament.on) void loadTournament().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -130,6 +139,17 @@ export default function Page() {
         onJoustBack={joustView && JOUST_TITLES[joustView] ? onJoustTop : onViewBack}
         joustCard={joustCard}
         onJoust={() => go(joustGame ? `/joust/${joustGame.id}` : "/play/joust")}
+        tournament={
+          path === "play/tournament" ? (
+            <Suspense fallback={null}>
+              <TournamentView />
+            </Suspense>
+          ) : null
+        }
+        tournamentTitle={tournamentBracket ? "Bracket" : undefined}
+        onTournamentBack={tournamentBracket ? onTournamentTop : onViewBack}
+        tournamentCard={tournament.card}
+        onTournament={() => go(tournament.path)}
         onBack={onBack}
         onChallengeBack={onViewBack}
         onStoryBack={onViewBack}

@@ -198,9 +198,12 @@ import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
 import { PLAYER_NAME_MAX } from "../../lib/name-limit";
 import { PUZZLE_PRIZE_COBBLES, comparePuzzle, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
+import { tournamentLeagueGroup, tournamentRoundEnd } from "@paved/game-core";
 import { PUZZLE_PRIZE_TOP, PUZZLE_STANDING_LIMIT, type PuzzleEntry, type PuzzleGameRecord, type PuzzleGameResult, type PuzzlePrize, type PuzzleStanding } from "../puzzle-source";
 import type { JoustGameRecord, JoustGameResult, JoustRanking, JoustState } from "../joust-source";
 import * as joust from "./joust";
+import type { TournamentGameRecord, TournamentGameResult, TournamentState } from "../tournament-source";
+import * as tournament from "./tournament";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
 import {
   SPAWN_DRAW,
@@ -513,6 +516,8 @@ interface StoredState {
   puzzle?: StoredPuzzle;
   /** The Joust (the weekly allegiance event, `joust.ts`): the accounts' games, registrations and claims; absent: none yet. */
   joust?: joust.StoredJoust;
+  /** The Tournament (the weekly individual event, `tournament.ts`): the accounts' games, registrations and claims; absent: none yet. */
+  tournament?: tournament.StoredTournament;
 }
 
 /** The mock's chat source: `ChatSource`, and `rotateKeys(player)`, a new messaging key, for the tests and the stories (#997). */
@@ -1473,6 +1478,101 @@ export class MockLedger {
       const cobbles = joust.claim(stored, world.guilds, this.personOf(world, now), player, week, now);
       p.cobbles += cobbles;
       return { events: [this.event("JoustClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
+  // --- The Tournament (the weekly individual event, `tournament.ts`) ----------------------------------------------------
+
+  /** An account's name on the device, for a bracket's rows. */
+  private tournamentNames: tournament.TournamentNames = (address) => this.state.players[addressKey(address)]?.name ?? null;
+
+  /** A Tournament read: the stored Tournament (none yet: a fresh one's) at the ledger's clock. */
+  private tournamentRead<T>(read: (stored: tournament.StoredTournament, now: number) => T): T {
+    this.sync();
+    return read(this.state.tournament ?? tournament.freshTournament(), this.second());
+  }
+
+  /** A Tournament write, as the Joust's: the stored Tournament created on the first write, put back on a throw (`commit`). */
+  private async writeTournament<T>(account: string, change: (player: StoredPlayer, stored: tournament.StoredTournament, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.tournament ??= tournament.freshTournament()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** `TournamentSource.state`: the week as `viewer` sees it, their league group read from their crowns. */
+  async tournamentState(viewer: string | null): Promise<TournamentState> {
+    return this.tournamentRead((stored, now) => {
+      const group = viewer === null ? null : tournamentLeagueGroup(leagueIndex(this.state.players[addressKey(viewer)]?.pvp?.crowns ?? 0));
+      return tournament.stateOf(stored, now, viewer, group, this.tournamentNames);
+    });
+  }
+
+  /** `TournamentSource.game`: a game by its id; an id with no game is the view's refusal. */
+  async tournamentGame(gameId: number): Promise<TournamentGameRecord> {
+    return this.tournamentRead((stored, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new ViewError("game-not-found", "Tournament: game does not exist");
+      return tournament.recordOf(stored, game, now, this.tournamentNames);
+    });
+  }
+
+  /** `TournamentSource.result`: a finished game's standing in its duel. */
+  async tournamentResult(gameId: number): Promise<TournamentGameResult> {
+    return this.tournamentRead((stored, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new ViewError("game-not-found", "Tournament: game does not exist");
+      if (!game.over) throw new ViewError("not-available", "Tournament: the game is not over");
+      return tournament.gameResultOf(stored, game, now, this.tournamentNames);
+    });
+  }
+
+  /** `TournamentSource.register`: the account in its league's group, on Monday (`TournamentRegistered`). */
+  async tournamentRegister(player: string): Promise<void> {
+    await this.writeTournament(player, (p, stored, now) => {
+      const done = tournament.register(stored, player, tournamentLeagueGroup(this.leagueOf(p)), now);
+      return { events: [this.event("TournamentRegistered", { playerId: player, week: done.week, group: done.group })], value: undefined };
+    });
+  }
+
+  /** `TournamentSource.start`: the account's game of today's round, by the Tournament's rules (`TournamentSpawned`). */
+  async tournamentStart(player: string): Promise<TournamentGameRecord> {
+    return this.writeTournament(player, (_p, stored, now) => {
+      const game = tournament.newGame(stored, player, now, this.tournamentNames);
+      return { events: [this.event("TournamentSpawned", { gameId: game.id, playerId: player, week: game.week, round: game.round })], value: tournament.recordOf(stored, game, now, this.tournamentNames) };
+    });
+  }
+
+  /**
+   * `TournamentSource.play`: a move of the account's open game, by the engine's rules; a build or a discard past the round's end is
+   * refused, a surrender is not. `TournamentOver` when the move ends it.
+   */
+  async tournamentPlay(player: string, gameId: number, move: SeededMove): Promise<void> {
+    await this.writeTournament(player, (_p, stored, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new WriteError("Tournament: game does not exist");
+      if (game.player !== addressKey(player)) throw new WriteError("Tournament: not the game player");
+      if (game.over) throw new WriteError("Game: is over");
+      if (move.kind !== "surrender" && now >= tournamentRoundEnd(game.week, game.round)) throw new WriteError("Tournament: the round is over");
+      tournament.playMove(game, move, now);
+      return { events: game.over ? [this.event("TournamentOver", { gameId, playerId: player, week: game.week, round: game.round, score: game.score })] : [], value: undefined };
+    });
+  }
+
+  /** `TournamentSource.claim`: the Cobbles of a run that is over, added (`TournamentClaimed`). */
+  async tournamentClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.writeTournament(player, (p, stored, now) => {
+      const cobbles = tournament.claim(stored, player, week, now, this.tournamentNames);
+      p.cobbles += cobbles;
+      return { events: [this.event("TournamentClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3126,6 +3226,7 @@ export class MockLedger {
     const challenge = this.state.challenge && structuredClone(this.state.challenge);
     const puzzle = this.state.puzzle && structuredClone(this.state.puzzle);
     const jousts = this.state.joust && structuredClone(this.state.joust);
+    const tournaments = this.state.tournament && structuredClone(this.state.tournament);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
     try {
@@ -3135,6 +3236,7 @@ export class MockLedger {
       this.state.challenge = challenge;
       this.state.puzzle = puzzle;
       this.state.joust = jousts;
+      this.state.tournament = tournaments;
       throw error;
     }
     this.state = { ...this.state, players: { ...this.state.players, [key]: player }, transactions: this.state.transactions + 1 };

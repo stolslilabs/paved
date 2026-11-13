@@ -174,6 +174,41 @@ export {
   joustWeekStart,
 } from "./joust";
 export type { JoustOutcome, JoustPhase, JoustScore } from "./joust";
+// The Tournament (the weekly individual event): the calendar, the leagues' groups, the draw, who goes through and the rewards
+export {
+  TOURNAMENT_BYE,
+  TOURNAMENT_CHAMPION_COBBLES,
+  TOURNAMENT_COBBLES,
+  TOURNAMENT_DAY_S,
+  TOURNAMENT_LEAGUES,
+  TOURNAMENT_MIN_GROUP,
+  TOURNAMENT_ROUNDS,
+  TOURNAMENT_SEATS,
+  TOURNAMENT_TILES,
+  TOURNAMENT_VACANT,
+  TOURNAMENT_WEEK_S,
+  tournamentBracketCount,
+  tournamentCobbles,
+  tournamentDraw,
+  tournamentDuel,
+  tournamentFirstRound,
+  tournamentGroups,
+  tournamentLeagueGroup,
+  tournamentNextRound,
+  tournamentPhaseOf,
+  tournamentPlayersIn,
+  tournamentPlaysIn,
+  tournamentRoundDay,
+  tournamentRoundEnd,
+  tournamentRoundName,
+  tournamentRoundOf,
+  tournamentRoundStart,
+  tournamentSeatOf,
+  tournamentWeekOf,
+  tournamentWeekStart,
+  tournamentWinner,
+} from "./tournament";
+export type { TournamentGame, TournamentPhase } from "./tournament";
 
 // Story mode (#546): campaigns, levels, runs and the device progress
 export * from "./story";

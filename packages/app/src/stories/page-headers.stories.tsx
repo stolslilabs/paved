@@ -26,6 +26,8 @@ import { StoryScene } from "../components/scenes/story-scene";
 import { PuzzleScene } from "../components/scenes/puzzle-scene";
 import { JoustScene } from "../components/scenes/joust-scene";
 import { JOUST } from "../mocks/joust";
+import { TournamentScene } from "../components/scenes/tournament-scene";
+import { TOURNAMENT } from "../mocks/tournament";
 import { PUZZLE } from "../mocks/puzzle";
 import { ThemeScene } from "../components/scenes/theme-scene";
 import { VaultScene } from "../components/scenes/vault-scene";
@@ -90,6 +92,7 @@ export const StoryCampaigns: Story = {
 // The Puzzle (Play's Limited mode): a view of Play's drawer, as Story's campaigns, the Cobbles at its band's end.
 export const Puzzle: Story = { render: () => <PlayScene {...PLAY.connected} puzzle={<PuzzleScene {...PUZZLE.today} />} onBack={fn()} onPuzzleBack={fn()} /> };
 export const Joust: Story = { render: () => <PlayScene {...PLAY.connected} joust={<JoustScene {...JOUST.live} />} onBack={fn()} onJoustBack={fn()} /> };
+export const Tournament: Story = { render: () => <PlayScene {...PLAY.connected} tournament={<TournamentScene {...TOURNAMENT.duel} />} onBack={fn()} onTournamentBack={fn()} /> };
 // Settings' views (SETTINGS-PAGE): Themes and Credits in its drawer, its band's Back and red cross.
 export const Themes: Story = { render: () => <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} />} /> };
 export const Referral: Story = { render: () => <ReferralScene {...REFERRAL.earned} onBack={fn()} /> };

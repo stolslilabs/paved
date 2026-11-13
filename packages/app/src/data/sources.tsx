@@ -4,6 +4,7 @@ import { browserStore, type KeyValueStore } from "@paved/game-core";
 import type { JoustSource } from "./joust-source";
 import type { PuzzleSource } from "./puzzle-source";
 import type { SocialSource } from "./social-source";
+import type { TournamentSource } from "./tournament-source";
 
 /**
  * Who plays: the writes of the connected account, a game's moves, the tutorial's claim, Play free (`spawnFree`) and the Cobbles' claims (P9:
@@ -115,6 +116,8 @@ export interface DataSources {
    * event runs on the client); null or left out (the chain): its hooks answer `unavailable` and Play shows no Joust.
    */
   joust?: JoustSource | null;
+  /** The Tournament (the weekly individual event), as the Joust: the mock's on `mock`; null or left out (the chain): `unavailable`, no card in Play. */
+  tournament?: TournamentSource | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }
