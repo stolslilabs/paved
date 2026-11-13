@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router";
+import { masterpieceWeekOf } from "@paved/game-core";
 import { toastError } from "../../components/containers/error-toast";
 import { MasterpieceScene, type MasterpieceView as View } from "../../components/scenes/masterpiece-scene";
 import { useClaimMasterpiece, useMasterpieceRanking, useMasterpieceState, useOpenMasterpiece } from "../../data/masterpiece";
@@ -19,7 +20,8 @@ const refused = (error: unknown) => toastError({ title: "Masterpiece", message: 
 /**
  * The Masterpiece (`/play/masterpiece`, Play's Limited mode): a view of Play's drawer, its own chunk, fetched as Play is pointed at (as
  * the Joust's). The week as the current account sees it (`useMasterpieceState`); its writes: the gold button opens the board (`open`
- * on the first visit, which creates it), then its page; Claim, last week's Cobbles. The ranking is a view of it (`?view=ranking`),
+ * on the first visit, which creates it), then its page, straight only when the state read holds a board of this week (a page kept
+ * open over Monday 00:00 UTC, before its read at midnight lands, opens the new week's); Claim, last week's Cobbles. The ranking is a view of it (`?view=ranking`),
  * pushed, so Back returns to the week.
  */
 export default function MasterpieceView() {
@@ -44,7 +46,7 @@ export default function MasterpieceView() {
       now={now}
       busy={open.isPending ? "open" : claim.isPending ? "claim" : null}
       onOpen={() => {
-        if (state.data?.board) go(MASTERPIECE_BOARD_PATH);
+        if (state.data?.board && state.data.week === masterpieceWeekOf(Math.floor(Date.now() / 1000))) go(MASTERPIECE_BOARD_PATH);
         else if (!open.isPending) open.mutate(undefined, { onSuccess: () => go(MASTERPIECE_BOARD_PATH), onError: refused });
       }}
       onClaim={(week) => claim.mutate(week, { onError: refused })}

@@ -27,6 +27,7 @@ The four seasons' kinds come in turn, a week each: the city (winter), the road (
   engine's own for that structure. A later closing that scores more replaces it; every other structure counts for nothing.
 - The crowned wonder: a completed wonder and the closed road, city or forest that scores the most among those with an area on one
   of the wonder's nine tiles, their points added; its size is the wonder's nine tiles plus that structure's size.
+  An open wonder's "if closed now" is read the same way: nine tiles and the best structure already closed on its tiles laid so far.
 - The score is the masterpiece's points less 50 a discard, never under zero. A discard never brings another card.
 - The ranking counts a masterpiece of 8 or more (the engine's size). Order: the score, then the size, then the earlier closing.
 - Tiers, by place among the week's counted masterpieces (each share rounded up, the kinder side): top 1 % 300 Cobbles, top 5 % 150,
@@ -44,6 +45,8 @@ The four seasons' kinds come in turn, a week each: the city (winter), the road (
 - Rules: `packages/game-core/src/masterpiece.ts` (`Masterpiece`, a village's game on the engine with no territory).
 - Source and hooks: `packages/app/src/data/masterpiece-source.ts`, `masterpiece.ts`; the board on the page, `masterpiece-game.ts`
   (each move applied at once and sent in order, as a Puzzle game's; midnight opens the next tiles on an open board by itself).
+  The week's reads are read again at each UTC midnight on a page kept open (a new day's tiles, Monday's new week); the gold
+  button goes straight to the board only when the state read is this week's.
 - Mock: `packages/app/src/data/mock/masterpiece.ts` (pure), run by `MockLedger` (`masterpiece*` methods), given by `mockMasterpiece`.
   The other builders are drawn: 360 to 600 a week, four in five with a counted masterpiece closed at a time of the week (a modest
   one first, a larger one later), so the ranking and its bars move while the week runs.

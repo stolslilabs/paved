@@ -94,6 +94,46 @@ describe("/play/masterpiece: the week", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/masterpiece"), { timeout: slow(5000) });
   });
 
+  it("reads the week again at midnight UTC while it is open: the new day's twelve tiles wait (#1165)", async () => {
+    const ledger = newLedger();
+    await mockMasterpiece(ledger).open(PLAYER_ID);
+    await mockMasterpiece(ledger).play(PLAYER_ID, WEEK, { k: "discard" });
+    // Two seconds before Tuesday: the timer to midnight is real, `Date` is moved past it once the button is shown.
+    vi.setSystemTime(new Date((masterpieceWeekStart(WEEK) + 86_400 - 2) * 1000));
+    open("/play/masterpiece", ledger);
+    expect(await screen.findByRole("button", { name: "Play 11 tiles" }, { timeout: slow(8000) })).toBeInTheDocument();
+    vi.setSystemTime(new Date((masterpieceWeekStart(WEEK) + 86_400 + 1) * 1000));
+    expect(await screen.findByRole("button", { name: "Play 23 tiles" }, { timeout: slow(8000) })).toBeInTheDocument();
+  });
+
+  it("turns to the new week at Monday 00:00 UTC while it is open, and its gold button opens the new week's board (#1165)", async () => {
+    const ledger = newLedger();
+    await mockMasterpiece(ledger).open(PLAYER_ID);
+    vi.setSystemTime(new Date((masterpieceEndsAt(WEEK) - 2) * 1000));
+    const { router, masterpiece } = open("/play/masterpiece", ledger);
+    expect(await screen.findByRole("heading", { name: "The crowned wonder" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play 84 tiles" })).toBeInTheDocument();
+    vi.setSystemTime(new Date((masterpieceEndsAt(WEEK) + 1) * 1000));
+    expect(await screen.findByRole("heading", { name: "The forest" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Last week's masterpiece" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Open your board" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/masterpiece"), { timeout: slow(5000) });
+    expect((await masterpiece!.state(PLAYER_ID)).board).toMatchObject({ played: 0, waiting: 12, toCome: 72 });
+  });
+
+  it("opens the new week's board from a view still showing last week's (Monday's read not landed yet)", async () => {
+    const ledger = newLedger();
+    await mockMasterpiece(ledger).open(PLAYER_ID);
+    // Thirty seconds before Monday: the read at midnight is far off when the button is pressed just past it.
+    vi.setSystemTime(new Date((masterpieceEndsAt(WEEK) - 30) * 1000));
+    const { router, masterpiece } = open("/play/masterpiece", ledger);
+    const play = await screen.findByRole("button", { name: "Play 84 tiles" }, { timeout: slow(8000) });
+    vi.setSystemTime(new Date((masterpieceEndsAt(WEEK) + 1) * 1000));
+    await userEvent.click(play);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/masterpiece"), { timeout: slow(5000) });
+    expect((await masterpiece!.state(PLAYER_ID)).board).toMatchObject({ played: 0, waiting: 12 });
+  });
+
   it("opens the ranking as a view, its Back returning to the week", async () => {
     const { router } = open("/play/masterpiece");
     await userEvent.click(await screen.findByRole("button", { name: "Ranking" }, { timeout: slow(8000) }));

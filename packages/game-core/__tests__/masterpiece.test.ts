@@ -174,6 +174,31 @@ describe("a Masterpiece board", () => {
     expect([move.improved, move.points, board.piece(), board.score]).toEqual([false, 0, null, 0]);
   });
 
+  it("grows a wonder's preview with its crown: what it says before the last tile is what the completing move makes (#1165)", () => {
+    // A size-2 city closed (419), then a wonder beside it: crowned by the city, 900 + 419 on nine tiles and two.
+    const board = new Masterpiece(weekOf("wonder"), 1n, [PlanType.FFFFFFCFF, PlanType.WFFFFFFFF, ...Array<PlanType>(7).fill(PlanType.FFFFFFCFF)]);
+    board.build({ orientation: OrientationType.North, x: 0, y: 1 });
+    board.build(board.legalPlacements().find((p) => p.x === 0 && p.y === 2)!);
+    expect(board.prospect()).toEqual({ size: 11, open: 7, worth: 1_319 });
+    const ring = [[-1, 1], [1, 1], [-1, 2], [1, 2], [-1, 3], [0, 3]];
+    for (const [x, y] of ring) board.build(board.legalPlacements().find((p) => p.x === x && p.y === y && board.clone().build(p).closed.length === 0)!);
+    expect(board.prospect()).toEqual({ size: 11, open: 1, worth: 1_319 });
+    expect(board.build(board.legalPlacements().find((p) => p.x === 1 && p.y === 3)!).piece).toEqual({ kind: "wonder", size: 11, points: 1_319, closing: 2 });
+    expect(board.prospect()).toBeNull();
+  });
+
+  it("names the crowned one of two open wonders the best prospect, though it was laid second", () => {
+    // A city closed beside the starter; a wonder away from it (uncrowned), then a wonder beside it.
+    const board = new Masterpiece(weekOf("wonder"), 1n, [PlanType.FFFFFFCFF, PlanType.FFFFFFCFF, PlanType.WFFFFFFFF, PlanType.WFFFFFFFF]);
+    board.build({ orientation: OrientationType.North, x: 0, y: 1 });
+    board.build(board.legalPlacements().find((p) => p.x === 0 && p.y === 2 && board.clone().build(p).closed.length === 0)!);
+    board.build(board.legalPlacements().find((p) => p.x === 0 && p.y === 3)!);
+    expect(board.prospect()).toEqual({ size: 9, open: 7, worth: 900 });
+    board.build(board.legalPlacements().find((p) => p.x === 1 && p.y === 1)!);
+    expect(board.rules.openWonders()).toHaveLength(2);
+    expect(board.prospect()).toEqual({ size: 11, open: 5, worth: 1_319 });
+  });
+
   it("plays a log again to the same board, and refuses a move with no tile left", () => {
     const board = new Masterpiece(weekOf("city"), 1n, order);
     const log: MasterpieceEntry[] = [];
