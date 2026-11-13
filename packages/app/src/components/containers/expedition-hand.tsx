@@ -65,7 +65,7 @@ export function ExpeditionHand({ hand, selected, onSelect, toCome, objectives, m
                   aria-label={`Tile ${index + 1} of ${hand.length}`}
                   onClick={() => onSelect?.(tile.card)}
                   className={cn(
-                    "flex size-11 cursor-pointer items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
+                    "flex size-11 cursor-pointer items-center justify-center rounded-lg disabled:cursor-default",
                     tile.card === selected ? "ring-2 ring-primary" : "opacity-80",
                   )}
                 >
