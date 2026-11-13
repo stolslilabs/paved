@@ -73,17 +73,21 @@ export function masterpieceOf(closings: readonly ClosedStructure[], kind: Master
   }
   closings.forEach((wonder, at) => {
     if (wonder.category !== CategoryType.Wonder) return;
-    const tiles = new Set(wonder.areas?.map((a) => a.tileId) ?? []);
-    let crown: { points: number; size: number; closing: number } | null = null;
-    closings.forEach((c, closing) => {
-      if (c.category === CategoryType.Wonder || !c.areas?.some((a) => tiles.has(a.tileId))) return;
-      if (better(c, crown)) crown = { points: c.points, size: c.size, closing };
-    });
-    const crowned = crown as { points: number; size: number; closing: number } | null;
-    const piece = { kind, size: wonder.tiles + (crowned?.size ?? 0), points: wonder.points + (crowned?.points ?? 0), closing: Math.max(at, crowned?.closing ?? 0) };
+    const crown = crownOf(closings, wonder.areas?.map((a) => a.tileId) ?? []);
+    const piece = { kind, size: wonder.tiles + (crown?.size ?? 0), points: wonder.points + (crown?.points ?? 0), closing: Math.max(at, crown?.closing ?? 0) };
     if (better(piece, best)) best = piece;
   });
   return best;
+}
+
+/** The crown of a wonder on `tiles`: the closed road, city or forest with an area on one of them that scores the most; null: none. */
+function crownOf(closings: readonly ClosedStructure[], tiles: readonly number[]): { points: number; size: number; closing: number } | null {
+  const on = new Set(tiles);
+  let crown: { points: number; size: number; closing: number } | null = null;
+  closings.forEach((c, closing) => {
+    if (c.category !== CategoryType.Wonder && c.areas?.some((a) => on.has(a.tileId)) && better(c, crown)) crown = { points: c.points, size: c.size, closing };
+  });
+  return crown;
 }
 
 /** A board's score: its masterpiece's points, less 50 a discard (never under zero). No masterpiece: zero. */
@@ -294,13 +298,20 @@ export class Masterpiece {
   }
   /** The open structure of the kind worth the most if it closed now; null: none open. */
   prospect(): MasterpieceProspect | null {
-    const category = this.kind === "wonder" ? CategoryType.Wonder : CATEGORY[this.kind];
+    // A wonder: its nine tiles and the best structure already closed on those laid, crowned as `masterpieceOf` crowns a completed one.
+    const closings = this.kind === "wonder" ? this.engine.closings() : [];
+    const found =
+      this.kind === "wonder"
+        ? this.engine.openWonders().map((w) => {
+            const crown = crownOf(closings, w.tiles);
+            return { size: 9 + (crown?.size ?? 0), open: w.open, worth: WONDER_BASE_POINTS + (crown?.points ?? 0) };
+          })
+        : this.engine
+            .openEdges()
+            .filter((s) => s.category === CATEGORY[this.kind as Exclude<MasterpieceKind, "wonder">])
+            .map((s) => ({ size: s.size, open: s.open, worth: masterpieceWorth(this.kind, s.size, s.neighbours) }));
     let best: MasterpieceProspect | null = null;
-    for (const s of this.engine.openEdges()) {
-      if (s.category !== category) continue;
-      const found = { size: this.kind === "wonder" ? 9 : s.size, open: s.open, worth: masterpieceWorth(this.kind, s.size, s.neighbours) };
-      if (best === null || found.worth > best.worth || (found.worth === best.worth && found.size > best.size)) best = found;
-    }
+    for (const f of found) if (best === null || f.worth > best.worth || (f.worth === best.worth && f.size > best.size)) best = f;
     return best;
   }
 
