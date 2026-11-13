@@ -41,7 +41,7 @@ the real season.
 
 ## The mock (`packages/app/src/data/mock/colossus.ts`)
 
-The community's first 56 players are the server's builders. Each tries about two thirds of their tiles, at a time of day of their own
+The community's first 56 players are the server's builders. Each tries about seven in ten of their tiles, at a time of day of their own
 (the day the tile comes, and once more the day after when it fitted nowhere), where the site hints: the legal placement that touches
 the most tiles (`Colossus.suggest`). A week's site is played again from its start, the device's accounts' stored tiles among the
 builders' by their times, kept in memory and moved on as the clock does; a whole week takes about 0.1 s. With that pace the heart
