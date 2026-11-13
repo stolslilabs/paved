@@ -6,7 +6,7 @@ import { PUZZLE_CARD } from "../../mocks/puzzle";
 import { PLAY } from "../../mocks/scenes";
 import { ColossusScene } from "./colossus-scene";
 import { PlayScene } from "./play-scene";
-import { PHONE_320 } from "./viewports";
+import { PHONE_320, PHONE_375 } from "./viewports";
 
 /**
  * The Colossus (`/play/colossus`, Play's Limited mode, the weekly collective event): its card in Play, then its views in Play's
@@ -53,6 +53,9 @@ export const Board: Story = view("board", "District");
 export const Board320: Story = { ...view("board", "District"), ...PHONE_320 };
 /** A tile picked: each hole it may take with the stones it would set, the holes fair play refuses. */
 export const Picked: Story = view("picked", "District");
+/** The same on phones: each cell keeps the 44 px touch floor, the board scrolls sideways under the edge hint. */
+export const Picked320: Story = { ...view("picked", "District"), ...PHONE_320 };
+export const Picked375: Story = { ...view("picked", "District"), ...PHONE_375 };
 /** A tile just laid: its stones, the gauge's move, the viewer's place. */
 export const Placed: Story = view("placed", "District");
 /** The heart, a quarter at a time. */
