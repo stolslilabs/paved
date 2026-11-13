@@ -28,6 +28,8 @@ export interface TournamentSceneProps {
   /** The viewer: their rows lit in the last eight. */
   me?: string | null;
   view?: TournamentView;
+  /** The bracket view's week (`?week=`): this week's run or last week's; undefined, this week's, else last week's. */
+  bracketWeek?: number | null;
   /** The write on its way: its button waits. */
   busy?: "register" | "start" | "claim" | null;
   onRegister?: () => void;
@@ -35,7 +37,8 @@ export interface TournamentSceneProps {
   onPlay?: () => void;
   /** The Cobbles of a run that is over. */
   onClaim?: (week: number) => void;
-  onBracket?: () => void;
+  /** A run's bracket, by its week. */
+  onBracket?: (week: number) => void;
   /** Today's deck, the round's 38 cards. */
   onDeck?: () => void;
   onOpenPlayer?: (address: string) => void;
@@ -167,7 +170,7 @@ function DuelCard({ step, firstDuel, onOpenPlayer }: { step: TournamentStep; fir
 }
 
 /** A run that is over: where it ended, the champion's title, its Cobbles and their Claim. */
-function RunOver({ run, label, claiming, onClaim, onBracket }: { run: TournamentRun; label: string; claiming: boolean; onClaim?: (week: number) => void; onBracket?: () => void }) {
+function RunOver({ run, label, claiming, onClaim, onBracket }: { run: TournamentRun; label: string; claiming: boolean; onClaim?: (week: number) => void; onBracket?: (week: number) => void }) {
   const champion = run.status === "champion";
   const last = run.path[run.path.length - 1]!;
   const wins = run.path.filter((s) => s.outcome === "won").length;
@@ -217,7 +220,7 @@ function RunOver({ run, label, claiming, onClaim, onBracket }: { run: Tournament
               Claim +{formatInteger(run.cobbles)} Cobbles
             </Button>
           ))}
-        <Button variant="secondary" className="flex-1" onClick={onBracket}>
+        <Button variant="secondary" className="flex-1" onClick={() => onBracket?.(run.week)}>
           The bracket
         </Button>
       </div>
@@ -319,8 +322,9 @@ function LastEight({ run, me, onOpenPlayer }: { run: TournamentRun; me: string |
   );
 }
 
-/** The run to show in the bracket's view: this week's, else last week's. */
-const shownRun = (state: TournamentState): TournamentRun | null => state.run ?? state.last;
+/** The run to show in the bracket's view: the one of `week` when it is named, else this week's, else last week's. */
+const shownRun = (state: TournamentState, week: number | null | undefined): TournamentRun | null =>
+  week === null || week === undefined ? (state.run ?? state.last) : ([state.run, state.last].find((r) => r?.week === week) ?? null);
 
 /**
  * The Tournament (`/play/tournament`, Play's Limited mode; the design proposal of 2026-11-09, one tournament a week on the client): a
@@ -330,7 +334,7 @@ const shownRun = (state: TournamentState): TournamentRun | null => state.run ?? 
  * wait; a walkover's game), today's deck, and in the footer The bracket and the gold Play. Its other view is the bracket: the viewer's
  * path round by round and the last eight.
  */
-export function TournamentScene({ state, error, errorDetail, onRetry, now, view = "tournament", busy = null, onRegister, onPlay, onClaim, onBracket, onDeck, onOpenPlayer, me = null }: TournamentSceneProps) {
+export function TournamentScene({ state, error, errorDetail, onRetry, now, view = "tournament", bracketWeek, busy = null, onRegister, onPlay, onClaim, onBracket, onDeck, onOpenPlayer, me = null }: TournamentSceneProps) {
   if (error)
     return (
       <InlineError
@@ -355,7 +359,7 @@ export function TournamentScene({ state, error, errorDetail, onRetry, now, view 
       </div>
     );
   if (view === "bracket") {
-    const run = shownRun(state);
+    const run = shownRun(state, bracketWeek);
     if (!run) return <p className="drawer-carved rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground">The brackets are drawn on Tuesday at 00:00 UTC, for the players registered on Monday.</p>;
     return (
       <section aria-label="Bracket" className="flex flex-col gap-4">
@@ -451,7 +455,7 @@ export function TournamentScene({ state, error, errorDetail, onRetry, now, view 
             )
           ) : run ? (
             <>
-              <Button variant="secondary" className="h-12 flex-1" onClick={onBracket}>
+              <Button variant="secondary" className="h-12 flex-1" onClick={() => onBracket?.(run.week)}>
                 The bracket
               </Button>
               {canPlay ? (

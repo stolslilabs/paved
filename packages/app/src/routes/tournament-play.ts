@@ -16,7 +16,9 @@ export function usePlayTournament(me: string | null) {
   const go = useAppNavigate();
   const state = useTournamentState(me, me !== null);
   const start = useStartTournament(me);
-  const open = state.data?.run?.open ?? null;
+  const run = state.data?.run ?? null;
+  // The game of today's round only: a game left unfinished on a day that is over is no longer played.
+  const open = run?.status === "playing" ? run.open : null;
   const play = () => {
     if (open) return go(tournamentGamePath(open.id));
     if (start.isPending) return;
@@ -38,13 +40,14 @@ export function useTournamentCard(me: string | null): { card: TournamentCard | n
   if (!state) return { card: null, on, path: "/play/tournament" };
   const run = state.run;
   const today = run?.path[run.path.length - 1] ?? null;
+  const open = run?.status === "playing" ? run.open : null;
   const card: TournamentCard = {
     phase: state.phase,
     endsAt: state.endsAt,
     registered: state.registered,
     round: state.round > 0 ? tournamentRoundName(state.round) : null,
     run: run && { status: run.status, opponent: today?.opponent?.name ?? null, out: run.status === "out" ? tournamentRoundName(run.reached) : null, claimable: run.claimable },
-    playing: run?.open ? { score: run.open.score } : null,
+    playing: open ? { score: open.score } : null,
   };
-  return { card, on, path: run?.open ? tournamentGamePath(run.open.id) : "/play/tournament" };
+  return { card, on, path: open ? tournamentGamePath(open.id) : "/play/tournament" };
 }

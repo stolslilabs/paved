@@ -251,7 +251,8 @@ export function runOf(t: StoredTournament, week: number, player: string, now: nu
   const last = path[path.length - 1]!;
   const champion = bracket.rounds.length > TOURNAMENT_ROUNDS && bracket.rounds[TOURNAMENT_ROUNDS]![0] === me;
   const status: TournamentStatus = champion ? "champion" : last.outcome !== "pending" ? "out" : last.kind === "bye" ? "waiting" : !last.own ? "to-play" : last.own.over ? "played" : "playing";
-  const open = gamesOf(t, key, week).find((g) => !g.over) ?? null;
+  // Only the game of the round still to decide resumes: an unfinished game of a day that is over has counted at its last move.
+  const open = status === "playing" ? (gamesOf(t, key, week).find((g) => g.round === last.round && !g.over) ?? null) : null;
   const cobbles = tournamentCobbles(last.round, champion, path.some((s) => s.own !== null));
   const over = status === "out" || status === "champion";
   const claimed = t.claims[key]?.includes(week) ?? false;

@@ -1,5 +1,5 @@
 import { slow } from "../test-slow";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TOURNAMENT_ROUNDS, tournamentRoundEnd, tournamentRoundName, tournamentRoundStart, tournamentWeekOf, tournamentWeekStart } from "@paved/game-core";
@@ -109,7 +109,7 @@ describe("/play/tournament: the week", () => {
     const { ledger, round } = await drawn();
     const { router, tournament } = open("/play/tournament", ledger);
     await userEvent.click(await screen.findByRole("button", { name: "The bracket" }, { timeout: slow(8000) }));
-    await waitFor(() => expect(router.state.location.search).toBe("?view=bracket"));
+    await waitFor(() => expect(router.state.location.search).toBe(`?view=bracket&week=${WEEK}`));
     expect(await screen.findByRole("region", { name: "Your path" })).toHaveTextContent(tournamentRoundName(round));
     expect(screen.getByRole("heading", { name: "Bracket" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -117,6 +117,35 @@ describe("/play/tournament: the week", () => {
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/tournament\/\d+$/), { timeout: slow(5000) });
     const id = Number(router.state.location.pathname.split("/").pop());
     expect((await tournament.state(PLAYER_ID)).run?.open).toMatchObject({ id });
+  });
+
+  it("opens last week's bracket from its unclaimed result, this week's from the footer, once this week's is drawn", async () => {
+    const { ledger, tournament } = await drawn();
+    const game = await tournament.start(PLAYER_ID);
+    await tournament.play(PLAYER_ID, game.id, { kind: "surrender" });
+    // Next Monday: registered again, last week's Cobbles left unclaimed; Tuesday noon, this week's bracket is drawn.
+    vi.setSystemTime(new Date((tournamentWeekStart(WEEK + 1) + 43_200) * 1000));
+    await tournament.register(PLAYER_ID);
+    vi.setSystemTime(new Date((tournamentRoundStart(WEEK + 1, 1) + 43_200) * 1000));
+    const state = await tournament.state(PLAYER_ID);
+    expect(state.run).toMatchObject({ week: WEEK + 1 });
+    expect(state.last).toMatchObject({ week: WEEK, status: "out", claimable: true });
+    const { router } = open("/play/tournament", ledger);
+    const last = await screen.findByRole("region", { name: "Last week" }, { timeout: slow(8000) });
+    await userEvent.click(within(last).getByRole("button", { name: "The bracket" }));
+    await waitFor(() => expect(router.state.location.search).toBe(`?view=bracket&week=${WEEK}`));
+    // Last week's path, to the round it ended in.
+    const path = await screen.findByRole("region", { name: "Your path" });
+    expect(path.querySelectorAll("li")).toHaveLength(state.last!.path.length);
+    expect(path.querySelector("li:last-child")).toHaveAttribute("data-outcome", "lost");
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    const lastAgain = await screen.findByRole("region", { name: "Last week" }, { timeout: slow(5000) });
+    // The footer's: this week's, its first round still to decide.
+    await userEvent.click(screen.getAllByRole("button", { name: "The bracket" }).find((b) => !lastAgain.contains(b))!);
+    await waitFor(() => expect(router.state.location.search).toBe(`?view=bracket&week=${WEEK + 1}`));
+    const current = await screen.findByRole("region", { name: "Your path" });
+    expect(current.querySelectorAll("li")).toHaveLength(state.run!.path.length);
+    expect(current.querySelector('li[data-outcome="lost"]')).toBeNull();
   });
 
   it("tells a player who did not register that the week is drawn without them", async () => {
