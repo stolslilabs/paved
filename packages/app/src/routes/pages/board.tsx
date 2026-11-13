@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
-import { DISCARD_POINTS, JOUST_GAMES, MAX_UNCONFIRMED, puzzleDayEnd, type PredictedState } from "@paved/game-core";
+import { DISCARD_POINTS, FAIR_TRIES, JOUST_GAMES, MAX_UNCONFIRMED, puzzleDayEnd, type PredictedState } from "@paved/game-core";
 import type { HandState } from "../../components/containers/tile-stack";
 import { InlineError } from "../../components/elements/inline-error";
 import { BoardNotice, NOTICE_ACTION } from "../../components/containers/board-notice";
@@ -14,6 +14,7 @@ import { boardOf, remainingOf, useTrainingSession } from "../../data/training";
 import { PuzzleGame, usePuzzleSession, type PuzzleSnapshot } from "../../data/puzzle-game";
 import { usePuzzleStanding } from "../../data/puzzle";
 import { useJoustSession, useJoustState, type JoustGameRecord } from "../../data/joust";
+import { useFairSession, useFairState, type FairTryRecord } from "../../data/fair";
 import { addressKey } from "../../data/keys";
 import { usePuzzleViewer } from "../puzzle-play";
 import { trainingStore, useDataSources } from "../../data/sources";
@@ -35,7 +36,55 @@ export default function Page() {
   if (page?.path === "game/:gameId") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId") return <PuzzleRoute />;
   if (page?.path === "joust/:gameId") return <JoustRoute />;
+  if (page?.path === "fair/:gameId") return <FairRoute />;
   return <Placeholder />;
+}
+
+/** `/fair/:gameId`: a try's id is digits; anything else is not a try. */
+function FairRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <FairBoard key={gameId} gameId={Number(gameId)} /> : <Placeholder />;
+}
+
+/**
+ * A Fair try's game (the weekly individual event) on its session (`useFairSession`): a Puzzle game's board (`PuzzlePlay`), its engine
+ * on the try's drafted deck (the starter, then its tiles in an order drawn tile by tile; the deck sheet shows what is left). The header
+ * names the try's number, the HUD shows the week's time left (a try counts only when its game ends before), the score meter the
+ * player's best of the week. A try still in its draft goes to the draft's view, one left during it to the week. A finished game goes
+ * to `/fair/:gameId/over` once its last move is taken.
+ */
+function FairBoard({ gameId }: { gameId: number }) {
+  const viewer = usePuzzleViewer();
+  const { game, snapshot, record, settled, reload } = useFairSession(gameId, viewer);
+  const onBack = useUpTo("/play/fair");
+  const go = useAppNavigate();
+  const readErrorDetail = useErrorDetail(record.error, gameId);
+  // The player's best before this game: the meter's goal.
+  const best = useFairState(viewer, viewer !== null).data?.me?.best ?? null;
+  const stage = record.data?.stage;
+  useEffect(() => {
+    if (stage === "draft") go("/play/fair?view=draft", { replace: true });
+    else if (stage === "abandoned") go("/play/fair", { replace: true });
+  }, [stage, go]);
+  if (!game || !snapshot || !record.data) {
+    return (
+      <div className="flex min-h-dvh flex-col bg-board text-foreground">
+        <TopBar title="Fair" onBack={onBack} />
+        <main aria-busy={!record.error} className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
+          {record.error ? (
+            <InlineError title="This try cannot be read" message={record.error.message} detail={readErrorDetail} />
+          ) : record.unavailable ? (
+            <p className="text-center text-sm text-muted-foreground">The Fair is not on this network yet.</p>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
+          )}
+        </main>
+      </div>
+    );
+  }
+  const data = game.record as FairTryRecord;
+  const fair: JoustFlavor = { title: `Fair · try ${data.try}/${FAIR_TRIES}`, endsAt: data.endsAt, best, overPath: `/fair/${data.id}/over`, fair: true };
+  return <PuzzlePlay game={game} snapshot={snapshot} settled={settled} otherAccount={viewer !== null && !game.writable} onReload={reload} onBack={onBack} joust={fair} />;
 }
 
 /** `/joust/:gameId`: a game id is digits; anything else is not a game. */
@@ -89,6 +138,8 @@ interface JoustFlavor {
   endsAt: number;
   best: number | null;
   overPath: string;
+  /** A Fair try's game: the board's mode and the week's end in the joust's place. */
+  fair?: boolean;
 }
 
 /** `/puzzle/:gameId`: a game id is digits; anything else is not a game. */
@@ -224,13 +275,13 @@ function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack, j
       {refused}. The board reads the game again.
     </BoardNotice>
   ) : dayOver ? (
-    <BoardNotice tone="warning" title={joust ? "The joust is over" : "The day is over"} className="pointer-events-auto w-full max-w-2xl">
+    <BoardNotice tone="warning" title={joust ? (joust.fair ? "The week is over" : "The joust is over") : "The day is over"} className="pointer-events-auto w-full max-w-2xl">
       {joust ? "This game no longer counts: surrender to end it." : "This game no longer ranks: surrender to end it, then play today's Puzzle."}
     </BoardNotice>
   ) : null;
   return (
     <BoardScene
-      mode={joust ? "joust" : "puzzle"}
+      mode={joust ? (joust.fair ? "fair" : "joust") : "puzzle"}
       title={joust?.title}
       score={board.score}
       meter={joust ? puzzleMeter(joust.best, board.score, true) : puzzleMeter(leader?.score ?? null, board.score, mine)}

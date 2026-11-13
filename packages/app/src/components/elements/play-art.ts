@@ -4,16 +4,17 @@
  * a jigsaw piece. A scene per mode, a whole landscape behind its card, one series (one style, only the game's own pieces) with its
  * own subject and light: Attack the siege at a gate at dusk, the Challenge the great walled city at golden hour, Training a misty
  * meadow, Story the wonder on its hill, the Puzzle the tiles' grid from above at midday. Drawn by Codex's built-in image tool. The
- * Joust's scene (the tournament ground cut in two halves, blue and crimson) is the hero of its design proposal of 2026-11-09. Apart
+ * Joust's scene (the tournament ground cut in two halves, blue and crimson) is the hero of its design proposal of 2026-11-09, the
+ * Fair's (three striped stalls on a spring meadow, a tile on each) its own proposal's. Apart
  * from `ui-art.ts` so the first load does not carry them. The masters are `ui-sources/play/<name>.webp`;
  * `node scripts/compress-ui-art.ts` writes their copies. URLs and measures only: the module stays plain TypeScript so the script reads
  * it under Node.
  */
 
 /** A mode of the Play page, as its art is named. */
-export type PlayMode = "attack" | "challenge" | "training" | "story" | "puzzle" | "joust";
-/** The modes with an icon of their own: the Joust has none yet (its card shows the two allegiances' emblems). */
-export type IconMode = Exclude<PlayMode, "joust">;
+export type PlayMode = "attack" | "challenge" | "training" | "story" | "puzzle" | "joust" | "fair";
+/** The modes with an icon of their own: the Joust has none yet (its card shows the two allegiances' emblems), nor the Fair (its card shows the tries left). */
+export type IconMode = Exclude<PlayMode, "joust" | "fair">;
 
 /** The icons' frame (the HUD icons'): drawn 84 to 116 px wide over a card's edge, copies 128 px (1x) and 256 px (2x). */
 export const MODE_ICON_FRAME = { width: 256, height: 256, side: "width", sizes: [128, 256] } as const;
@@ -21,7 +22,7 @@ export const MODE_ICONS = ["mode-attack", "mode-challenge", "mode-training", "mo
 
 /** The scenes' frame, 3:2, cropped by each card (the hero about 1.7:1, the wide cards 3:1, the squares about 1:1): copies 400 px and 800 px wide (a phone's 358 px card at 2x takes the 800). */
 export const MODE_SCENE_FRAME = { width: 960, height: 640, side: "width", sizes: [400, 800] } as const;
-export const MODE_SCENES = ["scene-attack", "scene-challenge", "scene-training", "scene-story", "scene-puzzle", "scene-joust"] as const;
+export const MODE_SCENES = ["scene-attack", "scene-challenge", "scene-training", "scene-story", "scene-puzzle", "scene-joust", "scene-fair"] as const;
 
 const sources = (name: string, frame: { width: number; height: number; sizes: readonly number[] }, px: number) => {
   const url = (size: number) => `/ui-art/play/${size}/${name}.webp`;

@@ -16,7 +16,7 @@ const OWN_HEIGHT = /(^|\s|:)(min-|max-)?h-/;
  * the PvP attack's (#647: the search's sky, the scout's and the attack's board) and its replay's, and the home, the village's
  * scene with its overlays (#753). A match's page (#786) left them with MATCH-PAGE: its board in a panel under the pages' header.
  */
-const BOARD = ["", "game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "puzzle/:gameId", "puzzle/:gameId/over", "joust/:gameId", "joust/:gameId/over", "pvp", "pvp/replay/:attacker/:id"];
+const BOARD = ["", "game/:gameId", "training", "story/:campaign/:level", "game/:gameId/over", "training/over", "puzzle/:gameId", "puzzle/:gameId/over", "joust/:gameId", "joust/:gameId/over", "fair/:gameId", "fair/:gameId/over", "pvp", "pvp/replay/:attacker/:id"];
 
 function header(container: HTMLElement): HTMLElement {
   const found = container.querySelectorAll<HTMLElement>('[data-slot="page-header"]');

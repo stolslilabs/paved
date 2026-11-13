@@ -10,6 +10,8 @@ export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "play/puzzle",
   // The Joust's view: the Cobbles its jousters win.
   "play/joust",
+  // The Fair's view: the Cobbles its tiers pay.
+  "play/fair",
   "avatar",
   "village/:player",
   "village/shop",

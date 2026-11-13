@@ -21,6 +21,8 @@ import { replayPuzzle } from "../../data/puzzle-game";
 import { usePlayPuzzle, usePuzzleViewer } from "../puzzle-play";
 import { useJoustGameRecord, useJoustResult, useJoustState } from "../../data/joust";
 import { usePlayJoust } from "../joust-play";
+import { useFairResult, useFairTry } from "../../data/fair";
+import { usePlayFair } from "../fair-play";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { errorDetail } from "../error-detail";
@@ -40,7 +42,82 @@ export default function Page() {
   if (page?.path === "game/:gameId/over") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId/over") return <PuzzleRoute />;
   if (page?.path === "joust/:gameId/over") return <JoustRoute />;
+  if (page?.path === "fair/:gameId/over") return <FairRoute />;
   return <Placeholder />;
+}
+
+/** `/fair/:gameId/over`: a try's id is digits; anything else is not a try. */
+function FairRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <FairOver key={gameId} gameId={Number(gameId)} /> : <NotFound />;
+}
+
+/**
+ * The end of a Fair try's game (the weekly individual event), as a Joust game's: the try read from the source and its game played
+ * again on its drafted deck, its effect on its player's best and where that stands (`result`). A try still open goes back to its
+ * board (which sends a draft to its view), one left during its draft to the week, an unknown one is "Game not found". The Fair's
+ * view, and the player's next try while they have one left today.
+ */
+function FairOver({ gameId }: { gameId: number }) {
+  const go = useAppNavigate();
+  const record = useFairTry(gameId);
+  const data = record.data ?? null;
+  const played = data !== null && data.over && data.stage === "game";
+  const result = useFairResult(played ? gameId : null);
+  const [view, setView] = useOverView();
+  const skins = useBoardSkins(data?.player ?? null);
+  const boardSettings = useBoardSettings();
+  const replay = useMemo(() => (data && played ? replayPuzzle(data) : null), [data, played]);
+  const stats = useMemo(() => (replay ? gameStats(replay.engine.rules) : undefined), [replay]);
+  const tiles = useMemo(() => (replay ? pageStateOf(replay.engine.rules).tiles : []), [replay]);
+  const board = useMemo(() => ({ tiles, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer }), [tiles, skins, boardSettings.renderer]);
+  const viewer = usePuzzleViewer();
+  const { play } = usePlayFair(viewer, { replace: true });
+
+  useEffect(() => {
+    if (!data) return;
+    if (!data.over) go(`/fair/${gameId}`, { replace: true });
+    else if (data.stage !== "game") go("/play/fair", { replace: true });
+  }, [data, gameId, go]);
+  if (record.error) return <NotFound />;
+  if (!data || !played || !replay) return null;
+
+  const engine = replay.engine.rules;
+  // The try's game in the over page's shape: its counters, and zeros where a Challenge game has a value.
+  const gameView: GameView = {
+    id: data.id,
+    playerId: data.player,
+    mode: 0,
+    seed: data.seed,
+    score: data.score,
+    over: true,
+    tileCount: engine.tileCount,
+    placedCount: engine.built + 1,
+    discardedCount: engine.discarded,
+    tileId: 0,
+    plan: 0,
+    remainingCount: engine.tileLimit - engine.tileCount,
+    deckSize: engine.tileLimit,
+    startTime: data.start,
+    endTime: data.end,
+    dayId: data.day,
+    expiresAt: 0,
+  };
+  return (
+    <OverScene
+      mode="fair"
+      game={gameView}
+      closings={replay.closings}
+      stats={stats}
+      board={board}
+      view={view}
+      onViewChange={setView}
+      reward={{ state: "free" }}
+      fair={{ result: result.data ?? null, onFair: () => go("/play/fair", { replace: true }) }}
+      onPlayAgain={play}
+      onHome={() => go("/")}
+    />
+  );
 }
 
 /** `/joust/:gameId/over`: a game id is digits; anything else is not a game. */

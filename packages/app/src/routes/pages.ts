@@ -88,6 +88,11 @@ export const PAGES: readonly PageDef[] = [
   { path: "play/joust", title: "Joust", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "joust/:gameId", title: "Joust", nav: null },
   { path: "joust/:gameId/over", title: "Game over", nav: null },
+  // The Fair (Play's Limited mode, the weekly individual event): a view of Play's drawer, as the Joust's; its draft and its ranking
+  // are views of it (`?view=`). A try's game is a full-screen flow, its end too.
+  { path: "play/fair", title: "Fair", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "fair/:gameId", title: "Fair", nav: null },
+  { path: "fair/:gameId/over", title: "Game over", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`

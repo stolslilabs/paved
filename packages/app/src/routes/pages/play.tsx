@@ -3,7 +3,9 @@ import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
-import type { JoustCard, PuzzleCard } from "../../components/containers/play-modes";
+import type { FairCard, JoustCard, PuzzleCard } from "../../components/containers/play-modes";
+import { FAIR_STALLS } from "@paved/game-core";
+import { useFairAvailable, useFairState } from "../../data/fair";
 import { useSearchParams } from "react-router";
 import { useJoustAvailable, useJoustState } from "../../data/joust";
 import { usePuzzleActiveGame, usePuzzleAvailable, usePuzzleStanding } from "../../data/puzzle";
@@ -27,6 +29,11 @@ const PuzzleView = lazy(loadPuzzle);
 /** The Joust (`/play/joust`, Play's Limited mode): its week, its match and its ranking, a chunk of their own, fetched as Play is pointed at. */
 const loadJoust = () => import("./joust");
 const JoustView = lazy(loadJoust);
+/** The Fair (`/play/fair`, Play's Limited mode): its week, its draft and its ranking, a chunk of their own, fetched as Play is pointed at. */
+const loadFair = () => import("./fair");
+const FairView = lazy(loadFair);
+/** The header's title of the Fair's views (`?view=`). */
+const FAIR_TITLES: Record<string, string> = { draft: "Draft", ranking: "Ranking" };
 /** The header's title of the Joust's views (`?view=`). */
 const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ranking" };
 
@@ -76,9 +83,24 @@ export default function Page() {
       }
     : null;
   const joustGame = joustState?.me?.open ?? null;
+  // The Fair's card (Limited): the week's day and stall, the player's tries left today, their try still open; none without a Fair.
+  const fairOn = useFairAvailable();
+  const fairState = useFairState(me, fairOn).data ?? null;
+  const fairTry = fairState?.me?.open ?? null;
+  const fairCard: FairCard | null = fairState
+    ? {
+        day: fairState.day,
+        stall: FAIR_STALLS[fairState.season].structure,
+        endsAt: fairState.endsAt,
+        me: fairState.me && { triesLeft: fairState.me.triesLeft, best: fairState.me.best },
+        playing: fairTry ? (fairTry.stage === "draft" ? { stage: "draft", offers: fairTry.offers } : { stage: "game", score: fairTry.score }) : null,
+      }
+    : null;
   const [params] = useSearchParams();
   const joustView = path === "play/joust" ? params.get("view") : null;
   const onJoustTop = useUpTo("/play/joust");
+  const fairView = path === "play/fair" ? params.get("view") : null;
+  const onFairTop = useUpTo("/play/fair");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
@@ -87,6 +109,7 @@ export default function Page() {
     void loadStory().catch(() => {});
     void loadPuzzle().catch(() => {});
     if (joustOn) void loadJoust().catch(() => {});
+    if (fairOn) void loadFair().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -130,6 +153,17 @@ export default function Page() {
         onJoustBack={joustView && JOUST_TITLES[joustView] ? onJoustTop : onViewBack}
         joustCard={joustCard}
         onJoust={() => go(joustGame ? `/joust/${joustGame.id}` : "/play/joust")}
+        fair={
+          path === "play/fair" ? (
+            <Suspense fallback={null}>
+              <FairView />
+            </Suspense>
+          ) : null
+        }
+        fairTitle={fairView ? FAIR_TITLES[fairView] : undefined}
+        onFairBack={fairView && FAIR_TITLES[fairView] ? onFairTop : onViewBack}
+        fairCard={fairCard}
+        onFair={() => go(fairTry ? (fairTry.stage === "draft" ? "/play/fair?view=draft" : `/fair/${fairTry.id}`) : "/play/fair")}
         onBack={onBack}
         onChallengeBack={onViewBack}
         onStoryBack={onViewBack}

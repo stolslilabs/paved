@@ -327,6 +327,9 @@
   /* The Joust's rival side (JOUST): its name and total on a card, and its fill (a bar, the Live tag); a side's colour, not an error. */
   --joust-rival: var(--color-ember-300);
   --joust-rival-fill: var(--color-ember-600);
+  /* The Fair (FAIR): its stalls' green (the week's tag, a stall tile's wash) and a mythic's price (the offer it passes); states, not a success nor a warning. */
+  --fair-stall: var(--color-meadow-400);
+  --fair-price: var(--color-amber-300);
   --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
   --league-iron: var(--color-amber-500);
   --league-bronze: var(--color-charcoal-300);
@@ -479,6 +482,8 @@
   --color-info: var(--info);
   --color-joust-rival: var(--joust-rival);
   --color-joust-rival-fill: var(--joust-rival-fill);
+  --color-fair-stall: var(--fair-stall);
+  --color-fair-price: var(--fair-price);
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);

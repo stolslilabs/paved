@@ -40,6 +40,22 @@ export interface JoustCard {
   playing: { score: number } | null;
 }
 
+/**
+ * The Fair's card (Play's Limited mode, the weekly individual event): the week's day and stall, the player's tries left today.
+ */
+export interface FairCard {
+  /** Today in the week: 0 Monday to 6 Sunday. */
+  day: number;
+  /** The structure of the season's stall ("roads"). */
+  stall: string;
+  /** Sunday 24:00 UTC, in seconds since the epoch: the week's end. */
+  endsAt: number;
+  /** The player's tries left today, and their best of the week; null: no account. */
+  me: { triesLeft: number; best: number | null } | null;
+  /** The player's try still open: its draft's offers answered, or its game's score (a tap opens it). Null: none. */
+  playing: { stage: "draft"; offers: number } | { stage: "game"; score: number } | null;
+}
+
 /** Under this many seconds left, the Puzzle's time turns amber. */
 export const PUZZLE_LATE_S = 3_600;
 
@@ -64,6 +80,10 @@ export interface PlayModesProps {
   joustCard?: JoustCard | null;
   /** A tap on the Joust's card: its view, or the game still open. */
   onJoust?: () => void;
+  /** The Fair's card (Limited, over the Puzzle's); null or omitted: the Fair is not on this network, no card. */
+  fairCard?: FairCard | null;
+  /** A tap on the Fair's card: its view, or the try still open. */
+  onFair?: () => void;
 }
 
 /** A mode's icon (PLAY-MODES): one object, used nowhere else; decorative, the card's words name the mode. `px` its drawn width. */
@@ -132,6 +152,7 @@ const SHAPES = {
   story: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 26px 100%, 0 calc(100% - 6px), 2px 60%, 0 55%)",
   puzzle: "polygon(8px 0, 40% 0, 42% 4px, 100% 2px, 100% 100%, 16px 100%, 0 calc(100% - 16px), 0 8px)",
   joust: "polygon(0 12px, 12px 0, 46% 0, 49% 5px, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 6px 100%, 0 calc(100% - 6px))",
+  fair: "polygon(0 8px, 10px 0, 30% 0, 33% 4px, 70% 0, 100% 3px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 55% 100%, 52% calc(100% - 4px), 8px 100%, 0 calc(100% - 8px))",
 } as const satisfies Record<PlayMode, string>;
 
 /** The scene darkened under the words: from the foot (the cards whose title sits at the bottom), or from the left (the Puzzle's). */
@@ -156,7 +177,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "fair" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -194,7 +215,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, fairCard = null, onFair }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -287,6 +308,7 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
           Limited
         </h3>
         {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
+        {fairCard && <FairMode card={fairCard} now={now} onSelect={onFair} />}
         {puzzleCard ? (
           <PuzzleMode card={puzzleCard} now={now} onSelect={onPuzzle} />
         ) : (
@@ -420,6 +442,61 @@ function JoustMode({ card, now, onSelect }: { card: JoustCard; now: number; onSe
         aria-label={card.phase === "live" ? `${left} left in the joust` : `${left} until the draw`}
         className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
       >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Fair's card (Limited, over the Puzzle's; the design proposal of 2026-11-09): a wide slab on the stalls darkened from the left.
+ * "Fair", then the week's line: the stall and the tries left today ("roads on every stall · 2 tries left today"), the try still open
+ * (its draft's pick, or its game's score: a tap then opens it). Its tag names the day ("Day 4 of 7"). Its reward, the Cobbles alone;
+ * the week's time left in the corner's tab.
+ */
+function FairMode({ card, now, onSelect }: { card: FairCard; now: number; onSelect?: () => void }) {
+  const left = puzzleTimeLeft(card.endsAt, now);
+  const playing = card.playing;
+  const tries = card.me?.triesLeft ?? 0;
+  return (
+    <ModeCard mode="fair" slot="fair-card" sceneAt="50% 62%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-label={playing ? (playing.stage === "game" ? `Fair: resume your game, ${formatPoints(playing.score)} points` : `Fair: resume your draft, pick ${playing.offers + 1}`) : "Fair"}
+        className={cn(COVER, "flex-1")}
+      >
+        <span className={cn(TITLE, "text-[1.75rem]")}>Fair</span>
+        {playing?.stage === "game" ? (
+          <span className="text-outline flex items-center gap-1 text-base leading-tight font-bold">
+            <UiIcon name="star" px={20} className="size-5" />
+            <span className="numeric">{formatPoints(playing.score)}</span>
+            <span className="text-[0.8125rem] font-semibold text-foreground/90">in play</span>
+          </span>
+        ) : (
+          <span className={LINE}>
+            {playing ? (
+              <>
+                Your draft · pick <span className="numeric">{playing.offers + 1}</span>
+              </>
+            ) : (
+              <>
+                {card.stall} on every stall
+                {card.me && (
+                  <>
+                    {" "}
+                    · <span className="numeric">{tries}</span> {tries === 1 ? "try" : "tries"} left today
+                  </>
+                )}
+              </>
+            )}
+          </span>
+        )}
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span role="timer" aria-label={`${left} left in the fair`} className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold">
         <UiIcon name="countdown" px={14} className="size-3.5" />
         <span className="numeric">{left}</span>
       </span>

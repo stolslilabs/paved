@@ -36,6 +36,10 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "play/joust": COBBLES,
   "joust/:gameId": NONE,
   "joust/:gameId/over": NONE,
+  // The Fair's view: the Cobbles its tiers pay, at its header's end; a try's game and its end show none.
+  "play/fair": COBBLES,
+  "fair/:gameId": NONE,
+  "fair/:gameId/over": NONE,
   "game/:gameId/over": NONE,
   "training/over": NONE,
   missions: COBBLES,
