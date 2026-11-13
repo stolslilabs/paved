@@ -212,6 +212,36 @@ export type {
   ExpeditionTier,
   ExpeditionTile,
 } from "./expedition";
+// The Masterpiece (the weekly individual event): the calendar, the day's cards, the masterpiece and its score, the ranking and its tiers
+export {
+  MASTERPIECE_DAILY,
+  MASTERPIECE_DAYS,
+  MASTERPIECE_DAY_S,
+  MASTERPIECE_FLOOR,
+  MASTERPIECE_KINDS,
+  MASTERPIECE_TIERS,
+  MASTERPIECE_TILES,
+  MASTERPIECE_WEEK_S,
+  Masterpiece,
+  compareMasterpiece,
+  masterpieceBars,
+  masterpieceCards,
+  masterpieceCounted,
+  masterpieceDayOf,
+  masterpieceEndsAt,
+  masterpieceKindOf,
+  masterpieceOf,
+  masterpieceOrder,
+  masterpiecePlaceAmong,
+  masterpieceScore,
+  masterpieceSeasonOf,
+  masterpieceTierOf,
+  masterpieceTierPlaces,
+  masterpieceWeekOf,
+  masterpieceWeekStart,
+  masterpieceWorth,
+} from "./masterpiece";
+export type { MasterpieceEntry, MasterpieceKind, MasterpieceMove, MasterpiecePiece, MasterpieceProspect, MasterpieceResult, MasterpieceSeason, MasterpieceTier } from "./masterpiece";
 // The Tournament (the weekly individual event): the calendar, the leagues' groups, the draw, who goes through and the rewards
 export {
   TOURNAMENT_BYE,

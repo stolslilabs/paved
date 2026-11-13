@@ -3,10 +3,12 @@ import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
-import type { ExpeditionCard, JoustCard, PuzzleCard } from "../../components/containers/play-modes";
+import type { ExpeditionCard, JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
 import { useSearchParams } from "react-router";
 import { useExpeditionAvailable, useExpeditionState } from "../../data/expedition";
 import { useJoustAvailable, useJoustState } from "../../data/joust";
+import { useMasterpieceAvailable, useMasterpieceState } from "../../data/masterpiece";
+import { MASTERPIECE_KIND } from "../../components/elements/masterpiece-kind";
 import { usePuzzleActiveGame, usePuzzleAvailable, usePuzzleStanding } from "../../data/puzzle";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
@@ -32,6 +34,9 @@ const JoustView = lazy(loadJoust);
 /** The Expedition (`/play/expedition`, Play's Limited mode): its week and its board's journal, a chunk of their own, fetched as Play is pointed at. */
 const loadExpedition = () => import("./expedition");
 const ExpeditionView = lazy(loadExpedition);
+/** The Masterpiece (`/play/masterpiece`, Play's Limited mode): its week and its ranking, a chunk of their own, fetched as Play is pointed at. */
+const loadMasterpiece = () => import("./masterpiece");
+const MasterpieceView = lazy(loadMasterpiece);
 /** The Tournament (`/play/tournament`, Play's Limited mode): its week and its bracket, a chunk of their own, fetched as Play is pointed at. */
 const loadTournament = () => import("./tournament");
 const TournamentView = lazy(loadTournament);
@@ -90,7 +95,15 @@ export default function Page() {
   const expeditionCard: ExpeditionCard | null = expeditionState
     ? { map: expeditionState.map, day: expeditionState.day, endsAt: expeditionState.endsAt, board: expeditionState.board && { score: expeditionState.board.score, hand: expeditionState.board.hand, due: expeditionState.board.due.drawn } }
     : null;
+  // The Masterpiece's card (Limited): the week's kind and day, the tiles waiting, the player's best piece; none without a Masterpiece.
+  const masterpieceOn = useMasterpieceAvailable();
+  const masterpieceState = useMasterpieceState(me, masterpieceOn).data ?? null;
+  const masterpieceCard: MasterpieceCard | null = masterpieceState
+    ? { kind: MASTERPIECE_KIND[masterpieceState.kind].name, day: masterpieceState.day, endsAt: masterpieceState.endsAt, board: masterpieceState.board && { waiting: masterpieceState.board.waiting, size: masterpieceState.board.piece?.size ?? null, score: masterpieceState.board.score } }
+    : null;
   const [params] = useSearchParams();
+  const masterpieceRanking = path === "play/masterpiece" && params.get("view") === "ranking";
+  const onMasterpieceTop = useUpTo("/play/masterpiece");
   const joustView = path === "play/joust" ? params.get("view") : null;
   const onJoustTop = useUpTo("/play/joust");
   // The Tournament's card (Limited) and its view's own view (`?view=bracket`); none without a Tournament.
@@ -106,6 +119,7 @@ export default function Page() {
     void loadPuzzle().catch(() => {});
     if (joustOn) void loadJoust().catch(() => {});
     if (expeditionOn) void loadExpedition().catch(() => {});
+    if (masterpieceOn) void loadMasterpiece().catch(() => {});
     if (tournament.on) void loadTournament().catch(() => {});
   };
   return (
@@ -156,6 +170,17 @@ export default function Page() {
         onExpeditionBack={onViewBack}
         expeditionCard={expeditionCard}
         onExpedition={() => go("/play/expedition")}
+        masterpiece={
+          path === "play/masterpiece" ? (
+            <Suspense fallback={null}>
+              <MasterpieceView />
+            </Suspense>
+          ) : null
+        }
+        masterpieceTitle={masterpieceRanking ? "Ranking" : undefined}
+        onMasterpieceBack={masterpieceRanking ? onMasterpieceTop : onViewBack}
+        masterpieceCard={masterpieceCard}
+        onMasterpiece={() => go("/play/masterpiece")}
         joustTitle={joustView ? JOUST_TITLES[joustView] : undefined}
         onJoustBack={joustView && JOUST_TITLES[joustView] ? onJoustTop : onViewBack}
         joustCard={joustCard}
