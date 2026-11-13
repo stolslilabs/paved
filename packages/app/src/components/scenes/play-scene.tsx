@@ -37,6 +37,9 @@ export interface PlaySceneProps extends PlayModesProps {
   /** The Masterpiece (`/play/masterpiece`, Play's Limited mode): its body (`MasterpieceScene`), a view as the Joust's; `masterpieceTitle` names its own view ("Ranking"). Null or omitted: the modes. */
   masterpiece?: ReactNode;
   masterpieceTitle?: string;
+  /** The Colossus (`/play/colossus`, Play's Limited mode): its body (`ColossusScene`), as the Joust's; `colossusTitle` names its own view. */
+  colossus?: ReactNode;
+  colossusTitle?: string;
   /** Play's close, back to the village. */
   onBack?: () => void;
   /** The stake's Back, to the modes. */
@@ -51,6 +54,8 @@ export interface PlaySceneProps extends PlayModesProps {
   onExpeditionBack?: () => void;
   /** The Masterpiece's Back: to the modes, or from its ranking to the week. */
   onMasterpieceBack?: () => void;
+  /** The Colossus's Back: to the modes, or from one of its views to the site. */
+  onColossusBack?: () => void;
 }
 
 /** The stake's balance at the header's end (the drawers' rule: the page's balance at the top right), USDC, what it spends. */
@@ -72,8 +77,8 @@ const keepForDialogs = (event: Event) => {
  * header's end (the drawers' rule, where the book writes it under the title). Story's campaigns (`/story`, STORY-PAGE) are a view of
  * the same kind, "Story" on the header, its Back to the modes. A pause says so under the modes: Training and Story stay open.
  */
-export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, joust = null, joustTitle, expedition = null, masterpiece = null, masterpieceTitle, onBack, onChallengeBack, onStoryBack, onPuzzleBack, onJoustBack, onExpeditionBack, onMasterpieceBack, ...modes }: PlaySceneProps) {
-  const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : joust !== null ? "joust" : expedition !== null ? "expedition" : masterpiece !== null ? "masterpiece" : "modes";
+export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, joust = null, joustTitle, expedition = null, masterpiece = null, masterpieceTitle, colossus = null, colossusTitle, onBack, onChallengeBack, onStoryBack, onPuzzleBack, onJoustBack, onExpeditionBack, onMasterpieceBack, onColossusBack, ...modes }: PlaySceneProps) {
+  const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : joust !== null ? "joust" : expedition !== null ? "expedition" : masterpiece !== null ? "masterpiece" : colossus !== null ? "colossus" : "modes";
   // The first view comes with the drawer's own slide; only a move between views slides.
   const [last, setLast] = useState(view);
   const [moved, setMoved] = useState(false);
@@ -87,7 +92,7 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
       onOpenChange={(next) => {
         if (!next) onBack?.();
       }}
-      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : view === "puzzle" ? "Puzzle" : view === "joust" ? (joustTitle ?? "Joust") : view === "expedition" ? "Expedition" : view === "masterpiece" ? (masterpieceTitle ?? "Masterpiece") : "Play"}
+      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : view === "puzzle" ? "Puzzle" : view === "joust" ? (joustTitle ?? "Joust") : view === "expedition" ? "Expedition" : view === "masterpiece" ? (masterpieceTitle ?? "Masterpiece") : view === "colossus" ? (colossusTitle ?? "Colossus") : "Play"}
       side="right"
       slot="play"
       returnFocus={returnFocus}
@@ -95,11 +100,11 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
       end={
         view === "challenge" ? (
           <BalancesSlot layout="pill" kinds={USDC} className="hidden mobile:flex" />
-        ) : view === "puzzle" || view === "joust" || view === "expedition" || view === "masterpiece" ? (
+        ) : view === "puzzle" || view === "joust" || view === "expedition" || view === "masterpiece" || view === "colossus" ? (
           <BalancesSlot layout="pill" kinds={COBBLES} className="hidden mobile:flex" />
         ) : undefined
       }
-      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : view === "puzzle" ? onPuzzleBack : view === "joust" ? onJoustBack : view === "expedition" ? onExpeditionBack : view === "masterpiece" ? onMasterpieceBack : undefined}
+      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : view === "puzzle" ? onPuzzleBack : view === "joust" ? onJoustBack : view === "expedition" ? onExpeditionBack : view === "masterpiece" ? onMasterpieceBack : view === "colossus" ? onColossusBack : undefined}
       onInteractOutside={keepForDialogs}
     >
       <m.div
@@ -122,6 +127,8 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
           expedition
         ) : view === "masterpiece" ? (
           masterpiece
+        ) : view === "colossus" ? (
+          colossus
         ) : (
           <>
             <PlayModes {...modes} />

@@ -242,6 +242,8 @@ export {
   masterpieceWorth,
 } from "./masterpiece";
 export type { MasterpieceEntry, MasterpieceKind, MasterpieceMove, MasterpiecePiece, MasterpieceProspect, MasterpieceResult, MasterpieceSeason, MasterpieceTier } from "./masterpiece";
+// The Colossus (the weekly collective event): the calendar, the site, the hands, the placement, the stones and the rewards
+export * from "./colossus";
 
 // Story mode (#546): campaigns, levels, runs and the device progress
 export * from "./story";

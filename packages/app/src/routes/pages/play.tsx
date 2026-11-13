@@ -3,10 +3,11 @@ import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
-import type { ExpeditionCard, JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
+import type { ColossusCard, ExpeditionCard, JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
 import { useSearchParams } from "react-router";
 import { useExpeditionAvailable, useExpeditionState } from "../../data/expedition";
 import { useJoustAvailable, useJoustState } from "../../data/joust";
+import { useColossusAvailable, useColossusState } from "../../data/colossus";
 import { useMasterpieceAvailable, useMasterpieceState } from "../../data/masterpiece";
 import { MASTERPIECE_KIND } from "../../components/elements/masterpiece-kind";
 import { usePuzzleActiveGame, usePuzzleAvailable, usePuzzleStanding } from "../../data/puzzle";
@@ -36,6 +37,9 @@ const ExpeditionView = lazy(loadExpedition);
 /** The Masterpiece (`/play/masterpiece`, Play's Limited mode): its week and its ranking, a chunk of their own, fetched as Play is pointed at. */
 const loadMasterpiece = () => import("./masterpiece");
 const MasterpieceView = lazy(loadMasterpiece);
+/** The Colossus (`/play/colossus`, Play's Limited mode): its site, its builders and its boards, a chunk of their own. */
+const loadColossus = () => import("./colossus");
+const ColossusView = lazy(loadColossus);
 /** The header's title of the Joust's views (`?view=`). */
 const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ranking" };
 
@@ -102,6 +106,15 @@ export default function Page() {
   const onMasterpieceTop = useUpTo("/play/masterpiece");
   const joustView = path === "play/joust" ? params.get("view") : null;
   const onJoustTop = useUpTo("/play/joust");
+  // The Colossus's card (Limited): the week's day, the monument, the gauge, the tiles in hand; none without a Colossus.
+  const colossusOn = useColossusAvailable();
+  const colossusState = useColossusState(me, colossusOn).data ?? null;
+  const colossusCard: ColossusCard | null = colossusState && { day: colossusState.day, endsAt: colossusState.endsAt, monument: colossusState.monument, stones: colossusState.stones, cells: colossusState.cells, hand: colossusState.me?.hand.length ?? null };
+  // Its views: the builders (`?view=builders`) and a board (`?lot=`), named on the header, their Back up to the site.
+  const colossusLot = path === "play/colossus" ? params.get("lot") : null;
+  const colossusBoard = colossusLot === null ? null : (colossusState?.lots.find((l) => String(l.board) === colossusLot) ?? null);
+  const colossusTitle = colossusLot !== null ? (colossusBoard ? (colossusBoard.heart ? "The heart" : `District ${colossusBoard.name}`) : "District") : path === "play/colossus" && params.get("view") === "builders" ? "Builders" : undefined;
+  const onColossusTop = useUpTo("/play/colossus");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
@@ -112,6 +125,7 @@ export default function Page() {
     if (joustOn) void loadJoust().catch(() => {});
     if (expeditionOn) void loadExpedition().catch(() => {});
     if (masterpieceOn) void loadMasterpiece().catch(() => {});
+    if (colossusOn) void loadColossus().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -175,6 +189,17 @@ export default function Page() {
         joustTitle={joustView ? JOUST_TITLES[joustView] : undefined}
         onJoustBack={joustView && JOUST_TITLES[joustView] ? onJoustTop : onViewBack}
         joustCard={joustCard}
+        colossus={
+          path === "play/colossus" ? (
+            <Suspense fallback={null}>
+              <ColossusView />
+            </Suspense>
+          ) : null
+        }
+        colossusTitle={colossusTitle}
+        onColossusBack={colossusTitle ? onColossusTop : onViewBack}
+        colossusCard={colossusCard}
+        onColossus={() => go("/play/colossus")}
         onJoust={() => go(joustGame ? `/joust/${joustGame.id}` : "/play/joust")}
         onBack={onBack}
         onChallengeBack={onViewBack}

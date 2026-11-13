@@ -96,6 +96,9 @@ export const PAGES: readonly PageDef[] = [
   // board (the account's own, one a week) is a full-screen flow, its Back up to the view (the page's own, `useUpTo`: no parent, BACK-RULE).
   { path: "play/masterpiece", title: "Masterpiece", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "masterpiece", title: "Masterpiece", nav: null },
+  // The Colossus (Play's Limited mode, the weekly collective event): a view of Play's drawer, as the Joust's (one loader); its builders
+  // and its boards are views of it (`?view=builders`, `?lot=`).
+  { path: "play/colossus", title: "Colossus", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "game/:gameId/over", title: "Game over", nav: null },
   { path: "training/over", title: "Game over", nav: null },
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`
