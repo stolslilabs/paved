@@ -3,11 +3,13 @@ import { fn } from "storybook/test";
 import { CAMPAIGNS } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
 import { PLAY, PURCHASE } from "../../mocks/scenes";
+import { EXPEDITION, EXPEDITION_CARD } from "../../mocks/expedition";
 import { JOUST, JOUST_CARD } from "../../mocks/joust";
 import { PUZZLE, PUZZLE_CARD } from "../../mocks/puzzle";
 import { STORY } from "../../mocks/story";
 import { PlayScene } from "./play-scene";
 import { PurchaseScene } from "./purchase-scene";
+import { ExpeditionScene } from "./expedition-scene";
 import { JoustScene } from "./joust-scene";
 import { PuzzleScene } from "./puzzle-scene";
 import { StoryScene } from "./story-scene";
@@ -22,7 +24,7 @@ import { PHONE_320, PHONE_375 } from "./viewports";
 const meta = {
   title: "Scenes/Play",
   component: PlayScene,
-  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onJoust: fn(), onJoustBack: fn() },
+  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onJoust: fn(), onJoustBack: fn(), onExpedition: fn(), onExpeditionBack: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -141,3 +143,34 @@ export const JoustViewRanking: Story = joust("ranking", "Ranking");
 export const JoustViewRankingLoading: Story = joust("rankingLoading", "Ranking");
 export const JoustViewLoading: Story = joust("loading");
 export const JoustViewFailed: Story = joust("failed");
+
+/** The Expedition's card (Limited, over the Joust's): before the first visit, the week's map to open. */
+export const ExpeditionFirstVisit: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...EXPEDITION_CARD.firstVisit } };
+/** A new day: six tiles wait, one kept from yesterday. */
+export const ExpeditionNewDay: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...EXPEDITION_CARD.newDay } };
+/** Today's tiles drawn: the hand and the board's score. */
+export const ExpeditionPlaying: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...EXPEDITION_CARD.playing } };
+
+/** The Expedition's view in the drawer: a view of its own in the modes' place, "Expedition" and the Cobbles on the header. */
+const expedition = (state: keyof typeof EXPEDITION): Story => ({
+  args: { ...PLAY.connected, expedition: <ExpeditionScene onOpen={fn()} onClaim={fn()} onRetry={fn()} {...EXPEDITION[state]} /> },
+});
+/** Before the first visit: the week's map, its four landmarks, how it goes, the tiers. */
+export const ExpeditionViewFirstVisit: Story = expedition("firstVisit");
+export const ExpeditionViewOpening: Story = expedition("opening");
+/** Wednesday: 15 laid, 3 in hand, 24 to come, the villages linked, 777 to go to Scout. */
+export const ExpeditionViewBoard: Story = expedition("board");
+/** A new day: the gold button draws its six tiles. */
+export const ExpeditionViewNewDay: Story = expedition("newDay");
+/** Back after three days away: ten tiles fit the hand, eight are lost. */
+export const ExpeditionViewMissedDays: Story = expedition("missedDays");
+/** Sunday, every landmark done: the highest tier. */
+export const ExpeditionViewCartographer: Story = expedition("cartographer");
+/** Monday: last week's tier to claim, what everyone else reached. */
+export const ExpeditionViewResult: Story = expedition("result");
+/** Under level 3: the claim waits. */
+export const ExpeditionViewResultLocked: Story = expedition("resultLocked");
+export const ExpeditionViewResultClaimed: Story = expedition("resultClaimed");
+export const ExpeditionViewResultNoTier: Story = expedition("resultNoTier");
+export const ExpeditionViewLoading: Story = expedition("loading");
+export const ExpeditionViewFailed: Story = expedition("failed");

@@ -69,6 +69,12 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "play/joust": play,
   "joust/:gameId": board,
   "joust/:gameId/over": over,
+  // The Expedition: its view is Play's; its board a chunk of its own, the boards' manifest asked for with it.
+  "play/expedition": play,
+  expedition: () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/expedition-board");
+  },
   // The Tournament, as the Joust.
   "play/tournament": play,
   "tournament/:gameId": board,

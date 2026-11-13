@@ -174,6 +174,44 @@ export {
   joustWeekStart,
 } from "./joust";
 export type { JoustOutcome, JoustPhase, JoustScore } from "./joust";
+// The Expedition (the weekly individual event): the calendar, the ration, the maps and their trail, the objectives and the tiers
+export {
+  EXPEDITION_BAG,
+  EXPEDITION_BOUNDS,
+  EXPEDITION_DAYS,
+  EXPEDITION_DAY_S,
+  EXPEDITION_HAND,
+  EXPEDITION_LEVEL,
+  EXPEDITION_MAPS,
+  EXPEDITION_RATION,
+  EXPEDITION_TIERS,
+  EXPEDITION_WEEK_S,
+  Expedition,
+  expeditionBag,
+  expeditionCells,
+  expeditionDayOf,
+  expeditionEndsAt,
+  expeditionNextTier,
+  expeditionOrder,
+  expeditionSeasonOf,
+  expeditionTierOf,
+  expeditionWeekOf,
+  expeditionWeekStart,
+} from "./expedition";
+export type {
+  ExpeditionCard,
+  ExpeditionDay,
+  ExpeditionEntry,
+  ExpeditionMap,
+  ExpeditionMove,
+  ExpeditionObjective,
+  ExpeditionObjectiveId,
+  ExpeditionProgress,
+  ExpeditionSeason,
+  ExpeditionSite,
+  ExpeditionTier,
+  ExpeditionTile,
+} from "./expedition";
 // The Tournament (the weekly individual event): the calendar, the leagues' groups, the draw, who goes through and the rewards
 export {
   TOURNAMENT_BYE,

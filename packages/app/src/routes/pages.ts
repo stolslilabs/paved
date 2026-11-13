@@ -88,6 +88,10 @@ export const PAGES: readonly PageDef[] = [
   { path: "play/joust", title: "Joust", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "joust/:gameId", title: "Joust", nav: null },
   { path: "joust/:gameId/over", title: "Game over", nav: null },
+  // The Expedition (Play's Limited mode, the weekly individual event): a view of Play's drawer, as the Joust's; its board (the
+  // account's own, one a week) is a full-screen flow, its Back up to the view (the page's own, `useUpTo`: no parent here, BACK-RULE).
+  { path: "play/expedition", title: "Expedition", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "expedition", title: "Expedition", nav: null },
   // The Tournament (Play's Limited mode, the weekly individual event), as the Joust: a view of Play's drawer, its bracket a view of it
   // (`?view=bracket`); a game is a full-screen flow, its end too.
   { path: "play/tournament", title: "Tournament", nav: null, parent: "/play", panel: true, drawer: true },
