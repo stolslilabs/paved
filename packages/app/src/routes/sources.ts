@@ -130,6 +130,7 @@ const MOCK_SOURCES: DataSources = {
   puzzle: lazyMock((app) => app.puzzle),
   joust: lazyMock((app) => app.joust),
   expedition: lazyMock((app) => app.expedition),
+  masterpiece: lazyMock((app) => app.masterpiece),
   signer: null,
   purchases: (signer) => ({
     purchase: async (request) => (await mockApp()).purchases(signer).purchase(request),

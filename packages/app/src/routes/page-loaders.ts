@@ -75,6 +75,12 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
     return import("./pages/expedition-board");
   },
+  // The Masterpiece: its view is Play's; its board a chunk of its own, the boards' manifest asked for with it.
+  "play/masterpiece": play,
+  masterpiece: () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/masterpiece-board");
+  },
   // A Story level is its own chunk (#546), with the board's manifest asked for as the board's.
   "story/:campaign/:level": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});

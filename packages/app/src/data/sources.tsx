@@ -3,6 +3,7 @@ import type { EconomyViews, EconomyWriter, EventReader, GameViews, IndexerClient
 import { browserStore, type KeyValueStore } from "@paved/game-core";
 import type { ExpeditionSource } from "./expedition-source";
 import type { JoustSource } from "./joust-source";
+import type { MasterpieceSource } from "./masterpiece-source";
 import type { PuzzleSource } from "./puzzle-source";
 import type { SocialSource } from "./social-source";
 
@@ -121,6 +122,11 @@ export interface DataSources {
    * runs on the client); null or left out (the chain): its hooks answer `unavailable` and Play shows no Expedition.
    */
   expedition?: ExpeditionSource | null;
+  /**
+   * The Masterpiece (the weekly individual event): the week, the player's board, the ranking. The mock's on `mock` (the whole event
+   * runs on the client); null or left out (the chain): its hooks answer `unavailable` and Play shows no Masterpiece.
+   */
+  masterpiece?: MasterpieceSource | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }
