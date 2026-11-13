@@ -203,6 +203,9 @@ import type { JoustGameRecord, JoustGameResult, JoustRanking, JoustState } from 
 import * as joust from "./joust";
 import type { ExpeditionBoardRecord, ExpeditionPlay, ExpeditionState } from "../expedition-source";
 import * as expedition from "./expedition";
+import type { MasterpieceBoardRecord, MasterpieceRanking, MasterpieceState } from "../masterpiece-source";
+import * as masterpiece from "./masterpiece";
+import { masterpieceWeekOf, type MasterpieceEntry } from "@paved/game-core";
 import type { ColossusBoardState, ColossusBuilderRow, ColossusOptions, ColossusPlace, ColossusPlaced, ColossusState } from "../colossus-source";
 import * as colossus from "./colossus";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
@@ -519,6 +522,8 @@ interface StoredState {
   joust?: joust.StoredJoust;
   /** The Expedition (the weekly individual event, `expedition.ts`): the accounts' boards and claims; absent: none yet. */
   expedition?: expedition.StoredExpedition;
+  /** The Masterpiece (the weekly individual event, `masterpiece.ts`): the accounts' boards and claims; absent: none yet. */
+  masterpiece?: masterpiece.StoredMasterpiece;
   /** The Colossus (the weekly collective event, `colossus.ts`): the accounts' tiles by week and their claims; absent: none yet. */
   colossus?: colossus.StoredColossus;
 }
@@ -1609,6 +1614,77 @@ export class MockLedger {
       const cobbles = expedition.claim(stored, player, week, now, this.expeditionLevel(player, p));
       p.cobbles += cobbles;
       return { events: [this.event("ExpeditionClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
+  // --- The Masterpiece (the weekly individual event, `masterpiece.ts`) --------------------------------------------------
+
+  /**
+   * A Masterpiece write: `change` works on the player's copy and the stored Masterpiece (created on the first write, put back on a
+   * throw, `commit`) at the write's second; a rule's refusal is the writer's `WriteError` with the contract's text.
+   */
+  private async writeMasterpiece<T>(account: string, change: (player: StoredPlayer, stored: masterpiece.StoredMasterpiece, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.masterpiece ??= masterpiece.freshMasterpiece()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** The name a builder's own line shows: the account's, "You" without one. */
+  private masterpieceName(viewer: string | null): string {
+    return (viewer === null ? null : this.peek(viewer).name) ?? "You";
+  }
+
+  /** `MasterpieceSource.state`: the week as `viewer` sees it. */
+  async masterpieceState(viewer: string | null): Promise<MasterpieceState> {
+    this.sync();
+    return masterpiece.stateOf(this.state.masterpiece ?? masterpiece.freshMasterpiece(), this.second(), viewer, this.masterpieceName(viewer));
+  }
+
+  /** `MasterpieceSource.ranking`: the week's live ranking, its bars and the Hall's records. */
+  async masterpieceRanking(viewer: string | null): Promise<MasterpieceRanking> {
+    this.sync();
+    return masterpiece.rankingOf(this.state.masterpiece ?? masterpiece.freshMasterpiece(), this.second(), viewer, this.masterpieceName(viewer));
+  }
+
+  /** `MasterpieceSource.board`: the account's board of this week; none opened is the view's refusal. */
+  async masterpieceBoard(player: string): Promise<MasterpieceBoardRecord> {
+    this.sync();
+    const board = masterpiece.boardOf(this.state.masterpiece ?? masterpiece.freshMasterpiece(), player, masterpieceWeekOf(this.second()));
+    if (!board) throw new ViewError("game-not-found", "Masterpiece: board does not exist");
+    return masterpiece.recordOf(board);
+  }
+
+  /** `MasterpieceSource.open`: the account's board of this week, created on the first visit (`MasterpieceOpened`). */
+  async masterpieceOpen(player: string): Promise<MasterpieceBoardRecord> {
+    return this.writeMasterpiece(player, (_p, stored, now) => {
+      const { board, created } = masterpiece.open(stored, player, now);
+      return { events: created ? [this.event("MasterpieceOpened", { playerId: player, week: board.week })] : [], value: masterpiece.recordOf(board) };
+    });
+  }
+
+  /** `MasterpieceSource.play`: the account's tile in hand laid or discarded, by the engine's rules (`MasterpieceClosed` when it makes the masterpiece). */
+  async masterpiecePlay(player: string, week: number, move: MasterpieceEntry): Promise<void> {
+    await this.writeMasterpiece(player, (_p, stored, now) => {
+      const { score, improved, size } = masterpiece.play(stored, player, week, move, now);
+      return { events: improved ? [this.event("MasterpieceClosed", { playerId: player, week, size, score })] : [], value: undefined };
+    });
+  }
+
+  /** `MasterpieceSource.claim`: the Cobbles of a finished week's tier, added (`MasterpieceClaimed`). */
+  async masterpieceClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.writeMasterpiece(player, (p, stored, now) => {
+      const cobbles = masterpiece.claim(stored, player, week, now);
+      p.cobbles += cobbles;
+      return { events: [this.event("MasterpieceClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3263,6 +3339,7 @@ export class MockLedger {
     const puzzle = this.state.puzzle && structuredClone(this.state.puzzle);
     const jousts = this.state.joust && structuredClone(this.state.joust);
     const expeditions = this.state.expedition && structuredClone(this.state.expedition);
+    const masterpieces = this.state.masterpiece && structuredClone(this.state.masterpiece);
     const colossi = this.state.colossus && structuredClone(this.state.colossus);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
@@ -3274,6 +3351,7 @@ export class MockLedger {
       this.state.puzzle = puzzle;
       this.state.joust = jousts;
       this.state.expedition = expeditions;
+      this.state.masterpiece = masterpieces;
       this.state.colossus = colossi;
       throw error;
     }

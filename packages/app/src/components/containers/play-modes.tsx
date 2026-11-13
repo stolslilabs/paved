@@ -54,6 +54,21 @@ export interface ExpeditionCard {
   board: { score: number; hand: number; due: number } | null;
 }
 
+/**
+ * The Masterpiece's card (Play's Limited mode, the weekly individual event): the week's kind, its day, the tiles waiting and the
+ * player's best piece so far.
+ */
+export interface MasterpieceCard {
+  /** The structure the week counts, as the card names it ("city", "crowned wonder"). */
+  kind: string;
+  /** Today in the week: 0 Monday to 6 Sunday. */
+  day: number;
+  /** Sunday 24:00 UTC, in seconds since the epoch: the week's end. */
+  endsAt: number;
+  /** The player's board: the tiles waiting, their masterpiece's size (null: none closed yet) and its score. Null: not opened this week. */
+  board: { waiting: number; size: number | null; score: number } | null;
+}
+
 /** Under this many seconds left, the Puzzle's time turns amber. */
 export const PUZZLE_LATE_S = 3_600;
 
@@ -82,6 +97,10 @@ export interface PlayModesProps {
   expeditionCard?: ExpeditionCard | null;
   /** A tap on the Expedition's card: its view. */
   onExpedition?: () => void;
+  /** The Masterpiece's card (Limited, over the Joust's); null or omitted: the Masterpiece is not on this network, no card. */
+  masterpieceCard?: MasterpieceCard | null;
+  /** A tap on the Masterpiece's card: its view. */
+  onMasterpiece?: () => void;
   /** The Colossus's card (Limited); null or omitted: the Colossus is not on this network, no card. */
   colossusCard?: ColossusCard | null;
   onColossus?: () => void;
@@ -167,6 +186,7 @@ const SHAPES = {
   puzzle: "polygon(8px 0, 40% 0, 42% 4px, 100% 2px, 100% 100%, 16px 100%, 0 calc(100% - 16px), 0 8px)",
   joust: "polygon(0 12px, 12px 0, 46% 0, 49% 5px, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 6px 100%, 0 calc(100% - 6px))",
   expedition: "polygon(10px 0, 62% 0, 65% 4px, 100% 0, 100% calc(100% - 10px), calc(100% - 12px) 100%, 30% 100%, 27% calc(100% - 4px), 0 100%, 0 10px)",
+  masterpiece: "polygon(0 8px, 10px 0, 38% 0, 41% 5px, 100% 3px, 100% calc(100% - 12px), calc(100% - 10px) 100%, 58% 100%, 55% calc(100% - 4px), 8px 100%, 0 calc(100% - 10px))",
   colossus: "polygon(10px 0, calc(100% - 16px) 0, 100% 16px, 100% 58%, calc(100% - 3px) 62%, 100% 66%, 100% 100%, 20px 100%, 0 calc(100% - 12px), 0 10px)",
 } as const satisfies Record<PlayMode, string>;
 
@@ -192,7 +212,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && mode !== "expedition" && mode !== "colossus" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "expedition" && mode !== "masterpiece" && mode !== "colossus" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -230,7 +250,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, colossusCard = null, onColossus }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -323,6 +343,7 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
           Limited
         </h3>
         {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
+        {masterpieceCard && <MasterpieceMode card={masterpieceCard} now={now} onSelect={onMasterpiece} />}
         {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
         {colossusCard && <ColossusMode card={colossusCard} now={now} onSelect={onColossus} />}
         {puzzleCard ? (
@@ -499,6 +520,56 @@ function ExpeditionMode({ card, now, onSelect }: { card: ExpeditionCard; now: nu
       <span
         role="timer"
         aria-label={`${left} left in the expedition`}
+        className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
+      >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Masterpiece's card (Limited, over the Joust's; the design proposal of 2026-11-09): a wide slab on the giant city in the snow,
+ * darkened from the left. "Masterpiece", then the week's line: the tiles waiting and the best piece so far ("5 tiles waiting · city
+ * of 14"; "One city counts · open your board" before the first visit), the piece and its score once today's tiles are played. Its
+ * tag names the day ("Day 3 of 7"). Its reward, the Cobbles alone; the week's time left in the corner's tab.
+ */
+function MasterpieceMode({ card, now, onSelect }: { card: MasterpieceCard; now: number; onSelect?: () => void }) {
+  const board = card.board;
+  const piece = board?.size ? (
+    <>
+      {card.kind} of <span className="numeric">{board.size}</span>
+    </>
+  ) : (
+    `no ${card.kind} closed yet`
+  );
+  const left = puzzleTimeLeft(card.endsAt, now);
+  return (
+    <ModeCard mode="masterpiece" slot="masterpiece-card" sceneAt="50% 45%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
+      <button type="button" onClick={onSelect} aria-label={board?.size ? `Masterpiece: ${formatPoints(board.score)} points` : "Masterpiece"} className={cn(COVER, "flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Masterpiece</span>
+        <span className={LINE}>
+          {!board ? (
+            `One ${card.kind} counts · open your board`
+          ) : board.waiting > 0 ? (
+            <>
+              <span className="numeric">{board.waiting}</span> {board.waiting === 1 ? "tile" : "tiles"} waiting · {piece}
+            </>
+          ) : board.size ? (
+            <>
+              {piece} · <span className="numeric">{formatPoints(board.score)}</span>
+            </>
+          ) : (
+            piece
+          )}
+        </span>
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span
+        role="timer"
+        aria-label={`${left} left in the masterpiece's week`}
         className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
       >
         <UiIcon name="countdown" px={14} className="size-3.5" />
