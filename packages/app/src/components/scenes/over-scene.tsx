@@ -31,6 +31,8 @@ import { END_STARS, EndVerdict, ShowScores } from "../containers/game-end";
 import { PuzzleEnd, type PuzzleEndResult } from "../containers/puzzle-end";
 import { JoustEnd } from "../containers/joust-end";
 import type { JoustGameResult, JoustGuild } from "../../data/joust-source";
+import { TournamentEnd } from "../containers/tournament-end";
+import type { TournamentGameResult } from "../../data/tournament-source";
 import { TrainingEnd } from "../containers/training-end";
 
 // The final board (#539) is its own chunk, with the renderer: loaded when the end screen opens (#720), the scores' background.
@@ -85,8 +87,16 @@ export interface OverJoust {
   onJoust?: () => void;
 }
 
+/** A Tournament game's end (the weekly individual event): its standing in its duel. */
+export interface OverTournament {
+  result: TournamentGameResult | null;
+  onTournament?: () => void;
+}
+
 export interface OverSceneProps {
-  mode: "challenge" | "training" | "puzzle" | "joust";
+  mode: "challenge" | "training" | "puzzle" | "joust" | "tournament";
+  /** A Tournament game's end (`mode: "tournament"`). */
+  tournament?: OverTournament;
   /** A Joust game's end (`mode: "joust"`). */
   joust?: OverJoust;
   /** A Puzzle game's end (`mode: "puzzle"`). */
@@ -240,7 +250,7 @@ export function OverScene(props: OverSceneProps) {
       <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
         {boardLayer}
         {/* The page's name for a reader: the book's window draws no title bar. */}
-        <h1 className="sr-only">{props.mode === "puzzle" ? "Puzzle over" : props.mode === "joust" ? "Joust game over" : "Training over"}</h1>
+        <h1 className="sr-only">{props.mode === "puzzle" ? "Puzzle over" : props.mode === "joust" ? "Joust game over" : props.mode === "tournament" ? "Tournament game over" : "Training over"}</h1>
         {onBoard ? (
           <ShowScores onClick={() => setView("scores")} />
         ) : (
@@ -253,7 +263,9 @@ export function OverScene(props: OverSceneProps) {
                 data-testid="scores-overlay"
                 className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center overflow-x-clip px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]"
               >
-                {props.mode === "joust" ? (
+                {props.mode === "tournament" ? (
+                  <TournamentEnd score={game.score} result={props.tournament?.result ?? null} stats={stats} closings={props.closings} closingsNote={props.closingsNote} instant={back} onClose={board ? () => setView("board") : undefined} onTournament={props.tournament?.onTournament} />
+                ) : props.mode === "joust" ? (
                   <JoustEnd
                     score={game.score}
                     result={props.joust?.result ?? null}

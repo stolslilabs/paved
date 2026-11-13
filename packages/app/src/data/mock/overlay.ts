@@ -6,6 +6,7 @@ import type { JoustSource } from "../joust-source";
 import type { MasterpieceSource } from "../masterpiece-source";
 import type { ColossusSource } from "../colossus-source";
 import type { PuzzleSource } from "../puzzle-source";
+import type { TournamentSource } from "../tournament-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -197,6 +198,22 @@ export function mockMasterpiece(ledger: MockLedger): MasterpieceSource {
     open: (player) => ledger.masterpieceOpen(player),
     play: (player, week, move) => ledger.masterpiecePlay(player, week, move),
     claim: (player, week) => ledger.masterpieceClaim(player, week),
+  };
+}
+
+/**
+ * The Tournament's source of the ledger (the weekly individual event, `tournament.ts`): the week, the player's run through their
+ * bracket, their one game a round by game-core's rules and their Cobbles. No chain part lies beneath: it runs on the client alone.
+ */
+export function mockTournament(ledger: MockLedger): TournamentSource {
+  return {
+    state: (viewer) => ledger.tournamentState(viewer),
+    game: (gameId) => ledger.tournamentGame(gameId),
+    result: (gameId) => ledger.tournamentResult(gameId),
+    register: (player) => ledger.tournamentRegister(player),
+    start: (player) => ledger.tournamentStart(player),
+    play: (player, gameId, move) => ledger.tournamentPlay(player, gameId, move),
+    claim: (player, week) => ledger.tournamentClaim(player, week),
   };
 }
 

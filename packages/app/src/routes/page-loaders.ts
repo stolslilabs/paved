@@ -83,6 +83,10 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   },
   // The Colossus's views are Play's (its drawer kept).
   "play/colossus": play,
+  // The Tournament, as the Joust.
+  "play/tournament": play,
+  "tournament/:gameId": board,
+  "tournament/:gameId/over": over,
   // A Story level is its own chunk (#546), with the board's manifest asked for as the board's.
   "story/:campaign/:level": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
