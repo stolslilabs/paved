@@ -4,6 +4,7 @@ import { browserStore, type KeyValueStore } from "@paved/game-core";
 import type { ExpeditionSource } from "./expedition-source";
 import type { JoustSource } from "./joust-source";
 import type { MasterpieceSource } from "./masterpiece-source";
+import type { ColossusSource } from "./colossus-source";
 import type { PuzzleSource } from "./puzzle-source";
 import type { SocialSource } from "./social-source";
 import type { TournamentSource } from "./tournament-source";
@@ -128,6 +129,8 @@ export interface DataSources {
    * runs on the client); null or left out (the chain): its hooks answer `unavailable` and Play shows no Masterpiece.
    */
   masterpiece?: MasterpieceSource | null;
+  /** The Colossus (the weekly collective event): the mock's on `mock`; null or left out (the chain): `unavailable`, no card in Play. */
+  colossus?: ColossusSource | null;
   /** The Tournament (the weekly individual event), as the Joust: the mock's on `mock`; null or left out (the chain): `unavailable`, no card in Play. */
   tournament?: TournamentSource | null;
   /** Where the Training game is saved: `localStorage` by default. */

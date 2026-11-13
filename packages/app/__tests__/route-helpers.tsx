@@ -65,6 +65,7 @@ const PAGES = {
       import("../src/routes/pages/joust"),
       import("../src/routes/pages/expedition"),
       import("../src/routes/pages/masterpiece"),
+      import("../src/routes/pages/colossus"),
       import("../src/routes/pages/tournament"),
       import("../src/routes/home-hosts"),
     ]),
