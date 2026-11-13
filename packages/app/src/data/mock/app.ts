@@ -13,6 +13,8 @@ import type { MasterpieceSource } from "../masterpiece-source";
 import type { ColossusSource } from "../colossus-source";
 import { mockColossus } from "./overlay";
 import type { PuzzleSource } from "../puzzle-source";
+import type { TournamentSource } from "../tournament-source";
+import { mockTournament } from "./overlay";
 
 // The app's mock (#549, #927): every source of `DataSources` from the device's ledger, and nothing under it. No chain client,
 // no economy client and no indexer client is built, no node and no indexer is read: the overlays of `overlay.ts` go over
@@ -65,6 +67,8 @@ export interface MockAppSources {
   masterpiece: MasterpieceSource;
   /** The Colossus (the weekly collective event), the ledger's alone. */
   colossus: ColossusSource;
+  /** The Tournament (the weekly individual event), the ledger's alone. */
+  tournament: TournamentSource;
   purchases(signer: GameSigner): Purchases;
   settlements(signer: GameSigner): Settlements;
   vault(signer: GameSigner): VaultWrites;
@@ -110,6 +114,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     expedition: mockExpedition(ledger),
     masterpiece: mockMasterpiece(ledger),
     colossus: mockColossus(ledger),
+    tournament: mockTournament(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),

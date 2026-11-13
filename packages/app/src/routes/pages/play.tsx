@@ -16,6 +16,7 @@ import { useConnectError } from "../connect-error";
 import { useDrawerRoute } from "../drawer-route";
 import { useRoutePage } from "../handle";
 import { useNow } from "../now";
+import { useTournamentCard } from "../tournament-play";
 import { prefetchAllowed } from "../prefetch";
 import { useAppNavigate, useUpTo } from "../ref";
 
@@ -40,6 +41,9 @@ const MasterpieceView = lazy(loadMasterpiece);
 /** The Colossus (`/play/colossus`, Play's Limited mode): its site, its builders and its boards, a chunk of their own. */
 const loadColossus = () => import("./colossus");
 const ColossusView = lazy(loadColossus);
+/** The Tournament (`/play/tournament`, Play's Limited mode): its week and its bracket, a chunk of their own, fetched as Play is pointed at. */
+const loadTournament = () => import("./tournament");
+const TournamentView = lazy(loadTournament);
 /** The header's title of the Joust's views (`?view=`). */
 const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ranking" };
 
@@ -115,6 +119,10 @@ export default function Page() {
   const colossusBoard = colossusLot === null ? null : (colossusState?.lots.find((l) => String(l.board) === colossusLot) ?? null);
   const colossusTitle = colossusLot !== null ? (colossusBoard ? (colossusBoard.heart ? "The heart" : `District ${colossusBoard.name}`) : "District") : path === "play/colossus" && params.get("view") === "builders" ? "Builders" : undefined;
   const onColossusTop = useUpTo("/play/colossus");
+  // The Tournament's card (Limited) and its view's own view (`?view=bracket`); none without a Tournament.
+  const tournament = useTournamentCard(me);
+  const tournamentBracket = path === "play/tournament" && params.get("view") === "bracket";
+  const onTournamentTop = useUpTo("/play/tournament");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
@@ -126,6 +134,7 @@ export default function Page() {
     if (expeditionOn) void loadExpedition().catch(() => {});
     if (masterpieceOn) void loadMasterpiece().catch(() => {});
     if (colossusOn) void loadColossus().catch(() => {});
+    if (tournament.on) void loadTournament().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -201,6 +210,17 @@ export default function Page() {
         colossusCard={colossusCard}
         onColossus={() => go("/play/colossus")}
         onJoust={() => go(joustGame ? `/joust/${joustGame.id}` : "/play/joust")}
+        tournament={
+          path === "play/tournament" ? (
+            <Suspense fallback={null}>
+              <TournamentView />
+            </Suspense>
+          ) : null
+        }
+        tournamentTitle={tournamentBracket ? "Bracket" : undefined}
+        onTournamentBack={tournamentBracket ? onTournamentTop : onViewBack}
+        tournamentCard={tournament.card}
+        onTournament={() => go(tournament.path)}
         onBack={onBack}
         onChallengeBack={onViewBack}
         onStoryBack={onViewBack}

@@ -14,11 +14,14 @@ import { boardOf, remainingOf, useTrainingSession } from "../../data/training";
 import { PuzzleGame, usePuzzleSession, type PuzzleSnapshot } from "../../data/puzzle-game";
 import { usePuzzleStanding } from "../../data/puzzle";
 import { useJoustSession, useJoustState, type JoustGameRecord } from "../../data/joust";
+import { useTournamentSession, type TournamentGameRecord } from "../../data/tournament";
 import { addressKey } from "../../data/keys";
 import { usePuzzleViewer } from "../puzzle-play";
 import { trainingStore, useDataSources } from "../../data/sources";
 import { useTrainingBest } from "../../data/training-best";
 import { challengeMeter, puzzleMeter, trainingMeter } from "../../lib/score-meter";
+import { tournamentMeter, type ScoreMeterValue } from "../../lib/score-meter";
+import { tournamentRoundName } from "@paved/game-core";
 import { useErrorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useRoutePage } from "../handle";
@@ -35,6 +38,7 @@ export default function Page() {
   if (page?.path === "game/:gameId") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId") return <PuzzleRoute />;
   if (page?.path === "joust/:gameId") return <JoustRoute />;
+  if (page?.path === "tournament/:gameId") return <TournamentRoute />;
   return <Placeholder />;
 }
 
@@ -89,6 +93,54 @@ interface JoustFlavor {
   endsAt: number;
   best: number | null;
   overPath: string;
+  /** Another event's own meter and words past its end, in the Joust's place (the Tournament's). */
+  meter?: (score: number) => ScoreMeterValue | null;
+  ended?: readonly [title: string, text: string];
+}
+
+/** `/tournament/:gameId`: a game id is digits; anything else is not a game. */
+function TournamentRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <TournamentBoard key={gameId} gameId={Number(gameId)} /> : <Placeholder />;
+}
+
+/**
+ * A Tournament game (the weekly individual event) on its session (`useTournamentSession`): a Puzzle game's board (`PuzzlePlay`), as
+ * a Joust game's, with no boost. The header names the round, the HUD shows the round's time left (a move past it is refused; the game
+ * then counts with its score at its last move), the score meter the opponent's score when they played first. A finished game goes to
+ * `/tournament/:gameId/over` once its last move is taken.
+ */
+function TournamentBoard({ gameId }: { gameId: number }) {
+  const viewer = usePuzzleViewer();
+  const { game, snapshot, record, settled, reload } = useTournamentSession(gameId, viewer);
+  const onBack = useUpTo("/play/tournament");
+  const readErrorDetail = useErrorDetail(record.error, gameId);
+  if (!game || !snapshot || !record.data) {
+    return (
+      <div className="flex min-h-dvh flex-col bg-board text-foreground">
+        <TopBar title="Tournament" onBack={onBack} />
+        <main aria-busy={!record.error} className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4">
+          {record.error ? (
+            <InlineError title="This game cannot be read" message={record.error.message} detail={readErrorDetail} />
+          ) : record.unavailable ? (
+            <p className="text-center text-sm text-muted-foreground">The Tournament is not on this network yet.</p>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">Reading the game…</p>
+          )}
+        </main>
+      </div>
+    );
+  }
+  const data = game.record as TournamentGameRecord;
+  const flavor: JoustFlavor = {
+    title: `Tournament · ${tournamentRoundName(data.round)}`,
+    endsAt: data.endsAt,
+    best: null,
+    overPath: `/tournament/${data.id}/over`,
+    meter: (score) => tournamentMeter(data.target, score),
+    ended: ["The round is over", "This game counts with its score at its last move: surrender to end it."],
+  };
+  return <PuzzlePlay game={game} snapshot={snapshot} settled={settled} otherAccount={viewer !== null && !game.writable} onReload={reload} onBack={onBack} joust={flavor} />;
 }
 
 /** `/puzzle/:gameId`: a game id is digits; anything else is not a game. */
@@ -224,8 +276,8 @@ function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack, j
       {refused}. The board reads the game again.
     </BoardNotice>
   ) : dayOver ? (
-    <BoardNotice tone="warning" title={joust ? "The joust is over" : "The day is over"} className="pointer-events-auto w-full max-w-2xl">
-      {joust ? "This game no longer counts: surrender to end it." : "This game no longer ranks: surrender to end it, then play today's Puzzle."}
+    <BoardNotice tone="warning" title={joust ? (joust.ended?.[0] ?? "The joust is over") : "The day is over"} className="pointer-events-auto w-full max-w-2xl">
+      {joust ? (joust.ended?.[1] ?? "This game no longer counts: surrender to end it.") : "This game no longer ranks: surrender to end it, then play today's Puzzle."}
     </BoardNotice>
   ) : null;
   return (
@@ -233,7 +285,7 @@ function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack, j
       mode={joust ? "joust" : "puzzle"}
       title={joust?.title}
       score={board.score}
-      meter={joust ? puzzleMeter(joust.best, board.score, true) : puzzleMeter(leader?.score ?? null, board.score, mine)}
+      meter={joust?.meter ? joust.meter(board.score) : joust ? puzzleMeter(joust.best, board.score, true) : puzzleMeter(leader?.score ?? null, board.score, mine)}
       delta={snapshot.delta}
       remaining={board.remaining}
       discardedPlans={board.discardedPlans}
