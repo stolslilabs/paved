@@ -4,8 +4,10 @@ import type { ColossusBoardState, ColossusOptions, ColossusPlace } from "../../d
 import { cn } from "../../lib/utils";
 import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
 import { TileChip, type TileArt } from "../elements/tile-chip";
+import { tileName } from "../elements/tile-render";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 
 export interface ColossusBoardProps {
   board: ColossusBoardState;
@@ -24,7 +26,10 @@ export interface ColossusBoardProps {
   className?: string;
 }
 
-/** The heart's four quarters, a district's size each: the board shows one at a time, so a cell stays a finger wide on a phone. */
+/**
+ * The heart's four quarters, a district's size each: the board shows one at a time. A cell keeps the 44 px touch floor: where eight
+ * of them do not fit the drawer (a phone under about 400 px), the board scrolls sideways in a ScrollRegion with the edge hint.
+ */
 const QUARTERS = ["North-west", "North-east", "South-west", "South-east"] as const;
 
 const cellName = (x: number, y: number, size: number): string => `row ${size - y}, column ${x + 1}`;
@@ -64,52 +69,57 @@ export function ColossusBoard({ board, day, selected, onSelect, options, busy = 
           ))}
         </div>
       )}
-      <div role="grid" aria-label={board.heart ? `The heart, ${QUARTERS[quarter]!.toLowerCase()} quarter` : `District ${board.name}`} className="drawer-carved grid grid-cols-8 gap-px overflow-hidden rounded-xl p-1">
-        {cells.map(({ x, y }) => {
-          const key = `${x},${y}`;
-          const tile = tiles.get(key);
-          const fits = legal.get(key);
-          const name = cellName(x, y, board.size);
-          if (tile)
-            return (
-              <span key={key} role="gridcell" aria-label={`${name}: ${tile.mine ? "your tile" : tile.prebuilt ? "a pre-built tile" : "a builder's tile"}${tile.stone ? ", a stone" : ""}`} data-stone={tile.stone || undefined} data-mine={tile.mine || undefined} className="relative aspect-square">
-                <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} className={cn("size-full rounded-sm border-0", !tile.stone && "opacity-55")} />
-                {tile.mine && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-sm border-2 border-info" />}
-              </span>
-            );
-          if (sealed.has(key))
-            return (
-              <span key={key} role="gridcell" aria-label={`${name}: sealed, a wall`} data-sealed className="flex aspect-square items-center justify-center rounded-sm bg-muted text-muted-foreground">
-                <Icon name="lock" size="xs" />
-              </span>
-            );
-          if (fits && plan !== null) {
-            const picked = chosen !== null && pick!.x === x && pick!.y === y;
-            const most = Math.max(...fits.map((o) => o.stones));
-            return (
-              <button
-                key={key}
-                type="button"
-                role="gridcell"
-                disabled={busy}
-                aria-pressed={picked}
-                aria-label={`${name}: ${picked ? `your tile here sets ${formatInteger(chosen.stones)} ${chosen.stones === 1 ? "stone" : "stones"}` : most > 0 ? `sets up to ${formatInteger(most)} ${most === 1 ? "stone" : "stones"}` : "fits, no stone yet"}`}
-                data-option
-                onClick={() => setPick(picked && pick ? { ...pick, turn: pick.turn + 1 } : { card: selected, x, y, turn: 0 })}
-                className={cn("relative flex aspect-square cursor-pointer items-center justify-center rounded-sm border-2 border-dashed border-primary bg-primary/15 disabled:cursor-default", picked && "border-solid")}
-              >
-                {picked ? <TileChip plan={plan} orientation={chosen.orientation} art={tileArt} className="size-full rounded-none border-0" /> : most > 0 ? <span className="numeric text-outline text-xs font-bold text-primary">+{formatInteger(most)}</span> : null}
-              </button>
-            );
-          }
-          if (refused.has(key) && plan !== null)
-            return (
-              <span key={key} role="gridcell" aria-label={`${name}: refused, it would leave a hole no tile fits`} title="Refused: it would leave a hole no tile fits" data-refused className="flex aspect-square items-center justify-center rounded-sm border-2 border-warning/70 text-warning">
-                <Icon name="ban" size="xs" />
-              </span>
-            );
-          return <span key={key} role="gridcell" aria-label={`${name}: a hole`} data-hole className="aspect-square rounded-sm bg-background/70" />;
-        })}
+      <div className="drawer-carved overflow-hidden rounded-xl">
+        <ScrollRegion orientation="horizontal" data-slot="colossus-cells">
+          <div role="grid" aria-label={board.heart ? `The heart, ${QUARTERS[quarter]!.toLowerCase()} quarter` : `District ${board.name}`} className="grid min-w-92 grid-cols-8 gap-px p-1">
+            {cells.map(({ x, y }) => {
+              const key = `${x},${y}`;
+              const tile = tiles.get(key);
+              const fits = legal.get(key);
+              const name = cellName(x, y, board.size);
+              if (tile)
+                return (
+                  <span key={key} role="gridcell" aria-label={`${name}: ${tile.mine ? "your tile" : tile.prebuilt ? "a pre-built tile" : "a builder's tile"}${tile.stone ? ", a stone" : ""}`} data-stone={tile.stone || undefined} data-mine={tile.mine || undefined} className="relative aspect-square">
+                    <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} className={cn("size-full rounded-sm border-0", !tile.stone && "opacity-55")} />
+                    {tile.mine && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-sm border-2 border-info" />}
+                  </span>
+                );
+              if (sealed.has(key))
+                return (
+                  <span key={key} role="gridcell" aria-label={`${name}: sealed, a wall`} data-sealed className="flex aspect-square items-center justify-center rounded-sm bg-muted text-muted-foreground">
+                    <Icon name="lock" size="xs" />
+                  </span>
+                );
+              if (fits && plan !== null) {
+                const picked = chosen !== null && pick!.x === x && pick!.y === y;
+                const most = Math.max(...fits.map((o) => o.stones));
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="gridcell"
+                    disabled={busy}
+                    aria-pressed={picked}
+                    aria-label={`${name}: ${picked ? `your tile here sets ${formatInteger(chosen.stones)} ${chosen.stones === 1 ? "stone" : "stones"}` : most > 0 ? `sets up to ${formatInteger(most)} ${most === 1 ? "stone" : "stones"}` : "fits, no stone yet"}`}
+                    data-option
+                    data-touch-floor
+                    onClick={() => setPick(picked && pick ? { ...pick, turn: pick.turn + 1 } : { card: selected, x, y, turn: 0 })}
+                    className={cn("relative flex aspect-square cursor-pointer items-center justify-center rounded-sm border-2 border-dashed border-primary bg-primary/15 disabled:cursor-default", picked && "border-solid")}
+                  >
+                    {picked ? <TileChip plan={plan} orientation={chosen.orientation} art={tileArt} className="size-full rounded-none border-0" /> : most > 0 ? <span className="numeric text-outline text-xs font-bold text-primary">+{formatInteger(most)}</span> : null}
+                  </button>
+                );
+              }
+              if (refused.has(key) && plan !== null)
+                return (
+                  <span key={key} role="gridcell" aria-label={`${name}: refused, it would leave a hole no tile fits`} title="Refused: it would leave a hole no tile fits" data-refused className="flex aspect-square items-center justify-center rounded-sm border-2 border-warning/70 text-warning">
+                    <Icon name="ban" size="xs" />
+                  </span>
+                );
+              return <span key={key} role="gridcell" aria-label={`${name}: a hole`} data-hole className="aspect-square rounded-sm bg-background/70" />;
+            })}
+          </div>
+        </ScrollRegion>
       </div>
 
       <div className="flex items-center gap-2">
@@ -123,7 +133,7 @@ export function ColossusBoard({ board, day, selected, onSelect, options, busy = 
                   type="button"
                   disabled={busy || !board.open}
                   aria-pressed={tile.card === selected}
-                  aria-label={`Tile ${index + 1} of ${board.hand.length}${tile.day < day ? ", leaves tonight" : ""}`}
+                  aria-label={`${tileName(tile.plan)}, tile ${index + 1} of ${board.hand.length}${tile.day < day ? ", leaves tonight" : ""}`}
                   onClick={() => onSelect?.(tile.card)}
                   className={cn("relative flex size-11 cursor-pointer items-center justify-center rounded-lg disabled:cursor-default", tile.card === selected ? "ring-2 ring-primary" : "opacity-80")}
                 >

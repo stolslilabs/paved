@@ -20,6 +20,8 @@
  * - `page`: the page itself scrolls horizontally.
  * - `split`: an address (`0x…`, short or full) or a monospace word (between spaces and hyphens) broken over two lines although it would fit on one
  *   line: "0x05f1…" over "6e7f". A run too long for any line (a full address in a sentence) may wrap.
+ * - `touch`: a tap target marked `data-touch-floor` narrower or shorter than the 44 px touch minimum (COLOSSUS-FIXES, #1167: the
+ *   Colossus board's placement targets), with its size.
  * - `error`: the story failed to render.
  *
  * `--stories <file>` sweeps only the story ids the file lists, one a line (CI-TIERS: a pull request's selection,
@@ -39,7 +41,7 @@ import { chromium, type Page } from "playwright-core";
 import { sweepStory } from "./wrap-sweep-retry.ts";
 import { parseShard, shardStories, type Times } from "./wrap-sweep-shard.ts";
 
-type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "error";
+type Kind = "viewport" | "overflow" | "clip" | "truncate" | "scroll" | "split" | "page" | "touch" | "error";
 
 interface Finding {
   story: string;
@@ -106,6 +108,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // The Expedition board's strip: a hand of up to twelve tiles keeps the 44 px touch floor and scrolls sideways in a ScrollRegion, by
   // design.
   { story: /^containers-expeditionhand--/, kind: "scroll", element: "div[scroll-region]", why: "the hand's tiles scroller" },
+  // The Colossus's board (COLOSSUS-FIXES, #1167): its cells keep the 44 px touch floor, so eight of them scroll sideways in a
+  // ScrollRegion with the edge hint on a phone, by design.
+  { story: /^(scenes-colossus|containers-colossusboard)--/, kind: "scroll", element: "div[colossus-cells]", why: "the board's cells scroller" },
   // The Challenge's purchase at 320 px (#855: its USDC plate in the header): the title gives way to an ellipsis, its whole text in
   // the `title`; it overflows by 1 px, within the tolerance of `wide`, so it is read as a clip without one.
   { story: "pages-headers--purchase", kind: "clip", element: "span[page-title]", why: "title ellipsis, 1 px overflow" },
@@ -136,7 +141,7 @@ const ALLOWED: (Allowed & { why: string })[] = [
   { story: /^renderer-camera-fit--/, kind: "scroll", element: " · N ", why: "screen-size preview scroller" },
 ];
 
-const KIND_ORDER: Kind[] = ["error", "page", "viewport", "overflow", "clip", "truncate", "split", "scroll"];
+const KIND_ORDER: Kind[] = ["error", "page", "touch", "viewport", "overflow", "clip", "truncate", "split", "scroll"];
 
 function args() {
   const argv = process.argv.slice(2);
@@ -273,6 +278,9 @@ function inspect(): { kind: string; element: string }[] {
       const parentOut = out.some((f) => f.kind === "viewport" && f.el === el.parentElement);
       if (!held && !parentOut && cs.position !== "fixed") out.push({ kind: "viewport", element: describe(el), el });
     }
+
+    // The touch floor: a marked tap target keeps 44 px both ways (half a pixel spared for the layout's rounding).
+    if (el.hasAttribute("data-touch-floor") && (r.width < 43.5 || r.height < 43.5)) out.push({ kind: "touch", element: `${describe(el)} ${r.width.toFixed(1)} x ${r.height.toFixed(1)}`, el });
 
     if (cs.display === "inline" || el.clientWidth === 0) continue;
     const wide = el.scrollWidth > el.clientWidth + 1;

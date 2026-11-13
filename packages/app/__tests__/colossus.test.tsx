@@ -7,6 +7,7 @@ import { ColossusBoard } from "../src/components/containers/colossus-board";
 import { ColossusPlaque } from "../src/components/containers/colossus-plaque";
 import { ColossusGauge, colossusShare } from "../src/components/containers/colossus-site";
 import { PlayModes } from "../src/components/containers/play-modes";
+import { tileName } from "../src/components/elements/tile-render";
 import { ColossusScene } from "../src/components/scenes/colossus-scene";
 import { COLOSSUS, COLOSSUS_BOARD, COLOSSUS_CARD, COLOSSUS_NEXT, COLOSSUS_PLAQUE } from "../src/mocks/colossus";
 
@@ -130,6 +131,11 @@ describe("a board of the Colossus", () => {
     expect(screen.getByText("Pick a tile of your hand.")).toBeInTheDocument();
     const hand = within(screen.getByRole("list", { name: "Hand" })).getAllByRole("button");
     expect(hand).toHaveLength(board.hand.length);
+    // Each tile is named by its kind (a road is not a city to a screen reader), then its place in the hand and its expiry.
+    const { day } = COLOSSUS_BOARD.idle;
+    const names = board.hand.map((c, i) => `${tileName(c.plan)}, tile ${i + 1} of ${board.hand.length}${c.day < day ? ", leaves tonight" : ""}`);
+    expect(hand.map((t) => t.getAttribute("aria-label"))).toEqual(names);
+    expect(names.every((n) => !/^Tile \d/.test(n))).toBe(true);
     await userEvent.click(hand[0]!);
     expect(onSelect).toHaveBeenCalledWith(board.hand[0]!.card);
   });
