@@ -2,6 +2,7 @@ import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, 
 import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
 import type { JoustSource } from "../joust-source";
+import type { MasterpieceSource } from "../masterpiece-source";
 import type { PuzzleSource } from "../puzzle-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -153,6 +154,21 @@ export function mockJoust(ledger: MockLedger): JoustSource {
     start: (player) => ledger.joustStart(player),
     play: (player, gameId, move) => ledger.joustPlay(player, gameId, move),
     claim: (player, week) => ledger.joustClaim(player, week),
+  };
+}
+
+/**
+ * The Masterpiece's source of the ledger (the weekly individual event, `masterpiece.ts`): the week, the accounts' boards by game-core's
+ * rules, the drawn builders' ranking and the Cobbles. No chain part lies beneath: the Masterpiece runs on the client alone.
+ */
+export function mockMasterpiece(ledger: MockLedger): MasterpieceSource {
+  return {
+    state: (viewer) => ledger.masterpieceState(viewer),
+    ranking: (viewer) => ledger.masterpieceRanking(viewer),
+    board: (player) => ledger.masterpieceBoard(player),
+    open: (player) => ledger.masterpieceOpen(player),
+    play: (player, week, move) => ledger.masterpiecePlay(player, week, move),
+    claim: (player, week) => ledger.masterpieceClaim(player, week),
   };
 }
 

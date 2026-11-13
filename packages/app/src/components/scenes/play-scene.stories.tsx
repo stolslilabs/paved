@@ -4,11 +4,13 @@ import { CAMPAIGNS } from "@paved/game-core";
 import { appRenders } from "../../mocks/assets";
 import { PLAY, PURCHASE } from "../../mocks/scenes";
 import { JOUST, JOUST_CARD } from "../../mocks/joust";
+import { MASTERPIECE, MASTERPIECE_CARD } from "../../mocks/masterpiece";
 import { PUZZLE, PUZZLE_CARD } from "../../mocks/puzzle";
 import { STORY } from "../../mocks/story";
 import { PlayScene } from "./play-scene";
 import { PurchaseScene } from "./purchase-scene";
 import { JoustScene } from "./joust-scene";
+import { MasterpieceScene } from "./masterpiece-scene";
 import { PuzzleScene } from "./puzzle-scene";
 import { StoryScene } from "./story-scene";
 import { PHONE_320, PHONE_375 } from "./viewports";
@@ -22,7 +24,7 @@ import { PHONE_320, PHONE_375 } from "./viewports";
 const meta = {
   title: "Scenes/Play",
   component: PlayScene,
-  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onJoust: fn(), onJoustBack: fn() },
+  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onJoust: fn(), onJoustBack: fn(), onMasterpiece: fn(), onMasterpieceBack: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -141,3 +143,44 @@ export const JoustViewRanking: Story = joust("ranking", "Ranking");
 export const JoustViewRankingLoading: Story = joust("rankingLoading", "Ranking");
 export const JoustViewLoading: Story = joust("loading");
 export const JoustViewFailed: Story = joust("failed");
+
+/** The Masterpiece's card (Limited, over the Joust's): before the first visit, the week's kind and its board to open. */
+export const MasterpieceFirstVisit: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...MASTERPIECE_CARD.firstVisit } };
+/** Monday: eight tiles wait, no city closed yet. */
+export const MasterpieceNothingClosed: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...MASTERPIECE_CARD.nothingClosed } };
+/** Wednesday: five tiles wait, a city of 14 closed. */
+export const MasterpieceWaiting: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...MASTERPIECE_CARD.waiting } };
+/** The day's tiles played: the piece and its score. */
+export const MasterpiecePlayed: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...MASTERPIECE_CARD.played } };
+
+/** The Masterpiece's view in the drawer: a view of its own in the modes' place, "Masterpiece" (or its view's name) and the Cobbles on the header. */
+const masterpiece = (state: keyof typeof MASTERPIECE, title?: string): Story => ({
+  args: { ...PLAY.connected, masterpieceTitle: title, masterpiece: <MasterpieceScene onOpen={fn()} onClaim={fn()} onRanking={fn()} onRetry={fn()} {...MASTERPIECE[state]} /> },
+});
+/** Before the first visit: the week's kind, how it goes, the tiers. */
+export const MasterpieceViewFirstVisit: Story = masterpiece("firstVisit");
+export const MasterpieceViewOpening: Story = masterpiece("opening");
+/** Wednesday: a city of 14 less a discard, an open city of 22 worth 7,327 if closed now, 5 tiles waiting. */
+export const MasterpieceViewBoard: Story = masterpiece("board");
+export const MasterpieceViewNothingClosed: Story = masterpiece("nothingClosed");
+/** A city of 5: under the floor of 8, not counted. */
+export const MasterpieceViewNotCounted: Story = masterpiece("notCounted");
+/** Saturday: a city of 31, 188th, the top 5 %. */
+export const MasterpieceViewSaturday: Story = masterpiece("saturday");
+/** A summer week: the crowned wonder. */
+export const MasterpieceViewWonder: Story = masterpiece("wonder");
+/** Monday: last week's tier to claim, the week's master. */
+export const MasterpieceViewResult: Story = masterpiece("result");
+export const MasterpieceViewClaiming: Story = masterpiece("claiming");
+export const MasterpieceViewResultClaimed: Story = masterpiece("resultClaimed");
+/** The viewer is the week's master. */
+export const MasterpieceViewResultMaster: Story = masterpiece("resultMaster");
+export const MasterpieceViewResultNotCounted: Story = masterpiece("resultNotCounted");
+export const MasterpieceViewResultNothing: Story = masterpiece("resultNothing");
+/** The live ranking: the first ten, the viewer's line, the bars so far, the Hall. */
+export const MasterpieceViewRanking: Story = masterpiece("ranking", "Ranking");
+export const MasterpieceViewRankingTop: Story = masterpiece("rankingTop", "Ranking");
+export const MasterpieceViewRankingEmpty: Story = masterpiece("rankingEmpty", "Ranking");
+export const MasterpieceViewRankingLoading: Story = masterpiece("rankingLoading", "Ranking");
+export const MasterpieceViewLoading: Story = masterpiece("loading");
+export const MasterpieceViewFailed: Story = masterpiece("failed");
