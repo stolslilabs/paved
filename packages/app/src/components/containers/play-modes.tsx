@@ -523,6 +523,24 @@ function ExpeditionMode({ card, now, onSelect }: { card: ExpeditionCard; now: nu
 function TournamentMode({ card, now, onSelect }: { card: TournamentCard; now: number; onSelect?: () => void }) {
   const run = card.run;
   const live = run !== null && (run.status === "to-play" || run.status === "playing");
+  const text =
+    card.phase === "registration"
+      ? card.registered
+        ? "Registered · the draw on Tuesday"
+        : "Registration is open today"
+      : !run
+        ? "Registration reopens on Monday"
+        : run.status === "to-play"
+          ? `${card.round} · ${run.opponent ? `vs ${run.opponent}` : "your game to play"}`
+          : run.status === "played"
+            ? "Played · midnight decides"
+            : run.status === "waiting"
+              ? "No duel today"
+              : run.status === "champion"
+                ? "Champion"
+                : run.claimable
+                  ? "Out · Cobbles to claim"
+                  : `Out in the ${run.out?.toLowerCase()}`;
   const line = card.playing ? (
     <span className="text-outline flex items-center gap-1 text-base leading-tight font-bold">
       <UiIcon name="star" px={20} className="size-5" />
@@ -530,25 +548,9 @@ function TournamentMode({ card, now, onSelect }: { card: TournamentCard; now: nu
       <span className="text-[0.8125rem] font-semibold text-foreground/90">in play</span>
     </span>
   ) : (
-    // A long opponent's name is cut at the rewards' edge, its whole line in its title (WRAP360).
-    <span className={cn(LINE, "max-w-full truncate pr-9")} title={run?.status === "to-play" && run.opponent ? `${card.round} · vs ${run.opponent}` : undefined}>
-      {card.phase === "registration"
-        ? card.registered
-          ? "Registered · the draw on Tuesday"
-          : "Registration is open today"
-        : !run
-          ? "Registration reopens on Monday"
-          : run.status === "to-play"
-            ? `${card.round} · ${run.opponent ? `vs ${run.opponent}` : "your game to play"}`
-            : run.status === "played"
-              ? `${card.round} played · midnight decides`
-              : run.status === "waiting"
-                ? "No duel today"
-                : run.status === "champion"
-                  ? "Champion"
-                  : run.claimable
-                    ? `Out in the ${run.out?.toLowerCase()} · Cobbles to claim`
-                    : `Out in the ${run.out?.toLowerCase()}`}
+    // A long line (an opponent's name) is cut at the rewards' edge, its whole text in its title (WRAP360).
+    <span className={cn(LINE, "max-w-full truncate pr-9")} title={text}>
+      {text}
     </span>
   );
   const left = puzzleTimeLeft(card.endsAt, now);

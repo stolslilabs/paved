@@ -36,6 +36,7 @@ export const CardPlaying: Story = card("playing");
 export const CardPlayed: Story = card("played");
 export const CardBye: Story = card("bye");
 export const CardOut: Story = card("out");
+export const CardOutClaimed320: Story = { ...card("outClaimed"), ...PHONE_320 };
 export const CardNotRegistered: Story = card("notRegistered");
 
 const view = (state: keyof typeof TOURNAMENT, tournamentTitle?: string): Story => ({

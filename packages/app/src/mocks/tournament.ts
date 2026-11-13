@@ -121,6 +121,7 @@ export const TOURNAMENT_CARD = {
   played: card({ ...ROUNDS, run: running("played") }, TOURNAMENT_SATURDAY_NOW),
   bye: card({ ...ROUNDS, round: "Round of 64", run: running("waiting", null) }, TOURNAMENT_SATURDAY_NOW),
   out: card({ ...ROUNDS, run: { status: "out", opponent: null, out: "Round of 16", claimable: true } }, TOURNAMENT_SATURDAY_NOW),
+  outClaimed: card({ ...ROUNDS, run: { status: "out", opponent: null, out: "Round of 16", claimable: false } }, TOURNAMENT_SATURDAY_NOW),
   notRegistered: card({ ...ROUNDS, registered: false, run: null }, TOURNAMENT_SATURDAY_NOW),
 } satisfies Record<string, Pick<PlayModesProps, "tournamentCard" | "now">>;
 

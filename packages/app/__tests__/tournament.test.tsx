@@ -40,9 +40,9 @@ describe("Play's Tournament card", () => {
 
   it.each([
     ["registered", "Registered · the draw on Tuesday"],
-    ["played", "Semi-final played · midnight decides"],
+    ["played", "Played · midnight decides"],
     ["bye", "No duel today"],
-    ["out", "Out in the round of 16 · Cobbles to claim"],
+    ["out", "Out · Cobbles to claim"],
     ["notRegistered", "Registration reopens on Monday"],
   ] as const)("says where the run stands: %s", (state, line) => {
     expect(card(state).button).toHaveTextContent(line);
@@ -71,7 +71,7 @@ describe("the Tournament's view", () => {
     expect(screen.getByRole("timer")).toHaveTextContent("Registration closes at 24:00 UTC · in 9h 40m");
     expect(screen.getByText("Gold league")).toBeInTheDocument();
     expect(screen.getByText("142")).toBeInTheDocument();
-    const prizes = screen.getByRole("region", { name: "Cobbles by the round reached" });
+    const prizes = screen.getByRole("region", { name: "Cobbles by round" });
     expect(within(prizes).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Round of 64, played5", "Round of 3210", "Round of 1620", "Quarter-final40", "Semi-final80", "Final150", "Champion300"]);
     await userEvent.click(screen.getByRole("button", { name: "Register" }));
     expect(onRegister).toHaveBeenCalledOnce();
@@ -150,7 +150,7 @@ describe("the Tournament's view", () => {
     view("bracket", { onOpenPlayer });
     const path = within(screen.getByRole("region", { name: "Your path" })).getAllByRole("listitem");
     expect(path.map((li) => li.getAttribute("data-outcome"))).toEqual(["won", "won", "won", "won", "pending"]);
-    expect(path[4]).toHaveTextContent("Saturday · Semi-finalvsVael— : 5,486Today");
+    expect(path[4]).toHaveTextContent("Semi-finalSat ·vsVael— : 5,486Today");
     expect(screen.getByRole("group", { name: "Quarter-final" }).querySelectorAll('[data-slot="tournament-match"]')).toHaveLength(4);
     expect(screen.getByRole("group", { name: "Final" })).toHaveTextContent("Decided once Saturday is over.");
     // The viewer's rows are lit; a player with a profile opens it, the field's have none.

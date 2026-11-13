@@ -95,7 +95,7 @@ function Prizes({ reached = null, champion = false }: { reached?: number | null;
   const rows = [...TOURNAMENT_COBBLES.map((cobbles, i) => ({ name: i === 0 ? `${tournamentRoundName(1)}, played` : tournamentRoundName(i + 1), cobbles, own: !champion && reached === i + 1 })), { name: "Champion", cobbles: TOURNAMENT_CHAMPION_COBBLES, own: champion }];
   return (
     <section aria-labelledby="tournament-prizes" className="flex flex-col gap-2">
-      <SectionTitle id="tournament-prizes">Cobbles by the round reached</SectionTitle>
+      <SectionTitle id="tournament-prizes">Cobbles by round</SectionTitle>
       <ul className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
         {rows.map((row) => (
           <li key={row.name} data-own={row.own || undefined} className={cn("flex min-h-9 items-center justify-between gap-3 px-3.5 py-1 text-sm font-semibold", row.own && "bg-info/15")}>
@@ -242,19 +242,18 @@ function Path({ run, onOpenPlayer }: { run: TournamentRun; onOpenPlayer?: (addre
         {run.path.map((step) => (
           <li key={step.round} data-outcome={step.outcome} className="flex min-h-12 items-center gap-3 px-3 py-1.5">
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-sm leading-tight font-bold">
-                {tournamentRoundDay(step.round)} · {tournamentRoundName(step.round)}
-              </span>
+              <span className="text-sm leading-tight font-bold">{tournamentRoundName(step.round)}</span>
               <span className="flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground">
+                <span className="shrink-0">{tournamentRoundDay(step.round).slice(0, 3)} ·</span>
                 {step.kind === "bye" ? (
-                  "an empty seat: no duel"
+                  "an empty seat, no duel"
                 ) : step.opponent ? (
                   <>
                     <span className="shrink-0">vs</span>
                     <PlayerName player={step.opponent} onOpenPlayer={onOpenPlayer} />
                   </>
                 ) : (
-                  "nobody opposite: through by playing"
+                  "nobody opposite"
                 )}
               </span>
             </span>
