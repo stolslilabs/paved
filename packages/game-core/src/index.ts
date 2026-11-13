@@ -174,6 +174,8 @@ export {
   joustWeekStart,
 } from "./joust";
 export type { JoustOutcome, JoustPhase, JoustScore } from "./joust";
+// The Fair (the weekly individual event): the calendar, the market, the draft, the ranking and the rewards
+export * from "./fair";
 
 // Story mode (#546): campaigns, levels, runs and the device progress
 export * from "./story";

@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import type { EconomyViews, EconomyWriter, EventReader, GameViews, IndexerClient, PackBuyer, PavedWriter, PoolQuoter } from "@paved/chain";
 import { browserStore, type KeyValueStore } from "@paved/game-core";
 import type { JoustSource } from "./joust-source";
+import type { FairSource } from "./fair-source";
 import type { PuzzleSource } from "./puzzle-source";
 import type { SocialSource } from "./social-source";
 
@@ -115,6 +116,11 @@ export interface DataSources {
    * event runs on the client); null or left out (the chain): its hooks answer `unavailable` and Play shows no Joust.
    */
   joust?: JoustSource | null;
+  /**
+   * The Fair (the weekly individual event): the week, the ranking, the player's drafts and games. The mock's on `mock` (the whole
+   * event runs on the client); null or left out (the chain): its hooks answer `unavailable` and Play shows no Fair.
+   */
+  fair?: FairSource | null;
   /** Where the Training game is saved: `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }

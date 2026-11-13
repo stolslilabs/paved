@@ -114,6 +114,12 @@ export interface EngineConfig {
    * contracts' scores.
    */
   readonly boost?: ScoreBoost;
+  /**
+   * Deck `simple` only: the deck's cards the game plays (base deck indexes, 0 to 71), in place of the 37 a seed keeps: a Fair try's
+   * drafted deck (`fair.ts`, the weekly individual event). Every other card is withdrawn at the start, the starter's own included
+   * unless the deck holds it, and the game plays `cards.length + 1` tiles, the starter included. Left out: the seed's cards.
+   */
+  readonly cards?: readonly number[];
 }
 
 /** The structure a game doubles (`EngineConfig.boost`). */
@@ -299,8 +305,9 @@ export class EngineGame {
         throw new EngineError("Game: the tile limit exceeds the sequence");
       }
     }
+    if (config.cards && (config.deck !== "simple" || config.cards.length === 0)) throw new EngineError("Game: only a simple deck takes cards");
     this.tileLimit =
-      config.tileLimit ?? (config.deck === "story" ? this.sequence.length + 1 : this.rules.count);
+      config.tileLimit ?? (config.cards ? config.cards.length + 1 : config.deck === "story" ? this.sequence.length + 1 : this.rules.count);
     this.vrf = config.vrf === true;
     if (this.vrf && config.deck !== "simple") throw new EngineError("Game: only a simple deck draws from the VRF");
     if (this.tileLimit > 255) throw new EngineError("Game: invalid tile limit");
@@ -351,7 +358,10 @@ export class EngineGame {
       owner: game.player,
     });
     game._tiles = game.deck === "story" || game.deck === "village" ? 0n : bit(game.rules.starter);
-    if (game.deck === "simple") {
+    if (config.cards) {
+      // A drafted deck: every card but its own is out.
+      game._tiles = config.cards.reduce((tiles, card) => tiles & ~bit(card), bit(game.rules.total) - 1n);
+    } else if (game.deck === "simple") {
       game._tiles = withdrawExtra(game._tiles, config.deckSeed ?? game._seed, game.rules.total, game.rules.count);
     } else if (config.deckSeed !== undefined) {
       throw new EngineError("Game: only a simple deck takes a deck seed");

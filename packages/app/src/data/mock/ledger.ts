@@ -197,10 +197,12 @@ import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
 import { PLAYER_NAME_MAX } from "../../lib/name-limit";
-import { PUZZLE_PRIZE_COBBLES, comparePuzzle, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
+import { PUZZLE_PRIZE_COBBLES, comparePuzzle, fairEndsAt, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
 import { PUZZLE_PRIZE_TOP, PUZZLE_STANDING_LIMIT, type PuzzleEntry, type PuzzleGameRecord, type PuzzleGameResult, type PuzzlePrize, type PuzzleStanding } from "../puzzle-source";
 import type { JoustGameRecord, JoustGameResult, JoustRanking, JoustState } from "../joust-source";
 import * as joust from "./joust";
+import type { FairRanking, FairState, FairTryRecord, FairTryResult } from "../fair-source";
+import * as fair from "./fair";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
 import {
   SPAWN_DRAW,
@@ -513,6 +515,8 @@ interface StoredState {
   puzzle?: StoredPuzzle;
   /** The Joust (the weekly allegiance event, `joust.ts`): the accounts' games, registrations and claims; absent: none yet. */
   joust?: joust.StoredJoust;
+  /** The Fair (the weekly individual event, `fair.ts`): the accounts' tries and claims; absent: none yet. */
+  fair?: fair.StoredFair;
 }
 
 /** The mock's chat source: `ChatSource`, and `rotateKeys(player)`, a new messaging key, for the tests and the stories (#997). */
@@ -1473,6 +1477,117 @@ export class MockLedger {
       const cobbles = joust.claim(stored, world.guilds, this.personOf(world, now), player, week, now);
       p.cobbles += cobbles;
       return { events: [this.event("JoustClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
+  // --- The Fair (the weekly individual event, `fair.ts`) --------------------------------------------------------------
+
+  /** A Fair read: the stored Fair (none yet: a fresh one's) and the players' profiles at the ledger's clock. */
+  private fairRead<T>(read: (stored: fair.StoredFair, people: guilds.GuildPeople, now: number) => T): T {
+    return this.guildRead((_world, people, now) => read(this.state.fair ?? fair.freshFair(), people, now));
+  }
+
+  /**
+   * A Fair write: `change` works on the player's copy and the stored Fair (created on the first write, put back on a throw, `commit`);
+   * a rule's refusal is the writer's `WriteError` with the contract's text.
+   */
+  private async writeFair<T>(account: string, change: (player: StoredPlayer, stored: fair.StoredFair, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.fair ??= fair.freshFair()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** The account's own try `tryId` of the stored Fair, for a write. */
+  private fairTryOf(stored: fair.StoredFair, player: string, tryId: number): fair.StoredFairTry {
+    const t = stored.tries[tryId];
+    if (!t) throw new WriteError("Fair: try does not exist");
+    if (t.player !== addressKey(player)) throw new WriteError("Fair: not the try's player");
+    return t;
+  }
+
+  /** `FairSource.state`: the week as `viewer` sees it. */
+  async fairState(viewer: string | null): Promise<FairState> {
+    return this.fairRead((stored, people, now) => fair.stateOf(stored, people, now, viewer));
+  }
+
+  /** `FairSource.ranking`: the week's ranking so far. */
+  async fairRanking(viewer: string | null): Promise<FairRanking> {
+    return this.fairRead((stored, people, now) => fair.rankingOf(stored, people, now, viewer));
+  }
+
+  /** `FairSource.game`: a try by its id; an id with no try is the view's refusal. */
+  async fairGame(tryId: number): Promise<FairTryRecord> {
+    this.sync();
+    const stored = this.state.fair ?? fair.freshFair();
+    const t = stored.tries[tryId];
+    if (!t) throw new ViewError("game-not-found", "Fair: try does not exist");
+    return fair.recordOf(stored, t);
+  }
+
+  /** `FairSource.result`: a finished try's effect on its player's best. */
+  async fairResult(tryId: number): Promise<FairTryResult> {
+    return this.fairRead((stored, _people, now) => {
+      const t = stored.tries[tryId];
+      if (!t) throw new ViewError("game-not-found", "Fair: try does not exist");
+      if (!t.over) throw new ViewError("not-available", "Fair: the try is not over");
+      return fair.tryResultOf(stored, t, now);
+    });
+  }
+
+  /** `FairSource.start`: a new try of the account, spent from its first offer (`FairTryStarted`). */
+  async fairStart(player: string): Promise<FairTryRecord> {
+    return this.writeFair(player, (_p, stored, now) => {
+      const t = fair.newTry(stored, player, now);
+      return { events: [this.event("FairTryStarted", { tryId: t.id, playerId: player, week: t.week })], value: fair.recordOf(stored, t) };
+    });
+  }
+
+  /** `FairSource.pick`: a tile of the offer on the table of the account's draft (`FairPicked`). */
+  async fairPick(player: string, tryId: number, offer: number, choice: number): Promise<FairTryRecord> {
+    return this.writeFair(player, (_p, stored, now) => {
+      const t = this.fairTryOf(stored, player, tryId);
+      fair.pick(t, offer, choice, now);
+      return { events: [this.event("FairPicked", { tryId, playerId: player, offer, choice })], value: fair.recordOf(stored, t) };
+    });
+  }
+
+  /** `FairSource.abandon`: the account's try left during its draft (`FairTryOver`, with no score). */
+  async fairAbandon(player: string, tryId: number): Promise<void> {
+    await this.writeFair(player, (_p, stored, now) => {
+      fair.abandon(this.fairTryOf(stored, player, tryId), now);
+      return { events: [this.event("FairTryOver", { tryId, playerId: player, score: 0 })], value: undefined };
+    });
+  }
+
+  /**
+   * `FairSource.play`: a move of the try's game, by the engine's rules; a build or a discard past the week's end is refused, a
+   * surrender is not. `FairTryOver` when the move ends it.
+   */
+  async fairPlay(player: string, tryId: number, move: SeededMove): Promise<void> {
+    await this.writeFair(player, (_p, stored, now) => {
+      const t = this.fairTryOf(stored, player, tryId);
+      if (t.over) throw new WriteError("Game: is over");
+      if (move.kind !== "surrender" && now >= fairEndsAt(t.week)) throw new WriteError("Fair: the week is over");
+      fair.playMove(t, move, now);
+      return { events: t.over ? [this.event("FairTryOver", { tryId, playerId: player, score: t.score })] : [], value: undefined };
+    });
+  }
+
+  /** `FairSource.claim`: the Cobbles of a finished week the account has a counted try in, added (`FairClaimed`). */
+  async fairClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.writeFair(player, (p, stored, now) => {
+      const cobbles = fair.claim(stored, this.personOf(this.settledGuilds(now), now), player, week, now);
+      p.cobbles += cobbles;
+      return { events: [this.event("FairClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3126,6 +3241,7 @@ export class MockLedger {
     const challenge = this.state.challenge && structuredClone(this.state.challenge);
     const puzzle = this.state.puzzle && structuredClone(this.state.puzzle);
     const jousts = this.state.joust && structuredClone(this.state.joust);
+    const fairs = this.state.fair && structuredClone(this.state.fair);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
     try {
@@ -3135,6 +3251,7 @@ export class MockLedger {
       this.state.challenge = challenge;
       this.state.puzzle = puzzle;
       this.state.joust = jousts;
+      this.state.fair = fairs;
       throw error;
     }
     this.state = { ...this.state, players: { ...this.state.players, [key]: player }, transactions: this.state.transactions + 1 };

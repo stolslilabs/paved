@@ -2,6 +2,7 @@ import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, 
 import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
 import type { JoustSource } from "../joust-source";
+import type { FairSource } from "../fair-source";
 import type { PuzzleSource } from "../puzzle-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -153,6 +154,24 @@ export function mockJoust(ledger: MockLedger): JoustSource {
     start: (player) => ledger.joustStart(player),
     play: (player, gameId, move) => ledger.joustPlay(player, gameId, move),
     claim: (player, week) => ledger.joustClaim(player, week),
+  };
+}
+
+/**
+ * The Fair's source of the ledger (the weekly individual event, `fair.ts`): the week, the ranking, the accounts' drafts and games by
+ * game-core's rules and their Cobbles. No chain part lies beneath: the Fair runs on the client alone.
+ */
+export function mockFair(ledger: MockLedger): FairSource {
+  return {
+    state: (viewer) => ledger.fairState(viewer),
+    ranking: (viewer) => ledger.fairRanking(viewer),
+    game: (tryId) => ledger.fairGame(tryId),
+    result: (tryId) => ledger.fairResult(tryId),
+    start: (player) => ledger.fairStart(player),
+    pick: (player, tryId, offer, choice) => ledger.fairPick(player, tryId, offer, choice),
+    abandon: (player, tryId) => ledger.fairAbandon(player, tryId),
+    play: (player, tryId, move) => ledger.fairPlay(player, tryId, move),
+    claim: (player, week) => ledger.fairClaim(player, week),
   };
 }
 
