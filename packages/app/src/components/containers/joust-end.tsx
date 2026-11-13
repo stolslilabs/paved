@@ -62,7 +62,7 @@ export function JoustEnd({ score, result, guild, stats, closings, closingsNote, 
         <span data-testid="total-value" className={cn(FIGURE, lifted ? "text-primary" : "text-foreground")}>
           {result === null ? "—" : formatInteger(result.totalAfter)}
         </span>
-        <span className={UNDER}>{totalLine}</span>
+        <span className={cn(UNDER, "wrap-anywhere")}>{totalLine}</span>
       </span>
     </section>,
   ];

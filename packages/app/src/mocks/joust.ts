@@ -1,4 +1,4 @@
-import { JOUST_GAMES, joustEndsAt, joustExpected, joustOpensAt, joustWeekOf } from "@paved/game-core";
+import { GUILD_NAME_MAX, JOUST_GAMES, joustEndsAt, joustExpected, joustOpensAt, joustWeekOf } from "@paved/game-core";
 import type { JoustCard, PlayModesProps } from "../components/containers/play-modes";
 import type { JoustEndProps } from "../components/containers/joust-end";
 import type { JoustSceneProps } from "../components/scenes/joust-scene";
@@ -28,6 +28,8 @@ export const JOUST_ME = PLAYERS[4]!.address;
 
 const QUARRYMEN: JoustGuild = { id: 11, name: "The Quarrymen", emblem: { icon: 0, primary: 3, secondary: 5 } };
 const IRONVALE: JoustGuild = { id: 12, name: "Ironvale", emblem: { icon: 1, primary: 10, secondary: 9 } };
+/** A legal name of the most letters, of the widest letter and with no space to wrap at (#1156, point 3). */
+const LONGEST = "W".repeat(GUILD_NAME_MAX);
 
 const top = (players: readonly PublicProfile[], scores: readonly number[], played: readonly number[]): JoustJouster[] => scores.map((best, i) => ({ profile: players[i]!, best, played: played[i]! }));
 
@@ -94,6 +96,9 @@ export const JOUST = {
   registering: { state: REGISTRATION, busy: "register", ...registration },
   member: { state: { ...REGISTRATION, guild: { ...GUILD, canRegister: false } }, ...registration },
   registered: { state: { ...REGISTRATION, registered: true }, ...registration },
+  officerLongName: { state: { ...REGISTRATION, guild: { ...GUILD, name: LONGEST } }, ...registration },
+  memberLongName: { state: { ...REGISTRATION, guild: { ...GUILD, name: LONGEST, canRegister: false } }, ...registration },
+  registeredLongName: { state: { ...REGISTRATION, registered: true, guild: { ...GUILD, name: LONGEST } }, ...registration },
   result: { state: { ...REGISTRATION, registered: true, guild: { ...GUILD, rating: 1_201 }, result: RESULT }, ...registration },
   defeat: { state: { ...REGISTRATION, guild: { ...GUILD, rating: 1_170 }, result: { ...RESULT, outcome: "loss", own: RESULT.opponent!, opponent: RESULT.own, ratingAfter: 1_170, cobbles: 15, claimed: true } }, ...registration },
   live: { state: LIVE, ...live },
@@ -129,5 +134,6 @@ export const JOUST_END = {
   newBest: { ...END, score: 1_960, result: { gameId: 6, score: 1_960, game: 2, left: 1, bestBefore: 1_880, bestAfter: 1_960, totalBefore: 18_290, totalAfter: 18_370, late: false } },
   below: { ...END, score: 1_640, result: { gameId: 6, score: 1_640, game: 2, left: 1, bestBefore: 1_880, bestAfter: 1_880, totalBefore: 18_290, totalAfter: 18_290, late: false } },
   last: { ...END, score: 1_700, result: { gameId: 7, score: 1_700, game: 3, left: 0, bestBefore: 1_880, bestAfter: 1_880, totalBefore: 18_290, totalAfter: 18_290, late: false } },
+  longName: { ...END, guild: { ...QUARRYMEN, name: LONGEST }, score: 1_880, result: { gameId: 5, score: 1_880, game: 1, left: 2, bestBefore: null, bestAfter: 1_880, totalBefore: 16_410, totalAfter: 18_290, late: false } },
   late: { ...END, score: 2_050, result: { gameId: 7, score: 2_050, game: 3, left: 0, bestBefore: 1_880, bestAfter: 1_880, totalBefore: 18_290, totalAfter: 18_290, late: true } },
 } satisfies Record<string, Data<JoustEndProps>>;

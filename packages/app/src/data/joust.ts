@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { cobbleKeys } from "./cobbles";
 import type { JoustGameRecord, JoustGameResult, JoustRanking, JoustSource, JoustState } from "./joust-source";
 import { addressKey } from "./keys";
@@ -8,7 +9,8 @@ import { useDataSources } from "./sources";
 
 // The Joust's hooks (the weekly allegiance event, game-core's `joust.ts`), read from the sources' `joust` (the mock's ledger: the
 // whole event runs on the client). Without one (the chain) each answers `unavailable`, with no data and no error. Nothing polls: the
-// week is read again on the window's focus and after the player's own writes.
+// week is read again on the window's focus, after the player's own writes, and at each UTC midnight while it is shown (a day's deck,
+// Friday's draw and Monday's result and registration all start at one).
 
 export type * from "./joust-source";
 
@@ -24,10 +26,31 @@ export const joustKeys = {
 
 const UNAVAILABLE = { data: undefined, isPending: false, error: null, unavailable: true, refetch: () => undefined } as const;
 
-/** A query of the Joust source: disabled without a source or without its argument (`enabled`). */
-function useJoustQuery<T>(key: readonly unknown[], read: (source: JoustSource) => Promise<T>, enabled: boolean): PuzzleRead<T> {
+const DAY_MS = 86_400_000;
+
+/** Calls `read` at each UTC midnight while `on`: one timer to the next midnight, armed again once it fires (no polling). */
+function useAtEachUtcMidnight(on: boolean, read: () => void): void {
+  const latest = useRef(read);
+  latest.current = read;
+  useEffect(() => {
+    if (!on) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      timer = setTimeout(() => {
+        latest.current();
+        arm();
+      }, DAY_MS - (Date.now() % DAY_MS));
+    };
+    arm();
+    return () => clearTimeout(timer);
+  }, [on]);
+}
+
+/** A query of the Joust source: disabled without a source or without its argument (`enabled`); `daily`, read again at each UTC midnight. */
+function useJoustQuery<T>(key: readonly unknown[], read: (source: JoustSource) => Promise<T>, enabled: boolean, daily = false): PuzzleRead<T> {
   const { joust } = useDataSources();
   const query = useQuery({ queryKey: key, queryFn: () => read(joust!), enabled: enabled && !!joust, staleTime: 0 });
+  useAtEachUtcMidnight(daily && enabled && !!joust, () => void query.refetch());
   if (!joust) return UNAVAILABLE;
   return { data: query.data, isPending: enabled && query.isPending && !query.error, error: query.error, unavailable: false, refetch: () => void query.refetch() };
 }
@@ -39,12 +62,12 @@ export function useJoustAvailable(): boolean {
 
 /** The week's Joust as `viewer` sees it (null: no account, the week alone); `enabled` false reads nothing. */
 export function useJoustState(viewer: string | null, enabled = true): PuzzleRead<JoustState> {
-  return useJoustQuery(joustKeys.state(viewer), (s) => s.state(viewer), enabled);
+  return useJoustQuery(joustKeys.state(viewer), (s) => s.state(viewer), enabled, true);
 }
 
 /** The allegiances by rating; `enabled` false reads nothing (the ranking's view closed). */
 export function useJoustRanking(viewer: string | null, enabled = true): PuzzleRead<JoustRanking> {
-  return useJoustQuery(joustKeys.ranking(viewer), (s) => s.ranking(viewer), enabled);
+  return useJoustQuery(joustKeys.ranking(viewer), (s) => s.ranking(viewer), enabled, true);
 }
 
 /** A game by its id, as stored when read: the board's start (its moves played again). */

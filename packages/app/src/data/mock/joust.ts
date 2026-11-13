@@ -34,7 +34,8 @@ import { SEEDED_FROM_DAY } from "./players";
 // game-core's rules (`SeededChallenge` on the day's deck with the week's boost) and claim their Cobbles. Every week since the mock's
 // first is played again from the guilds' world at each read: the draws, the totals, the ratings. Pure functions on the stored state
 // and the guilds: `MockLedger` runs them under its lock, as `puzzle.ts`'s. A member counts for the weeks they joined before, by the
-// guilds' world as it is now (the world keeps no history of who left): a departure moves the past weeks' totals, on the mock only.
+// roster drawn on Friday 00:00: each week's draw (its rosters) and result are recorded once they happen (`settleJoust`, before every
+// Joust or guild write), so a departure or a disbanding later changes no total, rating or claim of a week already drawn.
 
 /** The salts of the mock's draws: a day's deck (`'JOUST'`) and a game's random (`'JSGAME'`). */
 const DAY_SALT = 0x4a4f555354n;
@@ -58,12 +59,22 @@ export interface StoredJoustGame {
   end: number;
 }
 
-/** The mock's Joust as stored: the accounts' games, the allegiances an account registered by week, each account's claimed weeks. */
+/** A week as recorded (`settleJoust`): its draw from Friday 00:00, each allegiance's entry by id, and whether its result is in. */
+export interface StoredJoustWeek {
+  over: boolean;
+  entries: Record<string, JoustWeekEntry>;
+}
+
+/**
+ * The mock's Joust as stored: the accounts' games, the allegiances an account registered by week, each account's claimed weeks,
+ * and the weeks drawn so far (absent in a state stored before them: those weeks are drawn again from the guilds' world).
+ */
 export interface StoredJoust {
   nextId: number;
   games: Record<string, StoredJoustGame>;
   registrations: Record<string, number[]>;
   claims: Record<string, number[]>;
+  weeks?: Record<string, StoredJoustWeek>;
 }
 
 export const freshJoust = (): StoredJoust => ({ nextId: 1, games: {}, registrations: {}, claims: {} });
@@ -125,30 +136,56 @@ export interface Jouster {
   played: number;
 }
 
-/** The jousters of `guild` in `week` at `now`: its members since before Friday 00:00, the community's by their drawn games, the accounts by their stored ones. */
-export function joustersOf(joust: StoredJoust, guild: StoredGuild, week: number, now: number): Jouster[] {
-  const opens = joustOpensAt(week);
-  const ends = joustEndsAt(week);
-  return guild.members
-    .filter((m) => m.joinedAt < opens)
-    .map((m) => {
-      if (communityMember(m.address)) {
-        const games = drawnGames(m.address, week).filter((g) => g.at <= now);
-        return { address: m.address, best: games.length ? Math.max(...games.map((g) => g.score)) : null, played: games.length };
-      }
-      const games = Object.values(joust.games).filter((g) => g.week === week && g.guild === guild.id && g.player === m.address);
-      const counted = games.filter((g) => g.over && g.end < ends && g.end <= now);
-      return { address: m.address, best: counted.length ? Math.max(...counted.map((g) => g.score)) : null, played: games.length };
-    });
+/** The address keys of `guild`'s members since before `week`'s Friday 00:00, as the guilds' world is now. */
+const eligibleOf = (guild: StoredGuild, week: number): string[] => guild.members.filter((m) => m.joinedAt < joustOpensAt(week)).map((m) => m.address);
+
+/** The roster of allegiance `id` in `week`: the one recorded at its draw, else its eligible members now (none: it is gone). */
+export function rosterOf(joust: StoredJoust, guilds: readonly StoredGuild[], id: number, week: number): string[] {
+  const recorded = joust.weeks?.[week]?.entries[id]?.roster;
+  if (recorded) return recorded;
+  const guild = guilds.find((g) => g.id === id);
+  return guild ? eligibleOf(guild, week) : [];
 }
+
+/**
+ * The jousters of allegiance `id` in `week` at `now`: its `roster`, the community's by their drawn games, the accounts by their
+ * stored ones; and every account that played a game of the week for it (the game records its allegiance), on the roster or not.
+ */
+export function joustersOf(joust: StoredJoust, id: number, roster: readonly string[], week: number, now: number): Jouster[] {
+  const ends = joustEndsAt(week);
+  const games = Object.values(joust.games).filter((g) => g.week === week && g.guild === id);
+  const players = [...new Set([...roster, ...games.map((g) => g.player)])];
+  return players.map((address) => {
+    if (communityMember(address)) {
+      const drawn = drawnGames(address, week).filter((g) => g.at <= now);
+      return { address, best: drawn.length ? Math.max(...drawn.map((g) => g.score)) : null, played: drawn.length };
+    }
+    const own = games.filter((g) => g.player === address);
+    const counted = own.filter((g) => g.over && g.end < ends && g.end <= now);
+    return { address, best: counted.length ? Math.max(...counted.map((g) => g.score)) : null, played: own.length };
+  });
+}
+
+const shownGuild = (guild: StoredGuild): JoustGuild => ({ id: guild.id, name: guild.name, emblem: guild.settings.emblem });
+
+/** An entry's allegiance as shown: as it is now, or as it was drawn once it is gone. */
+const shownOf = (guilds: readonly StoredGuild[], id: number, entry: JoustWeekEntry): JoustGuild => {
+  const guild = guilds.find((g) => g.id === id);
+  return guild ? shownGuild(guild) : entry.guild;
+};
 
 /** The jousters with a best, the best first. */
 const ranked = (jousters: readonly Jouster[]) => jousters.filter((j): j is Jouster & { best: number } => j.best !== null).sort((a, b) => b.best - a.best);
 
 const scoreOf = (jousters: readonly Jouster[]): JoustScore => joustScore(ranked(jousters).map((j) => j.best));
 
-/** An allegiance's week: its opponent (null: a bye), its rating before, and once the week is over its totals, its outcome and its rating after. */
+/**
+ * An allegiance's week: as shown at its draw, its roster then (address keys), its opponent (null: a bye), its rating before, and once
+ * the week is over its totals, its outcome and its rating after.
+ */
 export interface JoustWeekEntry {
+  guild: JoustGuild;
+  roster: string[];
   opponent: number | null;
   before: number;
   after: number | null;
@@ -167,51 +204,78 @@ export interface JoustHistory {
 
 /**
  * The Joust's history at `now`, from the mock's first week: each Friday the registered allegiances are drawn in their bands
- * (`joustPairs`, a shuffle drawn for the week), each Sunday's end the totals decide and the ratings move (a bye moves none).
+ * (`joustPairs`, a shuffle drawn for the week), each Sunday's end the totals decide and the ratings move (a bye moves none). A week
+ * recorded (`settleJoust`) keeps its draw, and its result once in: only the weeks not yet recorded are drawn from the guilds' world.
  */
 export function historyOf(joust: StoredJoust, guilds: readonly StoredGuild[], now: number): JoustHistory {
   const ratings = new Map<number, number>(guilds.map((g) => [g.id, JOUST_START_RATING]));
   const peaks = new Map(ratings);
   const weeks = new Map<number, Map<number, JoustWeekEntry>>();
-  const byId = new Map(guilds.map((g) => [g.id, g] as const));
+  const rated = (id: number) => ratings.get(id) ?? JOUST_START_RATING;
   let jousts = 0;
   for (let week = JOUST_FIRST_WEEK; now >= joustOpensAt(week); week++) {
     const opens = joustOpensAt(week);
     const ends = joustEndsAt(week);
-    const entrants = guilds
-      .filter((g) => registeredBy(joust, g, week, opens))
-      .map((g) => ({ id: g.id, rating: ratings.get(g.id)! }))
-      .sort((a, b) => a.id - b.id);
-    let k = 0;
-    const { pairs, bye } = joustPairs(entrants, () => draw(6, week, k++));
     const over = now >= ends;
-    const entries = new Map<number, JoustWeekEntry>();
-    for (const [a, b] of pairs) {
-      if (!over) {
-        entries.set(a.id, { opponent: b.id, before: a.rating, after: null, outcome: null, total: null, theirs: null });
-        entries.set(b.id, { opponent: a.id, before: b.rating, after: null, outcome: null, total: null, theirs: null });
-        continue;
+    const stored = joust.weeks?.[week];
+    let entries: Map<number, JoustWeekEntry>;
+    if (stored) {
+      entries = new Map(Object.entries(stored.entries).map(([id, e]) => [Number(id), stored.over ? e : { ...e, after: null, outcome: null, total: null, theirs: null }]));
+    } else {
+      const entrants = guilds
+        .filter((g) => registeredBy(joust, g, week, opens))
+        .map((g) => ({ id: g.id, rating: rated(g.id), guild: shownGuild(g), roster: eligibleOf(g, week) }))
+        .sort((a, b) => a.id - b.id);
+      let k = 0;
+      const { pairs, bye } = joustPairs(entrants, () => draw(6, week, k++));
+      const drawn = (e: (typeof entrants)[number], opponent: number | null): JoustWeekEntry => ({ guild: e.guild, roster: e.roster, opponent, before: e.rating, after: null, outcome: null, total: null, theirs: null });
+      entries = new Map();
+      for (const [a, b] of pairs) {
+        entries.set(a.id, drawn(a, b.id));
+        entries.set(b.id, drawn(b, a.id));
       }
-      const sa = scoreOf(joustersOf(joust, byId.get(a.id)!, week, ends));
-      const sb = scoreOf(joustersOf(joust, byId.get(b.id)!, week, ends));
-      const oa = joustOutcome(sa, sb);
-      const ob = joustOutcome(sb, sa);
-      entries.set(a.id, { opponent: b.id, before: a.rating, after: a.rating + joustRatingChange(a.rating, b.rating, oa), outcome: oa, total: sa.total, theirs: sb.total });
-      entries.set(b.id, { opponent: a.id, before: b.rating, after: b.rating + joustRatingChange(b.rating, a.rating, ob), outcome: ob, total: sb.total, theirs: sa.total });
+      if (bye) entries.set(bye.id, drawn(bye, null));
     }
-    if (bye) entries.set(bye.id, { opponent: null, before: bye.rating, after: over ? bye.rating : null, outcome: over ? "bye" : null, total: over ? scoreOf(joustersOf(joust, byId.get(bye.id)!, week, ends)).total : null, theirs: null });
+    if (over && !stored?.over) {
+      const scores = new Map([...entries].map(([id, e]) => [id, scoreOf(joustersOf(joust, id, e.roster, week, ends))] as const));
+      for (const [id, e] of entries) {
+        const own = scores.get(id)!;
+        if (e.opponent === null) {
+          entries.set(id, { ...e, after: e.before, outcome: "bye", total: own.total, theirs: null });
+          continue;
+        }
+        const theirs = scores.get(e.opponent)!;
+        const outcome = joustOutcome(own, theirs);
+        entries.set(id, { ...e, after: e.before + joustRatingChange(e.before, entries.get(e.opponent)!.before, outcome), outcome, total: own.total, theirs: theirs.total });
+      }
+    }
     weeks.set(week, entries);
     if (!over) break;
     if (entries.size > 0) jousts += 1;
     for (const [id, entry] of entries) {
       ratings.set(id, entry.after!);
-      peaks.set(id, Math.max(peaks.get(id)!, entry.after!));
+      peaks.set(id, Math.max(peaks.get(id) ?? JOUST_START_RATING, entry.after!));
     }
   }
   return { ratings, peaks, weeks, jousts };
 }
 
-const shownGuild = (guild: StoredGuild): JoustGuild => ({ id: guild.id, name: guild.name, emblem: guild.settings.emblem });
+/**
+ * Records in `joust`, in place, every week drawn by `now` (its rosters and its draw) and every result in, as `historyOf` reads them:
+ * run before each Joust or guild write, so that what a write then changes (a departure, a disbanding, a new leader) leaves the weeks
+ * already drawn as they were. Whether it recorded anything.
+ */
+export function settleJoust(joust: StoredJoust, guilds: readonly StoredGuild[], now: number): boolean {
+  let changed = false;
+  for (const [week, entries] of historyOf(joust, guilds, now).weeks) {
+    const over = now >= joustEndsAt(week);
+    const stored = joust.weeks?.[week];
+    if (stored && (stored.over || !over)) continue;
+    (joust.weeks ??= {})[week] = { over, entries: Object.fromEntries(entries) };
+    changed = true;
+  }
+  return changed;
+}
 
 /** The allegiance `player` is in, with their membership; null: none. */
 export function guildOf(guilds: readonly StoredGuild[], player: string | null) {
@@ -224,11 +288,11 @@ export function guildOf(guilds: readonly StoredGuild[], player: string | null) {
   return null;
 }
 
-function sideOf(joust: StoredJoust, guild: StoredGuild, rating: number, week: number, now: number, people: GuildPeople): JoustSide {
-  const jousters = joustersOf(joust, guild, week, now);
+function sideOf(joust: StoredJoust, guilds: readonly StoredGuild[], id: number, entry: JoustWeekEntry, week: number, now: number, people: GuildPeople): JoustSide {
+  const jousters = joustersOf(joust, id, entry.roster, week, now);
   return {
-    guild: shownGuild(guild),
-    rating,
+    guild: shownOf(guilds, id, entry),
+    rating: entry.before,
     total: scoreOf(jousters).total,
     jousters: jousters.filter((j) => j.played > 0).length,
     gamesLeft: jousters.reduce((sum, j) => sum + Math.max(0, JOUST_GAMES - j.played), 0),
@@ -241,19 +305,18 @@ function sideOf(joust: StoredJoust, guild: StoredGuild, rating: number, week: nu
 /** The Cobbles an outcome pays each jouster who played: a win's and a bye's, else the losers' (a draw's too: the proposal names none). */
 export const cobblesOf = (outcome: JoustOutcome | "bye"): number => (outcome === "win" || outcome === "bye" ? JOUST_WIN_COBBLES : JOUST_LOSS_COBBLES);
 
-/** Last week's joust of `guild` as `viewer` lived it; null: the allegiance did not joust. */
-function resultOf(joust: StoredJoust, history: JoustHistory, guilds: readonly StoredGuild[], guild: StoredGuild, viewer: string, week: number, people: GuildPeople): JoustResult | null {
-  const entry = history.weeks.get(week)?.get(guild.id);
+/** The joust `week` of allegiance `id` as `viewer` lived it, from its recorded roster and draw; null: the allegiance did not joust. */
+function resultOf(joust: StoredJoust, history: JoustHistory, guilds: readonly StoredGuild[], id: number, viewer: string, week: number, people: GuildPeople): JoustResult | null {
+  const entry = history.weeks.get(week)?.get(id);
   if (!entry || entry.outcome === null || entry.after === null) return null;
-  const opponent = entry.opponent === null ? null : (guilds.find((g) => g.id === entry.opponent) ?? null);
-  const top = ranked(joustersOf(joust, guild, week, joustEndsAt(week)));
+  const top = ranked(joustersOf(joust, id, entry.roster, week, joustEndsAt(week)));
   const place = top.findIndex((j) => j.address === viewer);
   const champion = top[0];
-  const theirs = opponent ? history.weeks.get(week)?.get(opponent.id) : null;
+  const theirs = entry.opponent === null ? null : (history.weeks.get(week)?.get(entry.opponent) ?? null);
   return {
     week,
-    own: { guild: shownGuild(guild), total: entry.total ?? 0 },
-    opponent: opponent ? { guild: shownGuild(opponent), total: entry.theirs ?? 0 } : null,
+    own: { guild: shownOf(guilds, id, entry), total: entry.total ?? 0 },
+    opponent: theirs && entry.opponent !== null ? { guild: shownOf(guilds, entry.opponent, theirs), total: entry.theirs ?? 0 } : null,
     outcome: entry.outcome,
     ratingBefore: entry.before,
     ratingAfter: entry.after,
@@ -272,28 +335,45 @@ export const gamesOf = (joust: StoredJoust, player: string, week: number): Store
     .filter((g) => g.week === week && g.player === addressKey(player))
     .sort((a, b) => a.id - b.id);
 
+/**
+ * Last week's result as `viewer` earned it: the allegiance their games of that week recorded (whatever their allegiance now, or
+ * none), else their allegiance's now (`current`); null: neither jousted.
+ */
+function lastResultOf(joust: StoredJoust, history: JoustHistory, guilds: readonly StoredGuild[], viewer: string, current: number | null, week: number, people: GuildPeople): JoustResult | null {
+  const played = gamesOf(joust, viewer, week)[0]?.guild ?? null;
+  const id = played ?? current;
+  return id === null ? null : resultOf(joust, history, guilds, id, viewer, week, people);
+}
+
 /** `JoustSource.state`: the week at `now` as `viewer` sees it. */
 export function stateOf(joust: StoredJoust, guilds: readonly StoredGuild[], people: GuildPeople, now: number, viewer: string | null): JoustState {
   const week = joustWeekOf(now);
   const phase = joustPhaseOf(now);
   const base = { week, phase, boost: joustBoostOf(week), opensAt: joustOpensAt(week), endsAt: joustEndsAt(week), deckSeed: hex(joustDaySeed(puzzleDayOf(now))) };
   const mine = guildOf(guilds, viewer);
-  if (!mine || viewer === null) return { ...base, guild: null, registered: false, match: null, me: null, result: null };
+  if (viewer === null) return { ...base, guild: null, registered: false, match: null, me: null, result: null };
+  if (!mine) {
+    // Out of every allegiance: last week's result still shows (and is claimed) when they jousted in it.
+    const key = addressKey(viewer);
+    const result = gamesOf(joust, key, week - 1).length ? lastResultOf(joust, historyOf(joust, guilds, now), guilds, key, null, week - 1, people) : null;
+    return { ...base, guild: null, registered: false, match: null, me: null, result };
+  }
   const { guild, member } = mine;
   const key = addressKey(viewer);
   const history = historyOf(joust, guilds, now);
   const rating = history.ratings.get(guild.id) ?? JOUST_START_RATING;
-  const registered = registeredBy(joust, guild, week, Math.min(now, base.opensAt));
-  const entry = history.weeks.get(week)?.get(guild.id);
+  const entry = phase === "live" ? history.weeks.get(week)?.get(guild.id) : undefined;
+  // From Friday, the draw decides: the allegiance is registered when it was drawn.
+  const registered = phase === "live" ? !!entry : registeredBy(joust, guild, week, now);
   const eligible = member.joinedAt < base.opensAt;
   let match: JoustState["match"] = null;
   let me: JoustState["me"] = null;
-  if (phase === "live" && entry) {
-    const opponent = entry.opponent === null ? null : (guilds.find((g) => g.id === entry.opponent) ?? null);
-    const theirRating = opponent ? (history.ratings.get(opponent.id) ?? JOUST_START_RATING) : rating;
-    match = { own: sideOf(joust, guild, rating, week, now, people), opponent: opponent ? sideOf(joust, opponent, theirRating, week, now, people) : null, expected: opponent ? joustExpected(rating, theirRating) : 1 };
+  if (entry) {
+    const theirs = entry.opponent === null ? null : (history.weeks.get(week)?.get(entry.opponent) ?? null);
+    const opponent = theirs && entry.opponent !== null ? sideOf(joust, guilds, entry.opponent, theirs, week, now, people) : null;
+    match = { own: sideOf(joust, guilds, guild.id, entry, week, now, people), opponent, expected: theirs ? joustExpected(entry.before, theirs.before) : 1 };
     const games = gamesOf(joust, key, week);
-    const top = ranked(joustersOf(joust, guild, week, now));
+    const top = ranked(joustersOf(joust, guild.id, entry.roster, week, now));
     const place = top.findIndex((j) => j.address === key);
     const open = games.find((g) => !g.over) ?? null;
     me = { eligible, played: games.length, left: eligible ? Math.max(0, JOUST_GAMES - games.length) : 0, best: place < 0 ? null : top[place]!.best, place: place < 0 ? null : place + 1, open: open && { id: open.id, score: open.score } };
@@ -304,7 +384,7 @@ export function stateOf(joust: StoredJoust, guilds: readonly StoredGuild[], peop
     registered,
     match,
     me,
-    result: resultOf(joust, history, guilds, guild, key, week - 1, people),
+    result: lastResultOf(joust, history, guilds, key, guild.id, week - 1, people),
   };
 }
 
@@ -346,7 +426,7 @@ export function newGame(joust: StoredJoust, guilds: readonly StoredGuild[], play
   if (joustPhaseOf(now) !== "live") throw new Error("Joust: the joust has not begun");
   const mine = guildOf(guilds, key);
   if (!mine) throw new Error("Joust: not in an allegiance");
-  if (!registeredBy(joust, mine.guild, week, joustOpensAt(week))) throw new Error("Joust: the allegiance is not registered");
+  if (!historyOf(joust, guilds, now).weeks.get(week)?.has(mine.guild.id)) throw new Error("Joust: the allegiance is not registered");
   if (mine.member.joinedAt >= joustOpensAt(week)) throw new Error("Joust: joined after the draw");
   const games = gamesOf(joust, key, week);
   if (games.some((g) => g.guild !== mine.guild.id)) throw new Error("Joust: already jousting for another allegiance");
@@ -380,8 +460,7 @@ export function gameResultOf(joust: StoredJoust, guilds: readonly StoredGuild[],
   const best = (list: StoredJoustGame[]) => (list.length ? Math.max(...list.map((g) => g.score)) : null);
   const bestBefore = best(games.filter((g) => g.id !== game.id && counted(g) && g.id < game.id));
   const bestAfter = best(games.filter((g) => counted(g) && g.id <= game.id));
-  const guild = guilds.find((g) => g.id === game.guild);
-  const others = guild ? joustersOf(joust, guild, game.week, now).filter((j) => j.address !== game.player) : [];
+  const others = joustersOf(joust, game.guild, rosterOf(joust, guilds, game.guild, game.week), game.week, now).filter((j) => j.address !== game.player);
   const total = (mine: number | null) => scoreOf([...others, { address: game.player, best: mine, played: 1 }]).total;
   return { gameId: game.id, score: game.score, game: 1 + games.findIndex((g) => g.id === game.id), left: Math.max(0, JOUST_GAMES - games.length), bestBefore, bestAfter, totalBefore: total(bestBefore), totalAfter: total(bestAfter), late };
 }
@@ -401,14 +480,16 @@ export function register(joust: StoredJoust, guilds: readonly StoredGuild[], pla
   return { week, guild: mine.guild.id };
 }
 
-/** The Cobbles `player` claims for `week` at `now` (each refusal thrown), the claim recorded: a joust over, that they played, once. */
+/**
+ * The Cobbles `player` claims for `week` at `now` (each refusal thrown), the claim recorded: a joust over, that they played, once.
+ * Paid by the result of the allegiance their game recorded, whatever their allegiance now (or none).
+ */
 export function claim(joust: StoredJoust, guilds: readonly StoredGuild[], people: GuildPeople, player: string, week: number, now: number): number {
   const key = addressKey(player);
   if (now < joustEndsAt(week)) throw new Error("Joust: the joust is not over");
   if (joust.claims[key]?.includes(week)) throw new Error("Joust: already claimed");
   const played = gamesOf(joust, key, week).find((g) => g.over && g.end < joustEndsAt(week));
-  const guild = played && guilds.find((g) => g.id === played.guild);
-  const result = guild ? resultOf(joust, historyOf(joust, guilds, now), guilds, guild, key, week, people) : null;
+  const result = played ? resultOf(joust, historyOf(joust, guilds, now), guilds, played.guild, key, week, people) : null;
   if (!result || result.cobbles === 0) throw new Error("Joust: nothing to claim");
   (joust.claims[key] ??= []).push(week);
   return result.cobbles;

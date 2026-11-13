@@ -1388,7 +1388,8 @@ export class MockLedger {
 
   /**
    * A Joust write: `change` works on the player's copy, the stored Joust (created on the first write, put back on a throw, `commit`)
-   * and the guilds' world settled at the write's second; a rule's refusal is the writer's `WriteError` with the contract's text.
+   * and the guilds' world settled at the write's second, the weeks drawn by then recorded (`settleJoust`); a rule's refusal is the
+   * writer's `WriteError` with the contract's text.
    */
   private async writeJoust<T>(account: string, change: (player: StoredPlayer, stored: joust.StoredJoust, world: guilds.GuildWorld, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
     await sleep(this.latency);
@@ -1396,7 +1397,10 @@ export class MockLedger {
     await this.write(account, (p) => {
       const now = this.second();
       try {
-        const out = change(p, (this.state.joust ??= joust.freshJoust()), this.settledGuilds(now), now);
+        const stored = (this.state.joust ??= joust.freshJoust());
+        const world = this.settledGuilds(now);
+        joust.settleJoust(stored, world.guilds, now);
+        const out = change(p, stored, world, now);
         value = out.value;
         return out.events;
       } catch (error) {
@@ -1819,7 +1823,7 @@ export class MockLedger {
     return read(world, people, now);
   }
 
-  /** One guild write under the lock: the world settled, the change applied and stored, or, refused, left as it was. */
+  /** One guild write under the lock: the world (and the Joust's weeks) settled, the change applied and stored, or, refused, left as it was. */
   private async guildWrite<T>(player: string, change: (w: guilds.GuildWrite) => T): Promise<T> {
     await sleep(this.latency);
     return this.lock(() => {
@@ -1830,13 +1834,16 @@ export class MockLedger {
       const blocked = this.blocksAt(now);
       const w: guilds.GuildWrite = { world, people, now, player: addressKey(player), blocked };
       guilds.settle(world, people, now, blocked);
+      // The Joust's weeks drawn by now, recorded before the change: a departure or a disbanding leaves them as they were.
+      const jousts = structuredClone(this.state.joust ?? joust.freshJoust());
+      const recorded = joust.settleJoust(jousts, world.guilds, now);
       const before = new Map(world.guilds.map((g) => [g.id, g.members.map((m) => ({ address: m.address, joinedAt: m.joinedAt }))] as const));
       const result = change(w);
       guilds.seen(w);
       // The memberships the write ended (#955): the guild's past lines keep their authors.
       const stored = chat.parseChat(this.state.chat);
       const chatState = chat.recordDepartures(stored ?? chat.freshChat(), before, world, now);
-      this.state = { ...this.state, guilds: world, ...(stored || chatState.departed ? { chat: chatState } : {}) };
+      this.state = { ...this.state, guilds: world, ...(recorded ? { joust: jousts } : {}), ...(stored || chatState.departed ? { chat: chatState } : {}) };
       // Each joining, kick or leave starts the guild's next epoch now (#997, point 4), not at the chat's next read: a leave and a
       // rejoin before it are two epochs.
       const settled = chat.settleChat(chat.parseChat(this.state.chat) ?? chat.freshChat(), this.chatWorld(now));

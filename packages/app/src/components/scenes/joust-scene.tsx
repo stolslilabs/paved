@@ -511,16 +511,19 @@ export function JoustScene({ state, error, errorDetail, onRetry, now, me = null,
           <div data-slot="joust-footer" className="flex min-h-16 items-center gap-3 px-4 py-2">
             {!live ? (
               state.registered ? (
-                <span className="flex flex-1 items-center justify-center gap-2 text-base font-bold">
+                <span className="flex min-w-0 flex-1 items-center justify-center gap-2 text-base font-bold wrap-anywhere">
                   <Icon name="check" size="sm" className="text-success" /> {state.guild.name} is registered. The draw is on Friday.
                 </span>
               ) : state.guild.canRegister ? (
-                <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 flex-1 px-2 text-lg font-black text-foreground" disabled={busy === "register"} aria-busy={busy === "register" || undefined} onClick={onRegister}>
+                <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 min-w-0 flex-1 px-2 text-lg font-black text-foreground" disabled={busy === "register"} aria-busy={busy === "register" || undefined} onClick={onRegister}>
                   {busy !== "register" && <GoldShine />}
-                  Register {state.guild.name}
+                  {/* A long name is cut at the drawer's edge, the button's name stays whole. */}
+                  <span className="min-w-0 truncate" title={`Register ${state.guild.name}`}>
+                    Register {state.guild.name}
+                  </span>
                 </Button>
               ) : (
-                <span className="flex-1 text-center text-sm font-semibold text-muted-foreground">Not registered yet: an Officer or the Leader registers {state.guild.name}.</span>
+                <span className="min-w-0 flex-1 text-center text-sm font-semibold text-muted-foreground wrap-anywhere">Not registered yet: an Officer or the Leader registers {state.guild.name}.</span>
               )
             ) : match ? (
               <>

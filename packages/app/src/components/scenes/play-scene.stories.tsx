@@ -13,6 +13,7 @@ import { ExpeditionScene } from "./expedition-scene";
 import { JoustScene } from "./joust-scene";
 import { PuzzleScene } from "./puzzle-scene";
 import { StoryScene } from "./story-scene";
+import { PHONE_320, PHONE_375 } from "./viewports";
 
 /**
  * Play (`/play`, PLAY-PAGE, the Paved UX Book's "modes", the owner's asks of 2026-11-06, then PLAY-MODES, the owner's direction C of
@@ -114,6 +115,13 @@ export const JoustViewRegistering: Story = joust("registering");
 /** A member's: an Officer or the Leader registers. */
 export const JoustViewMember: Story = joust("member");
 export const JoustViewRegistered: Story = joust("registered");
+/** A legal name of the most and widest letters: Register cuts it at the drawer's edge, the other footers wrap it; at 320, 360 and 375. */
+const MOBILE_360 = { globals: { viewport: { value: "mobile", isRotated: false } } };
+export const JoustViewLongName320: Story = { ...joust("officerLongName"), ...PHONE_320 };
+export const JoustViewLongName360: Story = { ...joust("officerLongName"), ...MOBILE_360 };
+export const JoustViewLongName375: Story = { ...joust("officerLongName"), ...PHONE_375 };
+export const JoustViewMemberLongName320: Story = { ...joust("memberLongName"), ...PHONE_320 };
+export const JoustViewRegisteredLongName320: Story = { ...joust("registeredLongName"), ...PHONE_320 };
 /** Monday: last week's victory, the rating's move, Claim. */
 export const JoustViewResult: Story = joust("result");
 /** A defeat, its Cobbles claimed. */
