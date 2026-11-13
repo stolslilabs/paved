@@ -86,6 +86,7 @@ describe("the route map (#762)", () => {
       "play/joust",
       "play/expedition",
       "play/masterpiece",
+      "play/colossus",
       "missions",
       "tiles",
       "vault",
@@ -120,6 +121,7 @@ describe("the route map (#762)", () => {
       "play/joust",
       "play/expedition",
       "play/masterpiece",
+      "play/colossus",
       "missions",
       "tiles",
       "vault",
@@ -134,7 +136,7 @@ describe("the route map (#762)", () => {
       "settings/credits",
       "settings",
     ]);
-    expect(PAGES.filter((p) => p.drawer && !["play/challenge", "story", "play/puzzle", "play/joust", "play/expedition", "play/masterpiece"].includes(p.path)).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
+    expect(PAGES.filter((p) => p.drawer && !["play/challenge", "story", "play/puzzle", "play/joust", "play/expedition", "play/masterpiece", "play/colossus"].includes(p.path)).every((p) => p.panel && !p.parent && !p.sheet)).toBe(true);
   });
 });
 

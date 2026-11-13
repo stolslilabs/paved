@@ -101,6 +101,22 @@ export interface PlayModesProps {
   masterpieceCard?: MasterpieceCard | null;
   /** A tap on the Masterpiece's card: its view. */
   onMasterpiece?: () => void;
+  /** The Colossus's card (Limited); null or omitted: the Colossus is not on this network, no card. */
+  colossusCard?: ColossusCard | null;
+  onColossus?: () => void;
+}
+
+/** The Colossus's card (Play's Limited mode, the weekly collective event): the week's day, the monument, the gauge, the tiles in hand. */
+export interface ColossusCard {
+  /** 0 Monday to 6 Sunday. */
+  day: number;
+  /** Sunday 24:00 UTC, in seconds since the epoch. */
+  endsAt: number;
+  monument: string;
+  stones: number;
+  cells: number;
+  /** The tiles in the player's hand; null: no account. */
+  hand: number | null;
 }
 
 /** A mode's icon (PLAY-MODES): one object, used nowhere else; decorative, the card's words name the mode. `px` its drawn width. */
@@ -171,6 +187,7 @@ const SHAPES = {
   joust: "polygon(0 12px, 12px 0, 46% 0, 49% 5px, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 6px 100%, 0 calc(100% - 6px))",
   expedition: "polygon(10px 0, 62% 0, 65% 4px, 100% 0, 100% calc(100% - 10px), calc(100% - 12px) 100%, 30% 100%, 27% calc(100% - 4px), 0 100%, 0 10px)",
   masterpiece: "polygon(0 8px, 10px 0, 38% 0, 41% 5px, 100% 3px, 100% calc(100% - 12px), calc(100% - 10px) 100%, 58% 100%, 55% calc(100% - 4px), 8px 100%, 0 calc(100% - 10px))",
+  colossus: "polygon(10px 0, calc(100% - 16px) 0, 100% 16px, 100% 58%, calc(100% - 3px) 62%, 100% 66%, 100% 100%, 20px 100%, 0 calc(100% - 12px), 0 10px)",
 } as const satisfies Record<PlayMode, string>;
 
 /** The scene darkened under the words: from the foot (the cards whose title sits at the bottom), or from the left (the Puzzle's). */
@@ -195,7 +212,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && mode !== "expedition" && mode !== "masterpiece" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "expedition" && mode !== "masterpiece" && mode !== "colossus" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -233,7 +250,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -328,6 +345,7 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
         {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
         {masterpieceCard && <MasterpieceMode card={masterpieceCard} now={now} onSelect={onMasterpiece} />}
         {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
+        {colossusCard && <ColossusMode card={colossusCard} now={now} onSelect={onColossus} />}
         {puzzleCard ? (
           <PuzzleMode card={puzzleCard} now={now} onSelect={onPuzzle} />
         ) : (
@@ -554,6 +572,38 @@ function MasterpieceMode({ card, now, onSelect }: { card: MasterpieceCard; now: 
         aria-label={`${left} left in the masterpiece's week`}
         className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
       >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Colossus's card (Limited; the design proposal of 2026-11-10): a wide slab on the half-built wonder-city darkened from the left.
+ * "Colossus", then the week's line: the season's monument, the gauge and the tiles in the player's hand. Its tag says the day of the
+ * week; its reward, the Cobbles alone; the week's time left in the corner's tab.
+ */
+function ColossusMode({ card, now, onSelect }: { card: ColossusCard; now: number; onSelect?: () => void }) {
+  const left = puzzleTimeLeft(card.endsAt, now);
+  const share = Math.floor((card.stones * 100) / Math.max(1, card.cells));
+  return (
+    <ModeCard mode="colossus" slot="colossus-card" sceneAt="50% 38%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
+      <button type="button" onClick={onSelect} aria-label="Colossus" className={cn(COVER, "flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Colossus</span>
+        <span className={LINE}>
+          {card.monument} · <span className="numeric">{share}%</span>
+          {card.hand !== null && (
+            <>
+              {" "}
+              · <span className="numeric">{card.hand}</span> {card.hand === 1 ? "tile" : "tiles"}
+            </>
+          )}
+        </span>
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span role="timer" aria-label={`${left} left this week`} className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold">
         <UiIcon name="countdown" px={14} className="size-3.5" />
         <span className="numeric">{left}</span>
       </span>

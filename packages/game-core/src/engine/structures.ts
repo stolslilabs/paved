@@ -56,9 +56,15 @@ export class Board {
   readonly byPosition = new Map<number, BoardTile>();
   readonly byId = new Map<number, BoardTile>();
   private readonly records = new Map<number, StructureRecord>();
+  /**
+   * The cells that are a wall (the Colossus's districts): a half-edge facing one is closed from the start, and a forest's walk
+   * stops there. Absent (every game): no cell is, and a half-edge with no tile is open.
+   */
+  wall?: (x: number, y: number) => boolean;
 
   clone(): Board {
     const board = new Board();
+    board.wall = this.wall;
     for (const [key, tile] of this.byPosition) board.byPosition.set(key, tile);
     for (const [id, tile] of this.byId) board.byId.set(id, tile);
     for (const [sid, record] of this.records) {
@@ -116,14 +122,15 @@ export class Board {
       for (const [direction, spot] of movesOf(tile.plan, tile.orientation, area)) {
         const [x, y] = toward(tile.x, tile.y, direction);
         const neighbor = this.at(x, y);
+        const walled = !neighbor && this.wall?.(x, y) === true;
         if (spot === 0) {
           // A wonder's half-edge: it asks only for the tile
-          if (!neighbor) open += 1;
+          if (!neighbor && !walled) open += 1;
           continue;
         }
         const landing = neighbor ? areaAt(neighbor.plan, neighbor.orientation, spot) : 0;
         if (!neighbor || landing === 0) {
-          open += 1;
+          if (!walled) open += 1;
           continue;
         }
         // [Effect] The half-edge of the neighbour that answers this move closes
@@ -240,6 +247,7 @@ export class Board {
         if (spot === 0) continue;
         const [x, y] = toward(node.x, node.y, direction);
         const next = this.at(x, y);
+        if (!next && this.wall?.(x, y)) continue;
         if (!next) throw new Error("Forest scan: open forest");
         const landing = areaAt(next.plan, next.orientation, spot);
         const key = `${next.id}:${landing}`;

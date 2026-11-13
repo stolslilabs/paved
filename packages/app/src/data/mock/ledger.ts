@@ -206,6 +206,8 @@ import * as expedition from "./expedition";
 import type { MasterpieceBoardRecord, MasterpieceRanking, MasterpieceState } from "../masterpiece-source";
 import * as masterpiece from "./masterpiece";
 import { masterpieceWeekOf, type MasterpieceEntry } from "@paved/game-core";
+import type { ColossusBoardState, ColossusBuilderRow, ColossusOptions, ColossusPlace, ColossusPlaced, ColossusState } from "../colossus-source";
+import * as colossus from "./colossus";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
 import {
   SPAWN_DRAW,
@@ -522,6 +524,8 @@ interface StoredState {
   expedition?: expedition.StoredExpedition;
   /** The Masterpiece (the weekly individual event, `masterpiece.ts`): the accounts' boards and claims; absent: none yet. */
   masterpiece?: masterpiece.StoredMasterpiece;
+  /** The Colossus (the weekly collective event, `colossus.ts`): the accounts' tiles by week and their claims; absent: none yet. */
+  colossus?: colossus.StoredColossus;
 }
 
 /** The mock's chat source: `ChatSource`, and `rotateKeys(player)`, a new messaging key, for the tests and the stories (#997). */
@@ -1473,6 +1477,68 @@ export class MockLedger {
       if (move.kind !== "surrender" && now >= joustEndsAt(game.week)) throw new WriteError("Joust: the joust is over");
       joust.playMove(game, move, now);
       return { events: game.over ? [this.event("JoustOver", { gameId, playerId: player, week: game.week, score: game.score })] : [], value: undefined };
+    });
+  }
+
+  // --- The Colossus (the weekly collective event, `colossus.ts`) --------------------------------------------------------
+
+  /** A Colossus read: the stored Colossus (none yet: a fresh one's), anyone's profile and the ledger's clock. */
+  private colossusRead<T>(read: (stored: colossus.StoredColossus, people: guilds.GuildPeople, now: number) => T): T {
+    return this.guildRead((_world, people, now) => read(this.state.colossus ?? colossus.freshColossus(), people, now));
+  }
+
+  /** A Colossus write: `change` works on the player's copy and the stored Colossus (put back on a throw, `commit`); a rule's refusal is a `WriteError`. */
+  private async colossusWrite<T>(account: string, change: (player: StoredPlayer, stored: colossus.StoredColossus, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.colossus ??= colossus.freshColossus()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** `ColossusSource.state`: the week's site as `viewer` sees it. */
+  async colossusState(viewer: string | null): Promise<ColossusState> {
+    return this.colossusRead((stored, people, now) => colossus.stateOf(stored, people, now, viewer));
+  }
+
+  /** `ColossusSource.builders`: every builder of the week by stones set. */
+  async colossusBuilders(viewer: string | null): Promise<ColossusBuilderRow[]> {
+    return this.colossusRead((stored, people, now) => colossus.buildersOf(stored, people, now, viewer));
+  }
+
+  /** `ColossusSource.board`: a board of the week's site; a board the site does not have is the view's refusal. */
+  async colossusBoard(viewer: string | null, board: number): Promise<ColossusBoardState> {
+    const found = this.colossusRead((stored, _people, now) => colossus.boardOf(stored, now, viewer, board));
+    if (!found) throw new ViewError("not-available", "Colossus: no such district");
+    return found;
+  }
+
+  /** `ColossusSource.options`: where the viewer's tile may go on a board. */
+  async colossusOptions(viewer: string, board: number, card: number): Promise<ColossusOptions> {
+    return this.colossusRead((stored, _people, now) => colossus.optionsOf(stored, now, viewer, board, card));
+  }
+
+  /** `ColossusSource.place`: a tile of the account's hand laid by game-core's rules (`ColossusPlaced`). */
+  async colossusPlace(player: string, tile: ColossusPlace): Promise<ColossusPlaced> {
+    return this.colossusWrite(player, (_p, stored, now) => {
+      const { week, placed } = colossus.place(stored, player, tile, now);
+      return { events: [this.event("ColossusPlaced", { playerId: player, week, board: tile.board, x: tile.x, y: tile.y, stones: placed.stones })], value: placed };
+    });
+  }
+
+  /** `ColossusSource.claim`: the Cobbles of the tiers and of last week's top 10, added (`ColossusClaimed`). */
+  async colossusClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.colossusWrite(player, (p, stored, now) => {
+      const cobbles = colossus.claim(stored, player, week, now);
+      p.cobbles += cobbles;
+      return { events: [this.event("ColossusClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3274,6 +3340,7 @@ export class MockLedger {
     const jousts = this.state.joust && structuredClone(this.state.joust);
     const expeditions = this.state.expedition && structuredClone(this.state.expedition);
     const masterpieces = this.state.masterpiece && structuredClone(this.state.masterpiece);
+    const colossi = this.state.colossus && structuredClone(this.state.colossus);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
     try {
@@ -3285,6 +3352,7 @@ export class MockLedger {
       this.state.joust = jousts;
       this.state.expedition = expeditions;
       this.state.masterpiece = masterpieces;
+      this.state.colossus = colossi;
       throw error;
     }
     this.state = { ...this.state, players: { ...this.state.players, [key]: player }, transactions: this.state.transactions + 1 };

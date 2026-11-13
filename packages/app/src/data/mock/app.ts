@@ -10,6 +10,8 @@ import { mockEconomyViews, mockEvents, mockExpedition, mockGameViews, mockJoust,
 import type { ExpeditionSource } from "../expedition-source";
 import type { JoustSource } from "../joust-source";
 import type { MasterpieceSource } from "../masterpiece-source";
+import type { ColossusSource } from "../colossus-source";
+import { mockColossus } from "./overlay";
 import type { PuzzleSource } from "../puzzle-source";
 
 // The app's mock (#549, #927): every source of `DataSources` from the device's ledger, and nothing under it. No chain client,
@@ -61,6 +63,8 @@ export interface MockAppSources {
   expedition: ExpeditionSource;
   /** The Masterpiece (the weekly individual event), the ledger's alone. */
   masterpiece: MasterpieceSource;
+  /** The Colossus (the weekly collective event), the ledger's alone. */
+  colossus: ColossusSource;
   purchases(signer: GameSigner): Purchases;
   settlements(signer: GameSigner): Settlements;
   vault(signer: GameSigner): VaultWrites;
@@ -105,6 +109,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     joust: mockJoust(ledger),
     expedition: mockExpedition(ledger),
     masterpiece: mockMasterpiece(ledger),
+    colossus: mockColossus(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),

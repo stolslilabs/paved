@@ -30,6 +30,8 @@ import { JoustScene } from "../components/scenes/joust-scene";
 import { MasterpieceScene } from "../components/scenes/masterpiece-scene";
 import { MASTERPIECE } from "../mocks/masterpiece";
 import { JOUST } from "../mocks/joust";
+import { ColossusScene } from "../components/scenes/colossus-scene";
+import { COLOSSUS } from "../mocks/colossus";
 import { PUZZLE } from "../mocks/puzzle";
 import { ThemeScene } from "../components/scenes/theme-scene";
 import { VaultScene } from "../components/scenes/vault-scene";
@@ -96,6 +98,7 @@ export const Puzzle: Story = { render: () => <PlayScene {...PLAY.connected} puzz
 export const Joust: Story = { render: () => <PlayScene {...PLAY.connected} joust={<JoustScene {...JOUST.live} />} onBack={fn()} onJoustBack={fn()} /> };
 export const Expedition: Story = { render: () => <PlayScene {...PLAY.connected} expedition={<ExpeditionScene {...EXPEDITION.board} />} onBack={fn()} onExpeditionBack={fn()} /> };
 export const Masterpiece: Story = { render: () => <PlayScene {...PLAY.connected} masterpiece={<MasterpieceScene {...MASTERPIECE.board} />} onBack={fn()} onMasterpieceBack={fn()} /> };
+export const Colossus: Story = { render: () => <PlayScene {...PLAY.connected} colossus={<ColossusScene {...COLOSSUS.site} />} onBack={fn()} onColossusBack={fn()} /> };
 // Settings' views (SETTINGS-PAGE): Themes and Credits in its drawer, its band's Back and red cross.
 export const Themes: Story = { render: () => <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} />} /> };
 export const Referral: Story = { render: () => <ReferralScene {...REFERRAL.earned} onBack={fn()} /> };
