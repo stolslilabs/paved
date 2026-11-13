@@ -29,7 +29,7 @@ import type { ScoreMeterValue } from "../../lib/score-meter";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 export type { CoachTarget } from "../containers/coach";
 
-export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle" | "joust";
+export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle" | "joust" | "expedition";
 
 /**
  * An attack's own pieces (`mode: "attack"`, #772), in the board's slots; everything else is the boards': the HUD, the closing
@@ -57,7 +57,7 @@ const PREFETCH_AFTER_MS = 3000;
 /** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
 const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
 
-const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle", joust: "Joust" };
+const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle", joust: "Joust", expedition: "Expedition" };
 
 export interface BoardSceneProps {
   mode: BoardMode;
@@ -243,7 +243,7 @@ export function BoardScene(props: BoardSceneProps) {
           score={props.score}
           delta={props.delta}
           preview={hand.slotChosen ? hand.preview : null}
-          expiresAt={surrenders ? props.expiresAt : null}
+          expiresAt={surrenders || mode === "expedition" ? props.expiresAt : null}
           reward={mode === "challenge" ? props.reward : null}
           now={now}
           onBack={props.onBack}
