@@ -54,17 +54,25 @@ export function open(stored: StoredExpedition, player: string, now: number): Sto
   const week = expeditionWeekOf(now);
   const key = boardKey(week, player);
   const board = (stored.boards[key] ??= { week, player: addressKey(player), seed: `0x${poseidon(BOARD_SALT, BigInt(player), BigInt(week)).toString(16)}`, log: [] });
-  const day = expeditionDayOf(now);
-  if (replayOf(board).lastDay < day) board.log.push({ k: "draw", day });
+  settle(board, now);
   return board;
 }
 
-/** One move of the player's board of `week`, by the engine's rules (its refusal thrown); refused once the week is over. */
+/** Draws the rations due on `now`'s day, once: a board's moves always follow the day's draw, whatever route the player came by. */
+function settle(board: StoredExpeditionBoard, now: number): void {
+  if (expeditionWeekOf(now) !== board.week) return;
+  const day = expeditionDayOf(now);
+  if (replayOf(board).lastDay < day) board.log.push({ k: "draw", day });
+}
+
+/** One move of the player's board of `week`, after the day's draw, by the engine's rules (its refusal thrown, the draw with it); refused once the week is over. */
 export function play(stored: StoredExpedition, player: string, week: number, move: ExpeditionPlay, now: number): { score: number; done: ExpeditionObjectiveId[] } {
   const board = boardOf(stored, player, week);
   if (!board) throw new Error("Expedition: board does not exist");
   if (now >= expeditionEndsAt(week)) throw new Error("Expedition: the week is over");
   if (move.k !== "build" && move.k !== "discard") throw new Error("Expedition: invalid move");
+  // The day's ration first (a page kept open across midnight, or opened by its address): the move is the new day's, its losses settled.
+  settle(board, now);
   const game = replayOf(board);
   const outcome = game.apply(move);
   board.log.push(move);

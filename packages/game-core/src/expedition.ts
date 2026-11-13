@@ -1,4 +1,4 @@
-import { DECKS, EngineGame, PREPLACED_ID, type ClosedStructure, type Placement as EnginePlacement, type Scored as EngineScored } from "./engine";
+import { DECKS, DISCARD_POINTS, EngineGame, PREPLACED_ID, type ClosedStructure, type Placement as EnginePlacement, type Scored as EngineScored } from "./engine";
 import { poseidon } from "./engine/draw";
 import type { Cell } from "./engine/village";
 import { CategoryType } from "./types/category";
@@ -279,6 +279,8 @@ export class Expedition {
   private pointer = 0;
   private _lastDay = -1;
   private _bonus = 0;
+  /** The discards' points the engine could not take (it takes them from its own score alone): charged on the total, bonuses included. */
+  private _beyond = 0;
   private reached = new Set<string>();
   private _done: ExpeditionObjectiveId[] = [];
   private _days: ExpeditionDay[] = Array.from({ length: EXPEDITION_DAYS }, () => ({ drawn: 0, lost: 0, laid: 0, discarded: 0 }));
@@ -336,16 +338,20 @@ export class Expedition {
   get toCome(): number {
     return Math.max(0, this.order.length - this.pointer);
   }
-  /** The board's own points: every structure closed, less the discards. */
+  /** The board's own points: every structure closed, less the discards (below zero when the discards took from the bonuses). */
   get boardScore(): number {
-    return this.engine.score;
+    return this.engine.score - this._beyond;
   }
   /** The bonuses of the objectives done. */
   get bonus(): number {
     return this._bonus;
   }
   get score(): number {
-    return this.engine.score + this._bonus;
+    return this.engine.score + this._bonus - this._beyond;
+  }
+  /** What a discard takes now: `DISCARD_POINTS`, at most the total score (bonuses included). The board's bubble shows this cost. */
+  get discardCost(): number {
+    return Math.min(this.score, DISCARD_POINTS);
   }
   get laid(): number {
     return this.engine.built;
@@ -423,13 +429,18 @@ export class Expedition {
     return { tileId: result.tileId, scored: result.scored, closed: result.closed, objectives, points: this.score - before };
   }
 
-  /** Discards the tile `card` of the hand for the engine's 50 points (at most the board's score). */
+  /**
+   * Discards the tile `card` of the hand for `discardCost`: 50 points, at most the total score. The engine takes what its own score
+   * holds; the rest comes off the total, so a landmark's bonus pays for discards once the structures' points are spent.
+   */
   discard(card: number): ExpeditionMove {
     const held = this.held(card);
+    const cost = this.discardCost;
     const result = this.engine.discardPlan(held.plan);
+    this._beyond += cost - result.points;
     this._hand = this._hand.filter((c) => c.card !== card);
     if (this._lastDay >= 0) this._days[this._lastDay]!.discarded += 1;
-    return { tileId: result.tileId, scored: [], closed: [], objectives: [], points: -result.points };
+    return { tileId: result.tileId, scored: [], closed: [], objectives: [], points: -cost };
   }
 
   apply(entry: ExpeditionEntry): ExpeditionMove | null {

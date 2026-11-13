@@ -4,6 +4,7 @@ import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ExpeditionHand } from "../src/components/containers/expedition-hand";
+import { tileName } from "../src/components/elements/tile-render";
 import { PlayModes } from "../src/components/containers/play-modes";
 import { ExpeditionScene } from "../src/components/scenes/expedition-scene";
 import { EXPEDITION, EXPEDITION_CARD, EXPEDITION_HAND } from "../src/mocks/expedition";
@@ -139,6 +140,9 @@ describe("the board's strip", () => {
     const tiles = within(screen.getByRole("list", { name: "Hand" })).getAllByRole("button");
     expect(tiles).toHaveLength(5);
     expect(tiles.map((t) => t.getAttribute("aria-pressed"))).toEqual(["false", "true", "false", "false", "false"]);
+    // Each tile is named by its kind, as the inventory and the Tiles page name it, then its place in the hand.
+    expect(tiles.map((t) => t.getAttribute("aria-label"))).toEqual(EXPEDITION_HAND.five.hand.map((c, i) => `${tileName(c.plan)}, tile ${i + 1} of 5`));
+    expect(new Set(tiles.map((t) => t.getAttribute("aria-label")!.split(",")[0])).size).toBeGreaterThan(1);
     await userEvent.click(tiles[3]!);
     expect(onSelect).toHaveBeenCalledWith(3);
     expect(screen.getByRole("list", { name: "Landmarks" })).toHaveTextContent("Ruin3/8+600");
