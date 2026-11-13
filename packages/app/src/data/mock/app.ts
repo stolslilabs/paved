@@ -6,7 +6,8 @@ import type { SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import { mockIndexer } from "./indexer";
 import { MockLedger } from "./ledger";
-import { mockEconomyViews, mockEvents, mockGameViews, mockJoust, mockMasterpiece, mockPool, mockPurchases, mockPuzzle, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
+import { mockEconomyViews, mockEvents, mockExpedition, mockGameViews, mockJoust, mockMasterpiece, mockPool, mockPurchases, mockPuzzle, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
+import type { ExpeditionSource } from "../expedition-source";
 import type { JoustSource } from "../joust-source";
 import type { MasterpieceSource } from "../masterpiece-source";
 import type { PuzzleSource } from "../puzzle-source";
@@ -56,6 +57,8 @@ export interface MockAppSources {
   puzzle: PuzzleSource;
   /** The Joust (the weekly allegiance event), the ledger's alone. */
   joust: JoustSource;
+  /** The Expedition (the weekly individual event), the ledger's alone. */
+  expedition: ExpeditionSource;
   /** The Masterpiece (the weekly individual event), the ledger's alone. */
   masterpiece: MasterpieceSource;
   purchases(signer: GameSigner): Purchases;
@@ -100,6 +103,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     social: mockSocial(ledger),
     puzzle: mockPuzzle(ledger),
     joust: mockJoust(ledger),
+    expedition: mockExpedition(ledger),
     masterpiece: mockMasterpiece(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),

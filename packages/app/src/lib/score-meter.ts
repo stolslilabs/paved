@@ -162,6 +162,23 @@ export function puzzleMeter(target: number | null, score: number, mine = false):
 }
 
 /**
+ * An Expedition board's meter (the weekly individual event): one step to the next score tier (`name`, at `target` points), the trophy
+ * at its end. The page gives none past the last tier.
+ */
+export function tierMeter(name: string, target: number, score: number): ScoreMeterValue {
+  const share = shareOf(score, target);
+  const pct = percent(share);
+  return {
+    ...steps([Math.min(0.99, share)], [{ art: "trophy", reached: false, name: `${name}: ${formatInteger(target)}` }]),
+    label: `Score ${pct} of ${name}`,
+    valueText: pct,
+    now: Math.round(share * 100),
+    max: 100,
+    figure: pct,
+  };
+}
+
+/**
  * A Training game's meter: one step to the device's best (`paved.training-best.v1`, #539), the crown at its end, lit by a new best; the
  * share of the best after the bar. None on the device's first game (no best to beat) or with no storage.
  */

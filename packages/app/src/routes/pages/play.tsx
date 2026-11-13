@@ -3,8 +3,9 @@ import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
-import type { JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
+import type { ExpeditionCard, JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
 import { useSearchParams } from "react-router";
+import { useExpeditionAvailable, useExpeditionState } from "../../data/expedition";
 import { useJoustAvailable, useJoustState } from "../../data/joust";
 import { useMasterpieceAvailable, useMasterpieceState } from "../../data/masterpiece";
 import { MASTERPIECE_KIND } from "../../components/elements/masterpiece-kind";
@@ -29,6 +30,9 @@ const PuzzleView = lazy(loadPuzzle);
 /** The Joust (`/play/joust`, Play's Limited mode): its week, its match and its ranking, a chunk of their own, fetched as Play is pointed at. */
 const loadJoust = () => import("./joust");
 const JoustView = lazy(loadJoust);
+/** The Expedition (`/play/expedition`, Play's Limited mode): its week and its board's journal, a chunk of their own, fetched as Play is pointed at. */
+const loadExpedition = () => import("./expedition");
+const ExpeditionView = lazy(loadExpedition);
 /** The Masterpiece (`/play/masterpiece`, Play's Limited mode): its week and its ranking, a chunk of their own, fetched as Play is pointed at. */
 const loadMasterpiece = () => import("./masterpiece");
 const MasterpieceView = lazy(loadMasterpiece);
@@ -81,6 +85,12 @@ export default function Page() {
       }
     : null;
   const joustGame = joustState?.me?.open ?? null;
+  // The Expedition's card (Limited): the week's map and day, the player's hand and the tiles today brings; none without an Expedition.
+  const expeditionOn = useExpeditionAvailable();
+  const expeditionState = useExpeditionState(me, expeditionOn).data ?? null;
+  const expeditionCard: ExpeditionCard | null = expeditionState
+    ? { map: expeditionState.map, day: expeditionState.day, endsAt: expeditionState.endsAt, board: expeditionState.board && { score: expeditionState.board.score, hand: expeditionState.board.hand, due: expeditionState.board.due.drawn } }
+    : null;
   // The Masterpiece's card (Limited): the week's kind and day, the tiles waiting, the player's best piece; none without a Masterpiece.
   const masterpieceOn = useMasterpieceAvailable();
   const masterpieceState = useMasterpieceState(me, masterpieceOn).data ?? null;
@@ -100,6 +110,7 @@ export default function Page() {
     void loadStory().catch(() => {});
     void loadPuzzle().catch(() => {});
     if (joustOn) void loadJoust().catch(() => {});
+    if (expeditionOn) void loadExpedition().catch(() => {});
     if (masterpieceOn) void loadMasterpiece().catch(() => {});
   };
   return (
@@ -140,6 +151,16 @@ export default function Page() {
             </Suspense>
           ) : null
         }
+        expedition={
+          path === "play/expedition" ? (
+            <Suspense fallback={null}>
+              <ExpeditionView />
+            </Suspense>
+          ) : null
+        }
+        onExpeditionBack={onViewBack}
+        expeditionCard={expeditionCard}
+        onExpedition={() => go("/play/expedition")}
         masterpiece={
           path === "play/masterpiece" ? (
             <Suspense fallback={null}>
