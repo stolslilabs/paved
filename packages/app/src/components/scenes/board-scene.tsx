@@ -149,6 +149,8 @@ export interface BoardSceneProps {
   onBack?: () => void;
   /** The end of a hold on the stack's Discard (the bubble's is the page's, in `bubble`). */
   onDiscard?: () => void;
+  /** What a discard takes, when the page's rules say (the Expedition's, on the total score); else `DISCARD_POINTS`, at most `score`. */
+  discardCost?: number;
   /** Called once the player confirms in the Surrender dialog (the settings' Surrender, or the expired banner's). Challenge only. */
   onSurrender?: () => void;
   /** Called once the player confirms Restart in the settings: Story mode restarts the level, Training the game. */
@@ -206,7 +208,7 @@ export function BoardScene(props: BoardSceneProps) {
     setDeckOpen(false);
     toastError({ title: "Deck", message: "The deck could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
-  const discardCost = Math.min(props.score, DISCARD_POINTS);
+  const discardCost = props.discardCost ?? Math.min(props.score, DISCARD_POINTS);
   // The pile's tiles come from the deck the game deals: a Story level's own (#701), the base deck otherwise.
   const pilePlans = props.pilePlans ?? (props.deckOrder?.slots.length ? props.deckOrder.slots.map((s) => s.plan) : BASE_DECK_PLANS);
   const attack = mode === "attack" ? props.attack : undefined;

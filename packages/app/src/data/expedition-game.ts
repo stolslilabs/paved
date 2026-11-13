@@ -35,6 +35,8 @@ export interface ExpeditionSnapshot {
   closed: ClosedTileAreas[][];
   discardedPlans: number[];
   score: number;
+  /** What a discard takes now (the engine's `discardCost`: 50, at most the total score). */
+  discardCost: number;
   /** Points the last move added (a discard takes some: negative); null before the first move of this page. */
   delta: number | null;
   lastScored: ScoredStructure[];
@@ -192,6 +194,7 @@ export class ExpeditionGame {
       closed: page.closed ?? [],
       discardedPlans: page.discardedPlans ?? [],
       score: this.engine.score,
+      discardCost: this.engine.discardCost,
       hand,
       // The pick stays while its tile is in hand; else the hand's first.
       selected: hand.some((c) => c.card === rest.selected) ? rest.selected : (hand[0]?.card ?? null),

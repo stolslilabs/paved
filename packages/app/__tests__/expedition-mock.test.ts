@@ -83,6 +83,34 @@ describe("the mock's Expedition: a week on the client", () => {
     await expect(expedition.play(ME, WEEK, { k: "discard", card: 0 })).rejects.toThrow("Expedition: the week is over");
   });
 
+  it("settles the day's draw before a move: a move after midnight is the new day's, a full hand's ration lost", async () => {
+    const { expedition, clock } = world();
+    await expedition.open(ME);
+    clock.now = MONDAY + DAY;
+    const record = await expedition.open(ME);
+    // Wednesday, the page still on Tuesday's board (twelve in hand): its move comes after Wednesday's draw.
+    clock.now = MONDAY + 2 * DAY;
+    const board = Expedition.replay(record.week, BigInt(record.seed), record.log);
+    const move = bestMove(board)!;
+    await expedition.play(ME, WEEK, move);
+    expect((await expedition.board(ME)).log.slice(-2)).toEqual([{ k: "draw", day: 2 }, move]);
+    const state = (await expedition.state(ME)).board!;
+    expect(state).toMatchObject({ hand: EXPEDITION_HAND - 1, laid: 1, toCome: 42 - 18 });
+    expect(state.days[1]).toMatchObject({ drawn: 6, lost: 0, laid: 0 });
+    expect(state.days[2]).toMatchObject({ drawn: 0, lost: 6, laid: 1 });
+  });
+
+  it("puts the Expedition back when a move is refused after the day's draw was written", async () => {
+    const { expedition, clock } = world();
+    await expedition.open(ME);
+    clock.now = MONDAY + DAY;
+    const before = await expedition.board(ME);
+    await expect(expedition.play(ME, WEEK, { k: "discard", card: 999 })).rejects.toThrow("Expedition: not in hand");
+    // The draw the refused move settled is gone with it: the board is Monday's, Tuesday's ration still due.
+    expect(await expedition.board(ME)).toEqual(before);
+    expect((await expedition.state(ME)).board).toMatchObject({ hand: EXPEDITION_RATION, due: { drawn: 6, lost: 0 } });
+  });
+
   it("plays a whole week, pays the tier's Cobbles the week after, and starts a new expedition", async () => {
     const { expedition, clock, ledger } = world();
     let score = 0;
@@ -118,7 +146,7 @@ describe("the mock's Expedition: a week on the client", () => {
     expect((await expedition.open(VETERAN)).log).toEqual([{ k: "draw", day: 0 }]);
   }, 60_000);
 
-  it("asks level 3 for the claim, and a tier", () => {
+  it("asks a tier for the claim", () => {
     const stored = freshExpedition();
     const board = open(stored, ME, MONDAY);
     const game = Expedition.replay(board.week, BigInt(board.seed), board.log);
@@ -127,4 +155,26 @@ describe("the mock's Expedition: a week on the client", () => {
     expect(() => claim(stored, ME, WEEK, later, 3)).toThrow("Expedition: no tier reached");
     expect(() => claim(stored, "0xabc", WEEK, later, 3)).toThrow("Expedition: board does not exist");
   });
+
+  it("asks level 3 for the claim of a tier reached", () => {
+    // A whole week played well: a tier reached, then claimed at level 2 and at level 3.
+    const stored = freshExpedition();
+    let score = 0;
+    for (let day = 0; day < 7; day++) {
+      const now = MONDAY + day * DAY;
+      const board = open(stored, VETERAN, now);
+      const game = Expedition.replay(board.week, BigInt(board.seed), board.log);
+      for (let move = bestMove(game); move; move = bestMove(game)) {
+        game.apply(move);
+        play(stored, VETERAN, WEEK, move, now);
+      }
+      score = game.score;
+    }
+    const later = expeditionEndsAt(WEEK) + 60;
+    const tier = expeditionTierOf(score);
+    expect(tier).not.toBeNull();
+    expect(() => claim(stored, VETERAN, WEEK, later, EXPEDITION_LEVEL - 1)).toThrow(`Expedition: level ${EXPEDITION_LEVEL} needed`);
+    expect(stored.claims).toEqual({});
+    expect(claim(stored, VETERAN, WEEK, later, EXPEDITION_LEVEL)).toBe(tier!.cobbles);
+  }, 60_000);
 });

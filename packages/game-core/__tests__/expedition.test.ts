@@ -277,4 +277,33 @@ describe("a board's log", () => {
     expect(board.hand).toHaveLength(12);
     expect(() => Expedition.replay(AUTUMN, 1n, [{ k: "build", card: 0, o: 1, x: -1, y: 0 }], order)).toThrow("Expedition: not in hand");
   });
+
+  it("charges a discard on the total: the landmarks' bonus pays once the structures' points are spent", () => {
+    // The crossroads reached (a road of 209 and its 300), then every other tile discarded: 50 each, the bonus included.
+    const order = [WILD, WILD, WILD, WILD, PlanType.WFFFFFFFR, ...Array.from({ length: 7 }, () => WILD)];
+    const steps: [number, OrientationType, number, number][] = [
+      [0, North, 0, -1],
+      [1, North, 1, -1],
+      [2, North, 2, -1],
+      [3, North, 2, -2],
+      [4, South, 2, -3],
+    ];
+    const log: ExpeditionEntry[] = [{ k: "draw", day: 0 }, ...steps.map(([card, o, x, y]): ExpeditionEntry => ({ k: "build", card, o: Object.values(OrientationType).indexOf(o), x, y })), { k: "draw", day: 1 }];
+    const board = Expedition.replay(AUTUMN, 1n, log, order);
+    expect([board.boardScore, board.bonus, board.score]).toEqual([209, 300, 509]);
+    const discards: ExpeditionEntry[] = [];
+    for (let i = 0; i < 7; i++) {
+      const before = board.score;
+      expect(board.discardCost).toBe(50);
+      const card = board.hand[0]!.card;
+      expect(board.discard(card).points).toBe(-50);
+      expect(board.score).toBe(before - 50);
+      discards.push({ k: "discard", card });
+    }
+    // The structures' 209 spent after five discards: the last two came off the bonus.
+    expect(board.rules.score).toBe(0);
+    expect([board.boardScore, board.bonus, board.score]).toEqual([209 - 350, 300, 509 - 350]);
+    // The replay charges the same.
+    expect(Expedition.replay(AUTUMN, 1n, [...log, ...discards], order).score).toBe(board.score);
+  });
 });
