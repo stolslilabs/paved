@@ -83,6 +83,34 @@ describe("the mock's Expedition: a week on the client", () => {
     await expect(expedition.play(ME, WEEK, { k: "discard", card: 0 })).rejects.toThrow("Expedition: the week is over");
   });
 
+  it("settles the day's draw before a move: a move after midnight is the new day's, a full hand's ration lost", async () => {
+    const { expedition, clock } = world();
+    await expedition.open(ME);
+    clock.now = MONDAY + DAY;
+    const record = await expedition.open(ME);
+    // Wednesday, the page still on Tuesday's board (twelve in hand): its move comes after Wednesday's draw.
+    clock.now = MONDAY + 2 * DAY;
+    const board = Expedition.replay(record.week, BigInt(record.seed), record.log);
+    const move = bestMove(board)!;
+    await expedition.play(ME, WEEK, move);
+    expect((await expedition.board(ME)).log.slice(-2)).toEqual([{ k: "draw", day: 2 }, move]);
+    const state = (await expedition.state(ME)).board!;
+    expect(state).toMatchObject({ hand: EXPEDITION_HAND - 1, laid: 1, toCome: 42 - 18 });
+    expect(state.days[1]).toMatchObject({ drawn: 6, lost: 0, laid: 0 });
+    expect(state.days[2]).toMatchObject({ drawn: 0, lost: 6, laid: 1 });
+  });
+
+  it("puts the Expedition back when a move is refused after the day's draw was written", async () => {
+    const { expedition, clock } = world();
+    await expedition.open(ME);
+    clock.now = MONDAY + DAY;
+    const before = await expedition.board(ME);
+    await expect(expedition.play(ME, WEEK, { k: "discard", card: 999 })).rejects.toThrow("Expedition: not in hand");
+    // The draw the refused move settled is gone with it: the board is Monday's, Tuesday's ration still due.
+    expect(await expedition.board(ME)).toEqual(before);
+    expect((await expedition.state(ME)).board).toMatchObject({ hand: EXPEDITION_RATION, due: { drawn: 6, lost: 0 } });
+  });
+
   it("plays a whole week, pays the tier's Cobbles the week after, and starts a new expedition", async () => {
     const { expedition, clock, ledger } = world();
     let score = 0;
@@ -118,7 +146,7 @@ describe("the mock's Expedition: a week on the client", () => {
     expect((await expedition.open(VETERAN)).log).toEqual([{ k: "draw", day: 0 }]);
   }, 60_000);
 
-  it("asks level 3 for the claim, and a tier", () => {
+  it("asks a tier for the claim", () => {
     const stored = freshExpedition();
     const board = open(stored, ME, MONDAY);
     const game = Expedition.replay(board.week, BigInt(board.seed), board.log);
@@ -127,4 +155,30 @@ describe("the mock's Expedition: a week on the client", () => {
     expect(() => claim(stored, ME, WEEK, later, 3)).toThrow("Expedition: no tier reached");
     expect(() => claim(stored, "0xabc", WEEK, later, 3)).toThrow("Expedition: board does not exist");
   });
+
+  it("refuses the claim of a tier reached under level 3, on the source", async () => {
+    // A level-1 account (its XP's level, read by the ledger) plays a whole week well through the source: a tier reached.
+    const { expedition, clock, ledger } = world();
+    let score = 0;
+    for (let day = 0; day < 7; day++) {
+      clock.now = MONDAY + day * DAY;
+      const record = await expedition.open(ME);
+      const board = Expedition.replay(record.week, BigInt(record.seed), record.log);
+      for (let move = bestMove(board); move; move = bestMove(board)) {
+        board.apply(move);
+        await expedition.play(ME, WEEK, move);
+      }
+      score = board.score;
+    }
+    const tier = expeditionTierOf(score);
+    expect(tier).not.toBeNull();
+    clock.now = expeditionEndsAt(WEEK) + 60;
+    const state = await expedition.state(ME);
+    expect(state.level).toBeLessThan(EXPEDITION_LEVEL);
+    expect(state.result).toMatchObject({ week: WEEK, score, tier, claimed: false });
+    const before = (await ledger.account(ME)).cobbles;
+    await expect(expedition.claim(ME, WEEK)).rejects.toThrow(`Expedition: level ${EXPEDITION_LEVEL} needed`);
+    expect((await ledger.account(ME)).cobbles).toBe(before);
+    expect((await expedition.state(ME)).result).toMatchObject({ claimed: false });
+  }, 60_000);
 });

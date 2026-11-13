@@ -2,6 +2,7 @@ import { formatInteger, type ExpeditionProgress } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { HudFrame } from "../elements/hud-frame";
 import { TileChip, type TileArt } from "../elements/tile-chip";
+import { tileName } from "../elements/tile-render";
 import { Icon } from "../ui/icon";
 import { ScrollRegion } from "../ui/scroll-region";
 
@@ -21,7 +22,7 @@ export interface ExpeditionHandProps {
   map?: string;
   /** The tiles' images (`useTileArt`), as the board's stack shows them. */
   tileArt?: TileArt;
-  /** The board takes no move (the week over, a refused move): the tiles are shown, none is picked. */
+  /** The board takes no move (the week over, a refused move, a day not drawn yet): the tiles are shown, none is picked. */
   disabled?: boolean;
   className?: string;
 }
@@ -62,7 +63,7 @@ export function ExpeditionHand({ hand, selected, onSelect, toCome, objectives, m
                   type="button"
                   disabled={disabled}
                   aria-pressed={tile.card === selected}
-                  aria-label={`Tile ${index + 1} of ${hand.length}`}
+                  aria-label={`${tileName(tile.plan)}, tile ${index + 1} of ${hand.length}`}
                   onClick={() => onSelect?.(tile.card)}
                   className={cn(
                     "flex size-11 cursor-pointer items-center justify-center rounded-lg disabled:cursor-default",
