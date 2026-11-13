@@ -80,7 +80,7 @@ function PlacedNotice({ placed }: { placed: ColossusPlaced }) {
         ) : (
           "No structure closed yet: the stones come when one does. "
         )}
-        You: <span className="numeric">{formatInteger(placed.mine.stones)}</span> stones, <span className="numeric">#{formatInteger(placed.mine.place)}</span> of <span className="numeric">{formatInteger(placed.mine.builders)}</span> builders.
+        You: <span className="numeric">{formatInteger(placed.mine.stones)}</span> {placed.mine.stones === 1 ? "stone" : "stones"}, <span className="numeric">#{formatInteger(placed.mine.place)}</span> of <span className="numeric">{formatInteger(placed.mine.builders)}</span> builders.
         {placed.tiers.length > 0 && <> The gauge reached {placed.tiers.map((t) => `${t}%`).join(" and ")}.</>}
         {placed.heartOpened && <> The heart is open.</>}
         {placed.sealed > 0 && <> {placed.sealed === 1 ? "A hole no card could fill was sealed." : `${placed.sealed} holes no card could fill were sealed.`}</>}

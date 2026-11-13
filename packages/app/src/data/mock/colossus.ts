@@ -33,7 +33,7 @@ export const MOCK_COLOSSUS_RINGS = colossusRingsFor(MOCK_BUILDERS + 1);
  * The share of their tiles a simulated builder tries to lay (each tried the day it comes and, where it fits nowhere, once more the
  * day after): set so that the site is complete around the weekend, as the proposal sizes it.
  */
-const MOCK_PLAY_SHARE = 0.66;
+const MOCK_PLAY_SHARE = 0.72;
 /** The hard holes the state lists: the hardest first. */
 const HARD_HOLES = 5;
 

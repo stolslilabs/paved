@@ -93,7 +93,7 @@ export function ColossusBoard({ board, day, selected, onSelect, options, busy = 
                 role="gridcell"
                 disabled={busy}
                 aria-pressed={picked}
-                aria-label={`${name}: ${picked ? `your tile here sets ${formatInteger(chosen.stones)} stones` : most > 0 ? `sets up to ${formatInteger(most)} stones` : "fits, no stone yet"}`}
+                aria-label={`${name}: ${picked ? `your tile here sets ${formatInteger(chosen.stones)} ${chosen.stones === 1 ? "stone" : "stones"}` : most > 0 ? `sets up to ${formatInteger(most)} ${most === 1 ? "stone" : "stones"}` : "fits, no stone yet"}`}
                 data-option
                 onClick={() => setPick(picked && pick ? { ...pick, turn: pick.turn + 1 } : { card: selected, x, y, turn: 0 })}
                 className={cn("relative flex aspect-square cursor-pointer items-center justify-center rounded-sm border-2 border-dashed border-primary bg-primary/15 disabled:cursor-default", picked && "border-solid")}
@@ -163,7 +163,7 @@ export function ColossusBoard({ board, day, selected, onSelect, options, busy = 
               onClick={() => onPlace?.({ card: selected!, board: board.board, x: chosen.x, y: chosen.y, orientation: chosen.orientation })}
             >
               {!busy && <GoldShine />}
-              Place{chosen.stones > 0 && <span className="numeric">· +{formatInteger(chosen.stones)}</span>}
+              Place{chosen.stones > 0 && <span className="numeric"> · +{formatInteger(chosen.stones)}</span>}
             </Button>
           </>
         ) : (
