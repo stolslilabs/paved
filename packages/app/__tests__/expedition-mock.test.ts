@@ -156,25 +156,29 @@ describe("the mock's Expedition: a week on the client", () => {
     expect(() => claim(stored, "0xabc", WEEK, later, 3)).toThrow("Expedition: board does not exist");
   });
 
-  it("asks level 3 for the claim of a tier reached", () => {
-    // A whole week played well: a tier reached, then claimed at level 2 and at level 3.
-    const stored = freshExpedition();
+  it("refuses the claim of a tier reached under level 3, on the source", async () => {
+    // A level-1 account (its XP's level, read by the ledger) plays a whole week well through the source: a tier reached.
+    const { expedition, clock, ledger } = world();
     let score = 0;
     for (let day = 0; day < 7; day++) {
-      const now = MONDAY + day * DAY;
-      const board = open(stored, VETERAN, now);
-      const game = Expedition.replay(board.week, BigInt(board.seed), board.log);
-      for (let move = bestMove(game); move; move = bestMove(game)) {
-        game.apply(move);
-        play(stored, VETERAN, WEEK, move, now);
+      clock.now = MONDAY + day * DAY;
+      const record = await expedition.open(ME);
+      const board = Expedition.replay(record.week, BigInt(record.seed), record.log);
+      for (let move = bestMove(board); move; move = bestMove(board)) {
+        board.apply(move);
+        await expedition.play(ME, WEEK, move);
       }
-      score = game.score;
+      score = board.score;
     }
-    const later = expeditionEndsAt(WEEK) + 60;
     const tier = expeditionTierOf(score);
     expect(tier).not.toBeNull();
-    expect(() => claim(stored, VETERAN, WEEK, later, EXPEDITION_LEVEL - 1)).toThrow(`Expedition: level ${EXPEDITION_LEVEL} needed`);
-    expect(stored.claims).toEqual({});
-    expect(claim(stored, VETERAN, WEEK, later, EXPEDITION_LEVEL)).toBe(tier!.cobbles);
+    clock.now = expeditionEndsAt(WEEK) + 60;
+    const state = await expedition.state(ME);
+    expect(state.level).toBeLessThan(EXPEDITION_LEVEL);
+    expect(state.result).toMatchObject({ week: WEEK, score, tier, claimed: false });
+    const before = (await ledger.account(ME)).cobbles;
+    await expect(expedition.claim(ME, WEEK)).rejects.toThrow(`Expedition: level ${EXPEDITION_LEVEL} needed`);
+    expect((await ledger.account(ME)).cobbles).toBe(before);
+    expect((await expedition.state(ME)).result).toMatchObject({ claimed: false });
   }, 60_000);
 });
