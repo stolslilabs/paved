@@ -36,6 +36,9 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   "play/joust": COBBLES,
   "joust/:gameId": NONE,
   "joust/:gameId/over": NONE,
+  // The Expedition's view: the Cobbles its tiers pay; its board shows none.
+  "play/expedition": COBBLES,
+  expedition: NONE,
   // The Colossus's view: the Cobbles its tiers and its top 10 pay, at its header's end.
   "play/colossus": COBBLES,
   "game/:gameId/over": NONE,

@@ -197,10 +197,12 @@ import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
 import { PLAYER_NAME_MAX } from "../../lib/name-limit";
-import { PUZZLE_PRIZE_COBBLES, comparePuzzle, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
+import { PUZZLE_PRIZE_COBBLES, comparePuzzle, expeditionDayOf, expeditionWeekOf, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
 import { PUZZLE_PRIZE_TOP, PUZZLE_STANDING_LIMIT, type PuzzleEntry, type PuzzleGameRecord, type PuzzleGameResult, type PuzzlePrize, type PuzzleStanding } from "../puzzle-source";
 import type { JoustGameRecord, JoustGameResult, JoustRanking, JoustState } from "../joust-source";
 import * as joust from "./joust";
+import type { ExpeditionBoardRecord, ExpeditionPlay, ExpeditionState } from "../expedition-source";
+import * as expedition from "./expedition";
 import type { ColossusBoardState, ColossusBuilderRow, ColossusOptions, ColossusPlace, ColossusPlaced, ColossusState } from "../colossus-source";
 import * as colossus from "./colossus";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
@@ -515,6 +517,8 @@ interface StoredState {
   puzzle?: StoredPuzzle;
   /** The Joust (the weekly allegiance event, `joust.ts`): the accounts' games, registrations and claims; absent: none yet. */
   joust?: joust.StoredJoust;
+  /** The Expedition (the weekly individual event, `expedition.ts`): the accounts' boards and claims; absent: none yet. */
+  expedition?: expedition.StoredExpedition;
   /** The Colossus (the weekly collective event, `colossus.ts`): the accounts' tiles by week and their claims; absent: none yet. */
   colossus?: colossus.StoredColossus;
 }
@@ -1539,6 +1543,72 @@ export class MockLedger {
       const cobbles = joust.claim(stored, world.guilds, this.personOf(world, now), player, week, now);
       p.cobbles += cobbles;
       return { events: [this.event("JoustClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
+  // --- The Expedition (the weekly individual event, `expedition.ts`) ---------------------------------------------------
+
+  /**
+   * An Expedition write: `change` works on the player's copy and the stored Expedition (created on the first write, put back on a
+   * throw, `commit`) at the write's second; a rule's refusal is the writer's `WriteError` with the contract's text.
+   */
+  private async writeExpedition<T>(account: string, change: (player: StoredPlayer, stored: expedition.StoredExpedition, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.expedition ??= expedition.freshExpedition()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** The level the claim reads: a seeded player's own, else the XP's (`playerLevel`'s rule). */
+  private expeditionLevel(playerId: string, p: StoredPlayer): number {
+    return seededPlayer(playerId)?.level ?? levelStatus(p.v2?.xp ?? 0).level;
+  }
+
+  /** `ExpeditionSource.state`: the week as `viewer` sees it, their level the XP's. */
+  async expeditionState(viewer: string | null): Promise<ExpeditionState> {
+    this.sync();
+    const level = viewer === null ? null : this.expeditionLevel(viewer, this.peek(viewer));
+    return expedition.stateOf(this.state.expedition ?? expedition.freshExpedition(), this.second(), viewer, level);
+  }
+
+  /** `ExpeditionSource.board`: the account's board of this week; none opened is the view's refusal. */
+  async expeditionBoard(player: string): Promise<ExpeditionBoardRecord> {
+    this.sync();
+    const board = expedition.boardOf(this.state.expedition ?? expedition.freshExpedition(), player, expeditionWeekOf(this.second()));
+    if (!board) throw new ViewError("game-not-found", "Expedition: board does not exist");
+    return expedition.recordOf(board);
+  }
+
+  /** `ExpeditionSource.open`: the account's board of this week, created on the first visit, today's rations drawn (`ExpeditionDrawn`). */
+  async expeditionOpen(player: string): Promise<ExpeditionBoardRecord> {
+    return this.writeExpedition(player, (_p, stored, now) => {
+      const board = expedition.open(stored, player, now);
+      return { events: [this.event("ExpeditionDrawn", { playerId: player, week: board.week, day: expeditionDayOf(now) })], value: expedition.recordOf(board) };
+    });
+  }
+
+  /** `ExpeditionSource.play`: a tile of the account's hand laid or discarded, by the engine's rules (`ExpeditionLandmark` per objective done). */
+  async expeditionPlay(player: string, week: number, move: ExpeditionPlay): Promise<void> {
+    await this.writeExpedition(player, (_p, stored, now) => {
+      const { score, done } = expedition.play(stored, player, week, move, now);
+      return { events: done.map((landmark) => this.event("ExpeditionLandmark", { playerId: player, week, landmark, score })), value: undefined };
+    });
+  }
+
+  /** `ExpeditionSource.claim`: the Cobbles of a finished week's tier, added (`ExpeditionClaimed`). */
+  async expeditionClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.writeExpedition(player, (p, stored, now) => {
+      const cobbles = expedition.claim(stored, player, week, now, this.expeditionLevel(player, p));
+      p.cobbles += cobbles;
+      return { events: [this.event("ExpeditionClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3192,6 +3262,7 @@ export class MockLedger {
     const challenge = this.state.challenge && structuredClone(this.state.challenge);
     const puzzle = this.state.puzzle && structuredClone(this.state.puzzle);
     const jousts = this.state.joust && structuredClone(this.state.joust);
+    const expeditions = this.state.expedition && structuredClone(this.state.expedition);
     const colossi = this.state.colossus && structuredClone(this.state.colossus);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
@@ -3202,6 +3273,7 @@ export class MockLedger {
       this.state.challenge = challenge;
       this.state.puzzle = puzzle;
       this.state.joust = jousts;
+      this.state.expedition = expeditions;
       this.state.colossus = colossi;
       throw error;
     }

@@ -40,6 +40,20 @@ export interface JoustCard {
   playing: { score: number } | null;
 }
 
+/**
+ * The Expedition's card (Play's Limited mode, the weekly individual event): the week's map, its day and the tiles waiting.
+ */
+export interface ExpeditionCard {
+  /** The map's name ("The Sacred Wood"). */
+  map: string;
+  /** Today in the week: 0 Monday to 6 Sunday. */
+  day: number;
+  /** Sunday 24:00 UTC, in seconds since the epoch: the week's end. */
+  endsAt: number;
+  /** The player's board: its score, the tiles in hand and those today's visit brings. Null: not opened this week. */
+  board: { score: number; hand: number; due: number } | null;
+}
+
 /** Under this many seconds left, the Puzzle's time turns amber. */
 export const PUZZLE_LATE_S = 3_600;
 
@@ -64,6 +78,10 @@ export interface PlayModesProps {
   joustCard?: JoustCard | null;
   /** A tap on the Joust's card: its view, or the game still open. */
   onJoust?: () => void;
+  /** The Expedition's card (Limited, over the Joust's); null or omitted: the Expedition is not on this network, no card. */
+  expeditionCard?: ExpeditionCard | null;
+  /** A tap on the Expedition's card: its view. */
+  onExpedition?: () => void;
   /** The Colossus's card (Limited); null or omitted: the Colossus is not on this network, no card. */
   colossusCard?: ColossusCard | null;
   onColossus?: () => void;
@@ -148,6 +166,7 @@ const SHAPES = {
   story: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 26px 100%, 0 calc(100% - 6px), 2px 60%, 0 55%)",
   puzzle: "polygon(8px 0, 40% 0, 42% 4px, 100% 2px, 100% 100%, 16px 100%, 0 calc(100% - 16px), 0 8px)",
   joust: "polygon(0 12px, 12px 0, 46% 0, 49% 5px, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 6px 100%, 0 calc(100% - 6px))",
+  expedition: "polygon(10px 0, 62% 0, 65% 4px, 100% 0, 100% calc(100% - 10px), calc(100% - 12px) 100%, 30% 100%, 27% calc(100% - 4px), 0 100%, 0 10px)",
   colossus: "polygon(10px 0, calc(100% - 16px) 0, 100% 16px, 100% 58%, calc(100% - 3px) 62%, 100% 66%, 100% 100%, 20px 100%, 0 calc(100% - 12px), 0 10px)",
 } as const satisfies Record<PlayMode, string>;
 
@@ -173,7 +192,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && mode !== "colossus" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "expedition" && mode !== "colossus" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -211,7 +230,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, colossusCard = null, onColossus }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, colossusCard = null, onColossus }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -303,6 +322,7 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
         <h3 id="play-limited" className="sr-only">
           Limited
         </h3>
+        {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
         {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
         {colossusCard && <ColossusMode card={colossusCard} now={now} onSelect={onColossus} />}
         {puzzleCard ? (
@@ -436,6 +456,49 @@ function JoustMode({ card, now, onSelect }: { card: JoustCard; now: number; onSe
       <span
         role="timer"
         aria-label={card.phase === "live" ? `${left} left in the joust` : `${left} until the draw`}
+        className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
+      >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Expedition's card (Limited, over the Joust's; the design proposal of 2026-11-09): a wide slab on the camp and its road darkened
+ * from the left. "Expedition", then the week's line: the map and the tiles waiting ("The Sacred Wood · 6 new tiles, 1 kept"; "open the map" before the first visit), the
+ * board's score once it has one. Its tag names the day ("Day 3 of 7"). Its reward, the Cobbles alone; the week's time left in the
+ * corner's tab.
+ */
+function ExpeditionMode({ card, now, onSelect }: { card: ExpeditionCard; now: number; onSelect?: () => void }) {
+  const board = card.board;
+  const waiting = board ? board.due : 0;
+  const left = puzzleTimeLeft(card.endsAt, now);
+  return (
+    <ModeCard mode="expedition" slot="expedition-card" sceneAt="50% 60%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
+      <button type="button" onClick={onSelect} aria-label={board ? `Expedition: ${formatPoints(board.score)} points` : "Expedition"} className={cn(COVER, "flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Expedition</span>
+        <span className={LINE}>
+          {card.map} ·{" "}
+          {!board ? (
+            "open the map"
+          ) : waiting > 0 ? (
+            <>
+              <span className="numeric">{waiting}</span> new {waiting === 1 ? "tile" : "tiles"}, <span className="numeric">{board.hand}</span> kept
+            </>
+          ) : (
+            <>
+              <span className="numeric">{board.hand}</span> in hand · <span className="numeric">{formatPoints(board.score)}</span>
+            </>
+          )}
+        </span>
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span
+        role="timer"
+        aria-label={`${left} left in the expedition`}
         className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
       >
         <UiIcon name="countdown" px={14} className="size-3.5" />

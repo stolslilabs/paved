@@ -129,6 +129,7 @@ const MOCK_SOURCES: DataSources = {
   social: lazyMock((app) => app.social, { follows: (app) => app.social.follows!, chat: (app) => app.social.chat! }),
   puzzle: lazyMock((app) => app.puzzle),
   joust: lazyMock((app) => app.joust),
+  expedition: lazyMock((app) => app.expedition),
   colossus: lazyMock((app) => app.colossus),
   signer: null,
   purchases: (signer) => ({

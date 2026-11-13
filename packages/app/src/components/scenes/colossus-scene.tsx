@@ -61,11 +61,11 @@ function Figure({ value, word, tone }: { value: ReactNode; word: string; tone?: 
   );
 }
 
-const RULES: readonly { icon: UiIconName; text: string }[] = [
-  { icon: "tile-stack", text: `${COLOSSUS_RATION} tiles a day at 00:00 UTC, yours alone. A day's tiles wait until the next day's end: ${COLOSSUS_HAND} in hand at most, no discard.` },
-  { icon: "trophy", text: "Close a structure and each of its tiles not yet counted becomes a stone of the Colossus, yours. A wall runs round every district: an edge facing it is closed." },
-  { icon: "padlock", text: `The heart opens when the gauge reaches ${COLOSSUS_HEART_SHARE}%. A tile may never leave a hole that no card fits; a hole no card can take is sealed.` },
-  { icon: "crown", text: `The gauge pays every builder at 25, 50, 75 and 100%: 10, 15, 20 and 30 Cobbles. The top ${COLOSSUS_TOP} by stones set are paid 150, 100, 75, then 50 each.` },
+const RULES: readonly { art: UiIconName; text: string }[] = [
+  { art: "tile-stack", text: `${COLOSSUS_RATION} tiles a day at 00:00 UTC, yours alone. A day's tiles wait until the next day's end: ${COLOSSUS_HAND} in hand at most, no discard.` },
+  { art: "trophy", text: "Close a structure and each of its tiles not yet counted becomes a stone of the Colossus, yours. A wall runs round every district: an edge facing it is closed." },
+  { art: "padlock", text: `The heart opens when the gauge reaches ${COLOSSUS_HEART_SHARE}%. A tile may never leave a hole that no card fits; a hole no card can take is sealed.` },
+  { art: "crown", text: `The gauge pays every builder at 25, 50, 75 and 100%: 10, 15, 20 and 30 Cobbles. The top ${COLOSSUS_TOP} by stones set are paid 150, 100, 75, then 50 each.` },
 ];
 
 /** What a tile laid did, in a line or two. */
@@ -239,8 +239,8 @@ export function ColossusScene({ state, error, errorDetail, onRetry, now, view = 
         <SectionTitle id="colossus-rules">The week's rules</SectionTitle>
         <ul className="drawer-carved flex flex-col gap-2.5 rounded-2xl px-3.5 py-3">
           {RULES.map((rule) => (
-            <li key={rule.icon} className="flex items-start gap-3 text-[0.8125rem] font-semibold text-muted-foreground">
-              <UiIcon name={rule.icon} px={24} className="drawer-icon size-6 shrink-0" />
+            <li key={rule.art} className="flex items-start gap-3 text-[0.8125rem] font-semibold text-muted-foreground">
+              <UiIcon name={rule.art} px={24} className="drawer-icon size-6 shrink-0" />
               <span>{rule.text}</span>
             </li>
           ))}
