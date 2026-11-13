@@ -1,6 +1,7 @@
 import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, EventReader, GameViews, PoolQuoter, RenameRequest } from "@paved/chain";
 import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
+import type { ExpeditionSource } from "../expedition-source";
 import type { JoustSource } from "../joust-source";
 import type { PuzzleSource } from "../puzzle-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
@@ -153,6 +154,20 @@ export function mockJoust(ledger: MockLedger): JoustSource {
     start: (player) => ledger.joustStart(player),
     play: (player, gameId, move) => ledger.joustPlay(player, gameId, move),
     claim: (player, week) => ledger.joustClaim(player, week),
+  };
+}
+
+/**
+ * The Expedition's source of the ledger (the weekly individual event, `expedition.ts`): the week, the accounts' boards by game-core's
+ * rules and their Cobbles. No chain part lies beneath: the Expedition runs on the client alone.
+ */
+export function mockExpedition(ledger: MockLedger): ExpeditionSource {
+  return {
+    state: (viewer) => ledger.expeditionState(viewer),
+    board: (player) => ledger.expeditionBoard(player),
+    open: (player) => ledger.expeditionOpen(player),
+    play: (player, week, move) => ledger.expeditionPlay(player, week, move),
+    claim: (player, week) => ledger.expeditionClaim(player, week),
   };
 }
 
