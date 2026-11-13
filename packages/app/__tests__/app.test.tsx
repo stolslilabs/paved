@@ -69,7 +69,7 @@ describe("app", () => {
   // `avatar-route.test.tsx`; the village: #646, `village-route.test.tsx`; the PvP flow: #647, `pvp-route.test.tsx`; a match:
   // #786, `pvp-match-route.test.tsx`; the social pages: #973, `social-pages.test.tsx`; the Puzzle and the Inbox's mail: `puzzle-route.test.tsx`; the Joust:
   // `joust-route.test.tsx`).
-  const WIRED = ["", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions", "tiles", "settings", "settings/theme", "settings/theme/:theme", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "chat", "chat/private/:player", "chat/mail/:mail", "chat/:tab", "guild", "friends", "ranking", "play/puzzle", "puzzle/:gameId", "puzzle/:gameId/over", "play/joust", "joust/:gameId", "joust/:gameId/over"];
+  const WIRED = ["", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions", "tiles", "settings", "settings/theme", "settings/theme/:theme", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "chat", "chat/private/:player", "chat/mail/:mail", "chat/:tab", "guild", "friends", "ranking", "play/puzzle", "puzzle/:gameId", "puzzle/:gameId/over", "play/joust", "joust/:gameId", "joust/:gameId/over", "play/colossus"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

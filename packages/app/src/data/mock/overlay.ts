@@ -2,6 +2,7 @@ import type { AttackPlay, BuyAvatarItemRequest, BuyParcelRequest, EconomyViews, 
 import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
 import type { JoustSource } from "../joust-source";
+import type { ColossusSource } from "../colossus-source";
 import type { PuzzleSource } from "../puzzle-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
@@ -153,6 +154,18 @@ export function mockJoust(ledger: MockLedger): JoustSource {
     start: (player) => ledger.joustStart(player),
     play: (player, gameId, move) => ledger.joustPlay(player, gameId, move),
     claim: (player, week) => ledger.joustClaim(player, week),
+  };
+}
+
+/** The Colossus's source of the ledger (the weekly collective event, `colossus.ts`): no chain part lies beneath, it runs on the client alone. */
+export function mockColossus(ledger: MockLedger): ColossusSource {
+  return {
+    state: (viewer) => ledger.colossusState(viewer),
+    builders: (viewer) => ledger.colossusBuilders(viewer),
+    board: (viewer, board) => ledger.colossusBoard(viewer, board),
+    options: (viewer, board, card) => ledger.colossusOptions(viewer, board, card),
+    place: (player, tile) => ledger.colossusPlace(player, tile),
+    claim: (player, week) => ledger.colossusClaim(player, week),
   };
 }
 

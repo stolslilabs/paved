@@ -174,6 +174,8 @@ export {
   joustWeekStart,
 } from "./joust";
 export type { JoustOutcome, JoustPhase, JoustScore } from "./joust";
+// The Colossus (the weekly collective event): the calendar, the site, the hands, the placement, the stones and the rewards
+export * from "./colossus";
 
 // Story mode (#546): campaigns, levels, runs and the device progress
 export * from "./story";
