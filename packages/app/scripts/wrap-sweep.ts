@@ -103,6 +103,9 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // The avatar creator's part tabs (#626): ten parts do not fit a phone, so the tab list scrolls sideways in a ScrollRegion with
   // the edge hint, the open tab kept in view, by design.
   { story: /^(scenes-avatarcreator--|pages-headers--avatar$)/, kind: "scroll", element: 'div[scroll-region] "Skin tone', why: "part tabs scroller" },
+  // The Expedition board's strip: a hand of up to twelve tiles keeps the 44 px touch floor and scrolls sideways in a ScrollRegion, by
+  // design.
+  { story: /^containers-expeditionhand--/, kind: "scroll", element: "div[scroll-region]", why: "the hand's tiles scroller" },
   // The Challenge's purchase at 320 px (#855: its USDC plate in the header): the title gives way to an ellipsis, its whole text in
   // the `title`; it overflows by 1 px, within the tolerance of `wide`, so it is read as a clip without one.
   { story: "pages-headers--purchase", kind: "clip", element: "span[page-title]", why: "title ellipsis, 1 px overflow" },

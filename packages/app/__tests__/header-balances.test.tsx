@@ -31,6 +31,7 @@ const TABLE: Record<string, readonly string[]> = {
   // The Puzzle's view: the Cobbles its first place wins.
   "play/puzzle": ["cobbles"],
   "play/joust": ["cobbles"],
+  "play/expedition": ["cobbles"],
   "play/fair": ["cobbles"],
   // SHOP-PAGE: the packs are the Shop's Cobbles tab, paid in USDC; the scene shows the tab's own set.
   "village/shop": ["cobbles", "usdc"],
@@ -67,6 +68,7 @@ const TABLE: Record<string, readonly string[]> = {
   "puzzle/:gameId/over": [],
   "joust/:gameId": [],
   "joust/:gameId/over": [],
+  expedition: [],
   "fair/:gameId": [],
   "fair/:gameId/over": [],
 };

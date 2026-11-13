@@ -32,6 +32,8 @@ export interface PlaySceneProps extends PlayModesProps {
    */
   joust?: ReactNode;
   joustTitle?: string;
+  /** The Expedition (`/play/expedition`, Play's Limited mode): its body (`ExpeditionScene`), a view as the Joust's. Null or omitted: the modes. */
+  expedition?: ReactNode;
   /**
    * The Fair (`/play/fair`, Play's Limited mode): its body (`FairScene`), a view as the Joust's; `fairTitle` names its own view on the
    * header ("Draft", "Ranking"). Null or omitted: the modes.
@@ -48,6 +50,8 @@ export interface PlaySceneProps extends PlayModesProps {
   onPuzzleBack?: () => void;
   /** The Joust's Back: to the modes, or from one of its views to the joust. */
   onJoustBack?: () => void;
+  /** The Expedition's Back, to the modes. */
+  onExpeditionBack?: () => void;
   /** The Fair's Back: to the modes, or from one of its views to the week. */
   onFairBack?: () => void;
 }
@@ -71,8 +75,8 @@ const keepForDialogs = (event: Event) => {
  * header's end (the drawers' rule, where the book writes it under the title). Story's campaigns (`/story`, STORY-PAGE) are a view of
  * the same kind, "Story" on the header, its Back to the modes. A pause says so under the modes: Training and Story stay open.
  */
-export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, joust = null, joustTitle, fair = null, fairTitle, onBack, onChallengeBack, onStoryBack, onPuzzleBack, onJoustBack, onFairBack, ...modes }: PlaySceneProps) {
-  const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : joust !== null ? "joust" : fair !== null ? "fair" : "modes";
+export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, joust = null, joustTitle, expedition = null, fair = null, fairTitle, onBack, onChallengeBack, onStoryBack, onPuzzleBack, onJoustBack, onExpeditionBack, onFairBack, ...modes }: PlaySceneProps) {
+  const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : joust !== null ? "joust" : expedition !== null ? "expedition" : fair !== null ? "fair" : "modes";
   // The first view comes with the drawer's own slide; only a move between views slides.
   const [last, setLast] = useState(view);
   const [moved, setMoved] = useState(false);
@@ -86,7 +90,7 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
       onOpenChange={(next) => {
         if (!next) onBack?.();
       }}
-      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : view === "puzzle" ? "Puzzle" : view === "joust" ? (joustTitle ?? "Joust") : view === "fair" ? (fairTitle ?? "Fair") : "Play"}
+      title={view === "challenge" ? "Challenge" : view === "story" ? "Story" : view === "puzzle" ? "Puzzle" : view === "joust" ? (joustTitle ?? "Joust") : view === "expedition" ? "Expedition" : view === "fair" ? (fairTitle ?? "Fair") : "Play"}
       side="right"
       slot="play"
       returnFocus={returnFocus}
@@ -94,11 +98,11 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
       end={
         view === "challenge" ? (
           <BalancesSlot layout="pill" kinds={USDC} className="hidden mobile:flex" />
-        ) : view === "puzzle" || view === "joust" || view === "fair" ? (
+        ) : view === "puzzle" || view === "joust" || view === "expedition" || view === "fair" ? (
           <BalancesSlot layout="pill" kinds={COBBLES} className="hidden mobile:flex" />
         ) : undefined
       }
-      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : view === "puzzle" ? onPuzzleBack : view === "joust" ? onJoustBack : view === "fair" ? onFairBack : undefined}
+      onBack={view === "challenge" ? onChallengeBack : view === "story" ? onStoryBack : view === "puzzle" ? onPuzzleBack : view === "joust" ? onJoustBack : view === "expedition" ? onExpeditionBack : view === "fair" ? onFairBack : undefined}
       onInteractOutside={keepForDialogs}
     >
       <m.div
@@ -117,6 +121,8 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
           puzzle
         ) : view === "joust" ? (
           joust
+        ) : view === "expedition" ? (
+          expedition
         ) : view === "fair" ? (
           fair
         ) : (
