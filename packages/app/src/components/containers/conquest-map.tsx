@@ -17,7 +17,7 @@ const WINDOW = 8;
 /** The cells an arrow moves the window by. */
 const STEP = 4;
 
-const zoneLabel = (zone: ConquestZoneSummary): string => (zone.mine ? "your province" : zone.guild ? `${zone.guild.name}'s province` : zone.province ? "an empty province" : "a free zone");
+const zoneLabel = (zone: ConquestZoneSummary): string => (zone.mine ? "your province" : zone.guild ? `the province of ${zone.guild.name}` : zone.province ? "an empty province" : "a free zone");
 
 export interface ConquestWorldProps {
   /** The world's side in zones. */
@@ -55,7 +55,7 @@ export function ConquestWorld({ side, zones, selected = null, onZone, className 
             zone.index === selected && "ring-2 ring-primary",
           )}
         >
-          {zone.province ? <span className="text-outline max-w-full truncate px-0.5 text-sm leading-none">{zone.guild ? zone.guild.name.replace(/^The /, "").slice(0, 2) : "·"}</span> : <UiIcon name="wonder" px={20} className="size-5" />}
+          {zone.province ? <span className="text-sm leading-none">{zone.guild ? zone.guild.name.replace(/^The /, "").slice(0, 2) : "·"}</span> : <UiIcon name="wonder" px={20} className="size-5" />}
           {zone.tiles > 0 && <span className="numeric text-[0.75rem] leading-none text-foreground/90">{formatInteger(zone.tiles)}</span>}
         </button>
       ))}
@@ -94,8 +94,9 @@ const windowOn = (at: number, size: number): number => Math.max(0, Math.min(size
  * wanted, and Give builds it from the viewer's own tiles.
  */
 export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, busy = null, onExplore, onRequest, onGive, tileArt, className }: ConquestZoneMapProps) {
-  const capital = zone.tiles.find((t) => t.kind === "capital" || t.kind === "great");
-  const [origin, setOrigin] = useState(() => ({ x: windowOn((capital?.x ?? zone.x0 + zone.size / 2) - zone.x0, zone.size), y: windowOn((capital?.y ?? zone.y0 + zone.size / 2) - zone.y0, zone.size) }));
+  // The window opens on the cell picked, else on the capital (a free zone's Great Wonder), else on the zone's middle.
+  const centre = cell ?? zone.tiles.find((t) => t.kind === "capital" || t.kind === "great") ?? { x: zone.x0 + (zone.size - 1) / 2, y: zone.y0 + (zone.size - 1) / 2 };
+  const [origin, setOrigin] = useState(() => ({ x: windowOn(centre.x - zone.x0, zone.size), y: windowOn(centre.y - zone.y0, zone.size) }));
   // The plan picked for a request, with the place of its turn among those that fit; dropped with the cell.
   const [pick, setPick] = useState<{ x: number; y: number; plan: number; turn: number } | null>(null);
   const key = (x: number, y: number) => `${x},${y}`;
@@ -157,7 +158,7 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
                   <span
                     key={k}
                     role="gridcell"
-                    aria-label={`${name(x, y)}: ${tile.kind === "capital" ? `${tile.mine ? "your" : `${tile.guild?.name}'s`} capital` : tile.kind === "great" ? "a Great Wonder" : tile.kind === "wonder" ? "a wonder" : `${tileName(tile.plan)}, ${tile.mine ? "your allegiance's" : `${tile.guild?.name}'s`}${tile.by ? `, given by ${tile.by}` : ""}`}`}
+                    aria-label={`${name(x, y)}: ${tile.kind === "capital" ? (tile.mine ? "your capital" : `the capital of ${tile.guild?.name}`) : tile.kind === "great" ? "a Great Wonder" : tile.kind === "wonder" ? "a wonder" : `${tileName(tile.plan)}, ${tile.mine ? "your allegiance's" : `of ${tile.guild?.name}`}${tile.by ? `, given by ${tile.by}` : ""}`}`}
                     data-kind={tile.kind}
                     data-mine={tile.mine || undefined}
                     className="relative aspect-square"

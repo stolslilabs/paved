@@ -154,7 +154,7 @@ function Rules({ id, title, rules }: { id: string; title: string; rules: readonl
 }
 
 const scoredLine = (s: ConquestScoredState): string =>
-  `A ${STRUCTURE_NAME[s.kind]} of ${s.size} closed, ${s.own} to ${s.rival}: ${s.won ? `yours, +${formatPoints(s.points)}` : s.winner ? `${s.winner.name}'s` : "a tie, nobody scores"}.`;
+  `A ${STRUCTURE_NAME[s.kind]} of ${s.size} closed, ${s.own} to ${s.rival}: ${s.won ? `yours, +${formatPoints(s.points)}` : s.winner ? `won by ${s.winner.name}` : "a tie, nobody scores"}.`;
 
 /** What the last act did, in a line or two. */
 function ActNotice({ notice }: { notice: ConquestNotice }) {
@@ -283,7 +283,7 @@ export function ConquestScene({
         {notice && <ActNotice notice={notice} />}
         <ConquestWorld side={state.side} zones={state.zones} selected={zone.zone.index} onZone={onZone} />
         <p data-slot="conquest-zone-head" className="text-sm font-semibold text-muted-foreground">
-          <strong className="text-foreground">{zone.zone.name}</strong> · {zone.zone.mine ? "your province" : zone.zone.guild ? `${zone.zone.guild.name}'s province` : zone.zone.province ? "an empty province" : "a free zone"} · <span className="numeric text-foreground">{formatInteger(zone.zone.explored)}</span> explored ·{" "}
+          <strong className="text-foreground">{zone.zone.name}</strong> · {zone.zone.mine ? "your province" : zone.zone.guild ? `the province of ${zone.zone.guild.name}` : zone.zone.province ? "an empty province" : "a free zone"} · <span className="numeric text-foreground">{formatInteger(zone.zone.explored)}</span> explored ·{" "}
           <span className="numeric text-foreground">{formatInteger(zone.zone.tiles)}</span> {zone.zone.tiles === 1 ? "tile" : "tiles"}
           {mine && (
             <>
@@ -332,16 +332,16 @@ export function ConquestScene({
           Join one to make Offerings, explore and build with it.
         </Notice>
       ) : state.phase === "registration" ? (
-        <div data-slot="conquest-register" className="drawer-carved flex items-center gap-3 rounded-2xl px-3.5 py-3">
+        <div data-slot="conquest-register" className="drawer-carved flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-3.5 py-3">
           <GuildEmblem emblem={state.guild.emblem} size="md" />
-          <p className="min-w-0 flex-1 text-sm font-semibold text-muted-foreground">
+          <p className="min-w-36 flex-1 text-sm font-semibold text-muted-foreground">
             <strong title={state.guild.name} className="block truncate text-foreground">
               {state.guild.name}
             </strong>
             {state.entered ? "Registered: its province is drawn when day 1 begins." : state.leads ? "Not registered yet." : "Not registered yet: an Officer or the Leader registers it."}
           </p>
           {!state.entered && state.leads && (
-            <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 shrink-0 px-4 text-lg font-black text-foreground" disabled={busy !== null} aria-busy={busy === "register" || undefined} onClick={onRegister}>
+            <Button variant="ghost" style={GOLD_ACTION} className="relative ml-auto h-12 shrink-0 px-4 text-lg font-black text-foreground" disabled={busy !== null} aria-busy={busy === "register" || undefined} onClick={onRegister}>
               {busy === null && <GoldShine />}
               Register
             </Button>
@@ -388,7 +388,7 @@ export function ConquestScene({
           <p title={state.guild?.name} className="truncate text-sm font-bold">
             {state.guild?.name}
           </p>
-          <div role="group" aria-label="Your allegiance" className="drawer-carved flex rounded-2xl py-1.5">
+          <div role="group" aria-label="Your allegiance" className="drawer-carved grid grid-cols-2 gap-y-2 rounded-2xl py-2">
             <Figure value={`#${mine.place}`} word={`of ${mine.of}`} tone="text-primary" />
             <Figure value={formatPoints(mine.score)} word="points" />
             <Figure value={formatInteger(mine.knowledge)} word="Knowledge" />
@@ -401,9 +401,9 @@ export function ConquestScene({
         <section aria-labelledby="conquest-ritual" className="flex flex-col gap-2">
           <SectionTitle id="conquest-ritual">Daily ritual</SectionTitle>
           <ul className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
-            <li data-slot="conquest-offering" className="flex min-h-14 items-center gap-3 px-3.5 py-2">
+            <li data-slot="conquest-offering" className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2">
               <UiIcon name="sun" px={28} className="drawer-icon size-7 shrink-0" />
-              <p className="min-w-0 flex-1 text-sm font-semibold text-muted-foreground">
+              <p className="min-w-36 flex-1 text-sm font-semibold text-muted-foreground">
                 <strong className="block text-foreground">
                   <span className="numeric">{me.waiting}</span> {me.waiting === 1 ? "Offering waits" : "Offerings wait"}
                 </strong>
@@ -418,18 +418,18 @@ export function ConquestScene({
                 )}
                 {!me.orderToday && !state.rest && " · your first gives an order"}
               </p>
-              <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 shrink-0 px-3 text-base font-black text-foreground" disabled={me.waiting === 0 || busy !== null} aria-busy={busy === "offer" || undefined} aria-label={me.waiting > 0 ? `Offer +${me.waiting}` : "Offer"} onClick={onOffer}>
+              <Button variant="ghost" style={GOLD_ACTION} className="relative ml-auto h-12 shrink-0 px-3 text-base font-black text-foreground" disabled={me.waiting === 0 || busy !== null} aria-busy={busy === "offer" || undefined} aria-label={me.waiting > 0 ? `Offer +${me.waiting}` : "Offer"} onClick={onOffer}>
                 {busy === null && me.waiting > 0 && <GoldShine />}
                 Offer{me.waiting > 0 && <span className="numeric"> +{me.waiting}</span>}
               </Button>
             </li>
-            <li data-slot="conquest-exploration" className="flex min-h-14 items-center gap-3 px-3.5 py-2">
+            <li data-slot="conquest-exploration" className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2">
               <UiIcon name="explore" px={28} className="drawer-icon size-7 shrink-0" />
-              <p className="min-w-0 flex-1 text-sm font-semibold text-muted-foreground">
+              <p className="min-w-36 flex-1 text-sm font-semibold text-muted-foreground">
                 <strong className="block text-foreground">Exploration</strong>
                 {state.rest ? "Nobody explores on a rest day" : me.exploredToday ? "Made today: one cell a day" : "One cell today, anywhere in the open zones"}
               </p>
-              <Button variant="secondary" className="h-12 shrink-0" disabled={state.home === null} onClick={() => state.home !== null && onZone?.(state.home)}>
+              <Button variant="secondary" className="ml-auto h-12 shrink-0" disabled={state.home === null} onClick={() => state.home !== null && onZone?.(state.home)}>
                 {me.exploredToday || state.rest ? "Map" : "Explore"}
               </Button>
             </li>

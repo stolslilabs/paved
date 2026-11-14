@@ -231,7 +231,7 @@ function visit(world: Conquest, v: Visit): void {
   }
   const open = () => [...world.requests.values()].filter((r) => r.guild === v.guild);
   if (v.leads) {
-    // A request where the tile closes the most: the cells with the most tiles round them, a plan that opens no new road or city.
+    // A request where the tile closes the most: the cells with the most tiles round them, a plan that opens few new roads or cities.
     const wanted = Math.min(OPEN_REQUESTS, world.ordersLeft(v.guild, v.at) + 1) - open().length;
     const frontier = world.frontier(v.guild, v.at).filter((c) => !open().some((r) => r.x === c.x && r.y === c.y));
     for (let k = 0; k < wanted && frontier.length > 0; k++) {
@@ -243,7 +243,7 @@ function visit(world: Conquest, v: Visit): void {
             let score = draw(10, v.n, k, sample, plan, orientation) + Math.min(2, baseCopies(plan) / 4);
             for (const [side, dx, dy] of [[2, 0, 1], [4, 1, 0], [6, 0, -1], [8, -1, 0]] as const) {
               if (world.tileAt(cell.x + dx, cell.y + dy)) score += 3;
-              else if (!conquestForestEdge(plan, orientation, side)) score -= 1.5;
+              else if (!conquestForestEdge(plan, orientation, side)) score -= 0.4;
             }
             if (!best || score > best.score) best = { ...cell, plan, orientation, score };
           }
