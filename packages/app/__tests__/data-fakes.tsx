@@ -9,7 +9,7 @@ import { DataProvider, type DataSources } from "../src/data";
 import { GAME_PLAYING } from "../src/mocks/games";
 import { PLAYER_ID } from "../src/mocks/players";
 
-/** A store in memory, for the Training save. */
+/** A store in memory, for the device's save (Story's progress, the mock ledger). */
 export function memoryStore(initial: Record<string, string> = {}): KeyValueStore & { data: Map<string, string> } {
   const data = new Map(Object.entries(initial));
   return { data, getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v), removeItem: (k) => void data.delete(k) };

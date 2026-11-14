@@ -197,15 +197,15 @@ describe("every page scrolls in one region, its header sticky (#782)", () => {
     for (let el: HTMLElement | null = icons.at(-1)!; el && el !== region; el = el.parentElement) expect(el.className).not.toMatch(BOXED);
   });
 
-  it("Play draws its groups in the HUD drawer's body (PLAY-PAGE), to Limited's last card; no part of it scrolls on its own", () => {
-    draw(<PlayScene {...PLAY.connected} onBack={no()} onChallenge={no()} onTraining={no()} onStory={no()} onAttack={no()} />, false, "Play");
+  it("Play draws its groups in the HUD drawer's body (PLAY-PAGE), to the last card, Story's; no part of it scrolls on its own", () => {
+    draw(<PlayScene {...PLAY.connected} onBack={no()} onChallenge={no()} onStory={no()} onAttack={no()} />, false, "Play");
     const drawer = screen.getByRole("dialog", { name: "Play" });
     const region = drawer.querySelector<HTMLElement>("[data-hud-drawer-body]")!;
     expect(region.className).toMatch(/(^|\s)overflow-y-auto(\s|$)/);
     expect(region.className).toMatch(/(^|\s)min-h-0(\s|$)/);
     expect(region.className).toContain("overscroll-contain");
-    for (const group of ["Ranked", "Paid", "Free", "Limited"]) expect(region).toContainElement(screen.getByRole("heading", { name: group }));
-    const last = screen.getByRole("button", { name: "Coming soon" });
+    for (const group of ["Ranked", "Paid", "Limited", "Free"]) expect(region).toContainElement(screen.getByRole("heading", { name: group }));
+    const last = screen.getByRole("button", { name: /^Story/ });
     expect(region).toContainElement(last);
     const scrollers = [...region.querySelectorAll<HTMLElement>("*")].filter((el) => /(^|\s)overflow-(y-)?(auto|scroll)(\s|$)/.test(el.getAttribute("class") ?? ""));
     expect(scrollers).toEqual([]);

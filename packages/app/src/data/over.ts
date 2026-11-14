@@ -8,7 +8,7 @@ import { curveOf, thresholdOf } from "./reward-curve";
 import { addressKey, queryKeys } from "./keys";
 import { useIndexedGame, useIndexedPlayerGames, usePlayerProfile } from "./indexer";
 import { useDataSources } from "./sources";
-import type { Closing } from "./training";
+import type { Closing } from "./session-board";
 
 // The Challenge's over page (P7a, section 6.4): `Challenge.game(id)`, `Economy.terms(id)`, `Economy.day(day)`, the indexer's
 // game, the closings replayed from the game's tiles, and the write `Economy.settle`. Nothing polls: a receipt sets the

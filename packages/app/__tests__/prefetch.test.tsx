@@ -16,7 +16,7 @@ vi.mock("../src/routes/page-loaders", () => {
       "play/challenge": loader("purchase"),
       cobbles: loader("cobbles"),
       "game/:gameId": board,
-      training: board,
+      "puzzle/:gameId": board,
       "story/:campaign/:level": board,
       missions: loader("missions"),
       vault: loader("vault"),
@@ -77,7 +77,7 @@ describe("prefetchRoute", () => {
   it("fetches a chunk once: the three boards share one", () => {
     prefetchRoute("/game/12");
     expect(prefetchRoute("/game/13")).toBe(false);
-    expect(prefetchRoute("/training")).toBe(false);
+    expect(prefetchRoute("/puzzle/3")).toBe(false);
     expect(loads).toEqual(["board"]);
   });
 

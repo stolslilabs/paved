@@ -31,7 +31,7 @@ describe("the board's manifest: one request, started with the board's code (LOAD
   });
 
   it("asks for the manifest when the board's route starts loading", async () => {
-    void PAGE_LOADERS.training!().catch(() => {});
+    void PAGE_LOADERS["puzzle/:gameId"]!().catch(() => {});
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/renderer-assets\/manifest\.json$/), { cache: "no-cache" }));
   });
 

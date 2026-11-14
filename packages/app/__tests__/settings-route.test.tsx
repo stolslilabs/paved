@@ -14,6 +14,7 @@ import { GAME_PLAYING } from "../src/mocks/games";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
+import { openPuzzleBoard, playerHand, puzzleBoard, resetPuzzleBoard } from "./puzzle-fakes";
 import { preloadPages } from "./route-helpers";
 import { fakeWallet } from "./wallet-fakes";
 
@@ -226,9 +227,12 @@ describe("/settings", () => {
 });
 
 describe("the board reads the settings", () => {
+  afterEach(resetPuzzleBoard);
+
+  // A Puzzle board of the mocks' player (`openPuzzleBoard`), its tile in hand: its game opened for good (the wallet gave the account).
   it("passes the quality, the seasons and the day and night, and the ambient effects to the renderer's settings, and a change applies to the open board without a reload", async () => {
-    const fakes = fakeSources({ signer: null });
-    render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
+    await openPuzzleBoard();
+    await playerHand();
     await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
     expect(lastBoard()?.settings).toEqual({ quality: "auto", dayNight: { enabled: true, freezeAt: null }, ambient: { enabled: true }, fog: { enabled: true }, smoke: { enabled: true }, squareGrid: { enabled: true } });
     act(() => deviceSettings.set({ ...deviceSettings.get(), quality: "high" }));
@@ -253,8 +257,8 @@ describe("the board reads the settings", () => {
   });
 
   it("gives the tile preview and the placement highlight to the board", async () => {
-    const fakes = fakeSources({ signer: null });
-    render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
+    await openPuzzleBoard();
+    await playerHand();
     await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
     expect(lastBoard()).toMatchObject({ tilePreview: true, placementHighlight: true });
     act(() => deviceSettings.set({ ...deviceSettings.get(), tilePreview: false, placementHighlight: false }));
@@ -280,6 +284,7 @@ describe("BoardViewport and the settings", () => {
 });
 
 describe("the viewer's skins opt-out", () => {
+  afterEach(resetPuzzleBoard);
   const VIEWER = "0xdef";
   const skinned = () => {
     const fakes = fakeSources({ signer: signer(VIEWER) });
@@ -305,16 +310,15 @@ describe("the viewer's skins opt-out", () => {
     for (const board of drawn.board) expect(board.skins).toBe(NO_SKINS);
   });
 
-  it("opted out, Training still draws the connected player's own skins (the switch hides the other players'; Story draws its campaign's theme, #721)", async () => {
+  it("opted out, the connected player's own Puzzle game still draws their skins (the switch hides the other players'; Story draws its campaign's theme, #721)", async () => {
     localStorage.setItem(THEME_KEY, "default");
-    for (const path of ["/training"]) {
-      drawn.board.length = 0;
-      queryClient.clear();
-      const fakes = skinned();
-      const { unmount } = render(<App router={createTestRouter(path)} sources={fakes.sources} />);
-      await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(9)]: 1 } satisfies TileSkins), { timeout: slow(5000) });
-      expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([`active_skins ${BigInt(VIEWER)}`]);
-      unmount();
-    }
+    // A Puzzle game of the viewer, its board opened as the viewer; the mocks' game's player is skinned too, never read.
+    const board = await puzzleBoard({ player: VIEWER, sources: { signer: signer(VIEWER) } });
+    board.views.skinPlayer(GAME_PLAYING.playerId).active = active({ 7: 1 });
+    board.views.skinPlayer(VIEWER).active = active({ 9: 1 });
+    render(<App router={createTestRouter(board.path)} sources={board.sources} connector={board.connector} />);
+    await playerHand();
+    await waitFor(() => expect(lastBoard()?.skins).toEqual({ [key(9)]: 1 } satisfies TileSkins), { timeout: slow(5000) });
+    expect(board.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([`active_skins ${BigInt(VIEWER)}`]);
   });
 });

@@ -98,15 +98,14 @@ export interface PlayModesProps {
   now?: number;
   onChallenge?: () => void;
   onResume?: (gameId: number) => void;
-  onTraining?: () => void;
   onStory?: () => void;
   /** The PvP attack (#647, #740): a rival village. Omitted: no Attack. */
   onAttack?: () => void;
-  /** The Puzzle's card (Limited); null or omitted: the Puzzle is not on this network, "Coming soon". */
+  /** The Puzzle's card (Limited, a square beside Story's); null or omitted: the Puzzle is not on this network, "Coming soon". */
   puzzleCard?: PuzzleCard | null;
   /** A tap on the Puzzle's card: its view, or the game still open. */
   onPuzzle?: () => void;
-  /** The Joust's card (Limited, over the Puzzle's); null or omitted: the Joust is not on this network, no card. */
+  /** The Joust's card (Limited, under the Puzzle's and Story's row); null or omitted: the Joust is not on this network, no card. */
   joustCard?: JoustCard | null;
   /** A tap on the Joust's card: its view, or the game still open. */
   onJoust?: () => void;
@@ -202,7 +201,6 @@ const PUZZLE_REWARDS: readonly Reward[] = ["cobbles"];
 const SHAPES = {
   attack: "polygon(18px 0, 58% 0, 61% 5px, calc(100% - 6px) 0, 100% 8px, 100% calc(100% - 22px), calc(100% - 16px) 100%, 34% 100%, 31% calc(100% - 4px), 4px 100%, 0 calc(100% - 6px), 0 16px)",
   challenge: "polygon(0 10px, 10px 0, calc(100% - 22px) 0, 100% 14px, 100% 100%, 64% 100%, 61% calc(100% - 4px), 12px calc(100% - 2px), 0 calc(100% - 12px))",
-  training: "polygon(14px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 46%, 3px 42%, 0 38%, 0 14px)",
   story: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 26px 100%, 0 calc(100% - 6px), 2px 60%, 0 55%)",
   puzzle: "polygon(8px 0, 40% 0, 42% 4px, 100% 2px, 100% 100%, 16px 100%, 0 calc(100% - 16px), 0 8px)",
   joust: "polygon(0 12px, 12px 0, 46% 0, 49% 5px, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 6px 100%, 0 calc(100% - 6px))",
@@ -260,19 +258,23 @@ const SAVE_PILL = { "--save-pill": uiFrameImageSet("save-pill") } as CSSProperti
 /** The scenes' drawn widths: a wide card's width on a phone (about 358 px), a square's height times 1.5 (186 px tall). */
 const WIDE_PX = 380;
 const SQUARE_PX = 280;
+/** A square card's icon, centred, breaking out of its top edge. */
+const SQUARE_ICON = { px: 92, style: { left: "50%", top: -18, transform: "translateX(-50%)" } } satisfies { px: number; style: CSSProperties };
+/** The Puzzle's crop of its scene on its square card. */
+const PUZZLE_SCENE_AT = "55% 50%";
 
 /**
  * The Play page's modes (PLAY-PAGE, then PLAY-MODES: the owner's direction C of 2026-11-08), a game menu more than a list: Attack the
- * hero, the Challenge wide, Training and Story two square tiles side by side, the Puzzle wide. Every card a stone slab in a painted
- * scene of its mode, its icon breaking out of its top edge, its group as a tag (the groups' titles kept for a screen reader). Attack
- * (Ranked): the catapult, "Raid a rival village", its rewards: crowns, XP and chests. The Challenge (Paid): the war horn, "Beat the
- * threshold", its rewards: PAVED, XP and chests; with a game still open, its time left and its score as its line, Resume in
- * the rewards' place ("modes-resume"). Training (Free): the straw dummy and its line. Story (Free): the map, its line and its rewards in a column:
- * Cobbles, XP and chests. The Puzzle (Limited, `PuzzleMode`): the jigsaw tile, the day's deck for every player, its first place paid
- * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
- * Challenge off and says why. The rewards are static.
+ * hero, the Challenge wide, the Puzzle and Story two square tiles side by side (the Puzzle in the square Training left), the weekly
+ * events wide under them. Every card a stone slab in a painted scene of its mode, its icon breaking out of its top edge, its group as
+ * a tag (the groups' titles kept for a screen reader). Attack (Ranked): the catapult, "Raid a rival village", its rewards: crowns, XP
+ * and chests. The Challenge (Paid): the war horn, "Beat the threshold", its rewards: PAVED, XP and chests; with a game still open, its
+ * time left and its score as its line, Resume in the rewards' place ("modes-resume"). The Puzzle (Limited, `PuzzleMode`): the jigsaw
+ * tile, the day's deck for every player, its first place paid in Cobbles; "Coming soon" where the network has no Puzzle. Story
+ * (Free): the map, its line and its rewards in a column: Cobbles, XP and chests. No Connect (NO-GUEST: every player has an account);
+ * a pause turns the Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus, tournamentCard = null, onTournament }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus, tournamentCard = null, onTournament }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -335,51 +337,49 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
         </ModeCard>
       </section>
 
-      <section aria-labelledby="play-free" className="grid grid-cols-2 gap-3 pt-3">
-        <h3 id="play-free" className="sr-only">
-          Free
-        </h3>
-        <ModeCard mode="training" sceneAt="62% 50%" scenePx={SQUARE_PX} icon={{ px: 92, style: { left: "50%", top: -18, transform: "translateX(-50%)" } }} className="h-46.5 p-3 pb-3">
-          <div className="flex flex-col items-start gap-1 self-end">
-            <Chip>Free</Chip>
-            <button type="button" onClick={onTraining} className={COVER}>
-              <span className={cn(TITLE, "text-[1.625rem]")}>Training</span>
-              <span className={LINE}>A full game, just for practice</span>
-            </button>
-          </div>
-        </ModeCard>
-        <ModeCard mode="story" sceneAt="82% 40%" scenePx={SQUARE_PX} icon={{ px: 92, style: { left: "50%", top: -18, transform: "translateX(-50%)" } }} className="h-46.5 p-3 pr-10 pb-3">
-          <div className="flex flex-col items-start gap-1 self-end">
-            <Chip>Free</Chip>
-            <button type="button" onClick={onStory} className={COVER}>
-              <span className={cn(TITLE, "text-[1.625rem]")}>Story</span>
-              <span className={LINE}>Learn and play fun levels</span>
-            </button>
-          </div>
-          <Rewards rewards={STORY_REWARDS} column className="right-2 bottom-3" />
-        </ModeCard>
-      </section>
-
-      <section aria-labelledby="play-limited" className={cn("flex flex-col gap-3.5", joustCard || tournamentCard ? "pt-4" : "pt-2")}>
-        <h3 id="play-limited" className="sr-only">
-          Limited
-        </h3>
-        {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
-        {masterpieceCard && <MasterpieceMode card={masterpieceCard} now={now} onSelect={onMasterpiece} />}
-        {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
-        {tournamentCard && <TournamentMode card={tournamentCard} now={now} onSelect={onTournament} />}
-        {colossusCard && <ColossusMode card={colossusCard} now={now} onSelect={onColossus} />}
-        {puzzleCard ? (
-          <PuzzleMode card={puzzleCard} now={now} onSelect={onPuzzle} />
-        ) : (
-          <ModeCard mode="puzzle" sceneAt="55% 50%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={{ px: 76, style: { right: 14, top: -16 } }} disabled className="h-29">
-            <button type="button" disabled className="absolute inset-0 flex cursor-not-allowed items-center justify-center gap-3">
-              <UiIcon name="padlock" px={32} className="size-8 [filter:drop-shadow(0_2px_0_var(--hud-outline))]" />
-              <span className="text-outline font-display text-2xl font-bold">Coming soon</span>
-            </button>
+      <div className="grid grid-cols-2 gap-3 pt-3">
+        <section aria-labelledby="play-limited">
+          <h3 id="play-limited" className="sr-only">
+            Limited
+          </h3>
+          {puzzleCard ? (
+            <PuzzleMode card={puzzleCard} now={now} onSelect={onPuzzle} />
+          ) : (
+            <ModeCard mode="puzzle" sceneAt={PUZZLE_SCENE_AT} scenePx={SQUARE_PX} icon={SQUARE_ICON} disabled className="h-46.5">
+              <button type="button" disabled className="absolute inset-0 flex cursor-not-allowed flex-col items-center justify-end gap-1 p-3 pb-4">
+                <UiIcon name="padlock" px={28} className="size-7 [filter:drop-shadow(0_2px_0_var(--hud-outline))]" />
+                <span className="text-outline font-display text-xl leading-none font-bold">Coming soon</span>
+              </button>
+            </ModeCard>
+          )}
+        </section>
+        <section aria-labelledby="play-free">
+          <h3 id="play-free" className="sr-only">
+            Free
+          </h3>
+          <ModeCard mode="story" sceneAt="82% 40%" scenePx={SQUARE_PX} icon={SQUARE_ICON} className="h-46.5 p-3 pr-10 pb-3">
+            <div className="flex flex-col items-start gap-1 self-end">
+              <Chip>Free</Chip>
+              <button type="button" onClick={onStory} className={COVER}>
+                <span className={cn(TITLE, "text-[1.625rem]")}>Story</span>
+                <span className={LINE}>Learn and play fun levels</span>
+              </button>
+            </div>
+            <Rewards rewards={STORY_REWARDS} column className="right-2 bottom-3" />
           </ModeCard>
-        )}
-      </section>
+        </section>
+      </div>
+
+      {/* The weekly events, under the Puzzle's and Story's row: Limited too, named by the Puzzle's group title. */}
+      {(expeditionCard || masterpieceCard || joustCard || tournamentCard || colossusCard) && (
+        <section aria-labelledby="play-limited" className={cn("flex flex-col gap-3.5", joustCard || tournamentCard ? "pt-4" : "pt-2")}>
+          {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
+          {masterpieceCard && <MasterpieceMode card={masterpieceCard} now={now} onSelect={onMasterpiece} />}
+          {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
+          {tournamentCard && <TournamentMode card={tournamentCard} now={now} onSelect={onTournament} />}
+          {colossusCard && <ColossusMode card={colossusCard} now={now} onSelect={onColossus} />}
+        </section>
+      )}
     </div>
   );
 }
@@ -397,16 +397,16 @@ export function PuzzleRank({ place, className }: { place: number; className?: st
 export const puzzleTimeLeft = (endsAt: number, now: number): string => formatShortRemaining(Math.max(0, endsAt - now));
 
 /**
- * The Puzzle's card (Limited, the owner's asks of 2026-11-08), a wide slab on its scene darkened from the left, the jigsaw tile
- * breaking out at its right. "Puzzle" and the player's place of the day beside it (carved, "#28", no total), then the line: "One deck
- * for all" until they play, their best of the day (its star and score, no "PB": the owner's ask of 2026-11-08) once they have one,
- * their game's score while one is open (a tap then opens it). Its reward at its end, the Cobbles alone; the day's time left in a
- * carved tab in its bottom-right corner, amber under an hour.
+ * The Puzzle's card (Limited, the owner's asks of 2026-11-08), a square slab beside Story's in the layout Training's card had: its
+ * scene darkened from the foot, the jigsaw tile breaking out of its top edge, its words at the foot. Its tag, then "Puzzle" and the
+ * player's place of the day beside it (carved, "#28", no total), then the line: "One deck for all" until they play, their best of
+ * the day (its star and score, no "PB": the owner's ask of 2026-11-08) once they have one, their game's score while one is open (a
+ * tap then opens it); the day's time left under it, amber under an hour. Its reward in the corner beside the time, the Cobbles alone.
  */
 function PuzzleMode({ card, now, onSelect }: { card: PuzzleCard; now: number; onSelect?: () => void }) {
   const left = card.endsAt - now;
   const line = card.playing ? (
-    <span className="text-outline flex items-center gap-1 text-base leading-tight font-bold">
+    <span className="text-outline flex flex-wrap items-center gap-x-1 text-base leading-tight font-bold">
       <UiIcon name="star" px={20} className="size-5" />
       <span className="numeric">{formatPoints(card.playing.score)}</span>
       <span className="text-[0.8125rem] font-semibold text-foreground/90">in play</span>
@@ -420,27 +420,28 @@ function PuzzleMode({ card, now, onSelect }: { card: PuzzleCard; now: number; on
     <span className={LINE}>One deck for all</span>
   );
   return (
-    <ModeCard mode="puzzle" slot="puzzle-card" sceneAt="55% 50%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={{ px: 76, style: { right: 14, top: -16 } }} className="h-29 p-3.5 pb-3">
-      <Chip className="absolute top-2.5 left-3">Limited</Chip>
-      <button type="button" onClick={onSelect} aria-label={card.playing ? `Puzzle: resume your game, ${formatPoints(card.playing.score)} points` : "Puzzle"} className={cn(COVER, "flex-1")}>
-        <span className="flex items-center gap-2">
-          <span className={cn(TITLE, "text-[1.75rem]")}>Puzzle</span>
-          {card.best && <PuzzleRank place={card.best.place} />}
+    // 10 px at the sides (Story's 12): "Puzzle" and its place keep one row on a 320 px phone.
+    <ModeCard mode="puzzle" slot="puzzle-card" sceneAt={PUZZLE_SCENE_AT} scenePx={SQUARE_PX} icon={SQUARE_ICON} className="h-46.5 px-2.5 py-3">
+      <div className="flex min-w-0 flex-col items-start gap-1 self-end">
+        <Chip>Limited</Chip>
+        <button type="button" onClick={onSelect} aria-label={card.playing ? `Puzzle: resume your game, ${formatPoints(card.playing.score)} points` : "Puzzle"} className={COVER}>
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <span className={cn(TITLE, "text-[1.625rem]")}>Puzzle</span>
+            {card.best && <PuzzleRank place={card.best.place} />}
+          </span>
+          {line}
+        </button>
+        <span
+          role="timer"
+          aria-label={`${puzzleTimeLeft(card.endsAt, now)} left today`}
+          className={cn("text-outline pointer-events-none flex h-5 items-center gap-1 font-mono text-xs font-bold", left < PUZZLE_LATE_S && "text-warning")}
+        >
+          <UiIcon name="countdown" px={14} className="size-3.5" />
+          <span className="numeric">{puzzleTimeLeft(card.endsAt, now)}</span>
         </span>
-        {line}
-      </button>
-      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
-      <span
-        role="timer"
-        aria-label={`${puzzleTimeLeft(card.endsAt, now)} left today`}
-        className={cn(
-          "text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold",
-          left < PUZZLE_LATE_S && "text-warning",
-        )}
-      >
-        <UiIcon name="countdown" px={14} className="size-3.5" />
-        <span className="numeric">{puzzleTimeLeft(card.endsAt, now)}</span>
-      </span>
+      </div>
+      {/* Centred on the time's row, under the line: the line keeps the card's whole width. */}
+      <Rewards rewards={PUZZLE_REWARDS} className="right-2 bottom-2" />
     </ModeCard>
   );
 }

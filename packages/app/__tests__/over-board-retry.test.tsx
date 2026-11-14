@@ -6,7 +6,7 @@ import { OVER } from "../src/mocks/scenes";
 import { slow } from "../test-slow";
 
 // The final board's chunk fails twice (a dropped connection), then loads (#539): at the screen's open, under the scores
-// (#720), and at the first "Board". On a Challenge's end, whose toggle shows which view is up; Training's shares the load.
+// (#720), and at the first "Board". On a Challenge's end, whose toggle shows which view is up; the Puzzle's shares the load.
 const load = { failures: 2, module: null as unknown };
 
 describe("OverScene: the final board after a failed load", () => {

@@ -3,14 +3,14 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { winningScore } from "@paved/game-core";
 import { CURVE_PLAYING } from "../../mocks/games";
 import { ATTACK_STAR_PERCENTS } from "../../lib/pvp-v2-rules";
-import { attackMeter, challengeMeter, storyMeter, trainingMeter, type ScoreMeterValue } from "../../lib/score-meter";
+import { attackMeter, challengeMeter, storyMeter, type ScoreMeterValue } from "../../lib/score-meter";
 import { HudFrame } from "./hud-frame";
 import { ScoreMeter } from "./score-meter";
 
 /**
  * The board's score meter (GAME-OVERLAY), each mode's, on the HUD's frame as under the board's header. The Attack against a village of
  * 5,831 points (the fakes' rival); Story on a stand-in level (two stars from 800, three from 1,200, never shown); a Challenge at the
- * mocks' day (1,150 to beat); Training against a best of 1,420.
+ * mocks' day (1,150 to beat).
  */
 const meta = {
   title: "Elements/Score meter",
@@ -49,11 +49,6 @@ export const StoryTwoStars: Story = { args: story(1_000) };
 export const ChallengeToBeat: Story = { args: challengeMeter(CURVE_PLAYING, 640) };
 /** Past the score to beat: the trophy lit, the second half toward the cap. */
 export const ChallengeBeaten: Story = { args: challengeMeter(CURVE_PLAYING, winningScore(CURVE_PLAYING.threshold) * 2) };
-
-/** Training under the device's best: the crown ahead. */
-export const TrainingToBest: Story = { args: trainingMeter(1_420, 1_050)! };
-/** Training past the best: the crown lit. */
-export const TrainingNewBest: Story = { args: trainingMeter(1_420, 1_560)! };
 
 /** The score climbing through a Story level's stars, a move every 1.2 s, then again: the gold moving on, each star reached beating. */
 const CLIMB = [0, 300, 600, 820, 1_000, 1_250] as const;

@@ -12,7 +12,7 @@ import type { TileViewProps } from "../components/containers/tile-view";
 
 /**
  * The tile skins of `playerId` (`active_skins(player)`, as `TileSkins`), for the board to draw: a Challenge game's player
- * (anyone viewing that game sees its player's skins), or the connected player in Training and the tutorial. `NO_SKINS`
+ * (anyone viewing that game sees its player's skins), or the connected player in the tutorial. `NO_SKINS`
  * (every tile on its base model) for a guest (null), without the skins views, while the read is on its way, and when it
  * fails. And `NO_SKINS` for another player's board when the viewer opted out on this device (`useShowSkins`, "Show other
  * players' skins"), with no read made: the renderer then asks for no variant, so no skin model is downloaded. The viewer's

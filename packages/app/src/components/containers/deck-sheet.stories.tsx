@@ -35,7 +35,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A random draw (Challenge, Training) on a phone: a full page with Back, one tile per plan seen from above (#606), the tiles left of it in the red square, the plan in hand in gold; never the order. */
+/** A random draw (a Challenge) on a phone: a full page with Back, one tile per plan seen from above (#606), the tiles left of it in the red square, the plan in hand in gold; never the order. */
 export const Phone: Story = { args: {}, globals: mobile };
 /** A random draw from the tablet width up: the HUD drawer docked on the left, the tile stack stays free. */
 export const Wide: Story = { args: { edge: "left" }, globals: wide };

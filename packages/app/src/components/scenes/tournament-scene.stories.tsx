@@ -15,7 +15,7 @@ import { PHONE_320, PHONE_375 } from "./viewports";
 const meta = {
   title: "Scenes/Tournament",
   component: PlayScene,
-  args: { onBack: fn(), onTournament: fn(), onTournamentBack: fn(), onPuzzle: fn(), onChallenge: fn(), onTraining: fn(), onStory: fn(), onAttack: fn() },
+  args: { onBack: fn(), onTournament: fn(), onTournamentBack: fn(), onPuzzle: fn(), onChallenge: fn(), onStory: fn(), onAttack: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

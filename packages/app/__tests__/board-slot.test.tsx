@@ -1,15 +1,13 @@
 import { slow } from "../test-slow";
 import { useEffect } from "react";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CENTER, OrientationType, replayTraining } from "@paved/game-core";
+import { act, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CENTER, OrientationType } from "@paved/game-core";
 import type { GameCanvasProps } from "@paved/renderer/react";
-import { App } from "../src/App";
 import { toChainSlot, toGridSlot, toRenderTiles } from "../src/components/containers/board-viewport";
-import { createTestRouter } from "../src/routes/router";
+import { replayPuzzle } from "../src/data/puzzle-game";
 import { markWelcomed } from "../src/routes/welcomed";
-import { fakeSources } from "./data-fakes";
+import { openPuzzleBoard, resetPuzzleBoard } from "./puzzle-fakes";
 import { placeTile, preloadPages } from "./route-helpers";
 
 // The renderer's canvas, as the page drives it: the test reads what it is given (the lit slots, the ghost, the tiles)
@@ -45,10 +43,6 @@ vi.mock("../src/components/containers/tile-view", async (original) => ({
 }));
 
 const ORIENTATIONS = Object.values(OrientationType);
-const SEED = 0x5eed1234abcdn;
-
-// Training draws its seed at each entry (#718): the test's, so the engine beside it plays the same deck.
-vi.mock("@paved/game-core", async (original) => ({ ...(await original<typeof import("@paved/game-core")>()), randomSeed: () => SEED }));
 
 preloadPages("board");
 
@@ -56,6 +50,7 @@ beforeEach(() => {
   canvas.props = null;
   markWelcomed();
 });
+afterEach(resetPuzzleBoard);
 
 describe("the move sent is the slot the player sees (D1, #379)", () => {
   it("converts a renderer grid slot (x east, y south) to the contracts' x and y (y north), and back", () => {
@@ -72,14 +67,17 @@ describe("the move sent is the slot the player sees (D1, #379)", () => {
   });
 
   it("round trip: the slot the renderer lights and the player clicks is the move made, and the tile is drawn there", async () => {
-    render(<App router={createTestRouter("/training")} sources={fakeSources().sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
+    // A Puzzle game of the mocks' player: its record (its random, its day's deck) is what the engine beside the board plays.
+    const { game } = await openPuzzleBoard();
+    await screen.findByTestId("renderer", {}, { timeout: slow(8000) });
+    // Its slots are lit once the wallet gave the player's account (until then the game shows read-only).
+    await waitFor(() => expect(canvas.props!.availableSlots!.some((s) => s.legal !== false)).toBe(true), { timeout: slow(5000) });
     // The canvas is found on the commit, before the page's mount effect (it resets the chosen slot and the orientation for a
     // new game) has run; a click made in that gap, as this test can with no rotation to await, is wiped by the effect.
     await act(async () => {});
 
     // The lit slots are the engine's legal placements at the hand's orientation, in the renderer's grid.
-    const engine = replayTraining(SEED, []);
+    const engine = replayPuzzle(game).engine.rules;
     const orientation = 1;
     const plates = canvas.props!.availableSlots!;
     const lit = plates.filter((s) => s.legal !== false);

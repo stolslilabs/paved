@@ -64,7 +64,7 @@ describe("/play: the Colossus's card in Limited", () => {
 
   it("shows no card on the chain's sources", async () => {
     open("/play", null);
-    expect(await screen.findByRole("button", { name: /^Training/ }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Story/ }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Colossus" })).toBeNull();
   });
 });

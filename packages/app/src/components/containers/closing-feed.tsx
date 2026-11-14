@@ -55,7 +55,7 @@ const PAINTED: Readonly<Partial<Record<string, Painting>>> = {
 
 /**
  * A closing's painting `px` wide (28 by default, the feed's), or the category's relief icon where none is painted (a category the client
- * does not know). Training's end draws its categories with it too (TRAINING-END).
+ * does not know). The windowed ends draw their categories with it too (`end-closings.tsx`).
  */
 export function ClosingArt({ category, px = 28, className = "size-7" }: { category: number; px?: number; className?: string }) {
   const art = PAINTED[Object.values(CategoryType)[category] as string];

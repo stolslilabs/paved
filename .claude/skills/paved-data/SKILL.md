@@ -14,7 +14,7 @@ relative to `packages/app/` unless they start with `packages/`.
 | State | Owner | Where |
 |---|---|---|
 | Server state (chain views, events, the indexer) | TanStack Query | `src/data/chain.ts`, `src/data/indexer.ts` |
-| The game in play | a session, outside React | `LocalSession`, `TutorialRun` in `packages/game-core/src/sessions/`; `useTrainingSession` in `src/data/training.ts` reads it with `useSyncExternalStore` |
+| The game in play | a session, outside React | `LocalSession`, `TutorialRun` in `packages/game-core/src/sessions/`; `usePuzzleSession` in `src/data/puzzle-game.ts` reads its game with `useSyncExternalStore` |
 | Local settings | `localStorage` | the Training save (`TRAINING_KEY`), the tutorial save, the `welcomed` flag |
 
 Do not copy a query's data into `useState` or a session. The query cache is not persisted.

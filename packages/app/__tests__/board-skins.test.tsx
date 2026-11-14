@@ -12,6 +12,7 @@ import { PLAYER_ID } from "../src/mocks/players";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources, renderData } from "./data-fakes";
+import { puzzleBoard, resetPuzzleBoard } from "./puzzle-fakes";
 
 // SKIN-RENDER: which player's skins the board draws. The renderer's own choice (the variant, the fallbacks) is
 // `packages/renderer/__tests__/skins.test.ts`'s; here, the read and the page's player.
@@ -114,6 +115,8 @@ const lastBoard = () => drawn.board.at(-1);
 const lastHand = () => drawn.hand.at(-1);
 
 describe("the board page's player", () => {
+  afterEach(resetPuzzleBoard);
+
   it("a Challenge board draws its game's player's skins, for a viewer of another address too", async () => {
     const fakes = fakeSources({ signer: signer(VIEWER) });
     fakes.views.skinPlayer(GAME_PLAYING.playerId).active = active({ 7: 1 });
@@ -124,21 +127,13 @@ describe("the board page's player", () => {
     expect(fakes.views.calls).not.toContain(`active_skins ${BigInt(VIEWER)}`);
   });
 
-  it("Training draws the connected player's skins, on the board and the hand", async () => {
-    const fakes = fakeSources({ signer: signer(VIEWER) });
-    fakes.views.skinPlayer(VIEWER).active = active({ 9: 1 });
-    render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
+  it("the connected player's own Puzzle game draws their skins, on the board and the hand", async () => {
+    const board = await puzzleBoard({ player: VIEWER, sources: { signer: signer(VIEWER) } });
+    board.views.skinPlayer(VIEWER).active = active({ 9: 1 });
+    render(<App router={createTestRouter(board.path)} sources={board.sources} connector={board.connector} />);
     const skins: TileSkins = { [key(9)]: 1 };
-    await waitFor(() => expect(lastBoard()?.skins).toEqual(skins), { timeout: slow(5000) });
+    await waitFor(() => expect(lastBoard()?.skins).toEqual(skins), { timeout: slow(8000) });
     await waitFor(() => expect(lastHand()?.skins).toEqual(skins));
-  });
-
-  it("a guest's Training board draws the base models", async () => {
-    const fakes = fakeSources({ signer: null });
-    render(<App router={createTestRouter("/training")} sources={fakes.sources} />);
-    await waitFor(() => expect(lastBoard()).toBeDefined(), { timeout: slow(5000) });
-    expect(lastBoard()?.skins).toBe(NO_SKINS);
-    expect(fakes.views.calls.filter((c) => c.startsWith("active_skins"))).toEqual([]);
   });
 
   it("a Tutorial level draws the base models, whatever skins the connected player set, with none read (#721)", async () => {

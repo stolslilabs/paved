@@ -87,7 +87,7 @@ export function ReplayBar({ replay }: { replay: PvpReplay }) {
 /**
  * A PvP attack (#647): the defender's village and the tiles placed on it, the tile in hand, the live score as a share of the
  * village's with its three star marks, the tiles left on the stack. Since #772 it is `BoardScene`'s attack mode: the same
- * board, stack, bubble, HUD, closing feed, season dial and sounds as a Training game, the attack's own pieces in its slots (the
+ * board, stack, bubble, HUD, closing feed, season dial and sounds as a Puzzle game, the attack's own pieces in its slots (the
  * replay's bar in place of the stack); its score meter is the Ranked's (`attackMeter`), under the HUD as every mode's. With
  * `replay` the same board steps through a finished attack, read only, the defence log's replay.
  *

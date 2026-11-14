@@ -59,7 +59,7 @@ const loadAppConnector: LoadConnector = () =>
 /**
  * Holds the wallet and gives the data hooks the connected account's writes: `sources` with `signer` filled while
  * connected, null otherwise. Nothing is loaded until a connect, or a `restore` from a page that reads the account: the
- * welcome and Training fetch no wallet code.
+ * welcome fetches no wallet code.
  */
 export function WalletProvider({ sources, load = loadAppConnector, children }: { sources: DataSources; load?: LoadConnector; children: ReactNode }) {
   const loaded = useRef<Promise<WalletConnector> | null>(null);

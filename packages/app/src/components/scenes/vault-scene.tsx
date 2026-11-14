@@ -132,7 +132,7 @@ export function VaultScene(props: VaultSceneProps) {
   } else if (!ready) {
     body = (
       <Notice tone="warning" title="Economy not deployed">
-        This network has no Vault yet: there is nothing to deposit or withdraw. Training and Story mode still play.
+        This network has no Vault yet: there is nothing to deposit or withdraw. Story mode still plays.
       </Notice>
     );
   }

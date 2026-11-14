@@ -10,6 +10,7 @@ import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
 import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
+import { playerHand, puzzleBoard, resetPuzzleBoard } from "./puzzle-fakes";
 import { preloadPages } from "./route-helpers";
 
 // BACK-RULE (#783, the owner's decisions of 2026-10-26): no page opens another page (Settings' pages are views of its drawer since
@@ -179,21 +180,35 @@ describe("Play's modes (BACK-RULE #783)", { timeout: slow(30_000) }, () => {
     }, WAIT);
   });
 
-  it("Training opened from Play goes back to Play, the page it was opened from", async () => {
-    const router = open("/play");
-    await screen.findByRole("dialog", { name: "Play" }, WAIT);
-    await userEvent.click(screen.getByRole("button", { name: /^Training/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
-    await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
-    expect(router.state.historyAction).toBe("POP");
-    expect(await screen.findByRole("dialog", { name: "Play" }, WAIT)).toBeInTheDocument();
+  it("a Puzzle game resumed from Play goes back to Play, the page it was opened from", async () => {
+    const board = await puzzleBoard();
+    try {
+      const router = createTestRouter("/play");
+      render(<App router={router} sources={board.sources} connector={board.connector} />);
+      await userEvent.click(await screen.findByRole("button", { name: /^Puzzle: resume your game/ }, WAIT));
+      await waitFor(() => expect(router.state.location.pathname).toBe(board.path));
+      // The board opens again for the player once the wallet restores the account: Back then, on the board the player sees.
+      await playerHand();
+      await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      await waitFor(() => expect(router.state.location.pathname).toBe("/play"));
+      expect(router.state.historyAction).toBe("POP");
+      expect(await screen.findByRole("dialog", { name: "Play" }, WAIT)).toBeInTheDocument();
+    } finally {
+      await resetPuzzleBoard();
+    }
   });
 
-  it("Training opened by a link goes up to the village", async () => {
-    const router = open("/training");
-    await userEvent.click(await screen.findByRole("button", { name: "Back" }, WAIT));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  it("a Puzzle game opened by a link goes up to the village", async () => {
+    const board = await puzzleBoard();
+    try {
+      const router = createTestRouter(board.path);
+      render(<App router={router} sources={board.sources} connector={board.connector} />);
+      await playerHand();
+      await userEvent.click(screen.getByRole("button", { name: "Back" }));
+      await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    } finally {
+      await resetPuzzleBoard();
+    }
   });
 });
 

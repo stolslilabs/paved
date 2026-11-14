@@ -80,7 +80,7 @@ export interface GameEndProps {
   /** Each star's share filled, 0 to 1, from the score (the stars' bar's place, the owner's ask of 2026-11-06); unset, the won ones full. */
   fills?: readonly number[];
   /**
-   * What crowns the window in place of the three stars (TRAINING-END: Training's crown, `EndMark`, the mark of its score meter). Unset:
+   * What crowns the window in place of the three stars (`EndMark`: the Puzzle's trophy, the mark of its score meter). Unset:
    * the stars.
    */
   mark?: ReactNode;
@@ -398,7 +398,7 @@ export function EndStars({ stars, fills, instant, timing = END_STARS, className 
   );
 }
 
-/** A painting that fills with its gold: a star of the ends, Training's crown. Its own alias, so the Font Awesome subset reads no name in it. */
+/** A painting that fills with its gold: a star of the ends, the Puzzle's trophy. Its own alias, so the Font Awesome subset reads no name in it. */
 type MarkArt = UiIconName;
 
 /**
@@ -436,7 +436,7 @@ function FilledMark({ name, px, fill: f, at, now, className }: { name: MarkArt; 
 }
 
 /**
- * One painted mark crowning the window in place of the three stars (TRAINING-END: Training's crown, the one mark of its score meter,
+ * One painted mark crowning the window in place of the three stars (the Puzzle's trophy, the one mark of its score meter,
  * the device's best): the stars' middle place and size, filling with its gold as the score goes (`fill`, 0 to 1, the share of the mark's
  * goal), the first star's beat; `reached` (the goal beaten, never merely equalled: #1115), it fills and pops with the third star's sound
  * and buzz, its light and glints alive as theirs; short of it, a tie included, its gold stops short and nothing shines; grey with none.

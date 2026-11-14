@@ -110,7 +110,7 @@ function Prizes({ reached = null, champion = false }: { reached?: number | null;
           </li>
         ))}
       </ul>
-      <p className="text-[0.8125rem] font-medium text-muted-foreground">Free to enter. No XP and no chest per game, as the Training and the Puzzle.</p>
+      <p className="text-[0.8125rem] font-medium text-muted-foreground">Free to enter. No XP and no chest per game, as the Puzzle.</p>
     </section>
   );
 }

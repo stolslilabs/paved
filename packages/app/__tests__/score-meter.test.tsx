@@ -7,11 +7,10 @@ import { GameHud } from "../src/components/containers/game-hud";
 import { ScoreMeter } from "../src/components/elements/score-meter";
 import { BoardScene } from "../src/components/scenes/board-scene";
 import { PvpAttackScene } from "../src/components/scenes/pvp-attack-scene";
-import { attackMeter, challengeMeter, storyMeter, trainingMeter } from "../src/lib/score-meter";
-import { trainingBestBefore, TRAINING_BEST_KEY } from "../src/data/training-best";
+import { attackMeter, challengeMeter, storyMeter } from "../src/lib/score-meter";
 import { CURVE_PLAYING } from "../src/mocks/games";
 import { PVP_ATTACK } from "../src/mocks/pvp";
-import { BOARD, TRAINING_BEST } from "../src/mocks/scenes";
+import { BOARD } from "../src/mocks/scenes";
 import { storyStarFills } from "../src/routes/pages/story-board";
 import { slow } from "../test-slow";
 import { settleBoardChunks } from "./lazy-chunks";
@@ -46,7 +45,7 @@ describe("the score meter under the header, every mode", () => {
 
   it("Story: its stars by their shares, no figure and no threshold anywhere (#593)", () => {
     const result = { stars: 2 as const, twoStars: 800, target: 1200 };
-    render(wrap(<BoardScene {...BOARD.training} mode="story" title="Tutorial 5: Under the trees" score={1000} meter={storyMeter(result.stars, storyStarFills(result, 1000))} />));
+    render(wrap(<BoardScene {...BOARD.story} score={1000} meter={storyMeter(result.stars, storyStarFills(result, 1000))} />));
     const meter = screen.getByRole("meter", { name: "2 of 3 stars so far" });
     expect(meter).toHaveAttribute("data-stars", "2");
     // The first star at the start (finishing holds it), the second at the middle, the third at the end: where they stand says nothing of a score.
@@ -88,31 +87,13 @@ describe("the score meter under the header, every mode", () => {
     expect(fill(meter)).toBe(100);
   });
 
-  it("Training: the crown at the device's best, lit by a new best; none on the device's first game", () => {
-    const { unmount } = render(wrap(<BoardScene {...BOARD.training} />));
-    const meter = screen.getByRole("meter", { name: /of your best/ });
-    expect(marks(meter).map((m) => [m.getAttribute("data-art"), m.style.left])).toEqual([["crown", "100%"]]);
-    expect(meter).toHaveAttribute("aria-valuemax", "100");
-    unmount();
-    expect(trainingMeter(TRAINING_BEST, TRAINING_BEST)!.marks[0]!.reached).toBe(false);
-    expect(trainingMeter(TRAINING_BEST, TRAINING_BEST + 1)!.valueText).toMatch(/a new best/);
-    expect(trainingMeter(null, 500)).toBeNull();
-    render(wrap(<BoardScene {...BOARD.training} meter={null} />));
+  it("no goal to show (a Puzzle day with no first place yet): no meter", () => {
+    render(wrap(<BoardScene {...BOARD.puzzle} meter={null} />));
     expect(screen.queryByRole("meter")).toBeNull();
   });
 
-  it("Training's best: the device's, or the one before this game when it set it; nothing on the first game", () => {
-    const store = new Map<string, string>();
-    const kv = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
-    expect(trainingBestBefore(() => kv, "0x1")).toBeNull();
-    store.set(TRAINING_BEST_KEY, JSON.stringify({ score: 1500, seed: "0x2", previous: 1200 }));
-    expect(trainingBestBefore(() => kv, "0x1")).toBe(1500);
-    expect(trainingBestBefore(() => kv, "0x2")).toBe(1200);
-    expect(trainingBestBefore(() => null, "0x1")).toBeNull();
-  });
-
   it("the HUD keeps its single painted star by the score", () => {
-    render(wrap(<GameHud title="Training" score={900} now={0} />));
+    render(wrap(<GameHud title="Story" score={900} now={0} />));
     expect(within(screen.getByRole("banner")).queryByRole("meter")).toBeNull();
     expect(within(screen.getByRole("banner")).queryByRole("img", { name: /stars/ })).toBeNull();
   });

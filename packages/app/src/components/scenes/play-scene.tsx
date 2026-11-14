@@ -76,11 +76,11 @@ const keepForDialogs = (event: Event) => {
 /**
  * Play (`/play`, PLAY-PAGE, the Paved UX Book's "modes", "modes-resume" and "challenge"), opened by the dock's Play: the HUD's drawer, as
  * Missions and the Shop (`HudDrawer`): a full page with Back on a phone, a side panel docked at the right from `tablet` (the book draws a
- * centred window, which no drawer is: docked as the Shop). In it the modes (`PlayModes`): Ranked, Paid, Free, Limited. The Challenge's stake
+ * centred window, which no drawer is: docked as the Shop). In it the modes (`PlayModes`): Ranked, Paid, Limited (the Puzzle) beside Free (Story), the weekly events. The Challenge's stake
  * (`/play/challenge`) is a panel of its own in the modes' place at every width (the owner's ask of 2026-11-06: no sheet from the bottom;
  * Guild's menu pattern), sliding in from the right, its Back to the modes and the red cross out to the village, the USDC balance at its
  * header's end (the drawers' rule, where the book writes it under the title). Story's campaigns (`/story`, STORY-PAGE) are a view of
- * the same kind, "Story" on the header, its Back to the modes. A pause says so under the modes: Training and Story stay open.
+ * the same kind, "Story" on the header, its Back to the modes. A pause says so under the modes: the other modes stay open.
  */
 export function PlayScene({ open = true, returnFocus, challenge = null, story = null, puzzle = null, joust = null, joustTitle, expedition = null, masterpiece = null, masterpieceTitle, colossus = null, colossusTitle, tournament = null, tournamentTitle, onBack, onChallengeBack, onStoryBack, onPuzzleBack, onJoustBack, onExpeditionBack, onMasterpieceBack, onColossusBack, onTournamentBack, ...modes }: PlaySceneProps) {
   const view = challenge !== null ? "challenge" : story !== null ? "story" : puzzle !== null ? "puzzle" : joust !== null ? "joust" : expedition !== null ? "expedition" : masterpiece !== null ? "masterpiece" : colossus !== null ? "colossus" : tournament !== null ? "tournament" : "modes";
@@ -139,7 +139,7 @@ export function PlayScene({ open = true, returnFocus, challenge = null, story = 
         ) : (
           <>
             <PlayModes {...modes} />
-            {modes.spawnPaused && <Notice tone="warning">New Challenge games are paused. Training and Story mode stay open.</Notice>}
+            {modes.spawnPaused && <Notice tone="warning">New Challenge games are paused. The other modes stay open.</Notice>}
           </>
         )}
       </m.div>

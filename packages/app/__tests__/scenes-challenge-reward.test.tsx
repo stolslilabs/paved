@@ -45,11 +45,11 @@ describe("Challenge reward on the HUD and the over page (#705)", () => {
     expect(screen.getByTestId("hud-reward")).toHaveTextContent(/≈ 617\.3M PAVED\s*max$/);
   });
 
-  it("shows no reward on the HUD without a curve, nor on a Training board", () => {
+  it("shows no reward on the HUD without a curve, nor on a Puzzle board", () => {
     const { unmount } = hud({ reward: null });
     expect(screen.queryByTestId("hud-reward")).toBeNull();
     unmount();
-    render(wrap(<BoardScene {...BOARD.queueTraining} />));
+    render(wrap(<BoardScene {...BOARD.queuePuzzle} />));
     expect(screen.queryByTestId("hud-reward")).toBeNull();
   });
 

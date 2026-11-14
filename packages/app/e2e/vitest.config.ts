@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
-/** The Playwright battle test of Training (`bun run e2e`): a real browser, minutes long, so apart from `bun run test`. */
+/** The app's Playwright tests (`bun run e2e`): a real browser, so apart from `bun run test`. */
 export default defineConfig({
   root: fileURLToPath(new URL("..", import.meta.url)),
   test: {

@@ -234,7 +234,7 @@ function Tiers({ reached, bars }: { reached: string | null; bars?: MasterpieceRa
           );
         })}
       </ul>
-      <p className="text-[0.8125rem] font-medium text-muted-foreground">Claimed from the next Monday. No XP and no chest, as Training and the Puzzle.</p>
+      <p className="text-[0.8125rem] font-medium text-muted-foreground">Claimed from the next Monday. No XP and no chest, as the Puzzle.</p>
     </section>
   );
 }

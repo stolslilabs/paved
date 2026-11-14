@@ -70,7 +70,7 @@ test("the tests, docs and Markdown of a package, the app's tests, e2e and script
     "packages/chain/test/codec.test.ts",
     "packages/indexer/src/events.ts",
     `${A}/__tests__/amount.test.tsx`,
-    `${A}/e2e/training.e2e.ts`,
+    `${A}/e2e/chat-keyboard.e2e.ts`,
     `${A}/scripts/header-sweep.ts`,
     `${A}/vitest.config.ts`,
     `${A}/README.md`,

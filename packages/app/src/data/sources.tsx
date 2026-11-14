@@ -83,7 +83,7 @@ export interface VaultWrites {
 }
 
 /**
- * What the data hooks read from: the chain's views and events, the economy's views, the indexer client and the Training
+ * What the data hooks read from: the chain's views and events, the economy's views, the indexer client and the device's
  * save. The app gives the real ones (`PavedClient.views`, `.events`, `EconomyClient`, `createIndexerClient`); a test gives
  * `@paved/chain`'s fakes (`FakeGameViews`, `FakeEconomy`, `FakePoolQuoter`, an `IndexerClient` on `FixtureIndexer`).
  */
@@ -133,7 +133,7 @@ export interface DataSources {
   colossus?: ColossusSource | null;
   /** The Tournament (the weekly individual event), as the Joust: the mock's on `mock`; null or left out (the chain): `unavailable`, no card in Play. */
   tournament?: TournamentSource | null;
-  /** Where the Training game is saved: `localStorage` by default. */
+  /** Where the device's own data is saved (Story's progress): `localStorage` by default. */
   store?: () => KeyValueStore | null;
 }
 
@@ -151,5 +151,5 @@ export function useDataSources(): DataSources {
   return sources;
 }
 
-/** The Training store of the sources, or `localStorage`. */
-export const trainingStore = (sources: DataSources): (() => KeyValueStore | null) => sources.store ?? browserStore;
+/** The device's store of the sources, or `localStorage`. */
+export const deviceStore = (sources: DataSources): (() => KeyValueStore | null) => sources.store ?? browserStore;

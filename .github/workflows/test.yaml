@@ -94,8 +94,8 @@ jobs:
               - 'contracts/src/tests/golden/**'
               - 'contracts/src/tests/differential.cairo'
               - 'contracts/fixtures/**'
-            # The Training battle test (packages/app/e2e, P-79): the app it plays and the rules it checks every move
-            # against; bun.lock and the root package.json change the versions the browser runs.
+            # The app's Playwright tests (packages/app/e2e): the app they drive and the rules it plays by; bun.lock and the
+            # root package.json change the versions the browser runs.
             e2e:
               - 'packages/app/**'
               - 'packages/game-core/**'
@@ -470,8 +470,8 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-  # The Training battle test (P-79, packages/app/e2e): complete games played by a bot in headless Chromium on the plan
-  # view, against the Vite dev server with no chain, every move checked against the engine's replay of the save. It runs
+  # The app's Playwright tests (packages/app/e2e): headless Chromium against the Vite dev server with no chain (the Training
+  # battle test, P-79, left with Training on 2026-11-14). It runs
   # beside the client job, not after it (PVD-228): it installs, builds and fetches its browser on its own, so waiting
   # for the client job only added that job's time to the critical path. A client that does not build fails in both jobs;
   # the `ci` job requires both. Every path of the e2e filter is in the client filter, so the client job runs whenever
@@ -481,7 +481,7 @@ jobs:
     # The merge queue and main: the whole `e2e` filter. A pull request: its own `e2e_pr` filter (CI-TIERS).
     if: needs.changes.outputs.e2e == 'true' && (github.event_name != 'pull_request' || needs.changes.outputs.e2e_pr == 'true')
     runs-on: ubuntu-latest
-    name: Training e2e (headless)
+    name: App e2e (headless)
     # About 1 min of tests locally for the default 2 games; the setup and the build come on top. On CI the whole job
     # took 733 to 899 s in its successful runs of 2026-11-08 (Stolsis CI, last 40 runs), so 15 min cut runs whose
     # tests all passed; the ceiling is 1.5x the longest, rounded up to a whole minute.
@@ -491,7 +491,6 @@ jobs:
     env:
       # 1.5x the run's measured peak (709 MB, the largest process of the tree), rounded up to 64 MB.
       NODE_OPTIONS: --max-old-space-size=1088
-      PAVED_E2E_GAMES: "2"
       PAVED_E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -540,8 +539,7 @@ jobs:
         working-directory: packages/app
         run: bunx playwright-core install --with-deps chromium-headless-shell
         shell: bash
-      # Every seed is in the log and in the artifact: a failing game replays locally with PAVED_E2E_SEED (e2e/training.e2e.ts).
-      - name: Training e2e
+      - name: App e2e
         run: bun run --filter @paved/app e2e
       # The seeds and the page's last screenshot of a failed test.
       # actions/upload-artifact v4.6.2

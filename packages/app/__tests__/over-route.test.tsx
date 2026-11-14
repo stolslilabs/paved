@@ -254,14 +254,14 @@ describe("/game/:gameId/over (P7a)", () => {
       expect(await reward()).toHaveAttribute("data-state", "free-game");
     });
 
-    it("no terms and not marked free (no economy, or a free game not indexed yet): a neutral line, never Training's copy", async () => {
+    it("no terms and not marked free (no economy, or a free game not indexed yet): a neutral line, never the no-stake panel", async () => {
       const s = setup({ terms: null, indexed: null });
       // A build with no economy deployment: the economy's reads answer null.
       s.sources.economy = null;
       over(s);
       expect(await screen.findByText("Reward unavailable", {}, { timeout: slow(5000) })).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Reward" })).toBeNull();
-      expect(screen.queryByText(/Training plays for practice/)).toBeNull();
+      expect(screen.queryByText(/has no stake and pays no reward/)).toBeNull();
       expect(screen.queryByRole("region", { name: "Settle" })).toBeNull();
     });
 

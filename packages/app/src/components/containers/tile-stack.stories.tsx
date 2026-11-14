@@ -124,8 +124,8 @@ export const QueueLastTwo: Story = { args: { remaining: 2, coming: COMING.slice(
 export const QueueLastTile: Story = { args: { remaining: 1, coming: [] } };
 /** #645, a Challenge move on its way: the next tile waits with it, the one after it is shown, the chain draws the last. */
 export const QueueDrawing: Story = { args: { remaining: 19, state: "pending", tile: { plan: 7, orientation: 1 }, coming: COMING.slice(1), drawing: true } };
-/** #645, Training: the same queue, from the local random. */
-export const QueueTraining: Story = { args: { remaining: 30, coming: [{ plan: 4 }, { plan: 9 }] } };
+/** #645, a Puzzle game: the same queue, from the day's deck. */
+export const QueuePuzzle: Story = { args: { remaining: 30, coming: [{ plan: 4 }, { plan: 9 }] } };
 /** #645, the queue on the bubble's tile: the tile in hand dims, the coming tiles stay. */
 export const QueueOnACell: Story = { args: { remaining: 20, coming: COMING, cellChosen: true } };
 /** #645, the tile fits nowhere: the stack's Discard says so beside the coming tiles (the widest hand, 360 px). */

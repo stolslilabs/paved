@@ -200,69 +200,13 @@ describe("OverScene: the figures and the final board (#539)", () => {
 /** The contracts' category names, by index. */
 const CATEGORY_TYPES = Object.values(CategoryType);
 
-describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", () => {
-  const stats = OVER.training.stats;
-  const score = OVER.training.game.score;
+describe("OverScene: the window over the board (the Puzzle's end, the Ranked end's family)", () => {
+  const stats = OVER.puzzle.stats;
 
-  it("a new best: the crown reached and lit, the headline, the best before and the score", () => {
-    show(<OverScene {...OVER.training} previousBest={1_180} />);
-    const mark = screen.getByRole("img", { name: "Crown: a new best" });
-    expect(mark).toHaveAttribute("data-reached", "true");
-    expect(mark.querySelector("[data-lit]")).not.toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "VICTORY" })).toBeInTheDocument();
-    const best = screen.getByRole("region", { name: "Best" });
-    expect(best).toHaveAttribute("data-record", "true");
-    expect(best).toHaveTextContent(`${pts(score)}1,180 → ${pts(score)}`);
-    expect(within(screen.getByTestId("final-score")).getByTestId("score-value")).toHaveTextContent(pts(score));
-  });
-
-  it("short of the best: Game over, the crown's gold stopping at the score's share, nothing lit", () => {
-    show(<OverScene {...OVER.training} />);
-    const share = Math.round((score / 1_420) * 100);
-    const mark = screen.getByRole("img", { name: `Crown: ${share}% of your best` });
-    expect(mark).not.toHaveAttribute("data-reached");
-    expect(mark.querySelector("[data-lit]")).toBeNull();
-    expect(mark.querySelector(`[data-fill="${share}"]`)).not.toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Best" })).toHaveTextContent("1,420Your best");
-  });
-
-  it("a tied best (#1115): no new best, so Game over, the crown's gold stopping short, nothing lit, no sound and no buzz", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const vibrate = vi.fn();
-    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
-    try {
-      show(<OverScene {...OVER.training} previousBest={score} />);
-      const mark = screen.getByRole("img", { name: "Crown: 100% of your best" });
-      expect(mark).not.toHaveAttribute("data-reached");
-      expect(mark.querySelector("[data-lit]")).toBeNull();
-      expect(mark.querySelector('[data-fill="96"]')).not.toBeNull();
-      expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
-      const best = screen.getByRole("region", { name: "Best" });
-      expect(best).not.toHaveAttribute("data-record");
-      expect(best).toHaveTextContent(`${pts(score)}Your best`);
-      // Past the beat a beaten best pops at (the wonder's sound and the firm buzz): nothing.
-      await act(() => vi.advanceTimersByTimeAsync((END_STARS.lead + 1) * 1000));
-      expect(vibrate).not.toHaveBeenCalled();
-    } finally {
-      delete (navigator as { vibrate?: unknown }).vibrate;
-      vi.useRealTimers();
-    }
-  });
-
-  it("the device's first game: no best to beat, the crown grey, the score the best", () => {
-    show(<OverScene {...OVER.training} previousBest={null} />);
-    const mark = screen.getByRole("img", { name: "Crown: no best to beat yet" });
-    expect(mark.querySelector('[data-fill="0"]')).not.toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "GAME OVER" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Best" })).toHaveTextContent(`${pts(score)}Your best`);
-  });
-
-  it("the tiles, the closed categories in boxes and every closing; no reward, no Challenge figures; Home and Play again", async () => {
-    const onHome = vi.fn();
+  it("the closed categories in boxes and every closing; no reward, no Challenge figures; Leaderboard and Play again", async () => {
+    const onLeaderboard = vi.fn();
     const onPlayAgain = vi.fn();
-    show(<OverScene {...OVER.training} onHome={onHome} onPlayAgain={onPlayAgain} />);
-    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(`${stats.placed} placed ${stats.discarded} discarded −${stats.discardPenalty}`);
+    show(<OverScene {...OVER.puzzle} puzzle={{ result: null, firstPlace: null, dayLabel: "", onLeaderboard }} onPlayAgain={onPlayAgain} />);
     const boxes = within(screen.getByRole("list", { name: "Closed" })).getAllByRole("listitem");
     // The city, the road, the forest, the wonder, each with its count and its points.
     expect(boxes.map((b) => b.getAttribute("aria-label"))).toEqual(
@@ -271,15 +215,15 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
         return `${categoryInfo(category).plural}: ${of.closed} closed, ${pts(of.points)} points`;
       }),
     );
-    expect(within(screen.getByRole("region", { name: "Closings" })).getAllByRole("listitem")).toHaveLength(OVER.training.closings.length);
+    expect(within(screen.getByRole("region", { name: "Closings" })).getAllByRole("listitem")).toHaveLength(OVER.puzzle.closings.length);
     expect(screen.queryByRole("region", { name: "Reward" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Highlights" })).toBeNull();
     expect(screen.queryByRole("radiogroup", { name: "Show" })).toBeNull();
-    expect(screen.getByRole("heading", { level: 1, name: "Training over" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Puzzle over" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Play again" }));
     expect(onPlayAgain).toHaveBeenCalledOnce();
-    await userEvent.click(screen.getByRole("button", { name: "Home" }));
-    expect(onHome).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "Leaderboard" }));
+    expect(onLeaderboard).toHaveBeenCalledOnce();
   });
 
   it("nothing closed: every category at 0, the list says so", () => {
@@ -288,21 +232,20 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
     expect(within(screen.getByRole("region", { name: "Closings" })).getByText("No structure closed in this game.")).toBeInTheDocument();
   });
 
-  it("without figures, the closings count the categories and the game its tiles", () => {
-    show(<OverScene {...OVER.training} stats={undefined} />);
+  it("without figures, the closings count the categories", () => {
+    show(<OverScene {...OVER.puzzle} stats={undefined} />);
     const city = CLOSING_CATEGORIES[0]!;
-    const cities = OVER.training.closings.filter((c) => c.category === city);
+    const cities = OVER.puzzle.closings.filter((c) => c.category === city);
     expect(cities.length).toBeGreaterThan(0);
     expect(within(screen.getByRole("list", { name: "Closed" })).getAllByRole("listitem")[0]).toHaveAttribute(
       "aria-label",
       `${categoryInfo(city).plural}: ${cities.length} closed, ${pts(cities.reduce((s, c) => s + c.points, 0))} points`,
     );
-    expect(screen.getByRole("region", { name: "Tiles" })).toHaveTextContent(`${OVER.training.game.placedCount} placed ${OVER.training.game.discardedCount} discarded`);
   });
 
   it("the cross shows the final board, free; the gold Scores pill brings the window back at once", async () => {
     const onViewChange = vi.fn();
-    show(<OverScene {...OVER.training} onViewChange={onViewChange} />);
+    show(<OverScene {...OVER.puzzle} onViewChange={onViewChange} />);
     expect(screen.getByTestId("scores-overlay")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Close the scores" }));
     expect(onViewChange).toHaveBeenLastCalledWith("board");
@@ -314,14 +257,14 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
     expect(onViewChange).toHaveBeenLastCalledWith("scores");
     expect(board).toHaveAttribute("aria-hidden", "true");
     expect(board).toHaveAttribute("inert");
-    // Shown again, the crown is there at once: no beat, no light coming in.
+    // Shown again, the trophy is there at once: no beat, no light coming in.
     expect(screen.getByTestId("scores-overlay")).toBeInTheDocument();
   });
 
-  it("loads the board under the window once its crown is in, not with it", async () => {
+  it("loads the board under the window once its trophy is in, not with it", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      show(<OverScene {...OVER.training} />);
+      show(<OverScene {...OVER.puzzle} />);
       expect(screen.queryByTestId("final-board")).toBeNull();
       await act(() => vi.advanceTimersByTimeAsync((END_STARS.lead + 0.9) * 1000));
       const board = await screen.findByTestId("final-board");
@@ -333,7 +276,7 @@ describe("OverScene: Training's end (TRAINING-END, the Ranked end's family)", ()
   });
 
   it("no board to show: no cross", () => {
-    show(<OverScene {...OVER.training} board={undefined} />);
+    show(<OverScene {...OVER.puzzle} board={undefined} />);
     expect(screen.queryByRole("button", { name: "Close the scores" })).toBeNull();
   });
 });

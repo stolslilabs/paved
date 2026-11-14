@@ -113,7 +113,8 @@ describe("the dock (#763; DOCK-UNDER-PAGES)", () => {
 describe("redirects of the old links", () => {
   it.each([
     ["/game?mode=challenge&id=7", "/game/7"],
-    ["/game?mode=training", "/training"],
+    // Training left the client: its old link lands on Play.
+    ["/game?mode=training", "/play"],
     ["/economy", "/vault"],
     // The ranks left the UI (#623): their links land Home.
     ["/leaderboard", "/"],
@@ -150,7 +151,7 @@ describe("redirects of the old links", () => {
   it("keeps ?ref= across a redirect", async () => {
     for (const [from, to] of [
       ["/game?mode=challenge&id=7&ref=0xabc", "/game/7"],
-      ["/game?mode=training&ref=0xabc", "/training"],
+      ["/game?mode=training&ref=0xabc", "/play"],
       ["/economy?ref=0xabc", "/vault"],
       ["/leaderboard/20300?ref=0xabc", "/"],
     ] as const) {

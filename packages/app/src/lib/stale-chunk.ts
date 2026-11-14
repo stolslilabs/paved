@@ -3,8 +3,8 @@ import { failedModuleUrl } from "./reimport";
 /**
  * A tab opened before a deployment asks for chunks of its own build, which the host no longer serves (#589): every hashed
  * file of `/assets/` is replaced at each deployment, and the old names answer 404. Such a tab is reloaded once, onto the
- * latest build (docs/client/v2-architecture.md, section 6.6). Nothing is saved first: a Training game is saved at each move
- * (`LocalSession`), and a Challenge placement is on chain or not.
+ * latest build (docs/client/v2-architecture.md, section 6.6). Nothing is saved first: a Puzzle game's moves are sent as they are
+ * played, and a Challenge placement is on chain or not.
  */
 
 /** The key, in `sessionStorage`, of a reload already made for an asset: a second failure of it shows the error page. */

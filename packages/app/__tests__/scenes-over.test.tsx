@@ -35,10 +35,10 @@ describe("Over", () => {
     expect(screen.getByRole("region", { name: "Reward" })).toHaveTextContent(text);
   });
 
-  it("Training's end (TRAINING-END) has no reward to tell: no stake, nothing to settle", () => {
-    render(wrap(<OverScene {...OVER.training} />));
+  it("a Puzzle game's end has no reward to tell: no stake, nothing to settle", () => {
+    render(wrap(<OverScene {...OVER.puzzle} />));
     expect(screen.queryByRole("region", { name: "Reward" })).toBeNull();
-    expect(within(screen.getByTestId("final-score")).getByTestId("score-value")).toHaveTextContent(pts(OVER.training.game.score));
+    expect(within(screen.getByRole("region", { name: "Score" })).getByTestId("score-value")).toHaveTextContent(pts(OVER.puzzle.game.score));
   });
 
   it("says so when the game closed nothing", () => {

@@ -22,7 +22,7 @@ const WEEK_PAGE = "/play/masterpiece";
 /**
  * `/masterpiece` (the weekly individual event): the current account's board of this week on its session (`useMasterpieceSession`),
  * the boards' scene with the Masterpiece's strip under its header (the masterpiece so far, the open structure being grown, the tiles
- * waiting). One tile in hand, as on Training's board: a lit slot, the tile turned, then laid. The HUD shows the masterpiece's score
+ * waiting). One tile in hand, as on the Puzzle's board: a lit slot, the tile turned, then laid. The HUD shows the masterpiece's score
  * and the week's time left. Today's tiles played, the board waits for midnight (UTC), which opens the next twelve by itself; the week
  * over, the board is read only. No board yet (the page opened by its address): the week's page opens it.
  */

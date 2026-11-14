@@ -6,12 +6,11 @@ import { STAR_PERCENTS, shareOf } from "./pvp-rules";
  * The board's score meter in every mode (GAME-OVERLAY, the owner's ask of 2026-11-08: "une barre de progression comme dans les game en
  * Ranked", restyled to the app's taste and applied to all modes): the bar's fill, its marks and its figure, one rule per mode, in the
  * Missions' even steps (a mark at each step's end, each step filled by its share, as the ends fill their stars). The Attack's stars are
- * the Ranked meter's (#647, #740); Story's say shares only (#593); a Challenge's runs to the score to beat, then to the reward's cap;
- * Training's to the device's best.
+ * the Ranked meter's (#647, #740); Story's say shares only (#593); a Challenge's runs to the score to beat, then to the reward's cap.
  */
 
-/** A mark's painting: a star (the Attack, Story), the trophy (a Challenge's score to beat), the crown (Training's best), the PAVED coin (a Challenge's cap). */
-export type MeterArt = "star" | "trophy" | "crown" | "paved";
+/** A mark's painting: a star (the Attack, Story), the trophy (a Challenge's score to beat), the PAVED coin (a Challenge's cap). */
+export type MeterArt = "star" | "trophy" | "paved";
 
 export interface MeterMark {
   /** Its place on the bar, 0 (the start) to 1 (the end). */
@@ -174,25 +173,6 @@ export function tierMeter(name: string, target: number, score: number): ScoreMet
     valueText: pct,
     now: Math.round(share * 100),
     max: 100,
-    figure: pct,
-  };
-}
-
-/**
- * A Training game's meter: one step to the device's best (`paved.training-best.v1`, #539), the crown at its end, lit by a new best; the
- * share of the best after the bar. None on the device's first game (no best to beat) or with no storage.
- */
-export function trainingMeter(best: number | null, score: number): ScoreMeterValue | null {
-  if (best === null || best <= 0) return null;
-  const share = shareOf(score, best);
-  const pct = percent(share);
-  const beaten = score > best;
-  return {
-    ...steps([beaten ? 1 : Math.min(0.99, share)], [{ art: "crown", reached: beaten, name: `Your best: ${formatInteger(best)}` }]),
-    label: `Score ${pct} of your best`,
-    valueText: beaten ? `${pct}, a new best` : pct,
-    now: Math.round(share * 100),
-    max: Math.max(100, Math.round(share * 100)),
     figure: pct,
   };
 }

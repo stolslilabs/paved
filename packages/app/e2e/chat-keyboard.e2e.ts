@@ -36,7 +36,7 @@ beforeAll(async () => {
       root: fileURLToPath(new URL("..", import.meta.url)),
       logLevel: "error",
       server: { port: 0, host: "127.0.0.1" },
-      // The scan from the harness's page only, as Training's (`training.e2e.ts`): crawling `scripts/` fails on a render page's bare
+      // The scan from the harness's page only: crawling `scripts/` fails on a render page's bare
       // `three`, and Vite then skips the pre-bundling.
       optimizeDeps: { entries: ["e2e/chat-keyboard/index.html"] },
     });

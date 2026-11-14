@@ -28,7 +28,7 @@ import type * as purchase from "./purchase";
 import type * as rename from "./rename";
 import type * as pvp from "./pvp";
 import type * as social from "./social";
-import type * as training from "./training";
+import type * as sessionBoard from "./session-board";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
@@ -52,8 +52,8 @@ export type SceneTypes = [
   Expect<Equal<Data<typeof chain.useUsdcBalance>, OrNull<CobblesSceneProps["balance"]>>>,
   Expect<Equal<Data<typeof purchase.usePacks>, OrNull<CobblesSceneProps["cobbles"]["packs"]>>>,
   // board
-  Expect<Equal<training.SessionBoard["tiles"], BoardSceneProps["tiles"]>>,
-  Expect<Equal<training.SessionBoard["lastScored"], BoardSceneProps["lastScored"]>>,
+  Expect<Equal<sessionBoard.SessionBoard["tiles"], BoardSceneProps["tiles"]>>,
+  Expect<Equal<sessionBoard.SessionBoard["lastScored"], BoardSceneProps["lastScored"]>>,
   Expect<Equal<Data<typeof chain.useGame>, OverSceneProps["game"]>>,
   // quests and achievements
   Expect<Equal<Data<typeof indexer.usePlayerQuests>, NonNullable<MissionsSceneProps["quests"]>>>,

@@ -4,7 +4,7 @@ import type { BoardGhost } from "../components/containers/board-viewport";
 import { distinctRotations } from "../lib/rotations";
 
 /**
- * The board's placement state (SLOTS, P-68; PLATES, P-74), for the Training and Challenge boards: the plates of the
+ * The board's placement state (SLOTS, P-68; PLATES, P-74), for the boards (the Puzzle's, a Challenge's, a Story level's): the plates of the
  * tile in hand, where it stands, and whether Confirm may send it.
  *
  * - idle: no tile in hand. The board draws no plate.
@@ -169,7 +169,7 @@ export function useConfirmFlash(confirmMs?: number): [(BoardGhost & { key: numbe
 }
 
 /**
- * The Training and Challenge boards' placement: the rotation, the slot chosen and hovered, the lit slots, the ghost and
+ * The boards' placement: the rotation, the slot chosen and hovered, the lit slots, the ghost and
  * the confirm's flash, from the session's legality (`slotsAt`, `orientationsAt`). `resetKey` changes with a new tile in
  * hand: the slot and the rotation chosen for the last one go.
  */
@@ -224,7 +224,7 @@ export function usePlacement({
   const rotations = useMemo(() => distinctRotations(plan, legal, orientation), [plan, legal, orientation]);
   const rotate = useCallback(() => setOrientation((o) => nextValid(o, rotations)), [rotations]);
   /**
-   * The move was accepted (the page says when: Training once `place` resolves true, Challenge once the engine's prediction
+   * The move was accepted (the page says when: the Puzzle once `place` returns true, Challenge once the engine's prediction
    * takes it): the slot goes, the board flashes green. A refusal calls nothing: the tile stays placed.
    */
   const accepted = useCallback(

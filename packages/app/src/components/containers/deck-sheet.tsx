@@ -22,7 +22,7 @@ export function deckArt(renders: TileRenders | undefined, skins: TileSkins | und
 }
 
 /**
- * What the page shows, by the game's mode (#613). `counted`: a random draw (Challenge, Training), the deck as a count per
+ * What the page shows, by the game's mode (#613). `counted`: a random draw (a Challenge), the deck as a count per
  * plan (`deckSheetCounts`), never its order nor the cards withdrawn at the start. `ordered`: a Story level's fixed draw
  * (`deckSheetOrder`), the next tile first, so the player can plan the level. `attack`: a PvP attack's deck (#789,
  * `attackDeckSheet`), the defender's tiles by plan then the extras drawn at random as unknown cards, never the order.

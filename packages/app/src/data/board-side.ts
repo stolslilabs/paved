@@ -11,7 +11,7 @@ import { BOARD_FOG } from "./settings";
 export type BoardSide = "own" | "rival" | "attack";
 
 /**
- * The rival's void (#772, open point 7: the reds tuned in the story `Scenes/Board/Attack and Training`, Voids, whose controls
+ * The rival's void (#772, open point 7: the reds tuned in the story `Scenes/Board/Attack and Puzzle`, Voids, whose controls
  * change them): the square grid's backdrop with a dark wine ground in place of the green's near black (the Low tier and software
  * WebGL draw no mist, so the ground carries the red alone there), a rose-rust veil in place of the sage (as light, so it shows at
  * the veil's small share), threads and lines to match, and less of the season's hue (`seasonShare` 0.3 of the green's 0.6) so
@@ -30,7 +30,7 @@ export const RIVAL_BACKDROP = {
 export const RIVAL_FOG = { color: "#d8c4c4", shade: "#ae8f90" } as const;
 
 /**
- * The player's attack build's void (#786, open point 1: the blues tuned in the story `Scenes/Board/Attack and Training`, Voids,
+ * The player's attack build's void (#786, open point 1: the blues tuned in the story `Scenes/Board/Attack and Puzzle`, Voids,
  * beside the green and the red): the rival's recipe in blue, a deep night-blue ground, a slate-blue veil, steel-blue threads and
  * lines, and the same `seasonShare` 0.3 so the blue holds in every season. Not the HUD's `--info` cyan: a void, not a notice.
  */

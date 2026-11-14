@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils";
 import { rankingArtSources } from "../elements/ranking-art";
 import { UiIcon } from "../elements/ui-icon";
 import { EndMark, GameEnd } from "./game-end";
-import { ClosedBoxes, ClosingList } from "./training-end";
+import { ClosedBoxes, ClosingList } from "./end-closings";
 
 /** A row's large figure and its line under it, the Ranked end's League row's (`CrownsRow`): outlined, the figure tabular. */
 const FIGURE = "text-outline text-4xl leading-none font-bold tabular-nums";
@@ -70,7 +70,7 @@ export function puzzleTrophyFill(score: number, firstPlace: number | null, first
  * score's share short of it); "VICTORY" when this game's score is the day's first, else "GAME OVER"; "Puzzle · <day>". The carved card's
  * rows, the Ranked end's League row's layout: the score (the star; the best before → this score when beaten, else the best that stands)
  * and the placement (the medal; the place before → after). No prize line (the owner's ask: the mailbox tells it). The closed structures
- * and every closing, as Training's; Leaderboard and the gold Play again at the foot. The cross shows the final board.
+ * and every closing (`end-closings.tsx`); Leaderboard and the gold Play again at the foot. The cross shows the final board.
  */
 export function PuzzleEnd({ score, result, firstPlace, dayLabel, stats, closings, closingsNote, instant, onClose, onLeaderboard, onPlayAgain }: PuzzleEndProps) {
   const late = result?.late ?? false;

@@ -17,16 +17,16 @@ import { PvpAttackScene } from "./pvp-attack-scene";
 import { PvpScoutScene } from "./pvp-scout-scene";
 
 /**
- * BOARD-MODULE-2 (#772): an attack is a Training game on someone else's village. The attack is `BoardScene`'s attack mode, so it
- * has the same 3D board, assets, stack, bubble, closing feed, season dial, weather and fog as Training. Only the attack's own
+ * BOARD-MODULE-2 (#772): an attack is a game on someone else's village. The attack is `BoardScene`'s attack mode, so it has the
+ * same 3D board, assets, stack, bubble, closing feed, season dial, weather and fog as a Puzzle game. Only the attack's own
  * pieces differ (the meter's star marks, the defender in the title, the deck's count) and the void: red around a rival's village,
  * green around the player's own.
  *
  * The board's settings are the module's: `useGameBoard`'s square grid and fog for the side (`sideSettings`). They are held at a
- * season and a time of day here, so the stories compare like with like. Open Attack and Training at 375 and 1440 px to compare
+ * season and a time of day here, so the stories compare like with like. Open Attack and Puzzle at 375 and 1440 px to compare
  * them. Voids shows the two voids side by side; pick a season and a time with the controls to tune the red (open point 7).
  */
-const meta = { title: "Scenes/Board/Attack and Training", parameters: { layout: "fullscreen" } } satisfies Meta;
+const meta = { title: "Scenes/Board/Attack and Puzzle", parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
 
 /** The module's board settings for a side, held at a season and a time of day, the ambient effects on. */
@@ -52,11 +52,11 @@ export const Attack: StoryObj = {
   },
 };
 
-/** A Training game, its tile placed and the bubble up, to compare with Attack: the same scene, the player's green void. */
-export const Training: StoryObj = {
+/** A Puzzle game, its tile placed and the bubble up, to compare with Attack: the same scene, the player's green void. */
+export const Puzzle: StoryObj = {
   render: () => {
-    const t = { ...BOARD.slotChosen, mode: "training" as const, gameId: undefined, expiresAt: null, meter: BOARD.training.meter, bubble: bubble(BOARD.slotChosen.bubble as BoardBubble) };
-    return <BoardScene {...t} now={0} tileRenders={appRenders} {...board3d("own", t)} onBack={fn()} onDiscard={fn()} onRestart={fn()} />;
+    const t = { ...BOARD.slotChosen, mode: "puzzle" as const, gameId: undefined, expiresAt: BOARD.puzzle.expiresAt, meter: BOARD.puzzle.meter, bubble: bubble(BOARD.slotChosen.bubble as BoardBubble) };
+    return <BoardScene {...t} now={BOARD.puzzle.now} tileRenders={appRenders} {...board3d("own", t)} onBack={fn()} onDiscard={fn()} onSurrender={fn()} />;
   },
 };
 

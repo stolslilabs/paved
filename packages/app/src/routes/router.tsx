@@ -31,7 +31,8 @@ function gameRedirect({ request }: LoaderFunctionArgs) {
   const params = new URL(request.url).searchParams;
   const id = params.get("id");
   if (params.get("mode") === "challenge" && id && /^\d+$/.test(id)) return to(`/game/${id}`, request);
-  if (params.get("mode") === "training") return to("/training", request);
+  // Training left the client: its old links land on Play.
+  if (params.get("mode") === "training") return to("/play", request);
   return to("/", request);
 }
 

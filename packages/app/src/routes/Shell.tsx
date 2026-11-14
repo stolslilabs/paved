@@ -20,7 +20,7 @@ export const bootScreen = <LoadingScene />;
 const setMusicVolume = (v: number) => deviceSettings.set(withVolume(deviceSettings.get(), "music", v));
 
 /** The board routes: the scene fills the viewport (`h-dvh`), and it reads neither the balances nor the avatar. */
-const BOARD_PATHS = new Set(["game/:gameId", "training", "story/:campaign/:level"]);
+const BOARD_PATHS = new Set(["game/:gameId", "story/:campaign/:level"]);
 
 /**
  * The root of every route. It draws nothing of its own (the Cartridge notice lives on the Credits page, D-15): a tab page

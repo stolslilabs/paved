@@ -1,6 +1,6 @@
 import { FakeGameViews, type GameKey, type GameView, type TileView } from "@paved/chain";
 import { CENTER, CategoryType, EngineGame, OrientationType, PlanType } from "@paved/game-core";
-import type { Closing } from "../src/data/training";
+import type { Closing } from "../src/data/session-board";
 
 const PLANS = Object.values(PlanType);
 const ORIENTATIONS = Object.values(OrientationType);

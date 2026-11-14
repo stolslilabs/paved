@@ -53,7 +53,7 @@ const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ran
  * (`page-loaders.ts`), so the drawer stays as the stake or Story's campaigns open and close. The modes (P6): Attack opens the PvP flow (`/pvp`); the Challenge is bought on its stake (P7b,
  * `./purchase`); no Connect (NO-GUEST: every player has an account); `spawn_paused` disables the Challenge. The
  * player's newest Challenge game still open (`useActiveGame`, the home's) shows its time left and its score, Resume opening its board.
- * Training and Story need no wallet (Story a view of this drawer, STORY-PAGE: never a sheet over it). Free Challenge (a free game from
+ * Story needs no wallet (a view of this drawer, STORY-PAGE: never a sheet over it). Free Challenge (a free game from
  * the missions' credits) left with the owner's ask of 2026-11-06. An unread pause counts as not paused: the stake reads it again. Play's
  * close goes back along the pages walked from the home, else to it; the stake's and Story's Back up to the modes, never into a level.
  */
@@ -227,7 +227,6 @@ export default function Page() {
         onPuzzleBack={onViewBack}
         onChallenge={() => go("/play/challenge")}
         onResume={(id) => go(`/game/${id}`)}
-        onTraining={() => go("/training")}
         onStory={() => go("/story")}
         onAttack={() => go("/pvp")}
         puzzleCard={puzzle}

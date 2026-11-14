@@ -123,7 +123,7 @@ describe("Carousel (shadcn/ui on Embla)", () => {
     return (
       <Carousel aria-label="Modes" setApi={onApi}>
         <CarouselContent>
-          {["Daily", "Training", "Tutorial"].map((mode, i) => (
+          {["Daily", "Puzzle", "Tutorial"].map((mode, i) => (
             <CarouselItem key={mode} aria-label={`${i + 1} of 3`}>{mode}</CarouselItem>
           ))}
         </CarouselContent>

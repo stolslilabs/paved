@@ -10,16 +10,14 @@ import { TopBar } from "../../components/containers/top-bar";
 import { useBoardSkins } from "../../data/board-skins";
 import { challengeQueue, useChallengeSession } from "../../data/challenge";
 import { useChallengeCurve } from "../../data/reward-curve";
-import { boardOf, remainingOf, useTrainingSession } from "../../data/training";
+import { boardOf, remainingOf } from "../../data/session-board";
 import { PuzzleGame, usePuzzleSession, type PuzzleSnapshot } from "../../data/puzzle-game";
 import { usePuzzleStanding } from "../../data/puzzle";
 import { useJoustSession, useJoustState, type JoustGameRecord } from "../../data/joust";
 import { useTournamentSession, type TournamentGameRecord } from "../../data/tournament";
 import { addressKey } from "../../data/keys";
 import { usePuzzleViewer } from "../puzzle-play";
-import { trainingStore, useDataSources } from "../../data/sources";
-import { useTrainingBest } from "../../data/training-best";
-import { challengeMeter, puzzleMeter, trainingMeter } from "../../lib/score-meter";
+import { challengeMeter, puzzleMeter } from "../../lib/score-meter";
 import { tournamentMeter, type ScoreMeterValue } from "../../lib/score-meter";
 import { tournamentRoundName } from "@paved/game-core";
 import { useErrorDetail } from "../error-detail";
@@ -31,10 +29,9 @@ import { useAfterGameOver } from "../game-over";
 import type { Slot } from "../../data/placement";
 import { useGameBoard } from "../game-board";
 
-/** `/training` (P3), `/game/:gameId` (P5) and `/puzzle/:gameId` (Play's Limited mode); Story levels have their own page (`story-board.tsx`). */
+/** `/game/:gameId` (P5) and `/puzzle/:gameId` (Play's Limited mode), the Joust's and the Tournament's; Story levels have their own page (`story-board.tsx`). */
 export default function Page() {
   const page = useRoutePage();
-  if (page?.path === "training") return <TrainingBoard />;
   if (page?.path === "game/:gameId") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId") return <PuzzleRoute />;
   if (page?.path === "joust/:gameId") return <JoustRoute />;
@@ -151,7 +148,7 @@ function PuzzleRoute() {
 
 /**
  * A Puzzle game (Play's Limited mode) on its session (`usePuzzleSession`): read from the source, then played on the device, each move
- * sent in order. As Training's board: the player picks a lit slot, turns the tile and places it. The HUD shows the day's time left (its
+ * sent in order. The player picks a lit slot, turns the tile and places it. The HUD shows the day's time left (its
  * end: a game ranks only when it ends before), the score meter the day's first place; Surrender ends it, no Restart (the game is on
  * chain). Past the day's end the hand takes only a surrender, its dialog open by itself. A refused move stops the board until it is read
  * again. Another account's game (or a game opened without an account) is shown read-only: only its own player plays it. A finished
@@ -315,105 +312,6 @@ function PuzzlePlay({ game, snapshot, settled, otherAccount, onReload, onBack, j
   );
 }
 
-/**
- * The Training board on its `LocalSession` (P3). The player picks a lit slot (a tap or a click; on a mouse, the hover
- * shows the ghost too), turns the tile, then places it: the move sent is built from the slot the ghost shows, through
- * `toChainSlot` (D1, #379). A finished game goes to `/training/over`, once its last move has played out on the board.
- */
-function TrainingBoard() {
-  const { game, snapshot, board, restart } = useTrainingSession();
-  // The connected player's skins; a guest's board draws the base models.
-  const sources = useDataSources();
-  const skins = useBoardSkins(sources.signer?.address ?? null);
-  const go = useAppNavigate();
-  const onBack = useBack();
-  const best = useTrainingBest(trainingStore(sources), `0x${game.seed.toString(16)}`);
-
-  const hand = board.hand;
-  const slotsAt = useCallback((o: number) => game.slots(o), [game]);
-  const orientationsAt = useCallback((cell: Slot) => game.orientationsAt(cell), [game]);
-  // The slots of every rotation, the slot chosen, the ghost (SLOTS). Another game (another tab's save followed, a new
-  // game): the slot and orientation chosen for the old hand go. `snapshot` changes with every move.
-  const { placement, scene } = useGameBoard({ skins, placement: { plan: hand?.plan ?? null, slotsAt, orientationsAt, version: snapshot, resetKey: game } });
-  const { orientation, move, slots } = placement;
-  const preview = useMemo(() => (move ? game.preview(move) : null), [game, snapshot, move]);
-  const handErrorDetail = useErrorDetail(snapshot.state.writeError);
-
-  // The last move plays out on the board first (`GAME_OVER_HOLD_MS`), then the scores.
-  useAfterGameOver(board.over, () => go("/training/over", { replace: true }));
-
-  // Confirm only a placed tile whose rotation fits (red: disabled). The green flash once the session took the move;
-  // refused, the tile stays placed (its error in the hand).
-  const [placing, setPlacing] = useState(false);
-  const confirm = useCallback(async () => {
-    if (!placement.canConfirm || !move || preview === null) return;
-    const ghost = placement.ghost;
-    setPlacing(true);
-    try {
-      if (await game.place(move)) {
-        placement.accepted(ghost);
-        placement.setOrientation(1);
-      }
-    } finally {
-      setPlacing(false);
-    }
-  }, [game, placement, move, preview]);
-
-  const discard = useCallback(() => {
-    placement.clear();
-    void game.discard();
-  }, [game, placement]);
-
-  const state = snapshot.state;
-  const handState = !hand || board.over ? "empty" : state.writeError ? "refused" : "placing";
-  const bubble = placement.chosen
-    ? {
-        cell: placement.chosen,
-        rotations: placement.rotations.length,
-        onRotate: placement.rotate,
-        onClose: placement.clear,
-        onDiscard: discard,
-        discardCost: Math.min(board.score, DISCARD_POINTS),
-        orientation,
-        onConfirm: () => void confirm(),
-        canConfirm: placement.canConfirm && preview !== null,
-        busy: placing,
-      }
-    : null;
-  return (
-    <BoardScene
-      mode="training"
-      score={board.score}
-      // The score meter (GAME-OVERLAY): to the device's best; none on its first game.
-      meter={trainingMeter(best, board.score)}
-      delta={snapshot.delta}
-      remaining={board.remaining}
-      discardedPlans={board.discardedPlans}
-      expiresAt={null}
-      now={Math.floor(Date.now() / 1000)}
-      hand={{
-        tile: hand && { plan: hand.plan, orientation },
-        state: handState,
-        coming: board.coming,
-        slotChosen: placement.canConfirm && preview !== null,
-        cellChosen: placement.chosen !== null,
-        fitsNowhere: hand !== null && slots?.length === 0,
-        preview,
-        error: state.writeError,
-        errorDetail: handErrorDetail,
-      }}
-      lastScored={board.lastScored}
-      {...scene({ tiles: board.tiles, closed: board.closed, bubble })}
-      onBack={onBack}
-      onDiscard={discard}
-      onRestart={() => {
-        placement.clear();
-        restart();
-      }}
-    />
-  );
-}
-
 /** `/game/:gameId`: a game id is digits; anything else is not a game. */
 function ChallengeRoute() {
   const { gameId } = useParams();
@@ -431,7 +329,7 @@ function challengeHand(state: PredictedState, expired: boolean): HandState {
 }
 
 /**
- * A Challenge game on its `PredictedSession` (P5). As Training's board: the player picks a lit slot, turns the tile and
+ * A Challenge game on its `PredictedSession` (P5). As the Puzzle's board: the player picks a lit slot, turns the tile and
  * places it; the engine shows the tile, its points and the next tile at once, and the move stays pending until the
  * chain confirms it. Without a signer the board is read only ("Connect to play"); a refused move rolls back and shows
  * its error; a result the chain does not share resyncs the board ("Board resynced"); past `expiresAt` the hand only

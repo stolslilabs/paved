@@ -68,7 +68,7 @@ describe("/play: the Masterpiece's card in Limited", () => {
 
   it("shows no card on the chain's sources, and says so at the view's address", async () => {
     open("/play", null);
-    expect(await screen.findByRole("button", { name: /Training/ }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Story/ }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Masterpiece/ })).toBeNull();
     cleanup();
     open("/play/masterpiece", null);

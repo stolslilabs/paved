@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils";
 import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { EndMark, GameEnd } from "./game-end";
-import { ClosedBoxes, ClosingList } from "./training-end";
+import { ClosedBoxes, ClosingList } from "./end-closings";
 
 /** A row's large figure and its line under it, the Puzzle end's. */
 const FIGURE = "text-outline text-4xl leading-none font-bold tabular-nums";
@@ -42,7 +42,7 @@ export function tournamentVerdict(result: TournamentGameResult): { verdict: stri
  * A Tournament game's end (the weekly individual event, in the Puzzle end's family, `GameEnd`): the window over the final board,
  * crowned by the trophy, its gold the score's share of the opponent's (lit once through). The verdict (`tournamentVerdict`) and the
  * round under it. The carved card's rows: the score against the opponent's (or that they have not played yet), and the Cobbles: what
- * going through secures, or the round's own once out. The closed structures and every closing, as Training's; the tournament's view
+ * going through secures, or the round's own once out. The closed structures and every closing, as the Puzzle's; the tournament's view
  * at the foot: one game a round, no next game.
  */
 export function TournamentEnd({ score, result, stats, closings, closingsNote, instant, onClose, onTournament }: TournamentEndProps) {

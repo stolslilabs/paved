@@ -9,7 +9,7 @@ import type { RewardCurve } from "./reward-estimate";
 /**
  * A finished game's reward, from `Economy.terms(id)`: `rewarded` (settled, minted), `awaiting` (recorded, its day not
  * closed), `settle` (its day closed, not settled yet), `below` (under the threshold: the stake is lost), `expired` (not
- * recorded within 24 h), `free` (Training: no stake, no reward).
+ * recorded within 24 h), `free` (no stake, no reward: the Puzzle's, the Joust's and the Tournament's games).
  */
 export type RewardState = "rewarded" | "awaiting" | "settle" | "below" | "expired" | "free";
 
@@ -37,7 +37,7 @@ const COPY: Record<RewardState, { title: string; tone: string; icon: string }> =
   settle: { title: "Ready to settle", tone: "border-primary/40 bg-card", icon: "trophy" },
   below: { title: "No reward", tone: "border-ember-900 bg-ember-950/50", icon: "triangle-exclamation" },
   expired: { title: "Expired", tone: "border-ember-900 bg-ember-950/50", icon: "triangle-exclamation" },
-  free: { title: "Training", tone: "border-border bg-secondary/40", icon: "circle-info" },
+  free: { title: "No stake", tone: "border-border bg-secondary/40", icon: "circle-info" },
 };
 
 /** The reward or its absence, with the threshold the score was measured against. */
@@ -74,7 +74,7 @@ export function RewardPanel({ state, reward = 0n, stake, score, threshold, curve
       {state === "settle" && estimated && <p className="text-sm text-muted-foreground">The first settle fixes the day's mean, and the reward with it.</p>}
       {state === "below" && <p className="text-sm text-muted-foreground">Below the threshold the stake is lost.</p>}
       {state === "expired" && <p className="text-sm text-muted-foreground">The game was not finished within 24 h of its purchase: no reward.</p>}
-      {state === "free" && <p className="text-sm text-muted-foreground">Training plays for practice: no stake, no reward.</p>}
+      {state === "free" && <p className="text-sm text-muted-foreground">This game has no stake and pays no reward.</p>}
       {state === "settle" && (
         <Button onClick={onSettle} loading={settling}>
           Settle and claim

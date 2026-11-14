@@ -8,8 +8,8 @@ import { OverScene } from "./over-scene";
 import { PHONE_375, WIDE_1440 } from "./viewports";
 
 /**
- * The end of a game over its final board (#720). Training's (TRAINING-END): the Ranked end's window (`TrainingEnd` on `GameEnd`) over
- * the board blurred, crowned by the crown of its best. A Challenge's: final score, metrics, every closing (P7), the reward or its
+ * The end of a game over its final board (#720). The Puzzle's: the Ranked end's window (`PuzzleEnd` on `GameEnd`) over the board
+ * blurred, crowned by the trophy of the day's first place. A Challenge's: final score, metrics, every closing (P7), the reward or its
  * absence, as a translucent overlay under the board's own HUD. One story per state; the Viewport control reframes it (check each at
  * 375 and 1440 px).
  */
@@ -17,38 +17,22 @@ const meta = { title: "Scenes/Over", component: OverScene, args: { onSettle: fn(
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A Training end short of the device's best (TRAINING-END): "GAME OVER", the crown's gold stopping at the score's share, no light. */
-export const Training: Story = { args: OVER.training };
-
-/** A new best (TRAINING-END): the crown fills, pops and lights; "VICTORY", the best before → the score. */
-export const TrainingNewBest: Story = { args: { ...OVER.training, previousBest: 1_180 } };
-
-/** A tied best (#1115): no new best, so "GAME OVER", "Your best", the crown's gold stopping short, no light, no sound. */
-export const TrainingTiedBest: Story = { args: { ...OVER.training, previousBest: OVER.training.game.score } };
-
-/** The device's first Training game: no best to beat, the crown grey; the score is the best. */
-export const TrainingFirstGame: Story = { args: { ...OVER.training, previousBest: null } };
-
 /** The scenes' figures stripped (no `gameStats`): the closings alone count the categories, the game its tiles. */
-export const TrainingNoFigures: Story = { args: { ...OVER.training, stats: undefined } };
+export const PuzzleNoFigures: Story = { args: { ...OVER.puzzle, stats: undefined } };
 
-/** WRAP360: Training's widest figures (the Challenge's stress game, its reward unused). */
-export const TrainingStress: Story = { args: { ...OVER.stress, mode: "training" } };
+/** WRAP360: the window's widest figures (the Challenge's stress game, its reward unused). */
+export const PuzzleStress: Story = { args: { ...OVER.stress, mode: "puzzle" } };
 
 /** The final board alone (#539): the window's cross closed the scores; the board panned and zoomed, the gold Scores pill to come back. */
 export const FinalBoard: Story = { args: OVER.finalBoard };
 
 /** The board's chunk still on its way (#720): the scores at once over the board's colour, never waiting for it. */
-export const BoardLoading: Story = { args: { ...OVER.training, loadBoard: () => new Promise(() => {}) } };
+export const BoardLoading: Story = { args: { ...OVER.puzzle, loadBoard: () => new Promise(() => {}) } };
 
 /** "Board" before the chunk is in: the board's place says it is loading. */
 export const BoardLoadingAlone: Story = { args: { ...OVER.finalBoard, loadBoard: () => new Promise(() => {}) } };
 
 /** The three at 375 px and at 1440 px (#720): the scores over the board, the board alone, the board still loading. */
-export const TrainingPhone: Story = { ...Training, ...PHONE_375 };
-export const TrainingWide: Story = { ...Training, ...WIDE_1440 };
-export const TrainingNewBestPhone: Story = { ...TrainingNewBest, ...PHONE_375 };
-export const TrainingNewBestWide: Story = { ...TrainingNewBest, ...WIDE_1440 };
 export const FinalBoardPhone: Story = { ...FinalBoard, ...PHONE_375 };
 export const FinalBoardWide: Story = { ...FinalBoard, ...WIDE_1440 };
 export const BoardLoadingPhone: Story = { ...BoardLoading, ...PHONE_375 };
@@ -126,7 +110,7 @@ export const FreeGame: Story = { args: { ...OVER.awaiting, freeGame: true, rewar
 /** The closings could not be read: the rest of the page stands. */
 export const ClosingsUnavailable: Story = { args: { ...OVER.awaiting, closings: [], closingsNote: "The closings of this game could not be read." } };
 
-/** A Training game that closed nothing, the device's first: every category dimmed at 0, the list says so. */
+/** A Puzzle game that closed nothing: every category dimmed at 0, the list says so. */
 export const NoClosing: Story = { args: OVER.noClosing };
 /** WRAP360: long names and sentences, full addresses, large figures. */
 export const Stress: Story = { args: OVER.stress };
@@ -135,12 +119,12 @@ export const Stress: Story = { args: OVER.stress };
 export const SettlesAfterStress: Story = { args: { ...settling, settle: { state: "after", at: MOCK_NOW + 999 * 3600 + 59 * 60 } } };
 
 /**
- * A Puzzle game's end (PUZZLE-MODE): Training's window, the trophy filled by the score's share of the day's first place, the rows
+ * A Puzzle game's end (PUZZLE-MODE): the book's window, the trophy filled by the score's share of the day's first place, the rows
  * Score and Placement; "VICTORY" when this game is the day's first.
  */
 const puzzle = (end: keyof typeof PUZZLE_END): Story => {
   const { score, result, firstPlace, dayLabel } = PUZZLE_END[end];
-  return { args: { ...OVER.training, mode: "puzzle", game: { ...OVER.training.game, score }, previousBest: undefined, puzzle: { result, firstPlace, dayLabel, onLeaderboard: fn() } } };
+  return { args: { ...OVER.puzzle, game: { ...OVER.puzzle.game, score }, puzzle: { result, firstPlace, dayLabel, onLeaderboard: fn() } } };
 };
 /** First of the day: "VICTORY", the trophy full, the best and the place before → after. */
 export const PuzzleVictory: Story = puzzle("victory");
