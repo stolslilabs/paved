@@ -45,7 +45,7 @@ function open(path: string, ledger: MockLedger | null = newLedger()) {
   return { router, conquest, ledger };
 }
 
-preloadPages("home", "play", "conquest-map");
+preloadPages("home", "play", "conquest-board");
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: DAY_9 });

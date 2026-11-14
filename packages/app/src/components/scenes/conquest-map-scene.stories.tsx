@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { BoardViewport } from "../containers/board-viewport";
-import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
 import { CONQUEST_MAP } from "../../mocks/conquest";
 import { ConquestMapScene } from "./conquest-map-scene";
 
@@ -29,7 +29,7 @@ const onBoard = (c: { x: number; y: number }) => ({ x: CENTER + c.x - origin.x, 
 const tiles = area.tiles.map((t) => ({ id: t.y * 4096 + t.x + 1, plan: t.plan, orientation: t.orientation, ...onBoard(t) }) as BoardTile);
 const canvas = (
   <BoardViewport
-    basePath={SOURCE_ASSETS}
+    basePath={APP_ASSETS}
     tiles={tiles}
     reveal={[...area.explored, ...area.tiles].map(onBoard)}
     slots={[...area.requests, ...area.frontier].map(onBoard)}

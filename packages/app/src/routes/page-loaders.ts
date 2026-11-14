@@ -88,7 +88,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   // Its map: a chunk of its own, the boards' manifest asked for with it.
   conquest: () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
-    return import("./pages/conquest-map");
+    return import("./pages/conquest-board");
   },
   // The Tournament, as the Joust.
   "play/tournament": play,

@@ -70,7 +70,7 @@ village.
   Its views (`?view=`): the knowledge tree, the ranking (a tab of the foot per phase and the final one), the members (a tab per
   figure they are ranked by), the open requests, the goals and rules, and a result (`?view=result&of=`: a phase over, the Conquest
   over, the last Conquest). The card and the views' names: `routes/conquest-play.ts`; the page: `routes/pages/conquest.tsx`.
-- The map: `/conquest` (`?zone=`), a page of its own (`scenes/conquest-map-scene.tsx`, `routes/pages/conquest-map.tsx`): the board's
+- The map: `/conquest` (`?zone=`), a page of its own (`scenes/conquest-map-scene.tsx`, `routes/pages/conquest-board.tsx`): the board's
   3D scene on the world round a zone (`ConquestSource.area`: the zone and a band of half a zone round it). It opens on the viewer's
   province; its origin stays the middle of the zone it opened on, so a pan crosses into the next zone without a jump, the area read
   again for the zone under the middle of the view. The fog is the Conquest's (`BoardViewport`'s `reveal`: a cell is clear once
