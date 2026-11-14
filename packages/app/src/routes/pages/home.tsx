@@ -1,3 +1,4 @@
+import { useConquestBadge } from "../conquest-play";
 import type { MissionProgress } from "../../data/mission-progress";
 import { Suspense, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { UNSAFE_DataRouterContext, useBlocker, useLocation, useNavigate, useSearchParams } from "react-router";
@@ -64,6 +65,7 @@ export default function Page() {
   const read = useFreeVillageHeld(me);
   const writes = useFreeVillageWrites(me);
   const active = useActiveGame(wallet.address);
+  const conquest = useConquestBadge(me);
   const paused = useSpawnPaused();
   const [missions, setMissions] = useState(0);
   const [mission, setMission] = useState<MissionProgress | null>(null);
@@ -176,6 +178,8 @@ export default function Page() {
         onShop={() => go("/village/shop")}
         onVault={() => go("/vault")}
         onTiles={() => go("/tiles")}
+        conquest={conquest}
+        onConquest={() => go("/play/conquest")}
         onLeague={() => go("/pvp/league")}
         onSettings={() => go("/settings")}
         onNavigate={onNavigate}

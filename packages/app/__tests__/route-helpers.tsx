@@ -66,11 +66,13 @@ const PAGES = {
       import("../src/routes/pages/expedition"),
       import("../src/routes/pages/masterpiece"),
       import("../src/routes/pages/colossus"),
+      import("../src/routes/pages/conquest"),
       import("../src/routes/pages/tournament"),
       import("../src/routes/home-hosts"),
     ]),
   "expedition-board": () => import("../src/routes/pages/expedition-board"),
   "masterpiece-board": () => import("../src/routes/pages/masterpiece-board"),
+  "conquest-board": () => import("../src/routes/pages/conquest-board"),
   purchase: () => import("../src/routes/pages/purchase"),
   cobbles: () => import("../src/routes/pages/cobbles"),
   // Missions is the HUD's drawer over the home (MISSIONS-PAGE): its host comes with it.

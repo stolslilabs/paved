@@ -281,6 +281,17 @@
  * three variants each on a transparent 1254 px square, the second kept for both (the compass tilted as the others' objects are, the
  * frame with its painting's ground so the card's scene does not show through it). Each trimmed to its alpha box (alpha 8 and over),
  * fitted to the 240 px box (libwebp's premultiplied rescale) and centred on the icons' frame.
+ * `mode-conquest` (2026-11-14, the owner's ask: the proposal's icon on the Conquest's card), a stone castle on a checkered slab of
+ * grass: drawn the same way, with the crop of the proposal's Play screen and `mode-colossus`, `mode-masterpiece` and `mode-puzzle` as
+ * references; two variants, the first kept (the plainer slab, no tufts of grass). The proposal's two banners on their poles became
+ * two banners hung on the castle's own towers: one object.
+ * The Conquest's paintings (`CONQUEST_ART`, 2026-11-14, the owner's ask: the page as its proposal draws it): the proposal's own
+ * `img/icon-offrande.webp`, `icon-exploration.webp`, `icon-don.webp` (256 px, scaled to 192) and `img/tree-*.webp` (192 px), taken as
+ * they are, each on its painted ground. `conquest-knowledge`, the Knowledge points' icon (the owner's ask: an icon for the points
+ * earned and spent), an open book with a golden star: drawn by Codex's built-in image tool, two variants, the first kept (the star
+ * glows in the book's middle and reads at 16 px); trimmed, fitted to 180 px and centred on the 192 px frame. `conquest-world`, the
+ * map's World button (the owner's ask: a World icon that opens the grid of the zones), a globe cut into squares on its stand: the
+ * same tool, two variants, the first kept (the stand's arm reads as a globe at 36 px), fitted the same way.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
@@ -295,7 +306,7 @@ import { MEDALLION_FRAME, MISSION_PARTS, UI_MEDALLIONS, UI_MISSION_PARTS, UI_RIN
 import { SHOP_PARTS, UI_SHOP_PARTS } from "../src/components/elements/shop-art.ts";
 import { EMBLEM_FRAME, GUILD_EMBLEM_CHARGES } from "../src/components/elements/emblem-art.ts";
 import { FRIENDS_PARTS, UI_FRIENDS_PARTS } from "../src/components/elements/friends-art.ts";
-import { MODE_ICONS, MODE_ICON_FRAME, MODE_SCENES, MODE_SCENE_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
+import { CONQUEST_ART, CONQUEST_ART_FRAME, MODE_ICONS, MODE_ICON_FRAME, MODE_SCENES, MODE_SCENE_FRAME, STAKE_ART, STAKE_ART_FRAME } from "../src/components/elements/play-art.ts";
 import { AVATAR_ART, AVATAR_ART_FRAME } from "../src/components/elements/avatar-art.ts";
 import { VAULT_ART, VAULT_ART_FRAME, VAULT_LIGHTS, VAULT_LIGHT_FRAME } from "../src/components/elements/vault-art.ts";
 import { RANKING_ART, RANKING_ART_FRAME } from "../src/components/elements/ranking-art.ts";
@@ -319,6 +330,7 @@ const IMAGES = [
   ...MODE_ICONS.map((name) => ({ kind: "play" as const, name, frame: MODE_ICON_FRAME })),
   ...MODE_SCENES.map((name) => ({ kind: "play" as const, name, frame: MODE_SCENE_FRAME })),
   ...STAKE_ART.map((name) => ({ kind: "play" as const, name, frame: STAKE_ART_FRAME })),
+  ...CONQUEST_ART.map((name) => ({ kind: "play" as const, name, frame: CONQUEST_ART_FRAME })),
   ...VAULT_ART.map((name) => ({ kind: "vault" as const, name, frame: VAULT_ART_FRAME })),
   ...VAULT_LIGHTS.map((name) => ({ kind: "vault" as const, name, frame: VAULT_LIGHT_FRAME })),
   ...AVATAR_ART.map((name) => ({ kind: "avatar" as const, name, frame: AVATAR_ART_FRAME })),

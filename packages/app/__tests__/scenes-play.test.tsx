@@ -5,6 +5,7 @@ import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { PLAY, PURCHASE } from "../src/mocks/scenes";
 import { COLOSSUS_CARD } from "../src/mocks/colossus";
+import { CONQUEST_CARD } from "../src/mocks/conquest";
 import { EXPEDITION_CARD } from "../src/mocks/expedition";
 import { MASTERPIECE_CARD } from "../src/mocks/masterpiece";
 import { wrap, pts } from "./scenes-helpers";
@@ -50,8 +51,8 @@ describe("Play", () => {
   });
 
   it("draws each event's own icon on its card (EVENT-ICONS): the Expedition's, the Masterpiece's, the Colossus's", () => {
-    render(wrap(<PlayScene {...PLAY.connected} {...EXPEDITION_CARD.playing} {...MASTERPIECE_CARD.waiting} {...COLOSSUS_CARD.week} />));
-    for (const mode of ["expedition", "masterpiece", "colossus"]) {
+    render(wrap(<PlayScene {...PLAY.connected} {...EXPEDITION_CARD.playing} {...MASTERPIECE_CARD.waiting} {...COLOSSUS_CARD.week} {...CONQUEST_CARD.playing} />));
+    for (const mode of ["expedition", "masterpiece", "colossus", "conquest"]) {
       const card = document.querySelector(`[data-mode="${mode}"]`)!;
       expect(card.querySelector(`img[src$="/scene-${mode}.webp"]`), mode).not.toBeNull();
       // Decorative, as every mode's icon: the card's words name the event.

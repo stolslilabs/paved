@@ -244,6 +244,8 @@ export {
 export type { MasterpieceEntry, MasterpieceKind, MasterpieceMove, MasterpiecePiece, MasterpieceProspect, MasterpieceResult, MasterpieceSeason, MasterpieceTier } from "./masterpiece";
 // The Colossus (the weekly collective event): the calendar, the site, the hands, the placement, the stones and the rewards
 export * from "./colossus";
+// The Conquest (the season's finale, an allegiance event): the calendar, the world, the Offerings, the exploration, the placement, the majority, the tree and the rewards
+export * from "./conquest";
 // The Tournament (the weekly individual event): the calendar, the leagues' groups, the draw, who goes through and the rewards
 export {
   TOURNAMENT_BYE,
