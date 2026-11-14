@@ -33,6 +33,8 @@ import { JoustEnd } from "../containers/joust-end";
 import type { JoustGameResult, JoustGuild } from "../../data/joust-source";
 import { TournamentEnd } from "../containers/tournament-end";
 import type { TournamentGameResult } from "../../data/tournament-source";
+import { FairEnd } from "../containers/fair-end";
+import type { FairTryResult } from "../../data/fair-source";
 import { TrainingEnd } from "../containers/training-end";
 
 // The final board (#539) is its own chunk, with the renderer: loaded when the end screen opens (#720), the scores' background.
@@ -93,10 +95,18 @@ export interface OverTournament {
   onTournament?: () => void;
 }
 
+/** A Fair try's end (the weekly individual event): its effect on the player's best of the week and where that stands. */
+export interface OverFair {
+  result: FairTryResult | null;
+  onFair?: () => void;
+}
+
 export interface OverSceneProps {
-  mode: "challenge" | "training" | "puzzle" | "joust" | "tournament";
+  mode: "challenge" | "training" | "puzzle" | "joust" | "tournament" | "fair";
   /** A Tournament game's end (`mode: "tournament"`). */
   tournament?: OverTournament;
+  /** A Fair try's end (`mode: "fair"`). */
+  fair?: OverFair;
   /** A Joust game's end (`mode: "joust"`). */
   joust?: OverJoust;
   /** A Puzzle game's end (`mode: "puzzle"`). */
@@ -250,7 +260,7 @@ export function OverScene(props: OverSceneProps) {
       <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
         {boardLayer}
         {/* The page's name for a reader: the book's window draws no title bar. */}
-        <h1 className="sr-only">{props.mode === "puzzle" ? "Puzzle over" : props.mode === "joust" ? "Joust game over" : props.mode === "tournament" ? "Tournament game over" : "Training over"}</h1>
+        <h1 className="sr-only">{props.mode === "puzzle" ? "Puzzle over" : props.mode === "joust" ? "Joust game over" : props.mode === "tournament" ? "Tournament game over" : props.mode === "fair" ? "Fair try over" : "Training over"}</h1>
         {onBoard ? (
           <ShowScores onClick={() => setView("scores")} />
         ) : (
@@ -263,7 +273,19 @@ export function OverScene(props: OverSceneProps) {
                 data-testid="scores-overlay"
                 className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center overflow-x-clip px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]"
               >
-                {props.mode === "tournament" ? (
+                {props.mode === "fair" ? (
+                  <FairEnd
+                    score={game.score}
+                    result={props.fair?.result ?? null}
+                    stats={stats}
+                    closings={props.closings}
+                    closingsNote={props.closingsNote}
+                    instant={back}
+                    onClose={board ? () => setView("board") : undefined}
+                    onFair={props.fair?.onFair}
+                    onPlayAgain={props.onPlayAgain}
+                  />
+                ) : props.mode === "tournament" ? (
                   <TournamentEnd score={game.score} result={props.tournament?.result ?? null} stats={stats} closings={props.closings} closingsNote={props.closingsNote} instant={back} onClose={board ? () => setView("board") : undefined} onTournament={props.tournament?.onTournament} />
                 ) : props.mode === "joust" ? (
                   <JoustEnd

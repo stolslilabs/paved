@@ -87,6 +87,10 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "play/tournament": play,
   "tournament/:gameId": board,
   "tournament/:gameId/over": over,
+  // The Fair, as the Joust.
+  "play/fair": play,
+  "fair/:gameId": board,
+  "fair/:gameId/over": over,
   // A Story level is its own chunk (#546), with the board's manifest asked for as the board's.
   "story/:campaign/:level": () => {
     void manifestBody(RENDERER_ASSETS).catch(() => {});

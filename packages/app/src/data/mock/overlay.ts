@@ -5,6 +5,7 @@ import type { ExpeditionSource } from "../expedition-source";
 import type { JoustSource } from "../joust-source";
 import type { MasterpieceSource } from "../masterpiece-source";
 import type { ColossusSource } from "../colossus-source";
+import type { FairSource } from "../fair-source";
 import type { PuzzleSource } from "../puzzle-source";
 import type { TournamentSource } from "../tournament-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
@@ -214,6 +215,24 @@ export function mockTournament(ledger: MockLedger): TournamentSource {
     start: (player) => ledger.tournamentStart(player),
     play: (player, gameId, move) => ledger.tournamentPlay(player, gameId, move),
     claim: (player, week) => ledger.tournamentClaim(player, week),
+  };
+}
+
+/**
+ * The Fair's source of the ledger (the weekly individual event, `fair.ts`): the week, the ranking, the accounts' drafts and games by
+ * game-core's rules and their Cobbles. No chain part lies beneath: the Fair runs on the client alone.
+ */
+export function mockFair(ledger: MockLedger): FairSource {
+  return {
+    state: (viewer) => ledger.fairState(viewer),
+    ranking: (viewer) => ledger.fairRanking(viewer),
+    game: (tryId) => ledger.fairGame(tryId),
+    result: (tryId) => ledger.fairResult(tryId),
+    start: (player) => ledger.fairStart(player),
+    pick: (player, tryId, offer, choice) => ledger.fairPick(player, tryId, offer, choice),
+    abandon: (player, tryId) => ledger.fairAbandon(player, tryId),
+    play: (player, tryId, move) => ledger.fairPlay(player, tryId, move),
+    claim: (player, week) => ledger.fairClaim(player, week),
   };
 }
 

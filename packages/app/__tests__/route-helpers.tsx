@@ -67,6 +67,7 @@ const PAGES = {
       import("../src/routes/pages/masterpiece"),
       import("../src/routes/pages/colossus"),
       import("../src/routes/pages/tournament"),
+      import("../src/routes/pages/fair"),
       import("../src/routes/home-hosts"),
     ]),
   "expedition-board": () => import("../src/routes/pages/expedition-board"),

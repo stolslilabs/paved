@@ -4,6 +4,7 @@ import {
   CENTER,
   OrientationType,
   SeededChallenge,
+  fairDeckPlans,
   gameStats,
   pageStateOf,
   puzzleDeck,
@@ -47,11 +48,11 @@ function toPlacement(move: PlaceMove) {
 }
 
 /** A game the board plays as a Puzzle's: a Puzzle game, or a Joust game, whose record names the structure it doubles (`boost`). */
-export type SeededRecord = PuzzleGameRecord & { boost?: ScoreBoost };
+export type SeededRecord = PuzzleGameRecord & { boost?: ScoreBoost; /** A Fair try: its drafted deck's cards, the game's own deck. */ cards?: readonly number[] };
 
 /** The game's engine from its record, its moves played again, and its closings with the tile that closed each. */
 export function replayPuzzle(record: SeededRecord): { engine: SeededChallenge; closings: Closing[] } {
-  const engine = new SeededChallenge(BigInt(record.seed), BigInt(record.player), BigInt(record.deckSeed), record.boost);
+  const engine = new SeededChallenge(BigInt(record.seed), BigInt(record.player), BigInt(record.deckSeed), record.boost, record.cards);
   const closings: Closing[] = [];
   for (const move of record.moves) {
     const outcome = engine.play(move);
@@ -73,7 +74,7 @@ export class PuzzleGame {
     closings: Closing[],
     private readonly send: ((move: SeededMove) => Promise<void>) | null,
   ) {
-    this.deck = puzzleDeck(BigInt(record.deckSeed));
+    this.deck = record.cards ? fairDeckPlans(record.cards) : puzzleDeck(BigInt(record.deckSeed));
     this.current = { state: this.project([], null), delta: null, closings, sending: 0, refused: null };
   }
 

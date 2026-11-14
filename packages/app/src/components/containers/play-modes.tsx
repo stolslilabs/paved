@@ -86,6 +86,22 @@ export interface TournamentCard {
   playing: { score: number } | null;
 }
 
+/**
+ * The Fair's card (Play's Limited mode, the weekly individual event): the week's day and stall, the player's tries left today.
+ */
+export interface FairCard {
+  /** Today in the week: 0 Monday to 6 Sunday. */
+  day: number;
+  /** The structure of the season's stall ("roads"). */
+  stall: string;
+  /** Sunday 24:00 UTC, in seconds since the epoch: the week's end. */
+  endsAt: number;
+  /** The player's tries left today, and their best of the week; null: no account. */
+  me: { triesLeft: number; best: number | null } | null;
+  /** The player's try still open: its draft's offers answered, or its game's score (a tap opens it). Null: none. */
+  playing: { stage: "draft"; offers: number } | { stage: "game"; score: number } | null;
+}
+
 /** Under this many seconds left, the Puzzle's time turns amber. */
 export const PUZZLE_LATE_S = 3_600;
 
@@ -125,6 +141,10 @@ export interface PlayModesProps {
   tournamentCard?: TournamentCard | null;
   /** A tap on the Tournament's card: its view, or the game still open. */
   onTournament?: () => void;
+  /** The Fair's card (Limited, over the Puzzle's); null or omitted: the Fair is not on this network, no card. */
+  fairCard?: FairCard | null;
+  /** A tap on the Fair's card: its view, or the try still open. */
+  onFair?: () => void;
 }
 
 /** The Colossus's card (Play's Limited mode, the weekly collective event): the week's day, the monument, the gauge, the tiles in hand. */
@@ -210,6 +230,7 @@ const SHAPES = {
   masterpiece: "polygon(0 8px, 10px 0, 38% 0, 41% 5px, 100% 3px, 100% calc(100% - 12px), calc(100% - 10px) 100%, 58% 100%, 55% calc(100% - 4px), 8px 100%, 0 calc(100% - 10px))",
   colossus: "polygon(10px 0, calc(100% - 16px) 0, 100% 16px, 100% 58%, calc(100% - 3px) 62%, 100% 66%, 100% 100%, 20px 100%, 0 calc(100% - 12px), 0 10px)",
   tournament: "polygon(10px 0, 54% 0, 57% 5px, calc(100% - 12px) 0, 100% 12px, 100% 100%, 22px 100%, 0 calc(100% - 12px), 0 44%, 3px 40%, 0 36%, 0 10px)",
+  fair: "polygon(0 8px, 10px 0, 30% 0, 33% 4px, 70% 0, 100% 3px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 55% 100%, 52% calc(100% - 4px), 8px 100%, 0 calc(100% - 8px))",
 } as const satisfies Record<PlayMode, string>;
 
 /** The scene darkened under the words: from the foot (the cards whose title sits at the bottom), or from the left (the Puzzle's). */
@@ -218,6 +239,8 @@ const SHADE_LEFT: CSSProperties = { backgroundImage: "linear-gradient(90deg, col
 
 /** An event's icon on its wide card (EVENT-ICONS): at the card's right, breaking out of its top edge, clear of the rewards under it. */
 const EVENT_ICON = { px: 84, style: { right: 10, top: -28 } } as const;
+/** The Fair's icon (its basket): smaller and higher on the card, so it breaks out of the top edge without reaching the card above (the owner's ask of 2026-11-14). */
+const FAIR_ICON = { px: 68, style: { right: 14, top: -12 } } as const;
 
 /**
  * A mode's card (PLAY-MODES): its slab (`SHAPES`), its scene filling it (`sceneAt` its crop, `scenePx` the width it is drawn), the
@@ -275,7 +298,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus, tournamentCard = null, onTournament }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus, tournamentCard = null, onTournament, fairCard = null, onFair }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -372,6 +395,7 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
         {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
         {tournamentCard && <TournamentMode card={tournamentCard} now={now} onSelect={onTournament} />}
         {colossusCard && <ColossusMode card={colossusCard} now={now} onSelect={onColossus} />}
+        {fairCard && <FairMode card={fairCard} now={now} onSelect={onFair} />}
         {puzzleCard ? (
           <PuzzleMode card={puzzleCard} now={now} onSelect={onPuzzle} />
         ) : (
@@ -692,6 +716,62 @@ function TournamentMode({ card, now, onSelect }: { card: TournamentCard; now: nu
         aria-label={card.phase === "rounds" ? `${left} left in today's round` : `${left} left to register`}
         className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
       >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Fair's card (Limited, over the Puzzle's; the design proposal of 2026-11-09): a wide slab on the stalls darkened from the left.
+ * "Fair", then the week's line: the stall and the tries left today ("roads on every stall · 2 tries left today"), the try still open
+ * (its draft's pick, or its game's score: a tap then opens it). Its tag names the day ("Day 4 of 7"). Its icon, a market basket,
+ * breaks out of the top edge at the right and stays clear of the card above. Its reward, the Cobbles alone;
+ * the week's time left in the corner's tab.
+ */
+function FairMode({ card, now, onSelect }: { card: FairCard; now: number; onSelect?: () => void }) {
+  const left = puzzleTimeLeft(card.endsAt, now);
+  const playing = card.playing;
+  const tries = card.me?.triesLeft ?? 0;
+  return (
+    <ModeCard mode="fair" slot="fair-card" sceneAt="50% 62%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={FAIR_ICON} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-label={playing ? (playing.stage === "game" ? `Fair: resume your game, ${formatPoints(playing.score)} points` : `Fair: resume your draft, pick ${playing.offers + 1}`) : "Fair"}
+        className={cn(COVER, "flex-1")}
+      >
+        <span className={cn(TITLE, "text-[1.75rem]")}>Fair</span>
+        {playing?.stage === "game" ? (
+          <span className="text-outline flex items-center gap-1 text-base leading-tight font-bold">
+            <UiIcon name="star" px={20} className="size-5" />
+            <span className="numeric">{formatPoints(playing.score)}</span>
+            <span className="text-[0.8125rem] font-semibold text-foreground/90">in play</span>
+          </span>
+        ) : (
+          <span className={LINE}>
+            {playing ? (
+              <>
+                Your draft · pick <span className="numeric">{playing.offers + 1}</span>
+              </>
+            ) : (
+              <>
+                {card.stall.charAt(0).toUpperCase() + card.stall.slice(1)} on every stall
+                {card.me && (
+                  <>
+                    {" "}
+                    · <span className="numeric">{tries}</span> {tries === 1 ? "try" : "tries"} left today
+                  </>
+                )}
+              </>
+            )}
+          </span>
+        )}
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span role="timer" aria-label={`${left} left in the fair`} className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold">
         <UiIcon name="countdown" px={14} className="size-3.5" />
         <span className="numeric">{left}</span>
       </span>

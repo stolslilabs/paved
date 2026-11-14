@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="52 86 400 400" width="1024" height="1024">
+  <defs>
+    <linearGradient id="wicker" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F4B95A"/>
+      <stop offset="0.55" stop-color="#DB8E2E"/>
+      <stop offset="1" stop-color="#A85C17"/>
+    </linearGradient>
+    <linearGradient id="inside" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6B3A12"/>
+      <stop offset="1" stop-color="#94551B"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#C9792A"/>
+      <stop offset="0.5" stop-color="#F6C56A"/>
+      <stop offset="1" stop-color="#B9661C"/>
+    </linearGradient>
+    <linearGradient id="clothShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#5A0E12" stop-opacity="0.38"/>
+    </linearGradient>
+    <pattern id="gingham" width="44" height="44" patternUnits="userSpaceOnUse" patternTransform="rotate(-12)">
+      <rect width="44" height="44" fill="#FFF6EA"/>
+      <rect width="22" height="44" fill="#E23A3A" opacity="0.55"/>
+      <rect width="44" height="22" fill="#E23A3A" opacity="0.55"/>
+      <rect width="22" height="22" fill="#C81E28"/>
+    </pattern>
+    <clipPath id="bodyClip">
+      <path d="M96 262 C104 352 132 420 176 442 C222 458 290 458 336 442 C380 420 408 352 416 262 Z"/>
+    </clipPath>
+  </defs>
+  <g transform="rotate(-9 256 270)" stroke-linejoin="round" stroke-linecap="round">
+    <!-- the handle, behind the basket -->
+    <path d="M132 258 C128 96 384 96 380 258" fill="none" stroke="#2A1710" stroke-width="54"/>
+    <path d="M132 258 C128 96 384 96 380 258" fill="none" stroke="url(#handle)" stroke-width="32"/>
+    <path d="M150 232 C156 132 356 132 362 232" fill="none" stroke="#8A4A14" stroke-width="5" stroke-dasharray="16 14" opacity="0.7"/>
+    <path d="M158 170 C190 122 250 108 300 118" fill="none" stroke="#FFF1C4" stroke-width="8" opacity="0.75"/>
+
+    <!-- the mouth -->
+    <ellipse cx="256" cy="262" rx="166" ry="54" fill="url(#inside)" stroke="#2A1710" stroke-width="18"/>
+
+    <!-- the body -->
+    <path d="M96 262 C104 352 132 420 176 442 C222 458 290 458 336 442 C380 420 408 352 416 262 C380 314 132 314 96 262 Z" fill="url(#wicker)" stroke="#2A1710" stroke-width="18"/>
+    <g clip-path="url(#bodyClip)" fill="none">
+      <path d="M96 318 C170 366 342 366 416 318" stroke="#9A5416" stroke-width="9"/>
+      <path d="M104 362 C180 408 332 408 408 362" stroke="#9A5416" stroke-width="9"/>
+      <path d="M128 406 C196 444 316 444 384 406" stroke="#8A4912" stroke-width="9"/>
+      <g stroke="#8F4D13" stroke-width="8">
+        <path d="M150 300 C156 360 172 410 190 446"/>
+        <path d="M204 312 C206 366 214 416 224 454"/>
+        <path d="M256 316 L256 458"/>
+        <path d="M308 312 C306 366 298 416 288 454"/>
+        <path d="M362 300 C356 360 340 410 322 446"/>
+      </g>
+      <path d="M118 300 C132 366 150 402 176 426" stroke="#FFE7A8" stroke-width="10" opacity="0.6"/>
+    </g>
+
+    <!-- the cloth, folded over the rim -->
+    <path d="M124 258 C150 232 220 222 256 222 C300 222 364 234 392 258 C410 286 404 322 388 350 C372 330 352 342 336 364 C318 338 296 344 280 372 C262 344 240 344 224 370 C208 342 186 340 170 360 C150 338 134 330 122 344 C108 318 106 284 124 258 Z" fill="url(#gingham)" stroke="#2A1710" stroke-width="16"/>
+    <path d="M124 258 C150 232 220 222 256 222 C300 222 364 234 392 258 C410 286 404 322 388 350 C372 330 352 342 336 364 C318 338 296 344 280 372 C262 344 240 344 224 370 C208 342 186 340 170 360 C150 338 134 330 122 344 C108 318 106 284 124 258 Z" fill="url(#clothShade)"/>
+    <path d="M128 262 C170 288 342 288 388 262" fill="none" stroke="#7A1218" stroke-width="6" opacity="0.5"/>
+    <path d="M150 250 C190 236 250 232 300 236" fill="none" stroke="#FFFFFF" stroke-width="9" opacity="0.7"/>
+  </g>
+</svg>
