@@ -34,6 +34,7 @@ const TABLE: Record<string, readonly string[]> = {
   "play/expedition": ["cobbles"],
   "play/masterpiece": ["cobbles"],
   "play/colossus": ["cobbles"],
+  "play/conquest": ["cobbles"],
   "play/tournament": ["cobbles"],
   // SHOP-PAGE: the packs are the Shop's Cobbles tab, paid in USDC; the scene shows the tab's own set.
   "village/shop": ["cobbles", "usdc"],

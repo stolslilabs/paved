@@ -44,6 +44,8 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   masterpiece: NONE,
   // The Colossus's view: the Cobbles its tiers and its top 10 pay, at its header's end.
   "play/colossus": COBBLES,
+  // The Conquest's page: the Cobbles its gifts, its phases and its final rank pay, at its header's end.
+  "play/conquest": COBBLES,
   // The Tournament's view: the Cobbles of the round reached; a game and its end show none.
   "play/tournament": COBBLES,
   "tournament/:gameId": NONE,

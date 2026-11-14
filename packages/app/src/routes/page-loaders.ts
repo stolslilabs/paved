@@ -83,6 +83,8 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   },
   // The Colossus's views are Play's (its drawer kept).
   "play/colossus": play,
+  // The Conquest's views are Play's (its drawer kept).
+  "play/conquest": play,
   // The Tournament, as the Joust.
   "play/tournament": play,
   "tournament/:gameId": board,

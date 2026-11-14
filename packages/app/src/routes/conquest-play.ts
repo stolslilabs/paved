@@ -1,0 +1,40 @@
+import type { ConquestCard } from "../components/containers/play-modes";
+import type { ConquestView } from "../components/scenes/conquest-scene";
+import { useConquestAvailable, useConquestState } from "../data/conquest";
+
+// The Conquest's part of Play's route (the season's finale): its card, and the names of its views on the drawer's header. Here, not
+// in the Conquest's own chunk: Play draws the card before the Conquest's page is fetched.
+
+/** The zone named by `?zone=`; null: none, or not a number. */
+export const conquestZoneOf = (param: string | null): number | null => (param !== null && /^\d{1,3}$/.test(param) ? Number(param) : null);
+
+/** The Conquest's view named by the query: a zone of the map (`?zone=`), the tree, the ranking or the members (`?view=`); anything else, its page. */
+export const conquestViewOf = (params: URLSearchParams): ConquestView => {
+  if (conquestZoneOf(params.get("zone")) !== null) return "map";
+  const view = params.get("view");
+  return view === "tree" || view === "ranking" || view === "members" ? view : "hub";
+};
+
+/** The header's title of the Conquest's views; its own page has none (the drawer says "Conquest"). */
+export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, map: "Map", tree: "Knowledge tree", ranking: "Ranking", members: "Members" };
+
+/**
+ * The Conquest's card of Play (Limited): the phase and its day, the allegiances registered, the player's allegiance's place with the
+ * day's orders and the Offerings that wait; null without a Conquest (the chain) or while it is read: no card.
+ */
+export function useConquestCard(me: string | null): { card: ConquestCard | null; on: boolean } {
+  const on = useConquestAvailable();
+  const state = useConquestState(me, on).data ?? null;
+  if (!state) return { card: null, on };
+  return {
+    on,
+    card: {
+      phase: state.phase,
+      day: state.day,
+      rest: state.rest,
+      phaseEndsAt: state.phaseEndsAt,
+      registered: state.registered.length,
+      mine: state.allegiance ? { place: state.allegiance.place, orders: state.allegiance.orders.left, waiting: state.me?.waiting ?? 0 } : null,
+    },
+  };
+}

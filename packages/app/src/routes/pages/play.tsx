@@ -17,6 +17,7 @@ import { useDrawerRoute } from "../drawer-route";
 import { useRoutePage } from "../handle";
 import { useNow } from "../now";
 import { useTournamentCard } from "../tournament-play";
+import { CONQUEST_TITLES, conquestViewOf, useConquestCard } from "../conquest-play";
 import { prefetchAllowed } from "../prefetch";
 import { useAppNavigate, useUpTo } from "../ref";
 
@@ -44,6 +45,9 @@ const ColossusView = lazy(loadColossus);
 /** The Tournament (`/play/tournament`, Play's Limited mode): its week and its bracket, a chunk of their own, fetched as Play is pointed at. */
 const loadTournament = () => import("./tournament");
 const TournamentView = lazy(loadTournament);
+/** The Conquest (`/play/conquest`, Play's Limited mode): its page, its map, its tree and its rankings, a chunk of their own. */
+const loadConquest = () => import("./conquest");
+const ConquestView = lazy(loadConquest);
 /** The header's title of the Joust's views (`?view=`). */
 const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ranking" };
 
@@ -123,6 +127,10 @@ export default function Page() {
   const tournament = useTournamentCard(me);
   const tournamentBracket = path === "play/tournament" && params.get("view") === "bracket";
   const onTournamentTop = useUpTo("/play/tournament");
+  // The Conquest's card (Limited) and its views' names (`?zone=`, `?view=`), their Back up to its page; none without a Conquest.
+  const conquest = useConquestCard(me);
+  const conquestTitle = path === "play/conquest" ? CONQUEST_TITLES[conquestViewOf(params)] : undefined;
+  const onConquestTop = useUpTo("/play/conquest");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
@@ -135,6 +143,7 @@ export default function Page() {
     if (masterpieceOn) void loadMasterpiece().catch(() => {});
     if (colossusOn) void loadColossus().catch(() => {});
     if (tournament.on) void loadTournament().catch(() => {});
+    if (conquest.on) void loadConquest().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -221,6 +230,17 @@ export default function Page() {
         onTournamentBack={tournamentBracket ? onTournamentTop : onViewBack}
         tournamentCard={tournament.card}
         onTournament={() => go(tournament.path)}
+        conquest={
+          path === "play/conquest" ? (
+            <Suspense fallback={null}>
+              <ConquestView />
+            </Suspense>
+          ) : null
+        }
+        conquestTitle={conquestTitle}
+        onConquestBack={conquestTitle ? onConquestTop : onViewBack}
+        conquestCard={conquest.card}
+        onConquest={() => go("/play/conquest")}
         onBack={onBack}
         onChallengeBack={onViewBack}
         onStoryBack={onViewBack}

@@ -99,6 +99,9 @@ export const PAGES: readonly PageDef[] = [
   // The Colossus (Play's Limited mode, the weekly collective event): a view of Play's drawer, as the Joust's (one loader); its builders
   // and its boards are views of it (`?view=builders`, `?lot=`).
   { path: "play/colossus", title: "Colossus", nav: null, parent: "/play", panel: true, drawer: true },
+  // The Conquest (Play's Limited mode, the season's finale): a view of Play's drawer, as the Joust's (one loader); its map, its tree,
+  // its ranking and its members are views of it (`?zone=`, `?view=`).
+  { path: "play/conquest", title: "Conquest", nav: null, parent: "/play", panel: true, drawer: true },
   // The Tournament (Play's Limited mode, the weekly individual event), as the Joust: a view of Play's drawer, its bracket a view of it
   // (`?view=bracket`); a game is a full-screen flow, its end too.
   { path: "play/tournament", title: "Tournament", nav: null, parent: "/play", panel: true, drawer: true },

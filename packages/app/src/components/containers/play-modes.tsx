@@ -125,6 +125,23 @@ export interface PlayModesProps {
   tournamentCard?: TournamentCard | null;
   /** A tap on the Tournament's card: its view, or the game still open. */
   onTournament?: () => void;
+  /** The Conquest's card (Limited); null or omitted: the Conquest is not on this network, no card. */
+  conquestCard?: ConquestCard | null;
+  onConquest?: () => void;
+}
+
+/** The Conquest's card (Play's Limited mode, the season's finale): the phase and its day, the allegiance's rank, the day's orders, the Offerings that wait. */
+export interface ConquestCard {
+  phase: "registration" | "foundation" | "awakening" | "frontiers" | "results";
+  /** 0 during the registration, then 1 to 28. */
+  day: number;
+  rest: boolean;
+  /** When the phase ends, in seconds since the epoch. */
+  phaseEndsAt: number;
+  /** The allegiances registered. */
+  registered: number;
+  /** The player's allegiance's place, the orders it has left today and the Offerings that wait for the player; null: not in this Conquest. */
+  mine: { place: number; orders: number; waiting: number } | null;
 }
 
 /** The Colossus's card (Play's Limited mode, the weekly collective event): the week's day, the monument, the gauge, the tiles in hand. */
@@ -210,6 +227,7 @@ const SHAPES = {
   masterpiece: "polygon(0 8px, 10px 0, 38% 0, 41% 5px, 100% 3px, 100% calc(100% - 12px), calc(100% - 10px) 100%, 58% 100%, 55% calc(100% - 4px), 8px 100%, 0 calc(100% - 10px))",
   colossus: "polygon(10px 0, calc(100% - 16px) 0, 100% 16px, 100% 58%, calc(100% - 3px) 62%, 100% 66%, 100% 100%, 20px 100%, 0 calc(100% - 12px), 0 10px)",
   tournament: "polygon(10px 0, 54% 0, 57% 5px, calc(100% - 12px) 0, 100% 12px, 100% 100%, 22px 100%, 0 calc(100% - 12px), 0 44%, 3px 40%, 0 36%, 0 10px)",
+  conquest: "polygon(0 10px, 10px 0, 30% 0, 33% 4px, 70% 4px, 73% 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))",
 } as const satisfies Record<PlayMode, string>;
 
 /** The scene darkened under the words: from the foot (the cards whose title sits at the bottom), or from the left (the Puzzle's). */
@@ -234,7 +252,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && mode !== "expedition" && mode !== "masterpiece" && mode !== "colossus" && mode !== "tournament" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "expedition" && mode !== "masterpiece" && mode !== "colossus" && mode !== "tournament" && mode !== "conquest" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -272,7 +290,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus, tournamentCard = null, onTournament }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus, tournamentCard = null, onTournament, conquestCard = null, onConquest }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -364,6 +382,7 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
         <h3 id="play-limited" className="sr-only">
           Limited
         </h3>
+        {conquestCard && <ConquestMode card={conquestCard} now={now} onSelect={onConquest} />}
         {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
         {masterpieceCard && <MasterpieceMode card={masterpieceCard} now={now} onSelect={onMasterpiece} />}
         {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
@@ -689,6 +708,57 @@ function TournamentMode({ card, now, onSelect }: { card: TournamentCard; now: nu
         aria-label={card.phase === "rounds" ? `${left} left in today's round` : `${left} left to register`}
         className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
       >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+const CONQUEST_PHASE_NAMES: Record<ConquestCard["phase"], string> = { registration: "Registration", foundation: "Foundation", awakening: "Awakening", frontiers: "Frontiers", results: "Results" };
+
+/**
+ * The Conquest's card (Limited, the first; the design proposal of 8 and 9 November 2026): a wide slab on the world cut into squares
+ * darkened from the left. "Conquest", then the phase's line: the allegiances registered, or the allegiance's rank with the day's
+ * orders and the Offerings that wait. Its tag says the phase and its day; the phase's time left in the corner's tab.
+ */
+function ConquestMode({ card, now, onSelect }: { card: ConquestCard; now: number; onSelect?: () => void }) {
+  const left = puzzleTimeLeft(card.phaseEndsAt, now);
+  const phase = CONQUEST_PHASE_NAMES[card.phase];
+  return (
+    <ModeCard mode="conquest" slot="conquest-card" sceneAt="50% 42%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">
+        Limited · {phase}
+        {card.day > 0 && card.phase !== "results" && ` · Day ${card.day}`}
+      </Chip>
+      <button type="button" onClick={onSelect} aria-label="Conquest" className={cn(COVER, "flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Conquest</span>
+        <span className={LINE}>
+          {card.mine ? (
+            <>
+              <span className="numeric">#{card.mine.place}</span> of <span className="numeric">{card.registered}</span>
+              {card.phase !== "results" && !card.rest && (
+                <>
+                  {" "}
+                  · <span className="numeric">{card.mine.orders}</span> {card.mine.orders === 1 ? "order" : "orders"}
+                </>
+              )}
+              {card.mine.waiting > 0 && (
+                <>
+                  {" "}
+                  · <span className="numeric">{card.mine.waiting}</span> {card.mine.waiting === 1 ? "Offering" : "Offerings"}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="numeric">{card.registered}</span> {card.registered === 1 ? "allegiance" : "allegiances"} {card.phase === "registration" ? "registered" : "share one world"}
+            </>
+          )}
+        </span>
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span role="timer" aria-label={`${left} left in ${card.phase === "registration" ? "the registration" : card.phase === "results" ? "the results" : phase}`} className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold">
         <UiIcon name="countdown" px={14} className="size-3.5" />
         <span className="numeric">{left}</span>
       </span>

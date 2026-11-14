@@ -20,6 +20,7 @@ export const PAGE_HEADER_STORIES = {
   expedition: ["play/expedition"],
   masterpiece: ["play/masterpiece"],
   colossus: ["play/colossus"],
+  conquest: ["play/conquest"],
   tournament: ["play/tournament"],
   missions: ["missions"],
   tiles: ["tiles"],
@@ -41,4 +42,4 @@ export const HERO_PAGES: readonly string[] = [];
  * The pages drawn as the HUD's drawer (MISSIONS-PAGE, `PageDef.drawer`): their header is the drawer's band (its title, the page's
  * balances at its end), not `PageHeader`, and its height is the band's own, not `--header-h`.
  */
-export const DRAWER_PAGES: readonly string[] = ["avatar", "pvp-league", "missions", "village-shop", "tiles", "chat", "guild", "friends", "ranking", "settings", "themes", "credits", "play", "purchase", "story-campaigns", "puzzle", "joust", "expedition", "masterpiece", "colossus", "tournament", "vault"];
+export const DRAWER_PAGES: readonly string[] = ["avatar", "pvp-league", "missions", "village-shop", "tiles", "chat", "guild", "friends", "ranking", "settings", "themes", "credits", "play", "purchase", "story-campaigns", "puzzle", "joust", "expedition", "masterpiece", "colossus", "conquest", "tournament", "vault"];
