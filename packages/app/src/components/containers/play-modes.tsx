@@ -234,6 +234,9 @@ const SHAPES = {
 const SHADE_UP: CSSProperties = { backgroundImage: "linear-gradient(180deg, transparent 35%, color-mix(in oklab, var(--card) 90%, transparent))" };
 const SHADE_LEFT: CSSProperties = { backgroundImage: "linear-gradient(90deg, color-mix(in oklab, var(--card) 85%, transparent) 20%, color-mix(in oklab, var(--card) 10%, transparent) 70%)" };
 
+/** An event's icon on its wide card (EVENT-ICONS): at the card's right, breaking out of its top edge, clear of the rewards under it. */
+const EVENT_ICON = { px: 84, style: { right: 10, top: -28 } } as const;
+
 /**
  * A mode's card (PLAY-MODES): its slab (`SHAPES`), its scene filling it (`sceneAt` its crop, `scenePx` the width it is drawn), the
  * scene darkened under the words, a light bevel along its top, and its icon breaking out of its top edge (`icon`). The card's whole
@@ -252,7 +255,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && mode !== "expedition" && mode !== "masterpiece" && mode !== "colossus" && mode !== "tournament" && mode !== "conquest" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "tournament" && mode !== "conquest" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -539,7 +542,7 @@ function ExpeditionMode({ card, now, onSelect }: { card: ExpeditionCard; now: nu
   const waiting = board ? board.due : 0;
   const left = puzzleTimeLeft(card.endsAt, now);
   return (
-    <ModeCard mode="expedition" slot="expedition-card" sceneAt="50% 60%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+    <ModeCard mode="expedition" slot="expedition-card" sceneAt="50% 60%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
       <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
       <button type="button" onClick={onSelect} aria-label={board ? `Expedition: ${formatPoints(board.score)} points` : "Expedition"} className={cn(COVER, "flex-1")}>
         <span className={cn(TITLE, "text-[1.75rem]")}>Expedition</span>
@@ -588,7 +591,7 @@ function MasterpieceMode({ card, now, onSelect }: { card: MasterpieceCard; now: 
   );
   const left = puzzleTimeLeft(card.endsAt, now);
   return (
-    <ModeCard mode="masterpiece" slot="masterpiece-card" sceneAt="50% 45%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+    <ModeCard mode="masterpiece" slot="masterpiece-card" sceneAt="50% 45%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
       <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
       <button type="button" onClick={onSelect} aria-label={board?.size ? `Masterpiece: ${formatPoints(board.score)} points` : "Masterpiece"} className={cn(COVER, "flex-1")}>
         <span className={cn(TITLE, "text-[1.75rem]")}>Masterpiece</span>
@@ -630,7 +633,7 @@ function ColossusMode({ card, now, onSelect }: { card: ColossusCard; now: number
   const left = puzzleTimeLeft(card.endsAt, now);
   const share = Math.floor((card.stones * 100) / Math.max(1, card.cells));
   return (
-    <ModeCard mode="colossus" slot="colossus-card" sceneAt="50% 38%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+    <ModeCard mode="colossus" slot="colossus-card" sceneAt="50% 38%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
       <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
       <button type="button" onClick={onSelect} aria-label="Colossus" className={cn(COVER, "flex-1")}>
         <span className={cn(TITLE, "text-[1.75rem]")}>Colossus</span>
