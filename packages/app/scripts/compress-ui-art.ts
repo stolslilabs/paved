@@ -272,6 +272,16 @@
  * px past each end), its last 80 columns crossfaded into its first so it repeats without a seam (1,325 x 12 and 1,313 x 17); the
  * client repeats it along the bar at a fixed grain and rounds the ends (`missionRail`, `medallion-art.ts`). Stored as lossless WebP.
  *
+ * EVENT-ICONS (2026-11-14): the icons of three events' cards, one simple object each (the owner's ask: no stacked objects on Play).
+ * `mode-colossus`, the monument under its scaffold: the icon of its design proposal (its page's `img/mode-colossus.webp`, 300 x 200),
+ * taken as it is. `mode-expedition`, a pocket compass, and `mode-masterpiece`, a walled city in a golden frame: drawn by Codex's
+ * built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`; no API key, no other service) with the crop of each
+ * proposal's Play screen (the Expedition's map, lantern and compass; the Masterpiece's framed city on its easel with its tools) for
+ * the look of the one object kept, and `mode-story`, `mode-puzzle`, `mode-challenge` and `mode-training` as the style's references;
+ * three variants each on a transparent 1254 px square, the second kept for both (the compass tilted as the others' objects are, the
+ * frame with its painting's ground so the card's scene does not show through it). Each trimmed to its alpha box (alpha 8 and over),
+ * fitted to the 240 px box (libwebp's premultiplied rescale) and centred on the icons' frame.
+ *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install
  * webp`, `apt install webp`), needed only to write. Node 24 runs this as is (type stripping): the syntax stays erasable.

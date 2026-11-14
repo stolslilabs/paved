@@ -72,13 +72,14 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
   });
 
   it("ships the Play page's mode icons and scenes (PLAY-MODES): one of each per mode, two copies each", () => {
-    expect(MODE_ICONS).toEqual(["mode-attack", "mode-challenge", "mode-training", "mode-story", "mode-puzzle"]);
+    expect(MODE_ICONS).toEqual(["mode-attack", "mode-challenge", "mode-training", "mode-story", "mode-puzzle", "mode-expedition", "mode-masterpiece", "mode-colossus"]);
     expect(MODE_SCENES).toEqual(["scene-attack", "scene-challenge", "scene-training", "scene-story", "scene-puzzle", "scene-joust", "scene-expedition", "scene-masterpiece", "scene-colossus", "scene-tournament"]);
     expect(MODE_ICON_FRAME).toMatchObject({ width: 256, height: 256, sizes: [128, 256] });
     expect(MODE_SCENE_FRAME).toMatchObject({ width: 960, height: 640, sizes: [400, 800] });
     // Measured on 2026-11-08: the icons 3.9 to 5.4 KiB at 128 px, 9.3 to 12.6 KiB at 256 px; the scenes 23.8 to 52.9 KiB at 400 px,
-    // 67.1 to 165.3 KiB at 800 px (the Puzzle's grid of towns the heaviest).
-    for (const name of MODE_ICONS) for (const s of MODE_ICON_FRAME.sizes) expect(statSync(join(OUT, "play", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 256 ? 16 * 1024 : 7 * 1024);
+    // 67.1 to 165.3 KiB at 800 px (the Puzzle's grid of towns the heaviest). EVENT-ICONS (2026-11-14): the three events' icons 5.1 to
+    // 6.7 KiB at 128 px, 12.2 to 16.3 KiB at 256 px (the Masterpiece's framed city the heaviest: the 256 px limit up from 16 to 17 KiB).
+    for (const name of MODE_ICONS) for (const s of MODE_ICON_FRAME.sizes) expect(statSync(join(OUT, "play", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 256 ? 17 * 1024 : 7 * 1024);
     for (const name of MODE_SCENES) for (const s of MODE_SCENE_FRAME.sizes) expect(statSync(join(OUT, "play", String(s), `${name}.webp`)).size, name).toBeLessThan(s === 800 ? 200 * 1024 : 64 * 1024);
     expect(modeIconSources("story", 92)).toEqual({
       src: "/ui-art/play/256/mode-story.webp",

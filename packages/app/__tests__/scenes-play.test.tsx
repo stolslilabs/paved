@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlayScene } from "../src/components/scenes/play-scene";
 import { PurchaseScene } from "../src/components/scenes/purchase-scene";
 import { PLAY, PURCHASE } from "../src/mocks/scenes";
+import { COLOSSUS_CARD } from "../src/mocks/colossus";
+import { EXPEDITION_CARD } from "../src/mocks/expedition";
+import { MASTERPIECE_CARD } from "../src/mocks/masterpiece";
 import { wrap, pts } from "./scenes-helpers";
 import { flushPending } from "./lazy-chunks";
 
@@ -44,6 +47,16 @@ describe("Play", () => {
     expect(screen.queryByText(/USDC|earn PAVED/)).toBeNull();
     expect(screen.queryByRole("button", { name: /Free Challenge/ })).toBeNull();
     expect(screen.queryByText(/Multiplayer/)).toBeNull();
+  });
+
+  it("draws each event's own icon on its card (EVENT-ICONS): the Expedition's, the Masterpiece's, the Colossus's", () => {
+    render(wrap(<PlayScene {...PLAY.connected} {...EXPEDITION_CARD.playing} {...MASTERPIECE_CARD.waiting} {...COLOSSUS_CARD.week} />));
+    for (const mode of ["expedition", "masterpiece", "colossus"]) {
+      const card = document.querySelector(`[data-mode="${mode}"]`)!;
+      expect(card.querySelector(`img[src$="/scene-${mode}.webp"]`), mode).not.toBeNull();
+      // Decorative, as every mode's icon: the card's words name the event.
+      expect(card.querySelector(`img[src$="/mode-${mode}.webp"]`), mode).toHaveAttribute("aria-hidden", "true");
+    }
   });
 
   it("shows a running Challenge's time left and score in place of its rewards, and resumes it", async () => {
