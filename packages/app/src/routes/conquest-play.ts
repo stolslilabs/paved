@@ -25,6 +25,16 @@ export const conquestResultOf = (params: URLSearchParams): ConquestResultOf | nu
 export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, tree: "Knowledge tree", ranking: "Ranking", members: "Our members", requests: "Requests", rules: "Goals and rules", result: "Result" };
 
 /**
+ * The home's Conquest button: the requests of the player's allegiance whose tile they hold (its badge); null without a Conquest (the
+ * chain) or while it is read: no button.
+ */
+export function useConquestBadge(me: string | null): number | null {
+  const on = useConquestAvailable();
+  const state = useConquestState(me, on).data ?? null;
+  return state ? state.requests.filter((r) => r.held > 0).length : null;
+}
+
+/**
  * The Conquest's card of Play (Limited): the phase and its day, the allegiances registered, the player's allegiance's place with the
  * day's orders and the Offerings that wait; null without a Conquest (the chain) or while it is read: no card.
  */

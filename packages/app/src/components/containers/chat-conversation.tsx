@@ -349,6 +349,8 @@ export interface ChatConversationProps {
    * header and its tabs, with no cap. Off, a box of at most 44rem among other content.
    */
   fill?: boolean;
+  /** What the guild's conversation carries under its banner (the Conquest's requests); drawn for a guild's conversation only. */
+  guildCards?: ReactNode;
 }
 
 /**
@@ -386,6 +388,7 @@ export function ChatConversation({
   initialReport,
   initialEncryptionOpen = false,
   fill = false,
+  guildCards,
 }: ChatConversationProps) {
   const viewport = useVisualViewportHeight();
   const scroller = useRef<HTMLDivElement>(null);
@@ -525,6 +528,7 @@ export function ChatConversation({
   return (
     <>
       {c?.kind === "guild" && <GuildBanner name={name} guild={c.guild} pinned={head?.pinned ?? null} onOpen={onOpenTitle} />}
+      {c?.kind === "guild" && guildCards}
       <section
         ref={box}
         aria-label={name ? `${name} conversation` : "Conversation"}

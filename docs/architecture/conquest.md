@@ -65,11 +65,26 @@ village.
 - Rules: `packages/game-core/src/conquest.ts` (`Conquest`, the calendar, the points, the tree).
 - Source and hooks: `packages/app/src/data/conquest-source.ts`, `conquest.ts`.
 - Mock: `packages/app/src/data/mock/conquest.ts` (pure), run by `MockLedger` (`conquest*` methods), given by `mockConquest`.
-- Page: `/play/conquest`, a view of Play's drawer; the map (`?zone=`), the tree, the ranking and the members (`?view=`) are views
-  of it. The card and the views' names: `routes/conquest-play.ts`; the page: `routes/pages/conquest.tsx`.
-- Scenes: `scenes/conquest-scene.tsx`; `containers/conquest-map.tsx` (the world's checkerboard, a zone eight cells by eight at a
-  time, the cell's action), `conquest-tree.tsx`, `conquest-ranks.tsx` (the ranking, the members, a phase's result, the final one);
-  the card in `containers/play-modes.tsx`.
+- The page: `/play/conquest`, a view of Play's drawer, drawn as the proposal draws it (`scenes/conquest-scene.tsx`): the phase on the
+  world's painting, the allegiance's row, the day's orders, the daily ritual's three cards, the results over, the Knowledge's row.
+  Its views (`?view=`): the knowledge tree, the ranking (a tab of the foot per phase and the final one), the members (a tab per
+  figure they are ranked by), the open requests, the goals and rules, and a result (`?view=result&of=`: a phase over, the Conquest
+  over, the last Conquest). The card and the views' names: `routes/conquest-play.ts`; the page: `routes/pages/conquest.tsx`.
+- The map: `/conquest` (`?zone=`), a page of its own (`scenes/conquest-map-scene.tsx`, `routes/pages/conquest-map.tsx`): the board's
+  3D scene on the world round a zone (`ConquestSource.area`: the zone and a band of half a zone round it). It opens on the viewer's
+  province; its origin stays the middle of the zone it opened on, so a pan crosses into the next zone without a jump, the area read
+  again for the zone under the middle of the view. The fog is the Conquest's (`BoardViewport`'s `reveal`: a cell is clear once
+  explored). The World button opens the grid of the zones (a tap loads that zone's scene); Back to my zone shows once the view is on
+  another zone. A tap picks a cell; the foot says what it offers and holds its one action (`containers/conquest-cell.tsx`). After an
+  exploration, the reveal: the Knowledge drawn among the zone's odds. Without WebGL the zone is a grid, eight cells by eight
+  (`containers/conquest-map.tsx`).
+- The guild's chat: the open requests and the last tile built as live cards under the guild's banner
+  (`containers/conquest-chat-cards.tsx`, `routes/social/conquest-chat.tsx`), read from the Conquest, not kept as messages.
+- The home: a Conquest button at the top of the right column, with the requests the player can answer (`EdgeTiles`).
+- One action per card or view, in one word (Offer, Explore, Build, Give, Ask, Buy, Claim, Register), what it does and pays said
+  before it (the owner's rule of 2026-11-14).
+- Art (`play-art.ts`): the card's scene and icon; the proposal's paintings for the ritual and the tree's branches; the Knowledge's
+  book and the World's globe (Codex's image tool).
 
 ## Read differently from the proposal, or where it is silent
 
@@ -90,23 +105,23 @@ village.
   province's odds.
 - **A request that no longer fits** (the cell was built, an edge changed) is dropped when someone tries to give its tile.
 - **Rest days** give no order: nobody builds.
-- **Claims.** One Claim pays everything due for a Conquest (its phases over and, from D21, its final rank), for this Conquest and
-  the one before it. An older one is not kept.
-- **The map** is drawn in the drawer as a grid of tiles seen from above (the hand's chips), eight cells by eight at a time with
-  arrows, not on the 3D board.
+- **Claims.** Each result has its own Claim (a phase over, the final rank); the last Conquest's pays whatever of it was left. A
+  Conquest older than the last is not kept.
+- **The map** shows the world round one zone at a time (the zone and half a zone round it), not the whole world at once; the
+  camera cannot leave the tiles drawn by more than six cells (the board's own limit), so a far corner of an empty zone is reached by
+  zooming out. On the 3D board a tile does not wear its allegiance's colour: a tap says whose it is.
+- **A request in the chat** is a card read from the Conquest, not a message: it has no place in the conversation's history.
 
 ## Not done
 
 - Contracts and indexer: none.
-- The home's Conquest button with its badge and its tip; the entry is Play's card.
-- The guild chat's live cards for a request and a tile built: the requests are listed on the Conquest's page and on the map.
-- The phases' briefings as their own opening screens (they are a section of the page), and the reveal's animation after an
-  exploration (a notice says what was found).
-- The crest worn through the next season (the result names it; the allegiance's emblem does not draw it), and the season's calendar
-  itself (the Conquest at a season's end, the holidays).
+- The home button's tip as a coach mark (it is the button's title).
+- The phases' briefings as their own opening screens (they are the page's Goals and rules).
+- The crest worn through the next season (the result draws it; the allegiance's emblem does not), and the season's calendar itself
+  (the Conquest at a season's end, the holidays).
 - The Great Wonders hidden until Awakening: they are on the map from day 1 (their zones are closed until Frontiers).
+- The allegiances' colours and the zones' borders on the 3D board; the counts of an open structure (the proposal's "6 against 4")
+  before it closes.
 - A member's role of the day the Conquest began: the mock reads the allegiances' rosters as they are now.
 - Two members giving the same request at the same moment: on the device there is one writer.
-- The painted icons of the proposal (the Offering, the exploration, the gift, the tree's branches): the page uses the HUD's icons.
-  The card's scene is the proposal's hero image.
 - The figures' calibration by simulation (province size, Knowledge, costs, rewards), the proposal's own open point.

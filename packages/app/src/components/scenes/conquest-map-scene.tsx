@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CONQUEST_PROVINCE, formatInteger } from "@paved/game-core";
+import { CONQUEST_ODDS, CONQUEST_PROVINCE, formatInteger } from "@paved/game-core";
 import type { ConquestAreaState, ConquestOptions, ConquestState, ConquestZoneState, ConquestZoneSummary } from "../../data/conquest-source";
 import { cn } from "../../lib/utils";
 import { ConquestCellAction, type ConquestCellInfo } from "../containers/conquest-cell";
@@ -37,6 +37,9 @@ export interface ConquestMapSceneProps {
   busy?: "explore" | "request" | "give" | null;
   /** What the last act did, in two lines. */
   notice?: { title: string; text: string } | null;
+  /** The exploration just made: the Knowledge it drew, shown over the map until closed. */
+  reveal?: { knowledge: number; province: boolean } | null;
+  onRevealClose?: () => void;
   /** The world's grid is open. */
   world?: boolean;
   tileArt?: TileArt;
@@ -53,6 +56,9 @@ export interface ConquestMapSceneProps {
   /** The tile the picked cell previews (the board draws it there). */
   onPreview?: (tile: { x: number; y: number; plan: number; orientation: number } | null) => void;
 }
+
+/** What a find is called, by the Knowledge it drew. */
+const FIND: Record<number, string> = { 5: "A small find", 10: "A fair find", 20: "A good find", 40: "A rare find!", 100: "A legendary find!" };
 
 const zoneWords = (zone: ConquestZoneSummary): string => (zone.mine ? "your province" : zone.guild ? `the province of ${zone.guild.name}` : zone.province ? "an empty province" : "a free zone");
 
@@ -84,7 +90,7 @@ function Chip({ art, children }: { art: "hammer" | "explore" | "pin"; children: 
  * returns home. Over the board: the day's orders, exploration and requests; at its foot, what the picked cell offers and its one
  * action (explore a fog cell, ask for a tile beside the allegiance's, give a request's tile). Without the 3D board, the zone as a grid.
  */
-export function ConquestMapScene({ state, area, error, errorDetail, onRetry, canvas, zone = null, focus, cell = null, options = null, busy = null, notice = null, world = false, tileArt, onBack, onWorld, onZone, onHome, onCell, onExplore, onRequest, onGive, onPreview }: ConquestMapSceneProps) {
+export function ConquestMapScene({ state, area, error, errorDetail, onRetry, canvas, zone = null, focus, cell = null, options = null, busy = null, notice = null, reveal = null, onRevealClose, world = false, tileArt, onBack, onWorld, onZone, onHome, onCell, onExplore, onRequest, onGive, onPreview }: ConquestMapSceneProps) {
   const shown = state && focus !== null ? (state.zones[focus] ?? null) : null;
   const title = shown ? (shown.mine ? "My province" : `Zone ${shown.name}`) : "Map";
   if (error || !state || state.side === 0)
@@ -178,6 +184,37 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
     </Dialog>
   );
 
+  const found = (
+    <Dialog open={reveal !== null} onOpenChange={(open) => !open && onRevealClose?.()}>
+      <DialogContent className="max-w-xs" showClose={false}>
+        {reveal && (
+          <div data-slot="conquest-reveal" className="flex flex-col items-center gap-3 text-center">
+            <DialogHeader className="items-center">
+              <DialogTitle>{FIND[reveal.knowledge] ?? "A find"}</DialogTitle>
+              <DialogDescription>The exploration reveals the cell's Knowledge.</DialogDescription>
+            </DialogHeader>
+            <ConquestArt name="knowledge" px={88} />
+            <p className="flex items-baseline gap-2">
+              <span className="numeric text-outline text-5xl leading-none font-bold text-primary">+{formatInteger(reveal.knowledge)}</span>
+              <span className="text-base font-bold">Knowledge</span>
+            </p>
+            <ul aria-label="The zone's odds" className="flex flex-wrap justify-center gap-1.5">
+              {CONQUEST_ODDS[reveal.province ? "province" : "free"].map((o) => (
+                <li key={o.knowledge} data-drawn={o.knowledge === reveal.knowledge || undefined} className={cn("rounded-full border px-2 py-0.5 text-xs font-bold", o.knowledge === reveal.knowledge ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground")}>
+                  <span className="numeric">{o.knowledge}</span> · <span className="numeric">{o.share}%</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm font-semibold text-muted-foreground">It goes to your allegiance's tree. The cell is open for building.</p>
+            <Button className="h-12 w-full text-lg font-black" onClick={onRevealClose}>
+              Continue
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+
   if (!canvas)
     return (
       <div data-slot="conquest-map" data-view="grid" className="flex min-h-dvh flex-col bg-board text-foreground">
@@ -198,6 +235,7 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
           {zone ? <ConquestZoneMap zone={zone} leads={state.leads} orders={mine?.orders.left ?? 0} cell={cell} onCell={onCell} options={options} busy={busy} onExplore={onExplore} onRequest={onRequest} onGive={onGive} tileArt={tileArt} /> : <p className="text-center text-sm text-muted-foreground">Reading the zone…</p>}
         </main>
         {grid}
+        {found}
       </div>
     );
   return (
@@ -223,6 +261,7 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
         <div className={cn("pointer-events-auto mt-auto flex flex-col gap-2 rounded-t-2xl bg-card/95 px-4 pt-3 backdrop-blur", "pb-[max(0.75rem,env(safe-area-inset-bottom))]")}>{action}</div>
       </div>
       {grid}
+      {found}
     </div>
   );
 }

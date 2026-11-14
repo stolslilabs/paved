@@ -100,7 +100,11 @@ describe("/play/conquest: a member's day", () => {
     expect(screen.getByRole("heading", { name: "My province" })).toBeInTheDocument();
     await userEvent.click(within(grid).getAllByRole("gridcell", { name: /: fog$/ })[0]!);
     await userEvent.click(await screen.findByRole("button", { name: "Explore" }));
-    await waitFor(() => expect(document.querySelector("[data-slot=conquest-notice]")).toHaveTextContent(/The cell is|A rare find/), { timeout: slow(8000) });
+    // The reveal: the Knowledge drawn, then Continue.
+    const reveal = await screen.findByRole("dialog", { name: /find/ }, { timeout: slow(8000) });
+    expect(reveal).toHaveTextContent(/\+\d+Knowledge/);
+    await userEvent.click(within(reveal).getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect((await conquest!.state(PLAYER_ID)).me).toMatchObject({ exploredToday: true, explored: 1 });
     // The exploration made: no fog cell is tapped any more.
     await waitFor(() => expect(within(grid).queryAllByRole("gridcell", { name: /: fog$/ }).every((c) => c.tagName === "SPAN")).toBe(true), { timeout: slow(5000) });

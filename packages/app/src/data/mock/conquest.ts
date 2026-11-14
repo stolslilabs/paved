@@ -9,6 +9,7 @@ import {
   Conquest,
   GUILD_RANK,
   JOUST_START_RATING,
+  PlanType,
   baseCopies,
   conquestCrest,
   conquestDayOf,
@@ -114,6 +115,8 @@ const leaderOf = (guild: StoredGuild): string | null => guild.members.find((m) =
 const HOLDS: Record<Rarity, number> = { common: 0.8, uncommon: 0.45, mythic: 0.12 };
 /** Whether a member of the community holds a spare tile of `plan` in a Conquest. */
 const holds = (address: string, plan: number, conquest: number): boolean => communityMember(address) !== null && draw(7, numberOf(address), plan, conquest) < HOLDS[rarityOf(plan)];
+/** The plans with a wonder: asked for now and then only. */
+const WONDER_PLANS: ReadonlySet<number> = new Set([PlanType.WFFFFFFFF, PlanType.WFFFFFFFR].map((plan) => Object.values(PlanType).indexOf(plan)));
 /** A request waits this long before a member of the community gives its tile: an account has the time to give theirs. */
 const GIFT_WAIT_S = 600;
 /** The requests an allegiance of the community keeps open at once. */
@@ -240,8 +243,8 @@ function visit(world: Conquest, v: Visit): void {
       for (let sample = 0; sample < 6; sample++) {
         const cell = frontier[Math.floor(draw(9, v.n, k, sample) * frontier.length)]!;
         for (const { plan, orientations } of world.fitting(v.guild, cell.x, cell.y, v.at)) {
-          // A mythic plan is asked for now and then only: few members hold one.
-          if (rarityOf(plan) === "mythic" && draw(11, v.n, k, sample, plan) >= 0.08) continue;
+          // A mythic plan is asked for now and then only (few members hold one), and so is a wonder: a world of wonders is no world.
+          if ((rarityOf(plan) === "mythic" || WONDER_PLANS.has(plan)) && draw(11, v.n, k, sample, plan) >= 0.08) continue;
           for (const orientation of orientations) {
             let score = draw(10, v.n, k, sample, plan, orientation) + Math.min(2, baseCopies(plan) / 4);
             for (const [side, dx, dy] of [[2, 0, 1], [4, 1, 0], [6, 0, -1], [8, -1, 0]] as const) {
@@ -505,6 +508,14 @@ export function stateOf(s: Seen): ConquestState {
         ? { waiting: waiting.count, nextAt: waiting.nextAt, every: waiting.every, orderToday: member?.orderDay === day, exploredToday: member?.exploredDay === day, days: member?.offeringDays.length ?? 0, knowledge: member?.knowledge ?? 0, tiles: member?.tiles ?? 0, explored: member?.explored ?? 0 }
         : null,
     requests: world && allegiance ? [...world.requests.values()].filter((r) => r.guild === allegiance.guild).map((r) => requestShown(world, mine!.guild, r, s)) : [],
+    built:
+      world && allegiance
+        ? world.tiles
+            .filter((t) => t.kind === "tile" && t.guild === allegiance.guild && t.by !== null)
+            .slice(-3)
+            .reverse()
+            .map((t) => ({ by: s.people(t.by!), plan: t.plan, orientation: t.orientation, x: t.x, y: t.y, zone: world.zoneAt(t.x, t.y)!.index, zoneName: world.zoneAt(t.x, t.y)!.name, day: t.day }))
+        : [],
     scored: world && allegiance ? world.scored.filter((c) => c.counts.some(([g]) => g === allegiance.guild)).slice(-5).reverse().map((c) => scoredShown(guilds, allegiance.guild, c)) : [],
     results,
     final,

@@ -3,14 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { ConquestChatCards } from "../src/components/containers/conquest-chat-cards";
 import { ConquestWorld, ConquestZoneMap } from "../src/components/containers/conquest-map";
+import { EdgeTiles } from "../src/components/containers/home-edges";
 import { ConquestFinalEnd, ConquestMembers, ConquestPhaseEnd, ConquestRanks, rankedBy } from "../src/components/containers/conquest-ranks";
 import { CONQUEST_TREE_COST, ConquestTree, conquestNextLevel, conquestSpent } from "../src/components/containers/conquest-tree";
 import { PlayModes } from "../src/components/containers/play-modes";
 import { ordinal } from "../src/components/elements/conquest-art";
 import { ConquestScene, type ConquestSceneProps } from "../src/components/scenes/conquest-scene";
 import { ConquestMapScene } from "../src/components/scenes/conquest-map-scene";
-import { CONQUEST, CONQUEST_CARD, CONQUEST_MAP, CONQUEST_PARTS } from "../src/mocks/conquest";
+import { CONQUEST, CONQUEST_CARD, CONQUEST_CHAT, CONQUEST_MAP, CONQUEST_PARTS } from "../src/mocks/conquest";
 
 // The Conquest's scenes (the season's finale) on their mocks: Play's card, the page through its phases, the results (a phase over,
 // the Conquest over), the ranking and the members with their tabs, the requests, the tree, the map and a cell picked. The routes are
@@ -446,8 +448,20 @@ describe("the Conquest's map scene", () => {
     const { unmount } = render(wrap(<ConquestMapScene {...CONQUEST_MAP.home} canvas={<div />} cell={{ x: capital.x, y: capital.y }} />));
     expect(document.querySelector("[data-slot=conquest-tile-info]")).toHaveTextContent("Your capital: your first tile.");
     unmount();
-    render(wrap(<ConquestMapScene {...CONQUEST_MAP.explored} canvas={<div />} />));
-    expect(document.querySelector("[data-slot=conquest-notice]")).toHaveTextContent("A rare find! The cell is open for building.");
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.built} canvas={<div />} />));
+    expect(document.querySelector("[data-slot=conquest-notice]")).toHaveTextContent("Built in your name. 1 order left today.");
+  });
+
+  it("reveals what an exploration found: the Knowledge drawn, among the zone's odds", async () => {
+    const onRevealClose = vi.fn();
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.revealed} onRevealClose={onRevealClose} />));
+    const dialog = screen.getByRole("dialog", { name: "A rare find!" });
+    expect(dialog).toHaveTextContent("+40Knowledge");
+    const odds = within(dialog).getByRole("list", { name: "The zone's odds" });
+    expect(odds.children).toHaveLength(5);
+    expect(odds.querySelector("[data-drawn]")).toHaveTextContent("40 · 4%");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+    expect(onRevealClose).toHaveBeenCalledOnce();
   });
 
   it("waits for the world before day 1, and says why it could not be read", async () => {
@@ -459,5 +473,52 @@ describe("the Conquest's map scene", () => {
     expect(screen.getByText("The world could not be read.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the Conquest in the guild's chat and on the home", () => {
+  it("carries the open requests as live cards (what each asks and pays before its Give) and the last tile built", async () => {
+    const on = { onGive: vi.fn(), onOpen: vi.fn(), onAll: vi.fn() };
+    render(wrap(<ConquestChatCards {...CONQUEST_CHAT} {...on} />));
+    const cards = screen.getByRole("region", { name: "Conquest" });
+    const requests = within(cards).getAllByRole("article", { name: /^Build request:/ });
+    // Two cards at most, the rest one tap away.
+    expect(requests).toHaveLength(2);
+    expect(requests[0]).toHaveTextContent(`asked by ${CONQUEST_CHAT.requests[0]!.by.name}`);
+    expect(requests[0]).toHaveTextContent("+1 · you hold 2");
+    const give = within(requests[0]!).getByRole("button", { name: /^Give .* for 1 Cobble$/ });
+    expect(give).toHaveTextContent(/^Give$/);
+    await userEvent.click(give);
+    expect(on.onGive).toHaveBeenCalledWith(1);
+    // A tile the viewer does not hold: nothing to give.
+    expect(within(requests[1]!).getByRole("button", { name: /^Give/ })).toBeDisabled();
+    await userEvent.click(within(cards).getByRole("button", { name: "1 more request" }));
+    expect(on.onAll).toHaveBeenCalledOnce();
+    const built = within(cards).getByRole("article", { name: /^Tile built:/ });
+    expect(built).toHaveTextContent(`${CONQUEST_CHAT.built[0]!.by.name} built`);
+    await userEvent.click(within(built).getByRole("button"));
+    expect(on.onOpen).toHaveBeenCalledWith(CONQUEST_CHAT.built[0]!.zone);
+  });
+
+  it("shows no card with nothing asked or built, and no Give without an order", () => {
+    const { container, unmount } = render(wrap(<ConquestChatCards requests={[]} built={[]} orders={3} />));
+    expect(container).toBeEmptyDOMElement();
+    unmount();
+    render(wrap(<ConquestChatCards {...CONQUEST_CHAT} orders={0} />));
+    expect(screen.getAllByRole("button", { name: /^Give/ }).every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  it("adds the Conquest's button to the home's right column, with the requests the player can answer", async () => {
+    const onConquest = vi.fn();
+    const { unmount } = render(wrap(<EdgeTiles conquest={2} onConquest={onConquest} />));
+    const column = screen.getByRole("navigation", { name: "Village" });
+    expect(within(column).getAllByRole("button")[0]).toHaveAccessibleName("Conquest, 2 waiting");
+    await userEvent.click(screen.getByRole("button", { name: "Conquest, 2 waiting" }));
+    expect(onConquest).toHaveBeenCalledOnce();
+    unmount();
+    // No Conquest on this network: the four buttons alone.
+    render(wrap(<EdgeTiles />));
+    expect(screen.queryByRole("button", { name: /^Conquest/ })).toBeNull();
+    expect(within(screen.getByRole("navigation", { name: "Village" })).getAllByRole("button")).toHaveLength(4);
   });
 });

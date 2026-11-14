@@ -15,7 +15,7 @@ const meta = {
   title: "Scenes/ConquestMap",
   component: ConquestMapScene,
   parameters: { layout: "fullscreen" },
-  args: { tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onWorld: fn(), onZone: fn(), onHome: fn(), onCell: fn(), onExplore: fn(), onRequest: fn(), onGive: fn(), onPreview: fn(), onRetry: fn() },
+  args: { tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onWorld: fn(), onZone: fn(), onHome: fn(), onCell: fn(), onExplore: fn(), onRequest: fn(), onGive: fn(), onPreview: fn(), onRetry: fn(), onRevealClose: fn() },
 } satisfies Meta<typeof ConquestMapScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -47,8 +47,10 @@ export const BoardAway: Story = { args: { ...CONQUEST_MAP.away, canvas } };
 export const Grid: Story = { args: CONQUEST_MAP.home };
 /** A cell beside the allegiance's tiles picked by an Officer: the plans that fit, by the members who hold one. */
 export const GridAsking: Story = { args: CONQUEST_MAP.asking };
-/** The exploration just made: what it found. */
-export const Explored: Story = { args: CONQUEST_MAP.explored };
+/** The reveal: the exploration just made draws the cell's Knowledge. */
+export const Revealed: Story = { args: CONQUEST_MAP.revealed };
+/** A tile just given: what it did, over the action. */
+export const Built: Story = { args: CONQUEST_MAP.built };
 /** The World grid: a tap loads that zone's scene. */
 export const World: Story = { args: CONQUEST_MAP.world };
 export const Reading: Story = { args: CONQUEST_MAP.reading };

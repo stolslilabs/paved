@@ -52,6 +52,7 @@ export default function Page() {
   const options = useConquestOptions(me, state.data?.leads ? picked : null);
   const [notice, setNotice] = useState<{ title: string; text: string } | null>(null);
   const [world, setWorld] = useState(false);
+  const [found, setFound] = useState<{ knowledge: number; province: boolean } | null>(null);
   // A new scene for the same zone (Back to my zone after a pan): the board is mounted again.
   const [mount, setMount] = useState(0);
   const explore = useExploreConquest(me);
@@ -174,7 +175,18 @@ export default function Page() {
         setPicked(cell);
       }}
       onPreview={setPreview}
-      onExplore={(at) => explore.mutate(at, { onSuccess: ({ knowledge }) => done(`+${knowledge} Knowledge`, knowledge >= 40 ? "A rare find! The cell is open for building." : "The cell is explored: it is open for building."), onError: refused })}
+      onExplore={(at) =>
+        explore.mutate(at, {
+          onSuccess: ({ knowledge }) => {
+            setPicked(null);
+            setPreview(null);
+            setFound({ knowledge, province: state.data?.zones[Math.floor(at.y / CONQUEST_PROVINCE) * side + Math.floor(at.x / CONQUEST_PROVINCE)]?.province ?? true });
+          },
+          onError: refused,
+        })
+      }
+      reveal={found}
+      onRevealClose={() => setFound(null)}
       onRequest={(tile) => request.mutate(tile, { onSuccess: () => done("Request posted", "Any member who holds the tile can give it: it is built at once."), onError: refused })}
       onGive={(id) => give.mutate(id, { onSuccess: (given) => done(`Tile built · +${given.cobbles} ${given.cobbles === 1 ? "Cobble" : "Cobbles"}`, `Built in your name. ${given.ordersLeft} ${given.ordersLeft === 1 ? "order" : "orders"} left today.`), onError: refused })}
     />

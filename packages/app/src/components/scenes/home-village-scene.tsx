@@ -133,6 +133,9 @@ export interface HomeVillageSceneProps extends Pick<LayoutEditorOptions, "random
   onVault?: () => void;
   /** The right column's Tiles (HOME-EDGES): the player's tiles. */
   onTiles?: () => void;
+  /** The right column's Conquest button (the season's finale): the requests the player can answer; null or omitted, no button. */
+  conquest?: number | null;
+  onConquest?: () => void;
   onLeague?: () => void;
   onSettings?: () => void;
   /** A pick in the phone's bar (#763): Shop, Chests, Play, League or Settings, as the overlay's buttons lead. */
@@ -534,6 +537,8 @@ function ViewOverlays({
               onVault={props.onVault}
               onFriends={props.onFriends}
               onTiles={props.onTiles}
+              conquest={props.conquest}
+              onConquest={props.onConquest}
               className="flex flex-col flex-wrap-reverse content-start items-center gap-2"
             />
           </Suspense>

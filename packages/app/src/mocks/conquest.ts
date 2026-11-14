@@ -101,6 +101,16 @@ export const CONQUEST_PARTS = {
   final: results.final!,
 };
 
+/** A build request of the allegiance as the chat and the page show it: asked by its Leader, the viewer holding two of its tile. */
+const asked = (id: number, plan: number, held: number) => ({ id, x: zone.x0 + 10 + id, y: zone.y0 + 14, zone: hub.home!, zoneName: zone.zone.name, plan, orientation: 1, rarity: "common" as const, cobbles: 1, by: members[0]!.profile, at: CONQUEST_NOW - 600 * id, held, holders: 3 + held });
+
+/** The guild chat's Conquest cards: three requests (the viewer holds the first's tile) and the last tile built. */
+export const CONQUEST_CHAT = {
+  requests: [asked(1, 10, 2), asked(2, 13, 0), asked(3, 9, 1)],
+  built: [{ by: members[1]!.profile, plan: 10, orientation: 2, x: zone.x0 + 12, y: zone.y0 + 13, zone: hub.home!, zoneName: zone.zone.name, day: 9 }],
+  orders: 2,
+};
+
 /** A free zone beside the viewer's province: where the view is once it has left home. */
 const beside = hub.zones.find((z) => !z.province && Math.abs(z.col - hub.zones[hub.home!]!.col) + Math.abs(z.row - hub.zones[hub.home!]!.row) === 1)!.index;
 
@@ -111,7 +121,8 @@ const beside = hub.zones.find((z) => !z.province && Math.abs(z.col - hub.zones[h
 export const CONQUEST_MAP = {
   home: { state: hub, area, zone, focus: hub.home },
   asking: { state: hub, area, zone, focus: hub.home, cell: spot, options },
-  explored: { state: hub, area, zone, focus: hub.home, notice: { title: "+40 Knowledge", text: "A rare find! The cell is open for building." } },
+  revealed: { state: hub, area, zone, focus: hub.home, reveal: { knowledge: 40, province: true } },
+  built: { state: hub, area, zone, focus: hub.home, notice: { title: "Tile built · +2 Cobbles", text: "Built in your name. 1 order left today." } },
   away: { state: hub, area, zone, focus: beside },
   world: { state: hub, area, zone, focus: hub.home, world: true },
   reading: { state: hub, area: null, zone: null, focus: hub.home },

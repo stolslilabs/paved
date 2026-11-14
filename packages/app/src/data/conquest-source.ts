@@ -117,6 +117,18 @@ export interface ConquestZoneSummary {
   explored: number;
 }
 
+/** A tile the viewer's allegiance built: who gave it, where. */
+export interface ConquestBuiltState {
+  by: PublicProfile;
+  plan: number;
+  orientation: number;
+  x: number;
+  y: number;
+  zone: number;
+  zoneName: string;
+  day: number;
+}
+
 /** A structure closed that the viewer's allegiance had tiles in. */
 export interface ConquestScoredState {
   kind: ConquestStructure;
@@ -195,6 +207,8 @@ export interface ConquestState {
   allegiance: ConquestAllegianceState | null;
   me: ConquestMe | null;
   requests: ConquestRequestState[];
+  /** The last tiles the allegiance built, the latest first. */
+  built: ConquestBuiltState[];
   /** The last structures closed with a tile of the allegiance, the latest first. */
   scored: ConquestScoredState[];
   /** The phases over, in order. */
