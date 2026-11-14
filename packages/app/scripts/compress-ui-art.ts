@@ -281,6 +281,10 @@
  * three variants each on a transparent 1254 px square, the second kept for both (the compass tilted as the others' objects are, the
  * frame with its painting's ground so the card's scene does not show through it). Each trimmed to its alpha box (alpha 8 and over),
  * fitted to the 240 px box (libwebp's premultiplied rescale) and centred on the icons' frame.
+ * `mode-conquest` (2026-11-14, the owner's ask: the proposal's icon on the Conquest's card), a stone castle on a checkered slab of
+ * grass: drawn the same way, with the crop of the proposal's Play screen and `mode-colossus`, `mode-masterpiece` and `mode-puzzle` as
+ * references; two variants, the first kept (the plainer slab, no tufts of grass). The proposal's two banners on their poles became
+ * two banners hung on the castle's own towers: one object.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

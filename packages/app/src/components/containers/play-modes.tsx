@@ -255,7 +255,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && mode !== "tournament" && mode !== "conquest" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "tournament" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -729,7 +729,7 @@ function ConquestMode({ card, now, onSelect }: { card: ConquestCard; now: number
   const left = puzzleTimeLeft(card.phaseEndsAt, now);
   const phase = CONQUEST_PHASE_NAMES[card.phase];
   return (
-    <ModeCard mode="conquest" slot="conquest-card" sceneAt="50% 42%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+    <ModeCard mode="conquest" slot="conquest-card" sceneAt="50% 42%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
       <Chip className="absolute top-2.5 left-3">
         Limited · {phase}
         {card.day > 0 && card.phase !== "results" && ` · Day ${card.day}`}
