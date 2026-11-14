@@ -211,6 +211,9 @@ import { tournamentLeagueGroup, tournamentRoundEnd } from "@paved/game-core";
 import { masterpieceWeekOf, type MasterpieceEntry } from "@paved/game-core";
 import type { ColossusBoardState, ColossusBuilderRow, ColossusOptions, ColossusPlace, ColossusPlaced, ColossusState } from "../colossus-source";
 import * as colossus from "./colossus";
+import type { ConquestGiven, ConquestMemberRow, ConquestOptions, ConquestRanking, ConquestState, ConquestZoneState } from "../conquest-source";
+import * as conquest from "./conquest";
+import type { ConquestBranch } from "@paved/game-core";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
 import {
   SPAWN_DRAW,
@@ -529,6 +532,8 @@ interface StoredState {
   masterpiece?: masterpiece.StoredMasterpiece;
   /** The Colossus (the weekly collective event, `colossus.ts`): the accounts' tiles by week and their claims; absent: none yet. */
   colossus?: colossus.StoredColossus;
+  /** The Conquest (the season's finale, `conquest.ts`): the accounts' acts by Conquest, their registrations and claims; absent: none yet. */
+  conquest?: conquest.StoredConquest;
   /** The Tournament (the weekly individual event, `tournament.ts`): the accounts' games, registrations and claims; absent: none yet. */
   tournament?: tournament.StoredTournament;
 }
@@ -1544,6 +1549,132 @@ export class MockLedger {
       const cobbles = colossus.claim(stored, player, week, now);
       p.cobbles += cobbles;
       return { events: [this.event("ColossusClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
+  // --- The Conquest (the season's finale, `conquest.ts`) -----------------------------------------------------------------
+
+  /** What a Conquest read or write works on: the stored Conquest, the guilds, their season's peak Joust ratings, the clock. */
+  private conquestOn(world: guilds.GuildWorld, now: number, stored = this.state.conquest ?? conquest.freshConquest()) {
+    return { stored, guilds: world.guilds, peaks: joust.historyOf(this.state.joust ?? joust.freshJoust(), world.guilds, now).peaks, now };
+  }
+
+  /** A Conquest read as `viewer` sees it, with the tiles they can give (their inventory less their active village). */
+  private conquestRead<T>(viewer: string | null, read: (seen: Parameters<typeof conquest.stateOf>[0]) => T): T {
+    return this.guildRead((world, people, now) => {
+      const v2 = viewer === null ? null : (this.peek(viewer).v2 ?? null);
+      return read({ ...this.conquestOn(world, now), people, viewer, spare: v2 ? conquest.spareOf(v2.inventory, v2.layout) : null });
+    });
+  }
+
+  /** A Conquest write: `change` works on the player's copy and the stored Conquest (put back on a throw, `commit`); a rule's refusal is a `WriteError`. */
+  private async conquestWrite<T>(account: string, change: (player: StoredPlayer, wrote: Parameters<typeof conquest.offer>[0], people: guilds.GuildPeople) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    try {
+      await this.write(account, (p) => {
+        try {
+          const now = this.second();
+          const world = this.settledGuilds(now);
+          const out = change(p, { ...this.conquestOn(world, now, (this.state.conquest ??= conquest.freshConquest())), player: account }, this.personOf(world, now));
+          value = out.value;
+          return out.events;
+        } catch (error) {
+          throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+        }
+      });
+    } catch (error) {
+      // The world kept in memory may hold a part of the refused write: it is played again from the stored acts.
+      conquest.forgetConquests();
+      throw error;
+    }
+    return value as T;
+  }
+
+  /** `ConquestSource.state`: the Conquest as `viewer` sees it. */
+  async conquestState(viewer: string | null): Promise<ConquestState> {
+    return this.conquestRead(viewer, (seen) => conquest.stateOf(seen));
+  }
+
+  /** `ConquestSource.zone`: a zone of the world; one the world does not have is the view's refusal. */
+  async conquestZone(viewer: string | null, zone: number): Promise<ConquestZoneState> {
+    const found = this.conquestRead(viewer, (seen) => conquest.zoneOf(seen, zone));
+    if (!found) throw new ViewError("not-available", "Conquest: no such zone");
+    return found;
+  }
+
+  /** `ConquestSource.options`: the plans that fit a cell for the viewer's allegiance. */
+  async conquestOptions(viewer: string, x: number, y: number): Promise<ConquestOptions> {
+    return this.conquestRead(viewer, (seen) => conquest.optionsOf(seen, x, y));
+  }
+
+  /** `ConquestSource.ranking`: the allegiances by points. */
+  async conquestRanking(viewer: string | null): Promise<ConquestRanking> {
+    return this.conquestRead(viewer, (seen) => conquest.rankingOf(seen));
+  }
+
+  /** `ConquestSource.members`: the viewer's allegiance, member by member. */
+  async conquestMembers(viewer: string): Promise<ConquestMemberRow[]> {
+    return this.conquestRead(viewer, (seen) => conquest.membersOf(seen));
+  }
+
+  /** `ConquestSource.register`: the account's allegiance registered (`ConquestRegistered`). */
+  async conquestRegister(player: string): Promise<{ conquest: number }> {
+    return this.conquestWrite(player, (_p, wrote) => {
+      const done = conquest.register(wrote);
+      return { events: [this.event("ConquestRegistered", { playerId: player, conquest: done.conquest, guild: done.guild })], value: { conquest: done.conquest } };
+    });
+  }
+
+  /** `ConquestSource.offer`: the Offerings that wait, made (`ConquestOffered`). */
+  async conquestOffer(player: string): Promise<{ knowledge: number; order: boolean }> {
+    return this.conquestWrite(player, (_p, wrote) => {
+      const done = conquest.offer(wrote);
+      return { events: [this.event("ConquestOffered", { playerId: player, conquest: done.conquest, knowledge: done.knowledge, order: done.order })], value: { knowledge: done.knowledge, order: done.order } };
+    });
+  }
+
+  /** `ConquestSource.explore`: the day's exploration (`ConquestExplored`). */
+  async conquestExplore(player: string, cell: { x: number; y: number }): Promise<{ knowledge: number }> {
+    return this.conquestWrite(player, (_p, wrote) => {
+      const done = conquest.explore(wrote, cell.x, cell.y);
+      return { events: [this.event("ConquestExplored", { playerId: player, conquest: done.conquest, x: cell.x, y: cell.y, knowledge: done.knowledge })], value: { knowledge: done.knowledge } };
+    });
+  }
+
+  /** `ConquestSource.request`: a build request opened (`ConquestRequested`). */
+  async conquestRequest(player: string, tile: { x: number; y: number; plan: number; orientation: number }): Promise<{ id: number }> {
+    return this.conquestWrite(player, (_p, wrote) => {
+      const done = conquest.request(wrote, tile);
+      return { events: [this.event("ConquestRequested", { playerId: player, conquest: done.conquest, x: tile.x, y: tile.y, plan: tile.plan })], value: { id: done.id } };
+    });
+  }
+
+  /** `ConquestSource.give`: a request's tile taken from the account's inventory and built, its Cobbles added (`ConquestBuilt`). */
+  async conquestGive(player: string, request: number): Promise<ConquestGiven> {
+    return this.conquestWrite(player, (p, wrote) => {
+      const v2 = (p.v2 ??= freshV2());
+      const done = conquest.give(wrote, request, conquest.spareOf(v2.inventory, v2.layout));
+      v2.inventory[done.plan - 1] = (v2.inventory[done.plan - 1] ?? 0) - 1;
+      p.cobbles += done.given.cobbles;
+      return { events: [this.event("ConquestBuilt", { playerId: player, conquest: done.conquest, plan: done.plan, cobbles: done.given.cobbles, balance: p.cobbles })], value: done.given };
+    });
+  }
+
+  /** `ConquestSource.research`: a branch's next level bought (`ConquestResearched`). */
+  async conquestResearch(player: string, branch: ConquestBranch): Promise<{ level: number; cost: number }> {
+    return this.conquestWrite(player, (_p, wrote) => {
+      const done = conquest.research(wrote, branch);
+      return { events: [this.event("ConquestResearched", { playerId: player, conquest: done.conquest, branch, level: done.level })], value: { level: done.level, cost: done.cost } };
+    });
+  }
+
+  /** `ConquestSource.claim`: the Cobbles of a Conquest's phases and final rank, added (`ConquestClaimed`). */
+  async conquestClaim(player: string, of: number): Promise<{ cobbles: number }> {
+    return this.conquestWrite(player, (p, wrote, people) => {
+      const cobbles = conquest.claim(wrote, people, of);
+      p.cobbles += cobbles;
+      return { events: [this.event("ConquestClaimed", { playerId: player, conquest: of, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3441,6 +3572,7 @@ export class MockLedger {
     const expeditions = this.state.expedition && structuredClone(this.state.expedition);
     const masterpieces = this.state.masterpiece && structuredClone(this.state.masterpiece);
     const colossi = this.state.colossus && structuredClone(this.state.colossus);
+    const conquests = this.state.conquest && structuredClone(this.state.conquest);
     const tournaments = this.state.tournament && structuredClone(this.state.tournament);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
@@ -3454,6 +3586,7 @@ export class MockLedger {
       this.state.expedition = expeditions;
       this.state.masterpiece = masterpieces;
       this.state.colossus = colossi;
+      this.state.conquest = conquests;
       this.state.tournament = tournaments;
       throw error;
     }

@@ -5,6 +5,7 @@ import type { ExpeditionSource } from "./expedition-source";
 import type { JoustSource } from "./joust-source";
 import type { MasterpieceSource } from "./masterpiece-source";
 import type { ColossusSource } from "./colossus-source";
+import type { ConquestSource } from "./conquest-source";
 import type { PuzzleSource } from "./puzzle-source";
 import type { SocialSource } from "./social-source";
 import type { TournamentSource } from "./tournament-source";
@@ -131,6 +132,8 @@ export interface DataSources {
   masterpiece?: MasterpieceSource | null;
   /** The Colossus (the weekly collective event): the mock's on `mock`; null or left out (the chain): `unavailable`, no card in Play. */
   colossus?: ColossusSource | null;
+  /** The Conquest (the season's finale): the mock's on `mock`; null or left out (the chain): `unavailable`, no card in Play. */
+  conquest?: ConquestSource | null;
   /** The Tournament (the weekly individual event), as the Joust: the mock's on `mock`; null or left out (the chain): `unavailable`, no card in Play. */
   tournament?: TournamentSource | null;
   /** Where the Training game is saved: `localStorage` by default. */
