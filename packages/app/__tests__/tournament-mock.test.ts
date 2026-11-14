@@ -17,7 +17,7 @@ import {
 import type { TournamentGameRecord } from "../src/data/tournament-source";
 import { MockLedger } from "../src/data/mock/ledger";
 import { mockTournament } from "../src/data/mock/overlay";
-import { claim, freshTournament, runOf, stateOf, type StoredTournament } from "../src/data/mock/tournament";
+import { claim, freshTournament, newGame, runOf, stateOf, type StoredTournament } from "../src/data/mock/tournament";
 import { memoryStore } from "./data-fakes";
 
 // The mock's Tournament (the weekly individual event, all on the client): Monday's registration, Tuesday's draw, one game a round on
@@ -199,6 +199,34 @@ describe("the mock's Tournament: a run from its stored games", () => {
     expect(quarter).toMatchObject({ status: "out", reached: 4, cobbles: TOURNAMENT_COBBLES[3] });
     // In the middle of the week the same run is still on: Thursday, round 3 is theirs to win.
     expect(runOf(stored(0, [1, 2, 3], 99_999), WEEK, ME, tournamentRoundStart(WEEK, 3) + 3_600, names)).toMatchObject({ status: "played", reached: 3, claimable: false });
+  });
+
+  it("resumes only the game of today's round: an unfinished game that won at midnight leaves today's to play", () => {
+    const first = runOf(stored(0, [], 0), WEEK, ME, tournamentRoundStart(WEEK, 1) + 60, names)!.firstDuel!;
+    expect(first).toBeLessThan(TOURNAMENT_ROUNDS);
+    // Left unfinished on its last move, with a score that wins the duel.
+    const t = stored(0, [first], 99_999);
+    t.games[first]!.over = false;
+    const during = runOf(t, WEEK, ME, tournamentRoundStart(WEEK, first) + 3_600, names)!;
+    expect(during).toMatchObject({ status: "playing", open: { id: first, score: 99_999 } });
+    const now = tournamentRoundStart(WEEK, first + 1) + 3_600;
+    const run = runOf(t, WEEK, ME, now, names)!;
+    expect(run.path.find((s) => s.round === first)).toMatchObject({ outcome: "won", own: { over: false } });
+    expect(run).toMatchObject({ status: "to-play", open: null });
+    expect(newGame(t, ME, now, names)).toMatchObject({ round: first + 1, over: false });
+    expect(runOf(t, WEEK, ME, now, names)).toMatchObject({ status: "playing", open: { id: 10 } });
+  });
+
+  it("shows no open game once an unfinished game lost its duel at midnight", () => {
+    const first = runOf(stored(0, [], 0), WEEK, ME, tournamentRoundStart(WEEK, 1) + 60, names)!.firstDuel!;
+    const t = stored(0, [first], 1);
+    t.games[first]!.over = false;
+    const now = tournamentRoundStart(WEEK, first + 1) + 3_600;
+    const run = runOf(t, WEEK, ME, now, names)!;
+    expect(run.path.find((s) => s.round === first)).toMatchObject({ outcome: "lost" });
+    expect(run).toMatchObject({ status: "out", open: null });
+    // The week after: last week's run carries no open game either.
+    expect(stateOf(t, NEXT_MONDAY, ME, 0, names).last).toMatchObject({ status: "out", open: null });
   });
 
   it("carries a small league group down: a Grand Master plays in a lower group's bracket", () => {

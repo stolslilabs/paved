@@ -24,7 +24,7 @@ when one ends.
   by the reversed bits of their turn (`tournamentDraw`, `tournamentSeatOf`), so the empty seats are spread out. No seeding.
 - A duel is one game each of the round's 38 cards (every player's cards the same that round, each game in an order of its own), with no
   seasonal bonus. The higher score goes through; at an equal score, the earlier game; not playing loses to any game
-  (`tournamentWinner`). A move past the round's end is refused; an unfinished game counts with its score at its last move.
+  (`tournamentWinner`). A move past the round's end is refused; an unfinished game counts with its score at its last move, and only the game of the round still to decide resumes (Play then starts the next round's).
 - A seat left empty by the draw is a bye: the player opposite skips the round. A seat left empty by a match nobody played is not: the
   player opposite goes through only by playing the round's game (`tournamentDuel`).
 - Rewards: the Cobbles of the last round reached (5, 10, 20, 40, 80, 150; the champion 300), for a player who played at least one
@@ -37,7 +37,7 @@ when one ends.
 - Mock: `packages/app/src/data/mock/tournament.ts` (pure), run by `MockLedger` (`tournament*` methods), given by `mockTournament`. The
   community's players and a field of the mock's own (drawn names, no profile: 34 in Wood down to 2 in Grand Master, so the top groups
   are carried down) register by themselves and their games are drawn; the week is played again from its registrations at each read.
-- Pages: `/play/tournament` (a view of Play's drawer; `?view=bracket`), `/tournament/:gameId`, `/tournament/:gameId/over`.
+- Pages: `/play/tournament` (a view of Play's drawer; `?view=bracket&week=`, the bracket of that week's run), `/tournament/:gameId`, `/tournament/:gameId/over`.
 - Scenes: `scenes/tournament-scene.tsx`, `containers/tournament-end.tsx`, the card in `containers/play-modes.tsx`. The board is the
   Puzzle's (`PuzzlePlay` in `routes/pages/board.tsx`), its meter the opponent's score when they played first.
 
