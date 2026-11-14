@@ -175,7 +175,7 @@ export function mockConquest(ledger: MockLedger): ConquestSource {
     request: (player, tile) => ledger.conquestRequest(player, tile),
     give: (player, request) => ledger.conquestGive(player, request),
     research: (player, branch) => ledger.conquestResearch(player, branch),
-    claim: (player, conquest) => ledger.conquestClaim(player, conquest),
+    claim: (player, conquest, part) => ledger.conquestClaim(player, conquest, part),
   };
 }
 

@@ -243,7 +243,7 @@ function visit(world: Conquest, v: Visit): void {
             let score = draw(10, v.n, k, sample, plan, orientation) + Math.min(2, baseCopies(plan) / 4);
             for (const [side, dx, dy] of [[2, 0, 1], [4, 1, 0], [6, 0, -1], [8, -1, 0]] as const) {
               if (world.tileAt(cell.x + dx, cell.y + dy)) score += 3;
-              else if (!conquestForestEdge(plan, orientation, side)) score -= 0.4;
+              else if (!conquestForestEdge(plan, orientation, side)) score -= 1;
             }
             if (!best || score > best.score) best = { ...cell, plan, orientation, score };
           }
@@ -343,7 +343,7 @@ const guildShown = (guilds: readonly StoredGuild[], id: number): ConquestGuild =
 function rows(world: Conquest, guilds: readonly StoredGuild[], mine: number | null, phase?: ConquestPlayPhase): ConquestRankRow[] {
   return world.ranking(phase).map(({ guild }, i) => {
     const score = world.allegiances.get(guild)!.score;
-    return { place: i + 1, guild: guildShown(guilds, guild), foundation: score.foundation, awakening: score.awakening, frontiers: score.frontiers, total: score.foundation + score.awakening + score.frontiers, mine: guild === mine };
+    return { place: i + 1, guild: guildShown(guilds, guild), foundation: score.foundation, awakening: score.awakening, frontiers: score.frontiers, total: score.foundation + score.awakening + score.frontiers, members: guilds.find((g) => g.id === guild)?.members.length ?? 0, mine: guild === mine };
   });
 }
 
@@ -387,6 +387,9 @@ function zoneShown(world: Conquest, guilds: readonly StoredGuild[], zone: Conque
   };
 }
 
+/** A Conquest's world as numbered for the players: the first of the client's is World 1. */
+const worldNumber = (conquest: number): number => Math.max(1, conquest + 1);
+
 const claimedOf = (stored: StoredConquest, viewer: string | null, conquest: number): readonly ClaimPart[] => (viewer === null ? [] : (stored.claims[addressKey(viewer)]?.[conquest] ?? []));
 
 /** A viewer's days of Offerings in a Conquest, within `[first, last]`. */
@@ -402,7 +405,8 @@ function resultsOf(world: Conquest, guild: number, s: Seen): ConquestPhaseResult
     const own = ranked.find((r) => r.mine)!;
     const days = daysOf(world, guild, s.viewer, CONQUEST_PHASE_DAYS[phase].first, CONQUEST_PHASE_DAYS[phase].result);
     const eligible = days >= CONQUEST_PHASE_ELIGIBLE_DAYS;
-    return { phase, place: own.place, of: ranked.length, score: own[phase], podium: ranked.slice(0, 3), days, eligible, cobbles: eligible ? conquestPhaseCobbles(own.place) : 0, claimed: claimed.includes(phase) };
+    const part = (s.viewer === null ? undefined : world.allegiances.get(guild)?.members.get(addressKey(s.viewer))?.parts[phase]) ?? { tiles: 0, explored: 0, knowledge: 0 };
+    return { phase, place: own.place, of: ranked.length, score: own[phase], podium: ranked.slice(0, 3), guild: own.guild, part: { ...part }, days, eligible, cobbles: eligible ? conquestPhaseCobbles(own.place) : 0, claimed: claimed.includes(phase) };
   });
 }
 
@@ -419,6 +423,9 @@ function finalOf(world: Conquest | null, guild: number | null, s: Seen): Conques
   const phases = resultsOf(world, guild, s);
   return {
     conquest: world.conquest,
+    world: worldNumber(world.conquest),
+    guild: own.guild,
+    phases: phases.map((p) => ({ phase: p.phase, score: p.score, place: p.place })),
     place: own.place,
     of: ranked.length,
     score: own.total,
@@ -473,6 +480,7 @@ export function stateOf(s: Seen): ConquestState {
   const previousWorld = playedTo(stored, guilds, peaks, conquest - 1, now);
   return {
     conquest,
+    world: worldNumber(conquest),
     phase,
     day,
     rest: conquestRestDay(day),
@@ -558,7 +566,7 @@ export function membersOf(s: Seen): ConquestMemberRow[] {
   return mine.guild.members
     .map((m) => {
       const part = allegiance.members.get(m.address);
-      return { profile: s.people(m.address), tiles: part?.tiles ?? 0, explored: part?.explored ?? 0, knowledge: part?.knowledge ?? 0, days: part?.offeringDays.length ?? 0, me: m.address === key };
+      return { profile: s.people(m.address), rank: m.rank, tiles: part?.tiles ?? 0, explored: part?.explored ?? 0, knowledge: part?.knowledge ?? 0, days: part?.offeringDays.length ?? 0, me: m.address === key };
     })
     .sort((a, b) => b.tiles - a.tiles || b.knowledge - a.knowledge);
 }
@@ -656,7 +664,7 @@ export function research(w: Wrote, branch: ConquestBranch): { conquest: number; 
  * The Cobbles `player` claims for `conquest` at `now` (each refusal thrown), the claim recorded: the phases over and, from D21, the
  * final rank, each once. This Conquest or the one before it.
  */
-export function claim(w: Wrote, people: GuildPeople, conquest: number): number {
+export function claim(w: Wrote, people: GuildPeople, conquest: number, only?: ClaimPart): number {
   const current = conquestOf(w.now);
   if (conquest !== current && conquest !== current - 1) throw new Error("Conquest: nothing to claim");
   const mine = guildOf(w.guilds, w.player);
@@ -664,9 +672,10 @@ export function claim(w: Wrote, people: GuildPeople, conquest: number): number {
   if (!mine || !world || !world.allegiances.has(mine.guild.id)) throw new Error("Conquest: nothing to claim");
   const seen: Seen = { stored: w.stored, guilds: w.guilds, peaks: w.peaks, people, now: w.now, viewer: w.player, spare: null };
   const key = addressKey(w.player);
-  const parts: [ClaimPart, number][] = resultsOf(world, mine.guild.id, seen).filter((r) => !r.claimed && r.cobbles > 0).map((r) => [r.phase, r.cobbles]);
+  let parts: [ClaimPart, number][] = resultsOf(world, mine.guild.id, seen).filter((r) => !r.claimed && r.cobbles > 0).map((r) => [r.phase, r.cobbles]);
   const final = finalOf(world, mine.guild.id, seen);
   if (final && !final.claimed && final.cobbles > 0) parts.push(["final", final.cobbles]);
+  if (only) parts = parts.filter(([part]) => part === only);
   if (parts.length === 0) throw new Error("Conquest: nothing to claim");
   const claimed = ((w.stored.claims[key] ??= {})[conquest] ??= []);
   for (const [part] of parts) claimed.push(part);

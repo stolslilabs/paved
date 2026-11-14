@@ -6,7 +6,7 @@ import { ConquestScene, type ConquestNotice } from "../../components/scenes/conq
 import { useClaimConquest, useConquestMembers, useConquestOptions, useConquestRanking, useConquestState, useConquestZone, useExploreConquest, useGiveConquest, useOfferConquest, useRegisterConquest, useRequestConquest, useResearchConquest } from "../../data/conquest";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useTileArt } from "../../data/tile-art";
-import { conquestViewOf, conquestZoneOf } from "../conquest-play";
+import { conquestResultOf, conquestViewOf, conquestZoneOf } from "../conquest-play";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
 import { useOpenPlayer } from "../open-player";
@@ -58,6 +58,7 @@ export default function ConquestView() {
     <ConquestScene
       state={state.data ?? null}
       view={view}
+      result={conquestResultOf(params)}
       zone={zone.data ?? null}
       cell={cell}
       options={options.data ?? null}
@@ -80,7 +81,7 @@ export default function ConquestView() {
         setResearching(branch);
         research.mutate(branch, { onSuccess: ({ level }) => done({ kind: "research", branch, level }), onError: refused });
       }}
-      onClaim={(conquest) => claim.mutate(conquest, { onSuccess: ({ cobbles }) => done({ kind: "claim", cobbles }), onError: refused })}
+      onClaim={(conquest, part) => claim.mutate({ conquest, part }, { onSuccess: ({ cobbles }) => done({ kind: "claim", cobbles }), onError: refused })}
       onZone={(target) => {
         setNotice(null);
         setPicked(null);
@@ -90,6 +91,10 @@ export default function ConquestView() {
       onView={(target) => {
         setNotice(null);
         go(target === "hub" ? "/play/conquest" : `/play/conquest?view=${target}`);
+      }}
+      onResult={(of) => {
+        setNotice(null);
+        go(`/play/conquest?view=result&of=${of}`);
       }}
       onAllegiance={() => go("/guild")}
       onOpenPlayer={openPlayer}

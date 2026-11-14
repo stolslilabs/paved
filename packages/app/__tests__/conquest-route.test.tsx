@@ -72,7 +72,7 @@ describe("/play: the Conquest's card in Limited", () => {
     expect(screen.getByText("Limited · Awakening · Day 9")).toBeInTheDocument();
     await userEvent.click(card);
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/conquest"));
-    expect(await screen.findByRole("heading", { name: "Awakening" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Day 9 of 20" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Conquest" })).toBeInTheDocument();
   });
 
@@ -86,13 +86,13 @@ describe("/play: the Conquest's card in Limited", () => {
 describe("/play/conquest: a member's day", () => {
   it("makes the Offerings that wait, then explores a cell of the province on the map", async () => {
     const { router, conquest } = open("/play/conquest", await member());
-    const offer = await screen.findByRole("button", { name: /^Offer \+12$/ }, { timeout: slow(8000) });
+    const offer = await screen.findByRole("button", { name: "Offer: 12 Knowledge" }, { timeout: slow(8000) });
     await userEvent.click(offer);
     await waitFor(() => expect(document.querySelector("[data-slot=conquest-notice]")).toHaveTextContent("Your Offerings are made."), { timeout: slow(8000) });
-    await waitFor(() => expect(document.querySelector("[data-slot=conquest-offering]")).toHaveTextContent("0 Offerings wait"), { timeout: slow(5000) });
+    await waitFor(() => expect(document.querySelector("[data-slot=conquest-offering]")).toHaveTextContent("0 waiting"), { timeout: slow(5000) });
     expect((await conquest!.state(PLAYER_ID)).me).toMatchObject({ days: 1, knowledge: 12 });
     // The day's exploration: the map of the province, a fog cell, Explore.
-    await userEvent.click(screen.getByRole("button", { name: "Explore" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Explore:/ }));
     await waitFor(() => expect(router.state.location.search).toMatch(/^\?zone=\d+$/));
     const grid = await screen.findByRole("grid", { name: /your province$/ }, { timeout: slow(8000) });
     expect(screen.getByRole("heading", { name: "Map" })).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe("/play/conquest: a member's day", () => {
     await waitFor(() => expect(within(grid).queryAllByRole("gridcell", { name: /: fog$/ }).every((c) => c.tagName === "SPAN")).toBe(true), { timeout: slow(5000) });
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(router.state.location.search).toBe(""));
-    expect(await screen.findByRole("heading", { name: "Awakening" }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Day 9 of 20" }, { timeout: slow(5000) })).toBeInTheDocument();
   });
 
   it("shows the tree, the ranking and the members at ?view=, each named on the header", async () => {
@@ -115,11 +115,17 @@ describe("/play/conquest: a member's day", () => {
     // A member reads the tree: no level to buy.
     expect(screen.getByText(/The Leader and the Officers buy the levels/)).toBeInTheDocument();
     await router.navigate("/play/conquest?view=ranking");
-    expect((await screen.findByRole("list", { name: "Allegiances by points" }, { timeout: slow(8000) })).children).toHaveLength(6);
+    expect((await screen.findByRole("list", { name: "Allegiances by Awakening's points" }, { timeout: slow(8000) })).children).toHaveLength(6);
+    await userEvent.click(screen.getByRole("tab", { name: "Final" }));
+    expect(await screen.findByRole("list", { name: "Allegiances by points" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ranking" })).toBeInTheDocument();
     await router.navigate("/play/conquest?view=members");
     expect((await screen.findByRole("list", { name: "Members by tiles given" }, { timeout: slow(8000) })).children).toHaveLength(QUARRYMEN.members.length + 1);
-    expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Our members" })).toBeInTheDocument();
+    // Foundation's result, by its address: the phase is over, the member joined after it and is not paid.
+    await router.navigate("/play/conquest?view=result&of=foundation");
+    expect(await screen.findByRole("region", { name: "Foundation is over" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Claim 0 Cobbles" })).toBeDisabled();
   });
 
   it("sends a player with no allegiance to the Allegiance page", async () => {
@@ -140,7 +146,7 @@ describe("/play/conquest: the registration", () => {
     const ledger = newLedger();
     await mockSocial(ledger).createGuild(PLAYER_ID, draft);
     const { conquest } = open("/play/conquest", ledger);
-    expect(await screen.findByRole("heading", { name: "Registration" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Before day 1" }, { timeout: slow(8000) })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Register" }));
     await waitFor(() => expect(document.querySelector("[data-slot=conquest-register]")).toHaveTextContent("Registered: its province is drawn when day 1 begins."), { timeout: slow(8000) });
     expect((await conquest!.state(PLAYER_ID)).entered).toBe(true);

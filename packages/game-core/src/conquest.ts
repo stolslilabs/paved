@@ -282,6 +282,8 @@ export interface ConquestMember {
   explored: number;
   knowledge: number;
   tiles: number;
+  /** The same three, phase by phase. */
+  parts: Record<ConquestPlayPhase, { tiles: number; explored: number; knowledge: number }>;
 }
 
 /** An allegiance's Conquest: its province, its Knowledge and levels, the day's orders, its points by phase and its members. */
@@ -400,7 +402,7 @@ export class Conquest {
     const allegiance = this.allegiance(guild);
     let member = allegiance.members.get(address);
     if (!member) {
-      member = { address, anchor: conquestOpensAt(this.conquest), offeringDays: [], orderDay: 0, exploredDay: 0, offerings: 0, explored: 0, knowledge: 0, tiles: 0 };
+      member = { address, anchor: conquestOpensAt(this.conquest), offeringDays: [], orderDay: 0, exploredDay: 0, offerings: 0, explored: 0, knowledge: 0, tiles: 0, parts: { foundation: { tiles: 0, explored: 0, knowledge: 0 }, awakening: { tiles: 0, explored: 0, knowledge: 0 }, frontiers: { tiles: 0, explored: 0, knowledge: 0 } } };
       allegiance.members.set(address, member);
     }
     return member;
@@ -510,6 +512,7 @@ export class Conquest {
     member.anchor = count >= CONQUEST_OFFERINGS_WAITING ? now : member.anchor + count * every;
     member.offerings += count;
     member.knowledge += count;
+    if (day <= CONQUEST_LAST_DAY) member.parts[conquestPhaseOfDay(day) as ConquestPlayPhase].knowledge += count;
     allegiance.knowledge += count;
     allegiance.earned += count;
     if (day <= CONQUEST_LAST_DAY && !member.offeringDays.includes(day)) member.offeringDays.push(day);
@@ -537,6 +540,9 @@ export class Conquest {
     member.exploredDay = day;
     member.explored += 1;
     member.knowledge += knowledge;
+    const part = member.parts[conquestPhaseOfDay(day) as ConquestPlayPhase];
+    part.explored += 1;
+    part.knowledge += knowledge;
     allegiance.explored += 1;
     allegiance.knowledge += knowledge;
     allegiance.earned += knowledge;
@@ -574,6 +580,7 @@ export class Conquest {
     allegiance.orders.used += 1;
     allegiance.tiles += 1;
     member.tiles += 1;
+    member.parts[conquestPhaseOfDay(day) as ConquestPlayPhase].tiles += 1;
     const tile: ConquestTile = { id: this.tiles.length + 1, x: request.x, y: request.y, plan: request.plan, orientation: request.orientation, guild, by: address, day, kind: "tile" };
     const placed = this.lay(tile);
     // Every request on the cell is done, whoever asked.

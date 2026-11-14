@@ -1,5 +1,5 @@
 import type { ConquestCard } from "../components/containers/play-modes";
-import type { ConquestView } from "../components/scenes/conquest-scene";
+import type { ConquestResultOf, ConquestView } from "../components/scenes/conquest-scene";
 import { useConquestAvailable, useConquestState } from "../data/conquest";
 
 // The Conquest's part of Play's route (the season's finale): its card, and the names of its views on the drawer's header. Here, not
@@ -12,11 +12,18 @@ export const conquestZoneOf = (param: string | null): number | null => (param !=
 export const conquestViewOf = (params: URLSearchParams): ConquestView => {
   if (conquestZoneOf(params.get("zone")) !== null) return "map";
   const view = params.get("view");
-  return view === "tree" || view === "ranking" || view === "members" ? view : "hub";
+  if (view === "result") return conquestResultOf(params) ? "result" : "hub";
+  return view === "tree" || view === "ranking" || view === "members" || view === "requests" || view === "rules" ? view : "hub";
+};
+
+/** The result named by `?view=result&of=`: a phase's, the final one, the last Conquest's; null: none. */
+export const conquestResultOf = (params: URLSearchParams): ConquestResultOf | null => {
+  const of = params.get("of");
+  return of === "foundation" || of === "awakening" || of === "frontiers" || of === "final" || of === "last" ? of : null;
 };
 
 /** The header's title of the Conquest's views; its own page has none (the drawer says "Conquest"). */
-export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, map: "Map", tree: "Knowledge tree", ranking: "Ranking", members: "Members" };
+export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, map: "Map", tree: "Knowledge tree", ranking: "Ranking", members: "Our members", requests: "Requests", rules: "Goals and rules", result: "Result" };
 
 /**
  * The Conquest's card of Play (Limited): the phase and its day, the allegiances registered, the player's allegiance's place with the

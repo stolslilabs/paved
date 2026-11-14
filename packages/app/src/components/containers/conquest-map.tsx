@@ -218,15 +218,11 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
               ) : (
                 ", you none"
               )}
-              .
+              . The gift pays <span className="numeric text-foreground">+{request.cobbles}</span> {request.cobbles === 1 ? "Cobble" : "Cobbles"}.
             </p>
             <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 shrink-0 px-3 text-base font-black text-foreground" disabled={request.held === 0 || orders < 1 || busy !== null} aria-busy={busy === "give" || undefined} aria-label={`Give ${tileName(request.plan)} for ${request.cobbles} ${request.cobbles === 1 ? "Cobble" : "Cobbles"}`} onClick={() => onGive?.(request.id)}>
               {busy === null && request.held > 0 && orders > 0 && <GoldShine />}
               Give
-              <span className="flex items-center gap-0.5">
-                <span className="numeric">+{request.cobbles}</span>
-                <TokenIcon kind="cobbles" size="sm" px={16} className="size-4" />
-              </span>
             </Button>
           </div>
         ) : asking ? (
@@ -263,7 +259,7 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
                     )}
                     <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 min-w-0 flex-1 px-2 text-lg font-black text-foreground" disabled={busy !== null} aria-busy={busy === "request" || undefined} onClick={() => onRequest?.({ x: cell.x, y: cell.y, plan: chosen.plan, orientation })}>
                       {busy === null && <GoldShine />}
-                      Ask for it
+                      Ask
                     </Button>
                   </>
                 ) : (

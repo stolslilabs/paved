@@ -4,17 +4,20 @@ import { LazyMotion, domMax } from "motion/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ConquestWorld, ConquestZoneMap } from "../src/components/containers/conquest-map";
-import { ConquestFinalCard, ConquestPhaseCard } from "../src/components/containers/conquest-ranks";
-import { ConquestTree } from "../src/components/containers/conquest-tree";
+import { ConquestFinalEnd, ConquestMembers, ConquestPhaseEnd, ConquestRanks, rankedBy } from "../src/components/containers/conquest-ranks";
+import { CONQUEST_TREE_COST, ConquestTree, conquestNextLevel, conquestSpent } from "../src/components/containers/conquest-tree";
 import { PlayModes } from "../src/components/containers/play-modes";
-import { ConquestScene } from "../src/components/scenes/conquest-scene";
+import { ordinal } from "../src/components/elements/conquest-art";
+import { ConquestScene, type ConquestSceneProps } from "../src/components/scenes/conquest-scene";
 import { CONQUEST, CONQUEST_CARD, CONQUEST_PARTS } from "../src/mocks/conquest";
 
-// The Conquest's scenes (the season's finale) on their mocks: Play's card, the page through its phases, the map and a cell picked,
-// the knowledge tree, the ranking, the members and the results. The routes are `conquest-route.test.tsx`'s, the mock's rules
-// `conquest-mock.test.ts`'s.
+// The Conquest's scenes (the season's finale) on their mocks: Play's card, the page through its phases, the results (a phase over,
+// the Conquest over), the ranking and the members with their tabs, the requests, the tree, the map and a cell picked. The routes are
+// `conquest-route.test.tsx`'s, the mock's rules `conquest-mock.test.ts`'s.
 
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
+/** A view of the drawer, with its footer (Claim, the tabs): outside a drawer the footer is drawn in place. */
+const inDrawer = (props: ConquestSceneProps) => wrap(<ConquestScene {...props} />);
 
 describe("Play's Conquest card", () => {
   it("shows no card where the network has no Conquest", () => {
@@ -22,7 +25,7 @@ describe("Play's Conquest card", () => {
     expect(screen.queryByRole("button", { name: "Conquest" })).toBeNull();
   });
 
-  it("says the phase and its day, the allegiance's rank and the day's orders, with the phase's time left, and opens on a tap", async () => {
+  it("says the phase and its day, the allegiance's rank and the day's orders, with its own icon, and opens on a tap", async () => {
     const onConquest = vi.fn();
     render(wrap(<PlayModes spawnPaused={false} {...CONQUEST_CARD.playing} onConquest={onConquest} />));
     const { allegiance } = CONQUEST.hub.state;
@@ -30,6 +33,7 @@ describe("Play's Conquest card", () => {
     expect(button).toHaveTextContent(`#${allegiance!.place} of ${allegiance!.of} · ${allegiance!.orders.left} order`);
     expect(screen.getByText("Limited · Awakening · Day 9")).toBeInTheDocument();
     expect(screen.getByRole("timer", { name: /left in Awakening$/ })).toBeInTheDocument();
+    expect(document.querySelector('[data-mode="conquest"] img[src$="/mode-conquest.webp"]')).toHaveAttribute("aria-hidden", "true");
     await userEvent.click(button);
     expect(onConquest).toHaveBeenCalledOnce();
   });
@@ -45,107 +49,100 @@ describe("Play's Conquest card", () => {
 });
 
 describe("the Conquest's page", () => {
-  it("shows the registration: the allegiance, Register for an Officer, the allegiances registered", async () => {
+  it("shows the registration: the allegiance, one Register for an Officer, the allegiances registered", async () => {
     const onRegister = vi.fn();
-    render(wrap(<ConquestScene {...CONQUEST.registration} onRegister={onRegister} />));
-    const { state } = CONQUEST.registration;
-    expect(screen.getByRole("heading", { name: "Registration" })).toBeInTheDocument();
-    expect(screen.getByText("Before day 1")).toBeInTheDocument();
+    render(inDrawer({ ...CONQUEST.registration, onRegister }));
+    expect(screen.getByText("Registration")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Before day 1" })).toBeInTheDocument();
     expect(screen.getByRole("timer")).toHaveTextContent("The world is drawn in 2d 22h");
-    expect(state.entered).toBe(false);
+    expect(CONQUEST.registration.state.entered).toBe(false);
+    expect(document.querySelector("[data-slot=conquest-register]")).toHaveTextContent("Not registered yet.");
     await userEvent.click(screen.getByRole("button", { name: "Register" }));
     expect(onRegister).toHaveBeenCalledOnce();
     expect(screen.getByRole("heading", { name: "Registered" })).toBeInTheDocument();
-    // No world yet: the map waits.
+    // No world yet: the map waits, and there is no ritual.
     expect(screen.getByRole("button", { name: "Map" })).toBeDisabled();
-    expect(screen.queryByRole("heading", { name: "Daily ritual" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Daily ritual" })).toBeNull();
   });
 
-  it("shows a day of play: the allegiance's figures, the daily ritual, the requests, the results so far, the briefing and the rules", async () => {
-    const on = { onOffer: vi.fn(), onZone: vi.fn(), onView: vi.fn(), onGive: vi.fn() };
-    render(wrap(<ConquestScene {...CONQUEST.hub} {...on} />));
+  it("shows a day of play as the proposal draws it: the phase, the allegiance, the orders, the ritual's three cards, the Knowledge", async () => {
+    const on = { onOffer: vi.fn(), onZone: vi.fn(), onView: vi.fn(), onResult: vi.fn() };
+    render(inDrawer({ ...CONQUEST.hub, ...on }));
     const { state } = CONQUEST.hub;
-    expect(screen.getByRole("heading", { name: "Awakening" })).toBeInTheDocument();
-    expect(screen.getByText("Day 9 of 28")).toBeInTheDocument();
-    expect(screen.getByRole("timer")).toHaveTextContent("The phase ends in 5d 9h");
-    const figures = screen.getByRole("group", { name: "Your allegiance" });
-    expect(figures).toHaveTextContent(`#${state.allegiance!.place}of ${state.allegiance!.of}`);
-    expect(figures).toHaveTextContent("Knowledge");
-    // The viewer offered every evening: the Offerings since wait.
+    expect(screen.getByText("Phase 2 · Awakening")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Day 9 of 20" })).toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveTextContent("5d 9h left · Frontiers opens on D15");
+    expect(screen.getByRole("group", { name: "Your allegiance" })).toHaveTextContent(`#${state.allegiance!.place}`);
+    expect(document.querySelector("[data-slot=conquest-allegiance]")).toHaveTextContent(`${state.allegiance!.members} members · you are an Officer`);
+    expect(document.querySelector("[data-slot=conquest-orders]")).toHaveTextContent(`${state.allegiance!.orders.left} left · ${state.allegiance!.orders.given} received, ${state.allegiance!.orders.used} built`);
+    // The ritual: three cards, what waits before each one's action, the action one word.
+    const ritual = screen.getByRole("list", { name: "Daily ritual" });
+    expect(ritual.children).toHaveLength(3);
     expect(state.me).toMatchObject({ days: 8, orderToday: false, exploredToday: false });
-    expect(state.me!.waiting).toBeGreaterThan(0);
-    const offering = document.querySelector("[data-slot=conquest-offering]")!;
-    expect(offering).toHaveTextContent(`${state.me!.waiting} Offerings wait`);
-    expect(offering).toHaveTextContent("your first gives an order");
-    await userEvent.click(within(offering as HTMLElement).getByRole("button", { name: /^Offer/ }));
+    const offering = ritual.querySelector("[data-slot=conquest-offering]")!;
+    expect(offering).toHaveTextContent(`Offering${state.me!.waiting} waitingnext in`);
+    expect(within(ritual).getAllByRole("button").map((b) => b.textContent)).toEqual(["Offer", "Explore", "Build"]);
+    await userEvent.click(within(ritual).getByRole("button", { name: /^Offer: \d+ Knowledge$/ }));
     expect(on.onOffer).toHaveBeenCalledOnce();
-    await userEvent.click(screen.getByRole("button", { name: "Explore" }));
+    await userEvent.click(within(ritual).getByRole("button", { name: /^Explore/ }));
     expect(on.onZone).toHaveBeenLastCalledWith(state.home);
-    expect(document.querySelector("[data-slot=conquest-orders]")).toHaveTextContent(`${state.allegiance!.orders.left} order`);
-    expect(screen.getByRole("heading", { name: "Requests" })).toBeInTheDocument();
-    for (const r of state.requests) expect(document.querySelector(`li[data-request="${r.id}"]`)).toHaveTextContent(r.zoneName);
-    // Foundation is over: its result is shown, and its Cobbles wait.
-    expect(screen.getByRole("region", { name: "End of Foundation" })).toHaveTextContent(`#${state.results[0]!.place} of 6`);
-    expect(screen.getByRole("heading", { name: "Briefing" })).toBeInTheDocument();
-    expect(screen.getByText(/The Great Wonders appear/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "The rules" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Ranking" }));
-    expect(on.onView).toHaveBeenLastCalledWith("ranking");
-    await userEvent.click(screen.getByRole("button", { name: "Tree" }));
+    const build = within(ritual).getByRole("button", { name: /^Build/ });
+    if (state.requests.length === 0) expect(build).toBeDisabled();
+    else {
+      await userEvent.click(build);
+      expect(on.onView).toHaveBeenLastCalledWith("requests");
+    }
+    // Foundation is over: its line opens its result.
+    await userEvent.click(screen.getByRole("button", { name: /^Foundation is over/ }));
+    expect(on.onResult).toHaveBeenLastCalledWith("foundation");
+    const knowledge = document.querySelector("[data-slot=conquest-knowledge-row]") as HTMLElement;
+    expect(knowledge).toHaveTextContent(`Knowledge ${state.allegiance!.knowledge.toLocaleString("en-US")}`);
+    expect(knowledge).toHaveTextContent(/Next: \w+ level \d+ for [\d,]+/);
+    await userEvent.click(knowledge);
     expect(on.onView).toHaveBeenLastCalledWith("tree");
-    await userEvent.click(screen.getByRole("button", { name: "Members" }));
+    await userEvent.click(screen.getByRole("button", { name: /members$/ }));
     expect(on.onView).toHaveBeenLastCalledWith("members");
+    await userEvent.click(screen.getByRole("button", { name: "Goals and rules" }));
+    expect(on.onView).toHaveBeenLastCalledWith("rules");
+    await userEvent.click(screen.getByRole("button", { name: "Ranks" }));
+    expect(on.onView).toHaveBeenLastCalledWith("ranking");
     await userEvent.click(screen.getByRole("button", { name: "Map" }));
     expect(on.onZone).toHaveBeenLastCalledWith(state.home);
   });
 
   it("says what the last act did", () => {
-    render(wrap(<ConquestScene {...CONQUEST.offered} />));
+    render(inDrawer(CONQUEST.offered));
     expect(document.querySelector("[data-slot=conquest-notice]")).toHaveTextContent("Your first Offering of the day gave the allegiance one order.");
     expect(screen.getByText("+3 Knowledge")).toBeInTheDocument();
   });
 
-  it("shows a rest day: nobody builds or explores, the phase's result is in and claimed with one tap", async () => {
-    const onClaim = vi.fn();
-    render(wrap(<ConquestScene {...CONQUEST.rest} onClaim={onClaim} />));
-    const { state } = CONQUEST.rest;
-    expect(screen.getByRole("heading", { name: "Foundation" })).toBeInTheDocument();
-    expect(screen.getByRole("timer")).toHaveTextContent("A rest day: nobody builds or explores. The next phase begins in 14h");
-    expect(document.querySelector("[data-slot=conquest-exploration]")).toHaveTextContent("Nobody explores on a rest day");
-    const result = screen.getByRole("region", { name: "End of Foundation" });
-    expect(within(result).getByRole("list", { name: "Foundation's podium" }).children).toHaveLength(3);
-    // Six evenings of Offerings so far: the seventh is tonight.
-    expect(state.results[0]).toMatchObject({ days: 6, eligible: true, claimed: false });
-    await userEvent.click(screen.getByRole("button", { name: `Claim +${state.toClaim} Cobbles` }));
-    expect(onClaim).toHaveBeenCalledWith(state.conquest);
+  it("shows a rest day: nobody builds or explores, and the phase's result is one tap away", () => {
+    render(inDrawer(CONQUEST.rest));
+    expect(screen.getByText("Phase 1 · Foundation")).toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveTextContent(/^A rest day: nobody builds or explores · 14h( 0m)? left$/);
+    const ritual = screen.getByRole("list", { name: "Daily ritual" });
+    expect(within(ritual).getByRole("button", { name: /^Explore/ })).toBeDisabled();
+    expect(document.querySelector("[data-slot=conquest-orders]")).toHaveTextContent("A rest day: nobody builds, no order is given.");
+    expect(screen.getByRole("button", { name: /^Foundation is over/ })).toHaveTextContent(/Cobbles to claim/);
   });
 
-  it("shows the results: the final rank, the crest of the podium, the three phases, and Claim", async () => {
-    const onClaim = vi.fn();
-    render(wrap(<ConquestScene {...CONQUEST.results} onClaim={onClaim} />));
-    const { state } = CONQUEST.results;
-    const final = state.final!;
-    expect(screen.getByRole("heading", { name: "Results" })).toBeInTheDocument();
-    expect(screen.getByRole("timer")).toHaveTextContent("The next Conquest's registration opens in");
-    const card = screen.getByRole("region", { name: "This Conquest" });
-    expect(card).toHaveTextContent(`#${final.place} of ${final.of}`);
-    expect(final).toMatchObject({ days: 13, eligible: true });
-    expect(screen.getAllByRole("region", { name: /^End of / })).toHaveLength(3);
-    // The ritual and the requests are over.
-    expect(screen.queryByRole("heading", { name: "Daily ritual" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Requests" })).toBeNull();
-    await userEvent.click(within(card).getByRole("button", { name: `Claim +${final.toClaim} Cobbles` }));
-    expect(onClaim).toHaveBeenCalledWith(final.conquest);
+  it("shows the results' days: the Conquest over and its three phases, no ritual", () => {
+    render(inDrawer(CONQUEST.results));
+    expect(screen.getByText("Results")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Day 22 of 28" })).toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveTextContent("The next registration opens in");
+    expect(screen.getByRole("button", { name: /^The Conquest is over/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^(Foundation|Awakening|Frontiers) is over/ })).toHaveLength(3);
+    expect(screen.queryByRole("list", { name: "Daily ritual" })).toBeNull();
   });
 
   it("sends a player with no allegiance to find one", async () => {
     const onAllegiance = vi.fn();
-    render(wrap(<ConquestScene {...CONQUEST.noAllegiance} onAllegiance={onAllegiance} />));
+    render(inDrawer({ ...CONQUEST.noAllegiance, onAllegiance }));
     expect(screen.getByText("The Conquest is played by allegiances")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Your allegiance" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Find an allegiance" }));
     expect(onAllegiance).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "Tree" })).toBeDisabled();
   });
 
   it("waits while it is read, and says why it could not be", async () => {
@@ -157,6 +154,180 @@ describe("the Conquest's page", () => {
     expect(screen.getByText("The Conquest could not be read.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the Conquest's results", () => {
+  it("shows a phase over: the emblem under its medal, the place, the podium, the viewer's part, then the Cobbles before one Claim", async () => {
+    const onClaim = vi.fn();
+    render(inDrawer({ ...CONQUEST.phaseOver, onClaim }));
+    const phase = CONQUEST.phaseOver.state.results[0]!;
+    const stage = screen.getByRole("region", { name: "Foundation is over" });
+    expect(within(stage).getByRole("heading", { name: "Foundation is over" })).toBeInTheDocument();
+    expect(stage).toHaveTextContent("D7 · Rest day");
+    expect(stage.querySelector("[data-slot=conquest-result-place]")).toHaveTextContent(`${ordinal(phase.place)} of ${phase.of}`);
+    expect(within(stage).getByRole("list", { name: "Podium" }).children).toHaveLength(3);
+    const part = within(stage).getByRole("group", { name: "Your part" });
+    expect(part).toHaveTextContent(`${phase.part.tiles}tile`);
+    expect(part).toHaveTextContent(`${phase.part.knowledge}Knowledge`);
+    expect(phase).toMatchObject({ days: 6, eligible: true, claimed: false });
+    expect(stage.querySelector("[data-eligible=true]")).toHaveTextContent("Eligible: Offerings on 6 of the phase's days");
+    expect(stage).toHaveTextContent("Next: Awakening, from day 8.");
+    // The Cobbles are said before the button; the button is one word.
+    expect(document.querySelector("[data-slot=conquest-reward]")).toHaveTextContent(`+${phase.cobbles}Cobbles`);
+    const claim = screen.getByRole("button", { name: `Claim ${phase.cobbles} Cobbles` });
+    expect(claim).toHaveTextContent(/^Claim$/);
+    await userEvent.click(claim);
+    expect(onClaim).toHaveBeenCalledWith(CONQUEST.phaseOver.state.conquest, "foundation");
+  });
+
+  it("shows the Conquest over: the crest, each phase's points and place, the final line, then the Cobbles before Claim", async () => {
+    const on = { onClaim: vi.fn(), onView: vi.fn() };
+    render(inDrawer({ ...CONQUEST.conquestOver, ...on }));
+    const final = CONQUEST.conquestOver.state.final!;
+    const stage = screen.getByRole("region", { name: "The Conquest is over" });
+    expect(within(stage).getByRole("heading", { name: `${ordinal(final.place)} of World ${final.world}` })).toBeInTheDocument();
+    const rows = within(stage).getAllByRole("row");
+    expect(rows.map((r) => within(r).getByRole("rowheader").textContent)).toEqual(["Foundation", "Awakening", "Frontiers", "Final"]);
+    expect(rows[3]).toHaveTextContent(ordinal(final.place));
+    expect(final).toMatchObject({ days: 13, eligible: true });
+    if (final.crest) expect(stage.querySelector("[data-slot=conquest-crest]")).toHaveAttribute("data-crest", final.crest);
+    await userEvent.click(screen.getByRole("button", { name: "See the final ranking" }));
+    expect(on.onView).toHaveBeenLastCalledWith("ranking");
+    const claim = screen.getByRole("button", { name: `Claim ${final.cobbles} Cobbles` });
+    expect(claim).toHaveTextContent(/^Claim$/);
+    await userEvent.click(claim);
+    expect(on.onClaim).toHaveBeenCalledWith(final.conquest, "final");
+  });
+
+  it("says why a member short of days is not paid, and draws no crest past the podium", () => {
+    const { unmount } = render(wrap(<ConquestPhaseEnd result={{ ...CONQUEST_PARTS.phase, days: 1, eligible: false, cobbles: 0 }} rest={false} next="Next: Awakening, from day 8." />));
+    expect(document.querySelector("[data-eligible=false]")).toHaveTextContent("Not paid: Offerings on 1 of the phase's days (3 needed)");
+    expect(screen.getByText("Since D7")).toBeInTheDocument();
+    unmount();
+    render(wrap(<ConquestFinalEnd final={{ ...CONQUEST_PARTS.final, place: 5, crest: null, days: 4, eligible: false }} last />));
+    const stage = screen.getByRole("region", { name: "The last Conquest" });
+    expect(stage.querySelector("[data-slot=conquest-crest]")).not.toHaveAttribute("data-crest");
+    expect(stage).toHaveTextContent("finish 5th of 6");
+    expect(stage.querySelector("[data-eligible=false]")).toHaveTextContent("Not paid: Offerings on 4 days (9 needed)");
+  });
+
+  it("counts places as words", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st", "111th"]);
+  });
+});
+
+describe("the Conquest's ranking and members", () => {
+  it("ranks the allegiances phase by phase from the foot's tabs, the podium wearing its medals, the viewer's own marked", async () => {
+    render(inDrawer(CONQUEST.ranking));
+    const { rows } = CONQUEST.ranking.ranking;
+    // It opens on the phase under way.
+    expect(screen.getByRole("tab", { name: "Awakening" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label") ?? t.textContent)).toEqual(["Foundation", "Awakening", "Frontiers", "Final"]);
+    let list = screen.getByRole("list", { name: "Allegiances by Awakening's points" });
+    expect(list.children).toHaveLength(6);
+    expect(within(list).getAllByRole("img", { name: /^(1st|2nd|3rd)$/ })).toHaveLength(3);
+    expect(list.querySelectorAll("[data-mine]")).toHaveLength(1);
+    expect(list.querySelector("[data-mine]")).toHaveTextContent("The Quarrymenyour allegiance · 10 members");
+    expect(screen.getByText(/The phase closes in/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Final" }));
+    list = screen.getByRole("list", { name: "Allegiances by points" });
+    expect(within(list).getAllByRole("listitem")[0]).toHaveTextContent(rows[0]!.guild.name);
+    await userEvent.click(screen.getByRole("tab", { name: "Foundation" }));
+    expect(within(screen.getByRole("list", { name: "Allegiances by Foundation's points" })).getAllByRole("listitem")[0]).toHaveTextContent(rankedBy(rows, "foundation")[0]!.guild.name);
+  });
+
+  it("ranks a phase by its own points, a tie to the total's order", () => {
+    const { rows } = CONQUEST_PARTS.ranking;
+    const byPhase = rankedBy(rows, "foundation");
+    expect(byPhase.map((r) => r.place)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(byPhase.every((r, i) => i === 0 || byPhase[i - 1]!.points >= r.points)).toBe(true);
+    expect(rankedBy(rows, "final").map((r) => r.points)).toEqual(rows.map((r) => r.total));
+    render(wrap(<ConquestRanks rows={rows} by="frontiers" label="Frontiers" />));
+    expect(screen.getByRole("list", { name: "Frontiers" }).children).toHaveLength(6);
+  });
+
+  it("lists the members with their avatar and rank, ranked by the foot's tab, and says whether the viewer is eligible", async () => {
+    const onOpenPlayer = vi.fn();
+    render(inDrawer({ ...CONQUEST.members, onOpenPlayer }));
+    const members = CONQUEST.members.members;
+    let list = screen.getByRole("list", { name: "Members by tiles given" });
+    expect(list.children).toHaveLength(members.length);
+    expect(list.querySelector("[data-me]")).toHaveTextContent("Officer");
+    const best = [...members].sort((a, b) => b.tiles - a.tiles || b.knowledge - a.knowledge)[0]!;
+    await userEvent.click(within(list).getAllByRole("button")[0]!);
+    expect(onOpenPlayer).toHaveBeenCalledWith(best.profile.address);
+    expect(document.querySelector("[data-slot=conquest-eligibility]")).toHaveTextContent("Offerings on 8 days so far (9 needed by D20)");
+    await userEvent.click(screen.getByRole("tab", { name: "Knowledge" }));
+    list = screen.getByRole("list", { name: "Members by Knowledge" });
+    const wisest = [...members].sort((a, b) => b.knowledge - a.knowledge || b.tiles - a.tiles)[0]!;
+    await userEvent.click(within(list).getAllByRole("button")[0]!);
+    expect(onOpenPlayer).toHaveBeenLastCalledWith(wisest.profile.address);
+    await userEvent.click(screen.getByRole("tab", { name: "Explored" }));
+    expect(screen.getByRole("list", { name: "Members by cells explored" })).toBeInTheDocument();
+    render(wrap(<ConquestMembers rows={members} by="explored" />));
+  });
+});
+
+describe("the Conquest's requests, tree and rules", () => {
+  it("lists the open requests: what each asks and pays before its one Give", async () => {
+    const onGive = vi.fn();
+    const state = CONQUEST.requests.state;
+    const request = { id: 7, x: 30, y: 30, zone: state.home!, zoneName: "C3", plan: 1, orientation: 1, rarity: "common" as const, cobbles: 1, by: CONQUEST.members.members[0]!.profile, at: 0, held: 2, holders: 4 };
+    render(inDrawer({ ...CONQUEST.requests, state: { ...state, requests: [request, { ...request, id: 8, held: 0 }], allegiance: { ...state.allegiance!, orders: { given: 3, used: 1, left: 2 } } }, onGive }));
+    const rows = within(screen.getByRole("list", { name: "Open requests" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Common · 4 members hold one · you hold 2");
+    expect(rows[0]).toHaveTextContent("+1 for the gift");
+    const give = within(rows[0]!).getByRole("button", { name: /^Give .* for 1 Cobble$/ });
+    expect(give).toHaveTextContent(/^Give$/);
+    await userEvent.click(give);
+    expect(onGive).toHaveBeenCalledWith(7);
+    // A tile the viewer does not hold: nothing to give.
+    expect(within(rows[1]!).getByRole("button", { name: /^Give/ })).toBeDisabled();
+    expect(screen.getByRole("region", { name: "Requests" })).toHaveTextContent("2 orders left today.");
+  });
+
+  it("draws the tree: the Knowledge to spend, earned and spent, five branches, the cost before Buy", async () => {
+    const onResearch = vi.fn();
+    const levels = { roads: 0, cities: 4, forests: 10, wonders: 0, devotion: 9 };
+    render(wrap(<ConquestTree levels={levels} knowledge={300} earned={8_500} leads open onResearch={onResearch} />));
+    const head = document.querySelector("[data-slot=conquest-knowledge]")!;
+    expect(head).toHaveTextContent("300Knowledge to spend");
+    expect(head).toHaveTextContent("Earned8,500");
+    expect(head).toHaveTextContent(`Spent${conquestSpent(levels).toLocaleString("en-US")}of 22,750`);
+    expect(CONQUEST_TREE_COST).toBe(22_750);
+    // Each figure wears the Knowledge's book.
+    expect(head.querySelectorAll('img[src$="/conquest-knowledge.webp"]')).toHaveLength(3);
+    const tree = screen.getByRole("list", { name: "Knowledge tree" });
+    expect(tree.children).toHaveLength(5);
+    expect(tree.querySelector("[data-branch=cities]")).toHaveTextContent("CitiesLevel 4 · +20% on the cities you win");
+    expect(tree.querySelector("[data-branch=cities] [data-slot=conquest-cost]")).toHaveTextContent("250");
+    expect(tree.querySelector("[data-branch=forests]")).toHaveTextContent("Complete");
+    expect(tree.querySelector("[data-branch=devotion]")).toHaveTextContent("22 Offerings a day");
+    // 1,400 for Devotion's last level: out of reach with 300.
+    expect(screen.getByRole("button", { name: "Buy Devotion level 10 for 1,400 Knowledge" })).toBeDisabled();
+    const buy = screen.getByRole("button", { name: "Buy Cities level 5 for 250 Knowledge" });
+    expect(buy).toHaveTextContent(/^Buy$/);
+    await userEvent.click(buy);
+    expect(onResearch).toHaveBeenCalledWith("cities");
+    expect(conquestNextLevel(levels)).toEqual({ branch: "roads", level: 1, cost: 40 });
+    expect(conquestNextLevel({ roads: 10, cities: 10, forests: 10, wonders: 10, devotion: 10 })).toBeNull();
+  });
+
+  it("shows a member the tree without its buttons, and closes it past Frontiers", () => {
+    const { unmount } = render(wrap(<ConquestTree {...CONQUEST_PARTS.treeMember} />));
+    expect(screen.queryByRole("button")).toBeNull();
+    unmount();
+    render(wrap(<ConquestTree levels={{ roads: 0, cities: 0, forests: 0, wonders: 0, devotion: 0 }} knowledge={9_999} earned={9_999} leads open={false} />));
+    expect(screen.getAllByRole("button").every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  it("shows the phase's goals and the rules", () => {
+    render(inDrawer(CONQUEST.rules));
+    expect(screen.getByRole("heading", { name: "Awakening" })).toBeInTheDocument();
+    expect(screen.getByText(/The Great Wonders appear/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "The rules" })).toBeInTheDocument();
   });
 });
 
@@ -189,10 +360,7 @@ describe("the Conquest's map", () => {
     expect(document.querySelector("[data-slot=conquest-action]")).toHaveTextContent("Nobody knows its Knowledge before: 5 (58%), 10 (26%), 20 (10%), 40 (4%), 100 (2%).");
     await userEvent.click(screen.getByRole("button", { name: "Explore" }));
     expect(on.onExplore).toHaveBeenCalledWith(cell);
-    // The arrows move the window.
-    await userEvent.click(screen.getByRole("button", { name: "Move north" }));
-    expect(within(grid).queryByRole("gridcell", { name: /your capital$/ })).toBeInTheDocument();
-    for (let i = 0; i < 3; i++) await userEvent.click(screen.getByRole("button", { name: "Move north" }));
+    for (let i = 0; i < 5; i++) await userEvent.click(screen.getByRole("button", { name: "Move north" }));
     expect(screen.getByRole("button", { name: "Move north" })).toBeDisabled();
     expect(within(grid).queryByRole("gridcell", { name: /your capital$/ })).toBeNull();
   });
@@ -204,84 +372,13 @@ describe("the Conquest's map", () => {
     render(wrap(<ConquestZoneMap {...CONQUEST_PARTS.zoneAsking} onRequest={onRequest} />));
     const plans = within(screen.getByRole("list", { name: "Plans that fit" })).getAllByRole("button");
     expect(plans).toHaveLength(options!.plans.length);
-    expect(screen.getByText(/Pick the tile to ask for/)).toBeInTheDocument();
     await userEvent.click(plans[0]!);
-    await userEvent.click(screen.getByRole("button", { name: "Ask for it" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
     expect(onRequest).toHaveBeenCalledWith({ ...cell!, plan: options!.plans[0]!.plan, orientation: options!.plans[0]!.orientations[0] });
   });
 
   it("leaves the requests to the Officers: a member's cells beside the tiles are not tapped", () => {
     render(wrap(<ConquestZoneMap {...CONQUEST_PARTS.zoneMember} />));
     expect(screen.queryByRole("gridcell", { name: /beside your tiles$/ })).toBeNull();
-    expect(document.querySelector("[data-slot=conquest-action]")).toHaveTextContent("Tap a fog cell to explore it, or a framed tile to give it.");
-  });
-
-  it("names the zone and the orders left over the map", () => {
-    render(wrap(<ConquestScene {...CONQUEST.map} />));
-    const head = document.querySelector("[data-slot=conquest-zone-head]")!;
-    expect(head).toHaveTextContent(`${CONQUEST.map.zone.zone.name} · your province`);
-    expect(head).toHaveTextContent("left");
-    expect(screen.getByRole("group", { name: "The world" })).toBeInTheDocument();
-  });
-});
-
-describe("the Conquest's tree, ranking, members and results", () => {
-  it("draws five branches, and buys a level an Officer can afford", async () => {
-    const onResearch = vi.fn();
-    render(wrap(<ConquestTree levels={{ roads: 0, cities: 4, forests: 10, wonders: 0, devotion: 9 }} knowledge={300} leads open onResearch={onResearch} />));
-    const tree = screen.getByRole("list", { name: "Knowledge tree" });
-    expect(tree.children).toHaveLength(5);
-    expect(tree.querySelector("[data-branch=cities]")).toHaveTextContent("Cities · 4/10+20% on the cities you win");
-    expect(tree.querySelector("[data-branch=cities]")).toHaveTextContent("Next: +30% on the cities you win");
-    expect(tree.querySelector("[data-branch=forests]")).toHaveTextContent("Complete");
-    expect(tree.querySelector("[data-branch=devotion]")).toHaveTextContent("22 Offerings a day");
-    // 1,400 for Devotion's last level: out of reach with 300.
-    expect(screen.getByRole("button", { name: "Buy Devotion level 10 for 1,400 Knowledge" })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: "Buy Cities level 5 for 250 Knowledge" }));
-    expect(onResearch).toHaveBeenCalledWith("cities");
-  });
-
-  it("shows a member the tree without its buttons, and closes it past Frontiers", () => {
-    const { unmount } = render(wrap(<ConquestTree {...CONQUEST_PARTS.treeMember} />));
-    expect(screen.queryByRole("button")).toBeNull();
-    unmount();
-    render(wrap(<ConquestTree levels={{ roads: 0, cities: 0, forests: 0, wonders: 0, devotion: 0 }} knowledge={9_999} leads open={false} />));
-    expect(screen.getAllByRole("button").every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
-  });
-
-  it("shows the tree's view with the Knowledge to spend", () => {
-    render(wrap(<ConquestScene {...CONQUEST.tree} />));
-    expect(screen.getByRole("group", { name: "Knowledge" })).toHaveTextContent("Knowledge to spend");
-    expect(screen.getByText(/You buy the levels, in order/)).toBeInTheDocument();
-  });
-
-  it("ranks the allegiances by points, the viewer's own marked", () => {
-    render(wrap(<ConquestScene {...CONQUEST.ranking} />));
-    const list = screen.getByRole("list", { name: "Allegiances by points" });
-    expect(list.children).toHaveLength(6);
-    expect(list.querySelectorAll("[data-mine]")).toHaveLength(1);
-    expect(list.querySelector("[data-mine]")).toHaveTextContent("The Quarrymen");
-  });
-
-  it("lists the allegiance's members by tiles given, and opens one", async () => {
-    const onOpenPlayer = vi.fn();
-    render(wrap(<ConquestScene {...CONQUEST.members} onOpenPlayer={onOpenPlayer} />));
-    const list = screen.getByRole("list", { name: "Members by tiles given" });
-    expect(list.children).toHaveLength(CONQUEST.members.members.length);
-    expect(list.querySelector("[data-me]")).toHaveTextContent("you · ");
-    await userEvent.click(within(list).getAllByRole("button")[0]!);
-    expect(onOpenPlayer).toHaveBeenCalledWith(CONQUEST.members.members[0]!.profile.address);
-  });
-
-  it("says what a phase and the final rank pay, and why a member short of days is not paid", () => {
-    const { unmount } = render(wrap(<ConquestPhaseCard result={{ ...CONQUEST_PARTS.phase, days: 1, eligible: false, cobbles: 0 }} />));
-    expect(screen.getByRole("region", { name: "End of Foundation" })).toHaveTextContent("Offerings on 1 of the phase's days: 3 are needed to be paid.");
-    unmount();
-    const final = CONQUEST_PARTS.final;
-    render(wrap(<ConquestFinalCard final={{ ...final, place: 2, crest: "silver", days: 4, eligible: false, cobbles: 0, toClaim: 0 }} title="The last Conquest" />));
-    const card = screen.getByRole("region", { name: "The last Conquest" });
-    expect(card).toHaveTextContent("The Silver crest, for the whole next season.");
-    expect(card).toHaveTextContent("Offerings on 4 days: 9 are needed for the final rank's Cobbles.");
-    expect(within(card).queryByRole("button", { name: /^Claim/ })).toBeNull();
   });
 });

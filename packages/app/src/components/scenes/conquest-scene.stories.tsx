@@ -32,7 +32,7 @@ const view = (state: keyof typeof CONQUEST, conquestTitle?: string): Story => ({
   args: {
     ...PLAY.connected,
     conquestTitle,
-    conquest: <ConquestScene {...CONQUEST[state]} tileArt={tileArt} onRetry={fn()} onRegister={fn()} onOffer={fn()} onExplore={fn()} onRequest={fn()} onGive={fn()} onResearch={fn()} onClaim={fn()} onZone={fn()} onCell={fn()} onView={fn()} onAllegiance={fn()} onOpenPlayer={fn()} />,
+    conquest: <ConquestScene {...CONQUEST[state]} tileArt={tileArt} onRetry={fn()} onRegister={fn()} onOffer={fn()} onExplore={fn()} onRequest={fn()} onGive={fn()} onResearch={fn()} onClaim={fn()} onZone={fn()} onCell={fn()} onView={fn()} onResult={fn()} onAllegiance={fn()} onOpenPlayer={fn()} />,
   },
 });
 
@@ -55,5 +55,14 @@ export const Map = view("map", "Map");
 /** A cell beside the allegiance's tiles picked by an Officer: the plans that fit, by the members who hold one. */
 export const Asking = view("asking", "Map");
 export const Tree = view("tree", "Knowledge tree");
+/** The allegiances by points: a tab of the foot per phase, and the final one. */
 export const Ranking = view("ranking", "Ranking");
-export const Members = view("members", "Members");
+/** The allegiance's members: a tab of the foot per figure they are ranked by. */
+export const Members = view("members", "Our members");
+/** The open requests: what each asks, who holds one, then Give. */
+export const Requests = view("requests", "Requests");
+export const Rules = view("rules", "Goals and rules");
+/** A phase is over: the emblem under its medal, the podium, the viewer's part, the Cobbles before Claim. */
+export const PhaseOver = view("phaseOver", "Result");
+/** The Conquest is over: the crest, each phase's points and place, the Cobbles before Claim. */
+export const ConquestOver = view("conquestOver", "Result");

@@ -1670,9 +1670,9 @@ export class MockLedger {
   }
 
   /** `ConquestSource.claim`: the Cobbles of a Conquest's phases and final rank, added (`ConquestClaimed`). */
-  async conquestClaim(player: string, of: number): Promise<{ cobbles: number }> {
+  async conquestClaim(player: string, of: number, part?: Parameters<typeof conquest.claim>[3]): Promise<{ cobbles: number }> {
     return this.conquestWrite(player, (p, wrote, people) => {
-      const cobbles = conquest.claim(wrote, people, of);
+      const cobbles = conquest.claim(wrote, people, of, part);
       p.cobbles += cobbles;
       return { events: [this.event("ConquestClaimed", { playerId: player, conquest: of, cobbles, balance: p.cobbles })], value: { cobbles } };
     });

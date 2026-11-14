@@ -19,6 +19,8 @@ export interface ConquestRankRow {
   awakening: number;
   frontiers: number;
   total: number;
+  /** Its members now. */
+  members: number;
   /** The viewer's allegiance. */
   mine: boolean;
 }
@@ -26,6 +28,8 @@ export interface ConquestRankRow {
 /** A member of the viewer's allegiance: the tiles they gave, the cells they explored, the Knowledge they brought, their days of Offerings. */
 export interface ConquestMemberRow {
   profile: PublicProfile;
+  /** Their rank in the allegiance. */
+  rank: GuildRank;
   tiles: number;
   explored: number;
   knowledge: number;
@@ -59,7 +63,11 @@ export interface ConquestPhaseResult {
   of: number;
   score: number;
   podium: ConquestRankRow[];
-  /** The viewer's days of Offerings in the phase, and whether they are enough to be paid. */
+  /** The viewer's allegiance. */
+  guild: ConquestGuild;
+  /** What the viewer did in the phase: the tiles they gave, the cells they explored, the Knowledge they brought. */
+  part: { tiles: number; explored: number; knowledge: number };
+  /** The viewer's days of Offerings in the phase (of its seven), and whether they are enough to be paid. */
   days: number;
   eligible: boolean;
   cobbles: number;
@@ -69,6 +77,11 @@ export interface ConquestPhaseResult {
 /** A Conquest's final result for the viewer's allegiance, from D21. */
 export interface ConquestFinal {
   conquest: number;
+  /** The world's number, as shown: the first Conquest is World 1. */
+  world: number;
+  guild: ConquestGuild;
+  /** Each phase's points and place. */
+  phases: { phase: ConquestPlayPhase; score: number; place: number }[];
   place: number;
   of: number;
   score: number;
@@ -153,6 +166,8 @@ export interface ConquestMe {
 /** The Conquest as `viewer` sees it. */
 export interface ConquestState {
   conquest: number;
+  /** The world's number, as shown. */
+  world: number;
   phase: ConquestPhase;
   /** 0 during the registration, then 1 to 28. */
   day: number;
@@ -262,6 +277,6 @@ export interface ConquestSource {
   give(player: string, request: number): Promise<ConquestGiven>;
   /** Buys a branch's next level, by an Officer or the Leader. */
   research(player: string, branch: ConquestBranch): Promise<{ level: number; cost: number }>;
-  /** The Cobbles of a Conquest the player can claim: its phases over and, from D21, its final rank. */
-  claim(player: string, conquest: number): Promise<{ cobbles: number }>;
+  /** The Cobbles of a Conquest the player can claim: one part (a phase over or, from D21, the final rank), or everything due. */
+  claim(player: string, conquest: number, part?: ConquestPlayPhase | "final"): Promise<{ cobbles: number }>;
 }

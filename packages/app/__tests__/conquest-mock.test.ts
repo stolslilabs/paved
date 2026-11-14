@@ -113,7 +113,7 @@ describe("the mock's Conquest: a member's day", () => {
     // The members' list: the viewer among the community's.
     const members = await conquest.members(ME);
     expect(members).toHaveLength(QUARRYMEN.members.length + 1);
-    expect(members.find((m) => m.me)).toMatchObject({ explored: 1, days: 1, tiles: 0 });
+    expect(members.find((m) => m.me)).toMatchObject({ explored: 1, days: 1, tiles: 0, rank: 0 });
   });
 
   it("builds a Leader's request with a tile of their own: one order, the tile out of the inventory, its Cobbles", async () => {
@@ -222,8 +222,11 @@ describe("the mock's Conquest: the community, the results and the loop", () => {
     expect(foundation.podium).toHaveLength(3);
     expect(state.toClaim).toBe(foundation.cobbles);
     const cobbles = (await ledger.account(ME)).cobbles;
-    expect(await conquest.claim(ME, N)).toEqual({ cobbles: foundation.cobbles });
+    // A part that is not in yet pays nothing; the phase's own does.
+    await expect(conquest.claim(ME, N, "awakening")).rejects.toThrow("Conquest: nothing to claim");
+    expect(await conquest.claim(ME, N, "foundation")).toEqual({ cobbles: foundation.cobbles });
     expect((await ledger.account(ME)).cobbles).toBe(cobbles + foundation.cobbles);
+    expect(foundation.part).toEqual({ tiles: 0, explored: 0, knowledge: (await conquest.state(ME)).me!.knowledge });
     await expect(conquest.claim(ME, N)).rejects.toThrow("Conquest: nothing to claim");
     // Six more days of Offerings: nine in all, the final rank pays.
     for (const day of [8, 9, 10, 15, 16, 17]) {

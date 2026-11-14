@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import type { ConquestBranch } from "@paved/game-core";
+import type { ConquestBranch, ConquestPlayPhase } from "@paved/game-core";
 import { cobbleKeys } from "./cobbles";
 import type { ConquestGiven, ConquestMemberRow, ConquestOptions, ConquestRanking, ConquestSource, ConquestState, ConquestZoneState } from "./conquest-source";
 import { addressKey } from "./keys";
@@ -115,4 +115,4 @@ export const useGiveConquest = (player: string | null) => useConquestWrite<numbe
 /** Buys a branch's next level (an Officer or the Leader). */
 export const useResearchConquest = (player: string | null) => useConquestWrite<ConquestBranch, { level: number; cost: number }>(player, (s, p, branch) => s.research(p, branch));
 /** The Cobbles of a Conquest the player can claim: its phases over and its final rank. */
-export const useClaimConquest = (player: string | null) => useConquestWrite<number, { cobbles: number }>(player, (s, p, conquest) => s.claim(p, conquest), true);
+export const useClaimConquest = (player: string | null) => useConquestWrite<{ conquest: number; part?: ConquestPlayPhase | "final" }, { cobbles: number }>(player, (s, p, what) => s.claim(p, what.conquest, what.part), true);
