@@ -32,7 +32,7 @@ const view = (state: keyof typeof CONQUEST, conquestTitle?: string): Story => ({
   args: {
     ...PLAY.connected,
     conquestTitle,
-    conquest: <ConquestScene {...CONQUEST[state]} tileArt={tileArt} onRetry={fn()} onRegister={fn()} onOffer={fn()} onExplore={fn()} onRequest={fn()} onGive={fn()} onResearch={fn()} onClaim={fn()} onZone={fn()} onCell={fn()} onView={fn()} onResult={fn()} onAllegiance={fn()} onOpenPlayer={fn()} />,
+    conquest: <ConquestScene {...CONQUEST[state]} tileArt={tileArt} onRetry={fn()} onRegister={fn()} onOffer={fn()} onGive={fn()} onResearch={fn()} onClaim={fn()} onZone={fn()} onView={fn()} onResult={fn()} onAllegiance={fn()} onOpenPlayer={fn()} />,
   },
 });
 
@@ -50,10 +50,6 @@ export const Results = view("results");
 export const NoAllegiance = view("noAllegiance");
 export const Loading = view("loading");
 export const Failed = view("failed");
-/** The map: the world's checkerboard and the allegiance's province. */
-export const Map = view("map", "Map");
-/** A cell beside the allegiance's tiles picked by an Officer: the plans that fit, by the members who hold one. */
-export const Asking = view("asking", "Map");
 export const Tree = view("tree", "Knowledge tree");
 /** The allegiances by points: a tab of the foot per phase, and the final one. */
 export const Ranking = view("ranking", "Ranking");

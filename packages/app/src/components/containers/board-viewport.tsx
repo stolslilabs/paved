@@ -107,6 +107,11 @@ export interface BoardViewportProps {
    * village, whose plates are its own cells and parcels).
    */
   otherPlates?: boolean;
+  /**
+   * The fog of war's clear cells (the contracts' coordinates), in place of the tiles and their free slots: a board whose fog is its
+   * own rule (the Conquest's: a cell is clear once explored). Unset: the tiles and their free slots, as every game's.
+   */
+  reveal?: ReadonlyArray<{ x: number; y: number }>;
   /** A cell was clicked or tapped (the contracts' coordinates); the page decides whether it is a slot. */
   onCellClick?: (slot: { x: number; y: number }) => void;
   /**
@@ -352,15 +357,15 @@ function hoverOf(ghost: BoardGhost, gameId: number): HoverState {
  * mode (#739: the village's owned-cells variant left with the parcels); a cell new since the last reveal (the tile just
  * placed) is where the fog lifts from.
  */
-export function useFogReveal(tiles: TileRenderData[]): { cells: FogCell[]; origin: FogCell[] } {
-  const source: FogCell[] = tiles.map((t) => ({ x: t.worldX, y: t.worldZ }));
-  const sourceKey = `tiles|${source.map((c) => `${c.x},${c.y}`).join(";")}`;
+export function useFogReveal(tiles: TileRenderData[], given?: ReadonlyArray<FogCell>): { cells: FogCell[]; origin: FogCell[] } {
+  const source: FogCell[] = given ? [...given] : tiles.map((t) => ({ x: t.worldX, y: t.worldZ }));
+  const sourceKey = `${given ? "given" : "tiles"}|${source.map((c) => `${c.x},${c.y}`).join(";")}`;
   // The cells of the reveal last shown (set once it is), to tell the new ones.
   const shown = useRef<string | null>(null);
   const reveal = useMemo(() => {
     const before = new Set(shown.current?.split("|")[1]?.split(";").filter(Boolean) ?? []);
     const origin = before.size ? source.filter((c) => !before.has(`${c.x},${c.y}`)) : [];
-    return { cells: boardReveal(source), origin };
+    return { cells: given ? source : boardReveal(source), origin };
     // The reveal follows the cells, not each new array of the same ones.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceKey]);
@@ -381,7 +386,7 @@ export function toClosedStructures(closed: NonNullable<BoardViewportProps["close
   }));
 }
 
-export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, press, otherPlates = true, cameraMode, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
+export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slots, ghost, confirmed, settings, tilePreview = true, placementHighlight = true, bubble, press, otherPlates = true, reveal, cameraMode, onCellClick, onCellPress, onCellHover, onScene, onError, className }: BoardViewportProps) {
   const [scene, setScene] = useState<GameScene | null>(null);
   // A sheet or the score panel over the board: the ambient effects stop (`BoardCovered`).
   const covered = useContext(BoardCovered);
@@ -393,7 +398,8 @@ export function BoardViewport({ tiles, closed, gameId = 0, skins, basePath, slot
   // A session gives a new list with each state: the renderer gets a new one only when a structure closes.
   const closedKey = JSON.stringify(closed ?? []);
   const closedStructures = useMemo(() => toClosedStructures(closed ?? [], gameId), [closedKey, gameId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fogReveal = useFogReveal(renderTiles);
+  const givenReveal = useMemo(() => reveal?.map((c) => toGridSlot(c.x, c.y)), [reveal]);
+  const fogReveal = useFogReveal(renderTiles, givenReveal);
   // A plate on every free cell next to a tile: playable or invalid (`boardPlates`), in the renderer's grid.
   const gridSlots = useMemo(
     () =>

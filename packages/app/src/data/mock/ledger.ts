@@ -211,7 +211,7 @@ import { tournamentLeagueGroup, tournamentRoundEnd } from "@paved/game-core";
 import { masterpieceWeekOf, type MasterpieceEntry } from "@paved/game-core";
 import type { ColossusBoardState, ColossusBuilderRow, ColossusOptions, ColossusPlace, ColossusPlaced, ColossusState } from "../colossus-source";
 import * as colossus from "./colossus";
-import type { ConquestGiven, ConquestMemberRow, ConquestOptions, ConquestRanking, ConquestState, ConquestZoneState } from "../conquest-source";
+import type { ConquestAreaState, ConquestGiven, ConquestMemberRow, ConquestOptions, ConquestRanking, ConquestState, ConquestZoneState } from "../conquest-source";
 import * as conquest from "./conquest";
 import type { ConquestBranch } from "@paved/game-core";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
@@ -1599,6 +1599,13 @@ export class MockLedger {
   /** `ConquestSource.zone`: a zone of the world; one the world does not have is the view's refusal. */
   async conquestZone(viewer: string | null, zone: number): Promise<ConquestZoneState> {
     const found = this.conquestRead(viewer, (seen) => conquest.zoneOf(seen, zone));
+    if (!found) throw new ViewError("not-available", "Conquest: no such zone");
+    return found;
+  }
+
+  /** `ConquestSource.area`: the world round a zone; a zone the world does not have is the view's refusal. */
+  async conquestArea(viewer: string | null, zone: number): Promise<ConquestAreaState> {
+    const found = this.conquestRead(viewer, (seen) => conquest.areaOf(seen, zone));
     if (!found) throw new ViewError("not-available", "Conquest: no such zone");
     return found;
   }

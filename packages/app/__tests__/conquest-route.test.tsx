@@ -45,7 +45,7 @@ function open(path: string, ledger: MockLedger | null = newLedger()) {
   return { router, conquest, ledger };
 }
 
-preloadPages("home", "play");
+preloadPages("home", "play", "conquest-map");
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: DAY_9 });
@@ -93,17 +93,28 @@ describe("/play/conquest: a member's day", () => {
     expect((await conquest!.state(PLAYER_ID)).me).toMatchObject({ days: 1, knowledge: 12 });
     // The day's exploration: the map of the province, a fog cell, Explore.
     await userEvent.click(screen.getByRole("button", { name: /^Explore:/ }));
-    await waitFor(() => expect(router.state.location.search).toMatch(/^\?zone=\d+$/));
+    // The map is a page of its own; without WebGL here, the province as a grid.
+    await waitFor(() => expect(router.state.location.pathname).toBe("/conquest"));
+    expect(router.state.location.search).toMatch(/^\?zone=\d+$/);
     const grid = await screen.findByRole("grid", { name: /your province$/ }, { timeout: slow(8000) });
-    expect(screen.getByRole("heading", { name: "Map" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "My province" })).toBeInTheDocument();
     await userEvent.click(within(grid).getAllByRole("gridcell", { name: /: fog$/ })[0]!);
     await userEvent.click(await screen.findByRole("button", { name: "Explore" }));
     await waitFor(() => expect(document.querySelector("[data-slot=conquest-notice]")).toHaveTextContent(/The cell is|A rare find/), { timeout: slow(8000) });
     expect((await conquest!.state(PLAYER_ID)).me).toMatchObject({ exploredToday: true, explored: 1 });
     // The exploration made: no fog cell is tapped any more.
     await waitFor(() => expect(within(grid).queryAllByRole("gridcell", { name: /: fog$/ }).every((c) => c.tagName === "SPAN")).toBe(true), { timeout: slow(5000) });
+    // The World grid loads another zone's scene; Back to my zone returns.
+    await userEvent.click(screen.getByRole("button", { name: "World: the grid of the zones" }));
+    const world = within(await screen.findByRole("dialog")).getByRole("group", { name: "The world" });
+    await userEvent.click(within(world).getAllByRole("button", { name: /a free zone/ })[0]!);
+    await waitFor(() => expect(screen.getByRole("heading", { name: /^Zone [A-E][1-5]$/ })).toBeInTheDocument(), { timeout: slow(8000) });
+    const away = router.state.location.search;
+    await userEvent.click(await screen.findByRole("button", { name: "Back to my zone" }));
+    await waitFor(() => expect(router.state.location.search).not.toBe(away));
+    expect(await screen.findByRole("heading", { name: "My province" }, { timeout: slow(8000) })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
-    await waitFor(() => expect(router.state.location.search).toBe(""));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/play/conquest"));
     expect(await screen.findByRole("heading", { name: "Day 9 of 20" }, { timeout: slow(5000) })).toBeInTheDocument();
   });
 

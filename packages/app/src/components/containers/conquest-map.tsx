@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { CONQUEST_ODDS, formatInteger } from "@paved/game-core";
+import { formatInteger } from "@paved/game-core";
 import type { ConquestOptions, ConquestRequestState, ConquestZoneState, ConquestZoneSummary } from "../../data/conquest-source";
 import { cn } from "../../lib/utils";
-import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
-import { RARITY_NAME } from "../elements/rarity-badge";
+import { ConquestCellAction } from "./conquest-cell";
 import { TileChip, type TileArt } from "../elements/tile-chip";
 import { tileName } from "../elements/tile-render";
-import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -97,8 +95,8 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
   // The window opens on the cell picked, else on the capital (a free zone's Great Wonder), else on the zone's middle.
   const centre = cell ?? zone.tiles.find((t) => t.kind === "capital" || t.kind === "great") ?? { x: zone.x0 + (zone.size - 1) / 2, y: zone.y0 + (zone.size - 1) / 2 };
   const [origin, setOrigin] = useState(() => ({ x: windowOn(centre.x - zone.x0, zone.size), y: windowOn(centre.y - zone.y0, zone.size) }));
-  // The plan picked for a request, with the place of its turn among those that fit; dropped with the cell.
-  const [pick, setPick] = useState<{ x: number; y: number; plan: number; turn: number } | null>(null);
+  // The tile the action draws on the picked cell: the plan picked for a request, in its turn.
+  const [preview, setPreview] = useState<{ x: number; y: number; plan: number; orientation: number } | null>(null);
   const key = (x: number, y: number) => `${x},${y}`;
   const tiles = new Map(zone.tiles.map((t) => [key(t.x, t.y), t]));
   const explored = new Set(zone.explored.map((c) => key(c.x, c.y)));
@@ -108,12 +106,6 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
   for (let y = origin.y + WINDOW - 1; y >= origin.y; y--) for (let x = origin.x; x < origin.x + WINDOW; x++) cells.push({ x: zone.x0 + x, y: zone.y0 + y });
   const picked = cell ? key(cell.x, cell.y) : null;
   const request = picked ? (requests.get(picked) ?? null) : null;
-  const fog = cell !== null && !request && !tiles.has(picked!) && !explored.has(picked!);
-  const asking = cell !== null && !request && frontier.has(picked!) && leads;
-  const plans = asking && options && options.x === cell.x && options.y === cell.y ? options.plans : null;
-  const chosen = pick && cell && pick.x === cell.x && pick.y === cell.y ? (plans?.find((p) => p.plan === pick.plan) ?? null) : null;
-  const orientation = chosen ? chosen.orientations[pick!.turn % chosen.orientations.length]! : 1;
-  const odds = CONQUEST_ODDS[zone.zone.province ? "province" : "free"];
   const move = (dx: number, dy: number) => setOrigin((o) => ({ x: Math.max(0, Math.min(zone.size - WINDOW, o.x + dx * STEP)), y: Math.max(0, Math.min(zone.size - WINDOW, o.y + dy * STEP)) }));
   const name = (x: number, y: number) => `row ${zone.y0 + zone.size - y}, column ${x - zone.x0 + 1}`;
   const arrows = [
@@ -195,8 +187,8 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
                 >
                   {wanted ? (
                     <TileChip plan={wanted.plan} orientation={wanted.orientation} art={tileArt} className="size-full rounded-none border-0 opacity-60" />
-                  ) : here && chosen ? (
-                    <TileChip plan={chosen.plan} orientation={orientation} art={tileArt} className="size-full rounded-none border-0" />
+                  ) : here && preview && preview.x === x && preview.y === y ? (
+                    <TileChip plan={preview.plan} orientation={preview.orientation} art={tileArt} className="size-full rounded-none border-0" />
                   ) : null}
                 </button>
               );
@@ -205,100 +197,19 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
         </ScrollRegion>
       </div>
 
-      <div data-slot="conquest-action" className="flex min-h-12 flex-col gap-2">
-        {request ? (
-          <div className="flex items-center gap-3">
-            <TileChip plan={request.plan} orientation={request.orientation} art={tileArt} className="size-11" />
-            <p className="min-w-0 flex-1 text-sm font-semibold text-muted-foreground">
-              <strong className="text-foreground">{tileName(request.plan)}</strong> · {RARITY_NAME[request.rarity]} · <span className="numeric text-foreground">{formatInteger(request.holders)}</span> {request.holders === 1 ? "member holds" : "members hold"} one
-              {request.held > 0 ? (
-                <>
-                  , you <span className="numeric text-foreground">{formatInteger(request.held)}</span>
-                </>
-              ) : (
-                ", you none"
-              )}
-              . The gift pays <span className="numeric text-foreground">+{request.cobbles}</span> {request.cobbles === 1 ? "Cobble" : "Cobbles"}.
-            </p>
-            <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 shrink-0 px-3 text-base font-black text-foreground" disabled={request.held === 0 || orders < 1 || busy !== null} aria-busy={busy === "give" || undefined} aria-label={`Give ${tileName(request.plan)} for ${request.cobbles} ${request.cobbles === 1 ? "Cobble" : "Cobbles"}`} onClick={() => onGive?.(request.id)}>
-              {busy === null && request.held > 0 && orders > 0 && <GoldShine />}
-              Give
-            </Button>
-          </div>
-        ) : asking ? (
-          plans === null ? (
-            <p className="text-sm font-semibold text-muted-foreground">Looking for the plans that fit…</p>
-          ) : plans.length === 0 ? (
-            <p className="text-sm font-semibold text-muted-foreground">No plan fits this cell.</p>
-          ) : (
-            <>
-              <ul aria-label="Plans that fit" className="flex flex-wrap gap-1.5">
-                {plans.map((p) => (
-                  <li key={p.plan}>
-                    <button
-                      type="button"
-                      aria-pressed={chosen?.plan === p.plan}
-                      aria-label={`${tileName(p.plan)}, ${RARITY_NAME[p.rarity]}: ${p.holders} ${p.holders === 1 ? "member holds" : "members hold"} one`}
-                      disabled={busy !== null}
-                      onClick={() => setPick({ x: cell.x, y: cell.y, plan: p.plan, turn: 0 })}
-                      className={cn("relative flex size-11 cursor-pointer items-center justify-center rounded-lg disabled:cursor-default", chosen?.plan === p.plan ? "ring-2 ring-primary" : "opacity-80")}
-                    >
-                      <TileChip plan={p.plan} art={tileArt} className="size-10" />
-                      <span className={cn("numeric absolute -top-1 -right-1 rounded-full border border-background px-1 text-[0.75rem] leading-tight font-bold", p.holders > 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{p.holders}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <div className="flex items-center gap-2">
-                {chosen ? (
-                  <>
-                    {chosen.orientations.length > 1 && (
-                      <Button variant="secondary" className="h-12" disabled={busy !== null} onClick={() => setPick({ ...pick!, turn: pick!.turn + 1 })}>
-                        <Icon name="rotate-right" size="sm" /> Turn
-                      </Button>
-                    )}
-                    <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 min-w-0 flex-1 px-2 text-lg font-black text-foreground" disabled={busy !== null} aria-busy={busy === "request" || undefined} onClick={() => onRequest?.({ x: cell.x, y: cell.y, plan: chosen.plan, orientation })}>
-                      {busy === null && <GoldShine />}
-                      Ask
-                    </Button>
-                  </>
-                ) : (
-                  <p className="text-sm font-semibold text-muted-foreground">Pick the tile to ask for: the figure is the members who hold one. A request spends no order.</p>
-                )}
-              </div>
-            </>
-          )
-        ) : fog ? (
-          <div className="flex items-center gap-3">
-            <p className="min-w-0 flex-1 text-sm font-semibold text-muted-foreground">
-              Nobody knows its Knowledge before:{" "}
-              {odds.map((o, i) => (
-                <span key={o.knowledge}>
-                  {i > 0 && ", "}
-                  <span className="numeric text-foreground">{o.knowledge}</span> (<span className="numeric">{o.share}%</span>)
-                </span>
-              ))}
-              .
-            </p>
-            <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 shrink-0 px-4 text-lg font-black text-foreground" disabled={!zone.canExplore || busy !== null} aria-busy={busy === "explore" || undefined} onClick={() => onExplore?.(cell)}>
-              {busy === null && zone.canExplore && <GoldShine />}
-              Explore
-            </Button>
-          </div>
-        ) : (
-          <p className="text-sm font-semibold text-muted-foreground">
-            {!zone.zone.open
-              ? "This zone is closed to your allegiance for now."
-              : zone.canExplore
-                ? leads
-                  ? "Tap a fog cell to explore it, or a dashed cell beside your tiles to ask for a tile."
-                  : "Tap a fog cell to explore it, or a framed tile to give it."
-                : leads
-                  ? "Tap a dashed cell beside your tiles to ask for a tile, or a framed tile to give it."
-                  : "Your exploration of the day is made. Tap a framed tile to give it."}
-          </p>
-        )}
-      </div>
+      <ConquestCellAction
+        cell={cell ? { ...cell, tile: tiles.get(picked!) ?? null, request, explored: explored.has(picked!), frontier: frontier.has(picked!), province: zone.zone.province, open: zone.zone.open } : null}
+        leads={leads}
+        orders={orders}
+        canExplore={zone.canExplore}
+        options={options}
+        busy={busy}
+        onExplore={onExplore}
+        onRequest={onRequest}
+        onGive={onGive}
+        onPreview={setPreview}
+        tileArt={tileArt}
+      />
     </div>
   );
 }

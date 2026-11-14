@@ -8,9 +8,8 @@ import { useConquestAvailable, useConquestState } from "../data/conquest";
 /** The zone named by `?zone=`; null: none, or not a number. */
 export const conquestZoneOf = (param: string | null): number | null => (param !== null && /^\d{1,3}$/.test(param) ? Number(param) : null);
 
-/** The Conquest's view named by the query: a zone of the map (`?zone=`), the tree, the ranking or the members (`?view=`); anything else, its page. */
+/** The Conquest's view named by `?view=`: the tree, the ranking, the members, the requests, the rules or a result; anything else, its page. */
 export const conquestViewOf = (params: URLSearchParams): ConquestView => {
-  if (conquestZoneOf(params.get("zone")) !== null) return "map";
   const view = params.get("view");
   if (view === "result") return conquestResultOf(params) ? "result" : "hub";
   return view === "tree" || view === "ranking" || view === "members" || view === "requests" || view === "rules" ? view : "hub";
@@ -23,7 +22,7 @@ export const conquestResultOf = (params: URLSearchParams): ConquestResultOf | nu
 };
 
 /** The header's title of the Conquest's views; its own page has none (the drawer says "Conquest"). */
-export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, map: "Map", tree: "Knowledge tree", ranking: "Ranking", members: "Our members", requests: "Requests", rules: "Goals and rules", result: "Result" };
+export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, tree: "Knowledge tree", ranking: "Ranking", members: "Our members", requests: "Requests", rules: "Goals and rules", result: "Result" };
 
 /**
  * The Conquest's card of Play (Limited): the phase and its day, the allegiances registered, the player's allegiance's place with the

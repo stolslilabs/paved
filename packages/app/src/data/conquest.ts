@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { ConquestBranch, ConquestPlayPhase } from "@paved/game-core";
 import { cobbleKeys } from "./cobbles";
-import type { ConquestGiven, ConquestMemberRow, ConquestOptions, ConquestRanking, ConquestSource, ConquestState, ConquestZoneState } from "./conquest-source";
+import type { ConquestAreaState, ConquestGiven, ConquestMemberRow, ConquestOptions, ConquestRanking, ConquestSource, ConquestState, ConquestZoneState } from "./conquest-source";
 import { addressKey } from "./keys";
 import type { PuzzleRead } from "./puzzle";
 import { useDataSources } from "./sources";
@@ -21,6 +21,7 @@ export const conquestKeys = {
   all: ["conquest"] as const,
   state: (viewer: string | null) => ["conquest", "state", viewerKey(viewer)] as const,
   zone: (viewer: string | null, zone: number) => ["conquest", "zone", viewerKey(viewer), zone] as const,
+  area: (viewer: string | null, zone: number) => ["conquest", "area", viewerKey(viewer), zone] as const,
   options: (viewer: string | null, x: number, y: number) => ["conquest", "options", viewerKey(viewer), x, y] as const,
   ranking: (viewer: string | null) => ["conquest", "ranking", viewerKey(viewer)] as const,
   members: (viewer: string | null) => ["conquest", "members", viewerKey(viewer)] as const,
@@ -70,6 +71,15 @@ export function useConquestState(viewer: string | null, enabled = true): PuzzleR
 /** A zone of the world; null reads nothing. */
 export function useConquestZone(viewer: string | null, zone: number | null): PuzzleRead<ConquestZoneState> {
   return useConquestQuery(conquestKeys.zone(viewer, zone ?? -1), (s) => s.zone(viewer, zone!), zone !== null);
+}
+
+/** The world round a zone (the map's scene); null reads nothing. The last area stays shown while the next one is read. */
+export function useConquestArea(viewer: string | null, zone: number | null): PuzzleRead<ConquestAreaState> {
+  const { conquest } = useDataSources();
+  const query = useQuery({ queryKey: conquestKeys.area(viewer, zone ?? -1), queryFn: () => conquest!.area(viewer, zone!), enabled: zone !== null && !!conquest, staleTime: 0, placeholderData: (last) => last });
+  useAtEachUtcMidnight(zone !== null && !!conquest, () => void query.refetch());
+  if (!conquest) return UNAVAILABLE;
+  return { data: query.data, isPending: zone !== null && query.isPending && !query.error, error: query.error, unavailable: false, refetch: () => void query.refetch() };
 }
 
 /** The plans that fit a cell for the viewer's allegiance; null (no cell picked) reads nothing. */

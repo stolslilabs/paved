@@ -289,7 +289,9 @@
  * `img/icon-offrande.webp`, `icon-exploration.webp`, `icon-don.webp` (256 px, scaled to 192) and `img/tree-*.webp` (192 px), taken as
  * they are, each on its painted ground. `conquest-knowledge`, the Knowledge points' icon (the owner's ask: an icon for the points
  * earned and spent), an open book with a golden star: drawn by Codex's built-in image tool, two variants, the first kept (the star
- * glows in the book's middle and reads at 16 px); trimmed, fitted to 180 px and centred on the 192 px frame.
+ * glows in the book's middle and reads at 16 px); trimmed, fitted to 180 px and centred on the 192 px frame. `conquest-world`, the
+ * map's World button (the owner's ask: a World icon that opens the grid of the zones), a globe cut into squares on its stand: the
+ * same tool, two variants, the first kept (the stand's arm reads as a globe at 36 px), fitted the same way.
  *
  * Per copy: resized on its frame's side and encoded as lossy WebP with its alpha (`cwebp`, `-m 6 -sharp_yuv -alpha_q 100`, no
  * metadata) at the quality of `QUALITY`, under `nice -n 10`. No package: `cwebp` is libwebp's command-line tool (`brew install

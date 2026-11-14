@@ -166,6 +166,7 @@ export function mockConquest(ledger: MockLedger): ConquestSource {
   return {
     state: (viewer) => ledger.conquestState(viewer),
     zone: (viewer, zone) => ledger.conquestZone(viewer, zone),
+    area: (viewer, zone) => ledger.conquestArea(viewer, zone),
     options: (viewer, x, y) => ledger.conquestOptions(viewer, x, y),
     ranking: (viewer) => ledger.conquestRanking(viewer),
     members: (viewer) => ledger.conquestMembers(viewer),

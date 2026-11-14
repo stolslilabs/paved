@@ -85,6 +85,11 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   "play/colossus": play,
   // The Conquest's views are Play's (its drawer kept).
   "play/conquest": play,
+  // Its map: a chunk of its own, the boards' manifest asked for with it.
+  conquest: () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/conquest-map");
+  },
   // The Tournament, as the Joust.
   "play/tournament": play,
   "tournament/:gameId": board,

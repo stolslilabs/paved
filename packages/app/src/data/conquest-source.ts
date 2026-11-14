@@ -235,6 +235,26 @@ export interface ConquestZoneState {
   canExplore: boolean;
 }
 
+/**
+ * A square of the world round a zone, for the map's scene: the zone and a band of its neighbours (half a zone wide), so that the
+ * view shows what lies past the zone's edge. Cells are the world's.
+ */
+export interface ConquestAreaState {
+  conquest: number;
+  /** The zone the area is centred on. */
+  zone: ConquestZoneSummary;
+  /** The area's corners, both inside it. */
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  tiles: ConquestTileState[];
+  explored: { x: number; y: number }[];
+  /** The explored, empty cells next to a tile of the viewer's allegiance, in the zones open to it. */
+  frontier: { x: number; y: number }[];
+  requests: ConquestRequestState[];
+}
+
 /** What fits a cell for the viewer's allegiance: each plan with its turns, its rarity, what giving it pays, who holds one. */
 export interface ConquestOptions {
   x: number;
@@ -260,6 +280,8 @@ export interface ConquestSource {
   state(viewer: string | null): Promise<ConquestState>;
   /** A zone of the world; refused (`not-available`) for a zone the world does not have, or during the registration. */
   zone(viewer: string | null, zone: number): Promise<ConquestZoneState>;
+  /** The world round a zone (the map's scene); refused as `zone` is. */
+  area(viewer: string | null, zone: number): Promise<ConquestAreaState>;
   /** The plans that fit a cell for the viewer's allegiance. */
   options(viewer: string, x: number, y: number): Promise<ConquestOptions>;
   ranking(viewer: string | null): Promise<ConquestRanking>;

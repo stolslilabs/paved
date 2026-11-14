@@ -12,10 +12,9 @@ import {
   type ConquestPlayPhase,
   type ConquestStructure,
 } from "@paved/game-core";
-import type { ConquestGiven, ConquestMemberRow, ConquestOptions, ConquestRanking, ConquestScoredState, ConquestState, ConquestZoneState } from "../../data/conquest-source";
+import type { ConquestGiven, ConquestMemberRow, ConquestRanking, ConquestScoredState, ConquestState } from "../../data/conquest-source";
 import { rankName } from "../../lib/guild-text";
 import { cn } from "../../lib/utils";
-import { ConquestWorld, ConquestZoneMap } from "../containers/conquest-map";
 import { CONQUEST_PHASE_NAME, ConquestFinalEnd, ConquestMembers, ConquestPhaseEnd, ConquestRanks, ConquestResultRow, type ConquestMemberBy, type ConquestRankBy } from "../containers/conquest-ranks";
 import { ConquestTree, conquestBranchName, conquestNextLevel } from "../containers/conquest-tree";
 import { FooterTab, FooterTabsList } from "../containers/footer-tabs";
@@ -40,16 +39,14 @@ import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent } from "../ui/tabs";
 
-/** The Conquest's views in Play's drawer: its page, the map (a zone), the knowledge tree, the ranking, the members, the requests, the rules, a result. */
-export type ConquestView = "hub" | "map" | "tree" | "ranking" | "members" | "requests" | "rules" | "result";
+/** The Conquest's views in Play's drawer: its page, the knowledge tree, the ranking, the members, the requests, the rules, a result. The map is a page of its own (`ConquestMapScene`). */
+export type ConquestView = "hub" | "tree" | "ranking" | "members" | "requests" | "rules" | "result";
 /** The result a result's view shows: a phase's, this Conquest's final one, or the last Conquest's. */
 export type ConquestResultOf = ConquestPlayPhase | "final" | "last";
 
 /** What the viewer's last act did, said at the top of the view. */
 export type ConquestNotice =
   | { kind: "offer"; knowledge: number; order: boolean }
-  | { kind: "explore"; knowledge: number }
-  | { kind: "request" }
   | { kind: "give"; given: ConquestGiven }
   | { kind: "research"; branch: ConquestBranch; level: number }
   | { kind: "register" }
@@ -67,11 +64,6 @@ export interface ConquestSceneProps {
   view?: ConquestView;
   /** The result shown (the result's view). */
   result?: ConquestResultOf | null;
-  /** The zone shown (the map's view); null while it is read. */
-  zone?: ConquestZoneState | null;
-  /** The cell picked on the map, and what fits it. */
-  cell?: { x: number; y: number } | null;
-  options?: ConquestOptions | null;
   /** The allegiances by points (the ranking's view); null while it is read. */
   ranking?: ConquestRanking | null;
   /** The allegiance's members (the members' view); null while it is read. */
@@ -84,14 +76,12 @@ export interface ConquestSceneProps {
   tileArt?: TileArt;
   onRegister?: () => void;
   onOffer?: () => void;
-  onExplore?: (cell: { x: number; y: number }) => void;
-  onRequest?: (tile: { x: number; y: number; plan: number; orientation: number }) => void;
   onGive?: (request: number) => void;
   onResearch?: (branch: ConquestBranch) => void;
   /** The Cobbles of a Conquest: one part of it (a phase, the final rank), or everything due. */
   onClaim?: (conquest: number, part?: ConquestPlayPhase | "final") => void;
+  /** The map, on a zone. */
   onZone?: (zone: number) => void;
-  onCell?: (cell: { x: number; y: number } | null) => void;
   onView?: (view: ConquestView) => void;
   /** A result's view: a phase's, the final one, the last Conquest's. */
   onResult?: (of: ConquestResultOf) => void;
@@ -168,11 +158,7 @@ function ActNotice({ notice }: { notice: ConquestNotice }) {
   const [title, body]: [string, ReactNode] =
     notice.kind === "offer"
       ? [`+${formatInteger(notice.knowledge)} Knowledge`, notice.order ? "Your first Offering of the day gave the allegiance one order." : "Your Offerings are made."]
-      : notice.kind === "explore"
-        ? [`+${formatInteger(notice.knowledge)} Knowledge`, notice.knowledge >= 40 ? "A rare find! The cell is open for building." : "The cell is explored: it is open for building."]
-        : notice.kind === "request"
-          ? ["Request posted", "Any member who holds the tile can give it: it is built at once."]
-          : notice.kind === "give"
+      : notice.kind === "give"
             ? [`Tile built · +${notice.given.cobbles} ${notice.given.cobbles === 1 ? "Cobble" : "Cobbles"}`, notice.given.scored.length > 0 ? notice.given.scored.map(scoredLine).join(" ") : `Built in your name. ${notice.given.ordersLeft} ${notice.given.ordersLeft === 1 ? "order" : "orders"} left today.`]
             : notice.kind === "research"
               ? ["Level bought", `${conquestBranchName(notice.branch)} is level ${notice.level}.`]
@@ -239,7 +225,7 @@ const MEMBER_TABS: readonly { id: ConquestMemberBy; label: string }[] = [
  * The Conquest (`/play/conquest`, Play's Limited mode; the design proposal of 8 and 9 November 2026, looped on the client): a view of
  * Play's drawer, as the Joust's. Its page, as the proposal draws it: the phase on the world's painting with its day and its time left,
  * the allegiance's row, the day's orders, the daily ritual's three cards (the Offering, the Exploration, the Requests), each with one
- * action in one word, the results over, and the Knowledge's row. Its other views: the map, the knowledge tree, the ranking (a tab of
+ * action in one word, the results over, and the Knowledge's row. Its other views: the knowledge tree, the ranking (a tab of
  * the foot per phase), the members (a tab per figure), the open requests, the goals and rules, and a result (a phase over, the
  * Conquest over), whose Cobbles are said before its Claim.
  */
@@ -251,9 +237,6 @@ export function ConquestScene({
   now,
   view = "hub",
   result = null,
-  zone = null,
-  cell = null,
-  options = null,
   ranking = null,
   members = null,
   busy = null,
@@ -262,13 +245,10 @@ export function ConquestScene({
   tileArt,
   onRegister,
   onOffer,
-  onExplore,
-  onRequest,
   onGive,
   onResearch,
   onClaim,
   onZone,
-  onCell,
   onView,
   onResult,
   onAllegiance,
@@ -289,7 +269,7 @@ export function ConquestScene({
         }
       />
     );
-  if (state === null || (view === "map" && zone === null) || (view === "ranking" && ranking === null) || (view === "members" && members === null))
+  if (state === null || (view === "ranking" && ranking === null) || (view === "members" && members === null))
     return (
       <div aria-busy aria-label="Conquest" className="flex flex-col gap-3">
         {[0, 1, 2].map((i) => (
@@ -471,26 +451,6 @@ export function ConquestScene({
       <section aria-label="Goals and rules" className="flex flex-col gap-4">
         <Rules id="conquest-briefing" title={PHASE_NAME[state.phase]} rules={BRIEFING[state.phase]} />
         <Rules id="conquest-rules" title="The rules" rules={RULES} />
-      </section>
-    );
-
-  if (view === "map" && zone)
-    return (
-      <section aria-label={`Zone ${zone.zone.name}`} className="flex flex-col gap-3">
-        {notice && <ActNotice notice={notice} />}
-        <ConquestWorld side={state.side} zones={state.zones} selected={zone.zone.index} onZone={onZone} />
-        <p data-slot="conquest-zone-head" className="text-sm font-semibold text-muted-foreground">
-          <strong className="text-foreground">{zone.zone.name}</strong> · {zone.zone.mine ? "your province" : zone.zone.guild ? `the province of ${zone.zone.guild.name}` : zone.zone.province ? "an empty province" : "a free zone"} · <span className="numeric text-foreground">{formatInteger(zone.zone.explored)}</span> explored ·{" "}
-          <span className="numeric text-foreground">{formatInteger(zone.zone.tiles)}</span> {zone.zone.tiles === 1 ? "tile" : "tiles"}
-          {mine && (
-            <>
-              {" "}
-              · <span className="numeric text-foreground">{mine.orders.left}</span> {mine.orders.left === 1 ? "order" : "orders"} left
-            </>
-          )}
-        </p>
-        <ConquestZoneMap zone={zone} leads={state.leads} orders={mine?.orders.left ?? 0} cell={cell} onCell={onCell} options={options} busy={busy === "explore" || busy === "request" || busy === "give" ? busy : null} onExplore={onExplore} onRequest={onRequest} onGive={onGive} tileArt={tileArt} />
-        <p className="text-xs font-medium text-muted-foreground">Your allegiance's tiles are outlined in blue, the others' in red. A light cell is explored, a dark one is in the fog; a framed tile is a request.</p>
       </section>
     );
 

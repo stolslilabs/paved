@@ -18,6 +18,7 @@ export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "play/colossus",
   // The Conquest's page: the Cobbles its gifts, its phases and its final rank pay.
   "play/conquest",
+  "conquest",
   // The Tournament's view: the Cobbles of the round reached.
   "play/tournament",
   "avatar",

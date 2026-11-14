@@ -36,6 +36,7 @@ import {
 } from "@paved/game-core";
 import type {
   ConquestAllegianceState,
+  ConquestAreaState,
   ConquestFinal,
   ConquestGiven,
   ConquestGuild,
@@ -238,15 +239,18 @@ function visit(world: Conquest, v: Visit): void {
       let best: { x: number; y: number; plan: number; orientation: number; score: number } | null = null;
       for (let sample = 0; sample < 6; sample++) {
         const cell = frontier[Math.floor(draw(9, v.n, k, sample) * frontier.length)]!;
-        for (const { plan, orientations } of world.fitting(v.guild, cell.x, cell.y, v.at))
+        for (const { plan, orientations } of world.fitting(v.guild, cell.x, cell.y, v.at)) {
+          // A mythic plan is asked for now and then only: few members hold one.
+          if (rarityOf(plan) === "mythic" && draw(11, v.n, k, sample, plan) >= 0.08) continue;
           for (const orientation of orientations) {
             let score = draw(10, v.n, k, sample, plan, orientation) + Math.min(2, baseCopies(plan) / 4);
             for (const [side, dx, dy] of [[2, 0, 1], [4, 1, 0], [6, 0, -1], [8, -1, 0]] as const) {
               if (world.tileAt(cell.x + dx, cell.y + dy)) score += 3;
-              else if (!conquestForestEdge(plan, orientation, side)) score -= 1;
+              else if (!conquestForestEdge(plan, orientation, side)) score -= 0.6;
             }
             if (!best || score > best.score) best = { ...cell, plan, orientation, score };
           }
+        }
       }
       if (!best) break;
       world.request(v.guild, v.address, best, v.at);
@@ -530,6 +534,38 @@ export function zoneOf(s: Seen, index: number): ConquestZoneState | null {
     frontier: id === null ? [] : world.frontier(id, s.now).filter(inside),
     requests: id === null ? [] : [...world.requests.values()].filter((r) => r.guild === id && inside(r)).map((r) => requestShown(world, mine!.guild, r, s)),
     canExplore: id !== null && s.viewer !== null && conquestPlayDay(day) && world.openTo(id, zone, s.now) && world.allegiances.get(id)!.members.get(addressKey(s.viewer))?.exploredDay !== day,
+  };
+}
+
+/** The band of the neighbouring zones an area shows round its zone: half a zone. */
+const AREA_MARGIN = Math.ceil(CONQUEST_PROVINCE / 2);
+
+/** `ConquestSource.area`; null: the world has no such zone (or is not drawn yet). */
+export function areaOf(s: Seen, index: number): ConquestAreaState | null {
+  const conquest = conquestOf(s.now);
+  const world = playedTo(s.stored, s.guilds, s.peaks, conquest, s.now);
+  const zone = world?.zones[index];
+  if (!world || !zone) return null;
+  const mine = guildOf(s.guilds, s.viewer);
+  const id = mine && world.allegiances.has(mine.guild.id) ? mine.guild.id : null;
+  const x0 = Math.max(0, zone.x0 - AREA_MARGIN);
+  const y0 = Math.max(0, zone.y0 - AREA_MARGIN);
+  const x1 = Math.min(world.size - 1, zone.x0 + CONQUEST_PROVINCE - 1 + AREA_MARGIN);
+  const y1 = Math.min(world.size - 1, zone.y0 + CONQUEST_PROVINCE - 1 + AREA_MARGIN);
+  const inside = (c: { x: number; y: number }) => c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1;
+  const explored: { x: number; y: number }[] = [];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (world.isExplored(x, y)) explored.push({ x, y });
+  return {
+    conquest,
+    zone: zoneShown(world, s.guilds, zone, id, s.now),
+    x0,
+    y0,
+    x1,
+    y1,
+    tiles: world.tiles.filter(inside).map((t) => ({ x: t.x, y: t.y, plan: t.plan, orientation: t.orientation, kind: t.kind, guild: t.guild === 0 ? null : guildShown(s.guilds, t.guild), mine: t.guild !== 0 && t.guild === id, by: t.by === null ? null : (s.people(t.by).name ?? null) })),
+    explored,
+    frontier: id === null ? [] : world.frontier(id, s.now).filter(inside),
+    requests: id === null ? [] : [...world.requests.values()].filter((r) => r.guild === id && inside(r)).map((r) => requestShown(world, mine!.guild, r, s)),
   };
 }
 

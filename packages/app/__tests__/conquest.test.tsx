@@ -9,7 +9,8 @@ import { CONQUEST_TREE_COST, ConquestTree, conquestNextLevel, conquestSpent } fr
 import { PlayModes } from "../src/components/containers/play-modes";
 import { ordinal } from "../src/components/elements/conquest-art";
 import { ConquestScene, type ConquestSceneProps } from "../src/components/scenes/conquest-scene";
-import { CONQUEST, CONQUEST_CARD, CONQUEST_PARTS } from "../src/mocks/conquest";
+import { ConquestMapScene } from "../src/components/scenes/conquest-map-scene";
+import { CONQUEST, CONQUEST_CARD, CONQUEST_MAP, CONQUEST_PARTS } from "../src/mocks/conquest";
 
 // The Conquest's scenes (the season's finale) on their mocks: Play's card, the page through its phases, the results (a phase over,
 // the Conquest over), the ranking and the members with their tabs, the requests, the tree, the map and a cell picked. The routes are
@@ -373,12 +374,90 @@ describe("the Conquest's map", () => {
     const plans = within(screen.getByRole("list", { name: "Plans that fit" })).getAllByRole("button");
     expect(plans).toHaveLength(options!.plans.length);
     await userEvent.click(plans[0]!);
-    await userEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Ask for / }));
     expect(onRequest).toHaveBeenCalledWith({ ...cell!, plan: options!.plans[0]!.plan, orientation: options!.plans[0]!.orientations[0] });
   });
 
   it("leaves the requests to the Officers: a member's cells beside the tiles are not tapped", () => {
     render(wrap(<ConquestZoneMap {...CONQUEST_PARTS.zoneMember} />));
     expect(screen.queryByRole("gridcell", { name: /beside your tiles$/ })).toBeNull();
+  });
+});
+
+describe("the Conquest's map scene", () => {
+  it("opens on the viewer's province: its name, the day's orders, exploration and requests, the World button, no way home to take", async () => {
+    const onWorld = vi.fn();
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.home} onWorld={onWorld} />));
+    const { state } = CONQUEST_MAP.home;
+    expect(screen.getByRole("heading", { name: "My province" })).toBeInTheDocument();
+    expect(document.querySelector("[data-slot=conquest-zone-head]")).toHaveTextContent(`${state.zones[state.home!]!.name} · your province`);
+    const chips = document.querySelector("[data-slot=conquest-map-chips]")!;
+    expect(chips).toHaveTextContent(`${state.allegiance!.orders.left} order`);
+    expect(chips).toHaveTextContent("1 exploration");
+    expect(chips).toHaveTextContent(`${state.requests.length} request`);
+    // Without the 3D board, the zone as a grid.
+    expect(document.querySelector("[data-slot=conquest-map]")).toHaveAttribute("data-view", "grid");
+    expect(screen.getByRole("grid", { name: /your province$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to my zone" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "World: the grid of the zones" }));
+    expect(onWorld).toHaveBeenCalledWith(true);
+  });
+
+  it("names the zone under the view once it has left home, and offers the way back", async () => {
+    const onHome = vi.fn();
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.away} onHome={onHome} />));
+    const { state, focus } = CONQUEST_MAP.away;
+    expect(screen.getByRole("heading", { name: `Zone ${state.zones[focus]!.name}` })).toBeInTheDocument();
+    expect(document.querySelector("[data-slot=conquest-zone-head]")).toHaveTextContent("a free zone");
+    await userEvent.click(screen.getByRole("button", { name: "Back to my zone" }));
+    expect(onHome).toHaveBeenCalledOnce();
+  });
+
+  it("opens the world's grid, and loads the zone tapped", async () => {
+    const on = { onZone: vi.fn(), onWorld: vi.fn() };
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.world} {...on} />));
+    const dialog = screen.getByRole("dialog", { name: `World ${CONQUEST_MAP.world.state.world}` });
+    const zones = within(within(dialog).getByRole("group", { name: "The world" })).getAllByRole("button");
+    expect(zones).toHaveLength(25);
+    await userEvent.click(zones[0]!);
+    expect(on.onZone).toHaveBeenCalledOnce();
+  });
+
+  it("draws the 3D board when the page gives one, the picked cell's action at its foot", async () => {
+    const onExplore = vi.fn();
+    const { area } = CONQUEST_MAP.home;
+    // A fog cell of the province.
+    const explored = new Set(area.explored.map((c) => `${c.x},${c.y}`));
+    const zone = CONQUEST_MAP.home.zone;
+    const cell = { x: zone.x0, y: zone.y0 };
+    expect(explored.has(`${cell.x},${cell.y}`)).toBe(false);
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.home} canvas={<div data-testid="board" />} cell={cell} onExplore={onExplore} />));
+    expect(document.querySelector("[data-slot=conquest-map]")).toHaveAttribute("data-view", "board");
+    expect(screen.getByTestId("board")).toBeInTheDocument();
+    expect(screen.queryByRole("grid")).toBeNull();
+    expect(document.querySelector("[data-slot=conquest-action]")).toHaveTextContent("Nobody knows its Knowledge before:");
+    await userEvent.click(screen.getByRole("button", { name: "Explore" }));
+    expect(onExplore).toHaveBeenCalledWith(cell);
+  });
+
+  it("says whose tile a tapped tile is, and what the last act did", () => {
+    const { area } = CONQUEST_MAP.home;
+    const capital = area.tiles.find((t) => t.kind === "capital" && t.mine)!;
+    const { unmount } = render(wrap(<ConquestMapScene {...CONQUEST_MAP.home} canvas={<div />} cell={{ x: capital.x, y: capital.y }} />));
+    expect(document.querySelector("[data-slot=conquest-tile-info]")).toHaveTextContent("Your capital: your first tile.");
+    unmount();
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.explored} canvas={<div />} />));
+    expect(document.querySelector("[data-slot=conquest-notice]")).toHaveTextContent("A rare find! The cell is open for building.");
+  });
+
+  it("waits for the world before day 1, and says why it could not be read", async () => {
+    const onRetry = vi.fn();
+    const { unmount } = render(wrap(<ConquestMapScene {...CONQUEST_MAP.registration} />));
+    expect(screen.getByText("The world is drawn when day 1 begins.")).toBeInTheDocument();
+    unmount();
+    render(wrap(<ConquestMapScene {...CONQUEST_MAP.failed} onRetry={onRetry} />));
+    expect(screen.getByText("The world could not be read.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 });

@@ -83,11 +83,12 @@ export function stakeArtSources(stake: number, px: number) {
  * The Conquest's paintings (the season's finale): the daily ritual's three (the Offering's brazier, the Exploration's spyglass on its
  * map, the gift's tile in two hands) and the knowledge tree's five branches, the paintings of its design proposal of 8 and 9 November
  * 2026, each on its own ground (drawn in a rounded square or a disc); and the Knowledge points' open book, alone on a transparent
- * ground (Codex's built-in image tool, the HUD's `bulb`, `medal`, `crown` and `trophy` as references). Drawn 16 to 88 px wide: copies
+ * ground (Codex's built-in image tool, the HUD's `bulb`, `medal`, `crown` and `trophy` as references), and the map's World button, a
+ * globe cut into squares of grass and stone (the same tool, `explore`, `village`, `crown` and `season` as references). Drawn 16 to 88 px wide: copies
  * 96 px and 192 px.
  */
 export const CONQUEST_ART_FRAME = { width: 192, height: 192, side: "width", sizes: [96, 192] } as const;
-export const CONQUEST_ART = ["conquest-offering", "conquest-exploration", "conquest-gift", "conquest-roads", "conquest-cities", "conquest-forests", "conquest-wonders", "conquest-devotion", "conquest-knowledge"] as const;
+export const CONQUEST_ART = ["conquest-offering", "conquest-exploration", "conquest-gift", "conquest-roads", "conquest-cities", "conquest-forests", "conquest-wonders", "conquest-devotion", "conquest-knowledge", "conquest-world"] as const;
 export type ConquestArtName = (typeof CONQUEST_ART)[number] extends `conquest-${infer N}` ? N : never;
 
 /** An `<img>`'s sources for one of the Conquest's paintings shown `px` CSS pixels wide. */

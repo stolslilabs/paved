@@ -1,9 +1,10 @@
 import { GUILD_RANK, conquestDayStart, conquestOf, conquestStart } from "@paved/game-core";
 import type { ConquestCard, PlayModesProps } from "../components/containers/play-modes";
+import type { ConquestMapSceneProps } from "../components/scenes/conquest-map-scene";
 import type { ConquestSceneProps } from "../components/scenes/conquest-scene";
 import type { ConquestState } from "../data/conquest-source";
 import { communityProfile } from "../data/mock/community";
-import { freshConquest, membersOf, optionsOf, rankingOf, stateOf, zoneOf, type StoredConquest } from "../data/mock/conquest";
+import { areaOf, freshConquest, membersOf, optionsOf, rankingOf, stateOf, zoneOf, type StoredConquest } from "../data/mock/conquest";
 import { seededGuildWorld, type StoredGuild } from "../data/mock/guilds";
 import type { PublicProfile } from "../data/social-source";
 import { MOCK_NOW } from "./clock";
@@ -46,6 +47,7 @@ const zone = zoneOf(seen(CONQUEST_NOW), hub.home!)!;
 /** A cell beside the allegiance's tiles: the first of the frontier with no request on it. */
 const spot = zone.frontier.find((c) => !zone.requests.some((r) => r.x === c.x && r.y === c.y)) ?? null;
 const options = spot ? optionsOf(seen(CONQUEST_NOW), spot.x, spot.y) : null;
+const area = areaOf(seen(CONQUEST_NOW), hub.home!)!;
 const ranking = rankingOf(seen(CONQUEST_NOW));
 const members = membersOf(seen(CONQUEST_NOW));
 const results = stateOf(seen(CONQUEST_RESULTS_NOW));
@@ -59,8 +61,6 @@ export const CONQUEST = {
   noAllegiance: { state: guest, now: CONQUEST_NOW },
   loading: { state: null, now: CONQUEST_NOW },
   failed: { state: null, now: CONQUEST_NOW, error: "The Conquest could not be read." },
-  map: { state: hub, now: CONQUEST_NOW, view: "map", zone },
-  asking: { state: hub, now: CONQUEST_NOW, view: "map", zone, cell: spot, options },
   tree: { state: hub, now: CONQUEST_NOW, view: "tree" },
   requests: { state: hub, now: CONQUEST_NOW, view: "requests" },
   rules: { state: hub, now: CONQUEST_NOW, view: "rules" },
@@ -100,3 +100,21 @@ export const CONQUEST_PARTS = {
   phase: rest.results[0]!,
   final: results.final!,
 };
+
+/** A free zone beside the viewer's province: where the view is once it has left home. */
+const beside = hub.zones.find((z) => !z.province && Math.abs(z.col - hub.zones[hub.home!]!.col) + Math.abs(z.row - hub.zones[hub.home!]!.row) === 1)!.index;
+
+/**
+ * The map's scene (`/conquest`), on the same Conquest. Without a `canvas` (the stories' and the tests' states) the zone is drawn as a
+ * grid; the story of the 3D board gives its own.
+ */
+export const CONQUEST_MAP = {
+  home: { state: hub, area, zone, focus: hub.home },
+  asking: { state: hub, area, zone, focus: hub.home, cell: spot, options },
+  explored: { state: hub, area, zone, focus: hub.home, notice: { title: "+40 Knowledge", text: "A rare find! The cell is open for building." } },
+  away: { state: hub, area, zone, focus: beside },
+  world: { state: hub, area, zone, focus: hub.home, world: true },
+  reading: { state: hub, area: null, zone: null, focus: hub.home },
+  registration: { state: registration, area: null, focus: null },
+  failed: { state: null, area: null, focus: null, error: "The world could not be read." },
+} satisfies Record<string, Data<ConquestMapSceneProps>>;
