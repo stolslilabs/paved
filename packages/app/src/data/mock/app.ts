@@ -6,12 +6,17 @@ import type { SocialSource } from "../social-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import { mockIndexer } from "./indexer";
 import { MockLedger } from "./ledger";
-import { mockEconomyViews, mockEvents, mockExpedition, mockGameViews, mockJoust, mockPool, mockPurchases, mockPuzzle, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
+import { mockEconomyViews, mockEvents, mockExpedition, mockGameViews, mockJoust, mockMasterpiece, mockPool, mockPurchases, mockPuzzle, mockSettlements, mockSocial, mockVaultWrites } from "./overlay";
 import type { ExpeditionSource } from "../expedition-source";
 import type { JoustSource } from "../joust-source";
+import type { MasterpieceSource } from "../masterpiece-source";
+import type { ColossusSource } from "../colossus-source";
+import { mockColossus } from "./overlay";
 import type { FairSource } from "../fair-source";
 import { mockFair } from "./overlay";
 import type { PuzzleSource } from "../puzzle-source";
+import type { TournamentSource } from "../tournament-source";
+import { mockTournament } from "./overlay";
 
 // The app's mock (#549, #927): every source of `DataSources` from the device's ledger, and nothing under it. No chain client,
 // no economy client and no indexer client is built, no node and no indexer is read: the overlays of `overlay.ts` go over
@@ -60,6 +65,12 @@ export interface MockAppSources {
   joust: JoustSource;
   /** The Expedition (the weekly individual event), the ledger's alone. */
   expedition: ExpeditionSource;
+  /** The Masterpiece (the weekly individual event), the ledger's alone. */
+  masterpiece: MasterpieceSource;
+  /** The Colossus (the weekly collective event), the ledger's alone. */
+  colossus: ColossusSource;
+  /** The Tournament (the weekly individual event), the ledger's alone. */
+  tournament: TournamentSource;
   /** The Fair (the weekly individual event), the ledger's alone. */
   fair: FairSource;
   purchases(signer: GameSigner): Purchases;
@@ -105,6 +116,9 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     puzzle: mockPuzzle(ledger),
     joust: mockJoust(ledger),
     expedition: mockExpedition(ledger),
+    masterpiece: mockMasterpiece(ledger),
+    colossus: mockColossus(ledger),
+    tournament: mockTournament(ledger),
     fair: mockFair(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),

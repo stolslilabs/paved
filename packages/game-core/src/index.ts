@@ -212,6 +212,73 @@ export type {
   ExpeditionTier,
   ExpeditionTile,
 } from "./expedition";
+// The Masterpiece (the weekly individual event): the calendar, the day's cards, the masterpiece and its score, the ranking and its tiers
+export {
+  MASTERPIECE_DAILY,
+  MASTERPIECE_DAYS,
+  MASTERPIECE_DAY_S,
+  MASTERPIECE_FLOOR,
+  MASTERPIECE_KINDS,
+  MASTERPIECE_TIERS,
+  MASTERPIECE_TILES,
+  MASTERPIECE_WEEK_S,
+  Masterpiece,
+  compareMasterpiece,
+  masterpieceBars,
+  masterpieceCards,
+  masterpieceCounted,
+  masterpieceDayOf,
+  masterpieceEndsAt,
+  masterpieceKindOf,
+  masterpieceOf,
+  masterpieceOrder,
+  masterpiecePlaceAmong,
+  masterpieceScore,
+  masterpieceSeasonOf,
+  masterpieceTierOf,
+  masterpieceTierPlaces,
+  masterpieceWeekOf,
+  masterpieceWeekStart,
+  masterpieceWorth,
+} from "./masterpiece";
+export type { MasterpieceEntry, MasterpieceKind, MasterpieceMove, MasterpiecePiece, MasterpieceProspect, MasterpieceResult, MasterpieceSeason, MasterpieceTier } from "./masterpiece";
+// The Colossus (the weekly collective event): the calendar, the site, the hands, the placement, the stones and the rewards
+export * from "./colossus";
+// The Tournament (the weekly individual event): the calendar, the leagues' groups, the draw, who goes through and the rewards
+export {
+  TOURNAMENT_BYE,
+  TOURNAMENT_CHAMPION_COBBLES,
+  TOURNAMENT_COBBLES,
+  TOURNAMENT_DAY_S,
+  TOURNAMENT_LEAGUES,
+  TOURNAMENT_MIN_GROUP,
+  TOURNAMENT_ROUNDS,
+  TOURNAMENT_SEATS,
+  TOURNAMENT_TILES,
+  TOURNAMENT_VACANT,
+  TOURNAMENT_WEEK_S,
+  tournamentBracketCount,
+  tournamentCobbles,
+  tournamentDraw,
+  tournamentDuel,
+  tournamentFirstRound,
+  tournamentGroups,
+  tournamentLeagueGroup,
+  tournamentNextRound,
+  tournamentPhaseOf,
+  tournamentPlayersIn,
+  tournamentPlaysIn,
+  tournamentRoundDay,
+  tournamentRoundEnd,
+  tournamentRoundName,
+  tournamentRoundOf,
+  tournamentRoundStart,
+  tournamentSeatOf,
+  tournamentWeekOf,
+  tournamentWeekStart,
+  tournamentWinner,
+} from "./tournament";
+export type { TournamentGame, TournamentPhase } from "./tournament";
 // The Fair (the weekly individual event): the calendar, the market, the draft, the ranking and the rewards
 export * from "./fair";
 

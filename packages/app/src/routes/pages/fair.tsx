@@ -46,7 +46,7 @@ export default function FairView() {
   const draft = useMemo((): FairDraftView | null => {
     if (!data || data.stage !== "draft") return null;
     const d = draftOfTry(data);
-    return d.offer ? { offer: d.offer, next: d.next, deck: d.deck, passed: d.passed.length, season: data.season } : null;
+    return d.offer ? { offer: d.offer, deck: d.deck, passed: d.passed, season: data.season } : null;
   }, [data]);
 
   // The draft's view with nothing to draft: the game once the deck is built (and no pick is on its way), else the week.

@@ -18,13 +18,12 @@ import { Skeleton } from "../ui/skeleton";
 /** The Fair's views in Play's drawer: the week, the open try's draft, the live ranking. */
 export type FairView = "fair" | "draft" | "ranking";
 
-/** The open try's draft as the scene shows it: the offer on the table, the next one, the deck so far (market cards). */
+/** The open try's draft as the scene shows it: the offer on the table, the deck so far (market cards), the offers passed. */
 export interface FairDraftView {
   offer: FairOffer;
-  next: FairOffer | null;
   deck: number[];
-  /** The offers a mythic passed so far. */
-  passed: number;
+  /** The offers a mythic passed so far, by number. */
+  passed: number[];
   season: FairSeason;
 }
 
@@ -101,15 +100,26 @@ function deckLine(cards: readonly number[], season: FairSeason): string {
   return `${formatInteger(cards.length)} tiles · ${formatInteger(mythics)} ${mythics === 1 ? "mythic" : "mythics"} · ${formatInteger(stall)} from the ${SEASON_NAME[season].toLowerCase()} stall`;
 }
 
-/** A deck's tiles by plan: each plan's render, its count on it, its name under it. */
+/** A tile's copies in a deck: the Collection's red badge (`tiles-scene.tsx`'s `DeckCount`), at the tile's top right corner. */
+function DeckCount({ count }: { count: number }) {
+  return (
+    <span data-slot="tile-deck-count" className="numeric absolute top-0 right-0 grid h-5 min-w-5 place-items-center rounded-[0.3rem] bg-dock-badge px-1 text-xs leading-none font-bold text-foreground ring-2 ring-background">
+      {formatInteger(count)}
+    </span>
+  );
+}
+
+/** A deck's tiles by plan: each plan's render, its count on the Collection's badge, its name under it. */
 function DeckGrid({ cards, renders, label }: { cards: readonly number[]; renders?: TileRenders; label: string }) {
   return (
     <ul aria-label={label} className="grid grid-cols-3 gap-2 mobile:grid-cols-4 tablet:grid-cols-5">
       {deckByPlan(cards).map(({ plan, count }) => (
         <li key={plan} className="flex min-w-0 flex-col items-center gap-1">
-          <span className="relative block aspect-square w-full overflow-hidden rounded-lg">
-            <TileRender plan={plan} theme={0} renders={renders} top alt="" />
-            <span className="numeric text-outline absolute right-1 bottom-0.5 text-sm font-bold">×{count}</span>
+          <span className="relative block aspect-square w-full">
+            <span className="block size-full overflow-hidden rounded-lg">
+              <TileRender plan={plan} theme={0} renders={renders} top alt="" />
+            </span>
+            <DeckCount count={count} />
           </span>
           <span className="w-full text-center text-xs leading-tight font-semibold text-muted-foreground">{tileName(plan)}</span>
         </li>
@@ -136,7 +146,7 @@ function StallCard({ season }: { season: FairSeason }) {
 
 const STEPS: readonly [string, string][] = [
   ["Draft:", `${FAIR_OFFERS} offers of three tiles. You take one of each: the tiles you take are your deck.`],
-  ["A mythic costs two picks:", "take one and the next offer, already shown, passes."],
+  ["A mythic costs two picks:", "take one and the next offer passes."],
   ["Play:", "the starter, then your deck, in an order drawn tile by tile. No spare: a tile that fits nowhere is discarded."],
   ["Rank:", `${FAIR_TRIES} tries a day; your best of the week counts from ${formatInteger(FAIR_FLOOR)} points.`],
 ];
@@ -321,9 +331,36 @@ function OfferTile({ card, stall, season, renders, passes, disabled, onPick }: {
   );
 }
 
-/** The open try's draft: the offer on the table, the next one (what a mythic would pass), the deck so far, and the way out. */
+/** What became of each of the draft's offers, 1 to `FAIR_OFFERS`: a tile taken, a mythic taken, passed by a mythic, on the table, to come. */
+export function draftSteps(draft: Pick<FairDraftView, "offer" | "deck" | "passed">): ("taken" | "mythic" | "passed" | "current" | "todo")[] {
+  let picked = 0;
+  return Array.from({ length: FAIR_OFFERS }, (_, i) => {
+    const number = i + 1;
+    if (number === draft.offer.number) return "current";
+    if (number > draft.offer.number) return "todo";
+    if (draft.passed.includes(number)) return "passed";
+    return fairIsMythic(draft.deck[picked++]!) ? "mythic" : "taken";
+  });
+}
+
+const STEP = { taken: "bg-primary", mythic: "bg-fair-mythic", passed: "bg-fair-mythic/35", current: "bg-foreground", todo: "bg-foreground/15" } as const;
+
+/** The draft's progress, a segment per offer (the proposal's bar): gold for a tile taken, purple for a mythic and, paler, the offer it passed. */
+function DraftProgress({ draft }: { draft: FairDraftView }) {
+  const steps = draftSteps(draft);
+  const mythics = steps.filter((s) => s === "mythic").length;
+  return (
+    <div role="img" data-slot="fair-progress" aria-label={`Offer ${draft.offer.number} of ${FAIR_OFFERS}: ${draft.deck.length} taken${mythics ? `, ${mythics} mythic` : ""}${draft.passed.length ? `, ${draft.passed.length} passed` : ""}`} className="flex gap-1">
+      {steps.map((step, i) => (
+        <span key={i} data-step={step} className={cn("h-2 min-w-0 flex-1 rounded-full", STEP[step])} />
+      ))}
+    </div>
+  );
+}
+
+/** The open try's draft: its progress, the offer on the table, the deck so far, and the way out. The next offer is not shown (the owner's ask of 2026-11-14: a draft does not show what comes next). */
 function DraftView({ draft, renders, busy, onPick, onAbandon }: { draft: FairDraftView; renders?: TileRenders; busy: boolean; onPick?: (choice: number) => void; onAbandon?: () => void }) {
-  const { offer, next, deck } = draft;
+  const { offer, deck } = draft;
   const mythicOnTable = offer.cards.some(fairIsMythic);
   return (
     <section aria-label="Draft" className="flex flex-col gap-4">
@@ -331,34 +368,18 @@ function DraftView({ draft, renders, busy, onPick, onAbandon }: { draft: FairDra
         <Tag>
           Pick {offer.number} of {FAIR_OFFERS}
         </Tag>
+        <DraftProgress draft={draft} />
         <h2 className="text-outline font-display text-[1.75rem] leading-tight font-bold">Take one tile</h2>
         <p className="text-sm font-semibold text-muted-foreground">The tiles you take are your deck. A tile you take leaves the market.</p>
       </header>
 
       <ul aria-label={`Offer ${offer.number}`} className="flex items-stretch gap-2">
         {offer.cards.map((card, i) => (
-          <OfferTile key={card} card={card} stall={offer.stall && i === 0} season={draft.season} renders={renders} passes={next?.number ?? null} disabled={busy} onPick={() => onPick?.(i)} />
+          <OfferTile key={card} card={card} stall={offer.stall && i === 0} season={draft.season} renders={renders} passes={offer.number < FAIR_OFFERS ? offer.number + 1 : null} disabled={busy} onPick={() => onPick?.(i)} />
         ))}
       </ul>
 
-      {next && (
-        <section aria-labelledby="fair-next" data-slot="fair-next" data-at-stake={mythicOnTable || undefined} className="drawer-carved flex flex-col gap-2 rounded-2xl px-3.5 py-2.5">
-          <h3 id="fair-next" className="text-sm font-bold">
-            Next: offer <span className="numeric">{next.number}</span>
-          </h3>
-          <ul className="flex gap-2">
-            {next.cards.map((card) => (
-              <li key={card} className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="block size-10 shrink-0 overflow-hidden rounded-md">
-                  <TileRender plan={fairPlanCodeOf(card)} theme={0} renders={renders} top alt="" />
-                </span>
-                <span className="min-w-0 text-xs leading-tight font-semibold text-muted-foreground">{tileName(fairPlanCodeOf(card))}</span>
-              </li>
-            ))}
-          </ul>
-          {mythicOnTable && <p className="text-xs font-semibold text-fair-price">A mythic costs two picks: take it and this offer passes.</p>}
-        </section>
-      )}
+      {mythicOnTable && offer.number < FAIR_OFFERS && <p data-slot="fair-price" className="text-sm font-semibold text-fair-price">A mythic costs two picks: take it and the next offer passes.</p>}
 
       <section aria-labelledby="fair-deck" className="flex flex-col gap-2">
         <SectionTitle id="fair-deck">Your deck</SectionTitle>
@@ -368,10 +389,10 @@ function DraftView({ draft, renders, busy, onPick, onAbandon }: { draft: FairDra
           <>
             <p className="text-sm font-semibold text-muted-foreground">
               {deckLine(deck, draft.season)}
-              {draft.passed > 0 && (
+              {draft.passed.length > 0 && (
                 <>
                   {" "}
-                  · <span className="numeric">{formatInteger(draft.passed)}</span> {draft.passed === 1 ? "offer" : "offers"} passed
+                  · <span className="numeric">{formatInteger(draft.passed.length)}</span> {draft.passed.length === 1 ? "offer" : "offers"} passed
                 </>
               )}
             </p>
@@ -397,7 +418,7 @@ function DraftView({ draft, renders, busy, onPick, onAbandon }: { draft: FairDra
  * drawer, as the Joust's. The week: its day and its time left; last week's result while there is one (the tier, the place, Claim, the
  * champion with their deck); the season's stall; the viewer's week (tries left today, their best, its place and tier); the rules and
  * the tiers; in the footer the ranking and the gold Play (a new try, or the one still open). Its two other views: the open try's
- * draft (the offer of three tiles, the next offer, the deck so far) and the live ranking with each tier's bar.
+ * draft (its progress bar, the offer of three tiles, the deck so far) and the live ranking with each tier's bar.
  */
 export function FairScene({ state, error, errorDetail, onRetry, now, me = null, view = "fair", ranking = null, draft = null, renders, busy = null, onPlay, onPick, onAbandon, onClaim, onRanking, onOpenPlayer }: FairSceneProps) {
   if (error)
@@ -491,7 +512,8 @@ export function FairScene({ state, error, errorDetail, onRetry, now, me = null, 
           {canPlay ? (
             <Button variant="ghost" style={GOLD_ACTION} className="relative h-12 flex-1 px-1 text-lg font-black text-foreground" disabled={busy === "start"} aria-busy={busy === "start" || undefined} onClick={onPlay}>
               {busy !== "start" && <GoldShine />}
-              {open ? (open.stage === "draft" ? "Resume draft" : "Resume game") : `Start try ${mine!.triesToday + 1}`}
+              {/* One word (the owner's ask of 2026-11-14): the page says which try and what is open. */}
+              {open ? "Resume" : "Start"}
             </Button>
           ) : (
             <span className="flex-1 text-center text-sm font-semibold text-muted-foreground">{mine ? "No try left today" : "Sign in to play"}</span>

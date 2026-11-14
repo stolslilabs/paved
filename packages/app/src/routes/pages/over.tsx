@@ -21,6 +21,7 @@ import { replayPuzzle } from "../../data/puzzle-game";
 import { usePlayPuzzle, usePuzzleViewer } from "../puzzle-play";
 import { useJoustGameRecord, useJoustResult, useJoustState } from "../../data/joust";
 import { usePlayJoust } from "../joust-play";
+import { useTournamentGameRecord, useTournamentResult } from "../../data/tournament";
 import { useFairResult, useFairTry } from "../../data/fair";
 import { usePlayFair } from "../fair-play";
 import { useAccount } from "../../wallet/wallet";
@@ -42,6 +43,7 @@ export default function Page() {
   if (page?.path === "game/:gameId/over") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId/over") return <PuzzleRoute />;
   if (page?.path === "joust/:gameId/over") return <JoustRoute />;
+  if (page?.path === "tournament/:gameId/over") return <TournamentRoute />;
   if (page?.path === "fair/:gameId/over") return <FairRoute />;
   return <Placeholder />;
 }
@@ -187,6 +189,73 @@ function JoustOver({ gameId }: { gameId: number }) {
       reward={{ state: "free" }}
       joust={{ result: result.data ?? null, guild: guild ? { id: guild.id, name: guild.name, emblem: guild.emblem } : null, onJoust: () => go("/play/joust", { replace: true }) }}
       onPlayAgain={play}
+      onHome={() => go("/")}
+    />
+  );
+}
+
+/** `/tournament/:gameId/over`: a game id is digits; anything else is not a game. */
+function TournamentRoute() {
+  const { gameId } = useParams();
+  return gameId && /^\d+$/.test(gameId) ? <TournamentOver key={gameId} gameId={Number(gameId)} /> : <NotFound />;
+}
+
+/**
+ * The end of a Tournament game (the weekly individual event), as a Joust game's: the game read from the source and played again on
+ * the engine, its standing in its duel (`result`: against the opponent's game, then the day's verdict). A game still in play goes back
+ * to its board, an unknown one is "Game not found". One game a round: the tournament's view, no next game.
+ */
+function TournamentOver({ gameId }: { gameId: number }) {
+  const go = useAppNavigate();
+  const record = useTournamentGameRecord(gameId);
+  const data = record.data ?? null;
+  const result = useTournamentResult(data?.over ? gameId : null);
+  const [view, setView] = useOverView();
+  const skins = useBoardSkins(data?.player ?? null);
+  const boardSettings = useBoardSettings();
+  const replay = useMemo(() => (data ? replayPuzzle(data) : null), [data]);
+  const stats = useMemo(() => (replay ? gameStats(replay.engine.rules) : undefined), [replay]);
+  const tiles = useMemo(() => (replay ? pageStateOf(replay.engine.rules).tiles : []), [replay]);
+  const board = useMemo(() => ({ tiles, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer }), [tiles, skins, boardSettings.renderer]);
+
+  useEffect(() => {
+    if (data && !data.over) go(`/tournament/${gameId}`, { replace: true });
+  }, [data, gameId, go]);
+  if (record.error) return <NotFound />;
+  if (!data || !data.over || !replay) return null;
+
+  const engine = replay.engine.rules;
+  // The Tournament's game in the over page's shape: its counters, and zeros where a Challenge game has a value.
+  const gameView: GameView = {
+    id: data.id,
+    playerId: data.player,
+    mode: 0,
+    seed: data.seed,
+    score: data.score,
+    over: true,
+    tileCount: engine.tileCount,
+    placedCount: engine.built + 1,
+    discardedCount: engine.discarded,
+    tileId: 0,
+    plan: 0,
+    remainingCount: engine.tileLimit - engine.tileCount,
+    deckSize: engine.tileLimit,
+    startTime: data.start,
+    endTime: data.end,
+    dayId: data.day,
+    expiresAt: 0,
+  };
+  return (
+    <OverScene
+      mode="tournament"
+      game={gameView}
+      closings={replay.closings}
+      stats={stats}
+      board={board}
+      view={view}
+      onViewChange={setView}
+      reward={{ state: "free" }}
+      tournament={{ result: result.data ?? null, onTournament: () => go("/play/tournament", { replace: true }) }}
       onHome={() => go("/")}
     />
   );

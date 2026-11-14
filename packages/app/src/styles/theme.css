@@ -330,6 +330,8 @@
   /* The Fair (FAIR): its stalls' green (the week's tag, a stall tile's wash) and a mythic's price (the offer it passes); states, not a success nor a warning. */
   --fair-stall: var(--color-meadow-400);
   --fair-price: var(--color-amber-300);
+  /* A mythic taken on the draft's progress bar, and the offer it passed (the rarity pill's purple). */
+  --fair-mythic: oklch(0.70 0.17 300);
   --xp-light: oklch(0.841 0.137 211.6); /* #36E2FE */
   --league-iron: var(--color-amber-500);
   --league-bronze: var(--color-charcoal-300);
@@ -484,6 +486,7 @@
   --color-joust-rival-fill: var(--joust-rival-fill);
   --color-fair-stall: var(--fair-stall);
   --color-fair-price: var(--fair-price);
+  --color-fair-mythic: var(--fair-mythic);
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);

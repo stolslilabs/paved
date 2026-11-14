@@ -32,6 +32,9 @@ const TABLE: Record<string, readonly string[]> = {
   "play/puzzle": ["cobbles"],
   "play/joust": ["cobbles"],
   "play/expedition": ["cobbles"],
+  "play/masterpiece": ["cobbles"],
+  "play/colossus": ["cobbles"],
+  "play/tournament": ["cobbles"],
   "play/fair": ["cobbles"],
   // SHOP-PAGE: the packs are the Shop's Cobbles tab, paid in USDC; the scene shows the tab's own set.
   "village/shop": ["cobbles", "usdc"],
@@ -69,6 +72,9 @@ const TABLE: Record<string, readonly string[]> = {
   "joust/:gameId": [],
   "joust/:gameId/over": [],
   expedition: [],
+  masterpiece: [],
+  "tournament/:gameId": [],
+  "tournament/:gameId/over": [],
   "fair/:gameId": [],
   "fair/:gameId/over": [],
 };

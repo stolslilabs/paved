@@ -3,18 +3,22 @@ import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
-import type { ExpeditionCard, FairCard, JoustCard, PuzzleCard } from "../../components/containers/play-modes";
 import { FAIR_STALLS } from "@paved/game-core";
 import { useFairAvailable, useFairState } from "../../data/fair";
+import type { ColossusCard, ExpeditionCard, FairCard, JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
 import { useSearchParams } from "react-router";
 import { useExpeditionAvailable, useExpeditionState } from "../../data/expedition";
 import { useJoustAvailable, useJoustState } from "../../data/joust";
+import { useColossusAvailable, useColossusState } from "../../data/colossus";
+import { useMasterpieceAvailable, useMasterpieceState } from "../../data/masterpiece";
+import { MASTERPIECE_KIND } from "../../components/elements/masterpiece-kind";
 import { usePuzzleActiveGame, usePuzzleAvailable, usePuzzleStanding } from "../../data/puzzle";
 import { useAccount } from "../../wallet/wallet";
 import { useConnectError } from "../connect-error";
 import { useDrawerRoute } from "../drawer-route";
 import { useRoutePage } from "../handle";
 import { useNow } from "../now";
+import { useTournamentCard } from "../tournament-play";
 import { prefetchAllowed } from "../prefetch";
 import { useAppNavigate, useUpTo } from "../ref";
 
@@ -33,6 +37,15 @@ const JoustView = lazy(loadJoust);
 /** The Expedition (`/play/expedition`, Play's Limited mode): its week and its board's journal, a chunk of their own, fetched as Play is pointed at. */
 const loadExpedition = () => import("./expedition");
 const ExpeditionView = lazy(loadExpedition);
+/** The Masterpiece (`/play/masterpiece`, Play's Limited mode): its week and its ranking, a chunk of their own, fetched as Play is pointed at. */
+const loadMasterpiece = () => import("./masterpiece");
+const MasterpieceView = lazy(loadMasterpiece);
+/** The Colossus (`/play/colossus`, Play's Limited mode): its site, its builders and its boards, a chunk of their own. */
+const loadColossus = () => import("./colossus");
+const ColossusView = lazy(loadColossus);
+/** The Tournament (`/play/tournament`, Play's Limited mode): its week and its bracket, a chunk of their own, fetched as Play is pointed at. */
+const loadTournament = () => import("./tournament");
+const TournamentView = lazy(loadTournament);
 /** The Fair (`/play/fair`, Play's Limited mode): its week, its draft and its ranking, a chunk of their own, fetched as Play is pointed at. */
 const loadFair = () => import("./fair");
 const FairView = lazy(loadFair);
@@ -93,6 +106,12 @@ export default function Page() {
   const expeditionCard: ExpeditionCard | null = expeditionState
     ? { map: expeditionState.map, day: expeditionState.day, endsAt: expeditionState.endsAt, board: expeditionState.board && { score: expeditionState.board.score, hand: expeditionState.board.hand, due: expeditionState.board.due.drawn } }
     : null;
+  // The Masterpiece's card (Limited): the week's kind and day, the tiles waiting, the player's best piece; none without a Masterpiece.
+  const masterpieceOn = useMasterpieceAvailable();
+  const masterpieceState = useMasterpieceState(me, masterpieceOn).data ?? null;
+  const masterpieceCard: MasterpieceCard | null = masterpieceState
+    ? { kind: MASTERPIECE_KIND[masterpieceState.kind].name, day: masterpieceState.day, endsAt: masterpieceState.endsAt, board: masterpieceState.board && { waiting: masterpieceState.board.waiting, size: masterpieceState.board.piece?.size ?? null, score: masterpieceState.board.score } }
+    : null;
   // The Fair's card (Limited): the week's day and stall, the player's tries left today, their try still open; none without a Fair.
   const fairOn = useFairAvailable();
   const fairState = useFairState(me, fairOn).data ?? null;
@@ -107,8 +126,23 @@ export default function Page() {
       }
     : null;
   const [params] = useSearchParams();
+  const masterpieceRanking = path === "play/masterpiece" && params.get("view") === "ranking";
+  const onMasterpieceTop = useUpTo("/play/masterpiece");
   const joustView = path === "play/joust" ? params.get("view") : null;
   const onJoustTop = useUpTo("/play/joust");
+  // The Colossus's card (Limited): the week's day, the monument, the gauge, the tiles in hand; none without a Colossus.
+  const colossusOn = useColossusAvailable();
+  const colossusState = useColossusState(me, colossusOn).data ?? null;
+  const colossusCard: ColossusCard | null = colossusState && { day: colossusState.day, endsAt: colossusState.endsAt, monument: colossusState.monument, stones: colossusState.stones, cells: colossusState.cells, hand: colossusState.me?.hand.length ?? null };
+  // Its views: the builders (`?view=builders`) and a board (`?lot=`), named on the header, their Back up to the site.
+  const colossusLot = path === "play/colossus" ? params.get("lot") : null;
+  const colossusBoard = colossusLot === null ? null : (colossusState?.lots.find((l) => String(l.board) === colossusLot) ?? null);
+  const colossusTitle = colossusLot !== null ? (colossusBoard ? (colossusBoard.heart ? "The heart" : `District ${colossusBoard.name}`) : "District") : path === "play/colossus" && params.get("view") === "builders" ? "Builders" : undefined;
+  const onColossusTop = useUpTo("/play/colossus");
+  // The Tournament's card (Limited) and its view's own view (`?view=bracket`); none without a Tournament.
+  const tournament = useTournamentCard(me);
+  const tournamentBracket = path === "play/tournament" && params.get("view") === "bracket";
+  const onTournamentTop = useUpTo("/play/tournament");
   const fairView = path === "play/fair" ? params.get("view") : null;
   const onFairTop = useUpTo("/play/fair");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
@@ -120,6 +154,9 @@ export default function Page() {
     void loadPuzzle().catch(() => {});
     if (joustOn) void loadJoust().catch(() => {});
     if (expeditionOn) void loadExpedition().catch(() => {});
+    if (masterpieceOn) void loadMasterpiece().catch(() => {});
+    if (colossusOn) void loadColossus().catch(() => {});
+    if (tournament.on) void loadTournament().catch(() => {});
     if (fairOn) void loadFair().catch(() => {});
   };
   return (
@@ -170,10 +207,43 @@ export default function Page() {
         onExpeditionBack={onViewBack}
         expeditionCard={expeditionCard}
         onExpedition={() => go("/play/expedition")}
+        masterpiece={
+          path === "play/masterpiece" ? (
+            <Suspense fallback={null}>
+              <MasterpieceView />
+            </Suspense>
+          ) : null
+        }
+        masterpieceTitle={masterpieceRanking ? "Ranking" : undefined}
+        onMasterpieceBack={masterpieceRanking ? onMasterpieceTop : onViewBack}
+        masterpieceCard={masterpieceCard}
+        onMasterpiece={() => go("/play/masterpiece")}
         joustTitle={joustView ? JOUST_TITLES[joustView] : undefined}
         onJoustBack={joustView && JOUST_TITLES[joustView] ? onJoustTop : onViewBack}
         joustCard={joustCard}
+        colossus={
+          path === "play/colossus" ? (
+            <Suspense fallback={null}>
+              <ColossusView />
+            </Suspense>
+          ) : null
+        }
+        colossusTitle={colossusTitle}
+        onColossusBack={colossusTitle ? onColossusTop : onViewBack}
+        colossusCard={colossusCard}
+        onColossus={() => go("/play/colossus")}
         onJoust={() => go(joustGame ? `/joust/${joustGame.id}` : "/play/joust")}
+        tournament={
+          path === "play/tournament" ? (
+            <Suspense fallback={null}>
+              <TournamentView />
+            </Suspense>
+          ) : null
+        }
+        tournamentTitle={tournamentBracket ? "Bracket" : undefined}
+        onTournamentBack={tournamentBracket ? onTournamentTop : onViewBack}
+        tournamentCard={tournament.card}
+        onTournament={() => go(tournament.path)}
         fair={
           path === "play/fair" ? (
             <Suspense fallback={null}>

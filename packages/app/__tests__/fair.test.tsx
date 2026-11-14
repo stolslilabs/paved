@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FAIR_OFFERS, fairIsMythic } from "@paved/game-core";
 import { FairEnd } from "../src/components/containers/fair-end";
 import { PlayModes } from "../src/components/containers/play-modes";
-import { FairScene, deckByPlan } from "../src/components/scenes/fair-scene";
+import { FairScene, deckByPlan, draftSteps } from "../src/components/scenes/fair-scene";
 import { FAIR, FAIR_CARD, FAIR_END } from "../src/mocks/fair";
 
 // The Fair's scenes (the weekly individual event) on their mocks: Play's card, the week's view in each state, the draft, the ranking,
@@ -63,7 +63,7 @@ describe("the Fair's view", () => {
     expect(screen.getByRole("heading", { name: "How it goes" })).toBeInTheDocument();
     const tiers = within(screen.getByRole("list", { name: "Reward tiers" })).getAllByRole("listitem");
     expect(tiers.map((t) => t.textContent)).toEqual(["Top 1%300", "Top 5%150", "Top 20%60", "Top 50%20", "A counted try below5"]);
-    await userEvent.click(screen.getByRole("button", { name: "Start try 1" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start" }));
     expect(onPlay).toHaveBeenCalledOnce();
   });
 
@@ -75,14 +75,14 @@ describe("the Fair's view", () => {
     expect(week).toHaveTextContent("4,932your best try");
     expect(week).toHaveTextContent("#172Top 5%");
     expect(screen.getByRole("timer")).toHaveTextContent("in 3d 9h");
-    expect(screen.getByRole("button", { name: "Start try 2" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Start" })).toBeEnabled();
     await userEvent.click(screen.getByRole("button", { name: "Ranking" }));
     expect(onRanking).toHaveBeenCalledOnce();
   });
 
   it.each([
-    ["drafting", "Resume draft", /Your draft waits at pick 9/],
-    ["playing", "Resume game", /Your game is on, a deck of 19 tiles: 3,193 points so far/],
+    ["drafting", "Resume", /Your draft waits at pick 9/],
+    ["playing", "Resume", /Your game is on, a deck of 19 tiles: 3,193 points so far/],
   ] as const)("%s: %s", (state, label, line) => {
     render(wrap(<FairScene {...FAIR[state]} />));
     expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("the Fair's view", () => {
   it("offers no try once today's are spent, says when a best does not count, and asks a guest to sign in", () => {
     const { unmount } = render(wrap(<FairScene {...FAIR.noTryLeft} />));
     expect(screen.getByText("No try left today")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Start try/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Start" })).toBeNull();
     unmount();
     const under = render(wrap(<FairScene {...FAIR.underFloor} />));
     expect(screen.getByText(/A best try counts from/)).toHaveTextContent("1,000");
@@ -135,14 +135,19 @@ describe("the Fair's view", () => {
 });
 
 describe("the Fair's draft", () => {
-  it("shows the offer of three tiles, the next offer and the deck so far, and takes a tile on a tap", async () => {
+  it("shows its progress, the offer of three tiles and the deck so far, never the next offer, and takes a tile on a tap", async () => {
     const onPick = vi.fn();
     render(wrap(<FairScene {...FAIR.draft} onPick={onPick} />));
     expect(screen.getByText("Pick 9 of 20")).toBeInTheDocument();
     const offer = within(screen.getByRole("list", { name: "Offer 9" })).getAllByRole("button");
     expect(offer).toHaveLength(3);
     expect(offer[0]).toHaveAccessibleName(/from the spring stall/);
-    expect(screen.getByRole("heading", { name: "Next: offer 10" })).toBeInTheDocument();
+    expect(screen.queryByText(/^Next: offer/)).toBeNull();
+    const steps = [...screen.getByRole("img", { name: /^Offer 9 of 20: 8 taken/ }).children].map((el) => el.getAttribute("data-step"));
+    expect(steps).toEqual(draftSteps(FAIR.draft.draft));
+    expect(steps).toHaveLength(20);
+    expect(steps.indexOf("current")).toBe(8);
+    expect(steps.slice(9).every((step) => step === "todo")).toBe(true);
     const deck = FAIR.draft.draft.deck;
     expect(screen.getByText(new RegExp(`^${deck.length} tiles · `))).toBeInTheDocument();
     expect(within(screen.getByRole("list", { name: "Your deck so far" })).getAllByRole("listitem")).toHaveLength(deckByPlan(deck).length);
@@ -150,17 +155,17 @@ describe("the Fair's draft", () => {
     expect(onPick).toHaveBeenCalledWith(1);
   });
 
-  it("prices a mythic on the table: two picks, the next offer at stake", () => {
+  it("prices a mythic on the table: two picks, the next offer passes", () => {
     render(wrap(<FairScene {...FAIR.draftMythic} />));
-    const { offer, next } = FAIR.draftMythic.draft;
+    const { offer } = FAIR.draftMythic.draft;
     const mythic = offer.cards.findIndex(fairIsMythic);
     const tile = within(screen.getByRole("list", { name: `Offer ${offer.number}` })).getAllByRole("button")[mythic]!;
-    expect(tile).toHaveAccessibleName(new RegExp(`mythic.*: offer ${next!.number} passes$`));
+    expect(tile).toHaveAccessibleName(new RegExp(`mythic.*: offer ${offer.number + 1} passes$`));
     expect(tile).toHaveTextContent("2 picks");
-    expect(screen.getByText("A mythic costs two picks: take it and this offer passes.")).toBeInTheDocument();
+    expect(screen.getByText("A mythic costs two picks: take it and the next offer passes.")).toBeInTheDocument();
   });
 
-  it("shows no deck at the first offer and no next offer at the last, and leaves the try", async () => {
+  it("shows no deck at the first offer, the mythics and the offers they passed on the last one's bar, and leaves the try", async () => {
     const onAbandon = vi.fn();
     const { unmount } = render(wrap(<FairScene {...FAIR.draftFirst} onAbandon={onAbandon} />));
     expect(screen.getByText(/No tile yet/)).toBeInTheDocument();
@@ -169,7 +174,10 @@ describe("the Fair's draft", () => {
     unmount();
     const last = render(wrap(<FairScene {...FAIR.draftLast} />));
     expect(screen.getByText(`Pick ${FAIR_OFFERS} of ${FAIR_OFFERS}`)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /^Next: offer/ })).toBeNull();
+    const steps = draftSteps(FAIR.draftLast.draft);
+    expect(steps.filter((step) => step === "passed")).toHaveLength(FAIR.draftLast.draft.passed.length);
+    expect(steps.filter((step) => step === "mythic")).toHaveLength(FAIR.draftLast.draft.passed.length);
+    expect(document.querySelectorAll('[data-slot="fair-progress"] [data-step="passed"]')).toHaveLength(FAIR.draftLast.draft.passed.length);
     expect(screen.getByText(/offers? passed/)).toBeInTheDocument();
     last.unmount();
     render(wrap(<FairScene {...FAIR.draftLoading} />));
@@ -211,7 +219,7 @@ describe("a Fair try's end", () => {
     expect(screen.getByText("Fair · try 2 of 3")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Score" })).toHaveTextContent("4,9323,640 → 4,932");
     expect(screen.getByRole("region", { name: "Week's place" })).toHaveTextContent("#172Top 5% · of 3,410");
-    await userEvent.click(screen.getByRole("button", { name: "Start a new try" }));
+    await userEvent.click(screen.getByRole("button", { name: "Again" }));
     expect(onPlayAgain).toHaveBeenCalledOnce();
   });
 
@@ -231,7 +239,7 @@ describe("a Fair try's end", () => {
     unmount();
     const onFair = vi.fn();
     end("last", { onFair });
-    expect(screen.queryByRole("button", { name: "Start a new try" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Again" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "The Fair" }));
     expect(onFair).toHaveBeenCalledOnce();
   });

@@ -496,6 +496,14 @@ export class EngineGame {
       }));
   }
 
+  /** Each wonder still open: its tiles so far (the wonder's and those laid around it, in tile id order) and its open half-edges. Read only. */
+  openWonders(): { readonly tiles: readonly number[]; readonly open: number }[] {
+    return this.board
+      .structures()
+      .filter((s) => s.category === CATEGORY_WONDER && !this.scoredRoots.has(s.root) && s.open > 0)
+      .map((s) => ({ tiles: this.wonderAreas(s.tile).map((a) => a.tileId), open: s.open }));
+  }
+
   get over(): boolean {
     return this._over;
   }

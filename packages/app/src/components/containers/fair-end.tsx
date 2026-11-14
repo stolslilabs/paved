@@ -70,7 +70,7 @@ export function FairEnd({ score, result, stats, closings, closingsNote, instant,
       subtitle={result ? `Fair · try ${result.try} of ${FAIR_TRIES}` : "Fair"}
       rows={rows}
       secondary={left > 0 ? { label: "The Fair", onClick: onFair } : undefined}
-      primary={left > 0 ? { label: "Start a new try", onClick: onPlayAgain } : { label: "The Fair", onClick: onFair }}
+      primary={left > 0 ? { label: "Again", onClick: onPlayAgain } : { label: "The Fair", onClick: onFair }}
       onClose={onClose}
     >
       <ClosedBoxes stats={stats} closings={closings} />

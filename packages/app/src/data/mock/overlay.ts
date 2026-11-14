@@ -3,8 +3,11 @@ import type { WalletConnector } from "../../wallet/wallet";
 import type { ChatSource, GuildSource, SocialSource } from "../social-source";
 import type { ExpeditionSource } from "../expedition-source";
 import type { JoustSource } from "../joust-source";
+import type { MasterpieceSource } from "../masterpiece-source";
+import type { ColossusSource } from "../colossus-source";
 import type { FairSource } from "../fair-source";
 import type { PuzzleSource } from "../puzzle-source";
+import type { TournamentSource } from "../tournament-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
 import type { MockLedger, MockedReads } from "./ledger";
 
@@ -158,6 +161,18 @@ export function mockJoust(ledger: MockLedger): JoustSource {
   };
 }
 
+/** The Colossus's source of the ledger (the weekly collective event, `colossus.ts`): no chain part lies beneath, it runs on the client alone. */
+export function mockColossus(ledger: MockLedger): ColossusSource {
+  return {
+    state: (viewer) => ledger.colossusState(viewer),
+    builders: (viewer) => ledger.colossusBuilders(viewer),
+    board: (viewer, board) => ledger.colossusBoard(viewer, board),
+    options: (viewer, board, card) => ledger.colossusOptions(viewer, board, card),
+    place: (player, tile) => ledger.colossusPlace(player, tile),
+    claim: (player, week) => ledger.colossusClaim(player, week),
+  };
+}
+
 /**
  * The Expedition's source of the ledger (the weekly individual event, `expedition.ts`): the week, the accounts' boards by game-core's
  * rules and their Cobbles. No chain part lies beneath: the Expedition runs on the client alone.
@@ -169,6 +184,37 @@ export function mockExpedition(ledger: MockLedger): ExpeditionSource {
     open: (player) => ledger.expeditionOpen(player),
     play: (player, week, move) => ledger.expeditionPlay(player, week, move),
     claim: (player, week) => ledger.expeditionClaim(player, week),
+  };
+}
+
+/**
+ * The Masterpiece's source of the ledger (the weekly individual event, `masterpiece.ts`): the week, the accounts' boards by game-core's
+ * rules, the drawn builders' ranking and the Cobbles. No chain part lies beneath: the Masterpiece runs on the client alone.
+ */
+export function mockMasterpiece(ledger: MockLedger): MasterpieceSource {
+  return {
+    state: (viewer) => ledger.masterpieceState(viewer),
+    ranking: (viewer) => ledger.masterpieceRanking(viewer),
+    board: (player) => ledger.masterpieceBoard(player),
+    open: (player) => ledger.masterpieceOpen(player),
+    play: (player, week, move) => ledger.masterpiecePlay(player, week, move),
+    claim: (player, week) => ledger.masterpieceClaim(player, week),
+  };
+}
+
+/**
+ * The Tournament's source of the ledger (the weekly individual event, `tournament.ts`): the week, the player's run through their
+ * bracket, their one game a round by game-core's rules and their Cobbles. No chain part lies beneath: it runs on the client alone.
+ */
+export function mockTournament(ledger: MockLedger): TournamentSource {
+  return {
+    state: (viewer) => ledger.tournamentState(viewer),
+    game: (gameId) => ledger.tournamentGame(gameId),
+    result: (gameId) => ledger.tournamentResult(gameId),
+    register: (player) => ledger.tournamentRegister(player),
+    start: (player) => ledger.tournamentStart(player),
+    play: (player, gameId, move) => ledger.tournamentPlay(player, gameId, move),
+    claim: (player, week) => ledger.tournamentClaim(player, week),
   };
 }
 

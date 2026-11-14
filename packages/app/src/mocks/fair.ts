@@ -37,7 +37,7 @@ function drafted(seed: bigint, mythics: boolean, until = Infinity): FairDraft {
   }
   return draft;
 }
-const viewOf = (draft: FairDraft): FairDraftView => ({ offer: draft.offer!, next: draft.next, deck: [...draft.deck], passed: draft.passed.length, season: "spring" });
+const viewOf = (draft: FairDraft): FairDraftView => ({ offer: draft.offer!, deck: [...draft.deck], passed: [...draft.passed], season: "spring" });
 
 /** The first seed whose draft, answered to an offer of `until`, shows what `wanted` asks of it. */
 function draftWhere(until: number, wanted: (draft: FairDraft) => boolean): FairDraft {

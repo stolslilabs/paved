@@ -19,7 +19,8 @@ The four seasons' maps come in turn, a week each (winter, spring, summer, autumn
 ## The rules (`packages/game-core/src/expedition.ts`)
 
 - **The ration.** 6 tiles a day, the hand holds 12. The board keeps the last day it drew; a draw brings the rations due since then, up
-  to 12 in hand, and the rest is lost. The whole hand is in view and laid in any order.
+  to 12 in hand, and the rest is lost. The whole hand is in view and laid in any order. A day's draw comes before its first move,
+  whatever the route: the source settles it before it takes a move, and the board takes none until the day is drawn.
 - **The bag.** 42 cards, the same for every explorer of the week, each board drawing them in an order of its own (its seed). The bag
   holds the cards the map's objectives need, then cards of the base deck kept by the week's seed.
 - **The map.** 11 by 12 cells, the camp (a game's starter) at its centre row, the landmarks written at the start. A cell outside takes
@@ -29,7 +30,8 @@ The four seasons' maps come in turn, a week each (winter, spring, summer, autumn
   A landmark is reached by a tile laid against one of its tiles; until then it anchors nothing.
 - **The objectives.** Reach the old crossroads (+300), surround the ruin (+600), link the two villages by one closed road (+900), the
   season's landmark (+1,500). A bonus is added once, beside the structure's own points.
-- **The score.** The board's structures as in a Training game, less 50 per discard, plus the bonuses.
+- **The score.** The board's structures as in a Training game, less 50 per discard, plus the bonuses. A discard takes 50 from the
+  total, bonuses included (at most what the total holds), the same in the bubble, on the board and in the replay.
 - **The tiers.** Scout 4,000 (20 Cobbles), Pathfinder 6,000 (40), Explorer 8,000 (70), Cartographer 10,000 (100). The highest tier
   reached pays, claimed from the next Monday at level 3. No XP, no chest.
 

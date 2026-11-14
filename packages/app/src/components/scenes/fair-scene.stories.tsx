@@ -38,9 +38,9 @@ export const First: Story = fair("first");
 /** Thursday: a best of 4,932, 172nd, two tries left today. */
 export const Week: Story = fair("week");
 export const Starting: Story = fair("starting");
-/** A draft still open: Resume draft. */
+/** A draft still open: Resume. */
 export const Drafting: Story = fair("drafting");
-/** A game still open: Resume game. */
+/** A game still open: Resume. */
 export const Playing: Story = fair("playing");
 export const NoTryLeft: Story = fair("noTryLeft");
 /** A best under 1,000 points: it does not count yet. */

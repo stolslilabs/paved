@@ -12,6 +12,12 @@ export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "play/joust",
   // The Expedition's view: the Cobbles its tiers pay.
   "play/expedition",
+  // The Masterpiece's view: the Cobbles its tiers pay.
+  "play/masterpiece",
+  // The Colossus's view: the Cobbles its tiers and its top 10 pay.
+  "play/colossus",
+  // The Tournament's view: the Cobbles of the round reached.
+  "play/tournament",
   // The Fair's view: the Cobbles its tiers pay.
   "play/fair",
   "avatar",

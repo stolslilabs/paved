@@ -29,7 +29,7 @@ import type { ScoreMeterValue } from "../../lib/score-meter";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 export type { CoachTarget } from "../containers/coach";
 
-export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle" | "joust" | "expedition" | "fair";
+export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle" | "joust" | "expedition" | "masterpiece" | "fair";
 
 /**
  * An attack's own pieces (`mode: "attack"`, #772), in the board's slots; everything else is the boards': the HUD, the closing
@@ -57,7 +57,7 @@ const PREFETCH_AFTER_MS = 3000;
 /** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
 const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
 
-const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle", joust: "Joust", expedition: "Expedition", fair: "Fair" };
+const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle", joust: "Joust", expedition: "Expedition", masterpiece: "Masterpiece", fair: "Fair" };
 
 export interface BoardSceneProps {
   mode: BoardMode;
@@ -149,6 +149,8 @@ export interface BoardSceneProps {
   onBack?: () => void;
   /** The end of a hold on the stack's Discard (the bubble's is the page's, in `bubble`). */
   onDiscard?: () => void;
+  /** What a discard takes, when the page's rules say (the Expedition's, on the total score); else `DISCARD_POINTS`, at most `score`. */
+  discardCost?: number;
   /** Called once the player confirms in the Surrender dialog (the settings' Surrender, or the expired banner's). Challenge only. */
   onSurrender?: () => void;
   /** Called once the player confirms Restart in the settings: Story mode restarts the level, Training the game. */
@@ -206,7 +208,9 @@ export function BoardScene(props: BoardSceneProps) {
     setDeckOpen(false);
     toastError({ title: "Deck", message: "The deck could not load. Check your connection and try again.", detail: errorDetail(e) });
   });
-  const discardCost = Math.min(props.score, DISCARD_POINTS);
+  // A Masterpiece's discard always costs its 50: they come off the masterpiece's points, closed or still to close. A page whose rules
+  // say otherwise gives its own (the Expedition's, on the total score).
+  const discardCost = props.discardCost ?? (mode === "masterpiece" ? DISCARD_POINTS : Math.min(props.score, DISCARD_POINTS));
   // The pile's tiles come from the deck the game deals: a Story level's own (#701), the base deck otherwise.
   const pilePlans = props.pilePlans ?? (props.deckOrder?.slots.length ? props.deckOrder.slots.map((s) => s.plan) : BASE_DECK_PLANS);
   const attack = mode === "attack" ? props.attack : undefined;
@@ -243,7 +247,7 @@ export function BoardScene(props: BoardSceneProps) {
           score={props.score}
           delta={props.delta}
           preview={hand.slotChosen ? hand.preview : null}
-          expiresAt={surrenders || mode === "expedition" ? props.expiresAt : null}
+          expiresAt={surrenders || mode === "expedition" || mode === "masterpiece" ? props.expiresAt : null}
           reward={mode === "challenge" ? props.reward : null}
           now={now}
           onBack={props.onBack}

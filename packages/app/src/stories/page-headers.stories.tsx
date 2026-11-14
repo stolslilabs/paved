@@ -27,7 +27,13 @@ import { PuzzleScene } from "../components/scenes/puzzle-scene";
 import { ExpeditionScene } from "../components/scenes/expedition-scene";
 import { EXPEDITION } from "../mocks/expedition";
 import { JoustScene } from "../components/scenes/joust-scene";
+import { MasterpieceScene } from "../components/scenes/masterpiece-scene";
+import { MASTERPIECE } from "../mocks/masterpiece";
 import { JOUST } from "../mocks/joust";
+import { ColossusScene } from "../components/scenes/colossus-scene";
+import { COLOSSUS } from "../mocks/colossus";
+import { TournamentScene } from "../components/scenes/tournament-scene";
+import { TOURNAMENT } from "../mocks/tournament";
 import { FairScene } from "../components/scenes/fair-scene";
 import { FAIR } from "../mocks/fair";
 import { PUZZLE } from "../mocks/puzzle";
@@ -95,6 +101,9 @@ export const StoryCampaigns: Story = {
 export const Puzzle: Story = { render: () => <PlayScene {...PLAY.connected} puzzle={<PuzzleScene {...PUZZLE.today} />} onBack={fn()} onPuzzleBack={fn()} /> };
 export const Joust: Story = { render: () => <PlayScene {...PLAY.connected} joust={<JoustScene {...JOUST.live} />} onBack={fn()} onJoustBack={fn()} /> };
 export const Expedition: Story = { render: () => <PlayScene {...PLAY.connected} expedition={<ExpeditionScene {...EXPEDITION.board} />} onBack={fn()} onExpeditionBack={fn()} /> };
+export const Masterpiece: Story = { render: () => <PlayScene {...PLAY.connected} masterpiece={<MasterpieceScene {...MASTERPIECE.board} />} onBack={fn()} onMasterpieceBack={fn()} /> };
+export const Colossus: Story = { render: () => <PlayScene {...PLAY.connected} colossus={<ColossusScene {...COLOSSUS.site} />} onBack={fn()} onColossusBack={fn()} /> };
+export const Tournament: Story = { render: () => <PlayScene {...PLAY.connected} tournament={<TournamentScene {...TOURNAMENT.duel} />} onBack={fn()} onTournamentBack={fn()} /> };
 export const Fair: Story = { render: () => <PlayScene {...PLAY.connected} fair={<FairScene {...FAIR.week} />} onBack={fn()} onFairBack={fn()} /> };
 // Settings' views (SETTINGS-PAGE): Themes and Credits in its drawer, its band's Back and red cross.
 export const Themes: Story = { render: () => <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} />} /> };

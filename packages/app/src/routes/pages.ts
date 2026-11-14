@@ -92,6 +92,18 @@ export const PAGES: readonly PageDef[] = [
   // account's own, one a week) is a full-screen flow, its Back up to the view (the page's own, `useUpTo`: no parent here, BACK-RULE).
   { path: "play/expedition", title: "Expedition", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "expedition", title: "Expedition", nav: null },
+  // The Masterpiece (Play's Limited mode, the weekly individual event): a view of Play's drawer, as the Joust's (`?view=ranking`); its
+  // board (the account's own, one a week) is a full-screen flow, its Back up to the view (the page's own, `useUpTo`: no parent, BACK-RULE).
+  { path: "play/masterpiece", title: "Masterpiece", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "masterpiece", title: "Masterpiece", nav: null },
+  // The Colossus (Play's Limited mode, the weekly collective event): a view of Play's drawer, as the Joust's (one loader); its builders
+  // and its boards are views of it (`?view=builders`, `?lot=`).
+  { path: "play/colossus", title: "Colossus", nav: null, parent: "/play", panel: true, drawer: true },
+  // The Tournament (Play's Limited mode, the weekly individual event), as the Joust: a view of Play's drawer, its bracket a view of it
+  // (`?view=bracket`); a game is a full-screen flow, its end too.
+  { path: "play/tournament", title: "Tournament", nav: null, parent: "/play", panel: true, drawer: true },
+  { path: "tournament/:gameId", title: "Tournament", nav: null },
+  { path: "tournament/:gameId/over", title: "Game over", nav: null },
   // The Fair (Play's Limited mode, the weekly individual event): a view of Play's drawer, as the Joust's; its draft and its ranking
   // are views of it (`?view=`). A try's game is a full-screen flow, its end too.
   { path: "play/fair", title: "Fair", nav: null, parent: "/play", panel: true, drawer: true },

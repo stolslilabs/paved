@@ -19,7 +19,9 @@ The stall turns with the weeks, a season each: winter (cities), spring (roads), 
 
 - The market is the base deck's 72 cards. A draft is 20 offers of 3 cards of 3 plans, drawn among the cards left (so at the base
   deck's odds); the first of every offer among the season's stall. The player takes one of each: it leaves the market.
-- The player sees the offer and the next one. The next offer never shows a card of the one on the table.
+- The next offer is drawn with the one on the table and never shows one of its cards. The client does not show it (the owner's
+  ask of 2026-11-14: a draft does not show what comes next); a segmented bar shows the draft's progress, its mythics and the offers
+  they passed.
 - A mythic (a plan with one or two copies: 4 plans, 6 cards) costs two picks: the offer after it passes, the deck holds one tile fewer.
 - The game is a Training game on the drafted deck (`EngineConfig.cards`): the starter, then the deck in an order drawn tile by tile,
   with the three-tile queue. The engine's own points, no boost.
@@ -61,4 +63,6 @@ Where the proposal left a rule open, the simplest reading was taken:
 - The Fair tab of Ranking: the ranking is a view of the Fair (`/play/fair?view=ranking`).
 - The game's own header strip (the deck's tiles left by kind, the week's best beside the score): the board shows the try's number,
   the best on the score meter, and the deck sheet lists what is left.
-- The card's icon and the stalls' icons: the card's scene is the proposal's hero image.
+- The stalls' icons. The card's icon is a market basket of its own, not the proposal's stall of three tiles (the owner's ask of
+  2026-11-14); its scene is the proposal's hero image. The icon's source is
+  `docs/architecture/fair-icon.svg`, rasterised at 256 px to `packages/app/ui-sources/play/mode-fair.webp`.

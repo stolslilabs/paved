@@ -197,7 +197,7 @@ import { questPeriod } from "../../lib/quest-window";
 import { addressKey } from "../keys";
 import type { AvatarCatalogue } from "../avatar-catalogue";
 import { PLAYER_NAME_MAX } from "../../lib/name-limit";
-import { PUZZLE_PRIZE_COBBLES, comparePuzzle, expeditionDayOf, expeditionWeekOf, fairEndsAt, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
+import { PUZZLE_PRIZE_COBBLES, comparePuzzle, fairEndsAt, expeditionDayOf, expeditionWeekOf, joustEndsAt, puzzleDayEnd, puzzleDayOf, puzzlePlaceAmong } from "@paved/game-core";
 import { PUZZLE_PRIZE_TOP, PUZZLE_STANDING_LIMIT, type PuzzleEntry, type PuzzleGameRecord, type PuzzleGameResult, type PuzzlePrize, type PuzzleStanding } from "../puzzle-source";
 import type { JoustGameRecord, JoustGameResult, JoustRanking, JoustState } from "../joust-source";
 import * as joust from "./joust";
@@ -205,6 +205,14 @@ import type { ExpeditionBoardRecord, ExpeditionPlay, ExpeditionState } from "../
 import * as expedition from "./expedition";
 import type { FairRanking, FairState, FairTryRecord, FairTryResult } from "../fair-source";
 import * as fair from "./fair";
+import type { MasterpieceBoardRecord, MasterpieceRanking, MasterpieceState } from "../masterpiece-source";
+import * as masterpiece from "./masterpiece";
+import type { TournamentGameRecord, TournamentGameResult, TournamentState } from "../tournament-source";
+import * as tournament from "./tournament";
+import { tournamentLeagueGroup, tournamentRoundEnd } from "@paved/game-core";
+import { masterpieceWeekOf, type MasterpieceEntry } from "@paved/game-core";
+import type { ColossusBoardState, ColossusBuilderRow, ColossusOptions, ColossusPlace, ColossusPlaced, ColossusState } from "../colossus-source";
+import * as colossus from "./colossus";
 import { dayRanking, dayResults, freshPuzzle, mockDaySeed, newGame, openGameOf, playMove as playPuzzleMove, recordOf, type StoredPuzzle, type StoredPuzzleGame } from "./puzzle";
 import {
   SPAWN_DRAW,
@@ -521,6 +529,12 @@ interface StoredState {
   expedition?: expedition.StoredExpedition;
   /** The Fair (the weekly individual event, `fair.ts`): the accounts' tries and claims; absent: none yet. */
   fair?: fair.StoredFair;
+  /** The Masterpiece (the weekly individual event, `masterpiece.ts`): the accounts' boards and claims; absent: none yet. */
+  masterpiece?: masterpiece.StoredMasterpiece;
+  /** The Colossus (the weekly collective event, `colossus.ts`): the accounts' tiles by week and their claims; absent: none yet. */
+  colossus?: colossus.StoredColossus;
+  /** The Tournament (the weekly individual event, `tournament.ts`): the accounts' games, registrations and claims; absent: none yet. */
+  tournament?: tournament.StoredTournament;
 }
 
 /** The mock's chat source: `ChatSource`, and `rotateKeys(player)`, a new messaging key, for the tests and the stories (#997). */
@@ -1475,6 +1489,68 @@ export class MockLedger {
     });
   }
 
+  // --- The Colossus (the weekly collective event, `colossus.ts`) --------------------------------------------------------
+
+  /** A Colossus read: the stored Colossus (none yet: a fresh one's), anyone's profile and the ledger's clock. */
+  private colossusRead<T>(read: (stored: colossus.StoredColossus, people: guilds.GuildPeople, now: number) => T): T {
+    return this.guildRead((_world, people, now) => read(this.state.colossus ?? colossus.freshColossus(), people, now));
+  }
+
+  /** A Colossus write: `change` works on the player's copy and the stored Colossus (put back on a throw, `commit`); a rule's refusal is a `WriteError`. */
+  private async colossusWrite<T>(account: string, change: (player: StoredPlayer, stored: colossus.StoredColossus, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.colossus ??= colossus.freshColossus()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** `ColossusSource.state`: the week's site as `viewer` sees it. */
+  async colossusState(viewer: string | null): Promise<ColossusState> {
+    return this.colossusRead((stored, people, now) => colossus.stateOf(stored, people, now, viewer));
+  }
+
+  /** `ColossusSource.builders`: every builder of the week by stones set. */
+  async colossusBuilders(viewer: string | null): Promise<ColossusBuilderRow[]> {
+    return this.colossusRead((stored, people, now) => colossus.buildersOf(stored, people, now, viewer));
+  }
+
+  /** `ColossusSource.board`: a board of the week's site; a board the site does not have is the view's refusal. */
+  async colossusBoard(viewer: string | null, board: number): Promise<ColossusBoardState> {
+    const found = this.colossusRead((stored, _people, now) => colossus.boardOf(stored, now, viewer, board));
+    if (!found) throw new ViewError("not-available", "Colossus: no such district");
+    return found;
+  }
+
+  /** `ColossusSource.options`: where the viewer's tile may go on a board. */
+  async colossusOptions(viewer: string, board: number, card: number): Promise<ColossusOptions> {
+    return this.colossusRead((stored, _people, now) => colossus.optionsOf(stored, now, viewer, board, card));
+  }
+
+  /** `ColossusSource.place`: a tile of the account's hand laid by game-core's rules (`ColossusPlaced`). */
+  async colossusPlace(player: string, tile: ColossusPlace): Promise<ColossusPlaced> {
+    return this.colossusWrite(player, (_p, stored, now) => {
+      const { week, placed } = colossus.place(stored, player, tile, now);
+      return { events: [this.event("ColossusPlaced", { playerId: player, week, board: tile.board, x: tile.x, y: tile.y, stones: placed.stones })], value: placed };
+    });
+  }
+
+  /** `ColossusSource.claim`: the Cobbles of the tiers and of last week's top 10, added (`ColossusClaimed`). */
+  async colossusClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.colossusWrite(player, (p, stored, now) => {
+      const cobbles = colossus.claim(stored, player, week, now);
+      p.cobbles += cobbles;
+      return { events: [this.event("ColossusClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
   /** `JoustSource.claim`: the Cobbles of a finished joust the account played in, added (`JoustClaimed`). */
   async joustClaim(player: string, week: number): Promise<{ cobbles: number }> {
     return this.writeJoust(player, (p, stored, world, now) => {
@@ -1547,6 +1623,172 @@ export class MockLedger {
       const cobbles = expedition.claim(stored, player, week, now, this.expeditionLevel(player, p));
       p.cobbles += cobbles;
       return { events: [this.event("ExpeditionClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
+  // --- The Masterpiece (the weekly individual event, `masterpiece.ts`) --------------------------------------------------
+
+  /**
+   * A Masterpiece write: `change` works on the player's copy and the stored Masterpiece (created on the first write, put back on a
+   * throw, `commit`) at the write's second; a rule's refusal is the writer's `WriteError` with the contract's text.
+   */
+  private async writeMasterpiece<T>(account: string, change: (player: StoredPlayer, stored: masterpiece.StoredMasterpiece, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.masterpiece ??= masterpiece.freshMasterpiece()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** The name a builder's own line shows: the account's, "You" without one. */
+  private masterpieceName(viewer: string | null): string {
+    return (viewer === null ? null : this.peek(viewer).name) ?? "You";
+  }
+
+  /** `MasterpieceSource.state`: the week as `viewer` sees it. */
+  async masterpieceState(viewer: string | null): Promise<MasterpieceState> {
+    this.sync();
+    return masterpiece.stateOf(this.state.masterpiece ?? masterpiece.freshMasterpiece(), this.second(), viewer, this.masterpieceName(viewer));
+  }
+
+  /** `MasterpieceSource.ranking`: the week's live ranking, its bars and the Hall's records. */
+  async masterpieceRanking(viewer: string | null): Promise<MasterpieceRanking> {
+    this.sync();
+    return masterpiece.rankingOf(this.state.masterpiece ?? masterpiece.freshMasterpiece(), this.second(), viewer, this.masterpieceName(viewer));
+  }
+
+  /** `MasterpieceSource.board`: the account's board of this week; none opened is the view's refusal. */
+  async masterpieceBoard(player: string): Promise<MasterpieceBoardRecord> {
+    this.sync();
+    const board = masterpiece.boardOf(this.state.masterpiece ?? masterpiece.freshMasterpiece(), player, masterpieceWeekOf(this.second()));
+    if (!board) throw new ViewError("game-not-found", "Masterpiece: board does not exist");
+    return masterpiece.recordOf(board);
+  }
+
+  /** `MasterpieceSource.open`: the account's board of this week, created on the first visit (`MasterpieceOpened`). */
+  async masterpieceOpen(player: string): Promise<MasterpieceBoardRecord> {
+    return this.writeMasterpiece(player, (_p, stored, now) => {
+      const { board, created } = masterpiece.open(stored, player, now);
+      return { events: created ? [this.event("MasterpieceOpened", { playerId: player, week: board.week })] : [], value: masterpiece.recordOf(board) };
+    });
+  }
+
+  /** `MasterpieceSource.play`: the account's tile in hand laid or discarded, by the engine's rules (`MasterpieceClosed` when it makes the masterpiece). */
+  async masterpiecePlay(player: string, week: number, move: MasterpieceEntry): Promise<void> {
+    await this.writeMasterpiece(player, (_p, stored, now) => {
+      const { score, improved, size } = masterpiece.play(stored, player, week, move, now);
+      return { events: improved ? [this.event("MasterpieceClosed", { playerId: player, week, size, score })] : [], value: undefined };
+    });
+  }
+
+  /** `MasterpieceSource.claim`: the Cobbles of a finished week's tier, added (`MasterpieceClaimed`). */
+  async masterpieceClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.writeMasterpiece(player, (p, stored, now) => {
+      const cobbles = masterpiece.claim(stored, player, week, now);
+      p.cobbles += cobbles;
+      return { events: [this.event("MasterpieceClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
+    });
+  }
+
+  // --- The Tournament (the weekly individual event, `tournament.ts`) ----------------------------------------------------
+
+  /** An account's name on the device, for a bracket's rows. */
+  private tournamentNames: tournament.TournamentNames = (address) => this.state.players[addressKey(address)]?.name ?? null;
+
+  /** A Tournament read: the stored Tournament (none yet: a fresh one's) at the ledger's clock. */
+  private tournamentRead<T>(read: (stored: tournament.StoredTournament, now: number) => T): T {
+    this.sync();
+    return read(this.state.tournament ?? tournament.freshTournament(), this.second());
+  }
+
+  /** A Tournament write, as the Joust's: the stored Tournament created on the first write, put back on a throw (`commit`). */
+  private async writeTournament<T>(account: string, change: (player: StoredPlayer, stored: tournament.StoredTournament, now: number) => { events: DecodedEvent[]; value: T }): Promise<T> {
+    await sleep(this.latency);
+    let value: T | undefined;
+    await this.write(account, (p) => {
+      try {
+        const out = change(p, (this.state.tournament ??= tournament.freshTournament()), this.second());
+        value = out.value;
+        return out.events;
+      } catch (error) {
+        throw error instanceof WriteError ? error : new WriteError(error instanceof Error ? error.message : String(error));
+      }
+    });
+    return value as T;
+  }
+
+  /** `TournamentSource.state`: the week as `viewer` sees it, their league group read from their crowns. */
+  async tournamentState(viewer: string | null): Promise<TournamentState> {
+    return this.tournamentRead((stored, now) => {
+      const group = viewer === null ? null : tournamentLeagueGroup(leagueIndex(this.state.players[addressKey(viewer)]?.pvp?.crowns ?? 0));
+      return tournament.stateOf(stored, now, viewer, group, this.tournamentNames);
+    });
+  }
+
+  /** `TournamentSource.game`: a game by its id; an id with no game is the view's refusal. */
+  async tournamentGame(gameId: number): Promise<TournamentGameRecord> {
+    return this.tournamentRead((stored, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new ViewError("game-not-found", "Tournament: game does not exist");
+      return tournament.recordOf(stored, game, now, this.tournamentNames);
+    });
+  }
+
+  /** `TournamentSource.result`: a finished game's standing in its duel. */
+  async tournamentResult(gameId: number): Promise<TournamentGameResult> {
+    return this.tournamentRead((stored, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new ViewError("game-not-found", "Tournament: game does not exist");
+      if (!game.over) throw new ViewError("not-available", "Tournament: the game is not over");
+      return tournament.gameResultOf(stored, game, now, this.tournamentNames);
+    });
+  }
+
+  /** `TournamentSource.register`: the account in its league's group, on Monday (`TournamentRegistered`). */
+  async tournamentRegister(player: string): Promise<void> {
+    await this.writeTournament(player, (p, stored, now) => {
+      const done = tournament.register(stored, player, tournamentLeagueGroup(this.leagueOf(p)), now);
+      return { events: [this.event("TournamentRegistered", { playerId: player, week: done.week, group: done.group })], value: undefined };
+    });
+  }
+
+  /** `TournamentSource.start`: the account's game of today's round, by the Tournament's rules (`TournamentSpawned`). */
+  async tournamentStart(player: string): Promise<TournamentGameRecord> {
+    return this.writeTournament(player, (_p, stored, now) => {
+      const game = tournament.newGame(stored, player, now, this.tournamentNames);
+      return { events: [this.event("TournamentSpawned", { gameId: game.id, playerId: player, week: game.week, round: game.round })], value: tournament.recordOf(stored, game, now, this.tournamentNames) };
+    });
+  }
+
+  /**
+   * `TournamentSource.play`: a move of the account's open game, by the engine's rules; a build or a discard past the round's end is
+   * refused, a surrender is not. `TournamentOver` when the move ends it.
+   */
+  async tournamentPlay(player: string, gameId: number, move: SeededMove): Promise<void> {
+    await this.writeTournament(player, (_p, stored, now) => {
+      const game = stored.games[gameId];
+      if (!game) throw new WriteError("Tournament: game does not exist");
+      if (game.player !== addressKey(player)) throw new WriteError("Tournament: not the game player");
+      if (game.over) throw new WriteError("Game: is over");
+      if (move.kind !== "surrender" && now >= tournamentRoundEnd(game.week, game.round)) throw new WriteError("Tournament: the round is over");
+      tournament.playMove(game, move, now);
+      return { events: game.over ? [this.event("TournamentOver", { gameId, playerId: player, week: game.week, round: game.round, score: game.score })] : [], value: undefined };
+    });
+  }
+
+  /** `TournamentSource.claim`: the Cobbles of a run that is over, added (`TournamentClaimed`). */
+  async tournamentClaim(player: string, week: number): Promise<{ cobbles: number }> {
+    return this.writeTournament(player, (p, stored, now) => {
+      const cobbles = tournament.claim(stored, player, week, now, this.tournamentNames);
+      p.cobbles += cobbles;
+      return { events: [this.event("TournamentClaimed", { playerId: player, week, cobbles, balance: p.cobbles })], value: { cobbles } };
     });
   }
 
@@ -3313,6 +3555,9 @@ export class MockLedger {
     const jousts = this.state.joust && structuredClone(this.state.joust);
     const expeditions = this.state.expedition && structuredClone(this.state.expedition);
     const fairs = this.state.fair && structuredClone(this.state.fair);
+    const masterpieces = this.state.masterpiece && structuredClone(this.state.masterpiece);
+    const colossi = this.state.colossus && structuredClone(this.state.colossus);
+    const tournaments = this.state.tournament && structuredClone(this.state.tournament);
     const hash = `0x6d6f636b${(this.state.transactions + 1).toString(16).padStart(8, "0")}`;
     let events: DecodedEvent[];
     try {
@@ -3324,6 +3569,9 @@ export class MockLedger {
       this.state.joust = jousts;
       this.state.expedition = expeditions;
       this.state.fair = fairs;
+      this.state.masterpiece = masterpieces;
+      this.state.colossus = colossi;
+      this.state.tournament = tournaments;
       throw error;
     }
     this.state = { ...this.state, players: { ...this.state.players, [key]: player }, transactions: this.state.transactions + 1 };

@@ -55,6 +55,38 @@ export interface ExpeditionCard {
 }
 
 /**
+ * The Masterpiece's card (Play's Limited mode, the weekly individual event): the week's kind, its day, the tiles waiting and the
+ * player's best piece so far.
+ */
+export interface MasterpieceCard {
+  /** The structure the week counts, as the card names it ("city", "crowned wonder"). */
+  kind: string;
+  /** Today in the week: 0 Monday to 6 Sunday. */
+  day: number;
+  /** Sunday 24:00 UTC, in seconds since the epoch: the week's end. */
+  endsAt: number;
+  /** The player's board: the tiles waiting, their masterpiece's size (null: none closed yet) and its score. Null: not opened this week. */
+  board: { waiting: number; size: number | null; score: number } | null;
+}
+
+/**
+ * The Tournament's card (Play's Limited mode, the weekly individual event): the day's phase and its time left, the player's
+ * registration, and from Tuesday where their run stands.
+ */
+export interface TournamentCard {
+  phase: "registration" | "rounds";
+  /** 24:00 UTC today, in seconds since the epoch: the registration closes, or the round ends. */
+  endsAt: number;
+  registered: boolean;
+  /** Today's round by name ("Semi-final"); null on Monday. */
+  round: string | null;
+  /** The player's run: where it stands, today's opponent (null: none, or not known), and the round it went out in. Null: not in the brackets. */
+  run: { status: "waiting" | "to-play" | "playing" | "played" | "out" | "champion"; opponent: string | null; out: string | null; claimable: boolean } | null;
+  /** The player's tournament game still open: its score (a tap opens the game). Null: none. */
+  playing: { score: number } | null;
+}
+
+/**
  * The Fair's card (Play's Limited mode, the weekly individual event): the week's day and stall, the player's tries left today.
  */
 export interface FairCard {
@@ -98,10 +130,34 @@ export interface PlayModesProps {
   expeditionCard?: ExpeditionCard | null;
   /** A tap on the Expedition's card: its view. */
   onExpedition?: () => void;
+  /** The Masterpiece's card (Limited, over the Joust's); null or omitted: the Masterpiece is not on this network, no card. */
+  masterpieceCard?: MasterpieceCard | null;
+  /** A tap on the Masterpiece's card: its view. */
+  onMasterpiece?: () => void;
+  /** The Colossus's card (Limited); null or omitted: the Colossus is not on this network, no card. */
+  colossusCard?: ColossusCard | null;
+  onColossus?: () => void;
+  /** The Tournament's card (Limited); null or omitted: the Tournament is not on this network, no card. */
+  tournamentCard?: TournamentCard | null;
+  /** A tap on the Tournament's card: its view, or the game still open. */
+  onTournament?: () => void;
   /** The Fair's card (Limited, over the Puzzle's); null or omitted: the Fair is not on this network, no card. */
   fairCard?: FairCard | null;
   /** A tap on the Fair's card: its view, or the try still open. */
   onFair?: () => void;
+}
+
+/** The Colossus's card (Play's Limited mode, the weekly collective event): the week's day, the monument, the gauge, the tiles in hand. */
+export interface ColossusCard {
+  /** 0 Monday to 6 Sunday. */
+  day: number;
+  /** Sunday 24:00 UTC, in seconds since the epoch. */
+  endsAt: number;
+  monument: string;
+  stones: number;
+  cells: number;
+  /** The tiles in the player's hand; null: no account. */
+  hand: number | null;
 }
 
 /** A mode's icon (PLAY-MODES): one object, used nowhere else; decorative, the card's words name the mode. `px` its drawn width. */
@@ -171,12 +227,20 @@ const SHAPES = {
   puzzle: "polygon(8px 0, 40% 0, 42% 4px, 100% 2px, 100% 100%, 16px 100%, 0 calc(100% - 16px), 0 8px)",
   joust: "polygon(0 12px, 12px 0, 46% 0, 49% 5px, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 6px 100%, 0 calc(100% - 6px))",
   expedition: "polygon(10px 0, 62% 0, 65% 4px, 100% 0, 100% calc(100% - 10px), calc(100% - 12px) 100%, 30% 100%, 27% calc(100% - 4px), 0 100%, 0 10px)",
+  masterpiece: "polygon(0 8px, 10px 0, 38% 0, 41% 5px, 100% 3px, 100% calc(100% - 12px), calc(100% - 10px) 100%, 58% 100%, 55% calc(100% - 4px), 8px 100%, 0 calc(100% - 10px))",
+  colossus: "polygon(10px 0, calc(100% - 16px) 0, 100% 16px, 100% 58%, calc(100% - 3px) 62%, 100% 66%, 100% 100%, 20px 100%, 0 calc(100% - 12px), 0 10px)",
+  tournament: "polygon(10px 0, 54% 0, 57% 5px, calc(100% - 12px) 0, 100% 12px, 100% 100%, 22px 100%, 0 calc(100% - 12px), 0 44%, 3px 40%, 0 36%, 0 10px)",
   fair: "polygon(0 8px, 10px 0, 30% 0, 33% 4px, 70% 0, 100% 3px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 55% 100%, 52% calc(100% - 4px), 8px 100%, 0 calc(100% - 8px))",
 } as const satisfies Record<PlayMode, string>;
 
 /** The scene darkened under the words: from the foot (the cards whose title sits at the bottom), or from the left (the Puzzle's). */
 const SHADE_UP: CSSProperties = { backgroundImage: "linear-gradient(180deg, transparent 35%, color-mix(in oklab, var(--card) 90%, transparent))" };
 const SHADE_LEFT: CSSProperties = { backgroundImage: "linear-gradient(90deg, color-mix(in oklab, var(--card) 85%, transparent) 20%, color-mix(in oklab, var(--card) 10%, transparent) 70%)" };
+
+/** An event's icon on its wide card (EVENT-ICONS): at the card's right, breaking out of its top edge, clear of the rewards under it. */
+const EVENT_ICON = { px: 84, style: { right: 10, top: -28 } } as const;
+/** The Fair's icon (its basket): smaller and higher on the card, so it breaks out of the top edge without reaching the card above (the owner's ask of 2026-11-14). */
+const FAIR_ICON = { px: 68, style: { right: 14, top: -12 } } as const;
 
 /**
  * A mode's card (PLAY-MODES): its slab (`SHAPES`), its scene filling it (`sceneAt` its crop, `scenePx` the width it is drawn), the
@@ -196,7 +260,7 @@ function ModeCard({ mode, sceneAt, scenePx, shade = SHADE_UP, icon, disabled = f
         <span className="absolute inset-x-0 top-0 h-0.5 bg-foreground/30" />
         {!disabled && <span className="absolute inset-0 group-hover/card:bg-(--state-hover) group-active/card:bg-(--state-pressed)" />}
       </span>
-      {icon && mode !== "joust" && mode !== "expedition" && mode !== "fair" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
+      {icon && mode !== "joust" && mode !== "tournament" && <ModeIcon mode={mode} px={icon.px} className={cn("absolute z-10 [filter:drop-shadow(0_3px_0_var(--hud-outline))]", disabled && "grayscale")} style={{ width: icon.px, ...icon.style }} />}
       {children}
     </div>
   );
@@ -234,7 +298,7 @@ const SQUARE_PX = 280;
  * in Cobbles; "Coming soon" where the network has no Puzzle. No Connect (NO-GUEST: every player has an account); a pause turns the
  * Challenge off and says why. The rewards are static.
  */
-export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, fairCard = null, onFair }: PlayModesProps) {
+export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, onResume, onTraining, onStory, onAttack, puzzleCard = null, onPuzzle, joustCard = null, onJoust, expeditionCard = null, onExpedition, masterpieceCard = null, onMasterpiece, colossusCard = null, onColossus, tournamentCard = null, onTournament, fairCard = null, onFair }: PlayModesProps) {
   const left = running ? running.expiresAt - now : 0;
   return (
     <div data-slot="play-modes" className="flex flex-col gap-3.5 pt-5">
@@ -322,12 +386,15 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
         </ModeCard>
       </section>
 
-      <section aria-labelledby="play-limited" className={cn("flex flex-col gap-3.5", joustCard ? "pt-4" : "pt-2")}>
+      <section aria-labelledby="play-limited" className={cn("flex flex-col gap-3.5", joustCard || tournamentCard ? "pt-4" : "pt-2")}>
         <h3 id="play-limited" className="sr-only">
           Limited
         </h3>
         {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
+        {masterpieceCard && <MasterpieceMode card={masterpieceCard} now={now} onSelect={onMasterpiece} />}
         {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}
+        {tournamentCard && <TournamentMode card={tournamentCard} now={now} onSelect={onTournament} />}
+        {colossusCard && <ColossusMode card={colossusCard} now={now} onSelect={onColossus} />}
         {fairCard && <FairMode card={fairCard} now={now} onSelect={onFair} />}
         {puzzleCard ? (
           <PuzzleMode card={puzzleCard} now={now} onSelect={onPuzzle} />
@@ -480,7 +547,7 @@ function ExpeditionMode({ card, now, onSelect }: { card: ExpeditionCard; now: nu
   const waiting = board ? board.due : 0;
   const left = puzzleTimeLeft(card.endsAt, now);
   return (
-    <ModeCard mode="expedition" slot="expedition-card" sceneAt="50% 60%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+    <ModeCard mode="expedition" slot="expedition-card" sceneAt="50% 60%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
       <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
       <button type="button" onClick={onSelect} aria-label={board ? `Expedition: ${formatPoints(board.score)} points` : "Expedition"} className={cn(COVER, "flex-1")}>
         <span className={cn(TITLE, "text-[1.75rem]")}>Expedition</span>
@@ -513,9 +580,154 @@ function ExpeditionMode({ card, now, onSelect }: { card: ExpeditionCard; now: nu
 }
 
 /**
+ * The Masterpiece's card (Limited, over the Joust's; the design proposal of 2026-11-09): a wide slab on the giant city in the snow,
+ * darkened from the left. "Masterpiece", then the week's line: the tiles waiting and the best piece so far ("5 tiles waiting · city
+ * of 14"; "One city counts · open your board" before the first visit), the piece and its score once today's tiles are played. Its
+ * tag names the day ("Day 3 of 7"). Its reward, the Cobbles alone; the week's time left in the corner's tab.
+ */
+function MasterpieceMode({ card, now, onSelect }: { card: MasterpieceCard; now: number; onSelect?: () => void }) {
+  const board = card.board;
+  const piece = board?.size ? (
+    <>
+      {card.kind} of <span className="numeric">{board.size}</span>
+    </>
+  ) : (
+    `no ${card.kind} closed yet`
+  );
+  const left = puzzleTimeLeft(card.endsAt, now);
+  return (
+    <ModeCard mode="masterpiece" slot="masterpiece-card" sceneAt="50% 45%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
+      <button type="button" onClick={onSelect} aria-label={board?.size ? `Masterpiece: ${formatPoints(board.score)} points` : "Masterpiece"} className={cn(COVER, "flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Masterpiece</span>
+        <span className={LINE}>
+          {!board ? (
+            `One ${card.kind} counts · open your board`
+          ) : board.waiting > 0 ? (
+            <>
+              <span className="numeric">{board.waiting}</span> {board.waiting === 1 ? "tile" : "tiles"} waiting · {piece}
+            </>
+          ) : board.size ? (
+            <>
+              {piece} · <span className="numeric">{formatPoints(board.score)}</span>
+            </>
+          ) : (
+            piece
+          )}
+        </span>
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span
+        role="timer"
+        aria-label={`${left} left in the masterpiece's week`}
+        className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
+      >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Colossus's card (Limited; the design proposal of 2026-11-10): a wide slab on the half-built wonder-city darkened from the left.
+ * "Colossus", then the week's line: the season's monument, the gauge and the tiles in the player's hand. Its tag says the day of the
+ * week; its reward, the Cobbles alone; the week's time left in the corner's tab.
+ */
+function ColossusMode({ card, now, onSelect }: { card: ColossusCard; now: number; onSelect?: () => void }) {
+  const left = puzzleTimeLeft(card.endsAt, now);
+  const share = Math.floor((card.stones * 100) / Math.max(1, card.cells));
+  return (
+    <ModeCard mode="colossus" slot="colossus-card" sceneAt="50% 38%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
+      <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
+      <button type="button" onClick={onSelect} aria-label="Colossus" className={cn(COVER, "flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Colossus</span>
+        <span className={LINE}>
+          {card.monument} · <span className="numeric">{share}%</span>
+          {card.hand !== null && (
+            <>
+              {" "}
+              · <span className="numeric">{card.hand}</span> {card.hand === 1 ? "tile" : "tiles"}
+            </>
+          )}
+        </span>
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span role="timer" aria-label={`${left} left this week`} className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold">
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
+ * The Tournament's card (Limited; the design proposal of 2026-11-09): a wide slab on the hillside of duel pavilions darkened from the
+ * left, the trophy breaking out at its right. "Tournament", then the day's line: the registration (open, or done: "the draw on
+ * Tuesday"), from Tuesday today's duel ("Semi-final · vs Vael"), the game's score while one is open (a tap then opens it), the wait
+ * once played, a bye, the round the run ended in (its Cobbles to claim), or that the week is drawn without the player. Its tag says
+ * "Live" in red while a duel is to play. Its reward, the Cobbles alone; the day's time left in the corner's tab.
+ */
+function TournamentMode({ card, now, onSelect }: { card: TournamentCard; now: number; onSelect?: () => void }) {
+  const run = card.run;
+  const live = run !== null && (run.status === "to-play" || run.status === "playing");
+  const text =
+    card.phase === "registration"
+      ? card.registered
+        ? "Registered · the draw on Tuesday"
+        : "Registration is open today"
+      : !run
+        ? "Registration reopens on Monday"
+        : run.status === "to-play"
+          ? `${card.round} · ${run.opponent ? `vs ${run.opponent}` : "your game to play"}`
+          : run.status === "played"
+            ? "Played · midnight decides"
+            : run.status === "waiting"
+              ? "No duel today"
+              : run.status === "champion"
+                ? "Champion"
+                : run.claimable
+                  ? "Out · Cobbles to claim"
+                  : `Out in the ${run.out?.toLowerCase()}`;
+  const line = card.playing ? (
+    <span className="text-outline flex items-center gap-1 text-base leading-tight font-bold">
+      <UiIcon name="star" px={20} className="size-5" />
+      <span className="numeric">{formatPoints(card.playing.score)}</span>
+      <span className="text-[0.8125rem] font-semibold text-foreground/90">in play</span>
+    </span>
+  ) : (
+    // A long line (an opponent's name) is cut at the rewards' edge, its whole text in its title (WRAP360).
+    <span className={cn(LINE, "max-w-full truncate pr-9")} title={text}>
+      {text}
+    </span>
+  );
+  const left = puzzleTimeLeft(card.endsAt, now);
+  return (
+    <ModeCard mode="tournament" slot="tournament-card" sceneAt="50% 30%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+      <Chip className={cn("absolute top-2.5 left-3", live && "bg-joust-rival-fill text-foreground")}>{live ? "Limited · Live" : "Limited"}</Chip>
+      <UiIcon name="trophy" px={56} className="pointer-events-none absolute -top-4 right-3.5 z-10 size-14 [filter:drop-shadow(0_3px_0_var(--hud-outline))]" />
+      <button type="button" onClick={onSelect} aria-label={card.playing ? `Tournament: resume your game, ${formatPoints(card.playing.score)} points` : "Tournament"} className={cn(COVER, "min-w-0 flex-1")}>
+        <span className={cn(TITLE, "text-[1.75rem]")}>Tournament</span>
+        {line}
+      </button>
+      <Rewards rewards={PUZZLE_REWARDS} className="right-3 bottom-8" />
+      <span
+        role="timer"
+        aria-label={card.phase === "rounds" ? `${left} left in today's round` : `${left} left to register`}
+        className="text-outline pointer-events-none absolute right-[3px] bottom-[3px] z-10 flex h-5.5 items-center gap-1 rounded-tl-[0.5625rem] bg-card pr-2.5 pl-1.5 font-mono text-xs font-bold"
+      >
+        <UiIcon name="countdown" px={14} className="size-3.5" />
+        <span className="numeric">{left}</span>
+      </span>
+    </ModeCard>
+  );
+}
+
+/**
  * The Fair's card (Limited, over the Puzzle's; the design proposal of 2026-11-09): a wide slab on the stalls darkened from the left.
  * "Fair", then the week's line: the stall and the tries left today ("roads on every stall · 2 tries left today"), the try still open
- * (its draft's pick, or its game's score: a tap then opens it). Its tag names the day ("Day 4 of 7"). Its reward, the Cobbles alone;
+ * (its draft's pick, or its game's score: a tap then opens it). Its tag names the day ("Day 4 of 7"). Its icon, a market basket,
+ * breaks out of the top edge at the right and stays clear of the card above. Its reward, the Cobbles alone;
  * the week's time left in the corner's tab.
  */
 function FairMode({ card, now, onSelect }: { card: FairCard; now: number; onSelect?: () => void }) {
@@ -523,7 +735,7 @@ function FairMode({ card, now, onSelect }: { card: FairCard; now: number; onSele
   const playing = card.playing;
   const tries = card.me?.triesLeft ?? 0;
   return (
-    <ModeCard mode="fair" slot="fair-card" sceneAt="50% 62%" scenePx={WIDE_PX} shade={SHADE_LEFT} className="h-29 p-3.5 pb-3">
+    <ModeCard mode="fair" slot="fair-card" sceneAt="50% 62%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={FAIR_ICON} className="h-29 p-3.5 pb-3">
       <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
       <button
         type="button"

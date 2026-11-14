@@ -75,6 +75,18 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
     void manifestBody(RENDERER_ASSETS).catch(() => {});
     return import("./pages/expedition-board");
   },
+  // The Masterpiece: its view is Play's; its board a chunk of its own, the boards' manifest asked for with it.
+  "play/masterpiece": play,
+  masterpiece: () => {
+    void manifestBody(RENDERER_ASSETS).catch(() => {});
+    return import("./pages/masterpiece-board");
+  },
+  // The Colossus's views are Play's (its drawer kept).
+  "play/colossus": play,
+  // The Tournament, as the Joust.
+  "play/tournament": play,
+  "tournament/:gameId": board,
+  "tournament/:gameId/over": over,
   // The Fair, as the Joust.
   "play/fair": play,
   "fair/:gameId": board,

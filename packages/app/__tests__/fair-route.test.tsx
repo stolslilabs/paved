@@ -73,7 +73,7 @@ describe("/play: the Fair's card in Limited", () => {
     await waitFor(() => expect(card).toHaveTextContent("3 tries left today"), { timeout: slow(5000) });
     await userEvent.click(card);
     await waitFor(() => expect(router.state.location.pathname).toBe("/play/fair"));
-    expect(await screen.findByRole("button", { name: "Start try 1" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Start" }, { timeout: slow(8000) })).toBeInTheDocument();
   });
 
   it("opens the draft still open from the card", async () => {
@@ -89,7 +89,7 @@ describe("/play: the Fair's card in Limited", () => {
 describe("/play/fair: the week and the draft", () => {
   it("starts a try: its draft opens as a view, a pick shows the next offer and reaches the source", async () => {
     const { router, fair } = open("/play/fair");
-    await userEvent.click(await screen.findByRole("button", { name: "Start try 1" }, { timeout: slow(8000) }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start" }, { timeout: slow(8000) }));
     await waitFor(() => expect(router.state.location.search).toBe("?view=draft"), { timeout: slow(5000) });
     const offer = await screen.findByRole("list", { name: "Offer 1" }, { timeout: slow(8000) });
     expect(screen.getByRole("heading", { name: "Draft" })).toBeInTheDocument();
@@ -120,7 +120,7 @@ describe("/play/fair: the week and the draft", () => {
     const { router, fair } = open("/play/fair?view=draft", ledger);
     await userEvent.click(await screen.findByRole("button", { name: "Leave this try" }, { timeout: slow(8000) }));
     await waitFor(() => expect(router.state.location.search).toBe(""), { timeout: slow(5000) });
-    expect(await screen.findByRole("button", { name: "Start try 2" }, { timeout: slow(8000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Start" }, { timeout: slow(8000) })).toBeInTheDocument();
     expect(await fair.game(record.id)).toMatchObject({ stage: "abandoned", over: true });
   });
 
@@ -153,7 +153,7 @@ describe("/fair/:gameId/over: a try's end", () => {
     const { router, fair } = open(`/fair/${record.id}/over`, ledger);
     expect(await screen.findByText("Fair · try 1 of 3", undefined, { timeout: slow(8000) })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Week's place" })).toHaveTextContent("Counts from 1,000");
-    await userEvent.click(screen.getByRole("button", { name: "Start a new try" }));
+    await userEvent.click(screen.getByRole("button", { name: "Again" }));
     await waitFor(() => expect(router.state.location.search).toBe("?view=draft"), { timeout: slow(5000) });
     expect((await fair.state(PLAYER_ID)).me).toMatchObject({ triesToday: 2, open: { stage: "draft" } });
   });
@@ -176,6 +176,6 @@ describe("/fair/:gameId/over: a try's end", () => {
     // A surrendered try scores nothing: under the floor, no Cobbles.
     expect(within(result).getByRole("heading", { name: "Not counted" })).toBeInTheDocument();
     expect(within(result).getByRole("list", { name: "The champion's deck" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start try 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
   });
 });
