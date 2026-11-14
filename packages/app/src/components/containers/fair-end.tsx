@@ -69,6 +69,11 @@ export function FairEnd({ score, result, stats, closings, closingsNote, instant,
       verdict={newBest ? "NEW BEST" : "GAME OVER"}
       subtitle={result ? `Fair · try ${result.try} of ${FAIR_TRIES}` : "Fair"}
       rows={rows}
+      notes={left > 0 ? (
+        <p data-slot="fair-tries-left" className="text-outline text-center text-sm font-bold text-muted-foreground">
+          <span className="numeric text-foreground">{formatInteger(left)}</span> {left === 1 ? "try" : "tries"} left today
+        </p>
+      ) : undefined}
       secondary={left > 0 ? { label: "The Fair", onClick: onFair } : undefined}
       primary={left > 0 ? { label: "Again", onClick: onPlayAgain } : { label: "The Fair", onClick: onFair }}
       onClose={onClose}

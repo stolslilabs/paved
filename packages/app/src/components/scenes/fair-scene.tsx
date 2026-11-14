@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
 import { FAIR_FLOOR, FAIR_OFFERS, FAIR_STALLS, FAIR_TIERS, FAIR_TRIES, fairInStall, fairIsMythic, fairPlanCodeOf, formatInteger, type FairOffer, type FairSeason } from "@paved/game-core";
-import type { FairChampion, FairRanking, FairResult, FairState } from "../../data/fair-source";
+import type { FairChampion, FairEntry, FairRanking, FairResult, FairState, FairTryLine } from "../../data/fair-source";
+import { LEAGUES, leagueOf } from "../../lib/pvp-rules";
 import { cn } from "../../lib/utils";
+import { FooterTab, FooterTabsList } from "../containers/footer-tabs";
 import { DrawerFooter } from "../containers/hud-drawer";
+import { RankPlace } from "../containers/leaderboard";
+import { LeaguePortrait } from "../containers/league-control";
 import { formatShortRemaining } from "../elements/countdown";
 import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
+import { PlayerName } from "../elements/player-name";
 import { RARITY_NAME, RarityBadge, rarityOf } from "../elements/rarity-badge";
 import { SectionTitle } from "../elements/section-title";
 import { TileRender, tileName, type TileRenders } from "../elements/tile-render";
@@ -14,9 +19,14 @@ import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
+import { Tabs, TabsContent } from "../ui/tabs";
 
 /** The Fair's views in Play's drawer: the week, the open try's draft, the live ranking. */
 export type FairView = "fair" | "draft" | "ranking";
+
+/** The ranking's tabs, its bottom navigation: the week's ranking, the viewer among their friends, their own tries. */
+export const FAIR_RANKING_TABS = ["week", "friends", "tries"] as const;
+export type FairRankingTab = (typeof FAIR_RANKING_TABS)[number];
 
 /** The open try's draft as the scene shows it: the offer on the table, the deck so far (market cards), the offers passed. */
 export interface FairDraftView {
@@ -41,6 +51,11 @@ export interface FairSceneProps {
   view?: FairView;
   /** The week's ranking (its view); null while it is read. */
   ranking?: FairRanking | null;
+  /** The ranking's tab shown, and its change. */
+  rankingTab?: FairRankingTab;
+  onRankingTab?: (tab: FairRankingTab) => void;
+  /** One of the viewer's own tries, from their list: its end, or the try still open. */
+  onOpenTry?: (tryId: number) => void;
   /** The open try's draft (its view); null while it is read, or with no draft open. */
   draft?: FairDraftView | null;
   /** The tiles' build-time renders; without them a tile is its plan's chip. */
@@ -172,26 +187,38 @@ function HowItGoes() {
   );
 }
 
-/** The reward tiers: each one's Cobbles, and its bar so far when the ranking gives it; the viewer's own lit. */
-function Tiers({ bars, mine }: { bars?: readonly (number | null)[]; mine?: number | null }) {
+/**
+ * The reward tiers (the proposal's rows): each one's name, a bar and its Cobbles. In the week's rules the bar is the tier's share of
+ * the first one's Cobbles; in the ranking (`bars`, each tier's least score so far) it is that score's share of the best one (`top`),
+ * with "from 4,700" under it and "you" on the viewer's own tier, lit.
+ */
+function Tiers({ bars, top = 0, mine }: { bars?: readonly (number | null)[]; top?: number; mine?: number | null }) {
   return (
     <ul aria-label="Reward tiers" className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
-      {FAIR_TIERS.map((tier, i) => (
-        <li key={tier.name} data-own={mine === i || undefined} className={cn("flex min-h-10 items-center gap-3 px-3.5 py-1.5", mine === i && "bg-info/15")}>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-sm font-bold">{i === FAIR_TIERS.length - 1 ? "A counted try below" : tier.name}</span>
-            {bars && (
-              <span className="text-xs font-semibold text-muted-foreground">
-                {bars[i] == null ? "nobody yet" : <>from <span className="numeric">{formatInteger(bars[i]!)}</span></>}
+      {FAIR_TIERS.map((tier, i) => {
+        const from = bars ? (bars[i] ?? null) : null;
+        const fill = bars ? (from === null || top <= 0 ? 0 : from / top) : tier.cobbles / FAIR_TIERS[0]!.cobbles;
+        return (
+          <li key={tier.name} data-own={mine === i || undefined} className={cn("flex min-h-11 items-center gap-3 px-3.5 py-1.5", mine === i && "bg-primary/15")}>
+            <span className="w-16 shrink-0 text-sm font-bold">{tier.name}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+              <span aria-hidden className="block h-2 overflow-hidden rounded-full bg-foreground/15">
+                <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.round(Math.min(1, Math.max(0, fill)) * 100)}%` }} />
               </span>
-            )}
-          </span>
-          <span className="flex shrink-0 items-center gap-1">
-            <TokenIcon kind="cobbles" size="sm" px={20} />
-            <span className="numeric text-outline text-base font-bold text-primary">{formatInteger(tier.cobbles)}</span>
-          </span>
-        </li>
-      ))}
+              {bars && (
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {from === null ? "nobody yet" : <>from <span className="numeric">{formatInteger(from)}</span></>}
+                  {mine === i && <span className="font-bold text-primary"> · you</span>}
+                </span>
+              )}
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              <TokenIcon kind="cobbles" size="sm" px={20} />
+              <span className="numeric text-outline min-w-8 text-right text-base font-bold text-primary">{formatInteger(tier.cobbles)}</span>
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -230,16 +257,23 @@ function ResultCard({ result, claiming, renders, onClaim, onOpenPlayer }: { resu
         <Figure value={result.place === null ? "—" : `#${formatInteger(result.place)}`} word={`of ${formatInteger(result.players)} players`} />
       </div>
       {result.cobbles > 0 ? (
-        result.claimed ? (
-          <span className="flex h-11 items-center justify-center gap-1.5 text-sm font-bold text-muted-foreground">
-            <Icon name="check" size="sm" /> {formatInteger(result.cobbles)} Cobbles claimed
+        <div data-slot="fair-claim" className="flex min-h-11 items-center gap-3">
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <TokenIcon kind="cobbles" size="md" className="size-7 shrink-0" px={28} />
+            <span className="text-outline text-lg leading-tight font-bold">
+              <span className="numeric text-primary">+{formatInteger(result.cobbles)}</span> Cobbles
+            </span>
           </span>
-        ) : (
-          <Button className="bg-success text-background" loading={claiming} onClick={() => onClaim?.(result.week)}>
-            <TokenIcon kind="cobbles" size="md" className="size-6" px={24} />
-            Claim +{formatInteger(result.cobbles)} Cobbles
-          </Button>
-        )
+          {result.claimed ? (
+            <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold text-muted-foreground">
+              <Icon name="check" size="sm" /> Claimed
+            </span>
+          ) : (
+            <Button className="shrink-0 bg-success px-6 text-background" loading={claiming} onClick={() => onClaim?.(result.week)}>
+              Claim
+            </Button>
+          )}
+        </div>
       ) : (
         <p className="text-xs font-semibold text-muted-foreground">
           A best try of <span className="numeric">{formatInteger(FAIR_FLOOR)}</span> points or more counts: yours stayed under it.
@@ -250,56 +284,156 @@ function ResultCard({ result, claiming, renders, onClaim, onOpenPlayer }: { resu
   );
 }
 
-/** The week's ranking so far: the tiers' bars, then its first places, the viewer's own lit. */
-function RankingList({ ranking, me, onOpenPlayer }: { ranking: FairRanking | null; me: string | null; onOpenPlayer?: (address: string) => void }) {
-  if (ranking === null)
-    return (
-      <div aria-busy className="flex flex-col gap-2">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-14 rounded-xl" />
-        ))}
-      </div>
-    );
+/** A deck in a row's second line: "18 tiles · 2 mythics". */
+const deckWords = (tiles: number, mythics: number): string => `${formatInteger(tiles)} ${tiles === 1 ? "tile" : "tiles"} · ${mythics === 0 ? "no mythic" : `${formatInteger(mythics)} ${mythics === 1 ? "mythic" : "mythics"}`}`;
+
+/** A ranking row, the Ranking page's (`leaderboard.tsx`): its press layer rounded as the carved list it sits in; the viewer's own on the gold wash. */
+const RANK_ROW = "state-layer flex w-full min-w-0 cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none";
+const PORTRAIT = { fontSize: "3rem" } as const;
+
+/** A player of the Fair's ranking: their place, their portrait in their league's rim, their name over their deck, their best try. */
+function RankRow({ entry, own, onOpen }: { entry: FairEntry; own: boolean; onOpen?: () => void }) {
+  const { profile } = entry;
+  const league = LEAGUES[profile.league] ?? leagueOf(profile.crowns);
+  const deck = deckWords(entry.tiles, entry.mythics);
   return (
-    <section aria-labelledby="fair-ranking" className="flex flex-col gap-3">
-      <SectionTitle id="fair-ranking">The week so far</SectionTitle>
-      <p className="text-sm font-semibold text-muted-foreground">
-        <span className="numeric">{formatInteger(ranking.players)}</span> {ranking.players === 1 ? "player" : "players"} with a best try of <span className="numeric">{formatInteger(FAIR_FLOOR)}</span> or more. The bars move until Sunday's end.
-      </p>
-      {ranking.me && (
-        <p data-slot="fair-me" className="drawer-carved flex items-center gap-3 rounded-2xl bg-info/15 px-3.5 py-2.5 text-sm font-semibold text-muted-foreground">
-          <UiIcon name="star" px={28} className="drawer-icon size-7 shrink-0" />
-          <span className="flex-1">
-            You are <span className="numeric font-bold text-foreground">#{formatInteger(ranking.me.place)}</span> with <span className="numeric font-bold text-foreground">{formatInteger(ranking.me.score)}</span>
-          </span>
-          <span className="shrink-0 font-bold text-primary">{FAIR_TIERS[ranking.me.tier]!.name}</span>
-        </p>
+    <button type="button" data-slot="fair-player" data-own={own || undefined} aria-label={`${formatInteger(entry.place)}. ${profile.name ?? "A player"}${own ? " (you)" : ""}, ${formatInteger(entry.score)} points, ${deck}`} onClick={onOpen} className={cn(RANK_ROW, own && "bg-primary/15")}>
+      <RankPlace place={entry.place} />
+      <LeaguePortrait player={{ name: profile.name, address: profile.address }} look={profile.look} league={league} slot="ranking-rim" style={PORTRAIT} />
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+        <PlayerName name={profile.name} address={profile.address} className="text-outline max-w-full min-w-0 pr-0.5 text-sm leading-snug font-bold" />
+        <span className="flex max-w-full flex-wrap items-center gap-x-1.5 text-xs font-semibold text-muted-foreground">
+          {deck}
+          {own && <span className="shrink-0 rounded-md bg-medal-1 px-1.5 leading-tight font-bold text-primary-foreground">You</span>}
+        </span>
+      </span>
+      <span aria-hidden className="numeric text-outline shrink-0 text-base font-bold">
+        {formatInteger(entry.score)}
+      </span>
+    </button>
+  );
+}
+
+/** Rows left out of a list: the proposal's three dots. */
+const Gap = () => (
+  <li aria-hidden data-slot="fair-gap" className="py-0.5 text-center text-base leading-none font-bold tracking-widest text-muted-foreground">
+    ···
+  </li>
+);
+
+/** A list of ranked players, on the carved surface; `gapAfter`, the rows after which places are left out. */
+function RankList({ label, entries, me, gapAfter = [], onOpenPlayer }: { label: string; entries: readonly FairEntry[]; me: string | null; gapAfter?: readonly number[]; onOpenPlayer?: (address: string) => void }) {
+  return (
+    <ol aria-label={label} className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
+      {entries.flatMap((e, i) => [
+        <li key={e.profile.address}>
+          <RankRow entry={e} own={me !== null && sameAddress(e.profile.address, me)} onOpen={() => onOpenPlayer?.(e.profile.address)} />
+        </li>,
+        ...(gapAfter.includes(i) ? [<Gap key={`gap-${i}`} />] : []),
+      ])}
+    </ol>
+  );
+}
+
+/** How many first places show over the viewer's own neighbourhood when they stand past the list (the proposal's three). */
+const PODIUM = 3;
+
+const NOTE = "drawer-carved rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground";
+const STAGE_WORDS = { draft: "Draft in progress", game: "Game in progress", abandoned: "Left during its draft" } as const;
+
+/** The viewer's own tries of the week, the newest first: its day and number, its deck, its score; the week's best tagged. A tap opens it. */
+function TryList({ tries, onOpenTry }: { tries: readonly FairTryLine[]; onOpenTry?: (tryId: number) => void }) {
+  if (tries.length === 0) return <p className={NOTE}>No try yet this week.</p>;
+  return (
+    <ol aria-label="Your tries" className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
+      {[...tries].reverse().map((t) => {
+        const scored = t.over && t.stage === "game";
+        const line = scored ? deckWords(t.tiles, t.mythics) : STAGE_WORDS[t.stage];
+        return (
+          <li key={t.id}>
+            <button type="button" data-slot="fair-try" data-best={t.best || undefined} disabled={t.stage === "abandoned"} aria-label={`${DAYS[t.day]}, try ${t.try}: ${scored ? `${formatInteger(t.score)} points, ` : ""}${line}${t.best ? ", your best" : ""}`} onClick={() => onOpenTry?.(t.id)} className={cn(RANK_ROW, "min-h-14 disabled:cursor-default", t.best && "bg-primary/15")}>
+              <UiIcon name="tile-stack" px={32} className="drawer-icon size-8 shrink-0" />
+              <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                <span className="text-outline text-sm leading-snug font-bold">
+                  {DAYS[t.day]} · try <span className="numeric">{t.try}</span>
+                </span>
+                <span className="flex max-w-full flex-wrap items-center gap-x-1.5 text-xs font-semibold text-muted-foreground">
+                  {line}
+                  {t.best && <span className="shrink-0 rounded-md bg-medal-1 px-1.5 leading-tight font-bold text-primary-foreground">Best</span>}
+                </span>
+              </span>
+              <span aria-hidden className="numeric text-outline shrink-0 text-base font-bold">
+                {scored ? formatInteger(t.score) : "—"}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+const TAB_ART = { week: "trophy", friends: "friends", tries: "tile-stack" } as const;
+const TAB_LABEL: Record<FairRankingTab, string> = { week: "This week", friends: "Friends", tries: "My tries" };
+
+/**
+ * The Fair's ranking (the proposal's screen, its tabs as the app's bottom navigation, `FooterTabsList`). This week: the first places
+ * (the first three, then the places around the viewer when they stand past the list), each player's portrait, deck and best try, then
+ * each tier's bar so far and the count of players. Friends: the viewer among the players they follow who follow them back. My tries:
+ * the viewer's own tries of the week.
+ */
+function RankingView({ ranking, me, now, endsAt, tab, onTab, onOpenPlayer, onOpenTry }: { ranking: FairRanking | null; me: string | null; now: number; endsAt: number | null; tab: FairRankingTab; onTab?: (tab: FairRankingTab) => void; onOpenPlayer?: (address: string) => void; onOpenTry?: (tryId: number) => void }) {
+  const far = ranking !== null && ranking.around.length > 0;
+  const shown = ranking === null ? [] : far ? [...ranking.entries.slice(0, PODIUM), ...ranking.around] : ranking.entries;
+  const last = shown[shown.length - 1];
+  return (
+    <Tabs
+      value={tab}
+      // Radix calls it twice on a press (pointer down, then focus): a change to the tab shown is no change.
+      onValueChange={(next) => {
+        if (next !== tab && (FAIR_RANKING_TABS as readonly string[]).includes(next)) onTab?.(next as FairRankingTab);
+      }}
+      className="flex flex-col gap-3"
+    >
+      {endsAt !== null && (
+        <span role="timer" className="w-fit rounded-md bg-info px-2 py-0.5 text-xs leading-4 font-extrabold tracking-widest text-background uppercase">
+          Live · <span className="numeric">{formatShortRemaining(endsAt - now)}</span> left
+        </span>
       )}
-      <Tiers bars={ranking.bars} mine={ranking.me?.tier ?? null} />
-      {ranking.entries.length === 0 ? (
-        <p className="drawer-carved rounded-xl px-4 py-6 text-center text-sm font-semibold text-muted-foreground">No try counts yet this week.</p>
+      {ranking === null ? (
+        <div aria-busy className="flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-14 rounded-xl" />
+          ))}
+        </div>
       ) : (
-        <ol aria-label="Fair ranking" className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
-          {ranking.entries.map((e) => {
-            const own = me !== null && sameAddress(e.profile.address, me);
-            return (
-              <li key={e.profile.address}>
-                <button type="button" onClick={() => onOpenPlayer?.(e.profile.address)} data-own={own || undefined} className={cn("state-layer flex min-h-11 w-full cursor-pointer items-center gap-3 px-3 py-1.5 text-left", own && "bg-info/15")}>
-                  <span className="numeric w-7 shrink-0 text-sm font-bold text-muted-foreground">{e.place}</span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span title={e.profile.name ?? undefined} className="truncate text-sm font-bold">
-                      {e.profile.name ?? "Player"}
-                    </span>
-                    <span className="text-xs font-semibold text-muted-foreground">{FAIR_TIERS[e.tier]!.name}</span>
-                  </span>
-                  <span className="numeric text-outline shrink-0 text-base font-bold">{formatInteger(e.score)}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
+        <>
+          <TabsContent value="week" className="flex flex-col gap-3">
+            {shown.length === 0 ? <p className={NOTE}>No try counts yet this week.</p> : <RankList label="Fair ranking" entries={shown} me={me} gapAfter={far ? [PODIUM - 1, ...(last && last.place < ranking.players ? [shown.length - 1] : [])] : []} onOpenPlayer={onOpenPlayer} />}
+            <section aria-labelledby="fair-tiers-live" className="flex flex-col gap-2">
+              <SectionTitle id="fair-tiers-live">The tiers so far</SectionTitle>
+              <Tiers bars={ranking.bars} top={ranking.entries[0]?.score ?? 0} mine={ranking.me?.tier ?? null} />
+              <p className="text-[0.8125rem] font-medium text-muted-foreground">
+                <span className="numeric">{formatInteger(ranking.players)}</span> {ranking.players === 1 ? "player has" : "players have"} a best try of <span className="numeric">{formatInteger(FAIR_FLOOR)}</span> or more. The bars move until Sunday; Monday fixes them.
+              </p>
+            </section>
+          </TabsContent>
+          <TabsContent value="friends" className="flex flex-col gap-3">
+            {ranking.friends.length === 0 ? <p className={NOTE}>No friend has a counted try yet: friends are the players you follow who follow you back.</p> : <RankList label="Friends' ranking" entries={ranking.friends} me={me} onOpenPlayer={onOpenPlayer} />}
+          </TabsContent>
+          <TabsContent value="tries" className="flex flex-col gap-3">
+            <TryList tries={ranking.tries} onOpenTry={onOpenTry} />
+          </TabsContent>
+        </>
       )}
-    </section>
+      <DrawerFooter>
+        <FooterTabsList aria-label="Fair ranking">
+          {FAIR_RANKING_TABS.map((id) => (
+            <FooterTab key={id} value={id} label={TAB_LABEL[id]} art={<UiIcon name={TAB_ART[id]} px={36} className="drawer-icon size-9" />} />
+          ))}
+        </FooterTabsList>
+      </DrawerFooter>
+    </Tabs>
   );
 }
 
@@ -420,7 +554,7 @@ function DraftView({ draft, renders, busy, onPick, onAbandon }: { draft: FairDra
  * the tiers; in the footer the ranking and the gold Play (a new try, or the one still open). Its two other views: the open try's
  * draft (its progress bar, the offer of three tiles, the deck so far) and the live ranking with each tier's bar.
  */
-export function FairScene({ state, error, errorDetail, onRetry, now, me = null, view = "fair", ranking = null, draft = null, renders, busy = null, onPlay, onPick, onAbandon, onClaim, onRanking, onOpenPlayer }: FairSceneProps) {
+export function FairScene({ state, error, errorDetail, onRetry, now, me = null, view = "fair", ranking = null, rankingTab = "week", onRankingTab, onOpenTry, draft = null, renders, busy = null, onPlay, onPick, onAbandon, onClaim, onRanking, onOpenPlayer }: FairSceneProps) {
   if (error)
     return (
       <InlineError
@@ -436,7 +570,7 @@ export function FairScene({ state, error, errorDetail, onRetry, now, me = null, 
         }
       />
     );
-  if (view === "ranking") return <RankingList ranking={ranking} me={me} onOpenPlayer={onOpenPlayer} />;
+  if (view === "ranking") return <RankingView ranking={ranking} me={me} now={now} endsAt={state?.endsAt ?? null} tab={rankingTab} onTab={onRankingTab} onOpenPlayer={onOpenPlayer} onOpenTry={onOpenTry} />;
   if (view === "draft" && draft) return <DraftView draft={draft} renders={renders} busy={busy === "abandon"} onPick={onPick} onAbandon={onAbandon} />;
   if (state === null || view === "draft")
     return (

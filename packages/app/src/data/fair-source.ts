@@ -74,24 +74,48 @@ export interface FairState {
   result: FairResult | null;
 }
 
-/** A player of the live ranking. */
+/** A player of the live ranking: their best try, its place and tier, and its deck's size and mythics. */
 export interface FairEntry {
   profile: PublicProfile;
   score: number;
   place: number;
   tier: number;
+  tiles: number;
+  mythics: number;
 }
 
-/** How many players the live ranking lists. */
-export const FAIR_RANKING_LIMIT = 50;
+/** How many first places the live ranking lists. */
+export const FAIR_RANKING_LIMIT = 10;
 
-/** The week's ranking so far: its first places, the viewer's own, and each tier's bar (its least score; null: nobody in it yet). */
+/** One of the viewer's tries of the week, as their own list shows it. */
+export interface FairTryLine {
+  id: number;
+  /** The day of the week it started, 0 Monday to 6 Sunday, and its number among that day's. */
+  day: number;
+  try: number;
+  stage: FairStage;
+  over: boolean;
+  score: number;
+  tiles: number;
+  mythics: number;
+  /** The week's best so far. */
+  best: boolean;
+}
+
+/**
+ * The week's ranking so far: its first places (`FAIR_RANKING_LIMIT`), the viewer's own and, when they stand past those, the places
+ * around them (`around`: the one above, their own, the one below); each tier's bar (its least score; null: nobody in it yet); the
+ * viewer among their friends (the mutual follows, places 1 first among them); and the viewer's own tries of the week, the oldest first.
+ */
 export interface FairRanking {
   week: number;
   players: number;
   entries: FairEntry[];
+  around: FairEntry[];
   me: { place: number; score: number; tier: number } | null;
   bars: (number | null)[];
+  friends: FairEntry[];
+  tries: FairTryLine[];
 }
 
 /**

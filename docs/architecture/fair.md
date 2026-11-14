@@ -50,7 +50,9 @@ Where the proposal left a rule open, the simplest reading was taken:
 - Mock: `packages/app/src/data/mock/fair.ts` (pure), run by `MockLedger` (`fair*` methods), given by `mockFair`. A try's offers come
   from a mix of its seed, in place of the VRF's. The community's bests of each week are drawn (never played), and a week's champion's
   deck is drafted by a bot.
-- Pages: `/play/fair` (a view of Play's drawer; `?view=draft`, `?view=ranking`), `/fair/:gameId`, `/fair/:gameId/over`.
+- Pages: `/play/fair` (a view of Play's drawer; `?view=draft`, `?view=ranking`), `/fair/:gameId`, `/fair/:gameId/over`. The ranking
+  has three tabs as the app's bottom navigation: this week (the first places, or the first three and the places around the viewer),
+  friends (the mutual follows) and the viewer's own tries.
 - Scenes: `scenes/fair-scene.tsx`, `containers/fair-end.tsx`, the card in `containers/play-modes.tsx`.
 
 ## Not done
@@ -60,7 +62,8 @@ Where the proposal left a rule open, the simplest reading was taken:
 - Seasons: the stall follows the week, not the calendar's season; holidays and the Conquest move nothing.
 - Calibration: every figure is the proposal's (the deck's length, the mythic's price, autumn's stall, the floor, the tiers).
 - The ranking's histogram: the bars are read from the whole ranking, and the mock's community is a few dozen players.
-- The Fair tab of Ranking: the ranking is a view of the Fair (`/play/fair?view=ranking`).
+- The Fair tab of Ranking: the ranking is a view of the Fair (`/play/fair?view=ranking`). A ranked player's row names their deck's
+  size and mythics, not the mythic itself ("the crossroads").
 - The game's own header strip (the deck's tiles left by kind, the week's best beside the score): the board shows the try's number,
   the best on the score meter, and the deck sheet lists what is left.
 - The stalls' icons. The card's icon is a market basket of its own, not the proposal's stall of three tiles (the owner's ask of

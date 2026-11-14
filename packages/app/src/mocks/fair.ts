@@ -2,7 +2,7 @@ import { FairDraft, fairEndsAt, fairIsMythic, fairRandomOf, fairWeekOf, fairWeek
 import type { FairEndProps } from "../components/containers/fair-end";
 import type { FairCard, PlayModesProps } from "../components/containers/play-modes";
 import type { FairDraftView, FairSceneProps } from "../components/scenes/fair-scene";
-import type { FairRanking, FairResult, FairState } from "../data/fair-source";
+import type { FairEntry, FairRanking, FairResult, FairState, FairTryLine } from "../data/fair-source";
 import { community, communityProfile } from "../data/mock/community";
 import type { PublicProfile } from "../data/social-source";
 import { PLAYER_NAME_MAX } from "../lib/name-limit";
@@ -56,14 +56,29 @@ const BASE = { week: WEEK, season: "spring", day: 3, dayEndsAt: fairWeekStart(WE
 const WEEK_STATE: FairState = { ...BASE, me: { triesToday: 1, triesLeft: 2, open: null, best: 4_932, place: 172, tier: 1 }, result: null };
 const FRESH: FairState = { ...BASE, me: { triesToday: 0, triesLeft: 3, open: null, best: null, place: null, tier: null }, result: null };
 
-const SCORES = [6_688, 6_541, 6_412, 6_250, 6_190, 6_020, 5_980, 5_870, 5_760, 5_640, 5_530, 5_410];
+const SCORES = [6_688, 6_541, 6_412, 6_250, 6_190, 6_020, 5_980, 5_870, 5_760, 5_640];
+const DECKS: readonly [tiles: number, mythics: number][] = [[18, 2], [19, 1], [20, 0], [19, 1], [20, 0], [18, 2], [20, 0], [19, 1], [17, 3], [20, 0]];
+const entry = (profile: PublicProfile, place: number, score: number, tier: number, deck: readonly [number, number] = DECKS[(place - 1) % DECKS.length]!): FairEntry => ({ profile, score, place, tier, tiles: deck[0], mythics: deck[1] });
+const TOP: FairEntry[] = SCORES.map((score, i) => entry(i === 3 ? LONGEST : PLAYERS[i]!, i + 1, score, i < 2 ? 0 : 1));
+/** The viewer, 172nd, between their neighbours. */
+const AROUND: FairEntry[] = [entry(PLAYERS[10]!, 171, 4_940, 1, [20, 0]), entry(PLAYERS[4]!, 172, 4_932, 1, [19, 1]), entry(PLAYERS[11]!, 173, 4_921, 1, [18, 2])];
+const TRIES: FairTryLine[] = [
+  { id: 3, day: 1, try: 1, stage: "game", over: true, score: 3_640, tiles: 20, mythics: 0, best: false },
+  { id: 4, day: 2, try: 1, stage: "abandoned", over: true, score: 0, tiles: 4, mythics: 0, best: false },
+  { id: 5, day: 3, try: 1, stage: "game", over: true, score: 4_932, tiles: 19, mythics: 1, best: true },
+  { id: 7, day: 3, try: 2, stage: "draft", over: false, score: 0, tiles: 8, mythics: 0, best: false },
+];
 const RANKING: FairRanking = {
   week: WEEK,
-  players: 3_410,
-  entries: SCORES.map((score, i) => ({ profile: i === 3 ? LONGEST : PLAYERS[i]!, score, place: i + 1, tier: i < 2 ? 0 : 1 })),
-  me: { place: 172, score: 4_932, tier: 2 },
-  bars: [6_420, 4_700, 3_650, 2_480, 1_000],
+  players: 4_812,
+  entries: TOP,
+  around: AROUND,
+  me: { place: 172, score: 4_932, tier: 1 },
+  bars: [5_900, 4_700, 3_600, 2_700, 1_000],
+  friends: [entry(PLAYERS[1]!, 1, 6_541, 0, [19, 1]), entry(PLAYERS[4]!, 2, 4_932, 1, [19, 1]), entry(PLAYERS[7]!, 3, 3_120, 2, [20, 0])],
+  tries: TRIES,
 };
+const EMPTY: FairRanking = { week: WEEK, players: 0, entries: [], around: [], me: null, bars: [null, null, null, null, null], friends: [], tries: [] };
 
 const base = { now: FAIR_NOW, me: FAIR_ME } as const;
 
@@ -89,7 +104,12 @@ export const FAIR = {
   draftLast: { state: WEEK_STATE, view: "draft", draft: viewOf(drafted(42n, true, 20)), ...base },
   draftLoading: { state: WEEK_STATE, view: "draft", draft: null, ...base },
   ranking: { state: WEEK_STATE, view: "ranking", ranking: RANKING, ...base },
-  rankingEmpty: { state: FRESH, view: "ranking", ranking: { week: WEEK, players: 0, entries: [], me: null, bars: [null, null, null, null, null] }, ...base },
+  rankingTop: { state: WEEK_STATE, view: "ranking", ranking: { ...RANKING, around: [], me: { place: 5, score: 6_190, tier: 1 }, entries: TOP.map((e, i) => (i === 4 ? { ...e, profile: PLAYERS[4]! } : i === 3 ? { ...e, profile: PLAYERS[12]! } : e)) }, ...base },
+  rankingFriends: { state: WEEK_STATE, view: "ranking", rankingTab: "friends", ranking: RANKING, ...base },
+  rankingNoFriend: { state: WEEK_STATE, view: "ranking", rankingTab: "friends", ranking: { ...RANKING, friends: [] }, ...base },
+  rankingTries: { state: WEEK_STATE, view: "ranking", rankingTab: "tries", ranking: RANKING, ...base },
+  rankingNoTry: { state: FRESH, view: "ranking", rankingTab: "tries", ranking: EMPTY, ...base },
+  rankingEmpty: { state: FRESH, view: "ranking", ranking: EMPTY, ...base },
   rankingLoading: { state: WEEK_STATE, view: "ranking", ranking: null, ...base },
 } satisfies Record<string, Data<FairSceneProps>>;
 

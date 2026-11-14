@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toastError } from "../../components/containers/error-toast";
-import { FairScene, type FairDraftView, type FairView as View } from "../../components/scenes/fair-scene";
+import { FairScene, type FairDraftView, type FairRankingTab, type FairView as View } from "../../components/scenes/fair-scene";
 import { draftOfTry, useAbandonFair, useClaimFair, useFairRanking, useFairState, useFairTry, usePickFair } from "../../data/fair";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useTileRenders } from "../../data/tile-renders";
@@ -41,6 +41,7 @@ export default function FairView() {
   const { play, busy: starting } = usePlayFair(me);
   const openPlayer = useOpenPlayer();
   const renders = useTileRenders(RENDERER_ASSETS);
+  const [rankingTab, setRankingTab] = useState<FairRankingTab>("week");
 
   const data = record.data ?? null;
   const draft = useMemo((): FairDraftView | null => {
@@ -76,6 +77,10 @@ export default function FairView() {
       onAbandon={() => open && abandon.mutate(open.id, { onSuccess: () => go("/play/fair", { replace: true }), onError: refused })}
       onClaim={(week) => claim.mutate(week, { onError: refused })}
       onRanking={() => go("/play/fair?view=ranking")}
+      rankingTab={rankingTab}
+      onRankingTab={setRankingTab}
+      // One of the viewer's tries: its end; the one still open, its draft or its board.
+      onOpenTry={(tryId) => go(open?.id === tryId ? (open.stage === "draft" ? "/play/fair?view=draft" : fairGamePath(tryId)) : `${fairGamePath(tryId)}/over`)}
       onOpenPlayer={openPlayer}
     />
   );

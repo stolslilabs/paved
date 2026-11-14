@@ -62,7 +62,7 @@ describe("the Fair's view", () => {
     expect(within(screen.getByRole("group", { name: "Your week" })).getByText("3")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "How it goes" })).toBeInTheDocument();
     const tiers = within(screen.getByRole("list", { name: "Reward tiers" })).getAllByRole("listitem");
-    expect(tiers.map((t) => t.textContent)).toEqual(["Top 1%300", "Top 5%150", "Top 20%60", "Top 50%20", "A counted try below5"]);
+    expect(tiers.map((t) => t.textContent)).toEqual(["Top 1%300", "Top 5%150", "Top 20%60", "Top 50%20", "Counted5"]);
     await userEvent.click(screen.getByRole("button", { name: "Start" }));
     expect(onPlay).toHaveBeenCalledOnce();
   });
@@ -110,11 +110,13 @@ describe("the Fair's view", () => {
     expect(result).toHaveTextContent("#183of 5,236 players");
     expect(result).toHaveTextContent("6,688");
     expect(within(result).getByRole("list", { name: "The champion's deck" })).toBeInTheDocument();
-    await userEvent.click(within(result).getByRole("button", { name: "Claim +150 Cobbles" }));
+    // The amount written beside a one-word button.
+    expect(within(result).getByText((_, el) => el?.getAttribute("data-slot") === "fair-claim")).toHaveTextContent("+150 CobblesClaim");
+    await userEvent.click(within(result).getByRole("button", { name: "Claim" }));
     expect(onClaim).toHaveBeenCalledWith(FAIR.result.state.result!.week);
     unmount();
     const claimed = render(wrap(<FairScene {...FAIR.claimed} />));
-    expect(screen.getByText(/150 Cobbles claimed/)).toBeInTheDocument();
+    expect(screen.getByText((_, el) => el?.getAttribute("data-slot") === "fair-claim")).toHaveTextContent(/\+150 Cobbles\s*Claimed/);
     expect(screen.queryByRole("button", { name: /^Claim/ })).toBeNull();
     claimed.unmount();
     render(wrap(<FairScene {...FAIR.notCounted} />));
@@ -186,17 +188,82 @@ describe("the Fair's draft", () => {
 });
 
 describe("the Fair's ranking", () => {
-  it("lists the week's first places, the viewer's own and each tier's bar", async () => {
+  it("lists the first three, then the places around the viewer, each with their portrait and deck", async () => {
     const onOpenPlayer = vi.fn();
     render(wrap(<FairScene {...FAIR.ranking} onOpenPlayer={onOpenPlayer} />));
-    expect(screen.getByText((_, el) => el?.getAttribute("data-slot") === "fair-me")).toHaveTextContent("You are #172 with 4,932Top 20%");
-    const tiers = within(screen.getByRole("list", { name: "Reward tiers" })).getAllByRole("listitem");
-    expect(tiers[1]).toHaveTextContent("Top 5%from 4,700150");
-    const rows = within(screen.getByRole("list", { name: "Fair ranking" })).getAllByRole("button");
-    expect(rows).toHaveLength(FAIR.ranking.ranking.entries.length);
+    expect(screen.getByRole("timer")).toHaveTextContent("Live · 3d 9h left");
+    const list = screen.getByRole("list", { name: "Fair ranking" });
+    const rows = within(list).getAllByRole("button");
+    // Three first places, the viewer's neighbours and the viewer; the places left out are dots.
+    expect(rows.map((row) => row.getAttribute("aria-label")!.split(".")[0])).toEqual(["1", "2", "3", "171", "172", "173"]);
+    expect(list.querySelectorAll('[data-slot="fair-gap"]')).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("18 tiles · 2 mythics");
     expect(rows[0]).toHaveTextContent("6,688");
+    expect(rows[2]).toHaveTextContent("20 tiles · no mythic");
+    expect(rows.every((row) => row.querySelector('[data-slot="ranking-rim"]'))).toBe(true);
+    expect(rows[4]).toHaveAttribute("data-own", "true");
+    expect(rows[4]).toHaveTextContent("19 tiles · 1 mythicYou");
     await userEvent.click(rows[0]!);
     expect(onOpenPlayer).toHaveBeenCalledWith(FAIR.ranking.ranking.entries[0]!.profile.address);
+  });
+
+  it("shows the whole list to a viewer within the first places, their row lit, no dots", () => {
+    render(wrap(<FairScene {...FAIR.rankingTop} />));
+    const list = screen.getByRole("list", { name: "Fair ranking" });
+    const rows = within(list).getAllByRole("button");
+    expect(rows).toHaveLength(FAIR.rankingTop.ranking.entries.length);
+    expect(list.querySelector('[data-slot="fair-gap"]')).toBeNull();
+    expect(rows[4]).toHaveAttribute("data-own", "true");
+  });
+
+  it("draws each tier's bar so far, the viewer's own marked", () => {
+    render(wrap(<FairScene {...FAIR.ranking} />));
+    expect(screen.getByRole("heading", { name: "The tiers so far" })).toBeInTheDocument();
+    const tiers = within(screen.getByRole("list", { name: "Reward tiers" })).getAllByRole("listitem");
+    expect(tiers[0]).toHaveTextContent("Top 1%from 5,900300");
+    expect(tiers[1]).toHaveTextContent("Top 5%from 4,700 · you150");
+    expect(tiers[1]).toHaveAttribute("data-own", "true");
+    expect(screen.getByText(/players have a best try of/)).toHaveTextContent("4,812 players have a best try of 1,000 or more.");
+  });
+
+  it("has its tabs as a bottom navigation: this week, friends, my tries", async () => {
+    const onRankingTab = vi.fn();
+    render(wrap(<FairScene {...FAIR.ranking} onRankingTab={onRankingTab} />));
+    const tabs = within(screen.getByRole("tablist", { name: "Fair ranking" })).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["This week", "Friends", "My tries"]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(tabs[1]!);
+    expect(onRankingTab).toHaveBeenCalledWith("friends");
+  });
+
+  it("ranks the viewer among their friends, and says when none has a counted try", () => {
+    const { unmount } = render(wrap(<FairScene {...FAIR.rankingFriends} />));
+    const rows = within(screen.getByRole("list", { name: "Friends' ranking" })).getAllByRole("button");
+    expect(rows).toHaveLength(3);
+    expect(rows[1]).toHaveAttribute("data-own", "true");
+    expect(screen.queryByRole("list", { name: "Fair ranking" })).toBeNull();
+    unmount();
+    render(wrap(<FairScene {...FAIR.rankingNoFriend} />));
+    expect(screen.getByText(/No friend has a counted try yet/)).toBeInTheDocument();
+  });
+
+  it("lists the viewer's own tries, the newest first, the best tagged, and opens one", async () => {
+    const onOpenTry = vi.fn();
+    const { unmount } = render(wrap(<FairScene {...FAIR.rankingTries} onOpenTry={onOpenTry} />));
+    const rows = within(screen.getByRole("list", { name: "Your tries" })).getAllByRole("button");
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([
+      "Thursday, try 2: Draft in progress",
+      "Thursday, try 1: 4,932 points, 19 tiles · 1 mythic, your best",
+      "Wednesday, try 1: Left during its draft",
+      "Tuesday, try 1: 3,640 points, 20 tiles · no mythic",
+    ]);
+    expect(rows[1]).toHaveTextContent("Best");
+    expect(rows[2]).toBeDisabled();
+    await userEvent.click(rows[1]!);
+    expect(onOpenTry).toHaveBeenCalledWith(5);
+    unmount();
+    render(wrap(<FairScene {...FAIR.rankingNoTry} />));
+    expect(screen.getByText("No try yet this week.")).toBeInTheDocument();
   });
 
   it("says when no try counts yet, and waits while it is read", () => {
@@ -219,6 +286,7 @@ describe("a Fair try's end", () => {
     expect(screen.getByText("Fair · try 2 of 3")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Score" })).toHaveTextContent("4,9323,640 → 4,932");
     expect(screen.getByRole("region", { name: "Week's place" })).toHaveTextContent("#172Top 5% · of 3,410");
+    expect(screen.getByText((_, el) => el?.getAttribute("data-slot") === "fair-tries-left")).toHaveTextContent("1 try left today");
     await userEvent.click(screen.getByRole("button", { name: "Again" }));
     expect(onPlayAgain).toHaveBeenCalledOnce();
   });

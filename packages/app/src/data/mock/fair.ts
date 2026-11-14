@@ -20,7 +20,7 @@ import {
   type FairBest,
   type SeededMove,
 } from "@paved/game-core";
-import { FAIR_RANKING_LIMIT, type FairChampion, type FairRanking, type FairResult, type FairStage, type FairState, type FairTryRecord, type FairTryResult } from "../fair-source";
+import { FAIR_RANKING_LIMIT, type FairChampion, type FairEntry, type FairRanking, type FairTryLine, type FairResult, type FairStage, type FairState, type FairTryRecord, type FairTryResult } from "../fair-source";
 import { addressKey } from "../keys";
 import { community } from "./community";
 import type { GuildPeople } from "./guilds";
@@ -209,17 +209,34 @@ export function stateOf(fair: StoredFair, people: GuildPeople, now: number, view
   };
 }
 
-/** `FairSource.ranking`: the week's ranking so far, its first places, the viewer's own and each tier's bar. */
-export function rankingOf(fair: StoredFair, people: GuildPeople, now: number, viewer: string | null): FairRanking {
+/**
+ * `FairSource.ranking`: the week's ranking so far, its first places, the viewer's own and the places around it, each tier's bar, the
+ * viewer among their `friends` (address keys), and their own tries of the week.
+ */
+export function rankingOf(fair: StoredFair, people: GuildPeople, now: number, viewer: string | null, friends: readonly string[] = []): FairRanking {
   const week = fairWeekOf(now);
   const ranking = rankingAt(fair, week, now);
-  const mine = viewer === null ? null : (ranking.find((r) => r.address === addressKey(viewer)) ?? null);
+  const key = viewer === null ? null : addressKey(viewer);
+  const mine = key === null ? null : (ranking.find((r) => r.address === key) ?? null);
+  const entryOf = (r: (typeof ranking)[number]): FairEntry => {
+    const deck = deckOf(fair, r.address, week, r.score);
+    return { profile: people(r.address), score: r.score, place: r.place, tier: r.tier, tiles: deck.length, mythics: deck.filter(fairIsMythic).length };
+  };
+  const circle = new Set(key === null ? [] : [key, ...friends.map(addressKey)]);
+  const own = key === null ? [] : triesOf(fair, key, week);
+  const best = key === null ? null : (bestOf(finishedOf(fair, key, week, now).map((t) => ({ score: t.score, at: t.end, id: t.id })))?.id ?? null);
   return {
     week,
     players: ranking.length,
-    entries: ranking.slice(0, FAIR_RANKING_LIMIT).map((r) => ({ profile: people(r.address), score: r.score, place: r.place, tier: r.tier })),
+    entries: ranking.slice(0, FAIR_RANKING_LIMIT).map(entryOf),
+    around: mine && mine.place > FAIR_RANKING_LIMIT ? ranking.slice(mine.place - 2, mine.place + 1).map(entryOf) : [],
     me: mine && { place: mine.place, score: mine.score, tier: mine.tier },
     bars: fairBars(ranking),
+    friends: ranking.filter((r) => circle.has(r.address)).map((r, i) => ({ ...entryOf(r), place: i + 1 })),
+    tries: own.map((t): FairTryLine => {
+      const draft = draftOf(t);
+      return { id: t.id, day: fairWeekDayOf(t.start), try: 1 + own.filter((o) => o.day === t.day && o.id < t.id).length, stage: stageOf(t, draft), over: t.over, score: t.score, tiles: draft.deck.length, mythics: draft.deck.filter(fairIsMythic).length, best: t.id === best };
+    }),
   };
 }
 

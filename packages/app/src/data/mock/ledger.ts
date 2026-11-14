@@ -1833,7 +1833,7 @@ export class MockLedger {
 
   /** `FairSource.ranking`: the week's ranking so far. */
   async fairRanking(viewer: string | null): Promise<FairRanking> {
-    return this.fairRead((stored, people, now) => fair.rankingOf(stored, people, now, viewer));
+    return this.fairRead((stored, people, now) => fair.rankingOf(stored, people, now, viewer, viewer === null ? [] : listsOf(this.followsNow(now), viewer, now).friends.map((f) => f.profile.address)));
   }
 
   /** `FairSource.game`: a try by its id; an id with no try is the view's refusal. */

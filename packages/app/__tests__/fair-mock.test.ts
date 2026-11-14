@@ -63,6 +63,10 @@ describe("the mock's Fair: a week on the client", () => {
     expect(late.entries[0]).toMatchObject({ place: 1, tier: 0 });
     expect(late.bars[0]).toBe(late.entries[0]!.score);
     expect(late.me).toBeNull();
+    // Each listed player's deck: twenty tiles less a tile per mythic.
+    expect(late.entries.length).toBeLessThanOrEqual(10);
+    for (const e of late.entries) expect(e.tiles).toBe(FAIR_OFFERS - e.mythics);
+    expect(late).toMatchObject({ around: [], friends: [], tries: [] });
   });
 
   it("runs a try: twenty offers, the deck they build, then its game on that deck", async () => {
@@ -87,6 +91,11 @@ describe("the mock's Fair: a week on the client", () => {
     expect(result).toMatchObject({ tryId: started.id, score, try: 1, left: FAIR_TRIES - 1, bestBefore: null, bestAfter: score, late: false });
     const state = await fair.state(ME);
     expect(state.me).toMatchObject({ open: null, best: score });
+    // The ranking's own lists: the try in the player's tries, the best tagged; the player among their friends once it counts.
+    const ranking = await fair.ranking(ME);
+    expect(ranking.tries).toEqual([{ id: started.id, day: 1, try: 1, stage: "game", over: true, score, tiles: FAIR_OFFERS, mythics: 0, best: true }]);
+    expect(ranking.friends.map((f) => f.place)).toEqual(score >= FAIR_FLOOR ? [1] : []);
+    if (ranking.me && ranking.me.place > 10) expect(ranking.around.map((e) => e.place)).toContain(ranking.me.place);
     // A best under the floor counts nowhere; one over it has a place and a tier.
     if (score >= FAIR_FLOOR) expect(state.me!.place).not.toBeNull();
     else expect(state.me).toMatchObject({ place: null, tier: null });

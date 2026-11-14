@@ -31,7 +31,7 @@ export const CardGuest: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notP
 
 /** The Fair's view in the drawer: a view of its own in the modes' place. */
 const fair = (state: keyof typeof FAIR, fairTitle?: string): Story => ({
-  args: { ...PLAY.connected, fairTitle, fair: <FairScene renders={appRenders} onPlay={fn()} onPick={fn()} onAbandon={fn()} onClaim={fn()} onRanking={fn()} onOpenPlayer={fn()} onRetry={fn()} {...FAIR[state]} /> },
+  args: { ...PLAY.connected, fairTitle, fair: <FairScene renders={appRenders} onPlay={fn()} onPick={fn()} onAbandon={fn()} onClaim={fn()} onRanking={fn()} onRankingTab={fn()} onOpenTry={fn()} onOpenPlayer={fn()} onRetry={fn()} {...FAIR[state]} /> },
 });
 /** A first visit: the stall, three tries, the rules and the tiers. */
 export const First: Story = fair("first");
@@ -61,8 +61,16 @@ export const DraftMythic: Story = fair("draftMythic", "Draft");
 /** The last offer: no next one, no mythic. */
 export const DraftLast: Story = fair("draftLast", "Draft");
 export const DraftLoading: Story = fair("draftLoading", "Draft");
-/** The week so far: the viewer's place, each tier's bar, the first places. */
+/** The week so far: the first three, the places around the viewer, each tier's bar; the tabs at the foot. */
 export const Ranking: Story = fair("ranking", "Ranking");
+/** The viewer within the first places: the whole list, their row lit. */
+export const RankingTop: Story = fair("rankingTop", "Ranking");
+/** The viewer among their friends. */
+export const RankingFriends: Story = fair("rankingFriends", "Ranking");
+export const RankingNoFriend: Story = fair("rankingNoFriend", "Ranking");
+/** The viewer's own tries of the week, the best tagged. */
+export const RankingTries: Story = fair("rankingTries", "Ranking");
+export const RankingNoTry: Story = fair("rankingNoTry", "Ranking");
 export const RankingEmpty: Story = fair("rankingEmpty", "Ranking");
 export const RankingLoading: Story = fair("rankingLoading", "Ranking");
 export const Loading: Story = fair("loading");
