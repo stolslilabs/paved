@@ -6,6 +6,7 @@ import { PLAY, PURCHASE } from "../../mocks/scenes";
 import { EXPEDITION, EXPEDITION_CARD } from "../../mocks/expedition";
 import { JOUST, JOUST_CARD } from "../../mocks/joust";
 import { MASTERPIECE, MASTERPIECE_CARD } from "../../mocks/masterpiece";
+import { PLAY_EVENTS } from "../../mocks/play-events";
 import { PUZZLE, PUZZLE_CARD } from "../../mocks/puzzle";
 import { STORY } from "../../mocks/story";
 import { PlayScene } from "./play-scene";
@@ -176,6 +177,14 @@ export const ExpeditionViewResultClaimed: Story = expedition("resultClaimed");
 export const ExpeditionViewResultNoTier: Story = expedition("resultNoTier");
 export const ExpeditionViewLoading: Story = expedition("loading");
 export const ExpeditionViewFailed: Story = expedition("failed");
+
+/**
+ * The four events at once (EVENT-ICONS-FIX, #1173): Expedition over Masterpiece, Tournament over Colossus, each event's icon breaking
+ * out of its card's top edge under the previous card's countdown tab, clear of it. `e2e/event-icons.e2e.ts` measures it.
+ */
+export const EventsTogether: Story = { args: PLAY_EVENTS };
+export const EventsTogether320: Story = { args: PLAY_EVENTS, ...PHONE_320 };
+export const EventsTogether375: Story = { args: PLAY_EVENTS, ...PHONE_375 };
 
 /** The Masterpiece's card (Limited, over the Joust's): before the first visit, the week's kind and its board to open. */
 export const MasterpieceFirstVisit: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...MASTERPIECE_CARD.firstVisit } };
