@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { appRenders } from "../../mocks/assets";
 import { CONQUEST_PARTS } from "../../mocks/conquest";
 import { ConquestWorld, ConquestZoneMap } from "./conquest-map";
 
@@ -8,7 +8,7 @@ import { ConquestWorld, ConquestZoneMap } from "./conquest-map";
 const meta = {
   title: "Containers/ConquestMap",
   component: ConquestZoneMap,
-  args: { onCell: fn(), onExplore: fn(), onRequest: fn(), onGive: fn(), tileArt: originalTileArt(SOURCE_ASSETS), className: "max-w-sm" },
+  args: { onCell: fn(), onExplore: fn(), onRequest: fn(), onGive: fn(), renders: appRenders, className: "max-w-sm" },
 } satisfies Meta<typeof ConquestZoneMap>;
 export default meta;
 type Story = StoryObj<typeof meta>;

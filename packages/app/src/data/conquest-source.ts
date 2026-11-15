@@ -49,7 +49,11 @@ export interface ConquestRequestState {
   rarity: Rarity;
   cobbles: number;
   by: PublicProfile;
+  /** The rank of who asked. */
+  byRank: GuildRank;
   at: number;
+  /** The copies the viewer holds in all, their active village's included. */
+  owned: number;
   /** The copies the viewer can give (their inventory less their active village); 0: none. */
   held: number;
   /** The members who hold one, the viewer included. */
@@ -127,6 +131,9 @@ export interface ConquestBuiltState {
   zone: number;
   zoneName: string;
   day: number;
+  /** When it was built, and the Cobbles its gift paid. */
+  at: number;
+  cobbles: number;
 }
 
 /** A structure closed that the viewer's allegiance had tiles in. */

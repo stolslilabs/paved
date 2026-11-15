@@ -3,13 +3,14 @@ import { CONQUEST_ODDS, CONQUEST_PROVINCE, formatInteger } from "@paved/game-cor
 import type { ConquestAreaState, ConquestOptions, ConquestState, ConquestZoneState, ConquestZoneSummary } from "../../data/conquest-source";
 import { cn } from "../../lib/utils";
 import { ConquestCellAction, type ConquestCellInfo } from "../containers/conquest-cell";
-import { ConquestWorld, ConquestZoneMap } from "../containers/conquest-map";
+import { ConquestZoneMap } from "../containers/conquest-map";
 import { TopBar } from "../containers/top-bar";
 import { ConquestArt } from "../elements/conquest-art";
+import { GoldButton } from "../elements/gold-button";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { modeIconSources } from "../elements/play-art";
 import { Notice } from "../elements/notice";
-import type { TileArt } from "../elements/tile-chip";
+import type { TileRenders } from "../elements/tile-render";
 import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
@@ -40,13 +41,13 @@ export interface ConquestMapSceneProps {
   /** The exploration just made: the Knowledge it drew, shown over the map until closed. */
   reveal?: { knowledge: number; province: boolean } | null;
   onRevealClose?: () => void;
-  /** The world's grid is open. */
-  world?: boolean;
-  tileArt?: TileArt;
+  /** Seconds since the epoch: how long ago a request was opened. */
+  now?: number;
+  /** The tiles' voxel renders (`useTileRenders`). */
+  renders?: TileRenders;
   onBack?: () => void;
-  onWorld?: (open: boolean) => void;
-  /** A zone picked on the world's grid: its scene is loaded. */
-  onZone?: (zone: number) => void;
+  /** The World page: the grid of the zones, where another zone's scene is picked. */
+  onWorld?: () => void;
   /** Back to the viewer's own zone. */
   onHome?: () => void;
   onCell?: (cell: { x: number; y: number } | null) => void;
@@ -86,11 +87,11 @@ function Chip({ art, children }: { art: "hammer" | "explore" | "pin"; children: 
 /**
  * The Conquest's map (`/conquest`, the season's finale): the board's scene on the world round a zone. It opens on the viewer's own
  * province; a pan toward an edge shows the zones beyond, and the scene names the zone under the middle of the view. At its side, the
- * World button opens the grid of the zones (a tap loads that zone's scene) and, once the view is on another zone, Back to my zone
+ * World button opens the World page (the grid of the zones: a tap there loads that zone's scene) and, once the view is on another zone, Back to my zone
  * returns home. Over the board: the day's orders, exploration and requests; at its foot, what the picked cell offers and its one
  * action (explore a fog cell, ask for a tile beside the allegiance's, give a request's tile). Without the 3D board, the zone as a grid.
  */
-export function ConquestMapScene({ state, area, error, errorDetail, onRetry, canvas, zone = null, focus, cell = null, options = null, busy = null, notice = null, reveal = null, onRevealClose, world = false, tileArt, onBack, onWorld, onZone, onHome, onCell, onExplore, onRequest, onGive, onPreview }: ConquestMapSceneProps) {
+export function ConquestMapScene({ state, area, error, errorDetail, onRetry, canvas, zone = null, focus, cell = null, options = null, busy = null, notice = null, reveal = null, onRevealClose, now, renders, onBack, onWorld, onHome, onCell, onExplore, onRequest, onGive, onPreview }: ConquestMapSceneProps) {
   const shown = state && focus !== null ? (state.zones[focus] ?? null) : null;
   const title = shown ? (shown.mine ? "My province" : `Zone ${shown.name}`) : "Map";
   if (error || !state || state.side === 0)
@@ -156,7 +157,7 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
   );
   const side = (
     <div data-slot="conquest-map-side" className="flex flex-col gap-2">
-      <SideButton art={<ConquestArt name="world" px={36} />} word="World" name="World: the grid of the zones" onAct={() => onWorld?.(true)} />
+      <SideButton art={<ConquestArt name="world" px={36} />} word="World" name="World: the grid of the zones" onAct={onWorld} />
       {away && <SideButton art={<img {...modeIconSources("conquest", 36)} alt="" draggable={false} decoding="async" className="size-9" />} word="Home" name="Back to my zone" onAct={onHome} />}
     </div>
   );
@@ -167,23 +168,9 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
           <span data-slot="conquest-notice">{notice.text}</span>
         </Notice>
       )}
-      {!canvas && shown === null ? null : canvas ? <ConquestCellAction cell={info} leads={state.leads} orders={mine?.orders.left ?? 0} canExplore={canExplore} options={options} busy={busy} onExplore={onExplore} onRequest={onRequest} onGive={onGive} onPreview={onPreview} tileArt={tileArt} /> : null}
+      {!canvas && shown === null ? null : canvas ? <ConquestCellAction cell={info} leads={state.leads} orders={mine?.orders.left ?? 0} canExplore={canExplore} options={options} busy={busy} onExplore={onExplore} onRequest={onRequest} onGive={onGive} onPreview={onPreview} onClose={() => onCell?.(null)} now={now} renders={renders} /> : null}
     </>
   );
-  const grid = (
-    <Dialog open={world} onOpenChange={(open) => onWorld?.(open)}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>World {state.world}</DialogTitle>
-          <DialogDescription>
-            {formatInteger(state.registered.length)} allegiances, a province each; a Great Wonder in every free zone. Tap a zone to open its map.
-          </DialogDescription>
-        </DialogHeader>
-        <ConquestWorld side={state.side} zones={state.zones} selected={focus} onZone={onZone} />
-      </DialogContent>
-    </Dialog>
-  );
-
   const found = (
     <Dialog open={reveal !== null} onOpenChange={(open) => !open && onRevealClose?.()}>
       <DialogContent className="max-w-xs" showClose={false}>
@@ -206,9 +193,9 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
               ))}
             </ul>
             <p className="text-sm font-semibold text-muted-foreground">It goes to your allegiance's tree. The cell is open for building.</p>
-            <Button className="h-12 w-full text-lg font-black" onClick={onRevealClose}>
+            <GoldButton className="w-full" onClick={onRevealClose}>
               Continue
-            </Button>
+            </GoldButton>
           </div>
         )}
       </DialogContent>
@@ -232,9 +219,8 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
             {side}
           </div>
           {action}
-          {zone ? <ConquestZoneMap zone={zone} leads={state.leads} orders={mine?.orders.left ?? 0} cell={cell} onCell={onCell} options={options} busy={busy} onExplore={onExplore} onRequest={onRequest} onGive={onGive} tileArt={tileArt} /> : <p className="text-center text-sm text-muted-foreground">Reading the zone…</p>}
+          {zone ? <ConquestZoneMap zone={zone} leads={state.leads} orders={mine?.orders.left ?? 0} cell={cell} onCell={onCell} options={options} busy={busy} onExplore={onExplore} onRequest={onRequest} onGive={onGive} now={now} renders={renders} /> : <p className="text-center text-sm text-muted-foreground">Reading the zone…</p>}
         </main>
-        {grid}
         {found}
       </div>
     );
@@ -260,7 +246,6 @@ export function ConquestMapScene({ state, area, error, errorDetail, onRetry, can
         </div>
         <div className={cn("pointer-events-auto mt-auto flex flex-col gap-2 rounded-t-2xl bg-card/95 px-4 pt-3 backdrop-blur", "pb-[max(0.75rem,env(safe-area-inset-bottom))]")}>{action}</div>
       </div>
-      {grid}
       {found}
     </div>
   );

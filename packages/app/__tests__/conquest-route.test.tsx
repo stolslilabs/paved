@@ -108,10 +108,14 @@ describe("/play/conquest: a member's day", () => {
     expect((await conquest!.state(PLAYER_ID)).me).toMatchObject({ exploredToday: true, explored: 1 });
     // The exploration made: no fog cell is tapped any more.
     await waitFor(() => expect(within(grid).queryAllByRole("gridcell", { name: /: fog$/ }).every((c) => c.tagName === "SPAN")).toBe(true), { timeout: slow(5000) });
-    // The World grid loads another zone's scene; Back to my zone returns.
+    // The World page: the grid of the zones; a tap loads that zone's scene; Back to my zone returns.
     await userEvent.click(screen.getByRole("button", { name: "World: the grid of the zones" }));
-    const world = within(await screen.findByRole("dialog")).getByRole("group", { name: "The world" });
+    await waitFor(() => expect(router.state.location.search).toBe("?view=world"));
+    expect(router.state.location.pathname).toBe("/play/conquest");
+    expect(await screen.findByRole("heading", { name: "World" }, { timeout: slow(8000) })).toBeInTheDocument();
+    const world = await screen.findByRole("group", { name: "The world" }, { timeout: slow(8000) });
     await userEvent.click(within(world).getAllByRole("button", { name: /a free zone/ })[0]!);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/conquest"));
     await waitFor(() => expect(screen.getByRole("heading", { name: /^Zone [A-E][1-5]$/ })).toBeInTheDocument(), { timeout: slow(8000) });
     const away = router.state.location.search;
     await userEvent.click(await screen.findByRole("button", { name: "Back to my zone" }));
@@ -136,7 +140,7 @@ describe("/play/conquest: a member's day", () => {
     expect(screen.getByRole("heading", { name: "Ranking" })).toBeInTheDocument();
     await router.navigate("/play/conquest?view=members");
     expect((await screen.findByRole("list", { name: "Members by tiles given" }, { timeout: slow(8000) })).children).toHaveLength(QUARRYMEN.members.length + 1);
-    expect(screen.getByRole("heading", { name: "Our members" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Members" })).toBeInTheDocument();
     // Foundation's result, by its address: the phase is over, the member joined after it and is not paid.
     await router.navigate("/play/conquest?view=result&of=foundation");
     expect(await screen.findByRole("region", { name: "Foundation is over" }, { timeout: slow(8000) })).toBeInTheDocument();

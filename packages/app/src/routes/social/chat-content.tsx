@@ -9,7 +9,7 @@ import { ChatNewMessage } from "../../components/containers/chat-new-message";
 import { ChatGuildless, type ChatBadges } from "../../components/containers/chat-tabs";
 import { SocialUnavailable } from "../../components/containers/social-unavailable";
 import { ChatScene } from "../../components/scenes/chat-scene";
-import { ConquestChat } from "./conquest-chat";
+import { useConquestChatCards } from "./conquest-chat";
 import { Skeleton } from "../../components/ui/skeleton";
 import { chatKeys, useChatMutes, useChatOverview, useChatWrites, useConversation, type ChatOverview, type ChatWrites } from "../../data/chat";
 import { usePlayerGuild } from "../../data/guilds";
@@ -81,6 +81,7 @@ function ConversationView({ me, id, now, noticeSeen, onBack }: ConversationViewP
   useEffect(() => () => leaving.current?.(), []);
 
   const c = head?.conversation;
+  const conquestCards = useConquestChatCards(me, c?.kind === "guild");
   return (
     <ChatConversation
       fill
@@ -104,7 +105,7 @@ function ConversationView({ me, id, now, noticeSeen, onBack }: ConversationViewP
         await writes.run((s, p) => s.answerRequest(p, id, accept));
         if (!accept) onBack?.();
       }}
-      guildCards={c?.kind === "guild" ? <ConquestChat player={me} /> : undefined}
+      cards={conquestCards}
     />
   );
 }

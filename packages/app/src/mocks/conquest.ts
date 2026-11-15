@@ -61,6 +61,7 @@ export const CONQUEST = {
   noAllegiance: { state: guest, now: CONQUEST_NOW },
   loading: { state: null, now: CONQUEST_NOW },
   failed: { state: null, now: CONQUEST_NOW, error: "The Conquest could not be read." },
+  world: { state: hub, now: CONQUEST_NOW, view: "world" },
   tree: { state: hub, now: CONQUEST_NOW, view: "tree" },
   requests: { state: hub, now: CONQUEST_NOW, view: "requests" },
   rules: { state: hub, now: CONQUEST_NOW, view: "rules" },
@@ -93,8 +94,8 @@ export const CONQUEST_PARTS = {
   zone: { zone, leads: true, orders: hub.allegiance!.orders.left, cell: null, options: null },
   zoneAsking: { zone, leads: true, orders: hub.allegiance!.orders.left, cell: spot, options },
   zoneMember: { zone, leads: false, orders: hub.allegiance!.orders.left, cell: null, options: null },
-  tree: { levels: hub.allegiance!.levels, knowledge: hub.allegiance!.knowledge, earned: hub.allegiance!.earned, leads: true, open: true },
-  treeMember: { levels: hub.allegiance!.levels, knowledge: hub.allegiance!.knowledge, earned: hub.allegiance!.earned, leads: false, open: true },
+  tree: { levels: hub.allegiance!.levels, knowledge: hub.allegiance!.knowledge, leads: true, open: true },
+  treeMember: { levels: hub.allegiance!.levels, knowledge: hub.allegiance!.knowledge, leads: false, open: true },
   ranking,
   members,
   phase: rest.results[0]!,
@@ -102,12 +103,12 @@ export const CONQUEST_PARTS = {
 };
 
 /** A build request of the allegiance as the chat and the page show it: asked by its Leader, the viewer holding two of its tile. */
-const asked = (id: number, plan: number, held: number) => ({ id, x: zone.x0 + 10 + id, y: zone.y0 + 14, zone: hub.home!, zoneName: zone.zone.name, plan, orientation: 1, rarity: "common" as const, cobbles: 1, by: members[0]!.profile, at: CONQUEST_NOW - 600 * id, held, holders: 3 + held });
+const asked = (id: number, plan: number, held: number) => ({ id, x: zone.x0 + 10 + id, y: zone.y0 + 14, zone: hub.home!, zoneName: zone.zone.name, plan, orientation: 1, rarity: "common" as const, cobbles: 1, by: members[0]!.profile, byRank: members[0]!.rank, at: CONQUEST_NOW - 3_600 * id, owned: held + 1, held, holders: 3 + held });
 
-/** The guild chat's Conquest cards: three requests (the viewer holds the first's tile) and the last tile built. */
+/** The guild chat's Conquest cards: three requests (the viewer holds the first's tile) and the last tile built; and a request picked on the map. */
 export const CONQUEST_CHAT = {
   requests: [asked(1, 10, 2), asked(2, 13, 0), asked(3, 9, 1)],
-  built: [{ by: members[1]!.profile, plan: 10, orientation: 2, x: zone.x0 + 12, y: zone.y0 + 13, zone: hub.home!, zoneName: zone.zone.name, day: 9 }],
+  built: [{ by: members[1]!.profile, plan: 10, orientation: 2, x: zone.x0 + 12, y: zone.y0 + 13, zone: hub.home!, zoneName: zone.zone.name, day: 9, at: CONQUEST_NOW - 5_400, cobbles: 1 }],
   orders: 2,
 };
 
@@ -118,13 +119,16 @@ const beside = hub.zones.find((z) => !z.province && Math.abs(z.col - hub.zones[h
  * The map's scene (`/conquest`), on the same Conquest. Without a `canvas` (the stories' and the tests' states) the zone is drawn as a
  * grid; the story of the 3D board gives its own.
  */
+/** A request of the allegiance on a cell of its province, as the map shows it once picked. */
+const wanted = asked(1, 10, 1);
+
 export const CONQUEST_MAP = {
+  giving: { state: hub, area: { ...area, requests: [wanted] }, zone: { ...zone, requests: [wanted] }, focus: hub.home, cell: { x: wanted.x, y: wanted.y }, now: CONQUEST_NOW },
   home: { state: hub, area, zone, focus: hub.home },
   asking: { state: hub, area, zone, focus: hub.home, cell: spot, options },
   revealed: { state: hub, area, zone, focus: hub.home, reveal: { knowledge: 40, province: true } },
   built: { state: hub, area, zone, focus: hub.home, notice: { title: "Tile built · +2 Cobbles", text: "Built in your name. 1 order left today." } },
   away: { state: hub, area, zone, focus: beside },
-  world: { state: hub, area, zone, focus: hub.home, world: true },
   reading: { state: hub, area: null, zone: null, focus: hub.home },
   registration: { state: registration, area: null, focus: null },
   failed: { state: null, area: null, focus: null, error: "The world could not be read." },

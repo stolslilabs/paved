@@ -340,6 +340,8 @@ interface Seen {
   viewer: string | null;
   /** The viewer's spare tiles by plan (their inventory less their active village); null: no account. */
   spare: readonly number[] | null;
+  /** Their copies of each plan in all; omitted: the spare ones. */
+  owned?: readonly number[] | null;
 }
 
 const guildShown = (guilds: readonly StoredGuild[], id: number): ConquestGuild => {
@@ -361,7 +363,7 @@ function holdersOf(guild: StoredGuild, plan: number, conquest: number, s: Seen):
 
 function requestShown(world: Conquest, guild: StoredGuild, r: ConquestRequest, s: Seen): ConquestRequestState {
   const zone = world.zoneAt(r.x, r.y)!;
-  return { id: r.id, x: r.x, y: r.y, zone: zone.index, zoneName: zone.name, plan: r.plan, orientation: r.orientation, rarity: rarityOf(r.plan), cobbles: conquestGiftCobbles(r.plan), by: s.people(r.by), at: r.at, held: s.spare?.[r.plan - 1] ?? 0, holders: holdersOf(guild, r.plan, world.conquest, s) };
+  return { id: r.id, x: r.x, y: r.y, zone: zone.index, zoneName: zone.name, plan: r.plan, orientation: r.orientation, rarity: rarityOf(r.plan), cobbles: conquestGiftCobbles(r.plan), by: s.people(r.by), byRank: guild.members.find((m) => m.address === r.by)?.rank ?? GUILD_RANK.officer, at: r.at, owned: s.owned?.[r.plan - 1] ?? s.spare?.[r.plan - 1] ?? 0, held: s.spare?.[r.plan - 1] ?? 0, holders: holdersOf(guild, r.plan, world.conquest, s) };
 }
 
 function scoredShown(guilds: readonly StoredGuild[], mine: number, scored: ConquestScored): ConquestScoredState {
@@ -514,7 +516,7 @@ export function stateOf(s: Seen): ConquestState {
             .filter((t) => t.kind === "tile" && t.guild === allegiance.guild && t.by !== null)
             .slice(-3)
             .reverse()
-            .map((t) => ({ by: s.people(t.by!), plan: t.plan, orientation: t.orientation, x: t.x, y: t.y, zone: world.zoneAt(t.x, t.y)!.index, zoneName: world.zoneAt(t.x, t.y)!.name, day: t.day }))
+            .map((t) => ({ by: s.people(t.by!), plan: t.plan, orientation: t.orientation, x: t.x, y: t.y, zone: world.zoneAt(t.x, t.y)!.index, zoneName: world.zoneAt(t.x, t.y)!.name, day: t.day, at: t.at, cobbles: conquestGiftCobbles(t.plan) }))
         : [],
     scored: world && allegiance ? world.scored.filter((c) => c.counts.some(([g]) => g === allegiance.guild)).slice(-5).reverse().map((c) => scoredShown(guilds, allegiance.guild, c)) : [],
     results,

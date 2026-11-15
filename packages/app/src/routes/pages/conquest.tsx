@@ -5,7 +5,7 @@ import { toastError } from "../../components/containers/error-toast";
 import { ConquestScene, type ConquestNotice } from "../../components/scenes/conquest-scene";
 import { useClaimConquest, useConquestMembers, useConquestRanking, useConquestState, useGiveConquest, useOfferConquest, useRegisterConquest, useResearchConquest } from "../../data/conquest";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
-import { useTileArt } from "../../data/tile-art";
+import { useTileRenders } from "../../data/tile-renders";
 import { conquestResultOf, conquestViewOf } from "../conquest-play";
 import { errorDetail } from "../error-detail";
 import { useNow } from "../now";
@@ -38,7 +38,7 @@ export default function ConquestView() {
   const give = useGiveConquest(me);
   const research = useResearchConquest(me);
   const claim = useClaimConquest(me);
-  const tileArt = useTileArt(RENDERER_ASSETS);
+  const renders = useTileRenders(RENDERER_ASSETS);
   const openPlayer = useOpenPlayer();
   const failed = view === "ranking" ? ranking : view === "members" ? members : state;
   const done = (said: ConquestNotice) => setNotice(said);
@@ -56,7 +56,7 @@ export default function ConquestView() {
       busy={register.isPending ? "register" : offer.isPending ? "offer" : give.isPending ? "give" : research.isPending ? "research" : claim.isPending ? "claim" : null}
       researching={researching}
       notice={notice}
-      tileArt={tileArt}
+      renders={renders}
       onRegister={() => register.mutate(undefined, { onSuccess: () => done({ kind: "register" }), onError: refused })}
       onOffer={() => offer.mutate(undefined, { onSuccess: (made) => done({ kind: "offer", ...made }), onError: refused })}
       onGive={(id) => give.mutate(id, { onSuccess: (given) => done({ kind: "give", given }), onError: refused })}

@@ -74,15 +74,22 @@ village.
   3D scene on the world round a zone (`ConquestSource.area`: the zone and a band of half a zone round it). It opens on the viewer's
   province; its origin stays the middle of the zone it opened on, so a pan crosses into the next zone without a jump, the area read
   again for the zone under the middle of the view. The fog is the Conquest's (`BoardViewport`'s `reveal`: a cell is clear once
-  explored). The World button opens the grid of the zones (a tap loads that zone's scene); Back to my zone shows once the view is on
-  another zone. A tap picks a cell; the foot says what it offers and holds its one action (`containers/conquest-cell.tsx`). After an
+  explored). The World button opens the World page (`/play/conquest?view=world`: the grid of the zones and the provinces; a tap loads that
+  zone's scene); Back to my zone shows once the view is on
+  another zone. A tap picks a cell; the foot's panel is the proposal's (`containers/conquest-cell.tsx`): Explore with the zone's odds, Choose the
+  tile (the plans that fit as cards, by the members who hold one, the one picked with its turn, then Ask), Build request (who
+  opened it, the tile, what the viewer holds, what the gift pays and spends, then Give). After an
   exploration, the reveal: the Knowledge drawn among the zone's odds. Without WebGL the zone is a grid, eight cells by eight
   (`containers/conquest-map.tsx`).
-- The guild's chat: the open requests and the last tile built as live cards under the guild's banner
-  (`containers/conquest-chat-cards.tsx`, `routes/social/conquest-chat.tsx`), read from the Conquest, not kept as messages.
+- The guild's chat: the open requests and the last tiles built as cards among the conversation's messages, each at its time
+  (`containers/conquest-chat-cards.tsx`, `routes/social/conquest-chat.tsx`, `ChatConversation`'s `cards`), read from the Conquest, not
+  kept as messages. A request's card opens its cell on the map, where its tile is given.
 - The home: a Conquest button at the top of the right column, with the requests the player can answer (`EdgeTiles`).
-- One action per card or view, in one word (Offer, Explore, Build, Give, Ask, Buy, Claim, Register), what it does and pays said
-  before it (the owner's rule of 2026-11-14).
+- One action per card or view, in one word (Offer, Explore, Build, Give, Ask, Claim, Register, Open, Continue), what it does and
+  pays said before it, always on the app's gold pill (`elements/gold-button.tsx`): no other look of a main action (the owner's rules
+  of 2026-11-14 and -15). A price alone with its currency is its button, as the shop's (`PriceButton`: the tree's levels).
+- A tile is always its voxel render (`ConquestTile`: the manifest's top-down render), a plain slab while it is not there; never the
+  plan's simplified drawing (the owner's rule of 2026-11-15).
 - Art (`play-art.ts`): the card's scene and icon; the proposal's paintings for the ritual and the tree's branches; the Knowledge's
   book and the World's globe (Codex's image tool).
 
@@ -110,7 +117,9 @@ village.
 - **The map** shows the world round one zone at a time (the zone and half a zone round it), not the whole world at once; the
   camera cannot leave the tiles drawn by more than six cells (the board's own limit), so a far corner of an empty zone is reached by
   zooming out. On the 3D board a tile does not wear its allegiance's colour: a tap says whose it is.
-- **A request in the chat** is a card read from the Conquest, not a message: it has no place in the conversation's history.
+- **A request in the chat** is a card read from the Conquest, not a message: it stands among the messages at its time, and goes
+  when its tile is built (the built one then stands at its own time). Its action opens the cell on the map (the proposal's "Go to
+  the cell", in one word: Open).
 
 ## Not done
 

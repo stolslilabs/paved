@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { appRenders } from "../../mocks/assets";
 import { CONQUEST, CONQUEST_CARD } from "../../mocks/conquest";
 import { PUZZLE_CARD } from "../../mocks/puzzle";
 import { PLAY } from "../../mocks/scenes";
@@ -20,7 +20,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const tileArt = originalTileArt(SOURCE_ASSETS);
 
 /** The Conquest's card (Limited, the first): the phase and its day, the allegiance's rank, the day's orders, the phase's time left. */
 export const Card: Story = { args: { ...PLAY.connected, ...PUZZLE_CARD.notPlayed, ...CONQUEST_CARD.playing } };
@@ -32,7 +31,7 @@ const view = (state: keyof typeof CONQUEST, conquestTitle?: string): Story => ({
   args: {
     ...PLAY.connected,
     conquestTitle,
-    conquest: <ConquestScene {...CONQUEST[state]} tileArt={tileArt} onRetry={fn()} onRegister={fn()} onOffer={fn()} onGive={fn()} onResearch={fn()} onClaim={fn()} onZone={fn()} onView={fn()} onResult={fn()} onAllegiance={fn()} onOpenPlayer={fn()} />,
+    conquest: <ConquestScene {...CONQUEST[state]} renders={appRenders} onRetry={fn()} onRegister={fn()} onOffer={fn()} onGive={fn()} onResearch={fn()} onClaim={fn()} onZone={fn()} onView={fn()} onResult={fn()} onAllegiance={fn()} onOpenPlayer={fn()} />,
   },
 });
 
@@ -50,11 +49,13 @@ export const Results = view("results");
 export const NoAllegiance = view("noAllegiance");
 export const Loading = view("loading");
 export const Failed = view("failed");
+/** The world: the grid of its zones and its provinces; a tap opens a zone's map. */
+export const World = view("world", "World");
 export const Tree = view("tree", "Knowledge tree");
 /** The allegiances by points: a tab of the foot per phase, and the final one. */
 export const Ranking = view("ranking", "Ranking");
 /** The allegiance's members: a tab of the foot per figure they are ranked by. */
-export const Members = view("members", "Our members");
+export const Members = view("members", "Members");
 /** The open requests: what each asks, who holds one, then Give. */
 export const Requests = view("requests", "Requests");
 export const Rules = view("rules", "Goals and rules");

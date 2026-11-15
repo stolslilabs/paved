@@ -1563,7 +1563,7 @@ export class MockLedger {
   private conquestRead<T>(viewer: string | null, read: (seen: Parameters<typeof conquest.stateOf>[0]) => T): T {
     return this.guildRead((world, people, now) => {
       const v2 = viewer === null ? null : (this.peek(viewer).v2 ?? null);
-      return read({ ...this.conquestOn(world, now), people, viewer, spare: v2 ? conquest.spareOf(v2.inventory, v2.layout) : null });
+      return read({ ...this.conquestOn(world, now), people, viewer, spare: v2 ? conquest.spareOf(v2.inventory, v2.layout) : null, owned: v2 ? [...v2.inventory] : null });
     });
   }
 

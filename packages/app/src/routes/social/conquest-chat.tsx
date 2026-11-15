@@ -1,32 +1,19 @@
-import { toastError } from "../../components/containers/error-toast";
-import { ConquestChatCards } from "../../components/containers/conquest-chat-cards";
-import { useConquestAvailable, useConquestState, useGiveConquest } from "../../data/conquest";
+import { conquestChatCards, type ConquestChatCard } from "../../components/containers/conquest-chat-cards";
+import { useConquestAvailable, useConquestState } from "../../data/conquest";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
-import { useTileArt } from "../../data/tile-art";
-import { errorDetail } from "../error-detail";
+import { useTileRenders } from "../../data/tile-renders";
 import { useAppNavigate } from "../ref";
 
 /**
- * The Conquest's cards of the guild's chat: the allegiance's open build requests and its last tile built, read from the Conquest
- * (`useConquestState`), with Give. Nothing without a Conquest (the chain), before day 1, or for an allegiance that is not in it.
+ * The Conquest's cards of the guild's conversation: the allegiance's open build requests and its last tiles built, each at its time
+ * among the messages, read from the Conquest (`useConquestState`). None without a Conquest (the chain), before day 1, for another
+ * conversation (`on` false), or for an allegiance that is not in it.
  */
-export function ConquestChat({ player }: { player: string | null }) {
-  const on = useConquestAvailable();
-  const state = useConquestState(player, on && player !== null).data ?? null;
-  const give = useGiveConquest(player);
+export function useConquestChatCards(player: string | null, on: boolean): ConquestChatCard[] {
+  const available = useConquestAvailable();
+  const state = useConquestState(player, available && on && player !== null).data ?? null;
   const go = useAppNavigate();
-  const tileArt = useTileArt(RENDERER_ASSETS);
-  if (!state?.allegiance) return null;
-  return (
-    <ConquestChatCards
-      requests={state.requests}
-      built={state.built}
-      orders={state.allegiance.orders.left}
-      busy={give.isPending}
-      tileArt={tileArt}
-      onGive={(id) => give.mutate(id, { onError: (error) => toastError({ title: "Conquest", message: error instanceof Error ? error.message : String(error), detail: errorDetail(error) }) })}
-      onOpen={(zone) => go(`/conquest?zone=${zone}`)}
-      onAll={() => go("/play/conquest?view=requests")}
-    />
-  );
+  const renders = useTileRenders(RENDERER_ASSETS);
+  if (!on || !state?.allegiance) return [];
+  return conquestChatCards({ requests: state.requests, built: state.built, renders, onOpen: (zone) => go(`/conquest?zone=${zone}`) });
 }

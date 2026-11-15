@@ -1,7 +1,7 @@
 import { CONQUEST_BRANCHES, CONQUEST_LEVELS, CONQUEST_LEVEL_BONUS, CONQUEST_LEVEL_COSTS, CONQUEST_OFFERINGS_A_DAY, conquestLevelCost, formatInteger, formatPercent, type ConquestBranch, type ConquestLevels } from "@paved/game-core";
 import { cn } from "../../lib/utils";
 import { ConquestArt, KnowledgeIcon } from "../elements/conquest-art";
-import { Button } from "../ui/button";
+import { PriceButton } from "./shop-card";
 
 /** A branch as drawn: its name and what its levels act on. */
 interface Branch {
@@ -39,9 +39,8 @@ const gives = (branch: ConquestBranch, level: number): string => (branch === "de
 
 export interface ConquestTreeProps {
   levels: ConquestLevels;
-  /** The allegiance's Knowledge to spend, and all it earned. */
+  /** The allegiance's Knowledge to spend. */
   knowledge: number;
-  earned: number;
   /** The viewer buys the levels: an Officer or the Leader. */
   leads: boolean;
   /** Research is open: from day 1 to the end of Frontiers. */
@@ -53,12 +52,12 @@ export interface ConquestTreeProps {
 }
 
 /**
- * The Conquest's knowledge tree: the Knowledge to spend over what was earned and spent (each figure with the Knowledge's book), then
- * five branches of ten levels, bought in order. A branch shows its painting, its level and what it gives now, its ten pips (the fifth
- * and the tenth, the milestones, taller and gold), and its next level's cost before its one button, Buy, for an Officer or the
- * Leader; every other member reads the cost.
+ * The Conquest's knowledge tree, as the proposal draws it: the Knowledge to spend beside its book, the tree's progress and what was
+ * bought of it in a line, then five branches of ten levels, bought in order. A branch shows its painting, its level and what it
+ * gives now, its ten pips (the fifth and the tenth, the milestones, taller and gold), and its next level's price: a price button
+ * (the figure and the Knowledge's book, as the shop's) for an Officer or the Leader, the figure alone for every other member.
  */
-export function ConquestTree({ levels, knowledge, earned, leads, open, busy = null, onResearch, className }: ConquestTreeProps) {
+export function ConquestTree({ levels, knowledge, leads, open, busy = null, onResearch, className }: ConquestTreeProps) {
   const spent = conquestSpent(levels);
   return (
     <div data-slot="conquest-tree" className={cn("flex flex-col gap-3", className)}>
@@ -73,26 +72,9 @@ export function ConquestTree({ levels, knowledge, earned, leads, open, busy = nu
         <div role="progressbar" aria-label="Tree bought" aria-valuemin={0} aria-valuemax={CONQUEST_TREE_COST} aria-valuenow={spent} aria-valuetext={`${formatInteger(spent)} of ${formatInteger(CONQUEST_TREE_COST)} Knowledge`} className="h-2 overflow-hidden rounded-full bg-background/70">
           <span className="block h-full rounded-full bg-primary" style={{ width: `${(spent * 100) / CONQUEST_TREE_COST}%` }} />
         </div>
-        <dl className="grid grid-cols-2 gap-2 text-sm font-semibold text-muted-foreground">
-          <div className="flex flex-col">
-            <dt>Earned</dt>
-            <dd className="flex items-center gap-1 text-foreground">
-              <KnowledgeIcon px={18} />
-              <span className="numeric font-bold">{formatInteger(earned)}</span>
-            </dd>
-          </div>
-          <div className="flex flex-col">
-            <dt>Spent</dt>
-            <dd className="flex items-center gap-1 text-foreground">
-              <KnowledgeIcon px={18} />
-              <span className="numeric font-bold">{formatInteger(spent)}</span>
-              <span className="numeric text-xs font-semibold text-muted-foreground">
-                of {formatInteger(CONQUEST_TREE_COST)} ({formatPercent(spent / CONQUEST_TREE_COST)})
-              </span>
-            </dd>
-          </div>
-        </dl>
-        <p className="text-xs font-semibold text-muted-foreground">+1 per Offering, 5 to 100 per cell explored.</p>
+        <p data-slot="conquest-bought" className="text-sm font-semibold text-muted-foreground">
+          Bought {formatInteger(spent)} of {formatInteger(CONQUEST_TREE_COST)} ({formatPercent(spent / CONQUEST_TREE_COST)}). +1 per Offering, 5 to 100 per cell explored.
+        </p>
       </div>
 
       <ul aria-label="Knowledge tree" className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
@@ -111,17 +93,20 @@ export function ConquestTree({ levels, knowledge, earned, leads, open, busy = nu
                 </div>
                 {cost === null ? (
                   <span className="shrink-0 rounded-full bg-success px-2.5 py-0.5 text-sm font-bold text-background">Complete</span>
-                ) : (
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span data-slot="conquest-cost" className="flex items-center gap-1" title={`Level ${level + 1}: ${formatInteger(cost)} Knowledge`}>
-                      <KnowledgeIcon px={18} />
-                      <span className={cn("numeric text-base font-bold", leads && open && knowledge < cost && "text-muted-foreground")}>{formatInteger(cost)}</span>
-                    </span>
-                    {leads && (
-                      <Button size="sm" className="h-11" disabled={!open || knowledge < cost || busy !== null} aria-busy={busy === branch || undefined} aria-label={`Buy ${BRANCH[branch].name} level ${level + 1} for ${formatInteger(cost)} Knowledge`} onClick={() => onResearch?.(branch)}>
-                        Buy
-                      </Button>
+                ) : leads ? (
+                  // The price and its currency are the button, as the shop's.
+                  <PriceButton label={`Buy ${BRANCH[branch].name} level ${level + 1} for ${formatInteger(cost)} Knowledge`} disabled={!open || knowledge < cost || busy !== null} loading={busy === branch} onClick={() => onResearch?.(branch)} className="w-auto min-w-20 shrink-0 px-3">
+                    {busy !== branch && (
+                      <>
+                        {formatInteger(cost)}
+                        <KnowledgeIcon px={22} />
+                      </>
                     )}
+                  </PriceButton>
+                ) : (
+                  <span data-slot="conquest-cost" className="flex shrink-0 items-center gap-1" title={`Level ${level + 1}: ${formatInteger(cost)} Knowledge`}>
+                    <span className="numeric text-outline text-base font-bold">{formatInteger(cost)}</span>
+                    <KnowledgeIcon px={20} />
                   </span>
                 )}
               </div>

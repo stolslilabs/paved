@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { BoardTile } from "@paved/chain";
 import { BoardViewport } from "../containers/board-viewport";
-import { APP_ASSETS, originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { CONQUEST_MAP } from "../../mocks/conquest";
 import { ConquestMapScene } from "./conquest-map-scene";
 
@@ -15,7 +15,7 @@ const meta = {
   title: "Scenes/ConquestMap",
   component: ConquestMapScene,
   parameters: { layout: "fullscreen" },
-  args: { tileArt: originalTileArt(SOURCE_ASSETS), onBack: fn(), onWorld: fn(), onZone: fn(), onHome: fn(), onCell: fn(), onExplore: fn(), onRequest: fn(), onGive: fn(), onPreview: fn(), onRetry: fn(), onRevealClose: fn() },
+  args: { renders: appRenders, onBack: fn(), onWorld: fn(), onHome: fn(), onCell: fn(), onExplore: fn(), onRequest: fn(), onGive: fn(), onPreview: fn(), onRetry: fn(), onRevealClose: fn() },
 } satisfies Meta<typeof ConquestMapScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -51,8 +51,11 @@ export const GridAsking: Story = { args: CONQUEST_MAP.asking };
 export const Revealed: Story = { args: CONQUEST_MAP.revealed };
 /** A tile just given: what it did, over the action. */
 export const Built: Story = { args: CONQUEST_MAP.built };
-/** The World grid: a tap loads that zone's scene. */
-export const World: Story = { args: CONQUEST_MAP.world };
+/** A request picked: who opened it, the tile, what the viewer holds, what the gift pays and spends, then Give. */
+export const GridGiving: Story = { args: CONQUEST_MAP.giving };
+/** The same panels at the 3D board's foot. */
+export const BoardAsking: Story = { args: { ...CONQUEST_MAP.asking, canvas } };
+export const BoardGiving: Story = { args: { ...CONQUEST_MAP.giving, canvas } };
 export const Reading: Story = { args: CONQUEST_MAP.reading };
 /** Before day 1: no world yet. */
 export const Registration: Story = { args: CONQUEST_MAP.registration };

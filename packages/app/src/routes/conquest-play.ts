@@ -12,7 +12,7 @@ export const conquestZoneOf = (param: string | null): number | null => (param !=
 export const conquestViewOf = (params: URLSearchParams): ConquestView => {
   const view = params.get("view");
   if (view === "result") return conquestResultOf(params) ? "result" : "hub";
-  return view === "tree" || view === "ranking" || view === "members" || view === "requests" || view === "rules" ? view : "hub";
+  return view === "world" || view === "tree" || view === "ranking" || view === "members" || view === "requests" || view === "rules" ? view : "hub";
 };
 
 /** The result named by `?view=result&of=`: a phase's, the final one, the last Conquest's; null: none. */
@@ -22,7 +22,7 @@ export const conquestResultOf = (params: URLSearchParams): ConquestResultOf | nu
 };
 
 /** The header's title of the Conquest's views; its own page has none (the drawer says "Conquest"). */
-export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, tree: "Knowledge tree", ranking: "Ranking", members: "Our members", requests: "Requests", rules: "Goals and rules", result: "Result" };
+export const CONQUEST_TITLES: Record<ConquestView, string | undefined> = { hub: undefined, world: "World", tree: "Knowledge tree", ranking: "Ranking", members: "Members", requests: "Requests", rules: "Goals and rules", result: "Result" };
 
 /**
  * The home's Conquest button: the requests of the player's allegiance whose tile they hold (its badge); null without a Conquest (the

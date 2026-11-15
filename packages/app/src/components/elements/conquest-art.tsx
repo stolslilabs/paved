@@ -1,6 +1,8 @@
 import { cn } from "../../lib/utils";
 import { conquestArtSources, type ConquestArtName } from "./play-art";
 import { rankingArtSources } from "./ranking-art";
+import { planCode } from "./tile-chip";
+import { tileName, type TileRenders } from "./tile-render";
 import { UiIcon } from "./ui-icon";
 
 /** One of the Conquest's paintings (`CONQUEST_ART`, `play-art.ts`), `px` CSS pixels wide. Decorative: the words beside it name it. */
@@ -31,6 +33,20 @@ export function PlaceMark({ place, px = 28, className }: { place: number; px?: n
       ) : (
         <span className="numeric text-base font-bold text-muted-foreground">{place}</span>
       )}
+    </span>
+  );
+}
+
+/**
+ * A tile as the board draws it, seen from above and turned to its orientation: its build-time voxel render (`TileRender`, the
+ * manifest's `<plan>-top`). The Conquest shows no other picture of a tile.
+ */
+export function ConquestTile({ plan, orientation = 1, renders, className }: { plan: number; orientation?: number; renders?: TileRenders; className?: string }) {
+  const src = renders?.(0, `${planCode(plan).toLowerCase()}-top`) ?? null;
+  return (
+    // Without its render (the manifest still on its way) the tile is a plain slab with its name: never the plan's simplified drawing.
+    <span data-slot="conquest-tile" data-render={src ? "voxel" : "none"} role={src ? undefined : "img"} aria-label={src ? undefined : tileName(plan)} className={cn("block shrink-0 overflow-hidden rounded-lg bg-secondary", className)}>
+      {src && <img src={src} alt={tileName(plan)} loading="lazy" decoding="async" draggable={false} className="block size-full object-cover transition-transform duration-200 motion-reduce:transition-none" style={{ transform: `rotate(${(orientation - 1) * 90}deg)` }} />}
     </span>
   );
 }

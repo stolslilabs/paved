@@ -1,23 +1,35 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { originalTileArt, SOURCE_ASSETS } from "../../mocks/assets";
+import { appRenders } from "../../mocks/assets";
+import { CHAT_CONVERSATION } from "../../mocks/chat";
 import { CONQUEST_CHAT } from "../../mocks/conquest";
-import { ConquestChatCards } from "./conquest-chat-cards";
+import { ChatConversation } from "./chat-conversation";
+import { ConquestBuiltCard, ConquestRequestCard, conquestChatCards } from "./conquest-chat-cards";
 
-/** The Conquest in the guild's chat: a live card per open build request, and the last tile built. */
+/** The Conquest's cards of the guild's conversation: an open build request, and a tile just built. */
 const meta = {
   title: "Containers/ConquestChatCards",
-  component: ConquestChatCards,
-  args: { onGive: fn(), onOpen: fn(), onAll: fn(), tileArt: originalTileArt(SOURCE_ASSETS), className: "max-w-sm" },
-} satisfies Meta<typeof ConquestChatCards>;
+  component: ConquestRequestCard,
+  args: { onOpen: fn(), renders: appRenders },
+  decorators: [(Story) => <div className="max-w-sm"><Story /></div>],
+} satisfies Meta<typeof ConquestRequestCard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Three requests, two shown; the viewer holds the first's tile. */
-export const Requests: Story = { args: CONQUEST_CHAT };
-/** No order left today: nothing is given. */
-export const NoOrder: Story = { args: { ...CONQUEST_CHAT, orders: 0 } };
-/** A gift on its way. */
-export const Giving: Story = { args: { ...CONQUEST_CHAT, busy: true } };
-/** Nothing asked: the last tile built alone. */
-export const BuiltOnly: Story = { args: { ...CONQUEST_CHAT, requests: [] } };
+/** A request the viewer can answer: they hold its tile. */
+export const Request: Story = { args: { request: CONQUEST_CHAT.requests[0]! } };
+/** A request whose tile the viewer does not hold. */
+export const RequestNotHeld: Story = { args: { request: CONQUEST_CHAT.requests[1]! } };
+export const Built: Story = { args: { request: CONQUEST_CHAT.requests[0]! }, render: () => <ConquestBuiltCard built={CONQUEST_CHAT.built[0]!} renders={appRenders} onOpen={fn()} /> };
+
+/** The cards in the guild's conversation, each at its time among the messages (the proposal's "The chat carries it"). */
+export const InTheChat: Story = {
+  args: { request: CONQUEST_CHAT.requests[0]! },
+  render: () => {
+    const guild = CHAT_CONVERSATION.guild;
+    const times = guild.messages.map((m) => m.at);
+    // The request falls after the first message, the tile built after the last.
+    const cards = conquestChatCards({ requests: [{ ...CONQUEST_CHAT.requests[0]!, at: (times[0] ?? 0) + 1 }], built: [{ ...CONQUEST_CHAT.built[0]!, at: (times[times.length - 1] ?? 0) + 1 }], renders: appRenders, onOpen: fn() });
+    return <ChatConversation {...guild} cards={cards} />;
+  },
+};

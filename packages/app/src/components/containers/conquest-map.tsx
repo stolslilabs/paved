@@ -3,7 +3,8 @@ import { formatInteger } from "@paved/game-core";
 import type { ConquestOptions, ConquestRequestState, ConquestZoneState, ConquestZoneSummary } from "../../data/conquest-source";
 import { cn } from "../../lib/utils";
 import { ConquestCellAction } from "./conquest-cell";
-import { TileChip, type TileArt } from "../elements/tile-chip";
+import { ConquestTile } from "../elements/conquest-art";
+import type { TileRenders } from "../elements/tile-render";
 import { tileName } from "../elements/tile-render";
 import { UiIcon } from "../elements/ui-icon";
 import { Button } from "../ui/button";
@@ -77,7 +78,10 @@ export interface ConquestZoneMapProps {
   onExplore?: (cell: { x: number; y: number }) => void;
   onRequest?: (tile: { x: number; y: number; plan: number; orientation: number }) => void;
   onGive?: (request: number) => void;
-  tileArt?: TileArt;
+  /** Seconds since the epoch: how long ago a request was opened. */
+  now?: number;
+  /** The tiles' voxel renders (`useTileRenders`). */
+  renders?: TileRenders;
   className?: string;
 }
 
@@ -91,7 +95,7 @@ const windowOn = (at: number, size: number): number => Math.max(0, Math.min(size
  * allegiance's tiles lists the plans that fit, by the members who hold one, and asks for one; a cell with a request shows the tile
  * wanted, and Give builds it from the viewer's own tiles.
  */
-export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, busy = null, onExplore, onRequest, onGive, tileArt, className }: ConquestZoneMapProps) {
+export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, busy = null, onExplore, onRequest, onGive, now, renders, className }: ConquestZoneMapProps) {
   // The window opens on the cell picked, else on the capital (a free zone's Great Wonder), else on the zone's middle.
   const centre = cell ?? zone.tiles.find((t) => t.kind === "capital" || t.kind === "great") ?? { x: zone.x0 + (zone.size - 1) / 2, y: zone.y0 + (zone.size - 1) / 2 };
   const [origin, setOrigin] = useState(() => ({ x: windowOn(centre.x - zone.x0, zone.size), y: windowOn(centre.y - zone.y0, zone.size) }));
@@ -155,7 +159,7 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
                     data-mine={tile.mine || undefined}
                     className="relative aspect-square"
                   >
-                    <TileChip plan={tile.plan} orientation={tile.orientation} art={tileArt} className="size-full rounded-sm border-0" />
+                    <ConquestTile plan={tile.plan} orientation={tile.orientation} renders={renders} className="size-full rounded-sm" />
                     {tile.guild && <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-sm border-2", tile.mine ? "border-info" : "border-joust-rival")} />}
                     {mark && <UiIcon name={mark} px={16} className="pointer-events-none absolute top-0.5 left-0.5 size-4" />}
                   </span>
@@ -186,9 +190,9 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
                   )}
                 >
                   {wanted ? (
-                    <TileChip plan={wanted.plan} orientation={wanted.orientation} art={tileArt} className="size-full rounded-none border-0 opacity-60" />
+                    <ConquestTile plan={wanted.plan} orientation={wanted.orientation} renders={renders} className="size-full rounded-none opacity-60" />
                   ) : here && preview && preview.x === x && preview.y === y ? (
-                    <TileChip plan={preview.plan} orientation={preview.orientation} art={tileArt} className="size-full rounded-none border-0" />
+                    <ConquestTile plan={preview.plan} orientation={preview.orientation} renders={renders} className="size-full rounded-none" />
                   ) : null}
                 </button>
               );
@@ -208,7 +212,9 @@ export function ConquestZoneMap({ zone, leads, orders, cell, onCell, options, bu
         onRequest={onRequest}
         onGive={onGive}
         onPreview={setPreview}
-        tileArt={tileArt}
+        now={now}
+        onClose={() => onCell?.(null)}
+        renders={renders}
       />
     </div>
   );

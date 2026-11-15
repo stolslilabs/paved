@@ -15,13 +15,14 @@ import {
 import type { ConquestGiven, ConquestMemberRow, ConquestRanking, ConquestScoredState, ConquestState } from "../../data/conquest-source";
 import { rankName } from "../../lib/guild-text";
 import { cn } from "../../lib/utils";
+import { ConquestWorld } from "../containers/conquest-map";
 import { CONQUEST_PHASE_NAME, ConquestFinalEnd, ConquestMembers, ConquestPhaseEnd, ConquestRanks, ConquestResultRow, type ConquestMemberBy, type ConquestRankBy } from "../containers/conquest-ranks";
 import { ConquestTree, conquestBranchName, conquestNextLevel } from "../containers/conquest-tree";
 import { FooterTab, FooterTabsList } from "../containers/footer-tabs";
 import { DrawerFooter } from "../containers/hud-drawer";
-import { ConquestArt, KnowledgeIcon, ordinal } from "../elements/conquest-art";
+import { ConquestArt, ConquestTile, KnowledgeIcon } from "../elements/conquest-art";
 import { formatShortRemaining } from "../elements/countdown";
-import { GOLD_ACTION, GoldShine } from "../elements/gold-action";
+import { GoldButton } from "../elements/gold-button";
 import { GuildEmblem } from "../elements/guild-emblem";
 import { InlineError, type ErrorDetail } from "../elements/inline-error";
 import { Notice } from "../elements/notice";
@@ -29,8 +30,8 @@ import { modeSceneSources, type ConquestArtName } from "../elements/play-art";
 import { RARITY_NAME } from "../elements/rarity-badge";
 import { formatPoints } from "../elements/score";
 import { SectionTitle } from "../elements/section-title";
-import { TileChip, type TileArt } from "../elements/tile-chip";
-import { tileName } from "../elements/tile-render";
+
+import { tileName, type TileRenders } from "../elements/tile-render";
 import { TokenIcon } from "../elements/token-icon";
 import type { UiIconName } from "../elements/ui-art";
 import { UiIcon } from "../elements/ui-icon";
@@ -39,8 +40,8 @@ import { Icon } from "../ui/icon";
 import { Skeleton } from "../ui/skeleton";
 import { Tabs, TabsContent } from "../ui/tabs";
 
-/** The Conquest's views in Play's drawer: its page, the knowledge tree, the ranking, the members, the requests, the rules, a result. The map is a page of its own (`ConquestMapScene`). */
-export type ConquestView = "hub" | "tree" | "ranking" | "members" | "requests" | "rules" | "result";
+/** The Conquest's views in Play's drawer: its page, the world (the grid of its zones), the knowledge tree, the ranking, the members, the requests, the rules, a result. The map is a page of its own (`ConquestMapScene`). */
+export type ConquestView = "hub" | "world" | "tree" | "ranking" | "members" | "requests" | "rules" | "result";
 /** The result a result's view shows: a phase's, this Conquest's final one, or the last Conquest's. */
 export type ConquestResultOf = ConquestPlayPhase | "final" | "last";
 
@@ -73,7 +74,8 @@ export interface ConquestSceneProps {
   /** The branch being bought. */
   researching?: ConquestBranch | null;
   notice?: ConquestNotice | null;
-  tileArt?: TileArt;
+  /** The tiles' voxel renders (`useTileRenders`). */
+  renders?: TileRenders;
   onRegister?: () => void;
   onOffer?: () => void;
   onGive?: (request: number) => void;
@@ -172,26 +174,22 @@ function ActNotice({ notice }: { notice: ConquestNotice }) {
   );
 }
 
-/** A page's one action, in one word, gold; what it does is said before it. */
+/** A view's one action, in one word, on the app's gold pill (`GoldButton`); what it does is said before it. */
 function Primary({ word, name, busy = false, disabled = false, onAct, className }: { word: string; /** The accessible name, where the word alone says too little. */ name?: string; busy?: boolean; disabled?: boolean; onAct?: () => void; className?: string }) {
   return (
-    <Button variant="ghost" style={disabled ? undefined : GOLD_ACTION} className={cn("relative h-12 px-4 text-lg font-black text-foreground", disabled && "bg-secondary", className)} disabled={disabled || busy} aria-busy={busy || undefined} aria-label={name} onClick={onAct}>
-      {!disabled && !busy && <GoldShine />}
+    <GoldButton className={className} disabled={disabled} busy={busy} aria-label={name} onClick={onAct}>
       {word}
-    </Button>
+    </GoldButton>
   );
 }
 
 /** The Cobbles a Claim pays, said before its button. */
-function Reward({ cobbles, children }: { cobbles: number; children?: ReactNode }) {
+function Reward({ cobbles }: { cobbles: number }) {
   return (
-    <span data-slot="conquest-reward" className="flex min-w-0 flex-1 flex-col">
-      <span className="flex items-center gap-1.5">
-        <TokenIcon kind="cobbles" size="sm" px={24} className="size-6" />
-        <span className="numeric text-outline text-xl leading-none font-bold">+{formatInteger(cobbles)}</span>
-        <span className="text-sm font-semibold text-muted-foreground">Cobbles</span>
-      </span>
-      {children && <span className="text-xs font-semibold text-muted-foreground">{children}</span>}
+    <span data-slot="conquest-reward" className="flex min-w-0 flex-1 items-center gap-1.5">
+      <TokenIcon kind="cobbles" size="sm" px={24} className="size-6" />
+      <span className="numeric text-outline text-xl leading-none font-bold">+{formatInteger(cobbles)}</span>
+      <span className="text-sm font-semibold text-muted-foreground">Cobbles</span>
     </span>
   );
 }
@@ -225,7 +223,7 @@ const MEMBER_TABS: readonly { id: ConquestMemberBy; label: string }[] = [
  * The Conquest (`/play/conquest`, Play's Limited mode; the design proposal of 8 and 9 November 2026, looped on the client): a view of
  * Play's drawer, as the Joust's. Its page, as the proposal draws it: the phase on the world's painting with its day and its time left,
  * the allegiance's row, the day's orders, the daily ritual's three cards (the Offering, the Exploration, the Requests), each with one
- * action in one word, the results over, and the Knowledge's row. Its other views: the knowledge tree, the ranking (a tab of
+ * action in one word, the results over, and the Knowledge's row. Its other views: the world (the grid of its zones and its provinces, a tap opening a zone's map), the knowledge tree, the ranking (a tab of
  * the foot per phase), the members (a tab per figure), the open requests, the goals and rules, and a result (a phase over, the
  * Conquest over), whose Cobbles are said before its Claim.
  */
@@ -242,7 +240,7 @@ export function ConquestScene({
   busy = null,
   researching = null,
   notice = null,
-  tileArt,
+  renders,
   onRegister,
   onOffer,
   onGive,
@@ -295,7 +293,7 @@ export function ConquestScene({
           <ConquestPhaseEnd result={phase} rest={state.rest && state.day === CONQUEST_PHASE_DAYS[phase.phase].result} next={next} />
           <DrawerFooter>
             <div data-slot="conquest-footer" className="flex min-h-16 items-center gap-3 px-4 py-2">
-              {due > 0 ? <Reward cobbles={due}>for {ordinal(phase.place)} place</Reward> : <span className="flex-1 text-sm font-semibold text-muted-foreground">{phase.claimed ? "Cobbles claimed." : "No Cobbles: not enough days of Offerings."}</span>}
+              {due > 0 ? <Reward cobbles={due} /> : <span className="flex-1 text-sm font-semibold text-muted-foreground">{phase.claimed ? "Cobbles claimed." : "No Cobbles: not enough days of Offerings."}</span>}
               <Primary word="Claim" name={`Claim ${formatInteger(due)} Cobbles`} disabled={due === 0} busy={busy === "claim"} onAct={() => onClaim?.(state.conquest, phase.phase)} />
             </div>
           </DrawerFooter>
@@ -317,7 +315,7 @@ export function ConquestScene({
           )}
           <DrawerFooter>
             <div data-slot="conquest-footer" className="flex min-h-16 items-center gap-3 px-4 py-2">
-              {due > 0 ? <Reward cobbles={due}>for {ordinal(final.place)} place</Reward> : <span className="flex-1 text-sm font-semibold text-muted-foreground">{final.claimed ? "Cobbles claimed." : "No Cobbles: not enough days of Offerings."}</span>}
+              {due > 0 ? <Reward cobbles={due} /> : <span className="flex-1 text-sm font-semibold text-muted-foreground">{final.claimed ? "Cobbles claimed." : "No Cobbles: not enough days of Offerings."}</span>}
               <Primary word="Claim" name={`Claim ${formatInteger(due)} Cobbles`} disabled={due === 0} busy={busy === "claim"} onAct={() => onClaim?.(final.conquest, last ? undefined : "final")} />
             </div>
           </DrawerFooter>
@@ -398,7 +396,7 @@ export function ConquestScene({
         {notice && <ActNotice notice={notice} />}
         {mine ? (
           <>
-            <ConquestTree levels={mine.levels} knowledge={mine.knowledge} earned={mine.earned} leads={state.leads} open={state.day >= 1 && state.day <= CONQUEST_LAST_DAY} busy={busy === "research" ? researching : null} onResearch={onResearch} />
+            <ConquestTree levels={mine.levels} knowledge={mine.knowledge} leads={state.leads} open={state.day >= 1 && state.day <= CONQUEST_LAST_DAY} busy={busy === "research" ? researching : null} onResearch={onResearch} />
             {!state.leads && <p className="text-xs font-semibold text-muted-foreground">The Leader and the Officers buy the levels, in order, until the end of Frontiers.</p>}
           </>
         ) : (
@@ -425,7 +423,7 @@ export function ConquestScene({
           <ul aria-label="Open requests" className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
             {state.requests.map((r) => (
               <li key={r.id} data-request={r.id} className="flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
-                <TileChip plan={r.plan} orientation={r.orientation} art={tileArt} className="size-11" />
+                <ConquestTile plan={r.plan} orientation={r.orientation} renders={renders} className="size-12" />
                 <button type="button" onClick={() => onZone?.(r.zone)} className="flex min-h-11 min-w-32 flex-1 cursor-pointer flex-col items-start justify-center text-left">
                   <span className="text-sm font-bold">
                     {tileName(r.plan)} · {r.zoneName}
@@ -445,6 +443,51 @@ export function ConquestScene({
         )}
       </section>
     );
+
+  if (view === "world") {
+    if (state.side === 0) return empty("The world is drawn when day 1 begins.");
+    const provinces = state.zones.filter((z) => z.guild !== null).sort((a, b) => Number(b.mine) - Number(a.mine) || b.tiles - a.tiles || a.index - b.index);
+    return (
+      <section aria-label="World" className="flex flex-col gap-4">
+        <p className="text-sm font-semibold text-muted-foreground">
+          World <span className="numeric text-foreground">{state.world}</span>: <span className="numeric text-foreground">{state.registered.length}</span> allegiances, a province each, and a Great Wonder in every free zone between them. Tap a zone to open its map.
+        </p>
+        <ConquestWorld side={state.side} zones={state.zones} selected={state.home} onZone={onZone} />
+        <ul aria-label="Legend" className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs font-semibold text-muted-foreground">
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden className="size-3.5 rounded-sm border-2 border-info bg-info/20" /> Your province
+          </li>
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden className="size-3.5 rounded-sm border-2 border-joust-rival/70 bg-joust-rival-fill/20" /> Another allegiance's
+          </li>
+          <li className="flex items-center gap-1.5">
+            <UiIcon name="wonder" px={16} className="size-4" /> A free zone and its Great Wonder
+          </li>
+        </ul>
+        <section aria-labelledby="conquest-provinces" className="flex flex-col gap-2">
+          <SectionTitle id="conquest-provinces">Provinces</SectionTitle>
+          <ul aria-label="Provinces" className="drawer-carved drawer-rows flex flex-col overflow-hidden rounded-2xl">
+            {provinces.map((z) => (
+              <li key={z.index} data-mine={z.mine || undefined} className={cn(z.mine && "bg-info/15 shadow-[inset_3px_0_0_var(--info)]")}>
+                <button type="button" onClick={() => onZone?.(z.index)} className="state-layer flex min-h-14 w-full cursor-pointer items-center gap-3 px-3 py-1.5 text-left">
+                  <GuildEmblem emblem={z.guild!.emblem} size="sm" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span title={z.guild!.name} className="truncate text-sm font-bold">
+                      {z.guild!.name}
+                    </span>
+                    <span className={cn("text-xs font-semibold", z.mine ? "text-info" : "text-muted-foreground")}>
+                      {z.mine && "your province · "}zone {z.name} · <span className="numeric">{formatInteger(z.tiles)}</span> {z.tiles === 1 ? "tile" : "tiles"} · <span className="numeric">{formatInteger(z.explored)}</span> explored
+                    </span>
+                  </span>
+                  <Icon name="chevron-right" size="sm" className="text-muted-foreground" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </section>
+    );
+  }
 
   if (view === "rules")
     return (

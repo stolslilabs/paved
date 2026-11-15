@@ -229,6 +229,8 @@ export interface ConquestTile {
   guild: number;
   by: string | null;
   day: number;
+  /** When it was built, in seconds since the epoch; 0: pre-built. */
+  at: number;
   kind: "capital" | "wonder" | "great" | "tile";
 }
 
@@ -362,7 +364,7 @@ export class Conquest {
   }
 
   private prebuild(x: number, y: number, plan: number, guild: number, kind: ConquestTile["kind"]): void {
-    this.lay({ id: this.tiles.length + 1, x, y, plan, orientation: 1, guild, by: null, day: 0, kind });
+    this.lay({ id: this.tiles.length + 1, x, y, plan, orientation: 1, guild, by: null, day: 0, at: 0, kind });
   }
 
   private lay(tile: ConquestTile): BoardTile {
@@ -581,7 +583,7 @@ export class Conquest {
     allegiance.tiles += 1;
     member.tiles += 1;
     member.parts[conquestPhaseOfDay(day) as ConquestPlayPhase].tiles += 1;
-    const tile: ConquestTile = { id: this.tiles.length + 1, x: request.x, y: request.y, plan: request.plan, orientation: request.orientation, guild, by: address, day, kind: "tile" };
+    const tile: ConquestTile = { id: this.tiles.length + 1, x: request.x, y: request.y, plan: request.plan, orientation: request.orientation, guild, by: address, day, at: now, kind: "tile" };
     const placed = this.lay(tile);
     // Every request on the cell is done, whoever asked.
     for (const [other, r] of this.requests) if (r.x === tile.x && r.y === tile.y) this.requests.delete(other);

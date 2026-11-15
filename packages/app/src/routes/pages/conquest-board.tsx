@@ -8,7 +8,8 @@ import { ConquestMapScene } from "../../components/scenes/conquest-map-scene";
 import { useBoardSettings } from "../../data/board-settings";
 import { useConquestArea, useConquestOptions, useConquestState, useConquestZone, useExploreConquest, useGiveConquest, useRequestConquest } from "../../data/conquest";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
-import { useTileArt } from "../../data/tile-art";
+import { useTileRenders } from "../../data/tile-renders";
+import { useNow } from "../now";
 import { hasWebGL } from "../../lib/webgl";
 import { BoardCanvas } from "../board-canvas";
 import { conquestZoneOf } from "../conquest-play";
@@ -51,14 +52,14 @@ export default function Page() {
   const [preview, setPreview] = useState<{ x: number; y: number; plan: number; orientation: number } | null>(null);
   const options = useConquestOptions(me, state.data?.leads ? picked : null);
   const [notice, setNotice] = useState<{ title: string; text: string } | null>(null);
-  const [world, setWorld] = useState(false);
   const [found, setFound] = useState<{ knowledge: number; province: boolean } | null>(null);
   // A new scene for the same zone (Back to my zone after a pan): the board is mounted again.
   const [mount, setMount] = useState(0);
   const explore = useExploreConquest(me);
   const request = useRequestConquest(me);
   const give = useGiveConquest(me);
-  const tileArt = useTileArt(RENDERER_ASSETS);
+  const renders = useTileRenders(RENDERER_ASSETS);
+  const now = useNow();
   const board = useBoardSettings();
   // The camera opens over the scene's origin (the zone's middle), not on the frame of every tile round it.
   const renderer = useMemo(() => ({ ...board.renderer, cameraFit: { enabled: false } }), [board.renderer]);
@@ -118,7 +119,6 @@ export default function Page() {
     setPicked(null);
     setPreview(null);
     setNotice(null);
-    setWorld(false);
     setFocused(null);
     if (again) setMount((n) => n + 1);
     go(`/conquest?zone=${target}`, { replace: true });
@@ -164,11 +164,10 @@ export default function Page() {
       options={options.data ?? null}
       busy={explore.isPending ? "explore" : request.isPending ? "request" : give.isPending ? "give" : null}
       notice={notice}
-      world={world}
-      tileArt={tileArt}
+      renders={renders}
+      now={now}
       onBack={onBack}
-      onWorld={setWorld}
-      onZone={(target) => open(target)}
+      onWorld={() => go("/play/conquest?view=world")}
       onHome={() => state.data?.home != null && open(state.data.home, true)}
       onCell={(cell) => {
         setNotice(null);
