@@ -5,7 +5,7 @@
   "limits": {
     "entry": {
       "raw": 279552,
-      "gzip": 86552
+      "gzip": 86538
     },
     "largestRoute": {
       "raw": 610944,
