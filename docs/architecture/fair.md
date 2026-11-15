@@ -67,5 +67,4 @@ Where the proposal left a rule open, the simplest reading was taken:
 - The game's own header strip (the deck's tiles left by kind, the week's best beside the score): the board shows the try's number,
   the best on the score meter, and the deck sheet lists what is left.
 - The stalls' icons. The card's icon is a market basket of its own, not the proposal's stall of three tiles (the owner's ask of
-  2026-11-14); its scene is the proposal's hero image. The icon's source is
-  `docs/architecture/fair-icon.svg`, rasterised at 256 px to `packages/app/ui-sources/play/mode-fair.webp`.
+  2026-11-14); its scene is the proposal's hero image.

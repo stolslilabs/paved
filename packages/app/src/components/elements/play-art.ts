@@ -20,9 +20,8 @@ export type PlayMode = "attack" | "challenge" | "training" | "story" | "puzzle" 
  * The modes with an icon of their own. The Joust has none (its card shows the two allegiances' emblems), nor the Tournament (the HUD's
  * trophy). EVENT-ICONS (2026-11-14), one simple object each (the owner's ask: no stacked objects on Play): the Expedition's compass
  * (its proposal's map, lantern and compass, the compass alone), the Masterpiece's framed city (its proposal's, without the easel and
- * the tools) and the Colossus's monument under its scaffold (its proposal's own icon). The Fair's is a market basket under its checked
- * cloth (the owner's ask of 2026-11-14: an icon of its own, not its proposal's stall of three tiles), drawn as an SVG
- * (`docs/architecture/fair-icon.svg`) and rasterised to its master.
+ * the tools) and the Colossus's monument under its scaffold (its proposal's own icon). The Fair's is a market basket lined with a
+ * checked cloth (the owner's ask of 2026-11-14: an icon of its own, not its proposal's stall of three tiles).
  */
 export type IconMode = Exclude<PlayMode, "joust" | "tournament">;
 

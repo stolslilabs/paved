@@ -237,10 +237,13 @@ const SHAPES = {
 const SHADE_UP: CSSProperties = { backgroundImage: "linear-gradient(180deg, transparent 35%, color-mix(in oklab, var(--card) 90%, transparent))" };
 const SHADE_LEFT: CSSProperties = { backgroundImage: "linear-gradient(90deg, color-mix(in oklab, var(--card) 85%, transparent) 20%, color-mix(in oklab, var(--card) 10%, transparent) 70%)" };
 
-/** An event's icon on its wide card (EVENT-ICONS): at the card's right, breaking out of its top edge, clear of the rewards under it. */
-const EVENT_ICON = { px: 84, style: { right: 10, top: -28 } } as const;
-/** The Fair's icon (its basket): smaller and higher on the card, so it breaks out of the top edge without reaching the card above (the owner's ask of 2026-11-14). */
-const FAIR_ICON = { px: 68, style: { right: 14, top: -12 } } as const;
+/**
+ * An event's icon on its wide card (EVENT-ICONS): at the card's right, breaking out of its top edge, clear of the rewards under it and
+ * of the card above it (EVENT-ICONS-FIX, #1173): the Limited cards are 14 px apart, so its painted top stays within 12 px over its
+ * card (the card above's outline shadow is 2 px), and its foot above the rewards (56 px down); the Tournament trophy's right edge.
+ * `e2e/event-icons.e2e.ts` measures both at 320, 360 and 375 px.
+ */
+const EVENT_ICON = { px: 68, style: { right: 14, top: -11 } } as const;
 
 /**
  * A mode's card (PLAY-MODES): its slab (`SHAPES`), its scene filling it (`sceneAt` its crop, `scenePx` the width it is drawn), the
@@ -727,7 +730,7 @@ function TournamentMode({ card, now, onSelect }: { card: TournamentCard; now: nu
  * The Fair's card (Limited, over the Puzzle's; the design proposal of 2026-11-09): a wide slab on the stalls darkened from the left.
  * "Fair", then the week's line: the stall and the tries left today ("roads on every stall · 2 tries left today"), the try still open
  * (its draft's pick, or its game's score: a tap then opens it). Its tag names the day ("Day 4 of 7"). Its icon, a market basket,
- * breaks out of the top edge at the right and stays clear of the card above. Its reward, the Cobbles alone;
+ * the events' (`EVENT_ICON`). Its reward, the Cobbles alone;
  * the week's time left in the corner's tab.
  */
 function FairMode({ card, now, onSelect }: { card: FairCard; now: number; onSelect?: () => void }) {
@@ -735,7 +738,7 @@ function FairMode({ card, now, onSelect }: { card: FairCard; now: number; onSele
   const playing = card.playing;
   const tries = card.me?.triesLeft ?? 0;
   return (
-    <ModeCard mode="fair" slot="fair-card" sceneAt="50% 62%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={FAIR_ICON} className="h-29 p-3.5 pb-3">
+    <ModeCard mode="fair" slot="fair-card" sceneAt="50% 62%" scenePx={WIDE_PX} shade={SHADE_LEFT} icon={EVENT_ICON} className="h-29 p-3.5 pb-3">
       <Chip className="absolute top-2.5 left-3">Limited · Day {card.day + 1} of 7</Chip>
       <button
         type="button"

@@ -273,9 +273,11 @@
  * client repeats it along the bar at a fixed grain and rounds the ends (`missionRail`, `medallion-art.ts`). Stored as lossless WebP.
  *
  * EVENT-ICONS (2026-11-14): the icons of three events' cards, one simple object each (the owner's ask: no stacked objects on Play).
- * FAIR (2026-11-14): `mode-fair`, the Fair's card icon, a wicker market basket under a red checked cloth (one object, the owner's
- * ask: not its proposal's stall). Drawn by hand as an SVG (`docs/architecture/fair-icon.svg`, the icons' thick dark outline and warm
- * fills), rasterised at 256 px on a transparent ground by headless Chromium and stored as lossless WebP; no image tool.
+ * FAIR (2026-11-15): `mode-fair`, the Fair's card icon, a wicker market basket lined with a red checked cloth (one object, the owner's
+ * ask: not its proposal's stall of three tiles). Drawn by Codex's built-in image tool (`codex exec -c model_provider=openai`, its
+ * `image_gen`; no API key, no other service) with `mode-story`, `mode-puzzle`, `mode-challenge` and `mode-training` as the style's
+ * references, on a transparent 1254 px square; the first variant kept. Trimmed to its alpha box (alpha 8 and over), fitted to the
+ * 240 px box and centred on the icons' frame.
  * `mode-colossus`, the monument under its scaffold: the icon of its design proposal (its page's `img/mode-colossus.webp`, 300 x 200),
  * taken as it is. `mode-expedition`, a pocket compass, and `mode-masterpiece`, a walled city in a golden frame: drawn by Codex's
  * built-in image tool (`codex exec -c model_provider=openai`, its `image_gen`; no API key, no other service) with the crop of each
