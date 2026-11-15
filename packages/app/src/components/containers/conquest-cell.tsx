@@ -11,6 +11,7 @@ import { tileName, type TileRenders } from "../elements/tile-render";
 import { TokenIcon } from "../elements/token-icon";
 import { UiIcon } from "../elements/ui-icon";
 import { Icon } from "../ui/icon";
+import { ScrollRegion } from "../ui/scroll-region";
 
 /** A cell of the Conquest's map as the viewer's allegiance meets it. */
 export interface ConquestCellInfo {
@@ -194,7 +195,8 @@ export function ConquestCellAction({ cell, leads, orders, canExplore, options, n
             <p className="text-sm font-semibold text-muted-foreground">No plan fits this cell.</p>
           ) : (
             <>
-              <ul aria-label="Plans that fit" className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto overscroll-contain p-0.5">
+              <ScrollRegion className="max-h-64 overscroll-contain">
+                <ul aria-label="Plans that fit" className="grid grid-cols-3 gap-2 p-0.5">
                 {plans.map((p) => {
                   const on = chosen?.plan === p.plan;
                   return (
@@ -222,7 +224,8 @@ export function ConquestCellAction({ cell, leads, orders, canExplore, options, n
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </ScrollRegion>
               {chosen ? (
                 <div data-slot="conquest-chosen" className="drawer-carved flex items-center gap-3 rounded-2xl p-2">
                   <ConquestTile plan={chosen.plan} orientation={orientation} renders={renders} className="size-14 border-2 border-primary/70" />

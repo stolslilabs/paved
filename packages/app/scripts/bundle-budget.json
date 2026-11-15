@@ -5,7 +5,7 @@
   "limits": {
     "entry": {
       "raw": 279552,
-      "gzip": 86479
+      "gzip": 86552
     },
     "largestRoute": {
       "raw": 610944,
@@ -16,8 +16,8 @@
       "gzip": 205578
     },
     "css": {
-      "raw": 117766,
-      "gzip": 20632
+      "raw": 118434,
+      "gzip": 20698
     },
     "fontAwesome": {
       "raw": 105728,
