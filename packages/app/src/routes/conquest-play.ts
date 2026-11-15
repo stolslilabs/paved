@@ -8,6 +8,15 @@ import { useConquestAvailable, useConquestState } from "../data/conquest";
 /** The zone named by `?zone=`; null: none, or not a number. */
 export const conquestZoneOf = (param: string | null): number | null => (param !== null && /^\d{1,3}$/.test(param) ? Number(param) : null);
 
+/** The cell named by `?cell=x,y` (the map opens with it picked: a chat card's request); null: none. */
+export const conquestCellOf = (param: string | null): { x: number; y: number } | null => {
+  const found = param === null ? null : /^(\d{1,4}),(\d{1,4})$/.exec(param);
+  return found ? { x: Number(found[1]), y: Number(found[2]) } : null;
+};
+
+/** The map on a zone with a cell picked: where a card of the guild's chat leads. */
+export const conquestCellPath = (at: { zone: number; x: number; y: number }): string => `/conquest?zone=${at.zone}&cell=${at.x},${at.y}`;
+
 /** The Conquest's view named by `?view=`: the tree, the ranking, the members, the requests, the rules or a result; anything else, its page. */
 export const conquestViewOf = (params: URLSearchParams): ConquestView => {
   const view = params.get("view");

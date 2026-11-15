@@ -12,7 +12,7 @@ import { useTileRenders } from "../../data/tile-renders";
 import { useNow } from "../now";
 import { hasWebGL } from "../../lib/webgl";
 import { BoardCanvas } from "../board-canvas";
-import { conquestZoneOf } from "../conquest-play";
+import { conquestCellOf, conquestZoneOf } from "../conquest-play";
 import { errorDetail } from "../error-detail";
 import { usePuzzleViewer } from "../puzzle-play";
 import { useAppNavigate, useUpTo } from "../ref";
@@ -48,7 +48,8 @@ export default function Page() {
   const [view, setView] = useState<"3d" | "grid">(() => (hasWebGL() ? "3d" : "grid"));
   const area = useConquestArea(me, view === "3d" ? focus : null);
   const zone = useConquestZone(me, view === "grid" ? anchor : null);
-  const [picked, setPicked] = useState<{ x: number; y: number } | null>(null);
+  // A cell named by the address (a card of the guild's chat) is picked as the map opens.
+  const [picked, setPicked] = useState<{ x: number; y: number } | null>(() => conquestCellOf(params.get("cell")));
   const [preview, setPreview] = useState<{ x: number; y: number; plan: number; orientation: number } | null>(null);
   const options = useConquestOptions(me, state.data?.leads ? picked : null);
   const [notice, setNotice] = useState<{ title: string; text: string } | null>(null);

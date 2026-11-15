@@ -522,7 +522,7 @@ describe("the Conquest's map scene", () => {
 });
 
 describe("the Conquest in the guild's chat and on the home", () => {
-  it("draws a build request's card as the proposal does: who asked, Open, the tile, its cell, who holds it, then its one action", async () => {
+  it("draws a build request's card as the proposal does: who asked, Open, the tile, its cell, who holds it; a tap on it opens its cell", async () => {
     const onOpen = vi.fn();
     const request = CONQUEST_CHAT.requests[0]!;
     render(wrap(<ConquestRequestCard request={request} onOpen={onOpen} />));
@@ -530,10 +530,10 @@ describe("the Conquest in the guild's chat and on the home", () => {
     expect(card).toHaveTextContent(`New build request · ${request.by.name}Open`);
     expect(card).toHaveTextContent(`Cell ${request.x}, ${request.y} · zone ${request.zoneName}`);
     expect(card).toHaveTextContent(`${request.holders} members hold it · you can give ${request.held}`);
-    const open = within(card).getByRole("button");
-    expect(open).toHaveTextContent(/^Open$/);
-    expect(open).toHaveAttribute("data-slot", "gold-button");
-    await userEvent.click(open);
+    // No button of its own: the whole card is the way to its cell.
+    expect(card.querySelector("[data-slot=gold-button]")).toBeNull();
+    expect(within(card).getAllByRole("button")).toHaveLength(1);
+    await userEvent.click(within(card).getByRole("button"));
     expect(onOpen).toHaveBeenCalledOnce();
   });
 
@@ -545,7 +545,7 @@ describe("the Conquest in the guild's chat and on the home", () => {
     expect(card).toHaveTextContent(`Built by ${built.by.name} · +1 CobbleBuilt`);
   });
 
-  it("puts the cards in the guild's conversation, each at its time among the messages", () => {
+  it("puts the cards in the guild's conversation, each at its time among the messages", async () => {
     const guild = CHAT_CONVERSATION.guild;
     const first = guild.messages[0]!.at;
     const last = guild.messages[guild.messages.length - 1]!.at;
@@ -560,6 +560,11 @@ describe("the Conquest in the guild's chat and on the home", () => {
     expect(rows.indexOf(cardRows[0]!)).toBe(rows.findIndex((r) => r.getAttribute("data-slot") !== "chat-card" && !r.getAttribute("role")) + 1);
     expect(rows[rows.length - 1]).toBe(cardRows[1]);
     expect(cardRows[0]).toHaveTextContent("New build request");
+    const onOpen = vi.fn();
+    const led = conquestChatCards({ requests: [CONQUEST_CHAT.requests[0]!], built: [], onOpen });
+    render(wrap(<>{led[0]!.node}</>));
+    await userEvent.click(within(screen.getAllByRole("article", { name: /^Build request:/ }).at(-1)!).getByRole("button"));
+    expect(onOpen).toHaveBeenCalledWith({ zone: CONQUEST_CHAT.requests[0]!.zone, x: CONQUEST_CHAT.requests[0]!.x, y: CONQUEST_CHAT.requests[0]!.y });
     expect(cardRows[1]).toHaveTextContent("Built by");
   });
 

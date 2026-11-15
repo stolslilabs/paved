@@ -126,6 +126,16 @@ describe("/play/conquest: a member's day", () => {
     expect(await screen.findByRole("heading", { name: "Day 9 of 20" }, { timeout: slow(5000) })).toBeInTheDocument();
   });
 
+  it("opens the map on a cell named by the address (a card of the guild's chat): the cell is picked, its panel shown", async () => {
+    const ledger = await member();
+    const conquest = mockConquest(ledger);
+    const home = (await conquest.state(PLAYER_ID)).home!;
+    const zone = await conquest.zone(PLAYER_ID, home);
+    open(`/conquest?zone=${home}&cell=${zone.x0},${zone.y0}`, ledger);
+    const panel = await screen.findByRole("region", { name: "Explore" }, { timeout: slow(8000) });
+    expect(panel).toHaveTextContent(`Cell ${zone.x0}, ${zone.y0}`);
+  });
+
   it("shows the tree, the ranking and the members at ?view=, each named on the header", async () => {
     const ledger = await member();
     const { router } = open("/play/conquest?view=tree", ledger);

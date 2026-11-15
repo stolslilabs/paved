@@ -83,7 +83,7 @@ village.
   (`containers/conquest-map.tsx`).
 - The guild's chat: the open requests and the last tiles built as cards among the conversation's messages, each at its time
   (`containers/conquest-chat-cards.tsx`, `routes/social/conquest-chat.tsx`, `ChatConversation`'s `cards`), read from the Conquest, not
-  kept as messages. A request's card opens its cell on the map, where its tile is given.
+  kept as messages. A tap on a card opens the map on its cell, the request picked.
 - The home: a Conquest button at the top of the right column, with the requests the player can answer (`EdgeTiles`).
 - One action per card or view, in one word (Offer, Explore, Build, Give, Ask, Claim, Register, Open, Continue), what it does and
   pays said before it, always on the app's gold pill (`elements/gold-button.tsx`): no other look of a main action (the owner's rules
@@ -118,8 +118,8 @@ village.
   camera cannot leave the tiles drawn by more than six cells (the board's own limit), so a far corner of an empty zone is reached by
   zooming out. On the 3D board a tile does not wear its allegiance's colour: a tap says whose it is.
 - **A request in the chat** is a card read from the Conquest, not a message: it stands among the messages at its time, and goes
-  when its tile is built (the built one then stands at its own time). Its action opens the cell on the map (the proposal's "Go to
-  the cell", in one word: Open).
+  when its tile is built (the built one then stands at its own time). The card has no button (the owner's ask of 2026-11-15): a tap on it opens the
+  map on its cell (`/conquest?zone=&cell=`), the request picked, where its tile is given.
 
 ## Not done
 

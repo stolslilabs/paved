@@ -2,6 +2,7 @@ import { conquestChatCards, type ConquestChatCard } from "../../components/conta
 import { useConquestAvailable, useConquestState } from "../../data/conquest";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useTileRenders } from "../../data/tile-renders";
+import { conquestCellPath } from "../conquest-play";
 import { useAppNavigate } from "../ref";
 
 /**
@@ -15,5 +16,5 @@ export function useConquestChatCards(player: string | null, on: boolean): Conque
   const go = useAppNavigate();
   const renders = useTileRenders(RENDERER_ASSETS);
   if (!on || !state?.allegiance) return [];
-  return conquestChatCards({ requests: state.requests, built: state.built, renders, onOpen: (zone) => go(`/conquest?zone=${zone}`) });
+  return conquestChatCards({ requests: state.requests, built: state.built, renders, onOpen: (at) => go(conquestCellPath(at)) });
 }
