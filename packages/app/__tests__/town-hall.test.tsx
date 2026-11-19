@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA } from "@paved/chain/testing";
 import { TOWN_HALL_TILES, layoutScore, starterLayout, townHallPrice, townHallSlots, xpFloor } from "@paved/game-core";
@@ -10,8 +11,10 @@ import { V2RefusedError } from "../src/data/free-village-base";
 import { MOCK_KEY } from "../src/data/mock/ledger";
 import { attackTiles, attackV2Board } from "../src/data/free-attack";
 import { layoutBoard } from "../src/data/matches";
+import { useStageLayoutSlots } from "../src/routes/layout-slots";
 import { boardTilesOf, layoutTilesOf } from "../src/routes/village-shapes";
 import { rendererManifest } from "../vite/renderer-assets";
+import { renderData } from "./data-fakes";
 import { mockImplementation } from "./mock-fakes";
 
 // The Town Hall (TOWN-HALL): the 2 x 2 tile at the centre of a village. Its four cells on the client, its models, its upgrade
@@ -132,6 +135,16 @@ describe("the Town Hall on the mock", () => {
     expect(match!.slots).toBe(townHallSlots(match!.townHall));
     const tiles = attackTiles(attackV2Board(attack!), attack!.townHall);
     expect(tiles.map((t) => [t.id, t.townHall])).toEqual([1, 2, 3, 4].map((id) => [id, attack!.townHall]));
+  });
+
+  it("draws a saved layout round the village's Town Hall at its level, not a level-1 one", async () => {
+    const { sources, ledger } = mockImplementation();
+    await ledger.foundFreeVillage(PLAYER);
+    const { result } = renderData(() => useStageLayoutSlots(PLAYER, 3), sources);
+    await waitFor(() => expect(result.current?.slots[0]?.tiles).toBeTruthy());
+    const tiles = result.current!.slots[0]!.tiles!;
+    expect(tiles.slice(0, 4).map((t) => t.townHall)).toEqual([3, 3, 3, 3]);
+    expect(tiles).toHaveLength(4 + starterLayout(BigInt(PLAYER)).length);
   });
 
   it("brings a save from before the Town Hall to it: the layouts emptied, the tiles kept, the attacks dropped", async () => {

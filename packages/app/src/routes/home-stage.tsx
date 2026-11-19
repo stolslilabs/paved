@@ -40,7 +40,7 @@ export default function HomeStage({ playerId, held, settings, ...stage }: HomeSt
   // Read once, as the stage mounts: the first arrival of the page under the fog, the later ones with a fade.
   const [arrival] = useState(villageArrival);
   // The saved layouts (#804), the player's own village alone.
-  const layoutSlots = useStageLayoutSlots(stage.editable ? playerId : null);
+  const layoutSlots = useStageLayoutSlots(stage.editable ? playerId : null, held?.townHall ?? stage.village?.townHall);
   // The Town Hall's upgrade (TOWN-HALL), the player's own village alone.
   const townHall = useStageTownHall(stage.editable ? playerId : null, held);
   return (
