@@ -1,4 +1,7 @@
-import { slotsOf } from "@paved/game-core";
+import { townHallLevelAt, townHallSlots } from "@paved/game-core";
+
+/** The slots of a village whose owner is at `level`: its Town Hall's, the highest the level opens (TOWN-HALL). */
+const slotsOf = (level: number): number => townHallSlots(townHallLevelAt(level));
 import type { PvpPlayer } from "../lib/pvp-rules";
 import { NEXT_PRICE } from "../lib/pvp-rules";
 import { ATTACK_STAR_PERCENTS, ATTACK_VIEW, attackDeckSize, attackStars } from "../lib/pvp-v2-rules";
@@ -11,25 +14,25 @@ import { STAKES } from "./pvp";
 import { attackDeckOf, buildFreeVillage, placedPlans, playAttackV2, type AttackStep } from "./pvp-attack";
 
 /**
- * The PvP v2 attack's fakes (#740, step 1 of #732), played on the engine: a rival's free village of S = 8 + level slots,
+ * The PvP v2 attack's fakes (#740, step 1 of #732), played on the engine: a rival's free village of S slots (its Town Hall's, TOWN-HALL),
  * the attack's deck of ceil(1.15 x S) tiles (the village's placed tiles and extras from the base deck, shuffled), played on
  * an unbounded board from the starter, the tile in hand and the next two shown, stars at 80 / 90 / 100 %.
  */
 
-/** The defender: level 12, so 20 slots and a deck of 23 tiles. */
+/** The defender: level 12, so a Town Hall at level 7, 21 slots and a deck of 25 tiles. */
 export const RIVAL_V2: PvpPlayer = { name: "Wren of Hollowmere", address: "0x05c8f3a2b1d4e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f2", level: 12, crowns: 1_236 };
 
-/** The rival's slots: 8 + level, the starter's included (#741). */
+/** The rival's slots: its Town Hall's, the highest its level opens. */
 export const RIVAL_V2_SLOTS = slotsOf(RIVAL_V2.level);
-/** The attack's deck: ceil(1.15 x 20) = 23. */
+/** The attack's deck: ceil(1.15 x 21) = 25. */
 export const V2_DECK_SIZE = attackDeckSize(RIVAL_V2_SLOTS);
 
-/** The rival's village: every slot filled, the starter and 19 tiles. */
+/** The rival's village: every slot filled, the starter and 20 tiles. */
 export const RIVAL_V2_VILLAGE = buildFreeVillage(31, RIVAL_V2_SLOTS);
-/** The attack's deck, in draw order: the village's 19 tiles and 4 extras. */
+/** The attack's deck, in draw order: the village's 20 tiles and 5 extras. */
 export const V2_DECK = attackDeckOf(RIVAL_V2_VILLAGE, RIVAL_V2_SLOTS, 10);
 /** The attack played in the stories, every move kept. */
-export const V2_ATTACK_STEPS = playAttackV2(V2_DECK, 3);
+export const V2_ATTACK_STEPS = playAttackV2(V2_DECK, 4);
 
 /** A scene's data without its callbacks. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };

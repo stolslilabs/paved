@@ -1,6 +1,7 @@
 import type { TileData } from "@paved/game-core";
 import type { RendererSettingsInput } from "./settings";
 import type { AssetManifest } from "./AssetLoader";
+import type { SkinRef } from "./skins";
 
 /** World units per grid cell — single source of truth */
 export const TILE_SIZE = 3;
@@ -100,6 +101,11 @@ export interface TileRenderData extends TileData {
    * the camera's): the tile stack turns its tile in hand to face its view. Unset: flat.
    */
   lean?: { angle: number; toward: number };
+  /**
+   * The skin this tile draws, whatever its plan's (`setSkins`): a theme of the manifest and the variant its `hash` picks. The
+   * Town Hall's cells take theirs here (`townHallSkin`). Unset: the plan's skin.
+   */
+  skin?: SkinRef;
   /** Drawn this thick, its model squashed to it, world units (the tile stack's pile, a slab per tile). Unset: its own height. */
   thickness?: number;
 }

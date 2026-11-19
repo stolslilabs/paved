@@ -33,10 +33,10 @@ function edit(store: Store, change: (player: { cobbles: number; tutorial?: unkno
   store.data.set(MOCK_KEY, JSON.stringify(state));
 }
 
-/** Story's first level: two crossroads that close the starter's road, 321 points; an attack rigged on it takes 3 stars. */
+/** Two crossroads that close two of the Town Hall's roads (west, north); an attack rigged on them, its target under their points, takes 3 stars. */
 const FIRST_STONE: QueuedMove[] = [
-  { discard: false, orientation: 1, cell: { x: 1, y: 0 } },
-  { discard: false, orientation: 1, cell: { x: -1, y: 0 } },
+  { discard: false, orientation: 1, cell: { x: -1, y: 1 } },
+  { discard: false, orientation: 1, cell: { x: 1, y: 2 } },
 ];
 
 /** One PvP v2 attack played out: won with 3 stars on a rigged deck, or surrendered. */
@@ -45,7 +45,7 @@ async function attack(ledger: MockLedger, store: Store, won: boolean) {
   await writes.drawOpponentV2("search");
   await writes.startAttackV2();
   if (!won) return writes.surrenderAttackV2();
-  edit(store, (p) => Object.assign(p.v2.attacks.at(-1)!, { deck: [17, 17], target: 321 }));
+  edit(store, (p) => Object.assign(p.v2.attacks.at(-1)!, { deck: [17, 17], target: 100 }));
   for (const move of FIRST_STONE) await writes.playAttackV2(move);
 }
 

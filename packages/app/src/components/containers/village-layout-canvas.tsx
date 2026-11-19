@@ -105,8 +105,13 @@ export function useLayoutCanvas(view: LayoutBoardView, { onScene, onReady, onErr
     scene.setLitAreas(lit);
   }, [scene, lit]);
   const onCellClick = (chain: Cell) => {
-    if (!editing) return;
     const key = cellKey(fromChain(chain));
+    if (!editing) {
+      // In view, a tap on the Town Hall opens its dialog (the Camera mode's taps are the camera's).
+      const hall = layout.find((t) => cellKey(t) === key);
+      if (hall && isStarter(hall) && !view.camera) view.onTownHall?.();
+      return;
+    }
     if (pending && cellKey(pending) === key) return onPending?.();
     const plate = plates.find((p) => cellKey(p) === key);
     if (plate) return onPlate?.(plate);

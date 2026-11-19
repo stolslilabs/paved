@@ -30,7 +30,7 @@ describe("the app's compressed, content-hashed models (scripts/compress-models.t
       expect(existsSync(join(APP, "public/renderer-assets", models[key]!))).toBe(true);
     }
     expect(baseFiles()).toHaveLength(KEYS.length);
-    expect(readdirSync(MODELS).filter((n) => !n.endsWith(".glb"))).toEqual(["forest"]);
+    expect(readdirSync(MODELS).filter((n) => !n.endsWith(".glb"))).toEqual(["forest", "townhall"]);
   });
 
   it("lists all 19 plans of Forest (theme 1), each a high-forest variant present, in variant order, and nothing else", () => {
@@ -186,7 +186,7 @@ describe("rendererManifest", () => {
     copyFileSync(join(MODELS, one), join(dir, one));
     writeFileSync(join(dir, "ccccccccc.glb"), "plain");
     writeFileSync(join(dir, "notes.txt"), "x");
-    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, tiles: {}, themes: {}, renders: {} });
+    expect(rendererManifest(dir)).toEqual({ models: { [one.slice(0, 9)]: `models/${one}` }, tiles: {}, themes: {}, townHall: {}, renders: {} });
   });
 
   it("fails when a name's hash is not its file's, or a plan has two files", () => {

@@ -17,6 +17,8 @@ export interface BoardTile {
   y: number;
   /** Drawn by the client, not yet confirmed by a receipt. */
   pending?: boolean;
+  /** A cell of a village's Town Hall (TOWN-HALL, ids 1 to 4), at this level: the client draws its part of the hall's model. */
+  townHall?: number;
 }
 
 /** A structure a move closed, from one `Scored` event of its receipt. */

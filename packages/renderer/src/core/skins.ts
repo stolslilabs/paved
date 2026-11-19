@@ -12,6 +12,9 @@ export const CENTER_CELL = 2_147_483_647;
 /** The theme of each plan key (`ccccccccc` to its theme id on chain); a plan not named, or at 0, draws its base model. */
 export type TileSkins = Readonly<Record<string, number>>;
 
+/** The theme id a Town Hall cell's skin carries (TOWN-HALL, `town-hall.ts`): no theme of the chain's, the manifest's `townHall`. */
+export const TOWN_HALL_THEME = 255;
+
 /** No skin: every tile draws its base model. */
 export const NO_SKINS: TileSkins = Object.freeze({});
 

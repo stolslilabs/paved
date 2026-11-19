@@ -117,7 +117,7 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
   });
 
   it("saves the die's village into another layout through Save, and then leaving does not ask: it is kept", async () => {
-    const tiles = randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), 28, 1, STILL).tiles;
+    const tiles = randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), 27, 1, STILL).tiles;
     const randomizer = { run: async () => ({ tiles }), cancel: () => {}, dispose: () => {} };
     const onSaveTo = vi.fn();
     const onSave = vi.fn();
@@ -134,7 +134,8 @@ describe("the saved layouts' carousel (#804, EDIT-VILLAGE)", () => {
     expect(onSaveTo).toHaveBeenCalledTimes(1);
     expect(onSaveTo.mock.calls[0]![0]).toBe(1);
     const saved = onSaveTo.mock.calls[0]![1];
-    expect(saved).toHaveLength(28);
+    // 27 slots: the Town Hall's four cells and 26 tiles.
+    expect(saved).toHaveLength(30);
     // Kept nowhere yet: Back asks
     fireEvent.click(screen.getByRole("button", { name: "Leave edit mode" }));
     expect(screen.getByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();

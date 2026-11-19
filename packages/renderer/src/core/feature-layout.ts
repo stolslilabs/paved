@@ -54,5 +54,6 @@ export type PaletteName = "base" | "forest";
 export function paletteOfModel(id: string): PaletteName | null {
   const parts = id.split("/");
   if (parts.length === 1) return "base";
-  return parts[parts.length - 2] === "forest" ? "forest" : null;
+  // The Town Hall's cells are painted with the base palette (its few own colours on entries the base one leaves unused).
+  return parts[parts.length - 2] === "forest" ? "forest" : parts[parts.length - 2] === "townhall" ? "base" : null;
 }

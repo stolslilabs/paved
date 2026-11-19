@@ -97,13 +97,13 @@ describe("/: the scene by the graphics quality", () => {
   it("draws the 3D scene with WebGL at the default quality", async () => {
     await open();
     expect(await screen.findByTestId("home-canvas", {}, WAIT)).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /^Village layout/ })).toBeNull();
+    expect(screen.queryByRole("group", { name: /^Village layout/ })).toBeNull();
   }, slow(30_000));
 
   it("falls back to the plan view under the low quality, with no canvas", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ quality: "low" }));
     await open();
-    expect(await screen.findByRole("img", { name: /^Village layout/ }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: /^Village layout/ }, WAIT)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByTestId("home-canvas")).toBeNull());
   }, slow(30_000));
 });

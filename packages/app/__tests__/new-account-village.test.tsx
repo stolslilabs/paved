@@ -112,7 +112,7 @@ describe("a new account from Connect to the editor, on the mock (#927, #753)", (
     render(<App router={router} sources={{ ...s.sources, signer: null }} connector={async () => mockConnector(wallet.connector, s.ledger)} />);
     expect(router.state.location.pathname).toBe("/");
     // The account made at once, no prompt: its village founded with the starter layout.
-    expect(await screen.findByRole("img", { name: "Village layout of 9 tiles" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "Village layout of 9 tiles" }, WAIT)).toBeInTheDocument();
     await waitFor(async () => expect((await s.ledger.freeVillage(me)).founded).toBe(true), WAIT);
     expect(wallet.calls).toEqual(expect.arrayContaining(["probe", "connect"]));
     expect((await s.ledger.freeVillage(me)).tiles).toEqual(starterLayout(BigInt(me)));

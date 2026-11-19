@@ -1,5 +1,6 @@
 import { EAST, NORTH, SOUTH, WEST, edgeCategory, opposite } from "../engine/geometry";
-import { STARTER_TILE, type Inventory, type LayoutTile } from "./free-village";
+import { TOWN_HALL_TILES } from "../engine/town-hall";
+import type { Inventory, LayoutTile } from "./free-village";
 import { BASE_PLAN_CODES } from "./rarity";
 
 // A random compact village (#803, owner decisions of 2026-10-26): the die of the editor. Not an optimiser: it grows a layout
@@ -23,9 +24,10 @@ const SIDES = [
 export const RANDOM_LAYOUT_TRIES = 48;
 /**
  * The steps the tries may take at most: a step is a plan checked on a free cell. The work is counted, not timed, so the budget
- * stops the tries at the same point on every machine. The hardest stock measured (one of each plan, 28 slots) takes at most
- * about 91,000 steps for its 48 tries, 20 to 35 ms in Node on a loaded machine; the budget stops a larger village near the same
- * work, within the issue's 150 ms on a phone about 4x slower.
+ * stops the tries at the same point on every machine. The hardest stock measured (one of each plan, 28 slots) took at most
+ * about 91,000 steps for its 48 tries round the starter, 20 to 35 ms in Node on a loaded machine; round the Town Hall (TOWN-HALL:
+ * four cells to grow from, 27 slots) the same stock would take about 112,000, so the budget stops it at its 43rd try. The budget
+ * stops a larger village near the same work, within the issue's 150 ms on a phone about 4x slower.
  */
 export const RANDOM_LAYOUT_STEPS = 100_000;
 /** The time the tries may take, ms (#803's default: 150 ms of tries in the worker). */
@@ -97,7 +99,7 @@ const better = (a: number[], b: number[]): boolean => {
 /** One try: the starter alone, then a tile at a time until `target` tiles or none fits anywhere. */
 function grow(stock: readonly number[], target: number, side: number, next: () => number): Grown {
   const left = [...stock];
-  const board = new Map<number, { plan: number; orientation: number }>([[key(0, 0), { plan: STARTER_TILE.plan, orientation: STARTER_TILE.orientation }]]);
+  const board = new Map<number, { plan: number; orientation: number }>(TOWN_HALL_TILES.map((t) => [key(t.x, t.y), { plan: t.plan, orientation: t.orientation }]));
   const frontier = new Map<number, { x: number; y: number }>();
   const open = (x: number, y: number) => {
     for (const [dx, dy] of SIDES) {
@@ -105,8 +107,8 @@ function grow(stock: readonly number[], target: number, side: number, next: () =
       if (!board.has(k)) frontier.set(k, { x: x + dx, y: y + dy });
     }
   };
-  open(0, 0);
-  let [minX, maxX, minY, maxY] = [0, 0, 0, 0];
+  for (const t of TOWN_HALL_TILES) open(t.x, t.y);
+  let [minX, maxX, minY, maxY] = [0, 1, 0, 1];
   const tiles: LayoutTile[] = [];
   let steps = 0;
   while (tiles.length < target) {

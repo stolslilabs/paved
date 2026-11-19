@@ -56,7 +56,7 @@ describe("PublicProfileSheet (#952)", () => {
     // FRIENDS-PAGE: the Profile's page: the League's crowns and league, the village score; the level said under its bar.
     expect(within(dialog).getByText("Iron III")).toBeInTheDocument();
     const figures = within(dialog).getAllByRole("definition").map((d) => d.textContent);
-    expect(figures.slice(0, 3)).toEqual(["420", "Iron III", "838"]);
+    expect(figures.slice(0, 3)).toEqual(["420", "Iron III", "1,257"]);
     expect(dialog).toHaveTextContent("Level 7");
     // The owner's asks of 2026-11-05: Back at every width (to the page under it), the Hall of Fame and the Stats as on the Profile.
     expect(within(dialog).getByRole("button", { name: "Back" })).toBeInTheDocument();

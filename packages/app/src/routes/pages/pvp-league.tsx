@@ -91,7 +91,7 @@ function useMatches(me: string | null): Pick<PvpLeagueSceneProps, "matches" | "o
           rival: playerOf(m.rival.address, m.rival.name, m.rival.level, m.rival.look),
           // The rival's league where the sources know it (#917): its crest on the card.
           ...(m.rival.league !== undefined && { league: LEAGUES[m.rival.league] }),
-          village: layoutBoard(m.village),
+          village: layoutBoard(m.village, m.townHall),
           stars: m.stars,
           crowns: m.crowns,
           score: m.score,

@@ -1,3 +1,4 @@
+import { TOWN_HALL_TILES } from "../engine/town-hall";
 import { estimate } from "../engine/beam";
 import { EngineGame } from "../engine/game";
 import { OrientationType } from "../types/orientation";
@@ -42,7 +43,7 @@ const boardKey = (tiles: readonly LayoutTile[]): string =>
 
 /** The best layout the beam finds for `plans` (codes, the starter left out). */
 export function growLayout(plans: readonly number[], options: GrowOptions): GrownLayout {
-  const game = EngineGame.start({ deck: "village", seed: 0n, tileLimit: plans.length + 1 });
+  const game = EngineGame.start({ deck: "village", seed: 0n, tileLimit: plans.length + TOWN_HALL_TILES.length, townHall: true });
   let beam: Node[] = [{ game, tiles: [], left: [...plans], value: estimate(game) }];
   for (let depth = 0; depth < plans.length; depth++) {
     const children: (Node & { parent: Node })[] = [];

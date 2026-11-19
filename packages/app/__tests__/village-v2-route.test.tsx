@@ -82,7 +82,7 @@ describe("/: the player's village is the home (#753), on the mock", () => {
   it("a long press on a tile of the village opens edit mode, in the URL, by Edit's path (#799)", async () => {
     const s = await open("/", async (s, me) => void (await s.ledger.writesFor(me).foundFreeVillage()));
     await editButton();
-    const plan = await screen.findByRole("img", { name: /^Village layout/ }, WAIT);
+    const plan = await screen.findByRole("group", { name: /^Village layout/ }, WAIT);
     const starter = plan.querySelector<HTMLElement>("[data-kind=starter]")!;
     fireEvent.pointerDown(starter, { button: 0, pointerId: 1 });
     // The bubble's Edit, its ring filling (the view's way in is the score's capsule since HOME-EDGES); at the hold's end, edit mode.
@@ -102,8 +102,8 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     const draft = new VillageDraft({ slots: village.slots, inventory: await s.ledger.inventory(s.me) }, village.tiles);
     const outer = draft.tiles.find((t) => draft.liftRefusal(t.x, t.y) === null)!;
     const index = village.tiles.findIndex((t) => t.x === outer.x && t.y === outer.y);
-    // The scene's ids: the starter 1, then the saved tiles in order from 2.
-    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${index + 2}"]`)!);
+    // The scene's ids: the Town Hall's cells 1 to 4, then the saved tiles in order from 5.
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${index + 5}"]`)!);
     // The tile's actions: their own chunk, as the inventory's.
     await userEvent.click(within(await screen.findByRole("toolbar", { name: "Tile" }, WAIT)).getByRole("button", { name: "Back to the inventory" }));
     expect(await screen.findByLabelText("8 of 9 slots used")).toBeInTheDocument();

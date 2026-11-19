@@ -60,6 +60,9 @@ export function attackStarPoints(target: number): [number, number, number] {
 /** A move of the attacker, the plan being the tile in hand's: built at a cell turned to an orientation code, or discarded. */
 export type QueuedMove = { readonly discard: true } | { readonly discard: false; readonly orientation: number; readonly cell: { readonly x: number; readonly y: number } };
 
+/** The board of a PvP v2 attack: open, round the defender's Town Hall. */
+export const ATTACK_BOARD = { territory: null, townHall: true } as const;
+
 /**
  * An attack in play on the engine: the starter alone on an unbounded board, the deck drawn in its order, the tile in hand and
  * the next two shown. The engine is kept between moves (a move is applied, never replayed from the start).
@@ -68,7 +71,7 @@ export class QueuedAttack {
   readonly run: AttackRun;
 
   constructor(readonly deck: readonly number[]) {
-    this.run = new AttackRun({ territory: null });
+    this.run = new AttackRun(ATTACK_BOARD);
   }
 
   /** An attack with `moves` already played (a resume, or a replay up to a move). */

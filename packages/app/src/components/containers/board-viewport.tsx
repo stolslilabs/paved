@@ -1,7 +1,8 @@
 import { Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { BoardTile } from "@paved/chain";
 import { GameCanvas } from "@paved/renderer/react";
-import { boardReveal } from "@paved/renderer";
+import { boardReveal, townHallSkin } from "@paved/renderer";
+import { TOWN_HALL_TILES } from "@paved/game-core";
 import type { CameraMode, ClosedStructure, FogCell, GameScene, HoverState, RendererSettingsInput, TilePressListener, TileRenderData, TileSkins } from "@paved/renderer";
 import { boardPlates, confirmHoldMs } from "../../data/placement";
 import { cn } from "../../lib/utils";
@@ -29,6 +30,9 @@ export function toGridSlot(x: number, y: number): { x: number; y: number } {
   return { x: x - CENTER, y: CENTER - y };
 }
 
+/** The Town Hall cell a tile is: the one of its plan and orientation. */
+const hallCell = (t: BoardTile) => TOWN_HALL_TILES.find((c) => c.plan === t.plan && c.orientation === t.orientation);
+
 /** The session's tiles as the renderer draws them (world x east, world z south), as the removed legacy client's `toRenderBoard` drew them. */
 export function toRenderTiles(tiles: BoardTile[], gameId: number): TileRenderData[] {
   return tiles.map((t) => {
@@ -44,6 +48,8 @@ export function toRenderTiles(tiles: BoardTile[], gameId: number): TileRenderDat
       worldX: grid.x,
       worldZ: grid.y,
       ...(t.pending ? { pending: true } : {}),
+      // A Town Hall cell (told by its plan and orientation, each cell's own) draws its part of the hall at its level.
+      ...(t.townHall && hallCell(t) ? { skin: townHallSkin(hallCell(t)!, t.townHall) } : {}),
     };
   });
 }

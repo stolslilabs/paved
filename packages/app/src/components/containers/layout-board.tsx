@@ -11,7 +11,7 @@ import { ScrollRegion } from "../ui/scroll-region";
 import { FogVeil, cellName } from "./village-board";
 import type { BoardBubble, BoardPress } from "./board-viewport";
 import { LazyPressBubble, loadPressBubble } from "./lazy-tile-bubble";
-import { SIDES, cellKey, isStarter, type Cell, type Spot } from "./layout-rules";
+import { SIDES, cellKey, isStarter, usedSlots, type Cell, type Spot } from "./layout-rules";
 
 /** The tile under the editor's bubble (#756), placed on its cell: drawn ringed, apart from the layout. */
 export interface LayoutPending extends Cell {
@@ -51,6 +51,8 @@ export interface LayoutBoardProps {
   press?: BoardPress | null;
   /** A placed tile chosen (never the starter): lift it into the hand. */
   onTile?: (tile: BoardTile) => void;
+  /** In view, the Town Hall tapped (TOWN-HALL): its dialog, on one's own village. */
+  onTownHall?: () => void;
   /** A plate chosen: the tile in hand goes there. */
   onPlate?: (spot: Spot) => void;
   /** The tile under the bubble tapped: let go, it stays where it is. */
@@ -65,7 +67,7 @@ export interface LayoutBoardProps {
  * bubble the 3D scene stands by the tile (#756; the plan view's stands still in the editor's panel).
  */
 export type LayoutBoardView = Required<Pick<LayoutBoardProps, "tiles" | "editing" | "plates" | "pending" | "shaking">> &
-  Pick<LayoutBoardProps, "onTile" | "onPlate" | "onPending" | "lit" | "press"> & {
+  Pick<LayoutBoardProps, "onTile" | "onTownHall" | "onPlate" | "onPending" | "lit" | "press"> & {
     bubble?: BoardBubble | null;
     /** The home's Camera mode (#875): the 3D village's camera free (the plan view has none). */
     camera?: boolean;
@@ -96,7 +98,7 @@ const PRESS_SLOP_PX = 5;
  * (plates, `data-cell`), a tap places it on one (ringed, under the bubble, #756), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onPlate, onPending, className, padLeft = 0 }: LayoutBoardProps) {
+function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onTownHall, onPlate, onPending, className, padLeft = 0 }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is: before its first paint, then after each paint
   // that changed its size, where the layout is read already (read in the commit, it forced one: a long task for a whole new
@@ -183,6 +185,22 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
             >
               {chip}
             </button>
+          ) : starter && !editing && onTownHall ? (
+            // In view, the Town Hall's cells open its dialog (TOWN-HALL): the upgrade is reached without the 3D scene too.
+            <button
+              key={key}
+              type="button"
+              data-cell={key}
+              data-kind="starter"
+              data-lit={litCells?.has(key) || undefined}
+              aria-label="Town Hall: open it"
+              onClick={onTownHall}
+              style={at(c)}
+              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none", litClass(key))}
+            >
+              {chip}
+              {lock}
+            </button>
           ) : (
             <span
               key={key}
@@ -244,8 +262,9 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
     <ScrollRegion orientation="both" className={cn("grid size-full bg-board p-4", className)} style={padLeft ? { placeItems: "safe center", paddingLeft: padLeft + PAD_PX } : PLACE}>
       <div
         ref={grid}
-        role={editing || presses.shown ? "group" : "img"}
-        aria-label={`Village layout of ${tiles.length} ${tiles.length === 1 ? "tile" : "tiles"}`}
+        // A picture, unless it holds controls: the editor's, a press's button, or the Town Hall's cells (its dialog).
+        role={editing || presses.shown || onTownHall ? "group" : "img"}
+        aria-label={`Village layout of ${usedSlots(tiles)} ${usedSlots(tiles) === 1 ? "tile" : "tiles"}`}
         className={cn("relative grid shrink-0 gap-0.5", press && !editing && "select-none [-webkit-touch-callout:none]")}
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,

@@ -19,15 +19,18 @@ const SLOT_REFUSALS: Partial<Record<V2Refusal, string>> = {
 
 const slotRefusal = (error: Error) => (error instanceof V2RefusedError && SLOT_REFUSALS[error.reason]) || refusalText(error);
 
-/** The strip's props for the player's village, or undefined where the slots are not served (no strip). */
-export function useStageLayoutSlots(playerId: string | null): LayoutSlotsProps | undefined {
+/**
+ * The strip's props for the player's village, or undefined where the slots are not served (no strip). `townHall`: the village's
+ * Town Hall level, drawn at the centre of every saved layout (a layout holds no Town Hall of its own).
+ */
+export function useStageLayoutSlots(playerId: string | null, townHall = 1): LayoutSlotsProps | undefined {
   const read = useLayoutSlots(playerId);
   const writes = useLayoutSlotWrites(playerId);
   const cobbles = useCobbleAccount(writes.signer ? playerId : null).data?.cobbles ?? null;
   const data = read.data;
   const slots = useMemo(
-    () => data?.slots.map((s) => ({ slot: s.slot, open: s.open, price: s.price, tiles: s.tiles && boardTilesOf(s.tiles), score: s.score, fits: s.fits })),
-    [data],
+    () => data?.slots.map((s) => ({ slot: s.slot, open: s.open, price: s.price, tiles: s.tiles && boardTilesOf(s.tiles, townHall), score: s.score, fits: s.fits })),
+    [data, townHall],
   );
   const pending = writes.pending;
   const { error, reset, saveTo, activate, buy } = writes;

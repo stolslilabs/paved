@@ -3,132 +3,132 @@ import type { LayoutTile } from "./free-village";
 
 /** The starter layouts (the starter left out), in candidate order; each scores more than 0. */
 export const STARTER_LAYOUTS: readonly (readonly LayoutTile[])[] = [
-  // candidate 0, score 1296
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 11, orientation: 3, x: 1, y: 1 }, { plan: 5, orientation: 1, x: 1, y: 2 }, { plan: 14, orientation: 1, x: 1, y: 3 }, { plan: 10, orientation: 1, x: 0, y: -1 }, { plan: 13, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 1, x: 0, y: 3 }, { plan: 18, orientation: 1, x: 2, y: 2 }],
-  // candidate 1, score 1086
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 2, x: -1, y: 1 }, { plan: 14, orientation: 2, x: 1, y: 1 }, { plan: 11, orientation: 3, x: 0, y: 3 }, { plan: 8, orientation: 1, x: 0, y: 4 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 3 }],
+  // candidate 0, score 1286
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 2, x: -1, y: -1 }, { plan: 11, orientation: 1, x: -2, y: -1 }, { plan: 14, orientation: 3, x: -2, y: -2 }, { plan: 10, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: -1, y: -2 }],
+  // candidate 1, score 2854
+  [{ plan: 15, orientation: 1, x: -1, y: 1 }, { plan: 3, orientation: 4, x: -2, y: 1 }, { plan: 16, orientation: 3, x: -1, y: 2 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 14, orientation: 4, x: -1, y: -1 }, { plan: 10, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 8, orientation: 1, x: 2, y: 0 }],
+  // candidate 2, score 321
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 4, orientation: 1, x: -1, y: -1 }, { plan: 2, orientation: 1, x: -2, y: 1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: 0, y: 3 }, { plan: 10, orientation: 2, x: 2, y: 1 }],
   // candidate 3, score 643
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 2, orientation: 3, x: 0, y: -1 }, { plan: 2, orientation: 2, x: 2, y: 1 }, { plan: 2, orientation: 1, x: 1, y: -1 }, { plan: 10, orientation: 1, x: 1, y: -2 }, { plan: 10, orientation: 1, x: 1, y: -3 }, { plan: 10, orientation: 1, x: -1, y: 0 }],
-  // candidate 4, score 1296
-  [{ plan: 11, orientation: 2, x: 0, y: 1 }, { plan: 4, orientation: 3, x: -1, y: 1 }, { plan: 14, orientation: 4, x: -2, y: 1 }, { plan: 9, orientation: 3, x: -1, y: 2 }, { plan: 8, orientation: 1, x: -1, y: 3 }, { plan: 2, orientation: 3, x: -2, y: 0 }, { plan: 10, orientation: 1, x: 0, y: -1 }, { plan: 18, orientation: 1, x: -1, y: 4 }],
-  // candidate 5, score 877
-  [{ plan: 3, orientation: 4, x: 0, y: 1 }, { plan: 3, orientation: 2, x: 1, y: 0 }, { plan: 4, orientation: 1, x: 0, y: -1 }, { plan: 12, orientation: 1, x: 0, y: 2 }, { plan: 8, orientation: 4, x: -1, y: 1 }, { plan: 7, orientation: 1, x: 0, y: -2 }, { plan: 2, orientation: 2, x: 1, y: 2 }, { plan: 10, orientation: 2, x: 0, y: 3 }],
-  // candidate 6, score 1765
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 12, orientation: 2, x: 1, y: 1 }, { plan: 7, orientation: 2, x: 0, y: 2 }, { plan: 8, orientation: 4, x: -1, y: 2 }, { plan: 7, orientation: 3, x: 0, y: 3 }, { plan: 8, orientation: 1, x: 0, y: 4 }, { plan: 8, orientation: 4, x: -1, y: 3 }, { plan: 13, orientation: 4, x: 1, y: 0 }],
-  // candidate 7, score 1122
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 4, orientation: 2, x: 0, y: 2 }, { plan: 8, orientation: 1, x: 0, y: 3 }, { plan: 7, orientation: 2, x: -1, y: 2 }, { plan: 2, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 1 }, { plan: 10, orientation: 1, x: -1, y: 0 }],
-  // candidate 8, score 852
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 2, x: 1, y: 1 }, { plan: 15, orientation: 4, x: 1, y: 2 }, { plan: 2, orientation: 3, x: 2, y: 2 }, { plan: 10, orientation: 1, x: 2, y: 3 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 2, y: 4 }, { plan: 18, orientation: 1, x: -1, y: -1 }],
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: -1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 2, orientation: 4, x: -2, y: -1 }, { plan: 2, orientation: 2, x: 0, y: 3 }, { plan: 10, orientation: 2, x: -1, y: 3 }, { plan: 10, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: -1, y: 1 }],
+  // candidate 4, score 1286
+  [{ plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 9, orientation: 3, x: 0, y: -2 }, { plan: 11, orientation: 1, x: -1, y: 0 }, { plan: 14, orientation: 3, x: -1, y: -1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 8, orientation: 1, x: 0, y: 3 }, { plan: 10, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 0, y: -3 }],
+  // candidate 5, score 1198
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 3, orientation: 4, x: 0, y: -1 }, { plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 12, orientation: 3, x: 0, y: -2 }, { plan: 8, orientation: 4, x: -1, y: -1 }, { plan: 7, orientation: 3, x: 0, y: 3 }, { plan: 2, orientation: 1, x: -2, y: 1 }, { plan: 10, orientation: 2, x: 2, y: 0 }],
+  // candidate 6, score 1734
+  [{ plan: 3, orientation: 4, x: 0, y: -1 }, { plan: 12, orientation: 3, x: 0, y: -2 }, { plan: 8, orientation: 4, x: -1, y: -1 }, { plan: 8, orientation: 4, x: -1, y: 0 }, { plan: 7, orientation: 2, x: -2, y: -1 }, { plan: 7, orientation: 3, x: -2, y: 0 }, { plan: 8, orientation: 3, x: -2, y: -2 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
+  // candidate 7, score 964
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 9, orientation: 3, x: 0, y: -2 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 7, orientation: 2, x: -1, y: -1 }, { plan: 8, orientation: 4, x: -2, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 2, y: 1 }],
+  // candidate 8, score 1271
+  [{ plan: 15, orientation: 3, x: 0, y: -1 }, { plan: 15, orientation: 3, x: -1, y: -1 }, { plan: 11, orientation: 1, x: -1, y: 0 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: 2, y: -1 }, { plan: 18, orientation: 1, x: 2, y: -2 }, { plan: 18, orientation: 1, x: 3, y: -2 }],
   // candidate 9, score 643
-  [{ plan: 11, orientation: 2, x: 0, y: 1 }, { plan: 12, orientation: 4, x: -1, y: 1 }, { plan: 2, orientation: 1, x: -1, y: 2 }, { plan: 14, orientation: 1, x: -1, y: 3 }, { plan: 7, orientation: 1, x: -2, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 1, x: -1, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 0 }],
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 12, orientation: 4, x: -1, y: -1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 14, orientation: 1, x: 0, y: 3 }, { plan: 7, orientation: 4, x: -1, y: 0 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 1, x: -1, y: 3 }, { plan: 10, orientation: 2, x: 2, y: 1 }],
   // candidate 10, score 838
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 14, orientation: 1, x: 0, y: 2 }, { plan: 10, orientation: 1, x: 0, y: -1 }, { plan: 13, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 1, x: -1, y: -2 }, { plan: 10, orientation: 1, x: -1, y: -3 }, { plan: 10, orientation: 1, x: 1, y: -1 }, { plan: 18, orientation: 1, x: 1, y: 1 }],
+  [{ plan: 14, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 2, x: -1, y: 0 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 4, x: 2, y: -1 }, { plan: 10, orientation: 2, x: 3, y: -1 }, { plan: 10, orientation: 2, x: 4, y: -1 }, { plan: 10, orientation: 2, x: 1, y: 2 }, { plan: 18, orientation: 1, x: 0, y: 2 }],
   // candidate 11, score 1481
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 5, orientation: 2, x: 1, y: 1 }, { plan: 5, orientation: 2, x: 2, y: 1 }, { plan: 14, orientation: 2, x: 3, y: 1 }, { plan: 7, orientation: 3, x: 1, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 3, y: 2 }, { plan: 18, orientation: 1, x: 2, y: 2 }],
-  // candidate 12, score 419
-  [{ plan: 16, orientation: 3, x: 0, y: -1 }, { plan: 14, orientation: 1, x: 0, y: 1 }, { plan: 12, orientation: 4, x: 0, y: 2 }, { plan: 7, orientation: 3, x: 1, y: 2 }, { plan: 7, orientation: 1, x: 1, y: 3 }, { plan: 10, orientation: 2, x: 2, y: 2 }, { plan: 13, orientation: 1, x: -1, y: 1 }, { plan: 10, orientation: 1, x: 1, y: -1 }],
-  // candidate 13, score 1600
-  [{ plan: 4, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 4, orientation: 1, x: 0, y: -1 }, { plan: 14, orientation: 4, x: -1, y: -1 }, { plan: 12, orientation: 2, x: 1, y: -1 }, { plan: 7, orientation: 1, x: 1, y: 1 }, { plan: 13, orientation: 3, x: -1, y: -2 }, { plan: 2, orientation: 4, x: -1, y: 1 }],
-  // candidate 16, score 643
-  [{ plan: 7, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 2, x: 1, y: 1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 12, orientation: 1, x: 0, y: 3 }, { plan: 8, orientation: 4, x: -1, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 2, x: 1, y: 3 }, { plan: 18, orientation: 1, x: -2, y: 2 }],
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 2, x: -1, y: -1 }, { plan: 5, orientation: 2, x: -2, y: -1 }, { plan: 14, orientation: 4, x: -3, y: -1 }, { plan: 7, orientation: 4, x: -1, y: 0 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 0, y: 2 }, { plan: 18, orientation: 1, x: -1, y: -2 }],
+  // candidate 12, score 1047
+  [{ plan: 14, orientation: 3, x: 0, y: -1 }, { plan: 12, orientation: 4, x: -1, y: 0 }, { plan: 16, orientation: 2, x: 1, y: 2 }, { plan: 7, orientation: 3, x: 0, y: 2 }, { plan: 7, orientation: 1, x: 0, y: 3 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: 2, y: -1 }, { plan: 10, orientation: 1, x: -1, y: 1 }],
+  // candidate 13, score 1607
+  [{ plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 15, orientation: 3, x: 0, y: -2 }, { plan: 4, orientation: 1, x: -1, y: 0 }, { plan: 14, orientation: 4, x: -2, y: 0 }, { plan: 7, orientation: 2, x: -1, y: -1 }, { plan: 12, orientation: 3, x: 2, y: 0 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 1, x: 1, y: -2 }],
+  // candidate 14, score 321
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 3, orientation: 4, x: 0, y: -1 }, { plan: 3, orientation: 2, x: -1, y: 2 }, { plan: 8, orientation: 3, x: 0, y: -2 }, { plan: 7, orientation: 1, x: -1, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 2, x: 1, y: -2 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
+  // candidate 16, score 838
+  [{ plan: 12, orientation: 3, x: 0, y: -1 }, { plan: 15, orientation: 4, x: -1, y: 0 }, { plan: 7, orientation: 1, x: 2, y: 0 }, { plan: 8, orientation: 3, x: 2, y: 1 }, { plan: 2, orientation: 2, x: 3, y: 1 }, { plan: 13, orientation: 2, x: 0, y: 2 }, { plan: 18, orientation: 1, x: -1, y: 2 }, { plan: 10, orientation: 2, x: -1, y: -1 }],
   // candidate 17, score 740
-  [{ plan: 3, orientation: 2, x: 1, y: 0 }, { plan: 16, orientation: 2, x: -1, y: 0 }, { plan: 2, orientation: 3, x: 0, y: -1 }, { plan: 8, orientation: 1, x: 0, y: 1 }, { plan: 2, orientation: 4, x: -2, y: 0 }, { plan: 13, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 2, x: 1, y: 2 }, { plan: 10, orientation: 2, x: 0, y: 3 }],
-  // candidate 18, score 1729
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 2, x: -1, y: 1 }, { plan: 14, orientation: 2, x: 1, y: 1 }, { plan: 9, orientation: 1, x: 0, y: -1 }, { plan: 11, orientation: 3, x: 0, y: -2 }, { plan: 14, orientation: 4, x: -1, y: -2 }, { plan: 10, orientation: 2, x: 0, y: 3 }],
-  // candidate 19, score 419
-  [{ plan: 16, orientation: 3, x: 0, y: -1 }, { plan: 12, orientation: 1, x: 0, y: 1 }, { plan: 2, orientation: 2, x: 1, y: 1 }, { plan: 9, orientation: 1, x: 1, y: 2 }, { plan: 12, orientation: 2, x: 2, y: 1 }, { plan: 13, orientation: 1, x: 1, y: 3 }, { plan: 10, orientation: 1, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 2, y: 3 }],
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 16, orientation: 2, x: 2, y: 0 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 8, orientation: 3, x: 0, y: -1 }, { plan: 2, orientation: 1, x: -2, y: 1 }, { plan: 10, orientation: 1, x: -2, y: 0 }, { plan: 13, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 3, x: 2, y: 1 }],
+  // candidate 18, score 3273
+  [{ plan: 15, orientation: 1, x: -1, y: 1 }, { plan: 3, orientation: 4, x: -2, y: 1 }, { plan: 16, orientation: 3, x: -1, y: 2 }, { plan: 14, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 3, x: 0, y: 2 }, { plan: 14, orientation: 3, x: 1, y: 2 }, { plan: 11, orientation: 4, x: -1, y: 0 }, { plan: 10, orientation: 2, x: 2, y: 0 }],
+  // candidate 19, score 1047
+  [{ plan: 12, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: 0 }, { plan: 16, orientation: 3, x: 1, y: 2 }, { plan: 12, orientation: 2, x: 0, y: 2 }, { plan: 2, orientation: 1, x: 1, y: 3 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: -2, y: 0 }, { plan: 18, orientation: 1, x: 2, y: -1 }],
   // candidate 20, score 1286
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 2, x: 1, y: 1 }, { plan: 7, orientation: 1, x: 0, y: -1 }, { plan: 8, orientation: 2, x: 1, y: -1 }, { plan: 8, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 2, x: 2, y: -1 }, { plan: 13, orientation: 1, x: -1, y: -1 }, { plan: 8, orientation: 1, x: 1, y: -2 }],
-  // candidate 21, score 1296
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 5, orientation: 1, x: 0, y: 2 }, { plan: 12, orientation: 2, x: 1, y: 1 }, { plan: 4, orientation: 2, x: -1, y: 2 }, { plan: 8, orientation: 1, x: 0, y: 3 }, { plan: 10, orientation: 2, x: -2, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 0, y: 4 }],
-  // candidate 22, score 1948
-  [{ plan: 16, orientation: 3, x: 0, y: -1 }, { plan: 16, orientation: 1, x: 0, y: -2 }, { plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 14, orientation: 2, x: 1, y: 1 }, { plan: 13, orientation: 4, x: 1, y: -1 }, { plan: 13, orientation: 1, x: 1, y: -2 }, { plan: 7, orientation: 1, x: 0, y: -3 }, { plan: 7, orientation: 3, x: 1, y: 2 }],
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 15, orientation: 4, x: -1, y: -1 }, { plan: 7, orientation: 3, x: 0, y: 2 }, { plan: 8, orientation: 1, x: 0, y: 3 }, { plan: 8, orientation: 4, x: -1, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 1, x: 0, y: 4 }, { plan: 8, orientation: 1, x: 1, y: 3 }],
+  // candidate 21, score 964
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 5, orientation: 2, x: 0, y: 2 }, { plan: 4, orientation: 1, x: 0, y: 3 }, { plan: 12, orientation: 2, x: 1, y: 3 }, { plan: 8, orientation: 4, x: -1, y: 3 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: 0, y: 4 }, { plan: 18, orientation: 1, x: -2, y: 3 }],
+  // candidate 22, score 837
+  [{ plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 4, x: 1, y: 2 }, { plan: 14, orientation: 4, x: -1, y: 0 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 7, orientation: 1, x: -1, y: -1 }, { plan: 7, orientation: 3, x: -1, y: -2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
   // candidate 23, score 838
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 4, orientation: 2, x: 1, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 1, x: -1, y: -1 }, { plan: 10, orientation: 2, x: 2, y: 1 }, { plan: 18, orientation: 1, x: -1, y: -2 }, { plan: 18, orientation: 1, x: 3, y: 1 }],
-  // candidate 24, score 1122
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 4, orientation: 1, x: 1, y: 1 }, { plan: 4, orientation: 1, x: 2, y: 1 }, { plan: 8, orientation: 2, x: 3, y: 1 }, { plan: 2, orientation: 3, x: 0, y: -1 }, { plan: 8, orientation: 2, x: 1, y: -1 }, { plan: 13, orientation: 1, x: 3, y: 2 }, { plan: 10, orientation: 1, x: -1, y: 0 }],
-  // candidate 25, score 1122
-  [{ plan: 3, orientation: 3, x: 0, y: 1 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 11, orientation: 4, x: -1, y: 1 }, { plan: 14, orientation: 1, x: -1, y: 2 }, { plan: 7, orientation: 2, x: -2, y: 2 }, { plan: 7, orientation: 1, x: -3, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
+  [{ plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 15, orientation: 3, x: 0, y: -2 }, { plan: 4, orientation: 2, x: -1, y: -1 }, { plan: 10, orientation: 2, x: -2, y: -1 }, { plan: 13, orientation: 1, x: -3, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 0, y: 2 }, { plan: 18, orientation: 1, x: -3, y: -2 }],
+  // candidate 24, score 1520
+  [{ plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 4, orientation: 2, x: 0, y: -2 }, { plan: 8, orientation: 3, x: 0, y: -3 }, { plan: 11, orientation: 1, x: -1, y: 0 }, { plan: 8, orientation: 3, x: -1, y: -1 }, { plan: 2, orientation: 4, x: -2, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
+  // candidate 25, score 964
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: -1 }, { plan: 14, orientation: 4, x: -2, y: 1 }, { plan: 7, orientation: 3, x: 0, y: 2 }, { plan: 10, orientation: 2, x: 1, y: 2 }, { plan: 7, orientation: 1, x: 0, y: 3 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
   // candidate 26, score 1286
-  [{ plan: 4, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 9, orientation: 4, x: 1, y: 1 }, { plan: 4, orientation: 1, x: 2, y: 1 }, { plan: 8, orientation: 2, x: 3, y: 1 }, { plan: 10, orientation: 2, x: -1, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 3, y: 2 }],
-  // candidate 27, score 1086
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 16, orientation: 2, x: -1, y: 1 }, { plan: 5, orientation: 1, x: 0, y: 2 }, { plan: 8, orientation: 2, x: 1, y: 1 }, { plan: 11, orientation: 1, x: 0, y: 3 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 1, x: -2, y: 1 }, { plan: 10, orientation: 1, x: 1, y: 0 }],
-  // candidate 28, score 1062
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 5, orientation: 2, x: 1, y: 1 }, { plan: 9, orientation: 2, x: 2, y: 1 }, { plan: 16, orientation: 2, x: 3, y: 1 }, { plan: 7, orientation: 3, x: 1, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 1, x: -1, y: -1 }, { plan: 10, orientation: 2, x: 3, y: 2 }],
+  [{ plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 15, orientation: 3, x: 0, y: -2 }, { plan: 4, orientation: 1, x: -1, y: 0 }, { plan: 9, orientation: 4, x: -2, y: 0 }, { plan: 8, orientation: 1, x: -1, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 2 }, { plan: 18, orientation: 1, x: 0, y: 2 }],
+  // candidate 27, score 1704
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 11, orientation: 3, x: 0, y: -2 }, { plan: 8, orientation: 4, x: -1, y: -2 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 0, y: 3 }],
+  // candidate 28, score 1159
+  [{ plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 9, orientation: 3, x: 0, y: -2 }, { plan: 11, orientation: 1, x: -1, y: 0 }, { plan: 7, orientation: 3, x: -1, y: -1 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: -1 }],
   // candidate 29, score 877
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 7, orientation: 3, x: 1, y: 1 }, { plan: 8, orientation: 1, x: 1, y: 2 }, { plan: 2, orientation: 2, x: 2, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 1, x: -1, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 3 }, { plan: 10, orientation: 2, x: 0, y: 2 }],
-  // candidate 30, score 838
-  [{ plan: 12, orientation: 1, x: 0, y: 1 }, { plan: 9, orientation: 1, x: 0, y: -1 }, { plan: 14, orientation: 3, x: 0, y: -2 }, { plan: 2, orientation: 2, x: 1, y: -2 }, { plan: 8, orientation: 2, x: 2, y: -2 }, { plan: 13, orientation: 1, x: 2, y: -1 }, { plan: 10, orientation: 2, x: 1, y: 1 }, { plan: 18, orientation: 1, x: 3, y: -2 }],
-  // candidate 31, score 1062
-  [{ plan: 11, orientation: 2, x: 0, y: 1 }, { plan: 5, orientation: 2, x: -1, y: 1 }, { plan: 14, orientation: 4, x: -2, y: 1 }, { plan: 9, orientation: 1, x: 0, y: -1 }, { plan: 10, orientation: 1, x: -2, y: 0 }, { plan: 10, orientation: 1, x: -1, y: 2 }, { plan: 13, orientation: 3, x: -2, y: -1 }, { plan: 18, orientation: 1, x: -1, y: 3 }],
-  // candidate 32, score 1754
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 5, orientation: 2, x: 1, y: 1 }, { plan: 11, orientation: 3, x: 2, y: 1 }, { plan: 11, orientation: 1, x: 2, y: 2 }, { plan: 9, orientation: 2, x: 3, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 2 }],
-  // candidate 33, score 1256
-  [{ plan: 15, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 4, x: 1, y: 1 }, { plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 14, orientation: 2, x: 2, y: 1 }, { plan: 4, orientation: 1, x: 2, y: 2 }, { plan: 11, orientation: 2, x: 3, y: 2 }, { plan: 7, orientation: 3, x: 2, y: 3 }, { plan: 18, orientation: 1, x: 0, y: -1 }],
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 7, orientation: 1, x: -1, y: -1 }, { plan: 8, orientation: 3, x: -1, y: -2 }, { plan: 2, orientation: 4, x: -2, y: -1 }, { plan: 10, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: -1, y: 2 }],
+  // candidate 30, score 1257
+  [{ plan: 12, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: 0 }, { plan: 14, orientation: 3, x: -2, y: 0 }, { plan: 8, orientation: 1, x: -2, y: 1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: -2, y: 2 }, { plan: 18, orientation: 1, x: -3, y: 1 }],
+  // candidate 31, score 1481
+  [{ plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: 0 }, { plan: 11, orientation: 3, x: 0, y: -2 }, { plan: 14, orientation: 4, x: -1, y: -2 }, { plan: 10, orientation: 2, x: -2, y: 0 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 2 }, { plan: 18, orientation: 1, x: 0, y: 2 }],
+  // candidate 32, score 1816
+  [{ plan: 15, orientation: 1, x: -1, y: 1 }, { plan: 3, orientation: 4, x: -2, y: 1 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 2, x: -1, y: -1 }, { plan: 11, orientation: 1, x: -2, y: -1 }, { plan: 9, orientation: 3, x: -2, y: -2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
+  // candidate 33, score 1480
+  [{ plan: 15, orientation: 4, x: -1, y: 0 }, { plan: 15, orientation: 4, x: -1, y: -1 }, { plan: 3, orientation: 3, x: -1, y: -2 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 14, orientation: 4, x: -1, y: 2 }, { plan: 7, orientation: 3, x: 0, y: 3 }, { plan: 18, orientation: 1, x: 2, y: 0 }],
   // candidate 34, score 643
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 2, x: 1, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 1, x: -1, y: -1 }, { plan: 13, orientation: 3, x: -1, y: -2 }, { plan: 13, orientation: 1, x: -2, y: -2 }, { plan: 8, orientation: 1, x: -2, y: -3 }, { plan: 18, orientation: 1, x: -3, y: -3 }],
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 15, orientation: 4, x: -1, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 4, x: 2, y: -1 }, { plan: 13, orientation: 2, x: 3, y: -1 }, { plan: 13, orientation: 3, x: 3, y: -2 }, { plan: 8, orientation: 2, x: 0, y: 2 }, { plan: 18, orientation: 1, x: 0, y: 3 }],
   // candidate 35, score 643
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 2, x: 1, y: 1 }, { plan: 12, orientation: 4, x: 0, y: -1 }, { plan: 7, orientation: 3, x: 1, y: -1 }, { plan: 2, orientation: 2, x: 2, y: -1 }, { plan: 7, orientation: 1, x: 1, y: -2 }, { plan: 13, orientation: 2, x: -1, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
-  // candidate 36, score 1062
-  [{ plan: 11, orientation: 2, x: 0, y: 1 }, { plan: 5, orientation: 2, x: -1, y: 1 }, { plan: 14, orientation: 4, x: -2, y: 1 }, { plan: 4, orientation: 1, x: -2, y: 0 }, { plan: 2, orientation: 1, x: -1, y: 2 }, { plan: 8, orientation: 4, x: -3, y: 0 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 0 }],
-  // candidate 37, score 1690
-  [{ plan: 16, orientation: 3, x: 0, y: -1 }, { plan: 16, orientation: 1, x: 0, y: -2 }, { plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 12, orientation: 1, x: 0, y: 2 }, { plan: 7, orientation: 4, x: 1, y: 1 }, { plan: 8, orientation: 2, x: 2, y: 1 }, { plan: 8, orientation: 1, x: 1, y: 2 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
-  // candidate 38, score 877
-  [{ plan: 3, orientation: 3, x: 0, y: 1 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 12, orientation: 4, x: -1, y: 1 }, { plan: 2, orientation: 1, x: -1, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 2, x: -1, y: -1 }, { plan: 18, orientation: 1, x: 2, y: 1 }, { plan: 18, orientation: 1, x: -2, y: -1 }],
-  // candidate 39, score 1047
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 4, x: 1, y: 2 }, { plan: 14, orientation: 3, x: -1, y: 1 }, { plan: 10, orientation: 1, x: 0, y: -1 }, { plan: 13, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 2, x: 2, y: 2 }, { plan: 10, orientation: 2, x: 1, y: 1 }],
-  // candidate 40, score 1086
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 16, orientation: 2, x: -1, y: 1 }, { plan: 9, orientation: 1, x: 0, y: 2 }, { plan: 14, orientation: 2, x: 1, y: 1 }, { plan: 11, orientation: 1, x: 2, y: 1 }, { plan: 8, orientation: 2, x: 3, y: 1 }, { plan: 18, orientation: 1, x: 0, y: -1 }, { plan: 18, orientation: 1, x: -2, y: 1 }],
-  // candidate 41, score 643
-  [{ plan: 7, orientation: 1, x: 0, y: 1 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 14, orientation: 1, x: 0, y: 3 }, { plan: 8, orientation: 4, x: -1, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 2, x: 2, y: 1 }, { plan: 10, orientation: 1, x: -1, y: 0 }],
-  // candidate 42, score 643
-  [{ plan: 11, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 4, x: -1, y: 1 }, { plan: 16, orientation: 3, x: 0, y: -1 }, { plan: 11, orientation: 3, x: -1, y: 2 }, { plan: 11, orientation: 1, x: -1, y: 3 }, { plan: 7, orientation: 1, x: -2, y: 2 }, { plan: 13, orientation: 3, x: -1, y: -1 }, { plan: 10, orientation: 2, x: -1, y: -2 }],
-  // candidate 43, score 838
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 2, orientation: 2, x: 1, y: 1 }, { plan: 14, orientation: 2, x: 2, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 2, x: -1, y: -1 }, { plan: 18, orientation: 1, x: 2, y: 2 }, { plan: 18, orientation: 1, x: -2, y: -1 }],
-  // candidate 44, score 209
-  [{ plan: 3, orientation: 4, x: 0, y: 1 }, { plan: 16, orientation: 3, x: 1, y: 1 }, { plan: 4, orientation: 1, x: 1, y: 2 }, { plan: 11, orientation: 4, x: -1, y: 1 }, { plan: 11, orientation: 1, x: -1, y: 2 }, { plan: 7, orientation: 3, x: 1, y: 3 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 1, x: -2, y: 1 }],
-  // candidate 45, score 1062
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 5, orientation: 2, x: 1, y: 1 }, { plan: 14, orientation: 2, x: 2, y: 1 }, { plan: 2, orientation: 1, x: 1, y: 2 }, { plan: 7, orientation: 1, x: 1, y: 3 }, { plan: 8, orientation: 2, x: 2, y: 3 }, { plan: 8, orientation: 2, x: 2, y: 2 }, { plan: 10, orientation: 1, x: 0, y: -1 }],
-  // candidate 46, score 1505
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 16, orientation: 2, x: -1, y: 1 }, { plan: 12, orientation: 1, x: 0, y: 2 }, { plan: 12, orientation: 2, x: 1, y: 1 }, { plan: 9, orientation: 1, x: 0, y: -1 }, { plan: 8, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 1, x: -2, y: 1 }, { plan: 13, orientation: 2, x: -1, y: 0 }],
-  // candidate 47, score 643
-  [{ plan: 4, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 8, orientation: 1, x: 1, y: 1 }, { plan: 2, orientation: 2, x: 2, y: 1 }, { plan: 7, orientation: 2, x: -1, y: 1 }, { plan: 8, orientation: 4, x: -2, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 3, x: 0, y: 3 }],
+  [{ plan: 11, orientation: 1, x: -1, y: 0 }, { plan: 15, orientation: 3, x: -1, y: -1 }, { plan: 12, orientation: 2, x: 0, y: 2 }, { plan: 7, orientation: 1, x: -1, y: 2 }, { plan: 2, orientation: 1, x: -1, y: 3 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 7, orientation: 2, x: -2, y: 2 }, { plan: 10, orientation: 2, x: 1, y: -1 }],
+  // candidate 36, score 2348
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 2, x: -1, y: -1 }, { plan: 4, orientation: 1, x: -1, y: 0 }, { plan: 14, orientation: 4, x: -2, y: 0 }, { plan: 8, orientation: 4, x: -2, y: -1 }, { plan: 2, orientation: 3, x: -1, y: -2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
+  // candidate 37, score 1675
+  [{ plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 4, x: 1, y: 2 }, { plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 12, orientation: 4, x: -1, y: 0 }, { plan: 8, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 8, orientation: 3, x: 2, y: 2 }, { plan: 7, orientation: 1, x: 2, y: 3 }],
+  // candidate 38, score 740
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 9, orientation: 3, x: 0, y: -1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 12, orientation: 4, x: -2, y: 1 }, { plan: 10, orientation: 1, x: 0, y: -2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: -2, y: 2 }, { plan: 18, orientation: 1, x: 0, y: -3 }],
+  // candidate 39, score 1578
+  [{ plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 15, orientation: 3, x: 0, y: -2 }, { plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 14, orientation: 4, x: -1, y: 0 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: 1, y: 3 }, { plan: 10, orientation: 2, x: 1, y: -1 }],
+  // candidate 40, score 1704
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 14, orientation: 3, x: 1, y: 2 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: -1 }, { plan: 8, orientation: 1, x: 1, y: 3 }, { plan: 18, orientation: 1, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 2, y: 1 }],
+  // candidate 41, score 838
+  [{ plan: 14, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: 0 }, { plan: 7, orientation: 4, x: 0, y: 2 }, { plan: 2, orientation: 4, x: -1, y: 2 }, { plan: 8, orientation: 1, x: 0, y: 3 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: -2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: -1 }],
+  // candidate 42, score 2214
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 15, orientation: 4, x: -1, y: -1 }, { plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 11, orientation: 2, x: -1, y: 1 }, { plan: 11, orientation: 3, x: -1, y: 2 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 7, orientation: 1, x: -2, y: 1 }, { plan: 10, orientation: 2, x: -1, y: -2 }],
+  // candidate 43, score 1257
+  [{ plan: 15, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 2, x: -1, y: 0 }, { plan: 14, orientation: 4, x: -2, y: 0 }, { plan: 2, orientation: 3, x: -2, y: -1 }, { plan: 10, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 18, orientation: 1, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 2, y: 1 }],
+  // candidate 44, score 321
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 1, x: 0, y: 3 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 11, orientation: 1, x: -1, y: -1 }, { plan: 7, orientation: 3, x: -1, y: -2 }, { plan: 10, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
+  // candidate 45, score 1705
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 2, x: -1, y: -1 }, { plan: 14, orientation: 4, x: -2, y: -1 }, { plan: 2, orientation: 1, x: -1, y: 0 }, { plan: 7, orientation: 2, x: -1, y: -2 }, { plan: 8, orientation: 3, x: -1, y: -3 }, { plan: 8, orientation: 4, x: -2, y: -2 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
+  // candidate 46, score 1368
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 16, orientation: 4, x: 1, y: 2 }, { plan: 12, orientation: 2, x: 0, y: 2 }, { plan: 12, orientation: 3, x: 0, y: -1 }, { plan: 9, orientation: 4, x: 2, y: 0 }, { plan: 8, orientation: 2, x: 3, y: 0 }, { plan: 13, orientation: 2, x: 2, y: 2 }, { plan: 13, orientation: 4, x: 0, y: 3 }],
+  // candidate 47, score 1062
+  [{ plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 15, orientation: 3, x: 0, y: -2 }, { plan: 8, orientation: 4, x: -1, y: 0 }, { plan: 2, orientation: 4, x: -2, y: 0 }, { plan: 7, orientation: 2, x: -1, y: -1 }, { plan: 8, orientation: 1, x: -2, y: 1 }, { plan: 13, orientation: 2, x: 0, y: 2 }, { plan: 13, orientation: 4, x: 1, y: 2 }],
+  // candidate 48, score 1122
+  [{ plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 1, x: 0, y: 3 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 7, orientation: 4, x: -1, y: -1 }, { plan: 7, orientation: 1, x: -1, y: 0 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 3, x: 2, y: -1 }, { plan: 10, orientation: 1, x: -1, y: 1 }],
   // candidate 49, score 1481
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 9, orientation: 1, x: 0, y: 2 }, { plan: 4, orientation: 2, x: 1, y: 1 }, { plan: 7, orientation: 1, x: 2, y: 1 }, { plan: 8, orientation: 2, x: 3, y: 1 }, { plan: 8, orientation: 3, x: 2, y: 0 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 0, y: 3 }],
-  // candidate 50, score 964
-  [{ plan: 4, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 4, x: -1, y: 1 }, { plan: 9, orientation: 4, x: 1, y: 1 }, { plan: 7, orientation: 2, x: 2, y: 1 }, { plan: 2, orientation: 1, x: 2, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 13, orientation: 3, x: -1, y: 2 }],
-  // candidate 51, score 877
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 5, orientation: 1, x: 0, y: 2 }, { plan: 4, orientation: 2, x: 0, y: 3 }, { plan: 2, orientation: 4, x: -1, y: 2 }, { plan: 10, orientation: 2, x: 1, y: 3 }, { plan: 18, orientation: 1, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 2, y: 1 }],
-  // candidate 52, score 1296
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 11, orientation: 1, x: 0, y: 2 }, { plan: 11, orientation: 3, x: 1, y: 2 }, { plan: 9, orientation: 1, x: 1, y: 3 }, { plan: 8, orientation: 1, x: 0, y: -1 }, { plan: 13, orientation: 2, x: 1, y: -1 }, { plan: 18, orientation: 1, x: 1, y: 4 }, { plan: 18, orientation: 1, x: -1, y: 1 }],
-  // candidate 53, score 838
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 4, orientation: 2, x: 1, y: 1 }, { plan: 5, orientation: 1, x: -1, y: 1 }, { plan: 9, orientation: 1, x: -1, y: 2 }, { plan: 11, orientation: 1, x: 1, y: 2 }, { plan: 7, orientation: 2, x: -2, y: 1 }, { plan: 2, orientation: 1, x: -1, y: 3 }, { plan: 18, orientation: 1, x: 0, y: -1 }],
-  // candidate 54, score 1705
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 5, orientation: 2, x: 1, y: 1 }, { plan: 5, orientation: 2, x: 2, y: 1 }, { plan: 11, orientation: 2, x: 3, y: 1 }, { plan: 12, orientation: 3, x: 3, y: 0 }, { plan: 12, orientation: 4, x: 0, y: -1 }, { plan: 7, orientation: 2, x: 1, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 0 }],
-  // candidate 55, score 1062
-  [{ plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 14, orientation: 2, x: 1, y: 1 }, { plan: 16, orientation: 3, x: 0, y: 2 }, { plan: 12, orientation: 4, x: 0, y: -1 }, { plan: 14, orientation: 2, x: 1, y: -1 }, { plan: 13, orientation: 1, x: 0, y: -2 }, { plan: 8, orientation: 2, x: 0, y: 3 }, { plan: 10, orientation: 1, x: -1, y: 1 }],
+  [{ plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 5, orientation: 1, x: 0, y: -2 }, { plan: 9, orientation: 4, x: -1, y: 0 }, { plan: 8, orientation: 3, x: 0, y: -3 }, { plan: 7, orientation: 1, x: 1, y: -2 }, { plan: 8, orientation: 2, x: 2, y: -2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 0, y: 2 }],
+  // candidate 50, score 1821
+  [{ plan: 15, orientation: 3, x: 0, y: -1 }, { plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 4, orientation: 1, x: -1, y: 0 }, { plan: 9, orientation: 4, x: -2, y: 0 }, { plan: 7, orientation: 2, x: -3, y: 0 }, { plan: 13, orientation: 4, x: 1, y: 2 }, { plan: 2, orientation: 1, x: -3, y: 1 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
+  // candidate 51, score 1159
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 9, orientation: 3, x: 0, y: -2 }, { plan: 2, orientation: 4, x: -1, y: -1 }, { plan: 10, orientation: 1, x: 0, y: 3 }, { plan: 18, orientation: 1, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 2, y: 1 }],
+  // candidate 52, score 1715
+  [{ plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 9, orientation: 4, x: -1, y: 0 }, { plan: 11, orientation: 3, x: 0, y: -2 }, { plan: 11, orientation: 1, x: -1, y: -2 }, { plan: 8, orientation: 3, x: -1, y: -3 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 0, y: 2 }, { plan: 18, orientation: 1, x: -2, y: 0 }],
+  // candidate 53, score 1257
+  [{ plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 5, orientation: 1, x: 0, y: -2 }, { plan: 9, orientation: 4, x: -1, y: 0 }, { plan: 4, orientation: 2, x: 1, y: -2 }, { plan: 11, orientation: 3, x: 0, y: -3 }, { plan: 7, orientation: 2, x: -1, y: -2 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 18, orientation: 1, x: 2, y: 0 }],
+  // candidate 54, score 1900
+  [{ plan: 11, orientation: 1, x: -1, y: 0 }, { plan: 5, orientation: 1, x: -1, y: -1 }, { plan: 5, orientation: 1, x: -1, y: -2 }, { plan: 12, orientation: 3, x: -1, y: -3 }, { plan: 12, orientation: 3, x: 0, y: -1 }, { plan: 7, orientation: 2, x: -2, y: -2 }, { plan: 11, orientation: 1, x: -3, y: -2 }, { plan: 10, orientation: 2, x: 1, y: 2 }],
+  // candidate 55, score 1802
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 12, orientation: 4, x: -1, y: -1 }, { plan: 16, orientation: 1, x: 0, y: 2 }, { plan: 14, orientation: 3, x: 1, y: 2 }, { plan: 14, orientation: 1, x: 1, y: 3 }, { plan: 8, orientation: 4, x: -1, y: 0 }, { plan: 10, orientation: 2, x: 2, y: 0 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
+  // candidate 56, score 964
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 4, orientation: 2, x: 0, y: -1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 8, orientation: 3, x: 0, y: -2 }, { plan: 7, orientation: 2, x: -1, y: -1 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: -2 }, { plan: 10, orientation: 2, x: 2, y: 1 }],
   // candidate 57, score 1296
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 9, orientation: 1, x: 0, y: 2 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 9, orientation: 1, x: 0, y: -1 }, { plan: 12, orientation: 3, x: 0, y: -2 }, { plan: 13, orientation: 1, x: 0, y: 3 }, { plan: 10, orientation: 2, x: 2, y: 1 }, { plan: 10, orientation: 1, x: -1, y: 0 }],
-  // candidate 58, score 1062
-  [{ plan: 16, orientation: 3, x: 0, y: -1 }, { plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 2, orientation: 2, x: 1, y: 1 }, { plan: 7, orientation: 3, x: -1, y: 1 }, { plan: 8, orientation: 1, x: -1, y: 2 }, { plan: 8, orientation: 4, x: -2, y: 1 }, { plan: 13, orientation: 1, x: -1, y: 3 }, { plan: 13, orientation: 1, x: 1, y: -1 }],
+  [{ plan: 3, orientation: 4, x: 0, y: -1 }, { plan: 9, orientation: 3, x: 0, y: -2 }, { plan: 9, orientation: 4, x: -1, y: -1 }, { plan: 9, orientation: 1, x: 0, y: -3 }, { plan: 12, orientation: 3, x: 0, y: -4 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 2 }, { plan: 10, orientation: 1, x: -1, y: 1 }],
+  // candidate 58, score 1383
+  [{ plan: 16, orientation: 4, x: 1, y: -1 }, { plan: 5, orientation: 2, x: -1, y: 0 }, { plan: 2, orientation: 3, x: -1, y: -1 }, { plan: 7, orientation: 4, x: -2, y: 0 }, { plan: 8, orientation: 1, x: -2, y: 1 }, { plan: 8, orientation: 3, x: -1, y: -2 }, { plan: 13, orientation: 2, x: 0, y: 2 }, { plan: 13, orientation: 4, x: 1, y: 2 }],
   // candidate 59, score 838
-  [{ plan: 5, orientation: 1, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 2, orientation: 2, x: 1, y: 1 }, { plan: 7, orientation: 2, x: -1, y: 1 }, { plan: 12, orientation: 4, x: -2, y: 1 }, { plan: 2, orientation: 1, x: -2, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 2, x: 0, y: 3 }],
-  // candidate 60, score 1379
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 12, orientation: 2, x: 1, y: 1 }, { plan: 4, orientation: 2, x: 0, y: 2 }, { plan: 11, orientation: 1, x: 0, y: 3 }, { plan: 8, orientation: 2, x: 1, y: 3 }, { plan: 7, orientation: 2, x: -1, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 0 }],
+  [{ plan: 5, orientation: 1, x: 0, y: -1 }, { plan: 15, orientation: 3, x: 0, y: -2 }, { plan: 2, orientation: 4, x: -1, y: -1 }, { plan: 12, orientation: 4, x: -2, y: -1 }, { plan: 7, orientation: 1, x: -1, y: 0 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: -1, y: 1 }],
+  // candidate 60, score 964
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 8, orientation: 4, x: -1, y: -1 }, { plan: 12, orientation: 2, x: 0, y: 3 }, { plan: 7, orientation: 1, x: -1, y: 3 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 2, y: 1 }],
   // candidate 61, score 643
-  [{ plan: 11, orientation: 2, x: 0, y: 1 }, { plan: 12, orientation: 4, x: -1, y: 1 }, { plan: 2, orientation: 1, x: -1, y: 2 }, { plan: 14, orientation: 1, x: -1, y: 3 }, { plan: 2, orientation: 4, x: -2, y: 3 }, { plan: 7, orientation: 1, x: -2, y: 4 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 1, x: 1, y: 0 }],
-  // candidate 62, score 1086
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 1, x: 0, y: 2 }, { plan: 16, orientation: 2, x: -1, y: 1 }, { plan: 14, orientation: 2, x: 1, y: 1 }, { plan: 7, orientation: 2, x: -2, y: 1 }, { plan: 2, orientation: 1, x: -2, y: 2 }, { plan: 10, orientation: 1, x: 0, y: -1 }, { plan: 10, orientation: 2, x: 0, y: 3 }],
-  // candidate 63, score 1122
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 9, orientation: 2, x: 1, y: 1 }, { plan: 4, orientation: 4, x: 0, y: 2 }, { plan: 8, orientation: 1, x: 0, y: 3 }, { plan: 10, orientation: 2, x: -1, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 10, orientation: 2, x: 2, y: 1 }, { plan: 18, orientation: 1, x: 0, y: 4 }],
-  // candidate 64, score 877
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 14, orientation: 2, x: 1, y: 1 }, { plan: 5, orientation: 1, x: 0, y: 2 }, { plan: 4, orientation: 2, x: -1, y: 2 }, { plan: 7, orientation: 2, x: -2, y: 2 }, { plan: 10, orientation: 1, x: -2, y: 3 }, { plan: 18, orientation: 1, x: 0, y: -1 }, { plan: 18, orientation: 1, x: -2, y: 4 }],
-  // candidate 65, score 1705
-  [{ plan: 7, orientation: 2, x: 0, y: 1 }, { plan: 5, orientation: 2, x: -1, y: 1 }, { plan: 12, orientation: 4, x: -2, y: 1 }, { plan: 7, orientation: 3, x: -1, y: 2 }, { plan: 8, orientation: 1, x: -1, y: 3 }, { plan: 8, orientation: 4, x: -2, y: 2 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 0, y: 2 }],
-  // candidate 66, score 1062
-  [{ plan: 4, orientation: 2, x: 0, y: 1 }, { plan: 9, orientation: 1, x: 0, y: 2 }, { plan: 9, orientation: 4, x: 1, y: 1 }, { plan: 8, orientation: 2, x: 2, y: 1 }, { plan: 2, orientation: 1, x: 2, y: 2 }, { plan: 10, orientation: 2, x: -1, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -1 }, { plan: 18, orientation: 1, x: 0, y: 3 }],
-  // candidate 67, score 209
-  [{ plan: 16, orientation: 3, x: 0, y: -1 }, { plan: 16, orientation: 1, x: 0, y: -2 }, { plan: 11, orientation: 1, x: 0, y: 1 }, { plan: 7, orientation: 2, x: 1, y: 1 }, { plan: 2, orientation: 1, x: 1, y: 2 }, { plan: 10, orientation: 2, x: 2, y: 1 }, { plan: 13, orientation: 3, x: 0, y: -3 }, { plan: 10, orientation: 1, x: -1, y: -1 }],
-  // candidate 68, score 877
-  [{ plan: 3, orientation: 2, x: 0, y: 1 }, { plan: 15, orientation: 2, x: 1, y: 1 }, { plan: 8, orientation: 1, x: 0, y: 2 }, { plan: 7, orientation: 1, x: 0, y: -1 }, { plan: 10, orientation: 1, x: 0, y: 3 }, { plan: 10, orientation: 2, x: -1, y: 2 }, { plan: 18, orientation: 1, x: -1, y: -1 }, { plan: 18, orientation: 1, x: 0, y: 4 }],
+  [{ plan: 11, orientation: 3, x: 0, y: -1 }, { plan: 14, orientation: 4, x: -1, y: -1 }, { plan: 2, orientation: 1, x: 0, y: 2 }, { plan: 12, orientation: 1, x: 0, y: 3 }, { plan: 2, orientation: 3, x: -1, y: -2 }, { plan: 7, orientation: 4, x: -1, y: 2 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: -1, y: 1 }],
+  // candidate 62, score 1158
+  [{ plan: 15, orientation: 1, x: -1, y: 1 }, { plan: 3, orientation: 4, x: -2, y: 1 }, { plan: 16, orientation: 4, x: -1, y: 2 }, { plan: 14, orientation: 3, x: 0, y: -1 }, { plan: 7, orientation: 4, x: 0, y: 2 }, { plan: 2, orientation: 1, x: -2, y: 0 }, { plan: 10, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: -1, y: 3 }],
+  // candidate 63, score 740
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 4, orientation: 1, x: 0, y: 2 }, { plan: 9, orientation: 3, x: 0, y: -1 }, { plan: 8, orientation: 4, x: -2, y: 1 }, { plan: 10, orientation: 1, x: 0, y: 3 }, { plan: 13, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 1, x: 0, y: -2 }, { plan: 18, orientation: 1, x: -2, y: 2 }],
+  // candidate 64, score 740
+  [{ plan: 3, orientation: 4, x: -1, y: 1 }, { plan: 5, orientation: 2, x: 0, y: 2 }, { plan: 4, orientation: 1, x: 0, y: 3 }, { plan: 14, orientation: 3, x: 0, y: -1 }, { plan: 7, orientation: 3, x: 0, y: 4 }, { plan: 10, orientation: 2, x: 2, y: 0 }, { plan: 18, orientation: 1, x: 3, y: 0 }, { plan: 18, orientation: 1, x: 3, y: 1 }],
 ];

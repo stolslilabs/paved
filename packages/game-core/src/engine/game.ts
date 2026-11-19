@@ -7,6 +7,7 @@
 // Pure: no I/O, no clock, no random source. Everything follows from the seed, the deck and the
 // moves. Coordinates are relative to the starter tile (the contracts' `CENTER`).
 
+import { TOWN_HALL_TILES } from "./town-hall";
 import { CategoryType } from "../types/category";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
@@ -76,6 +77,11 @@ export interface EngineConfig {
    * against the tile limit.
    */
   readonly placed?: readonly ({ plan: PlanType } & Placement)[];
+  /**
+   * Deck `village` only: the game starts round a Town Hall (`TOWN_HALL_TILES`: four tiles, ids 1 to 4, at (0, 0) to (1, 1)) in
+   * place of the starter. The free village and its attacks (PvP v2) do; every other mode keeps the starter.
+   */
+  readonly townHall?: boolean;
   /**
    * The territory mask (#640): when given, a tile goes on these cells only (`Village: cell not owned`), as `Village.place`
    * and #643's attack replay rule it. Relative coordinates. A side facing a cell outside it is an empty position, so a
@@ -341,15 +347,21 @@ export class EngineGame {
    */
   static start(config: EngineConfig): EngineGame {
     const game = new EngineGame(config);
-    game._tileCount = 1;
-    game.board.place({
-      id: 1,
-      plan: planCode(PlanType.RFFFRFCFR),
-      orientation: orientationCode(OrientationType.South),
-      x: 0,
-      y: 0,
-      owner: game.player,
-    });
+    if (config.townHall) {
+      if (config.deck !== "village") throw new EngineError("Game: only a village stands round a Town Hall");
+      game._tileCount = TOWN_HALL_TILES.length;
+      TOWN_HALL_TILES.forEach((tile, index) => game.board.place({ id: index + 1, plan: tile.plan, orientation: tile.orientation, x: tile.x, y: tile.y, owner: game.player }));
+    } else {
+      game._tileCount = 1;
+      game.board.place({
+        id: 1,
+        plan: planCode(PlanType.RFFFRFCFR),
+        orientation: orientationCode(OrientationType.South),
+        x: 0,
+        y: 0,
+        owner: game.player,
+      });
+    }
     game._tiles = game.deck === "story" || game.deck === "village" ? 0n : bit(game.rules.starter);
     if (game.deck === "simple") {
       game._tiles = withdrawExtra(game._tiles, config.deckSeed ?? game._seed, game.rules.total, game.rules.count);

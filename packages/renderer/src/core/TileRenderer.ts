@@ -2,11 +2,12 @@ import * as THREE from "three";
 import { getPlanKey, Plan, PlanType, Orientation, OrientationType } from "@paved/game-core";
 import type { AssetLoader } from "./AssetLoader";
 import { buildEdgesGeometry } from "./edges";
+import { townHallSeams, withoutSeamEdges } from "./town-hall";
 import { applyOutlineStroke, createOutline, createOutlineMaterial, isOutline, type OutlineStroke } from "./outlines";
 import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 import { LOOK_PRESETS, type LookSettings } from "./look";
-import { CENTER_CELL, NO_SKINS, skinRef, type TileSkins } from "./skins";
+import { CENTER_CELL, NO_SKINS, skinRef, type SkinRef, type TileSkins } from "./skins";
 import { PlacementRenderer, tintKindOf, type GhostTint, type PlacementSettings, type PlacementSlot, type PlacementUpdate } from "./placement";
 import type { OutlineFadeSettings } from "./outlines";
 import { ABOVE_GROUND_VOXELS, FEATURE_CODE, GROUND_VOXELS } from "./feature-codes";
@@ -436,7 +437,7 @@ export class TileRenderer {
       const faded = !!tile.faded;
       // A model not in yet keeps the model drawn (a variant until its base model comes, SKIN-BASE); with none drawn, the
       // placeholder quad (null) until one comes, so a tile is never empty.
-      const model = this.strategyMode ? null : (this.modelOf(tile.plan, tile.x, tile.y, tile.game_id) ?? existing?.model ?? null);
+      const model = this.strategyMode ? null : (this.modelOf(tile.plan, tile.x, tile.y, tile.game_id, tile.skin) ?? existing?.model ?? null);
 
       // Skip if already drawn as given: same pending state, model, plan and orientation (the hand's tile, `TileView`, is
       // one tile turned in place: its model stays, its orientation changes)
@@ -521,10 +522,11 @@ export class TileRenderer {
    * drawn meanwhile when it is in (null when neither is: the tile draws its placeholder quad until one comes in). Null for
    * plan 0.
    */
-  private modelOf(plan: number, x: number, y: number, gameId: number): string | null {
+  private modelOf(plan: number, x: number, y: number, gameId: number, own?: SkinRef): string | null {
     const key = getPlanKey(Plan.from(plan).value);
     if (key === "00") return null;
-    const skin = skinRef(this.skins, plan, x, y, gameId);
+    // A tile's own skin (a Town Hall cell's) comes before its plan's.
+    const skin = own ?? skinRef(this.skins, plan, x, y, gameId);
     const id = skin ? this.assets.skinModel(key, skin) : key;
     if (id !== null && this.assets.has(id)) return id;
     // Not in yet: asked for at once (a base model needed again when the skins go off, a variant), and the tile keeps what it
@@ -701,7 +703,10 @@ export class TileRenderer {
       child.receiveShadow = true;
 
       // Outlines (toon-style), built once per type; their width follows the zoom (outlines.ts)
-      child.add(createOutline(buildEdgesGeometry(child.geometry), this.edgeMaterial));
+      // A Town Hall cell draws no line where the next cell carries its model on.
+      const seams = townHallSeams(key);
+      const edges = buildEdgesGeometry(child.geometry);
+      child.add(createOutline(seams ? withoutSeamEdges(edges, child.geometry, seams) : edges, this.edgeMaterial));
     }
     this.tileTypes.set(key, model);
     if (this.labelling) this.queueLabels(key, model);

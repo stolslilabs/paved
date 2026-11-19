@@ -1,3 +1,4 @@
+import { townHallLevelAt } from "@paved/game-core";
 import type { BoardTile } from "@paved/chain";
 import { CategoryType } from "@paved/game-core";
 import type { Chest } from "../components/containers/chest-modal";
@@ -6,7 +7,7 @@ import type { VillageLayoutSceneProps } from "../components/scenes/village-layou
 import type { HomeVillageSceneProps } from "../components/scenes/home-village-scene";
 import type { LayoutSlot, LayoutSlotsProps } from "../components/containers/layout-slots-strip";
 import { deckCount, rarityOf, type Rarity } from "../components/elements/rarity-badge";
-import { STARTER, canLift, countPlans, draftOf, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, slotsFor, stockOf, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
+import { canLift, countPlans, draftOf, fittingAt, frontier, isStarter, layoutPoints, layoutScore, legalSpots, slotsFor, stockOf, townHallTiles, type Inventory, type VillageLayout } from "../components/containers/layout-rules";
 import { DAY, HOUR, MOCK_NOW } from "./clock";
 import { randomLayout } from "@paved/game-core";
 import { FAILING_RANDOMIZER, PENDING_RANDOMIZER, STILL, mainThreadRandomizer, seedsOf } from "./random-layout";
@@ -23,9 +24,9 @@ import { PLAN } from "./village";
 
 const ME = PLAYER.name ?? "bal7hazar";
 
-/** A valid layout: the starter, then `plans` one by one on the first cell next to the layout where an orientation fits. */
-export function lay(plans: readonly number[]): BoardTile[] {
-  const tiles: BoardTile[] = [{ ...STARTER }];
+/** A valid layout: the Town Hall (at `townHall`), then `plans` one by one on the first cell next to the layout where an orientation fits. */
+export function lay(plans: readonly number[], townHall = 1): BoardTile[] {
+  const tiles: BoardTile[] = townHallTiles(townHall);
   for (const plan of plans) {
     for (const cell of frontier(tiles)) {
       const o = fittingAt(tiles, plan, cell)[0];
@@ -46,23 +47,25 @@ const P = PLAN;
 const MIXED = [P.road, P.forestCity, P.roadCross, P.cityEdge, P.road, P.roadBend, P.wonder, P.roadCross, P.cityForest, P.road, P.roadCity, P.cityEdge, P.stopRoads, P.road, P.forestCity, P.roadCross, P.city, P.roadBend, P.road, P.cityEdge, P.roadCross, P.road, P.forestCity, P.roadBend, P.cityEdge, P.road, P.roadCross];
 
 function layout(owner: string, level: number, plans: readonly number[]): VillageLayout {
-  const tiles = lay(plans);
-  return { owner, level, tiles, score: fakeScore(tiles) };
+  // The Town Hall the level opens (TOWN-HALL): its slots are the village's.
+  const townHall = townHallLevelAt(level);
+  const tiles = lay(plans, townHall);
+  return { owner, level, townHall, tiles, score: fakeScore(tiles) };
 }
 
-/** A new village (level 1, 9 slots): the starter and 8 tiles, a layout that closes a structure (#732's start). */
+/** A new village (level 1, Town Hall 1, 9 slots): the Town Hall and 8 tiles, a layout that closes a structure (#732's start). */
 export const LAYOUT_START = layout(ME, 1, [P.road, P.cityEdge, P.roadCross, P.forestCity, P.road, P.roadBend, P.cityForest, P.road]);
-/** Halfway (level 20, 28 slots): 21 tiles placed, "21 / 28". */
+/** Halfway (level 20, Town Hall 10, 27 slots): 21 tiles placed, "22 / 27". */
 export const LAYOUT_GROWING = layout(ME, 20, MIXED.slice(0, 21));
 /**
  * A village around a closed Wonder (#792): the wonder laid first, the next 23 tiles of the mix (its own wonder left out) around it
  * and on. Its points' lines include the Wonder's, which lights the wonder's tile alone.
  */
-export const LAYOUT_WONDER = layout(ME, 20, [P.wonder, ...MIXED.filter((plan) => plan !== P.wonder).slice(0, 23)]);
-/** Every slot used (level 12, 20 slots): Save needs a tile taken off before another goes on. */
+export const LAYOUT_WONDER = layout(ME, 20, [P.wonder, ...MIXED.filter((plan) => plan !== P.wonder).slice(0, 25)]);
+/** Every slot used (level 12, Town Hall 7, 21 slots): Save needs a tile taken off before another goes on. */
 export const LAYOUT_FULL = layout(ME, 12, MIXED.slice(0, 20));
 /** Someone else's village, for a visit. */
-export const LAYOUT_RIVAL = layout("Rook of Ashford", 16, [...MIXED].reverse().slice(0, 23));
+export const LAYOUT_RIVAL = layout("Rook of Ashford", 17, [...MIXED].reverse().slice(0, 23));
 
 /** The tiles off the layout, as chests and the shop gave them. */
 export const INVENTORY: Inventory = { [P.road]: 4, [P.roadCross]: 2, [P.wonder]: 1, [P.cityEdge]: 3, [P.city]: 1, [P.stopRoads]: 1, [P.roadBend]: 2, [P.forestCity]: 2 };
@@ -75,8 +78,8 @@ export const INVENTORY_LONG: Inventory = Object.fromEntries(
     .map((plan) => [plan, 1 + (plan % 4)]),
 );
 
-/** The die's villages (#803) on the home's stock (level 20, 28 slots), seeds 1, 2 and 3: three versions of one stock. */
-export const DIE_VILLAGES = [1, 2, 3].map((seed) => draftOf(randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), slotsFor(LAYOUT_GROWING.level), seed, STILL).tiles));
+/** The die's villages (#803) on the home's stock (Town Hall 10, 27 slots), seeds 1, 2 and 3: three versions of one stock. */
+export const DIE_VILLAGES = [1, 2, 3].map((seed) => draftOf(randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), slotsFor(LAYOUT_GROWING.townHall), seed, STILL).tiles));
 
 /** How many of each plan a player holds: the layout's and the inventory's. */
 export function ownedOf(village: VillageLayout, inventory: Inventory): Record<number, number> {
@@ -111,7 +114,7 @@ export const VILLAGE_LAYOUT = {
   lifted: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialHand: { lift: OUTER_TILE.id } },
   moved: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialHand: { lift: OUTER_TILE.id }, initialPending: MOVED_SPOT },
   changed: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID },
-  reset: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: [{ ...STARTER }] },
+  reset: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: townHallTiles(LAYOUT_GROWING.townHall) },
   full: { village: LAYOUT_FULL, inventory: INVENTORY, initialEditing: true },
   leaving: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, initialLeaving: true },
   saving: { village: LAYOUT_GROWING, inventory: INVENTORY, initialEditing: true, initialDraft: DRAFT_VALID, saving: true },
@@ -163,7 +166,10 @@ const home = { village: LAYOUT_GROWING, inventory: INVENTORY, missions: 3, missi
 /** The home village's points (#758): its line of the most points, lit in the stories. */
 export const HOME_POINTS = layoutPoints(LAYOUT_GROWING.tiles);
 /** A tile of the second line's structure that can be lifted: under the bubble, the structure stays lit whole. */
-const LIT_TILE = LAYOUT_GROWING.tiles.find((t) => HOME_POINTS.lines[1]!.areas.some((a) => a.x === t.x && a.y === t.y) && canLift(LAYOUT_GROWING.tiles, t.id))!;
+/** The line the stories light: the first after the top one with a tile that can be lifted (the Town Hall's cells cannot). */
+const liftableOf = (line: (typeof HOME_POINTS.lines)[number]) => LAYOUT_GROWING.tiles.find((t) => line.areas.some((a) => a.x === t.x && a.y === t.y) && canLift(LAYOUT_GROWING.tiles, t.id));
+export const LIT_LINE = HOME_POINTS.lines.slice(1).find(liftableOf) ?? HOME_POINTS.lines.find(liftableOf) ?? HOME_POINTS.lines[0]!;
+const LIT_TILE = liftableOf(LIT_LINE) ?? LAYOUT_GROWING.tiles.find((t) => canLift(LAYOUT_GROWING.tiles, t.id))!;
 
 /** The Wonder village's points (#792): its Wonder's line, lit in the stories. */
 export const WONDER_POINTS = layoutPoints(LAYOUT_WONDER.tiles);
@@ -235,7 +241,7 @@ export const HOME_VILLAGE = {
   /** A new player read by the chain: no crown and no attack yet, the League control's Unranked crest (#917). */
   unranked: { village: LAYOUT_START, inventory: INVENTORY_EMPTY, league: { crowns: 0, attacks: 0 }, now: MOCK_NOW },
   /** Not founded yet: the starter alone, Found in Edit's place. */
-  unfounded: { village: { ...LAYOUT_START, tiles: [{ ...STARTER }], score: 0 }, founded: false, league: null, now: MOCK_NOW },
+  unfounded: { village: { ...LAYOUT_START, tiles: townHallTiles(), score: 0 }, founded: false, league: null, now: MOCK_NOW },
   /** The village on its way: the overlays over the sky. */
   loading: { now: MOCK_NOW },
   /** The village's read failed: Retry. */
@@ -253,7 +259,7 @@ export const HOME_VILLAGE = {
   /** Edit mode's points unfolded above the inventory (#758), a line lit; they follow the draft live. */
   editingPoints: { ...home, editing: true, initialPointsOpen: true, initialLit: HOME_POINTS.lines[1]!.key },
   /** A tile of the lit structure lifted: under the bubble, it stays lit with the rest of its structure. */
-  editingPointsLifted: { ...home, editing: true, initialPointsOpen: true, initialLit: HOME_POINTS.lines[1]!.key, initialHand: { lift: LIT_TILE.id } },
+  editingPointsLifted: { ...home, editing: true, initialPointsOpen: true, initialLit: LIT_LINE.key, initialHand: { lift: LIT_TILE.id } },
   /** A road in hand: its legal cells lit. */
   holding: { ...home, editing: true, initialHand: { plan: P.road } },
   /** The road placed on a lit cell: the bubble by it (Rotate, Back to the inventory), the score with it. */
