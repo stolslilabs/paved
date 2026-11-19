@@ -1,3 +1,4 @@
+import { modeIconSources } from "../elements/play-art";
 import * as m from "motion/react-m";
 import type { CSSProperties } from "react";
 import type { MissionProgress } from "../../data/mission-progress";
@@ -61,13 +62,25 @@ export interface EdgeTilesProps {
   onVault?: () => void;
   onFriends?: () => void;
   onTiles?: () => void;
+  /** The Conquest's button, at the column's top (the season's finale): the requests the player can answer; null or omitted, no button. */
+  conquest?: number | null;
+  onConquest?: () => void;
   className?: string;
 }
 
 /** The right column (the book's): Missions, Vault, Friends and Tiles (the skins owned, `/tiles`; its icon the pile of tiles, `tile-stack`, the user's ask of 2026-11-07), one under the other, each with its count. */
-export function EdgeTiles({ missions = 0, friends = 0, onMissions, onVault, onFriends, onTiles, className }: EdgeTilesProps) {
+export function EdgeTiles({ missions = 0, friends = 0, onMissions, onVault, onFriends, onTiles, conquest = null, onConquest, className }: EdgeTilesProps) {
   return (
     <nav aria-label="Village" className={className}>
+      {conquest !== null && (
+        <m.button type="button" onClick={onConquest} whileTap={{ scale: 0.92 }} aria-label={named("Conquest", conquest)} title="The Conquest: your allegiance's world, its orders and its requests" data-slot="edge-tile" data-conquest className="relative grid size-16 shrink-0 cursor-pointer place-items-center outline-none">
+          <span aria-hidden className="flex flex-col items-center">
+            <img {...modeIconSources("conquest", 40)} alt="" draggable={false} decoding="async" className="size-10" />
+            <span className="text-outline -mt-1 text-xs leading-none font-black tracking-tight">Conquest</span>
+          </span>
+          <Badge count={conquest} style={{ top: 0, right: 4 }} />
+        </m.button>
+      )}
       <Tile art="missions" label="Missions" badge={missions} onClick={onMissions} />
       <Tile art="vault" label="Vault" onClick={onVault} />
       <Tile art="friends" label="Friends" badge={friends} onClick={onFriends} />

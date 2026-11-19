@@ -12,6 +12,8 @@ import type { JoustSource } from "../joust-source";
 import type { MasterpieceSource } from "../masterpiece-source";
 import type { ColossusSource } from "../colossus-source";
 import { mockColossus } from "./overlay";
+import type { ConquestSource } from "../conquest-source";
+import { mockConquest } from "./overlay";
 import type { PuzzleSource } from "../puzzle-source";
 import type { TournamentSource } from "../tournament-source";
 import { mockTournament } from "./overlay";
@@ -67,6 +69,8 @@ export interface MockAppSources {
   masterpiece: MasterpieceSource;
   /** The Colossus (the weekly collective event), the ledger's alone. */
   colossus: ColossusSource;
+  /** The Conquest (the season's finale), the ledger's alone. */
+  conquest: ConquestSource;
   /** The Tournament (the weekly individual event), the ledger's alone. */
   tournament: TournamentSource;
   purchases(signer: GameSigner): Purchases;
@@ -114,6 +118,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     expedition: mockExpedition(ledger),
     masterpiece: mockMasterpiece(ledger),
     colossus: mockColossus(ledger),
+    conquest: mockConquest(ledger),
     tournament: mockTournament(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),

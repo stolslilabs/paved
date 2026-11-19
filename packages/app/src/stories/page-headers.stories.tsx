@@ -32,6 +32,8 @@ import { MASTERPIECE } from "../mocks/masterpiece";
 import { JOUST } from "../mocks/joust";
 import { ColossusScene } from "../components/scenes/colossus-scene";
 import { COLOSSUS } from "../mocks/colossus";
+import { ConquestScene } from "../components/scenes/conquest-scene";
+import { CONQUEST } from "../mocks/conquest";
 import { TournamentScene } from "../components/scenes/tournament-scene";
 import { TOURNAMENT } from "../mocks/tournament";
 import { PUZZLE } from "../mocks/puzzle";
@@ -101,6 +103,7 @@ export const Joust: Story = { render: () => <PlayScene {...PLAY.connected} joust
 export const Expedition: Story = { render: () => <PlayScene {...PLAY.connected} expedition={<ExpeditionScene {...EXPEDITION.board} />} onBack={fn()} onExpeditionBack={fn()} /> };
 export const Masterpiece: Story = { render: () => <PlayScene {...PLAY.connected} masterpiece={<MasterpieceScene {...MASTERPIECE.board} />} onBack={fn()} onMasterpieceBack={fn()} /> };
 export const Colossus: Story = { render: () => <PlayScene {...PLAY.connected} colossus={<ColossusScene {...COLOSSUS.site} />} onBack={fn()} onColossusBack={fn()} /> };
+export const Conquest: Story = { render: () => <PlayScene {...PLAY.connected} conquest={<ConquestScene {...CONQUEST.hub} />} onBack={fn()} onConquestBack={fn()} /> };
 export const Tournament: Story = { render: () => <PlayScene {...PLAY.connected} tournament={<TournamentScene {...TOURNAMENT.duel} />} onBack={fn()} onTournamentBack={fn()} /> };
 // Settings' views (SETTINGS-PAGE): Themes and Credits in its drawer, its band's Back and red cross.
 export const Themes: Story = { render: () => <SettingsScene {...SETTINGS.connected} view="themes" themes={<ThemeScene {...THEME.mixed} />} /> };

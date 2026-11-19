@@ -111,6 +111,8 @@ const ALLOWED: (Allowed & { why: string })[] = [
   // The Colossus's board (COLOSSUS-FIXES, #1167): its cells keep the 44 px touch floor, so eight of them scroll sideways in a
   // ScrollRegion with the edge hint on a phone, by design.
   { story: /^(scenes-colossus|containers-colossusboard)--/, kind: "scroll", element: "div[colossus-cells]", why: "the board's cells scroller" },
+  // The Conquest's map: the same, eight cells of a zone at a time.
+  { story: /^(scenes-conquestmap|containers-conquestmap)--/, kind: "scroll", element: "div[conquest-cells]", why: "the map's cells scroller" },
   // The Challenge's purchase at 320 px (#855: its USDC plate in the header): the title gives way to an ellipsis, its whole text in
   // the `title`; it overflows by 1 px, within the tolerance of `wide`, so it is read as a clip without one.
   { story: "pages-headers--purchase", kind: "clip", element: "span[page-title]", why: "title ellipsis, 1 px overflow" },

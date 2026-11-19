@@ -349,6 +349,11 @@ export interface ChatConversationProps {
    * header and its tabs, with no cap. Off, a box of at most 44rem among other content.
    */
   fill?: boolean;
+  /**
+   * Cards the conversation shows among its messages, each at its time (the Conquest's build requests and tiles built, in the guild's
+   * conversation): not messages, so they have no author, no menu and no place in what is read from the source.
+   */
+  cards?: readonly { id: string; at: number; node: ReactNode }[];
 }
 
 /**
@@ -386,6 +391,7 @@ export function ChatConversation({
   initialReport,
   initialEncryptionOpen = false,
   fill = false,
+  cards = [],
 }: ChatConversationProps) {
   const viewport = useVisualViewportHeight();
   const scroller = useRef<HTMLDivElement>(null);
@@ -522,6 +528,15 @@ export function ChatConversation({
   const nearLimit = length >= CHAT_MESSAGE_MAX * COUNT_FROM;
   const placeholder = c?.kind === "world" ? "Message the World" : c?.kind === "guild" ? "Message the allegiance" : "Message";
 
+  // A card's row, in the messages' column (clear of the avatars).
+  const cardRows = (after: number, upTo: number) =>
+    cards
+      .filter((card) => card.at > after && card.at <= upTo)
+      .map((card) => (
+        <li key={card.id} data-slot="chat-card" className="py-1.5 pr-2 pl-12">
+          {card.node}
+        </li>
+      ));
   return (
     <>
       {c?.kind === "guild" && <GuildBanner name={name} guild={c.guild} pinned={head?.pinned ?? null} onOpen={onOpenTitle} />}
@@ -601,9 +616,11 @@ export function ChatConversation({
                 <p className="text-center text-sm text-muted-foreground">No messages yet: say hello.</p>
               </div>
             )}
-            {messages.length > 0 && (
+            {(messages.length > 0 || cards.length > 0) && (
               <ul className="flex flex-col">
                 {messages.map((msg, i) => [
+                  // The cards whose time falls before this message (and after the one before it).
+                  ...cardRows(i === 0 ? -Infinity : messages[i - 1]!.at, msg.at),
                   // A rule only where the day changes from the line before (none above the first line read).
                   i > 0 && dayOf(messages[i - 1]!.at, timeZone) !== dayOf(msg.at, timeZone) ? <DayDivider key={`day-${msg.id}`} at={msg.at} now={now} timeZone={timeZone} /> : null,
                   ...keyChangeRows(i),
@@ -620,6 +637,7 @@ export function ChatConversation({
                   />,
                 ])}
                 {keyChangeRows(messages.length)}
+                {cardRows(messages.length === 0 ? -Infinity : messages[messages.length - 1]!.at, Infinity)}
               </ul>
             )}
           </ScrollRegion>

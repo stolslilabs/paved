@@ -5,6 +5,7 @@ import type { ExpeditionSource } from "../expedition-source";
 import type { JoustSource } from "../joust-source";
 import type { MasterpieceSource } from "../masterpiece-source";
 import type { ColossusSource } from "../colossus-source";
+import type { ConquestSource } from "../conquest-source";
 import type { PuzzleSource } from "../puzzle-source";
 import type { TournamentSource } from "../tournament-source";
 import type { GameSigner, Purchases, Settlements, VaultWrites } from "../sources";
@@ -157,6 +158,25 @@ export function mockJoust(ledger: MockLedger): JoustSource {
     start: (player) => ledger.joustStart(player),
     play: (player, gameId, move) => ledger.joustPlay(player, gameId, move),
     claim: (player, week) => ledger.joustClaim(player, week),
+  };
+}
+
+/** The Conquest's source of the ledger (the season's finale, `conquest.ts`): no chain part lies beneath, it runs on the client alone. */
+export function mockConquest(ledger: MockLedger): ConquestSource {
+  return {
+    state: (viewer) => ledger.conquestState(viewer),
+    zone: (viewer, zone) => ledger.conquestZone(viewer, zone),
+    area: (viewer, zone) => ledger.conquestArea(viewer, zone),
+    options: (viewer, x, y) => ledger.conquestOptions(viewer, x, y),
+    ranking: (viewer) => ledger.conquestRanking(viewer),
+    members: (viewer) => ledger.conquestMembers(viewer),
+    register: (player) => ledger.conquestRegister(player),
+    offer: (player) => ledger.conquestOffer(player),
+    explore: (player, cell) => ledger.conquestExplore(player, cell),
+    request: (player, tile) => ledger.conquestRequest(player, tile),
+    give: (player, request) => ledger.conquestGive(player, request),
+    research: (player, branch) => ledger.conquestResearch(player, branch),
+    claim: (player, conquest, part) => ledger.conquestClaim(player, conquest, part),
   };
 }
 
