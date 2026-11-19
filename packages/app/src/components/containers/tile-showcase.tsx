@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { GameCanvas } from "@paved/renderer/react";
-import { skinsOf, type GameScene, type RendererSettingsInput, type TileRenderData } from "@paved/renderer";
+import { TOWN_HALL_TILES } from "@paved/game-core";
+import { skinsOf, type GameScene, type RendererSettingsInput, type TileRenderData, type TileSkins } from "@paved/renderer";
 import { cn } from "../../lib/utils";
 import { hasWebGL } from "../../lib/webgl";
 import { TileRender, tileName, type TileRenders } from "../elements/tile-render";
@@ -42,8 +43,15 @@ const SETTINGS: RendererSettingsInput = {
   look: { vignette: { enabled: false }, bloom: { enabled: false }, fog: { enabled: false } },
 };
 
-/** The camera's zoom that makes the tile `SHARE` of the view's width (`stackZoom`'s rule: px per world unit over the view's height). */
-const ZOOM = (2 * DISTANCE * Math.tan(((FOV / 2) * Math.PI) / 180) * SHARE * ASPECT) / TILE_SPAN;
+/** The camera's zoom that makes a span of `span` world units `SHARE` of the view's width (`stackZoom`'s rule: px per world unit over the view's height). */
+const zoomFor = (span: number, share = SHARE, aspect = ASPECT) => (2 * DISTANCE * Math.tan(((FOV / 2) * Math.PI) / 180) * share * aspect) / span;
+/** The Town Hall's share of its stage's width, and the stage's width over its height (the page fades the stage's edges out). */
+const HALL_SHARE = 0.86;
+const HALL_ASPECT = 5 / 4;
+/** A tile's side, world units (the renderer's `TILE_SIZE`). */
+const SIDE = 3;
+/** No plan in a skin of its own: the Town Hall's cells carry theirs (`TileRenderData.skin`). */
+const BASE_SKINS = skinsOf(Array.from({ length: PLANS }, () => 0));
 
 /** Three's `MOUSE.ROTATE` and `TOUCH.ROTATE` (0): the app does not depend on three itself. */
 const ROTATE = 0;
@@ -76,19 +84,69 @@ export const canShowcase = (basePath: string | undefined): boolean => basePath !
  * village's; it keeps the view from tile to tile. Without WebGL or a base path it is the tile's angled render.
  */
 export function TileShowcase({ plan, theme, basePath, renders, onError, placeholder, className }: TileShowcaseProps) {
+  const skins = useMemo(() => skinsOf(Array.from({ length: PLANS }, (_, i) => (i + 1 === plan ? theme : 0))), [plan, theme]);
+  const tiles = useMemo<TileRenderData[]>(() => toRenderTiles([{ id: 1, plan, orientation: 1, x: CENTER, y: CENTER }], 0), [plan]);
+  const still = (
+    <span className="block aspect-square w-2/3 overflow-hidden rounded-xl">
+      <TileRender plan={plan} theme={theme} renders={renders} alt="" />
+    </span>
+  );
+  return <Showcase name={tileName(plan)} tiles={tiles} skins={skins} span={TILE_SPAN} at={0} basePath={basePath} still={still} onError={onError} placeholder={placeholder} className={className} />;
+}
+
+export interface TownHallShowcaseProps {
+  /** The Town Hall's level drawn, 1 to the last. */
+  level: number;
+  basePath?: string;
+  /** What shows without the 3D view (no WebGL, no `basePath`, a scene that did not start): the Town Hall has no image yet. */
+  still?: ReactNode;
+  onError?: () => void;
+  placeholder?: ReactNode;
+  className?: string;
+}
+
+/**
+ * The Town Hall's page's tile (TOWN-HALL-PAGE): the 2 x 2 Town Hall at `level`, its four cells drawn as on a village
+ * (`TOWN_HALL_TILES`, each in its level's skin), presented as the Tiles page's tile is: turned with the finger, no zoom. The same
+ * canvas from level to level, the view kept.
+ */
+export function TownHallShowcase({ level, basePath, still, onError, placeholder, className }: TownHallShowcaseProps) {
+  const tiles = useMemo<TileRenderData[]>(
+    () => toRenderTiles(TOWN_HALL_TILES.map((t, i) => ({ id: i + 1, plan: t.plan, orientation: t.orientation, x: CENTER + t.x, y: CENTER + t.y, townHall: level })), 0),
+    [level],
+  );
+  // Two tiles a side: twice the span, the view's centre where the four cells meet; the hall fills most of its stage.
+  return <Showcase name={`Town Hall, level ${level}`} tiles={tiles} skins={BASE_SKINS} span={TILE_SPAN * 2} share={HALL_SHARE} aspect={HALL_ASPECT} at={SIDE / 2} basePath={basePath} still={still} onError={onError} placeholder={placeholder} className={className} />;
+}
+
+interface ShowcaseProps {
+  name: string;
+  tiles: TileRenderData[];
+  skins: TileSkins;
+  /** What is shown's widest span on screen, world units. */
+  span: number;
+  /** The share of the view's width that span takes, and the view's width over its height; omitted, the tile's. */
+  share?: number;
+  aspect?: number;
+  /** Where the camera looks, world units east and north of the centre cell's middle. */
+  at: number;
+  basePath?: string;
+  still?: ReactNode;
+  onError?: () => void;
+  placeholder?: ReactNode;
+  className?: string;
+}
+
+/** The showcase's canvas, or `still` without the 3D view. */
+function Showcase({ name, tiles, skins, span, share, aspect, at, basePath, still, onError, placeholder, className }: ShowcaseProps) {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const sceneRef = useRef<GameScene | null>(null);
-  const skins = useMemo(() => skinsOf(Array.from({ length: PLANS }, (_, i) => (i + 1 === plan ? theme : 0))), [plan, theme]);
-  const tiles = useMemo<TileRenderData[]>(() => toRenderTiles([{ id: 1, plan, orientation: 1, x: CENTER, y: CENTER }], 0), [plan]);
-  const name = tileName(plan);
 
   if (failed || !canShowcase(basePath)) {
     return (
       <span role="img" aria-label={name} className={cn("flex size-full items-center justify-center overflow-hidden", className)}>
-        <span className="block aspect-square w-2/3 overflow-hidden rounded-xl">
-          <TileRender plan={plan} theme={theme} renders={renders} alt="" />
-        </span>
+        {still}
       </span>
     );
   }
@@ -140,12 +198,12 @@ export function TileShowcase({ plan, theme, basePath, renders, onError, placehol
           controls.mouseButtons = { LEFT: ROTATE, MIDDLE: ROTATE, RIGHT: ROTATE };
           // Two fingers: nothing (OrbitControls' two-finger gestures are a pinch's and a pan's, both off).
           controls.touches = { ONE: ROTATE, TWO: ROTATE };
-          controls.target.set(0, LOOK_Y, 0);
+          controls.target.set(at, LOOK_Y, -at);
           // At `DISTANCE` from the tile, then turned to the renders' view by the renderer's own angles.
           const { camera } = scene;
           camera.up.set(0, 1, 0);
-          camera.position.set(0, LOOK_Y + DISTANCE, 0);
-          camera.zoom = ZOOM;
+          camera.position.set(at, LOOK_Y + DISTANCE, -at);
+          camera.zoom = zoomFor(span, share, aspect);
           camera.updateProjectionMatrix();
           scene.setCameraAngles((TILT * Math.PI) / 180, (TURN * Math.PI) / 180);
           setReady(true);

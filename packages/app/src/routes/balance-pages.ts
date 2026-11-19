@@ -24,5 +24,6 @@ export const BALANCE_PAGES: ReadonlySet<string> = new Set([
   "missions",
   "tiles",
   "vault",
+  "town-hall",
   "settings/theme",
 ]);

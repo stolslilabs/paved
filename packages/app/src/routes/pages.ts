@@ -115,6 +115,9 @@ export const PAGES: readonly PageDef[] = [
   // The Vault (VAULT-PAGE): the HUD's drawer at every width, docked at the right from `tablet`, beside the home's right column's Vault; its
   // Deposit and Withdraw are the footer's tabs (`?tab=`).
   { path: "vault", title: "Vault", nav: "vault", panel: true, drawer: true },
+  // The Town Hall (TOWN-HALL-PAGE): the HUD's drawer at every width, docked at the right from `tablet`, opened by a tap on the Town Hall
+  // of one's own village; its level, the next one and the upgrade.
+  { path: "town-hall", title: "Town Hall", nav: null, panel: true, drawer: true },
   // The social features (#952), a page each since #973 in place of the Social page's tabs (its old links land on them, `router.tsx`):
   // the chat, the guild, the friends. The home's buttons open them, in the right panel from `desktop` (open point 2's default).
   // The chat's tabs (#973): `/chat` opens on the last one used, `/chat/<tab>` names one, `/chat/private/<player>` a private
