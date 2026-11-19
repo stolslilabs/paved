@@ -58,7 +58,7 @@ describe("app", () => {
   // 34 with the Puzzle (Play's Limited mode): its view, a game, its end, and a mail of the chat's Inbox.
   it("keeps the section 6.1 route map: 34 pages, each path once (SHOP-PAGE: the packs' page and a theme's shop became the Shop's tabs)", () => {
     // One more with the Colossus's view (the weekly collective event).
-    expect(PAGES).toHaveLength(45);
+    expect(PAGES).toHaveLength(48);
     expect(new Set(PAGES.map((p) => p.path)).size).toBe(PAGES.length);
   });
 
@@ -70,8 +70,8 @@ describe("app", () => {
   // `avatar-route.test.tsx`; the village: #646, `village-route.test.tsx`; the PvP flow: #647, `pvp-route.test.tsx`; a match:
   // #786, `pvp-match-route.test.tsx`; the social pages: #973, `social-pages.test.tsx`; the Puzzle and the Inbox's mail: `puzzle-route.test.tsx`; the Joust:
   // `joust-route.test.tsx`; the Expedition: `expedition-route.test.tsx`; the Masterpiece: `masterpiece-route.test.tsx`; the Tournament:
-  // `tournament-route.test.tsx`).
-  const WIRED = ["", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions", "tiles", "settings", "settings/theme", "settings/theme/:theme", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "chat", "chat/private/:player", "chat/mail/:mail", "chat/:tab", "guild", "friends", "ranking", "play/puzzle", "puzzle/:gameId", "puzzle/:gameId/over", "play/joust", "joust/:gameId", "joust/:gameId/over", "play/expedition", "expedition", "play/masterpiece", "masterpiece", "play/colossus", "play/tournament", "tournament/:gameId", "tournament/:gameId/over"];
+  // `tournament-route.test.tsx`; the Fair: `fair-route.test.tsx`).
+  const WIRED = ["", "play", "play/challenge", "cobbles", "training", "story", "story/:campaign/:level", "training/over", "game/:gameId", "game/:gameId/over", "missions", "tiles", "settings", "settings/theme", "settings/theme/:theme", "settings/credits", "vault", "referral", "avatar", "village/:player", "village/shop", "pvp", "pvp/result/:id", "pvp/replay/:attacker/:id", "pvp/match/:id", "pvp/league", "chat", "chat/private/:player", "chat/mail/:mail", "chat/:tab", "guild", "friends", "ranking", "play/puzzle", "puzzle/:gameId", "puzzle/:gameId/over", "play/joust", "joust/:gameId", "joust/:gameId/over", "play/expedition", "expedition", "play/masterpiece", "masterpiece", "play/colossus", "play/tournament", "tournament/:gameId", "tournament/:gameId/over", "play/fair", "fair/:gameId", "fair/:gameId/over"];
   it.each(PAGES.filter((p) => !WIRED.includes(p.path)).map((p) => [p.path || "/", p] as const))(
     "renders %s in the layout of its route",
     async (_path, page) => {

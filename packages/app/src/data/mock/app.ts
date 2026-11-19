@@ -12,6 +12,8 @@ import type { JoustSource } from "../joust-source";
 import type { MasterpieceSource } from "../masterpiece-source";
 import type { ColossusSource } from "../colossus-source";
 import { mockColossus } from "./overlay";
+import type { FairSource } from "../fair-source";
+import { mockFair } from "./overlay";
 import type { PuzzleSource } from "../puzzle-source";
 import type { TournamentSource } from "../tournament-source";
 import { mockTournament } from "./overlay";
@@ -69,6 +71,8 @@ export interface MockAppSources {
   colossus: ColossusSource;
   /** The Tournament (the weekly individual event), the ledger's alone. */
   tournament: TournamentSource;
+  /** The Fair (the weekly individual event), the ledger's alone. */
+  fair: FairSource;
   purchases(signer: GameSigner): Purchases;
   settlements(signer: GameSigner): Settlements;
   vault(signer: GameSigner): VaultWrites;
@@ -115,6 +119,7 @@ export function mockAppSources(ledger: MockLedger, deployment: Deployment | null
     masterpiece: mockMasterpiece(ledger),
     colossus: mockColossus(ledger),
     tournament: mockTournament(ledger),
+    fair: mockFair(ledger),
     purchases,
     settlements: (signer) => mockSettlements(ledger, signer.address),
     vault: (signer) => mockVaultWrites(ledger, signer.address),

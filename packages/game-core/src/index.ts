@@ -279,6 +279,8 @@ export {
   tournamentWinner,
 } from "./tournament";
 export type { TournamentGame, TournamentPhase } from "./tournament";
+// The Fair (the weekly individual event): the calendar, the market, the draft, the ranking and the rewards
+export * from "./fair";
 
 // Story mode (#546): campaigns, levels, runs and the device progress
 export * from "./story";

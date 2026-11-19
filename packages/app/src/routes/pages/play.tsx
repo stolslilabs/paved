@@ -3,7 +3,9 @@ import { PlayScene } from "../../components/scenes/play-scene";
 import { Notice } from "../../components/elements/notice";
 import { useActiveGame, useSpawnPaused } from "../../data/chain";
 import { puzzleDayEnd, puzzleDayOf } from "@paved/game-core";
-import type { ColossusCard, ExpeditionCard, JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
+import { FAIR_STALLS } from "@paved/game-core";
+import { useFairAvailable, useFairState } from "../../data/fair";
+import type { ColossusCard, ExpeditionCard, FairCard, JoustCard, MasterpieceCard, PuzzleCard } from "../../components/containers/play-modes";
 import { useSearchParams } from "react-router";
 import { useExpeditionAvailable, useExpeditionState } from "../../data/expedition";
 import { useJoustAvailable, useJoustState } from "../../data/joust";
@@ -44,6 +46,11 @@ const ColossusView = lazy(loadColossus);
 /** The Tournament (`/play/tournament`, Play's Limited mode): its week and its bracket, a chunk of their own, fetched as Play is pointed at. */
 const loadTournament = () => import("./tournament");
 const TournamentView = lazy(loadTournament);
+/** The Fair (`/play/fair`, Play's Limited mode): its week, its draft and its ranking, a chunk of their own, fetched as Play is pointed at. */
+const loadFair = () => import("./fair");
+const FairView = lazy(loadFair);
+/** The header's title of the Fair's views (`?view=`). */
+const FAIR_TITLES: Record<string, string> = { draft: "Draft", ranking: "Ranking" };
 /** The header's title of the Joust's views (`?view=`). */
 const JOUST_TITLES: Record<string, string> = { top: "Both top 10", ranking: "Ranking" };
 
@@ -105,6 +112,19 @@ export default function Page() {
   const masterpieceCard: MasterpieceCard | null = masterpieceState
     ? { kind: MASTERPIECE_KIND[masterpieceState.kind].name, day: masterpieceState.day, endsAt: masterpieceState.endsAt, board: masterpieceState.board && { waiting: masterpieceState.board.waiting, size: masterpieceState.board.piece?.size ?? null, score: masterpieceState.board.score } }
     : null;
+  // The Fair's card (Limited): the week's day and stall, the player's tries left today, their try still open; none without a Fair.
+  const fairOn = useFairAvailable();
+  const fairState = useFairState(me, fairOn).data ?? null;
+  const fairTry = fairState?.me?.open ?? null;
+  const fairCard: FairCard | null = fairState
+    ? {
+        day: fairState.day,
+        stall: FAIR_STALLS[fairState.season].structure,
+        endsAt: fairState.endsAt,
+        me: fairState.me && { triesLeft: fairState.me.triesLeft, best: fairState.me.best },
+        playing: fairTry ? (fairTry.stage === "draft" ? { stage: "draft", offers: fairTry.offers } : { stage: "game", score: fairTry.score }) : null,
+      }
+    : null;
   const [params] = useSearchParams();
   const masterpieceRanking = path === "play/masterpiece" && params.get("view") === "ranking";
   const onMasterpieceTop = useUpTo("/play/masterpiece");
@@ -123,6 +143,8 @@ export default function Page() {
   const tournament = useTournamentCard(me);
   const tournamentBracket = path === "play/tournament" && params.get("view") === "bracket";
   const onTournamentTop = useUpTo("/play/tournament");
+  const fairView = path === "play/fair" ? params.get("view") : null;
+  const onFairTop = useUpTo("/play/fair");
   // The stake's and Story's chunks as the page is pointed at or focused (`PrefetchOnIntent`'s rule; the drawer's portal bubbles its
   // events here).
   const warm = () => {
@@ -135,6 +157,7 @@ export default function Page() {
     if (masterpieceOn) void loadMasterpiece().catch(() => {});
     if (colossusOn) void loadColossus().catch(() => {});
     if (tournament.on) void loadTournament().catch(() => {});
+    if (fairOn) void loadFair().catch(() => {});
   };
   return (
     <div className="contents" onPointerOver={warm} onFocus={warm}>
@@ -221,6 +244,17 @@ export default function Page() {
         onTournamentBack={tournamentBracket ? onTournamentTop : onViewBack}
         tournamentCard={tournament.card}
         onTournament={() => go(tournament.path)}
+        fair={
+          path === "play/fair" ? (
+            <Suspense fallback={null}>
+              <FairView />
+            </Suspense>
+          ) : null
+        }
+        fairTitle={fairView ? FAIR_TITLES[fairView] : undefined}
+        onFairBack={fairView && FAIR_TITLES[fairView] ? onFairTop : onViewBack}
+        fairCard={fairCard}
+        onFair={() => go(fairTry ? (fairTry.stage === "draft" ? "/play/fair?view=draft" : `/fair/${fairTry.id}`) : "/play/fair")}
         onBack={onBack}
         onChallengeBack={onViewBack}
         onStoryBack={onViewBack}

@@ -1,6 +1,7 @@
 import type { PlaySceneProps } from "../components/scenes/play-scene";
 import { COLOSSUS_CARD } from "./colossus";
 import { EXPEDITION_CARD } from "./expedition";
+import { FAIR_CARD } from "./fair";
 import { MASTERPIECE_CARD } from "./masterpiece";
 import { PUZZLE_CARD } from "./puzzle";
 import { PLAY } from "./scenes";
@@ -19,5 +20,7 @@ export const PLAY_EVENTS = {
   ...TOURNAMENT_CARD.duel,
   ...COLOSSUS_CARD.week,
   ...MASTERPIECE_CARD.waiting,
+  // The Fair's card, under the Colossus's: its basket breaks out of its top edge too.
+  fairCard: FAIR_CARD.week.fairCard,
   ...EXPEDITION_CARD.playing,
 } satisfies Data<PlaySceneProps>;

@@ -20,7 +20,7 @@ const WIDTHS = [320, 360, 375] as const;
 const DENSITIES = [1, 2] as const;
 const HEIGHT = 1400;
 /** The cards that share `EVENT_ICON` (play-modes.tsx). */
-const EVENTS = ["expedition", "masterpiece", "colossus"];
+const EVENTS = ["expedition", "masterpiece", "colossus", "fair"];
 /** A card's outline paints 2 px under its box (its `drop-shadow`). */
 const SHADOW = 2;
 

@@ -72,8 +72,8 @@ describe("the HUD's images (the owner's mobile direction of 2026-11-01)", () => 
   });
 
   it("ships the Play page's mode icons and scenes (PLAY-MODES): one of each per mode, two copies each", () => {
-    expect(MODE_ICONS).toEqual(["mode-attack", "mode-challenge", "mode-training", "mode-story", "mode-puzzle", "mode-expedition", "mode-masterpiece", "mode-colossus"]);
-    expect(MODE_SCENES).toEqual(["scene-attack", "scene-challenge", "scene-training", "scene-story", "scene-puzzle", "scene-joust", "scene-expedition", "scene-masterpiece", "scene-colossus", "scene-tournament"]);
+    expect(MODE_ICONS).toEqual(["mode-attack", "mode-challenge", "mode-training", "mode-story", "mode-puzzle", "mode-expedition", "mode-masterpiece", "mode-colossus", "mode-fair"]);
+    expect(MODE_SCENES).toEqual(["scene-attack", "scene-challenge", "scene-training", "scene-story", "scene-puzzle", "scene-joust", "scene-expedition", "scene-masterpiece", "scene-colossus", "scene-tournament", "scene-fair"]);
     expect(MODE_ICON_FRAME).toMatchObject({ width: 256, height: 256, sizes: [128, 256] });
     expect(MODE_SCENE_FRAME).toMatchObject({ width: 960, height: 640, sizes: [400, 800] });
     // Measured on 2026-11-08: the icons 3.9 to 5.4 KiB at 128 px, 9.3 to 12.6 KiB at 256 px; the scenes 23.8 to 52.9 KiB at 400 px,
