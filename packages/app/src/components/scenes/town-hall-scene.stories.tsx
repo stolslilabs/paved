@@ -11,7 +11,7 @@ const withCobbles: Decorator = (Story, { args }) => (
   </BalancesProvider>
 );
 
-/** The Town Hall (`/town-hall`, TOWN-HALL-PAGE): the HUD's drawer, the level, the next one and what it asks, every level, the upgrade in the footer. One story per state; the viewport is the toolbar's (VP). */
+/** The Town Hall (`/town-hall`, TOWN-HALL-PAGE): the HUD's drawer, the Town Hall at the top with an arrow on each side to go from a level to the next, what the level in view asks, the upgrade in the footer. One story per state; the viewport is the toolbar's (VP). */
 const meta = { title: "Scenes/TownHall", component: TownHallScene, args: { onUpgrade: fn(), onDismissRefusal: fn(), onRetry: fn(), onGetCobbles: fn(), onBack: fn() }, decorators: [withCobbles] } satisfies Meta<typeof TownHallScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -34,7 +34,7 @@ export const Upgrading: Story = { args: TOWN_HALL_PAGE.upgrading };
 /** The upgrade refused: the app's error, with Dismiss. */
 export const Refused: Story = { args: TOWN_HALL_PAGE.refused };
 
-/** The last level: no footer. */
+/** The last level: nothing further on. */
 export const Last: Story = { args: TOWN_HALL_PAGE.last };
 
 /** The village on its way. */

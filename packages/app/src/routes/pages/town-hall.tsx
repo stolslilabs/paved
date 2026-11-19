@@ -3,6 +3,7 @@ import { TOWN_HALL_LEVELS, townHallPlayerLevel, townHallPrice, townHallSlots } f
 import { TownHallScene, type TownHallLevel, type TownHallStatus } from "../../components/scenes/town-hall-scene";
 import { cobbleKeys, useCobbleAccount } from "../../data/cobbles";
 import { invalidateV2, useFreeVillageHeld } from "../../data/free-village-base";
+import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useDataSources } from "../../data/sources";
 import { useTownHallWrites } from "../../data/town-hall";
 import { useAccount } from "../../wallet/wallet";
@@ -46,8 +47,9 @@ export default function Page() {
   return (
     <TownHallScene
       status={status}
-      hall={village ? { level, placed: village.tiles.length, playerLevel: village.level, cobbles } : null}
+      hall={village ? { level, playerLevel: village.level, cobbles } : null}
       levels={LEVELS}
+      basePath={RENDERER_ASSETS}
       busy={writes.pending}
       refusal={writes.error ? refusalText(writes.error) : null}
       refusalDetail={writes.error ? errorDetail(writes.error) : undefined}

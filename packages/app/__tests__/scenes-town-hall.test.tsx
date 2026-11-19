@@ -9,61 +9,86 @@ import { wrap } from "./scenes-helpers";
 
 afterEach(cleanup);
 
-// The Town Hall's page (TOWN-HALL-PAGE): its level and tiles, the next level and what it asks, every level, and the upgrade in the
-// footer, held while the player's level or Cobbles are short.
+// The Town Hall's page (TOWN-HALL-PAGE): the Town Hall at the top, the next level first, an arrow on each side to go from a level to the next; under it the
+// level in view and what it asks, each checked once the player has it; the upgrade in the footer, "Owned" for a level the player has,
+// held while a requirement is short.
 
 const upgrade = (level: number, price: string) => screen.getByRole("button", { name: `Upgrade to level ${level} for ${price} Cobbles` });
+const next = () => userEvent.click(screen.getByRole("button", { name: "Next level" }));
+const previous = () => userEvent.click(screen.getByRole("button", { name: "Previous level" }));
+const asks = () => within(screen.getByRole("list", { name: "Requirements" })).getAllByRole("listitem");
 
 describe("the Town Hall's page", () => {
-  it("says the level and its tiles, the next one's, and upgrades at its price", async () => {
+  it("opens on the next level, the upgrade the player is after: its requirements met, the upgrade on at its price", async () => {
     const onUpgrade = vi.fn();
     render(wrap(<TownHallScene {...TOWN_HALL_PAGE.ready} onUpgrade={onUpgrade} />));
     const page = screen.getByRole("dialog", { name: "Town Hall" });
-    const yours = within(page).getByRole("region", { name: "Your Town Hall" });
-    expect(yours).toHaveTextContent("Level 3");
-    expect(yours).toHaveTextContent("Your village holds 12 tiles round it; 9 placed.");
-    const next = within(page).getByRole("region", { name: "Next level" });
-    expect(next).toHaveTextContent("12 → 14");
-    expect(next).toHaveTextContent("You are level 7.");
+    const view = within(page).getByRole("region", { name: "Town Hall level" });
+    expect(within(view).getByRole("img", { name: "Town Hall, level 4" })).toBeInTheDocument();
+    expect(view).toHaveTextContent("Level 4");
+    expect(view).not.toHaveTextContent("Yours");
+    expect(view).toHaveTextContent("A village holds 14 tiles round it.");
+    expect(asks().map((r) => r.getAttribute("aria-label"))).toEqual(["Town Hall level 3: met", "Player level 6: met", "150 Cobbles: met"]);
     await userEvent.click(upgrade(4, "150"));
     expect(onUpgrade).toHaveBeenCalledTimes(1);
   });
 
-  it("lists every level: the reached ones checked, the player's own marked, the others with what they ask", () => {
-    render(wrap(<TownHallScene {...TOWN_HALL_PAGE.ready} />));
-    const rows = within(screen.getByRole("list", { name: "Levels" })).getAllByRole("listitem");
-    expect(rows).toHaveLength(10);
-    expect(within(rows[0]!).getByRole("img", { name: "Reached" })).toBeInTheDocument();
-    expect(rows[2]).toHaveAttribute("aria-current", "true");
-    expect(rows[2]).toHaveTextContent("Yours");
-    expect(rows[3]).toHaveTextContent("14 tiles");
-    expect(within(rows[3]!).getByRole("img", { name: "Level 6" })).toBeInTheDocument();
-    expect(within(rows[3]!).getByRole("img", { name: "150 Cobbles" })).toBeInTheDocument();
-    expect(rows[9]).toHaveTextContent("26 tiles");
+  it("goes back to the player's own level by the arrow: its tiles, its requirements met, the upgrade off as Owned", async () => {
+    render(wrap(<TownHallScene {...TOWN_HALL_PAGE.ready} onUpgrade={() => {}} />));
+    await previous();
+    const view = screen.getByRole("region", { name: "Town Hall level" });
+    expect(view).toHaveTextContent("Level 3");
+    expect(view).toHaveTextContent("Yours");
+    expect(view).toHaveTextContent("A village holds 12 tiles round it.");
+    expect(asks().map((r) => r.getAttribute("aria-label"))).toEqual(["Town Hall level 2: met", "Player level 4: met", "80 Cobbles: met"]);
+    expect(screen.getByRole("button", { name: "Level 3 owned" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Level 3 owned" })).toHaveTextContent("Owned");
+    expect(screen.queryByRole("group", { name: "Price" })).toBeNull();
   });
 
-  it("keeps the upgrade off while the player's level is short, and says the level it opens at", () => {
+  it("keeps the upgrade off for a level further on: the level before it is not met", async () => {
+    render(wrap(<TownHallScene {...TOWN_HALL_PAGE.ready} onUpgrade={() => {}} />));
+    await next();
+    expect(asks().map((r) => r.getAttribute("aria-label"))).toEqual(["Town Hall level 4: not met", "Player level 8: not met", "250 Cobbles: met"]);
+    expect(upgrade(5, "250")).toBeDisabled();
+  });
+
+  it("stops at both ends, shows the first level in the others' format, and opens on the last level once reached", async () => {
+    render(wrap(<TownHallScene {...TOWN_HALL_PAGE.first} onUpgrade={() => {}} />));
+    await previous();
+    expect(screen.getByRole("button", { name: "Previous level" })).toBeDisabled();
+    expect(asks().map((r) => r.getAttribute("aria-label"))).toEqual(["Village founded: met", "Player level 1: met", "0 Cobbles: met"]);
+    expect(screen.getByRole("button", { name: "Level 1 owned" })).toBeDisabled();
+    cleanup();
+    render(wrap(<TownHallScene {...TOWN_HALL_PAGE.last} onUpgrade={() => {}} />));
+    expect(screen.getByRole("button", { name: "Next level" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Level 10 owned" })).toBeDisabled();
+    await previous();
+    expect(screen.getByRole("button", { name: "Level 9 owned" })).toBeDisabled();
+  });
+
+  it("keeps the upgrade off while the player's level is short, the requirement marked not met", async () => {
     render(wrap(<TownHallScene {...TOWN_HALL_PAGE.levelShort} onUpgrade={() => {}} />));
     expect(upgrade(4, "150")).toBeDisabled();
-    expect(screen.getByRole("dialog")).toHaveTextContent("It opens at player level 6 (you are level 5).");
+    expect(asks()[1]).toHaveAttribute("aria-label", "Player level 6: not met");
   });
 
   it("keeps it off while the Cobbles are short, with the way to the packs, or while it is on its way", async () => {
     const onGetCobbles = vi.fn();
     const { rerender } = render(wrap(<TownHallScene {...TOWN_HALL_PAGE.cobblesShort} onUpgrade={() => {}} onGetCobbles={onGetCobbles} />));
     expect(upgrade(4, "150")).toBeDisabled();
-    expect(screen.getByRole("dialog")).toHaveTextContent("Not enough Cobbles yet.");
+    expect(asks()[2]).toHaveAttribute("aria-label", "150 Cobbles: not met");
     await userEvent.click(screen.getByRole("button", { name: "Get Cobbles" }));
     expect(onGetCobbles).toHaveBeenCalledTimes(1);
     rerender(wrap(<TownHallScene {...TOWN_HALL_PAGE.upgrading} onUpgrade={() => {}} />));
     expect(upgrade(4, "150")).toBeDisabled();
   });
 
-  it("offers no upgrade at the last level, and shows a refusal in words with Dismiss", async () => {
+  it("goes on to the level after an upgrade, and shows a refusal in words with Dismiss", async () => {
     const onDismissRefusal = vi.fn();
-    const { rerender } = render(wrap(<TownHallScene {...TOWN_HALL_PAGE.last} onUpgrade={() => {}} />));
-    expect(screen.getByRole("dialog")).toHaveTextContent("Your Town Hall is at its last level.");
-    expect(screen.queryByRole("button", { name: /Upgrade/ })).toBeNull();
+    const { rerender } = render(wrap(<TownHallScene {...TOWN_HALL_PAGE.ready} onUpgrade={() => {}} />));
+    rerender(wrap(<TownHallScene {...TOWN_HALL_PAGE.ready} hall={{ ...TOWN_HALL_PAGE.ready.hall, level: 4 }} onUpgrade={() => {}} />));
+    expect(upgrade(5, "250")).toBeDisabled();
     rerender(wrap(<TownHallScene {...TOWN_HALL_PAGE.refused} onDismissRefusal={onDismissRefusal} />));
     expect(screen.getByRole("dialog")).toHaveTextContent("The price changed: check it and buy again.");
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -74,7 +99,7 @@ describe("the Town Hall's page", () => {
     const onRetry = vi.fn();
     const { rerender } = render(wrap(<TownHallScene {...TOWN_HALL_PAGE.loading} />));
     expect(screen.getByRole("status", { name: "Reading the Town Hall" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Upgrade/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Upgrade|owned/ })).toBeNull();
     rerender(wrap(<TownHallScene {...TOWN_HALL_PAGE.failed} onRetry={onRetry} />));
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);

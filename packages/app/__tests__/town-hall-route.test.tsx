@@ -45,24 +45,25 @@ afterEach(() => {
 });
 
 describe("/town-hall on the mock", { timeout: slow(20_000) }, () => {
-  it("shows the village's Town Hall and upgrades it at the price shown: the level, the tiles and the Cobbles follow", async () => {
+  it("shows the next level of the village's Town Hall and upgrades to it at the price shown: the level, the tiles and the Cobbles follow", async () => {
     const { ledger, page } = await open(500, 2);
-    const yours = await within(page).findByRole("region", { name: "Your Town Hall" }, { timeout: slow(5000) });
-    expect(yours).toHaveTextContent("Level 1");
-    expect(yours).toHaveTextContent("Your village holds 8 tiles round it");
+    const view = await within(page).findByRole("region", { name: "Town Hall level" }, { timeout: slow(5000) });
+    expect(view).toHaveTextContent("Level 2");
+    expect(view).toHaveTextContent("A village holds 10 tiles round it");
     await userEvent.click(within(page).getByRole("button", { name: "Upgrade to level 2 for 40 Cobbles" }));
-    await waitFor(() => expect(within(page).getByRole("region", { name: "Your Town Hall" })).toHaveTextContent("Level 2"), { timeout: slow(5000) });
-    expect(within(page).getByRole("region", { name: "Your Town Hall" })).toHaveTextContent("Your village holds 10 tiles round it");
+    // The page goes on to the level after: level 3 asks for player level 4, held, the requirement not met.
+    expect(await within(page).findByRole("button", { name: "Upgrade to level 3 for 80 Cobbles" }, { timeout: slow(5000) })).toBeDisabled();
+    expect(within(page).getByRole("listitem", { name: "Player level 4: not met" })).toBeInTheDocument();
     expect(await ledger.freeVillage(FIXTURE_ADA)).toMatchObject({ townHall: 2, slots: townHallSlots(2) });
     expect((await ledger.account(FIXTURE_ADA)).cobbles).toBe(460);
-    // Level 3 asks for player level 4: held, the reason in words.
-    expect(within(page).getByRole("button", { name: "Upgrade to level 3 for 80 Cobbles" })).toBeDisabled();
-    expect(page).toHaveTextContent("It opens at player level 4 (you are level 2).");
+    // Back one: the level just bought, owned.
+    await userEvent.click(within(page).getByRole("button", { name: "Previous level" }));
+    expect(within(page).getByRole("button", { name: "Level 2 owned" })).toBeDisabled();
   });
 
   it("holds the upgrade while the Cobbles are short", async () => {
     const { page } = await open(39, 2);
     expect(await within(page).findByRole("button", { name: "Upgrade to level 2 for 40 Cobbles" }, { timeout: slow(5000) })).toBeDisabled();
-    expect(page).toHaveTextContent("Not enough Cobbles yet.");
+    expect(within(page).getByRole("listitem", { name: "40 Cobbles: not met" })).toBeInTheDocument();
   });
 });

@@ -11,14 +11,14 @@ export const TOWN_HALL_LEVEL_ROWS: readonly TownHallLevel[] = Array.from({ lengt
   playerLevel: i === 0 ? 1 : townHallPlayerLevel(i),
 }));
 
-const base = { levels: TOWN_HALL_LEVEL_ROWS, hall: { level: 3, placed: 9, playerLevel: 7, cobbles: 420 } } satisfies Data<TownHallSceneProps>;
+const base = { levels: TOWN_HALL_LEVEL_ROWS, hall: { level: 3, playerLevel: 7, cobbles: 420 } } satisfies Data<TownHallSceneProps>;
 
 /** The Town Hall's page (`Scenes/TownHall`), one key per state. */
 export const TOWN_HALL_PAGE = {
   /** Level 3, the upgrade to level 4 within reach. */
   ready: base,
-  /** A new village: level 1, nothing placed yet, the first upgrade within reach. */
-  first: { ...base, hall: { level: 1, placed: 0, playerLevel: 2, cobbles: 100 } },
+  /** A new village: level 1, the first upgrade within reach. */
+  first: { ...base, hall: { level: 1, playerLevel: 2, cobbles: 100 } },
   /** The player's level short of the next one's. */
   levelShort: { ...base, hall: { ...base.hall, playerLevel: 5 } },
   /** The Cobbles short of the price. */
@@ -28,7 +28,7 @@ export const TOWN_HALL_PAGE = {
   /** The upgrade refused. */
   refused: { ...base, refusal: "The price changed: check it and buy again." },
   /** The last level: nothing to upgrade. */
-  last: { ...base, hall: { level: 10, placed: 26, playerLevel: 20, cobbles: 5 } },
+  last: { ...base, hall: { level: 10, playerLevel: 20, cobbles: 5 } },
   /** The village on its way. */
   loading: { levels: TOWN_HALL_LEVEL_ROWS, hall: null, status: { kind: "loading" } },
   /** The village's read failed. */
