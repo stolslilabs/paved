@@ -44,6 +44,7 @@ const TABLE: Record<string, readonly string[]> = {
   "village/:player": ["cobbles"],
   "pvp/league": [],
   vault: ["paved", "vpaved"],
+  "town-hall": ["cobbles"],
   chat: [],
   "chat/private/:player": [],
   "chat/mail/:mail": [],

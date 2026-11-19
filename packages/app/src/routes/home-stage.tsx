@@ -7,7 +7,6 @@ import type { FreeVillageHeld } from "../data/free-village-base";
 import { useDeviceSettings } from "../data/settings";
 import { hasWebGL } from "../lib/webgl";
 import { useStageLayoutSlots } from "./layout-slots";
-import { useStageTownHall } from "./town-hall";
 import { villageArrival, markVillageDrawn } from "./village-arrival";
 import { countsByPlan, useVillageArt } from "./village-v2";
 
@@ -41,13 +40,12 @@ export default function HomeStage({ playerId, held, settings, ...stage }: HomeSt
   const [arrival] = useState(villageArrival);
   // The saved layouts (#804), the player's own village alone.
   const layoutSlots = useStageLayoutSlots(stage.editable ? playerId : null, held?.townHall ?? stage.village?.townHall);
-  // The Town Hall's upgrade (TOWN-HALL), the player's own village alone.
-  const townHall = useStageTownHall(stage.editable ? playerId : null, held);
   return (
     <VillageStage
       {...stage}
       layoutSlots={stage.layoutSlots ?? layoutSlots}
-      townHall={stage.townHall ?? townHall}
+      // The Town Hall's page (TOWN-HALL-PAGE), the player's own village alone.
+      onTownHall={stage.editable ? stage.onTownHall : undefined}
       inventory={inventory}
       tileArt={tileArt}
       arrival={arrival}

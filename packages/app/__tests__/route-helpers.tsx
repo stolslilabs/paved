@@ -81,6 +81,8 @@ const PAGES = {
   referral: () => import("../src/routes/pages/referral"),
   // The Vault is the HUD's drawer over the home (VAULT-PAGE): its host comes with it.
   vault: () => Promise.all([import("../src/routes/pages/vault"), import("../src/routes/home-hosts")]),
+  // The Town Hall is the HUD's drawer over the home (TOWN-HALL-PAGE): its host comes with it.
+  "town-hall": () => Promise.all([import("../src/routes/pages/town-hall"), import("../src/routes/home-hosts")]),
   chat: () => Promise.all([import("../src/routes/pages/chat"), import("../src/routes/page-views-host")]),
   guild: () => Promise.all([import("../src/routes/pages/guild"), import("../src/routes/social/guild-view"), import("../src/routes/social/guild-view-host"), import("../src/routes/page-views-host"), import("../src/routes/home-hosts")]),
   friends: () => Promise.all([import("../src/routes/pages/friends"), import("../src/routes/page-views-host")]),
