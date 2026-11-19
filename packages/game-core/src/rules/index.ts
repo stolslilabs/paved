@@ -10,14 +10,12 @@ export {
   DEFENCE_XP,
   LEVEL_CAP,
   PVP_XP,
-  SLOT_BASE,
   STORY_XP_PER_STAR,
   XP_CAP,
   XP_STEP,
   addXp,
   levelStatus,
   pvpXp,
-  slotsOf,
   storyXp,
   xpFloor,
   xpLevelOf,
@@ -57,11 +55,29 @@ export {
 export type { LayoutSlotRefusal, LayoutSlots } from "./layout-slots";
 export { SCORED_CATEGORIES, breakdownOf, byCategory, layoutBreakdown } from "./breakdown";
 export type { CategorySum, CellAreas, LayoutBreakdown, LayoutLine } from "./breakdown";
+export {
+  TOWN_HALL_DECOR_SLOTS,
+  TOWN_HALL_LEVELS,
+  TOWN_HALL_PLAYER_LEVELS,
+  TOWN_HALL_PRICES,
+  TOWN_HALL_SLOT_BASE,
+  TOWN_HALL_SLOT_STEP,
+  TOWN_HALL_TILES,
+  isTownHallCell,
+  townHallLevel,
+  townHallLevelAt,
+  townHallPlayerLevel,
+  townHallPrice,
+  townHallRefusal,
+  townHallSlots,
+} from "./town-hall";
+export type { TownHallRefusal, TownHallTile } from "./town-hall";
 export { STARTER_LAYOUTS, STARTER_TILES, starterIndex, starterLayout } from "./starters";
 export {
   ATTACK_DECK_PERCENT,
   ATTACK_STAR_PERCENTS,
   ATTACK_VIEW,
+  ATTACK_BOARD,
   QueuedAttack,
   attackDeck,
   attackDeckSize,

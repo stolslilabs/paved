@@ -102,8 +102,8 @@ describe("/: the player's village is the home (#753), on the mock", () => {
     const draft = new VillageDraft({ slots: village.slots, inventory: await s.ledger.inventory(s.me) }, village.tiles);
     const outer = draft.tiles.find((t) => draft.liftRefusal(t.x, t.y) === null)!;
     const index = village.tiles.findIndex((t) => t.x === outer.x && t.y === outer.y);
-    // The scene's ids: the starter 1, then the saved tiles in order from 2.
-    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${index + 2}"]`)!);
+    // The scene's ids: the Town Hall's cells 1 to 4, then the saved tiles in order from 5.
+    await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${index + 5}"]`)!);
     // The tile's actions: their own chunk, as the inventory's.
     await userEvent.click(within(await screen.findByRole("toolbar", { name: "Tile" }, WAIT)).getByRole("button", { name: "Back to the inventory" }));
     expect(await screen.findByLabelText("8 of 9 slots used")).toBeInTheDocument();

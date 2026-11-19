@@ -1,7 +1,7 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import type { BoardTile, WriteResult } from "@paved/chain";
-import { AttackRun, CENTER, CategoryType, DISCARD_POINTS, OrientationType, PlanType, STARTER_TILE, type LayoutTile } from "@paved/game-core";
+import { ATTACK_BOARD, AttackRun, CENTER, CategoryType, DISCARD_POINTS, OrientationType, PlanType, STARTER_TILE, type LayoutTile } from "@paved/game-core";
 import type { BoardGhost } from "../components/containers/board-viewport";
 import { PvpAttackScene } from "../components/scenes/pvp-attack-scene";
 import { PvpScoutScene } from "../components/scenes/pvp-scout-scene";
@@ -16,7 +16,7 @@ import { attackDeckSheet } from "../lib/attack-deck-sheet";
 import { useBoardSkins } from "../data/board-skins";
 import { useCobbleAccount } from "../data/cobbles";
 import { layoutBoard } from "../data/matches";
-import { useAttackV2Writes, usePrefetchAttackV2Of, useReadDraw, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
+import { attackTiles, useAttackV2Writes, usePrefetchAttackV2Of, useReadDraw, type AttackMoveV2, type AttackV2, type AttackV2State, type MatchV2 } from "../data/free-attack";
 import { V2RefusedError, useFreeVillage, useFreeVillageWrites } from "../data/free-village";
 import { savedLook, useAvatar } from "../data/avatar";
 import { usePvpStatus } from "../data/pvp";
@@ -73,11 +73,11 @@ export function v2ErrorText(error: Error | null): string | null {
 
 
 /** An attack's moves on the engine: the board before the last move, then the last one applied (its points and closings). */
-function boardOf(moves: readonly AttackMoveV2[]) {
+function boardOf(moves: readonly AttackMoveV2[], townHall: number) {
   const codes = moves.map((m) => (m.discard ? { plan: m.plan, discard: true as const } : { plan: m.plan, discard: false as const, orientation: m.orientation, cell: m.cell }));
-  const run = AttackRun.replay({ territory: null }, codes.slice(0, -1));
+  const run = AttackRun.replay(ATTACK_BOARD, codes.slice(0, -1));
   const last = codes.length > 0 ? run.apply(codes.at(-1)!) : null;
-  const tiles: BoardTile[] = run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y }));
+  const tiles = attackTiles(run, townHall);
   return { run, last, tiles };
 }
 
@@ -204,7 +204,7 @@ function Scout({ me, match, writes, onScan, onBack }: { me: string; match: Match
   const status = usePvpStatus(me);
   // The rival's guild beside their level (the user's ask of 2026-11-07): their profile's badge, null for none.
   const guild = useGuildBadge(match.opponent).data ?? null;
-  const tiles = useMemo(() => (rival.data ? layoutBoard(rival.data.tiles) : []), [rival.data]);
+  const tiles = useMemo(() => (rival.data ? layoutBoard(rival.data.tiles, rival.data.townHall) : []), [rival.data]);
   const board = useScoutBoard(match.opponent, tiles);
   // The village's tile list (#788): the attack's deck sheet before its first tile, the defender's tiles and the extras.
   const rivalTiles = rival.data?.tiles;
@@ -272,7 +272,7 @@ function Attack({ me, attack, match, writes, ending, onEnd, onBack }: { me: stri
   }, [locationKey]);
   const rival = useFreeVillage(attack.defender);
   const skins = useBoardSkins(attack.defender);
-  const { run, last, tiles } = useMemo(() => boardOf(attack.moves), [attack.moves]);
+  const { run, last, tiles } = useMemo(() => boardOf(attack.moves, attack.townHall), [attack.moves, attack.townHall]);
   const hand = attack.view[0] ?? null;
   // The deck sheet (#789): the defender's tiles and the extras, once their village is read.
   const defenderTiles = rival.data?.tiles;

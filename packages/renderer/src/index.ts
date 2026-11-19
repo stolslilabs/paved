@@ -35,6 +35,8 @@ export { AssetLoader, modelPath, provideManifest, skinModelPath } from "./core/A
 export type { AssetManifest } from "./core/AssetLoader";
 export { NO_SKINS, skinsOf, skinRef, variantHash, variantIndex } from "./core/skins";
 export type { TileSkins, SkinRef } from "./core/skins";
+export { TOWN_HALL_THEME } from "./core/skins";
+export { townHallCell, townHallSeams, townHallSkin } from "./core/town-hall";
 export { Effects } from "./core/Effects";
 export type { EffectsConfig, EffectsPassName } from "./core/Effects";
 export {

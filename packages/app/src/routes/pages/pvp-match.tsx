@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { BoardTile } from "@paved/chain";
-import { AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
+import { ATTACK_BOARD, AttackRun, CENTER, OrientationType, PlanType } from "@paved/game-core";
 import { PvpMatchScene, type MatchView } from "../../components/scenes/pvp-match-scene";
 import { PvpSearchScene } from "../../components/scenes/pvp-search-scene";
 import { SearchVoid } from "../search-void";
 import { useBoardSkins } from "../../data/board-skins";
 import { queryKeys } from "../../data/keys";
+import { attackTiles } from "../../data/free-attack";
 import { layoutBoard, matchBoardSide, useMatchesV2, type MatchRecord } from "../../data/matches";
 import { useDataSources } from "../../data/sources";
 import { useAccount } from "../../wallet/wallet";
@@ -25,8 +26,8 @@ const ORIENTATIONS = Object.values(OrientationType);
 /** The build after `move` moves of `match`: its board, from the starter, an unbounded board. */
 function buildAt(match: MatchRecord, move: number) {
   const codes = match.moves.slice(0, move).map((m) => (m.discard ? { plan: m.plan, discard: true as const } : { plan: m.plan, discard: false as const, orientation: m.orientation, cell: m.cell }));
-  const run = AttackRun.replay({ territory: null }, codes);
-  const tiles: BoardTile[] = run.game.placed().map((t) => ({ id: t.id, plan: PLANS.indexOf(t.plan), orientation: ORIENTATIONS.indexOf(t.orientation), x: CENTER + t.x, y: CENTER + t.y }));
+  const run = AttackRun.replay(ATTACK_BOARD, codes);
+  const tiles = attackTiles(run, match.townHall);
   return { tiles };
 }
 
@@ -65,7 +66,7 @@ function Match({ id }: { id: string }) {
   }, [playing, shown, total]);
   // A step back has no undo on the engine: the build up to a move is rebuilt from the start, as the replay does.
   const build = useMemo(() => (match ? buildAt(match, shown) : null), [match, shown]);
-  const village = useMemo(() => (match ? layoutBoard(match.village) : []), [match]);
+  const village = useMemo(() => (match ? layoutBoard(match.village, match.townHall) : []), [match]);
   const side = match?.side ?? "attack";
   // The attacked village's skins: the rival's in an attack, the player's own in a defence.
   const skins = useBoardSkins(match ? (side === "attack" ? match.rival.address : me) : null);

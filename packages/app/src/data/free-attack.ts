@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { GameViews, WriteResult } from "@paved/chain";
-import { AttackRun, attackStarPoints, type ChestRank, type QueuedMove } from "@paved/game-core";
+import type { BoardTile, GameViews, WriteResult } from "@paved/chain";
+import { ATTACK_BOARD, AttackRun, CENTER, OrientationType, PlanType, TOWN_HALL_TILES, attackStarPoints, type ChestRank, type QueuedMove } from "@paved/game-core";
 import { invalidateV2, prefetchFreeVillage } from "./free-village";
 import { orNone } from "./avatar";
 import { queryKeys } from "./keys";
@@ -16,6 +16,8 @@ export interface MatchV2 {
   opponent: string;
   name: string;
   level: number;
+  /** The opponent's Town Hall level (TOWN-HALL): the board's centre, and what sets `slots`. */
+  townHall: number;
   slots: number;
   /** The village's score: 100 % of it is 3 stars. */
   target: number;
@@ -34,6 +36,8 @@ export interface AttackV2 {
   id: number;
   status: "open" | "finished" | "surrendered";
   defender: string;
+  /** The defender's Town Hall level at the attack's start: the board is played round it. */
+  townHall: number;
   slots: number;
   target: number;
   /** The deck's size. */
@@ -91,10 +95,10 @@ export function attackV2Signer(sources: Pick<DataSources, "signer">): AttackV2Wr
     : null;
 }
 
-/** An attack's board on the engine: the starter and its moves, replayed (the score, the cells where a tile fits). */
+/** An attack's board on the engine: the defender's Town Hall and its moves, replayed (the score, the cells where a tile fits). */
 export function attackV2Board(attack: Pick<AttackV2, "moves">): AttackRun {
   return AttackRun.replay(
-    { territory: null },
+    ATTACK_BOARD,
     attack.moves.map((m) => (m.discard ? { plan: m.plan, discard: true as const } : { plan: m.plan, discard: false as const, orientation: m.orientation, cell: m.cell })),
   );
 }
@@ -203,4 +207,22 @@ export function useAttackV2Writes(attacker: string | null) {
     play: (move: QueuedMove) => mutation.mutateAsync({ kind: "play", move }),
     surrender: () => mutation.mutateAsync({ kind: "surrender" }),
   };
+}
+
+const PLAN_VALUES = Object.values(PlanType);
+const ORIENTATION_VALUES = Object.values(OrientationType);
+
+/**
+ * The tiles of an attack's board as the scenes draw them, in the board's coordinates: the defender's Town Hall (its four
+ * cells, ids 1 to 4, at `townHall`), then the attacker's tiles.
+ */
+export function attackTiles(run: AttackRun, townHall: number): BoardTile[] {
+  return run.game.placed().map((t) => ({
+    id: t.id,
+    plan: PLAN_VALUES.indexOf(t.plan),
+    orientation: ORIENTATION_VALUES.indexOf(t.orientation),
+    x: CENTER + t.x,
+    y: CENTER + t.y,
+    ...(t.id <= TOWN_HALL_TILES.length ? { townHall } : {}),
+  }));
 }

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { layoutBreakdown, layoutRefusal, randomLayout, type LayoutTile } from "@paved/game-core";
 import { ROLL_FAILED } from "../src/components/containers/layout-editor";
-import { STARTER, checkLayout, draftOf, slotsFor, stockOf, trayOf } from "../src/components/containers/layout-rules";
+import { TOWN_HALL, checkLayout, draftOf, slotsFor, stockOf, trayOf, usedSlots } from "../src/components/containers/layout-rules";
 import VillageStage from "../src/components/containers/village-stage";
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
 import { answerRandomLayout, type RandomLayoutRequest } from "../src/lib/random-layout-protocol";
@@ -59,12 +59,12 @@ describe("the die's runner", () => {
   it("sends the stock, the slots and the seed, and resolves with the worker's layout and its points", async () => {
     const worker = new FakeWorker();
     const runner = workerRunner(() => worker)!;
-    const built = runner.run(STOCK, 28, 5);
-    expect(worker.sent).toEqual([{ id: 1, stock: STOCK, slots: 28, seed: 5 }]);
+    const built = runner.run(STOCK, 27, 5);
+    expect(worker.sent).toEqual([{ id: 1, stock: STOCK, slots: 27, seed: 5 }]);
     worker.answer();
     const { tiles, points } = await built;
-    expect(tiles).toEqual(build(STOCK, 28, 5).tiles);
-    expect(layoutRefusal(tiles, { slots: 28, inventory: STOCK })).toBeNull();
+    expect(tiles).toEqual(build(STOCK, 27, 5).tiles);
+    expect(layoutRefusal(tiles, { slots: 27, inventory: STOCK })).toBeNull();
     expect(points).toEqual(layoutBreakdown(tiles));
   });
 
@@ -75,14 +75,14 @@ describe("the die's runner", () => {
       return workers.at(-1)!;
     })!;
     const first = vi.fn();
-    void runner.run(STOCK, 28, 1).then(first);
-    const second = runner.run(STOCK, 28, 2);
+    void runner.run(STOCK, 27, 1).then(first);
+    const second = runner.run(STOCK, 27, 2);
     expect(workers[0]!.terminated).toBe(true);
     workers[1]!.answer();
-    await expect(second).resolves.toMatchObject({ tiles: build(STOCK, 28, 2).tiles });
+    await expect(second).resolves.toMatchObject({ tiles: build(STOCK, 27, 2).tiles });
     expect(first).not.toHaveBeenCalled();
     // An idle worker is kept for the next press.
-    void runner.run(STOCK, 28, 3);
+    void runner.run(STOCK, 27, 3);
     expect(workers).toHaveLength(2);
     workers[1]!.answer();
     // Done: cancel leaves the idle worker; dispose (the editor gone) ends it, and a later build starts a fresh one.
@@ -90,7 +90,7 @@ describe("the die's runner", () => {
     expect(workers[1]!.terminated).toBe(false);
     runner.dispose();
     expect(workers[1]!.terminated).toBe(true);
-    void runner.run(STOCK, 28, 4);
+    void runner.run(STOCK, 27, 4);
     expect(workers).toHaveLength(3);
   });
 
@@ -100,25 +100,25 @@ describe("the die's runner", () => {
       workers.push(new FakeWorker());
       return workers.at(-1)!;
     })!;
-    const failed = runner.run(STOCK, 28, 1);
+    const failed = runner.run(STOCK, 27, 1);
     workers[0]!.fail("script error");
     await expect(failed).rejects.toThrow("script error");
     expect(workers[0]!.terminated).toBe(true);
-    const next = runner.run(STOCK, 28, 1);
+    const next = runner.run(STOCK, 27, 1);
     expect(workers).toHaveLength(2);
     workers[1]!.onmessage?.call(workers[1] as unknown as Worker, { data: { id: 2, error: "Layout: boom" } } as MessageEvent);
     await expect(next).rejects.toThrow("Layout: boom");
-    await expect(workerRunner(() => { throw new Error("no worker"); })!.run(STOCK, 28, 1)).rejects.toThrow("no worker");
+    await expect(workerRunner(() => { throw new Error("no worker"); })!.run(STOCK, 27, 1)).rejects.toThrow("no worker");
   });
 
   it("builds within the generator's 150 ms in the worker: a machine too slow for the steps gets the best found in time", () => {
     // The worker's own call (the default budget, the real clock), on a clock that reads 100 ms more at each look.
     let clock = 0;
     const now = vi.spyOn(Date, "now").mockImplementation(() => (clock += 100));
-    const answer = answerRandomLayout({ id: 4, stock: STOCK, slots: 28, seed: 11 }, randomLayout);
+    const answer = answerRandomLayout({ id: 4, stock: STOCK, slots: 27, seed: 11 }, randomLayout);
     now.mockRestore();
     expect(answer).toMatchObject({ id: 4, timedOut: true, tries: 2 });
-    expect("tiles" in answer && layoutRefusal(answer.tiles, { slots: 28, inventory: STOCK })).toBeNull();
+    expect("tiles" in answer && layoutRefusal(answer.tiles, { slots: 27, inventory: STOCK })).toBeNull();
   });
 
   it("answers a failed build with its error", () => {
@@ -127,20 +127,21 @@ describe("the die's runner", () => {
 });
 
 describe("the die's rules", () => {
-  it("builds from the whole stock: the inventory and the saved layout's tiles, the starter aside", () => {
+  it("builds from the whole stock: the inventory and the saved layout's tiles, the Town Hall aside", () => {
     const stock = stockOf(INVENTORY, LAYOUT_GROWING.tiles);
     expect(stock).toHaveLength(19);
-    expect(stock.reduce((s, n) => s + n, 0)).toBe(Object.values(INVENTORY).reduce((s, n) => s + n, 0) + LAYOUT_GROWING.tiles.length - 1);
+    expect(stock.reduce((s, n) => s + n, 0)).toBe(Object.values(INVENTORY).reduce((s, n) => s + n, 0) + LAYOUT_GROWING.tiles.length - TOWN_HALL.length);
     // Every tile of the stock in the draft leaves the tray at 0.
     expect(Object.values(trayOf(INVENTORY, LAYOUT_GROWING.tiles, draftOf(build(stock, 99, 1).tiles))).every((n) => n === 0)).toBe(true);
   });
 
-  it("gives drafts the editor takes: the starter first, valid, within the slots", () => {
+  it("gives drafts the editor takes: the Town Hall first, valid, within the slots", () => {
     for (const draft of DIE_VILLAGES) {
-      expect(draft[0]).toEqual(STARTER);
+      // The Town Hall's four cells first, as the village's own (at its level).
+      expect(draft.slice(0, TOWN_HALL.length).map(({ id, plan, orientation, x, y }) => ({ id, plan, orientation, x, y }))).toEqual(TOWN_HALL);
       expect(new Set(draft.map((t) => t.id)).size).toBe(draft.length);
-      expect(checkLayout(draft, slotsFor(LAYOUT_GROWING.level)).valid).toBe(true);
-      expect(draft).toHaveLength(28);
+      expect(checkLayout(draft, slotsFor(LAYOUT_GROWING.townHall)).valid).toBe(true);
+      expect(usedSlots(draft)).toBe(27);
     }
     expect(new Set(DIE_VILLAGES.map((d) => JSON.stringify(d))).size).toBe(3);
   });
@@ -202,7 +203,7 @@ describe("the die in the editor", () => {
     cleanup();
     render(wrap(<VillageStage village={LAYOUT_GROWING} inventory={INVENTORY} editable editing randomizer={mainThreadRandomizer()} randomSeed={seedsOf(4)} />));
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
-    await waitFor(() => expect(screen.getByLabelText("28 of 28 slots used")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("27 of 27 slots used")).toBeTruthy());
     await frames();
     expect(turns(screen.getByRole("button", { name: "Random village from your tiles" }))).toEqual([]);
   });
@@ -214,27 +215,27 @@ describe("the die in the editor", () => {
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} />));
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
     fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
-    expect((await screen.findAllByLabelText("1 of 28 slots used")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByLabelText("1 of 27 slots used")).length).toBeGreaterThan(0);
     // The edit stopped the build: the die is idle, the worker told to stop.
     expect(randomizer.cancel).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Random village from your tiles" }).getAttribute("aria-busy")).toBeNull();
-    await act(async () => late[0]!({ tiles: build(STOCK, 28, 1).tiles }));
-    expect((await screen.findAllByLabelText("1 of 28 slots used")).length).toBeGreaterThan(0);
+    await act(async () => late[0]!({ tiles: build(STOCK, 27, 1).tiles }));
+    expect((await screen.findAllByLabelText("1 of 27 slots used")).length).toBeGreaterThan(0);
 
     // The same with a tile chosen and placed while it builds.
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
     fireEvent.click(screen.getAllByRole("button", { name: /, \d+ left$/ })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: /^Place it at/ })[0]!);
-    expect((await screen.findAllByLabelText("2 of 28 slots used")).length).toBeGreaterThan(0);
-    await act(async () => late[1]!({ tiles: build(STOCK, 28, 2).tiles }));
-    expect((await screen.findAllByLabelText("2 of 28 slots used")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByLabelText("2 of 27 slots used")).length).toBeGreaterThan(0);
+    await act(async () => late[1]!({ tiles: build(STOCK, 27, 2).tiles }));
+    expect((await screen.findAllByLabelText("2 of 27 slots used")).length).toBeGreaterThan(0);
   });
 
   it("ends its worker when the editor goes, a build done or not", async () => {
     const randomizer = { ...mainThreadRandomizer(), dispose: vi.fn() };
     const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} randomSeed={seedsOf(1)} />));
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
-    await waitFor(() => expect(screen.getAllByLabelText("28 of 28 slots used").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByLabelText("27 of 27 slots used").length).toBeGreaterThan(0));
     expect(randomizer.dispose).not.toHaveBeenCalled();
     unmount();
     expect(randomizer.dispose).toHaveBeenCalledTimes(1);
@@ -243,7 +244,7 @@ describe("the die in the editor", () => {
   it("shows the worker's points as they are: the live score is not rebuilt on the main thread", async () => {
     // Points the engine would never give these tiles: shown, they can only be the worker's.
     const points = { lines: [], other: 0, score: 12_345 };
-    const randomizer = { run: async () => ({ tiles: build(STOCK, 28, 1).tiles, points }), cancel: () => {}, dispose: () => {} };
+    const randomizer = { run: async () => ({ tiles: build(STOCK, 27, 1).tiles, points }), cancel: () => {}, dispose: () => {} };
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} randomizer={randomizer} />));
     fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" }));
     expect(await screen.findByText("12,345")).toBeTruthy();
@@ -262,6 +263,6 @@ describe("the die in the editor", () => {
     const die = screen.getByRole("button", { name: "Random village from your tiles" });
     expect(die.closest("header")?.contains(screen.getByRole("button", { name: /^Hold to erase the layout/ }))).toBe(true);
     fireEvent.click(die);
-    await waitFor(() => expect(screen.getByLabelText("28 of 28 slots used")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("27 of 27 slots used")).toBeTruthy());
   });
 });

@@ -73,7 +73,7 @@ export interface VillageLayoutSceneProps extends Pick<LayoutEditorOptions, "rand
 
 /**
  * The v2 village (#739, part of #732): a free layout of the player's collected tiles, rearranged at any time, capped by the
- * slots unlocked (8 + level). The view shows the layout under the fog, which lifts around its tiles, the score, the level
+ * slots its Town Hall unlocks (TOWN-HALL: 9 at level 1, two more a level). The view shows the layout under the fog, which lifts around its tiles, the score, the level
  * and the slots used ("21 / 28"), and leads to the shop. Edit opens the editor, where placing works as on the
  * board with no validation (#756): a card of the inventory's carousel puts its tile in hand, its legal cells light up, a tap
  * places it on one, and the bubble rotates it or sends it back to the inventory (in the bin's place); a tap on another lit cell
@@ -260,7 +260,7 @@ function LayoutView({
               <>
                 <h2 className="font-display text-lg">Your village</h2>
                 <p className="text-sm text-muted-foreground">
-                  <span className="numeric">{used}</span> of your <span className="numeric">{slots}</span> slots hold a tile; each level unlocks one more, up to 28.
+                  <span className="numeric">{used}</span> of your <span className="numeric">{slots}</span> slots hold a tile; each Town Hall level unlocks two more, up to 27.
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   <ViewActions onEdit={open} onOpenShop={onOpenShop} />

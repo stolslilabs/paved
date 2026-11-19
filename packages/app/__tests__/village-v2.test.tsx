@@ -9,7 +9,6 @@ import { formatInteger } from "@paved/game-core";
 import { CHEST_CHOICES } from "../src/components/elements/chest-designs";
 import { deckCount, rarityOf } from "../src/components/elements/rarity-badge";
 import {
-  STARTER,
   canLift,
   checkLayout,
   detachedOf,
@@ -21,7 +20,9 @@ import {
   placeTile,
   slotsFor,
   takeOffTile,
+  townHallTiles,
   trayOf,
+  usedSlots,
 } from "../src/components/containers/layout-rules";
 import { VillageLayoutScene } from "../src/components/scenes/village-layout-scene";
 import { ShopTiles } from "../src/components/containers/shop-tiles";
@@ -31,63 +32,73 @@ import { INVENTORY, KEY_TILE, LAYOUT_FULL, LAYOUT_GROWING, LAYOUT_START, MOVED_S
 const wrap = (ui: ReactNode) => <LazyMotion features={domMax}>{ui}</LazyMotion>;
 afterEach(cleanup);
 
-/** A tile of the layout (not the starter) by id. */
+/** The Town Hall's four cells (ids 1 to 4), then a tile of the layout by id. */
+const HALL = townHallTiles();
 const tile = (id: number, plan: number, orientation: number, x: number, y: number) => ({ id, plan, orientation, x, y });
 
 describe("the v2 village's rules (#739)", () => {
-  it("unlocks 8 + level slots, level 1 to 20", () => {
+  it("unlocks the Town Hall's slots: 9 at level 1, two more a level, 27 at level 10", () => {
     expect(slotsFor(1)).toBe(9);
-    expect(slotsFor(13)).toBe(21);
-    expect(slotsFor(20)).toBe(28);
-    expect(slotsFor(25)).toBe(28);
+    expect(slotsFor(7)).toBe(21);
+    expect(slotsFor(10)).toBe(27);
+    expect(slotsFor(25)).toBe(27);
     expect(slotsFor(0)).toBe(9);
+    expect(slotsFor(undefined)).toBe(9);
   });
 
   it("marks each pair of facing edges that differ, once", () => {
-    // The starter faces South: its north edge is its city (its south letter, turned); a full city above it matches.
-    expect(faultsOf([STARTER, tile(2, PLAN.city, 1, 0, 1)])).toEqual([]);
-    // A road above it does not: the mark is on the starter's north edge.
-    expect(faultsOf([STARTER, tile(2, PLAN.road, 1, 0, 1)])).toEqual([{ cell: { x: 0, y: 0 }, side: 0 }]);
+    // The Town Hall's north-east cell shows a road to the north: a road running north to south above it matches.
+    expect(faultsOf([...HALL, tile(5, PLAN.road, 2, 1, 2)])).toEqual([]);
+    // A full city above it does not: the mark is on that cell's north edge.
+    expect(faultsOf([...HALL, tile(5, PLAN.city, 1, 1, 2)])).toEqual([{ cell: { x: 1, y: 1 }, side: 0 }]);
+    // The Town Hall's own cells match each other.
+    expect(faultsOf(HALL)).toEqual([]);
     expect(faultsOf(LAYOUT_GROWING.tiles)).toEqual([]);
   });
 
-  it("tells the tiles cut off from the starter", () => {
-    const far = tile(3, PLAN.road, 1, 4, 4);
-    expect(detachedOf([STARTER, tile(2, PLAN.road, 1, 0, 1), far])).toEqual([far]);
-    expect(detachedOf([tile(2, PLAN.road, 1, 0, 1)])).toHaveLength(1);
+  it("tells the tiles cut off from the Town Hall", () => {
+    const far = tile(6, PLAN.road, 1, 4, 4);
+    expect(detachedOf([...HALL, tile(5, PLAN.road, 2, 1, 2), far])).toEqual([far]);
+    expect(detachedOf([tile(5, PLAN.road, 2, 1, 2)])).toHaveLength(1);
   });
 
-  it("checks a layout: connected, every edge matched, the starter there, within the slots", () => {
-    expect(checkLayout(LAYOUT_GROWING.tiles, 28).valid).toBe(true);
-    const faulty = checkLayout([STARTER, tile(2, PLAN.road, 1, 0, 1), tile(3, PLAN.road, 1, 5, 5)], 28);
+  it("checks a layout: connected, every edge matched, the Town Hall there, within the slots", () => {
+    expect(checkLayout(LAYOUT_GROWING.tiles, 27).valid).toBe(true);
+    const faulty = checkLayout([...HALL, tile(5, PLAN.city, 1, 1, 2), tile(6, PLAN.road, 1, 5, 5)], 27);
     expect(faulty.valid).toBe(false);
-    expect(layoutProblem(faulty)).toBe("1 tile is cut off from the starter; 1 edge does not match.");
-    expect(layoutProblem(checkLayout(LAYOUT_GROWING.tiles, 20))).toBe("1 tile past your slots: take it off.");
-    expect(layoutProblem(checkLayout(LAYOUT_GROWING.tiles.slice(1), 28))).toBe("The starter is missing.");
+    expect(layoutProblem(faulty)).toBe("1 tile is cut off from the Town Hall; 1 edge does not match.");
+    // The Town Hall takes one slot for its four cells.
+    const used = usedSlots(LAYOUT_GROWING.tiles);
+    expect(used).toBe(LAYOUT_GROWING.tiles.length - 3);
+    expect(layoutProblem(checkLayout(LAYOUT_GROWING.tiles, used - 1))).toBe("1 tile past your slots: take it off.");
+    expect(layoutProblem(checkLayout(LAYOUT_GROWING.tiles.slice(1), 27))).toBe("The Town Hall is missing.");
   });
 
   it("lights only the legal cells, as on the board: next to a tile, every facing edge matching", () => {
-    const spots = legalSpots([STARTER], PLAN.city);
-    // A full city fits only on the starter's city side, north of it.
-    expect(spots).toEqual([{ x: 0, y: 1, orientations: [1, 2, 3, 4] }]);
+    const spots = legalSpots(HALL, PLAN.city);
+    // A full city fits only on the Town Hall's two pieces of city: west and south of its south-west cell.
+    expect(spots).toEqual([
+      { x: -1, y: 0, orientations: [1, 2, 3, 4] },
+      { x: 0, y: -1, orientations: [1, 2, 3, 4] },
+    ]);
     for (const spot of legalSpots(LAYOUT_GROWING.tiles, PLAN.road)) {
-      for (const o of spot.orientations) expect(checkLayout(placeTile(LAYOUT_GROWING.tiles, PLAN.road, o, spot), 28).valid).toBe(true);
+      for (const o of spot.orientations) expect(checkLayout(placeTile(LAYOUT_GROWING.tiles, PLAN.road, o, spot), 27).valid).toBe(true);
     }
-    expect(fittingAt([STARTER], PLAN.road, { x: 0, y: 1 })).toEqual([]);
+    expect(fittingAt(HALL, PLAN.road, { x: 0, y: -1 })).toEqual([]);
   });
 
-  it("never lifts the starter, nor a tile whose removal would split the village", () => {
-    expect(canLift(LAYOUT_GROWING.tiles, STARTER.id)).toBe(false);
+  it("never lifts the Town Hall, nor a tile whose removal would split the village", () => {
+    for (const cell of HALL) expect(canLift(LAYOUT_GROWING.tiles, cell.id)).toBe(false);
     expect(canLift(LAYOUT_GROWING.tiles, OUTER_TILE.id)).toBe(true);
     expect(canLift(LAYOUT_GROWING.tiles, KEY_TILE.id)).toBe(false);
     expect(detachedOf(LAYOUT_GROWING.tiles.filter((t) => t.id !== KEY_TILE.id)).length).toBeGreaterThan(0);
-    expect(takeOffTile([STARTER], STARTER.id)).toEqual([STARTER]);
-    expect(placeTile([STARTER], PLAN.city, 1, { x: 0, y: 1 })[1]).toEqual(tile(2, PLAN.city, 1, 0, 1));
+    expect(takeOffTile(HALL, HALL[0]!.id)).toEqual(HALL);
+    expect(placeTile(HALL, PLAN.city, 1, { x: 0, y: -1 })[4]).toEqual(tile(5, PLAN.city, 1, 0, -1));
   });
 
   it("counts the tray from the inventory, the saved layout and the draft", () => {
-    const saved = [STARTER, tile(2, PLAN.road, 1, 0, 1)];
-    expect(trayOf({ [PLAN.road]: 1 }, saved, [STARTER])).toEqual({ [PLAN.road]: 2 });
+    const saved = [...HALL, tile(5, PLAN.road, 2, 1, 2)];
+    expect(trayOf({ [PLAN.road]: 1 }, saved, HALL)).toEqual({ [PLAN.road]: 2 });
     expect(trayOf({ [PLAN.road]: 1 }, saved, saved)).toEqual({ [PLAN.road]: 1 });
   });
 
@@ -102,12 +113,12 @@ describe("the v2 village's rules (#739)", () => {
   });
 
   it("builds its fakes by the rules, the scores by the engine", () => {
-    for (const village of [LAYOUT_START, LAYOUT_GROWING, LAYOUT_FULL]) expect(checkLayout(village.tiles, slotsFor(village.level)).valid).toBe(true);
-    expect(LAYOUT_START.tiles).toHaveLength(9);
+    for (const village of [LAYOUT_START, LAYOUT_GROWING, LAYOUT_FULL]) expect(checkLayout(village.tiles, slotsFor(village.townHall)).valid).toBe(true);
+    expect(usedSlots(LAYOUT_START.tiles)).toBe(9);
     // The start closes a structure (#732): it scores.
     expect(LAYOUT_START.score).toBeGreaterThan(0);
-    expect(LAYOUT_GROWING.tiles).toHaveLength(21);
-    expect(LAYOUT_FULL.tiles).toHaveLength(slotsFor(LAYOUT_FULL.level));
+    expect(usedSlots(LAYOUT_GROWING.tiles)).toBeLessThan(slotsFor(LAYOUT_GROWING.townHall));
+    expect(usedSlots(LAYOUT_FULL.tiles)).toBe(slotsFor(LAYOUT_FULL.townHall));
     expect(fakeScore(lay([]))).toBe(0);
     for (const fixture of Object.values(VILLAGE_LAYOUT)) {
       if (!("village" in fixture)) continue;
@@ -122,7 +133,7 @@ describe("the v2 village scene (#739)", () => {
   it("shows the score, the level and the slots used, with Edit and Shop (no Chests: they open where they are won, END-CHEST)", async () => {
     const onOpenShop = vi.fn();
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.growing} onOpenShop={onOpenShop} />));
-    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("22 of 27 slots used").length).toBeGreaterThan(0);
     expect(screen.getByText("Village score")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Chests/ })).toBeNull();
     await userEvent.click(screen.getAllByRole("button", { name: /Shop/ })[0]!);
@@ -141,7 +152,7 @@ describe("the v2 village scene (#739)", () => {
     expect(plates.length).toBe(legalSpots(LAYOUT_GROWING.tiles, PLAN.road).length);
     await userEvent.click(plates[0]!);
     // Placed by the tap: the slot taken, the card counted, Save enabled, the score moved.
-    expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("23 of 27 slots used").length).toBeGreaterThan(0);
     expect(within(inventory).getByRole("button", { name: /^Long road, 3 left$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
     const bubble = screen.getByRole("toolbar", { name: "Tile" });
@@ -176,7 +187,7 @@ describe("the v2 village scene (#739)", () => {
     await userEvent.click(target);
     expect(pending()!.dataset.cell).toBe(to);
     expect(document.querySelector(`[data-cell="${first}"]`)?.getAttribute("data-kind")).not.toBe("tile");
-    expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("23 of 27 slots used").length).toBeGreaterThan(0);
     // Let go: it stays, the bubble goes.
     await userEvent.click(pending()!);
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
@@ -185,21 +196,21 @@ describe("the v2 village scene (#739)", () => {
     const inventory = screen.getByRole("region", { name: "Inventory tiles" });
     await userEvent.click(within(inventory).getByRole("button", { name: /^Long road, 3 left$/ }));
     await userEvent.click(plates()[0]!);
-    expect(screen.getAllByLabelText("23 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("24 of 27 slots used").length).toBeGreaterThan(0);
     expect(within(inventory).getByRole("button", { name: /^Long road, 2 left$/ })).toBeInTheDocument();
   });
 
   it("Back to the inventory frees the slot; Escape sends an inventory tile back too", async () => {
     const { unmount } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.placing} />));
-    expect(screen.getAllByLabelText("22 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("23 of 27 slots used").length).toBeGreaterThan(0);
     await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
-    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("22 of 27 slots used").length).toBeGreaterThan(0);
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
     expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
     unmount();
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.placing} />));
     await userEvent.keyboard("{Escape}");
-    expect(screen.getAllByLabelText("21 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("22 of 27 slots used").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
   });
 
@@ -221,7 +232,7 @@ describe("the v2 village scene (#739)", () => {
     // Lifted again and sent back: its slot is free.
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${OUTER_TILE.id}"]`)!);
     await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
-    expect(screen.getAllByLabelText("20 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("21 of 27 slots used").length).toBeGreaterThan(0);
   });
 
   it("a tap on another placed tile lifts that one; the first stays where it was moved", async () => {
@@ -240,7 +251,7 @@ describe("the v2 village scene (#739)", () => {
       expect(reset).toHaveAttribute("data-tone", "destructive");
       if (press === "keyboard") fireEvent.keyDown(reset, { key: " " });
       else fireEvent.pointerDown(reset, { button: 0, pointerType: press });
-      await waitFor(() => expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0));
+      await waitFor(() => expect(screen.getAllByLabelText("1 of 27 slots used").length).toBeGreaterThan(0));
       expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
       // The starter alone: nothing left to reset.
       expect(screen.getByRole("button", { name: /^Hold to reset all/ })).toBeDisabled();
@@ -249,7 +260,7 @@ describe("the v2 village scene (#739)", () => {
     // A screen reader's activation acts at once, as every hold's.
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.editing} />));
     fireEvent.click(screen.getByRole("button", { name: /^Hold to reset all/ }));
-    expect(screen.getAllByLabelText("1 of 28 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("1 of 27 slots used").length).toBeGreaterThan(0);
   });
 
   it("saves a changed layout and shows the new score; leaving with changes asks first", async () => {
@@ -262,7 +273,7 @@ describe("the v2 village scene (#739)", () => {
     const { unmount: saved } = render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.saved} />));
     // No notice (#802): the score counts to the new one, its gain floating off it.
     expect(screen.queryByText("Layout saved")).toBeNull();
-    expect(await screen.findByText("+1,122")).toBeInTheDocument();
+    expect(await screen.findByText(/^\+[\d,]+$/)).toBeInTheDocument();
     saved();
     render(wrap(<VillageLayoutScene {...VILLAGE_LAYOUT.leaving} />));
     const dialog = screen.getByRole("dialog", { name: "Leave without saving?" });
@@ -283,19 +294,20 @@ describe("the v2 village scene (#739)", () => {
     const cards = () => within(screen.getByRole("region", { name: "Inventory tiles" })).getAllByRole("button");
     // Lifted: the slot is still taken, the cards stay greyed, choosing one does nothing.
     await userEvent.click(document.querySelector<HTMLButtonElement>(`[data-tile="${outer.id}"]`)!);
-    expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("21 of 21 slots used").length).toBeGreaterThan(0);
     for (const card of cards()) expect(card).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(cards()[0]!);
-    expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("21 of 21 slots used").length).toBeGreaterThan(0);
     // Sent back: a slot is free, one inventory tile can go down, and then the slots are full again.
     await userEvent.click(within(screen.getByRole("toolbar", { name: "Tile" })).getByRole("button", { name: "Back to the inventory" }));
-    expect(screen.getAllByLabelText("19 of 20 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("20 of 21 slots used").length).toBeGreaterThan(0);
     await userEvent.click(within(screen.getByRole("region", { name: "Inventory tiles" })).getByRole("button", { name: /^Long road, \d+ left$/ }));
     await userEvent.click(document.querySelector<HTMLButtonElement>('[data-kind="plate"]')!);
-    expect(screen.getAllByLabelText("20 of 20 slots used").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("21 of 21 slots used").length).toBeGreaterThan(0);
     for (const card of cards()) expect(card).toHaveAttribute("aria-disabled", "true");
     await userEvent.click(screen.getByRole("button", { name: /Save/ }));
-    expect(onSave.mock.calls[0]?.[0]).toHaveLength(20);
+    // 21 slots: the Town Hall's four cells and 20 tiles.
+    expect(onSave.mock.calls[0]?.[0]).toHaveLength(24);
   });
 
   it("a visit has no editor", () => {

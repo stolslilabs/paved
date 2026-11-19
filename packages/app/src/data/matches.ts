@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { BoardTile, GameViews } from "@paved/chain";
-import { CENTER, STARTER_TILE, type ChestRank, type LayoutTile } from "@paved/game-core";
+import { CENTER, TOWN_HALL_TILES, type ChestRank, type LayoutTile } from "@paved/game-core";
 import { orNone } from "./avatar";
 import type { BoardSide } from "./board-side";
 import type { AttackMoveV2 } from "./free-attack";
@@ -22,8 +22,10 @@ export interface MatchRecord {
    * league on chain (`Matchmaker.league`, 0 Wood to 22 Grand Master) where the sources know it, its crest on the card (#917).
    */
   rival: { address: string; name: string | null; level: number; look?: string | null; league?: number };
-  /** The attacked village at the attack's start, the starter left out: the snapshot. */
+  /** The attacked village at the attack's start, the Town Hall left out: the snapshot. */
   village: LayoutTile[];
+  /** The attacked village's Town Hall level at the attack's start. */
+  townHall: number;
   /** The snapshot's score: 100 % of it is 3 stars. */
   target: number;
   /** The attack's moves, each with its plan: the build. */
@@ -63,9 +65,9 @@ export function useMatchesV2(playerId: string | null): { data: MatchRecord[] | n
   return { data: query.data, error: query.error };
 }
 
-/** A village's layout on the board: the starter, then its tiles, in the board's coordinates (a scout's, a match's snapshot). */
-export function layoutBoard(tiles: readonly LayoutTile[]): BoardTile[] {
-  return [STARTER_TILE, ...tiles].map((t, i) => ({ id: i + 1, plan: t.plan, orientation: t.orientation, x: CENTER + t.x, y: CENTER + t.y }));
+/** A village's layout on the board: its Town Hall (at `townHall`), then its tiles, in the board's coordinates (a scout's, a match's snapshot). */
+export function layoutBoard(tiles: readonly LayoutTile[], townHall = 1): BoardTile[] {
+  return [...TOWN_HALL_TILES, ...tiles].map((t, i) => ({ id: i + 1, plan: t.plan, orientation: t.orientation, x: CENTER + t.x, y: CENTER + t.y, ...(i < TOWN_HALL_TILES.length ? { townHall } : {}) }));
 }
 
 /**

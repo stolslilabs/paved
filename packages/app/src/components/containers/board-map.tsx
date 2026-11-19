@@ -121,7 +121,8 @@ export function BoardMap({ tiles, slots, ghost, confirmed, onSlotClick, highligh
       <div
         // A picture, unless its slots make it a set of controls.
         role={slotList.length ? "group" : "img"}
-        aria-label={`Board of ${tiles.length} tiles${territory ? ` in a territory of ${territory.length} cells` : ""}`}
+        // A Town Hall's four cells are one tile to the player (TOWN-HALL).
+        aria-label={`Board of ${tiles.length - Math.max(0, tiles.filter((t) => t.townHall).length - 1)} tiles${territory ? ` in a territory of ${territory.length} cells` : ""}`}
         className="grid aspect-square w-full max-w-[min(90vw,70vh)] gap-px"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,

@@ -49,6 +49,8 @@ import {
   layoutScore,
   leagueBoostBps,
   levelStatus,
+  TOWN_HALL_TILES,
+  townHallSlots,
   poseidon,
   pvpChestGranted,
   pvpChestRank,
@@ -57,7 +59,6 @@ import {
   sameLayout,
   shopEndsAt,
   shopOffers,
-  slotsOf,
   starterIndex,
   starterLayout,
   storyChestRank,
@@ -99,14 +100,8 @@ describe("XP, levels and slots", () => {
     expect(xpLevelOf(10 ** 9)).toBe(20);
     expect(addXp(18_990, 20)).toEqual({ xp: 19_000, gained: 10 });
     expect(addXp(19_000, 20)).toEqual({ xp: 19_000, gained: 0 });
-    expect(levelStatus(19_000)).toEqual({ xp: 19_000, level: 20, floor: 19_000, next: 19_000, capped: true, slots: 28 });
-    expect(levelStatus(150)).toEqual({ xp: 150, level: 2, floor: 100, next: 300, capped: false, slots: 10 });
-  });
-
-  it("gives slots = 8 + level: 9 at level 1, 28 at the cap", () => {
-    expect(slotsOf(1)).toBe(9);
-    expect(slotsOf(20)).toBe(28);
-    expect(slotsOf(25)).toBe(28);
+    expect(levelStatus(19_000)).toEqual({ xp: 19_000, level: 20, floor: 19_000, next: 19_000, capped: true });
+    expect(levelStatus(150)).toEqual({ xp: 150, level: 2, floor: 100, next: 300, capped: false });
   });
 
   it("gives PvP 0 / 5 / 10 / 20 XP by stars, Story 5 per star the first time", () => {
@@ -127,14 +122,15 @@ describe("the free village", () => {
     expect(sameLayout(STARTER, [...STARTER].reverse())).toBe(true);
   });
 
-  it("builds in one canonical order: a breadth-first walk from the starter", () => {
-    const line = [{ plan: 10, orientation: 2, x: 2, y: 0 }, { plan: 10, orientation: 2, x: 1, y: 0 }];
-    expect(buildOrder(line)?.map((t) => t.x)).toEqual([1, 2]);
-    expect(buildOrder([{ plan: 10, orientation: 2, x: 2, y: 0 }])).toBeNull();
+  it("builds in one canonical order: a breadth-first walk from the Town Hall", () => {
+    const line = [{ plan: 10, orientation: 1, x: -2, y: 1 }, { plan: 10, orientation: 1, x: -1, y: 1 }];
+    expect(buildOrder(line)?.map((t) => t.x)).toEqual([-1, -2]);
+    expect(buildOrder([{ plan: 10, orientation: 1, x: -2, y: 1 }])).toBeNull();
   });
 
   it("allows a line with no physical limit, as long as the slots hold it", () => {
-    const line = Array.from({ length: 8 }, (_, i) => ({ plan: 10, orientation: 1, x: i + 1, y: 0 }));
+    // West of the Town Hall's north-west cell, along its road.
+    const line = Array.from({ length: 8 }, (_, i) => ({ plan: 10, orientation: 1, x: -1 - i, y: 1 }));
     expect(layoutRefusal(line, limits(line))).toBeNull();
     expect(layoutRefusal(line, limits(line, 8))).toBe("too-many-tiles");
   });
@@ -150,8 +146,8 @@ describe("the free village", () => {
     expect(layoutRefusal([{ ...first!, x: rest[0]!.x, y: rest[0]!.y }, ...rest], inv)).toBe("duplicate-cell");
     const far = { plan: 10, orientation: 2, x: 9, y: 9 };
     expect(layoutRefusal([far], limits([far]))).toBe("not-connected");
-    // The starter's road runs east to west: a full city east of it does not match
-    const city = { plan: 1, orientation: 1, x: 1, y: 0 };
+    // The Town Hall's north-west cell shows a road to the west: a full city there does not match
+    const city = { plan: 1, orientation: 1, x: -1, y: 1 };
     expect(layoutRefusal([city], limits([city]))).toBe("cannot-place");
   });
 
@@ -177,7 +173,7 @@ describe("a layout's points by structure", () => {
   });
 
   it("gives each structure its areas by cell, on the layout's cells, as many as its tiles", () => {
-    const cells = new Set([STARTER_TILE, ...STARTER].map((t) => `${t.x},${t.y}`));
+    const cells = new Set([...TOWN_HALL_TILES, ...STARTER].map((t) => `${t.x},${t.y}`));
     for (const line of layoutBreakdown(STARTER).lines) {
       expect(line.areas).toHaveLength(line.tiles);
       for (const a of line.areas) {
@@ -262,23 +258,25 @@ describe("the village editor's draft", () => {
     expect(draft.liftRefusal(77, 77)).toBe("no-tile");
     // The tile just placed has a single neighbour: it lifts
     expect(draft.lift(spot.x, spot.y)).toEqual(spot);
-    expect(draft.tileAt(0, 0)).toEqual(STARTER_TILE);
+    expect(draft.tileAt(0, 0)).toEqual(TOWN_HALL_TILES[0]);
     draft.reset();
     expect(draft.tiles).toEqual([]);
     expect(draft.score).toBe(0);
   });
 
   it("never lets the village split: a tile holding others cannot be lifted", () => {
-    const line = [{ plan: 10, orientation: 1, x: 1, y: 0 }, { plan: 10, orientation: 1, x: 2, y: 0 }];
+    // Two straight roads west of the Town Hall's north-west cell, along its road.
+    const line = [{ plan: 10, orientation: 1, x: -1, y: 1 }, { plan: 10, orientation: 1, x: -2, y: 1 }];
     const draft = new VillageDraft(limits(line), line);
-    expect(draft.liftRefusal(1, 0)).toBe("not-connected");
-    expect(() => draft.lift(1, 0)).toThrow("not-connected");
-    expect(draft.liftRefusal(2, 0)).toBeNull();
+    expect(draft.liftRefusal(-1, 1)).toBe("not-connected");
+    expect(() => draft.lift(-1, 1)).toThrow("not-connected");
+    expect(draft.liftRefusal(-2, 1)).toBeNull();
     // A turn in place is a move to the same cell: the road turned north-south no longer meets its neighbour's
-    expect(draft.moveRefusal({ x: 2, y: 0 }, { x: 2, y: 0, orientation: 3 })).toBeNull();
-    expect(draft.moveRefusal({ x: 2, y: 0 }, { x: 2, y: 0, orientation: 2 })).toBe("cannot-place");
-    draft.move({ x: 2, y: 0 }, { x: -1, y: 0, orientation: 1 });
-    expect(draft.tileAt(-1, 0)?.plan).toBe(10);
+    expect(draft.moveRefusal({ x: -2, y: 1 }, { x: -2, y: 1, orientation: 3 })).toBeNull();
+    expect(draft.moveRefusal({ x: -2, y: 1 }, { x: -2, y: 1, orientation: 2 })).toBe("cannot-place");
+    // To the north of the Town Hall's north-east cell, where another of its roads leaves.
+    draft.move({ x: -2, y: 1 }, { x: 1, y: 2, orientation: 2 });
+    expect(draft.tileAt(1, 2)?.plan).toBe(10);
   });
 });
 
@@ -288,7 +286,7 @@ describe("the starter layouts", () => {
     for (const layout of STARTER_LAYOUTS) {
       expect(layout).toHaveLength(8);
       expect(layout.every((t) => rarityOf(t.plan) !== "mythic")).toBe(true);
-      expect(layoutRefusal(layout, limits(layout, slotsOf(1)))).toBeNull();
+      expect(layoutRefusal(layout, limits(layout, townHallSlots(1)))).toBeNull();
       expect(layoutScore(layout)).toBeGreaterThan(0);
     }
   });
@@ -360,8 +358,9 @@ describe("the attack", () => {
 
   it("refuses a build that does not fit, as the engine does", () => {
     const attack = new QueuedAttack([1]);
-    expect(attack.refusal(1, { x: 1, y: 0 })).toBe("Tile: cannot place");
-    expect(() => attack.apply({ discard: false, orientation: 1, cell: { x: 1, y: 0 } })).toThrow("Tile: cannot place");
+    // A full city west of the Town Hall's road.
+    expect(attack.refusal(1, { x: -1, y: 1 })).toBe("Tile: cannot place");
+    expect(() => attack.apply({ discard: false, orientation: 1, cell: { x: -1, y: 1 } })).toThrow("Tile: cannot place");
   });
 
   it("gives stars at 80 / 90 / 100 % of the village's score", () => {

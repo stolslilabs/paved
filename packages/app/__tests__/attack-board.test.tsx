@@ -153,7 +153,8 @@ describe("/pvp on the board module", { timeout: slow(30_000) }, () => {
     const move = (await s.ledger.attackV2(s.me)).attack!.moves[0]!;
     expect(move).toMatchObject({ discard: false, cell: { x: slot.x - CENTER, y: slot.y - CENTER } });
     // The move lands: the tile on the board, the confirm's green flash, the bubble gone.
-    await waitFor(() => expect(last().tiles).toHaveLength(2), WAIT);
+    // The defender's Town Hall (four cells) and the tile.
+    await waitFor(() => expect(last().tiles).toHaveLength(5), WAIT);
     expect(last().confirmed).toMatchObject({ x: slot.x, y: slot.y });
     expect(last().bubble).toBeNull();
   });
@@ -204,7 +205,7 @@ describe("/village/:player on the board module (open point 5)", { timeout: slow(
     drawn.board.length = 0;
     await open(`/village/${match!.opponent}`);
     expect(await screen.findByText(/Read-only/, {}, WAIT)).toBeInTheDocument();
-    await waitFor(() => expect(last().tiles).toHaveLength(rival.tiles.length + 1), WAIT);
+    await waitFor(() => expect(last().tiles).toHaveLength(rival.tiles.length + 4), WAIT);
     expect(screen.getByTestId("board-3d").closest("[data-visit-board]")).not.toBeNull();
     expect(last().slots).toBeUndefined();
     expect(backdropOf(last())).toMatchObject(RIVAL_BACKDROP);

@@ -1,13 +1,12 @@
 // XP, levels and village slots (PvP v2, #732, #734). The curve stays (`docs/architecture/xp-level.md`): going from level `n`
 // to `n + 1` costs `100 x n` XP. The level is capped at `LEVEL_CAP` and the XP stops there, so when the cap is raised every
-// player at it stands at the same stage. Slots, the tiles a village may hold (its starter included), are `8 + level`.
+// player at it stands at the same stage. The level no longer sets a village's slots (TOWN-HALL): the Town Hall's level does
+// (`townHallSlots`), and the player's level opens the Town Hall's upgrades.
 
 /** Going from level `n` to `n + 1` costs `XP_STEP x n` XP (`Setup`'s `LEVEL_STEP`). */
 export const XP_STEP = 100;
 /** The highest level (owner, 2026-10-24); it can only be raised. */
 export const LEVEL_CAP = 20;
-/** The slots of a village are `SLOT_BASE + level`: 9 at level 1, 28 at the cap. */
-export const SLOT_BASE = 8;
 
 /** The XP an attack gives by its stars, 0 to 3 (owner, 2026-10-24). A defence gives none. */
 export const PVP_XP = [0, 5, 10, 20] as const;
@@ -31,12 +30,7 @@ export function xpLevelOf(xp: number): number {
   return level;
 }
 
-/** The slots of a player at `level`: `SLOT_BASE + level`, the level read within 1 and the cap. */
-export function slotsOf(level: number): number {
-  return SLOT_BASE + Math.min(LEVEL_CAP, Math.max(1, Math.floor(level)));
-}
-
-/** Where a player stands: the XP, the level, the XP the level starts and the next one starts at, the slots. */
+/** Where a player stands: the XP, the level, the XP the level starts and the next one starts at. */
 export interface LevelStatus {
   readonly xp: number;
   readonly level: number;
@@ -46,14 +40,13 @@ export interface LevelStatus {
   readonly next: number;
   /** At the cap: no XP is gained any more. */
   readonly capped: boolean;
-  readonly slots: number;
 }
 
 export function levelStatus(xp: number): LevelStatus {
   const held = Math.min(XP_CAP, Math.max(0, Math.floor(xp)));
   const level = xpLevelOf(held);
   const capped = level >= LEVEL_CAP;
-  return { xp: held, level, floor: xpFloor(level), next: capped ? xpFloor(level) : xpFloor(level + 1), capped, slots: slotsOf(level) };
+  return { xp: held, level, floor: xpFloor(level), next: capped ? xpFloor(level) : xpFloor(level + 1), capped };
 }
 
 /** `gain` XP added to `xp`, stopped at `XP_CAP`: the new total and what was really gained. */

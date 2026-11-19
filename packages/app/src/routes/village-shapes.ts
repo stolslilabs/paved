@@ -1,14 +1,14 @@
 import type { BoardTile } from "@paved/chain";
 import type { LayoutTile } from "@paved/game-core";
-import { STARTER, isStarter } from "../components/containers/layout-starter";
+import { TOWN_HALL, isStarter, townHallTiles } from "../components/containers/layout-starter";
 import { V2RefusedError, type V2Refusal } from "../data/free-village-base";
 
 // The v2 village's shapes between the hooks (`data/free-village.ts`, game-core's codes, the starter left out) and the scenes
 // (`BoardTile`s, the starter included), and a refusal in words: light, so the home (#753) reads them in its first chunk.
 
-/** A saved layout as the scenes draw it: the starter first (id 1), then each tile with an id of its own. */
-export function boardTilesOf(tiles: readonly LayoutTile[]): BoardTile[] {
-  return [{ ...STARTER }, ...tiles.map((t, i) => ({ id: STARTER.id + 1 + i, plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }))];
+/** A saved layout as the scenes draw it: the Town Hall's four cells first (ids 1 to 4), then each tile with an id of its own. */
+export function boardTilesOf(tiles: readonly LayoutTile[], townHall = 1): BoardTile[] {
+  return [...townHallTiles(townHall), ...tiles.map((t, i) => ({ id: TOWN_HALL.length + 1 + i, plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }))];
 }
 
 /** The editor's layout as it is saved: the starter left out, the ids dropped. */
@@ -28,9 +28,9 @@ export function countsByPlan(counts: readonly number[]): Record<number, number> 
 const REFUSALS: Partial<Record<V2Refusal, string>> = {
   "too-many-tiles": "The layout holds more tiles than your slots.",
   "not-held": "The layout uses a tile you no longer hold.",
-  "not-connected": "Every tile must join the starter.",
+  "not-connected": "Every tile must join the Town Hall.",
   "cannot-place": "Two facing edges do not match.",
-  "starter-cell": "No tile goes on the starter's cell.",
+  "starter-cell": "No tile goes on the Town Hall.",
   "duplicate-cell": "Two tiles share a cell.",
   founded: "Your village is founded already.",
   "no-village": "Found your village first.",
@@ -42,6 +42,8 @@ const REFUSALS: Partial<Record<V2Refusal, string>> = {
   bought: "You bought this offer today already.",
   "price-changed": "The price changed: check it and buy again.",
   "not-enough-cobbles": "Not enough Cobbles.",
+  "max-level": "Your Town Hall is at its last level.",
+  "level-too-low": "Your level is too low for this upgrade: play to level up. No Cobbles were spent.",
 };
 
 /** A write's refusal, in words: the rules' reason when they refused it, else the error's own message. */

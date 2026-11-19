@@ -5,7 +5,7 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import { PlanType, getPlanKey } from "@paved/game-core";
 import { afterFirstFrame, firstModels } from "./load-order";
 import { traceMark, traceMeasure, traceStart } from "./load-trace";
-import { NO_SKINS, variantIndex, type SkinRef, type TileSkins } from "./skins";
+import { NO_SKINS, TOWN_HALL_THEME, variantIndex, type SkinRef, type TileSkins } from "./skins";
 
 /**
  * Where a host lists its renderer assets under content-hashed names: `<basePath>/manifest.json`, a plan key to its model's
@@ -18,6 +18,8 @@ import { NO_SKINS, variantIndex, type SkinRef, type TileSkins } from "./skins";
 export interface AssetManifest {
   models: Record<string, string>;
   themes?: Record<string, Record<string, string[]>>;
+  /** The Town Hall's cells by plan key, in variant order (TOWN-HALL): read as the variants of `TOWN_HALL_THEME`. */
+  townHall?: Record<string, string[]>;
   tiles?: Record<string, Record<string, string>>;
 }
 
@@ -146,6 +148,10 @@ export function tilePath(manifest: AssetManifest | null, key: string): string {
   return manifest?.tiles?.[String(TILE_IMAGE_SIZE)]?.[key] ?? `assets/tiles/${key}.png`;
 }
 
+/** The variants of plan `key` in `theme`: a theme of the manifest's, or the Town Hall's cells (`TOWN_HALL_THEME`). */
+const variantsOf = (manifest: AssetManifest | null, theme: number, key: string): string[] | undefined =>
+  theme === TOWN_HALL_THEME ? manifest?.townHall?.[key] : manifest?.themes?.[String(theme)]?.[key];
+
 /** Whether a model id names a theme's variant (a path) rather than a plan's base model (a plan key). */
 const isVariant = (id: string) => id.includes("/");
 
@@ -155,7 +161,7 @@ const isVariant = (id: string) => id.includes("/");
  * and plan (a theme not out yet, a host with no manifest).
  */
 export function skinModelPath(manifest: AssetManifest | null, key: string, skin: SkinRef | null): string {
-  const variants = skin ? manifest?.themes?.[String(skin.theme)]?.[key] : undefined;
+  const variants = skin ? variantsOf(manifest, skin.theme, key) : undefined;
   return variants?.length ? variants[variantIndex(skin!.hash, variants.length)]! : key;
 }
 
@@ -324,7 +330,7 @@ export class AssetLoader {
   /** Whether the base model of plan `key` is left to be asked for: its skin is known and the manifest lists its variants. */
   private skipsBase(key: string, manifest: AssetManifest | null): boolean {
     const theme = this.skins[key];
-    if (!theme || !manifest?.themes?.[String(theme)]?.[key]?.length) return false;
+    if (!theme || !variantsOf(manifest, theme, key)?.length) return false;
     for (const [variant, plan] of this.variantPlans) if (plan === key && this.failedVariants.has(variant)) return false;
     return true;
   }

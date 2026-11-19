@@ -44,6 +44,8 @@ const VARIANT = /^([a-z]{9})_[A-Z]{2}_(\d+)\.([0-9a-f]{10})\.glb$/;
  * high-forest set (`scripts/compress-models.ts`). Theme 0, the default, is the base models.
  */
 export const THEME_FOLDERS: Record<string, number> = { forest: 1 };
+/** The Town Hall's folder under `models/` (TOWN-HALL): no theme, the manifest's `townHall`. */
+const TOWN_HALL_FOLDER = "townhall";
 
 /**
  * What the renderer requests from `asset-sources/` (`AssetLoader`): a base model, the Draco decoder. The tile images are the
@@ -77,6 +79,11 @@ export interface RendererManifest {
   models: Record<string, string>;
   tiles: Record<string, Record<string, string>>;
   themes: Record<string, Record<string, string[]>>;
+  /**
+   * The Town Hall's cells (TOWN-HALL), by plan key, in variant order: the variant `level`, plus 10 for the second cell of a
+   * plan (`{ "ffffffcff": ["models/townhall/ffffffcff_TH_1.<hash>.glb", ...] }`). The renderer's `TOWN_HALL_THEME`.
+   */
+  townHall: Record<string, string[]>;
   /** The tiles' renders by theme id, then plan key or `cover` (`{ "1": { "cover": "renders/cover.1.<hash>.webp" } }`). */
   renders: Record<string, Record<string, string>>;
 }
@@ -107,7 +114,8 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
     models[key] = `models/${name}`;
   }
   const themes: RendererManifest["themes"] = {};
-  for (const [folder, theme] of Object.entries(THEME_FOLDERS)) {
+  let townHall: RendererManifest["townHall"] = {};
+  for (const [folder, theme] of [...Object.entries(THEME_FOLDERS), [TOWN_HALL_FOLDER, null] as const]) {
     const path = join(dir, folder);
     if (!existsSync(path)) continue;
     const plans: Record<string, Array<[number, string]>> = {};
@@ -118,7 +126,7 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
       checkHash(path, name, hash);
       (plans[key] ??= []).push([Number(n), `models/${folder}/${name}`]);
     }
-    themes[String(theme)] = Object.fromEntries(
+    const listed = Object.fromEntries(
       Object.keys(plans)
         .sort()
         .map((key) => {
@@ -127,6 +135,8 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
           return [key, variants.map(([, file]) => file)];
         }),
     );
+    if (theme === null) townHall = listed;
+    else themes[String(theme)] = listed;
   }
   const tiles: RendererManifest["tiles"] = {};
   for (const name of tilesDir && existsSync(tilesDir) ? readdirSync(tilesDir).sort() : []) {
@@ -148,7 +158,7 @@ export function rendererManifest(dir = MODELS, tilesDir: string | null = dir ===
     if (themed[key]) throw new Error(`renderer-assets: two renders of ${key} in theme ${theme} (${themed[key]}, renders/${name})`);
     themed[key] = `renders/${name}`;
   }
-  return { models, tiles, themes, renders };
+  return { models, tiles, themes, townHall, renders };
 }
 
 /**

@@ -53,16 +53,16 @@ describe("randomLayout", () => {
   });
 
   it("gives the same layout for the same seed on any machine whose tries end within the time", () => {
-    // The review's case: one of each plan, 28 slots, seed 11, all 48 tries run. The steps stop them, not the clock: a machine
-    // reading 0, 1 or 3 ms more at each look (up to 144 ms for 48 tries, a phone slower than this one) gives the same village.
+    // The review's case: one of each plan, 27 slots, seed 11. The steps stop its tries (at the 43rd of 48), not the clock: a machine
+    // reading 0, 1 or 3 ms more at each look (up to 144 ms, a phone slower than this one) gives the same village.
     const runs = [0, 1, 3].map((tick) => {
       let clock = 0;
-      return randomLayout(every(1), 28, 11, { now: () => (clock += tick) });
+      return randomLayout(every(1), 27, 11, { now: () => (clock += tick) });
     });
     for (const run of runs) expect(run).toEqual(runs[0]);
     expect(runs[0]!.timedOut).toBe(false);
-    expect(runs[0]!.tries).toBe(48);
-    expect(randomLayout(every(1), 28, 11, still).tiles).toEqual(runs[0]!.tiles);
+    expect(runs[0]!.tries).toBe(43);
+    expect(randomLayout(every(1), 27, 11, still).tiles).toEqual(runs[0]!.tiles);
   });
 
   it("stops at 150 ms on a machine too slow for its steps: the best found, marked, never before the first try", () => {
@@ -70,7 +70,7 @@ describe("randomLayout", () => {
     // 100 ms more at each look: the start, then 100 ms before try 2, then 200 ms: two tries, out of time.
     const slow = () => {
       let clock = 0;
-      return randomLayout(every(1), 28, 11, { now: () => (clock += 100) });
+      return randomLayout(every(1), 27, 11, { now: () => (clock += 100) });
     };
     const cut = slow();
     expect(cut.timedOut).toBe(true);
@@ -106,12 +106,13 @@ describe("randomLayout", () => {
     expect(randomLayout(every(3), 28, 5, { steps: 0 }).tries).toBe(1);
   });
 
-  it("keeps the hardest stock within its default budget, all its tries run", () => {
-    // One of each plan never fills a perfect box, so all 48 tries run: about 91,000 steps, under the budget.
-    const result = randomLayout(every(1), 28, 11, still);
+  it("stops the hardest stock at its default budget, the same try on every machine", () => {
+    // One of each plan never fills a perfect box. Round the Town Hall (four cells to grow from) its 48 tries would take about
+    // 112,000 steps: the budget stops them at the 43rd, the best village so far kept.
+    const result = randomLayout(every(1), 27, 11, still);
     expect(RANDOM_LAYOUT_STEPS).toBe(100_000);
-    expect(result.tries).toBe(48);
-    expect(result.exhausted).toBe(false);
-    expect(result.steps).toBeLessThan(RANDOM_LAYOUT_STEPS);
+    expect(result.tries).toBe(43);
+    expect(result.exhausted).toBe(true);
+    expect(layoutRefusal(result.tiles, { slots: 27, inventory: every(1) })).toBeNull();
   });
 });

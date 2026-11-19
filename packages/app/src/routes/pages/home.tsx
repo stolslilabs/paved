@@ -91,7 +91,7 @@ export default function Page() {
   const village = useMemo<VillageLayout | undefined>(() => {
     if (me === null) return undefined;
     if (readOnly) return starter.data;
-    return data ? { owner, level: data.level, tiles: boardTilesOf(data.tiles), score: data.score } : undefined;
+    return data ? { owner, level: data.level, townHall: data.townHall, tiles: boardTilesOf(data.tiles, data.townHall), score: data.score } : undefined;
   }, [me, readOnly, starter.data, data, owner]);
   const pending = writes.pending?.kind;
 

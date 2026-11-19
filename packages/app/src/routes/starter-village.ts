@@ -8,5 +8,5 @@ import { boardTilesOf } from "./village-shapes";
  */
 export function starterVillage(owner: string, address: string | null): VillageLayout {
   const layout = starterLayout(address ? BigInt(address) : 0n);
-  return { owner, level: 1, tiles: boardTilesOf(layout), score: layoutScore(layout) };
+  return { owner, level: 1, townHall: 1, tiles: boardTilesOf(layout), score: layoutScore(layout) };
 }
