@@ -98,7 +98,7 @@ const PRESS_SLOP_PX = 5;
  * (plates, `data-cell`), a tap places it on one (ringed, under the bubble, #756), and a placed tile is a button that lifts
  * it into the hand. The starter wears its lock and is never a button.
  */
-function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onPlate, onPending, className, padLeft = 0 }: LayoutBoardProps) {
+function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, lit = null, shaking = null, fit = false, tileArt, press = null, onTile, onTownHall, onPlate, onPending, className, padLeft = 0 }: LayoutBoardProps) {
   const grid = useRef<HTMLDivElement>(null);
   // A board wider than the screen opens on its middle, where the village is: before its first paint, then after each paint
   // that changed its size, where the layout is read already (read in the commit, it forced one: a long task for a whole new
@@ -185,6 +185,22 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
             >
               {chip}
             </button>
+          ) : starter && !editing && onTownHall ? (
+            // In view, the Town Hall's cells open its dialog (TOWN-HALL): the upgrade is reached without the 3D scene too.
+            <button
+              key={key}
+              type="button"
+              data-cell={key}
+              data-kind="starter"
+              data-lit={litCells?.has(key) || undefined}
+              aria-label="Town Hall: open it"
+              onClick={onTownHall}
+              style={at(c)}
+              className={cn("relative block min-h-0 min-w-0 rounded-[3px] outline-none", litClass(key))}
+            >
+              {chip}
+              {lock}
+            </button>
           ) : (
             <span
               key={key}
@@ -246,7 +262,8 @@ function LayoutBoardBase({ tiles, editing = false, plates = [], pending = null, 
     <ScrollRegion orientation="both" className={cn("grid size-full bg-board p-4", className)} style={padLeft ? { placeItems: "safe center", paddingLeft: padLeft + PAD_PX } : PLACE}>
       <div
         ref={grid}
-        role={editing || presses.shown ? "group" : "img"}
+        // A picture, unless it holds controls: the editor's, a press's button, or the Town Hall's cells (its dialog).
+        role={editing || presses.shown || onTownHall ? "group" : "img"}
         aria-label={`Village layout of ${usedSlots(tiles)} ${usedSlots(tiles) === 1 ? "tile" : "tiles"}`}
         className={cn("relative grid shrink-0 gap-0.5", press && !editing && "select-none [-webkit-touch-callout:none]")}
         style={{

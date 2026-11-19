@@ -1,6 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LayoutBoard } from "../src/components/containers/layout-board";
+import { townHallTiles } from "../src/components/containers/layout-starter";
 import { TownHallDialog, type TownHallProps } from "../src/components/containers/town-hall-dialog";
 
 afterEach(cleanup);
@@ -42,5 +44,21 @@ describe("the Town Hall's dialog", () => {
     expect(dialog).toHaveTextContent("It is at its last level.");
     expect(dialog).toHaveTextContent("Your Town Hall is at its last level.");
     expect(screen.queryByRole("button", { name: /Upgrade/ })).toBeNull();
+  });
+});
+
+describe("the Town Hall on the plan view (no 3D scene)", () => {
+  it("opens its dialog from any of its cells in view; in edit mode, or with no dialog to open, the cells stay inert", async () => {
+    const onTownHall = vi.fn();
+    const tiles = [...townHallTiles(), { id: 5, plan: 10, orientation: 1, x: -1, y: 1 }];
+    const { rerender } = render(<LayoutBoard tiles={tiles} onTownHall={onTownHall} />);
+    const cells = screen.getAllByRole("button", { name: "Town Hall: open it" });
+    expect(cells).toHaveLength(4);
+    await userEvent.click(cells[2]!);
+    expect(onTownHall).toHaveBeenCalledTimes(1);
+    rerender(<LayoutBoard tiles={tiles} editing onTownHall={onTownHall} />);
+    expect(screen.queryByRole("button", { name: "Town Hall: open it" })).toBeNull();
+    rerender(<LayoutBoard tiles={tiles} />);
+    expect(screen.queryByRole("button", { name: "Town Hall: open it" })).toBeNull();
   });
 });

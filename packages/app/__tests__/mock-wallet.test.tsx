@@ -210,7 +210,7 @@ describe("the mock's wallet in the app (#927)", () => {
     const first = localKey(storage.items.get(DEVICE_KEY)!).address;
     const name = (await s.ledger.name(first))!;
     expect(await screen.findByRole("button", { name: new RegExp(`^Profile: ${name}`) }, WAIT)).toBeInTheDocument();
-    expect(await screen.findByRole("img", { name: "Village layout of 9 tiles" }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "Village layout of 9 tiles" }, WAIT)).toBeInTheDocument();
 
     // A reload: the same key, the same account, no prompt.
     cleanup();
