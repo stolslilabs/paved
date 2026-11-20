@@ -127,7 +127,7 @@ describe("DeviceSettingsSheet", () => {
 });
 
 describe("GameHud gear", () => {
-  const hud = { title: "Training", score: 0, remaining: 10, now: 0 };
+  const hud = { title: "Story", score: 0, remaining: 10, now: 0 };
   it("is there only when the board gives it a handler, and calls it", async () => {
     const onSettings = vi.fn();
     const { rerender } = render(<GameHud {...hud} />);

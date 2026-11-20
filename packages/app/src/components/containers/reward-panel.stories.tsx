@@ -20,7 +20,8 @@ export const ReadyToSettle: Story = { args: { state: "settle" } };
 export const Settling: Story = { args: { state: "settle", settling: true } };
 export const BelowThreshold: Story = { args: { state: "below", score: 940 } };
 export const Expired: Story = { args: { state: "expired" } };
-export const Training: Story = { args: { state: "free", stake: undefined, threshold: undefined } };
+/** A game with no stake (the Puzzle's, the Joust's, the Tournament's): nothing to win or settle. */
+export const NoStake: Story = { args: { state: "free", stake: undefined, threshold: undefined } };
 /** #705: its day open, what the score earns at the day's prior mean, "≈", with that threshold. */
 export const AwaitingEstimate: Story = { args: { state: "awaiting", threshold: undefined, curve: CURVE_PLAYING } };
 /** #705: under the day's prior threshold, the estimate is 0 and says by how much the score misses it. */

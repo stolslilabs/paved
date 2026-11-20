@@ -3,7 +3,6 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_TOURNAMENT } from "@paved/chain/testing";
-import { TRAINING_KEY } from "@paved/game-core";
 import { App } from "../src/App";
 import type { DataSources } from "../src/data";
 import { queryClient } from "../src/lib/query-client";
@@ -11,7 +10,7 @@ import { GAME_PLAYING } from "../src/mocks/games";
 import { PLAYER_ID } from "../src/mocks/players";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
-import { fakeSources, memoryStore } from "./data-fakes";
+import { fakeSources } from "./data-fakes";
 import { fakeWallet } from "./wallet-fakes";
 import { preloadPages } from "./route-helpers";
 
@@ -125,14 +124,14 @@ describe("/play (P6, PLAY-PAGE): the modes, the HUD's drawer", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/game/${GAME_PLAYING.id}`));
   });
 
-  it("the Training card offers a new game, never a resume, even with an old save on the device (#718); it opens /training", async () => {
-    const store = memoryStore({ [TRAINING_KEY]: JSON.stringify({ v: 2, seed: "0x5eed", moves: [{ k: "d" }] }) });
-    const { router } = open("/play", { guest: true, overrides: { store: () => store } });
-    const card = await screen.findByRole("button", { name: /^Training/ }, { timeout: slow(5000) });
-    expect(screen.queryByText(/^Resume: /)).not.toBeInTheDocument();
-    expect(screen.queryByText(/saved on this device/)).not.toBeInTheDocument();
-    await userEvent.click(card);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
+  it("has no Training card: the Puzzle's square stands beside Story's, in the row Training's had", async () => {
+    open("/play");
+    const story = await screen.findByRole("button", { name: /^Story/ }, { timeout: slow(5000) });
+    expect(screen.queryByRole("button", { name: /^Training/ })).toBeNull();
+    // No Puzzle on the fakes' network: its square says "Coming soon", beside Story's.
+    const row = story.closest("[data-mode]")!.parentElement!.parentElement!;
+    expect(row).toHaveClass("grid-cols-2");
+    expect(within(row).getByRole("button", { name: "Coming soon" })).toBeDisabled();
   });
 
   it("the Story card opens /story, the Attack card the PvP flow (#753)", async () => {
@@ -144,11 +143,11 @@ describe("/play (P6, PLAY-PAGE): the modes, the HUD's drawer", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/pvp"));
   });
 
-  it("spawn_paused: the Challenge is disabled with its notice; Training and Story mode stay open", async () => {
+  it("spawn_paused: the Challenge is disabled with its notice; the other modes stay open", async () => {
     const { router } = open("/play", { paused: true });
-    expect(await screen.findByText("New Challenge games are paused. Training and Story mode stay open.", {}, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByText("New Challenge games are paused. The other modes stay open.", {}, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Challenge/ })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: /^Training/ }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/training"));
+    await userEvent.click(screen.getByRole("button", { name: /^Story/ }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/story"));
   });
 });

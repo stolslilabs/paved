@@ -53,7 +53,8 @@ describe("Play's event icons clear the previous card (#1173)", () => {
           await page.goto(`${base}/e2e/event-icons/index.html`, { waitUntil: "networkidle" });
           await page.locator('[data-slot="colossus-card"]').waitFor();
           const rows = await page.evaluate(async (shadow) => {
-            const section = document.querySelector('section[aria-labelledby="play-limited"]')!;
+            // The weekly events' section, under the Puzzle's and Story's row (the Puzzle's square is Limited too).
+            const section = document.querySelector('section[data-slot="play-events"]')!;
             const cards = [...section.querySelectorAll<HTMLElement>(":scope > [data-mode]")];
             return Promise.all(
               cards.map(async (card, i) => {

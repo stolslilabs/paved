@@ -264,7 +264,8 @@
  * no invented buildings, then less alike): Attack the first round's siege at a gate at dusk (kept on the owner's ask), the
  * Challenge close on the great walled city at golden hour, Training a misty meadow with a lone farm, Story the stepped wonder on
  * its hill in the late afternoon, the Puzzle the tiles' grid from above at midday (each the first of two variants). Scaled to
- * 960 x 640 (`cwebp -resize`), stored as lossless WebP.
+ * 960 x 640 (`cwebp -resize`), stored as lossless WebP. Training's icon and scene left with the mode (2026-11-14: the Puzzle took its
+ * square on the Play page).
  *
  * RAILS (2026-11-08, the owner's asks: the score bar's ends round, its inside never stretched, any length, the painted look kept): the
  * milestones' rails (`rail-track`, `rail-fill`) recut. Their paintings taper over about twice their height at each end, so a 9-slice

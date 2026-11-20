@@ -16,7 +16,7 @@ import { PHONE_320, PHONE_375 } from "./viewports";
 const meta = {
   title: "Scenes/Colossus",
   component: PlayScene,
-  args: { onBack: fn(), onChallenge: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onColossus: fn(), onColossusBack: fn() },
+  args: { onBack: fn(), onChallenge: fn(), onResume: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onColossus: fn(), onColossusBack: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;

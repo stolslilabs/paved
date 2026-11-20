@@ -15,7 +15,7 @@ createRoot(document.getElementById("root")!).render(
   <LazyMotion features={domMax}>
     <MotionConfig reducedMotion="always">
       <div className="min-h-dvh bg-background px-4 py-4 text-foreground">
-        <PlayModes {...PLAY_EVENTS} onChallenge={no} onTraining={no} onExpedition={no} onMasterpiece={no} onColossus={no} onTournament={no} />
+        <PlayModes {...PLAY_EVENTS} onChallenge={no} onExpedition={no} onMasterpiece={no} onColossus={no} onTournament={no} />
       </div>
     </MotionConfig>
   </LazyMotion>,

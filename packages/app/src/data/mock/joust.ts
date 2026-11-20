@@ -124,7 +124,7 @@ function drawnGames(address: string, week: number): { at: number; score: number 
   const span = joustEndsAt(week) - opens;
   return Array.from({ length: count }, (_, k) => ({
     at: opens + Math.floor(draw(4, who, week, k) * span),
-    // A Training game's score with one structure doubled, by the member's crowns, to the ten.
+    // A game's score with one structure doubled, by the member's crowns, to the ten.
     score: Math.round(((1_100 + member.crowns * 0.55) * (0.8 + 0.4 * draw(5, who, week, k))) / 10) * 10,
   }));
 }

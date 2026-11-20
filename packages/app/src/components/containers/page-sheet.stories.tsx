@@ -27,7 +27,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const PLAY_PAGE = <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onTraining={fn()} onStory={fn()} onAttack={fn()} />;
+const PLAY_PAGE = <PlayScene {...PLAY.connected} onBack={fn()} onChallenge={fn()} onStory={fn()} onAttack={fn()} />;
 
 /** The page under the sheet (Play by default): a full page on a phone, the side panel from `desktop`. */
 function OverPage({ panel, under = PLAY_PAGE, title = "Play", children }: { panel: boolean; under?: ReactNode; title?: string; children: ReactNode }) {

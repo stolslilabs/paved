@@ -59,7 +59,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   },
   "pvp/league": () => import("./pages/pvp-league"),
   "game/:gameId": board,
-  training: board,
   story: play,
   // The Puzzle's view is Play's (its drawer kept); a game is the board's chunk, its end the game-over pages'.
   "play/puzzle": play,
@@ -93,7 +92,6 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
     return import("./pages/story-board");
   },
   "game/:gameId/over": over,
-  "training/over": over,
   missions: () => import("./pages/missions"),
   tiles: () => import("./pages/tiles"),
   vault: () => import("./pages/vault"),

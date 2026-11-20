@@ -4,7 +4,7 @@ import { cn } from "../../lib/utils";
 import { GuildEmblem } from "../elements/guild-emblem";
 import { UiIcon } from "../elements/ui-icon";
 import { EndMark, GameEnd } from "./game-end";
-import { ClosedBoxes, ClosingList } from "./training-end";
+import { ClosedBoxes, ClosingList } from "./end-closings";
 import type { JoustGameResult, JoustGuild } from "../../data/joust-source";
 
 /** A row's large figure and its line under it, the Puzzle end's. */
@@ -35,7 +35,7 @@ export interface JoustEndProps {
  * the trophy, its gold the score's share of the player's best before (lit by a new best); "NEW BEST" when the game beats it (or is
  * their first), else "GAME OVER"; "Joust · game 2 of 3". The carved card's rows: the score (the best before → this score when beaten,
  * else the best that stands) and the allegiance's total, its emblem beside it (before → after when the game lifted it). No reward line:
- * the joust pays in Cobbles at its end. The closed structures and every closing, as Training's; the joust's view and, while a game is
+ * the joust pays in Cobbles at its end. The closed structures and every closing, as the Puzzle's; the joust's view and, while a game is
  * left, the gold next game at the foot.
  */
 export function JoustEnd({ score, result, guild, stats, closings, closingsNote, instant, onClose, onJoust, onPlayAgain }: JoustEndProps) {

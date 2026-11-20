@@ -96,7 +96,7 @@ export const PAGES: Record<string, { title: string; page: ReactNode; drawer?: tr
   tiles: { title: "Tiles", drawer: true, page: <TilesScene {...TILES.owned} onBack={no} /> },
   referral: { title: "Referral", page: <ReferralScene {...REFERRAL.stress} onBack={no} onNavigate={no} /> },
   // Play (PLAY-PAGE): the HUD's drawer, its four groups of modes (no full-screen flow left).
-  play: { title: "Play", drawer: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onTraining={no} onStory={no} onAttack={no} /> },
+  play: { title: "Play", drawer: true, page: <PlayScene {...PLAY.connected} onBack={no} onChallenge={no} onStory={no} onAttack={no} /> },
   // Story's campaigns (STORY-PAGE): a view of Play's drawer, the Tutorial under way, its twelve levels.
   story: {
     title: "Story",

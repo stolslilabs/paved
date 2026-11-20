@@ -6,8 +6,8 @@ import { HudDrawer } from "./hud-drawer";
 import { SettingsGroup } from "./settings-group";
 
 /**
- * What the board offers on its game, at the top of its settings (#606): Surrender in a Challenge (Story's and Training's Restart is held
- * on the board, GAME-OVERLAY, TRAINING-END). It asks first (the board's dialog); the drawer closes on the tap.
+ * What the board offers on its game, at the top of its settings (#606): Surrender in a Challenge (Story's Restart is held on the
+ * board, GAME-OVERLAY). It asks first (the board's dialog); the drawer closes on the tap.
  */
 export interface GameAction {
   kind: "surrender";

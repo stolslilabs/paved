@@ -29,7 +29,7 @@ import { useFreeVillage, useFreeVillageWrites } from "../../data/free-village";
 import type { Slot } from "../../data/placement";
 import { useDataSources } from "../../data/sources";
 import { findLevel, levelPath, nextLevel, useDeckPresented, useStoryProgress, useStoryRun, useTutorialClaim, useTutorialClaimed } from "../../data/story";
-import { remainingOf } from "../../data/training";
+import { remainingOf } from "../../data/session-board";
 import { useAccount, type WalletState } from "../../wallet/wallet";
 import { errorDetail, useErrorDetail } from "../error-detail";
 import { useGameBoard } from "../game-board";
@@ -115,7 +115,7 @@ export default function Page() {
  * A Story level on the board (#546, #593): the presentation of its deck first, the first time this device opens it (the
  * deck sheet shows it again on request) with the level's tip, then the board on the level's `StoryRun`, every tile in the
  * campaign's theme, with the coach mark of the control it introduces, then its end (the stars filling one by one, the score, the points short of the next star, Retry and Next).
- * The star thresholds are never shown. The run is played as Training's (lit slots, the bubble, Place, Discard); a finished run is recorded on the device.
+ * The star thresholds are never shown. The run is played as the Puzzle's (lit slots, the bubble, Place, Discard); a finished run is recorded on the device.
  * Tutorial level 1 offers the claim of First Stone (D-21).
  */
 function StoryBoard({ campaign, level }: { campaign: StoryCampaign; level: StoryLevel }) {

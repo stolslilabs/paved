@@ -19,8 +19,8 @@ export const Challenge: Story = {};
 export const AfterAClosing: Story = { args: { score: 1640, delta: 370 } };
 export const LastHour: Story = { args: { expiresAt: MOCK_NOW + 25 * 60 } };
 export const Expired: Story = { args: { expiresAt: MOCK_NOW - 60 } };
-/** Training: no deadline. */
-export const Training: Story = { args: { title: "Training", expiresAt: null } };
+/** Story: no deadline. */
+export const NoDeadline: Story = { args: { title: "Story", expiresAt: null } };
 /** WRAP360: a long title (cut, whole in its title), the widest score and gain, and a game's longest time left (24 h). */
 export const Stress: Story = { args: { title: LONG_LABEL, score: BIG_SCORE, delta: 9_999, expiresAt: MOCK_NOW + 23 * 3600 + 59 * 60 + 59 } };
 
@@ -30,7 +30,7 @@ export const Stress: Story = { args: { title: LONG_LABEL, score: BIG_SCORE, delt
  * its room (the tiles left are on the tile stack, #606; the season dial is the board's own, under the HUD: #607).
  */
 export const WithPreview: Story = {
-  args: { title: "Training", expiresAt: null, preview: 154 },
+  args: { title: "Story", expiresAt: null, preview: 154 },
   decorators: [(Story) => <div className="w-full max-w-[375px]"><Story /></div>],
 };
 /** A gain was showing when the tile was placed: the preview takes its place (the gain is the last move's, outdated). */

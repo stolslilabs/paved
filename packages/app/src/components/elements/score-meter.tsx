@@ -130,7 +130,7 @@ function Mark({ mark, beat, still }: { mark: MeterMark; beat: number | null; sti
   );
 }
 
-/** A mark's painting: the painted star, trophy or crown, or the PAVED coin. */
+/** A mark's painting: the painted star or trophy, or the PAVED coin. */
 function MarkArt({ art }: { art: MeterArt }) {
   if (art === "paved") return <TokenIcon kind="paved" px={MARK} className="size-[22px]" />;
   return <UiIcon name={art} px={MARK} className="size-full" />;

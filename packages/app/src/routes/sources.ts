@@ -151,8 +151,8 @@ const MOCK_SOURCES: DataSources = {
 };
 
 /**
- * The sources of the data source `chain`. Training needs only its save, `localStorage` (`store` left out:
- * `trainingStore` falls back to it). The chain's views and events are `PavedClient`'s on the resolved deployment (P5),
+ * The sources of the data source `chain`. Story's progress is saved in `localStorage` (`store` left out: `deviceStore` falls
+ * back to it). The chain's views and events are `PavedClient`'s on the resolved deployment (P5),
  * loaded with the first read. The signer is `WalletProvider`'s (P6): null here, filled while a wallet is connected. The
  * indexer is the client on `VITE_INDEXER_URL` (P6). The economy's views, its pool quote and the purchases are
  * `EconomyClient`'s on the same deployment (P7b), loaded with the first read; the settlement (P7a) and the Vault's writes

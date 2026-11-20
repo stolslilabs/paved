@@ -8,7 +8,7 @@
  * Checks:
  * - the chrome (a page of text): the viewport meta, `select-none` and `touch-action: manipulation`; a double tap and a
  *   pinch leave the page at scale 1; the iOS pinch events are cancelled; a double click selects no text;
- * - the board (Training): the canvas has `touch-action: none`, the page stays at scale 1 under a pinch on it, and the
+ * - the board (Story's first level): the canvas has `touch-action: none`, the page stays at scale 1 under a pinch on it, and the
  *   pinch reaches the renderer: the drawn board changes (the board is still without a gesture: the control).
  *
  * Chromium's touch emulation does not pinch-zoom a page even when its meta allows it (measured: scale 1 under a
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   const given = process.argv.indexOf("--url") >= 0 ? process.argv[process.argv.indexOf("--url") + 1] : "";
   // The mock, as the PAGES-SCROLL pass: the connected Referral below reads no chain, nothing is sent.
   if (!given) process.env.VITE_DATA_SOURCE ??= "mock";
-  // The scan from the app's page only, as the Training e2e's: crawling `scripts/` fails on a render page's bare `three`, Vite
+  // The scan from the app's page only, as the e2e's: crawling `scripts/` fails on a render page's bare `three`, Vite
   // then skips the pre-bundling and reloads the page each time it finds a dependency at run time, which on a cold cache (CI)
   // lands in the middle of the tab page's checks (a connected page's `zustand`: its scroll offset lost to the reload).
   const vite = given
@@ -191,10 +191,14 @@ async function main(): Promise<void> {
     );
     check("chrome: the iOS pinch events (gesturestart, gesturechange) are cancelled", cancelled.every(Boolean), cancelled.join());
 
-    // The board: Training draws the real renderer (software WebGL).
-    await page.goto(`${base}/training`, { waitUntil: "load" });
+    // The board: Story's first level (open on a new profile) draws the real renderer (software WebGL); a tap on its deck's
+    // presentation starts the level and uncovers the board.
+    await page.goto(`${base}/story/1/1`, { waitUntil: "load" });
     const canvas = page.locator("canvas").first();
     await canvas.waitFor({ timeout: 60_000 });
+    const presentation = page.getByTestId("deck-presentation");
+    await presentation.click({ timeout: 60_000 });
+    await presentation.waitFor({ state: "detached", timeout: 10_000 });
     await page.waitForTimeout(4000);
     check("board: the canvas is touch-action none", (await canvas.evaluate((el) => getComputedStyle(el).touchAction)) === "none");
     check("board: the page does not scroll or bounce (overscroll-behavior none)", await page.evaluate(() => getComputedStyle(document.documentElement).overscrollBehaviorY === "none"));

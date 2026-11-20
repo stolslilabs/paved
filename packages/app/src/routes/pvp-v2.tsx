@@ -256,7 +256,7 @@ function Scout({ me, match, writes, onScan, onBack }: { me: string; match: Match
   );
 }
 
-/** The open attack: the deck played on an unbounded board, as a Training game places (`usePlacement`), each move a write; the last one ends it. */
+/** The open attack: the deck played on an unbounded board, as a Puzzle game places (`usePlacement`), each move a write; the last one ends it. */
 function Attack({ me, attack, match, writes, ending, onEnd, onBack }: { me: string; attack: AttackV2; match: MatchV2 | null; writes: Writes; ending: boolean; onEnd: (attack: AttackV2) => void; onBack: () => void }) {
   const go = useAppNavigate();
   const prefetchEnd = usePrefetchAttackV2Of(me);

@@ -3,8 +3,8 @@ import type { RewardCurve } from "../components/containers/reward-estimate";
 import { useEconomyDay, useTerms } from "./chain";
 
 // A bought game's reward curve (#705), for the board's HUD and the over page, out of the first load (the board and the over
-// page import it, `data/index.ts` does not). No value from `@paved/chain` or the indexer: the board's module is shared with
-// Training, which must not bring them.
+// page import it, `data/index.ts` does not). No value from `@paved/chain` or the indexer: the board's module is shared with the
+// boards that read no chain (the Puzzle's on the mock), which must not bring them.
 
 /** The cliff in points x 1,000, `mean x (10,000 + sigma) / 10,000` (`curve::threshold`). */
 export const thresholdOf = (mean: number, sigmaBps: number): number => Math.floor((mean * (10_000 + sigmaBps)) / 10_000);

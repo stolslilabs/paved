@@ -5,14 +5,12 @@ import { OverScene, type OverSceneProps, type OverView } from "../../components/
 import { useBoardSkins } from "../../data/board-skins";
 import { RENDERER_ASSETS } from "../../data/renderer-manifest";
 import { useBoardSettings } from "../../data/board-settings";
-import { useTrainingPreviousBest } from "../../data/training-best";
 import { TopBar } from "../../components/containers/top-bar";
 import { InlineError, type ErrorDetail } from "../../components/elements/inline-error";
 import { Notice } from "../../components/elements/notice";
 import { Button } from "../../components/ui/button";
 import { curveOf, rewardOf, settleProps, useOverRead, useOverStanding, useSettle, type OverReward } from "../../data/over";
-import { trainingStore, useDataSources } from "../../data/sources";
-import { remainingOf, useFinishedTraining } from "../../data/training";
+import { useDataSources } from "../../data/sources";
 import { gameStats, pageStateOf } from "@paved/game-core";
 import { formatDay } from "../../components/elements/day-picker";
 import { addressKey } from "../../data/keys";
@@ -34,10 +32,9 @@ import type { GameMission } from "../../components/containers/game-missions";
 import { Placeholder } from "../Placeholder";
 import { useAppNavigate, useUpTo } from "../ref";
 
-/** `/training/over` (P3), `/game/:gameId/over` (P7a) and `/puzzle/:gameId/over` (Play's Limited mode). */
+/** `/game/:gameId/over` (P7a) and `/puzzle/:gameId/over` (Play's Limited mode), the Joust's and the Tournament's. */
 export default function Page() {
   const page = useRoutePage();
-  if (page?.path === "training/over") return <TrainingOver />;
   if (page?.path === "game/:gameId/over") return <ChallengeRoute />;
   if (page?.path === "puzzle/:gameId/over") return <PuzzleRoute />;
   if (page?.path === "joust/:gameId/over") return <JoustRoute />;
@@ -431,66 +428,5 @@ function NotFound() {
         <Button onClick={() => go("/")}>Back home</Button>
       </main>
     </div>
-  );
-}
-
-/**
- * The end of a Training game: its final counters and every closing, from the game the board played (the same
- * `TrainingGame`, held in memory for the tab). A game still in play, or none (a reload: nothing is saved, #718), goes to
- * the board, which starts a new game. "Play again" goes there too: a new seed.
- */
-function TrainingOver() {
-  const { game: training, snapshot } = useFinishedTraining();
-  const sources = useDataSources();
-  const go = useAppNavigate();
-  const game = snapshot.state.game;
-  const over = game?.over ?? false;
-  const [view, setView] = useOverView();
-  const skins = useBoardSkins(sources.signer?.address ?? null);
-  const boardSettings = useBoardSettings();
-  const stats = useMemo(() => training.stats(), [training, snapshot]);
-  const tiles = snapshot.state.tiles;
-  const board = useMemo(() => ({ tiles, skins, basePath: RENDERER_ASSETS, settings: boardSettings.renderer }), [tiles, skins, boardSettings.renderer]);
-  const previousBest = useTrainingPreviousBest(trainingStore(sources), `0x${training.seed.toString(16)}`, over ? (game?.score ?? 0) : null);
-
-  useEffect(() => {
-    if (!over) go("/training", { replace: true });
-  }, [over, go]);
-  if (!game || !over) return null;
-
-  // Training has no chain game: the view carries the session's counters, and zeros where the chain would have a value.
-  const gameView: GameView = {
-    id: 0,
-    playerId: game.playerId,
-    mode: 0,
-    seed: "0x0",
-    score: game.score,
-    over: true,
-    tileCount: game.placedCount + game.discardedCount,
-    placedCount: game.placedCount,
-    discardedCount: game.discardedCount,
-    tileId: snapshot.state.hand?.tileId ?? 0,
-    plan: snapshot.state.hand?.plan ?? 0,
-    remainingCount: remainingOf(game),
-    deckSize: game.deckSize,
-    startTime: 0,
-    endTime: 0,
-    dayId: 0,
-    expiresAt: 0,
-  };
-  return (
-    <OverScene
-      mode="training"
-      game={gameView}
-      closings={snapshot.closings}
-      stats={stats}
-      board={board}
-      view={view}
-      onViewChange={setView}
-      previousBest={previousBest}
-      reward={{ state: "free" }}
-      onPlayAgain={() => go("/training", { replace: true })}
-      onHome={() => go("/")}
-    />
   );
 }

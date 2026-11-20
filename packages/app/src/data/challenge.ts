@@ -14,7 +14,7 @@ export type ChallengeSession = PredictedSession<GameKey, WriteResult>;
  * `game(id)` and active-game reads of the other pages (`queryKeys`).
  *
  * `@paved/chain` is loaded with the session (a dynamic import, for the writer's `GameExpiredError`): the board's module is
- * shared with Training, which must not bring starknet.js.
+ * shared with the boards that read no chain (the Puzzle's on the mock), which must not bring starknet.js.
  */
 export function useChallengeSession(gameId: number): {
   session: ChallengeSession | null;

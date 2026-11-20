@@ -639,7 +639,7 @@ function ComingFace({ plan, renders, skins, tileArt }: { plan: number; renders?:
   const theme = topTheme(plan, renders, skins);
   if (theme == null) return <TileChip plan={plan} art={tileArt} size="md" className={cn("size-full", FACE)} />;
   return (
-    // The chip's name and role, so the slot reads the same to a screen reader (and to the Training e2e).
+    // The chip's name and role, so the slot reads the same to a screen reader (and to a browser test).
     <span role="img" aria-label={`Tile ${planCode(plan).toLowerCase()}, north`} data-view="render" data-theme={theme} className={cn(chipVariants({ size: "md" }), "size-full", FACE)}>
       <TileRender plan={plan} theme={theme} renders={renders} alt="" top />
     </span>

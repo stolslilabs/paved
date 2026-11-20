@@ -2,17 +2,17 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { GameScene } from "@paved/renderer";
 import { BoardViewport, toGridSlot } from "../../components/containers/board-viewport";
 import { type Slot, usePlacement } from "../../data/placement";
-import { TrainingGame } from "../../data/training";
+import { LocalGame } from "./local-game";
 import { APP_ASSETS } from "../../mocks/assets";
 
 /**
- * Press and place (PRESS-PLACE, #680) on a Training game of a fixed seed, as the Training board plays it: a long press on a
+ * Press and place (PRESS-PLACE, #680) on a local game of a fixed seed, as a board plays it: a long press on a
  * lit cell shows the tile there and fills Validate's ring at once; held to the end, the tile is placed. A tap still only
  * shows the tile; let go early, it stays shown. The root's `data-target` is the screen point (CSS px) of the first lit
  * cell's centre, for the captures; `data-placed` counts the tiles placed.
  */
 export function PressPlaceBoard({ seed = 1n }: { seed?: bigint }) {
-  const game = useMemo(() => TrainingGame.start(seed), [seed]);
+  const game = useMemo(() => LocalGame.start(seed), [seed]);
   const snapshot = useSyncExternalStore(
     useCallback((listener: () => void) => game.subscribe(listener), [game]),
     () => game.snapshot,

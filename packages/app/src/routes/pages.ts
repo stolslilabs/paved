@@ -74,7 +74,6 @@ export const PAGES: readonly PageDef[] = [
   { path: "pvp/match/:id", title: "Match", nav: null, parent: "/pvp/league" },
   // The HUD's drawer at every width, docked at the left from `tablet`, under the HUD's crowns (LEAGUE-PAGE).
   { path: "pvp/league", title: "League", nav: "league", panel: true, panelSide: "left", drawer: true },
-  { path: "training", title: "Training", nav: null },
   // Story's campaigns (STORY-PAGE): a view of Play's drawer, as the stake (one loader), its Back up to the modes; a level is a full-screen flow.
   { path: "story", title: "Story", nav: null, parent: "/play", panel: true, drawer: true },
   { path: "story/:campaign/:level", title: "Story", nav: null },
@@ -105,7 +104,6 @@ export const PAGES: readonly PageDef[] = [
   { path: "tournament/:gameId", title: "Tournament", nav: null },
   { path: "tournament/:gameId/over", title: "Game over", nav: null },
   { path: "game/:gameId/over", title: "Game over", nav: null },
-  { path: "training/over", title: "Game over", nav: null },
   // Missions (#832): one page, today's limited missions and the lifetime ones; the old `/missions/lifetime` and `/missions/:day`
   // land on it (`router.tsx`). The HUD's drawer at every width, docked at the right from `tablet` (MISSIONS-PAGE).
   { path: "missions", title: "Missions", nav: "quests", panel: true, drawer: true },

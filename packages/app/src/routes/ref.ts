@@ -52,7 +52,7 @@ const isFlow = (page: PageDef): boolean => page.nav === null && !page.panel;
 
 /**
  * Back (a scene's `onBack`, BACK-RULE #783): up to the page's parent in the route map (`PageDef.parent`), the village for a page
- * without one, by the one rule of `useUpTo`. A full-screen flow opened from a page (Training from Play, a visit from the League)
+ * without one, by the one rule of `useUpTo`. A full-screen flow opened from a page (a Story level from Play, a visit from the League)
  * goes back to that page, the entry just before it: never a flow's or a game's, so no Back lands in a game. So repeated Back
  * reaches the village and never cycles: the page it goes back to goes up by the rule, the flow is ahead of it.
  */

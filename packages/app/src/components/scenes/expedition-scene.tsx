@@ -209,7 +209,7 @@ function Tiers({ score }: { score: number | null }) {
         })}
       </ul>
       <p className="text-[0.8125rem] font-medium text-muted-foreground">
-        The highest tier reached pays, claimed from the next Monday at level {EXPEDITION_LEVEL}. No XP and no chest, as Training.
+        The highest tier reached pays, claimed from the next Monday at level {EXPEDITION_LEVEL}. No XP and no chest, as the Puzzle.
       </p>
     </section>
   );

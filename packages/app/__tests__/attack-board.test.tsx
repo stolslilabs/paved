@@ -126,7 +126,7 @@ describe("/pvp on the board module", { timeout: slow(30_000) }, () => {
     expect(last().settings?.dayNight).toEqual({ enabled: false, freezeAt: null });
   });
 
-  it("plays the attack as a Training game: the 3D board, the red void, a slot chosen, the bubble's hold, the green flash", async () => {
+  it("plays the attack as a Puzzle game is played: the 3D board, the red void, a slot chosen, the bubble's hold, the green flash", async () => {
     const s = await open("/pvp", async (s, me) => {
       const writes = s.ledger.writesFor(me);
       await writes.foundFreeVillage();
@@ -143,7 +143,7 @@ describe("/pvp on the board module", { timeout: slow(30_000) }, () => {
     // The attack keeps the boards' season (#788): the cycle as the setting runs it.
     expect(last().settings?.dayNight).toEqual({ enabled: true, freezeAt: null });
     expect(last().bubble).toBeNull();
-    // A tap on a lit cell places the tile there: the ghost and the bubble go to the canvas, as on Training's board.
+    // A tap on a lit cell places the tile there: the ghost and the bubble go to the canvas, as on the Puzzle's board.
     const slot = last().slots!.find((c) => c.fits) ?? last().slots![0]!;
     act(() => last().onCellClick?.({ x: slot.x, y: slot.y }));
     await waitFor(() => expect(last().bubble).not.toBeNull(), WAIT);

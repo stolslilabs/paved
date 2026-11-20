@@ -209,36 +209,9 @@ describe("Board", () => {
     expect(onSurrender).toHaveBeenCalledOnce();
   });
 
-  it("training (TRAINING-END): Restart is the painted arrow in the header, held as Story's; no dialog, the settings have no game row", async () => {
-    const onRestart = vi.fn();
-    const { unmount } = render(wrap(<BoardScene {...BOARD.training} onRestart={onRestart} />));
-    const restart = screen.getByRole("button", { name: "Hold to restart the game" });
-    // In the header, before the gear, as Story's.
-    expect(restart.closest("header")).not.toBeNull();
-    expect(restart.querySelector("img")).toHaveAttribute("src", expect.stringContaining("/restart.webp"));
-    const controls = within(restart.closest("header")!).getAllByRole("button").map((b) => b.getAttribute("aria-label"));
-    expect(controls.slice(-2)).toEqual(["Hold to restart the game", "Settings"]);
-    // A tap does nothing; a hold of HOLD_MS restarts, with no dialog.
-    fireEvent.pointerDown(restart, { button: 0 });
-    fireEvent.pointerUp(restart, { button: 0 });
-    fireEvent.click(restart, { detail: 1 });
-    expect(onRestart).not.toHaveBeenCalled();
-    fireEvent.pointerDown(restart, { button: 0 });
-    await waitFor(() => expect(onRestart).toHaveBeenCalledOnce(), { timeout: slow(2000) });
-    fireEvent.pointerUp(restart, { button: 0 });
-    expect(screen.queryByRole("dialog", { name: /Restart/ })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    const sheet = await screen.findByRole("dialog", { name: "Settings" }, { timeout: slow(5000) });
-    expect(within(sheet).queryByRole("button", { name: /Restart|Surrender/ })).not.toBeInTheDocument();
-    unmount();
-    // The game over (no tile in hand, its end on its way): the arrow keeps its place, dimmed.
-    render(wrap(<BoardScene {...BOARD.training} hand={{ ...BOARD.training.hand, state: "empty" }} onRestart={onRestart} />));
-    expect(screen.getByRole("button", { name: "Hold to restart the game" })).toBeDisabled();
-  });
-
   it("story (GAME-OVERLAY): Restart is the painted arrow on the board, held as the tile's Discard; the settings have no game row", async () => {
     const onRestart = vi.fn();
-    const { unmount } = render(wrap(<BoardScene {...BOARD.training} mode="story" onRestart={onRestart} />));
+    const { unmount } = render(wrap(<BoardScene {...BOARD.story} onRestart={onRestart} />));
     const restart = screen.getByRole("button", { name: "Hold to restart the level" });
     // In the header, before the gear: the painted icon is the whole button, no word.
     expect(restart.closest("header")).not.toBeNull();
@@ -259,14 +232,14 @@ describe("Board", () => {
     expect(within(sheet).queryByRole("button", { name: /Restart|Surrender/ })).not.toBeInTheDocument();
     unmount();
     // The level's intro or end over the board: the arrow keeps its place, dimmed.
-    render(wrap(<BoardScene {...BOARD.training} mode="story" readOnly onRestart={onRestart} />));
+    render(wrap(<BoardScene {...BOARD.story} readOnly onRestart={onRestart} />));
     expect(screen.getByRole("button", { name: "Hold to restart the level" })).toBeDisabled();
   });
 
   it("plays on the plan view's slots", async () => {
     const onSlotClick = vi.fn();
     const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
-    render(wrap(<BoardScene {...BOARD.training} slots={[slot]} onSlotClick={onSlotClick} />));
+    render(wrap(<BoardScene {...BOARD.puzzle} slots={[slot]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("group", { name: `Board of ${BOARD_38.tiles.length} tiles` })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^Slot / }));
     expect(onSlotClick).toHaveBeenCalledWith(slot);
@@ -276,14 +249,14 @@ describe("Board", () => {
     const onSlotClick = vi.fn();
     const slot = { x: BOARD_38.next.x, y: BOARD_38.next.y };
     const plate = () => screen.getByRole("button", { name: /^Slot / }).querySelector("[data-plate]");
-    const { rerender } = render(wrap(<BoardScene {...BOARD.training} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
+    const { rerender } = render(wrap(<BoardScene {...BOARD.puzzle} slots={[{ ...slot, fits: false }]} onSlotClick={onSlotClick} />));
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-lit", "true");
     // One playable plate whether or not the current rotation fits (PLACEMENT-TINTS).
     expect(plate()).toHaveAttribute("data-plate", "playable");
-    rerender(wrap(<BoardScene {...BOARD.training} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
+    rerender(wrap(<BoardScene {...BOARD.puzzle} slots={[{ ...slot, fits: true }]} onSlotClick={onSlotClick} />));
     expect(plate()).toHaveAttribute("data-plate", "playable");
     expect(screen.getByRole("button", { name: /^Slot / })).toHaveAttribute("data-fits", "true");
-    rerender(wrap(<BoardScene {...BOARD.training} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
+    rerender(wrap(<BoardScene {...BOARD.puzzle} slots={[slot]} onSlotClick={onSlotClick} placementHighlight={false} />));
     const plain = screen.getByRole("button", { name: /^Slot / });
     expect(plain).toHaveAttribute("data-lit", "false");
     expect(plain.querySelector("[data-plate]")).toBeNull();
@@ -291,9 +264,9 @@ describe("Board", () => {
     expect(onSlotClick).toHaveBeenCalledWith(slot);
   });
 
-  it("a Training game shows no deadline and no storage notice (#718)", () => {
-    render(wrap(<BoardScene {...BOARD.training} />));
-    expect(screen.getByRole("heading", { name: "Training" })).toBeInTheDocument();
+  it("a Story level shows no deadline, and no storage notice while storage is on", () => {
+    render(wrap(<BoardScene {...BOARD.story} />));
+    expect(screen.getByRole("heading", { name: BOARD.story.title })).toBeInTheDocument();
     expect(screen.queryByText("Storage is off")).not.toBeInTheDocument();
     expect(screen.queryByText(/Expires in/)).not.toBeInTheDocument();
   });

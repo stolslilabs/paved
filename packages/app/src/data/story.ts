@@ -18,7 +18,7 @@ import {
   type StorySnapshot,
 } from "@paved/game-core";
 import { queryKeys } from "./keys";
-import { trainingStore, useDataSources } from "./sources";
+import { deviceStore, useDataSources } from "./sources";
 
 /** A level of the plan by its campaign and index (from 1); null when there is none. */
 export function findLevel(campaignId: number, levelIndex: number): { campaign: StoryCampaign; level: StoryLevel } | null {
@@ -60,7 +60,7 @@ export function useStoryProgress(): {
   saved: boolean;
   record: (level: StoryLevel, run: ReturnType<StoryRun["submission"]>, score: number) => void;
 } {
-  const store = trainingStore(useDataSources());
+  const store = deviceStore(useDataSources());
   const state = entry(store);
   const subscribe = useCallback(
     (listener: () => void) => {
@@ -124,7 +124,7 @@ function readShown(store: () => KeyValueStore | null): Set<number> {
  * effect then records them, so the next visit shows them open at once.
  */
 export function useCampaignUnlocks(campaigns: readonly StoryCampaign[], progress: StoryProgress): readonly number[] {
-  const store = trainingStore(useDataSources());
+  const store = deviceStore(useDataSources());
   const [fresh] = useState(() => {
     const shown = readShown(store);
     return campaigns.filter((c) => campaignRequirement(campaigns, c).needed > 0 && campaignUnlocked(progress, campaigns, c) && !shown.has(c.id)).map((c) => c.id);
@@ -166,7 +166,7 @@ function readPresented(store: () => KeyValueStore | null): Set<string> {
  * the first time only; `markPresented` records it (a replay, or the next visit, goes straight to the board).
  */
 export function useDeckPresented(campaignId: number, levelIndex: number): { presented: boolean; markPresented: () => void } {
-  const store = trainingStore(useDataSources());
+  const store = deviceStore(useDataSources());
   const key = `${campaignId}-${levelIndex}`;
   const [presented] = useState(() => readPresented(store).has(key));
   const markPresented = useCallback(() => {

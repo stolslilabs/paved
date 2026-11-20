@@ -18,11 +18,11 @@ import { addressKey } from "./keys";
 import { puzzleKeys, usePuzzleGameRecord, type PuzzleRead } from "./puzzle";
 import type { PuzzleGameRecord } from "./puzzle-source";
 import { useDataSources } from "./sources";
-import type { Closing } from "./training";
+import type { Closing } from "./session-board";
 
 // A Puzzle game on the board (Play's Limited mode): its engine on the device (`SeededChallenge` with the day's deck), each move
-// applied at once and sent to the source in order, as a Challenge game's moves are predicted and confirmed. The board reads it as it
-// reads Training's (`TrainingGame`): its state, the last move's points, every closing.
+// applied at once and sent to the source in order, as a Challenge game's moves are predicted and confirmed. The board reads its state,
+// the last move's points and every closing.
 
 /** What the board reads of a Puzzle game; a new object after each move. */
 export interface PuzzleSnapshot {

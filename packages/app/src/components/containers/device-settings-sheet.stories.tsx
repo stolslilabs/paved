@@ -24,7 +24,7 @@ type Story = StoryObj<typeof meta>;
 
 /** On the board in a Challenge (#606): "This game" first, Surrender with the painted white flag. */
 export const BoardChallenge: Story = { args: { game: { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: fn() } } };
-/** On the board in Story mode, Training and an attack: no game row (Story's and Training's Restart is on the board, held). */
+/** On the board in Story mode and an attack: no game row (Story's Restart is on the board, held). */
 export const BoardStory: Story = {};
 /** SEASONS-SETTINGS: the Seasons pill tapped on the board, its choices over the drawer. */
 export const Seasons: Story = {

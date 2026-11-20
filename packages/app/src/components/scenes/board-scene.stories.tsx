@@ -10,8 +10,7 @@ import { BOARD_FOG } from "../../data/settings";
 import { APP_ASSETS, appRenders } from "../../mocks/assets";
 import { BOARD_38 } from "../../mocks/board";
 import { BOARD } from "../../mocks/scenes";
-import { puzzleMeter, storyMeter, type ScoreMeterValue } from "../../lib/score-meter";
-import { MOCK_NOW } from "../../mocks/clock";
+import { storyMeter, type ScoreMeterValue } from "../../lib/score-meter";
 import { BoardNotice } from "../containers/board-notice";
 import { toastCompletion } from "../containers/completion-toasts";
 import { Toaster } from "../ui/sonner";
@@ -148,20 +147,11 @@ const openSettings: Story["play"] = async ({ canvasElement }) => {
  * desktop (1440 px); "This game" first, with Surrender (#606), which asks in its dialog.
  */
 export const SettingsOpen: Story = { args: { ...BOARD.placing, ...inHand(HAND.orientation, null) }, play: openSettings };
-/** The settings in Training: no game row (TRAINING-END: its Restart is held in the header, as Story's). No Surrender. */
-export const SettingsTraining: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null) }, play: openSettings };
-/**
- * Training's header (TRAINING-END, aligned with Story's after GAME-OVERLAY): Back, "Training" and the score, the held red Restart, the
- * gear; under it the score meter to the device's best (the crown).
- */
-export const Training: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null) } };
-/** Training on the device's first game: no best, so no meter; the header the same. */
-export const TrainingFirstGame: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null), meter: null } };
 /**
  * A Puzzle game (PUZZLE-MODE): "Puzzle" and the score, the day's time left (a game ranks only when it ends before the day does), the
  * score meter to the day's first place and its trophy; Surrender ends it, no Restart.
  */
-export const Puzzle: Story = { args: { ...BOARD.training, ...inHand(HAND.orientation, null), mode: "puzzle", expiresAt: MOCK_NOW + 5 * 3_600 + 12 * 60, meter: puzzleMeter(1_640, BOARD.training.score) } };
+export const Puzzle: Story = { args: { ...BOARD.puzzle, ...inHand(HAND.orientation, null) } };
 /** The settings in Story mode: no game row (its Restart is held on the board). */
 export const SettingsStory: Story = {
   args: { ...BOARD.placing, ...inHand(HAND.orientation, null), mode: "story", gameId: undefined, expiresAt: null, meter: storyStars(BOARD.placing.score), title: "Tutorial 5: Under the trees" },
@@ -230,7 +220,7 @@ export const ReadOnly: Story = {
   },
 };
 
-/** A Story level with `localStorage` refused: the notice (Training saves nothing, so shows none: #718). */
+/** A Story level with `localStorage` refused: the notice. */
 export const StorageDisabled: Story = { args: BOARD.storageDisabled };
 
 /** The 72-tile recorded board. */
@@ -460,9 +450,9 @@ export const MissionCompleted: Story = { args: { ...BOARD.placing, ...inHand(HAN
 export const Queue: Story = { args: { ...BOARD.queue, ...inHand(HAND.orientation, null), hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE } } };
 /** #645: a Challenge move on its way: the next tile waits as the one to place, the one after it is shown, the chain draws the last. */
 export const QueueDrawing: Story = { args: BOARD.queueDrawing };
-/** #645: Training, the same queue from its local random. */
-export const QueueTraining: Story = {
-  args: { ...BOARD.queueTraining, ...inHand(HAND.orientation, null), hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE } },
+/** #645: a Puzzle game, the same queue from the day's deck. */
+export const QueuePuzzle: Story = {
+  args: { ...BOARD.queuePuzzle, ...inHand(HAND.orientation, null), hand: { ...inHand(HAND.orientation, null).hand, coming: QUEUE } },
 };
 /** #645: the deck's last two tiles: one coming. */
 export const QueueLast: Story = { args: BOARD.queueLast };

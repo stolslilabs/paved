@@ -1,21 +1,11 @@
 import { slow } from "../test-slow";
-import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "../src/App";
 import { confirmHoldMs, boardPlates, boardSlots, nextOrientation, nextValid, placementView, useConfirmFlash, type PlacementInput } from "../src/data/placement";
-import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
-import { fakeSources, memoryStore } from "./data-fakes";
+import { openPuzzleBoard, resetPuzzleBoard } from "./puzzle-fakes";
 import { holdToPlace, preloadPages, validateButton } from "./route-helpers";
-
-// A fixed Training seed (GUARDS, P-71): the first tile of a random seed fits every rotation at every lit slot about one
-// time in eleven (180 of 2000 seeds), and the search for a red rotation then finds none. Seed 1 deals a first tile that
-// fits two rotations of four at each slot.
-vi.mock("@paved/game-core", async (original) => ({
-  ...(await original<typeof import("@paved/game-core")>()),
-  randomSeed: () => 1n,
-}));
 
 // The engine's legality, as a table: at (0, 1) the tile fits rotations 1 and 3, at (1, 0) only 2.
 const FITS: Record<string, number[]> = { "0,1": [1, 3], "1,0": [2] };
@@ -151,13 +141,17 @@ afterEach(() => {
   resetWelcomedForTests();
 });
 
-describe("the Training board's plan view, placing a tile", () => {
+describe("a Puzzle board's plan view, placing a tile", () => {
+  afterEach(resetPuzzleBoard);
+
   it("never goes red: Rotate stays on valid rotations, Close puts the tile back; Place flashes the cell green", async () => {
-    const store = memoryStore();
-    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => store }).sources} />);
-    await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: slow(5000) });
+    // The tests' fixed day (`openPuzzleBoard`): a first tile that fits two rotations of four at each slot (GUARDS, P-71).
+    await openPuzzleBoard();
+    await screen.findByLabelText(/^Board of \d+ tiles$/, {}, { timeout: slow(8000) });
     const slots = () => screen.getAllByRole("button", { name: /^Slot / });
-    // Every slot of every rotation is a button, dashed or solid.
+    // Every slot of every rotation is a button, dashed or solid; lit once the wallet gave the player's account (until then the
+    // game shows read-only).
+    await screen.findAllByRole("button", { name: /^Slot / }, { timeout: slow(5000) });
     expect(slots().length).toBeGreaterThan(0);
     expect(slots().some((s) => s.getAttribute("data-fits") === "true") || slots().some((s) => s.getAttribute("data-fits") === "false")).toBe(true);
 

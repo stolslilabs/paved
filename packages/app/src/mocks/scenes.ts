@@ -30,7 +30,7 @@ import { PREVIEW_DEPOSIT_100, PREVIEW_DEPOSIT_25, PREVIEW_MINT_25, PREVIEW_REDEE
 import { titleOf } from "../lib/music/track-info";
 import { TRACKS } from "../lib/music/tracks";
 import { leagueOf } from "../lib/pvp-rules";
-import { challengeMeter, storyMeter, trainingMeter } from "../lib/score-meter";
+import { challengeMeter, puzzleMeter, storyMeter } from "../lib/score-meter";
 
 /** A scene's data without its callbacks: what a page reads and hands it. One fixture per state below. */
 type Data<P> = { [K in keyof P as K extends `on${string}` ? never : K]: P[K] };
@@ -89,10 +89,10 @@ const boardBase = {
   tileArt: originalTileArt(SOURCE_ASSETS),
 } satisfies Partial<Data<BoardSceneProps>>;
 
-/** The device's best Training score in the stories (the Training end's `previousBest`): the meter's crown. */
-export const TRAINING_BEST = 1_420;
-/** Training's meter at the board's score, against `TRAINING_BEST`. */
-const trainingBase = { mode: "training", gameId: undefined, expiresAt: null, meter: trainingMeter(TRAINING_BEST, GAME_PLAYING.score) } as const;
+/** A Puzzle game (Play's Limited mode): no chain game id on its HUD, the day's time left, the meter to the day's first place (1,640). */
+const puzzleBase = { mode: "puzzle", gameId: undefined, expiresAt: MOCK_NOW + 5 * 3_600 + 12 * 60, meter: puzzleMeter(1_640, GAME_PLAYING.score) } as const;
+/** A Story level: no deadline, its title, its stars' meter. */
+const storyBase = { mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees", meter: storyMeter(2, [1, 1, 0.4]) } as const;
 
 /** The two tiles known after the one in hand (#645): plans of the 38-tile board's deck. */
 const coming = [{ plan: BOARD_38.tiles[3]!.plan }, { plan: BOARD_38.tiles[8]!.plan }];
@@ -109,8 +109,8 @@ export const BOARD = {
     tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }],
     hand: { tile: { plan: coming[0]!.plan, orientation: 1 }, state: "pending", coming: coming.slice(1), drawing: true },
   },
-  /** #645: Training plays the same queue from its local random. */
-  queueTraining: { ...boardBase, ...trainingBase, hand: { tile: hand, state: "placing", coming } },
+  /** #645: a Puzzle game plays the same queue, from the day's deck. */
+  queuePuzzle: { ...boardBase, ...puzzleBase, hand: { tile: hand, state: "placing", coming } },
   /** #645: the deck's last two tiles: one coming, none after it. */
   queueLast: { ...boardBase, remaining: 2, hand: { tile: hand, state: "placing", coming: coming.slice(0, 1) } },
   // The bubble's callbacks are the page's: no-ops here, the stories and tests pass their own.
@@ -124,9 +124,12 @@ export const BOARD = {
   pending: { ...boardBase, tiles: [...BOARD_38.tiles, { ...BOARD_38.next, pending: true }], hand: { tile: hand, state: "pending", slotChosen: true } },
   refused: { ...boardBase, hand: { tile: hand, state: "refused", slotChosen: true, error: "Move refused by the contract: the edges do not match." } },
   expired: { ...boardBase, expiresAt: GAME_EXPIRED.expiresAt, meter: null, hand: { tile: hand, state: "expired" } },
-  training: { ...boardBase, ...trainingBase, hand: { tile: hand, state: "placing" } },
-  /** A Story level with `localStorage` refused: its progress is not saved (Training saves nothing, so has no notice: #718). */
-  storageDisabled: { ...boardBase, mode: "story", gameId: undefined, expiresAt: null, title: "Tutorial 5: Under the trees", meter: storyMeter(2, [1, 1, 0.4]), hand: { tile: hand, state: "placing" }, storageDisabled: true },
+  /** A Puzzle game: "Puzzle", the day's time left, the meter to the day's first place; Surrender, no Restart. */
+  puzzle: { ...boardBase, ...puzzleBase, hand: { tile: hand, state: "placing" } },
+  /** A Story level: its title, its stars' meter, the held Restart; no deadline. */
+  story: { ...boardBase, ...storyBase, hand: { tile: hand, state: "placing" } },
+  /** A Story level with `localStorage` refused: its progress is not saved. */
+  storageDisabled: { ...boardBase, ...storyBase, hand: { tile: hand, state: "placing" }, storageDisabled: true },
   large: {
     ...boardBase,
     tiles: BOARD_72.tiles,
@@ -165,13 +168,14 @@ export const OVER = {
     reward: { state: "below", stake: 3, threshold },
   },
   expired: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, ...figures, reward: { state: "expired", stake: 3, threshold } },
-  training: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, ...figures, previousBest: 1_420, reward: { state: "free" } },
+  /** A Puzzle game's end (Play's Limited mode): the window over the board, no stake. The stories give it its `puzzle` result. */
+  puzzle: { mode: "puzzle", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, ...figures, reward: { state: "free" } },
   /** The final board shown, the scores under it (#539). */
-  finalBoard: { mode: "training", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, ...figures, view: "board", reward: { state: "free" } },
+  finalBoard: { mode: "puzzle", game: { ...GAME_OVER, mode: 0 }, closings: CLOSINGS_38, ...figures, view: "board", reward: { state: "free" } },
   /** The scores alone: no board to show (the game's tiles could not be read), no figures beyond the closings. */
   noBoard: { mode: "challenge", game: GAME_OVER, closings: CLOSINGS_38, reward: { state: "awaiting", stake: 3, threshold } },
   noClosing: {
-    mode: "training",
+    mode: "puzzle",
     game: { ...GAME_OVER, score: 0, placedCount: 3 },
     closings: [],
     stats: mockStats([], { placed: 2, discarded: 0, discardPenalty: 0, open: [{ category: CategoryType.Road, tiles: 3, size: 3 }] }),

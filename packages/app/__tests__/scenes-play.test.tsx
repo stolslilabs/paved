@@ -21,7 +21,8 @@ describe("Play", () => {
     const onChallenge = vi.fn();
     render(wrap(<PlayScene {...PLAY.connected} onChallenge={onChallenge} onAttack={() => {}} />));
     expect(screen.getByRole("dialog", { name: "Play" })).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Ranked", "Paid", "Free", "Limited"]);
+    // The Puzzle (Limited) took Training's square beside Story's (Free); the weekly events, none here, would follow under them.
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Ranked", "Paid", "Limited", "Free"]);
     const challenge = screen.getByRole("button", { name: /^Challenge/ });
     expect(challenge).toHaveTextContent(/^ChallengeBeat the threshold$/);
     await userEvent.click(challenge);
@@ -29,16 +30,19 @@ describe("Play", () => {
     expect(screen.getByRole("img", { name: "Rewards: PAVED, XP, chests" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Attack/ })).toHaveTextContent("Raid a rival village");
     expect(screen.getByRole("img", { name: "Rewards: crowns, XP, chests" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Training/ })).toHaveTextContent("TrainingA full game, just for practice");
-    expect(screen.getByRole("button", { name: /^Training/ })).not.toHaveAccessibleName(/Rewards/);
+    expect(screen.queryByRole("button", { name: /^Training/ })).toBeNull();
     expect(screen.getByRole("button", { name: /^Story/ })).toHaveTextContent(/^StoryLearn and play fun levels$/);
     expect(screen.getByRole("img", { name: "Rewards: Cobbles, XP, chests" })).toBeInTheDocument();
     // The rewards' icons alone: no gift under them (the owner's ask of 2026-11-08); Story's Cobbles are the token's own icon.
     expect(document.querySelector('img[src*="gift-open"]')).toBeNull();
     expect(screen.getByRole("img", { name: "Rewards: Cobbles, XP, chests" }).querySelector('[data-token="cobbles"]')).not.toBeNull();
     expect(screen.getByRole("button", { name: "Coming soon" })).toBeDisabled();
+    // The Puzzle and Story two squares side by side, the Puzzle in the first (where Training's was).
+    const row = document.querySelector('[data-mode="story"]')!.parentElement!.parentElement!;
+    expect(row).toHaveClass("grid-cols-2");
+    expect([...row.querySelectorAll("[data-mode]")].map((c) => c.getAttribute("data-mode"))).toEqual(["puzzle", "story"]);
     // PLAY-MODES: each card on its mode's scene, its mode's icon over its edge.
-    for (const mode of ["attack", "challenge", "training", "story", "puzzle"]) {
+    for (const mode of ["attack", "challenge", "story", "puzzle"]) {
       const card = document.querySelector(`[data-mode="${mode}"]`)!;
       expect(card.querySelector(`img[src$="/scene-${mode}.webp"]`), mode).not.toBeNull();
       expect(card.querySelector(`img[src$="/mode-${mode}.webp"]`), mode).not.toBeNull();
@@ -116,7 +120,7 @@ describe("Play", () => {
   it("disables the Challenge while purchases are paused", () => {
     render(wrap(<PlayScene {...PLAY.paused} />));
     expect(screen.getByRole("button", { name: /^Challenge/ })).toBeDisabled();
-    expect(screen.getByText("New Challenge games are paused. Training and Story mode stay open.")).toBeInTheDocument();
+    expect(screen.getByText("New Challenge games are paused. The other modes stay open.")).toBeInTheDocument();
   });
 
   // The owner's ask of 2026-11-06: no sheet from the bottom; the stake is a panel of its own in the modes' place, at every width.

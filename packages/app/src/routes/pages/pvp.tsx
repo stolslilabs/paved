@@ -196,7 +196,7 @@ function Scout({ me, match, shieldEndsAt, writes, onBack }: { me: string; match:
   );
 }
 
-/** The open attack: the board, the tile in hand placed as a Training game places it (`usePlacement`), each move a write; the last one ends it. */
+/** The open attack: the board, the tile in hand placed as a Puzzle game places it (`usePlacement`), each move a write; the last one ends it. */
 function AttackView({ me, attack, deck, writes, onBack }: { me: string; attack: Attack; deck: AttackDeck | null; writes: Writes; onBack: () => void }) {
   const go = useAppNavigate();
   const read = usePvpAttack(me, attack, deck);

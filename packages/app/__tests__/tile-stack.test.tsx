@@ -99,7 +99,7 @@ describe("the coming tiles' renders", () => {
       expect(img.getAttribute("src")).toBe(`/r/${key}-top.0.webp`);
       expect(img.getAttribute("style")).toBeNull();
     }
-    // The chip's name on the slot (what the Training e2e reads), the image itself decorative.
+    // The chip's name on the slot (what a browser test reads), the image itself decorative.
     expect(slot(1).querySelector('[role="img"]')!.getAttribute("aria-label")).toBe(`Tile ${key3}, north`);
     expect(slot(1).querySelector("img")!.getAttribute("alt")).toBe("");
   });

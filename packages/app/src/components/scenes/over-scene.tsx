@@ -33,7 +33,6 @@ import { JoustEnd } from "../containers/joust-end";
 import type { JoustGameResult, JoustGuild } from "../../data/joust-source";
 import { TournamentEnd } from "../containers/tournament-end";
 import type { TournamentGameResult } from "../../data/tournament-source";
-import { TrainingEnd } from "../containers/training-end";
 
 // The final board (#539) is its own chunk, with the renderer: loaded when the end screen opens (#720), the scores' background.
 // The scores never wait for it: they show at once over the board's colour, and the board appears under them once it is in.
@@ -94,7 +93,7 @@ export interface OverTournament {
 }
 
 export interface OverSceneProps {
-  mode: "challenge" | "training" | "puzzle" | "joust" | "tournament";
+  mode: "challenge" | "puzzle" | "joust" | "tournament";
   /** A Tournament game's end (`mode: "tournament"`). */
   tournament?: OverTournament;
   /** A Joust game's end (`mode: "joust"`). */
@@ -164,24 +163,25 @@ const duration = (seconds: number) => {
 };
 
 /**
- * When a Training end's board starts loading under the window (ms): once its crown is in and lit (its turn, its fill and its light), as the
- * Ranked end's (`pvp-end-scene.tsx`): the renderer's start holds the page's thread a moment, and begun with the crown it froze its
+ * When a windowed end's board starts loading under the window (ms): once its mark is in and lit (its turn, its fill and its light), as
+ * the Ranked end's (`pvp-end-scene.tsx`): the renderer's start holds the page's thread a moment, and begun with the mark it froze its
  * entrance.
  */
-const TRAINING_BOARD_AFTER_MS = (END_STARS.lead + 0.9) * 1000;
+const WINDOW_BOARD_AFTER_MS = (END_STARS.lead + 0.9) * 1000;
 
 /**
- * The end of a game (`/game/:id/over`, `/training/over`), over the final board (#539, #720), the board the background from the start.
- * Training's (TRAINING-END): the Ranked end's family (`TrainingEnd` on `GameEnd`), over the board blurred; the window's cross shows the
- * board, free to pan and zoom, and the gold Scores pill brings the window back. A Challenge's: the final score, its figures, every
+ * The end of a game (`/game/:id/over`, `/puzzle/:id/over`, the Joust's and the Tournament's), over the final board (#539, #720), the
+ * board the background from the start. The Puzzle's, the Joust's and the Tournament's: the Ranked end's family (`PuzzleEnd` on
+ * `GameEnd`), over the board blurred; the window's cross shows the board, free to pan and zoom, and the gold Scores pill brings the
+ * window back. A Challenge's: the final score, its figures, every
  * closing, the reward, as a translucent overlay; "Board" hides the overlay and frees the board, "Scores" shows it again; one bar for
  * both, the board's own HUD (`GameHud`): Back, "Challenge #id", the score. Mobile first: one column, the headline figures first; two
  * columns on desktop.
  */
 export function OverScene(props: OverSceneProps) {
   const { board, onViewChange, loadBoard = loadFinalBoard } = props;
-  // Training's and the Puzzle's ends are the book's window over the board (TRAINING-END); a Challenge's, the overlay.
-  const training = props.mode !== "challenge";
+  // The Puzzle's, the Joust's and the Tournament's ends are the book's window over the board; a Challenge's, the overlay.
+  const windowed = props.mode !== "challenge";
   const play = useSfx();
   const [inner, setInner] = useState<OverView>("scores");
   const view = board ? (props.view ?? inner) : "scores";
@@ -192,13 +192,13 @@ export function OverScene(props: OverSceneProps) {
   const shown = useRef(view);
   shown.current = view;
   // Wanted as soon as there is a board (the route may read its tiles after the scores), then kept mounted under the scores:
-  // the canvas keeps its context and its models. A failed load is wanted again at the next "Board". Under Training's window, once
-  // its crown is lit.
+  // the canvas keeps its context and its models. A failed load is wanted again at the next "Board". Under the window, once its
+  // mark is lit.
   const hasBoard = board !== undefined;
-  const [boardTime, setBoardTime] = useState(!training);
+  const [boardTime, setBoardTime] = useState(!windowed);
   useEffect(() => {
     if (boardTime) return;
-    const timer = setTimeout(() => setBoardTime(true), TRAINING_BOARD_AFTER_MS);
+    const timer = setTimeout(() => setBoardTime(true), WINDOW_BOARD_AFTER_MS);
     return () => clearTimeout(timer);
   }, [boardTime]);
   const [wanted, setWanted] = useState(hasBoard && boardTime);
@@ -218,14 +218,14 @@ export function OverScene(props: OverSceneProps) {
     toastError({ title: "Final board", message, detail: errorDetail(e) });
   });
   const onBoard = view === "board";
-  // Training's window shown again from the board (the gold pill, the system Back): at once, its crown's beats and sounds not played again.
+  // The window shown again from the board (the gold pill, the system Back): at once, its mark's beats and sounds not played again.
   const [back, setBack] = useState(false);
   useEffect(() => {
     if (onBoard) setBack(true);
   }, [onBoard]);
   useEffect(() => {
-    if (training) play("gameover");
-  }, [training, play]);
+    if (windowed) play("gameover");
+  }, [windowed, play]);
 
   const boardLayer = board && wanted && (
     // Under the scores it takes no input (`inert`), and its ambient effects stop (#572); "Board" frees it.
@@ -244,13 +244,13 @@ export function OverScene(props: OverSceneProps) {
     </div>
   );
 
-  if (training) {
+  if (windowed) {
     const { game, stats } = props;
     return (
       <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
         {boardLayer}
         {/* The page's name for a reader: the book's window draws no title bar. */}
-        <h1 className="sr-only">{props.mode === "puzzle" ? "Puzzle over" : props.mode === "joust" ? "Joust game over" : props.mode === "tournament" ? "Tournament game over" : "Training over"}</h1>
+        <h1 className="sr-only">{props.mode === "joust" ? "Joust game over" : props.mode === "tournament" ? "Tournament game over" : "Puzzle over"}</h1>
         {onBoard ? (
           <ShowScores onClick={() => setView("scores")} />
         ) : (
@@ -258,7 +258,7 @@ export function OverScene(props: OverSceneProps) {
             {/* The book's backdrop: the board blurred and dimmed under the window. */}
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-background/40 backdrop-blur-sm" />
             <ScrollRegion className="absolute inset-0">
-              {/* Clipped across: the crown's light spreads past a phone's edges, and the region must not scroll sideways (WRAP360). */}
+              {/* Clipped across: the mark's light spreads past a phone's edges, and the region must not scroll sideways (WRAP360). */}
               <main
                 data-testid="scores-overlay"
                 className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center overflow-x-clip px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]"
@@ -278,7 +278,7 @@ export function OverScene(props: OverSceneProps) {
                     onJoust={props.joust?.onJoust}
                     onPlayAgain={props.onPlayAgain}
                   />
-                ) : props.mode === "puzzle" ? (
+                ) : (
                   <PuzzleEnd
                     score={game.score}
                     result={props.puzzle?.result ?? null}
@@ -292,20 +292,6 @@ export function OverScene(props: OverSceneProps) {
                     onLeaderboard={props.puzzle?.onLeaderboard}
                     onPlayAgain={props.onPlayAgain}
                   />
-                ) : (
-                <TrainingEnd
-                  score={game.score}
-                  previousBest={props.previousBest}
-                  stats={stats}
-                  closings={props.closings}
-                  closingsNote={props.closingsNote}
-                  placed={game.placedCount}
-                  discarded={game.discardedCount}
-                  instant={back}
-                  onClose={board ? () => setView("board") : undefined}
-                  onPlayAgain={props.onPlayAgain}
-                  onHome={props.onHome}
-                />
                 )}
               </main>
             </ScrollRegion>

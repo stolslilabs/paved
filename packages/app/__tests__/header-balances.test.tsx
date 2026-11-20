@@ -59,10 +59,8 @@ const TABLE: Record<string, readonly string[]> = {
   "settings/credits": [],
   // The game scenes: the boards, the ends of a game, the PvP attack's flow, its result and a replay (#647).
   "game/:gameId": [],
-  training: [],
   "story/:campaign/:level": [],
   "game/:gameId/over": [],
-  "training/over": [],
   pvp: [],
   "pvp/result/:id": [],
   "pvp/replay/:attacker/:id": [],

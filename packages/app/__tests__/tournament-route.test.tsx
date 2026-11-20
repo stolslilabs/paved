@@ -80,7 +80,7 @@ describe("/play: the Tournament's card in Limited", () => {
   it("shows no card without one (the chain)", async () => {
     const f = fakeSources();
     render(<App router={createTestRouter("/play")} sources={f.sources} connector={fakeWallet({ address: PLAYER_ID, restored: true }).load} />);
-    expect(await screen.findByRole("button", { name: /^Training/ }, { timeout: slow(5000) })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Story/ }, { timeout: slow(5000) })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tournament" })).not.toBeInTheDocument();
   });
 });

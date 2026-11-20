@@ -23,7 +23,7 @@ const WEEK_PAGE = "/play/expedition";
 /**
  * `/expedition` (the weekly individual event): the current account's board of this week on its session (`useExpeditionSession`), the
  * boards' scene with the Expedition's strip under its header (the map's name, its landmarks, the hand). The player picks a tile of the hand (the strip), then a lit slot,
- * turns the tile and lays it, as on Training's board; only the cells next to the trail are lit. The HUD shows the week's time left,
+ * turns the tile and lays it, as on the Puzzle's board; only the cells next to the trail are lit. The HUD shows the week's time left,
  * the score meter the next tier. A day that started since the last draw says so, its button drawing the day's tiles; until then the
  * board takes no move (a page opened by its address, or kept open across midnight, settles the ration first). The week over,
  * the board is read only. No board yet (the page opened by its address): the week's page opens it.

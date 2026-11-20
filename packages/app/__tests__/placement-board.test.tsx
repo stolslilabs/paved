@@ -10,10 +10,11 @@ import type { GameCanvasProps } from "@paved/renderer/react";
 import { App } from "../src/App";
 import { BoardViewport, PRESS_SHOW_MS, type BoardBubble } from "../src/components/containers/board-viewport";
 import type { GameSigner } from "../src/data";
-import { TrainingGame } from "../src/data/training";
+import { PuzzleGame } from "../src/data/puzzle-game";
 import { createTestRouter } from "../src/routes/router";
 import { markWelcomed, resetWelcomedForTests } from "../src/routes/welcomed";
-import { fakeSources, memoryStore } from "./data-fakes";
+import { fakeSources } from "./data-fakes";
+import { openPuzzleBoard, resetPuzzleBoard } from "./puzzle-fakes";
 import { holdToPlace, preloadPages, validateButton } from "./route-helpers";
 import { HOLD_MS } from "../src/lib/use-hold";
 
@@ -57,14 +58,6 @@ vi.mock("../src/components/containers/tile-view", async (original) => ({
   hasWebGL: () => true,
 }));
 
-// A fixed Training seed (GUARDS, P-71): the first tile of a random seed fits every rotation at every lit slot about one
-// time in eleven (180 of 2000 seeds), and the search for a red rotation then finds none. Seed 1 deals a first tile that
-// fits two rotations of four at each slot.
-vi.mock("@paved/game-core", async (original) => ({
-  ...(await original<typeof import("@paved/game-core")>()),
-  randomSeed: () => 1n,
-}));
-
 preloadPages("board");
 
 beforeEach(() => {
@@ -75,7 +68,8 @@ beforeEach(() => {
   resetWelcomedForTests();
   markWelcomed();
 });
-afterEach(() => {
+afterEach(async () => {
+  await resetPuzzleBoard();
   vi.restoreAllMocks();
   localStorage.clear();
   resetWelcomedForTests();
@@ -84,13 +78,24 @@ afterEach(() => {
 const bubble = () => screen.findByRole("toolbar", { name: "Tile" });
 const rotate = async () => userEvent.click(await screen.findByRole("button", { name: "Rotate tile" }));
 /** A plate the tile can take in some rotation, as the canvas lights it. */
-const legalSlots = () => canvas.props!.availableSlots!.filter((s) => s.legal !== false);
+const legalSlots = () => (canvas.props?.availableSlots ?? []).filter((s) => s.legal !== false);
+
+/**
+ * A Puzzle board of the mocks' player with the tile in hand and nothing chosen (`openPuzzleBoard`). Its fixed day deals a first tile
+ * that fits two rotations of four at each slot (GUARDS, P-71: a random first tile fits every rotation at every slot now and then).
+ * Its slots are lit once the wallet gave the player's account (until then the game shows read-only); then the page's mount effect has
+ * run (it resets the chosen slot and the orientation for a new game).
+ */
+async function openBoard() {
+  await openPuzzleBoard();
+  await screen.findByTestId("renderer", {}, { timeout: slow(8000) });
+  await waitFor(() => expect(legalSlots().length).toBeGreaterThan(0), { timeout: slow(5000) });
+  await act(async () => {});
+}
 
 describe("the 3D board's placement (SLOTS, P-68)", () => {
   it("never hands the canvas a red placement: a chosen slot gets a rotation that fits, Rotate keeps to them, Close puts the tile back", async () => {
-    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
-    await act(async () => {});
+    await openBoard();
     let rotated = 0;
     for (const slot of legalSlots()) {
       act(() => canvas.props!.onTileClick!(slot.x, slot.y));
@@ -111,14 +116,12 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
       expect(canvas.props!.hover).toBeNull();
       expect(validateButton()).toBeNull();
     }
-    // This seed deals a tile that fits two rotations at some slots: Rotate was offered.
+    // The tests' day deals a tile that fits two rotations at its slots: Rotate was offered.
     expect(rotated).toBeGreaterThan(0);
   }, slow(30_000));
 
   it("Escape cancels and R rotates, from the keyboard", async () => {
-    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
-    await act(async () => {});
+    await openBoard();
     const slot = legalSlots()[0]!;
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
     await bubble();
@@ -127,14 +130,12 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
     expect(validateButton()).toBeNull();
   });
 
-  it("Training: prepares the drop once placed, drops the tile once the session took it, then flashes green; refused, nothing plays", async () => {
-    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
-    await act(async () => {});
+  it("Puzzle: prepares the drop once placed, drops the tile once the game took it, then flashes green; refused, nothing plays", async () => {
+    await openBoard();
     const slot = legalSlots()[0]!;
 
     // Refused: no flash, the tile still placed on its slot.
-    const refused = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    const refused = vi.spyOn(PuzzleGame.prototype, "place").mockReturnValue(false);
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
     await waitFor(() => expect(validateButton()).toBeEnabled());
     // Pre-validated: the drop of the tile at its cell is prepared, before anything is sent.
@@ -158,11 +159,9 @@ describe("the 3D board's placement (SLOTS, P-68)", () => {
 });
 
 describe("holding the placed tile (TILE-HOLD, #630)", () => {
-  /** The Training board with its first legal slot chosen: the tile placed there, the bubble up, Validate enabled. */
+  /** The Puzzle board with its first legal slot chosen: the tile placed there, the bubble up, Validate enabled. */
   async function placed() {
-    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
-    await act(async () => {});
+    await openBoard();
     const slot = legalSlots()[0]!;
     act(() => canvas.props!.onTileClick!(slot.x, slot.y));
     await waitFor(() => expect(validateButton()).toBeEnabled());
@@ -177,7 +176,7 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
 
   it("a press on the tile fills Validate's ring; held to the end it places once, and its let go clicks nothing", async () => {
     const slot = await placed();
-    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    const place = vi.spyOn(PuzzleGame.prototype, "place").mockReturnValue(false);
     press(slot.x, slot.y, "down");
     expect(ring()).toBe("holding");
     await act(async () => {
@@ -193,7 +192,7 @@ describe("holding the placed tile (TILE-HOLD, #630)", () => {
 
   it("let go early, or cancelled by a pan or a second finger, it places nothing and the ring rewinds; a short tap clicks as before", async () => {
     const slot = await placed();
-    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    const place = vi.spyOn(PuzzleGame.prototype, "place").mockReturnValue(false);
     press(slot.x, slot.y, "down");
     expect(ring()).toBe("holding");
     expect(press(slot.x, slot.y, "released")).toBe(false);
@@ -240,11 +239,9 @@ describe("press and place (PRESS-PLACE, #680)", () => {
   beforeAll(async () => {
     await import("../src/components/containers/tile-bubble");
   });
-  /** The Training board with the tile in hand and nothing shown yet. */
+  /** The Puzzle board with the tile in hand and nothing shown yet. */
   async function empty() {
-    render(<App router={createTestRouter("/training")} sources={fakeSources({ store: () => memoryStore() }).sources} />);
-    await screen.findByTestId("renderer", {}, { timeout: slow(5000) });
-    await act(async () => {});
+    await openBoard();
     return legalSlots()[0]!;
   }
   const press = (x: number, y: number, phase: "down" | "released" | "cancelled") => {
@@ -266,7 +263,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
 
   it("a press held on an empty board shows the tile, fills Validate's ring and places it once; its let go clicks nothing", async () => {
     const slot = await empty();
-    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    const place = vi.spyOn(PuzzleGame.prototype, "place").mockReturnValue(false);
     press(slot.x, slot.y, "down");
     // Not yet: a pan may still start.
     expect(screen.queryByRole("toolbar", { name: "Tile" })).toBeNull();
@@ -281,7 +278,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
 
   it("let go early, the tile stays shown on that cell as after a tap, and a second press on it holds again", async () => {
     const slot = await empty();
-    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    const place = vi.spyOn(PuzzleGame.prototype, "place").mockReturnValue(false);
     await pressShown(slot.x, slot.y);
     expect(press(slot.x, slot.y, "released")).toBe(true);
     expect(ring()).toBe("idle");
@@ -296,7 +293,7 @@ describe("press and place (PRESS-PLACE, #680)", () => {
 
   it("a pan or a short tap before the delay shows nothing from the press; a second finger after it cancels the hold, the tile stays", async () => {
     const slot = await empty();
-    const place = vi.spyOn(TrainingGame.prototype, "place").mockResolvedValue(false);
+    const place = vi.spyOn(PuzzleGame.prototype, "place").mockReturnValue(false);
     // A pan: cancelled within the delay, nothing shows, nothing is placed.
     press(slot.x, slot.y, "down");
     press(slot.x, slot.y, "cancelled");

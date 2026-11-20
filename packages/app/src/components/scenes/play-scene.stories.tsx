@@ -21,13 +21,13 @@ import { PHONE_320, PHONE_375 } from "./viewports";
 /**
  * Play (`/play`, PLAY-PAGE, the Paved UX Book's "modes", the owner's asks of 2026-11-06, then PLAY-MODES, the owner's direction C of
  * 2026-11-08): the HUD's drawer, a full page on a phone, a side panel docked at the right from `tablet`. Attack the hero, the Challenge
- * wide, Training and Story square tiles, the Puzzle wide (coming soon where the network has none), each a stone slab on its mode's
- * scene, its icon breaking out of its top edge, its rewards static. One story per state; the Viewport control reframes it.
+ * wide, the Puzzle (coming soon where the network has none) and Story square tiles, each a stone slab on its mode's scene, its icon
+ * breaking out of its top edge, its rewards static. One story per state; the Viewport control reframes it.
  */
 const meta = {
   title: "Scenes/Play",
   component: PlayScene,
-  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onTraining: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onJoust: fn(), onJoustBack: fn(), onExpedition: fn(), onExpeditionBack: fn(), onMasterpiece: fn(), onMasterpieceBack: fn() },
+  args: { onBack: fn(), onChallenge: fn(), onChallengeBack: fn(), onStoryBack: fn(), onPuzzleBack: fn(), onResume: fn(), onStory: fn(), onAttack: fn(), onPuzzle: fn(), onJoust: fn(), onJoustBack: fn(), onExpedition: fn(), onExpeditionBack: fn(), onMasterpiece: fn(), onMasterpieceBack: fn() },
 } satisfies Meta<typeof PlayScene>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -36,7 +36,7 @@ export const Connected: Story = { args: PLAY.connected };
 /** No Attack on this network (no `onAttack`): the Challenge leads, its war horn breaking out at the top. */
 export const NoAttack: Story = { args: { ...PLAY.connected, onAttack: undefined } };
 
-/** New Challenge games paused: the Challenge is off and says why; Training and Story stay open. */
+/** New Challenge games paused: the Challenge is off and says why; the other modes stay open. */
 export const PurchasesPaused: Story = { args: PLAY.paused };
 /** The book's "modes-resume": a Challenge game still open, its time left and score, Resume. */
 export const Running: Story = { args: PLAY.running };

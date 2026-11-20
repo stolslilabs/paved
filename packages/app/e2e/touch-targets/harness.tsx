@@ -18,7 +18,7 @@ createRoot(document.getElementById("root")!).render(
   <LazyMotion features={domMax}>
     <MotionConfig reducedMotion="always">
       <div className="flex min-h-dvh flex-col gap-6 bg-background px-4 py-4 text-foreground">
-        <PlayModes {...PLAY.running} onResume={no} onChallenge={no} onTraining={no} />
+        <PlayModes {...PLAY.running} onResume={no} onChallenge={no} />
         <MailSection {...INBOX_MAIL.one} onClaimAll={no} onOpen={no} />
       </div>
     </MotionConfig>

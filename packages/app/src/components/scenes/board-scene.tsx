@@ -29,7 +29,7 @@ import type { ScoreMeterValue } from "../../lib/score-meter";
 import type { AttackDeckSheet } from "../../lib/attack-deck-sheet";
 export type { CoachTarget } from "../containers/coach";
 
-export type BoardMode = "challenge" | "training" | "story" | "attack" | "puzzle" | "joust" | "expedition" | "masterpiece";
+export type BoardMode = "challenge" | "story" | "attack" | "puzzle" | "joust" | "expedition" | "masterpiece";
 
 /**
  * An attack's own pieces (`mode: "attack"`, #772), in the board's slots; everything else is the boards': the HUD, the closing
@@ -57,7 +57,7 @@ const PREFETCH_AFTER_MS = 3000;
 /** The base deck's plans (chain ids, a card each): the stack's pile draws its tiles from them. */
 const BASE_DECK_PLANS = baseDeckPlans().map((plan) => Object.values(PlanType).indexOf(plan));
 
-const TITLES: Record<BoardMode, string> = { challenge: "Challenge", training: "Training", story: "Story", attack: "Attack", puzzle: "Puzzle", joust: "Joust", expedition: "Expedition", masterpiece: "Masterpiece" };
+const TITLES: Record<BoardMode, string> = { challenge: "Challenge", story: "Story", attack: "Attack", puzzle: "Puzzle", joust: "Joust", expedition: "Expedition", masterpiece: "Masterpiece" };
 
 export interface BoardSceneProps {
   mode: BoardMode;
@@ -77,7 +77,7 @@ export interface BoardSceneProps {
   onPresentDeck?: () => void;
   /**
    * The score meter under the HUD, every mode's (GAME-OVERLAY, `lib/score-meter.ts`): the Attack's stars (the Ranked's), Story's stars by
-   * their shares, a Challenge's score to beat and cap, Training's best. None: no goal to show (Training's first game on a device).
+   * their shares, a Challenge's score to beat and cap, the Puzzle's day's first place. None: no goal to show.
    */
   meter?: ScoreMeterValue | null;
   /** The control a Story coach mark points at: lit (`CoachMark`, GAME-OVERLAY). */
@@ -123,7 +123,7 @@ export interface BoardSceneProps {
   skins?: TileSkins;
   /** The stack's tiles drawn by the renderer in 3D (`StackView`), given by the page like `canvas`; the art otherwise. */
   renderHandStack?: (view: StackFrame) => ReactNode;
-  /** `localStorage` refused: Story progress is not saved on this device (Training saves nothing: #718). */
+  /** `localStorage` refused: Story progress is not saved on this device. */
   storageDisabled?: boolean;
   /** The legal slots of the tile in hand in any rotation (the contracts' coordinates), `fits` at the current one: the plan view draws them as buttons. */
   slots?: { x: number; y: number; fits?: boolean }[];
@@ -153,7 +153,7 @@ export interface BoardSceneProps {
   discardCost?: number;
   /** Called once the player confirms in the Surrender dialog (the settings' Surrender, or the expired banner's). Challenge only. */
   onSurrender?: () => void;
-  /** Called once the player confirms Restart in the settings: Story mode restarts the level, Training the game. */
+  /** Called once the player holds Restart in the header: Story mode restarts the level. */
   onRestart?: () => void;
   /** The board of a game the viewer cannot play (no account, another player's game): the stack shows its tiles, nothing to play (#701). */
   readOnly?: boolean;
@@ -164,9 +164,9 @@ export interface BoardSceneProps {
 }
 
 /**
- * The game board (`/game/:id`, `/training`, `/story/:campaign/:level`, and PvP's attack and replay through `PvpAttackScene`):
+ * The game board (`/game/:id`, `/puzzle/:id`, `/story/:campaign/:level`, and PvP's attack and replay through `PvpAttackScene`):
  * the scene full screen, its header, the closings, the tile stack (the hand, bottom right, #606). The gear's settings carry the
- * game's Surrender (Challenge) or Restart (Story mode, Training), each confirmed by a dialog; an attack has neither. Its deck
+ * game's Surrender (Challenge, the Puzzle) or Restart (Story mode), each confirmed (a dialog, a hold); an attack has neither. Its deck
  * sheet (#789) shows the defender's tiles and the extras drawn at random, never the order.
  */
 export function BoardScene(props: BoardSceneProps) {
@@ -218,8 +218,8 @@ export function BoardScene(props: BoardSceneProps) {
     play("tap");
     setDeckOpen(true);
   };
-  // The game's row in the settings: Surrender (Challenge, while the game takes moves). Story's and Training's Restart is on the board,
-  // held (GAME-OVERLAY, TRAINING-END): their settings have no game row.
+  // The game's row in the settings: Surrender (Challenge, while the game takes moves). Story's Restart is on the board, held
+  // (GAME-OVERLAY): its settings have no game row.
   const pick = (open: (on: boolean) => void) => () => {
     setSettingsOpen(false);
     open(true);
@@ -230,9 +230,8 @@ export function BoardScene(props: BoardSceneProps) {
     !props.readOnly && surrenders
       ? { kind: "surrender", label: "Surrender", hint: "End this game now with its score.", onSelect: pick(setSurrendering), disabled: !props.onSurrender || hand.state === "pending" || hand.state === "empty" }
       : undefined;
-  // Restart, held in the header: Story's level, Training's game; dimmed in its place while the board is read only (a level's intro or
-  // end) or Training's game is over (its end on its way).
-  const restartable = mode === "story" || mode === "training";
+  // Restart, held in the header: Story's level; dimmed in its place while the board is read only (a level's intro or end).
+  const restartable = mode === "story";
   return (
     <div className="relative h-dvh min-h-[32rem] overflow-hidden bg-board text-foreground">
       {props.canvas ? (
@@ -256,8 +255,7 @@ export function BoardScene(props: BoardSceneProps) {
             setSettingsOpen(true);
           }}
           onRestart={restartable ? props.onRestart : undefined}
-          restartLabel={mode === "training" ? "Hold to restart the game" : undefined}
-          restartDisabled={props.readOnly || (mode === "training" && hand.state === "empty")}
+          restartDisabled={props.readOnly}
           coach={props.coach}
           className="pointer-events-auto w-full max-w-2xl"
         />

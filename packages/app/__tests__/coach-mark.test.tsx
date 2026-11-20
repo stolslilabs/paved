@@ -53,7 +53,7 @@ describe("the coach mark (GAME-OVERLAY)", () => {
     ["discard", "stack's trash"],
     ["settings", "gear"],
   ] as const)("%s: the light behind the %s, nothing else coached", (target) => {
-    const { container } = render(wrap(<BoardScene {...BOARD.training} mode="story" onDiscard={vi.fn()} coach={target as CoachTarget} />));
+    const { container } = render(wrap(<BoardScene {...BOARD.story} onDiscard={vi.fn()} coach={target as CoachTarget} />));
     const mark = markOf(target);
     // The painted rays (the opened chest's, white so the code tints them), two fans, the glow, the waves and the flash.
     expect(mark.querySelectorAll("[data-part=rays]")).toHaveLength(2);
@@ -65,7 +65,7 @@ describe("the coach mark (GAME-OVERLAY)", () => {
   });
 
   it("the deck's light comes out of the pile, not the stack's box", () => {
-    render(wrap(<BoardScene {...BOARD.training} mode="story" coach="deck" />));
+    render(wrap(<BoardScene {...BOARD.story} coach="deck" />));
     const mark = markOf("deck");
     expect(screen.getByTestId("tile-stack")).toHaveAttribute("data-coach", "deck");
     // Centred on the pile's top (the tiles in hand and coming hover above it), not on the box's middle; wider than the box.
@@ -85,7 +85,7 @@ describe("the coach mark (GAME-OVERLAY)", () => {
   });
 
   it("under reduced motion: the two fans and the glow, still; no waves, no flash", () => {
-    render(wrap(<BoardScene {...BOARD.training} mode="story" coach="settings" />, true));
+    render(wrap(<BoardScene {...BOARD.story} coach="settings" />, true));
     const mark = markOf("settings");
     expect(mark.querySelectorAll("[data-part=rays]")).toHaveLength(2);
     expect(mark.querySelector("[data-part=glow]")).not.toBeNull();
@@ -94,7 +94,7 @@ describe("the coach mark (GAME-OVERLAY)", () => {
   });
 
   it("no target, no mark: a level that introduces no control shows none", () => {
-    const { container } = render(wrap(<BoardScene {...BOARD.training} mode="story" coach={null} />));
+    const { container } = render(wrap(<BoardScene {...BOARD.story} coach={null} />));
     expect(marks()).toHaveLength(0);
     expect(container.querySelector("[data-coach]")).toBeNull();
     noOldMarks(container);
