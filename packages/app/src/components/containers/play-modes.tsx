@@ -214,8 +214,13 @@ const SHAPES = {
 const SHADE_UP: CSSProperties = { backgroundImage: "linear-gradient(180deg, transparent 35%, color-mix(in oklab, var(--card) 90%, transparent))" };
 const SHADE_LEFT: CSSProperties = { backgroundImage: "linear-gradient(90deg, color-mix(in oklab, var(--card) 85%, transparent) 20%, color-mix(in oklab, var(--card) 10%, transparent) 70%)" };
 
-/** An event's icon on its wide card (EVENT-ICONS): at the card's right, breaking out of its top edge, clear of the rewards under it. */
-const EVENT_ICON = { px: 84, style: { right: 10, top: -28 } } as const;
+/**
+ * An event's icon on its wide card (EVENT-ICONS): at the card's right, breaking out of its top edge, clear of the rewards under it and
+ * of the card above it (EVENT-ICONS-FIX, #1173): the Limited cards are 14 px apart, so its painted top stays within 12 px over its
+ * card (the card above's outline shadow is 2 px), and its foot above the rewards (56 px down); the Tournament trophy's right edge.
+ * `e2e/event-icons.e2e.ts` measures both at 320, 360 and 375 px.
+ */
+const EVENT_ICON = { px: 68, style: { right: 14, top: -11 } } as const;
 
 /**
  * A mode's card (PLAY-MODES): its slab (`SHAPES`), its scene filling it (`sceneAt` its crop, `scenePx` the width it is drawn), the
@@ -375,7 +380,7 @@ export function PlayModes({ spawnPaused, running = null, now = 0, onChallenge, o
 
       {/* The weekly events, under the Puzzle's and Story's row: Limited too, named by the Puzzle's group title. */}
       {(expeditionCard || masterpieceCard || joustCard || tournamentCard || colossusCard) && (
-        <section aria-labelledby="play-limited" className={cn("flex flex-col gap-3.5", joustCard || tournamentCard ? "pt-4" : "pt-2")}>
+        <section aria-labelledby="play-limited" data-slot="play-events" className={cn("flex flex-col gap-3.5", joustCard || tournamentCard ? "pt-4" : "pt-2")}>
           {expeditionCard && <ExpeditionMode card={expeditionCard} now={now} onSelect={onExpedition} />}
           {masterpieceCard && <MasterpieceMode card={masterpieceCard} now={now} onSelect={onMasterpiece} />}
           {joustCard && <JoustMode card={joustCard} now={now} onSelect={onJoust} />}

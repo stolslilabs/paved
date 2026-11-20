@@ -1,4 +1,4 @@
-import { attackDeckSize, emptyInventory, layoutScore, layoutSlotsOf, slotsOf, type ChestRank, type LayoutSlots, type LayoutTile, type QueuedMove } from "@paved/game-core";
+import { attackDeckSize, emptyInventory, layoutScore, layoutSlotsOf, townHallLevelAt, townHallSlots, type ChestRank, type LayoutSlots, type LayoutTile, type QueuedMove } from "@paved/game-core";
 import type { ChestOrigin } from "../free-village-base";
 import { RIVAL_SEEDS } from "./rivals";
 
@@ -22,6 +22,8 @@ export interface StoredAttackV2 {
   status: "open" | "finished" | "surrendered";
   defender: string;
   slots: number;
+  /** The defender's Town Hall level at the attack's start (TOWN-HALL): the board's centre. */
+  townHall?: number;
   target: number;
   /**
    * The defender's layout at the attack's start, the starter left out (#786): the match shows the village as it was, whatever
@@ -54,6 +56,8 @@ export interface StoredDefenceV2 {
   id: number;
   attacker: string;
   slots: number;
+  /** The player's Town Hall level at the attack's start (TOWN-HALL). */
+  townHall?: number;
   /** The player's layout at the attack's start, the starter left out, and its score (the target). */
   village: LayoutTile[];
   target: number;
@@ -69,6 +73,8 @@ export interface StoredDefenceV2 {
 /** A player's PvP v2 state. */
 export interface StoredV2 {
   xp: number;
+  /** The Town Hall's level (TOWN-HALL); absent in a save from before it (`townHallV2` brings it in). */
+  townHall?: number;
   /** The tiles held, by plan (19 counts). */
   inventory: number[];
   /** The saved layout, the starter left out; null: not founded. The village: the active slot's layout (#804). */
@@ -96,6 +102,7 @@ export interface StoredV2 {
 
 export const freshV2 = (): StoredV2 => ({
   xp: 0,
+  townHall: 1,
   inventory: emptyInventory(),
   layout: null,
   chests: { pending: [], open: null, opened: 0 },
@@ -118,6 +125,35 @@ export function renameChestsV2(v2: StoredV2): void {
   for (const attack of v2.attacks) attack.chest = renamedRank(attack.chest);
 }
 
+/**
+ * A save from before the Town Hall (TOWN-HALL), or whose layouts no longer fit it, brought to it: the Town Hall at level 1 when
+ * it had none; its layouts, laid out round the starter, emptied (the tiles stay in the inventory, to lay out again round the Town Hall); its attacks and defences, played round the
+ * starter, dropped with the opponent drawn.
+ */
+export function townHallV2(v2: StoredV2): void {
+  // A layout fits the Town Hall when the engine builds it round it; one saved round the starter, or round another Town Hall, does not.
+  const fits = (layout: LayoutTile[] | null) => {
+    if (!layout) return true;
+    try {
+      layoutScore(layout);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (v2.townHall !== undefined && fits(v2.layout) && (v2.slots?.layouts ?? []).every(fits)) return;
+  v2.townHall ??= 1;
+  if (v2.layout) v2.layout = [];
+  if (v2.slots) v2.slots.layouts = v2.slots.layouts.map((l) => (l ? [] : null));
+  v2.attacks = [];
+  v2.defences = [];
+  v2.answered = 0;
+  v2.match = null;
+}
+
+/** The slots of a village: its Town Hall's (`townHallSlots`). */
+export const villageSlotsV2 = (v2: StoredV2): number => townHallSlots(v2.townHall ?? 1);
+
 /** A founded village's layout slots: the stored ones, or (a save from before #804) its layout alone, in the free slot. */
 export function slotsOfV2(v2: StoredV2 & { layout: LayoutTile[] }): LayoutSlots {
   return v2.slots ?? layoutSlotsOf(v2.layout);
@@ -135,6 +171,8 @@ export interface MockRivalV2 {
   address: string;
   name: string;
   level: number;
+  /** Its Town Hall's level: the highest its level opens (`townHallLevelAt`). */
+  townHall: number;
   slots: number;
   crowns: number;
   tiles: LayoutTile[];
@@ -149,8 +187,9 @@ let rivals: MockRivalV2[] | null = null;
 export function mockRivalsV2(): readonly MockRivalV2[] {
   rivals ??= RIVAL_SEEDS.map((r, i) => {
     const tiles = r.tiles.map(([plan, orientation, x, y]) => ({ plan, orientation, x, y }));
-    const slots = slotsOf(r.level);
-    return { address: `0x${(0x7e2a0000 + i + 1).toString(16)}`, name: r.name, level: r.level, slots, crowns: r.crowns, tiles, score: layoutScore(tiles), deck: attackDeckSize(slots) };
+    const townHall = townHallLevelAt(r.level);
+    const slots = townHallSlots(townHall);
+    return { address: `0x${(0x7e2a0000 + i + 1).toString(16)}`, name: r.name, level: r.level, townHall, slots, crowns: r.crowns, tiles, score: layoutScore(tiles), deck: attackDeckSize(slots) };
   });
   return rivals;
 }

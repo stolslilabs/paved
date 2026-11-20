@@ -82,6 +82,8 @@ export interface VillageStageProps extends Pick<LayoutEditorOptions, "randomizer
   onDismissRefusal?: () => void;
   /** The saved layouts (#804): the panel's carousel above the inventory, Use in the editor's bar. Unset (not served): neither. */
   layoutSlots?: LayoutSlotsProps;
+  /** The Town Hall (TOWN-HALL-PAGE): a tap on it, in view, opens its page. Unset (not served, or not one's own): the tap does nothing. */
+  onTownHall?: () => void;
 }
 
 /**
@@ -271,7 +273,8 @@ export default function VillageStage({ village, editable, ...props }: VillageSta
   const frame = useMemo(() => (scene ? frameOf(cover) : null), [scene, cover]);
   // From `desktop` the bar is the side menu's head (the owner's asks of 2026-11-05).
   const docked = useDocked();
-  const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press, camera, frame }), [editor.view, bubble, lit, press, camera, frame]);
+  const onTownHall = props.onTownHall;
+  const view: LayoutBoardView = useMemo(() => ({ ...editor.view, bubble, lit, press, camera, frame, onTownHall }), [editor.view, bubble, lit, press, camera, frame, onTownHall]);
   // Save into the layout edited: the active one is the village (the editor's Save, which closes edit mode on its way back); another
   // keeps the draft there, the village unchanged (#804's Save here), edit mode open.
   const target = layoutSlots?.slots.find((s) => s.slot === edited && s.open) ?? null;

@@ -91,9 +91,11 @@ export default function Page() {
   const village = useMemo<VillageLayout | undefined>(() => {
     if (me === null) return undefined;
     if (readOnly) return starter.data;
-    return data ? { owner, level: data.level, tiles: boardTilesOf(data.tiles), score: data.score } : undefined;
+    return data ? { owner, level: data.level, townHall: data.townHall, tiles: boardTilesOf(data.tiles, data.townHall), score: data.score } : undefined;
   }, [me, readOnly, starter.data, data, owner]);
   const pending = writes.pending?.kind;
+  // A tap on the Town Hall of one's own village opens its page (TOWN-HALL-PAGE), where a village is served.
+  const onTownHall = useCallback(() => go("/town-hall"), [go]);
 
   // Edit mode's way out from the scene (Back with nothing to lose, Leave asked, a save that landed): the entry Edit pushed goes,
   // or, opened on `/?edit`, the URL drops the mode. Neither asks again.
@@ -167,7 +169,7 @@ export default function Page() {
         activeGame={wallet.address ? (active.data ?? null) : null}
         spawnPaused={paused.data ?? false}
         now={now}
-        renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} />}
+        renderStage={(stage) => <HomeStage {...stage} playerId={me} held={data ?? null} settings={board.renderer} onTownHall={data ? onTownHall : undefined} />}
         onPlay={() => go("/play")}
         onChat={() => go("/chat")}
         onGuild={() => go("/guild")}

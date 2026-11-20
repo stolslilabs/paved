@@ -48,6 +48,8 @@ const SETS: Array<{ label: string; source: string; out: string; match: (file: st
   { label: "base", source: SOURCE, out: OUT, match: (file) => /^([a-z]{9})\.glb$/.exec(file)?.[1] ?? null },
   // Forest (theme 1): the high-forest variants, every plan has at least one.
   { label: "forest", source: join(SOURCE, "extended"), out: join(OUT, "forest"), match: (file) => /^([a-z]{9}_HF_\d+)\.glb$/.exec(file)?.[1] ?? null },
+  // The Town Hall (TOWN-HALL): the four cells of each of its 10 levels (`scripts/town-hall-models.ts`), a level a variant.
+  { label: "townhall", source: join(SOURCE, "townhall"), out: join(OUT, "townhall"), match: (file) => /^([a-z]{9}_TH_\d+)\.glb$/.exec(file)?.[1] ?? null },
 ];
 /** The voxel grid: every tile model is a 4-unit grid of 0.1-unit voxels (`outlines.ts`, `TILE_VOXELS`). */
 const GRID = 0.1;

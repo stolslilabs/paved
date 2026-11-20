@@ -1,4 +1,7 @@
-import { slotsOf } from "@paved/game-core";
+import { townHallLevelAt, townHallSlots } from "@paved/game-core";
+
+/** The slots of a village whose owner is at `level`: its Town Hall's, the highest the level opens (TOWN-HALL). */
+const slotsOf = (level: number): number => townHallSlots(townHallLevelAt(level));
 import type { PvpPlayer, PvpVillage } from "../lib/pvp-rules";
 import { attackStars } from "../lib/pvp-v2-rules";
 import type { MatchView, PvpMatchSceneProps } from "../components/scenes/pvp-match-scene";

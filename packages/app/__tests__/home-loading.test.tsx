@@ -121,14 +121,14 @@ describe("/: a cold arrival under the fog", () => {
     const wallet = fakeWallet({ address: me, restored: true });
     wallet.connector.signer = () => s.sources.signer as GameSigner;
     render(<App router={createTestRouter("/")} sources={s.sources} connector={wallet.load} />);
-    expect(await screen.findByRole("img", { name: /^Village layout/ }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: /^Village layout/ }, WAIT)).toBeInTheDocument();
     expect(fog()).toBeNull();
   }, slow(30_000));
 
   it("lifts the fog with the plan view when the renderer cannot start", async () => {
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Fail" }));
-    expect(await screen.findByRole("img", { name: /^Village layout/ }, WAIT)).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: /^Village layout/ }, WAIT)).toBeInTheDocument();
     expect(fog()).toBeNull();
   }, slow(30_000));
 });

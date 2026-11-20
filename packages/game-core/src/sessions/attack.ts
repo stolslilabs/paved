@@ -46,6 +46,13 @@ const orientationOf = (code: number): OrientationType => {
 /** The ORIENTATIONS codes, 1 north to 4 west. */
 const ORIENTATION_CODES = [1, 2, 3, 4] as const;
 
+/** What an attack is played on: `townHall` for a free village's (PvP v2: the defender's Town Hall at the centre, not the starter). */
+export interface AttackConfig {
+  readonly territory: readonly TerritoryCell[] | null;
+  readonly placed?: readonly PlacedCodes[];
+  readonly townHall?: boolean;
+}
+
 /**
  * An attack on the engine. `territory` is the snapshot's cells (the 3 x 3 of the start, then the parcels the defender owned
  * at the start, `Village.cells`' first ones); null is an open board (an NPC village's Story level). `placed` are an NPC
@@ -55,17 +62,18 @@ export class AttackRun {
   readonly game: EngineGame;
   private readonly moves: AttackMoveCodes[] = [];
 
-  constructor(config: { territory: readonly TerritoryCell[] | null; placed?: readonly PlacedCodes[] }) {
+  constructor(config: AttackConfig) {
     this.game = EngineGame.start({
       deck: "village",
       seed: 0n,
+      townHall: config.townHall,
       territory: config.territory ?? undefined,
       placed: config.placed?.map((t) => ({ plan: planOf(t.plan), orientation: orientationOf(t.orientation), x: t.x, y: t.y })),
     });
   }
 
   /** An attack with `moves` already played (a resume, or a replay up to a move). */
-  static replay(config: { territory: readonly TerritoryCell[] | null; placed?: readonly PlacedCodes[] }, moves: readonly AttackMoveCodes[]): AttackRun {
+  static replay(config: AttackConfig, moves: readonly AttackMoveCodes[]): AttackRun {
     const run = new AttackRun(config);
     for (const move of moves) run.apply(move);
     return run;

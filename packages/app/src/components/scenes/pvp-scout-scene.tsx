@@ -29,7 +29,7 @@ const loadDeckSheet = () => import("../containers/deck-sheet");
 
 /** PvP v2's attack deck (#740): ceil(1.15 x S) tiles, the defender's placed tiles and extras from the base deck. */
 export interface ScoutDeck {
-  /** The defender's slots, S = 8 + level. */
+  /** The defender's slots, S: its Town Hall's (TOWN-HALL). */
   slots: number;
   /** The tiles the attack will draw: ceil(1.15 x S). */
   size: number;

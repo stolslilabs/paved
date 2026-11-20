@@ -24,12 +24,14 @@ export const APP_ASSETS = "/renderer-assets";
  */
 const MODEL_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/models/*.glb", { query: "?url" }));
 const FOREST_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/models/forest/*.glb", { query: "?url" }));
+const TOWN_HALL_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/models/townhall/*.glb", { query: "?url" }));
 const TILE_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/tiles/*.png", { query: "?url" }));
 const RENDER_FILES = Object.keys(import.meta.glob("../../public/renderer-assets/renders/*.webp", { query: "?url" }));
 const fileName = (file: string) => file.slice(file.lastIndexOf("/") + 1);
 export const APP_MANIFEST: AssetManifest & {
   tiles: Record<string, Record<string, string>>;
   themes: Record<string, Record<string, string[]>>;
+  townHall: Record<string, string[]>;
   renders: Record<string, Record<string, string>>;
 } = (() => {
   const models: Record<string, string> = {};
@@ -37,16 +39,20 @@ export const APP_MANIFEST: AssetManifest & {
     const match = /\/([a-z]{9})\.[0-9a-f]{10}\.glb$/.exec(file);
     if (match) models[match[1]!] = `models/${fileName(file)}`;
   }
-  const plans: Record<string, Array<[number, string]>> = {};
-  for (const file of FOREST_FILES) {
-    const match = /\/([a-z]{9})_HF_(\d+)\.[0-9a-f]{10}\.glb$/.exec(file);
-    if (match) (plans[match[1]!] ??= []).push([Number(match[2]), `models/forest/${fileName(file)}`]);
-  }
-  const forest = Object.fromEntries(
-    Object.keys(plans)
-      .sort()
-      .map((key) => [key, plans[key]!.sort((a, b) => a[0] - b[0]).map(([, path]) => path)]),
-  );
+  /** A folder's variants by plan key, in variant order (`<plan>_<SET>_<n>.<hash>.glb`). */
+  const variants = (files: readonly string[], folder: string): Record<string, string[]> => {
+    const plans: Record<string, Array<[number, string]>> = {};
+    for (const file of files) {
+      const match = /\/([a-z]{9})_[A-Z]{2}_(\d+)\.[0-9a-f]{10}\.glb$/.exec(file);
+      if (match) (plans[match[1]!] ??= []).push([Number(match[2]), `models/${folder}/${fileName(file)}`]);
+    }
+    return Object.fromEntries(
+      Object.keys(plans)
+        .sort()
+        .map((key) => [key, plans[key]!.sort((a, b) => a[0] - b[0]).map(([, path]) => path)]),
+    );
+  };
+  const forest = variants(FOREST_FILES, "forest");
   const tiles: Record<string, Record<string, string>> = {};
   for (const file of [...TILE_FILES].sort()) {
     const match = /\/([a-z]{9})\.(\d+)\.[0-9a-f]{10}\.png$/.exec(file);
@@ -57,7 +63,8 @@ export const APP_MANIFEST: AssetManifest & {
     const match = /\/([a-z]{9}(?:-top)?|cover|story-\d+-\d+|battle-(?:attack|defence)-\d+)\.(\d+)\.[0-9a-f]{10}\.webp$/.exec(file);
     if (match) (renders[match[2]!] ??= {})[match[1]!] = `renders/${fileName(file)}`;
   }
-  return { models, tiles, themes: { "1": forest }, renders };
+  // The Town Hall's cells (TOWN-HALL), as the build's manifest lists them.
+  return { models, tiles, themes: { "1": forest }, townHall: variants(TOWN_HALL_FILES, "townhall"), renders };
 })();
 
 /**

@@ -19,6 +19,8 @@ export interface FreeVillageView {
   founded: boolean;
   xp: number;
   level: number;
+  /** The Town Hall's level (TOWN-HALL), 1 at the foundation: it sets `slots`. */
+  townHall: number;
   slots: number;
   tiles: LayoutTile[];
   score: number;
@@ -99,6 +101,16 @@ export interface FreeVillageWrites {
   reportStory(report: StoryReport): Promise<WriteResult>;
 }
 
+/** An upgrade of the Town Hall to its next level, at the price the page showed (refused if it is not the level's). */
+export interface UpgradeTownHallRequest {
+  confirmedPrice: number;
+}
+
+/** The Town Hall's write (TOWN-HALL), for the connected account: its next level, for Cobbles, with the player level it asks for. */
+export interface TownHallWrites {
+  upgradeTownHall(request: UpgradeTownHallRequest): Promise<WriteResult>;
+}
+
 /** Why a v2 write is refused. */
 export type V2Refusal =
   | LayoutRefusal
@@ -112,6 +124,8 @@ export type V2Refusal =
   | "bought"
   | "price-changed"
   | "not-enough-cobbles"
+  | "max-level"
+  | "level-too-low"
   | "no-level"
   | "not-joined"
   | "attack-open"

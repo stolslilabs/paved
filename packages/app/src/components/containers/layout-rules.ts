@@ -1,7 +1,7 @@
 import type { BoardTile } from "@paved/chain";
-import { EngineGame, breakdownOf, layoutBreakdown, layoutScore as coreLayoutScore, type LayoutBreakdown, type LayoutTile } from "@paved/game-core";
+import { EngineGame, TOWN_HALL_LEVELS, breakdownOf, layoutBreakdown, layoutScore as coreLayoutScore, townHallSlots, type LayoutBreakdown, type LayoutTile } from "@paved/game-core";
 import { planCode } from "../elements/tile-chip";
-import { STARTER, isStarter } from "./layout-starter";
+import { TOWN_HALL, isStarter, townHallTiles, usedSlots } from "./layout-starter";
 
 /**
  * The v2 village's rules on the client's side (#739, part of #732), for the stories' fakes until the contracts give them
@@ -9,11 +9,13 @@ import { STARTER, isStarter } from "./layout-starter";
  * answers and keeps these shapes; nothing here is the source of truth.
  *
  * - A village is a free layout of the player's collected tiles: any cells, no territory, rearranged at any time.
- * - Its tiles are capped by the slots unlocked: 8 + level (level 1 is 9 slots, level 20 is 28). The starter takes one.
+ * - Its tiles are capped by the slots its Town Hall unlocks (TOWN-HALL): 9 at level 1, two more a level, 27 at level 10. The
+ *   Town Hall takes one. The player's level no longer sets them: it opens the Town Hall's upgrades.
  * - A layout is valid when every tile is joined to the starter (connected) and every pair of facing edges matches. The
  *   editor keeps it valid at every step (the owner's decisions of #739): a tile goes only on a legal cell, as on the board
  *   (next to a placed tile, every facing edge matching), and a tile whose removal would split the village cannot be lifted.
- * - The starter stays: at (0, 0), facing South, never selected, moved, turned or sent back.
+ * - The Town Hall stays: a 2 x 2 tile on (0, 0) to (1, 1), never selected, moved, turned or sent back. It is "the starter"
+ *   of the names below (`isStarter`): four cells of the layout, one model on the board.
  */
 
 export interface Cell {
@@ -23,20 +25,20 @@ export interface Cell {
 
 export const cellKey = (c: Cell) => `${c.x},${c.y}`;
 
-/** The last level for now (#732: it can only be raised later). */
-export const MAX_LEVEL = 20;
-/** The slots of level 0's: a level adds one (`slots = 8 + level`). */
-export const BASE_SLOTS = 8;
+/** The last Town Hall level. */
+export const MAX_TOWN_HALL = TOWN_HALL_LEVELS;
 
-/** The slots a level unlocks: `8 + level`, the level held between 1 and `MAX_LEVEL`. */
-export const slotsFor = (level: number): number => BASE_SLOTS + Math.min(MAX_LEVEL, Math.max(1, Math.floor(level)));
+/** The slots a Town Hall level unlocks (game-core's `townHallSlots`), the Town Hall counted as one. */
+export const slotsFor = (townHall: number | undefined): number => townHallSlots(townHall ?? 1);
 
-export { STARTER, isStarter } from "./layout-starter";
+export { TOWN_HALL, isStarter, townHallTiles, usedSlots } from "./layout-starter";
 
 /** A player's v2 village: its saved layout (the starter included), the owner's level, the score an attacker plays against. */
 export interface VillageLayout {
   owner: string;
   level: number;
+  /** The Town Hall's level (TOWN-HALL): its model, and the village's slots. Unset: 1. */
+  townHall?: number;
   tiles: readonly BoardTile[];
   score: number;
 }
@@ -84,10 +86,8 @@ export function faultsOf(tiles: readonly BoardTile[]): Fault[] {
 /** The tiles not joined to the starter by a chain of neighbours (all of them when the starter is missing). */
 export function detachedOf(tiles: readonly BoardTile[]): BoardTile[] {
   const byCell = new Map(tiles.map((t) => [cellKey(t), t]));
-  const start = tiles.find(isStarter);
-  const seen = new Set<string>();
-  const queue: Cell[] = start ? [start] : [];
-  if (start) seen.add(cellKey(start));
+  const queue: Cell[] = tiles.filter(isStarter);
+  const seen = new Set<string>(queue.map(cellKey));
   while (queue.length) {
     const c = queue.pop()!;
     for (const [dx, dy] of SIDES) {
@@ -105,7 +105,7 @@ export function detachedOf(tiles: readonly BoardTile[]): BoardTile[] {
 export interface LayoutCheck {
   faults: Fault[];
   detached: BoardTile[];
-  /** The tiles placed, the starter included. */
+  /** The slots taken: the tiles placed, and one for the Town Hall. */
   used: number;
   slots: number;
   /** The tiles past the slots (0 within them). */
@@ -117,17 +117,18 @@ export interface LayoutCheck {
 export function checkLayout(tiles: readonly BoardTile[], slots: number): LayoutCheck {
   const faults = faultsOf(tiles);
   const detached = detachedOf(tiles);
-  const starter = tiles.some((t) => isStarter(t) && t.x === STARTER.x && t.y === STARTER.y && t.orientation === STARTER.orientation);
-  const over = Math.max(0, tiles.length - slots);
-  return { faults, detached, used: tiles.length, slots, over, starter, valid: starter && faults.length === 0 && detached.length === 0 && over === 0 };
+  const starter = TOWN_HALL.every((cell) => tiles.some((t) => t.id === cell.id && t.x === cell.x && t.y === cell.y && t.plan === cell.plan && t.orientation === cell.orientation));
+  const used = usedSlots(tiles);
+  const over = Math.max(0, used - slots);
+  return { faults, detached, used, slots, over, starter, valid: starter && faults.length === 0 && detached.length === 0 && over === 0 };
 }
 
 /** Why a layout cannot be saved, in words (the starter and the slots first, then every fault there is); null when it can. */
 export function layoutProblem(check: LayoutCheck): string | null {
-  if (!check.starter) return "The starter is missing.";
+  if (!check.starter) return "The Town Hall is missing.";
   if (check.over > 0) return `${check.over} ${check.over === 1 ? "tile" : "tiles"} past your slots: take ${check.over === 1 ? "it" : "them"} off.`;
   const parts: string[] = [];
-  if (check.detached.length > 0) parts.push(`${check.detached.length} ${check.detached.length === 1 ? "tile is" : "tiles are"} cut off from the starter`);
+  if (check.detached.length > 0) parts.push(`${check.detached.length} ${check.detached.length === 1 ? "tile is" : "tiles are"} cut off from the Town Hall`);
   if (check.faults.length > 0) parts.push(`${check.faults.length} ${check.faults.length === 1 ? "edge does" : "edges do"} not match`);
   return parts.length ? `${parts.join("; ")}.` : null;
 }
@@ -233,20 +234,20 @@ export function trayOf(inventory: Inventory, saved: readonly BoardTile[], draft:
 
 /** The whole stock the die builds from, by plan (`stock[plan - 1]`): the inventory and the saved layout's tiles, the starter aside. */
 export function stockOf(inventory: Inventory, saved: readonly BoardTile[]): number[] {
-  const tray = trayOf(inventory, saved, [STARTER]);
+  const tray = trayOf(inventory, saved, []);
   return Array.from({ length: 19 }, (_, i) => Math.max(0, tray[i + 1] ?? 0));
 }
 
-/** The die's layout as a draft: the starter, then its tiles, numbered from 2. */
-export const draftOf = (tiles: readonly LayoutTile[]): BoardTile[] => [
-  { ...STARTER },
-  ...tiles.map((t, i) => ({ id: STARTER.id + 1 + i, plan: t.plan, orientation: t.orientation, x: t.x, y: t.y })),
+/** The die's layout as a draft: the Town Hall's cells (at `townHall`), then its tiles, numbered from 5. */
+export const draftOf = (tiles: readonly LayoutTile[], townHall = 1): BoardTile[] => [
+  ...townHallTiles(townHall),
+  ...tiles.map((t, i) => ({ id: TOWN_HALL.length + 1 + i, plan: t.plan, orientation: t.orientation, x: t.x, y: t.y })),
 ];
 
 /** The draft with `plan` placed at `cell` (a free cell), its id the next one. */
 export function placeTile(tiles: readonly BoardTile[], plan: number, orientation: number, cell: Cell): BoardTile[] {
   if (tiles.some((t) => t.x === cell.x && t.y === cell.y)) return [...tiles];
-  const id = Math.max(STARTER.id, ...tiles.map((t) => t.id)) + 1;
+  const id = Math.max(TOWN_HALL.length, ...tiles.map((t) => t.id)) + 1;
   return [...tiles, { id, plan, orientation, x: cell.x, y: cell.y }];
 }
 

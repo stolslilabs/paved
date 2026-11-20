@@ -23,7 +23,7 @@ vi.mock("react", async (original) => {
 afterEach(cleanup);
 
 it("saves the die's draft with that draft's own score while the panel still shows the one before", async () => {
-  const tiles = randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), 28, 1, STILL).tiles;
+  const tiles = randomLayout(stockOf(INVENTORY, LAYOUT_GROWING.tiles), 27, 1, STILL).tiles;
   const points = { lines: [], other: 0, score: 12_345 };
   const randomizer = { run: async () => ({ tiles, points }), cancel: () => {}, dispose: () => {} };
   const onSave = vi.fn();
@@ -34,11 +34,12 @@ it("saves the die's draft with that draft's own score while the panel still show
   );
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "Random village from your tiles" })));
   // The slots stand in the editor's panel on a phone (EDIT-VILLAGE), its own chunk.
-  expect((await screen.findAllByLabelText("28 of 28 slots used")).length).toBeGreaterThan(0);
+  expect((await screen.findAllByLabelText("27 of 27 slots used")).length).toBeGreaterThan(0);
   // The panel a render behind: the bar still shows the saved village's score.
   expect(screen.queryByText("12,345")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
   expect(onSave).toHaveBeenCalledTimes(1);
-  expect(onSave.mock.calls[0]![0]).toHaveLength(28);
+  // 27 slots: the Town Hall's four cells and 26 tiles.
+  expect(onSave.mock.calls[0]![0]).toHaveLength(30);
   expect(onSave.mock.calls[0]![1]).toBe(12_345);
 });

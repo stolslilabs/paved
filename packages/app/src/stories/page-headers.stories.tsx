@@ -36,7 +36,9 @@ import { TournamentScene } from "../components/scenes/tournament-scene";
 import { TOURNAMENT } from "../mocks/tournament";
 import { PUZZLE } from "../mocks/puzzle";
 import { ThemeScene } from "../components/scenes/theme-scene";
+import { TownHallScene } from "../components/scenes/town-hall-scene";
 import { VaultScene } from "../components/scenes/vault-scene";
+import { TOWN_HALL_PAGE } from "../mocks/town-hall";
 import { ChatScene } from "../components/scenes/chat-scene";
 import { FriendsScene } from "../components/scenes/friends-scene";
 import { GuildScene } from "../components/scenes/guild-scene";
@@ -83,6 +85,7 @@ export const Play: Story = { render: () => <PlayScene {...PLAY.connected} onBack
 export const Missions: Story = { render: () => <MissionsScene {...MISSIONS.daily} /> };
 export const Tiles: Story = { render: () => <TilesScene {...TILES.owned} onBack={fn()} /> };
 export const Vault: Story = { render: () => <VaultScene {...VAULT.position} /> };
+export const TownHall: Story = { render: () => <TownHallScene {...TOWN_HALL_PAGE.ready} /> };
 /** The social pages as they open, their body loading (the app's own wait while the account is read): the header is what is compared. */
 const loading = <Skeleton aria-busy className="h-40 rounded-xl" />;
 export const Chat: Story = { render: () => <ChatScene>{loading}</ChatScene> };

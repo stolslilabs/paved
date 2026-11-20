@@ -116,7 +116,8 @@ describe("useGameBoard", () => {
 
 describe("the village on the board module (open point 3)", () => {
   const VIEW: LayoutBoardView = {
-    tiles: [{ id: 1, plan: 0, orientation: 1, x: 0, y: 0 }, { id: 2, plan: 3, orientation: 2, x: 1, y: 0 }],
+    // A cell of the Town Hall (ids 1 to 4), then a tile of the layout.
+    tiles: [{ id: 1, plan: 0, orientation: 1, x: 0, y: 0 }, { id: 5, plan: 3, orientation: 2, x: 1, y: 0 }],
     plates: [{ x: 0, y: 1 }],
     pending: null,
     editing: true,
@@ -146,7 +147,7 @@ describe("the village on the board module (open point 3)", () => {
     expect(drawnBoard.placementHighlight).toBeUndefined();
   });
 
-  it("passes the taps to the editor: a plate places, a placed tile lifts, the starter does not", () => {
+  it("passes the taps to the editor: a plate places, a placed tile lifts, the Town Hall does not", () => {
     render(<HomeCanvas view={VIEW} />);
     const { onCellClick } = drawn.board.at(-1)!;
     onCellClick?.({ x: 2_147_483_647, y: 2_147_483_648 });

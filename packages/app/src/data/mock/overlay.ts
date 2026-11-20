@@ -89,7 +89,7 @@ export const MOCKED_GAME_READS = [
 export const MOCKED_ECONOMY_READS = ["split", "seller", "vault", "maxRedeem", "previewDeposit", "previewMint", "previewWithdraw", "previewRedeem", "delegateOf", "pavedBalance", "usdcBalance", "quote", "guardRate", "router", "day", "terms"] as const satisfies readonly (keyof MockedReads)[];
 
 /** The signer's writes the mock answers (`mint`: the faucet; `build`, `discard`, `surrender`, `spawnFree`: the games, #927). */
-export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "claimWeeklyMilestone", "claimTutorialStep", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "rename", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree", "claimTutorial"] as const;
+export const MOCKED_WRITES = ["build", "discard", "surrender", "mint", "claim", "claimQuest", "claimAchievement", "claimDailyCredit", "claimWeeklyCredit", "claimDailyMilestone", "claimWeeklyMilestone", "claimTutorialStep", "buySkin", "setSkins", "buyAvatarItem", "setAvatar", "rename", "foundVillage", "buyParcel", "openReward", "claimReward", "drawOpponent", "startAttack", "playAttack", "surrenderAttack", "foundFreeVillage", "saveLayout", "saveLayoutTo", "activateLayout", "buyLayoutSlot", "upgradeTownHall", "openChest", "claimChest", "buyTile", "reportStory", "drawOpponentV2", "startAttackV2", "playAttackV2", "surrenderAttackV2", "spawnFree", "claimTutorial"] as const;
 
 /** The hash prefix of the mock's receipts ("mock"): `receipt` answers them, never the node. */
 const MOCK_HASH = "0x6d6f636b";
@@ -308,6 +308,7 @@ export function mockSigner<T extends GameSigner>(writer: T, ledger: MockLedger):
     saveLayoutTo: writes.saveLayoutTo,
     activateLayout: writes.activateLayout,
     buyLayoutSlot: writes.buyLayoutSlot,
+    upgradeTownHall: writes.upgradeTownHall,
     openChest: writes.openChest,
     claimChest: writes.claimChest,
     buyTile: writes.buyTile,

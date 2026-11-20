@@ -1,11 +1,13 @@
 import { EngineGame } from "../engine/game";
 import { OrientationType } from "../types/orientation";
 import { PlanType } from "../types/plan";
+import { TOWN_HALL_TILES, isTownHallCell } from "../engine/town-hall";
 import { BASE_PLAN_CODES, isPlanCode } from "./rarity";
 
 // The free village (PvP v2, #732, owner decisions of 2026-10-24): any connected layout of the tiles a player holds (their
-// inventory), rearranged at any time, with no territory and no physical limit. At most `slots` tiles, the starter included
-// (`slotsOf`, 8 + level); the starter stays at (0, 0), facing South, and can never be moved. Every facing edge matches.
+// inventory), rearranged at any time, with no territory and no physical limit. At most `slots` tiles, the Town Hall counted
+// as one (`townHallSlots`, by the Town Hall's level); the Town Hall (TOWN-HALL: a 2 x 2 tile, `TOWN_HALL_TILES`) stands on
+// (0, 0) to (1, 1) and can never be moved. Every facing edge matches. "Starter" below is the Town Hall.
 //
 // The score of a layout is the engine's, its tiles built in one canonical order: a breadth-first walk from the starter, the
 // neighbours of each tile taken north, east, south, west. A forest scores when it closes with no open road along it, so the
@@ -26,7 +28,7 @@ export interface LayoutTile {
   readonly y: number;
 }
 
-/** The starter: `RFFFRFCFR` (plan 9) facing South (orientation 3) at (0, 0). Never in a layout's list, never moved. */
+/** The starter of the other modes: `RFFFRFCFR` (plan 9) facing South (orientation 3) at (0, 0). A village has a Town Hall instead. */
 export const STARTER_TILE: LayoutTile = { plan: 9, orientation: 3, x: 0, y: 0 };
 
 /**
@@ -86,8 +88,8 @@ const SIDES = [[0, 1], [1, 0], [0, -1], [-1, 0]] as const;
 export function buildOrder(tiles: readonly LayoutTile[]): LayoutTile[] | null {
   const byCell = new Map(tiles.map((t) => [key(t.x, t.y), t]));
   const order: LayoutTile[] = [];
-  const seen = new Set([key(0, 0)]);
-  const queue: { x: number; y: number }[] = [{ x: 0, y: 0 }];
+  const seen = new Set(TOWN_HALL_TILES.map((t) => key(t.x, t.y)));
+  const queue: { x: number; y: number }[] = TOWN_HALL_TILES.map((t) => ({ x: t.x, y: t.y }));
   while (queue.length > 0) {
     const at = queue.shift()!;
     for (const [dx, dy] of SIDES) {
@@ -102,9 +104,9 @@ export function buildOrder(tiles: readonly LayoutTile[]): LayoutTile[] | null {
   return order.length === tiles.length ? order : null;
 }
 
-/** The starter alone on the engine, with no territory: the board a layout is built on, and an attack is played on. */
+/** The Town Hall alone on the engine, with no territory: the board a layout is built on, and an attack is played on. */
 export function starterBoard(): EngineGame {
-  return EngineGame.start({ deck: "village", seed: 0n });
+  return EngineGame.start({ deck: "village", seed: 0n, townHall: true });
 }
 
 /** Why `tiles` are refused against `limits`, or null: a layout the player may save. */
@@ -115,7 +117,7 @@ export function layoutRefusal(tiles: readonly LayoutTile[], limits: LayoutLimits
     if (!isPlanCode(t.plan)) return "invalid-plan";
     if (!Number.isInteger(t.orientation) || t.orientation < 1 || t.orientation > 4) return "invalid-orientation";
     if (!Number.isInteger(t.x) || !Number.isInteger(t.y)) return "not-connected";
-    if (t.x === 0 && t.y === 0) return "starter-cell";
+    if (isTownHallCell(t.x, t.y)) return "starter-cell";
     const k = key(t.x, t.y);
     if (cells.has(k)) return "duplicate-cell";
     cells.add(k);
@@ -211,9 +213,9 @@ export class VillageDraft {
     return freeInventory(this.limits.inventory, this.list);
   }
 
-  /** The tile at a cell (the starter at (0, 0)), or null. */
+  /** The tile at a cell (the Town Hall's own on its four), or null. */
   tileAt(x: number, y: number): LayoutTile | null {
-    if (x === 0 && y === 0) return STARTER_TILE;
+    if (isTownHallCell(x, y)) return TOWN_HALL_TILES.find((t) => t.x === x && t.y === y)!;
     return this.list.find((t) => t.x === x && t.y === y) ?? null;
   }
 
@@ -235,7 +237,7 @@ export class VillageDraft {
 
   /** Why the tile at `cell` cannot be sent back to the inventory (or lifted to move it), or null: the starter, no tile, a split. */
   liftRefusal(x: number, y: number): DraftRefusal | null {
-    if (x === 0 && y === 0) return "starter";
+    if (isTownHallCell(x, y)) return "starter";
     if (!this.list.some((t) => t.x === x && t.y === y)) return "no-tile";
     return buildOrder(this.without(x, y)) ? null : "not-connected";
   }
@@ -251,7 +253,7 @@ export class VillageDraft {
 
   /** Why the tile at `from` cannot go to `to` turned to `orientation` (the same cell: a rotation in place), or null. */
   moveRefusal(from: { x: number; y: number }, to: { x: number; y: number; orientation: number }): DraftRefusal | null {
-    if (from.x === 0 && from.y === 0) return "starter";
+    if (isTownHallCell(from.x, from.y)) return "starter";
     const tile = this.list.find((t) => t.x === from.x && t.y === from.y);
     if (!tile) return "no-tile";
     return layoutRefusal([...this.without(from.x, from.y), { plan: tile.plan, orientation: to.orientation, x: to.x, y: to.y }], this.limits);

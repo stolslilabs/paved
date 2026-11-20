@@ -179,11 +179,13 @@ import { communityMember, communityProfile, community, leagueIndex, levelAt, sea
 import { FollowRefusedError, type FollowLists, type FollowStatus, type FollowWriteRefusal, type GuildBadge, type GuildPlace, type GuildQuery, type GuildSummary, type GuildView, type PlayerGuild, type PlayerRanking, type PublicProfile } from "../social-source";
 import { forgetFollows, freshFollows, graphOf, listsOf, seededFollows, settleFollows, type StoredFollows } from "./follows";
 import { playerPlace, rankPlayers, type GuildDraft, type GuildSettings } from "@paved/game-core";
+import { townHallLevelAt, townHallRefusal, townHallSlots } from "@paved/game-core";
+import type { TownHallWrites, UpgradeTownHallRequest } from "../free-village-base";
 import * as guilds from "./guilds";
 import * as chat from "./chat";
 import type { ChatEvent, ChatSource } from "../social-source";
 import type { ConversationId, TutorialCounts, TutorialTask } from "@paved/game-core";
-import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
+import { freshV2, mockRivalV2, mockRivalsV2, renameChestsV2, slotsOfV2, storeSlotsV2, townHallV2, villageSlotsV2, type StoredAttackV2, type StoredDefenceV2, type StoredV2 } from "./v2";
 import type { BuyLayoutSlotRequest, LayoutSlotViews, LayoutSlotWrites, LayoutSlotsView } from "../layout-slots";
 import { V2RefusedError, type BuyTileRequest, type ChestsView, type FreeVillageView, type FreeVillageViews, type FreeVillageWrites, type ShopView, type StoryReport } from "../free-village";
 import type { AttackV2, AttackV2State, AttackV2Views, AttackV2Writes } from "../free-attack";
@@ -324,7 +326,7 @@ export type PackReceipt = WriteResult & { bought: PackBought };
  * Every write the deployed classes lack, for the connected account: the writer's (`PavedWriter`) claims and skin writes, the
  * pack buyer's `buy` and the Vault's writes (`EconomyWriter`), with the same requests, receipts and typed refusals.
  */
-export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "claimTutorial" | "setSkins">, FreeVillageWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites, WeeklyMilestoneWrites, TutorialWrites {
+export interface MockedWrites extends Pick<PavedWriter, "claim" | "claimQuest" | "claimAchievement" | "claimDailyCredit" | "claimWeeklyCredit" | "claimTutorial" | "setSkins">, FreeVillageWrites, TownHallWrites, LayoutSlotWrites, AttackV2Writes, DailyMilestoneWrites, WeeklyMilestoneWrites, TutorialWrites {
   buySkin(request: BuySkinRequest): Promise<WriteResult>;
   buyAvatarItem(request: BuyAvatarItemRequest): Promise<WriteResult>;
   setAvatar(look: bigint): Promise<WriteResult>;
@@ -589,6 +591,7 @@ function parse(raw: string | null): StoredState | null {
     if (!(state && state.version === 1 && typeof state.players === "object" && state.vault)) return null;
     for (const player of Object.values(state.players)) {
       if (player.v2) renameChestsV2(player.v2);
+      if (player.v2) townHallV2(player.v2);
       player.paved = held(player.paved);
       player.usdc = held(player.usdc);
     }
@@ -1058,19 +1061,20 @@ export class MockLedger {
   /** A village of PvP v2: the saved layout and its score (game-core's `layoutScore`), the level and slots; a rival's too. */
   async freeVillage(playerId: string): Promise<FreeVillageView> {
     const rival = mockRivalV2(playerId);
-    if (rival) return { founded: true, xp: 0, level: rival.level, slots: rival.slots, tiles: rival.tiles.map((t) => ({ ...t })), score: rival.score };
+    if (rival) return { founded: true, xp: 0, level: rival.level, townHall: rival.townHall, slots: rival.slots, tiles: rival.tiles.map((t) => ({ ...t })), score: rival.score };
     const seeded = seededPlayer(playerId);
     if (seeded) {
       // A seeded player's village is the layout of a rival of its level or below (the highest such, then the seeded one's turn).
       const layout = seededVillage(seeded);
-      const { xp, slots } = levelAt(seeded.level);
-      return { founded: true, xp, level: seeded.level, slots, tiles: layout.tiles.map((t) => ({ ...t })), score: layout.score };
+      const { xp } = levelAt(seeded.level);
+      const townHall = townHallLevelAt(seeded.level);
+      return { founded: true, xp, level: seeded.level, townHall, slots: townHallSlots(townHall), tiles: layout.tiles.map((t) => ({ ...t })), score: layout.score };
     }
     this.sync();
     const v2 = this.peek(playerId).v2 ?? freshV2();
-    const { xp, level, slots } = levelStatus(v2.xp);
+    const { xp, level } = levelStatus(v2.xp);
     const tiles = v2.layout ?? [];
-    return { founded: v2.layout !== null, xp, level, slots, tiles: tiles.map((t) => ({ ...t })), score: layoutScore(tiles) };
+    return { founded: v2.layout !== null, xp, level, townHall: v2.townHall ?? 1, slots: villageSlotsV2(v2), tiles: tiles.map((t) => ({ ...t })), score: layoutScore(tiles) };
   }
 
   /** The saved layouts' slots (#804): each one's layout, score and whether it still fits; not founded, the free slot empty. */
@@ -1078,7 +1082,7 @@ export class MockLedger {
     this.sync();
     const v2 = this.peek(playerId).v2 ?? freshV2();
     const slots = v2.layout ? slotsOfV2({ ...v2, layout: v2.layout }) : null;
-    const limits = { slots: levelStatus(v2.xp).slots, inventory: v2.inventory };
+    const limits = { slots: villageSlotsV2(v2), inventory: v2.inventory };
     return {
       active: slots?.active ?? 0,
       slots: [0, 1, 2].map((slot) => {
@@ -1127,7 +1131,7 @@ export class MockLedger {
     this.sync();
     const v2 = this.peek(attacker).v2 ?? freshV2();
     const rival = v2.match ? mockRivalV2(v2.match.opponent) : null;
-    const match = v2.match && rival ? { opponent: rival.address, name: rival.name, level: rival.level, slots: rival.slots, target: rival.score, deck: rival.deck, offer: v2.match.offer, cost: v2.match.cost, crowns: rival.crowns } : null;
+    const match = v2.match && rival ? { opponent: rival.address, name: rival.name, level: rival.level, townHall: rival.townHall, slots: rival.slots, target: rival.score, deck: rival.deck, offer: v2.match.offer, cost: v2.match.cost, crowns: rival.crowns } : null;
     const a = v2.attacks.at(-1);
     return { match, attack: a ? this.attackView(a, v2.attacks) : null };
   }
@@ -1160,6 +1164,7 @@ export class MockLedger {
         side: "attack",
         rival: rivalOf(a.defender),
         village: (a.village ?? mockRivalV2(a.defender)?.tiles ?? []).map((t) => ({ ...t })),
+        townHall: a.townHall ?? 1,
         target: a.target,
         moves: copy(a.moves),
         score: a.score,
@@ -1175,6 +1180,7 @@ export class MockLedger {
       side: "defence",
       rival: rivalOf(d.attacker),
       village: d.village.map((t) => ({ ...t })),
+      townHall: d.townHall ?? 1,
       target: d.target,
       moves: copy(d.moves),
       score: d.score,
@@ -2372,6 +2378,7 @@ export class MockLedger {
       saveLayoutTo: (slot, tiles) => this.saveLayoutTo(account, slot, tiles),
       activateLayout: (slot) => this.activateLayout(account, slot),
       buyLayoutSlot: (request) => this.buyLayoutSlot(account, request),
+      upgradeTownHall: (request) => this.upgradeTownHall(account, request),
       openChest: (index) => this.openChest(account, index),
       claimChest: (slot) => this.claimChest(account, slot),
       buyTile: (request) => this.buyTile(account, request),
@@ -2869,7 +2876,7 @@ export class MockLedger {
     return this.writeV2(account, (p, v2, hash) => {
       if (!v2.layout) throw new V2RefusedError("no-village", hash);
       const layout = tiles.map((t) => ({ plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }));
-      const refused = layoutRefusal(layout, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
+      const refused = layoutRefusal(layout, { slots: villageSlotsV2(v2), inventory: v2.inventory });
       if (refused) throw new V2RefusedError(refused, hash);
       const slots = slotsOfV2({ ...v2, layout: v2.layout });
       storeSlotsV2(v2, withSlotSaved(slots, slots.active, layout));
@@ -2886,7 +2893,7 @@ export class MockLedger {
       if (!v2.layout) throw new V2RefusedError("no-village", hash);
       const layout = tiles.map((t) => ({ plan: t.plan, orientation: t.orientation, x: t.x, y: t.y }));
       const slots = slotsOfV2({ ...v2, layout: v2.layout });
-      const refused = saveSlotRefusal(slots, slot, layout, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
+      const refused = saveSlotRefusal(slots, slot, layout, { slots: villageSlotsV2(v2), inventory: v2.inventory });
       if (refused) throw new V2RefusedError(refused, hash);
       storeSlotsV2(v2, withSlotSaved(slots, slot, layout));
       // A tile placed and saved (#977, Builder): an empty layout places none.
@@ -2901,7 +2908,7 @@ export class MockLedger {
     return this.writeV2(account, (_p, v2, hash) => {
       if (!v2.layout) throw new V2RefusedError("no-village", hash);
       const slots = slotsOfV2({ ...v2, layout: v2.layout });
-      const refused = activateSlotRefusal(slots, slot, { slots: levelStatus(v2.xp).slots, inventory: v2.inventory });
+      const refused = activateSlotRefusal(slots, slot, { slots: villageSlotsV2(v2), inventory: v2.inventory });
       if (refused) throw new V2RefusedError(refused, hash);
       storeSlotsV2(v2, withSlotActive(slots, slot));
       return [this.event("LayoutActivated", { playerId: account, slot, score: layoutScore(v2.layout) })];
@@ -2921,6 +2928,26 @@ export class MockLedger {
       return [
         this.event("CobblesSpent", { playerId: account, spender: this.options.seller, reason: "LAYOUT_SLOT", cobbles: confirmedPrice, balance: p.cobbles }),
         this.event("LayoutSlotBought", { playerId: account, slot, price: confirmedPrice }),
+      ];
+    });
+  }
+
+  /**
+   * Upgrades the Town Hall to its next level (TOWN-HALL) at the price the page showed, in Cobbles: the player's level must
+   * reach the level's (`townHallRefusal`). The village's slots grow with it.
+   */
+  async upgradeTownHall(account: string, { confirmedPrice }: UpgradeTownHallRequest): Promise<WriteResult> {
+    await sleep(this.latency);
+    return this.writeV2(account, (p, v2, hash) => {
+      if (!v2.layout) throw new V2RefusedError("no-village", hash);
+      const from = v2.townHall ?? 1;
+      const refused = townHallRefusal(from, levelStatus(v2.xp).level, confirmedPrice, p.cobbles);
+      if (refused) throw new V2RefusedError(refused, hash);
+      p.cobbles -= confirmedPrice;
+      v2.townHall = from + 1;
+      return [
+        this.event("CobblesSpent", { playerId: account, spender: this.options.seller, reason: "TOWN_HALL", cobbles: confirmedPrice, balance: p.cobbles }),
+        this.event("TownHallUpgraded", { playerId: account, level: from + 1, price: confirmedPrice, slots: villageSlotsV2(v2) }),
       ];
     });
   }
@@ -3055,6 +3082,7 @@ export class MockLedger {
         status: "open",
         defender: rival.address,
         slots: rival.slots,
+        townHall: rival.townHall,
         target: rival.score,
         // The snapshot (#786): the defender's layout as the attack found it.
         village: rival.tiles.map((t) => ({ ...t })),
@@ -3603,6 +3631,7 @@ export class MockLedger {
       id: a.id,
       status: a.status,
       defender: a.defender,
+      townHall: a.townHall ?? 1,
       slots: a.slots,
       target: a.target,
       deck: a.deck.length,
@@ -3652,7 +3681,7 @@ export class MockLedger {
     v2.answered = last.id;
     const village = v2.layout.map((t) => ({ ...t }));
     const target = layoutScore(village);
-    const { slots } = levelStatus(v2.xp);
+    const slots = villageSlotsV2(v2);
     const id = (v2.defences?.length ?? 0) + 1;
     const deck = attackDeck(village.map((t) => t.plan), slots, poseidon(DEFENCE_DRAW_V2, BigInt(account), BigInt(id)));
     const attack = new QueuedAttack(deck);
@@ -3670,7 +3699,7 @@ export class MockLedger {
     pvp.crowns += crowns;
     const finishedAt = Math.floor(this.now());
     pvp.shieldUntil = finishedAt + SHIELD_S;
-    (v2.defences ??= []).push({ id, attacker: rival.address, slots, village, target, deck, moves, score: attack.score, stars, crowns, finishedAt });
+    (v2.defences ??= []).push({ id, attacker: rival.address, slots, townHall: v2.townHall ?? 1, village, target, deck, moves, score: attack.score, stars, crowns, finishedAt });
     return [this.event("DefenceFinished", { attacker: rival.address, defender: account, id, score: attack.score, stars, crowns })];
   }
 

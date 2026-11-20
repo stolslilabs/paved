@@ -15,7 +15,7 @@ import type { BoardBubble } from "./board-viewport";
 import { HudDialog } from "./hud-dialog";
 import { InventoryTray } from "./inventory-tray";
 import type { LayoutBoardView, LayoutPending } from "./layout-board";
-import { STARTER, canLift, draftOf, fittingAt, layoutScore, legalSpots, placeTile, rememberPoints, sameLayout, slotsFor, stockOf, trayOf, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
+import { canLift, draftOf, fittingAt, layoutScore, legalSpots, placeTile, rememberPoints, sameLayout, slotsFor, stockOf, townHallTiles, trayOf, usedSlots, type Inventory, type Spot, type VillageLayout } from "./layout-rules";
 import { TileBubble } from "./tile-bubble";
 
 // The v2 village's editor (#739), shared by the village page (`VillageLayoutScene`) and the home's edit mode (#753): its state
@@ -148,7 +148,7 @@ export function useLayoutEditor({
   initialRolling = false,
   kept = NONE_KEPT,
 }: LayoutEditorOptions) {
-  const slots = slotsFor(village.level);
+  const slots = slotsFor(village.townHall);
   const [start] = useState(() => startOf(initialDraft ?? village.tiles, initialHand, initialPending));
   const [ownEditing, setOwnEditing] = useState(own && initialEditing);
   const editing = own && (heldOpen ?? ownEditing);
@@ -219,7 +219,7 @@ export function useLayoutEditor({
   const held = (hand?.from === "board" && draft.find((t) => t.id === hand.id)) || null;
   const rest = useMemo(() => (held ? draft.filter((t) => t.id !== held.id) : draft), [draft, held]);
   const tiles = editing ? rest : village.tiles;
-  const used = editing ? draft.length : village.tiles.length;
+  const used = usedSlots(editing ? draft : village.tiles);
   const full = used >= slots;
   const over = used > slots;
   // What the panel shows of the draft (the tray, the live score, the points): one render behind, in a commit of its own, so a
@@ -276,7 +276,7 @@ export function useLayoutEditor({
     if (saving || !hand) return;
     if (hand.from === "inventory") {
       // Never past the slots: an inventory tile needs a free one.
-      if (draft.length >= slots) return;
+      if (usedSlots(draft) >= slots) return;
       const next = placeTile(draft, hand.plan, fitOn(spot, 1), spot);
       setDraft(next);
       setHand({ from: "board", id: next[next.length - 1]!.id, origin: null });
@@ -329,7 +329,7 @@ export function useLayoutEditor({
   };
   const reset = () => {
     cancelRoll();
-    setDraft([{ ...STARTER }]);
+    setDraft(townHallTiles(village.townHall));
     setHand(null);
   };
   const rollDone = () => {
@@ -355,7 +355,7 @@ export function useLayoutEditor({
     randomizer.run(stockOf(inventory, village.tiles), slots, randomSeed()).then(
       ({ tiles, points }) => {
         if (press.current !== n) return;
-        const next = draftOf(tiles);
+        const next = draftOf(tiles, village.townHall);
         // The worker's points: the live score and the points read them, no rebuild on the main thread.
         if (points) rememberPoints(next, points);
         building.current = false;
@@ -517,7 +517,7 @@ export function ResetAllHold({ editor, holdMs, look = "plain", className }: { ed
     title: hud ? "Hold to erase" : "Hold to reset all",
     tone: "destructive",
     holdMs,
-    disabled: editor.saving || editor.draft.length <= 1,
+    disabled: editor.saving || usedSlots(editor.draft) <= 1,
     onComplete: editor.reset,
   } as const;
   return hud ? (

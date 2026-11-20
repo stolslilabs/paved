@@ -205,8 +205,9 @@ describe("the end's reading of the record (#790)", () => {
 
   it("the final board", () => {
     const empty = attackEnd({ moves: [] });
-    expect(empty.tiles).toHaveLength(1);
+    // The defender's Town Hall alone: its four cells.
+    expect(empty.tiles).toHaveLength(4);
     const discarded = attackEnd({ moves: [{ plan: 1, discard: true }] });
-    expect(discarded.tiles).toHaveLength(1);
+    expect(discarded.tiles).toHaveLength(4);
   });
 });

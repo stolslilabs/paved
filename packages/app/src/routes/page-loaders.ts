@@ -95,6 +95,7 @@ export const PAGE_LOADERS: Record<string, PageLoader> = {
   missions: () => import("./pages/missions"),
   tiles: () => import("./pages/tiles"),
   vault: () => import("./pages/vault"),
+  "town-hall": () => import("./pages/town-hall"),
   // The social pages (#973, the Social page's tabs of #952 before), a chunk each.
   chat,
   "chat/private/:player": chat,

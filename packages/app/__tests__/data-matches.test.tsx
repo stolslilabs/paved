@@ -2,7 +2,7 @@ import { leagueOf } from "../src/lib/pvp-rules";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA } from "@paved/chain/testing";
 import { KING_TRAITS, decodeTraits } from "@paved/renderer";
-import { VillageDraft, attackDeckSize, attackStars, layoutScore, levelStatus } from "@paved/game-core";
+import { VillageDraft, attackDeckSize, attackStars, layoutScore } from "@paved/game-core";
 import { attackV2Board } from "../src/data/free-attack";
 import { matchBoardSide } from "../src/data/matches";
 import type { MockLedger } from "../src/data/mock/ledger";
@@ -76,10 +76,11 @@ describe("PvP v2's matches on the mock (#786)", () => {
     expect(defence.rival.league).toBe(leagueOf(attacked.crowns).index);
     expect(defence.village).toEqual(layout);
     // The deck is drawn from the player's village as an attack's is (ceil(1.15 x S)), every tile played.
-    expect(defence.moves).toHaveLength(attackDeckSize(levelStatus((await ledger.freeVillage(PLAYER)).xp).slots));
+    expect(defence.moves).toHaveLength(attackDeckSize((await ledger.freeVillage(PLAYER)).slots));
     expect(defence.stars).toBe(attackStars(defence.score, defence.target));
     // The crowns the stars took (or the cost the defence won) move the player's count.
-    expect(Math.sign(defence.crowns)).toBe(defence.stars > 0 ? -1 : 1);
+    // (A player with no crown has none to lose.)
+    expect(defence.stars > 0 ? defence.crowns <= 0 : defence.crowns > 0).toBe(true);
     expect((await ledger.pvpLeague(PLAYER)).crowns).toBe(crowns + defence.crowns);
     // The attacked village is shielded for 8 hours, as any is, until the player starts an attack.
     const shield = await ledger.pvpShield(PLAYER);

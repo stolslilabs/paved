@@ -76,7 +76,7 @@ function Village({ player }: { player: string | null }) {
 
   const data = read.data;
   const village = useMemo<VillageLayout | undefined>(
-    () => (data ? { owner, level: data.level, tiles: boardTilesOf(data.tiles), score: data.score } : undefined),
+    () => (data ? { owner, level: data.level, townHall: data.townHall, tiles: boardTilesOf(data.tiles, data.townHall), score: data.score } : undefined),
     [data, owner],
   );
   const inventory = useMemo(() => (data ? countsByPlan(data.free) : {}), [data]);

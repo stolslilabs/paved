@@ -1,7 +1,7 @@
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_ADA, FIXTURE_HEAD } from "@paved/chain/testing";
-import { STARTER_LAYOUTS, VillageDraft, attackDeckSize, attackStars, dayOf, layoutScore, rarityOf, slotsOf, starterLayout, type QueuedMove } from "@paved/game-core";
+import { STARTER_LAYOUTS, VillageDraft, attackDeckSize, attackStars, dayOf, layoutScore, rarityOf, starterLayout, townHallLevelAt, townHallSlots, type QueuedMove } from "@paved/game-core";
 import { useClaims, useCobbleAccount, useQuestRewards } from "../src/data";
 import { useBuyPack } from "../src/data/purchase";
 import { useAttackV2, useAttackV2Writes, attackV2Board } from "../src/data/free-attack";
@@ -57,10 +57,10 @@ function credit(store: { data: Map<string, string> }, cobbles: number) {
   store.data.set(MOCK_KEY, JSON.stringify(state));
 }
 
-/** Story's first level (`TUTORIAL` 1): two crossroads that close the starter's road, 321 points. Its line, as moves. */
+/** Two crossroads that close two of the Town Hall's roads (west, north), as moves: more than the rigged target of 100 points. */
 const FIRST_STONE: QueuedMove[] = [
-  { discard: false, orientation: 1, cell: { x: 1, y: 0 } },
-  { discard: false, orientation: 1, cell: { x: -1, y: 0 } },
+  { discard: false, orientation: 1, cell: { x: -1, y: 1 } },
+  { discard: false, orientation: 1, cell: { x: 1, y: 2 } },
 ];
 
 describe("PvP v2 on the mock", () => {
@@ -118,7 +118,7 @@ describe("PvP v2 on the mock", () => {
     await waitFor(() => expect(result.current.attack.data?.match).not.toBeNull());
     const match = result.current.attack.data!.match!;
     expect(match.deck).toBe(attackDeckSize(match.slots));
-    expect(match.slots).toBe(slotsOf(match.level));
+    expect(match.slots).toBe(townHallSlots(townHallLevelAt(match.level)));
     expect(refusal(await result.current.fight.search().catch((e: unknown) => e))).toBe("opponent-drawn");
 
     await act(() => result.current.fight.start());
@@ -158,7 +158,7 @@ describe("PvP v2 on the mock", () => {
     for (let n = 1; n <= 4; n++) {
       await act(() => result.current.fight.search());
       await act(() => result.current.fight.start());
-      rig(store, [17, 17], 321);
+      rig(store, [17, 17], 100);
       for (const move of FIRST_STONE) await act(() => result.current.fight.play(move));
       await waitFor(() => expect(result.current.attack.data?.attack).toMatchObject({ id: n, status: "finished", stars: 3, xp: 20 }));
       expect(result.current.attack.data!.attack!.chest).toBe(n <= 3 ? "epic" : null);
@@ -176,9 +176,9 @@ describe("PvP v2 on the mock", () => {
     expect(result.current.chests.data!.origins).toEqual([pvp(0), pvp(1), pvp(2), { source: "story" }, { source: "story" }]);
     expect(refusal(await result.current.writes.reportStory({ campaign: 2, level: 13, stars: 3 }).catch((e: unknown) => e))).toBe("no-level");
 
-    // 4 attacks x 20 XP and 2 levels x 15: 110 XP, level 2, 10 slots
+    // 4 attacks x 20 XP and 2 levels x 15: 110 XP, level 2. The slots stay the Town Hall's (level 1: 9), whatever the player's level.
     await waitFor(() => expect(result.current.progress.data).toEqual({ level: 2, xp: 10, xpForNext: 200, total: 110 }));
-    await waitFor(() => expect(result.current.village.data).toMatchObject({ level: 2, slots: 10 }));
+    await waitFor(() => expect(result.current.village.data).toMatchObject({ level: 2, townHall: 1, slots: 9 }));
 
     // The chest picked (#784): the Story basic one, fourth in the list, before the older ones; one past the list is refused.
     expect(refusal(await result.current.writes.claimChest(0).catch((e: unknown) => e))).toBe("no-open-chest");

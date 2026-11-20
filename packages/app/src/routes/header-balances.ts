@@ -51,6 +51,7 @@ export const HEADER_BALANCES: Record<PageDef["path"], HeaderBalances> = {
   missions: COBBLES,
   tiles: COBBLES,
   vault: ["paved", "vpaved"],
+  "town-hall": COBBLES,
   chat: NONE,
   "chat/private/:player": NONE,
   "chat/mail/:mail": NONE,
